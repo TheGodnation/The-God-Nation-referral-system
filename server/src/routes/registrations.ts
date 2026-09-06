@@ -31,8 +31,13 @@ router.post('/', registrationLimiter, requireCsrf, async (req, res) => {
     return res.status(400).json({ error: 'Please enter a valid WhatsApp number, including country code.' });
   }
 
-  // Determine referral attribution + marketing fields from the single
-  // latest applicable ReferralVisit. No separate/older fallback.
+  // Determine referral attribution + marketing fields from a single
+  // selected ReferralVisit (see lib/attribution.ts for the two-step
+  // primary-referral / conditional-organic-fallback selection). Whichever
+  // visit is returned here supplies BOTH the Leader attribution (only if
+  // referralCodeId is present) and the marketing fields — never a mix of
+  // two different visits, and never an older fallback once a referral-
+  // qualified visit has been selected.
   const selectedVisit = await selectApplicableReferralVisit(visitorId);
 
   try {

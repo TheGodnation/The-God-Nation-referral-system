@@ -133,6 +133,145 @@ describe('Acceptance Test — language switch does not change attribution', () =
   });
 });
 
+describe('Attribution correction — organic/non-referral fallback', () => {
+  it('Case A: a referral-qualified visit alone supplies both Leader and marketing fields', async () => {
+    const { user: mary } = await createLeader('Mary Ngu', 'mary-a@example.com', 'MARYCASEA');
+
+    const agent = request.agent(app);
+    const { csrf } = await bootstrap(agent);
+
+    await agent
+      .post('/api/referrals/visit')
+      .set('X-CSRF-Token', csrf)
+      .send({ ref: 'MARYCASEA', lang: 'en', utmSource: 'facebook', utmCampaign: 'A' });
+
+    const regRes = await agent
+      .post('/api/registrations')
+      .set('X-CSRF-Token', csrf)
+      .send({ name: 'Case A', whatsapp: '+237670000020', language: 'en' });
+
+    const registration = await prisma.registration.findUnique({ where: { id: regRes.body.registrationId } });
+    expect(registration!.utmSource).toBe('facebook');
+    expect(registration!.utmCampaign).toBe('A');
+
+    const relationship = await prisma.referralRelationship.findUnique({
+      where: { registrationId: regRes.body.registrationId },
+    });
+    expect(relationship!.leaderId).toBe(mary.id);
+  });
+
+  it('Case C: a later non-referral campaign visit does NOT overwrite the earlier referral-qualified visit', async () => {
+    const { user: mary } = await createLeader('Mary Ngu', 'mary-c@example.com', 'MARYCASEC');
+
+    const agent = request.agent(app);
+    const { csrf } = await bootstrap(agent);
+
+    // Mary's referral-qualified visit, carrying its own marketing fields.
+    await agent
+      .post('/api/referrals/visit')
+      .set('X-CSRF-Token', csrf)
+      .send({ ref: 'MARYCASEC', lang: 'en', utmSource: 'facebook', utmCampaign: 'mary-campaign' });
+
+    // A LATER non-referral (organic) campaign visit — no ref code at all.
+    await agent
+      .post('/api/referrals/visit')
+      .set('X-CSRF-Token', csrf)
+      .send({ lang: 'en', utmSource: 'instagram', utmCampaign: 'organic-later' });
+
+    const regRes = await agent
+      .post('/api/registrations')
+      .set('X-CSRF-Token', csrf)
+      .send({ name: 'Case C', whatsapp: '+237670000021', language: 'en' });
+
+    const registration = await prisma.registration.findUnique({ where: { id: regRes.body.registrationId } });
+    // Marketing fields must still be Mary's — never overwritten by the later organic visit.
+    expect(registration!.utmSource).toBe('facebook');
+    expect(registration!.utmCampaign).toBe('mary-campaign');
+
+    const relationship = await prisma.referralRelationship.findUnique({
+      where: { registrationId: regRes.body.registrationId },
+    });
+    expect(relationship!.leaderId).toBe(mary.id);
+
+    const visits = await prisma.referralVisit.findMany();
+    expect(visits).toHaveLength(2); // both visits remain in history
+  });
+
+  it('Case D: a purely organic/non-referral visit supplies marketing fields but no Leader attribution', async () => {
+    const agent = request.agent(app);
+    const { csrf } = await bootstrap(agent);
+
+    await agent
+      .post('/api/referrals/visit')
+      .set('X-CSRF-Token', csrf)
+      .send({ lang: 'en', utmSource: 'facebook', utmCampaign: 'organic-only', landingPage: '/promo' });
+
+    const regRes = await agent
+      .post('/api/registrations')
+      .set('X-CSRF-Token', csrf)
+      .send({ name: 'Case D', whatsapp: '+237670000022', language: 'en' });
+
+    expect(regRes.status).toBe(201);
+
+    const registration = await prisma.registration.findUnique({ where: { id: regRes.body.registrationId } });
+    expect(registration!.utmSource).toBe('facebook');
+    expect(registration!.utmCampaign).toBe('organic-only');
+    expect(registration!.landingPage).toBe('/promo');
+
+    const relationship = await prisma.referralRelationship.findUnique({
+      where: { registrationId: regRes.body.registrationId },
+    });
+    expect(relationship).toBeNull(); // no Leader — never fabricate attribution from an organic visit
+  });
+
+  it('produces neither Leader nor marketing attribution when there is no visit at all', async () => {
+    const agent = request.agent(app);
+    const { csrf } = await bootstrap(agent);
+
+    const regRes = await agent
+      .post('/api/registrations')
+      .set('X-CSRF-Token', csrf)
+      .send({ name: 'No Visit', whatsapp: '+237670000023', language: 'en' });
+
+    expect(regRes.status).toBe(201);
+    const registration = await prisma.registration.findUnique({ where: { id: regRes.body.registrationId } });
+    expect(registration!.utmSource).toBeNull();
+    expect(registration!.utmCampaign).toBeNull();
+    expect(registration!.utmMedium).toBeNull();
+    expect(registration!.landingPage).toBeNull();
+
+    const relationship = await prisma.referralRelationship.findUnique({
+      where: { registrationId: regRes.body.registrationId },
+    });
+    expect(relationship).toBeNull();
+  });
+
+  it('preserves isTestData from the fallback (organic) visit, not just the primary path', async () => {
+    const agent = request.agent(app);
+    const { csrf, visitorId } = await bootstrap(agent);
+
+    // Directly create an organic, isTestData=true visit (simulating a QA visit).
+    await prisma.referralVisit.create({
+      data: {
+        visitorId,
+        referralCodeId: null,
+        language: 'en',
+        utmSource: 'qa-source',
+        isTestData: true,
+      },
+    });
+
+    const regRes = await agent
+      .post('/api/registrations')
+      .set('X-CSRF-Token', csrf)
+      .send({ name: 'QA Organic', whatsapp: '+237670000024', language: 'en' });
+
+    const registration = await prisma.registration.findUnique({ where: { id: regRes.body.registrationId } });
+    expect(registration!.utmSource).toBe('qa-source');
+    expect(registration!.isTestData).toBe(true);
+  });
+});
+
 describe('Acceptance Test — expired attribution', () => {
   it('succeeds with no Leader attribution when the only visit is older than 30 days', async () => {
     const { referralCode } = await createLeader('Mary Ngu', 'mary5@example.com', 'MARY7X6');
