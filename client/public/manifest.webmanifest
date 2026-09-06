@@ -1,0 +1,9 @@
+{
+  "name": "The God Nation Referral System",
+  "short_name": "God Nation",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": []
+}

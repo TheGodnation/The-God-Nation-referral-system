@@ -1,0 +1,25 @@
+{
+  "name": "the-god-nation-referral-system",
+  "private": true,
+  "version": "1.0.0",
+  "description": "The God Nation Referral System — Phase 1 Operational Referral MVP",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "build": "npm run build --workspace server && npm run build --workspace client",
+    "build:server": "npm run build --workspace server",
+    "build:client": "npm run build --workspace client",
+    "test": "npm run test --workspace server",
+    "test:client": "npm run test --workspace client",
+    "prisma:generate": "npm run prisma:generate --workspace server",
+    "prisma:migrate": "npm run prisma:migrate --workspace server",
+    "seed": "npm run seed --workspace server"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

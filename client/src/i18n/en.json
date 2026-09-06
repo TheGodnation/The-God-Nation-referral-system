@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "home": "Home",
+    "login": "Leader Login"
+  },
+  "home": {
+    "hero_title": "BE EQUIPPED. BE TRANSFORMED. BE SENT.",
+    "hero_cta": "REGISTER IN LESS THAN 1 MINUTE",
+    "hero_support": "Complete your registration and you'll be directed straight to our official WhatsApp Training Community.",
+    "about_title": "About The God Nation",
+    "about_body": "The God Nation Media & Leadership Academy exists to leverage modern media to make the Gospel of the Kingdom accessible in every nation — developing and deploying leaders who multiply disciples through scalable digital systems.",
+    "training_title": "Training Community",
+    "training_body": "Join a dedicated WhatsApp Training Community where you'll grow in discipleship, receive guidance, and connect with leaders equipping you for Kingdom impact.",
+    "benefits_title": "Why Join",
+    "benefit_1": "Practical, Spirit-led leadership training",
+    "benefit_2": "A supportive community of believers",
+    "benefit_3": "Content delivered in English or French",
+    "benefit_4": "Free to join — built for everyone, everywhere",
+    "how_title": "How It Works",
+    "how_1_title": "Register",
+    "how_1_body": "Share your name and WhatsApp number — it takes less than a minute.",
+    "how_2_title": "Get Connected",
+    "how_2_body": "You're instantly directed to the right WhatsApp Training Community for your language.",
+    "how_3_title": "Grow",
+    "how_3_body": "Learn, connect, and be equipped to make disciples in your own context.",
+    "final_cta_title": "Ready to be equipped?",
+    "final_cta_button": "REGISTER IN LESS THAN 1 MINUTE"
+  },
+  "join": {
+    "loading": "Preparing your invitation…",
+    "title": "You're invited",
+    "body": "You've been personally invited to join The God Nation Training Community.",
+    "cta": "REGISTER IN LESS THAN 1 MINUTE"
+  },
+  "register": {
+    "title": "Register",
+    "name_label": "Full Name",
+    "name_placeholder": "Your full name",
+    "whatsapp_label": "WhatsApp Number",
+    "whatsapp_prompt": "Please enter the WhatsApp number you will use to join the Training Community. This will help us identify and recognize your registration.",
+    "whatsapp_placeholder": "e.g. +237 6XX XXX XXX",
+    "language_label": "Preferred Language",
+    "submit": "Complete Registration",
+    "submitting": "Submitting…",
+    "error_generic": "Something went wrong. Please check your details and try again."
+  },
+  "success": {
+    "title": "You're Registered!",
+    "body": "Thank you for registering. Tap below to join our official WhatsApp Training Community.",
+    "cta": "Join WhatsApp Training Community"
+  },
+  "login": {
+    "title": "Leader & Admin Login",
+    "email_label": "Email",
+    "password_label": "Password",
+    "submit": "Sign In",
+    "submitting": "Signing in…",
+    "error": "Invalid email or password."
+  },
+  "common": {
+    "language_en": "English",
+    "language_fr": "Français",
+    "back_home": "Back to Home"
+  }
+}

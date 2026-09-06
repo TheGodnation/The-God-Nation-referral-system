@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  LEADER
+}
+
+enum RegistrationStatus {
+  ACTIVE
+}
+
+enum EventType {
+  VISITED
+  REGISTERED
+  WHATSAPP_CLICKED
+}
+
+enum Language {
+  en
+  fr
+}
+
+// ---------------------------------------------------------------------------
+// User / Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  active       Boolean  @default(true)
+  isTestData   Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions       Session[]
+  referralCodes  ReferralCode[]
+  referralRelationships ReferralRelationship[]
+
+  @@index([role])
+}
+
+model Session {
+  id             String   @id @default(uuid())
+  userId         String
+  tokenHash      String   @unique
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  id         String   @id @default(uuid())
+  identifier String
+  success    Boolean
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+  @@index([ip, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Referral system
+// ---------------------------------------------------------------------------
+
+model ReferralCode {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  leaderId      String
+  active        Boolean   @default(true)
+  isTestData    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deactivatedAt DateTime?
+
+  leader        User            @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  visits        ReferralVisit[]
+  relationships ReferralRelationship[]
+
+  @@index([leaderId])
+  @@index([active])
+}
+
+model ReferralVisit {
+  id             String    @id @default(uuid())
+  visitorId      String
+  referralCodeId String?
+  timestamp      DateTime  @default(now())
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  landingPage    String?
+  language       Language  @default(en)
+  isTestData     Boolean   @default(false)
+
+  referralCode ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+
+  @@index([visitorId, timestamp])
+  @@index([referralCodeId, timestamp])
+  @@index([timestamp])
+  @@index([utmSource])
+  @@index([utmCampaign])
+}
+
+model Registration {
+  id                 String   @id @default(uuid())
+  visitorId          String
+  normalizedWhatsApp String   @unique
+  name               String
+  language           Language @default(en)
+  utmSource          String?
+  utmMedium          String?
+  utmCampaign        String?
+  landingPage        String?
+  status             RegistrationStatus @default(ACTIVE)
+  isTestData         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  relationship ReferralRelationship?
+  events       Event[]
+
+  @@index([visitorId])
+  @@index([createdAt])
+  @@index([language])
+}
+
+model ReferralRelationship {
+  id             String   @id @default(uuid())
+  leaderId       String
+  registrationId String   @unique
+  referralCodeId String?
+  createdAt      DateTime @default(now())
+
+  leader       User          @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  registration Registration  @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  referralCode ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+
+  @@index([leaderId])
+}
+
+model Event {
+  id             String    @id @default(uuid())
+  type           EventType
+  registrationId String?
+  visitorId      String?
+  timestamp      DateTime  @default(now())
+  isTestData     Boolean   @default(false)
+
+  registration Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+
+  @@index([type, timestamp])
+  @@index([registrationId])
+  @@index([visitorId])
+}
+
+// ---------------------------------------------------------------------------
+// Settings / Audit
+// ---------------------------------------------------------------------------
+
+model Settings {
+  id               String   @id @default("singleton")
+  whatsappUrlEn    String?
+  whatsappUrlFr    String?
+  updatedAt        DateTime @updatedAt
+  updatedByUserId  String?
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+}

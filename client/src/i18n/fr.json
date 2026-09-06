@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "login": "Connexion Leader"
+  },
+  "home": {
+    "hero_title": "SOYEZ ÉQUIPÉ. SOYEZ TRANSFORMÉ. SOYEZ ENVOYÉ.",
+    "hero_cta": "INSCRIVEZ-VOUS EN MOINS D'1 MINUTE",
+    "hero_support": "Terminez votre inscription et vous serez dirigé directement vers notre Communauté de Formation WhatsApp officielle.",
+    "about_title": "À propos de The God Nation",
+    "about_body": "The God Nation Media & Leadership Academy existe pour utiliser les médias modernes afin de rendre l'Évangile du Royaume accessible dans chaque nation — en formant et en envoyant des leaders qui multiplient des disciples grâce à des systèmes numériques évolutifs.",
+    "training_title": "Communauté de Formation",
+    "training_body": "Rejoignez une Communauté de Formation WhatsApp dédiée où vous grandirez dans le discipulat, recevrez un accompagnement, et serez connecté à des leaders qui vous équipent pour l'impact du Royaume.",
+    "benefits_title": "Pourquoi Rejoindre",
+    "benefit_1": "Une formation au leadership pratique et conduite par l'Esprit",
+    "benefit_2": "Une communauté de croyants qui vous soutient",
+    "benefit_3": "Contenu disponible en anglais ou en français",
+    "benefit_4": "Gratuit — conçu pour tous, partout",
+    "how_title": "Comment ça marche",
+    "how_1_title": "Inscrivez-vous",
+    "how_1_body": "Indiquez votre nom et votre numéro WhatsApp — cela prend moins d'une minute.",
+    "how_2_title": "Soyez connecté",
+    "how_2_body": "Vous êtes immédiatement dirigé vers la bonne Communauté de Formation WhatsApp selon votre langue.",
+    "how_3_title": "Grandissez",
+    "how_3_body": "Apprenez, connectez-vous, et soyez équipé pour faire des disciples dans votre propre contexte.",
+    "final_cta_title": "Prêt à être équipé ?",
+    "final_cta_button": "INSCRIVEZ-VOUS EN MOINS D'1 MINUTE"
+  },
+  "join": {
+    "loading": "Préparation de votre invitation…",
+    "title": "Vous êtes invité(e)",
+    "body": "Vous avez été personnellement invité(e) à rejoindre la Communauté de Formation de The God Nation.",
+    "cta": "INSCRIVEZ-VOUS EN MOINS D'1 MINUTE"
+  },
+  "register": {
+    "title": "Inscription",
+    "name_label": "Nom complet",
+    "name_placeholder": "Votre nom complet",
+    "whatsapp_label": "Numéro WhatsApp",
+    "whatsapp_prompt": "Please enter the WhatsApp number you will use to join the Training Community. This will help us identify and recognize your registration.",
+    "whatsapp_placeholder": "ex. +237 6XX XXX XXX",
+    "language_label": "Langue préférée",
+    "submit": "Terminer l'inscription",
+    "submitting": "Envoi en cours…",
+    "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer."
+  },
+  "success": {
+    "title": "Vous êtes inscrit(e) !",
+    "body": "Merci pour votre inscription. Appuyez ci-dessous pour rejoindre notre Communauté de Formation WhatsApp officielle.",
+    "cta": "Rejoindre la Communauté WhatsApp"
+  },
+  "login": {
+    "title": "Connexion Leader & Admin",
+    "email_label": "E-mail",
+    "password_label": "Mot de passe",
+    "submit": "Se connecter",
+    "submitting": "Connexion…",
+    "error": "E-mail ou mot de passe invalide."
+  },
+  "common": {
+    "language_en": "English",
+    "language_fr": "Français",
+    "back_home": "Retour à l'accueil"
+  }
+}
