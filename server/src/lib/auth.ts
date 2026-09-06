@@ -9,7 +9,7 @@ export const SESSION_COOKIE_NAME = 'sid';
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: string; name: string; email: string; role: Role };
+      user?: { id: string; name: string; email: string; role: Role; mustChangePassword: boolean };
       sessionToken?: string;
     }
   }
@@ -64,7 +64,13 @@ export async function loadSession(req: Request, _res: Response, next: NextFuncti
     const user = await prisma.user.findUnique({ where: { id: session.userId } });
     if (!user || !user.active) return next();
 
-    req.user = { id: user.id, name: user.name, email: user.email, role: user.role };
+    req.user = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      mustChangePassword: user.mustChangePassword,
+    };
     req.sessionToken = token;
 
     // Best-effort activity tracking; ignore failures.

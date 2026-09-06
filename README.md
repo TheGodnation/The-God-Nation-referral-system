@@ -134,6 +134,15 @@ This creates:
 > Development-only test leader passwords are intentionally simple
 > (`password123`) — never use this pattern in production.
 
+The Admin bootstrap account is created with `mustChangePassword = true`. On
+first login, the app redirects straight to **Change Password**
+(`/change-password`) and blocks access to the dashboard until a new
+password is set — via `POST /api/auth/change-password`, which verifies the
+current password, requires the new one to be at least 8 characters and
+different from the current one, and then clears the flag. The same applies
+to any Leader created through the Admin dashboard (their temporary password
+is shown once at creation time).
+
 ---
 
 ## 6. Development

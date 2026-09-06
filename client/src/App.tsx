@@ -6,7 +6,8 @@ import { SuccessPage } from './pages/SuccessPage';
 import { LoginPage } from './pages/LoginPage';
 import { LeaderDashboardPage } from './pages/LeaderDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import { ChangePasswordPage } from './pages/ChangePasswordPage';
+import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
 import { AuthProvider } from './lib/AuthContext';
 
 export default function App() {
@@ -18,6 +19,14 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/change-password"
+          element={
+            <RequireAuth>
+              <ChangePasswordPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/leader/dashboard"
           element={

@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { createSession, destroySession, requireAuth, SESSION_COOKIE_NAME } from '../lib/auth';
-import { isBruteForced, recordLoginAttempt } from '../lib/audit';
+import { isBruteForced, recordLoginAttempt, recordAudit } from '../lib/audit';
 import { loginLimiter } from '../lib/rateLimit';
 import { requireCsrf } from '../lib/csrf';
 
@@ -65,6 +65,54 @@ router.post('/logout', requireCsrf, requireAuth, async (req, res) => {
 router.get('/me', (req, res) => {
   if (!req.user) return res.json({ user: null });
   res.json({ user: req.user });
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters long.'),
+});
+
+// POST /api/auth/change-password
+// Lets any authenticated user (Admin or Leader) change their own password,
+// clearing mustChangePassword once done. Used both for the forced
+// first-login change (Admin bootstrap, newly created Leaders) and for a
+// voluntary password change at any later time.
+router.post('/change-password', requireCsrf, requireAuth, async (req, res) => {
+  const parsed = changePasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  }
+  const { currentPassword, newPassword } = parsed.data;
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user) {
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    return res.status(401).json({ error: 'Current password is incorrect.' });
+  }
+
+  if (newPassword === currentPassword) {
+    return res.status(400).json({ error: 'New password must be different from the current password.' });
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash, mustChangePassword: false },
+  });
+
+  await recordAudit({
+    actorId: user.id,
+    actorEmail: user.email,
+    action: 'PASSWORD_CHANGED',
+    targetType: 'User',
+    targetId: user.id,
+  });
+
+  res.json({ ok: true });
 });
 
 export default router;
