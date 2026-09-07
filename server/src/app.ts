@@ -2,6 +2,8 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import path from 'path';
+import fs from 'fs';
 import { CLIENT_URL, isProd } from './lib/env';
 import { ensureVisitorId } from './lib/visitor';
 import { ensureCsrfCookie } from './lib/csrf';
@@ -42,6 +44,22 @@ export function createApp() {
 
   // 404 for unmatched API routes
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found.' }));
+
+  // In production, this same service also serves the built React client
+  // (client/dist), so the frontend and API share one origin — cookies
+  // (visitor_id, sid, csrf_token) stay same-site with no changes to their
+  // SameSite/Secure flags. This is optional: it only activates if a build
+  // of the client is actually present next to this server's own build.
+  if (isProd) {
+    const clientDist = path.join(__dirname, '../../client/dist');
+    if (fs.existsSync(clientDist)) {
+      app.use(express.static(clientDist));
+      app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) return next();
+        res.sendFile(path.join(clientDist, 'index.html'));
+      });
+    }
+  }
 
   // Centralized error handler — never leak stack traces to the client.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
