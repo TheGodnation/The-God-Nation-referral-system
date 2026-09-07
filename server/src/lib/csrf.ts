@@ -43,6 +43,15 @@ export function requireCsrf(req: Request, res: Response, next: NextFunction) {
     typeof headerToken !== 'string' ||
     cookieToken !== headerToken
   ) {
+    // Diagnostic only — never logs token values, just presence/mismatch,
+    // so a rejected login/action can be told apart from a bad password.
+    console.warn('[csrf] rejected', {
+      method: req.method,
+      path: req.path,
+      hasCookie: Boolean(cookieToken),
+      hasHeader: Boolean(headerToken),
+      match: Boolean(cookieToken) && Boolean(headerToken) && cookieToken === headerToken,
+    });
     return res.status(403).json({ error: 'Invalid or missing CSRF token.' });
   }
 

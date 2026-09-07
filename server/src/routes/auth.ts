@@ -32,6 +32,7 @@ const loginSchema = z.object({
 router.post('/login', loginLimiter, requireCsrf, async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
+    console.warn('[login] rejected: invalid request body shape');
     return res.status(400).json({ error: 'Invalid email or password.' });
   }
   const { email, password } = parsed.data;
@@ -39,22 +40,26 @@ router.post('/login', loginLimiter, requireCsrf, async (req, res) => {
   const userAgent = req.header('user-agent');
 
   if (await isBruteForced(email)) {
+    console.warn('[login] rejected: rate-limited (too many failed attempts)', { email });
     return res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
   }
 
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 
   if (!user || !user.active) {
+    console.warn('[login] rejected: no matching active user', { email });
     await recordLoginAttempt(email, false, ip, userAgent);
     return res.status(401).json({ error: 'Invalid email or password.' });
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    console.warn('[login] rejected: password mismatch', { email });
     await recordLoginAttempt(email, false, ip, userAgent);
     return res.status(401).json({ error: 'Invalid email or password.' });
   }
 
+  console.log('[login] success', { email, role: user.role });
   await recordLoginAttempt(email, true, ip, userAgent);
   await createSession(user.id, res);
 

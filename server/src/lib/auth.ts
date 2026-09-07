@@ -94,14 +94,29 @@ export async function loadSession(req: Request, _res: Response, next: NextFuncti
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
+  if (!req.user) {
+    // Diagnostic only — no secrets, just whether a session cookie showed up
+    // at all, to tell "never logged in" apart from "cookie not persisting".
+    console.warn('[auth] rejected: no session', {
+      path: req.path,
+      hasSidCookie: Boolean(req.cookies?.[SESSION_COOKIE_NAME]),
+    });
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
   next();
 }
 
 export function requireRole(...roles: Role[]) {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) return res.status(401).json({ error: 'Authentication required.' });
+    if (!req.user) {
+      console.warn('[auth] rejected: no session', {
+        path: req.path,
+        hasSidCookie: Boolean(req.cookies?.[SESSION_COOKIE_NAME]),
+      });
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
     if (!roles.includes(req.user.role)) {
+      console.warn('[auth] rejected: wrong role', { path: req.path, role: req.user.role });
       return res.status(403).json({ error: 'Forbidden.' });
     }
     next();
