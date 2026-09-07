@@ -19,11 +19,22 @@ export async function createAdmin(email = 'admin@test.local', password = 'AdminP
   });
 }
 
-export async function setWhatsAppSettings(en: string, fr: string) {
+export async function setWhatsAppSettings(
+  en: string,
+  fr: string,
+  discoverEn?: string,
+  discoverFr?: string,
+) {
+  const data = {
+    whatsappUrlEn: en,
+    whatsappUrlFr: fr,
+    ...(discoverEn !== undefined ? { whatsappUrlDiscoverEn: discoverEn } : {}),
+    ...(discoverFr !== undefined ? { whatsappUrlDiscoverFr: discoverFr } : {}),
+  };
   await prisma.settings.upsert({
     where: { id: 'singleton' },
-    create: { id: 'singleton', whatsappUrlEn: en, whatsappUrlFr: fr },
-    update: { whatsappUrlEn: en, whatsappUrlFr: fr },
+    create: { id: 'singleton', ...data },
+    update: data,
   });
 }
 

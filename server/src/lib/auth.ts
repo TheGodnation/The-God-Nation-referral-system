@@ -15,7 +15,10 @@ declare global {
   }
 }
 
-function hashToken(token: string): string {
+// Shared secure-token hashing pattern, reused by LeaderSetupToken and
+// PasswordResetToken (sections 28/33) — never store or log the raw token,
+// only this hash.
+export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
@@ -46,6 +49,12 @@ export async function createSession(userId: string, res: Response) {
 export async function destroySession(token: string) {
   const tokenHash = hashToken(token);
   await prisma.session.deleteMany({ where: { tokenHash } });
+}
+
+// Used after a successful password reset (section 33): invalidate every
+// existing session for the account, not just the one making the request.
+export async function destroyAllSessionsForUser(userId: string) {
+  await prisma.session.deleteMany({ where: { userId } });
 }
 
 /**

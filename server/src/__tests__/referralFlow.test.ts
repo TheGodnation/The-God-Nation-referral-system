@@ -37,7 +37,7 @@ describe('Acceptance Test 1 — Mary basic flow', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Visitor One', whatsapp: '+237670000001', language: 'en' });
+      .send({ name: 'Visitor One', whatsapp: '+237670000001', language: 'en', pathway: 'TRAINING' });
 
     expect(regRes.status).toBe(201);
     const registrationId = regRes.body.registrationId;

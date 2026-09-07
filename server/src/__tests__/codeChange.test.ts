@@ -22,7 +22,7 @@ describe('Acceptance Test — referral code change', () => {
     const regRes = await visitorAgent
       .post('/api/registrations')
       .set('X-CSRF-Token', visitorCsrf)
-      .send({ name: 'Historical', whatsapp: '+237670000030', language: 'en' });
+      .send({ name: 'Historical', whatsapp: '+237670000030', language: 'en', pathway: 'TRAINING' });
     const registrationId = regRes.body.registrationId;
 
     // Admin changes Mary's referral code.

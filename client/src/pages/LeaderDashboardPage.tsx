@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageShell } from '../components/PageShell';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
 interface DashboardStats {
@@ -24,6 +24,94 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     <div className="card">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
       <p className="mt-1 text-2xl font-bold text-brand-900">{value}</p>
+    </div>
+  );
+}
+
+// Section 24-26: additive "Invite People" panel. Every share/send action
+// uses the Leader's own referral link only — never a client-suppliable
+// Leader ID or code, and the server derives the link from the session.
+function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [sending, setSending] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
+
+  if (!links) return null;
+  const primaryLink = links.en;
+
+  const whatsappMessage = `You're Invited to The God Nation\nDiscover God's Word, grow in faith, and learn more about our Kingdom community.\nGet started here: ${primaryLink}`;
+  const whatsappShareUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
+  const messengerShareUrl = `https://www.facebook.com/dialog/send?link=${encodeURIComponent(primaryLink)}&app_id=0&redirect_uri=${encodeURIComponent(primaryLink)}`;
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(primaryLink);
+      setEmailStatus('Link copied!');
+      setTimeout(() => setEmailStatus(null), 1500);
+    } catch {
+      // no-op
+    }
+  }
+
+  async function webShare() {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'The God Nation', text: whatsappMessage, url: primaryLink });
+      } catch {
+        // user cancelled — no-op
+      }
+    }
+  }
+
+  async function sendEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailStatus(null);
+    setSending(true);
+    try {
+      const res = await api.post<{ sent: boolean }>('/api/leader/invite', { email: inviteEmail });
+      setEmailStatus(res.sent ? 'Invitation sent!' : 'Could not send the invitation email. Please try again.');
+      if (res.sent) setInviteEmail('');
+    } catch (err) {
+      setEmailStatus(err instanceof ApiError ? err.message : 'Something went wrong.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="card mt-6">
+      <h2 className="mb-3 font-semibold text-brand-900">Invite People</h2>
+      <div className="flex flex-wrap gap-3">
+        <a href={whatsappShareUrl} target="_blank" rel="noreferrer" className="btn-primary bg-green-600 hover:bg-green-700">
+          Share on WhatsApp
+        </a>
+        <a href={messengerShareUrl} target="_blank" rel="noreferrer" className="btn-secondary">
+          Share on Messenger
+        </a>
+        <button type="button" onClick={copyLink} className="btn-secondary">
+          Copy Referral Link
+        </button>
+        {typeof navigator !== 'undefined' && 'share' in navigator && (
+          <button type="button" onClick={webShare} className="btn-secondary">
+            Share…
+          </button>
+        )}
+      </div>
+
+      <form onSubmit={sendEmail} className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <input
+          type="email"
+          className="input flex-1"
+          placeholder="friend@example.com"
+          value={inviteEmail}
+          onChange={(e) => setInviteEmail(e.target.value)}
+          required
+        />
+        <button type="submit" className="btn-primary sm:w-40" disabled={sending}>
+          {sending ? 'Sending…' : 'Send by Email'}
+        </button>
+      </form>
+      {emailStatus && <p className="mt-2 text-sm text-slate-600">{emailStatus}</p>}
     </div>
   );
 }
@@ -108,6 +196,8 @@ export function LeaderDashboardPage() {
             <p className="text-sm text-slate-400">No active referral code assigned yet.</p>
           )}
         </div>
+
+        <InvitePeople links={links} />
 
         <div className="card mt-6 overflow-x-auto">
           <h2 className="mb-3 font-semibold text-brand-900">Your Referrals</h2>

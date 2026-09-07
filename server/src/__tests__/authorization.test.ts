@@ -34,7 +34,7 @@ describe('Acceptance Test — authorization', () => {
     await visitorAgent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Mary Referral', whatsapp: '+237670000050', language: 'en' });
+      .send({ name: 'Mary Referral', whatsapp: '+237670000050', language: 'en', pathway: 'TRAINING' });
 
     const { agent: johnAgent } = await loginAs('john@example.com', 'password123');
     const johnDash = await johnAgent.get('/api/leader/dashboard');

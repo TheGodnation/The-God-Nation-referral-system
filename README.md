@@ -191,9 +191,14 @@ npm run test
 
 ## 8. Configuring WhatsApp Community URLs
 
+There are now **four** configurable WhatsApp destinations, plus a support
+link:
+
 1. Log in as Admin at `/login`.
 2. Go to **Admin Dashboard → Settings**.
-3. Enter the English and French WhatsApp Training Community invite links.
+3. Fill in the Training (English/French) and Discover & Grow (English/
+   French) invite links, plus the Support WhatsApp link and any social URLs
+   you have (blank social fields are simply hidden on the homepage).
 4. Save — the change is recorded in the Audit Log.
 
 The Success page's "Join WhatsApp Community" action always redirects through
@@ -204,9 +209,36 @@ a secure, server-controlled endpoint
 2. Requires the request's opaque `visitor_id` cookie to match
    `Registration.visitorId` exactly (missing or mismatched → rejected, no
    redirect, no event).
-3. Looks up the correct language's WhatsApp URL from Settings.
+3. Determines the destination from `Registration.pathway` +
+   `Registration.language` (one of the four configured URLs) — never from
+   client input.
 4. Records a `WHATSAPP_CLICKED` event **before** redirecting.
 5. Issues a 302 redirect to the configured WhatsApp URL.
+
+### Website Content
+
+**Admin Dashboard → Website Content** lets you edit the homepage title/
+subtitle, both pathways' titles/descriptions/CTA text, the vision statement,
+How It Works copy, and a few other simple text fields. This is intentionally
+a flat set of named fields, not a full CMS — any field left blank falls back
+to the app's built-in default text, and Admin-entered text is shown as-is
+regardless of the visitor's selected language.
+
+### Email (Resend)
+
+Leader invitations, registration confirmations, password resets, and Leader
+referral-invitation emails are sent via [Resend](https://resend.com), a
+Node SDK, and a single `RESEND_API_KEY` server-side environment variable —
+configured exactly like `DATABASE_URL`, never exposed to the client. If
+`RESEND_API_KEY` is not set, email sending is skipped (logged, not fatal) —
+every other flow (registration, WhatsApp redirect, etc.) still works.
+
+Without a verified sending domain in your Resend account, emails can only be
+sent from Resend's own sandbox address (`onboarding@resend.dev`), which
+only reliably delivers to the Resend account's own verified address. Add
+and verify a domain in Resend, then set `EMAIL_FROM` to a real address on
+that domain, once you're ready for production email delivery to real
+recipients.
 
 ---
 
@@ -229,6 +261,33 @@ to `server`.
 
 ---
 
+## 9a. Leader Onboarding & Password Recovery
+
+**New Leaders** (created from now on) are onboarded via a secure emailed
+setup link, never a temporary password:
+
+1. Admin creates the Leader in **Admin Dashboard → Leaders**.
+2. A one-time setup link is emailed via Resend (`/leader/setup?token=...`),
+   valid for 7 days, single-use — only its SHA-256 hash is ever stored.
+3. The Leader opens the link, sets their own password, and is signed in
+   directly to their dashboard.
+4. If the invitation never arrives, expires, or is lost, Admin can hit
+   **Resend Invitation** on that Leader's row — this invalidates the old
+   link and issues a new one. Admin can never see or set a Leader's
+   password directly.
+
+**Existing accounts** with `mustChangePassword=true` (the Admin bootstrap
+account, and any Leader created before this feature) are untouched — they
+keep using the original forced `/change-password` flow.
+
+**Password reset** (any account, any time): `/forgot-password` → always
+shows the same generic message whether or not the account exists → a
+1-hour, single-use reset link is emailed if it does → `/reset-password`
+sets a new password and **signs the account out of every existing
+session**.
+
+---
+
 ## 10. Phase 1 Scope
 
 **Implemented (see the full build report for details):**
@@ -241,11 +300,20 @@ to `server`.
 - Registration with E.164 WhatsApp normalization, duplicate protection
   (including race-condition-safe concurrent handling)
 - Permanent, immutable `ReferralRelationship` per Registration
+- Two public visitor pathways (Training, Discover & Grow) on one homepage,
+  chosen by intent — never gated on identity, referral attribution always
+  silent and unaffected by pathway choice
+- Four server-controlled WhatsApp destinations (Training/Discover & Grow ×
+  English/French) chosen from `Registration.pathway` + `.language`
 - Secure, server-controlled WhatsApp redirect + `WHATSAPP_CLICKED` event
-- Leader Dashboard (own data only) and Admin Dashboard (system-wide,
+- Leader Dashboard (own data only) + Invite People (WhatsApp/Messenger/Web
+  Share, copy link, email invitation) and Admin Dashboard (system-wide,
   with test-data exclusion by default)
 - Referral code lifecycle management (deactivate-old/create-new, with full
   history preservation)
+- Secure Leader onboarding (emailed one-time setup link) and password reset,
+  built on Resend; existing forced-change accounts unaffected
+- Simple Admin-editable Website Content + WhatsApp/social Settings
 - Authentication (bcrypt, opaque DB-backed sessions), CSRF, rate limiting,
   brute-force protection, audit logging
 
@@ -256,8 +324,10 @@ to `server`.
 - Multilevel referral structures, communities/subgroups
 - Live audio, in-app messaging, notifications
 - Official WhatsApp Business API integration (membership verification)
-- SMS/email automation, social login, QR referrals
+- SMS automation, social login, QR referrals
 - Native Android/iOS apps, offline sync, background sync, push notifications
+- A full CMS for website content (current version is a flat, simple set of
+  named text fields, not per-language)
 
 ---
 

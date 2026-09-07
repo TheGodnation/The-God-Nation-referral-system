@@ -27,6 +27,11 @@ enum Language {
   fr
 }
 
+enum Pathway {
+  TRAINING
+  DISCOVER_GROW
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
@@ -46,8 +51,41 @@ model User {
   sessions       Session[]
   referralCodes  ReferralCode[]
   referralRelationships ReferralRelationship[]
+  setupTokens         LeaderSetupToken[]
+  passwordResetTokens PasswordResetToken[]
 
   @@index([role])
+}
+
+// Secure one-time invitation token for new Leader onboarding (section 27-29).
+// Only the hash is ever stored; the raw token exists only long enough to be
+// emailed. Expires 7 days after issuance, single-use.
+model LeaderSetupToken {
+  id         String    @id @default(uuid())
+  leaderId   String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  leader User @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+
+  @@index([leaderId])
+}
+
+// Secure one-time password-reset token (section 33). Only the hash is ever
+// stored. Expires 1 hour after issuance, single-use.
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Session {
@@ -124,7 +162,9 @@ model Registration {
   visitorId          String
   normalizedWhatsApp String   @unique
   name               String
+  email              String?
   language           Language @default(en)
+  pathway            Pathway  @default(TRAINING)
   utmSource          String?
   utmMedium          String?
   utmCampaign        String?
@@ -175,12 +215,26 @@ model Event {
 // Settings / Audit
 // ---------------------------------------------------------------------------
 
+// Single settings row. whatsappUrlEn/Fr (pre-existing) are the TRAINING
+// pathway destinations; whatsappUrlDiscoverEn/Fr are the new DISCOVER_GROW
+// destinations. `content` holds the simple, admin-editable website copy
+// (homepage/pathway/success/registration text) as a flat JSON object of
+// known keys — deliberately not a full CMS; missing keys fall back to
+// built-in defaults on the client.
 model Settings {
-  id               String   @id @default("singleton")
-  whatsappUrlEn    String?
-  whatsappUrlFr    String?
-  updatedAt        DateTime @updatedAt
-  updatedByUserId  String?
+  id                    String   @id @default("singleton")
+  whatsappUrlEn         String?
+  whatsappUrlFr         String?
+  whatsappUrlDiscoverEn String?
+  whatsappUrlDiscoverFr String?
+  supportWhatsappUrl    String?
+  facebookUrl           String?
+  instagramUrl          String?
+  tiktokUrl             String?
+  youtubeUrl            String?
+  content               Json?
+  updatedAt             DateTime @updatedAt
+  updatedByUserId       String?
 }
 
 model AuditLog {

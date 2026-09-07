@@ -41,3 +41,49 @@ export const generalApiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Leader account-setup completion (token -> password). Not as tight as
+// login since a legitimate Leader may retry a typo'd password.
+export const leaderSetupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
+});
+
+// Password-reset request (email enumeration surface) — deliberately tight.
+export const passwordResetRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+// Password-reset redemption (token -> new password).
+export const passwordResetRedeemLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
+});
+
+// Admin-triggered sensitive actions: creating/inviting/recovering a Leader.
+export const adminSensitiveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
+// A Leader emailing an invitation to someone from their own dashboard.
+export const leaderInviteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many invitations sent. Please try again later.' },
+});

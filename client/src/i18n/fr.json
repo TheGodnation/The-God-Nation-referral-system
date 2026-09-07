@@ -5,49 +5,55 @@
   },
   "home": {
     "hero_title": "SOYEZ ÉQUIPÉ. SOYEZ TRANSFORMÉ. SOYEZ ENVOYÉ.",
-    "hero_cta": "INSCRIVEZ-VOUS EN MOINS D'1 MINUTE",
-    "hero_support": "Terminez votre inscription et vous serez dirigé directement vers notre Communauté de Formation WhatsApp officielle.",
-    "about_title": "À propos de The God Nation",
-    "about_body": "The God Nation Media & Leadership Academy existe pour utiliser les médias modernes afin de rendre l'Évangile du Royaume accessible dans chaque nation — en formant et en envoyant des leaders qui multiplient des disciples grâce à des systèmes numériques évolutifs.",
-    "training_title": "Communauté de Formation",
-    "training_body": "Rejoignez une Communauté de Formation WhatsApp dédiée où vous grandirez dans le discipulat, recevrez un accompagnement, et serez connecté à des leaders qui vous équipent pour l'impact du Royaume.",
-    "benefits_title": "Pourquoi Rejoindre",
-    "benefit_1": "Une formation au leadership pratique et conduite par l'Esprit",
-    "benefit_2": "Une communauté de croyants qui vous soutient",
-    "benefit_3": "Contenu disponible en anglais ou en français",
-    "benefit_4": "Gratuit — conçu pour tous, partout",
+    "hero_tagline": "Découvrez Christ. Grandissez dans la Parole. Soyez équipé pour atteindre les autres.",
+    "hero_cta": "COMMENCER",
+    "hero_support": "Terminez votre inscription et vous serez dirigé directement vers notre Communauté WhatsApp officielle.",
+    "training_heading": "SOYEZ ÉQUIPÉ ET ENVOYÉ",
+    "training_supporting": "Formation au Royaume • Leadership • Évangélisation • Discipulat",
+    "training_description": "Pour ceux qui recherchent une formation plus approfondie au Royaume, qui veulent être équipés pour enseigner et atteindre les autres, grandir en leadership et en évangélisation, ou utiliser les médias modernes pour faire des disciples.",
+    "training_cta": "COMMENCEZ VOTRE FORMATION",
+    "discover_heading": "DÉCOUVRIR & GRANDIR",
+    "discover_supporting": "Prière • Parole de Dieu • Foi • Croissance spirituelle",
+    "discover_description": "Que vous cherchiez Dieu, commenciez votre cheminement avec Christ, cherchiez la prière, ou vouliez simplement comprendre la Parole de Dieu et trouver des réponses bibliques pour votre vie, vous êtes le bienvenu ici.",
+    "discover_cta": "REJOIGNEZ NOTRE COMMUNAUTÉ SPIRITUELLE",
+    "vision_title": "Notre Vision",
+    "vision_body": "Utiliser les médias modernes pour rendre l'Évangile du Royaume accessible dans chaque nation.",
     "how_title": "Comment ça marche",
-    "how_1_title": "Inscrivez-vous",
-    "how_1_body": "Indiquez votre nom et votre numéro WhatsApp — cela prend moins d'une minute.",
-    "how_2_title": "Soyez connecté",
-    "how_2_body": "Vous êtes immédiatement dirigé vers la bonne Communauté de Formation WhatsApp selon votre langue.",
-    "how_3_title": "Grandissez",
-    "how_3_body": "Apprenez, connectez-vous, et soyez équipé pour faire des disciples dans votre propre contexte.",
-    "final_cta_title": "Prêt à être équipé ?",
-    "final_cta_button": "INSCRIVEZ-VOUS EN MOINS D'1 MINUTE"
+    "how_1_title": "Choisissez votre chemin",
+    "how_1_body": "Choisissez Formation ou Découvrir & Grandir — selon où vous en êtes.",
+    "how_2_title": "Inscrivez-vous",
+    "how_2_body": "Indiquez votre nom et votre numéro WhatsApp — cela prend moins d'une minute.",
+    "how_3_title": "Soyez connecté",
+    "how_3_body": "Vous êtes dirigé directement vers la bonne Communauté WhatsApp selon votre langue.",
+    "connect_title": "RESTEZ CONNECTÉ"
   },
   "join": {
-    "loading": "Préparation de votre invitation…",
-    "title": "Vous êtes invité(e)",
-    "body": "Vous avez été personnellement invité(e) à rejoindre la Communauté de Formation de The God Nation.",
-    "cta": "INSCRIVEZ-VOUS EN MOINS D'1 MINUTE"
+    "loading": "Préparation de votre visite…"
   },
   "register": {
     "title": "Inscription",
+    "title_training": "Commencez Votre Formation",
+    "title_discover": "Rejoignez Notre Communauté Spirituelle",
     "name_label": "Nom complet",
     "name_placeholder": "Votre nom complet",
     "whatsapp_label": "Numéro WhatsApp",
     "whatsapp_prompt": "Please enter the WhatsApp number you will use to join the Training Community. This will help us identify and recognize your registration.",
     "whatsapp_placeholder": "ex. +237 6XX XXX XXX",
+    "email_label": "E-mail (facultatif)",
+    "email_placeholder": "vous@example.com",
     "language_label": "Langue préférée",
     "submit": "Terminer l'inscription",
     "submitting": "Envoi en cours…",
-    "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer."
+    "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer.",
+    "duplicate_try_different": "ESSAYER UN AUTRE NUMÉRO",
+    "duplicate_contact_us": "CONTACTEZ-NOUS SUR WHATSAPP"
   },
   "success": {
-    "title": "Vous êtes inscrit(e) !",
-    "body": "Merci pour votre inscription. Appuyez ci-dessous pour rejoindre notre Communauté de Formation WhatsApp officielle.",
-    "cta": "Rejoindre la Communauté WhatsApp"
+    "title": "🎉 VOUS ÊTES INSCRIT(E) AVEC SUCCÈS !",
+    "body_training": "Merci pour votre inscription. Appuyez ci-dessous pour rejoindre notre Communauté de Formation WhatsApp officielle.",
+    "body_discover": "Merci pour votre inscription. Appuyez ci-dessous pour rejoindre notre Communauté Spirituelle sur WhatsApp.",
+    "cta": "REJOINDRE LA COMMUNAUTÉ WHATSAPP",
+    "email_sent": "Un e-mail de confirmation vous a également été envoyé."
   },
   "login": {
     "title": "Connexion Leader & Admin",
@@ -55,7 +61,8 @@
     "password_label": "Mot de passe",
     "submit": "Se connecter",
     "submitting": "Connexion…",
-    "error": "E-mail ou mot de passe invalide."
+    "error": "E-mail ou mot de passe invalide.",
+    "forgot_password": "Mot de passe oublié ?"
   },
   "common": {
     "language_en": "English",

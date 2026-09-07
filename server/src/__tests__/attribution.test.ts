@@ -28,7 +28,7 @@ describe('Acceptance Test — Mary to John (latest visit wins)', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Two Visits', whatsapp: '+237670000010', language: 'en' });
+      .send({ name: 'Two Visits', whatsapp: '+237670000010', language: 'en', pathway: 'TRAINING' });
 
     expect(regRes.status).toBe(201);
 
@@ -68,7 +68,7 @@ describe('Acceptance Test — Mary to John (latest visit wins)', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Campaign Test', whatsapp: '+237670000011', language: 'en' });
+      .send({ name: 'Campaign Test', whatsapp: '+237670000011', language: 'en', pathway: 'TRAINING' });
 
     const registration = await prisma.registration.findUnique({
       where: { id: regRes.body.registrationId },
@@ -95,7 +95,7 @@ describe('Acceptance Test — permanent attribution is immutable', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Permanent Test', whatsapp: '+237670000012', language: 'en' });
+      .send({ name: 'Permanent Test', whatsapp: '+237670000012', language: 'en', pathway: 'TRAINING' });
 
     // John clicks later using the SAME visitor.
     await agent.post('/api/referrals/visit').set('X-CSRF-Token', csrf).send({ ref: 'JOHN8K6', lang: 'en' });
@@ -119,7 +119,7 @@ describe('Acceptance Test — language switch does not change attribution', () =
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Lang Switch', whatsapp: '+237670000013', language: 'fr' });
+      .send({ name: 'Lang Switch', whatsapp: '+237670000013', language: 'fr', pathway: 'TRAINING' });
 
     const registration = await prisma.registration.findUnique({
       where: { id: regRes.body.registrationId },
@@ -148,7 +148,7 @@ describe('Attribution correction — organic/non-referral fallback', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Case A', whatsapp: '+237670000020', language: 'en' });
+      .send({ name: 'Case A', whatsapp: '+237670000020', language: 'en', pathway: 'TRAINING' });
 
     const registration = await prisma.registration.findUnique({ where: { id: regRes.body.registrationId } });
     expect(registration!.utmSource).toBe('facebook');
@@ -181,7 +181,7 @@ describe('Attribution correction — organic/non-referral fallback', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Case C', whatsapp: '+237670000021', language: 'en' });
+      .send({ name: 'Case C', whatsapp: '+237670000021', language: 'en', pathway: 'TRAINING' });
 
     const registration = await prisma.registration.findUnique({ where: { id: regRes.body.registrationId } });
     // Marketing fields must still be Mary's — never overwritten by the later organic visit.
@@ -209,7 +209,7 @@ describe('Attribution correction — organic/non-referral fallback', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Case D', whatsapp: '+237670000022', language: 'en' });
+      .send({ name: 'Case D', whatsapp: '+237670000022', language: 'en', pathway: 'TRAINING' });
 
     expect(regRes.status).toBe(201);
 
@@ -231,7 +231,7 @@ describe('Attribution correction — organic/non-referral fallback', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'No Visit', whatsapp: '+237670000023', language: 'en' });
+      .send({ name: 'No Visit', whatsapp: '+237670000023', language: 'en', pathway: 'TRAINING' });
 
     expect(regRes.status).toBe(201);
     const registration = await prisma.registration.findUnique({ where: { id: regRes.body.registrationId } });
@@ -264,7 +264,7 @@ describe('Attribution correction — organic/non-referral fallback', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'QA Organic', whatsapp: '+237670000024', language: 'en' });
+      .send({ name: 'QA Organic', whatsapp: '+237670000024', language: 'en', pathway: 'TRAINING' });
 
     const registration = await prisma.registration.findUnique({ where: { id: regRes.body.registrationId } });
     expect(registration!.utmSource).toBe('qa-source');
@@ -292,7 +292,7 @@ describe('Acceptance Test — expired attribution', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Expired Test', whatsapp: '+237670000014', language: 'en' });
+      .send({ name: 'Expired Test', whatsapp: '+237670000014', language: 'en', pathway: 'TRAINING' });
 
     expect(regRes.status).toBe(201); // succeeds — expiration is not an error
 

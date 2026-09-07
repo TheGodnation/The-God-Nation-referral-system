@@ -16,7 +16,7 @@ describe('Acceptance Test — duplicate registration', () => {
     const first = await agent1
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf1)
-      .send({ name: 'First', whatsapp: '+237670000020', language: 'en' });
+      .send({ name: 'First', whatsapp: '+237670000020', language: 'en', pathway: 'TRAINING' });
     expect(first.status).toBe(201);
 
     const agent2 = request.agent(app);
@@ -25,10 +25,10 @@ describe('Acceptance Test — duplicate registration', () => {
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf2)
       // Same number, different formatting — normalization must still catch it.
-      .send({ name: 'Second', whatsapp: '00237670000020', language: 'en' });
+      .send({ name: 'Second', whatsapp: '00237670000020', language: 'en', pathway: 'TRAINING' });
 
     expect(second.status).toBe(409);
-    expect(second.body.error).toBe('A registration with this WhatsApp number already exists.');
+    expect(second.body.error).toBe('This WhatsApp number may have already been used to register. If you entered the wrong number, please correct it and try again. If you have not yet been added to the WhatsApp group, please contact us so that we can assist you and add you manually.');
 
     const all = await prisma.registration.findMany({ where: { normalizedWhatsApp: '+237670000020' } });
     expect(all).toHaveLength(1);
@@ -46,7 +46,7 @@ describe('Acceptance Test — concurrent duplicate registration', () => {
     const { csrf: csrfA } = await bootstrap(agentA);
     const { csrf: csrfB } = await bootstrap(agentB);
 
-    const payload = { name: 'Racer', whatsapp: '+237670000099', language: 'en' as const };
+    const payload = { name: 'Racer', whatsapp: '+237670000099', language: 'en' as const, pathway: 'TRAINING' as const };
 
     const [resA, resB] = await Promise.all([
       agentA.post('/api/registrations').set('X-CSRF-Token', csrfA).send(payload),
@@ -60,7 +60,7 @@ describe('Acceptance Test — concurrent duplicate registration', () => {
 
     const winner = resA.status === 201 ? resA : resB;
     const loser = resA.status === 409 ? resA : resB;
-    expect(loser.body.error).toBe('A registration with this WhatsApp number already exists.');
+    expect(loser.body.error).toBe('This WhatsApp number may have already been used to register. If you entered the wrong number, please correct it and try again. If you have not yet been added to the WhatsApp group, please contact us so that we can assist you and add you manually.');
 
     const registrations = await prisma.registration.findMany({
       where: { normalizedWhatsApp: '+237670000099' },

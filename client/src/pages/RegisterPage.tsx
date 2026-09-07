@@ -1,32 +1,49 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
+import { usePublicSettings } from '../lib/usePublicSettings';
+
+type Pathway = 'TRAINING' | 'DISCOVER_GROW';
 
 export function RegisterPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const { supportWhatsappUrl } = usePublicSettings();
+  const whatsappInputRef = useRef<HTMLInputElement>(null);
+
+  const pathway: Pathway = params.get('pathway') === 'DISCOVER_GROW' ? 'DISCOVER_GROW' : 'TRAINING';
 
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [email, setEmail] = useState('');
   const [language, setLanguage] = useState<'en' | 'fr'>(i18n.language.startsWith('fr') ? 'fr' : 'en');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Section 20: duplicate-registration assistance only appears after an
+  // actual duplicate attempt — never shown pre-emptively.
+  const [duplicate, setDuplicate] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setDuplicate(false);
     setSubmitting(true);
     try {
-      const res = await api.post<{ registrationId: string; language: string }>('/api/registrations', {
-        name,
-        whatsapp,
-        language,
-      });
-      navigate(`/success?id=${encodeURIComponent(res.registrationId)}&lang=${res.language}`);
+      const res = await api.post<{ registrationId: string; language: string; pathway: Pathway; confirmationEmailSent: boolean }>(
+        '/api/registrations',
+        { name, whatsapp, language, pathway, email: email || undefined },
+      );
+      navigate(
+        `/success?id=${encodeURIComponent(res.registrationId)}&lang=${res.language}&pathway=${res.pathway}&emailSent=${res.confirmationEmailSent}`,
+      );
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.status === 409) {
+        setDuplicate(true);
+        setError(err.message);
+      } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
         setError(t('register.error_generic'));
@@ -36,10 +53,19 @@ export function RegisterPage() {
     }
   }
 
+  function tryDifferentNumber() {
+    setDuplicate(false);
+    setError(null);
+    setWhatsapp('');
+    whatsappInputRef.current?.focus();
+  }
+
+  const title = pathway === 'DISCOVER_GROW' ? t('register.title_discover') : t('register.title_training');
+
   return (
     <PageShell>
       <section className="mx-auto max-w-md px-4 py-12">
-        <h1 className="text-2xl font-bold text-brand-900">{t('register.title')}</h1>
+        <h1 className="text-2xl font-bold text-brand-900">{title}</h1>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
           <div>
@@ -65,6 +91,7 @@ export function RegisterPage() {
             <p className="mb-2 text-sm text-slate-500">{t('register.whatsapp_prompt')}</p>
             <input
               id="whatsapp"
+              ref={whatsappInputRef}
               className="input"
               placeholder={t('register.whatsapp_placeholder') ?? ''}
               value={whatsapp}
@@ -72,6 +99,21 @@ export function RegisterPage() {
               required
               inputMode="tel"
               autoComplete="tel"
+            />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="email">
+              {t('register.email_label')}
+            </label>
+            <input
+              id="email"
+              type="email"
+              className="input"
+              placeholder={t('register.email_placeholder') ?? ''}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
             />
           </div>
 
@@ -91,9 +133,26 @@ export function RegisterPage() {
           </div>
 
           {error && (
-            <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-              {error}
-            </p>
+            <div role="alert" className="space-y-3 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <p>{error}</p>
+              {duplicate && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button type="button" onClick={tryDifferentNumber} className="btn-secondary flex-1 text-xs">
+                    {t('register.duplicate_try_different')}
+                  </button>
+                  {supportWhatsappUrl && (
+                    <a
+                      href={supportWhatsappUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-primary flex-1 bg-green-600 text-center text-xs hover:bg-green-700"
+                    >
+                      {t('register.duplicate_contact_us')}
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           <button type="submit" className="btn-primary w-full" disabled={submitting}>

@@ -16,7 +16,7 @@ describe('Acceptance Test — WhatsApp redirect authorization', () => {
     const regRes = await agent
       .post('/api/registrations')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Auth Test', whatsapp: '+237670000040', language: 'en' });
+      .send({ name: 'Auth Test', whatsapp: '+237670000040', language: 'en', pathway: 'TRAINING' });
     const registrationId = regRes.body.registrationId;
 
     // Wrong visitor cookie: a completely different agent/session.

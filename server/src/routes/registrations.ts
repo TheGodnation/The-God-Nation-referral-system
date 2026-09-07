@@ -6,15 +6,27 @@ import { normalizeToE164 } from '../lib/phone';
 import { selectApplicableReferralVisit } from '../lib/attribution';
 import { registrationLimiter, whatsappRedirectLimiter } from '../lib/rateLimit';
 import { requireCsrf } from '../lib/csrf';
+import { EmailService } from '../lib/email';
 
 const router = Router();
 
-const DUPLICATE_MESSAGE = 'A registration with this WhatsApp number already exists.';
+// Section 20: shown by the client only after an actual duplicate attempt —
+// never pre-emptively. Never weakens the underlying DB uniqueness rule.
+const DUPLICATE_MESSAGE =
+  'This WhatsApp number may have already been used to register. If you entered the wrong number, please correct it and try again. If you have not yet been added to the WhatsApp group, please contact us so that we can assist you and add you manually.';
 
 const registrationSchema = z.object({
   name: z.string().trim().min(1).max(200),
   whatsapp: z.string().trim().min(1).max(32),
   language: z.enum(['en', 'fr']),
+  pathway: z.enum(['TRAINING', 'DISCOVER_GROW']),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(320)
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
 });
 
 // POST /api/registrations
@@ -23,7 +35,7 @@ router.post('/', registrationLimiter, requireCsrf, async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: 'Please check your name and WhatsApp number.' });
   }
-  const { name, whatsapp, language } = parsed.data;
+  const { name, whatsapp, language, pathway, email } = parsed.data;
   const visitorId = req.visitorId!;
 
   const normalizedWhatsApp = normalizeToE164(whatsapp);
@@ -47,7 +59,9 @@ router.post('/', registrationLimiter, requireCsrf, async (req, res) => {
           visitorId,
           normalizedWhatsApp,
           name,
+          email: email ?? null,
           language,
+          pathway,
           utmSource: selectedVisit?.utmSource ?? null,
           utmMedium: selectedVisit?.utmMedium ?? null,
           utmCampaign: selectedVisit?.utmCampaign ?? null,
@@ -78,9 +92,27 @@ router.post('/', registrationLimiter, requireCsrf, async (req, res) => {
       return created;
     });
 
+    // Section 36: optional confirmation email — fire after the registration
+    // has already committed. A delivery failure must never roll back the
+    // registration or be surfaced to the visitor as an error.
+    let confirmationEmailSent = false;
+    if (email) {
+      try {
+        const result = await EmailService.sendRegistrationConfirmation({ to: email, name, language });
+        confirmationEmailSent = result.ok;
+      } catch (emailErr) {
+        console.error('[registrations] confirmation email failed', {
+          registrationId: registration.id,
+          error: emailErr instanceof Error ? emailErr.message : String(emailErr),
+        });
+      }
+    }
+
     return res.status(201).json({
       registrationId: registration.id,
       language: registration.language,
+      pathway: registration.pathway,
+      confirmationEmailSent,
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -116,7 +148,18 @@ router.get('/:id/whatsapp', whatsappRedirectLimiter, async (req, res) => {
   }
 
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' } });
-  const url = registration.language === 'fr' ? settings?.whatsappUrlFr : settings?.whatsappUrlEn;
+
+  // Section 18/21: four server-controlled destinations, chosen strictly
+  // from Registration.pathway + Registration.language — never client input.
+  const isFr = registration.language === 'fr';
+  const url =
+    registration.pathway === 'DISCOVER_GROW'
+      ? isFr
+        ? settings?.whatsappUrlDiscoverFr
+        : settings?.whatsappUrlDiscoverEn
+      : isFr
+        ? settings?.whatsappUrlFr
+        : settings?.whatsappUrlEn;
 
   if (!url) {
     return res.status(500).send('WhatsApp destination is not configured yet. Please contact an administrator.');

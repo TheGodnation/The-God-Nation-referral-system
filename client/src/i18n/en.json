@@ -5,49 +5,55 @@
   },
   "home": {
     "hero_title": "BE EQUIPPED. BE TRANSFORMED. BE SENT.",
-    "hero_cta": "REGISTER IN LESS THAN 1 MINUTE",
-    "hero_support": "Complete your registration and you'll be directed straight to our official WhatsApp Training Community.",
-    "about_title": "About The God Nation",
-    "about_body": "The God Nation Media & Leadership Academy exists to leverage modern media to make the Gospel of the Kingdom accessible in every nation — developing and deploying leaders who multiply disciples through scalable digital systems.",
-    "training_title": "Training Community",
-    "training_body": "Join a dedicated WhatsApp Training Community where you'll grow in discipleship, receive guidance, and connect with leaders equipping you for Kingdom impact.",
-    "benefits_title": "Why Join",
-    "benefit_1": "Practical, Spirit-led leadership training",
-    "benefit_2": "A supportive community of believers",
-    "benefit_3": "Content delivered in English or French",
-    "benefit_4": "Free to join — built for everyone, everywhere",
+    "hero_tagline": "Discover Christ. Grow in the Word. Be Equipped to Reach Others.",
+    "hero_cta": "GET STARTED",
+    "hero_support": "Complete your registration and you'll be directed straight to our official WhatsApp Community.",
+    "training_heading": "BE EQUIPPED & SENT",
+    "training_supporting": "Kingdom Training • Leadership • Evangelism • Discipleship",
+    "training_description": "For those seeking deeper Kingdom training, wanting to be equipped to teach and reach others, growing in leadership and evangelism, or using modern media for disciple-making.",
+    "training_cta": "BEGIN YOUR TRAINING JOURNEY",
+    "discover_heading": "DISCOVER & GROW",
+    "discover_supporting": "Prayer • God's Word • Faith • Spiritual Growth",
+    "discover_description": "Whether you are seeking God, beginning your journey with Christ, looking for prayer, or simply wanting to understand God's Word and find biblical answers for your life, you are welcome here.",
+    "discover_cta": "JOIN OUR SPIRITUAL COMMUNITY",
+    "vision_title": "Our Vision",
+    "vision_body": "To leverage modern media to make the Gospel of the Kingdom accessible in every nation.",
     "how_title": "How It Works",
-    "how_1_title": "Register",
-    "how_1_body": "Share your name and WhatsApp number — it takes less than a minute.",
-    "how_2_title": "Get Connected",
-    "how_2_body": "You're instantly directed to the right WhatsApp Training Community for your language.",
-    "how_3_title": "Grow",
-    "how_3_body": "Learn, connect, and be equipped to make disciples in your own context.",
-    "final_cta_title": "Ready to be equipped?",
-    "final_cta_button": "REGISTER IN LESS THAN 1 MINUTE"
+    "how_1_title": "Choose Your Path",
+    "how_1_body": "Pick Training or Discover & Grow — whichever fits where you are right now.",
+    "how_2_title": "Register",
+    "how_2_body": "Share your name and WhatsApp number — it takes less than a minute.",
+    "how_3_title": "Get Connected",
+    "how_3_body": "You're directed straight to the right WhatsApp Community for your language.",
+    "connect_title": "CONNECT WITH US"
   },
   "join": {
-    "loading": "Preparing your invitation…",
-    "title": "You're invited",
-    "body": "You've been personally invited to join The God Nation Training Community.",
-    "cta": "REGISTER IN LESS THAN 1 MINUTE"
+    "loading": "Preparing your visit…"
   },
   "register": {
     "title": "Register",
+    "title_training": "Begin Your Training Journey",
+    "title_discover": "Join Our Spiritual Community",
     "name_label": "Full Name",
     "name_placeholder": "Your full name",
     "whatsapp_label": "WhatsApp Number",
     "whatsapp_prompt": "Please enter the WhatsApp number you will use to join the Training Community. This will help us identify and recognize your registration.",
     "whatsapp_placeholder": "e.g. +237 6XX XXX XXX",
+    "email_label": "Email (optional)",
+    "email_placeholder": "you@example.com",
     "language_label": "Preferred Language",
     "submit": "Complete Registration",
     "submitting": "Submitting…",
-    "error_generic": "Something went wrong. Please check your details and try again."
+    "error_generic": "Something went wrong. Please check your details and try again.",
+    "duplicate_try_different": "TRY A DIFFERENT NUMBER",
+    "duplicate_contact_us": "CONTACT US ON WHATSAPP"
   },
   "success": {
-    "title": "You're Registered!",
-    "body": "Thank you for registering. Tap below to join our official WhatsApp Training Community.",
-    "cta": "Join WhatsApp Training Community"
+    "title": "🎉 YOU ARE SUCCESSFULLY REGISTERED!",
+    "body_training": "Thank you for registering. Tap below to join our official Training WhatsApp Community.",
+    "body_discover": "Thank you for registering. Tap below to join our Spiritual Community on WhatsApp.",
+    "cta": "JOIN WHATSAPP COMMUNITY",
+    "email_sent": "A confirmation email has also been sent to you."
   },
   "login": {
     "title": "Leader & Admin Login",
@@ -55,7 +61,8 @@
     "password_label": "Password",
     "submit": "Sign In",
     "submitting": "Signing in…",
-    "error": "Invalid email or password."
+    "error": "Invalid email or password.",
+    "forgot_password": "Forgot password?"
   },
   "common": {
     "language_en": "English",

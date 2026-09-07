@@ -15,6 +15,7 @@ import referralRoutes from './routes/referrals';
 import registrationRoutes from './routes/registrations';
 import leaderRoutes from './routes/leader';
 import adminRoutes from './routes/admin';
+import publicSettingsRoutes from './routes/publicSettings';
 
 export function createApp() {
   const app = express();
@@ -41,6 +42,7 @@ export function createApp() {
   app.use('/api/registrations', registrationRoutes);
   app.use('/api/leader', leaderRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/settings', publicSettingsRoutes);
 
   // 404 for unmatched API routes
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found.' }));

@@ -3,7 +3,7 @@ import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
-type Tab = 'overview' | 'leaders' | 'registrations' | 'settings' | 'audit';
+type Tab = 'overview' | 'leaders' | 'registrations' | 'settings' | 'content' | 'audit';
 
 interface Overview {
   totalVisits: number;
@@ -82,7 +82,8 @@ function LeadersTab() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ email: string; temporaryPassword: string } | null>(null);
+  const [created, setCreated] = useState<{ email: string; invitationSent: boolean } | null>(null);
+  const [resendStatus, setResendStatus] = useState<Record<string, string>>({});
 
   function load() {
     api.get<{ items: LeaderRow[] }>('/api/admin/leaders?pageSize=100').then((res) => setItems(res.items));
@@ -94,7 +95,7 @@ function LeadersTab() {
     e.preventDefault();
     setError(null);
     try {
-      const res = await api.post<{ email: string; temporaryPassword: string }>('/api/admin/leaders', {
+      const res = await api.post<{ email: string; invitationSent: boolean }>('/api/admin/leaders', {
         name,
         email,
         referralCode: code,
@@ -115,6 +116,18 @@ function LeadersTab() {
     load();
   }
 
+  // Section 32: recovery when a Leader never received/lost/let expire
+  // their invitation. Never sets or reveals a password directly.
+  async function resendInvitation(leader: LeaderRow) {
+    setResendStatus((s) => ({ ...s, [leader.id]: 'Sending…' }));
+    try {
+      const res = await api.post<{ invitationSent: boolean }>(`/api/admin/leaders/${leader.id}/resend-invitation`);
+      setResendStatus((s) => ({ ...s, [leader.id]: res.invitationSent ? 'Invitation sent!' : 'Send failed.' }));
+    } catch {
+      setResendStatus((s) => ({ ...s, [leader.id]: 'Send failed.' }));
+    }
+  }
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -127,8 +140,9 @@ function LeadersTab() {
       {created && (
         <div className="card mb-4 border-green-200 bg-green-50">
           <p className="text-sm text-green-800">
-            Leader created. Temporary password for <strong>{created.email}</strong>:{' '}
-            <code className="rounded bg-white px-1.5 py-0.5">{created.temporaryPassword}</code>
+            Leader created. {created.invitationSent
+              ? <>An invitation email was sent to <strong>{created.email}</strong> with a secure setup link.</>
+              : <>Could not send the invitation email to <strong>{created.email}</strong> — use "Resend Invitation" below once email is configured.</>}
           </p>
         </div>
       )}
@@ -168,6 +182,7 @@ function LeadersTab() {
               <th className="py-2 pr-4">Status</th>
               <th className="py-2 pr-4">Test</th>
               <th className="py-2 pr-4"></th>
+              <th className="py-2 pr-4"></th>
             </tr>
           </thead>
           <tbody>
@@ -181,6 +196,11 @@ function LeadersTab() {
                 <td className="py-2 pr-4">
                   <button className="text-brand-700 hover:underline" onClick={() => toggleActive(l)}>
                     {l.active ? 'Deactivate' : 'Activate'}
+                  </button>
+                </td>
+                <td className="py-2 pr-4">
+                  <button className="text-brand-700 hover:underline" onClick={() => resendInvitation(l)}>
+                    {resendStatus[l.id] ?? 'Resend Invitation'}
                   </button>
                 </td>
               </tr>
@@ -259,25 +279,66 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
   );
 }
 
+interface SettingsData {
+  whatsappUrlEn: string | null;
+  whatsappUrlFr: string | null;
+  whatsappUrlDiscoverEn: string | null;
+  whatsappUrlDiscoverFr: string | null;
+  supportWhatsappUrl: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  tiktokUrl: string | null;
+  youtubeUrl: string | null;
+  content: Record<string, string>;
+}
+
+const EMPTY_SETTINGS: SettingsData = {
+  whatsappUrlEn: '',
+  whatsappUrlFr: '',
+  whatsappUrlDiscoverEn: '',
+  whatsappUrlDiscoverFr: '',
+  supportWhatsappUrl: '',
+  facebookUrl: '',
+  instagramUrl: '',
+  tiktokUrl: '',
+  youtubeUrl: '',
+  content: {},
+};
+
 function SettingsTab() {
-  const [en, setEn] = useState('');
-  const [fr, setFr] = useState('');
+  const [settings, setSettings] = useState<SettingsData>(EMPTY_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<{ whatsappUrlEn: string | null; whatsappUrlFr: string | null }>('/api/admin/settings').then((res) => {
-      setEn(res.whatsappUrlEn ?? '');
-      setFr(res.whatsappUrlFr ?? '');
-    });
+    api.get<SettingsData>('/api/admin/settings').then(setSettings);
   }, []);
+
+  function field(key: keyof Omit<SettingsData, 'content'>) {
+    return settings[key] ?? '';
+  }
+
+  function setField(key: keyof Omit<SettingsData, 'content'>, value: string) {
+    setSettings((s) => ({ ...s, [key]: value }));
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSaved(false);
     try {
-      await api.patch('/api/admin/settings', { whatsappUrlEn: en, whatsappUrlFr: fr });
+      const res = await api.patch<SettingsData>('/api/admin/settings', {
+        whatsappUrlEn: settings.whatsappUrlEn,
+        whatsappUrlFr: settings.whatsappUrlFr,
+        whatsappUrlDiscoverEn: settings.whatsappUrlDiscoverEn,
+        whatsappUrlDiscoverFr: settings.whatsappUrlDiscoverFr,
+        supportWhatsappUrl: settings.supportWhatsappUrl || undefined,
+        facebookUrl: settings.facebookUrl || undefined,
+        instagramUrl: settings.instagramUrl || undefined,
+        tiktokUrl: settings.tiktokUrl || undefined,
+        youtubeUrl: settings.youtubeUrl || undefined,
+      });
+      setSettings(res);
       setSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save settings.');
@@ -285,21 +346,147 @@ function SettingsTab() {
   }
 
   return (
-    <form onSubmit={save} className="card max-w-lg space-y-4">
-      <h2 className="font-semibold text-brand-900">WhatsApp Community Settings</h2>
-      <div>
-        <label className="label">English WhatsApp Community URL</label>
-        <input className="input" value={en} onChange={(e) => setEn(e.target.value)} required />
+    <form onSubmit={save} className="max-w-lg space-y-6">
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">Training WhatsApp Community</h2>
+        <div>
+          <label className="label">English URL</label>
+          <input className="input" value={field('whatsappUrlEn') ?? ''} onChange={(e) => setField('whatsappUrlEn', e.target.value)} required />
+        </div>
+        <div>
+          <label className="label">French URL</label>
+          <input className="input" value={field('whatsappUrlFr') ?? ''} onChange={(e) => setField('whatsappUrlFr', e.target.value)} required />
+        </div>
       </div>
-      <div>
-        <label className="label">French WhatsApp Community URL</label>
-        <input className="input" value={fr} onChange={(e) => setFr(e.target.value)} required />
+
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">Discover &amp; Grow WhatsApp Community</h2>
+        <div>
+          <label className="label">English URL</label>
+          <input
+            className="input"
+            value={field('whatsappUrlDiscoverEn') ?? ''}
+            onChange={(e) => setField('whatsappUrlDiscoverEn', e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="label">French URL</label>
+          <input
+            className="input"
+            value={field('whatsappUrlDiscoverFr') ?? ''}
+            onChange={(e) => setField('whatsappUrlDiscoverFr', e.target.value)}
+          />
+        </div>
       </div>
+
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">Support</h2>
+        <div>
+          <label className="label">Support WhatsApp URL</label>
+          <input
+            className="input"
+            value={field('supportWhatsappUrl') ?? ''}
+            onChange={(e) => setField('supportWhatsappUrl', e.target.value)}
+            placeholder="https://wa.me/2376..."
+          />
+        </div>
+      </div>
+
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">Social Media</h2>
+        {(['facebookUrl', 'instagramUrl', 'tiktokUrl', 'youtubeUrl'] as const).map((key) => (
+          <div key={key}>
+            <label className="label capitalize">{key.replace('Url', '')}</label>
+            <input className="input" value={field(key) ?? ''} onChange={(e) => setField(key, e.target.value)} />
+          </div>
+        ))}
+        <p className="text-xs text-slate-400">Leave a field blank to hide that social link on the homepage.</p>
+      </div>
+
       {error && <p className="text-sm text-red-700">{error}</p>}
       {saved && <p className="text-sm text-green-700">Settings saved.</p>}
       <button className="btn-primary" type="submit">
         Save Settings
       </button>
+    </form>
+  );
+}
+
+const CONTENT_FIELDS: { key: string; label: string; multiline?: boolean }[] = [
+  { key: 'homepageTitle', label: 'Homepage Main Title' },
+  { key: 'homepageSubtitle', label: 'Homepage Subtitle' },
+  { key: 'trainingTitle', label: 'Training Title' },
+  { key: 'trainingDescription', label: 'Training Description', multiline: true },
+  { key: 'trainingCta', label: 'Training CTA Button Text' },
+  { key: 'discoverTitle', label: 'Discover & Grow Title' },
+  { key: 'discoverDescription', label: 'Discover & Grow Description', multiline: true },
+  { key: 'discoverCta', label: 'Discover & Grow CTA Button Text' },
+  { key: 'trainingExplanation', label: 'Training Explanation', multiline: true },
+  { key: 'vision', label: 'Vision Statement', multiline: true },
+  { key: 'howItWorks', label: 'How It Works', multiline: true },
+  { key: 'footer', label: 'Footer Text', multiline: true },
+  { key: 'registrationPageText', label: 'Registration Page Text', multiline: true },
+  { key: 'successPageText', label: 'Success Page Text', multiline: true },
+  { key: 'contactInfo', label: 'Contact / Help Information', multiline: true },
+];
+
+// Section 22: deliberately simple — a flat set of named text fields, not a
+// full CMS. Blank fields fall back to the app's own built-in default copy.
+function ContentTab() {
+  const [content, setContent] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.get<{ content: Record<string, string> }>('/api/admin/settings').then((res) => setContent(res.content ?? {}));
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSaved(false);
+    setSaving(true);
+    try {
+      const res = await api.patch<{ content: Record<string, string> }>('/api/admin/settings', { content });
+      setContent(res.content);
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to save content.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="max-w-2xl space-y-4">
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">Website Content</h2>
+        <p className="text-xs text-slate-400">Leave any field blank to use the default built-in text.</p>
+        {CONTENT_FIELDS.map(({ key, label, multiline }) => (
+          <div key={key}>
+            <label className="label">{label}</label>
+            {multiline ? (
+              <textarea
+                className="input min-h-[80px]"
+                value={content[key] ?? ''}
+                onChange={(e) => setContent((c) => ({ ...c, [key]: e.target.value }))}
+              />
+            ) : (
+              <input
+                className="input"
+                value={content[key] ?? ''}
+                onChange={(e) => setContent((c) => ({ ...c, [key]: e.target.value }))}
+              />
+            )}
+          </div>
+        ))}
+        {error && <p className="text-sm text-red-700">{error}</p>}
+        {saved && <p className="text-sm text-green-700">Content saved.</p>}
+        <button className="btn-primary" type="submit" disabled={saving}>
+          {saving ? 'Saving…' : 'Save Content'}
+        </button>
+      </div>
     </form>
   );
 }
@@ -397,6 +584,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'settings'} onClick={() => setTab('settings')}>
               Settings
             </TabButton>
+            <TabButton active={tab === 'content'} onClick={() => setTab('content')}>
+              Website Content
+            </TabButton>
             <TabButton active={tab === 'audit'} onClick={() => setTab('audit')}>
               Audit Log
             </TabButton>
@@ -415,6 +605,7 @@ export function AdminDashboardPage() {
         {tab === 'leaders' && <LeadersTab />}
         {tab === 'registrations' && <RegistrationsTab includeTestData={includeTestData} />}
         {tab === 'settings' && <SettingsTab />}
+        {tab === 'content' && <ContentTab />}
         {tab === 'audit' && <AuditTab />}
       </section>
     </PageShell>

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { PageShell } from '../components/PageShell';
+import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
@@ -56,15 +58,19 @@ export function LoginPage() {
             <label className="label" htmlFor="password">
               {t('login.password_label')}
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
-              className="input"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={setPassword}
               required
               autoComplete="current-password"
             />
+          </div>
+
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-sm text-brand-700 hover:underline">
+              {t('login.forgot_password')}
+            </Link>
           </div>
 
           {error && (

@@ -23,6 +23,7 @@
     "express-rate-limit": "^7.4.0",
     "google-libphonenumber": "^3.2.38",
     "helmet": "^7.1.0",
+    "resend": "^4.0.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
