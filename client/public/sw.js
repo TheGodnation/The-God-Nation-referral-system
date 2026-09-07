@@ -11,7 +11,29 @@
 // - Bumping CACHE_VERSION on a future change invalidates old caches; old
 //   versions are removed on activate so this never accumulates indefinitely.
 
-const CACHE_VERSION = 'god-nation-v1';
+const CACHE_VERSION = 'god-nation-v2';
+
+// Shown only when: the network is genuinely unreachable AND nothing has
+// been cached yet (e.g. the very first launch from a freshly-added home
+// screen icon happens with no connectivity). Never leave respondWith()
+// resolving to undefined here — that produces a hard, blank failure to
+// open instead of a readable message.
+const OFFLINE_HTML = `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The God Nation</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0f2260; color: #fff;
+         display: flex; align-items: center; justify-content: center;
+         min-height: 100vh; margin: 0; padding: 24px; text-align: center; }
+  button { margin-top: 16px; padding: 10px 20px; border-radius: 8px; border: none;
+           background: #e0b027; color: #0f2260; font-weight: 600; font-size: 16px; }
+</style></head>
+<body>
+  <div>
+    <p>Could not reach The God Nation.<br>Check your connection and try again.</p>
+    <button onclick="location.reload()">Retry</button>
+  </div>
+</body></html>`;
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -46,17 +68,26 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       (async () => {
+        const cache = await caches.open(CACHE_VERSION);
         try {
           const response = await fetch(request);
-          const cache = await caches.open(CACHE_VERSION);
           cache.put(request, response.clone());
           return response;
         } catch {
-          const cache = await caches.open(CACHE_VERSION);
-          return (
+          // Network genuinely unreachable — fall back to whatever shell is
+          // cached; if nothing is cached yet (e.g. this is the very first
+          // launch and there's no connectivity), still return a real
+          // Response so the icon never just "does nothing" when tapped.
+          const cached =
             (await cache.match(request)) ||
             (await cache.match('/index.html')) ||
-            (await cache.match('/'))
+            (await cache.match('/'));
+          return (
+            cached ||
+            new Response(OFFLINE_HTML, {
+              status: 503,
+              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+            })
           );
         }
       })(),

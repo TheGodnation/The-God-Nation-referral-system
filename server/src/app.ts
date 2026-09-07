@@ -55,7 +55,24 @@ export function createApp() {
   if (isProd) {
     const clientDist = path.join(__dirname, '../../client/dist');
     if (fs.existsSync(clientDist)) {
-      app.use(express.static(clientDist));
+      app.use(
+        express.static(clientDist, {
+          setHeaders: (res, filePath) => {
+            // Set these explicitly rather than trusting MIME-sniffing —
+            // Chrome's PWA installability check and the service worker
+            // registration both depend on getting the right Content-Type.
+            if (filePath.endsWith('manifest.webmanifest')) {
+              res.setHeader('Content-Type', 'application/manifest+json');
+            } else if (filePath.endsWith('sw.js')) {
+              // Never let the service worker script itself be cached by the
+              // browser/CDN — a stale sw.js means updates (like this fix)
+              // never reach a device that already installed the app.
+              res.setHeader('Content-Type', 'text/javascript; charset=utf-8');
+              res.setHeader('Cache-Control', 'no-cache');
+            }
+          },
+        }),
+      );
       app.get('*', (req, res, next) => {
         if (req.path.startsWith('/api')) return next();
         res.sendFile(path.join(clientDist, 'index.html'));
