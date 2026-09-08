@@ -37,7 +37,7 @@
     "name_label": "Nom complet",
     "name_placeholder": "Votre nom complet",
     "whatsapp_label": "Numéro WhatsApp",
-    "whatsapp_prompt": "Please enter the WhatsApp number you will use to join the Training Community. This will help us identify and recognize your registration.",
+    "whatsapp_prompt": "Veuillez entrer le numéro WhatsApp que vous utiliserez pour rejoindre la Communauté de Formation. Cela nous aidera à identifier et reconnaître votre inscription.",
     "whatsapp_placeholder": "ex. +237 6XX XXX XXX",
     "email_label": "E-mail (facultatif)",
     "email_placeholder": "vous@example.com",
