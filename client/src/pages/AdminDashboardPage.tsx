@@ -231,8 +231,9 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
   const [items, setItems] = useState<RegistrationRow[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     api
       .get<{ items: RegistrationRow[]; pagination: { totalPages: number } }>(
         `/api/admin/registrations?page=${page}&pageSize=20&includeTestData=${includeTestData}`,
@@ -241,7 +242,25 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
         setItems(res.items);
         setTotalPages(res.pagination.totalPages);
       });
-  }, [page, includeTestData]);
+  }
+
+  useEffect(load, [page, includeTestData]);
+
+  // Freeing a WhatsApp number for re-registration requires actually
+  // deleting the row (normalizedWhatsApp is a hard unique constraint) —
+  // confirm first since this is permanent and cannot be undone.
+  async function deleteRegistration(r: RegistrationRow) {
+    if (!window.confirm(t('admin.registrations.delete_confirm', { name: r.name, whatsapp: r.whatsapp }))) {
+      return;
+    }
+    setError(null);
+    try {
+      await api.delete(`/api/admin/registrations/${r.id}`);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('admin.registrations.delete_failed'));
+    }
+  }
 
   return (
     <div className="card overflow-x-auto">
@@ -251,6 +270,7 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
           {t('admin.registrations.export_csv')}
         </a>
       </div>
+      {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
       <table className="w-full min-w-[700px] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-100 text-slate-400">
@@ -259,6 +279,7 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
             <th className="py-2 pr-4">{t('admin.registrations.table_language')}</th>
             <th className="py-2 pr-4">{t('admin.registrations.table_leader')}</th>
             <th className="py-2 pr-4">{t('admin.registrations.table_date')}</th>
+            <th className="py-2 pr-4"></th>
           </tr>
         </thead>
         <tbody>
@@ -269,6 +290,11 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
               <td className="py-2 pr-4 uppercase">{r.language}</td>
               <td className="py-2 pr-4">{r.leader?.name ?? '—'}</td>
               <td className="py-2 pr-4">{new Date(r.createdAt).toLocaleDateString()}</td>
+              <td className="py-2 pr-4">
+                <button className="text-red-700 hover:underline" onClick={() => deleteRegistration(r)}>
+                  {t('admin.registrations.delete')}
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

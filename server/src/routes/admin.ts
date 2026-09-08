@@ -409,6 +409,37 @@ router.get('/registrations', async (req, res) => {
   res.json(paginatedResult(items, total, page, pageSize));
 });
 
+// DELETE /registrations/:id — permanently removes a registration so its
+// WhatsApp number is free to register again. normalizedWhatsApp is a hard
+// unique constraint, so freeing it requires actually deleting the row, not
+// just marking it inactive. Cascades already handle this safely:
+// ReferralRelationship (onDelete: Cascade) goes with it; Event rows
+// (onDelete: SetNull) keep existing for historical visit/click counts,
+// just losing their link to this specific registration; ReferralVisit has
+// no foreign key to Registration at all, so referral-attribution history
+// is entirely unaffected.
+router.delete('/registrations/:id', adminSensitiveLimiter, requireCsrf, async (req, res) => {
+  const { id } = req.params;
+
+  const registration = await prisma.registration.findUnique({ where: { id } });
+  if (!registration) {
+    return res.status(404).json({ error: 'Registration not found.' });
+  }
+
+  await prisma.registration.delete({ where: { id } });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'REGISTRATION_DELETED',
+    targetType: 'Registration',
+    targetId: id,
+    metadata: { whatsapp: registration.normalizedWhatsApp, name: registration.name },
+  });
+
+  res.json({ ok: true });
+});
+
 router.get('/referrals', async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req);
   const q = listQuerySchema.parse(req.query);

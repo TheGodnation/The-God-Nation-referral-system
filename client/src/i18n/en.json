@@ -159,7 +159,10 @@
       "table_whatsapp": "WhatsApp",
       "table_language": "Language",
       "table_leader": "Leader",
-      "table_date": "Date"
+      "table_date": "Date",
+      "delete": "Delete",
+      "delete_confirm": "Delete this registration? {{name}} ({{whatsapp}}) will be permanently removed, and this WhatsApp number will become available for a new registration. This cannot be undone.",
+      "delete_failed": "Failed to delete registration."
     },
     "settings": {
       "training_heading": "Training WhatsApp Community",
