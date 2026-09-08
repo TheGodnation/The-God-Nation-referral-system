@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { usePublicSettings } from '../lib/usePublicSettings';
 
 // The WhatsApp redirect is a plain top-level navigation (not a fetch) to a
 // server-controlled endpoint. The browser sends the httpOnly visitor_id
@@ -9,13 +10,16 @@ import { PageShell } from '../components/PageShell';
 // only then issues a 302 to the configured community URL. See
 // server/src/routes/registrations.ts.
 export function SuccessPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { content } = usePublicSettings();
   const [params] = useSearchParams();
   const registrationId = params.get('id');
   const pathway = params.get('pathway');
   const emailSent = params.get('emailSent') === 'true';
 
   const body = pathway === 'DISCOVER_GROW' ? t('success.body_discover') : t('success.body_training');
+  const contentLang = i18n.language.startsWith('fr') ? 'Fr' : 'En';
+  const successPageText = content[`successPageText${contentLang}`] || undefined;
 
   return (
     <PageShell minimal>
@@ -23,6 +27,7 @@ export function SuccessPage() {
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl">✓</div>
         <h1 className="text-2xl font-bold text-brand-900">{t('success.title')}</h1>
         <p className="mt-3 text-slate-600">{body}</p>
+        {successPageText && <p className="mt-3 text-sm text-slate-500">{successPageText}</p>}
 
         {registrationId ? (
           <a

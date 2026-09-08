@@ -11,7 +11,9 @@ export function RegisterPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { supportWhatsappUrl } = usePublicSettings();
+  const { supportWhatsappUrl, content } = usePublicSettings();
+  const contentLang = i18n.language.startsWith('fr') ? 'Fr' : 'En';
+  const registrationPageText = content[`registrationPageText${contentLang}`] || undefined;
   const whatsappInputRef = useRef<HTMLInputElement>(null);
 
   const pathway: Pathway = params.get('pathway') === 'DISCOVER_GROW' ? 'DISCOVER_GROW' : 'TRAINING';
@@ -70,6 +72,7 @@ export function RegisterPage() {
     <PageShell>
       <section className="mx-auto max-w-md px-4 py-12">
         <h1 className="text-2xl font-bold text-brand-900">{title}</h1>
+        {registrationPageText && <p className="mt-2 text-sm text-slate-500">{registrationPageText}</p>}
 
         <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
           <div>

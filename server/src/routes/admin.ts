@@ -522,23 +522,42 @@ router.get('/export', async (req, res) => {
 // Known, simple, admin-editable website copy keys (section 22). Not a full
 // CMS — a flat set of named strings; anything missing falls back to the
 // client's own built-in default text.
-const CONTENT_KEYS = [
+//
+// Every piece of copy is bilingual: each base name below gets an "En" and
+// an "Fr" key (e.g. homepageTitleEn / homepageTitleFr), so an Admin edit in
+// one language can never silently override what the other language's
+// visitors see — the two are stored, and served, completely independently.
+const CONTENT_BASE_KEYS = [
   'homepageTitle',
   'homepageSubtitle',
+  'heroSupport',
+  'heroCta',
   'trainingTitle',
+  'trainingSupporting',
   'trainingDescription',
+  'trainingExplanation',
   'trainingCta',
   'discoverTitle',
+  'discoverSupporting',
   'discoverDescription',
   'discoverCta',
-  'trainingExplanation',
+  'visionTitle',
   'vision',
-  'howItWorks',
+  'howTitle',
+  'how1Title',
+  'how1Body',
+  'how2Title',
+  'how2Body',
+  'how3Title',
+  'how3Body',
+  'connectTitle',
   'footer',
+  'contactInfo',
   'registrationPageText',
   'successPageText',
-  'contactInfo',
 ] as const;
+
+const CONTENT_KEYS = CONTENT_BASE_KEYS.flatMap((k) => [`${k}En`, `${k}Fr`] as const);
 
 const contentSchema = z
   .object(Object.fromEntries(CONTENT_KEYS.map((k) => [k, z.string().max(5000).optional()])) as Record<

@@ -113,21 +113,23 @@ describe('Admin Settings — extended fields', () => {
       .send({
         whatsappUrlDiscoverEn: 'https://wa.example/discover-en',
         facebookUrl: 'https://facebook.com/thegodnation',
-        content: { homepageTitle: 'BE EQUIPPED & SENT' },
+        // Content is bilingual — every key is stored per-language (En/Fr)
+        // so one language's edit never overrides the other's.
+        content: { homepageTitleEn: 'BE EQUIPPED & SENT' },
       });
     expect(first.status).toBe(200);
     expect(first.body.whatsappUrlDiscoverEn).toBe('https://wa.example/discover-en');
     expect(first.body.facebookUrl).toBe('https://facebook.com/thegodnation');
-    expect(first.body.content.homepageTitle).toBe('BE EQUIPPED & SENT');
+    expect(first.body.content.homepageTitleEn).toBe('BE EQUIPPED & SENT');
 
     // A second, partial update must merge content rather than replace it.
     const second = await agent
       .patch('/api/admin/settings')
       .set('X-CSRF-Token', csrf)
-      .send({ content: { trainingTitle: 'BEGIN YOUR TRAINING JOURNEY' } });
+      .send({ content: { trainingTitleEn: 'BEGIN YOUR TRAINING JOURNEY' } });
     expect(second.status).toBe(200);
-    expect(second.body.content.homepageTitle).toBe('BE EQUIPPED & SENT'); // preserved
-    expect(second.body.content.trainingTitle).toBe('BEGIN YOUR TRAINING JOURNEY');
+    expect(second.body.content.homepageTitleEn).toBe('BE EQUIPPED & SENT'); // preserved
+    expect(second.body.content.trainingTitleEn).toBe('BEGIN YOUR TRAINING JOURNEY');
     expect(second.body.facebookUrl).toBe('https://facebook.com/thegodnation'); // untouched scalar preserved
   });
 

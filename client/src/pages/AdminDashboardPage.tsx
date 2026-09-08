@@ -470,26 +470,73 @@ function SettingsTab() {
 
 // Labels come from admin.content.fields.<key> (see i18n files) — this only
 // tracks which fields exist and which render as a textarea.
-const CONTENT_FIELDS: { key: string; multiline?: boolean }[] = [
-  { key: 'homepageTitle' },
-  { key: 'homepageSubtitle' },
-  { key: 'trainingTitle' },
-  { key: 'trainingDescription', multiline: true },
-  { key: 'trainingCta' },
-  { key: 'discoverTitle' },
-  { key: 'discoverDescription', multiline: true },
-  { key: 'discoverCta' },
-  { key: 'trainingExplanation', multiline: true },
-  { key: 'vision', multiline: true },
-  { key: 'howItWorks', multiline: true },
-  { key: 'footer', multiline: true },
-  { key: 'registrationPageText', multiline: true },
-  { key: 'successPageText', multiline: true },
-  { key: 'contactInfo', multiline: true },
+// Every field here is stored as a bilingual pair — key+"En" and key+"Fr" —
+// so an Admin edit in one language never silently overrides what the other
+// language's visitors see (see server/src/routes/admin.ts CONTENT_BASE_KEYS,
+// which this list must stay in sync with). Grouped by section purely for
+// readability; the section key itself isn't sent anywhere.
+const CONTENT_SECTIONS: { section: string; fields: { key: string; multiline?: boolean }[] }[] = [
+  {
+    section: 'hero',
+    fields: [
+      { key: 'homepageTitle' },
+      { key: 'homepageSubtitle' },
+      { key: 'heroSupport', multiline: true },
+      { key: 'heroCta' },
+    ],
+  },
+  {
+    section: 'training',
+    fields: [
+      { key: 'trainingTitle' },
+      { key: 'trainingSupporting' },
+      { key: 'trainingDescription', multiline: true },
+      { key: 'trainingExplanation', multiline: true },
+      { key: 'trainingCta' },
+    ],
+  },
+  {
+    section: 'discover',
+    fields: [
+      { key: 'discoverTitle' },
+      { key: 'discoverSupporting' },
+      { key: 'discoverDescription', multiline: true },
+      { key: 'discoverCta' },
+    ],
+  },
+  {
+    section: 'vision',
+    fields: [{ key: 'visionTitle' }, { key: 'vision', multiline: true }],
+  },
+  {
+    section: 'howItWorks',
+    fields: [
+      { key: 'howTitle' },
+      { key: 'how1Title' },
+      { key: 'how1Body', multiline: true },
+      { key: 'how2Title' },
+      { key: 'how2Body', multiline: true },
+      { key: 'how3Title' },
+      { key: 'how3Body', multiline: true },
+    ],
+  },
+  {
+    section: 'footer',
+    fields: [{ key: 'connectTitle' }, { key: 'footer' }, { key: 'contactInfo', multiline: true }],
+  },
+  {
+    section: 'registration',
+    fields: [{ key: 'registrationPageText', multiline: true }],
+  },
+  {
+    section: 'success',
+    fields: [{ key: 'successPageText', multiline: true }],
+  },
 ];
 
-// Section 22: deliberately simple — a flat set of named text fields, not a
-// full CMS. Blank fields fall back to the app's own built-in default copy.
+// Section 22: deliberately simple — a flat set of named bilingual text
+// fields, not a full CMS. Blank fields fall back to the app's own built-in
+// (fully translated) default copy for that language.
 function ContentTab() {
   const { t } = useTranslation();
   const [content, setContent] = useState<Record<string, string>>({});
@@ -517,29 +564,44 @@ function ContentTab() {
     }
   }
 
+  function field(storageKey: string, multiline: boolean | undefined) {
+    const value = content[storageKey] ?? '';
+    const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setContent((c) => ({ ...c, [storageKey]: e.target.value }));
+    return multiline ? (
+      <textarea className="input min-h-[70px]" value={value} onChange={onChange} />
+    ) : (
+      <input className="input" value={value} onChange={onChange} />
+    );
+  }
+
   return (
-    <form onSubmit={save} className="max-w-2xl space-y-4">
-      <div className="card space-y-4">
+    <form onSubmit={save} className="max-w-3xl space-y-4">
+      <div className="card space-y-2">
         <h2 className="font-semibold text-brand-900">{t('admin.content.title')}</h2>
         <p className="text-xs text-slate-400">{t('admin.content.hint')}</p>
-        {CONTENT_FIELDS.map(({ key, multiline }) => (
-          <div key={key}>
-            <label className="label">{t(`admin.content.fields.${key}`)}</label>
-            {multiline ? (
-              <textarea
-                className="input min-h-[80px]"
-                value={content[key] ?? ''}
-                onChange={(e) => setContent((c) => ({ ...c, [key]: e.target.value }))}
-              />
-            ) : (
-              <input
-                className="input"
-                value={content[key] ?? ''}
-                onChange={(e) => setContent((c) => ({ ...c, [key]: e.target.value }))}
-              />
-            )}
-          </div>
-        ))}
+      </div>
+      {CONTENT_SECTIONS.map(({ section, fields }) => (
+        <div key={section} className="card space-y-4">
+          <h3 className="font-semibold text-brand-900">{t(`admin.content.sections.${section}`)}</h3>
+          {fields.map(({ key, multiline }) => (
+            <div key={key}>
+              <label className="label">{t(`admin.content.fields.${key}`)}</label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <span className="mb-1 block text-xs text-slate-400">{t('common.language_en')}</span>
+                  {field(`${key}En`, multiline)}
+                </div>
+                <div>
+                  <span className="mb-1 block text-xs text-slate-400">{t('common.language_fr')}</span>
+                  {field(`${key}Fr`, multiline)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+      <div className="card space-y-3">
         {error && <p className="text-sm text-red-700">{error}</p>}
         {saved && <p className="text-sm text-green-700">{t('admin.content.saved')}</p>}
         <button className="btn-primary" type="submit" disabled={saving}>

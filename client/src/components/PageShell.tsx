@@ -2,9 +2,14 @@ import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { usePublicSettings } from '../lib/usePublicSettings';
 
 export function PageShell({ children, minimal = false }: { children: ReactNode; minimal?: boolean }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { content } = usePublicSettings();
+  const lang = i18n.language.startsWith('fr') ? 'Fr' : 'En';
+  const c = (key: string): string | undefined => content[`${key}${lang}`] || undefined;
+
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <header className="sticky top-0 z-10 border-b border-slate-100 bg-white/90 backdrop-blur">
@@ -24,7 +29,8 @@ export function PageShell({ children, minimal = false }: { children: ReactNode; 
       </header>
       <main className="flex-1">{children}</main>
       <footer className="border-t border-slate-100 px-4 py-6 text-center text-xs text-slate-400">
-        The God Nation Media & Leadership Academy
+        <p>{c('footer') || 'The God Nation Media & Leadership Academy'}</p>
+        {c('contactInfo') && <p className="mt-1">{c('contactInfo')}</p>}
       </footer>
     </div>
   );
