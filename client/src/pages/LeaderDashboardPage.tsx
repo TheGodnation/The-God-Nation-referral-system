@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
@@ -32,6 +33,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 // uses the Leader's own referral link only — never a client-suppliable
 // Leader ID or code, and the server derives the link from the session.
 function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
+  const { t } = useTranslation();
   const [inviteEmail, setInviteEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
@@ -39,14 +41,14 @@ function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
   if (!links) return null;
   const primaryLink = links.en;
 
-  const whatsappMessage = `You're Invited to The God Nation\nDiscover God's Word, grow in faith, and learn more about our Kingdom community.\nGet started here: ${primaryLink}`;
+  const whatsappMessage = t('leader.invite_message', { link: primaryLink });
   const whatsappShareUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
   const messengerShareUrl = `https://www.facebook.com/dialog/send?link=${encodeURIComponent(primaryLink)}&app_id=0&redirect_uri=${encodeURIComponent(primaryLink)}`;
 
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(primaryLink);
-      setEmailStatus('Link copied!');
+      setEmailStatus(t('leader.invite_link_copied'));
       setTimeout(() => setEmailStatus(null), 1500);
     } catch {
       // no-op
@@ -69,10 +71,10 @@ function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
     setSending(true);
     try {
       const res = await api.post<{ sent: boolean }>('/api/leader/invite', { email: inviteEmail });
-      setEmailStatus(res.sent ? 'Invitation sent!' : 'Could not send the invitation email. Please try again.');
+      setEmailStatus(res.sent ? t('leader.invite_sent') : t('leader.invite_failed'));
       if (res.sent) setInviteEmail('');
     } catch (err) {
-      setEmailStatus(err instanceof ApiError ? err.message : 'Something went wrong.');
+      setEmailStatus(err instanceof ApiError ? err.message : t('leader.invite_error_generic'));
     } finally {
       setSending(false);
     }
@@ -80,20 +82,20 @@ function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
 
   return (
     <div className="card mt-6">
-      <h2 className="mb-3 font-semibold text-brand-900">Invite People</h2>
+      <h2 className="mb-3 font-semibold text-brand-900">{t('leader.invite_title')}</h2>
       <div className="flex flex-wrap gap-3">
         <a href={whatsappShareUrl} target="_blank" rel="noreferrer" className="btn-primary bg-green-600 hover:bg-green-700">
-          Share on WhatsApp
+          {t('leader.share_whatsapp')}
         </a>
         <a href={messengerShareUrl} target="_blank" rel="noreferrer" className="btn-secondary">
-          Share on Messenger
+          {t('leader.share_messenger')}
         </a>
         <button type="button" onClick={copyLink} className="btn-secondary">
-          Copy Referral Link
+          {t('leader.copy_referral_link')}
         </button>
         {typeof navigator !== 'undefined' && 'share' in navigator && (
           <button type="button" onClick={webShare} className="btn-secondary">
-            Share…
+            {t('leader.share_generic')}
           </button>
         )}
       </div>
@@ -102,13 +104,13 @@ function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
         <input
           type="email"
           className="input flex-1"
-          placeholder="friend@example.com"
+          placeholder={t('leader.email_placeholder') ?? ''}
           value={inviteEmail}
           onChange={(e) => setInviteEmail(e.target.value)}
           required
         />
         <button type="submit" className="btn-primary sm:w-40" disabled={sending}>
-          {sending ? 'Sending…' : 'Send by Email'}
+          {sending ? t('leader.sending') : t('leader.send_by_email')}
         </button>
       </form>
       {emailStatus && <p className="mt-2 text-sm text-slate-600">{emailStatus}</p>}
@@ -117,6 +119,7 @@ function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
 }
 
 export function LeaderDashboardPage() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [links, setLinks] = useState<{ en: string; fr: string } | null>(null);
@@ -162,24 +165,24 @@ export function LeaderDashboardPage() {
       <section className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-brand-900">Leader Dashboard</h1>
+            <h1 className="text-2xl font-bold text-brand-900">{t('leader.dashboard_title')}</h1>
             <p className="text-sm text-slate-500">{user?.name}</p>
           </div>
           <button onClick={() => logout()} className="btn-secondary">
-            Log out
+            {t('leader.logout')}
           </button>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          <StatCard label="Referral Code" value={referralCode ?? '—'} />
-          <StatCard label="Total Visits" value={stats?.totalVisits ?? '—'} />
-          <StatCard label="Registrations" value={stats?.registrations ?? '—'} />
-          <StatCard label="WhatsApp Clicks" value={stats?.whatsappClicks ?? '—'} />
-          <StatCard label="Conversion" value={stats ? `${stats.conversionRate}%` : '—'} />
+          <StatCard label={t('leader.stat_referral_code')} value={referralCode ?? '—'} />
+          <StatCard label={t('leader.stat_total_visits')} value={stats?.totalVisits ?? '—'} />
+          <StatCard label={t('leader.stat_registrations')} value={stats?.registrations ?? '—'} />
+          <StatCard label={t('leader.stat_whatsapp_clicks')} value={stats?.whatsappClicks ?? '—'} />
+          <StatCard label={t('leader.stat_conversion')} value={stats ? `${stats.conversionRate}%` : '—'} />
         </div>
 
         <div className="card mt-6">
-          <h2 className="mb-3 font-semibold text-brand-900">Your Referral Links</h2>
+          <h2 className="mb-3 font-semibold text-brand-900">{t('leader.links_title')}</h2>
           {links ? (
             <div className="space-y-3">
               {(['en', 'fr'] as const).map((lang) => (
@@ -187,28 +190,28 @@ export function LeaderDashboardPage() {
                   <span className="w-10 text-sm font-medium uppercase text-slate-500">{lang}</span>
                   <input readOnly value={links[lang]} className="input flex-1 bg-slate-50 text-sm" />
                   <button className="btn-secondary sm:w-32" onClick={() => copy(links[lang], lang)}>
-                    {copied === lang ? 'Copied!' : 'Copy'}
+                    {copied === lang ? t('leader.copied') : t('leader.copy')}
                   </button>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400">No active referral code assigned yet.</p>
+            <p className="text-sm text-slate-400">{t('leader.no_referral_code')}</p>
           )}
         </div>
 
         <InvitePeople links={links} />
 
         <div className="card mt-6 overflow-x-auto">
-          <h2 className="mb-3 font-semibold text-brand-900">Your Referrals</h2>
+          <h2 className="mb-3 font-semibold text-brand-900">{t('leader.referrals_title')}</h2>
           <table className="w-full min-w-[500px] text-left text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-slate-400">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">WhatsApp</th>
-                <th className="py-2 pr-4">Language</th>
-                <th className="py-2 pr-4">Registered</th>
-                <th className="py-2 pr-4">Status</th>
+                <th className="py-2 pr-4">{t('leader.table_name')}</th>
+                <th className="py-2 pr-4">{t('leader.table_whatsapp')}</th>
+                <th className="py-2 pr-4">{t('leader.table_language')}</th>
+                <th className="py-2 pr-4">{t('leader.table_registered')}</th>
+                <th className="py-2 pr-4">{t('leader.table_status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -224,7 +227,7 @@ export function LeaderDashboardPage() {
               {items.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-slate-400">
-                    No referrals yet.
+                    {t('leader.no_referrals')}
                   </td>
                 </tr>
               )}
@@ -238,17 +241,15 @@ export function LeaderDashboardPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
               >
-                Prev
+                {t('leader.prev')}
               </button>
-              <span>
-                Page {page} / {totalPages}
-              </span>
+              <span>{t('leader.page_of', { page, total: totalPages })}</span>
               <button
                 className="btn-secondary px-3 py-1.5"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Next
+                {t('leader.next')}
               </button>
             </div>
           )}
