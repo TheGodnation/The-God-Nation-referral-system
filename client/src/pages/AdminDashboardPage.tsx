@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
@@ -48,23 +49,24 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 }
 
 function OverviewTab({ includeTestData }: { includeTestData: boolean }) {
+  const { t } = useTranslation();
   const [data, setData] = useState<Overview | null>(null);
 
   useEffect(() => {
     api.get<Overview>(`/api/admin/dashboard?includeTestData=${includeTestData}`).then(setData);
   }, [includeTestData]);
 
-  if (!data) return <p className="text-slate-400">Loading…</p>;
+  if (!data) return <p className="text-slate-400">{t('admin.loading')}</p>;
 
   return (
     <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
       {[
-        ['Total Visits', data.totalVisits],
-        ['Unique Visitors', data.uniqueVisitors],
-        ['Registrations', data.registrations],
-        ['WhatsApp Clicks', data.whatsappClicks],
-        ['Active Leaders', data.activeLeaders],
-        ['Conversion', `${data.conversionRate}%`],
+        [t('admin.overview.total_visits'), data.totalVisits],
+        [t('admin.overview.unique_visitors'), data.uniqueVisitors],
+        [t('admin.overview.registrations'), data.registrations],
+        [t('admin.overview.whatsapp_clicks'), data.whatsappClicks],
+        [t('admin.overview.active_leaders'), data.activeLeaders],
+        [t('admin.overview.conversion'), `${data.conversionRate}%`],
       ].map(([label, value]) => (
         <div key={label as string} className="card">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
@@ -76,6 +78,7 @@ function OverviewTab({ includeTestData }: { includeTestData: boolean }) {
 }
 
 function LeadersTab() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<LeaderRow[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -107,7 +110,7 @@ function LeadersTab() {
       setShowForm(false);
       load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create leader.');
+      setError(err instanceof ApiError ? err.message : t('admin.leaders.create_failed'));
     }
   }
 
@@ -119,55 +122,64 @@ function LeadersTab() {
   // Section 32: recovery when a Leader never received/lost/let expire
   // their invitation. Never sets or reveals a password directly.
   async function resendInvitation(leader: LeaderRow) {
-    setResendStatus((s) => ({ ...s, [leader.id]: 'Sending…' }));
+    setResendStatus((s) => ({ ...s, [leader.id]: t('admin.leaders.resend_sending') }));
     try {
       const res = await api.post<{ invitationSent: boolean }>(`/api/admin/leaders/${leader.id}/resend-invitation`);
-      setResendStatus((s) => ({ ...s, [leader.id]: res.invitationSent ? 'Invitation sent!' : 'Send failed.' }));
+      setResendStatus((s) => ({
+        ...s,
+        [leader.id]: res.invitationSent ? t('admin.leaders.resend_sent') : t('admin.leaders.resend_failed'),
+      }));
     } catch {
-      setResendStatus((s) => ({ ...s, [leader.id]: 'Send failed.' }));
+      setResendStatus((s) => ({ ...s, [leader.id]: t('admin.leaders.resend_failed') }));
     }
   }
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-semibold text-brand-900">Leaders</h2>
+        <h2 className="font-semibold text-brand-900">{t('admin.leaders.title')}</h2>
         <button className="btn-primary px-4 py-2" onClick={() => setShowForm((v) => !v)}>
-          + New Leader
+          {t('admin.leaders.new_leader')}
         </button>
       </div>
 
       {created && (
         <div className="card mb-4 border-green-200 bg-green-50">
           <p className="text-sm text-green-800">
-            Leader created. {created.invitationSent
-              ? <>An invitation email was sent to <strong>{created.email}</strong> with a secure setup link.</>
-              : <>Could not send the invitation email to <strong>{created.email}</strong> — use "Resend Invitation" below once email is configured.</>}
+            {created.invitationSent
+              ? t('admin.leaders.created_with_email', { email: created.email })
+              : t('admin.leaders.created_email_failed', { email: created.email })}
           </p>
         </div>
       )}
 
       {showForm && (
         <form onSubmit={createLeader} className="card mb-4 space-y-3">
-          <input className="input" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <input
+            className="input"
+            placeholder={t('admin.leaders.name_placeholder') ?? ''}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
           <input
             className="input"
             type="email"
-            placeholder="Email"
+            placeholder={t('admin.leaders.email_placeholder') ?? ''}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
           <input
             className="input"
-            placeholder="Referral code (e.g. MARY7X2)"
+            placeholder={t('admin.leaders.code_placeholder') ?? ''}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             required
           />
           {error && <p className="text-sm text-red-700">{error}</p>}
           <button className="btn-primary" type="submit">
-            Create Leader
+            {t('admin.leaders.create_leader')}
           </button>
         </form>
       )}
@@ -176,11 +188,11 @@ function LeadersTab() {
         <table className="w-full min-w-[600px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400">
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">Email</th>
-              <th className="py-2 pr-4">Code</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Test</th>
+              <th className="py-2 pr-4">{t('admin.leaders.table_name')}</th>
+              <th className="py-2 pr-4">{t('admin.leaders.table_email')}</th>
+              <th className="py-2 pr-4">{t('admin.leaders.table_code')}</th>
+              <th className="py-2 pr-4">{t('admin.leaders.table_status')}</th>
+              <th className="py-2 pr-4">{t('admin.leaders.table_test')}</th>
               <th className="py-2 pr-4"></th>
               <th className="py-2 pr-4"></th>
             </tr>
@@ -191,16 +203,18 @@ function LeadersTab() {
                 <td className="py-2 pr-4">{l.name}</td>
                 <td className="py-2 pr-4">{l.email}</td>
                 <td className="py-2 pr-4">{l.referralCode ?? '—'}</td>
-                <td className="py-2 pr-4">{l.active ? 'Active' : 'Inactive'}</td>
-                <td className="py-2 pr-4">{l.isTestData ? 'Yes' : 'No'}</td>
+                <td className="py-2 pr-4">
+                  {l.active ? t('admin.leaders.status_active') : t('admin.leaders.status_inactive')}
+                </td>
+                <td className="py-2 pr-4">{l.isTestData ? t('admin.leaders.yes') : t('admin.leaders.no')}</td>
                 <td className="py-2 pr-4">
                   <button className="text-brand-700 hover:underline" onClick={() => toggleActive(l)}>
-                    {l.active ? 'Deactivate' : 'Activate'}
+                    {l.active ? t('admin.leaders.deactivate') : t('admin.leaders.activate')}
                   </button>
                 </td>
                 <td className="py-2 pr-4">
                   <button className="text-brand-700 hover:underline" onClick={() => resendInvitation(l)}>
-                    {resendStatus[l.id] ?? 'Resend Invitation'}
+                    {resendStatus[l.id] ?? t('admin.leaders.resend_invitation')}
                   </button>
                 </td>
               </tr>
@@ -213,6 +227,7 @@ function LeadersTab() {
 }
 
 function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState<RegistrationRow[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -231,19 +246,19 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
   return (
     <div className="card overflow-x-auto">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-semibold text-brand-900">Registrations</h2>
+        <h2 className="font-semibold text-brand-900">{t('admin.registrations.title')}</h2>
         <a className="text-sm text-brand-700 hover:underline" href="/api/admin/export">
-          Export CSV
+          {t('admin.registrations.export_csv')}
         </a>
       </div>
       <table className="w-full min-w-[700px] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-100 text-slate-400">
-            <th className="py-2 pr-4">Name</th>
-            <th className="py-2 pr-4">WhatsApp</th>
-            <th className="py-2 pr-4">Language</th>
-            <th className="py-2 pr-4">Leader</th>
-            <th className="py-2 pr-4">Date</th>
+            <th className="py-2 pr-4">{t('admin.registrations.table_name')}</th>
+            <th className="py-2 pr-4">{t('admin.registrations.table_whatsapp')}</th>
+            <th className="py-2 pr-4">{t('admin.registrations.table_language')}</th>
+            <th className="py-2 pr-4">{t('admin.registrations.table_leader')}</th>
+            <th className="py-2 pr-4">{t('admin.registrations.table_date')}</th>
           </tr>
         </thead>
         <tbody>
@@ -261,17 +276,15 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-3 text-sm">
           <button className="btn-secondary px-3 py-1.5" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Prev
+            {t('admin.prev')}
           </button>
-          <span>
-            Page {page} / {totalPages}
-          </span>
+          <span>{t('admin.page_of', { page, total: totalPages })}</span>
           <button
             className="btn-secondary px-3 py-1.5"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            Next
+            {t('admin.next')}
           </button>
         </div>
       )}
@@ -306,6 +319,7 @@ const EMPTY_SETTINGS: SettingsData = {
 };
 
 function SettingsTab() {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<SettingsData>(EMPTY_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -341,28 +355,28 @@ function SettingsTab() {
       setSettings(res);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save settings.');
+      setError(err instanceof ApiError ? err.message : t('admin.settings.save_failed'));
     }
   }
 
   return (
     <form onSubmit={save} className="max-w-lg space-y-6">
       <div className="card space-y-4">
-        <h2 className="font-semibold text-brand-900">Training WhatsApp Community</h2>
+        <h2 className="font-semibold text-brand-900">{t('admin.settings.training_heading')}</h2>
         <div>
-          <label className="label">English URL</label>
+          <label className="label">{t('admin.settings.english_url')}</label>
           <input className="input" value={field('whatsappUrlEn') ?? ''} onChange={(e) => setField('whatsappUrlEn', e.target.value)} required />
         </div>
         <div>
-          <label className="label">French URL</label>
+          <label className="label">{t('admin.settings.french_url')}</label>
           <input className="input" value={field('whatsappUrlFr') ?? ''} onChange={(e) => setField('whatsappUrlFr', e.target.value)} required />
         </div>
       </div>
 
       <div className="card space-y-4">
-        <h2 className="font-semibold text-brand-900">Discover &amp; Grow WhatsApp Community</h2>
+        <h2 className="font-semibold text-brand-900">{t('admin.settings.discover_heading')}</h2>
         <div>
-          <label className="label">English URL</label>
+          <label className="label">{t('admin.settings.english_url')}</label>
           <input
             className="input"
             value={field('whatsappUrlDiscoverEn') ?? ''}
@@ -370,7 +384,7 @@ function SettingsTab() {
           />
         </div>
         <div>
-          <label className="label">French URL</label>
+          <label className="label">{t('admin.settings.french_url')}</label>
           <input
             className="input"
             value={field('whatsappUrlDiscoverFr') ?? ''}
@@ -380,9 +394,9 @@ function SettingsTab() {
       </div>
 
       <div className="card space-y-4">
-        <h2 className="font-semibold text-brand-900">Support</h2>
+        <h2 className="font-semibold text-brand-900">{t('admin.settings.support_heading')}</h2>
         <div>
-          <label className="label">Support WhatsApp URL</label>
+          <label className="label">{t('admin.settings.support_whatsapp_url')}</label>
           <input
             className="input"
             value={field('supportWhatsappUrl') ?? ''}
@@ -393,46 +407,49 @@ function SettingsTab() {
       </div>
 
       <div className="card space-y-4">
-        <h2 className="font-semibold text-brand-900">Social Media</h2>
+        <h2 className="font-semibold text-brand-900">{t('admin.settings.social_heading')}</h2>
         {(['facebookUrl', 'instagramUrl', 'tiktokUrl', 'youtubeUrl'] as const).map((key) => (
           <div key={key}>
             <label className="label capitalize">{key.replace('Url', '')}</label>
             <input className="input" value={field(key) ?? ''} onChange={(e) => setField(key, e.target.value)} />
           </div>
         ))}
-        <p className="text-xs text-slate-400">Leave a field blank to hide that social link on the homepage.</p>
+        <p className="text-xs text-slate-400">{t('admin.settings.social_hint')}</p>
       </div>
 
       {error && <p className="text-sm text-red-700">{error}</p>}
-      {saved && <p className="text-sm text-green-700">Settings saved.</p>}
+      {saved && <p className="text-sm text-green-700">{t('admin.settings.saved')}</p>}
       <button className="btn-primary" type="submit">
-        Save Settings
+        {t('admin.settings.save')}
       </button>
     </form>
   );
 }
 
-const CONTENT_FIELDS: { key: string; label: string; multiline?: boolean }[] = [
-  { key: 'homepageTitle', label: 'Homepage Main Title' },
-  { key: 'homepageSubtitle', label: 'Homepage Subtitle' },
-  { key: 'trainingTitle', label: 'Training Title' },
-  { key: 'trainingDescription', label: 'Training Description', multiline: true },
-  { key: 'trainingCta', label: 'Training CTA Button Text' },
-  { key: 'discoverTitle', label: 'Discover & Grow Title' },
-  { key: 'discoverDescription', label: 'Discover & Grow Description', multiline: true },
-  { key: 'discoverCta', label: 'Discover & Grow CTA Button Text' },
-  { key: 'trainingExplanation', label: 'Training Explanation', multiline: true },
-  { key: 'vision', label: 'Vision Statement', multiline: true },
-  { key: 'howItWorks', label: 'How It Works', multiline: true },
-  { key: 'footer', label: 'Footer Text', multiline: true },
-  { key: 'registrationPageText', label: 'Registration Page Text', multiline: true },
-  { key: 'successPageText', label: 'Success Page Text', multiline: true },
-  { key: 'contactInfo', label: 'Contact / Help Information', multiline: true },
+// Labels come from admin.content.fields.<key> (see i18n files) — this only
+// tracks which fields exist and which render as a textarea.
+const CONTENT_FIELDS: { key: string; multiline?: boolean }[] = [
+  { key: 'homepageTitle' },
+  { key: 'homepageSubtitle' },
+  { key: 'trainingTitle' },
+  { key: 'trainingDescription', multiline: true },
+  { key: 'trainingCta' },
+  { key: 'discoverTitle' },
+  { key: 'discoverDescription', multiline: true },
+  { key: 'discoverCta' },
+  { key: 'trainingExplanation', multiline: true },
+  { key: 'vision', multiline: true },
+  { key: 'howItWorks', multiline: true },
+  { key: 'footer', multiline: true },
+  { key: 'registrationPageText', multiline: true },
+  { key: 'successPageText', multiline: true },
+  { key: 'contactInfo', multiline: true },
 ];
 
 // Section 22: deliberately simple — a flat set of named text fields, not a
 // full CMS. Blank fields fall back to the app's own built-in default copy.
 function ContentTab() {
+  const { t } = useTranslation();
   const [content, setContent] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -452,7 +469,7 @@ function ContentTab() {
       setContent(res.content);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to save content.');
+      setError(err instanceof ApiError ? err.message : t('admin.content.save_failed'));
     } finally {
       setSaving(false);
     }
@@ -461,11 +478,11 @@ function ContentTab() {
   return (
     <form onSubmit={save} className="max-w-2xl space-y-4">
       <div className="card space-y-4">
-        <h2 className="font-semibold text-brand-900">Website Content</h2>
-        <p className="text-xs text-slate-400">Leave any field blank to use the default built-in text.</p>
-        {CONTENT_FIELDS.map(({ key, label, multiline }) => (
+        <h2 className="font-semibold text-brand-900">{t('admin.content.title')}</h2>
+        <p className="text-xs text-slate-400">{t('admin.content.hint')}</p>
+        {CONTENT_FIELDS.map(({ key, multiline }) => (
           <div key={key}>
-            <label className="label">{label}</label>
+            <label className="label">{t(`admin.content.fields.${key}`)}</label>
             {multiline ? (
               <textarea
                 className="input min-h-[80px]"
@@ -482,9 +499,9 @@ function ContentTab() {
           </div>
         ))}
         {error && <p className="text-sm text-red-700">{error}</p>}
-        {saved && <p className="text-sm text-green-700">Content saved.</p>}
+        {saved && <p className="text-sm text-green-700">{t('admin.content.saved')}</p>}
         <button className="btn-primary" type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save Content'}
+          {saving ? t('admin.content.saving') : t('admin.content.save')}
         </button>
       </div>
     </form>
@@ -492,6 +509,7 @@ function ContentTab() {
 }
 
 function AuditTab() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<any[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -507,14 +525,14 @@ function AuditTab() {
 
   return (
     <div className="card overflow-x-auto">
-      <h2 className="mb-3 font-semibold text-brand-900">Audit Log</h2>
+      <h2 className="mb-3 font-semibold text-brand-900">{t('admin.audit.title')}</h2>
       <table className="w-full min-w-[600px] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-100 text-slate-400">
-            <th className="py-2 pr-4">Action</th>
-            <th className="py-2 pr-4">Actor</th>
-            <th className="py-2 pr-4">Target</th>
-            <th className="py-2 pr-4">Date</th>
+            <th className="py-2 pr-4">{t('admin.audit.table_action')}</th>
+            <th className="py-2 pr-4">{t('admin.audit.table_actor')}</th>
+            <th className="py-2 pr-4">{t('admin.audit.table_target')}</th>
+            <th className="py-2 pr-4">{t('admin.audit.table_date')}</th>
           </tr>
         </thead>
         <tbody>
@@ -534,17 +552,15 @@ function AuditTab() {
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-3 text-sm">
           <button className="btn-secondary px-3 py-1.5" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Prev
+            {t('admin.prev')}
           </button>
-          <span>
-            Page {page} / {totalPages}
-          </span>
+          <span>{t('admin.page_of', { page, total: totalPages })}</span>
           <button
             className="btn-secondary px-3 py-1.5"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            Next
+            {t('admin.next')}
           </button>
         </div>
       )}
@@ -553,6 +569,7 @@ function AuditTab() {
 }
 
 export function AdminDashboardPage() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [tab, setTab] = useState<Tab>('overview');
   const [includeTestData, setIncludeTestData] = useState(false);
@@ -562,33 +579,33 @@ export function AdminDashboardPage() {
       <section className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-brand-900">Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold text-brand-900">{t('admin.dashboard_title')}</h1>
             <p className="text-sm text-slate-500">{user?.name}</p>
           </div>
           <button onClick={() => logout()} className="btn-secondary">
-            Log out
+            {t('admin.logout')}
           </button>
         </div>
 
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
             <TabButton active={tab === 'overview'} onClick={() => setTab('overview')}>
-              Overview
+              {t('admin.tabs.overview')}
             </TabButton>
             <TabButton active={tab === 'leaders'} onClick={() => setTab('leaders')}>
-              Leaders
+              {t('admin.tabs.leaders')}
             </TabButton>
             <TabButton active={tab === 'registrations'} onClick={() => setTab('registrations')}>
-              Registrations
+              {t('admin.tabs.registrations')}
             </TabButton>
             <TabButton active={tab === 'settings'} onClick={() => setTab('settings')}>
-              Settings
+              {t('admin.tabs.settings')}
             </TabButton>
             <TabButton active={tab === 'content'} onClick={() => setTab('content')}>
-              Website Content
+              {t('admin.tabs.content')}
             </TabButton>
             <TabButton active={tab === 'audit'} onClick={() => setTab('audit')}>
-              Audit Log
+              {t('admin.tabs.audit')}
             </TabButton>
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-600">
@@ -597,7 +614,7 @@ export function AdminDashboardPage() {
               checked={includeTestData}
               onChange={(e) => setIncludeTestData(e.target.checked)}
             />
-            Include test data (QA)
+            {t('admin.include_test_data')}
           </label>
         </div>
 
