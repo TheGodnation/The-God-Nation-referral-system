@@ -46,7 +46,8 @@
     "submitting": "Envoi en cours…",
     "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer.",
     "duplicate_try_different": "ESSAYER UN AUTRE NUMÉRO",
-    "duplicate_contact_us": "CONTACTEZ-NOUS SUR WHATSAPP"
+    "duplicate_or": "OU",
+    "duplicate_contact_us": "CONTACTEZ-NOUS POUR ÊTRE AJOUTÉ À NOTRE COMMUNAUTÉ DE FORMATION PAR UN ADMINISTRATEUR"
   },
   "success": {
     "title": "🎉 VOUS ÊTES INSCRIT(E) AVEC SUCCÈS !",

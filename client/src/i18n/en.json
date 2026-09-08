@@ -46,7 +46,8 @@
     "submitting": "Submitting…",
     "error_generic": "Something went wrong. Please check your details and try again.",
     "duplicate_try_different": "TRY A DIFFERENT NUMBER",
-    "duplicate_contact_us": "CONTACT US ON WHATSAPP"
+    "duplicate_or": "OR",
+    "duplicate_contact_us": "CONTACT US TO BE ADDED TO OUR TRAINING COMMUNITY BY AN ADMIN"
   },
   "success": {
     "title": "🎉 YOU ARE SUCCESSFULLY REGISTERED!",

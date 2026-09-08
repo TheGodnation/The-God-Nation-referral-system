@@ -136,19 +136,24 @@ export function RegisterPage() {
             <div role="alert" className="space-y-3 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               <p>{error}</p>
               {duplicate && (
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <button type="button" onClick={tryDifferentNumber} className="btn-secondary flex-1 text-xs">
+                <div className="flex flex-col gap-2">
+                  <button type="button" onClick={tryDifferentNumber} className="btn-secondary w-full text-xs">
                     {t('register.duplicate_try_different')}
                   </button>
                   {supportWhatsappUrl && (
-                    <a
-                      href={supportWhatsappUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn-primary flex-1 bg-green-600 text-center text-xs hover:bg-green-700"
-                    >
-                      {t('register.duplicate_contact_us')}
-                    </a>
+                    <>
+                      <p className="text-center text-xs font-semibold uppercase text-red-400">
+                        {t('register.duplicate_or')}
+                      </p>
+                      <a
+                        href={supportWhatsappUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn-primary w-full bg-green-600 text-center text-xs hover:bg-green-700"
+                      >
+                        {t('register.duplicate_contact_us')}
+                      </a>
+                    </>
                   )}
                 </div>
               )}
