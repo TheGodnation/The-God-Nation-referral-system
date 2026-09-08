@@ -358,3 +358,9 @@ analytics unless the Admin toggles "Include test data (QA)".
 - The WhatsApp redirect requires the visitor cookie to match the
   Registration's stored `visitorId` — a valid Registration ID alone is
   never sufficient authorization.
+
+## 13. Deployment
+
+Hosted on Render (`god-nation-referral-app`), connected via Render's GitHub
+App installed on this organization — pushing to the tracked branch triggers
+an automatic build and deploy; no manual redeploy step is required.
