@@ -188,30 +188,28 @@ function LeadersTab() {
         <table className="w-full min-w-[600px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400">
+              {/* Sticky-LEFT and first in row order, not last/sticky-right:
+                  a sticky column pinned to the trailing edge of a row wider
+                  than the screen renders on top of whichever columns are
+                  still naturally visible at scroll position 0, hiding them
+                  completely (that's what happened here before). Pinning the
+                  first column instead never overlaps anything — it already
+                  sits exactly where it would without scrolling, and later
+                  columns simply scroll underneath/past it as normal. */}
+              <th className="sticky left-0 z-10 bg-white py-2 pr-4 shadow-[8px_0_8px_-8px_rgba(0,0,0,0.1)]">
+                {t('admin.leaders.table_action')}
+              </th>
               <th className="py-2 pr-4">{t('admin.leaders.table_name')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_email')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_code')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_status')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_test')}</th>
-              {/* Sticky so these actions are always reachable on a phone —
-                  without this, they silently sit off-screen past a
-                  horizontal scroll with no visual hint that they're there. */}
-              <th className="sticky right-0 bg-white py-2 pl-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
-                {t('admin.leaders.table_action')}
-              </th>
             </tr>
           </thead>
           <tbody>
             {items.map((l) => (
               <tr key={l.id} className="border-b border-slate-50">
-                <td className="py-2 pr-4">{l.name}</td>
-                <td className="py-2 pr-4">{l.email}</td>
-                <td className="py-2 pr-4">{l.referralCode ?? '—'}</td>
-                <td className="py-2 pr-4">
-                  {l.active ? t('admin.leaders.status_active') : t('admin.leaders.status_inactive')}
-                </td>
-                <td className="py-2 pr-4">{l.isTestData ? t('admin.leaders.yes') : t('admin.leaders.no')}</td>
-                <td className="sticky right-0 flex flex-col items-start gap-1 bg-white py-2 pl-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
+                <td className="sticky left-0 z-10 flex flex-col items-start gap-1 bg-white py-2 pr-4 shadow-[8px_0_8px_-8px_rgba(0,0,0,0.1)]">
                   <button className="text-brand-700 hover:underline" onClick={() => toggleActive(l)}>
                     {l.active ? t('admin.leaders.deactivate') : t('admin.leaders.activate')}
                   </button>
@@ -219,6 +217,13 @@ function LeadersTab() {
                     {resendStatus[l.id] ?? t('admin.leaders.resend_invitation')}
                   </button>
                 </td>
+                <td className="py-2 pr-4">{l.name}</td>
+                <td className="py-2 pr-4">{l.email}</td>
+                <td className="py-2 pr-4">{l.referralCode ?? '—'}</td>
+                <td className="py-2 pr-4">
+                  {l.active ? t('admin.leaders.status_active') : t('admin.leaders.status_inactive')}
+                </td>
+                <td className="py-2 pr-4">{l.isTestData ? t('admin.leaders.yes') : t('admin.leaders.no')}</td>
               </tr>
             ))}
           </tbody>
@@ -276,32 +281,36 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
       <table className="w-full min-w-[700px] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-100 text-slate-400">
+            {/* Sticky-LEFT and first in row order, not last/sticky-right:
+                a sticky column pinned to the trailing edge of a row wider
+                than the screen renders on top of whichever columns are
+                still naturally visible at scroll position 0, hiding them
+                completely (that's what happened here before — Language,
+                Leader and Date all disappeared behind the Delete column).
+                Pinning the first column instead never overlaps anything. */}
+            <th className="sticky left-0 z-10 bg-white py-2 pr-4 shadow-[8px_0_8px_-8px_rgba(0,0,0,0.1)]">
+              {t('admin.registrations.table_action')}
+            </th>
             <th className="py-2 pr-4">{t('admin.registrations.table_name')}</th>
             <th className="py-2 pr-4">{t('admin.registrations.table_whatsapp')}</th>
             <th className="py-2 pr-4">{t('admin.registrations.table_language')}</th>
             <th className="py-2 pr-4">{t('admin.registrations.table_leader')}</th>
             <th className="py-2 pr-4">{t('admin.registrations.table_date')}</th>
-            {/* Sticky so the Delete action is always reachable on a phone —
-                without this, it silently sits off-screen past a horizontal
-                scroll with no visual hint that it's there. */}
-            <th className="sticky right-0 bg-white py-2 pl-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
-              {t('admin.registrations.table_action')}
-            </th>
           </tr>
         </thead>
         <tbody>
           {items.map((r) => (
             <tr key={r.id} className="border-b border-slate-50">
+              <td className="sticky left-0 z-10 bg-white py-2 pr-4 shadow-[8px_0_8px_-8px_rgba(0,0,0,0.1)]">
+                <button className="text-red-700 hover:underline" onClick={() => deleteRegistration(r)}>
+                  {t('admin.registrations.delete')}
+                </button>
+              </td>
               <td className="py-2 pr-4">{r.name}</td>
               <td className="py-2 pr-4">{r.whatsapp}</td>
               <td className="py-2 pr-4 uppercase">{r.language}</td>
               <td className="py-2 pr-4">{r.leader?.name ?? t('admin.registrations.direct')}</td>
               <td className="py-2 pr-4">{new Date(r.createdAt).toLocaleDateString()}</td>
-              <td className="sticky right-0 bg-white py-2 pl-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
-                <button className="text-red-700 hover:underline" onClick={() => deleteRegistration(r)}>
-                  {t('admin.registrations.delete')}
-                </button>
-              </td>
             </tr>
           ))}
         </tbody>
