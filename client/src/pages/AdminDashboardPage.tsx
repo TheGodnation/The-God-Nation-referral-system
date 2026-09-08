@@ -193,8 +193,12 @@ function LeadersTab() {
               <th className="py-2 pr-4">{t('admin.leaders.table_code')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_status')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_test')}</th>
-              <th className="py-2 pr-4"></th>
-              <th className="py-2 pr-4"></th>
+              {/* Sticky so these actions are always reachable on a phone —
+                  without this, they silently sit off-screen past a
+                  horizontal scroll with no visual hint that they're there. */}
+              <th className="sticky right-0 bg-white py-2 pl-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
+                {t('admin.leaders.table_action')}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -207,12 +211,10 @@ function LeadersTab() {
                   {l.active ? t('admin.leaders.status_active') : t('admin.leaders.status_inactive')}
                 </td>
                 <td className="py-2 pr-4">{l.isTestData ? t('admin.leaders.yes') : t('admin.leaders.no')}</td>
-                <td className="py-2 pr-4">
+                <td className="sticky right-0 flex flex-col items-start gap-1 bg-white py-2 pl-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
                   <button className="text-brand-700 hover:underline" onClick={() => toggleActive(l)}>
                     {l.active ? t('admin.leaders.deactivate') : t('admin.leaders.activate')}
                   </button>
-                </td>
-                <td className="py-2 pr-4">
                   <button className="text-brand-700 hover:underline" onClick={() => resendInvitation(l)}>
                     {resendStatus[l.id] ?? t('admin.leaders.resend_invitation')}
                   </button>
@@ -279,7 +281,12 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
             <th className="py-2 pr-4">{t('admin.registrations.table_language')}</th>
             <th className="py-2 pr-4">{t('admin.registrations.table_leader')}</th>
             <th className="py-2 pr-4">{t('admin.registrations.table_date')}</th>
-            <th className="py-2 pr-4"></th>
+            {/* Sticky so the Delete action is always reachable on a phone —
+                without this, it silently sits off-screen past a horizontal
+                scroll with no visual hint that it's there. */}
+            <th className="sticky right-0 bg-white py-2 pl-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
+              {t('admin.registrations.table_action')}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -290,7 +297,7 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
               <td className="py-2 pr-4 uppercase">{r.language}</td>
               <td className="py-2 pr-4">{r.leader?.name ?? '—'}</td>
               <td className="py-2 pr-4">{new Date(r.createdAt).toLocaleDateString()}</td>
-              <td className="py-2 pr-4">
+              <td className="sticky right-0 bg-white py-2 pl-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
                 <button className="text-red-700 hover:underline" onClick={() => deleteRegistration(r)}>
                   {t('admin.registrations.delete')}
                 </button>

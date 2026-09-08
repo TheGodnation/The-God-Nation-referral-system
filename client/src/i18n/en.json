@@ -141,6 +141,7 @@
       "table_code": "Code",
       "table_status": "Status",
       "table_test": "Test",
+      "table_action": "Action",
       "status_active": "Active",
       "status_inactive": "Inactive",
       "yes": "Yes",
@@ -160,6 +161,7 @@
       "table_language": "Language",
       "table_leader": "Leader",
       "table_date": "Date",
+      "table_action": "Action",
       "delete": "Delete",
       "delete_confirm": "Delete this registration? {{name}} ({{whatsapp}}) will be permanently removed, and this WhatsApp number will become available for a new registration. This cannot be undone.",
       "delete_failed": "Failed to delete registration."

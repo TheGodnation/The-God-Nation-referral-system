@@ -141,6 +141,7 @@
       "table_code": "Code",
       "table_status": "Statut",
       "table_test": "Test",
+      "table_action": "Action",
       "status_active": "Actif",
       "status_inactive": "Inactif",
       "yes": "Oui",
@@ -160,6 +161,7 @@
       "table_language": "Langue",
       "table_leader": "Leader",
       "table_date": "Date",
+      "table_action": "Action",
       "delete": "Supprimer",
       "delete_confirm": "Supprimer cette inscription ? {{name}} ({{whatsapp}}) sera définitivement supprimé(e), et ce numéro WhatsApp redeviendra disponible pour une nouvelle inscription. Cette action est irréversible.",
       "delete_failed": "Échec de la suppression de l'inscription."
