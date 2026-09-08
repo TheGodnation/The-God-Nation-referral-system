@@ -45,6 +45,7 @@
     "submit": "Terminer l'inscription",
     "submitting": "Envoi en cours…",
     "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer.",
+    "duplicate_error_message": "Ce numéro WhatsApp a peut-être déjà été utilisé pour s'inscrire. Si vous avez saisi le mauvais numéro, veuillez le corriger et réessayer. Si vous n'avez pas encore été ajouté au groupe WhatsApp, veuillez nous contacter afin que nous puissions vous aider et vous ajouter manuellement.",
     "duplicate_try_different": "ESSAYER UN AUTRE NUMÉRO",
     "duplicate_or": "OU",
     "duplicate_contact_us": "CONTACTEZ-NOUS POUR ÊTRE AJOUTÉ À NOTRE COMMUNAUTÉ DE FORMATION PAR UN ADMINISTRATEUR"

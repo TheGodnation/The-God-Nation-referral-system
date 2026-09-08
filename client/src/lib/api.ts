@@ -6,9 +6,15 @@ const API_BASE = '';
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  // Machine-readable error identifier (when the server sends one) so the
+  // client can render its own localized message instead of the server's
+  // English-only `error` text — the server doesn't know the visitor's
+  // chosen UI language.
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -40,7 +46,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   if (!res.ok) {
     const message = (data && (data as any).error) || `Request failed (${res.status})`;
-    throw new ApiError(res.status, message);
+    const code = data && (data as any).code;
+    throw new ApiError(res.status, message, code);
   }
 
   return data as T;

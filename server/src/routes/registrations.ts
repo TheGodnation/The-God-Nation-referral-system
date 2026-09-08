@@ -122,7 +122,11 @@ router.post('/', registrationLimiter, requireCsrf, async (req, res) => {
       console.warn('[registrations] duplicate WhatsApp registration attempt', {
         visitorId,
       });
-      return res.status(409).json({ error: DUPLICATE_MESSAGE });
+      // `error` stays the English text for back-compat with anything reading
+      // it directly (e.g. existing tests); `code` lets the client render its
+      // own localized copy instead, since this message is user-facing and
+      // the server doesn't know the visitor's chosen UI language.
+      return res.status(409).json({ error: DUPLICATE_MESSAGE, code: 'DUPLICATE_WHATSAPP' });
     }
     throw err;
   }

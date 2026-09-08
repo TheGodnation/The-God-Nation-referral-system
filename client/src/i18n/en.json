@@ -45,6 +45,7 @@
     "submit": "Complete Registration",
     "submitting": "Submitting…",
     "error_generic": "Something went wrong. Please check your details and try again.",
+    "duplicate_error_message": "This WhatsApp number may have already been used to register. If you entered the wrong number, please correct it and try again. If you have not yet been added to the WhatsApp group, please contact us so that we can assist you and add you manually.",
     "duplicate_try_different": "TRY A DIFFERENT NUMBER",
     "duplicate_or": "OR",
     "duplicate_contact_us": "CONTACT US TO BE ADDED TO OUR TRAINING COMMUNITY BY AN ADMIN"

@@ -42,7 +42,11 @@ export function RegisterPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setDuplicate(true);
-        setError(err.message);
+        // The server's `error` text is English-only (it doesn't know the
+        // visitor's chosen UI language) — render our own localized copy
+        // for this known error instead, falling back to the server's text
+        // only if it ever sends a 409 without the expected code.
+        setError(err.code === 'DUPLICATE_WHATSAPP' ? t('register.duplicate_error_message') : err.message);
       } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
