@@ -295,7 +295,7 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
               <td className="py-2 pr-4">{r.name}</td>
               <td className="py-2 pr-4">{r.whatsapp}</td>
               <td className="py-2 pr-4 uppercase">{r.language}</td>
-              <td className="py-2 pr-4">{r.leader?.name ?? '—'}</td>
+              <td className="py-2 pr-4">{r.leader?.name ?? t('admin.registrations.direct')}</td>
               <td className="py-2 pr-4">{new Date(r.createdAt).toLocaleDateString()}</td>
               <td className="sticky right-0 bg-white py-2 pl-4 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
                 <button className="text-red-700 hover:underline" onClick={() => deleteRegistration(r)}>
