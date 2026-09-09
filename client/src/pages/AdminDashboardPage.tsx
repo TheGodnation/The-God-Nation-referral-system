@@ -344,6 +344,9 @@ interface SettingsData {
   instagramUrl: string | null;
   tiktokUrl: string | null;
   youtubeUrl: string | null;
+  whatsappContactUrl: string | null;
+  telegramUrl: string | null;
+  messengerUrl: string | null;
   content: Record<string, string>;
 }
 
@@ -357,6 +360,9 @@ const EMPTY_SETTINGS: SettingsData = {
   instagramUrl: '',
   tiktokUrl: '',
   youtubeUrl: '',
+  whatsappContactUrl: '',
+  telegramUrl: '',
+  messengerUrl: '',
   content: {},
 };
 
@@ -393,6 +399,9 @@ function SettingsTab() {
         instagramUrl: settings.instagramUrl || undefined,
         tiktokUrl: settings.tiktokUrl || undefined,
         youtubeUrl: settings.youtubeUrl || undefined,
+        whatsappContactUrl: settings.whatsappContactUrl || undefined,
+        telegramUrl: settings.telegramUrl || undefined,
+        messengerUrl: settings.messengerUrl || undefined,
       });
       setSettings(res);
       setSaved(true);
@@ -450,9 +459,19 @@ function SettingsTab() {
 
       <div className="card space-y-4">
         <h2 className="font-semibold text-brand-900">{t('admin.settings.social_heading')}</h2>
-        {(['facebookUrl', 'instagramUrl', 'tiktokUrl', 'youtubeUrl'] as const).map((key) => (
+        {(
+          [
+            ['whatsappContactUrl', 'WhatsApp'],
+            ['telegramUrl', 'Telegram'],
+            ['messengerUrl', 'Messenger'],
+            ['facebookUrl', 'Facebook'],
+            ['instagramUrl', 'Instagram'],
+            ['tiktokUrl', 'TikTok'],
+            ['youtubeUrl', 'YouTube'],
+          ] as const
+        ).map(([key, label]) => (
           <div key={key}>
-            <label className="label capitalize">{key.replace('Url', '')}</label>
+            <label className="label">{label}</label>
             <input className="input" value={field(key) ?? ''} onChange={(e) => setField(key, e.target.value)} />
           </div>
         ))}

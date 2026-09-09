@@ -9,7 +9,8 @@ import { usePublicSettings } from '../lib/usePublicSettings';
 // offered identically regardless of how the visitor arrived.
 export function HomePage() {
   const { t, i18n } = useTranslation();
-  const { content, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl } = usePublicSettings();
+  const { content, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl, whatsappContactUrl, telegramUrl, messengerUrl } =
+    usePublicSettings();
 
   // Every Admin-editable content key is stored as a bilingual pair
   // (e.g. homepageTitleEn / homepageTitleFr) so an edit in one language can
@@ -21,6 +22,9 @@ export function HomePage() {
   const c = (key: string): string | undefined => content[`${key}${lang}`] || undefined;
 
   const socials = [
+    { url: whatsappContactUrl, label: 'WhatsApp' },
+    { url: telegramUrl, label: 'Telegram' },
+    { url: messengerUrl, label: 'Messenger' },
     { url: facebookUrl, label: 'Facebook' },
     { url: instagramUrl, label: 'Instagram' },
     { url: tiktokUrl, label: 'TikTok' },

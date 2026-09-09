@@ -576,6 +576,9 @@ function settingsResponse(settings: {
   instagramUrl: string | null;
   tiktokUrl: string | null;
   youtubeUrl: string | null;
+  whatsappContactUrl: string | null;
+  telegramUrl: string | null;
+  messengerUrl: string | null;
   content: unknown;
 } | null) {
   return {
@@ -588,6 +591,9 @@ function settingsResponse(settings: {
     instagramUrl: settings?.instagramUrl ?? null,
     tiktokUrl: settings?.tiktokUrl ?? null,
     youtubeUrl: settings?.youtubeUrl ?? null,
+    whatsappContactUrl: settings?.whatsappContactUrl ?? null,
+    telegramUrl: settings?.telegramUrl ?? null,
+    messengerUrl: settings?.messengerUrl ?? null,
     content: (settings?.content as Record<string, string> | null) ?? {},
   };
 }
@@ -607,6 +613,9 @@ const settingsSchema = z.object({
   instagramUrl: z.string().url().optional().nullable(),
   tiktokUrl: z.string().url().optional().nullable(),
   youtubeUrl: z.string().url().optional().nullable(),
+  whatsappContactUrl: z.string().url().optional().nullable(),
+  telegramUrl: z.string().url().optional().nullable(),
+  messengerUrl: z.string().url().optional().nullable(),
   content: contentSchema.optional(),
 });
 
@@ -633,6 +642,9 @@ router.patch('/settings', requireCsrf, async (req, res) => {
     ...(d.instagramUrl !== undefined ? { instagramUrl: d.instagramUrl } : {}),
     ...(d.tiktokUrl !== undefined ? { tiktokUrl: d.tiktokUrl } : {}),
     ...(d.youtubeUrl !== undefined ? { youtubeUrl: d.youtubeUrl } : {}),
+    ...(d.whatsappContactUrl !== undefined ? { whatsappContactUrl: d.whatsappContactUrl } : {}),
+    ...(d.telegramUrl !== undefined ? { telegramUrl: d.telegramUrl } : {}),
+    ...(d.messengerUrl !== undefined ? { messengerUrl: d.messengerUrl } : {}),
   };
 
   const settings = await prisma.settings.upsert({

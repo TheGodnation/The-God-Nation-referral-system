@@ -232,6 +232,9 @@ model Settings {
   instagramUrl          String?
   tiktokUrl             String?
   youtubeUrl            String?
+  whatsappContactUrl    String?
+  telegramUrl           String?
+  messengerUrl          String?
   content               Json?
   updatedAt             DateTime @updatedAt
   updatedByUserId       String?
