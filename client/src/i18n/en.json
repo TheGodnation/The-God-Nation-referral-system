@@ -112,6 +112,7 @@
       "registrations": "Registrations",
       "settings": "Settings",
       "content": "Website Content",
+      "account": "Account",
       "audit": "Audit Log"
     },
     "overview": {
@@ -251,6 +252,21 @@
       "table_actor": "Actor",
       "table_target": "Target",
       "table_date": "Date"
+    },
+    "account": {
+      "email_heading": "Login Email",
+      "email_hint": "Your current login email is {{email}}. Change it to an address you can actually receive messages at — this is what \"forgot password\" links get sent to.",
+      "new_email": "New Email",
+      "current_password": "Current Password",
+      "save_email": "Update Email",
+      "email_saved": "Email updated.",
+      "email_failed": "Failed to update email.",
+      "password_heading": "Password",
+      "new_password": "New Password",
+      "save_password": "Update Password",
+      "password_saved": "Password updated.",
+      "password_failed": "Failed to update password.",
+      "saving": "Saving…"
     }
   },
   "common": {

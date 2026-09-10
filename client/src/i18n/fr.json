@@ -112,6 +112,7 @@
       "registrations": "Inscriptions",
       "settings": "Paramètres",
       "content": "Contenu du site",
+      "account": "Compte",
       "audit": "Journal d'audit"
     },
     "overview": {
@@ -251,6 +252,21 @@
       "table_actor": "Acteur",
       "table_target": "Cible",
       "table_date": "Date"
+    },
+    "account": {
+      "email_heading": "E-mail de connexion",
+      "email_hint": "Votre e-mail de connexion actuel est {{email}}. Changez-le pour une adresse où vous pouvez réellement recevoir des messages — c'est là que les liens « mot de passe oublié » sont envoyés.",
+      "new_email": "Nouvel e-mail",
+      "current_password": "Mot de passe actuel",
+      "save_email": "Mettre à jour l'e-mail",
+      "email_saved": "E-mail mis à jour.",
+      "email_failed": "Échec de la mise à jour de l'e-mail.",
+      "password_heading": "Mot de passe",
+      "new_password": "Nouveau mot de passe",
+      "save_password": "Mettre à jour le mot de passe",
+      "password_saved": "Mot de passe mis à jour.",
+      "password_failed": "Échec de la mise à jour du mot de passe.",
+      "saving": "Enregistrement…"
     }
   },
   "common": {

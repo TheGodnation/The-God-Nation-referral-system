@@ -135,6 +135,60 @@ router.post('/change-password', requireCsrf, requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+const updateEmailSchema = z.object({
+  currentPassword: z.string().min(1),
+  newEmail: z.string().email(),
+});
+
+// POST /api/auth/update-email
+// Lets any authenticated user (Admin or Leader) change their OWN login
+// email — e.g. when the address on file (set at account creation) isn't
+// one they can actually check, which otherwise silently locks them out of
+// "forgot password" recovery. Requires the current password, same as
+// change-password above, so a session left open on a shared device can't
+// be used to redirect account recovery to an attacker's inbox.
+router.post('/update-email', requireCsrf, requireAuth, async (req, res) => {
+  const parsed = updateEmailSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  }
+  const { currentPassword, newEmail } = parsed.data;
+  const email = newEmail.toLowerCase();
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user) {
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    return res.status(401).json({ error: 'Current password is incorrect.' });
+  }
+
+  if (email === user.email) {
+    return res.status(400).json({ error: 'This is already your current email address.' });
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return res.status(409).json({ error: 'A user with this email already exists.' });
+  }
+
+  const oldEmail = user.email;
+  await prisma.user.update({ where: { id: user.id }, data: { email } });
+
+  await recordAudit({
+    actorId: user.id,
+    actorEmail: email,
+    action: 'ACCOUNT_EMAIL_CHANGED',
+    targetType: 'User',
+    targetId: user.id,
+    metadata: { from: oldEmail, to: email },
+  });
+
+  res.json({ ok: true, email });
+});
+
 // ---------------------------------------------------------------------------
 // New Leader onboarding (sections 27-30) — one-time emailed setup link.
 // Existing mustChangePassword accounts are NOT touched by this; they keep

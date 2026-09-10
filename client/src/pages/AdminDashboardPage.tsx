@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
-type Tab = 'overview' | 'leaders' | 'registrations' | 'settings' | 'content' | 'audit';
+type Tab = 'overview' | 'leaders' | 'registrations' | 'settings' | 'content' | 'account' | 'audit';
 
 interface Overview {
   totalVisits: number;
@@ -796,6 +797,113 @@ function ContentTab() {
   );
 }
 
+// Section: self-service account settings. Distinct from managing other
+// Leaders' accounts — this is the logged-in user changing their OWN email
+// or password, most importantly so the email on file is one they can
+// actually receive a "forgot password" link at.
+function AccountTab() {
+  const { t } = useTranslation();
+  const { user, refresh } = useAuth();
+
+  const [emailPassword, setEmailPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailSaved, setEmailSaved] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  async function saveEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailError(null);
+    setEmailSaved(false);
+    setSavingEmail(true);
+    try {
+      await api.post('/api/auth/update-email', { currentPassword: emailPassword, newEmail });
+      await refresh();
+      setEmailPassword('');
+      setNewEmail('');
+      setEmailSaved(true);
+    } catch (err) {
+      setEmailError(err instanceof ApiError ? err.message : t('admin.account.email_failed'));
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
+  async function savePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSaved(false);
+    setSavingPassword(true);
+    try {
+      await api.post('/api/auth/change-password', { currentPassword, newPassword });
+      setCurrentPassword('');
+      setNewPassword('');
+      setPasswordSaved(true);
+    } catch (err) {
+      setPasswordError(err instanceof ApiError ? err.message : t('admin.account.password_failed'));
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  return (
+    <div className="max-w-lg space-y-6">
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">{t('admin.account.email_heading')}</h2>
+        <p className="text-sm text-slate-500">
+          {t('admin.account.email_hint', { email: user?.email ?? '' })}
+        </p>
+        <form onSubmit={saveEmail} className="space-y-3">
+          <div>
+            <label className="label">{t('admin.account.new_email')}</label>
+            <input
+              type="email"
+              className="input"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="label">{t('admin.account.current_password')}</label>
+            <PasswordInput id="account-email-current-password" value={emailPassword} onChange={setEmailPassword} required />
+          </div>
+          {emailError && <p className="text-sm text-red-700">{emailError}</p>}
+          {emailSaved && <p className="text-sm text-green-700">{t('admin.account.email_saved')}</p>}
+          <button className="btn-primary" type="submit" disabled={savingEmail}>
+            {savingEmail ? t('admin.account.saving') : t('admin.account.save_email')}
+          </button>
+        </form>
+      </div>
+
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">{t('admin.account.password_heading')}</h2>
+        <form onSubmit={savePassword} className="space-y-3">
+          <div>
+            <label className="label">{t('admin.account.current_password')}</label>
+            <PasswordInput id="account-current-password" value={currentPassword} onChange={setCurrentPassword} required />
+          </div>
+          <div>
+            <label className="label">{t('admin.account.new_password')}</label>
+            <PasswordInput id="account-new-password" value={newPassword} onChange={setNewPassword} required minLength={8} />
+          </div>
+          {passwordError && <p className="text-sm text-red-700">{passwordError}</p>}
+          {passwordSaved && <p className="text-sm text-green-700">{t('admin.account.password_saved')}</p>}
+          <button className="btn-primary" type="submit" disabled={savingPassword}>
+            {savingPassword ? t('admin.account.saving') : t('admin.account.save_password')}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function AuditTab() {
   const { t } = useTranslation();
   const [items, setItems] = useState<any[]>([]);
@@ -892,6 +1000,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'content'} onClick={() => setTab('content')}>
               {t('admin.tabs.content')}
             </TabButton>
+            <TabButton active={tab === 'account'} onClick={() => setTab('account')}>
+              {t('admin.tabs.account')}
+            </TabButton>
             <TabButton active={tab === 'audit'} onClick={() => setTab('audit')}>
               {t('admin.tabs.audit')}
             </TabButton>
@@ -911,6 +1022,7 @@ export function AdminDashboardPage() {
         {tab === 'registrations' && <RegistrationsTab includeTestData={includeTestData} />}
         {tab === 'settings' && <SettingsTab />}
         {tab === 'content' && <ContentTab />}
+        {tab === 'account' && <AccountTab />}
         {tab === 'audit' && <AuditTab />}
       </section>
     </PageShell>
