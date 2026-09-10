@@ -313,6 +313,64 @@ function LeadersTab() {
   );
 }
 
+// Admin-triggered only — never automatic. Always shows the recipient count
+// first and requires an explicit confirmation before anything is sent.
+function WhatsAppReminders({ includeTestData }: { includeTestData: boolean }) {
+  const { t } = useTranslation();
+  const [count, setCount] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ attempted: number; sent: number; failed: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function loadCount() {
+    api
+      .get<{ count: number }>(`/api/admin/whatsapp-reminders/count?includeTestData=${includeTestData}`)
+      .then((res) => setCount(res.count))
+      .catch(() => setCount(null));
+  }
+
+  useEffect(loadCount, [includeTestData]);
+
+  async function sendReminders() {
+    if (count === null) return;
+    if (!window.confirm(t('admin.registrations.reminders_confirm', { count }))) {
+      return;
+    }
+    setError(null);
+    setResult(null);
+    setSending(true);
+    try {
+      const res = await api.post<{ attempted: number; sent: number; failed: number }>(
+        `/api/admin/whatsapp-reminders/send?includeTestData=${includeTestData}`,
+      );
+      setResult(res);
+      loadCount();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('admin.registrations.reminders_failed'));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="card mb-4 space-y-2">
+      <h2 className="font-semibold text-brand-900">{t('admin.registrations.reminders_title')}</h2>
+      <p className="text-sm text-slate-600">
+        {count === null ? t('admin.loading') : t('admin.registrations.reminders_count', { count })}
+      </p>
+      <button className="btn-primary" onClick={sendReminders} disabled={sending || !count}>
+        {sending ? t('admin.registrations.reminders_sending') : t('admin.registrations.reminders_send')}
+      </button>
+      {result && (
+        <p className="text-sm text-green-700">
+          {t('admin.registrations.reminders_result', { sent: result.sent, attempted: result.attempted })}
+        </p>
+      )}
+      {error && <p className="text-sm text-red-700">{error}</p>}
+    </div>
+  );
+}
+
 function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<RegistrationRow[]>([]);
@@ -350,15 +408,17 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
   }
 
   return (
-    <div className="card overflow-x-auto">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-semibold text-brand-900">{t('admin.registrations.title')}</h2>
-        <a className="text-sm text-brand-700 hover:underline" href="/api/admin/export">
-          {t('admin.registrations.export_csv')}
-        </a>
-      </div>
-      {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
-      <table className="w-full min-w-[700px] text-left text-sm">
+    <div>
+      <WhatsAppReminders includeTestData={includeTestData} />
+      <div className="card overflow-x-auto">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold text-brand-900">{t('admin.registrations.title')}</h2>
+          <a className="text-sm text-brand-700 hover:underline" href="/api/admin/export">
+            {t('admin.registrations.export_csv')}
+          </a>
+        </div>
+        {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
+        <table className="w-full min-w-[700px] text-left text-sm">
         <thead>
           <tr className="border-b border-slate-100 text-slate-400">
             {/* Sticky-LEFT and first in row order, not last/sticky-right:
@@ -393,23 +453,24 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
               <td className="py-2 pr-4">{new Date(r.createdAt).toLocaleDateString()}</td>
             </tr>
           ))}
-        </tbody>
-      </table>
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-center gap-3 text-sm">
-          <button className="btn-secondary px-3 py-1.5" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            {t('admin.prev')}
-          </button>
-          <span>{t('admin.page_of', { page, total: totalPages })}</span>
-          <button
-            className="btn-secondary px-3 py-1.5"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t('admin.next')}
-          </button>
-        </div>
-      )}
+          </tbody>
+        </table>
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-center gap-3 text-sm">
+            <button className="btn-secondary px-3 py-1.5" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              {t('admin.prev')}
+            </button>
+            <span>{t('admin.page_of', { page, total: totalPages })}</span>
+            <button
+              className="btn-secondary px-3 py-1.5"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              {t('admin.next')}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -574,7 +635,13 @@ function SettingsTab() {
 // language's visitors see (see server/src/routes/admin.ts CONTENT_BASE_KEYS,
 // which this list must stay in sync with). Grouped by section purely for
 // readability; the section key itself isn't sent anywhere.
-const CONTENT_SECTIONS: { section: string; fields: { key: string; multiline?: boolean }[] }[] = [
+// bilingual defaults to true; set false for a field with a single value
+// (no En/Fr suffix) — used for emails that only ever go to Leaders/Admins,
+// who have no stored language preference.
+const CONTENT_SECTIONS: {
+  section: string;
+  fields: { key: string; multiline?: boolean; bilingual?: boolean }[];
+}[] = [
   {
     section: 'hero',
     fields: [
@@ -631,6 +698,19 @@ const CONTENT_SECTIONS: { section: string; fields: { key: string; multiline?: bo
     section: 'success',
     fields: [{ key: 'successPageText', multiline: true }],
   },
+  {
+    section: 'emails',
+    fields: [
+      { key: 'emailRegistrationConfirmationSubject' },
+      { key: 'emailRegistrationConfirmationBody', multiline: true },
+      { key: 'emailWhatsappReminderSubject' },
+      { key: 'emailWhatsappReminderBody', multiline: true },
+      { key: 'emailLeaderInvitationSubject', bilingual: false },
+      { key: 'emailLeaderInvitationBody', multiline: true, bilingual: false },
+      { key: 'emailPasswordResetSubject', bilingual: false },
+      { key: 'emailPasswordResetBody', multiline: true, bilingual: false },
+    ],
+  },
 ];
 
 // Section 22: deliberately simple — a flat set of named bilingual text
@@ -683,19 +763,24 @@ function ContentTab() {
       {CONTENT_SECTIONS.map(({ section, fields }) => (
         <div key={section} className="card space-y-4">
           <h3 className="font-semibold text-brand-900">{t(`admin.content.sections.${section}`)}</h3>
-          {fields.map(({ key, multiline }) => (
+          {section === 'emails' && <p className="text-xs text-slate-400">{t('admin.content.emails_hint')}</p>}
+          {fields.map(({ key, multiline, bilingual = true }) => (
             <div key={key}>
               <label className="label">{t(`admin.content.fields.${key}`)}</label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <span className="mb-1 block text-xs text-slate-400">{t('common.language_en')}</span>
-                  {field(`${key}En`, multiline)}
+              {bilingual ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <span className="mb-1 block text-xs text-slate-400">{t('common.language_en')}</span>
+                    {field(`${key}En`, multiline)}
+                  </div>
+                  <div>
+                    <span className="mb-1 block text-xs text-slate-400">{t('common.language_fr')}</span>
+                    {field(`${key}Fr`, multiline)}
+                  </div>
                 </div>
-                <div>
-                  <span className="mb-1 block text-xs text-slate-400">{t('common.language_fr')}</span>
-                  {field(`${key}Fr`, multiline)}
-                </div>
-              </div>
+              ) : (
+                field(key, multiline)
+              )}
             </div>
           ))}
         </div>

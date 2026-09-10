@@ -164,7 +164,14 @@
       "table_action": "Action",
       "delete": "Delete",
       "delete_confirm": "Delete this registration? {{name}} ({{whatsapp}}) will be permanently removed, and this WhatsApp number will become available for a new registration. This cannot be undone.",
-      "delete_failed": "Failed to delete registration."
+      "delete_failed": "Failed to delete registration.",
+      "reminders_title": "WhatsApp Join Reminders",
+      "reminders_count": "{{count}} people registered but haven't joined WhatsApp yet.",
+      "reminders_send": "Send Reminders",
+      "reminders_sending": "Sending…",
+      "reminders_confirm": "Send a WhatsApp reminder email to {{count}} people now?",
+      "reminders_result": "Sent to {{sent}} of {{attempted}} people.",
+      "reminders_failed": "Failed to send reminders."
     },
     "settings": {
       "training_heading": "Training WhatsApp Community",
@@ -194,8 +201,10 @@
         "howItWorks": "How It Works",
         "footer": "Footer & Contact",
         "registration": "Registration Page",
-        "success": "Success Page"
+        "success": "Success Page",
+        "emails": "Emails"
       },
+      "emails_hint": "You can use {{name}} and {{link}} (or {{setupUrl}} / {{resetUrl}} where shown) inside your text — they're automatically replaced with the real value when each email is sent.",
       "fields": {
         "homepageTitle": "Homepage Main Title",
         "homepageSubtitle": "Homepage Subtitle",
@@ -223,7 +232,15 @@
         "footer": "Footer Text",
         "registrationPageText": "Registration Page Text",
         "successPageText": "Success Page Text",
-        "contactInfo": "Contact / Help Information"
+        "contactInfo": "Contact / Help Information",
+        "emailRegistrationConfirmationSubject": "Registration Confirmation — Subject",
+        "emailRegistrationConfirmationBody": "Registration Confirmation — Message",
+        "emailWhatsappReminderSubject": "WhatsApp Join Reminder — Subject",
+        "emailWhatsappReminderBody": "WhatsApp Join Reminder — Message",
+        "emailLeaderInvitationSubject": "Leader Invitation — Subject",
+        "emailLeaderInvitationBody": "Leader Invitation — Message",
+        "emailPasswordResetSubject": "Password Reset — Subject",
+        "emailPasswordResetBody": "Password Reset — Message"
       }
     },
     "audit": {

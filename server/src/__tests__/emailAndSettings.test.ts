@@ -63,7 +63,12 @@ describe('Registration confirmation email', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.confirmationEmailSent).toBe(true);
-    expect(spy).toHaveBeenCalledWith({ to: 'confirmed@example.com', name: 'Email Success Test', language: 'fr' });
+    expect(spy).toHaveBeenCalledWith({
+      to: 'confirmed@example.com',
+      name: 'Email Success Test',
+      language: 'fr',
+      link: expect.stringContaining(`/api/registrations/${res.body.registrationId}/whatsapp`),
+    });
   });
 });
 

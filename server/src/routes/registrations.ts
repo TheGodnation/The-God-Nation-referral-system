@@ -7,6 +7,8 @@ import { selectApplicableReferralVisit } from '../lib/attribution';
 import { registrationLimiter, whatsappRedirectLimiter } from '../lib/rateLimit';
 import { requireCsrf } from '../lib/csrf';
 import { EmailService } from '../lib/email';
+import { APP_URL } from '../lib/env';
+import { VISITOR_COOKIE_NAME } from '../lib/visitor';
 
 const router = Router();
 
@@ -98,7 +100,8 @@ router.post('/', registrationLimiter, requireCsrf, async (req, res) => {
     let confirmationEmailSent = false;
     if (email) {
       try {
-        const result = await EmailService.sendRegistrationConfirmation({ to: email, name, language });
+        const link = `${APP_URL}/api/registrations/${registration.id}/whatsapp`;
+        const result = await EmailService.sendRegistrationConfirmation({ to: email, name, language, link });
         confirmationEmailSent = result.ok;
       } catch (emailErr) {
         console.error('[registrations] confirmation email failed', {
@@ -136,18 +139,24 @@ router.post('/', registrationLimiter, requireCsrf, async (req, res) => {
 // Server-controlled, secure WhatsApp redirect. See spec section 20.
 router.get('/:id/whatsapp', whatsappRedirectLimiter, async (req, res) => {
   const { id } = req.params;
-  const cookieVisitorId = req.visitorId;
+  // ensureVisitorId always populates req.visitorId — minting a fresh one
+  // when the request carried none — so it can't distinguish "no cookie"
+  // from "a cookie that happens to mismatch". The raw incoming cookie can.
+  const incomingCookie = req.cookies?.[VISITOR_COOKIE_NAME];
 
   const registration = await prisma.registration.findUnique({ where: { id } });
   if (!registration) {
     return res.status(404).send('Registration not found.');
   }
 
-  // A valid Registration ID is NEVER sufficient authorization by itself.
-  if (!cookieVisitorId) {
-    return res.status(403).send('Unauthorized: missing visitor session.');
-  }
-  if (registration.visitorId !== cookieVisitorId) {
+  // A visitor cookie that was actually sent, but doesn't match this
+  // registration, is always rejected — browsing as a different visitor must
+  // never trigger someone else's click event or redirect. No cookie at all
+  // is allowed: this is also the link embedded in registration-confirmation
+  // and WhatsApp-reminder emails, which may be opened from a different
+  // device, browser, or app than the one used to register, none of which
+  // will carry the original visitor cookie.
+  if (incomingCookie && registration.visitorId !== req.visitorId) {
     return res.status(403).send('Unauthorized: visitor session does not match this registration.');
   }
 
@@ -174,7 +183,7 @@ router.get('/:id/whatsapp', whatsappRedirectLimiter, async (req, res) => {
     data: {
       type: 'WHATSAPP_CLICKED',
       registrationId: registration.id,
-      visitorId: cookieVisitorId,
+      visitorId: req.visitorId,
       isTestData: registration.isTestData,
     },
   });

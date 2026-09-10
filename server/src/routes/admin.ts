@@ -10,7 +10,7 @@ import { recordAudit } from '../lib/audit';
 import { requireCsrf } from '../lib/csrf';
 import { adminSensitiveLimiter } from '../lib/rateLimit';
 import { EmailService } from '../lib/email';
-import { CLIENT_URL, LEADER_SETUP_TOKEN_TTL_MS } from '../lib/env';
+import { APP_URL, CLIENT_URL, LEADER_SETUP_TOKEN_TTL_MS } from '../lib/env';
 
 const router = Router();
 
@@ -564,13 +564,31 @@ const CONTENT_BASE_KEYS = [
   'contactInfo',
   'registrationPageText',
   'successPageText',
+  // Visitor-facing email text — bilingual like everything else above, since
+  // registrants and reminder recipients read in either language.
+  'emailRegistrationConfirmationSubject',
+  'emailRegistrationConfirmationBody',
+  'emailWhatsappReminderSubject',
+  'emailWhatsappReminderBody',
 ] as const;
 
 const CONTENT_KEYS = CONTENT_BASE_KEYS.flatMap((k) => [`${k}En`, `${k}Fr`] as const);
 
+// Operational emails (Leader invitation, password reset) go only to
+// Leaders/Admins, who have no stored language preference — one version
+// each, not an En/Fr pair.
+const CONTENT_SINGLE_KEYS = [
+  'emailLeaderInvitationSubject',
+  'emailLeaderInvitationBody',
+  'emailPasswordResetSubject',
+  'emailPasswordResetBody',
+] as const;
+
+const ALL_CONTENT_KEYS = [...CONTENT_KEYS, ...CONTENT_SINGLE_KEYS] as const;
+
 const contentSchema = z
-  .object(Object.fromEntries(CONTENT_KEYS.map((k) => [k, z.string().max(5000).optional()])) as Record<
-    (typeof CONTENT_KEYS)[number],
+  .object(Object.fromEntries(ALL_CONTENT_KEYS.map((k) => [k, z.string().max(5000).optional()])) as Record<
+    (typeof ALL_CONTENT_KEYS)[number],
     z.ZodOptional<z.ZodString>
   >)
   .partial();
@@ -672,6 +690,58 @@ router.patch('/settings', requireCsrf, async (req, res) => {
   });
 
   res.json(settingsResponse(settings));
+});
+
+// ---------------------------------------------------------------------------
+// WhatsApp join reminders
+// ---------------------------------------------------------------------------
+
+// A registrant qualifies for a reminder when: they left an email address,
+// they haven't already clicked the WhatsApp join link (no WHATSAPP_CLICKED
+// event recorded against their registration), and — unless the Admin has
+// "include test data" on — they aren't test data.
+function reminderWhere(withTestData: boolean): Prisma.RegistrationWhereInput {
+  return {
+    email: { not: null },
+    ...(withTestData ? {} : { isTestData: false }),
+    events: { none: { type: 'WHATSAPP_CLICKED' } },
+  };
+}
+
+// GET /api/admin/whatsapp-reminders/count — lets the Admin see exactly how
+// many people are about to be emailed before committing to send anything.
+router.get('/whatsapp-reminders/count', async (req, res) => {
+  const count = await prisma.registration.count({ where: reminderWhere(includeTestData(req)) });
+  res.json({ count });
+});
+
+// POST /api/admin/whatsapp-reminders/send — Admin-triggered only, never
+// automatic. Sends the same reminder to everyone currently qualifying.
+router.post('/whatsapp-reminders/send', adminSensitiveLimiter, requireCsrf, async (req, res) => {
+  const registrations = await prisma.registration.findMany({
+    where: reminderWhere(includeTestData(req)),
+    select: { id: true, name: true, email: true, language: true },
+  });
+
+  let sent = 0;
+  let failed = 0;
+  for (const r of registrations) {
+    // r.email is guaranteed non-null by reminderWhere's `email: { not: null }`.
+    const link = `${APP_URL}/api/registrations/${r.id}/whatsapp`;
+    const result = await EmailService.sendWhatsAppReminder({ to: r.email!, name: r.name, language: r.language, link });
+    if (result.ok) sent++;
+    else failed++;
+  }
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'WHATSAPP_REMINDER_BULK_SENT',
+    targetType: 'Registration',
+    metadata: { attempted: registrations.length, sent, failed },
+  });
+
+  res.json({ attempted: registrations.length, sent, failed });
 });
 
 // ---------------------------------------------------------------------------

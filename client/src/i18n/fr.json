@@ -164,7 +164,14 @@
       "table_action": "Action",
       "delete": "Supprimer",
       "delete_confirm": "Supprimer cette inscription ? {{name}} ({{whatsapp}}) sera définitivement supprimé(e), et ce numéro WhatsApp redeviendra disponible pour une nouvelle inscription. Cette action est irréversible.",
-      "delete_failed": "Échec de la suppression de l'inscription."
+      "delete_failed": "Échec de la suppression de l'inscription.",
+      "reminders_title": "Rappels pour rejoindre WhatsApp",
+      "reminders_count": "{{count}} personnes se sont inscrites mais n'ont pas encore rejoint WhatsApp.",
+      "reminders_send": "Envoyer les rappels",
+      "reminders_sending": "Envoi en cours…",
+      "reminders_confirm": "Envoyer un e-mail de rappel WhatsApp à {{count}} personnes maintenant ?",
+      "reminders_result": "Envoyé à {{sent}} sur {{attempted}} personnes.",
+      "reminders_failed": "Échec de l'envoi des rappels."
     },
     "settings": {
       "training_heading": "Communauté WhatsApp Formation",
@@ -194,8 +201,10 @@
         "howItWorks": "Comment ça marche",
         "footer": "Pied de page et contact",
         "registration": "Page d'inscription",
-        "success": "Page de confirmation"
+        "success": "Page de confirmation",
+        "emails": "E-mails"
       },
+      "emails_hint": "Vous pouvez utiliser {{name}} et {{link}} (ou {{setupUrl}} / {{resetUrl}} lorsqu'ils sont indiqués) dans votre texte — ils sont automatiquement remplacés par la vraie valeur lors de l'envoi de chaque e-mail.",
       "fields": {
         "homepageTitle": "Titre principal de la page d'accueil",
         "homepageSubtitle": "Sous-titre de la page d'accueil",
@@ -223,7 +232,15 @@
         "footer": "Texte du pied de page",
         "registrationPageText": "Texte de la page d'inscription",
         "successPageText": "Texte de la page de succès",
-        "contactInfo": "Informations de contact / aide"
+        "contactInfo": "Informations de contact / aide",
+        "emailRegistrationConfirmationSubject": "Confirmation d'inscription — Objet",
+        "emailRegistrationConfirmationBody": "Confirmation d'inscription — Message",
+        "emailWhatsappReminderSubject": "Rappel pour rejoindre WhatsApp — Objet",
+        "emailWhatsappReminderBody": "Rappel pour rejoindre WhatsApp — Message",
+        "emailLeaderInvitationSubject": "Invitation Leader — Objet",
+        "emailLeaderInvitationBody": "Invitation Leader — Message",
+        "emailPasswordResetSubject": "Réinitialisation du mot de passe — Objet",
+        "emailPasswordResetBody": "Réinitialisation du mot de passe — Message"
       }
     },
     "audit": {
