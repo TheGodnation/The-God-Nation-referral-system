@@ -78,12 +78,3 @@ export const adminSensitiveLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
-
-// A Leader emailing an invitation to someone from their own dashboard.
-export const leaderInviteLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  limit: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many invitations sent. Please try again later.' },
-});

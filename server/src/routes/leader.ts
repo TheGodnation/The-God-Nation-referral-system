@@ -1,13 +1,8 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../lib/auth';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { CLIENT_URL } from '../lib/env';
-import { requireCsrf } from '../lib/csrf';
-import { leaderInviteLimiter } from '../lib/rateLimit';
-import { EmailService } from '../lib/email';
-import { recordAudit } from '../lib/audit';
 
 const router = Router();
 
@@ -99,43 +94,12 @@ router.get('/referrals', async (req, res) => {
   res.json(paginatedResult(items, total, page, pageSize));
 });
 
-// POST /api/leader/invite — section 26/39: the authenticated Leader emails
-// their OWN referral link to someone. The referral code/link is always
-// derived server-side from req.user.id; the client can never supply a
-// Leader ID or referral code of its own.
-const inviteSchema = z.object({
-  email: z.string().trim().email(),
-  language: z.enum(['en', 'fr']).optional().default('en'),
-});
-
-router.post('/invite', leaderInviteLimiter, requireCsrf, async (req, res) => {
-  const parsed = inviteSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'Please provide a valid email address.' });
-  }
-  const leaderId = req.user!.id;
-  const activeCode = await prisma.referralCode.findFirst({ where: { leaderId, active: true } });
-  if (!activeCode) {
-    return res.status(400).json({ error: 'You do not have an active referral code yet.' });
-  }
-
-  const referralLink = `${CLIENT_URL}/join?ref=${activeCode.code}&lang=${parsed.data.language}`;
-  const result = await EmailService.sendLeaderReferralInvitation({
-    to: parsed.data.email,
-    leaderName: req.user!.name,
-    referralLink,
-  });
-
-  await recordAudit({
-    actorId: leaderId,
-    actorEmail: req.user!.email,
-    action: 'LEADER_REFERRAL_EMAIL_SENT',
-    targetType: 'User',
-    targetId: leaderId,
-    metadata: { to: parsed.data.email, sent: result.ok },
-  });
-
-  res.json({ sent: result.ok });
-});
+// Section 26/39 originally let a Leader email their own referral link to
+// someone via POST /api/leader/invite. Removed: with a shared daily Resend
+// sending cap, every Leader having an open-ended "send an email" button
+// could crowd out the emails that actually matter (registration
+// confirmations, Leader invitations, WhatsApp reminders). Leaders still
+// have WhatsApp, Messenger, copy-link, and the device's native share sheet
+// (see LeaderDashboardPage) — those cost nothing and don't touch email.
 
 export default router;

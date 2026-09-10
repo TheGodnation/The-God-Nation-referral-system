@@ -72,24 +72,6 @@ export const EmailService = {
     return send(params.to, subject, `<p>${body}</p>`, text);
   },
 
-  /** Section 26/39: a Leader emailing their own referral link to someone. */
-  async sendLeaderReferralInvitation(params: {
-    to: string;
-    leaderName: string;
-    referralLink: string;
-  }): Promise<SendResult> {
-    const safeLeaderName = escapeHtml(params.leaderName);
-    const subject = "You're invited to The God Nation";
-    const html = `
-      <p>You're Invited to The God Nation</p>
-      <p>Discover God's Word, grow in faith, and learn more about our Kingdom community.</p>
-      <p>Get started here: <a href="${params.referralLink}">${params.referralLink}</a></p>
-      <p>— Sent on behalf of ${safeLeaderName}</p>
-    `;
-    const text = `You're Invited to The God Nation\nDiscover God's Word, grow in faith, and learn more about our Kingdom community.\nGet started here: ${params.referralLink}\n\n— Sent on behalf of ${params.leaderName}`;
-    return send(params.to, subject, html, text);
-  },
-
   /** Section 33/38: password reset. */
   async sendPasswordReset(params: { to: string; resetUrl: string }): Promise<SendResult> {
     const subject = 'Reset your password';

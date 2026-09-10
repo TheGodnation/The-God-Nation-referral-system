@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { createLeader, createAdmin } from './helpers';
+import { createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
 import * as emailModule from '../lib/email';
 
@@ -67,38 +67,10 @@ describe('Registration confirmation email', () => {
   });
 });
 
-describe('Leader email invitation uses only the authenticated Leader\'s own link', () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  it('never trusts a client-supplied referral code', async () => {
-    await createLeader('Mary Ngu', 'mary-invite@example.com', 'MARYINV1');
-    await createLeader('John Tabi', 'john-invite@example.com', 'JOHNINV1');
-    const spy = vi.spyOn(emailModule.EmailService, 'sendLeaderReferralInvitation').mockResolvedValue({ ok: true });
-
-    const agent = request.agent(app);
-    const { csrf } = await bootstrap(agent);
-    await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email: 'mary-invite@example.com', password: 'password123' });
-
-    // Even if the client tried to smuggle another referral code in, the
-    // server ignores it entirely — the endpoint doesn't accept one.
-    const res = await agent
-      .post('/api/leader/invite')
-      .set('X-CSRF-Token', csrf)
-      .send({ email: 'friend@example.com', referralCode: 'JOHNINV1' });
-
-    expect(res.status).toBe(200);
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0][0].referralLink).toContain('MARYINV1');
-    expect(spy.mock.calls[0][0].referralLink).not.toContain('JOHNINV1');
-  });
-
-  it('requires authentication', async () => {
-    const agent = request.agent(app);
-    const { csrf } = await bootstrap(agent);
-    const res = await agent.post('/api/leader/invite').set('X-CSRF-Token', csrf).send({ email: 'x@example.com' });
-    expect(res.status).toBe(401);
-  });
-});
+// The "Leader emails their referral link to someone" feature (POST
+// /api/leader/invite) was removed to protect the shared daily Resend
+// sending cap — Leaders still have WhatsApp/Messenger/copy-link/native
+// share, none of which touch email.
 
 describe('Admin Settings — extended fields', () => {
   it('persists WhatsApp destinations, social URLs, and content, merging rather than clobbering', async () => {

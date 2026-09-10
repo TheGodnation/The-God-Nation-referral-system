@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
-import { api, ApiError } from '../lib/api';
+import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
 interface DashboardStats {
@@ -34,8 +34,6 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 // Leader ID or code, and the server derives the link from the session.
 function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
   const { t } = useTranslation();
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [sending, setSending] = useState(false);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
   if (!links) return null;
@@ -65,21 +63,6 @@ function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
     }
   }
 
-  async function sendEmail(e: React.FormEvent) {
-    e.preventDefault();
-    setEmailStatus(null);
-    setSending(true);
-    try {
-      const res = await api.post<{ sent: boolean }>('/api/leader/invite', { email: inviteEmail });
-      setEmailStatus(res.sent ? t('leader.invite_sent') : t('leader.invite_failed'));
-      if (res.sent) setInviteEmail('');
-    } catch (err) {
-      setEmailStatus(err instanceof ApiError ? err.message : t('leader.invite_error_generic'));
-    } finally {
-      setSending(false);
-    }
-  }
-
   return (
     <div className="card mt-6">
       <h2 className="mb-3 font-semibold text-brand-900">{t('leader.invite_title')}</h2>
@@ -99,20 +82,6 @@ function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
           </button>
         )}
       </div>
-
-      <form onSubmit={sendEmail} className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <input
-          type="email"
-          className="input flex-1"
-          placeholder={t('leader.email_placeholder') ?? ''}
-          value={inviteEmail}
-          onChange={(e) => setInviteEmail(e.target.value)}
-          required
-        />
-        <button type="submit" className="btn-primary sm:w-40" disabled={sending}>
-          {sending ? t('leader.sending') : t('leader.send_by_email')}
-        </button>
-      </form>
       {emailStatus && <p className="mt-2 text-sm text-slate-600">{emailStatus}</p>}
     </div>
   );
