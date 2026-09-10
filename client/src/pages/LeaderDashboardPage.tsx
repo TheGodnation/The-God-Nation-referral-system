@@ -42,6 +42,7 @@ function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
   const whatsappMessage = t('leader.invite_message', { link: primaryLink });
   const whatsappShareUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
   const messengerShareUrl = `https://www.facebook.com/dialog/send?link=${encodeURIComponent(primaryLink)}&app_id=0&redirect_uri=${encodeURIComponent(primaryLink)}`;
+  const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(primaryLink)}&text=${encodeURIComponent(t('leader.invite_message_telegram'))}`;
 
   async function copyLink() {
     try {
@@ -72,6 +73,14 @@ function InvitePeople({ links }: { links: { en: string; fr: string } | null }) {
         </a>
         <a href={messengerShareUrl} target="_blank" rel="noreferrer" className="btn-secondary">
           {t('leader.share_messenger')}
+        </a>
+        <a
+          href={telegramShareUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="btn-secondary bg-sky-500 text-white hover:bg-sky-600"
+        >
+          {t('leader.share_telegram')}
         </a>
         <button type="button" onClick={copyLink} className="btn-secondary">
           {t('leader.copy_referral_link')}
