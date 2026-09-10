@@ -76,24 +76,27 @@ export function HomePage() {
           </Link>
         </section>
 
-        {/* Discover & Grow pathway */}
-        <section className="bg-slate-50 px-4 py-14 text-center">
-          <div className="mx-auto max-w-3xl">
-            <h2 className="text-2xl font-bold text-brand-900 sm:text-3xl">
-              {c('discoverTitle') || t('home.discover_heading')}
-            </h2>
-            <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-brand-600">
-              {c('discoverSupporting') || t('home.discover_supporting')}
-            </p>
-            <p className="mt-4 text-slate-600">{c('discoverDescription') || t('home.discover_description')}</p>
-            <Link
-              to="/register?pathway=DISCOVER_GROW"
-              className="btn-secondary mt-6 inline-flex w-full max-w-sm sm:w-auto"
-            >
-              {c('discoverCta') || t('home.discover_cta')}
-            </Link>
-          </div>
-        </section>
+        {/* Discover & Grow pathway — hidden until an Admin actually fills in
+            its title. Unlike other sections, this one has no content yet,
+            so it must not show placeholder/default text as if it were
+            real; presence of a real title is what turns it on. */}
+        {c('discoverTitle') && (
+          <section className="bg-slate-50 px-4 py-14 text-center">
+            <div className="mx-auto max-w-3xl">
+              <h2 className="text-2xl font-bold text-brand-900 sm:text-3xl">{c('discoverTitle')}</h2>
+              <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-brand-600">
+                {c('discoverSupporting') || t('home.discover_supporting')}
+              </p>
+              <p className="mt-4 text-slate-600">{c('discoverDescription') || t('home.discover_description')}</p>
+              <Link
+                to="/register?pathway=DISCOVER_GROW"
+                className="btn-secondary mt-6 inline-flex w-full max-w-sm sm:w-auto"
+              >
+                {c('discoverCta') || t('home.discover_cta')}
+              </Link>
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Short vision */}
