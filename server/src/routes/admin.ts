@@ -271,6 +271,7 @@ router.post('/leaders/:id/resend-invitation', adminSensitiveLimiter, requireCsrf
 
 const patchLeaderSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
+  email: z.string().trim().email().optional(),
   active: z.boolean().optional(),
   referralCode: z
     .string()
@@ -285,9 +286,10 @@ router.patch('/leaders/:id', requireCsrf, async (req, res) => {
   const { id } = req.params;
   const parsed = patchLeaderSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Invalid request.' });
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
   }
   const { name, active, referralCode } = parsed.data;
+  const email = parsed.data.email?.toLowerCase();
 
   const leader = await prisma.user.findUnique({ where: { id } });
   if (!leader || leader.role !== 'LEADER') {
@@ -301,9 +303,16 @@ router.patch('/leaders/:id', requireCsrf, async (req, res) => {
     }
   }
 
+  if (email && email !== leader.email) {
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail && existingEmail.id !== id) {
+      return res.status(409).json({ error: 'A user with this email already exists.' });
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
-    if (name !== undefined || active !== undefined) {
-      await tx.user.update({ where: { id }, data: { name, active } });
+    if (name !== undefined || email !== undefined || active !== undefined) {
+      await tx.user.update({ where: { id }, data: { name, email, active } });
     }
 
     if (referralCode) {
@@ -333,7 +342,7 @@ router.patch('/leaders/:id', requireCsrf, async (req, res) => {
     action: 'LEADER_UPDATED',
     targetType: 'User',
     targetId: id,
-    metadata: { name, active, referralCode },
+    metadata: { name, email, active, referralCode },
   });
 
   const updated = await prisma.user.findUnique({

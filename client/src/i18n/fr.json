@@ -151,7 +151,12 @@
       "resend_invitation": "Renvoyer l'invitation",
       "resend_sending": "Envoi en cours…",
       "resend_sent": "Invitation envoyée !",
-      "resend_failed": "Échec de l'envoi."
+      "resend_failed": "Échec de l'envoi.",
+      "edit": "Modifier",
+      "edit_leader": "Modifier le Leader",
+      "save_changes": "Enregistrer",
+      "cancel": "Annuler",
+      "save_failed": "Échec de l'enregistrement."
     },
     "registrations": {
       "title": "Inscriptions",

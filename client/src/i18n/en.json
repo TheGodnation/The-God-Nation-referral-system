@@ -151,7 +151,12 @@
       "resend_invitation": "Resend Invitation",
       "resend_sending": "Sending…",
       "resend_sent": "Invitation sent!",
-      "resend_failed": "Send failed."
+      "resend_failed": "Send failed.",
+      "edit": "Edit",
+      "edit_leader": "Edit Leader",
+      "save_changes": "Save Changes",
+      "cancel": "Cancel",
+      "save_failed": "Failed to save changes."
     },
     "registrations": {
       "title": "Registrations",

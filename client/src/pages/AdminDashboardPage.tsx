@@ -88,6 +88,15 @@ function LeadersTab() {
   const [created, setCreated] = useState<{ email: string; invitationSent: boolean } | null>(null);
   const [resendStatus, setResendStatus] = useState<Record<string, string>>({});
 
+  // Editing an existing Leader's name/email/referral code (section: Admin
+  // recovery when one of these was entered wrong at creation time — email
+  // in particular could never be corrected before this).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editCode, setEditCode] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+
   function load() {
     api.get<{ items: LeaderRow[] }>('/api/admin/leaders?pageSize=100').then((res) => setItems(res.items));
   }
@@ -117,6 +126,37 @@ function LeadersTab() {
   async function toggleActive(leader: LeaderRow) {
     await api.patch(`/api/admin/leaders/${leader.id}`, { active: !leader.active });
     load();
+  }
+
+  function startEdit(leader: LeaderRow) {
+    setShowForm(false);
+    setEditingId(leader.id);
+    setEditName(leader.name);
+    setEditEmail(leader.email);
+    setEditCode(leader.referralCode ?? '');
+    setEditError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditError(null);
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingId) return;
+    setEditError(null);
+    try {
+      await api.patch(`/api/admin/leaders/${editingId}`, {
+        name: editName,
+        email: editEmail,
+        referralCode: editCode,
+      });
+      setEditingId(null);
+      load();
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : t('admin.leaders.save_failed'));
+    }
   }
 
   // Section 32: recovery when a Leader never received/lost/let expire
@@ -184,6 +224,43 @@ function LeadersTab() {
         </form>
       )}
 
+      {editingId && (
+        <form onSubmit={saveEdit} className="card mb-4 space-y-3">
+          <h3 className="font-semibold text-brand-900">{t('admin.leaders.edit_leader')}</h3>
+          <input
+            className="input"
+            placeholder={t('admin.leaders.name_placeholder') ?? ''}
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            required
+          />
+          <input
+            className="input"
+            type="email"
+            placeholder={t('admin.leaders.email_placeholder') ?? ''}
+            value={editEmail}
+            onChange={(e) => setEditEmail(e.target.value)}
+            required
+          />
+          <input
+            className="input"
+            placeholder={t('admin.leaders.code_placeholder') ?? ''}
+            value={editCode}
+            onChange={(e) => setEditCode(e.target.value)}
+            required
+          />
+          {editError && <p className="text-sm text-red-700">{editError}</p>}
+          <div className="flex gap-3">
+            <button className="btn-primary" type="submit">
+              {t('admin.leaders.save_changes')}
+            </button>
+            <button type="button" className="text-sm text-slate-500 hover:underline" onClick={cancelEdit}>
+              {t('admin.leaders.cancel')}
+            </button>
+          </div>
+        </form>
+      )}
+
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[600px] text-left text-sm">
           <thead>
@@ -210,6 +287,9 @@ function LeadersTab() {
             {items.map((l) => (
               <tr key={l.id} className="border-b border-slate-50">
                 <td className="sticky left-0 z-10 flex flex-col items-start gap-1 bg-white py-2 pr-4 shadow-[8px_0_8px_-8px_rgba(0,0,0,0.1)]">
+                  <button className="text-brand-700 hover:underline" onClick={() => startEdit(l)}>
+                    {t('admin.leaders.edit')}
+                  </button>
                   <button className="text-brand-700 hover:underline" onClick={() => toggleActive(l)}>
                     {l.active ? t('admin.leaders.deactivate') : t('admin.leaders.activate')}
                   </button>
