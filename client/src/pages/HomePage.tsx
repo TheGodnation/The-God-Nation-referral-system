@@ -9,8 +9,17 @@ import { usePublicSettings } from '../lib/usePublicSettings';
 // offered identically regardless of how the visitor arrived.
 export function HomePage() {
   const { t, i18n } = useTranslation();
-  const { content, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl, whatsappContactUrl, telegramUrl, messengerUrl } =
-    usePublicSettings();
+  const {
+    content,
+    facebookUrl,
+    instagramUrl,
+    tiktokUrl,
+    youtubeUrl,
+    whatsappContactUrl,
+    telegramUrl,
+    messengerUrl,
+    loaded,
+  } = usePublicSettings();
 
   // Every Admin-editable content key is stored as a bilingual pair
   // (e.g. homepageTitleEn / homepageTitleFr) so an edit in one language can
@@ -36,6 +45,19 @@ export function HomePage() {
     { title: c('how2Title') || t('home.how_2_title'), body: c('how2Body') || t('home.how_2_body') },
     { title: c('how3Title') || t('home.how_3_title'), body: c('how3Body') || t('home.how_3_body') },
   ];
+
+  // Wait for the Admin's saved content to actually load before rendering
+  // any content-dependent text. Without this, the page would render the
+  // app's built-in default wording for an instant (since `content` starts
+  // empty), then swap to the real saved text once the fetch resolves — a
+  // visible "flash" from the old/default text to the new one.
+  if (!loaded) {
+    return (
+      <PageShell>
+        <div className="px-4 py-24 text-center text-slate-400">{t('join.loading')}</div>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>

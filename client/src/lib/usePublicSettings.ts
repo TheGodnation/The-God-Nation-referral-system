@@ -11,6 +11,12 @@ export interface PublicSettings {
   telegramUrl: string | null;
   messengerUrl: string | null;
   content: Record<string, string>;
+  // True once the real settings have been fetched from the server (success
+  // or failure). Callers should avoid rendering content-dependent text
+  // (which otherwise falls back to hardcoded default copy) until this is
+  // true, so visitors don't see a flash of the wrong text before the
+  // Admin's saved content swaps in.
+  loaded: boolean;
 }
 
 const EMPTY: PublicSettings = {
@@ -23,6 +29,7 @@ const EMPTY: PublicSettings = {
   telegramUrl: null,
   messengerUrl: null,
   content: {},
+  loaded: false,
 };
 
 // Section 22: Admin-editable website copy + social/support links. Content
@@ -33,9 +40,9 @@ export function usePublicSettings(): PublicSettings {
 
   useEffect(() => {
     api
-      .get<PublicSettings>('/api/settings/public')
-      .then(setSettings)
-      .catch(() => {});
+      .get<Omit<PublicSettings, 'loaded'>>('/api/settings/public')
+      .then((data) => setSettings({ ...data, loaded: true }))
+      .catch(() => setSettings((prev) => ({ ...prev, loaded: true })));
   }, []);
 
   return settings;
