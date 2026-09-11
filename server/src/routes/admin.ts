@@ -167,6 +167,7 @@ router.get('/leaders', async (req, res) => {
     email: l.email,
     active: l.active,
     isTestData: l.isTestData,
+    selfRegistered: l.selfRegistered,
     referralCode: l.referralCodes[0]?.code ?? null,
     createdAt: l.createdAt,
   }));
@@ -606,6 +607,7 @@ function settingsResponse(settings: {
   whatsappContactUrl: string | null;
   telegramUrl: string | null;
   messengerUrl: string | null;
+  leaderSignupPhrase: string | null;
   content: unknown;
 } | null) {
   return {
@@ -621,6 +623,7 @@ function settingsResponse(settings: {
     whatsappContactUrl: settings?.whatsappContactUrl ?? null,
     telegramUrl: settings?.telegramUrl ?? null,
     messengerUrl: settings?.messengerUrl ?? null,
+    leaderSignupPhrase: settings?.leaderSignupPhrase ?? null,
     content: (settings?.content as Record<string, string> | null) ?? {},
   };
 }
@@ -643,6 +646,18 @@ const settingsSchema = z.object({
   whatsappContactUrl: z.string().url().optional().nullable(),
   telegramUrl: z.string().url().optional().nullable(),
   messengerUrl: z.string().url().optional().nullable(),
+  // Not a URL — a short shared phrase. Unlike the URL fields above, blank
+  // is a meaningful, submittable value here (it turns Leader self-signup
+  // off), so it's normalized to null rather than dropped.
+  leaderSignupPhrase: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .nullable()
+    // Field omitted entirely -> leave untouched (undefined). Field sent as
+    // '' or null -> normalize to null (explicitly turns signup off).
+    .transform((v) => (v === undefined ? undefined : v ? v : null)),
   content: contentSchema.optional(),
 });
 
@@ -672,6 +687,7 @@ router.patch('/settings', requireCsrf, async (req, res) => {
     ...(d.whatsappContactUrl !== undefined ? { whatsappContactUrl: d.whatsappContactUrl } : {}),
     ...(d.telegramUrl !== undefined ? { telegramUrl: d.telegramUrl } : {}),
     ...(d.messengerUrl !== undefined ? { messengerUrl: d.messengerUrl } : {}),
+    ...(d.leaderSignupPhrase !== undefined ? { leaderSignupPhrase: d.leaderSignupPhrase } : {}),
   };
 
   const settings = await prisma.settings.upsert({

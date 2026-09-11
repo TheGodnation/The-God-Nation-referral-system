@@ -78,3 +78,14 @@ export const adminSensitiveLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Leader self-signup (public, gated only by a shared access phrase) —
+// tight, since a wrong-phrase guess here is effectively a brute-force
+// attempt against the phrase, and a right guess creates a real account.
+export const leaderSignupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
+});

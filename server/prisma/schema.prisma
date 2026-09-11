@@ -45,6 +45,11 @@ model User {
   active       Boolean  @default(true)
   isTestData   Boolean  @default(false)
   mustChangePassword Boolean @default(false)
+  // True for a Leader who created their own account via the public
+  // self-signup link (POST /api/auth/leader-signup), as opposed to one an
+  // Admin created by hand in Admin > Leaders. Admin retains full control
+  // either way — this is purely informational, shown as a badge.
+  selfRegistered Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -235,6 +240,11 @@ model Settings {
   whatsappContactUrl    String?
   telegramUrl           String?
   messengerUrl          String?
+  // Shared access phrase gating Leader self-signup (POST
+  // /api/auth/leader-signup). Stored in plain text — the Admin needs to be
+  // able to read it back to share it in the WhatsApp group, so it isn't a
+  // password. Null/blank means self-signup is turned off entirely.
+  leaderSignupPhrase    String?
   content               Json?
   updatedAt             DateTime @updatedAt
   updatedByUserId       String?

@@ -110,6 +110,36 @@ describe('Admin Settings — extended fields', () => {
     expect(second.body.facebookUrl).toBe('https://facebook.com/thegodnation'); // untouched scalar preserved
   });
 
+  it('sets, preserves, and clears the leader signup access phrase', async () => {
+    await createAdmin('admin-settings3@test.local', 'AdminPass123!');
+    const agent = request.agent(app);
+    const { csrf } = await bootstrap(agent);
+    await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email: 'admin-settings3@test.local', password: 'AdminPass123!' });
+
+    const first = await agent
+      .patch('/api/admin/settings')
+      .set('X-CSRF-Token', csrf)
+      .send({ leaderSignupPhrase: 'GODSNATION2026' });
+    expect(first.status).toBe(200);
+    expect(first.body.leaderSignupPhrase).toBe('GODSNATION2026');
+
+    // An unrelated update must not touch it.
+    const second = await agent
+      .patch('/api/admin/settings')
+      .set('X-CSRF-Token', csrf)
+      .send({ facebookUrl: 'https://facebook.com/thegodnation' });
+    expect(second.status).toBe(200);
+    expect(second.body.leaderSignupPhrase).toBe('GODSNATION2026');
+
+    // Blanking it explicitly turns self-signup off.
+    const third = await agent
+      .patch('/api/admin/settings')
+      .set('X-CSRF-Token', csrf)
+      .send({ leaderSignupPhrase: '' });
+    expect(third.status).toBe(200);
+    expect(third.body.leaderSignupPhrase).toBeNull();
+  });
+
   it('rejects an invalid social URL', async () => {
     await createAdmin('admin-settings2@test.local', 'AdminPass123!');
     const agent = request.agent(app);

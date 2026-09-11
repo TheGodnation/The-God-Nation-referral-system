@@ -22,6 +22,7 @@ interface LeaderRow {
   email: string;
   active: boolean;
   isTestData: boolean;
+  selfRegistered: boolean;
   referralCode: string | null;
   createdAt: string;
 }
@@ -281,6 +282,7 @@ function LeadersTab() {
               <th className="py-2 pr-4">{t('admin.leaders.table_email')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_code')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_status')}</th>
+              <th className="py-2 pr-4">{t('admin.leaders.table_source')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_test')}</th>
             </tr>
           </thead>
@@ -303,6 +305,15 @@ function LeadersTab() {
                 <td className="py-2 pr-4">{l.referralCode ?? '—'}</td>
                 <td className="py-2 pr-4">
                   {l.active ? t('admin.leaders.status_active') : t('admin.leaders.status_inactive')}
+                </td>
+                <td className="py-2 pr-4">
+                  {l.selfRegistered ? (
+                    <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+                      {t('admin.leaders.source_self')}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">{t('admin.leaders.source_admin')}</span>
+                  )}
                 </td>
                 <td className="py-2 pr-4">{l.isTestData ? t('admin.leaders.yes') : t('admin.leaders.no')}</td>
               </tr>
@@ -489,6 +500,7 @@ interface SettingsData {
   whatsappContactUrl: string | null;
   telegramUrl: string | null;
   messengerUrl: string | null;
+  leaderSignupPhrase: string | null;
   content: Record<string, string>;
 }
 
@@ -505,6 +517,7 @@ const EMPTY_SETTINGS: SettingsData = {
   whatsappContactUrl: '',
   telegramUrl: '',
   messengerUrl: '',
+  leaderSignupPhrase: '',
   content: {},
 };
 
@@ -513,6 +526,18 @@ function SettingsTab() {
   const [settings, setSettings] = useState<SettingsData>(EMPTY_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const signupLink = `${window.location.origin}/leader-signup`;
+
+  async function copySignupLink() {
+    try {
+      await navigator.clipboard.writeText(signupLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      // Clipboard API unavailable — no-op; the link is still selectable/visible.
+    }
+  }
 
   useEffect(() => {
     api.get<SettingsData>('/api/admin/settings').then(setSettings);
@@ -544,6 +569,10 @@ function SettingsTab() {
         whatsappContactUrl: settings.whatsappContactUrl || undefined,
         telegramUrl: settings.telegramUrl || undefined,
         messengerUrl: settings.messengerUrl || undefined,
+        // Unlike the URL fields above, an intentionally blank phrase is a
+        // real, submittable value here — it's how self-signup gets turned
+        // off — so it's always sent, never swapped for `undefined`.
+        leaderSignupPhrase: settings.leaderSignupPhrase ?? '',
       });
       setSettings(res);
       setSaved(true);
@@ -596,6 +625,29 @@ function SettingsTab() {
             onChange={(e) => setField('supportWhatsappUrl', e.target.value)}
             placeholder="https://wa.me/2376..."
           />
+        </div>
+      </div>
+
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">{t('admin.settings.leader_signup_heading')}</h2>
+        <div>
+          <label className="label">{t('admin.settings.leader_signup_phrase')}</label>
+          <input
+            className="input"
+            value={field('leaderSignupPhrase') ?? ''}
+            onChange={(e) => setField('leaderSignupPhrase', e.target.value)}
+            placeholder={t('admin.settings.leader_signup_phrase_placeholder') ?? ''}
+          />
+          <p className="mt-1 text-xs text-slate-400">{t('admin.settings.leader_signup_hint')}</p>
+        </div>
+        <div>
+          <label className="label">{t('admin.settings.leader_signup_link')}</label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input readOnly value={signupLink} className="input flex-1 bg-slate-50 text-sm" />
+            <button type="button" className="btn-secondary sm:w-32" onClick={copySignupLink}>
+              {linkCopied ? t('leader.copied') : t('leader.copy')}
+            </button>
+          </div>
         </div>
       </div>
 

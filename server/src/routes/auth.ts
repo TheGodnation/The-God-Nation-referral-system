@@ -15,11 +15,13 @@ import { isBruteForced, recordLoginAttempt, recordAudit } from '../lib/audit';
 import {
   loginLimiter,
   leaderSetupLimiter,
+  leaderSignupLimiter,
   passwordResetRequestLimiter,
   passwordResetRedeemLimiter,
 } from '../lib/rateLimit';
 import { requireCsrf } from '../lib/csrf';
 import { EmailService } from '../lib/email';
+import { generateUniqueReferralCode } from '../lib/referralCode';
 import { CLIENT_URL, PASSWORD_RESET_TOKEN_TTL_MS } from '../lib/env';
 
 const router = Router();
@@ -187,6 +189,85 @@ router.post('/update-email', requireCsrf, requireAuth, async (req, res) => {
   });
 
   res.json({ ok: true, email });
+});
+
+// ---------------------------------------------------------------------------
+// Leader self-signup — a single public link (gated by a shared access
+// phrase the Admin sets in Admin > Settings) lets a Leader create their own
+// account instantly, with a referral code generated automatically, instead
+// of waiting for an Admin to create it for them. No email is sent either
+// way — the Leader sets their own password right here — which also means
+// this never touches the shared daily email-sending quota. Admin keeps full
+// control afterward: self-registered Leaders show up in Admin > Leaders
+// exactly like Admin-created ones, editable/deletable the same way.
+// ---------------------------------------------------------------------------
+
+const leaderSignupSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  email: z.string().email(),
+  password: z.string().min(8, 'Password must be at least 8 characters long.'),
+  phrase: z.string().trim().min(1, 'Please enter the access phrase.'),
+});
+
+router.post('/leader-signup', leaderSignupLimiter, requireCsrf, async (req, res) => {
+  const parsed = leaderSignupSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  }
+  const { name, email, password, phrase } = parsed.data;
+
+  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' } });
+  const configuredPhrase = settings?.leaderSignupPhrase?.trim();
+
+  // Same generic message whether self-signup is off or the phrase is wrong
+  // — doesn't hand an attacker a signal either way.
+  if (!configuredPhrase || phrase !== configuredPhrase) {
+    console.warn('[leader-signup] rejected: signup closed or wrong access phrase');
+    return res
+      .status(403)
+      .json({ error: 'Leader signup is not available right now. Please check the access phrase with your Admin.' });
+  }
+
+  const normalizedEmail = email.toLowerCase();
+  const existingEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (existingEmail) {
+    return res.status(409).json({ error: 'A user with this email already exists.' });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const referralCode = await generateUniqueReferralCode(name);
+
+  const leader = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        name,
+        email: normalizedEmail,
+        passwordHash,
+        role: 'LEADER',
+        active: true,
+        selfRegistered: true,
+        mustChangePassword: false,
+      },
+    });
+    await tx.referralCode.create({ data: { code: referralCode, leaderId: user.id } });
+    return user;
+  });
+
+  await recordAudit({
+    actorId: leader.id,
+    actorEmail: leader.email,
+    action: 'LEADER_SELF_REGISTERED',
+    targetType: 'User',
+    targetId: leader.id,
+    metadata: { name, email: normalizedEmail, referralCode },
+  });
+
+  await createSession(leader.id, res);
+
+  res.status(201).json({
+    user: { id: leader.id, name: leader.name, email: leader.email, role: leader.role, mustChangePassword: false },
+    referralCode,
+  });
 });
 
 // ---------------------------------------------------------------------------
