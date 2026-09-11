@@ -764,6 +764,10 @@ const CONTENT_SECTIONS: {
       { key: 'emailPasswordResetBody', multiline: true, bilingual: false },
     ],
   },
+  {
+    section: 'leaderInvite',
+    fields: [{ key: 'leaderInviteMessage', multiline: true }],
+  },
 ];
 
 // Section 22: deliberately simple — a flat set of named bilingual text
@@ -817,6 +821,9 @@ function ContentTab() {
         <div key={section} className="card space-y-4">
           <h3 className="font-semibold text-brand-900">{t(`admin.content.sections.${section}`)}</h3>
           {section === 'emails' && <p className="text-xs text-slate-400">{t('admin.content.emails_hint')}</p>}
+          {section === 'leaderInvite' && (
+            <p className="text-xs text-slate-400">{t('admin.content.leader_invite_hint')}</p>
+          )}
           {fields.map(({ key, multiline, bilingual = true }) => (
             <div key={key}>
               <label className="label">{t(`admin.content.fields.${key}`)}</label>

@@ -77,9 +77,13 @@ describe('Acceptance Test 1 — Mary basic flow', () => {
     const dashRes = await leaderAgent.get('/api/leader/dashboard');
     expect(dashRes.status).toBe(200);
     expect(dashRes.body.referralCode).toBe('MARY7X2');
-    expect(dashRes.body.stats.totalVisits).toBe(1);
-    expect(dashRes.body.stats.registrations).toBe(1);
+    // Visit/registration counts are Admin-only (checked below via
+    // /api/admin/dashboard) — a Leader's own dashboard only surfaces
+    // WhatsApp clicks and the conversion rate.
     expect(dashRes.body.stats.whatsappClicks).toBe(1);
+    expect(dashRes.body.stats.conversionRate).toBe(100);
+    expect(dashRes.body.stats.totalVisits).toBeUndefined();
+    expect(dashRes.body.stats.registrations).toBeUndefined();
 
     // Admin dashboard reflects the activity.
     const adminEmail = 'admin-flow@test.local';

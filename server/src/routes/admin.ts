@@ -571,6 +571,13 @@ const CONTENT_BASE_KEYS = [
   'emailRegistrationConfirmationBody',
   'emailWhatsappReminderSubject',
   'emailWhatsappReminderBody',
+  // The message a Leader shares (WhatsApp/Telegram/native share) to invite
+  // people to register — bilingual, picked by the Leader's own UI language
+  // (not the recipient's, which the app has no way to know ahead of time).
+  // Rendered client-side in LeaderDashboardPage: `{{link}}` is replaced with
+  // that Leader's own referral link; for Telegram, any line containing
+  // `{{link}}` is dropped instead, since Telegram attaches the link itself.
+  'leaderInviteMessage',
 ] as const;
 
 const CONTENT_KEYS = CONTENT_BASE_KEYS.flatMap((k) => [`${k}En`, `${k}Fr`] as const);

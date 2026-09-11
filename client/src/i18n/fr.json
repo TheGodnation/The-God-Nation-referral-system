@@ -87,8 +87,6 @@
     "dashboard_title": "Tableau de bord du Leader",
     "logout": "Déconnexion",
     "stat_referral_code": "Code de parrainage",
-    "stat_total_visits": "Visites totales",
-    "stat_registrations": "Inscriptions",
     "stat_whatsapp_clicks": "Clics WhatsApp",
     "stat_conversion": "Conversion",
     "links_title": "Vos liens de parrainage",
@@ -230,9 +228,11 @@
         "footer": "Pied de page et contact",
         "registration": "Page d'inscription",
         "success": "Page de confirmation",
-        "emails": "E-mails"
+        "emails": "E-mails",
+        "leaderInvite": "Message de parrainage des Leaders"
       },
       "emails_hint": "Vous pouvez utiliser {{name}} et {{link}} (ou {{setupUrl}} / {{resetUrl}} lorsqu'ils sont indiqués) dans votre texte — ils sont automatiquement remplacés par la vraie valeur lors de l'envoi de chaque e-mail.",
+      "leader_invite_hint": "C'est le message que les Leaders partagent sur WhatsApp, Telegram, ou le menu de partage du téléphone pour inviter des personnes. Utilisez {{link}} à l'endroit où le lien de parrainage de chaque Leader doit apparaître. Pour Telegram en particulier, toute ligne contenant {{link}} est automatiquement omise, car Telegram joint le lien lui-même.",
       "fields": {
         "homepageTitle": "Titre principal de la page d'accueil",
         "homepageSubtitle": "Sous-titre de la page d'accueil",
@@ -268,7 +268,8 @@
         "emailLeaderInvitationSubject": "Invitation Leader — Objet",
         "emailLeaderInvitationBody": "Invitation Leader — Message",
         "emailPasswordResetSubject": "Réinitialisation du mot de passe — Objet",
-        "emailPasswordResetBody": "Réinitialisation du mot de passe — Message"
+        "emailPasswordResetBody": "Réinitialisation du mot de passe — Message",
+        "leaderInviteMessage": "Message partagé par les Leaders"
       }
     },
     "audit": {

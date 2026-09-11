@@ -87,8 +87,6 @@
     "dashboard_title": "Leader Dashboard",
     "logout": "Log out",
     "stat_referral_code": "Referral Code",
-    "stat_total_visits": "Total Visits",
-    "stat_registrations": "Registrations",
     "stat_whatsapp_clicks": "WhatsApp Clicks",
     "stat_conversion": "Conversion",
     "links_title": "Your Referral Links",
@@ -230,9 +228,11 @@
         "footer": "Footer & Contact",
         "registration": "Registration Page",
         "success": "Success Page",
-        "emails": "Emails"
+        "emails": "Emails",
+        "leaderInvite": "Leader Referral Message"
       },
       "emails_hint": "You can use {{name}} and {{link}} (or {{setupUrl}} / {{resetUrl}} where shown) inside your text — they're automatically replaced with the real value when each email is sent.",
+      "leader_invite_hint": "This is the message Leaders share on WhatsApp, Telegram, or the phone's own share menu to invite people. Use {{link}} where you want each Leader's own referral link to appear. For Telegram specifically, any line containing {{link}} is left out automatically, since Telegram attaches the link on its own.",
       "fields": {
         "homepageTitle": "Homepage Main Title",
         "homepageSubtitle": "Homepage Subtitle",
@@ -268,7 +268,8 @@
         "emailLeaderInvitationSubject": "Leader Invitation — Subject",
         "emailLeaderInvitationBody": "Leader Invitation — Message",
         "emailPasswordResetSubject": "Password Reset — Subject",
-        "emailPasswordResetBody": "Password Reset — Message"
+        "emailPasswordResetBody": "Password Reset — Message",
+        "leaderInviteMessage": "Message Leaders Share"
       }
     },
     "audit": {

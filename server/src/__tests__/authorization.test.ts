@@ -39,7 +39,7 @@ describe('Acceptance Test — authorization', () => {
     const { agent: johnAgent } = await loginAs('john@example.com', 'password123');
     const johnDash = await johnAgent.get('/api/leader/dashboard');
     expect(johnDash.status).toBe(200);
-    expect(johnDash.body.stats.registrations).toBe(0); // John sees none of Mary's data
+    expect(johnDash.body.stats.conversionRate).toBe(0); // John sees none of Mary's data
 
     const johnReferrals = await johnAgent.get('/api/leader/referrals');
     expect(johnReferrals.body.items).toHaveLength(0);

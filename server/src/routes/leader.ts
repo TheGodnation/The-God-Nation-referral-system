@@ -35,12 +35,14 @@ router.get('/dashboard', async (req, res) => {
   const uniqueVisitors = uniqueVisitorRows.length;
   const conversion = uniqueVisitors > 0 ? (registrations / uniqueVisitors) * 100 : 0;
 
+  // Visit and registration counts are computed above only to derive the
+  // conversion rate — they are deliberately NOT returned to the Leader.
+  // Those numbers stay Admin-only (see admin.ts /dashboard and
+  // /registrations, which already show them site-wide and per-leader);
+  // a Leader sees only their WhatsApp clicks and conversion rate here.
   res.json({
     referralCode: activeCode?.code ?? null,
     stats: {
-      totalVisits,
-      uniqueVisitors,
-      registrations,
       whatsappClicks,
       conversionRate: Math.round(conversion * 100) / 100,
     },
