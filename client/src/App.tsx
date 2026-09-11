@@ -1,0 +1,57 @@
+import { Routes, Route } from 'react-router-dom';
+import { HomePage } from './pages/HomePage';
+import { JoinPage } from './pages/JoinPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { SuccessPage } from './pages/SuccessPage';
+import { LoginPage } from './pages/LoginPage';
+import { LeaderDashboardPage } from './pages/LeaderDashboardPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { ChangePasswordPage } from './pages/ChangePasswordPage';
+import { LeaderSetupPage } from './pages/LeaderSetupPage';
+import { LeaderSignupPage } from './pages/LeaderSignupPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
+import { AuthProvider } from './lib/AuthContext';
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/join" element={<JoinPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/success" element={<SuccessPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/leader/setup" element={<LeaderSetupPage />} />
+        <Route path="/leader-signup" element={<LeaderSignupPage />} />
+        <Route
+          path="/change-password"
+          element={
+            <RequireAuth>
+              <ChangePasswordPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/leader/dashboard"
+          element={
+            <ProtectedRoute role="LEADER">
+              <LeaderDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute role="ADMIN">
+              <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </AuthProvider>
+  );
+}
