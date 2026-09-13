@@ -24,6 +24,8 @@ interface LeaderRow {
   isTestData: boolean;
   selfRegistered: boolean;
   referralCode: string | null;
+  referredCount: number;
+  whatsappJoinedCount: number;
   createdAt: string;
 }
 
@@ -79,7 +81,7 @@ function OverviewTab({ includeTestData }: { includeTestData: boolean }) {
   );
 }
 
-function LeadersTab() {
+function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<LeaderRow[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -100,10 +102,12 @@ function LeadersTab() {
   const [editError, setEditError] = useState<string | null>(null);
 
   function load() {
-    api.get<{ items: LeaderRow[] }>('/api/admin/leaders?pageSize=100').then((res) => setItems(res.items));
+    api
+      .get<{ items: LeaderRow[] }>(`/api/admin/leaders?pageSize=100&includeTestData=${includeTestData}`)
+      .then((res) => setItems(res.items));
   }
 
-  useEffect(load, []);
+  useEffect(load, [includeTestData]);
 
   async function createLeader(e: React.FormEvent) {
     e.preventDefault();
@@ -264,7 +268,7 @@ function LeadersTab() {
       )}
 
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[600px] text-left text-sm">
+        <table className="w-full min-w-[760px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400">
               {/* Sticky-LEFT and first in row order, not last/sticky-right:
@@ -281,6 +285,8 @@ function LeadersTab() {
               <th className="py-2 pr-4">{t('admin.leaders.table_name')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_email')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_code')}</th>
+              <th className="py-2 pr-4">{t('admin.leaders.table_referred')}</th>
+              <th className="py-2 pr-4">{t('admin.leaders.table_joined')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_status')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_source')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_test')}</th>
@@ -303,6 +309,8 @@ function LeadersTab() {
                 <td className="py-2 pr-4">{l.name}</td>
                 <td className="py-2 pr-4">{l.email}</td>
                 <td className="py-2 pr-4">{l.referralCode ?? '—'}</td>
+                <td className="py-2 pr-4 font-medium text-brand-900">{l.referredCount}</td>
+                <td className="py-2 pr-4 font-medium text-brand-900">{l.whatsappJoinedCount}</td>
                 <td className="py-2 pr-4">
                   {l.active ? t('admin.leaders.status_active') : t('admin.leaders.status_inactive')}
                 </td>
@@ -1077,7 +1085,7 @@ export function AdminDashboardPage() {
         </div>
 
         {tab === 'overview' && <OverviewTab includeTestData={includeTestData} />}
-        {tab === 'leaders' && <LeadersTab />}
+        {tab === 'leaders' && <LeadersTab includeTestData={includeTestData} />}
         {tab === 'registrations' && <RegistrationsTab includeTestData={includeTestData} />}
         {tab === 'settings' && <SettingsTab />}
         {tab === 'content' && <ContentTab />}

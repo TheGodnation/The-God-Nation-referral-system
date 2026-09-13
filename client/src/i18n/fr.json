@@ -153,6 +153,8 @@
       "table_name": "Nom",
       "table_email": "E-mail",
       "table_code": "Code",
+      "table_referred": "Parrainés",
+      "table_joined": "A rejoint WhatsApp",
       "table_status": "Statut",
       "table_source": "Origine",
       "table_test": "Test",

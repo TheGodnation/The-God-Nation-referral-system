@@ -146,9 +146,45 @@ router.get('/analytics', async (req, res) => {
 // Leader management
 // ---------------------------------------------------------------------------
 
+// For each of the given Leaders: how many registrations are attributed to
+// them (referred), and how many of those have actually clicked through to
+// WhatsApp (joined). Three bulk queries regardless of how many Leaders are
+// on the page — no N+1 per-Leader querying.
+async function computeLeaderReferralCounts(leaderIds: string[], includeTestData: boolean) {
+  const counts = new Map<string, { referred: number; joined: number }>();
+  if (leaderIds.length === 0) return counts;
+
+  const relationships = await prisma.referralRelationship.findMany({
+    where: {
+      leaderId: { in: leaderIds },
+      ...(includeTestData ? {} : { registration: { isTestData: false } }),
+    },
+    select: { leaderId: true, registrationId: true },
+  });
+
+  const registrationIds = relationships.map((r) => r.registrationId);
+  const joinedEvents = registrationIds.length
+    ? await prisma.event.findMany({
+        where: { type: 'WHATSAPP_CLICKED', registrationId: { in: registrationIds } },
+        select: { registrationId: true },
+        distinct: ['registrationId'],
+      })
+    : [];
+  const joinedSet = new Set(joinedEvents.map((e) => e.registrationId));
+
+  for (const r of relationships) {
+    const entry = counts.get(r.leaderId) ?? { referred: 0, joined: 0 };
+    entry.referred += 1;
+    if (joinedSet.has(r.registrationId)) entry.joined += 1;
+    counts.set(r.leaderId, entry);
+  }
+  return counts;
+}
+
 router.get('/leaders', async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req);
   const where: Prisma.UserWhereInput = { role: 'LEADER' };
+  const includeTestData = req.query.includeTestData === 'true';
 
   const [total, leaders] = await Promise.all([
     prisma.user.count({ where }),
@@ -161,6 +197,11 @@ router.get('/leaders', async (req, res) => {
     }),
   ]);
 
+  const counts = await computeLeaderReferralCounts(
+    leaders.map((l) => l.id),
+    includeTestData,
+  );
+
   const items = leaders.map((l) => ({
     id: l.id,
     name: l.name,
@@ -169,6 +210,8 @@ router.get('/leaders', async (req, res) => {
     isTestData: l.isTestData,
     selfRegistered: l.selfRegistered,
     referralCode: l.referralCodes[0]?.code ?? null,
+    referredCount: counts.get(l.id)?.referred ?? 0,
+    whatsappJoinedCount: counts.get(l.id)?.joined ?? 0,
     createdAt: l.createdAt,
   }));
 

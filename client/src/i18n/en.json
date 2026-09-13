@@ -153,6 +153,8 @@
       "table_name": "Name",
       "table_email": "Email",
       "table_code": "Code",
+      "table_referred": "Referred",
+      "table_joined": "Joined WhatsApp",
       "table_status": "Status",
       "table_source": "Source",
       "table_test": "Test",
