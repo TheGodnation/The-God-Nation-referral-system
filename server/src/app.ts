@@ -1,5 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
+import compression from 'compression';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
@@ -22,6 +23,11 @@ export function createApp() {
 
   app.set('trust proxy', 1);
   app.use(helmet({ contentSecurityPolicy: false }));
+  // Gzip/brotli-compress every text response (HTML, CSS, JS, JSON). This
+  // matters most for visitors on slow connections (2G/3G, common among our
+  // leaders) — it typically shrinks the JS bundle and API responses by
+  // 60-70% with no code changes needed anywhere else.
+  app.use(compression());
   app.use(
     cors({
       origin: CLIENT_URL,
@@ -83,6 +89,16 @@ export function createApp() {
               // never reach a device that already installed the app.
               res.setHeader('Content-Type', 'text/javascript; charset=utf-8');
               res.setHeader('Cache-Control', 'no-cache');
+            } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+              // Vite names every file in here with a content hash (e.g.
+              // index-BpGroIUE.js) — a new build always gets new filenames,
+              // so it's safe to tell browsers to cache these forever and
+              // skip the network entirely on repeat visits. This matters a
+              // lot on slow connections (2G/3G): without it, every visit
+              // re-fetches the JS/CSS bundle (or at least round-trips to
+              // revalidate it), which is the single biggest thing a repeat
+              // visitor downloads.
+              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
             }
           },
         }),

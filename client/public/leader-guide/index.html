@@ -305,8 +305,8 @@
       </div>
     </div>
     <div class="shot-frame">
-      <img class="en" src="/leader-guide/img/01-signup-blank.png" alt="Leader signup form, empty">
-      <img class="fr" hidden src="/leader-guide/img/01-signup-blank-fr.png" alt="Formulaire d'inscription Leader, vide">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/01-signup-blank.png" alt="Leader signup form, empty">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/01-signup-blank-fr.png" alt="Formulaire d'inscription Leader, vide">
     </div>
   </section>
 
@@ -322,8 +322,8 @@
       </div>
     </div>
     <div class="shot-frame">
-      <img class="en" src="/leader-guide/img/02-signup-filled.png" alt="Leader signup form, filled in">
-      <img class="fr" hidden src="/leader-guide/img/02-signup-filled-fr.png" alt="Formulaire d'inscription Leader, rempli">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/02-signup-filled.png" alt="Leader signup form, filled in">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/02-signup-filled-fr.png" alt="Formulaire d'inscription Leader, rempli">
     </div>
     <div class="callout">
       <span class="en"><b>Capital letters matter.</b> The Access Phrase must be typed exactly as your Admin shared it — <code class="phrase">GODSNATION2026</code> and <code class="phrase">godsnation2026</code> are not the same. If it doesn't work, double-check with your Admin rather than guessing. <b>Note:</b> <code class="phrase">GODSNATION2026</code> is just an example used in this guide — use the same real Access Phrase your Admin gave you, whether you're reading this guide in English or French. The phrase itself never changes when you switch languages.</span>
@@ -343,8 +343,8 @@
       </div>
     </div>
     <div class="shot-frame">
-      <img class="en" src="/leader-guide/img/03-signup-success.png" alt="Account created success screen with referral code">
-      <img class="fr" hidden src="/leader-guide/img/03-signup-success-fr.png" alt="Écran de confirmation de compte avec code de parrainage">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/03-signup-success.png" alt="Account created success screen with referral code">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/03-signup-success-fr.png" alt="Écran de confirmation de compte avec code de parrainage">
     </div>
     <div class="callout">
       <span class="en">Your referral code is permanently yours. If it's ever wrong or needs changing, only your Admin can correct it from their side — you don't need to sign up again.</span>
@@ -364,8 +364,8 @@
       </div>
     </div>
     <div class="shot-frame wide">
-      <img class="en" src="/leader-guide/img/04-dashboard-top.png" alt="Leader dashboard overview">
-      <img class="fr" hidden src="/leader-guide/img/04-dashboard-top-fr.png" alt="Vue d'ensemble du tableau de bord Leader">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/04-dashboard-top.png" alt="Leader dashboard overview">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/04-dashboard-top-fr.png" alt="Vue d'ensemble du tableau de bord Leader">
     </div>
 
     <div class="maplist">
@@ -404,8 +404,8 @@
       </div>
     </div>
     <div class="shot-frame">
-      <img class="en" src="/leader-guide/img/05-dashboard-invite.png" alt="Invite people buttons: WhatsApp, Messenger, Telegram, copy link">
-      <img class="fr" hidden src="/leader-guide/img/05-dashboard-invite-fr.png" alt="Boutons d'invitation : WhatsApp, Messenger, Telegram, copier le lien">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/05-dashboard-invite.png" alt="Invite people buttons: WhatsApp, Messenger, Telegram, copy link">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/05-dashboard-invite-fr.png" alt="Boutons d'invitation : WhatsApp, Messenger, Telegram, copier le lien">
     </div>
 
     <div class="btn-list">
@@ -596,6 +596,16 @@
     });
     document.documentElement.lang = lang;
     try { localStorage.setItem('leaderGuideLang', lang); } catch (e) {}
+    // Screenshots use data-src instead of src so the browser never fetches
+    // the language a visitor isn't reading — important on slow connections,
+    // since this page has an English and a French copy of every image.
+    // Only now, once we know which language is actually showing, do we hand
+    // the browser a real src for those images (loading="lazy" then further
+    // defers the actual download until each one nears the viewport).
+    document.querySelectorAll('img.' + lang + '[data-src]').forEach(function (img) {
+      img.src = img.dataset.src;
+      img.removeAttribute('data-src');
+    });
   }
   (function init() {
     var saved = 'en';
