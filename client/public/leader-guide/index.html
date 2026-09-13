@@ -1,8 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="no">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This page already provides its own English/French toggle. Without
+     this, some phones' browsers (Chrome's built-in "Translate this page")
+     detect the French text after the toggle and auto-translate it back to
+     the device's language — silently overriding our own translation and
+     making it look like the language switch did nothing. -->
+<meta name="google" content="notranslate">
 <title>Leader Quick-Start Guide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -588,6 +594,7 @@
     document.querySelectorAll('.lang-btn').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
     });
+    document.documentElement.lang = lang;
     try { localStorage.setItem('leaderGuideLang', lang); } catch (e) {}
   }
   (function init() {
