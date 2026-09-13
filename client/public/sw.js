@@ -18,8 +18,16 @@
 //
 // /api/* is still never touched — auth, session, CSRF, and dashboard data
 // must always go straight to the network.
+//
+// /leader-guide/* is also excluded from cache-first. Unlike the app's own
+// build assets, the guide's images and page keep the same filename across
+// edits (they're not content-hashed by Vite) — so cache-first here would
+// mean a leader's phone could get stuck showing an old screenshot or an old
+// version of the text forever, even after we publish an update. Letting
+// these go straight to the network (with normal browser HTTP caching, which
+// still revalidates) keeps the guide showing what's actually live.
 
-const CACHE_VERSION = 'god-nation-v3';
+const CACHE_VERSION = 'god-nation-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -56,6 +64,7 @@ self.addEventListener('fetch', (event) => {
   }
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
+  if (url.pathname.startsWith('/leader-guide/')) return;
 
   event.respondWith(
     (async () => {
