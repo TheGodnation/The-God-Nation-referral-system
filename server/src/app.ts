@@ -4,7 +4,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import fs from 'fs';
-import { CLIENT_URL, isProd } from './lib/env';
+import { CLIENT_URL, GUIDE_HOST, isProd } from './lib/env';
 import { ensureVisitorId } from './lib/visitor';
 import { ensureCsrfCookie } from './lib/csrf';
 import { loadSession } from './lib/auth';
@@ -55,6 +55,20 @@ export function createApp() {
   if (isProd) {
     const clientDist = path.join(__dirname, '../../client/dist');
     if (fs.existsSync(clientDist)) {
+      // If a guide subdomain is configured (GUIDE_HOST), its root request
+      // serves the Leader Quick-Start Guide directly — a short, brandable
+      // link — rather than the main app's homepage. The guide's own
+      // assets are still served normally under /leader-guide/... below
+      // (its <img> tags use that absolute path), and every other host
+      // (the main domain) is completely unaffected.
+      if (GUIDE_HOST) {
+        app.get('/', (req, res, next) => {
+          if (req.hostname === GUIDE_HOST) {
+            return res.sendFile(path.join(clientDist, 'leader-guide', 'index.html'));
+          }
+          next();
+        });
+      }
       app.use(
         express.static(clientDist, {
           setHeaders: (res, filePath) => {
