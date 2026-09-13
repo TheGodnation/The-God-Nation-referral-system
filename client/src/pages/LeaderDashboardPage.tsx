@@ -16,6 +16,7 @@ interface ReferralItem {
   language: string;
   registeredAt: string;
   status: string;
+  whatsappJoined: boolean;
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -224,7 +225,17 @@ export function LeaderDashboardPage() {
                   <td className="py-2 pr-4">{r.whatsapp}</td>
                   <td className="py-2 pr-4 uppercase">{r.language}</td>
                   <td className="py-2 pr-4">{new Date(r.registeredAt).toLocaleDateString()}</td>
-                  <td className="py-2 pr-4">{r.status}</td>
+                  <td className="py-2 pr-4">
+                    {r.whatsappJoined ? (
+                      <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                        {t('leader.status_joined')}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                        {t('leader.status_not_joined')}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {items.length === 0 && (

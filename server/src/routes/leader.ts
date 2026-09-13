@@ -78,7 +78,14 @@ router.get('/referrals', async (req, res) => {
     prisma.referralRelationship.count({ where }),
     prisma.referralRelationship.findMany({
       where,
-      include: { registration: true },
+      include: {
+        registration: {
+          // Only need to know whether a WHATSAPP_CLICKED event exists at
+          // all for this registration — not its details — so this fetches
+          // at most one, purely as a presence check.
+          include: { events: { where: { type: 'WHATSAPP_CLICKED' }, take: 1 } },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       skip,
       take,
@@ -91,6 +98,11 @@ router.get('/referrals', async (req, res) => {
     language: r.registration.language,
     registeredAt: r.registration.createdAt,
     status: r.registration.status,
+    // Whether this person has tapped through from the site to the
+    // WhatsApp community — the same signal Admin's WhatsApp Join
+    // Reminders already relies on, just surfaced per-referral here so a
+    // Leader knows who to actually look for in the group.
+    whatsappJoined: r.registration.events.length > 0,
   }));
 
   res.json(paginatedResult(items, total, page, pageSize));
