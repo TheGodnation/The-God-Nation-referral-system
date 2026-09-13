@@ -215,6 +215,20 @@
   }
   :root[data-theme="dark"] code.phrase { color: var(--gold-400); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) code.phrase { color: var(--gold-400); } }
+
+  .cta-btn {
+    display: block; text-align: center; text-decoration: none;
+    margin-top: 18px; padding: 15px 20px; border-radius: 14px;
+    background: var(--navy-900); color: #fdf9ef;
+    font-family: 'Inter', sans-serif; font-weight: 700; font-size: 1rem;
+    box-shadow: 0 8px 20px -8px rgba(10,23,64,0.4);
+  }
+  .cta-btn:hover { background: var(--navy-800); }
+  .cta-block {
+    margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  .cta-block p { color: var(--ink-soft); margin: 6px 0 0; font-size: 0.92rem; }
 </style>
 </head>
 <body>
@@ -276,8 +290,12 @@
       <div>
         <h2 class="en">Open the Signup Link</h2>
         <h2 class="fr" hidden>Ouvrez le lien d'inscription</h2>
-        <p class="lede en">Tap the link exactly as your Admin sent it. It opens a short form — no app to download, just your phone's normal browser.</p>
-        <p class="lede fr" hidden>Appuyez sur le lien exactement comme votre Admin vous l'a envoyé. Il ouvre un court formulaire — pas d'application à télécharger, juste le navigateur habituel de votre téléphone.</p>
+        <p class="lede en">Tap the button below (or the link your Admin sent you — they both go to the same place). It opens a short form — no app to download, just your phone's normal browser. You'll also need the Access Phrase your Admin shared with you separately.</p>
+        <p class="lede fr" hidden>Appuyez sur le bouton ci-dessous (ou le lien envoyé par votre Admin — les deux mènent au même endroit). Il ouvre un court formulaire — pas d'application à télécharger, juste le navigateur habituel de votre téléphone. Vous aurez aussi besoin de la Phrase d'accès que votre Admin vous a communiquée séparément.</p>
+        <a class="cta-btn" href="https://thegodnationacademy.org/leader-signup" target="_blank" rel="noreferrer">
+          <span class="en">Open the Signup Form →</span>
+          <span class="fr" hidden>Ouvrir le formulaire d'inscription →</span>
+        </a>
       </div>
     </div>
     <div class="shot-frame"><img src="/leader-guide/img/01-signup-blank.png" alt="Leader signup form, empty"></div>
@@ -526,6 +544,17 @@
         <p class="en">No. WhatsApp, Messenger, Telegram, and copy-link sharing are all completely free to use, as often as you like.</p>
         <p class="fr" hidden>Non. Le partage via WhatsApp, Messenger, Telegram et la copie de lien sont entièrement gratuits, aussi souvent que vous le souhaitez.</p>
       </div>
+    </div>
+
+    <div class="cta-block">
+      <h2 class="en">Ready to Create Your Account?</h2>
+      <h2 class="fr" hidden>Prêt à créer votre compte ?</h2>
+      <p class="en">Tap below whenever you have your Access Phrase ready.</p>
+      <p class="fr" hidden>Appuyez ci-dessous dès que vous avez votre Phrase d'accès.</p>
+      <a class="cta-btn" href="https://thegodnationacademy.org/leader-signup" target="_blank" rel="noreferrer">
+        <span class="en">Open the Signup Form →</span>
+        <span class="fr" hidden>Ouvrir le formulaire d'inscription →</span>
+      </a>
     </div>
   </section>
 
