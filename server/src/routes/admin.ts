@@ -11,6 +11,7 @@ import { requireCsrf } from '../lib/csrf';
 import { adminSensitiveLimiter } from '../lib/rateLimit';
 import { EmailService } from '../lib/email';
 import { APP_URL, CLIENT_URL, LEADER_SETUP_TOKEN_TTL_MS } from '../lib/env';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
@@ -45,7 +46,7 @@ function includeTestData(req: any): boolean {
 // Dashboard / analytics
 // ---------------------------------------------------------------------------
 
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', asyncHandler(async (req, res) => {
   const testFilter = includeTestData(req) ? {} : { isTestData: false };
 
   const [totalVisits, uniqueVisitorRows, registrations, whatsappClicks, activeLeaders] =
@@ -77,7 +78,7 @@ router.get('/dashboard', async (req, res) => {
       whatsappClick: whatsappClicks,
     },
   });
-});
+}));
 
 const analyticsQuerySchema = z.object({
   dateFrom: z.string().optional(),
@@ -89,7 +90,7 @@ const analyticsQuerySchema = z.object({
   includeTestData: z.string().optional(),
 });
 
-router.get('/analytics', async (req, res) => {
+router.get('/analytics', asyncHandler(async (req, res) => {
   const q = analyticsQuerySchema.parse(req.query);
   const testFilter = q.includeTestData === 'true' ? {} : { isTestData: false };
 
@@ -140,7 +141,7 @@ router.get('/analytics', async (req, res) => {
         ? Math.round((registrations / uniqueVisitorRows.length) * 10000) / 100
         : 0,
   });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Leader management
@@ -181,7 +182,7 @@ async function computeLeaderReferralCounts(leaderIds: string[], includeTestData:
   return counts;
 }
 
-router.get('/leaders', async (req, res) => {
+router.get('/leaders', asyncHandler(async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req);
   const where: Prisma.UserWhereInput = { role: 'LEADER' };
   const includeTestData = req.query.includeTestData === 'true';
@@ -216,7 +217,7 @@ router.get('/leaders', async (req, res) => {
   }));
 
   res.json(paginatedResult(items, total, page, pageSize));
-});
+}));
 
 const createLeaderSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -230,7 +231,7 @@ const createLeaderSchema = z.object({
   isTestData: z.boolean().optional(),
 });
 
-router.post('/leaders', requireCsrf, async (req, res) => {
+router.post('/leaders', requireCsrf, asyncHandler(async (req, res) => {
   const parsed = createLeaderSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
@@ -287,12 +288,12 @@ router.post('/leaders', requireCsrf, async (req, res) => {
     email: leader.email,
     invitationSent,
   });
-});
+}));
 
 // POST /api/admin/leaders/:id/resend-invitation
 // Section 32: Admin recovery when a Leader never received, lost, or let
 // their setup invitation expire. Never sets or reveals a password directly.
-router.post('/leaders/:id/resend-invitation', adminSensitiveLimiter, requireCsrf, async (req, res) => {
+router.post('/leaders/:id/resend-invitation', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const leader = await prisma.user.findUnique({ where: { id } });
   if (!leader || leader.role !== 'LEADER') {
@@ -311,7 +312,7 @@ router.post('/leaders/:id/resend-invitation', adminSensitiveLimiter, requireCsrf
   });
 
   res.json({ invitationSent });
-});
+}));
 
 const patchLeaderSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
@@ -326,7 +327,7 @@ const patchLeaderSchema = z.object({
     .optional(),
 });
 
-router.patch('/leaders/:id', requireCsrf, async (req, res) => {
+router.patch('/leaders/:id', requireCsrf, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const parsed = patchLeaderSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -401,7 +402,7 @@ router.patch('/leaders/:id', requireCsrf, async (req, res) => {
     active: updated!.active,
     referralCode: updated!.referralCodes[0]?.code ?? null,
   });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Registrations / referrals (read-only, system-wide)
@@ -417,7 +418,7 @@ const listQuerySchema = z.object({
   includeTestData: z.string().optional(),
 });
 
-router.get('/registrations', async (req, res) => {
+router.get('/registrations', asyncHandler(async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req);
   const q = listQuerySchema.parse(req.query);
   const testFilter = q.includeTestData === 'true' ? {} : { isTestData: false };
@@ -460,7 +461,7 @@ router.get('/registrations', async (req, res) => {
   }));
 
   res.json(paginatedResult(items, total, page, pageSize));
-});
+}));
 
 // DELETE /registrations/:id — permanently removes a registration so its
 // WhatsApp number is free to register again. normalizedWhatsApp is a hard
@@ -471,7 +472,7 @@ router.get('/registrations', async (req, res) => {
 // just losing their link to this specific registration; ReferralVisit has
 // no foreign key to Registration at all, so referral-attribution history
 // is entirely unaffected.
-router.delete('/registrations/:id', adminSensitiveLimiter, requireCsrf, async (req, res) => {
+router.delete('/registrations/:id', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const registration = await prisma.registration.findUnique({ where: { id } });
@@ -491,9 +492,9 @@ router.delete('/registrations/:id', adminSensitiveLimiter, requireCsrf, async (r
   });
 
   res.json({ ok: true });
-});
+}));
 
-router.get('/referrals', async (req, res) => {
+router.get('/referrals', asyncHandler(async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req);
   const q = listQuerySchema.parse(req.query);
   const testFilter = q.includeTestData === 'true' ? {} : { isTestData: false };
@@ -535,9 +536,9 @@ router.get('/referrals', async (req, res) => {
   }));
 
   res.json(paginatedResult(items, total, page, pageSize));
-});
+}));
 
-router.get('/export', async (req, res) => {
+router.get('/export', asyncHandler(async (req, res) => {
   const testFilter = includeTestData(req) ? {} : { isTestData: false };
   const registrations = await prisma.registration.findMany({
     where: testFilter,
@@ -566,7 +567,7 @@ router.get('/export', async (req, res) => {
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="registrations.csv"');
   res.send(header + rows);
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -678,10 +679,10 @@ function settingsResponse(settings: {
   };
 }
 
-router.get('/settings', async (_req, res) => {
+router.get('/settings', asyncHandler(async (_req, res) => {
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' } });
   res.json(settingsResponse(settings));
-});
+}));
 
 const settingsSchema = z.object({
   whatsappUrlEn: z.string().url().optional().nullable(),
@@ -711,7 +712,7 @@ const settingsSchema = z.object({
   content: contentSchema.optional(),
 });
 
-router.patch('/settings', requireCsrf, async (req, res) => {
+router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
   const parsed = settingsSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid settings.' });
@@ -756,7 +757,7 @@ router.patch('/settings', requireCsrf, async (req, res) => {
   });
 
   res.json(settingsResponse(settings));
-});
+}));
 
 // ---------------------------------------------------------------------------
 // WhatsApp join reminders
@@ -776,14 +777,14 @@ function reminderWhere(withTestData: boolean): Prisma.RegistrationWhereInput {
 
 // GET /api/admin/whatsapp-reminders/count — lets the Admin see exactly how
 // many people are about to be emailed before committing to send anything.
-router.get('/whatsapp-reminders/count', async (req, res) => {
+router.get('/whatsapp-reminders/count', asyncHandler(async (req, res) => {
   const count = await prisma.registration.count({ where: reminderWhere(includeTestData(req)) });
   res.json({ count });
-});
+}));
 
 // POST /api/admin/whatsapp-reminders/send — Admin-triggered only, never
 // automatic. Sends the same reminder to everyone currently qualifying.
-router.post('/whatsapp-reminders/send', adminSensitiveLimiter, requireCsrf, async (req, res) => {
+router.post('/whatsapp-reminders/send', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const registrations = await prisma.registration.findMany({
     where: reminderWhere(includeTestData(req)),
     select: { id: true, name: true, email: true, language: true },
@@ -808,19 +809,19 @@ router.post('/whatsapp-reminders/send', adminSensitiveLimiter, requireCsrf, asyn
   });
 
   res.json({ attempted: registrations.length, sent, failed });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Audit log
 // ---------------------------------------------------------------------------
 
-router.get('/audit', async (req, res) => {
+router.get('/audit', asyncHandler(async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req);
   const [total, logs] = await Promise.all([
     prisma.auditLog.count(),
     prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, skip, take }),
   ]);
   res.json(paginatedResult(logs, total, page, pageSize));
-});
+}));
 
 export default router;

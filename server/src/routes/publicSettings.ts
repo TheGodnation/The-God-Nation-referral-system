@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
@@ -8,7 +9,7 @@ const router = Router();
 // homepage copy). WhatsApp destination URLs themselves are intentionally
 // NOT exposed here — the server chooses and redirects to them itself
 // (section 21); a client never needs or gets to see the raw URLs.
-router.get('/public', async (_req, res) => {
+router.get('/public', asyncHandler(async (_req, res) => {
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' } });
   res.json({
     supportWhatsappUrl: settings?.supportWhatsappUrl ?? null,
@@ -21,6 +22,6 @@ router.get('/public', async (_req, res) => {
     messengerUrl: settings?.messengerUrl ?? null,
     content: (settings?.content as Record<string, string> | null) ?? {},
   });
-});
+}));
 
 export default router;

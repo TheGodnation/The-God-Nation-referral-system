@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { referralVisitLimiter } from '../lib/rateLimit';
 import { requireCsrf } from '../lib/csrf';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const visitSchema = z.object({
 // pre-registration referral click creates a NEW row — history is never
 // mutated. An invalid/unknown/inactive code still records a visit, just
 // without attribution (referralCodeId = null), rather than erroring.
-router.post('/visit', referralVisitLimiter, requireCsrf, async (req, res) => {
+router.post('/visit', referralVisitLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = visitSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid request.' });
@@ -61,6 +62,6 @@ router.post('/visit', referralVisitLimiter, requireCsrf, async (req, res) => {
   }
 
   res.status(201).json({ ok: true, attributed: Boolean(referralCodeId), visitId: visit.id });
-});
+}));
 
 export default router;

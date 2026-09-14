@@ -9,6 +9,7 @@ import { requireCsrf } from '../lib/csrf';
 import { EmailService } from '../lib/email';
 import { APP_URL } from '../lib/env';
 import { VISITOR_COOKIE_NAME } from '../lib/visitor';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
@@ -32,7 +33,7 @@ const registrationSchema = z.object({
 });
 
 // POST /api/registrations
-router.post('/', registrationLimiter, requireCsrf, async (req, res) => {
+router.post('/', registrationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = registrationSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Please check your name and WhatsApp number.' });
@@ -133,11 +134,11 @@ router.post('/', registrationLimiter, requireCsrf, async (req, res) => {
     }
     throw err;
   }
-});
+}));
 
 // GET /api/registrations/:id/whatsapp
 // Server-controlled, secure WhatsApp redirect. See spec section 20.
-router.get('/:id/whatsapp', whatsappRedirectLimiter, async (req, res) => {
+router.get('/:id/whatsapp', whatsappRedirectLimiter, asyncHandler(async (req, res) => {
   const { id } = req.params;
   // ensureVisitorId always populates req.visitorId — minting a fresh one
   // when the request carried none — so it can't distinguish "no cookie"
@@ -189,6 +190,6 @@ router.get('/:id/whatsapp', whatsappRedirectLimiter, async (req, res) => {
   });
 
   return res.redirect(302, url);
-});
+}));
 
 export default router;

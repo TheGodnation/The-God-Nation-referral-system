@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../lib/auth';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { CLIENT_URL } from '../lib/env';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ async function getLeaderCodeIds(leaderId: string) {
 }
 
 // GET /api/leader/dashboard — a Leader sees ONLY their own data.
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', asyncHandler(async (req, res) => {
   const leaderId = req.user!.id;
   const codeIds = await getLeaderCodeIds(leaderId);
 
@@ -47,10 +48,10 @@ router.get('/dashboard', async (req, res) => {
       conversionRate: Math.round(conversion * 100) / 100,
     },
   });
-});
+}));
 
 // GET /api/leader/links
-router.get('/links', async (req, res) => {
+router.get('/links', asyncHandler(async (req, res) => {
   const leaderId = req.user!.id;
   const activeCode = await prisma.referralCode.findFirst({ where: { leaderId, active: true } });
 
@@ -65,10 +66,10 @@ router.get('/links', async (req, res) => {
       fr: `${CLIENT_URL}/join?ref=${activeCode.code}&lang=fr`,
     },
   });
-});
+}));
 
 // GET /api/leader/referrals — paginated list of this Leader's registrations.
-router.get('/referrals', async (req, res) => {
+router.get('/referrals', asyncHandler(async (req, res) => {
   const leaderId = req.user!.id;
   const { page, pageSize, skip, take } = parsePagination(req);
 
@@ -106,7 +107,7 @@ router.get('/referrals', async (req, res) => {
   }));
 
   res.json(paginatedResult(items, total, page, pageSize));
-});
+}));
 
 // Section 26/39 originally let a Leader email their own referral link to
 // someone via POST /api/leader/invite. Removed: with a shared daily Resend

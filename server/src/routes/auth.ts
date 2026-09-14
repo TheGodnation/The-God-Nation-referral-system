@@ -23,6 +23,7 @@ import { requireCsrf } from '../lib/csrf';
 import { EmailService } from '../lib/email';
 import { generateUniqueReferralCode } from '../lib/referralCode';
 import { CLIENT_URL, PASSWORD_RESET_TOKEN_TTL_MS } from '../lib/env';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
@@ -31,7 +32,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-router.post('/login', loginLimiter, requireCsrf, async (req, res) => {
+router.post('/login', loginLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     console.warn('[login] rejected: invalid request body shape');
@@ -74,15 +75,15 @@ router.post('/login', loginLimiter, requireCsrf, async (req, res) => {
       mustChangePassword: user.mustChangePassword,
     },
   });
-});
+}));
 
-router.post('/logout', requireCsrf, requireAuth, async (req, res) => {
+router.post('/logout', requireCsrf, requireAuth, asyncHandler(async (req, res) => {
   if (req.sessionToken) {
     await destroySession(req.sessionToken);
   }
   res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
   res.json({ ok: true });
-});
+}));
 
 router.get('/me', (req, res) => {
   if (!req.user) return res.json({ user: null });
@@ -99,7 +100,7 @@ const changePasswordSchema = z.object({
 // clearing mustChangePassword once done. Used both for the forced
 // first-login change (Admin bootstrap, newly created Leaders) and for a
 // voluntary password change at any later time.
-router.post('/change-password', requireCsrf, requireAuth, async (req, res) => {
+router.post('/change-password', requireCsrf, requireAuth, asyncHandler(async (req, res) => {
   const parsed = changePasswordSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
@@ -135,7 +136,7 @@ router.post('/change-password', requireCsrf, requireAuth, async (req, res) => {
   });
 
   res.json({ ok: true });
-});
+}));
 
 const updateEmailSchema = z.object({
   currentPassword: z.string().min(1),
@@ -149,7 +150,7 @@ const updateEmailSchema = z.object({
 // "forgot password" recovery. Requires the current password, same as
 // change-password above, so a session left open on a shared device can't
 // be used to redirect account recovery to an attacker's inbox.
-router.post('/update-email', requireCsrf, requireAuth, async (req, res) => {
+router.post('/update-email', requireCsrf, requireAuth, asyncHandler(async (req, res) => {
   const parsed = updateEmailSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
@@ -189,7 +190,7 @@ router.post('/update-email', requireCsrf, requireAuth, async (req, res) => {
   });
 
   res.json({ ok: true, email });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Leader self-signup — a single public link (gated by a shared access
@@ -209,7 +210,7 @@ const leaderSignupSchema = z.object({
   phrase: z.string().trim().min(1, 'Please enter the access phrase.'),
 });
 
-router.post('/leader-signup', leaderSignupLimiter, requireCsrf, async (req, res) => {
+router.post('/leader-signup', leaderSignupLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = leaderSignupSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
@@ -268,7 +269,7 @@ router.post('/leader-signup', leaderSignupLimiter, requireCsrf, async (req, res)
     user: { id: leader.id, name: leader.name, email: leader.email, role: leader.role, mustChangePassword: false },
     referralCode,
   });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // New Leader onboarding (sections 27-30) — one-time emailed setup link.
@@ -281,7 +282,7 @@ const leaderSetupSchema = z.object({
   newPassword: z.string().min(8, 'Password must be at least 8 characters long.'),
 });
 
-router.post('/leader-setup/complete', leaderSetupLimiter, requireCsrf, async (req, res) => {
+router.post('/leader-setup/complete', leaderSetupLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = leaderSetupSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
@@ -317,7 +318,7 @@ router.post('/leader-setup/complete', leaderSetupLimiter, requireCsrf, async (re
   res.json({
     user: { id: leader.id, name: leader.name, email: leader.email, role: leader.role, mustChangePassword: false },
   });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Password reset (section 33) — generic response regardless of whether the
@@ -330,7 +331,7 @@ const GENERIC_RESET_RESPONSE = {
 
 const forgotPasswordSchema = z.object({ email: z.string().email() });
 
-router.post('/forgot-password', passwordResetRequestLimiter, requireCsrf, async (req, res) => {
+router.post('/forgot-password', passwordResetRequestLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = forgotPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
     // Still generic — an invalid email shape reveals nothing either.
@@ -360,14 +361,14 @@ router.post('/forgot-password', passwordResetRequestLimiter, requireCsrf, async 
 
   // Same response, same shape, whether or not an account exists.
   res.json(GENERIC_RESET_RESPONSE);
-});
+}));
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1),
   newPassword: z.string().min(8, 'Password must be at least 8 characters long.'),
 });
 
-router.post('/reset-password', passwordResetRedeemLimiter, requireCsrf, async (req, res) => {
+router.post('/reset-password', passwordResetRedeemLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = resetPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
@@ -402,6 +403,6 @@ router.post('/reset-password', passwordResetRedeemLimiter, requireCsrf, async (r
   });
 
   res.json({ ok: true });
-});
+}));
 
 export default router;
