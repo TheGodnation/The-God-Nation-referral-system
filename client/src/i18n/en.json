@@ -302,6 +302,7 @@
   "common": {
     "language_en": "English",
     "language_fr": "Français",
-    "back_home": "Back to Home"
+    "back_home": "Back to Home",
+    "loading": "Loading…"
   }
 }

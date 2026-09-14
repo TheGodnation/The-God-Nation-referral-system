@@ -1,17 +1,44 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { HomePage } from '../pages/HomePage';
 
 describe('HomePage', () => {
-  it('renders the hero and both required pathways, with no referral trace', () => {
+  beforeEach(() => {
+    // The Discover & Grow pathway only appears once an Admin has actually
+    // set its content (see HomePage.tsx) — mock a settings response with
+    // that content filled in, matching real configured production state,
+    // so this test can verify both pathways render together as intended.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: () => 'application/json' },
+        json: async () => ({
+          content: {
+            discoverTitleEn: 'DISCOVER & GROW',
+            discoverCtaEn: 'JOIN OUR SPIRITUAL COMMUNITY',
+          },
+        }),
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders the hero and both required pathways, with no referral trace', async () => {
     render(
       <MemoryRouter>
         <HomePage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('BE EQUIPPED. BE TRANSFORMED. BE SENT.')).toBeInTheDocument();
+    // HomePage shows a brief loading state until the public settings fetch
+    // settles (success or failure) — findByText waits for that instead of
+    // asserting on the very first, pre-fetch render.
+    expect(await screen.findByText('BE EQUIPPED. BE TRANSFORMED. BE SENT.')).toBeInTheDocument();
 
     // Both pathways, Training first — exact required headings/CTAs.
     expect(screen.getByText('BE EQUIPPED & SENT')).toBeInTheDocument();
