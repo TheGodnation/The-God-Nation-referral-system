@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This page already provides its own English/French toggle. Without
+     this, some phones' browsers (Chrome's built-in "Translate this page")
+     detect the French text after the toggle and auto-translate it back to
+     the device's language — silently overriding our own translation and
+     making it look like the language switch did nothing. -->
+<meta name="google" content="notranslate">
+<title>Leader Quick-Start Guide</title>
+<style>
+  :root {
+    --navy-950: #0a1740;
+    --navy-900: #0f2260;
+    --navy-800: #122a78;
+    --navy-700: #16349a;
+    --gold-500: #e0b027;
+    --gold-400: #f2c94c;
+
+    --bg: #faf8f3;
+    --surface: #ffffff;
+    --surface-2: #f3f1ea;
+    --ink: #1c2333;
+    --ink-soft: #4a5170;
+    --ink-faint: #7a8099;
+    --line: #e6e2d6;
+    --step-num-fg: #fffdf8;
+    --accent-ring: rgba(224,176,39,0.35);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1020;
+      --surface: #121834;
+      --surface-2: #171e3e;
+      --ink: #eef0fa;
+      --ink-soft: #b6bde0;
+      --ink-faint: #7f87ad;
+      --line: #262f57;
+      --step-num-fg: #14192c;
+      --accent-ring: rgba(242,201,76,0.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1020;
+    --surface: #121834;
+    --surface-2: #171e3e;
+    --ink: #eef0fa;
+    --ink-soft: #b6bde0;
+    --ink-faint: #7f87ad;
+    --line: #262f57;
+    --step-num-fg: #14192c;
+    --accent-ring: rgba(242,201,76,0.28);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    margin: 0;
+    padding-inline: 20px;
+    padding-block: 0 64px;
+    line-height: 1.55;
+  }
+  [hidden] { display: none !important; }
+
+  h1, h2, h3 {
+    font-family: Georgia, 'Times New Roman', serif;
+    color: var(--navy-900);
+    text-wrap: balance;
+    margin: 0;
+  }
+  :root[data-theme="dark"] h1, :root[data-theme="dark"] h2, :root[data-theme="dark"] h3 { color: #f4f0e4; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) h1,
+    :root:not([data-theme="light"]) h2,
+    :root:not([data-theme="light"]) h3 { color: #f4f0e4; }
+  }
+
+  a { color: var(--navy-700); }
+  :root[data-theme="dark"] a, @media (prefers-color-scheme: dark) { }
+
+  .wrap { max-width: 720px; margin-inline: auto; }
+
+  /* ---------- Header ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    margin-inline: -20px;
+    padding: 12px 20px;
+  }
+  .top-row {
+    max-width: 720px; margin-inline: auto;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand img { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+  .brand span {
+    font-family: Georgia, 'Times New Roman', serif; font-weight: 600; font-size: 0.95rem;
+    color: var(--navy-900); letter-spacing: 0.02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  :root[data-theme="dark"] .brand span { color: #f4f0e4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand span { color: #f4f0e4; } }
+
+  .lang-toggle { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; flex-shrink: 0; }
+  .lang-toggle button {
+    font: inherit; font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: 0.8rem;
+    border: none; background: transparent; color: var(--ink-soft);
+    padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  }
+  .lang-toggle button[aria-pressed="true"] { background: var(--navy-900); color: #fdf9ef; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding-block: 28px 8px; }
+  .eyebrow {
+    font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 0.72rem;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-500);
+    margin-bottom: 10px; display: block;
+  }
+  .hero h1 { font-size: clamp(1.7rem, 5vw, 2.35rem); line-height: 1.12; }
+  .hero p { color: var(--ink-soft); font-size: 1.02rem; max-width: 56ch; margin-top: 12px; }
+
+  /* ---------- Needs card ---------- */
+  .needs {
+    margin-top: 22px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 16px; padding: 18px 20px;
+    display: grid; gap: 12px;
+  }
+  .needs h2 { font-size: 1rem; font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700; color: var(--navy-900); }
+  :root[data-theme="dark"] .needs h2 { color: #f4f0e4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .needs h2 { color: #f4f0e4; } }
+  .needs ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  .needs li { display: flex; gap: 10px; align-items: flex-start; color: var(--ink-soft); font-size: 0.94rem; }
+  .needs li b { color: var(--ink); }
+  .needs .tick {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 999px;
+    background: var(--gold-500); color: var(--navy-950);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 800; margin-top: 1px;
+  }
+
+  /* ---------- Steps ---------- */
+  section.step {
+    margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--line);
+  }
+  .step-head { display: flex; gap: 14px; align-items: flex-start; }
+  .step-num {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
+    background: var(--navy-900); color: var(--step-num-fg);
+    display: flex; align-items: center; justify-content: center;
+    font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 1.05rem;
+  }
+  .step h2 { font-size: 1.28rem; margin-top: 3px; }
+  .step .lede { color: var(--ink-soft); margin-top: 10px; font-size: 0.98rem; max-width: 60ch; }
+
+  .shot-frame {
+    margin-top: 18px; border: 1px solid var(--line); background: var(--surface-2);
+    border-radius: 18px; padding: 14px; display: flex; justify-content: center;
+  }
+  .shot-frame img {
+    max-width: 100%; width: 300px; height: auto; border-radius: 12px;
+    box-shadow: 0 10px 30px -12px rgba(10,23,64,0.35);
+    border: 1px solid var(--line);
+  }
+  .shot-frame.wide img { width: 320px; }
+
+  .callout {
+    margin-top: 16px; background: var(--surface); border: 1px solid var(--line);
+    border-left: 3px solid var(--gold-500); border-radius: 12px; padding: 14px 16px;
+    font-size: 0.92rem; color: var(--ink-soft);
+  }
+  .callout b { color: var(--ink); }
+
+  /* map list — labels a screenshot's regions */
+  .maplist { margin-top: 16px; display: grid; gap: 12px; }
+  .maplist .row { display: flex; gap: 12px; align-items: flex-start; }
+  .maplist .dot {
+    flex-shrink: 0; width: 8px; height: 8px; border-radius: 999px;
+    background: var(--gold-500); margin-top: 8px;
+  }
+  .maplist .row div p { margin: 2px 0 0; color: var(--ink-soft); font-size: 0.92rem; }
+  .maplist .row div b { font-size: 0.96rem; color: var(--ink); }
+
+  .btn-list { margin-top: 16px; display: grid; gap: 10px; }
+  .btn-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 14px;
+  }
+  .btn-row .swatch {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1rem;
+  }
+  .btn-row p { margin: 0; font-size: 0.9rem; color: var(--ink-soft); }
+  .btn-row b { display: block; color: var(--ink); font-size: 0.95rem; }
+
+  /* FAQ */
+  .faq-item { padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-item h3 { font-size: 1.02rem; font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700; color: var(--ink); }
+  .faq-item p { color: var(--ink-soft); margin: 8px 0 0; font-size: 0.94rem; }
+
+  footer.end {
+    margin-top: 48px; padding-top: 22px; border-top: 1px solid var(--line);
+    text-align: center; color: var(--ink-faint); font-size: 0.85rem;
+  }
+  footer.end img { width: 22px; height: 22px; border-radius: 6px; vertical-align: middle; margin-right: 8px; }
+
+  code.phrase {
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 1px 8px; border-radius: 6px; color: var(--navy-800); font-size: 0.88em;
+  }
+  :root[data-theme="dark"] code.phrase { color: var(--gold-400); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) code.phrase { color: var(--gold-400); } }
+
+  .cta-btn {
+    display: block; text-align: center; text-decoration: none;
+    margin-top: 18px; padding: 15px 20px; border-radius: 14px;
+    background: var(--navy-900); color: #fdf9ef;
+    font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 1rem;
+    box-shadow: 0 8px 20px -8px rgba(10,23,64,0.4);
+  }
+  .cta-btn:hover { background: var(--navy-800); }
+  .cta-block {
+    margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  .cta-block p { color: var(--ink-soft); margin: 6px 0 0; font-size: 0.92rem; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <div class="brand">
+      <img src="/leader-guide/img/logo.png" alt="">
+      <span class="en">The God Nation</span>
+      <span class="fr" hidden>The God Nation</span>
+    </div>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en" aria-pressed="true" onclick="setLang('en')">EN</button>
+      <button type="button" class="lang-btn" data-lang="fr" aria-pressed="false" onclick="setLang('fr')">FR</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <span class="eyebrow en">For new leaders</span>
+    <span class="eyebrow fr" hidden>Pour les nouveaux leaders</span>
+
+    <h1 class="en">Your Leader Quick-Start Guide</h1>
+    <h1 class="fr" hidden>Votre guide de démarrage Leader</h1>
+
+    <p class="en">This walks you through creating your own Leader account from the link your Admin shared, and shows you around your dashboard — your referral code, your links, and how to invite people.</p>
+    <p class="fr" hidden>Ce guide vous accompagne pour créer votre propre compte Leader à partir du lien partagé par votre Admin, et vous fait découvrir votre tableau de bord — votre code de parrainage, vos liens, et comment inviter des personnes.</p>
+  </section>
+
+  <!-- ================= WHAT YOU NEED ================= -->
+  <div class="needs">
+    <h2 class="en">Before you start, get two things from your Admin</h2>
+    <h2 class="fr" hidden>Avant de commencer, demandez deux choses à votre Admin</h2>
+    <ul>
+      <li>
+        <span class="tick">1</span>
+        <span>
+          <span class="en"><b>The Signup Link</b> — usually posted in your leaders' WhatsApp group.</span>
+          <span class="fr" hidden><b>Le lien d'inscription</b> — généralement publié dans votre groupe WhatsApp des leaders.</span>
+        </span>
+      </li>
+      <li>
+        <span class="tick">2</span>
+        <span>
+          <span class="en"><b>The Access Phrase</b> — a word or short phrase your Admin shares separately. You need both to create your account.</span>
+          <span class="fr" hidden><b>La phrase d'accès</b> — un mot ou une courte phrase que votre Admin partage séparément. Vous avez besoin des deux pour créer votre compte.</span>
+        </span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ================= STEP 1 ================= -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">1</span>
+      <div>
+        <h2 class="en">Open the Signup Link</h2>
+        <h2 class="fr" hidden>Ouvrez le lien d'inscription</h2>
+        <p class="lede en">Tap the button below (or the link your Admin sent you — they both go to the same place). It opens a short form — no app to download, just your phone's normal browser. You'll also need the Access Phrase your Admin shared with you separately.</p>
+        <p class="lede fr" hidden>Appuyez sur le bouton ci-dessous (ou le lien envoyé par votre Admin — les deux mènent au même endroit). Il ouvre un court formulaire — pas d'application à télécharger, juste le navigateur habituel de votre téléphone. Vous aurez aussi besoin de la Phrase d'accès que votre Admin vous a communiquée séparément.</p>
+        <a class="cta-btn" href="https://thegodnationacademy.org/leader-signup" target="_blank" rel="noreferrer">
+          <span class="en">Open the Signup Form →</span>
+          <span class="fr" hidden>Ouvrir le formulaire d'inscription →</span>
+        </a>
+      </div>
+    </div>
+    <div class="shot-frame">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/01-signup-blank.png" alt="Leader signup form, empty">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/01-signup-blank-fr.png" alt="Formulaire d'inscription Leader, vide">
+    </div>
+  </section>
+
+  <!-- ================= STEP 2 ================= -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">2</span>
+      <div>
+        <h2 class="en">Fill In Your Details</h2>
+        <h2 class="fr" hidden>Remplissez vos informations</h2>
+        <p class="lede en">Enter your full name, an email you can actually check, and a password only you know. Then type the Access Phrase your Admin gave you.</p>
+        <p class="lede fr" hidden>Entrez votre nom complet, un e-mail que vous pouvez vraiment consulter, et un mot de passe que vous seul connaissez. Puis saisissez la Phrase d'accès donnée par votre Admin.</p>
+      </div>
+    </div>
+    <div class="shot-frame">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/02-signup-filled.png" alt="Leader signup form, filled in">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/02-signup-filled-fr.png" alt="Formulaire d'inscription Leader, rempli">
+    </div>
+    <div class="callout">
+      <span class="en"><b>Capital letters matter.</b> The Access Phrase must be typed exactly as your Admin shared it — <code class="phrase">GODSNATION2026</code> and <code class="phrase">godsnation2026</code> are not the same. If it doesn't work, double-check with your Admin rather than guessing. <b>Note:</b> <code class="phrase">GODSNATION2026</code> is just an example used in this guide — use the same real Access Phrase your Admin gave you, whether you're reading this guide in English or French. The phrase itself never changes when you switch languages.</span>
+      <span class="fr" hidden><b>Les majuscules comptent.</b> La Phrase d'accès doit être tapée exactement comme votre Admin l'a partagée — <code class="phrase">GODSNATION2026</code> et <code class="phrase">godsnation2026</code> ne sont pas identiques. Si ça ne fonctionne pas, vérifiez avec votre Admin plutôt que de deviner. <b>Remarque :</b> <code class="phrase">GODSNATION2026</code> n'est qu'un exemple utilisé dans ce guide — utilisez la même vraie Phrase d'accès donnée par votre Admin, que vous lisiez ce guide en anglais ou en français. La phrase elle-même ne change jamais lorsque vous changez de langue.</span>
+    </div>
+  </section>
+
+  <!-- ================= STEP 3 ================= -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">3</span>
+      <div>
+        <h2 class="en">Create Your Account</h2>
+        <h2 class="fr" hidden>Créez votre compte</h2>
+        <p class="lede en">Tap "Create My Account." Your account activates immediately, and a referral code is generated for you automatically — you never have to invent or type one.</p>
+        <p class="lede fr" hidden>Appuyez sur « Créer mon compte ». Votre compte s'active immédiatement, et un code de parrainage est généré automatiquement pour vous — vous n'avez jamais à en inventer ou en taper un.</p>
+      </div>
+    </div>
+    <div class="shot-frame">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/03-signup-success.png" alt="Account created success screen with referral code">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/03-signup-success-fr.png" alt="Écran de confirmation de compte avec code de parrainage">
+    </div>
+    <div class="callout">
+      <span class="en">Your referral code is permanently yours. If it's ever wrong or needs changing, only your Admin can correct it from their side — you don't need to sign up again.</span>
+      <span class="fr" hidden>Votre code de parrainage vous appartient de façon permanente. S'il est un jour incorrect ou doit être modifié, seul votre Admin peut le corriger de son côté — vous n'avez pas besoin de vous réinscrire.</span>
+    </div>
+  </section>
+
+  <!-- ================= STEP 4 — DASHBOARD TOUR ================= -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">4</span>
+      <div>
+        <h2 class="en">Get to Know Your Dashboard</h2>
+        <h2 class="fr" hidden>Découvrez votre tableau de bord</h2>
+        <p class="lede en">You're taken straight there after signing up — and it's the same place you'll return to any time you log in.</p>
+        <p class="lede fr" hidden>Vous y êtes directement conduit après l'inscription — et c'est l'endroit où vous reviendrez chaque fois que vous vous connecterez.</p>
+      </div>
+    </div>
+    <div class="shot-frame wide">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/04-dashboard-top.png" alt="Leader dashboard overview">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/04-dashboard-top-fr.png" alt="Vue d'ensemble du tableau de bord Leader">
+    </div>
+
+    <div class="maplist">
+      <div class="row"><span class="dot"></span><div>
+        <b class="en">Referral Code</b><b class="fr" hidden>Code de parrainage</b>
+        <p class="en">Your own code, shown for reference — it's already built into your links below.</p>
+        <p class="fr" hidden>Votre propre code, affiché pour référence — il est déjà intégré à vos liens ci-dessous.</p>
+      </div></div>
+      <div class="row"><span class="dot"></span><div>
+        <b class="en">WhatsApp Clicks &amp; Conversion</b><b class="fr" hidden>Clics WhatsApp et Conversion</b>
+        <p class="en">How many people who used your link went on to tap through to WhatsApp.</p>
+        <p class="fr" hidden>Combien de personnes ayant utilisé votre lien ont ensuite rejoint WhatsApp.</p>
+      </div></div>
+      <div class="row"><span class="dot"></span><div>
+        <b class="en">Your Referral Links (EN / FR)</b><b class="fr" hidden>Vos liens de parrainage (EN / FR)</b>
+        <p class="en">Two ready-made links — one for English visitors, one for French. Tap "Copy" to paste either one anywhere.</p>
+        <p class="fr" hidden>Deux liens prêts à l'emploi — un pour les visiteurs anglophones, un pour les francophones. Appuyez sur « Copier » pour coller l'un ou l'autre n'importe où.</p>
+      </div></div>
+      <div class="row"><span class="dot"></span><div>
+        <b class="en">Invite People</b><b class="fr" hidden>Inviter des personnes</b>
+        <p class="en">One-tap buttons that share your link straight into WhatsApp, Messenger, or Telegram. Covered next.</p>
+        <p class="fr" hidden>Des boutons en un tap pour partager votre lien directement sur WhatsApp, Messenger ou Telegram. Détails ci-dessous.</p>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ================= STEP 5 — INVITE PEOPLE ================= -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">5</span>
+      <div>
+        <h2 class="en">Invite People With One Tap</h2>
+        <h2 class="fr" hidden>Invitez des personnes en un tap</h2>
+        <p class="lede en">Every button below already carries your own link — you never have to copy it in manually to share it this way.</p>
+        <p class="lede fr" hidden>Chaque bouton ci-dessous contient déjà votre propre lien — vous n'avez jamais besoin de le copier manuellement pour le partager ainsi.</p>
+      </div>
+    </div>
+    <div class="shot-frame">
+      <img class="en" loading="lazy" data-src="/leader-guide/img/05-dashboard-invite.png" alt="Invite people buttons: WhatsApp, Messenger, Telegram, copy link">
+      <img class="fr" hidden loading="lazy" data-src="/leader-guide/img/05-dashboard-invite-fr.png" alt="Boutons d'invitation : WhatsApp, Messenger, Telegram, copier le lien">
+    </div>
+
+    <div class="btn-list">
+      <div class="btn-row">
+        <span class="swatch" style="background:#25D366;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+        </span>
+        <span>
+          <b class="en">Share on WhatsApp</b><b class="fr" hidden>Partager sur WhatsApp</b>
+          <p class="en">Opens WhatsApp with a ready-written invitation message and your link — just pick who to send it to.</p>
+          <p class="fr" hidden>Ouvre WhatsApp avec un message d'invitation déjà rédigé et votre lien — il ne reste plus qu'à choisir le destinataire.</p>
+        </span>
+      </div>
+      <div class="btn-row">
+        <span class="swatch" style="background:#0084FF;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+        </span>
+        <span>
+          <b class="en">Share on Messenger</b><b class="fr" hidden>Partager sur Messenger</b>
+          <p class="en">Sends your link through Facebook Messenger.</p>
+          <p class="fr" hidden>Envoie votre lien via Facebook Messenger.</p>
+        </span>
+      </div>
+      <div class="btn-row">
+        <span class="swatch" style="background:#26A5E4;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+        </span>
+        <span>
+          <b class="en">Share on Telegram</b><b class="fr" hidden>Partager sur Telegram</b>
+          <p class="en">Sends your link through Telegram, with a short invitation message.</p>
+          <p class="fr" hidden>Envoie votre lien via Telegram, avec un court message d'invitation.</p>
+        </span>
+      </div>
+      <div class="btn-row">
+        <span class="swatch" style="background:var(--navy-800);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </span>
+        <span>
+          <b class="en">Copy Referral Link</b><b class="fr" hidden>Copier le lien de parrainage</b>
+          <p class="en">Copies just the link, to paste anywhere — a text message, another app, or a post.</p>
+          <p class="fr" hidden>Copie uniquement le lien, à coller n'importe où — un SMS, une autre application, ou une publication.</p>
+        </span>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="en">Sharing this way is always free — it never uses your Admin's email quota, and it never runs out.</span>
+      <span class="fr" hidden>Partager de cette façon est toujours gratuit — cela n'utilise jamais le quota d'e-mails de votre Admin, et ne s'épuise jamais.</span>
+    </div>
+  </section>
+
+  <!-- ================= WHAT HAPPENS NEXT ================= -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">6</span>
+      <div>
+        <h2 class="en">What Happens When Someone Joins</h2>
+        <h2 class="fr" hidden>Ce qui se passe quand quelqu'un rejoint</h2>
+        <p class="lede en">When a person opens your link and registers, they're counted as your referral automatically — nothing more for you to do. They'll appear by name in "Your Referrals" on your dashboard, and your Admin can see it too.</p>
+        <p class="lede fr" hidden>Quand une personne ouvre votre lien et s'inscrit, elle est automatiquement comptée comme votre filleul — vous n'avez rien d'autre à faire. Elle apparaîtra par son nom dans « Vos parrainages » sur votre tableau de bord, et votre Admin le verra aussi.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FIND & FOLLOW UP IN WHATSAPP ================= -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">7</span>
+      <div>
+        <h2 class="en">Find and Welcome Them in the WhatsApp Group</h2>
+        <h2 class="fr" hidden>Retrouvez-les et accueillez-les dans le groupe WhatsApp</h2>
+        <p class="lede en">Registering and actually joining the WhatsApp group are two different steps for the person you invited. Here's how to spot them once they arrive, and follow up personally rather than leaving them to get lost in a big group.</p>
+        <p class="lede fr" hidden>S'inscrire et rejoindre réellement le groupe WhatsApp sont deux étapes différentes pour la personne que vous avez invitée. Voici comment la repérer dès son arrivée, et la suivre personnellement au lieu de la laisser se perdre dans un grand groupe.</p>
+      </div>
+    </div>
+
+    <div class="needs" style="margin-top:18px;">
+      <h2 class="en">Your simple routine</h2>
+      <h2 class="fr" hidden>Votre routine simple</h2>
+      <ul>
+        <li>
+          <span class="tick">1</span>
+          <span>
+            <span class="en"><b>Check "Your Referrals" often.</b> Each person now shows a tag — <b>✓ Joined</b> or <b>Not yet</b> — so you always know who's actually worth looking for in the group first.</span>
+            <span class="fr" hidden><b>Consultez souvent « Vos parrainages ».</b> Chaque personne affiche désormais une étiquette — <b>✓ A rejoint</b> ou <b>Pas encore</b> — pour toujours savoir qui chercher en priorité dans le groupe.</span>
+          </span>
+        </li>
+        <li>
+          <span class="tick">2</span>
+          <span>
+            <span class="en"><b>Save each number under their real name</b> in your phone's contacts, using the name from your dashboard — even before they join the group. WhatsApp will then show their real name instead of just a number once they're in.</span>
+            <span class="fr" hidden><b>Enregistrez chaque numéro sous son vrai nom</b> dans les contacts de votre téléphone, en utilisant le nom indiqué sur votre tableau de bord — même avant qu'elle ne rejoigne le groupe. WhatsApp affichera alors son vrai nom, et non un simple numéro, une fois dans le groupe.</span>
+          </span>
+        </li>
+        <li>
+          <span class="tick">3</span>
+          <span>
+            <span class="en"><b>Find their name among the group's members</b> once your dashboard marks them ✓ Joined. The tag tells you they're worth looking for; finding them in the group is how you actually reach them.</span>
+            <span class="fr" hidden><b>Repérez son nom parmi les membres du groupe</b> une fois que votre tableau de bord la marque ✓ A rejoint. L'étiquette vous indique qu'elle vaut la peine d'être recherchée ; la retrouver dans le groupe est ce qui vous permet de la contacter réellement.</span>
+          </span>
+        </li>
+        <li>
+          <span class="tick">4</span>
+          <span>
+            <span class="en"><b>Tap their name or photo</b> in the group's member list to open their profile, then tap "Message." This opens a private one-on-one chat with them, separate from the group.</span>
+            <span class="fr" hidden><b>Appuyez sur son nom ou sa photo</b> dans la liste des membres du groupe pour ouvrir son profil, puis appuyez sur « Message ». Cela ouvre une conversation privée avec elle, séparée du groupe.</span>
+          </span>
+        </li>
+        <li>
+          <span class="tick">5</span>
+          <span>
+            <span class="en"><b>Send a short, personal welcome.</b> Introduce yourself, encourage them to start their first book, and ask if they have any questions.</span>
+            <span class="fr" hidden><b>Envoyez un court message de bienvenue personnel.</b> Présentez-vous, encouragez la personne à commencer son premier livre, et demandez-lui si elle a des questions.</span>
+          </span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="callout">
+      <span class="en">The <b>✓ Joined</b> tag means they tapped through to WhatsApp from the site — it's a strong signal, but finding their name in the group (step 3 above) is still how you confirm they're really there before you message them.</span>
+      <span class="fr" hidden>L'étiquette <b>✓ A rejoint</b> signifie que la personne a cliqué vers WhatsApp depuis le site — c'est un signal fiable, mais retrouver son nom dans le groupe (étape 3 ci-dessus) reste la façon de confirmer sa présence réelle avant de lui écrire.</span>
+    </div>
+  </section>
+
+  <!-- ================= FAQ ================= -->
+  <section class="step">
+    <div class="step-head">
+      <span class="step-num">?</span>
+      <div>
+        <h2 class="en">Common Questions</h2>
+        <h2 class="fr" hidden>Questions fréquentes</h2>
+      </div>
+    </div>
+
+    <div style="margin-top:6px;">
+      <div class="faq-item">
+        <h3 class="en">My Access Phrase isn't working — what do I do?</h3>
+        <h3 class="fr" hidden>Ma phrase d'accès ne fonctionne pas — que faire ?</h3>
+        <p class="en">Ask your Admin to confirm the exact phrase currently in use — it may have changed, or a letter/capitalization may not match.</p>
+        <p class="fr" hidden>Demandez à votre Admin de confirmer la phrase exacte actuellement utilisée — elle a peut-être changé, ou une lettre/majuscule ne correspond peut-être pas.</p>
+      </div>
+      <div class="faq-item">
+        <h3 class="en">I forgot my password. What now?</h3>
+        <h3 class="fr" hidden>J'ai oublié mon mot de passe. Que faire ?</h3>
+        <p class="en">Use "Forgot password?" on the login page — a reset link is sent to the email you signed up with, as long as it's a real address you can check.</p>
+        <p class="fr" hidden>Utilisez « Mot de passe oublié ? » sur la page de connexion — un lien de réinitialisation est envoyé à l'e-mail utilisé lors de l'inscription, à condition que ce soit une adresse réelle que vous pouvez consulter.</p>
+      </div>
+      <div class="faq-item">
+        <h3 class="en">Can I choose or change my own referral code?</h3>
+        <h3 class="fr" hidden>Puis-je choisir ou modifier mon propre code de parrainage ?</h3>
+        <p class="en">No — it's generated for you automatically so every code stays unique. If it ever needs correcting, only your Admin can do that.</p>
+        <p class="fr" hidden>Non — il est généré automatiquement pour vous afin que chaque code reste unique. S'il doit être corrigé, seul votre Admin peut le faire.</p>
+      </div>
+      <div class="faq-item">
+        <h3 class="en">Does inviting people cost me anything?</h3>
+        <h3 class="fr" hidden>Est-ce que ça me coûte quelque chose d'inviter des personnes ?</h3>
+        <p class="en">No. WhatsApp, Messenger, Telegram, and copy-link sharing are all completely free to use, as often as you like.</p>
+        <p class="fr" hidden>Non. Le partage via WhatsApp, Messenger, Telegram et la copie de lien sont entièrement gratuits, aussi souvent que vous le souhaitez.</p>
+      </div>
+      <div class="faq-item">
+        <h3 class="en">"Share on WhatsApp" always opens WhatsApp Business instead of my regular WhatsApp — how do I change that?</h3>
+        <h3 class="fr" hidden>« Partager sur WhatsApp » ouvre toujours WhatsApp Business au lieu de mon WhatsApp habituel — comment corriger ça ?</h3>
+        <p class="en">This happens when both apps are installed on your phone and one of them was set as the automatic default a while back — it's a setting on your phone, not something the button controls. To fix it on Android: go to <b>Settings → Apps → WhatsApp Business → Open by default</b>, then tap <b>Clear defaults</b>. The next time you tap "Share on WhatsApp," your phone will ask which app to use, and you can pick your regular WhatsApp.</p>
+        <p class="fr" hidden>Cela arrive lorsque les deux applications sont installées sur votre téléphone et que l'une d'elles a été définie par défaut à un moment donné — c'est un réglage de votre téléphone, pas quelque chose que le bouton contrôle. Pour corriger cela sur Android : allez dans <b>Paramètres → Applications → WhatsApp Business → Ouvrir par défaut</b>, puis appuyez sur <b>Effacer les valeurs par défaut</b>. La prochaine fois que vous appuierez sur « Partager sur WhatsApp », votre téléphone vous demandera quelle application utiliser, et vous pourrez choisir votre WhatsApp habituel.</p>
+      </div>
+    </div>
+
+    <div class="cta-block">
+      <h2 class="en">Ready to Create Your Account?</h2>
+      <h2 class="fr" hidden>Prêt à créer votre compte ?</h2>
+      <p class="en">Tap below whenever you have your Access Phrase ready.</p>
+      <p class="fr" hidden>Appuyez ci-dessous dès que vous avez votre Phrase d'accès.</p>
+      <a class="cta-btn" href="https://thegodnationacademy.org/leader-signup" target="_blank" rel="noreferrer">
+        <span class="en">Open the Signup Form →</span>
+        <span class="fr" hidden>Ouvrir le formulaire d'inscription →</span>
+      </a>
+    </div>
+  </section>
+
+  <footer class="end">
+    <img src="/leader-guide/img/logo.png" alt="">
+    <span class="en">The God Nation Media &amp; Leadership Academy</span>
+    <span class="fr" hidden>The God Nation Media &amp; Leadership Academy</span>
+  </footer>
+
+</div>
+
+<script>
+  function setLang(lang) {
+    document.querySelectorAll('.en').forEach(function (el) { el.hidden = lang !== 'en'; });
+    document.querySelectorAll('.fr').forEach(function (el) { el.hidden = lang !== 'fr'; });
+    document.querySelectorAll('.lang-btn').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+    });
+    document.documentElement.lang = lang;
+    try { localStorage.setItem('leaderGuideLang', lang); } catch (e) {}
+    // Screenshots use data-src instead of src so the browser never fetches
+    // the language a visitor isn't reading — important on slow connections,
+    // since this page has an English and a French copy of every image.
+    // Only now, once we know which language is actually showing, do we hand
+    // the browser a real src for those images (loading="lazy" then further
+    // defers the actual download until each one nears the viewport).
+    document.querySelectorAll('img.' + lang + '[data-src]').forEach(function (img) {
+      img.src = img.dataset.src;
+      img.removeAttribute('data-src');
+    });
+  }
+  (function init() {
+    var saved = 'en';
+    try { saved = localStorage.getItem('leaderGuideLang') || 'en'; } catch (e) {}
+    setLang(saved);
+  })();
+</script>
+</body>
+</html>

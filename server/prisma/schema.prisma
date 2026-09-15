@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  LEADER
+}
+
+enum RegistrationStatus {
+  ACTIVE
+}
+
+enum EventType {
+  VISITED
+  REGISTERED
+  WHATSAPP_CLICKED
+}
+
+enum Language {
+  en
+  fr
+}
+
+enum Pathway {
+  TRAINING
+  DISCOVER_GROW
+}
+
+// ---------------------------------------------------------------------------
+// User / Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  active       Boolean  @default(true)
+  isTestData   Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
+  // True for a Leader who created their own account via the public
+  // self-signup link (POST /api/auth/leader-signup), as opposed to one an
+  // Admin created by hand in Admin > Leaders. Admin retains full control
+  // either way — this is purely informational, shown as a badge.
+  selfRegistered Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions       Session[]
+  referralCodes  ReferralCode[]
+  referralRelationships ReferralRelationship[]
+  setupTokens         LeaderSetupToken[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([role])
+}
+
+// Secure one-time invitation token for new Leader onboarding (section 27-29).
+// Only the hash is ever stored; the raw token exists only long enough to be
+// emailed. Expires 7 days after issuance, single-use.
+model LeaderSetupToken {
+  id         String    @id @default(uuid())
+  leaderId   String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  leader User @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+
+  @@index([leaderId])
+}
+
+// Secure one-time password-reset token (section 33). Only the hash is ever
+// stored. Expires 1 hour after issuance, single-use.
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Session {
+  id             String   @id @default(uuid())
+  userId         String
+  tokenHash      String   @unique
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  id         String   @id @default(uuid())
+  identifier String
+  success    Boolean
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+  @@index([ip, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Referral system
+// ---------------------------------------------------------------------------
+
+model ReferralCode {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  leaderId      String
+  active        Boolean   @default(true)
+  isTestData    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deactivatedAt DateTime?
+
+  leader        User            @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  visits        ReferralVisit[]
+  relationships ReferralRelationship[]
+
+  @@index([leaderId])
+  @@index([active])
+}
+
+model ReferralVisit {
+  id             String    @id @default(uuid())
+  visitorId      String
+  referralCodeId String?
+  timestamp      DateTime  @default(now())
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  landingPage    String?
+  language       Language  @default(en)
+  isTestData     Boolean   @default(false)
+
+  referralCode ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+
+  @@index([visitorId, timestamp])
+  @@index([referralCodeId, timestamp])
+  @@index([timestamp])
+  @@index([utmSource])
+  @@index([utmCampaign])
+}
+
+model Registration {
+  id                 String   @id @default(uuid())
+  visitorId          String
+  normalizedWhatsApp String   @unique
+  name               String
+  email              String?
+  language           Language @default(en)
+  pathway            Pathway  @default(TRAINING)
+  utmSource          String?
+  utmMedium          String?
+  utmCampaign        String?
+  landingPage        String?
+  status             RegistrationStatus @default(ACTIVE)
+  isTestData         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  relationship ReferralRelationship?
+  events       Event[]
+
+  @@index([visitorId])
+  @@index([createdAt])
+  @@index([language])
+}
+
+model ReferralRelationship {
+  id             String   @id @default(uuid())
+  leaderId       String
+  registrationId String   @unique
+  referralCodeId String?
+  createdAt      DateTime @default(now())
+
+  leader       User          @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  registration Registration  @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  referralCode ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+
+  @@index([leaderId])
+}
+
+model Event {
+  id             String    @id @default(uuid())
+  type           EventType
+  registrationId String?
+  visitorId      String?
+  timestamp      DateTime  @default(now())
+  isTestData     Boolean   @default(false)
+
+  registration Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+
+  @@index([type, timestamp])
+  @@index([registrationId])
+  @@index([visitorId])
+}
+
+// ---------------------------------------------------------------------------
+// Settings / Audit
+// ---------------------------------------------------------------------------
+
+// Single settings row. whatsappUrlEn/Fr (pre-existing) are the TRAINING
+// pathway destinations; whatsappUrlDiscoverEn/Fr are the new DISCOVER_GROW
+// destinations. `content` holds the simple, admin-editable website copy
+// (homepage/pathway/success/registration text) as a flat JSON object of
+// known keys — deliberately not a full CMS; missing keys fall back to
+// built-in defaults on the client.
+model Settings {
+  id                    String   @id @default("singleton")
+  whatsappUrlEn         String?
+  whatsappUrlFr         String?
+  whatsappUrlDiscoverEn String?
+  whatsappUrlDiscoverFr String?
+  supportWhatsappUrl    String?
+  facebookUrl           String?
+  instagramUrl          String?
+  tiktokUrl             String?
+  youtubeUrl            String?
+  whatsappContactUrl    String?
+  telegramUrl           String?
+  messengerUrl          String?
+  // Shared access phrase gating Leader self-signup (POST
+  // /api/auth/leader-signup). Stored in plain text — the Admin needs to be
+  // able to read it back to share it in the WhatsApp group, so it isn't a
+  // password. Null/blank means self-signup is turned off entirely.
+  leaderSignupPhrase    String?
+  content               Json?
+  updatedAt             DateTime @updatedAt
+  updatedByUserId       String?
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+}
