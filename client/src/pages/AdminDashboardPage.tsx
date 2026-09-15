@@ -180,6 +180,28 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
     }
   }
 
+  // For a duplicate self-signup or an unknown person who used a leaked
+  // access phrase — permanently removes the account, unlike Deactivate
+  // (which just pauses a real Leader). Confirms first since this is
+  // permanent, and surfaces their referral count so an Admin isn't
+  // surprised that any people they'd already referred lose that link.
+  async function deleteLeader(leader: LeaderRow) {
+    if (
+      !window.confirm(
+        t('admin.leaders.delete_confirm', { name: leader.name, count: leader.referredCount }),
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await api.delete(`/api/admin/leaders/${leader.id}`);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('admin.leaders.delete_failed'));
+    }
+  }
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -198,6 +220,10 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
           </p>
         </div>
       )}
+
+      {/* Always visible (not gated on showForm) so a delete failure — which
+          can happen while the create form is closed — is actually seen. */}
+      {error && !showForm && <p className="mb-4 text-sm text-red-700">{error}</p>}
 
       {showForm && (
         <form onSubmit={createLeader} className="card mb-4 space-y-3">
@@ -304,6 +330,9 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
                   </button>
                   <button className="text-brand-700 hover:underline" onClick={() => resendInvitation(l)}>
                     {resendStatus[l.id] ?? t('admin.leaders.resend_invitation')}
+                  </button>
+                  <button className="text-red-700 hover:underline" onClick={() => deleteLeader(l)}>
+                    {t('admin.leaders.delete')}
                   </button>
                 </td>
                 <td className="py-2 pr-4">{l.name}</td>

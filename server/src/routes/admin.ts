@@ -404,6 +404,48 @@ router.patch('/leaders/:id', requireCsrf, asyncHandler(async (req, res) => {
   });
 }));
 
+// DELETE /api/admin/leaders/:id — permanently removes a Leader account.
+// Covers two real cases: a Leader who accidentally self-signed-up twice
+// (one duplicate needs removing), and an unknown/unauthorized person who
+// used a leaked self-signup access phrase and needs to be removed entirely.
+// The schema's own cascade rules do the right thing with one call: Session,
+// ReferralCode, and ReferralRelationship rows (onDelete: Cascade) go with
+// the Leader; any Registration or ReferralVisit rows they were linked to
+// are NOT deleted — they simply lose that link (onDelete: SetNull /
+// relationship row removed), same principle as deleting a Registration
+// above. Deactivating (already available) remains the right choice for a
+// real, active Leader you just want to pause — this is for removing an
+// account that should never have existed as a Leader in the first place.
+router.delete('/leaders/:id', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const leader = await prisma.user.findUnique({
+    where: { id },
+    include: { referralCodes: { where: { active: true } }, referralRelationships: true },
+  });
+  if (!leader || leader.role !== 'LEADER') {
+    return res.status(404).json({ error: 'Leader not found.' });
+  }
+
+  await prisma.user.delete({ where: { id } });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'LEADER_DELETED',
+    targetType: 'User',
+    targetId: id,
+    metadata: {
+      name: leader.name,
+      email: leader.email,
+      referralCode: leader.referralCodes[0]?.code ?? null,
+      referredCount: leader.referralRelationships.length,
+    },
+  });
+
+  res.json({ ok: true });
+}));
+
 // ---------------------------------------------------------------------------
 // Registrations / referrals (read-only, system-wide)
 // ---------------------------------------------------------------------------

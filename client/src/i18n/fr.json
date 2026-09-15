@@ -175,7 +175,10 @@
       "edit_leader": "Modifier le Leader",
       "save_changes": "Enregistrer",
       "cancel": "Annuler",
-      "save_failed": "Échec de l'enregistrement."
+      "save_failed": "Échec de l'enregistrement.",
+      "delete": "Supprimer",
+      "delete_confirm": "Supprimer {{name}} ? Son compte et son code de parrainage seront définitivement supprimés — action irréversible. Cette personne a parrainé {{count}} personnes — ces inscriptions resteront, mais ne seront plus liées à aucun leader.",
+      "delete_failed": "Échec de la suppression du Leader."
     },
     "registrations": {
       "title": "Inscriptions",

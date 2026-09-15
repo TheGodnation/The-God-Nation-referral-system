@@ -175,7 +175,10 @@
       "edit_leader": "Edit Leader",
       "save_changes": "Save Changes",
       "cancel": "Cancel",
-      "save_failed": "Failed to save changes."
+      "save_failed": "Failed to save changes.",
+      "delete": "Delete",
+      "delete_confirm": "Delete {{name}}? This permanently removes their account and referral code and cannot be undone. They have referred {{count}} people — those registrations will stay, but will no longer be linked to any leader.",
+      "delete_failed": "Failed to delete leader."
     },
     "registrations": {
       "title": "Registrations",
