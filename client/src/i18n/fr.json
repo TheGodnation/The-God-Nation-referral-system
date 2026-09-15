@@ -30,6 +30,15 @@
   "join": {
     "loading": "Préparation de votre visite…"
   },
+  "welcome": {
+    "eyebrow": "UN MESSAGE POUR VOUS",
+    "title": "Vous êtes aimé(e), et vous n'êtes pas seul(e)",
+    "body": "Quoi qu'il vous ait conduit ici aujourd'hui, Dieu vous voit — et Il a une bonne nouvelle pour vous. Jésus-Christ est venu pour que vous puissiez Le connaître, être pardonné(e), et marcher dans une espérance réelle, peu importe d'où vous venez ou ce que vous traversez.",
+    "body2": "Nous aimerions vous accueillir dans une communauté bienveillante où vous pourrez grandir dans votre foi, recevoir de vraies réponses tirées de la Parole de Dieu, et ne jamais avancer seul(e) dans ce chemin.",
+    "supporting": "Prière • Parole de Dieu • Vraie communauté • Un nouveau départ",
+    "cta": "REJOIGNEZ NOTRE COMMUNAUTÉ",
+    "support_note": "Terminez votre inscription et vous serez dirigé(e) directement vers notre communauté WhatsApp."
+  },
   "leaderSignup": {
     "title": "Créez Votre Compte Leader",
     "subtitle": "Remplissez vos informations ci-dessous pour créer votre propre compte et tableau de bord de parrainage.",
@@ -91,6 +100,8 @@
     "stat_conversion": "Conversion",
     "links_title": "Vos liens de parrainage",
     "no_referral_code": "Aucun code de parrainage actif n'a encore été attribué.",
+    "outreach_links_title": "Liens d'évangélisation",
+    "outreach_links_hint": "Utilisez-les plutôt lorsque vous contactez directement quelqu'un qui n'a jamais entendu parler de nous — comme un message d'évangélisation. Ils mènent vers une courte page d'accueil au lieu de la page d'accueil principale, puis vers la même communauté WhatsApp.",
     "copy": "Copier",
     "copied": "Copié !",
     "invite_title": "Inviter des personnes",
@@ -236,10 +247,12 @@
         "registration": "Page d'inscription",
         "success": "Page de confirmation",
         "emails": "E-mails",
-        "leaderInvite": "Message de parrainage des Leaders"
+        "leaderInvite": "Message de parrainage des Leaders",
+        "welcome": "Page d'accueil pour l'évangélisation"
       },
       "emails_hint": "Vous pouvez utiliser {{name}} et {{link}} (ou {{setupUrl}} / {{resetUrl}} lorsqu'ils sont indiqués) dans votre texte — ils sont automatiquement remplacés par la vraie valeur lors de l'envoi de chaque e-mail.",
       "leader_invite_hint": "C'est le message que les Leaders partagent sur WhatsApp, Telegram, ou le menu de partage du téléphone pour inviter des personnes. Utilisez {{link}} à l'endroit où le lien de parrainage de chaque Leader doit apparaître. Pour Telegram en particulier, toute ligne contenant {{link}} est automatiquement omise, car Telegram joint le lien lui-même.",
+      "welcome_hint": "C'est la page vers laquelle les Leaders envoient directement les personnes pour l'évangélisation (par exemple un message d'évangélisation), sur thegodnationacademy.org/welcome — distincte de la page d'accueil principale. S'inscrire ici mène à la même communauté WhatsApp Formation que la page d'accueil.",
       "fields": {
         "homepageTitle": "Titre principal de la page d'accueil",
         "homepageSubtitle": "Sous-titre de la page d'accueil",
@@ -276,7 +289,14 @@
         "emailLeaderInvitationBody": "Invitation Leader — Message",
         "emailPasswordResetSubject": "Réinitialisation du mot de passe — Objet",
         "emailPasswordResetBody": "Réinitialisation du mot de passe — Message",
-        "leaderInviteMessage": "Message partagé par les Leaders"
+        "leaderInviteMessage": "Message partagé par les Leaders",
+        "welcomeEyebrow": "Sur-titre (petit texte au-dessus du titre)",
+        "welcomeTitle": "Titre",
+        "welcomeBody": "Premier paragraphe",
+        "welcomeBody2": "Deuxième paragraphe",
+        "welcomeSupporting": "Accroche de soutien",
+        "welcomeCta": "Texte du bouton",
+        "welcomeSupportNote": "Texte sous le bouton"
       }
     },
     "audit": {

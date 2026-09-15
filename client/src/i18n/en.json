@@ -30,6 +30,15 @@
   "join": {
     "loading": "Preparing your visit…"
   },
+  "welcome": {
+    "eyebrow": "A MESSAGE FOR YOU",
+    "title": "You Are Loved, and You Are Not Alone",
+    "body": "Whatever brought you here today, God sees you — and He has good news for you. Jesus Christ came so that you could know Him, be forgiven, and walk in real hope, no matter where you've been or what you're facing.",
+    "body2": "We'd love to welcome you into a caring community where you can grow in your faith, get real answers from God's Word, and never walk this journey alone.",
+    "supporting": "Prayer • God's Word • Real Community • A Fresh Start",
+    "cta": "JOIN OUR COMMUNITY",
+    "support_note": "Complete your registration and you'll be directed straight to our WhatsApp Community."
+  },
   "leaderSignup": {
     "title": "Create Your Leader Account",
     "subtitle": "Fill in your details below to set up your own account and referral dashboard.",
@@ -91,6 +100,8 @@
     "stat_conversion": "Conversion",
     "links_title": "Your Referral Links",
     "no_referral_code": "No active referral code assigned yet.",
+    "outreach_links_title": "Outreach Message Links",
+    "outreach_links_hint": "Use these instead when reaching out directly to someone who's never heard of us — like an evangelism message. They lead to a short welcome page instead of the homepage, then into the same WhatsApp community.",
     "copy": "Copy",
     "copied": "Copied!",
     "invite_title": "Invite People",
@@ -236,10 +247,12 @@
         "registration": "Registration Page",
         "success": "Success Page",
         "emails": "Emails",
-        "leaderInvite": "Leader Referral Message"
+        "leaderInvite": "Leader Referral Message",
+        "welcome": "Outreach Welcome Page"
       },
       "emails_hint": "You can use {{name}} and {{link}} (or {{setupUrl}} / {{resetUrl}} where shown) inside your text — they're automatically replaced with the real value when each email is sent.",
       "leader_invite_hint": "This is the message Leaders share on WhatsApp, Telegram, or the phone's own share menu to invite people. Use {{link}} where you want each Leader's own referral link to appear. For Telegram specifically, any line containing {{link}} is left out automatically, since Telegram attaches the link on its own.",
+      "welcome_hint": "This is the page Leaders send people to directly for outreach (e.g. an evangelism message), at thegodnationacademy.org/welcome — separate from the main homepage. Registering here leads into the same Training WhatsApp community as the homepage.",
       "fields": {
         "homepageTitle": "Homepage Main Title",
         "homepageSubtitle": "Homepage Subtitle",
@@ -276,7 +289,14 @@
         "emailLeaderInvitationBody": "Leader Invitation — Message",
         "emailPasswordResetSubject": "Password Reset — Subject",
         "emailPasswordResetBody": "Password Reset — Message",
-        "leaderInviteMessage": "Message Leaders Share"
+        "leaderInviteMessage": "Message Leaders Share",
+        "welcomeEyebrow": "Eyebrow (small text above the title)",
+        "welcomeTitle": "Title",
+        "welcomeBody": "First Paragraph",
+        "welcomeBody2": "Second Paragraph",
+        "welcomeSupporting": "Supporting Tagline",
+        "welcomeCta": "Button Text",
+        "welcomeSupportNote": "Text Below the Button"
       }
     },
     "audit": {

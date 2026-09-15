@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { HomePage } from './pages/HomePage';
 import { JoinPage } from './pages/JoinPage';
+import { WelcomePage } from './pages/WelcomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
@@ -51,6 +52,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/join" element={<JoinPage />} />
+          <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/success" element={<SuccessPage />} />
           <Route path="/login" element={<LoginPage />} />

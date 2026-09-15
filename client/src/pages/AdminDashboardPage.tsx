@@ -781,6 +781,18 @@ const CONTENT_SECTIONS: {
     fields: [{ key: 'connectTitle' }, { key: 'footer' }, { key: 'contactInfo', multiline: true }],
   },
   {
+    section: 'welcome',
+    fields: [
+      { key: 'welcomeEyebrow' },
+      { key: 'welcomeTitle' },
+      { key: 'welcomeBody', multiline: true },
+      { key: 'welcomeBody2', multiline: true },
+      { key: 'welcomeSupporting' },
+      { key: 'welcomeCta' },
+      { key: 'welcomeSupportNote', multiline: true },
+    ],
+  },
+  {
     section: 'registration',
     fields: [{ key: 'registrationPageText', multiline: true }],
   },
@@ -861,6 +873,7 @@ function ContentTab() {
           {section === 'leaderInvite' && (
             <p className="text-xs text-slate-400">{t('admin.content.leader_invite_hint')}</p>
           )}
+          {section === 'welcome' && <p className="text-xs text-slate-400">{t('admin.content.welcome_hint')}</p>}
           {fields.map(({ key, multiline, bilingual = true }) => (
             <div key={key}>
               <label className="label">{t(`admin.content.fields.${key}`)}</label>

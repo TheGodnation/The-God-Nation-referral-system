@@ -651,6 +651,16 @@ const CONTENT_BASE_KEYS = [
   'contactInfo',
   'registrationPageText',
   'successPageText',
+  // The /welcome page — a separate first-contact entry point for outreach
+  // (e.g. a Leader's evangelism message), distinct from the homepage's
+  // hero/pathway copy above.
+  'welcomeEyebrow',
+  'welcomeTitle',
+  'welcomeBody',
+  'welcomeBody2',
+  'welcomeSupporting',
+  'welcomeCta',
+  'welcomeSupportNote',
   // Visitor-facing email text — bilingual like everything else above, since
   // registrants and reminder recipients read in either language.
   'emailRegistrationConfirmationSubject',

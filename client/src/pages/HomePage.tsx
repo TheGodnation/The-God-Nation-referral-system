@@ -2,6 +2,35 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { usePublicSettings } from '../lib/usePublicSettings';
+import {
+  GraduationCapIcon,
+  HeartHandsIcon,
+  CompassIcon,
+  FormIcon,
+  ChatHeartIcon,
+  WhatsAppIcon,
+  TelegramIcon,
+  MessengerIcon,
+  FacebookIcon,
+  InstagramIcon,
+  TikTokIcon,
+  YouTubeIcon,
+} from '../components/Icons';
+
+// One brand-appropriate icon + background color per social platform, so the
+// Connect section reads as a set of recognizable buttons rather than plain
+// text links. Order matches how they're offered in the `socials` list below.
+const SOCIAL_ICONS: Record<string, { Icon: (p: { className?: string }) => JSX.Element; bg: string }> = {
+  WhatsApp: { Icon: WhatsAppIcon, bg: '#25D366' },
+  Telegram: { Icon: TelegramIcon, bg: '#26A5E4' },
+  Messenger: { Icon: MessengerIcon, bg: '#0084FF' },
+  Facebook: { Icon: FacebookIcon, bg: '#1877F2' },
+  Instagram: { Icon: InstagramIcon, bg: '#E1306C' },
+  TikTok: { Icon: TikTokIcon, bg: '#000000' },
+  YouTube: { Icon: YouTubeIcon, bg: '#FF0000' },
+};
+
+const HOW_ICONS = [CompassIcon, FormIcon, ChatHeartIcon];
 
 // Section 15-17: one official homepage, two legitimate visitor pathways
 // (Training first, then Discover & Grow). Referral attribution is silent —
@@ -62,8 +91,15 @@ export function HomePage() {
   return (
     <PageShell>
       {/* Hero */}
-      <section className="bg-gradient-to-b from-brand-950 to-brand-800 px-4 py-16 text-center text-white sm:py-24">
-        <div className="mx-auto max-w-3xl">
+      <section className="relative overflow-hidden bg-gradient-to-b from-brand-950 to-brand-800 px-4 py-16 text-center text-white sm:py-24">
+        {/* Purely decorative — a soft radiant glow behind the hero text, no
+            photo needed. Hidden from assistive tech since it carries no
+            content. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-0 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/3 rounded-full bg-gold-400/20 blur-3xl"
+        />
+        <div className="relative mx-auto max-w-3xl">
           <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">
             {c('homepageTitle') || t('home.hero_title')}
           </h1>
@@ -85,6 +121,9 @@ export function HomePage() {
       <div id="pathways">
         {/* Training pathway — appears first */}
         <section className="mx-auto max-w-3xl px-4 py-14 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+            <GraduationCapIcon className="h-7 w-7" />
+          </div>
           <h2 className="text-2xl font-bold text-brand-900 sm:text-3xl">
             {c('trainingTitle') || t('home.training_heading')}
           </h2>
@@ -105,6 +144,9 @@ export function HomePage() {
         {c('discoverTitle') && (
           <section className="bg-slate-50 px-4 py-14 text-center">
             <div className="mx-auto max-w-3xl">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gold-500/10 text-gold-500">
+                <HeartHandsIcon className="h-7 w-7" />
+              </div>
               <h2 className="text-2xl font-bold text-brand-900 sm:text-3xl">{c('discoverTitle')}</h2>
               <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-brand-600">
                 {c('discoverSupporting') || t('home.discover_supporting')}
@@ -132,15 +174,21 @@ export function HomePage() {
         <div className="mx-auto max-w-4xl">
           <h2 className="text-center text-2xl font-bold text-brand-900">{c('howTitle') || t('home.how_title')}</h2>
           <div className="mt-8 grid gap-6 sm:grid-cols-3">
-            {howSteps.map((step, i) => (
-              <div key={i} className="card text-center">
-                <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white">
-                  {i + 1}
+            {howSteps.map((step, i) => {
+              const StepIcon = HOW_ICONS[i];
+              return (
+                <div key={i} className="card text-center">
+                  <div className="relative mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white">
+                    <StepIcon className="h-5 w-5" />
+                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold-500 text-[0.65rem] font-bold text-brand-950">
+                      {i + 1}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-brand-900">{step.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600">{step.body}</p>
                 </div>
-                <h3 className="font-semibold text-brand-900">{step.title}</h3>
-                <p className="mt-2 text-sm text-slate-600">{step.body}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -151,18 +199,29 @@ export function HomePage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
             {c('connectTitle') || t('home.connect_title')}
           </h2>
-          <div className="mt-4 flex flex-wrap justify-center gap-4">
-            {socials.map((s) => (
-              <a
-                key={s.label}
-                href={s.url!}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full border border-slate-200 px-5 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
-              >
-                {s.label}
-              </a>
-            ))}
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
+            {socials.map((s) => {
+              const iconInfo = SOCIAL_ICONS[s.label];
+              return (
+                <a
+                  key={s.label}
+                  href={s.url!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 rounded-full border border-slate-200 py-2 pl-2 pr-5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+                >
+                  {iconInfo && (
+                    <span
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-white"
+                      style={{ background: iconInfo.bg }}
+                    >
+                      <iconInfo.Icon className="h-4 w-4" />
+                    </span>
+                  )}
+                  {s.label}
+                </a>
+              );
+            })}
           </div>
         </section>
       )}
