@@ -48,11 +48,11 @@ function InvitePeople({
   links: { en: string; fr: string } | null;
   messageTemplate?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
   if (!links) return null;
-  const primaryLink = links.en;
+  const primaryLink = i18n.language.startsWith('fr') ? links.fr : links.en;
 
   const whatsappMessage = messageTemplate
     ? messageTemplate.replace(/\{\{link\}\}/g, primaryLink)
