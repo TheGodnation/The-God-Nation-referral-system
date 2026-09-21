@@ -32,7 +32,8 @@ beforeEach(async () => {
     TRUNCATE TABLE
       "AuditLog", "Event", "ReferralRelationship", "Registration",
       "ReferralVisit", "ReferralCode", "LoginAttempt", "Session", "Settings", "User",
-      "ContentPage", "ContactMessage"
+      "ContentPage", "ContactMessage",
+      "GeographicAssignment", "CommunityMembership", "Geography", "Community", "Person"
     RESTART IDENTITY CASCADE;
   `);
 });

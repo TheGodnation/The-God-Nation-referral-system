@@ -38,6 +38,11 @@ enum ContentPageType {
   ANNOUNCEMENT
 }
 
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
@@ -56,9 +61,16 @@ model User {
   // Admin created by hand in Admin > Leaders. Admin retains full control
   // either way — this is purely informational, shown as a badge.
   selfRegistered Boolean @default(false)
+  // Phase 3A: optional link to the person's unified God Nation identity.
+  // Left null for every existing User by the Phase 3A backfill — a User's
+  // email alone is never treated as proof of identity with a Person (see
+  // Person model comment), so this is populated only when a future,
+  // explicit, safe linking step establishes the relationship.
+  personId     String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  person         Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
   sessions       Session[]
   referralCodes  ReferralCode[]
   referralRelationships ReferralRelationship[]
@@ -66,6 +78,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
 
   @@index([role])
+  @@index([personId])
 }
 
 // Secure one-time invitation token for new Leader onboarding (section 27-29).
@@ -184,13 +197,20 @@ model Registration {
   isTestData         Boolean  @default(false)
   createdAt          DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  // Phase 3A: link to the registrant's unified God Nation identity, keyed
+  // by normalizedWhatsApp (see Person model). Populated automatically for
+  // every new registration and backfilled for existing ones — never
+  // changes any existing registration behavior or fields.
+  personId           String?
 
+  person       Person?               @relation(fields: [personId], references: [id], onDelete: SetNull)
   relationship ReferralRelationship?
   events       Event[]
 
   @@index([visitorId])
   @@index([createdAt])
   @@index([language])
+  @@index([personId])
 }
 
 model ReferralRelationship {
@@ -301,6 +321,138 @@ model ContactMessage {
   createdAt   DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Unified identity + geographic/online community foundation (Phase 3A)
+// ---------------------------------------------------------------------------
+
+// Represents the human being independently of authentication. The existing
+// Phase 1 `User` (login/account) is unaffected — a Person may or may not
+// ever have a User account. `whatsappNumber` (already-normalized E.164,
+// same convention as Registration.normalizedWhatsApp) is the identity key:
+// it is the one signal Phase 1 already guarantees is unique per person via
+// Registration, so it is what every new Registration links against.
+// Email is intentionally NOT unique and NOT treated as an identity
+// key — matching emails between two records is never sufficient grounds to
+// merge two identities (see the Phase 3A backfill in prisma/seed.ts and
+// lib/person.ts for why).
+//
+// Deferred to a future phase (do not add speculatively now): a normal/
+// primary contact phone number distinct from WhatsApp (confirmed future
+// requirement for local leader offline contact), profile photo, date of
+// birth, address fields, care fields, payment fields, leadership fields,
+// follow-up fields.
+model Person {
+  id                String   @id @default(uuid())
+  name              String
+  whatsappNumber    String   @unique
+  email             String?
+  preferredLanguage Language @default(en)
+  // Mirrors the originating Registration's isTestData flag (when a Person
+  // is created via the registration flow) so the Admin People list can use
+  // the same "include test data" filter as every other list in the app.
+  isTestData        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  users                 User[]
+  registrations         Registration[]
+  communityMemberships  CommunityMembership[]
+  geographicAssignment  GeographicAssignment?
+
+  @@index([isTestData])
+}
+
+// Represents an online God Nation community — participation, not location.
+// Deliberately not geographically restricted: two members of the same
+// Community may live in different countries (see schema-level docs in the
+// Phase 3A spec). Self-referencing parent/child supports an arbitrarily
+// deep Mother -> Child -> Grandchild hierarchy with no hard-coded depth
+// limit. No leadership/capacity logic yet — that is a later phase.
+model Community {
+  id        String   @id @default(uuid())
+  parentId  String?
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent      Community?             @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Community[]            @relation("CommunityHierarchy")
+  memberships CommunityMembership[]
+
+  @@index([parentId])
+  @@index([active])
+}
+
+// Person <-> Community relationship. A given person can have at most one
+// membership row per community (re-joining after leaving reactivates the
+// same row via `status` rather than creating a duplicate), which is what
+// prevents duplicate active memberships in the same community.
+model CommunityMembership {
+  id          String           @id @default(uuid())
+  personId    String
+  communityId String
+  joinedAt    DateTime         @default(now())
+  status      MembershipStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, communityId])
+  @@index([communityId])
+}
+
+// Represents a configurable geographic hierarchy — deliberately not
+// hard-coded to any one country's administrative structure. `type` is a
+// free-form label (e.g. COUNTRY, REGION, DIVISION, SUBDIVISION, QUARTER, or
+// a different country's own labels such as STATE/COUNTY/DISTRICT) rather
+// than a rigid enum, since different countries use different hierarchies.
+// `countryCode` is deliberately denormalized onto every node (not just the
+// root) so a country-scoped query never has to walk the parent chain.
+model Geography {
+  id          String   @id @default(uuid())
+  parentId    String?
+  name        String
+  type        String
+  countryCode String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent      Geography?             @relation("GeographyHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Geography[]            @relation("GeographyHierarchy")
+  assignments GeographicAssignment[]
+
+  @@index([parentId])
+  @@index([countryCode, parentId])
+  @@index([active])
+}
+
+// Associates a Person with their current geographic locality. `personId` is
+// unique because Phase 3A supports exactly one CURRENT active assignment
+// per person — reassigning updates this same row's geographyId/assignedAt
+// rather than creating a new one. Ancestors (Region/Division/Subdivision/
+// etc.) are derived through Geography.parentId, never redundantly stored
+// here. Historical movement tracking is an explicitly deferred future
+// phase; this table represents "current residence/locality" only, not
+// place of birth or origin.
+model GeographicAssignment {
+  id          String           @id @default(uuid())
+  personId    String           @unique
+  geographyId String
+  assignedAt  DateTime         @default(now())
+  status      MembershipStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  geography Geography @relation(fields: [geographyId], references: [id])
+
+  @@index([geographyId])
 }
 
 model AuditLog {

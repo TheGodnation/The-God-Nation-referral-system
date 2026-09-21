@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { PasswordInput } from '../components/PasswordInput';
+import { PeopleTab } from '../components/admin/PeopleTab';
+import { GeographyTab } from '../components/admin/GeographyTab';
+import { CommunitiesTab } from '../components/admin/CommunitiesTab';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
@@ -13,6 +16,9 @@ type Tab =
   | 'content'
   | 'contentPages'
   | 'messages'
+  | 'people'
+  | 'geography'
+  | 'communities'
   | 'account'
   | 'audit';
 
@@ -1538,6 +1544,15 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'messages'} onClick={() => setTab('messages')}>
               {t('admin.tabs.messages')}
             </TabButton>
+            <TabButton active={tab === 'people'} onClick={() => setTab('people')}>
+              {t('admin.tabs.people')}
+            </TabButton>
+            <TabButton active={tab === 'geography'} onClick={() => setTab('geography')}>
+              {t('admin.tabs.geography')}
+            </TabButton>
+            <TabButton active={tab === 'communities'} onClick={() => setTab('communities')}>
+              {t('admin.tabs.communities')}
+            </TabButton>
             <TabButton active={tab === 'account'} onClick={() => setTab('account')}>
               {t('admin.tabs.account')}
             </TabButton>
@@ -1562,6 +1577,9 @@ export function AdminDashboardPage() {
         {tab === 'content' && <ContentTab />}
         {tab === 'contentPages' && <ContentPagesTab />}
         {tab === 'messages' && <MessagesTab />}
+        {tab === 'people' && <PeopleTab includeTestData={includeTestData} />}
+        {tab === 'geography' && <GeographyTab />}
+        {tab === 'communities' && <CommunitiesTab />}
         {tab === 'account' && <AccountTab />}
         {tab === 'audit' && <AuditTab />}
       </section>

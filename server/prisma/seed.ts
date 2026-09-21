@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { backfillPersonsFromRegistrations } from '../src/lib/personBackfill';
 
 const prisma = new PrismaClient();
 
@@ -88,6 +89,13 @@ async function main() {
 
     console.log(`Created test leader ${leader.name} <${leader.email}> / code ${leader.code} / password: ${password}`);
   }
+
+  // -------------------------------------------------------------------
+  // Phase 3A: link every existing Registration to its Person identity.
+  // Idempotent — safe to run on every deploy.
+  // -------------------------------------------------------------------
+  const { linked } = await backfillPersonsFromRegistrations();
+  console.log(`Person backfill: linked ${linked} registration(s) to a Person.`);
 
   console.log('\nSeed complete.');
 }
