@@ -9,6 +9,7 @@ import { CLIENT_URL, GUIDE_HOST, isProd } from './lib/env';
 import { ensureVisitorId } from './lib/visitor';
 import { ensureCsrfCookie } from './lib/csrf';
 import { loadSession } from './lib/auth';
+import { loadMemberSession } from './lib/memberAuth';
 import { generalApiLimiter } from './lib/rateLimit';
 
 import authRoutes from './routes/auth';
@@ -25,6 +26,8 @@ import adminCommunitiesRoutes from './routes/adminCommunities';
 import adminDevotionalsRoutes from './routes/adminDevotionals';
 import adminAssessmentsRoutes from './routes/adminAssessments';
 import adminAttemptsRoutes from './routes/adminAttempts';
+import memberAuthRoutes from './routes/memberAuth';
+import memberAssessmentsRoutes from './routes/memberAssessments';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -49,6 +52,11 @@ export function createApp() {
   app.use(ensureVisitorId);
   app.use(ensureCsrfCookie);
   app.use(loadSession);
+  // Phase 3C: a completely separate session lookup, reading a different
+  // cookie (msid) into a different request property (req.member) — never
+  // req.user. requireAuth/requireRole below only ever check req.user, so a
+  // member session can never satisfy them (see memberSessionIsolation.test.ts).
+  app.use(loadMemberSession);
   app.use('/api', generalApiLimiter);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -73,6 +81,8 @@ export function createApp() {
   // '/attempts/*', so it mounts at the '/api/admin' root, same pattern as
   // adminPeopleRoutes above.
   app.use('/api/admin', adminAttemptsRoutes);
+  app.use('/api/member/auth', memberAuthRoutes);
+  app.use('/api/member', memberAssessmentsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

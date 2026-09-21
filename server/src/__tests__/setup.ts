@@ -34,7 +34,8 @@ beforeEach(async () => {
       "ReferralVisit", "ReferralCode", "LoginAttempt", "Session", "Settings", "User",
       "ContentPage", "ContactMessage",
       "GeographicAssignment", "CommunityMembership", "Geography", "Community", "Person",
-      "ParticipationEvent", "Answer", "Attempt", "Option", "Question", "Assessment", "MonthlyDevotional"
+      "ParticipationEvent", "Answer", "Attempt", "Option", "Question", "Assessment", "MonthlyDevotional",
+      "MemberSession", "MemberLoginToken", "MemberAccount"
     RESTART IDENTITY CASCADE;
   `);
 });

@@ -78,6 +78,13 @@ const DEFAULTS = {
 
   contactNotificationSubject: 'New contact form message',
   contactNotificationBody: 'New message from {{name}} ({{email}}), language: {{language}}.\n\n{{message}}',
+
+  memberLoginLinkSubjectEn: 'Your sign-in link',
+  memberLoginLinkSubjectFr: 'Votre lien de connexion',
+  memberLoginLinkBodyEn:
+    'Hi {{name}},\n\nTap the link below to sign in:\n{{link}}\n\nThis link expires in 15 minutes and can only be used once. If you did not request this, you can safely ignore this email.',
+  memberLoginLinkBodyFr:
+    'Bonjour {{name}},\n\nCliquez sur le lien ci-dessous pour vous connecter :\n{{link}}\n\nCe lien expire dans 15 minutes et ne peut être utilisé qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail en toute sécurité.',
 };
 
 async function getEmailContent(): Promise<Record<string, string>> {
@@ -198,5 +205,18 @@ export const EmailService = {
       renderHtml(DEFAULTS.contactNotificationBody, htmlVars),
       renderText(DEFAULTS.contactNotificationBody, textVars),
     );
+  },
+
+  /** Phase 3C: member magic-link sign-in. Not Admin-editable (unlike the
+   * visitor-facing templates above) — a transactional security email,
+   * following the same non-editable pattern as sendPasswordReset, just
+   * bilingual since a Person's preferred language is already known. */
+  async sendMemberLoginLink(params: { to: string; name: string; language: 'en' | 'fr'; link: string }): Promise<SendResult> {
+    const isFr = params.language === 'fr';
+    const subject = isFr ? DEFAULTS.memberLoginLinkSubjectFr : DEFAULTS.memberLoginLinkSubjectEn;
+    const bodyTemplate = isFr ? DEFAULTS.memberLoginLinkBodyFr : DEFAULTS.memberLoginLinkBodyEn;
+    const htmlVars = { name: escapeHtml(params.name), link: linkHtml(params.link) };
+    const textVars = { name: params.name, link: params.link };
+    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
   },
 };

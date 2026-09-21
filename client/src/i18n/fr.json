@@ -4,7 +4,8 @@
     "login": "Connexion Leader",
     "teachings": "Enseignements",
     "announcements": "Annonces",
-    "contact": "Contact"
+    "contact": "Contact",
+    "memberLogin": "Espace Membre"
   },
   "home": {
     "hero_title": "SOYEZ ÉQUIPÉ. SOYEZ TRANSFORMÉ. SOYEZ ENVOYÉ.",
@@ -52,6 +53,60 @@
     "submitting": "Envoi en cours…",
     "success": "Merci — votre message a été envoyé.",
     "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer."
+  },
+  "memberLogin": {
+    "title": "Connexion Membre",
+    "subtitle": "Entrez votre numéro WhatsApp et votre e-mail — nous vous enverrons un lien de connexion.",
+    "whatsapp_label": "Numéro WhatsApp",
+    "whatsapp_placeholder": "ex. +237 6XX XXX XXX",
+    "email_label": "E-mail",
+    "email_placeholder": "vous@example.com",
+    "submit": "Envoyer le lien de connexion",
+    "submitting": "Envoi en cours…",
+    "sent_message": "Si ce numéro WhatsApp est enregistré, un lien de connexion a été envoyé à l'adresse e-mail fournie.",
+    "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer."
+  },
+  "memberLoginConfirm": {
+    "title": "Connexion en cours",
+    "working": "Veuillez patienter…",
+    "success": "Vous êtes connecté(e) ! Redirection…",
+    "missing_token": "Ce lien de connexion ne contient pas de jeton. Veuillez en demander un nouveau.",
+    "error_generic": "Ce lien de connexion est invalide ou a expiré.",
+    "request_new_link": "Demander un nouveau lien"
+  },
+  "memberDashboard": {
+    "title": "Mon Espace God Nation",
+    "logout": "Déconnexion",
+    "loading": "Chargement…",
+    "devotionals_heading": "Dévotions et évaluations",
+    "no_devotionals": "Rien de disponible pour le moment.",
+    "no_assessments": "Aucune évaluation pour cette dévotion pour le moment.",
+    "community_heading": "Ma communauté",
+    "no_memberships": "Pas encore membre d'une communauté.",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "geography_heading": "Ma localisation",
+    "no_assignment": "Aucune localisation enregistrée pour le moment."
+  },
+  "memberAssessment": {
+    "loading": "Chargement…",
+    "not_found": "Cette évaluation n'est pas disponible.",
+    "back_to_dashboard": "← Retour à Mon Espace God Nation",
+    "pass_mark": "Note de passage : {{passMark}} %",
+    "start": "Commencer",
+    "continue": "Continuer",
+    "starting": "Démarrage…",
+    "start_failed": "Échec du démarrage de la tentative.",
+    "limit_reached": "Vous avez utilisé toutes vos tentatives pour cette évaluation.",
+    "submit": "Soumettre les réponses",
+    "submitting": "Envoi en cours…",
+    "submit_failed": "Échec de l'envoi de vos réponses.",
+    "result_summary": "Score : {{score}} / {{maxScore}} ({{percentage}} %)",
+    "passed": "Réussi",
+    "failed": "Échoué",
+    "in_progress": "En cours",
+    "your_history": "Vos tentatives",
+    "attempt_number": "Tentative {{number}}"
   },
   "welcome": {
     "eyebrow": "UN MESSAGE POUR VOUS",

@@ -4,7 +4,8 @@
     "login": "Leader Login",
     "teachings": "Teachings",
     "announcements": "Announcements",
-    "contact": "Contact"
+    "contact": "Contact",
+    "memberLogin": "Member Login"
   },
   "home": {
     "hero_title": "BE EQUIPPED. BE TRANSFORMED. BE SENT.",
@@ -52,6 +53,60 @@
     "submitting": "Sending…",
     "success": "Thank you — your message has been sent.",
     "error_generic": "Something went wrong. Please check your details and try again."
+  },
+  "memberLogin": {
+    "title": "Member Sign In",
+    "subtitle": "Enter your WhatsApp number and email — we'll send you a sign-in link.",
+    "whatsapp_label": "WhatsApp Number",
+    "whatsapp_placeholder": "e.g. +237 6XX XXX XXX",
+    "email_label": "Email",
+    "email_placeholder": "you@example.com",
+    "submit": "Send Sign-In Link",
+    "submitting": "Sending…",
+    "sent_message": "If that WhatsApp number is registered, a sign-in link has been sent to the email you provided.",
+    "error_generic": "Something went wrong. Please check your details and try again."
+  },
+  "memberLoginConfirm": {
+    "title": "Signing You In",
+    "working": "Please wait…",
+    "success": "You're signed in! Redirecting…",
+    "missing_token": "This sign-in link is missing its token. Please request a new one.",
+    "error_generic": "This sign-in link is invalid or has expired.",
+    "request_new_link": "Request a New Link"
+  },
+  "memberDashboard": {
+    "title": "My God Nation",
+    "logout": "Log out",
+    "loading": "Loading…",
+    "devotionals_heading": "Devotionals & Assessments",
+    "no_devotionals": "Nothing available right now.",
+    "no_assessments": "No assessment for this devotional yet.",
+    "community_heading": "My Community",
+    "no_memberships": "Not a member of any community yet.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "geography_heading": "My Location",
+    "no_assignment": "No location on file yet."
+  },
+  "memberAssessment": {
+    "loading": "Loading…",
+    "not_found": "This assessment is not available.",
+    "back_to_dashboard": "← Back to My God Nation",
+    "pass_mark": "Pass mark: {{passMark}}%",
+    "start": "Start",
+    "continue": "Continue",
+    "starting": "Starting…",
+    "start_failed": "Failed to start attempt.",
+    "limit_reached": "You have used all of your attempts for this assessment.",
+    "submit": "Submit Answers",
+    "submitting": "Submitting…",
+    "submit_failed": "Failed to submit your answers.",
+    "result_summary": "Score: {{score}} / {{maxScore}} ({{percentage}}%)",
+    "passed": "Passed",
+    "failed": "Failed",
+    "in_progress": "In progress",
+    "your_history": "Your Attempts",
+    "attempt_number": "Attempt {{number}}"
   },
   "welcome": {
     "eyebrow": "A MESSAGE FOR YOU",

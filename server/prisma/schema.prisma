@@ -383,6 +383,7 @@ model Person {
   geographicAssignment  GeographicAssignment?
   attempts              Attempt[]
   participationEvents   ParticipationEvent[]
+  memberAccount         MemberAccount?
 
   @@index([isTestData])
 }
@@ -647,6 +648,71 @@ model ParticipationEvent {
 
   @@unique([personId, type, sourceType, sourceId])
   @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Member identity + self-service authentication (Phase 3C)
+// ---------------------------------------------------------------------------
+
+// A member-specific authentication identity for exactly one Person — kept
+// entirely separate from the Admin/Leader `User` model. A Person may have a
+// Registration, a User, and a MemberAccount simultaneously; none of these
+// are merged into one another. Creation is opt-in (via the public magic-
+// link request flow) — never automatic/backfilled for existing People.
+// `email` is the delivery/authentication channel, never the identity-
+// matching key: the platform's one identity anchor remains
+// Person.whatsappNumber. Ownership of the email is only established once
+// proven via a successfully consumed MemberLoginToken.
+model MemberAccount {
+  id          String    @id @default(uuid())
+  personId    String    @unique
+  email       String    @unique
+  createdAt   DateTime  @default(now())
+  lastLoginAt DateTime?
+
+  person      Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
+  loginTokens MemberLoginToken[]
+  sessions    MemberSession[]
+}
+
+// Secure one-time magic-login token. Reuses the exact hashing convention
+// already established by LeaderSetupToken/PasswordResetToken (see
+// lib/auth.ts hashToken) — only the hash is ever persisted, the raw token
+// exists only long enough to be emailed. ~15 minute expiry, single-use,
+// consumed atomically (an `updateMany` guarded by `consumedAt: null` at the
+// call site, not a plain read-then-write) so a concurrent replay of the
+// same raw token can never succeed twice.
+model MemberLoginToken {
+  id              String    @id @default(uuid())
+  memberAccountId String
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  memberAccount MemberAccount @relation(fields: [memberAccountId], references: [id], onDelete: Cascade)
+
+  @@index([memberAccountId])
+}
+
+// A session mechanism completely separate from the existing Admin/Leader
+// `Session` model — deliberately not folded into one polymorphic session
+// table. Uses its own cookie name (see lib/memberAuth.ts) and its own
+// middleware, so a MemberSession can never be interpreted as an Admin/
+// Leader session and vice versa; the two never share a table, a cookie
+// name, or a lookup path.
+model MemberSession {
+  id              String   @id @default(uuid())
+  memberAccountId String
+  tokenHash       String   @unique
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  lastActivityAt  DateTime @default(now())
+
+  memberAccount MemberAccount @relation(fields: [memberAccountId], references: [id], onDelete: Cascade)
+
+  @@index([memberAccountId])
+  @@index([expiresAt])
 }
 
 model AuditLog {

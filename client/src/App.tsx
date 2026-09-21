@@ -7,7 +7,9 @@ import { WelcomePage } from './pages/WelcomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
+import { RequireMember } from './components/RequireMember';
 import { AuthProvider } from './lib/AuthContext';
+import { MemberAuthProvider } from './lib/MemberAuthContext';
 
 // The public referral funnel above (Home -> Join -> Register -> Success) is
 // what the vast majority of visitors — people tapping a leader's referral
@@ -49,6 +51,16 @@ const AnnouncementsPage = lazy(() =>
   import('./pages/ContentListPage').then((m) => ({ default: () => <m.ContentListPage type="ANNOUNCEMENT" /> })),
 );
 const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
+const MemberLoginPage = lazy(() => import('./pages/MemberLoginPage').then((m) => ({ default: m.MemberLoginPage })));
+const MemberLoginConfirmPage = lazy(() =>
+  import('./pages/MemberLoginConfirmPage').then((m) => ({ default: m.MemberLoginConfirmPage })),
+);
+const MemberDashboardPage = lazy(() =>
+  import('./pages/MemberDashboardPage').then((m) => ({ default: m.MemberDashboardPage })),
+);
+const MemberAssessmentPage = lazy(() =>
+  import('./pages/MemberAssessmentPage').then((m) => ({ default: m.MemberAssessmentPage })),
+);
 
 function RouteFallback() {
   const { t } = useTranslation();
@@ -58,48 +70,68 @@ function RouteFallback() {
 export default function App() {
   return (
     <AuthProvider>
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/join" element={<JoinPage />} />
-          <Route path="/welcome" element={<WelcomePage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/success" element={<SuccessPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/leader/setup" element={<LeaderSetupPage />} />
-          <Route path="/leader-signup" element={<LeaderSignupPage />} />
-          <Route path="/page/:slug" element={<ContentPageView />} />
-          <Route path="/teachings" element={<TeachingsPage />} />
-          <Route path="/announcements" element={<AnnouncementsPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route
-            path="/change-password"
-            element={
-              <RequireAuth>
-                <ChangePasswordPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/leader/dashboard"
-            element={
-              <ProtectedRoute role="LEADER">
-                <LeaderDashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute role="ADMIN">
-                <AdminDashboardPage />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Suspense>
+      <MemberAuthProvider>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/join" element={<JoinPage />} />
+            <Route path="/welcome" element={<WelcomePage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/success" element={<SuccessPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/leader/setup" element={<LeaderSetupPage />} />
+            <Route path="/leader-signup" element={<LeaderSignupPage />} />
+            <Route path="/page/:slug" element={<ContentPageView />} />
+            <Route path="/teachings" element={<TeachingsPage />} />
+            <Route path="/announcements" element={<AnnouncementsPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/member/login" element={<MemberLoginPage />} />
+            <Route path="/member/login/confirm" element={<MemberLoginConfirmPage />} />
+            <Route
+              path="/change-password"
+              element={
+                <RequireAuth>
+                  <ChangePasswordPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/leader/dashboard"
+              element={
+                <ProtectedRoute role="LEADER">
+                  <LeaderDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute role="ADMIN">
+                  <AdminDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/member/dashboard"
+              element={
+                <RequireMember>
+                  <MemberDashboardPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/assessments/:id"
+              element={
+                <RequireMember>
+                  <MemberAssessmentPage />
+                </RequireMember>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </MemberAuthProvider>
     </AuthProvider>
   );
 }

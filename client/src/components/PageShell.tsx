@@ -40,6 +40,9 @@ export function PageShell({ children, minimal = false }: { children: ReactNode; 
           <Link to="/contact" className="hover:text-brand-700 hover:underline">
             {t('nav.contact')}
           </Link>
+          <Link to="/member/login" className="hover:text-brand-700 hover:underline">
+            {t('nav.memberLogin')}
+          </Link>
         </nav>
         <p>{c('footer') || 'The God Nation Media & Leadership Academy'}</p>
         {c('contactInfo') && <p className="mt-1">{c('contactInfo')}</p>}

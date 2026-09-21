@@ -99,3 +99,33 @@ export const contactFormLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many messages sent. Please try again later.' },
 });
+
+// Member magic-link request (Phase 3C) — a WhatsApp/email enumeration
+// surface, same threat model as passwordResetRequestLimiter, so equally tight.
+export const memberLoginRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+// Member magic-link consumption (token -> session). Tokens are 32 random
+// bytes (infeasible to brute force) but this limiter is still defense in
+// depth, matching passwordResetRedeemLimiter's precedent.
+export const memberLoginConsumeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
+});
+
+// Member-initiated assessment actions (starting/submitting an own attempt).
+export const memberAssessmentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
