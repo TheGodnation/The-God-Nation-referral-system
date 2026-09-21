@@ -224,3 +224,57 @@ describe('Phase 3C — Member login token security', () => {
     expect(sessions).toBe(1);
   });
 });
+
+describe('Phase 3C — member login email diagnostic logging', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('logs the send outcome and Resend message id without ever logging the raw token or login URL', async () => {
+    await prisma.person.create({ data: { name: 'Logged Person', whatsappNumber: '+237670008020' } });
+    vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true, id: 'test-resend-message-id' });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
+    const res = await agent
+      .post('/api/member/auth/request-link')
+      .set('X-CSRF-Token', csrf)
+      .send({ whatsapp: '+237670008020', email: 'logged@example.com' });
+
+    expect(res.status).toBe(200);
+
+    const diagnosticCall = logSpy.mock.calls.find((call) => call[0] === '[member-auth] login email send attempted');
+    expect(diagnosticCall).toBeTruthy();
+    expect(diagnosticCall![1]).toMatchObject({ ok: true, skipped: false, resendMessageId: 'test-resend-message-id' });
+
+    // The whole point of this log is to be safe to keep around — verify it
+    // never carries the one-time token or the link a member would click.
+    const serialized = JSON.stringify(logSpy.mock.calls);
+    expect(serialized).not.toContain('/member/login/confirm?token=');
+    expect(serialized.toLowerCase()).not.toContain('logged@example.com');
+  });
+
+  it('logs a failed send as ok:false with no message id, still returning the generic response', async () => {
+    await prisma.person.create({ data: { name: 'Failed Send Person', whatsappNumber: '+237670008021' } });
+    vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: false });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
+    const res = await agent
+      .post('/api/member/auth/request-link')
+      .set('X-CSRF-Token', csrf)
+      .send({ whatsapp: '+237670008021', email: 'failed@example.com' });
+
+    // The public contract must not change based on email-provider outcome.
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      message: 'If that WhatsApp number is registered, a sign-in link has been sent to the email you provided.',
+    });
+
+    const diagnosticCall = logSpy.mock.calls.find((call) => call[0] === '[member-auth] login email send attempted');
+    expect(diagnosticCall).toBeTruthy();
+    expect(diagnosticCall![1]).toMatchObject({ ok: false, resendMessageId: null });
+  });
+});

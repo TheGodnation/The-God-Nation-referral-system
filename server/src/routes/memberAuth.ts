@@ -98,11 +98,21 @@ router.post('/request-link', memberLoginRequestLimiter, requireCsrf, asyncHandle
   await prisma.memberLoginToken.create({ data: { memberAccountId: memberAccount.id, tokenHash, expiresAt } });
 
   const loginUrl = `${CLIENT_URL}/member/login/confirm?token=${rawToken}`;
-  await EmailService.sendMemberLoginLink({
+  const emailResult = await EmailService.sendMemberLoginLink({
     to: memberAccount.email,
     name: person.name,
     language: person.preferredLanguage,
     link: loginUrl,
+  });
+  // Temporary staging diagnostic (Phase 3C email-delivery investigation):
+  // the generic public response below never varies with this outcome, and
+  // this never logs the raw token, the login URL, or the recipient address
+  // — only whether the send succeeded and, if so, Resend's own message id,
+  // which is an opaque identifier used to look up delivery status.
+  console.log('[member-auth] login email send attempted', {
+    ok: emailResult.ok,
+    skipped: emailResult.skipped ?? false,
+    resendMessageId: emailResult.id ?? null,
   });
 
   await recordAudit({
