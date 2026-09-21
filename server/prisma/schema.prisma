@@ -32,6 +32,12 @@ enum Pathway {
   DISCOVER_GROW
 }
 
+enum ContentPageType {
+  PAGE
+  TEACHING
+  ANNOUNCEMENT
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
@@ -246,8 +252,55 @@ model Settings {
   // password. Null/blank means self-signup is turned off entirely.
   leaderSignupPhrase    String?
   content               Json?
+  // Recipient address for the public Contact form (Phase 2). Admin-editable;
+  // never sent to the client. Null/blank means the contact form is disabled.
+  contactEmail          String?
   updatedAt             DateTime @updatedAt
   updatedByUserId       String?
+}
+
+// ---------------------------------------------------------------------------
+// Public content (Phase 2)
+// ---------------------------------------------------------------------------
+
+// Small, generic public content model — deliberately not a CMS. Used for
+// Vision/Mission/Our Story pages, Teachings, Announcements, and expanded
+// Training / Discover & Grow information. Bilingual fields follow the same
+// En/Fr-suffix convention as Settings.content. `mediaUrl` covers embedded
+// video/audio or a link to existing external media without a separate
+// media-management system.
+model ContentPage {
+  id          String          @id @default(uuid())
+  type        ContentPageType @default(PAGE)
+  slug        String          @unique
+  titleEn     String
+  titleFr     String?
+  bodyEn      String
+  bodyFr      String?
+  mediaUrl    String?
+  published   Boolean         @default(false)
+  order       Int             @default(0)
+  publishedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([type, published, order])
+  @@index([published])
+}
+
+// Submissions from the public Contact form (Phase 2). Stored durably even
+// if the notification email fails to send, consistent with the rest of the
+// app's "never lose data on email failure" approach.
+model ContactMessage {
+  id          String   @id @default(uuid())
+  name        String
+  email       String
+  message     String
+  language    Language @default(en)
+  emailSentAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model AuditLog {

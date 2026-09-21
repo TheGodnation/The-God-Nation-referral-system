@@ -1,7 +1,10 @@
 {
   "nav": {
     "home": "Accueil",
-    "login": "Connexion Leader"
+    "login": "Connexion Leader",
+    "teachings": "Enseignements",
+    "announcements": "Annonces",
+    "contact": "Contact"
   },
   "home": {
     "hero_title": "SOYEZ ÉQUIPÉ. SOYEZ TRANSFORMÉ. SOYEZ ENVOYÉ.",
@@ -25,10 +28,30 @@
     "how_2_body": "Indiquez votre nom et votre numéro WhatsApp — cela prend moins d'une minute.",
     "how_3_title": "Soyez connecté",
     "how_3_body": "Vous êtes dirigé directement vers la bonne Communauté WhatsApp selon votre langue.",
-    "connect_title": "RESTEZ CONNECTÉ"
+    "connect_title": "RESTEZ CONNECTÉ",
+    "learn_more_vision": "En savoir plus sur notre vision"
   },
   "join": {
     "loading": "Préparation de votre visite…"
+  },
+  "content": {
+    "loading": "Chargement…",
+    "not_found": "Cette page est introuvable.",
+    "teachings_title": "Enseignements",
+    "announcements_title": "Annonces",
+    "no_items": "Rien pour le moment.",
+    "back": "Retour"
+  },
+  "contact": {
+    "title": "Contactez-nous",
+    "subtitle": "Une question ou envie de nous contacter ? Envoyez-nous un message ci-dessous.",
+    "name_label": "Nom complet",
+    "email_label": "E-mail",
+    "message_label": "Message",
+    "submit": "Envoyer le message",
+    "submitting": "Envoi en cours…",
+    "success": "Merci — votre message a été envoyé.",
+    "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer."
   },
   "welcome": {
     "eyebrow": "UN MESSAGE POUR VOUS",
@@ -140,6 +163,8 @@
       "registrations": "Inscriptions",
       "settings": "Paramètres",
       "content": "Contenu du site",
+      "contentPages": "Contenu public",
+      "messages": "Messages",
       "account": "Compte",
       "audit": "Journal d'audit"
     },
@@ -226,6 +251,9 @@
       "leader_signup_hint": "Partagez cette phrase uniquement avec de vrais leaders (dans votre groupe WhatsApp, verbalement, etc.) — avec le lien ci-dessous. Toute personne ayant les deux peut créer instantanément son propre compte Leader. Laissez vide pour désactiver complètement l'auto-inscription.",
       "leader_signup_link": "Lien d'inscription",
       "social_hint": "Laissez un champ vide pour masquer ce lien social sur la page d'accueil.",
+      "contact_heading": "Formulaire de contact",
+      "contact_email": "E-mail destinataire",
+      "contact_email_hint": "Les messages envoyés via le formulaire de contact public sont envoyés par e-mail à cette adresse. Laissez vide pour désactiver les notifications par e-mail (les messages restent enregistrés).",
       "save": "Enregistrer les paramètres",
       "saved": "Paramètres enregistrés.",
       "save_failed": "Échec de l'enregistrement des paramètres."
@@ -305,6 +333,52 @@
       "table_actor": "Acteur",
       "table_target": "Cible",
       "table_date": "Date"
+    },
+    "contentPages": {
+      "title": "Contenu public",
+      "new_page": "+ Nouvelle page",
+      "type_label": "Type",
+      "type_page": "Page",
+      "type_teaching": "Enseignement",
+      "type_announcement": "Annonce",
+      "slug_label": "Slug",
+      "slug_placeholder": "ex. vision",
+      "slug_hint": "Utilisé dans l'URL publique : /page/votre-slug",
+      "title_en_label": "Titre (anglais)",
+      "title_fr_label": "Titre (français)",
+      "body_en_label": "Contenu (anglais)",
+      "body_fr_label": "Contenu (français)",
+      "media_url_label": "URL média (facultatif)",
+      "order_label": "Ordre",
+      "create": "Créer la page",
+      "create_failed": "Échec de la création de la page.",
+      "edit": "Modifier",
+      "edit_page": "Modifier la page",
+      "save_changes": "Enregistrer",
+      "cancel": "Annuler",
+      "save_failed": "Échec de l'enregistrement.",
+      "delete": "Supprimer",
+      "delete_confirm": "Supprimer cette page ? Cette action est irréversible.",
+      "delete_failed": "Échec de la suppression de la page.",
+      "publish": "Publier",
+      "unpublish": "Dépublier",
+      "table_slug": "Slug",
+      "table_type": "Type",
+      "table_title": "Titre",
+      "table_published": "Publié",
+      "table_order": "Ordre",
+      "table_action": "Action",
+      "yes": "Oui",
+      "no": "Non"
+    },
+    "messages": {
+      "title": "Messages de contact",
+      "table_name": "Nom",
+      "table_email": "E-mail",
+      "table_message": "Message",
+      "table_language": "Langue",
+      "table_date": "Date",
+      "no_messages": "Aucun message pour le moment."
     },
     "account": {
       "email_heading": "E-mail de connexion",

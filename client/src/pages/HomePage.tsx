@@ -167,6 +167,9 @@ export function HomePage() {
       <section className="mx-auto max-w-2xl px-4 py-12 text-center">
         <h2 className="text-xl font-bold text-brand-900">{c('visionTitle') || t('home.vision_title')}</h2>
         <p className="mt-3 text-slate-600">{c('vision') || t('home.vision_body')}</p>
+        <Link to="/page/vision" className="mt-3 inline-block text-sm font-medium text-brand-700 hover:underline">
+          {t('home.learn_more_vision')}
+        </Link>
       </section>
 
       {/* Very short How It Works */}

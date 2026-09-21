@@ -711,6 +711,7 @@ function settingsResponse(settings: {
   telegramUrl: string | null;
   messengerUrl: string | null;
   leaderSignupPhrase: string | null;
+  contactEmail: string | null;
   content: unknown;
 } | null) {
   return {
@@ -727,6 +728,7 @@ function settingsResponse(settings: {
     telegramUrl: settings?.telegramUrl ?? null,
     messengerUrl: settings?.messengerUrl ?? null,
     leaderSignupPhrase: settings?.leaderSignupPhrase ?? null,
+    contactEmail: settings?.contactEmail ?? null,
     content: (settings?.content as Record<string, string> | null) ?? {},
   };
 }
@@ -761,6 +763,19 @@ const settingsSchema = z.object({
     // Field omitted entirely -> leave untouched (undefined). Field sent as
     // '' or null -> normalize to null (explicitly turns signup off).
     .transform((v) => (v === undefined ? undefined : v ? v : null)),
+  // Public Contact form (Phase 2) recipient. Blank/null disables the form's
+  // email notification (messages are still saved to ContactMessage) — same
+  // blank-is-meaningful pattern as leaderSignupPhrase above.
+  contactEmail: z
+    .string()
+    .trim()
+    .max(320)
+    .optional()
+    .nullable()
+    .transform((v) => (v === undefined ? undefined : v ? v : null))
+    .refine((v) => v === undefined || v === null || z.string().email().safeParse(v).success, {
+      message: 'Please enter a valid email address.',
+    }),
   content: contentSchema.optional(),
 });
 
@@ -791,6 +806,7 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
     ...(d.telegramUrl !== undefined ? { telegramUrl: d.telegramUrl } : {}),
     ...(d.messengerUrl !== undefined ? { messengerUrl: d.messengerUrl } : {}),
     ...(d.leaderSignupPhrase !== undefined ? { leaderSignupPhrase: d.leaderSignupPhrase } : {}),
+    ...(d.contactEmail !== undefined ? { contactEmail: d.contactEmail } : {}),
   };
 
   const settings = await prisma.settings.upsert({
@@ -874,6 +890,169 @@ router.get('/audit', asyncHandler(async (req, res) => {
     prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, skip, take }),
   ]);
   res.json(paginatedResult(logs, total, page, pageSize));
+}));
+
+// ---------------------------------------------------------------------------
+// Public content (Phase 2) — Admin management of ContentPage rows. Public,
+// published-only reads live in routes/contentPages.ts; everything here
+// requires ADMIN (via the router.use gate above) plus CSRF on mutations.
+// ---------------------------------------------------------------------------
+
+const contentPageSchema = z.object({
+  type: z.enum(['PAGE', 'TEACHING', 'ANNOUNCEMENT']),
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug may only contain lowercase letters, numbers, and hyphens.'),
+  titleEn: z.string().trim().min(1).max(300),
+  titleFr: z.string().trim().max(300).optional().nullable(),
+  bodyEn: z.string().trim().min(1).max(50000),
+  bodyFr: z.string().trim().max(50000).optional().nullable(),
+  mediaUrl: z.string().trim().url().max(2000).optional().nullable().or(z.literal('').transform(() => null)),
+  order: z.number().int().optional(),
+});
+
+router.get('/content-pages', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const typeFilter = z.enum(['PAGE', 'TEACHING', 'ANNOUNCEMENT']).optional().safeParse(req.query.type);
+  const where = typeFilter.success && typeFilter.data ? { type: typeFilter.data } : {};
+
+  const [total, pages] = await Promise.all([
+    prisma.contentPage.count({ where }),
+    prisma.contentPage.findMany({ where, orderBy: [{ order: 'asc' }, { createdAt: 'desc' }], skip, take }),
+  ]);
+  res.json(paginatedResult(pages, total, page, pageSize));
+}));
+
+router.post('/content-pages', requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = contentPageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid content page.' });
+  }
+  const d = parsed.data;
+
+  const existing = await prisma.contentPage.findUnique({ where: { slug: d.slug } });
+  if (existing) {
+    return res.status(409).json({ error: 'A page with this slug already exists.' });
+  }
+
+  const created = await prisma.contentPage.create({
+    data: {
+      type: d.type,
+      slug: d.slug,
+      titleEn: d.titleEn,
+      titleFr: d.titleFr ?? null,
+      bodyEn: d.bodyEn,
+      bodyFr: d.bodyFr ?? null,
+      mediaUrl: d.mediaUrl ?? null,
+      order: d.order ?? 0,
+    },
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'CONTENT_PAGE_CREATED',
+    targetType: 'ContentPage',
+    targetId: created.id,
+    metadata: { slug: created.slug, type: created.type },
+  });
+
+  res.status(201).json(created);
+}));
+
+const patchContentPageSchema = contentPageSchema.partial().extend({
+  published: z.boolean().optional(),
+});
+
+router.patch('/content-pages/:id', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = patchContentPageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  }
+  const d = parsed.data;
+
+  const page = await prisma.contentPage.findUnique({ where: { id } });
+  if (!page) {
+    return res.status(404).json({ error: 'Page not found.' });
+  }
+
+  if (d.slug && d.slug !== page.slug) {
+    const existing = await prisma.contentPage.findUnique({ where: { slug: d.slug } });
+    if (existing) {
+      return res.status(409).json({ error: 'A page with this slug already exists.' });
+    }
+  }
+
+  const wasPublished = page.published;
+  const nowPublishing = d.published === true && !wasPublished;
+  const nowUnpublishing = d.published === false && wasPublished;
+
+  const updated = await prisma.contentPage.update({
+    where: { id },
+    data: {
+      ...(d.type !== undefined ? { type: d.type } : {}),
+      ...(d.slug !== undefined ? { slug: d.slug } : {}),
+      ...(d.titleEn !== undefined ? { titleEn: d.titleEn } : {}),
+      ...(d.titleFr !== undefined ? { titleFr: d.titleFr } : {}),
+      ...(d.bodyEn !== undefined ? { bodyEn: d.bodyEn } : {}),
+      ...(d.bodyFr !== undefined ? { bodyFr: d.bodyFr } : {}),
+      ...(d.mediaUrl !== undefined ? { mediaUrl: d.mediaUrl } : {}),
+      ...(d.order !== undefined ? { order: d.order } : {}),
+      ...(d.published !== undefined ? { published: d.published } : {}),
+      ...(nowPublishing ? { publishedAt: new Date() } : {}),
+      ...(nowUnpublishing ? { publishedAt: null } : {}),
+    },
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'CONTENT_PAGE_UPDATED',
+    targetType: 'ContentPage',
+    targetId: id,
+    metadata: { changedKeys: Object.keys(req.body ?? {}) },
+  });
+
+  res.json(updated);
+}));
+
+router.delete('/content-pages/:id', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const page = await prisma.contentPage.findUnique({ where: { id } });
+  if (!page) {
+    return res.status(404).json({ error: 'Page not found.' });
+  }
+
+  await prisma.contentPage.delete({ where: { id } });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'CONTENT_PAGE_DELETED',
+    targetType: 'ContentPage',
+    targetId: id,
+    metadata: { slug: page.slug },
+  });
+
+  res.status(204).end();
+}));
+
+// ---------------------------------------------------------------------------
+// Contact messages (Phase 2) — read-only for Admin; created by the public
+// POST /api/contact endpoint.
+// ---------------------------------------------------------------------------
+
+router.get('/messages', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const [total, messages] = await Promise.all([
+    prisma.contactMessage.count(),
+    prisma.contactMessage.findMany({ orderBy: { createdAt: 'desc' }, skip, take }),
+  ]);
+  res.json(paginatedResult(messages, total, page, pageSize));
 }));
 
 export default router;

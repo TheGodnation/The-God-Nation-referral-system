@@ -75,6 +75,9 @@ const DEFAULTS = {
   passwordResetSubject: 'Reset your password',
   passwordResetBody:
     'We received a request to reset your password.\n{{resetUrl}}\n\nThis link expires in 1 hour and can only be used once. If you did not request this, you can safely ignore this email.',
+
+  contactNotificationSubject: 'New contact form message',
+  contactNotificationBody: 'New message from {{name}} ({{email}}), language: {{language}}.\n\n{{message}}',
 };
 
 async function getEmailContent(): Promise<Record<string, string>> {
@@ -168,5 +171,32 @@ export const EmailService = {
     const htmlVars = { resetUrl: linkHtml(params.resetUrl) };
     const textVars = { resetUrl: params.resetUrl };
     return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
+  },
+
+  /** Phase 2: forwards a public Contact form submission to the Admin's
+   * configured recipient (Settings.contactEmail). Internal notification
+   * only — not visitor-facing, so it isn't Admin-editable like the other
+   * templates above. */
+  async sendContactMessage(params: {
+    to: string;
+    name: string;
+    email: string;
+    message: string;
+    language: 'en' | 'fr';
+  }): Promise<SendResult> {
+    const subject = DEFAULTS.contactNotificationSubject;
+    const htmlVars = {
+      name: escapeHtml(params.name),
+      email: escapeHtml(params.email),
+      language: params.language,
+      message: escapeHtml(params.message),
+    };
+    const textVars = { name: params.name, email: params.email, language: params.language, message: params.message };
+    return send(
+      params.to,
+      subject,
+      renderHtml(DEFAULTS.contactNotificationBody, htmlVars),
+      renderText(DEFAULTS.contactNotificationBody, textVars),
+    );
   },
 };

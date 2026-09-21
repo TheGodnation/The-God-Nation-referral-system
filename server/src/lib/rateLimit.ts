@@ -89,3 +89,13 @@ export const leaderSignupLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many attempts. Please try again later.' },
 });
+
+// Public Contact form (Phase 2) — tight, since this is an unauthenticated
+// form that sends an email and writes to the database on every success.
+export const contactFormLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many messages sent. Please try again later.' },
+});

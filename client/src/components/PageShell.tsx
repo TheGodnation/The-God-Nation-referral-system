@@ -30,6 +30,17 @@ export function PageShell({ children, minimal = false }: { children: ReactNode; 
       </header>
       <main className="flex-1">{children}</main>
       <footer className="border-t border-slate-100 px-4 py-6 text-center text-xs text-slate-400">
+        <nav className="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+          <Link to="/teachings" className="hover:text-brand-700 hover:underline">
+            {t('nav.teachings')}
+          </Link>
+          <Link to="/announcements" className="hover:text-brand-700 hover:underline">
+            {t('nav.announcements')}
+          </Link>
+          <Link to="/contact" className="hover:text-brand-700 hover:underline">
+            {t('nav.contact')}
+          </Link>
+        </nav>
         <p>{c('footer') || 'The God Nation Media & Leadership Academy'}</p>
         {c('contactInfo') && <p className="mt-1">{c('contactInfo')}</p>}
       </footer>

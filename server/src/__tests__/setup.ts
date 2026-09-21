@@ -31,7 +31,8 @@ beforeEach(async () => {
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
       "AuditLog", "Event", "ReferralRelationship", "Registration",
-      "ReferralVisit", "ReferralCode", "LoginAttempt", "Session", "Settings", "User"
+      "ReferralVisit", "ReferralCode", "LoginAttempt", "Session", "Settings", "User",
+      "ContentPage", "ContactMessage"
     RESTART IDENTITY CASCADE;
   `);
 });

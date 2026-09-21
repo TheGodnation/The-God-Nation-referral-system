@@ -39,6 +39,16 @@ const ForgotPasswordPage = lazy(() =>
 const ResetPasswordPage = lazy(() =>
   import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
 );
+const ContentPageView = lazy(() =>
+  import('./pages/ContentPageView').then((m) => ({ default: m.ContentPageView })),
+);
+const TeachingsPage = lazy(() =>
+  import('./pages/ContentListPage').then((m) => ({ default: () => <m.ContentListPage type="TEACHING" /> })),
+);
+const AnnouncementsPage = lazy(() =>
+  import('./pages/ContentListPage').then((m) => ({ default: () => <m.ContentListPage type="ANNOUNCEMENT" /> })),
+);
+const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
 
 function RouteFallback() {
   const { t } = useTranslation();
@@ -60,6 +70,10 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/leader/setup" element={<LeaderSetupPage />} />
           <Route path="/leader-signup" element={<LeaderSignupPage />} />
+          <Route path="/page/:slug" element={<ContentPageView />} />
+          <Route path="/teachings" element={<TeachingsPage />} />
+          <Route path="/announcements" element={<AnnouncementsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route
             path="/change-password"
             element={

@@ -1,7 +1,10 @@
 {
   "nav": {
     "home": "Home",
-    "login": "Leader Login"
+    "login": "Leader Login",
+    "teachings": "Teachings",
+    "announcements": "Announcements",
+    "contact": "Contact"
   },
   "home": {
     "hero_title": "BE EQUIPPED. BE TRANSFORMED. BE SENT.",
@@ -25,10 +28,30 @@
     "how_2_body": "Share your name and WhatsApp number — it takes less than a minute.",
     "how_3_title": "Get Connected",
     "how_3_body": "You're directed straight to the right WhatsApp Community for your language.",
-    "connect_title": "CONNECT WITH US"
+    "connect_title": "CONNECT WITH US",
+    "learn_more_vision": "Learn more about our vision"
   },
   "join": {
     "loading": "Preparing your visit…"
+  },
+  "content": {
+    "loading": "Loading…",
+    "not_found": "This page could not be found.",
+    "teachings_title": "Teachings",
+    "announcements_title": "Announcements",
+    "no_items": "Nothing here yet.",
+    "back": "Back"
+  },
+  "contact": {
+    "title": "Contact Us",
+    "subtitle": "Have a question or want to get in touch? Send us a message below.",
+    "name_label": "Full Name",
+    "email_label": "Email",
+    "message_label": "Message",
+    "submit": "Send Message",
+    "submitting": "Sending…",
+    "success": "Thank you — your message has been sent.",
+    "error_generic": "Something went wrong. Please check your details and try again."
   },
   "welcome": {
     "eyebrow": "A MESSAGE FOR YOU",
@@ -140,6 +163,8 @@
       "registrations": "Registrations",
       "settings": "Settings",
       "content": "Website Content",
+      "contentPages": "Public Content",
+      "messages": "Messages",
       "account": "Account",
       "audit": "Audit Log"
     },
@@ -226,6 +251,9 @@
       "leader_signup_hint": "Share this phrase with real leaders only (in your WhatsApp group, verbally, etc.) — along with the link below. Anyone with both can create their own Leader account instantly. Leave blank to turn self-signup off completely.",
       "leader_signup_link": "Signup Link",
       "social_hint": "Leave a field blank to hide that social link on the homepage.",
+      "contact_heading": "Contact Form",
+      "contact_email": "Recipient Email",
+      "contact_email_hint": "Messages submitted through the public Contact form are emailed here. Leave blank to disable email notifications (messages are still saved).",
       "save": "Save Settings",
       "saved": "Settings saved.",
       "save_failed": "Failed to save settings."
@@ -305,6 +333,52 @@
       "table_actor": "Actor",
       "table_target": "Target",
       "table_date": "Date"
+    },
+    "contentPages": {
+      "title": "Public Content",
+      "new_page": "+ New Page",
+      "type_label": "Type",
+      "type_page": "Page",
+      "type_teaching": "Teaching",
+      "type_announcement": "Announcement",
+      "slug_label": "Slug",
+      "slug_placeholder": "e.g. vision",
+      "slug_hint": "Used in the public URL: /page/your-slug",
+      "title_en_label": "Title (English)",
+      "title_fr_label": "Title (French)",
+      "body_en_label": "Body (English)",
+      "body_fr_label": "Body (French)",
+      "media_url_label": "Media URL (optional)",
+      "order_label": "Order",
+      "create": "Create Page",
+      "create_failed": "Failed to create page.",
+      "edit": "Edit",
+      "edit_page": "Edit Page",
+      "save_changes": "Save Changes",
+      "cancel": "Cancel",
+      "save_failed": "Failed to save changes.",
+      "delete": "Delete",
+      "delete_confirm": "Delete this page? This cannot be undone.",
+      "delete_failed": "Failed to delete page.",
+      "publish": "Publish",
+      "unpublish": "Unpublish",
+      "table_slug": "Slug",
+      "table_type": "Type",
+      "table_title": "Title",
+      "table_published": "Published",
+      "table_order": "Order",
+      "table_action": "Action",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "messages": {
+      "title": "Contact Messages",
+      "table_name": "Name",
+      "table_email": "Email",
+      "table_message": "Message",
+      "table_language": "Language",
+      "table_date": "Date",
+      "no_messages": "No messages yet."
     },
     "account": {
       "email_heading": "Login Email",

@@ -17,6 +17,10 @@ import registrationRoutes from './routes/registrations';
 import leaderRoutes from './routes/leader';
 import adminRoutes from './routes/admin';
 import publicSettingsRoutes from './routes/publicSettings';
+import contentPagesRoutes from './routes/contentPages';
+import contactRoutes from './routes/contact';
+import { prisma } from './lib/prisma';
+import { APP_URL } from './lib/env';
 
 export function createApp() {
   const app = express();
@@ -49,6 +53,31 @@ export function createApp() {
   app.use('/api/leader', leaderRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/settings', publicSettingsRoutes);
+  app.use('/api/content-pages', contentPagesRoutes);
+  app.use('/api/contact', contactRoutes);
+
+  // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
+  // content is never surfaced to a crawler as an indexable URL.
+  app.get('/sitemap.xml', async (_req, res, next) => {
+    try {
+      const pages = await prisma.contentPage.findMany({
+        where: { published: true },
+        select: { slug: true, updatedAt: true },
+      });
+      const staticUrls = ['', '/join'];
+      const urls = [
+        ...staticUrls.map((p) => `${APP_URL}${p}`),
+        ...pages.map((p) => `${APP_URL}/page/${p.slug}`),
+      ];
+      const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
+        .map((u) => `  <url><loc>${u}</loc></url>`)
+        .join('\n')}\n</urlset>`;
+      res.set('Content-Type', 'application/xml');
+      res.send(body);
+    } catch (err) {
+      next(err);
+    }
+  });
 
   // 404 for unmatched API routes
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found.' }));

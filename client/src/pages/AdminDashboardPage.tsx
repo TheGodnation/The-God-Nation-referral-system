@@ -5,7 +5,16 @@ import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
-type Tab = 'overview' | 'leaders' | 'registrations' | 'settings' | 'content' | 'account' | 'audit';
+type Tab =
+  | 'overview'
+  | 'leaders'
+  | 'registrations'
+  | 'settings'
+  | 'content'
+  | 'contentPages'
+  | 'messages'
+  | 'account'
+  | 'audit';
 
 interface Overview {
   totalVisits: number;
@@ -538,6 +547,7 @@ interface SettingsData {
   telegramUrl: string | null;
   messengerUrl: string | null;
   leaderSignupPhrase: string | null;
+  contactEmail: string | null;
   content: Record<string, string>;
 }
 
@@ -555,6 +565,7 @@ const EMPTY_SETTINGS: SettingsData = {
   telegramUrl: '',
   messengerUrl: '',
   leaderSignupPhrase: '',
+  contactEmail: '',
   content: {},
 };
 
@@ -610,6 +621,7 @@ function SettingsTab() {
         // real, submittable value here — it's how self-signup gets turned
         // off — so it's always sent, never swapped for `undefined`.
         leaderSignupPhrase: settings.leaderSignupPhrase ?? '',
+        contactEmail: settings.contactEmail ?? '',
       });
       setSettings(res);
       setSaved(true);
@@ -662,6 +674,21 @@ function SettingsTab() {
             onChange={(e) => setField('supportWhatsappUrl', e.target.value)}
             placeholder="https://wa.me/2376..."
           />
+        </div>
+      </div>
+
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">{t('admin.settings.contact_heading')}</h2>
+        <div>
+          <label className="label">{t('admin.settings.contact_email')}</label>
+          <input
+            className="input"
+            type="email"
+            value={field('contactEmail') ?? ''}
+            onChange={(e) => setField('contactEmail', e.target.value)}
+            placeholder="contact@example.com"
+          />
+          <p className="mt-1 text-xs text-slate-400">{t('admin.settings.contact_email_hint')}</p>
         </div>
       </div>
 
@@ -906,6 +933,392 @@ function ContentTab() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Public Content (Phase 2) — Admin management of ContentPage rows (Vision/
+// Mission, Teachings, Announcements, expanded pathway info). Deliberately
+// not a CMS: one flat form covering every field, reused for create and edit.
+// ---------------------------------------------------------------------------
+
+interface ContentPageRow {
+  id: string;
+  type: 'PAGE' | 'TEACHING' | 'ANNOUNCEMENT';
+  slug: string;
+  titleEn: string;
+  titleFr: string | null;
+  bodyEn: string;
+  bodyFr: string | null;
+  mediaUrl: string | null;
+  published: boolean;
+  order: number;
+  createdAt: string;
+}
+
+const EMPTY_CONTENT_PAGE_FORM = {
+  type: 'PAGE' as ContentPageRow['type'],
+  slug: '',
+  titleEn: '',
+  titleFr: '',
+  bodyEn: '',
+  bodyFr: '',
+  mediaUrl: '',
+  order: 0,
+};
+
+function ContentPageForm({
+  initial,
+  onCancel,
+  onSubmit,
+  submitLabel,
+  error,
+}: {
+  initial: typeof EMPTY_CONTENT_PAGE_FORM;
+  onCancel?: () => void;
+  onSubmit: (values: typeof EMPTY_CONTENT_PAGE_FORM) => void;
+  submitLabel: string;
+  error: string | null;
+}) {
+  const { t } = useTranslation();
+  const [values, setValues] = useState(initial);
+
+  function set<K extends keyof typeof EMPTY_CONTENT_PAGE_FORM>(key: K, value: (typeof EMPTY_CONTENT_PAGE_FORM)[K]) {
+    setValues((v) => ({ ...v, [key]: value }));
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(values);
+      }}
+      className="card mb-4 space-y-3"
+    >
+      <div>
+        <label className="label">{t('admin.contentPages.type_label')}</label>
+        <select
+          className="input"
+          value={values.type}
+          onChange={(e) => set('type', e.target.value as ContentPageRow['type'])}
+        >
+          <option value="PAGE">{t('admin.contentPages.type_page')}</option>
+          <option value="TEACHING">{t('admin.contentPages.type_teaching')}</option>
+          <option value="ANNOUNCEMENT">{t('admin.contentPages.type_announcement')}</option>
+        </select>
+      </div>
+      <div>
+        <label className="label">{t('admin.contentPages.slug_label')}</label>
+        <input
+          className="input"
+          placeholder={t('admin.contentPages.slug_placeholder') ?? ''}
+          value={values.slug}
+          onChange={(e) => set('slug', e.target.value)}
+          required
+        />
+        <p className="mt-1 text-xs text-slate-400">{t('admin.contentPages.slug_hint')}</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label">{t('admin.contentPages.title_en_label')}</label>
+          <input className="input" value={values.titleEn} onChange={(e) => set('titleEn', e.target.value)} required />
+        </div>
+        <div>
+          <label className="label">{t('admin.contentPages.title_fr_label')}</label>
+          <input className="input" value={values.titleFr} onChange={(e) => set('titleFr', e.target.value)} />
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label">{t('admin.contentPages.body_en_label')}</label>
+          <textarea
+            className="input"
+            rows={5}
+            value={values.bodyEn}
+            onChange={(e) => set('bodyEn', e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label className="label">{t('admin.contentPages.body_fr_label')}</label>
+          <textarea className="input" rows={5} value={values.bodyFr} onChange={(e) => set('bodyFr', e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <label className="label">{t('admin.contentPages.media_url_label')}</label>
+        <input className="input" value={values.mediaUrl} onChange={(e) => set('mediaUrl', e.target.value)} />
+      </div>
+      <div>
+        <label className="label">{t('admin.contentPages.order_label')}</label>
+        <input
+          className="input"
+          type="number"
+          value={values.order}
+          onChange={(e) => set('order', parseInt(e.target.value, 10) || 0)}
+        />
+      </div>
+      {error && <p className="text-sm text-red-700">{error}</p>}
+      <div className="flex gap-2">
+        <button className="btn-primary" type="submit">
+          {submitLabel}
+        </button>
+        {onCancel && (
+          <button type="button" className="btn-secondary" onClick={onCancel}>
+            {t('admin.contentPages.cancel')}
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+function ContentPagesTab() {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<ContentPageRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    api
+      .get<{ items: ContentPageRow[]; pagination: { totalPages: number } }>(
+        `/api/admin/content-pages?page=${page}&pageSize=20`,
+      )
+      .then((res) => {
+        setItems(res.items);
+        setTotalPages(res.pagination.totalPages);
+      });
+  }
+
+  useEffect(load, [page]);
+
+  async function createPage(values: typeof EMPTY_CONTENT_PAGE_FORM) {
+    setError(null);
+    try {
+      await api.post('/api/admin/content-pages', {
+        ...values,
+        titleFr: values.titleFr || undefined,
+        bodyFr: values.bodyFr || undefined,
+        mediaUrl: values.mediaUrl || undefined,
+      });
+      setShowForm(false);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('admin.contentPages.create_failed'));
+    }
+  }
+
+  async function saveEdit(id: string, values: typeof EMPTY_CONTENT_PAGE_FORM) {
+    setError(null);
+    try {
+      await api.patch(`/api/admin/content-pages/${id}`, {
+        ...values,
+        titleFr: values.titleFr || undefined,
+        bodyFr: values.bodyFr || undefined,
+        mediaUrl: values.mediaUrl || undefined,
+      });
+      setEditingId(null);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('admin.contentPages.save_failed'));
+    }
+  }
+
+  async function togglePublished(item: ContentPageRow) {
+    await api.patch(`/api/admin/content-pages/${item.id}`, { published: !item.published });
+    load();
+  }
+
+  async function deletePage(item: ContentPageRow) {
+    if (!window.confirm(t('admin.contentPages.delete_confirm'))) return;
+    try {
+      await api.delete(`/api/admin/content-pages/${item.id}`);
+      load();
+    } catch {
+      setError(t('admin.contentPages.delete_failed'));
+    }
+  }
+
+  const editingItem = items.find((i) => i.id === editingId);
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-semibold text-brand-900">{t('admin.contentPages.title')}</h2>
+        <button className="btn-primary px-4 py-2" onClick={() => setShowForm((v) => !v)}>
+          {t('admin.contentPages.new_page')}
+        </button>
+      </div>
+
+      {error && !showForm && !editingId && <p className="mb-4 text-sm text-red-700">{error}</p>}
+
+      {showForm && (
+        <ContentPageForm
+          initial={EMPTY_CONTENT_PAGE_FORM}
+          onSubmit={createPage}
+          onCancel={() => setShowForm(false)}
+          submitLabel={t('admin.contentPages.create')}
+          error={error}
+        />
+      )}
+
+      {editingItem && (
+        <ContentPageForm
+          initial={{
+            type: editingItem.type,
+            slug: editingItem.slug,
+            titleEn: editingItem.titleEn,
+            titleFr: editingItem.titleFr ?? '',
+            bodyEn: editingItem.bodyEn,
+            bodyFr: editingItem.bodyFr ?? '',
+            mediaUrl: editingItem.mediaUrl ?? '',
+            order: editingItem.order,
+          }}
+          onSubmit={(values) => saveEdit(editingItem.id, values)}
+          onCancel={() => setEditingId(null)}
+          submitLabel={t('admin.contentPages.save_changes')}
+          error={error}
+        />
+      )}
+
+      <div className="card overflow-x-auto">
+        <table className="w-full min-w-[700px] text-left text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 text-slate-400">
+              <th className="py-2 pr-4">{t('admin.contentPages.table_action')}</th>
+              <th className="py-2 pr-4">{t('admin.contentPages.table_slug')}</th>
+              <th className="py-2 pr-4">{t('admin.contentPages.table_type')}</th>
+              <th className="py-2 pr-4">{t('admin.contentPages.table_title')}</th>
+              <th className="py-2 pr-4">{t('admin.contentPages.table_published')}</th>
+              <th className="py-2 pr-4">{t('admin.contentPages.table_order')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id} className="border-b border-slate-50">
+                <td className="space-x-2 py-2 pr-4 whitespace-nowrap">
+                  <button
+                    className="text-brand-700 hover:underline"
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingId(item.id);
+                    }}
+                  >
+                    {t('admin.contentPages.edit')}
+                  </button>
+                  <button className="text-brand-700 hover:underline" onClick={() => togglePublished(item)}>
+                    {item.published ? t('admin.contentPages.unpublish') : t('admin.contentPages.publish')}
+                  </button>
+                  <button className="text-red-700 hover:underline" onClick={() => deletePage(item)}>
+                    {t('admin.contentPages.delete')}
+                  </button>
+                </td>
+                <td className="py-2 pr-4">{item.slug}</td>
+                <td className="py-2 pr-4">{item.type}</td>
+                <td className="py-2 pr-4">{item.titleEn}</td>
+                <td className="py-2 pr-4">
+                  {item.published ? t('admin.contentPages.yes') : t('admin.contentPages.no')}
+                </td>
+                <td className="py-2 pr-4">{item.order}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-center gap-3 text-sm">
+            <button className="btn-secondary px-3 py-1.5" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              {t('admin.prev')}
+            </button>
+            <span>{t('admin.page_of', { page, total: totalPages })}</span>
+            <button
+              className="btn-secondary px-3 py-1.5"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              {t('admin.next')}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface ContactMessageRow {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  language: string;
+  createdAt: string;
+}
+
+function MessagesTab() {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<ContactMessageRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  useEffect(() => {
+    api
+      .get<{ items: ContactMessageRow[]; pagination: { totalPages: number } }>(
+        `/api/admin/messages?page=${page}&pageSize=20`,
+      )
+      .then((res) => {
+        setItems(res.items);
+        setTotalPages(res.pagination.totalPages);
+      });
+  }, [page]);
+
+  return (
+    <div className="card overflow-x-auto">
+      <h2 className="mb-3 font-semibold text-brand-900">{t('admin.messages.title')}</h2>
+      {items.length === 0 ? (
+        <p className="text-sm text-slate-400">{t('admin.messages.no_messages')}</p>
+      ) : (
+        <table className="w-full min-w-[700px] text-left text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 text-slate-400">
+              <th className="py-2 pr-4">{t('admin.messages.table_name')}</th>
+              <th className="py-2 pr-4">{t('admin.messages.table_email')}</th>
+              <th className="py-2 pr-4">{t('admin.messages.table_message')}</th>
+              <th className="py-2 pr-4">{t('admin.messages.table_language')}</th>
+              <th className="py-2 pr-4">{t('admin.messages.table_date')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((m) => (
+              <tr key={m.id} className="border-b border-slate-50">
+                <td className="py-2 pr-4">{m.name}</td>
+                <td className="py-2 pr-4">{m.email}</td>
+                <td className="max-w-xs truncate py-2 pr-4" title={m.message}>
+                  {m.message}
+                </td>
+                <td className="py-2 pr-4 uppercase">{m.language}</td>
+                <td className="py-2 pr-4">{new Date(m.createdAt).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-center gap-3 text-sm">
+          <button className="btn-secondary px-3 py-1.5" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            {t('admin.prev')}
+          </button>
+          <span>{t('admin.page_of', { page, total: totalPages })}</span>
+          <button
+            className="btn-secondary px-3 py-1.5"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            {t('admin.next')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Section: self-service account settings. Distinct from managing other
 // Leaders' accounts — this is the logged-in user changing their OWN email
 // or password, most importantly so the email on file is one they can
@@ -1109,6 +1522,12 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'content'} onClick={() => setTab('content')}>
               {t('admin.tabs.content')}
             </TabButton>
+            <TabButton active={tab === 'contentPages'} onClick={() => setTab('contentPages')}>
+              {t('admin.tabs.contentPages')}
+            </TabButton>
+            <TabButton active={tab === 'messages'} onClick={() => setTab('messages')}>
+              {t('admin.tabs.messages')}
+            </TabButton>
             <TabButton active={tab === 'account'} onClick={() => setTab('account')}>
               {t('admin.tabs.account')}
             </TabButton>
@@ -1131,6 +1550,8 @@ export function AdminDashboardPage() {
         {tab === 'registrations' && <RegistrationsTab includeTestData={includeTestData} />}
         {tab === 'settings' && <SettingsTab />}
         {tab === 'content' && <ContentTab />}
+        {tab === 'contentPages' && <ContentPagesTab />}
+        {tab === 'messages' && <MessagesTab />}
         {tab === 'account' && <AccountTab />}
         {tab === 'audit' && <AuditTab />}
       </section>
