@@ -277,4 +277,66 @@ describe('Phase 3C — member login email diagnostic logging', () => {
     expect(diagnosticCall).toBeTruthy();
     expect(diagnosticCall![1]).toMatchObject({ ok: false, resendMessageId: null });
   });
+
+  it('tags an unknown WhatsApp number as person_not_found and never reaches the email step', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const emailSpy = vi.spyOn(EmailService, 'sendMemberLoginLink');
+
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
+    const res = await agent
+      .post('/api/member/auth/request-link')
+      .set('X-CSRF-Token', csrf)
+      .send({ whatsapp: '+237670009999', email: 'nobody-diagnostic@example.com' });
+
+    expect(res.status).toBe(200);
+    expect(emailSpy).not.toHaveBeenCalled();
+
+    const outcomeCall = logSpy.mock.calls.find((call) => call[0] === '[member-auth] request-link outcome');
+    expect(outcomeCall).toBeTruthy();
+    expect(outcomeCall![1]).toEqual({ outcome: 'person_not_found' });
+
+    const serialized = JSON.stringify(logSpy.mock.calls);
+    expect(serialized).not.toContain('+237670009999');
+    expect(serialized.toLowerCase()).not.toContain('nobody-diagnostic@example.com');
+  });
+
+  it('tags malformed input as malformed_input', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
+    const res = await agent
+      .post('/api/member/auth/request-link')
+      .set('X-CSRF-Token', csrf)
+      .send({ whatsapp: '', email: 'not-an-email' });
+
+    expect(res.status).toBe(200);
+    const outcomeCall = logSpy.mock.calls.find((call) => call[0] === '[member-auth] request-link outcome');
+    expect(outcomeCall).toBeTruthy();
+    expect(outcomeCall![1]).toEqual({ outcome: 'malformed_input' });
+  });
+
+  it('tags an email collision with a different Person as email_collision, never reassigning the account', async () => {
+    const ownerA = await prisma.person.create({ data: { name: 'Owner A', whatsappNumber: '+237670009001' } });
+    await prisma.memberAccount.create({ data: { personId: ownerA.id, email: 'shared-diagnostic@example.com' } });
+    await prisma.person.create({ data: { name: 'Owner B', whatsappNumber: '+237670009002' } });
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const emailSpy = vi.spyOn(EmailService, 'sendMemberLoginLink');
+
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
+    const res = await agent
+      .post('/api/member/auth/request-link')
+      .set('X-CSRF-Token', csrf)
+      .send({ whatsapp: '+237670009002', email: 'shared-diagnostic@example.com' });
+
+    expect(res.status).toBe(200);
+    expect(emailSpy).not.toHaveBeenCalled();
+
+    const outcomeCall = logSpy.mock.calls.find((call) => call[0] === '[member-auth] request-link outcome');
+    expect(outcomeCall).toBeTruthy();
+    expect(outcomeCall![1]).toEqual({ outcome: 'email_collision' });
+  });
 });

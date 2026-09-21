@@ -30,10 +30,21 @@ const requestLinkSchema = z.object({
 // POST /api/member/auth/request-link — public. See Section 7/8 for the
 // exact identity-linking rules this implements.
 router.post('/request-link', memberLoginRequestLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  // Temporary staging diagnostic (Phase 3C email-delivery investigation):
+  // logs exactly which branch of this handler a request exits through, so a
+  // "the UI showed success but no email arrived" report can be traced to
+  // its actual cause. Never logs the raw WhatsApp number, email address,
+  // token, or login URL — only which of these known outcome categories
+  // occurred, which is not sensitive on its own.
+  function logOutcome(outcome: string) {
+    console.log('[member-auth] request-link outcome', { outcome });
+  }
+
   const parsed = requestLinkSchema.safeParse(req.body);
   if (!parsed.success) {
     // A malformed request still gets the generic response — the shape of
     // the reply must never differ based on what was sent.
+    logOutcome('malformed_input');
     return res.json(GENERIC_LINK_RESPONSE);
   }
   const { whatsapp, email } = parsed.data;
@@ -43,12 +54,14 @@ router.post('/request-link', memberLoginRequestLimiter, requireCsrf, asyncHandle
   // No raw WhatsApp number or email is ever logged below — only enough to
   // distinguish event types in the audit trail.
   if (!normalizedWhatsApp) {
+    logOutcome('invalid_whatsapp');
     return res.json(GENERIC_LINK_RESPONSE);
   }
 
   const person = await prisma.person.findUnique({ where: { whatsappNumber: normalizedWhatsApp } });
   if (!person) {
     // Section 7 Step 4: do not create anything, do not reveal non-existence.
+    logOutcome('person_not_found');
     return res.json(GENERIC_LINK_RESPONSE);
   }
 
@@ -64,6 +77,7 @@ router.post('/request-link', memberLoginRequestLimiter, requireCsrf, asyncHandle
         targetType: 'Person',
         targetId: person.id,
       });
+      logOutcome('email_collision');
       return res.json(GENERIC_LINK_RESPONSE);
     }
 
@@ -88,6 +102,7 @@ router.post('/request-link', memberLoginRequestLimiter, requireCsrf, asyncHandle
       targetType: 'MemberAccount',
       targetId: memberAccount.id,
     });
+    logOutcome('email_mismatch');
     return res.json(GENERIC_LINK_RESPONSE);
   }
 
