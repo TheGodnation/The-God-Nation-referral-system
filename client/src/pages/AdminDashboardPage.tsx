@@ -953,6 +953,16 @@ interface ContentPageRow {
   createdAt: string;
 }
 
+// Normalizes free-typed text into a valid slug as the Admin types, instead
+// of letting them hit a validation error after filling out the whole form
+// (the server only accepts lowercase letters, numbers, and hyphens).
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-');
+}
+
 const EMPTY_CONTENT_PAGE_FORM = {
   type: 'PAGE' as ContentPageRow['type'],
   slug: '',
@@ -1010,7 +1020,7 @@ function ContentPageForm({
           className="input"
           placeholder={t('admin.contentPages.slug_placeholder') ?? ''}
           value={values.slug}
-          onChange={(e) => set('slug', e.target.value)}
+          onChange={(e) => set('slug', slugify(e.target.value))}
           required
         />
         <p className="mt-1 text-xs text-slate-400">{t('admin.contentPages.slug_hint')}</p>
