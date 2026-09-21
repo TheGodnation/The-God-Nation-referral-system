@@ -22,6 +22,9 @@ import contactRoutes from './routes/contact';
 import adminPeopleRoutes from './routes/adminPeople';
 import adminGeographyRoutes from './routes/adminGeography';
 import adminCommunitiesRoutes from './routes/adminCommunities';
+import adminDevotionalsRoutes from './routes/adminDevotionals';
+import adminAssessmentsRoutes from './routes/adminAssessments';
+import adminAttemptsRoutes from './routes/adminAttempts';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -64,6 +67,12 @@ export function createApp() {
   app.use('/api/admin', adminPeopleRoutes);
   app.use('/api/admin/geography', adminGeographyRoutes);
   app.use('/api/admin/communities', adminCommunitiesRoutes);
+  app.use('/api/admin/devotionals', adminDevotionalsRoutes);
+  app.use('/api/admin/assessments', adminAssessmentsRoutes);
+  // Phase 3B: adminAttemptsRoutes defines '/people/:personId/attempts' and
+  // '/attempts/*', so it mounts at the '/api/admin' root, same pattern as
+  // adminPeopleRoutes above.
+  app.use('/api/admin', adminAttemptsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

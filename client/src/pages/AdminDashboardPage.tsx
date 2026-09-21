@@ -5,6 +5,8 @@ import { PasswordInput } from '../components/PasswordInput';
 import { PeopleTab } from '../components/admin/PeopleTab';
 import { GeographyTab } from '../components/admin/GeographyTab';
 import { CommunitiesTab } from '../components/admin/CommunitiesTab';
+import { DevotionalsTab } from '../components/admin/DevotionalsTab';
+import { AssessmentsTab } from '../components/admin/AssessmentsTab';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
@@ -19,6 +21,8 @@ type Tab =
   | 'people'
   | 'geography'
   | 'communities'
+  | 'devotionals'
+  | 'assessments'
   | 'account'
   | 'audit';
 
@@ -1553,6 +1557,12 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'communities'} onClick={() => setTab('communities')}>
               {t('admin.tabs.communities')}
             </TabButton>
+            <TabButton active={tab === 'devotionals'} onClick={() => setTab('devotionals')}>
+              {t('admin.tabs.devotionals')}
+            </TabButton>
+            <TabButton active={tab === 'assessments'} onClick={() => setTab('assessments')}>
+              {t('admin.tabs.assessments')}
+            </TabButton>
             <TabButton active={tab === 'account'} onClick={() => setTab('account')}>
               {t('admin.tabs.account')}
             </TabButton>
@@ -1580,6 +1590,8 @@ export function AdminDashboardPage() {
         {tab === 'people' && <PeopleTab includeTestData={includeTestData} />}
         {tab === 'geography' && <GeographyTab />}
         {tab === 'communities' && <CommunitiesTab />}
+        {tab === 'devotionals' && <DevotionalsTab />}
+        {tab === 'assessments' && <AssessmentsTab />}
         {tab === 'account' && <AccountTab />}
         {tab === 'audit' && <AuditTab />}
       </section>

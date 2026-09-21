@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
+import { SearchPicker } from './SearchPicker';
 
 interface PersonRow {
   id: string;
@@ -25,75 +26,6 @@ interface PersonDetail extends Omit<PersonRow, 'geographicAssignment'> {
   }[];
   registrations: { id: string; language: string; pathway: string; createdAt: string }[];
   users: { id: string; name: string; email: string; role: string }[];
-}
-
-// Small search-then-pick control shared by the Geographic Assignment and
-// Community Membership sections below — searches a small, bounded result
-// set (never the whole tree/list) rather than rendering a heavy picker.
-function SearchPicker({
-  placeholder,
-  searchPath,
-  renderLabel,
-  actionLabel,
-  onPick,
-}: {
-  placeholder: string;
-  searchPath: string;
-  renderLabel: (item: any) => string;
-  actionLabel: string;
-  onPick: (item: any) => void;
-}) {
-  const { t } = useTranslation();
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [selectedId, setSelectedId] = useState('');
-
-  async function search() {
-    if (!query.trim()) return;
-    const res = await api.get<{ items: any[] }>(`${searchPath}${encodeURIComponent(query)}`);
-    setResults(res.items);
-    setSelectedId('');
-  }
-
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <input
-        className="input"
-        placeholder={placeholder}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            search();
-          }
-        }}
-      />
-      <button type="button" className="btn-secondary sm:w-32" onClick={search}>
-        {t('admin.people.search_button')}
-      </button>
-      {results.length > 0 && (
-        <>
-          <select className="input" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-            <option value="">—</option>
-            {results.map((r) => (
-              <option key={r.id} value={r.id}>
-                {renderLabel(r)}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="btn-primary sm:w-32"
-            disabled={!selectedId}
-            onClick={() => onPick(results.find((r) => r.id === selectedId))}
-          >
-            {actionLabel}
-          </button>
-        </>
-      )}
-    </div>
-  );
 }
 
 const EMPTY_PERSON_FORM = { name: '', whatsappNumber: '', email: '', preferredLanguage: 'en' as 'en' | 'fr' };
@@ -280,6 +212,7 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
             searchPath="/api/admin/geography?search="
             renderLabel={(g) => `${g.name} (${g.type}, ${g.countryCode})`}
             actionLabel={t('admin.people.assign')}
+            searchButtonLabel={t('admin.people.search_button')}
             onPick={assignGeography}
           />
         </div>
@@ -310,6 +243,7 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
             searchPath="/api/admin/communities?search="
             renderLabel={(c) => c.name}
             actionLabel={t('admin.people.add')}
+            searchButtonLabel={t('admin.people.search_button')}
             onPick={addMembership}
           />
         </div>

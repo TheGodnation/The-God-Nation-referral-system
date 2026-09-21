@@ -33,7 +33,8 @@ beforeEach(async () => {
       "AuditLog", "Event", "ReferralRelationship", "Registration",
       "ReferralVisit", "ReferralCode", "LoginAttempt", "Session", "Settings", "User",
       "ContentPage", "ContactMessage",
-      "GeographicAssignment", "CommunityMembership", "Geography", "Community", "Person"
+      "GeographicAssignment", "CommunityMembership", "Geography", "Community", "Person",
+      "ParticipationEvent", "Answer", "Attempt", "Option", "Question", "Assessment", "MonthlyDevotional"
     RESTART IDENTITY CASCADE;
   `);
 });

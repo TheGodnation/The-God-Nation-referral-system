@@ -43,6 +43,27 @@ enum MembershipStatus {
   INACTIVE
 }
 
+enum DevotionalStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  LOCKED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+}
+
+enum ParticipationEventType {
+  ASSESSMENT_COMPLETED
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
@@ -360,6 +381,8 @@ model Person {
   registrations         Registration[]
   communityMemberships  CommunityMembership[]
   geographicAssignment  GeographicAssignment?
+  attempts              Attempt[]
+  participationEvents   ParticipationEvent[]
 
   @@index([isTestData])
 }
@@ -381,6 +404,7 @@ model Community {
   parent      Community?             @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children    Community[]            @relation("CommunityHierarchy")
   memberships CommunityMembership[]
+  devotionals MonthlyDevotional[]
 
   @@index([parentId])
   @@index([active])
@@ -453,6 +477,176 @@ model GeographicAssignment {
   geography Geography @relation(fields: [geographyId], references: [id])
 
   @@index([geographyId])
+}
+
+// ---------------------------------------------------------------------------
+// Monthly Devotional + reusable Assessment foundation (Phase 3B)
+// ---------------------------------------------------------------------------
+
+// A dated devotional, optionally scoped to one online Community (`null` =
+// global, visible to everyone). Follows the same inline bilingual-content
+// convention as ContentPage (Phase 2) — a single `contentEn`/`contentFr`
+// body plus one optional `mediaUrl` — rather than introducing a second,
+// file-based content representation alongside it. No separate
+// "TeachingPeriod" table: the date range lives directly on this row.
+model MonthlyDevotional {
+  id              String           @id @default(uuid())
+  titleEn         String
+  titleFr         String?
+  descriptionEn   String?
+  descriptionFr   String?
+  contentEn       String
+  contentFr       String?
+  coverImageUrl   String?
+  communityId     String?
+  startDate       DateTime
+  endDate         DateTime
+  status          DevotionalStatus @default(DRAFT)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  community  Community?  @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  assessments Assessment[]
+
+  @@index([communityId])
+  @@index([status])
+}
+
+// A reusable assessment. `devotionalId` is an explicit, nullable FK
+// (deliberately not a polymorphic owner) — nullable so a future phase can
+// attach an Assessment to something other than a devotional (e.g. a
+// training book exam) without a schema redesign, but Phase 3B itself only
+// ever sets it for a devotional. `passMark` is a percentage (0-100).
+// `maxAttempts` of null means unlimited attempts.
+//
+// Historical-integrity rule: once the first Attempt is created against an
+// Assessment, it transitions PUBLISHED -> LOCKED and its questions/options
+// (text, order, points, correct answers) become permanently uneditable —
+// enforced server-side in routes/adminAssessments.ts, not just in the UI.
+// A content change after that requires a brand-new Assessment; Phase 3B
+// deliberately does not implement assessment versioning/snapshots.
+model Assessment {
+  id            String           @id @default(uuid())
+  devotionalId  String?
+  titleEn       String
+  titleFr       String?
+  passMark      Int
+  maxAttempts   Int?
+  status        AssessmentStatus @default(DRAFT)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  devotional MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
+  questions  Question[]
+  attempts   Attempt[]
+
+  @@index([devotionalId])
+}
+
+// Belongs directly to one Assessment — deliberately not a reusable
+// question bank in Phase 3B. `points` defaults to 1.
+model Question {
+  id           String   @id @default(uuid())
+  assessmentId String
+  textEn       String
+  textFr       String?
+  order        Int      @default(0)
+  points       Int      @default(1)
+  createdAt    DateTime @default(now())
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  options    Option[]
+  answers    Answer[]
+
+  @@index([assessmentId])
+}
+
+// `isCorrect` is never sent to a client before an Attempt is submitted —
+// enforced by the response-shaping code in routes/adminAssessments.ts, not
+// by the schema. Phase 3B enforces exactly one correct Option per Question
+// (single-answer scoring), not multiple-correct.
+model Option {
+  id         String   @id @default(uuid())
+  questionId String
+  textEn     String
+  textFr     String?
+  isCorrect  Boolean  @default(false)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  Answer[]
+
+  @@index([questionId])
+}
+
+// One attempt by one Person at one Assessment. `attemptNumber` plus the
+// unique constraint below is the final, database-enforced protection
+// against a duplicate/racing attempt number — the API must translate a
+// unique-constraint violation here into a clean error, never a 500.
+// score/maxScore/percentage/passMarkAtAttempt/passed are set exactly once,
+// at submission, and are never recalculated later from the Assessment's
+// current configuration (which may itself be locked by then anyway).
+model Attempt {
+  id                String        @id @default(uuid())
+  personId          String
+  assessmentId      String
+  attemptNumber     Int
+  startedAt         DateTime      @default(now())
+  submittedAt       DateTime?
+  score             Int?
+  maxScore          Int?
+  percentage        Float?
+  passMarkAtAttempt Int?
+  passed            Boolean?
+  status            AttemptStatus @default(IN_PROGRESS)
+
+  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    Answer[]
+
+  @@unique([personId, assessmentId, attemptNumber])
+  @@index([personId])
+  @@index([assessmentId])
+  @@index([personId, assessmentId])
+}
+
+// One selected Option per Question within an Attempt. `wasCorrect` is
+// always computed server-side at submission — never accepted from the
+// client. The (attemptId, questionId) unique constraint prevents duplicate
+// answers for the same question within one attempt.
+model Answer {
+  id               String  @id @default(uuid())
+  attemptId        String
+  questionId       String
+  selectedOptionId String
+  wasCorrect       Boolean
+
+  attempt        Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOption Option   @relation(fields: [selectedOptionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+}
+
+// Minimal activity record — "this Person completed this assessment at this
+// time." Deliberately not a generic activity engine: Phase 3B only ever
+// writes type=ASSESSMENT_COMPLETED, sourceType="ATTEMPT". The unique
+// constraint below is what makes event creation idempotent if a submission
+// request is retried after already succeeding.
+model ParticipationEvent {
+  id         String                 @id @default(uuid())
+  personId   String
+  type       ParticipationEventType
+  sourceType String
+  sourceId   String
+  occurredAt DateTime               @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, type, sourceType, sourceId])
+  @@index([personId])
 }
 
 model AuditLog {
