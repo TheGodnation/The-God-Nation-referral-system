@@ -8,6 +8,8 @@ import { recordAudit } from '../lib/audit';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireLinkedPerson, findActiveScopedRole, personBelongsToContext, contextTargetExists } from '../lib/leadership';
+import { parsePagination, paginatedResult } from '../lib/pagination';
+import { computeAttentionForLeader } from '../lib/followUpAttention';
 
 const router = Router();
 
@@ -45,6 +47,31 @@ router.get('/follow-ups', asyncHandler(async (req, res) => {
     orderBy: { assignedAt: 'desc' },
   });
   res.json({ items });
+}));
+
+// GET /api/leader/follow-ups/attention — Phase 3I. A derived, read-only view
+// of the authenticated Leader's own ACTIVE assignments that currently need
+// attention (see lib/followUpAttention.ts for the fixed classification
+// rule). Ownership is the same followerId = req.leaderPersonId model as
+// every other route in this file — no Community/Geography hierarchy, no
+// client-supplied Person id. Classification depends on each assignment's
+// latest contact, so the full ACTIVE set is classified first and paginated
+// in memory afterward — the returned pagination.total reflects the actual
+// attention result set, not the total ACTIVE assignment count.
+router.get('/follow-ups/attention', asyncHandler(async (req, res) => {
+  const attention = await computeAttentionForLeader(req.leaderPersonId!);
+  const { page, pageSize, skip, take } = parsePagination(req);
+
+  const pageItems = attention.slice(skip, skip + take).map((i) => ({
+    followUpAssignmentId: i.followUpAssignmentId,
+    personId: i.personId,
+    name: i.name,
+    reason: i.reason,
+    lastContactedAt: i.lastContactedAt,
+    nextFollowUpDate: i.nextFollowUpDate,
+  }));
+
+  res.json(paginatedResult(pageItems, attention.length, page, pageSize));
 }));
 
 const scopedPeopleQuerySchema = z.object({

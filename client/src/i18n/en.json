@@ -250,7 +250,19 @@
       "close_action": "Close Follow-Up",
       "close_confirm": "Close this follow-up? It will move to your history and stop accepting new contacts.",
       "close_failed": "Failed to close follow-up.",
-      "history_title": "Contact History"
+      "history_title": "Contact History",
+      "attention_title": "Needs Attention",
+      "attention_loading": "Loading…",
+      "attention_load_failed": "Failed to load your attention list.",
+      "attention_empty": "Nothing needs your attention right now.",
+      "attention_last_contact": "Last contacted {{date}}",
+      "attention_no_contact": "Not yet contacted",
+      "attention_next_followup": "next follow-up {{date}}",
+      "attention_reason_emergency": "Emergency",
+      "attention_reason_needs_attention": "Needs attention",
+      "attention_reason_unable_to_reach": "Unable to reach",
+      "attention_reason_overdue": "Overdue",
+      "attention_reason_not_yet_contacted": "Not yet contacted"
     },
     "trainingProgress": {
       "title": "Training Progress",

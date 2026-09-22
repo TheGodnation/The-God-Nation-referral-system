@@ -250,7 +250,19 @@
       "close_action": "Clôturer le suivi",
       "close_confirm": "Clôturer ce suivi ? Il passera dans votre historique et n'acceptera plus de nouveaux contacts.",
       "close_failed": "Échec de la clôture du suivi.",
-      "history_title": "Historique des contacts"
+      "history_title": "Historique des contacts",
+      "attention_title": "Nécessite une attention",
+      "attention_loading": "Chargement…",
+      "attention_load_failed": "Échec du chargement de votre liste d'attention.",
+      "attention_empty": "Rien ne nécessite votre attention pour le moment.",
+      "attention_last_contact": "Dernier contact le {{date}}",
+      "attention_no_contact": "Pas encore contacté",
+      "attention_next_followup": "prochain suivi le {{date}}",
+      "attention_reason_emergency": "Urgence",
+      "attention_reason_needs_attention": "Nécessite une attention",
+      "attention_reason_unable_to_reach": "Injoignable",
+      "attention_reason_overdue": "En retard",
+      "attention_reason_not_yet_contacted": "Pas encore contacté"
     },
     "trainingProgress": {
       "title": "Progression de la formation",

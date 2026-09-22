@@ -29,6 +29,32 @@ interface FollowUpRow {
   contacts: ContactRow[];
 }
 
+type AttentionReason = 'EMERGENCY' | 'NEEDS_ATTENTION' | 'UNABLE_TO_REACH' | 'OVERDUE' | 'NOT_YET_CONTACTED';
+
+interface AttentionRow {
+  followUpAssignmentId: string;
+  personId: string;
+  name: string;
+  reason: AttentionReason;
+  lastContactedAt: string | null;
+  nextFollowUpDate: string | null;
+}
+
+function attentionBadgeClass(reason: AttentionReason) {
+  switch (reason) {
+    case 'EMERGENCY':
+      return 'bg-red-50 text-red-700';
+    case 'NEEDS_ATTENTION':
+      return 'bg-amber-50 text-amber-700';
+    case 'UNABLE_TO_REACH':
+      return 'bg-slate-100 text-slate-500';
+    case 'OVERDUE':
+      return 'bg-orange-50 text-orange-700';
+    default:
+      return 'bg-slate-100 text-slate-500';
+  }
+}
+
 const WELLBEING_OPTIONS: WellbeingStatus[] = ['GOOD', 'NEEDS_ATTENTION', 'EMERGENCY', 'UNABLE_TO_REACH'];
 
 function wellbeingBadgeClass(status: WellbeingStatus) {
@@ -75,6 +101,10 @@ export function MyFollowUp() {
   const [nextFollowUpDate, setNextFollowUpDate] = useState('');
   const [reassignTarget, setReassignTarget] = useState<{ id: string; name: string } | null>(null);
 
+  const [attentionItems, setAttentionItems] = useState<AttentionRow[]>([]);
+  const [attentionLoading, setAttentionLoading] = useState(false);
+  const [attentionError, setAttentionError] = useState<string | null>(null);
+
   function loadFollowUps() {
     api.get<{ items: FollowUpRow[] }>('/api/leader/follow-ups').then((res) => setItems(res.items));
   }
@@ -85,7 +115,21 @@ export function MyFollowUp() {
       .then((res) => {
         setRoles(res.items);
         setLoading(false);
-        if (res.items.length > 0) loadFollowUps();
+        if (res.items.length > 0) {
+          loadFollowUps();
+          setAttentionLoading(true);
+          setAttentionError(null);
+          api
+            .get<{ items: AttentionRow[] }>('/api/leader/follow-ups/attention')
+            .then((attRes) => {
+              setAttentionItems(attRes.items);
+              setAttentionLoading(false);
+            })
+            .catch(() => {
+              setAttentionError(t('leader.followUp.attention_load_failed'));
+              setAttentionLoading(false);
+            });
+        }
       })
       .catch((err) => {
         setLoading(false);
@@ -312,6 +356,36 @@ export function MyFollowUp() {
       </div>
 
       {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
+
+      <div className="mb-4 rounded-lg border border-slate-100 p-3">
+        <h3 className="mb-2 font-medium text-brand-900">{t('leader.followUp.attention_title')}</h3>
+        {attentionLoading && <p className="text-sm text-slate-400">{t('leader.followUp.attention_loading')}</p>}
+        {attentionError && <p className="text-sm text-red-700">{attentionError}</p>}
+        {!attentionLoading && !attentionError && (
+          <ul className="space-y-2">
+            {attentionItems.map((a) => (
+              <li key={a.followUpAssignmentId} className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 text-sm">
+                <div>
+                  <p className="font-medium text-brand-900">{a.name}</p>
+                  <p className="text-slate-400">
+                    {a.lastContactedAt
+                      ? t('leader.followUp.attention_last_contact', { date: new Date(a.lastContactedAt).toLocaleDateString() })
+                      : t('leader.followUp.attention_no_contact')}
+                    {a.nextFollowUpDate &&
+                      ` · ${t('leader.followUp.attention_next_followup', { date: new Date(a.nextFollowUpDate).toLocaleDateString() })}`}
+                  </p>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${attentionBadgeClass(a.reason)}`}>
+                  {t(`leader.followUp.attention_reason_${a.reason.toLowerCase()}`)}
+                </span>
+              </li>
+            ))}
+            {attentionItems.length === 0 && (
+              <p className="py-2 text-center text-sm text-slate-400">{t('leader.followUp.attention_empty')}</p>
+            )}
+          </ul>
+        )}
+      </div>
 
       {showCreate && (
         <div className="mb-4 space-y-3 rounded-lg border border-slate-100 p-3">
