@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
+import { SearchPicker } from './SearchPicker';
 
 interface CommunityNode {
   id: string;
   parentId: string | null;
   name: string;
   active: boolean;
+  parent?: { id: string; name: string } | null;
   _count?: { children: number; memberships: number };
 }
 
@@ -25,6 +27,8 @@ export function CommunitiesTab() {
   const [name, setName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editParentId, setEditParentId] = useState<string | null>(null);
+  const [editParentName, setEditParentName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const parentId = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null;
@@ -72,6 +76,8 @@ export function CommunitiesTab() {
     setShowForm(false);
     setEditingId(node.id);
     setEditName(node.name);
+    setEditParentId(node.parentId);
+    setEditParentName(node.parent?.name ?? '');
   }
 
   async function saveEdit(e: React.FormEvent) {
@@ -79,7 +85,7 @@ export function CommunitiesTab() {
     if (!editingId) return;
     setError(null);
     try {
-      await api.patch(`/api/admin/communities/${editingId}`, { name: editName });
+      await api.patch(`/api/admin/communities/${editingId}`, { name: editName, parentId: editParentId });
       setEditingId(null);
       load();
     } catch (err) {
@@ -140,6 +146,35 @@ export function CommunitiesTab() {
       {editingId && (
         <form onSubmit={saveEdit} className="card mb-4 space-y-3">
           <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+          <div>
+            <label className="label">{t('admin.communities.parent_label')}</label>
+            <p className="mb-2 text-sm text-slate-600">
+              {editParentName || t('admin.communities.no_parent_selected')}
+            </p>
+            <SearchPicker
+              placeholder={t('admin.communities.search_parent_placeholder') ?? ''}
+              searchPath="/api/admin/communities?search="
+              renderLabel={(c) => c.name}
+              actionLabel={t('admin.communities.select')}
+              searchButtonLabel={t('admin.people.search_button')}
+              onPick={(c) => {
+                setEditParentId(c.id);
+                setEditParentName(c.name);
+              }}
+            />
+            {editParentId && (
+              <button
+                type="button"
+                className="mt-2 text-sm text-brand-700 hover:underline"
+                onClick={() => {
+                  setEditParentId(null);
+                  setEditParentName('');
+                }}
+              >
+                {t('admin.communities.clear_parent')}
+              </button>
+            )}
+          </div>
           {error && <p className="text-sm text-red-700">{error}</p>}
           <div className="flex gap-2">
             <button className="btn-primary" type="submit">

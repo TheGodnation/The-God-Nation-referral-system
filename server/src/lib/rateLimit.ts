@@ -155,3 +155,17 @@ export const memberProfileUpdateLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Phase 3G: Admin Community/Geography create/edit (including reparenting).
+// Authenticated, Admin-only, lower enumeration risk than the public
+// limiters above, but still a dedicated limiter per the project's "never
+// rely solely on generalApiLimiter" convention — matching the magnitude of
+// leadershipMutationLimiter, the closest existing precedent for an
+// Admin-authenticated structural-mutation category.
+export const communityGeographyMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

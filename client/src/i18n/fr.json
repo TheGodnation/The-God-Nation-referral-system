@@ -646,7 +646,12 @@
       "table_children": "Enfants",
       "yes": "Oui",
       "no": "Non",
-      "no_nodes": "Aucun nœud géographique ici pour le moment."
+      "no_nodes": "Aucun nœud géographique ici pour le moment.",
+      "parent_label": "Parent",
+      "no_parent_selected": "Racine — aucun parent.",
+      "search_parent_placeholder": "Rechercher un nœud géographique par nom",
+      "select": "Sélectionner",
+      "clear_parent": "Effacer — en faire un nœud racine"
     },
     "communities": {
       "root": "Racine",
@@ -668,7 +673,12 @@
       "table_children": "Enfants",
       "yes": "Oui",
       "no": "Non",
-      "no_communities": "Aucune communauté ici pour le moment."
+      "no_communities": "Aucune communauté ici pour le moment.",
+      "parent_label": "Parent",
+      "no_parent_selected": "Racine — aucun parent.",
+      "search_parent_placeholder": "Rechercher une communauté par nom",
+      "select": "Sélectionner",
+      "clear_parent": "Effacer — en faire une communauté racine"
     },
     "devotionals": {
       "title": "Dévotions",

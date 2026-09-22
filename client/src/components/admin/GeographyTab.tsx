@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
+import { SearchPicker } from './SearchPicker';
 
 interface GeographyNode {
   id: string;
@@ -9,6 +10,7 @@ interface GeographyNode {
   type: string;
   countryCode: string;
   active: boolean;
+  parent?: { id: string; name: string } | null;
   _count?: { children: number };
 }
 
@@ -28,6 +30,8 @@ export function GeographyTab() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
+  const [editParentId, setEditParentId] = useState<string | null>(null);
+  const [editParentName, setEditParentName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const parentId = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null;
@@ -80,6 +84,8 @@ export function GeographyTab() {
     setShowForm(false);
     setEditingId(node.id);
     setEditForm({ name: node.name, type: node.type, countryCode: node.countryCode, active: node.active });
+    setEditParentId(node.parentId);
+    setEditParentName(node.parent?.name ?? '');
   }
 
   async function saveEdit(e: React.FormEvent) {
@@ -91,6 +97,7 @@ export function GeographyTab() {
         name: editForm.name,
         type: editForm.type,
         countryCode: editForm.countryCode,
+        parentId: editParentId,
       });
       setEditingId(null);
       load();
@@ -188,6 +195,35 @@ export function GeographyTab() {
             maxLength={2}
             required
           />
+          <div>
+            <label className="label">{t('admin.geography.parent_label')}</label>
+            <p className="mb-2 text-sm text-slate-600">
+              {editParentName || t('admin.geography.no_parent_selected')}
+            </p>
+            <SearchPicker
+              placeholder={t('admin.geography.search_parent_placeholder') ?? ''}
+              searchPath="/api/admin/geography?search="
+              renderLabel={(g) => `${g.name} (${g.type}, ${g.countryCode})`}
+              actionLabel={t('admin.geography.select')}
+              searchButtonLabel={t('admin.people.search_button')}
+              onPick={(g) => {
+                setEditParentId(g.id);
+                setEditParentName(g.name);
+              }}
+            />
+            {editParentId && (
+              <button
+                type="button"
+                className="mt-2 text-sm text-brand-700 hover:underline"
+                onClick={() => {
+                  setEditParentId(null);
+                  setEditParentName('');
+                }}
+              >
+                {t('admin.geography.clear_parent')}
+              </button>
+            )}
+          </div>
           {error && <p className="text-sm text-red-700">{error}</p>}
           <div className="flex gap-2">
             <button className="btn-primary" type="submit">

@@ -646,7 +646,12 @@
       "table_children": "Children",
       "yes": "Yes",
       "no": "No",
-      "no_nodes": "No geography nodes here yet."
+      "no_nodes": "No geography nodes here yet.",
+      "parent_label": "Parent",
+      "no_parent_selected": "Root — no parent.",
+      "search_parent_placeholder": "Search geography by name",
+      "select": "Select",
+      "clear_parent": "Clear — make this a root node"
     },
     "communities": {
       "root": "Root",
@@ -668,7 +673,12 @@
       "table_children": "Children",
       "yes": "Yes",
       "no": "No",
-      "no_communities": "No communities here yet."
+      "no_communities": "No communities here yet.",
+      "parent_label": "Parent",
+      "no_parent_selected": "Root — no parent.",
+      "search_parent_placeholder": "Search communities by name",
+      "select": "Select",
+      "clear_parent": "Clear — make this a root community"
     },
     "devotionals": {
       "title": "Devotionals",

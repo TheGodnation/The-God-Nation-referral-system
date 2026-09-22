@@ -6,6 +6,7 @@ import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
 import { wouldCreateCycle } from '../lib/tree';
+import { communityGeographyMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
@@ -93,7 +94,7 @@ const createSchema = z.object({
   active: z.boolean().optional(),
 });
 
-router.post('/', requireCsrf, asyncHandler(async (req, res) => {
+router.post('/', communityGeographyMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid community.' });
@@ -127,7 +128,7 @@ const patchSchema = z.object({
   active: z.boolean().optional(),
 });
 
-router.patch('/:id', requireCsrf, asyncHandler(async (req, res) => {
+router.patch('/:id', communityGeographyMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) {
