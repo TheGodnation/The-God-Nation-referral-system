@@ -262,6 +262,16 @@
       "completed": "Terminé",
       "not_completed": "{{completed}} sur {{total}} terminé(s)",
       "no_members": "Aucun membre actif dans cette communauté pour le moment."
+    },
+    "myMembers": {
+      "title": "Mes membres",
+      "load_failed": "Échec du chargement de votre liste.",
+      "table_person": "Personne",
+      "table_joined": "Rejoint le",
+      "table_assigned": "Assigné le",
+      "scope_community": "Communauté",
+      "scope_geography": "Zone géographique",
+      "no_members": "Aucun membre actif dans cette portée pour le moment."
     }
   },
   "admin": {

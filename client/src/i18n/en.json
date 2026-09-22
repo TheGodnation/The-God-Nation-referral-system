@@ -262,6 +262,16 @@
       "completed": "Completed",
       "not_completed": "{{completed}} of {{total}} completed",
       "no_members": "No active members in this community yet."
+    },
+    "myMembers": {
+      "title": "My Members",
+      "load_failed": "Failed to load your roster.",
+      "table_person": "Person",
+      "table_joined": "Joined",
+      "table_assigned": "Assigned",
+      "scope_community": "Community",
+      "scope_geography": "Geography",
+      "no_members": "No active members in this scope yet."
     }
   },
   "admin": {

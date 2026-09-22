@@ -188,6 +188,81 @@ router.get('/community-progress', requireLinkedPerson, asyncHandler(async (req, 
   res.json(paginatedResult(items, total, page, pageSize));
 }));
 
+const rosterQuerySchema = z.object({
+  scopeType: z.enum(['COMMUNITY', 'GEOGRAPHY']),
+  scopeId: z.string().min(1),
+});
+
+// GET /api/leader/roster?scopeType=COMMUNITY|GEOGRAPHY&scopeId=:id — Phase
+// 3H. A read-only roster of the People belonging to an exact scope the
+// Leader currently holds an ACTIVE SCOPED_LEADER RoleAssignment for.
+// Reuses Phase 3D's exact-scope authorization helper unmodified (no parent/
+// child coverage, no hierarchy) and the existing pagination convention.
+// Deliberately separate from FollowUpAssignment — this is visibility only,
+// never a mutation or a path to create/act on a follow-up.
+router.get('/roster', requireLinkedPerson, asyncHandler(async (req, res) => {
+  const parsed = rosterQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'scopeType must be COMMUNITY or GEOGRAPHY, and scopeId is required.' });
+  }
+  const { scopeType, scopeId } = parsed.data;
+
+  // Authorization is established before any population data is touched.
+  // findActiveScopedRole matches personId + roleType SCOPED_LEADER + status
+  // ACTIVE + the exact communityId/geographyId — the schema's own CHECK
+  // constraint (exactly one of communityId/geographyId set, never both)
+  // already guarantees this can never accidentally match the wrong scope
+  // type. No exact match means 403 — the same response whether the scope
+  // doesn't exist, belongs to someone else, or is a parent/child of one the
+  // Leader actually holds, so the response never reveals which.
+  const role = await findActiveScopedRole(req.leaderPersonId!, scopeType, scopeId);
+  if (!role) {
+    return res.status(403).json({
+      error: `You do not have an active scoped leader role for this exact ${scopeType === 'COMMUNITY' ? 'Community' : 'Geography'}.`,
+    });
+  }
+
+  const { page, pageSize, skip, take } = parsePagination(req);
+
+  if (scopeType === 'COMMUNITY') {
+    const where = { communityId: scopeId, status: 'ACTIVE' as const };
+    const [total, memberships] = await Promise.all([
+      prisma.communityMembership.count({ where }),
+      prisma.communityMembership.findMany({
+        where,
+        include: { person: { select: { id: true, name: true } } },
+        orderBy: { joinedAt: 'asc' },
+        skip,
+        take,
+      }),
+    ]);
+    const items = memberships.map((m) => ({
+      personId: m.person.id,
+      name: m.person.name,
+      membershipJoinedAt: m.joinedAt,
+    }));
+    return res.json({ scopeType, scopeId, ...paginatedResult(items, total, page, pageSize) });
+  }
+
+  const where = { geographyId: scopeId, status: 'ACTIVE' as const };
+  const [total, assignments] = await Promise.all([
+    prisma.geographicAssignment.count({ where }),
+    prisma.geographicAssignment.findMany({
+      where,
+      include: { person: { select: { id: true, name: true } } },
+      orderBy: { assignedAt: 'asc' },
+      skip,
+      take,
+    }),
+  ]);
+  const items = assignments.map((a) => ({
+    personId: a.person.id,
+    name: a.person.name,
+    geographicAssignedAt: a.assignedAt,
+  }));
+  res.json({ scopeType, scopeId, ...paginatedResult(items, total, page, pageSize) });
+}));
+
 // Section 26/39 originally let a Leader email their own referral link to
 // someone via POST /api/leader/invite. Removed: with a shared daily Resend
 // sending cap, every Leader having an open-ended "send an email" button
