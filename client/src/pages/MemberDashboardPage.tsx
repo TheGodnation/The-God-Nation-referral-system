@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 
 interface AssessmentSummary {
@@ -49,6 +49,84 @@ interface TrainingProgressSummary {
   totalEligible: number;
   completedCount: number;
   items: TrainingProgressItem[];
+}
+
+// Phase 3F — self-service editing of the Member's own Person.name and
+// Person.preferredLanguage only. Deliberately not WhatsApp/email/community/
+// geography/leadership fields — see PATCH /api/member/me/profile.
+function ProfileSection() {
+  const { t, i18n } = useTranslation();
+  const { member, refresh } = useMemberAuth();
+  const [name, setName] = useState(member?.name ?? '');
+  const [preferredLanguage, setPreferredLanguage] = useState<'en' | 'fr'>(member?.preferredLanguage ?? 'en');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (member) {
+      setName(member.name);
+      setPreferredLanguage(member.preferredLanguage);
+    }
+  }, [member]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSaved(false);
+    setSaving(true);
+    try {
+      await api.patch('/api/member/me/profile', { name, preferredLanguage });
+      await refresh();
+      // The language switcher elsewhere in the app changes the UI language
+      // this exact same way — reusing it here rather than inventing a
+      // second mechanism. It also persists to localStorage on its own,
+      // same as every other language change in the app.
+      if (i18n.language.startsWith('fr') !== (preferredLanguage === 'fr')) {
+        i18n.changeLanguage(preferredLanguage);
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('memberDashboard.profile_save_failed'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h2 className="mb-3 font-semibold text-brand-900">{t('memberDashboard.profile_heading')}</h2>
+      <form onSubmit={save} className="space-y-3">
+        <div>
+          <label className="label">{t('memberDashboard.profile_name_label')}</label>
+          <input
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={200}
+            required
+          />
+        </div>
+        <div>
+          <label className="label">{t('memberDashboard.profile_language_label')}</label>
+          <select
+            className="input"
+            value={preferredLanguage}
+            onChange={(e) => setPreferredLanguage(e.target.value as 'en' | 'fr')}
+          >
+            <option value="en">{t('common.language_en')}</option>
+            <option value="fr">{t('common.language_fr')}</option>
+          </select>
+        </div>
+        {error && <p className="text-sm text-red-700">{error}</p>}
+        {saved && <p className="text-sm text-green-700">{t('memberDashboard.profile_saved')}</p>}
+        <button className="btn-primary" type="submit" disabled={saving}>
+          {saving ? t('memberDashboard.profile_saving') : t('memberDashboard.profile_save')}
+        </button>
+      </form>
+    </div>
+  );
 }
 
 export function MemberDashboardPage() {
@@ -105,6 +183,8 @@ export function MemberDashboardPage() {
           <p className="text-center text-slate-400">{t('memberDashboard.loading')}</p>
         ) : (
           <div className="space-y-6">
+            <ProfileSection />
+
             <div className="card">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-brand-900">{t('memberDashboard.devotionals_heading')}</h2>

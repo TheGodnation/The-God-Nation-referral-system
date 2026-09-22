@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireMember } from '../lib/memberAuth';
 import { requireCsrf } from '../lib/csrf';
-import { memberAssessmentLimiter } from '../lib/rateLimit';
+import { memberAssessmentLimiter, memberProfileUpdateLimiter } from '../lib/rateLimit';
 import { createAttempt, submitAttempt, AssessmentSubmissionError } from '../lib/assessmentScoring';
 import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
+import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
@@ -264,6 +265,52 @@ router.get('/me/geographic-assignment', asyncHandler(async (req, res) => {
       assignedAt: assignment.assignedAt,
     },
   });
+}));
+
+// ---------------------------------------------------------------------------
+// Profile self-service (Phase 3F) — a Member may edit only their own
+// Person.name and Person.preferredLanguage. Everything else (WhatsApp
+// number, Person.email, MemberAccount.email, membership/geography/role/
+// follow-up data) is explicitly out of scope and never touched here: the
+// schema below is a closed allowlist, not a partial/loose object, so a
+// client sending extra fields (whatsappNumber, email, personId, etc.) has
+// them silently dropped by Zod before this handler ever sees them, and the
+// Prisma `data` object below only ever assembles from these two named
+// fields — never a spread of the request body.
+// ---------------------------------------------------------------------------
+
+const updateProfileSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  preferredLanguage: z.enum(['en', 'fr']).optional(),
+});
+
+router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = updateProfileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid profile update.' });
+  }
+  const { name, preferredLanguage } = parsed.data;
+
+  // Identity is always the authenticated member's own Person — never
+  // accepted from the request body, so a client-supplied personId (or any
+  // other id-shaped field) can never redirect this update to someone else.
+  const updated = await prisma.person.update({
+    where: { id: req.member!.personId },
+    data: {
+      ...(name !== undefined ? { name } : {}),
+      ...(preferredLanguage !== undefined ? { preferredLanguage } : {}),
+    },
+    select: { name: true, preferredLanguage: true },
+  });
+
+  await recordAudit({
+    action: 'MEMBER_PROFILE_UPDATED',
+    targetType: 'Person',
+    targetId: req.member!.personId,
+    metadata: { changedKeys: Object.keys(parsed.data) },
+  });
+
+  res.json({ name: updated.name, preferredLanguage: updated.preferredLanguage });
 }));
 
 export default router;

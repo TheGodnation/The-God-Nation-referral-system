@@ -143,3 +143,15 @@ export const leadershipMutationLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Phase 3F: a Member updating their own name/preferredLanguage. Low
+// enumeration risk (authenticated, own data only), but still a dedicated
+// limiter per the project's "never rely solely on generalApiLimiter"
+// convention for mutations.
+export const memberProfileUpdateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
