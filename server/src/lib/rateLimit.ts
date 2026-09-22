@@ -129,3 +129,17 @@ export const memberAssessmentLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Phase 3D: Admin/Leader scoped-leadership + follow-up mutations (linking a
+// Leader to a Person, creating/ending RoleAssignments, creating/reassigning/
+// closing FollowUpAssignments, logging FollowUpContacts). Authenticated,
+// lower enumeration risk than the public limiters above, but still a
+// dedicated limiter per the project's "never rely solely on
+// generalApiLimiter" convention.
+export const leadershipMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

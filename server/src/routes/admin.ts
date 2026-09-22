@@ -191,7 +191,7 @@ router.get('/leaders', asyncHandler(async (req, res) => {
     prisma.user.count({ where }),
     prisma.user.findMany({
       where,
-      include: { referralCodes: { where: { active: true } } },
+      include: { referralCodes: { where: { active: true } }, person: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
       skip,
       take,
@@ -214,6 +214,11 @@ router.get('/leaders', asyncHandler(async (req, res) => {
     referredCount: counts.get(l.id)?.referred ?? 0,
     whatsappJoinedCount: counts.get(l.id)?.joined ?? 0,
     createdAt: l.createdAt,
+    // Phase 3D: whether this Leader's User account is linked to a Person —
+    // required before they can perform any scoped-leadership/follow-up
+    // action. Never inferred; only set via the explicit link-person action.
+    personId: l.personId,
+    personName: l.person?.name ?? null,
   }));
 
   res.json(paginatedResult(items, total, page, pageSize));
@@ -402,6 +407,77 @@ router.patch('/leaders/:id', requireCsrf, asyncHandler(async (req, res) => {
     active: updated!.active,
     referralCode: updated!.referralCodes[0]?.code ?? null,
   });
+}));
+
+const linkPersonSchema = z.object({ personId: z.string().min(1) });
+
+// PATCH /api/admin/leaders/:id/link-person — Phase 3D. The one, explicit,
+// Admin-only action that establishes User.personId for a Leader — required
+// before that Leader can perform any scoped-leadership/follow-up action.
+// Deliberately a dedicated action, not folded into the general PATCH
+// /leaders/:id above: this is a one-time identity link, never inferred from
+// email/WhatsApp/name/registration/MemberAccount, and never silently
+// changed once set (calling this again with a DIFFERENT Person on an
+// already-linked Leader is rejected — an intentional relink/unlink flow is
+// explicitly out of scope for Phase 3D).
+router.patch('/leaders/:id/link-person', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = linkPersonSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'personId is required.' });
+  }
+  const { personId } = parsed.data;
+
+  const leader = await prisma.user.findUnique({ where: { id } });
+  if (!leader) {
+    return res.status(404).json({ error: 'Leader not found.' });
+  }
+  if (leader.role !== 'LEADER') {
+    // Admins are never required to have a Person — this action exists
+    // specifically to let a Leader exercise scoped-leadership actions.
+    return res.status(400).json({ error: 'Only a Leader account can be linked to a Person.' });
+  }
+
+  const person = await prisma.person.findUnique({ where: { id: personId } });
+  if (!person) {
+    return res.status(400).json({ error: 'Person not found.' });
+  }
+
+  if (leader.personId) {
+    if (leader.personId === personId) {
+      // Idempotent: calling this again with the exact same Person is safe.
+      return res.json({ id: leader.id, personId: leader.personId, personName: person.name });
+    }
+    return res.status(409).json({ error: 'This Leader is already linked to a Person.' });
+  }
+
+  const existingLinkForPerson = await prisma.user.findUnique({ where: { personId } });
+  if (existingLinkForPerson) {
+    return res.status(409).json({ error: 'This Person is already linked to another User.' });
+  }
+
+  try {
+    await prisma.user.update({ where: { id }, data: { personId } });
+  } catch (err) {
+    // The unique constraint on User.personId is the final authority — a
+    // concurrent link request for the same Person races against this, and
+    // the loser lands here with a clean conflict instead of a 500.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ error: 'This Person is already linked to another User.' });
+    }
+    throw err;
+  }
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'LEADER_PERSON_LINKED',
+    targetType: 'User',
+    targetId: id,
+    metadata: { personId },
+  });
+
+  res.json({ id: leader.id, personId, personName: person.name });
 }));
 
 // DELETE /api/admin/leaders/:id — permanently removes a Leader account.

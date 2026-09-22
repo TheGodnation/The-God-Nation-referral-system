@@ -7,6 +7,9 @@ import { GeographyTab } from '../components/admin/GeographyTab';
 import { CommunitiesTab } from '../components/admin/CommunitiesTab';
 import { DevotionalsTab } from '../components/admin/DevotionalsTab';
 import { AssessmentsTab } from '../components/admin/AssessmentsTab';
+import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
+import { FollowUpsTab } from '../components/admin/FollowUpsTab';
+import { SearchPicker } from '../components/admin/SearchPicker';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
@@ -23,6 +26,8 @@ type Tab =
   | 'communities'
   | 'devotionals'
   | 'assessments'
+  | 'roleAssignments'
+  | 'followUps'
   | 'account'
   | 'audit';
 
@@ -46,6 +51,10 @@ interface LeaderRow {
   referredCount: number;
   whatsappJoinedCount: number;
   createdAt: string;
+  // Phase 3D: the Person this Leader's User account has been explicitly
+  // linked to (via link-person below). null until an Admin links it.
+  personId: string | null;
+  personName: string | null;
 }
 
 interface RegistrationRow {
@@ -119,6 +128,12 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
   const [editEmail, setEditEmail] = useState('');
   const [editCode, setEditCode] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Phase 3D: linking a Leader's User account to a Person — an explicit,
+  // one-time Admin action (never inferred). linkingId tracks which row's
+  // panel is open; linkError surfaces a 409 (already linked elsewhere) etc.
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   function load() {
     api
@@ -221,6 +236,25 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
     }
   }
 
+  function startLinkPerson(leader: LeaderRow) {
+    setShowForm(false);
+    setEditingId(null);
+    setLinkError(null);
+    setLinkingId(leader.id);
+  }
+
+  async function linkPerson(person: any) {
+    if (!linkingId) return;
+    setLinkError(null);
+    try {
+      await api.patch(`/api/admin/leaders/${linkingId}/link-person`, { personId: person.id });
+      setLinkingId(null);
+      load();
+    } catch (err) {
+      setLinkError(err instanceof ApiError ? err.message : t('admin.leaders.link_person_failed'));
+    }
+  }
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -312,8 +346,27 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
         </form>
       )}
 
+      {linkingId && (
+        <div className="card mb-4 space-y-3">
+          <h3 className="font-semibold text-brand-900">{t('admin.leaders.link_person_title')}</h3>
+          <p className="text-sm text-slate-500">{t('admin.leaders.link_person_help')}</p>
+          <SearchPicker
+            placeholder={t('admin.leaders.link_person_search_placeholder') ?? ''}
+            searchPath="/api/admin/people?search="
+            renderLabel={(p) => `${p.name} (${p.whatsappNumber})`}
+            actionLabel={t('admin.leaders.link_person_action')}
+            searchButtonLabel={t('admin.people.search_button')}
+            onPick={linkPerson}
+          />
+          {linkError && <p className="text-sm text-red-700">{linkError}</p>}
+          <button type="button" className="text-sm text-slate-500 hover:underline" onClick={() => setLinkingId(null)}>
+            {t('admin.leaders.cancel')}
+          </button>
+        </div>
+      )}
+
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[880px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400">
               {/* Sticky-LEFT and first in row order, not last/sticky-right:
@@ -332,6 +385,7 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
               <th className="py-2 pr-4">{t('admin.leaders.table_code')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_referred')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_joined')}</th>
+              <th className="py-2 pr-4">{t('admin.leaders.table_linked_person')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_status')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_source')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_test')}</th>
@@ -353,12 +407,20 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
                   <button className="text-red-700 hover:underline" onClick={() => deleteLeader(l)}>
                     {t('admin.leaders.delete')}
                   </button>
+                  {!l.personId && (
+                    <button className="text-brand-700 hover:underline" onClick={() => startLinkPerson(l)}>
+                      {t('admin.leaders.link_person_action')}
+                    </button>
+                  )}
                 </td>
                 <td className="py-2 pr-4">{l.name}</td>
                 <td className="py-2 pr-4">{l.email}</td>
                 <td className="py-2 pr-4">{l.referralCode ?? '—'}</td>
                 <td className="py-2 pr-4 font-medium text-brand-900">{l.referredCount}</td>
                 <td className="py-2 pr-4 font-medium text-brand-900">{l.whatsappJoinedCount}</td>
+                <td className="py-2 pr-4">
+                  {l.personName ?? <span className="text-slate-400">{t('admin.leaders.not_linked')}</span>}
+                </td>
                 <td className="py-2 pr-4">
                   {l.active ? t('admin.leaders.status_active') : t('admin.leaders.status_inactive')}
                 </td>
@@ -1563,6 +1625,12 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'assessments'} onClick={() => setTab('assessments')}>
               {t('admin.tabs.assessments')}
             </TabButton>
+            <TabButton active={tab === 'roleAssignments'} onClick={() => setTab('roleAssignments')}>
+              {t('admin.tabs.roleAssignments')}
+            </TabButton>
+            <TabButton active={tab === 'followUps'} onClick={() => setTab('followUps')}>
+              {t('admin.tabs.followUps')}
+            </TabButton>
             <TabButton active={tab === 'account'} onClick={() => setTab('account')}>
               {t('admin.tabs.account')}
             </TabButton>
@@ -1592,6 +1660,8 @@ export function AdminDashboardPage() {
         {tab === 'communities' && <CommunitiesTab />}
         {tab === 'devotionals' && <DevotionalsTab />}
         {tab === 'assessments' && <AssessmentsTab />}
+        {tab === 'roleAssignments' && <RoleAssignmentsTab />}
+        {tab === 'followUps' && <FollowUpsTab />}
         {tab === 'account' && <AccountTab />}
         {tab === 'audit' && <AuditTab />}
       </section>

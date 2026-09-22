@@ -64,42 +64,81 @@ enum ParticipationEventType {
   ASSESSMENT_COMPLETED
 }
 
+// Phase 3D: the only supported role type. Deliberately not a role hierarchy
+// or generic permission engine — a single flat capability, scoped to
+// exactly one Community or Geography (see RoleAssignment).
+enum RoleType {
+  SCOPED_LEADER
+}
+
+enum RoleAssignmentStatus {
+  ACTIVE
+  ENDED
+}
+
+// Deliberately small, closed set — not a generic polymorphic authorization
+// framework. contextId refers to a Community.id or Geography.id depending
+// on this value; the server validates the referenced row exists for either
+// case (see routes/adminLeadership.ts / leaderFollowUps.ts).
+enum FollowUpContextType {
+  COMMUNITY
+  GEOGRAPHY
+}
+
+enum FollowUpStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum WellbeingStatus {
+  GOOD
+  NEEDS_ATTENTION
+  EMERGENCY
+  UNABLE_TO_REACH
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role
-  active       Boolean  @default(true)
-  isTestData   Boolean  @default(false)
-  mustChangePassword Boolean @default(false)
+  id                 String   @id @default(uuid())
+  name               String
+  email              String   @unique
+  passwordHash       String
+  role               Role
+  active             Boolean  @default(true)
+  isTestData         Boolean  @default(false)
+  mustChangePassword Boolean  @default(false)
   // True for a Leader who created their own account via the public
   // self-signup link (POST /api/auth/leader-signup), as opposed to one an
   // Admin created by hand in Admin > Leaders. Admin retains full control
   // either way — this is purely informational, shown as a badge.
-  selfRegistered Boolean @default(false)
+  selfRegistered     Boolean  @default(false)
   // Phase 3A: optional link to the person's unified God Nation identity.
   // Left null for every existing User by the Phase 3A backfill — a User's
   // email alone is never treated as proof of identity with a Person (see
-  // Person model comment), so this is populated only when a future,
-  // explicit, safe linking step establishes the relationship.
-  personId     String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  // Person model comment). Phase 3D adds the actual explicit, safe linking
+  // step this comment anticipated (PATCH /api/admin/leaders/:id/link-person)
+  // and makes this column unique: at most one User may ever be linked to a
+  // given Person. An Admin is never required to have one; a Leader must
+  // have one before performing any scoped-leadership/follow-up action.
+  personId           String?  @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  person         Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
-  sessions       Session[]
-  referralCodes  ReferralCode[]
-  referralRelationships ReferralRelationship[]
-  setupTokens         LeaderSetupToken[]
-  passwordResetTokens PasswordResetToken[]
+  person                     Person?                @relation(fields: [personId], references: [id], onDelete: SetNull)
+  sessions                   Session[]
+  referralCodes              ReferralCode[]
+  referralRelationships      ReferralRelationship[]
+  setupTokens                LeaderSetupToken[]
+  passwordResetTokens        PasswordResetToken[]
+  roleAssignmentsAssigned    RoleAssignment[]       @relation("RoleAssignmentAssignedBy")
+  followUpAssignmentsCreated FollowUpAssignment[]   @relation("FollowUpAssignedBy")
+  followUpAssignmentsClosed  FollowUpAssignment[]   @relation("FollowUpClosedBy")
+  followUpContactsLogged     FollowUpContact[]
 
   @@index([role])
-  @@index([personId])
 }
 
 // Secure one-time invitation token for new Leader onboarding (section 27-29).
@@ -173,7 +212,7 @@ model ReferralCode {
   updatedAt     DateTime  @updatedAt
   deactivatedAt DateTime?
 
-  leader        User            @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  leader        User                   @relation(fields: [leaderId], references: [id], onDelete: Cascade)
   visits        ReferralVisit[]
   relationships ReferralRelationship[]
 
@@ -182,16 +221,16 @@ model ReferralCode {
 }
 
 model ReferralVisit {
-  id             String    @id @default(uuid())
+  id             String   @id @default(uuid())
   visitorId      String
   referralCodeId String?
-  timestamp      DateTime  @default(now())
+  timestamp      DateTime @default(now())
   utmSource      String?
   utmMedium      String?
   utmCampaign    String?
   landingPage    String?
-  language       Language  @default(en)
-  isTestData     Boolean   @default(false)
+  language       Language @default(en)
+  isTestData     Boolean  @default(false)
 
   referralCode ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
 
@@ -203,21 +242,21 @@ model ReferralVisit {
 }
 
 model Registration {
-  id                 String   @id @default(uuid())
+  id                 String             @id @default(uuid())
   visitorId          String
-  normalizedWhatsApp String   @unique
+  normalizedWhatsApp String             @unique
   name               String
   email              String?
-  language           Language @default(en)
-  pathway            Pathway  @default(TRAINING)
+  language           Language           @default(en)
+  pathway            Pathway            @default(TRAINING)
   utmSource          String?
   utmMedium          String?
   utmCampaign        String?
   landingPage        String?
   status             RegistrationStatus @default(ACTIVE)
-  isTestData         Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  isTestData         Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   // Phase 3A: link to the registrant's unified God Nation identity, keyed
   // by normalizedWhatsApp (see Person model). Populated automatically for
   // every new registration and backfilled for existing ones — never
@@ -333,13 +372,13 @@ model ContentPage {
 // if the notification email fails to send, consistent with the rest of the
 // app's "never lose data on email failure" approach.
 model ContactMessage {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   name        String
   email       String
   message     String
-  language    Language @default(en)
+  language    Language  @default(en)
   emailSentAt DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([createdAt])
 }
@@ -384,6 +423,9 @@ model Person {
   attempts              Attempt[]
   participationEvents   ParticipationEvent[]
   memberAccount         MemberAccount?
+  roleAssignments       RoleAssignment[]
+  followingAssignments  FollowUpAssignment[]  @relation("FollowUpFollower")
+  followedByAssignments FollowUpAssignment[]  @relation("FollowUpFollowedPerson")
 
   @@index([isTestData])
 }
@@ -402,10 +444,11 @@ model Community {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  parent      Community?             @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    Community[]            @relation("CommunityHierarchy")
-  memberships CommunityMembership[]
-  devotionals MonthlyDevotional[]
+  parent          Community?            @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        Community[]           @relation("CommunityHierarchy")
+  memberships     CommunityMembership[]
+  devotionals     MonthlyDevotional[]
+  roleAssignments RoleAssignment[]
 
   @@index([parentId])
   @@index([active])
@@ -448,9 +491,10 @@ model Geography {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  parent      Geography?             @relation("GeographyHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    Geography[]            @relation("GeographyHierarchy")
-  assignments GeographicAssignment[]
+  parent          Geography?             @relation("GeographyHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        Geography[]            @relation("GeographyHierarchy")
+  assignments     GeographicAssignment[]
+  roleAssignments RoleAssignment[]
 
   @@index([parentId])
   @@index([countryCode, parentId])
@@ -491,22 +535,22 @@ model GeographicAssignment {
 // file-based content representation alongside it. No separate
 // "TeachingPeriod" table: the date range lives directly on this row.
 model MonthlyDevotional {
-  id              String           @id @default(uuid())
-  titleEn         String
-  titleFr         String?
-  descriptionEn   String?
-  descriptionFr   String?
-  contentEn       String
-  contentFr       String?
-  coverImageUrl   String?
-  communityId     String?
-  startDate       DateTime
-  endDate         DateTime
-  status          DevotionalStatus @default(DRAFT)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id            String           @id @default(uuid())
+  titleEn       String
+  titleFr       String?
+  descriptionEn String?
+  descriptionFr String?
+  contentEn     String
+  contentFr     String?
+  coverImageUrl String?
+  communityId   String?
+  startDate     DateTime
+  endDate       DateTime
+  status        DevotionalStatus @default(DRAFT)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-  community  Community?  @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  community   Community?   @relation(fields: [communityId], references: [id], onDelete: SetNull)
   assessments Assessment[]
 
   @@index([communityId])
@@ -527,15 +571,15 @@ model MonthlyDevotional {
 // A content change after that requires a brand-new Assessment; Phase 3B
 // deliberately does not implement assessment versioning/snapshots.
 model Assessment {
-  id            String           @id @default(uuid())
-  devotionalId  String?
-  titleEn       String
-  titleFr       String?
-  passMark      Int
-  maxAttempts   Int?
-  status        AssessmentStatus @default(DRAFT)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id           String           @id @default(uuid())
+  devotionalId String?
+  titleEn      String
+  titleFr      String?
+  passMark     Int
+  maxAttempts  Int?
+  status       AssessmentStatus @default(DRAFT)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   devotional MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
   questions  Question[]
@@ -713,6 +757,101 @@ model MemberSession {
 
   @@index([memberAccountId])
   @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Scoped Leadership + Member Follow-Up (Phase 3D)
+// ---------------------------------------------------------------------------
+
+// Grants a Person the SCOPED_LEADER capability within exactly one Community
+// or exactly one Geography — never both, never neither (enforced by a
+// database CHECK constraint added in the migration, since Prisma's schema
+// DSL has no native support for it). Deliberately flat: no role hierarchy,
+// no inherited/ancestor scope coverage, no additional role types. Never
+// hard-deleted — ending a role sets status=ENDED/endedAt rather than
+// removing the row, preserving the historical record.
+model RoleAssignment {
+  id               String               @id @default(uuid())
+  personId         String
+  roleType         RoleType
+  communityId      String?
+  geographyId      String?
+  assignedByUserId String
+  assignedAt       DateTime             @default(now())
+  status           RoleAssignmentStatus @default(ACTIVE)
+  endedAt          DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  community  Community? @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  geography  Geography? @relation(fields: [geographyId], references: [id], onDelete: Cascade)
+  assignedBy User       @relation("RoleAssignmentAssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@index([personId])
+  @@index([communityId])
+  @@index([geographyId])
+  @@index([status])
+  @@index([assignedByUserId])
+}
+
+// A follow-up relationship between two Persons: `followerId` (a Person with
+// an active SCOPED_LEADER RoleAssignment) checking in on `followedPersonId`.
+// `contextType`/`contextId` record the Community or Geography that
+// justified the assignment AT CREATION TIME — deliberately small, closed-set
+// "polymorphic" metadata (not a generic polymorphic authorization
+// framework), frozen as historical context. It is never rewritten if the
+// followed Person's membership/assignment later changes; only closing and
+// creating a brand-new assignment changes who follows whom. Never
+// hard-deleted — closing sets status=CLOSED/closedAt/closedByUserId rather
+// than removing the row.
+model FollowUpAssignment {
+  id               String              @id @default(uuid())
+  followerId       String
+  followedPersonId String
+  contextType      FollowUpContextType
+  contextId        String
+  assignedByUserId String
+  assignedAt       DateTime            @default(now())
+  status           FollowUpStatus      @default(ACTIVE)
+  closedAt         DateTime?
+  closedByUserId   String?
+  closeReason      String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  follower       Person            @relation("FollowUpFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followedPerson Person            @relation("FollowUpFollowedPerson", fields: [followedPersonId], references: [id], onDelete: Cascade)
+  assignedBy     User              @relation("FollowUpAssignedBy", fields: [assignedByUserId], references: [id])
+  closedBy       User?             @relation("FollowUpClosedBy", fields: [closedByUserId], references: [id])
+  contacts       FollowUpContact[]
+
+  @@index([followerId])
+  @@index([followedPersonId])
+  @@index([contextType, contextId])
+  @@index([status])
+  @@index([assignedByUserId])
+}
+
+// A single, minimal, append-only contact record. Current wellbeing/last
+// contact/next follow-up are deliberately NOT duplicated onto
+// FollowUpAssignment — they are derived by reading the latest row here.
+model FollowUpContact {
+  id                   String          @id @default(uuid())
+  followUpAssignmentId String
+  contactedAt          DateTime        @default(now())
+  wellbeingStatus      WellbeingStatus
+  note                 String?
+  nextFollowUpDate     DateTime?
+  loggedByUserId       String
+  createdAt            DateTime        @default(now())
+
+  followUpAssignment FollowUpAssignment @relation(fields: [followUpAssignmentId], references: [id], onDelete: Cascade)
+  loggedBy           User               @relation(fields: [loggedByUserId], references: [id])
+
+  @@index([followUpAssignmentId])
+  @@index([contactedAt])
+  @@index([loggedByUserId])
 }
 
 model AuditLog {
