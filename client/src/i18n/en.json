@@ -86,7 +86,12 @@
     "active": "Active",
     "inactive": "Inactive",
     "geography_heading": "My Location",
-    "no_assignment": "No location on file yet."
+    "no_assignment": "No location on file yet.",
+    "progress_summary": "{{completed}} of {{total}} completed",
+    "progress_completed": "Completed",
+    "progress_not_yet": "Not yet",
+    "progress_best_percentage": "Best: {{percentage}}%",
+    "progress_unavailable": "Training progress is temporarily unavailable."
   },
   "memberAssessment": {
     "loading": "Loading…",
@@ -239,6 +244,17 @@
       "close_confirm": "Close this follow-up? It will move to your history and stop accepting new contacts.",
       "close_failed": "Failed to close follow-up.",
       "history_title": "Contact History"
+    },
+    "trainingProgress": {
+      "title": "Training Progress",
+      "load_failed": "Failed to load training progress.",
+      "table_person": "Person",
+      "table_status": "Status",
+      "table_best_percentage": "Best %",
+      "table_last_attempt": "Last Attempt",
+      "completed": "Completed",
+      "not_completed": "{{completed}} of {{total}} completed",
+      "no_members": "No active members in this community yet."
     }
   },
   "admin": {
@@ -590,7 +606,14 @@
       "status_active": "Active",
       "status_inactive": "Inactive",
       "activate": "Activate",
-      "deactivate": "Deactivate"
+      "deactivate": "Deactivate",
+      "trainingProgress": {
+        "title": "Training Progress",
+        "summary": "{{completed}} of {{total}} completed",
+        "no_progress": "No eligible training yet.",
+        "completed": "Completed",
+        "not_yet": "Not yet"
+      }
     },
     "geography": {
       "root": "Root",
@@ -670,7 +693,19 @@
       "table_community": "Community",
       "table_dates": "Dates",
       "table_assessments": "Assessments",
-      "no_devotionals": "No devotionals yet."
+      "no_devotionals": "No devotionals yet.",
+      "trainingProgress": {
+        "view_completion": "View Completion",
+        "completion_title": "Completion — {{title}}",
+        "table_person": "Person",
+        "table_status": "Status",
+        "table_best_percentage": "Best %",
+        "table_last_attempt": "Last Attempt",
+        "completed": "Completed",
+        "attempted_not_passed": "Attempted, not yet passed",
+        "not_attempted": "Not attempted",
+        "no_population": "No one is eligible for this devotional yet."
+      }
     },
     "assessments": {
       "title": "Assessments",

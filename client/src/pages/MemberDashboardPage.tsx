@@ -36,12 +36,29 @@ interface GeographicAssignmentInfo {
   assignedAt: string;
 }
 
+// Phase 3E — read-only, derived from existing Attempt data (never a new
+// persisted "completion" record). See server/src/lib/trainingProgress.ts.
+interface TrainingProgressItem {
+  devotionalId: string;
+  attempted: boolean;
+  completed: boolean;
+  bestPercentage: number | null;
+}
+
+interface TrainingProgressSummary {
+  totalEligible: number;
+  completedCount: number;
+  items: TrainingProgressItem[];
+}
+
 export function MemberDashboardPage() {
   const { t, i18n } = useTranslation();
   const { member, logout } = useMemberAuth();
   const [devotionals, setDevotionals] = useState<DevotionalSummary[]>([]);
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [assignment, setAssignment] = useState<GeographicAssignmentInfo | null>(null);
+  const [progress, setProgress] = useState<TrainingProgressSummary | null>(null);
+  const [progressError, setProgressError] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   const isFr = i18n.language.startsWith('fr');
@@ -58,7 +75,18 @@ export function MemberDashboardPage() {
         setAssignment(a.assignment);
       })
       .finally(() => setLoaded(true));
+
+    // Fetched independently — a failure here must never block the rest of
+    // the dashboard, which works exactly as it did before this phase.
+    api
+      .get<TrainingProgressSummary>('/api/member/me/training-progress')
+      .then(setProgress)
+      .catch(() => setProgressError(true));
   }, []);
+
+  function progressFor(devotionalId: string): TrainingProgressItem | undefined {
+    return progress?.items.find((i) => i.devotionalId === devotionalId);
+  }
 
   return (
     <PageShell minimal>
@@ -78,16 +106,41 @@ export function MemberDashboardPage() {
         ) : (
           <div className="space-y-6">
             <div className="card">
-              <h2 className="mb-3 font-semibold text-brand-900">{t('memberDashboard.devotionals_heading')}</h2>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="font-semibold text-brand-900">{t('memberDashboard.devotionals_heading')}</h2>
+                {progress && progress.totalEligible > 0 && (
+                  <span className="text-sm font-medium text-brand-700">
+                    {t('memberDashboard.progress_summary', { completed: progress.completedCount, total: progress.totalEligible })}
+                  </span>
+                )}
+              </div>
+              {progressError && <p className="mb-3 text-xs text-slate-400">{t('memberDashboard.progress_unavailable')}</p>}
               {devotionals.length === 0 ? (
                 <p className="text-sm text-slate-400">{t('memberDashboard.no_devotionals')}</p>
               ) : (
                 <ul className="space-y-4">
                   {devotionals.map((d) => {
                     const title = isFr ? d.titleFr || d.titleEn : d.titleEn;
+                    const itemProgress = progressFor(d.id);
                     return (
                       <li key={d.id} className="border-b border-slate-50 pb-4 last:border-0 last:pb-0">
-                        <p className="font-medium text-brand-900">{title}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-brand-900">{title}</p>
+                          {itemProgress && (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                itemProgress.completed ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'
+                              }`}
+                            >
+                              {itemProgress.completed ? t('memberDashboard.progress_completed') : t('memberDashboard.progress_not_yet')}
+                            </span>
+                          )}
+                          {itemProgress?.bestPercentage !== null && itemProgress?.bestPercentage !== undefined && (
+                            <span className="text-xs text-slate-400">
+                              {t('memberDashboard.progress_best_percentage', { percentage: Math.round(itemProgress.bestPercentage) })}
+                            </span>
+                          )}
+                        </div>
                         {d.assessments.length === 0 ? (
                           <p className="mt-1 text-sm text-slate-400">{t('memberDashboard.no_assessments')}</p>
                         ) : (

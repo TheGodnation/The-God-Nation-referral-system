@@ -86,7 +86,12 @@
     "active": "Actif",
     "inactive": "Inactif",
     "geography_heading": "Ma localisation",
-    "no_assignment": "Aucune localisation enregistrée pour le moment."
+    "no_assignment": "Aucune localisation enregistrée pour le moment.",
+    "progress_summary": "{{completed}} sur {{total}} terminé(s)",
+    "progress_completed": "Terminé",
+    "progress_not_yet": "Pas encore",
+    "progress_best_percentage": "Meilleur score : {{percentage}}%",
+    "progress_unavailable": "La progression de formation est temporairement indisponible."
   },
   "memberAssessment": {
     "loading": "Chargement…",
@@ -239,6 +244,17 @@
       "close_confirm": "Clôturer ce suivi ? Il passera dans votre historique et n'acceptera plus de nouveaux contacts.",
       "close_failed": "Échec de la clôture du suivi.",
       "history_title": "Historique des contacts"
+    },
+    "trainingProgress": {
+      "title": "Progression de la formation",
+      "load_failed": "Échec du chargement de la progression.",
+      "table_person": "Personne",
+      "table_status": "Statut",
+      "table_best_percentage": "Meilleur %",
+      "table_last_attempt": "Dernière tentative",
+      "completed": "Terminé",
+      "not_completed": "{{completed}} sur {{total}} terminé(s)",
+      "no_members": "Aucun membre actif dans cette communauté pour le moment."
     }
   },
   "admin": {
@@ -590,7 +606,14 @@
       "status_active": "Actif",
       "status_inactive": "Inactif",
       "activate": "Activer",
-      "deactivate": "Désactiver"
+      "deactivate": "Désactiver",
+      "trainingProgress": {
+        "title": "Progression de la formation",
+        "summary": "{{completed}} sur {{total}} terminé(s)",
+        "no_progress": "Aucune formation éligible pour le moment.",
+        "completed": "Terminé",
+        "not_yet": "Pas encore"
+      }
     },
     "geography": {
       "root": "Racine",
@@ -670,7 +693,19 @@
       "table_community": "Communauté",
       "table_dates": "Dates",
       "table_assessments": "Évaluations",
-      "no_devotionals": "Aucune dévotion pour le moment."
+      "no_devotionals": "Aucune dévotion pour le moment.",
+      "trainingProgress": {
+        "view_completion": "Voir la progression",
+        "completion_title": "Progression — {{title}}",
+        "table_person": "Personne",
+        "table_status": "Statut",
+        "table_best_percentage": "Meilleur %",
+        "table_last_attempt": "Dernière tentative",
+        "completed": "Terminé",
+        "attempted_not_passed": "Tenté, pas encore réussi",
+        "not_attempted": "Pas encore tenté",
+        "no_population": "Personne n'est encore éligible pour cette dévotion."
+      }
     },
     "assessments": {
       "title": "Évaluations",

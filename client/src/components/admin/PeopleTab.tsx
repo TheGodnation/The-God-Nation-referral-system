@@ -30,6 +30,23 @@ interface PersonDetail extends Omit<PersonRow, 'geographicAssignment'> {
 
 const EMPTY_PERSON_FORM = { name: '', whatsappNumber: '', email: '', preferredLanguage: 'en' as 'en' | 'fr' };
 
+// Phase 3E — read-only, derived from existing Attempt data.
+interface TrainingProgressItem {
+  devotionalId: string;
+  titleEn: string;
+  titleFr: string | null;
+  attempted: boolean;
+  completed: boolean;
+  bestPercentage: number | null;
+  lastAttemptAt: string | null;
+}
+
+interface TrainingProgressSummary {
+  totalEligible: number;
+  completedCount: number;
+  items: TrainingProgressItem[];
+}
+
 export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
@@ -44,6 +61,7 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
   const [detail, setDetail] = useState<PersonDetail | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_PERSON_FORM);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<TrainingProgressSummary | null>(null);
 
   function load() {
     const q = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
@@ -74,12 +92,17 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
   function openPerson(id: string) {
     setSelectedId(id);
     setDetailError(null);
+    setProgress(null);
     loadDetail(id);
+    // Fetched independently of the person detail — a failure here must
+    // never block editing the person's own record.
+    api.get<TrainingProgressSummary>(`/api/admin/people/${id}/training-progress`).then(setProgress).catch(() => {});
   }
 
   function backToList() {
     setSelectedId(null);
     setDetail(null);
+    setProgress(null);
     load();
   }
 
@@ -247,6 +270,44 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
             onPick={addMembership}
           />
         </div>
+
+        {progress && (
+          <div className="card mt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-brand-900">{t('admin.people.trainingProgress.title')}</h2>
+              {progress.totalEligible > 0 && (
+                <span className="text-sm text-slate-500">
+                  {t('admin.people.trainingProgress.summary', { completed: progress.completedCount, total: progress.totalEligible })}
+                </span>
+              )}
+            </div>
+            {progress.items.length === 0 ? (
+              <p className="text-sm text-slate-400">{t('admin.people.trainingProgress.no_progress')}</p>
+            ) : (
+              <ul className="space-y-2">
+                {progress.items.map((i) => (
+                  <li key={i.devotionalId} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-50 pb-2 text-sm">
+                    <span>{i.titleEn}</span>
+                    <span className="flex items-center gap-2">
+                      {i.completed ? (
+                        <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                          {t('admin.people.trainingProgress.completed')}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                          {t('admin.people.trainingProgress.not_yet')}
+                        </span>
+                      )}
+                      {i.bestPercentage !== null && (
+                        <span className="text-xs text-slate-400">{Math.round(i.bestPercentage)}%</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
     );
   }

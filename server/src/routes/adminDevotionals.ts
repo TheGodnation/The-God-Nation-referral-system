@@ -6,6 +6,7 @@ import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
+import { computeDevotionalCompletionForPersons } from '../lib/trainingProgress';
 
 const router = Router();
 
@@ -65,6 +66,57 @@ router.get('/:id', asyncHandler(async (req, res) => {
   });
   if (!devotional) return res.status(404).json({ error: 'Devotional not found.' });
   res.json(devotional);
+}));
+
+// GET /api/admin/devotionals/:id/completion-summary — Phase 3E. Population
+// semantics are deliberately different depending on whether the devotional
+// is Community-scoped or global, matching the existing Member eligibility
+// rule exactly:
+//  - Community-scoped (communityId set): population is every Person with an
+//    ACTIVE CommunityMembership in that EXACT Community — never a parent or
+//    child Community, never someone merely Geography-assigned, never a
+//    former/inactive member.
+//  - Global (communityId null): under the existing Member eligibility rule
+//    a global devotional has no Community restriction at all, so the
+//    population is every Person — this is not a new "everyone" concept
+//    invented for Phase 3E, it is the literal implication of the rule
+//    already used by GET /api/member/devotionals for a global devotional.
+// Paginated using the same convention as every other list in this file.
+router.get('/:id/completion-summary', asyncHandler(async (req, res) => {
+  const devotional = await prisma.monthlyDevotional.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, communityId: true },
+  });
+  if (!devotional) return res.status(404).json({ error: 'Devotional not found.' });
+
+  const { page, pageSize, skip, take } = parsePagination(req);
+
+  let total: number;
+  let personIds: string[];
+  if (devotional.communityId) {
+    const where = { communityId: devotional.communityId, status: 'ACTIVE' as const };
+    total = await prisma.communityMembership.count({ where });
+    const memberships = await prisma.communityMembership.findMany({
+      where,
+      select: { personId: true },
+      orderBy: { joinedAt: 'asc' },
+      skip,
+      take,
+    });
+    personIds = memberships.map((m) => m.personId);
+  } else {
+    total = await prisma.person.count();
+    const persons = await prisma.person.findMany({
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take,
+    });
+    personIds = persons.map((p) => p.id);
+  }
+
+  const rows = await computeDevotionalCompletionForPersons(devotional.id, personIds);
+  res.json(paginatedResult(rows ?? [], total, page, pageSize));
 }));
 
 const dateSchema = z

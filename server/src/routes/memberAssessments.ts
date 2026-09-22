@@ -5,6 +5,7 @@ import { requireMember } from '../lib/memberAuth';
 import { requireCsrf } from '../lib/csrf';
 import { memberAssessmentLimiter } from '../lib/rateLimit';
 import { createAttempt, submitAttempt, AssessmentSubmissionError } from '../lib/assessmentScoring';
+import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
@@ -220,6 +221,15 @@ router.post(
     }
   }),
 );
+
+// GET /api/member/me/training-progress — Phase 3E. Read-only, derived
+// entirely from existing Attempt data (see lib/trainingProgress.ts); the
+// Person is always the authenticated member's own — never accepted from a
+// query/body param, exactly like every other route in this file.
+router.get('/me/training-progress', asyncHandler(async (req, res) => {
+  const progress = await computeTrainingProgressForPerson(req.member!.personId);
+  res.json(progress);
+}));
 
 // ---------------------------------------------------------------------------
 // Read-only own Community/Geography (Section 20) — no editing, minimal

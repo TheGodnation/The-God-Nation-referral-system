@@ -14,6 +14,16 @@ interface DevotionalRow {
   _count: { assessments: number };
 }
 
+// Phase 3E — read-only, derived from existing Attempt data.
+interface CompletionRow {
+  personId: string;
+  name: string;
+  attempted: boolean;
+  completed: boolean;
+  bestPercentage: number | null;
+  lastAttemptAt: string | null;
+}
+
 const EMPTY_FORM = {
   titleEn: '',
   titleFr: '',
@@ -43,6 +53,11 @@ export function DevotionalsTab() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
+
+  const [completionFor, setCompletionFor] = useState<DevotionalRow | null>(null);
+  const [completionRows, setCompletionRows] = useState<CompletionRow[]>([]);
+  const [completionPage, setCompletionPage] = useState(1);
+  const [completionTotalPages, setCompletionTotalPages] = useState(1);
 
   function load() {
     api
@@ -118,6 +133,23 @@ export function DevotionalsTab() {
     await api.patch(`/api/admin/devotionals/${item.id}`, { status });
     load();
   }
+
+  function viewCompletion(item: DevotionalRow) {
+    setCompletionFor(item);
+    setCompletionPage(1);
+  }
+
+  useEffect(() => {
+    if (!completionFor) return;
+    api
+      .get<{ items: CompletionRow[]; pagination: { totalPages: number } }>(
+        `/api/admin/devotionals/${completionFor.id}/completion-summary?page=${completionPage}&pageSize=20`,
+      )
+      .then((res) => {
+        setCompletionRows(res.items);
+        setCompletionTotalPages(res.pagination.totalPages);
+      });
+  }, [completionFor, completionPage]);
 
   return (
     <div>
@@ -263,6 +295,81 @@ export function DevotionalsTab() {
         </form>
       )}
 
+      {completionFor && (
+        <div className="card mb-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-brand-900">
+              {t('admin.devotionals.trainingProgress.completion_title', { title: completionFor.titleEn })}
+            </h3>
+            <button type="button" className="text-sm text-slate-500 hover:underline" onClick={() => setCompletionFor(null)}>
+              {t('admin.devotionals.cancel')}
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400">
+                  <th className="py-2 pr-4">{t('admin.devotionals.trainingProgress.table_person')}</th>
+                  <th className="py-2 pr-4">{t('admin.devotionals.trainingProgress.table_status')}</th>
+                  <th className="py-2 pr-4">{t('admin.devotionals.trainingProgress.table_best_percentage')}</th>
+                  <th className="py-2 pr-4">{t('admin.devotionals.trainingProgress.table_last_attempt')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {completionRows.map((r) => (
+                  <tr key={r.personId} className="border-b border-slate-50">
+                    <td className="py-2 pr-4">{r.name}</td>
+                    <td className="py-2 pr-4">
+                      {r.completed ? (
+                        <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                          {t('admin.devotionals.trainingProgress.completed')}
+                        </span>
+                      ) : r.attempted ? (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                          {t('admin.devotionals.trainingProgress.attempted_not_passed')}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                          {t('admin.devotionals.trainingProgress.not_attempted')}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">{r.bestPercentage !== null ? `${Math.round(r.bestPercentage)}%` : '—'}</td>
+                    <td className="py-2 pr-4">{r.lastAttemptAt ? new Date(r.lastAttemptAt).toLocaleDateString() : '—'}</td>
+                  </tr>
+                ))}
+                {completionRows.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-center text-slate-400">
+                      {t('admin.devotionals.trainingProgress.no_population')}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {completionTotalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 text-sm">
+              <button
+                className="btn-secondary px-3 py-1.5"
+                disabled={completionPage <= 1}
+                onClick={() => setCompletionPage((p) => p - 1)}
+              >
+                {t('admin.prev')}
+              </button>
+              <span>{t('admin.page_of', { page: completionPage, total: completionTotalPages })}</span>
+              <button
+                className="btn-secondary px-3 py-1.5"
+                disabled={completionPage >= completionTotalPages}
+                onClick={() => setCompletionPage((p) => p + 1)}
+              >
+                {t('admin.next')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[700px] text-left text-sm">
           <thead>
@@ -295,6 +402,11 @@ export function DevotionalsTab() {
                   {item.status !== 'DRAFT' && (
                     <button className="text-brand-700 hover:underline" onClick={() => setStatus(item, 'DRAFT')}>
                       {t('admin.devotionals.revert_to_draft')}
+                    </button>
+                  )}
+                  {item._count.assessments > 0 && (
+                    <button className="text-brand-700 hover:underline" onClick={() => viewCompletion(item)}>
+                      {t('admin.devotionals.trainingProgress.view_completion')}
                     </button>
                   )}
                 </td>

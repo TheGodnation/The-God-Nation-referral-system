@@ -8,6 +8,7 @@ import { normalizeToE164 } from '../lib/phone';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
+import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
 
 const router = Router();
 
@@ -80,6 +81,19 @@ router.get('/people/:id', asyncHandler(async (req, res) => {
   });
   if (!person) return res.status(404).json({ error: 'Person not found.' });
   res.json(person);
+}));
+
+// GET /api/admin/people/:id/training-progress — Phase 3E. Admin may inspect
+// any Person's derived progress, regardless of Community/Geography scope. A
+// Person with no eligible devotional returns a clean zero-value result
+// (totalEligible: 0), never an error — only a genuinely nonexistent Person
+// is a 404.
+router.get('/people/:id/training-progress', asyncHandler(async (req, res) => {
+  const person = await prisma.person.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!person) return res.status(404).json({ error: 'Person not found.' });
+
+  const progress = await computeTrainingProgressForPerson(person.id);
+  res.json(progress);
 }));
 
 const createSchema = z.object({
