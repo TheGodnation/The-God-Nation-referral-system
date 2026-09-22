@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { api } from '../../lib/api';
+import { api, ApiError } from '../../lib/api';
 
 interface RoleAssignmentItem {
   id: string;
@@ -30,13 +30,19 @@ interface GeographyRosterRow {
 
 // Phase 3H — a read-only roster of the People belonging to an exact scope
 // the Leader currently holds an ACTIVE SCOPED_LEADER RoleAssignment for.
-// Deliberately separate from MyFollowUp: this shows who is in scope, never
-// who to act on — no follow-up buttons, no mutations, no deep links into
-// the follow-up system. Gated on holding at least one active role of
-// EITHER scope type (unlike TrainingProgress, which is Community-only,
-// since training has no Geography concept) — a component-level
-// convenience only; the server enforces the exact-scope check
-// independently on every request.
+// Gated on holding at least one active role of EITHER scope type (unlike
+// TrainingProgress, which is Community-only, since training has no
+// Geography concept) — a component-level convenience only; the server
+// enforces the exact-scope check independently on every request.
+//
+// Phase 3J adds one action — "Start Follow-Up" — that posts directly to the
+// existing POST /api/leader/follow-ups using this row's personId and the
+// currently selected scope as contextType/contextId. No new authorization
+// logic lives here: the server independently re-verifies the scoped role,
+// the person's membership in the exact scope, and the no-duplicate-active
+// constraint on every request, exactly as it already does for the create
+// form in MyFollowUp.tsx. Still no reassign/close/bulk actions, and no
+// roster-level display of any other Person's follow-up state.
 export function MyMembers() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -46,6 +52,9 @@ export function MyMembers() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState<string | null>(null);
+
+  const [startingPersonId, setStartingPersonId] = useState<string | null>(null);
+  const [actionResults, setActionResults] = useState<Record<string, { ok: boolean; text: string }>>({});
 
   useEffect(() => {
     api
@@ -89,6 +98,29 @@ export function MyMembers() {
     return 'membershipJoinedAt' in row ? row.membershipJoinedAt : row.geographicAssignedAt;
   }
 
+  async function startFollowUp(personId: string) {
+    if (!selected) return;
+    setStartingPersonId(personId);
+    setActionResults((prev) => {
+      const next = { ...prev };
+      delete next[personId];
+      return next;
+    });
+    try {
+      await api.post('/api/leader/follow-ups', {
+        followedPersonId: personId,
+        contextType: selected.scopeType,
+        contextId: selected.scopeId,
+      });
+      setActionResults((prev) => ({ ...prev, [personId]: { ok: true, text: t('leader.myMembers.start_followup_success') ?? '' } }));
+    } catch (err) {
+      const text = err instanceof ApiError ? err.message : t('leader.myMembers.start_followup_failed') ?? '';
+      setActionResults((prev) => ({ ...prev, [personId]: { ok: false, text } }));
+    } finally {
+      setStartingPersonId(null);
+    }
+  }
+
   return (
     <div className="card mt-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -122,23 +154,44 @@ export function MyMembers() {
       {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[420px] text-left text-sm">
+        <table className="w-full min-w-[520px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400">
               <th className="py-2 pr-4">{t('leader.myMembers.table_person')}</th>
               <th className="py-2 pr-4">{dateLabel}</th>
+              <th className="py-2 pr-4">{t('leader.myMembers.table_action')}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.personId} className="border-b border-slate-50">
-                <td className="py-2 pr-4">{r.name}</td>
-                <td className="py-2 pr-4">{new Date(rowDate(r)).toLocaleDateString()}</td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const result = actionResults[r.personId];
+              return (
+                <tr key={r.personId} className="border-b border-slate-50">
+                  <td className="py-2 pr-4">{r.name}</td>
+                  <td className="py-2 pr-4">{new Date(rowDate(r)).toLocaleDateString()}</td>
+                  <td className="py-2 pr-4">
+                    {result?.ok ? (
+                      <span className="text-xs font-medium text-green-700">{result.text}</span>
+                    ) : (
+                      <div>
+                        <button
+                          className="text-brand-700 hover:underline disabled:text-slate-300"
+                          type="button"
+                          disabled={startingPersonId === r.personId}
+                          onClick={() => startFollowUp(r.personId)}
+                        >
+                          {t('leader.myMembers.start_followup')}
+                        </button>
+                        {result && !result.ok && <p className="text-xs text-red-700">{result.text}</p>}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={2} className="py-4 text-center text-slate-400">
+                <td colSpan={3} className="py-4 text-center text-slate-400">
                   {t('leader.myMembers.no_members')}
                 </td>
               </tr>

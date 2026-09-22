@@ -262,7 +262,9 @@
       "attention_reason_needs_attention": "Needs attention",
       "attention_reason_unable_to_reach": "Unable to reach",
       "attention_reason_overdue": "Overdue",
-      "attention_reason_not_yet_contacted": "Not yet contacted"
+      "attention_reason_not_yet_contacted": "Not yet contacted",
+      "attention_log_action": "Log Contact",
+      "attention_log_success": "Contact logged."
     },
     "trainingProgress": {
       "title": "Training Progress",
@@ -283,7 +285,11 @@
       "table_assigned": "Assigned",
       "scope_community": "Community",
       "scope_geography": "Geography",
-      "no_members": "No active members in this scope yet."
+      "no_members": "No active members in this scope yet.",
+      "table_action": "Action",
+      "start_followup": "Start Follow-Up",
+      "start_followup_success": "Follow-up started.",
+      "start_followup_failed": "Failed to start follow-up."
     }
   },
   "admin": {

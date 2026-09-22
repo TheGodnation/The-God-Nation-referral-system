@@ -262,7 +262,9 @@
       "attention_reason_needs_attention": "Nécessite une attention",
       "attention_reason_unable_to_reach": "Injoignable",
       "attention_reason_overdue": "En retard",
-      "attention_reason_not_yet_contacted": "Pas encore contacté"
+      "attention_reason_not_yet_contacted": "Pas encore contacté",
+      "attention_log_action": "Enregistrer un contact",
+      "attention_log_success": "Contact enregistré."
     },
     "trainingProgress": {
       "title": "Progression de la formation",
@@ -283,7 +285,11 @@
       "table_assigned": "Assigné le",
       "scope_community": "Communauté",
       "scope_geography": "Zone géographique",
-      "no_members": "Aucun membre actif dans cette portée pour le moment."
+      "no_members": "Aucun membre actif dans cette portée pour le moment.",
+      "table_action": "Action",
+      "start_followup": "Démarrer le suivi",
+      "start_followup_success": "Suivi démarré.",
+      "start_followup_failed": "Échec du démarrage du suivi."
     }
   },
   "admin": {

@@ -105,8 +105,30 @@ export function MyFollowUp() {
   const [attentionLoading, setAttentionLoading] = useState(false);
   const [attentionError, setAttentionError] = useState<string | null>(null);
 
+  const [attentionLogTargetId, setAttentionLogTargetId] = useState<string | null>(null);
+  const [attentionWellbeing, setAttentionWellbeing] = useState<WellbeingStatus>('GOOD');
+  const [attentionNote, setAttentionNote] = useState('');
+  const [attentionNextFollowUpDate, setAttentionNextFollowUpDate] = useState('');
+  const [attentionActionError, setAttentionActionError] = useState<string | null>(null);
+  const [attentionActionSuccess, setAttentionActionSuccess] = useState<string | null>(null);
+
   function loadFollowUps() {
     api.get<{ items: FollowUpRow[] }>('/api/leader/follow-ups').then((res) => setItems(res.items));
+  }
+
+  function loadAttention() {
+    setAttentionLoading(true);
+    setAttentionError(null);
+    api
+      .get<{ items: AttentionRow[] }>('/api/leader/follow-ups/attention')
+      .then((attRes) => {
+        setAttentionItems(attRes.items);
+        setAttentionLoading(false);
+      })
+      .catch(() => {
+        setAttentionError(t('leader.followUp.attention_load_failed'));
+        setAttentionLoading(false);
+      });
   }
 
   useEffect(() => {
@@ -117,18 +139,7 @@ export function MyFollowUp() {
         setLoading(false);
         if (res.items.length > 0) {
           loadFollowUps();
-          setAttentionLoading(true);
-          setAttentionError(null);
-          api
-            .get<{ items: AttentionRow[] }>('/api/leader/follow-ups/attention')
-            .then((attRes) => {
-              setAttentionItems(attRes.items);
-              setAttentionLoading(false);
-            })
-            .catch(() => {
-              setAttentionError(t('leader.followUp.attention_load_failed'));
-              setAttentionLoading(false);
-            });
+          loadAttention();
         }
       })
       .catch((err) => {
@@ -204,6 +215,42 @@ export function MyFollowUp() {
       openDetail(selectedId);
     } catch (err) {
       setDetailError(err instanceof ApiError ? err.message : t('leader.followUp.contact_failed'));
+    }
+  }
+
+  function openAttentionLog(id: string) {
+    setAttentionLogTargetId(id);
+    setAttentionWellbeing('GOOD');
+    setAttentionNote('');
+    setAttentionNextFollowUpDate('');
+    setAttentionActionError(null);
+    setAttentionActionSuccess(null);
+  }
+
+  function cancelAttentionLog() {
+    setAttentionLogTargetId(null);
+    setAttentionActionError(null);
+  }
+
+  async function logContactFromAttention(e: React.FormEvent) {
+    e.preventDefault();
+    if (!attentionLogTargetId) return;
+    setAttentionActionError(null);
+    try {
+      await api.post(`/api/leader/follow-ups/${attentionLogTargetId}/contacts`, {
+        wellbeingStatus: attentionWellbeing,
+        note: attentionNote.trim() || undefined,
+        nextFollowUpDate: attentionNextFollowUpDate ? new Date(attentionNextFollowUpDate).toISOString() : undefined,
+      });
+      setAttentionLogTargetId(null);
+      setAttentionActionSuccess(t('leader.followUp.attention_log_success'));
+      setTimeout(() => setAttentionActionSuccess(null), 3000);
+      // The backend remains the source of truth for attention classification —
+      // re-fetch rather than guessing locally whether this item still qualifies.
+      loadFollowUps();
+      loadAttention();
+    } catch (err) {
+      setAttentionActionError(err instanceof ApiError ? err.message : t('leader.followUp.contact_failed'));
     }
   }
 
@@ -361,23 +408,83 @@ export function MyFollowUp() {
         <h3 className="mb-2 font-medium text-brand-900">{t('leader.followUp.attention_title')}</h3>
         {attentionLoading && <p className="text-sm text-slate-400">{t('leader.followUp.attention_loading')}</p>}
         {attentionError && <p className="text-sm text-red-700">{attentionError}</p>}
+        {attentionActionSuccess && <p className="mb-2 text-sm text-green-700">{attentionActionSuccess}</p>}
         {!attentionLoading && !attentionError && (
           <ul className="space-y-2">
             {attentionItems.map((a) => (
-              <li key={a.followUpAssignmentId} className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 text-sm">
-                <div>
-                  <p className="font-medium text-brand-900">{a.name}</p>
-                  <p className="text-slate-400">
-                    {a.lastContactedAt
-                      ? t('leader.followUp.attention_last_contact', { date: new Date(a.lastContactedAt).toLocaleDateString() })
-                      : t('leader.followUp.attention_no_contact')}
-                    {a.nextFollowUpDate &&
-                      ` · ${t('leader.followUp.attention_next_followup', { date: new Date(a.nextFollowUpDate).toLocaleDateString() })}`}
-                  </p>
+              <li key={a.followUpAssignmentId} className="border-b border-slate-50 pb-2 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-brand-900">{a.name}</p>
+                    <p className="text-slate-400">
+                      {a.lastContactedAt
+                        ? t('leader.followUp.attention_last_contact', { date: new Date(a.lastContactedAt).toLocaleDateString() })
+                        : t('leader.followUp.attention_no_contact')}
+                      {a.nextFollowUpDate &&
+                        ` · ${t('leader.followUp.attention_next_followup', { date: new Date(a.nextFollowUpDate).toLocaleDateString() })}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${attentionBadgeClass(a.reason)}`}>
+                      {t(`leader.followUp.attention_reason_${a.reason.toLowerCase()}`)}
+                    </span>
+                    {attentionLogTargetId !== a.followUpAssignmentId && (
+                      <button
+                        type="button"
+                        className="text-xs text-brand-700 hover:underline"
+                        onClick={() => openAttentionLog(a.followUpAssignmentId)}
+                      >
+                        {t('leader.followUp.attention_log_action')}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${attentionBadgeClass(a.reason)}`}>
-                  {t(`leader.followUp.attention_reason_${a.reason.toLowerCase()}`)}
-                </span>
+
+                {attentionLogTargetId === a.followUpAssignmentId && (
+                  <form onSubmit={logContactFromAttention} className="mt-3 space-y-3 rounded-lg border border-slate-100 p-3">
+                    <div>
+                      <label className="label">{t('leader.followUp.wellbeing_label')}</label>
+                      <select
+                        className="input"
+                        value={attentionWellbeing}
+                        onChange={(e) => setAttentionWellbeing(e.target.value as WellbeingStatus)}
+                      >
+                        {WELLBEING_OPTIONS.map((w) => (
+                          <option key={w} value={w}>
+                            {t(`leader.followUp.wellbeing_${w.toLowerCase()}`)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">{t('leader.followUp.note_label')}</label>
+                      <textarea
+                        className="input"
+                        rows={2}
+                        value={attentionNote}
+                        onChange={(e) => setAttentionNote(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">{t('leader.followUp.next_followup_label')}</label>
+                      <input
+                        className="input"
+                        type="date"
+                        value={attentionNextFollowUpDate}
+                        onChange={(e) => setAttentionNextFollowUpDate(e.target.value)}
+                      />
+                    </div>
+                    {attentionActionError && <p className="text-sm text-red-700">{attentionActionError}</p>}
+                    <div className="flex gap-3">
+                      <button className="btn-primary" type="submit">
+                        {t('leader.followUp.log_contact_action')}
+                      </button>
+                      <button type="button" className="text-sm text-slate-500 hover:underline" onClick={cancelAttentionLog}>
+                        {t('leader.followUp.cancel')}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </li>
             ))}
             {attentionItems.length === 0 && (
