@@ -176,13 +176,21 @@ describe('Phase 3H — GET /api/leader/roster — authorization', () => {
     expect(res.status).toBe(403);
   });
 
-  it('a parent Geography RoleAssignment does not expose the child Geography roster', async () => {
+  // Phase 3K deliberately supersedes this Phase 3H invariant for Geography
+  // specifically — Community, directly above, is untouched and remains
+  // exact-scope only. Geographical leadership visibility is intentionally
+  // descendant-aware: a Leader assigned to a parent Geography node is now
+  // authorized to view a descendant node's roster directly. See
+  // leaderRosterGeographyDescendant.test.ts for the full descendant-visibility
+  // matrix across every level (Sub-Division/Division/Region/Country).
+  it('a parent Geography RoleAssignment DOES expose the child Geography roster (Phase 3K descendant visibility)', async () => {
     const parent = await makeGeography('Roster Parent Geography');
     const child = await prisma.geography.create({ data: { name: 'Roster Child Geography', type: 'DIVISION', countryCode: 'CM', parentId: parent.id } });
     const { agent } = await setupScopedLeader(11, { geographyId: parent.id });
 
     const res = await agent.get(`/api/leader/roster?scopeType=GEOGRAPHY&scopeId=${child.id}`);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(res.body.scopeId).toBe(child.id);
   });
 
   it('a child Geography RoleAssignment does not expose the parent Geography roster', async () => {

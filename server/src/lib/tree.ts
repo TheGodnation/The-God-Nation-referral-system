@@ -1,3 +1,5 @@
+import { prisma } from './prisma';
+
 // Shared helper for the two self-referencing hierarchies (Geography,
 // Community). Prevents a reparent operation from creating a cycle (making
 // a node its own ancestor) by walking up from the candidate new parent
@@ -19,4 +21,34 @@ export async function wouldCreateCycle(
     currentId = node.parentId;
   }
   return false;
+}
+
+/**
+ * Phase 3K — narrowly scoped to Geography only (unlike wouldCreateCycle
+ * above, which is a generic two-hierarchy helper). Returns `rootId` itself
+ * plus every descendant id, walking DOWN via Geography.parentId one level
+ * at a time (breadth-first, one batched query per level) — application-
+ * level traversal consistent with the rest of this codebase, never a
+ * $queryRaw or recursive SQL CTE. The `seen` set is both the accumulator
+ * and the cycle guard: a child already seen is never re-queued, so
+ * malformed/cyclic data can never cause an infinite loop.
+ */
+export async function getDescendantGeographyIds(rootId: string): Promise<string[]> {
+  const seen = new Set<string>([rootId]);
+  let frontier = [rootId];
+  while (frontier.length > 0) {
+    const children = await prisma.geography.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true },
+    });
+    const next: string[] = [];
+    for (const child of children) {
+      if (!seen.has(child.id)) {
+        seen.add(child.id);
+        next.push(child.id);
+      }
+    }
+    frontier = next;
+  }
+  return Array.from(seen);
 }

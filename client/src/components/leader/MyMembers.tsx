@@ -26,14 +26,18 @@ interface GeographyRosterRow {
   personId: string;
   name: string;
   geographicAssignedAt: string;
+  // Phase 3K only: the person's own assigned Geography id, present so this
+  // component can tell an exact-scope row apart from a descendant-only row
+  // without a second request (see the server-side comment in leader.ts).
+  personGeographyId: string;
 }
 
-// Phase 3H — a read-only roster of the People belonging to an exact scope
-// the Leader currently holds an ACTIVE SCOPED_LEADER RoleAssignment for.
-// Gated on holding at least one active role of EITHER scope type (unlike
+// Phase 3H — a read-only roster of the People belonging to a scope the
+// Leader currently holds an ACTIVE SCOPED_LEADER RoleAssignment for. Gated
+// on holding at least one active role of EITHER scope type (unlike
 // TrainingProgress, which is Community-only, since training has no
 // Geography concept) — a component-level convenience only; the server
-// enforces the exact-scope check independently on every request.
+// enforces authorization independently on every request.
 //
 // Phase 3J adds one action — "Start Follow-Up" — that posts directly to the
 // existing POST /api/leader/follow-ups using this row's personId and the
@@ -43,6 +47,15 @@ interface GeographyRosterRow {
 // constraint on every request, exactly as it already does for the create
 // form in MyFollowUp.tsx. Still no reassign/close/bulk actions, and no
 // roster-level display of any other Person's follow-up state.
+//
+// Phase 3K makes the Geography branch descendant-aware server-side (a
+// Region Leader's roster now also includes people in that Region's
+// Divisions/Sub-Divisions/Villages) while Community stays exact-scope only.
+// Follow-Up creation itself is NOT widened to match — it still requires the
+// person's own GeographicAssignment to exactly equal the submitted
+// contextId — so this component only offers "Start Follow-Up" on rows
+// where personGeographyId === the selected scope's own id; a descendant-only
+// row shows an explanatory label instead of a button that would just fail.
 export function MyMembers() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -98,6 +111,14 @@ export function MyMembers() {
     return 'membershipJoinedAt' in row ? row.membershipJoinedAt : row.geographicAssignedAt;
   }
 
+  // Community rows are always exact-scope (Phase 3H never made Community
+  // descendant-aware), so this is only ever meaningful for Geography rows.
+  function isExactScopeRow(row: CommunityRosterRow | GeographyRosterRow): boolean {
+    if (!selected) return false;
+    if (!('personGeographyId' in row)) return true;
+    return row.personGeographyId === selected.scopeId;
+  }
+
   async function startFollowUp(personId: string) {
     if (!selected) return;
     setStartingPersonId(personId);
@@ -144,11 +165,14 @@ export function MyMembers() {
       </div>
 
       {selected && (
-        <p className="mb-3 text-sm text-slate-500">
+        <p className="mb-1 text-sm text-slate-500">
           {selected.scopeType === 'COMMUNITY' ? t('leader.myMembers.scope_community') : t('leader.myMembers.scope_geography')}
           {': '}
           {selected.scopeName}
         </p>
+      )}
+      {selected?.scopeType === 'GEOGRAPHY' && (
+        <p className="mb-3 text-xs text-slate-400">{t('leader.myMembers.geography_descendant_note')}</p>
       )}
 
       {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
@@ -172,7 +196,7 @@ export function MyMembers() {
                   <td className="py-2 pr-4">
                     {result?.ok ? (
                       <span className="text-xs font-medium text-green-700">{result.text}</span>
-                    ) : (
+                    ) : isExactScopeRow(r) ? (
                       <div>
                         <button
                           className="text-brand-700 hover:underline disabled:text-slate-300"
@@ -184,6 +208,8 @@ export function MyMembers() {
                         </button>
                         {result && !result.ok && <p className="text-xs text-red-700">{result.text}</p>}
                       </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">{t('leader.myMembers.outside_direct_scope')}</span>
                     )}
                   </td>
                 </tr>

@@ -289,7 +289,9 @@
       "table_action": "Action",
       "start_followup": "Démarrer le suivi",
       "start_followup_success": "Suivi démarré.",
-      "start_followup_failed": "Échec du démarrage du suivi."
+      "start_followup_failed": "Échec du démarrage du suivi.",
+      "geography_descendant_note": "Cette liste inclut les personnes de cette zone et de ses localités subordonnées.",
+      "outside_direct_scope": "Dans une localité subordonnée"
     }
   },
   "admin": {

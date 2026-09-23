@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from './prisma';
 import type { FollowUpContextType } from '@prisma/client';
+import { getDescendantGeographyIds } from './tree';
 
 declare global {
   namespace Express {
@@ -78,6 +79,30 @@ export async function personBelongsToContext(
   }
   const assignment = await prisma.geographicAssignment.findUnique({ where: { personId } });
   return Boolean(assignment && assignment.status === 'ACTIVE' && assignment.geographyId === contextId);
+}
+
+/**
+ * Phase 3K — additive, Geography-only, descendant-aware authorization
+ * check. Does NOT replace or alter findActiveScopedRole, which remains
+ * exact-match and is still the sole authorization gate for Follow-Up
+ * creation/reassignment/contacts, Community roster, and community-progress
+ * — none of those callers are touched by this addition.
+ *
+ * True when the Leader holds an ACTIVE SCOPED_LEADER RoleAssignment for a
+ * Geography node that is `requestedGeographyId` itself, or an ancestor of
+ * it (i.e. `requestedGeographyId` is that node or one of its descendants).
+ * Used only by the Geography branch of GET /api/leader/roster.
+ */
+export async function isGeographyInLeaderScope(personId: string, requestedGeographyId: string): Promise<boolean> {
+  const roles = await prisma.roleAssignment.findMany({
+    where: { personId, roleType: 'SCOPED_LEADER', status: 'ACTIVE', geographyId: { not: null } },
+    select: { geographyId: true },
+  });
+  for (const role of roles) {
+    const descendants = await getDescendantGeographyIds(role.geographyId!);
+    if (descendants.includes(requestedGeographyId)) return true;
+  }
+  return false;
 }
 
 /** Confirms the referenced Community or Geography actually exists. */

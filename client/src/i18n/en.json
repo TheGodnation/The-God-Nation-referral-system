@@ -289,7 +289,9 @@
       "table_action": "Action",
       "start_followup": "Start Follow-Up",
       "start_followup_success": "Follow-up started.",
-      "start_followup_failed": "Failed to start follow-up."
+      "start_followup_failed": "Failed to start follow-up.",
+      "geography_descendant_note": "This list includes people in this area and its subordinate localities.",
+      "outside_direct_scope": "In a subordinate locality"
     }
   },
   "admin": {
