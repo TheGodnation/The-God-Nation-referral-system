@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
+import { CommunityConversation } from '../components/CommunityConversation';
 
 interface AssessmentSummary {
   id: string;
@@ -25,6 +26,7 @@ interface DevotionalSummary {
 }
 
 interface MembershipRow {
+  communityId: string;
   communityName: string;
   status: 'ACTIVE' | 'INACTIVE';
   joinedAt: string;
@@ -258,6 +260,12 @@ export function MemberDashboardPage() {
                 </ul>
               )}
             </div>
+
+            {memberships
+              .filter((m) => m.status === 'ACTIVE')
+              .map((m) => (
+                <CommunityConversation key={m.communityId} communityId={m.communityId} communityName={m.communityName} />
+              ))}
 
             <div className="card">
               <h2 className="mb-3 font-semibold text-brand-900">{t('memberDashboard.geography_heading')}</h2>

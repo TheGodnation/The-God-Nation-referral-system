@@ -872,6 +872,17 @@
       "saving": "Saving…"
     }
   },
+  "communityConversation": {
+    "title": "{{community}} — Conversation",
+    "loading": "Loading…",
+    "load_failed": "Failed to load the conversation.",
+    "load_older": "Load older messages",
+    "no_messages": "No messages yet. Be the first to say something.",
+    "composer_placeholder": "Write a message…",
+    "send": "Send",
+    "sending": "Sending…",
+    "send_failed": "Failed to send message."
+  },
   "common": {
     "language_en": "English",
     "language_fr": "Français",

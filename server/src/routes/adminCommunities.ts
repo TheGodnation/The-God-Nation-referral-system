@@ -106,8 +106,15 @@ router.post('/', communityGeographyMutationLimiter, requireCsrf, asyncHandler(as
     if (!parent) return res.status(400).json({ error: 'Parent community not found.' });
   }
 
-  const created = await prisma.community.create({
-    data: { name: d.name, parentId: d.parentId ?? null, active: d.active ?? true },
+  // Phase 3M.1: every Community gets its one Conversation eagerly, in the
+  // same transaction as its own creation — Conversation.communityId's
+  // unique constraint guarantees this can never produce more than one.
+  const created = await prisma.$transaction(async (tx) => {
+    const community = await tx.community.create({
+      data: { name: d.name, parentId: d.parentId ?? null, active: d.active ?? true },
+    });
+    await tx.conversation.create({ data: { communityId: community.id } });
+    return community;
   });
 
   await recordAudit({

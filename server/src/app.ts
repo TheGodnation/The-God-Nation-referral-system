@@ -32,6 +32,7 @@ import adminLeadershipRoutes from './routes/adminLeadership';
 import leaderFollowUpsRoutes from './routes/leaderFollowUps';
 import leaderLeadershipProposalsRoutes from './routes/leaderLeadershipProposals';
 import adminLeadershipProposalsRoutes from './routes/adminLeadershipProposals';
+import communityConversationsRoutes from './routes/communityConversations';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -97,6 +98,11 @@ export function createApp() {
   // path under '/api/admin' — same root-mount pattern as the routes above.
   app.use('/api/leader', leaderLeadershipProposalsRoutes);
   app.use('/api/admin', adminLeadershipProposalsRoutes);
+  // Phase 3M.1: one shared resource family for a Community's conversation,
+  // reachable by an authenticated Member or Leader — authorization branches
+  // internally (see communityConversations.ts) rather than duplicating
+  // routes per role.
+  app.use('/api/communities', communityConversationsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

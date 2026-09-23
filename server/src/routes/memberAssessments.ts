@@ -240,11 +240,15 @@ router.get('/me/training-progress', asyncHandler(async (req, res) => {
 router.get('/me/community-memberships', asyncHandler(async (req, res) => {
   const memberships = await prisma.communityMembership.findMany({
     where: { personId: req.member!.personId },
-    include: { community: { select: { name: true } } },
+    include: { community: { select: { id: true, name: true } } },
     orderBy: { joinedAt: 'desc' },
   });
   res.json({
     items: memberships.map((m) => ({
+      // Phase 3M.1: communityId is additive — needed so the client can
+      // address this Community's conversation. Every existing field is
+      // unchanged.
+      communityId: m.community.id,
       communityName: m.community.name,
       status: m.status,
       joinedAt: m.joinedAt,

@@ -872,6 +872,17 @@
       "saving": "Enregistrement…"
     }
   },
+  "communityConversation": {
+    "title": "{{community}} — Conversation",
+    "loading": "Chargement…",
+    "load_failed": "Échec du chargement de la conversation.",
+    "load_older": "Charger les messages plus anciens",
+    "no_messages": "Aucun message pour l'instant. Soyez le premier à écrire.",
+    "composer_placeholder": "Écrire un message…",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "send_failed": "Échec de l'envoi du message."
+  },
   "common": {
     "language_en": "English",
     "language_fr": "Français",
