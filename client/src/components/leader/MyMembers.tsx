@@ -56,6 +56,15 @@ interface GeographyRosterRow {
 // contextId — so this component only offers "Start Follow-Up" on rows
 // where personGeographyId === the selected scope's own id; a descendant-only
 // row shows an explanatory label instead of a button that would just fail.
+//
+// Phase 3L adds "Propose for Leadership" for Geography rows — a
+// recommendation only, never an appointment. Unlike Follow-Up, the
+// server's own authorization rule (isGeographyInLeaderScope + the
+// candidate's real GeographicAssignment falling within the *selected*
+// scope's subtree) is satisfied by every row already visible in a Geography
+// roster for that scope, exact or descendant alike, so the action is
+// offered unconditionally here — the server independently re-verifies both
+// directions on every request regardless of what this component assumes.
 export function MyMembers() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -68,6 +77,11 @@ export function MyMembers() {
 
   const [startingPersonId, setStartingPersonId] = useState<string | null>(null);
   const [actionResults, setActionResults] = useState<Record<string, { ok: boolean; text: string }>>({});
+
+  const [proposingPersonId, setProposingPersonId] = useState<string | null>(null);
+  const [proposalNote, setProposalNote] = useState('');
+  const [proposalSubmitting, setProposalSubmitting] = useState(false);
+  const [proposalResults, setProposalResults] = useState<Record<string, { ok: boolean; text: string }>>({});
 
   useEffect(() => {
     api
@@ -142,6 +156,41 @@ export function MyMembers() {
     }
   }
 
+  function openProposeForm(personId: string) {
+    setProposingPersonId(personId);
+    setProposalNote('');
+  }
+
+  function cancelProposeForm() {
+    setProposingPersonId(null);
+    setProposalNote('');
+  }
+
+  async function submitProposal(personId: string) {
+    if (!selected) return;
+    setProposalSubmitting(true);
+    setProposalResults((prev) => {
+      const next = { ...prev };
+      delete next[personId];
+      return next;
+    });
+    try {
+      await api.post('/api/leader/leadership-proposals', {
+        proposedPersonId: personId,
+        geographyId: selected.scopeId,
+        note: proposalNote.trim() || undefined,
+      });
+      setProposingPersonId(null);
+      setProposalNote('');
+      setProposalResults((prev) => ({ ...prev, [personId]: { ok: true, text: t('leader.myMembers.propose_success') ?? '' } }));
+    } catch (err) {
+      const text = err instanceof ApiError ? err.message : t('leader.myMembers.propose_failed') ?? '';
+      setProposalResults((prev) => ({ ...prev, [personId]: { ok: false, text } }));
+    } finally {
+      setProposalSubmitting(false);
+    }
+  }
+
   return (
     <div className="card mt-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -189,28 +238,64 @@ export function MyMembers() {
           <tbody>
             {rows.map((r) => {
               const result = actionResults[r.personId];
+              const proposalResult = proposalResults[r.personId];
               return (
                 <tr key={r.personId} className="border-b border-slate-50">
                   <td className="py-2 pr-4">{r.name}</td>
                   <td className="py-2 pr-4">{new Date(rowDate(r)).toLocaleDateString()}</td>
                   <td className="py-2 pr-4">
-                    {result?.ok ? (
-                      <span className="text-xs font-medium text-green-700">{result.text}</span>
-                    ) : isExactScopeRow(r) ? (
-                      <div>
-                        <button
-                          className="text-brand-700 hover:underline disabled:text-slate-300"
-                          type="button"
-                          disabled={startingPersonId === r.personId}
-                          onClick={() => startFollowUp(r.personId)}
-                        >
-                          {t('leader.myMembers.start_followup')}
-                        </button>
-                        {result && !result.ok && <p className="text-xs text-red-700">{result.text}</p>}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400">{t('leader.myMembers.outside_direct_scope')}</span>
-                    )}
+                    <div className="space-y-1">
+                      {result?.ok ? (
+                        <span className="block text-xs font-medium text-green-700">{result.text}</span>
+                      ) : isExactScopeRow(r) ? (
+                        <div>
+                          <button
+                            className="text-brand-700 hover:underline disabled:text-slate-300"
+                            type="button"
+                            disabled={startingPersonId === r.personId}
+                            onClick={() => startFollowUp(r.personId)}
+                          >
+                            {t('leader.myMembers.start_followup')}
+                          </button>
+                          {result && !result.ok && <p className="text-xs text-red-700">{result.text}</p>}
+                        </div>
+                      ) : (
+                        <span className="block text-xs text-slate-400">{t('leader.myMembers.outside_direct_scope')}</span>
+                      )}
+
+                      {selected?.scopeType === 'GEOGRAPHY' &&
+                        (proposalResult?.ok ? (
+                          <span className="block text-xs font-medium text-green-700">{proposalResult.text}</span>
+                        ) : proposingPersonId === r.personId ? (
+                          <div className="space-y-1 rounded border border-slate-100 p-2">
+                            <textarea
+                              className="input text-xs"
+                              rows={2}
+                              placeholder={t('leader.myMembers.propose_note_placeholder') ?? ''}
+                              value={proposalNote}
+                              onChange={(e) => setProposalNote(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                className="btn-primary px-2 py-1 text-xs"
+                                disabled={proposalSubmitting}
+                                onClick={() => submitProposal(r.personId)}
+                              >
+                                {t('leader.myMembers.propose_submit')}
+                              </button>
+                              <button type="button" className="text-xs text-slate-500 hover:underline" onClick={cancelProposeForm}>
+                                {t('leader.followUp.cancel')}
+                              </button>
+                            </div>
+                            {proposalResult && !proposalResult.ok && <p className="text-xs text-red-700">{proposalResult.text}</p>}
+                          </div>
+                        ) : (
+                          <button type="button" className="text-xs text-brand-700 hover:underline" onClick={() => openProposeForm(r.personId)}>
+                            {t('leader.myMembers.propose_action')}
+                          </button>
+                        ))}
+                    </div>
                   </td>
                 </tr>
               );

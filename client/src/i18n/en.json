@@ -291,7 +291,28 @@
       "start_followup_success": "Follow-up started.",
       "start_followup_failed": "Failed to start follow-up.",
       "geography_descendant_note": "This list includes people in this area and its subordinate localities.",
-      "outside_direct_scope": "In a subordinate locality"
+      "outside_direct_scope": "In a subordinate locality",
+      "propose_action": "Propose for Leadership",
+      "propose_note_placeholder": "Optional note for Central Authority",
+      "propose_submit": "Submit Proposal",
+      "propose_success": "Proposal submitted for Central Authority review.",
+      "propose_failed": "Failed to submit proposal."
+    },
+    "leadershipProposals": {
+      "title": "My Leadership Proposals",
+      "load_failed": "Failed to load your proposals.",
+      "recommendation_note": "These are recommendations only. Central Authority reviews and formally appoints leaders separately.",
+      "table_candidate": "Candidate",
+      "table_geography": "Geography",
+      "table_status": "Status",
+      "table_date": "Date",
+      "table_action": "Action",
+      "status_proposed": "Pending Review",
+      "status_approved": "Approved",
+      "status_rejected": "Rejected",
+      "status_withdrawn": "Withdrawn",
+      "withdraw": "Withdraw",
+      "withdraw_failed": "Failed to withdraw proposal."
     }
   },
   "admin": {
@@ -403,6 +424,29 @@
       "table_assigned_by": "Assigned By",
       "table_assigned_at": "Assigned",
       "no_assignments": "No role assignments found."
+    },
+    "leadershipProposals": {
+      "title": "Leadership Proposals",
+      "description": "Geographical leaders may recommend a person for leadership of their territory. A proposal is a recommendation only — approving one does not appoint the person. To formally appoint a leader, use the New Assignment form above.",
+      "load_failed": "Failed to load leadership proposals.",
+      "decision_failed": "Failed to record decision.",
+      "table_candidate": "Candidate",
+      "table_geography": "Geography",
+      "table_proposer": "Proposed By",
+      "table_date": "Date",
+      "table_status": "Status",
+      "table_note": "Note",
+      "table_action": "Action",
+      "status_proposed": "Pending Review",
+      "status_approved": "Approved (recommendation only)",
+      "status_rejected": "Rejected",
+      "status_withdrawn": "Withdrawn",
+      "decided_by": "Decided by {{name}} on {{date}}",
+      "decision_note_placeholder": "Optional decision note",
+      "approve": "Approve Recommendation",
+      "reject": "Reject",
+      "no_proposals": "No leadership proposals found.",
+      "appointment_separate_note": "Approving a recommendation does not create a formal appointment. To officially appoint this person, use the New Assignment form above."
     },
     "followUps": {
       "title": "Follow-Ups",

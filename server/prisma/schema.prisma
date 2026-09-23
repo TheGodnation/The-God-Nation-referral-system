@@ -97,6 +97,18 @@ enum WellbeingStatus {
   UNABLE_TO_REACH
 }
 
+// Phase 3L: a proposal is a recommendation only — never an appointment.
+// PROPOSED is the only state either later transition originates from;
+// APPROVED/REJECTED/WITHDRAWN are all terminal (enforced in application
+// code, not by the enum itself, matching this schema's existing convention
+// of enforcing status transitions in routes rather than in the database).
+enum LeadershipProposalStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
@@ -137,6 +149,7 @@ model User {
   followUpAssignmentsCreated FollowUpAssignment[]   @relation("FollowUpAssignedBy")
   followUpAssignmentsClosed  FollowUpAssignment[]   @relation("FollowUpClosedBy")
   followUpContactsLogged     FollowUpContact[]
+  leadershipProposalsDecided LeadershipProposal[]
 
   @@index([role])
 }
@@ -426,6 +439,8 @@ model Person {
   roleAssignments       RoleAssignment[]
   followingAssignments  FollowUpAssignment[]  @relation("FollowUpFollower")
   followedByAssignments FollowUpAssignment[]  @relation("FollowUpFollowedPerson")
+  leadershipProposalsMade     LeadershipProposal[] @relation("LeadershipProposalProposer")
+  leadershipProposalsReceived LeadershipProposal[] @relation("LeadershipProposalCandidate")
 
   @@index([isTestData])
 }
@@ -495,6 +510,7 @@ model Geography {
   children        Geography[]            @relation("GeographyHierarchy")
   assignments     GeographicAssignment[]
   roleAssignments RoleAssignment[]
+  leadershipProposals LeadershipProposal[]
 
   @@index([parentId])
   @@index([countryCode, parentId])
@@ -852,6 +868,37 @@ model FollowUpContact {
   @@index([followUpAssignmentId])
   @@index([contactedAt])
   @@index([loggedByUserId])
+}
+
+// Phase 3L: a geographical Leader's recommendation of a Person for
+// leadership of a Geography node — NEVER an appointment. Approving a
+// proposal only changes this row (status/decidedAt/decidedByUserId/
+// decisionNote); it never creates, updates, or ends a RoleAssignment. The
+// existing Admin-only RoleAssignment flow (adminLeadership.ts) remains the
+// sole formal appointment mechanism, completely separate from this model.
+// Deliberately Geography-only (no communityId) — this phase is scoped to
+// geographical leadership only, so there's no need for RoleAssignment's
+// exactly-one-of-community-or-geography duality here.
+model LeadershipProposal {
+  id                 String                   @id @default(uuid())
+  proposedPersonId   String
+  geographyId        String
+  proposedByPersonId String
+  status             LeadershipProposalStatus @default(PROPOSED)
+  note               String?
+  createdAt          DateTime                 @default(now())
+  decidedAt          DateTime?
+  decidedByUserId    String?
+  decisionNote       String?
+
+  proposedPerson   Person    @relation("LeadershipProposalCandidate", fields: [proposedPersonId], references: [id], onDelete: Cascade)
+  proposedByPerson Person    @relation("LeadershipProposalProposer", fields: [proposedByPersonId], references: [id], onDelete: Cascade)
+  geography        Geography @relation(fields: [geographyId], references: [id], onDelete: Cascade)
+  decidedByUser    User?     @relation(fields: [decidedByUserId], references: [id])
+
+  @@index([proposedByPersonId, status])
+  @@index([proposedPersonId, status])
+  @@index([geographyId, status])
 }
 
 model AuditLog {

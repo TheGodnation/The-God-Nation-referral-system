@@ -30,6 +30,8 @@ import memberAuthRoutes from './routes/memberAuth';
 import memberAssessmentsRoutes from './routes/memberAssessments';
 import adminLeadershipRoutes from './routes/adminLeadership';
 import leaderFollowUpsRoutes from './routes/leaderFollowUps';
+import leaderLeadershipProposalsRoutes from './routes/leaderLeadershipProposals';
+import adminLeadershipProposalsRoutes from './routes/adminLeadershipProposals';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -90,6 +92,11 @@ export function createApp() {
   // adminPeopleRoutes/adminAttemptsRoutes above.
   app.use('/api/admin', adminLeadershipRoutes);
   app.use('/api/leader', leaderFollowUpsRoutes);
+  // Phase 3L: leaderLeadershipProposalsRoutes defines '/leadership-proposals'
+  // under '/api/leader'; adminLeadershipProposalsRoutes defines the same
+  // path under '/api/admin' — same root-mount pattern as the routes above.
+  app.use('/api/leader', leaderLeadershipProposalsRoutes);
+  app.use('/api/admin', adminLeadershipProposalsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

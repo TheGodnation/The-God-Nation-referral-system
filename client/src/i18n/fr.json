@@ -291,7 +291,28 @@
       "start_followup_success": "Suivi démarré.",
       "start_followup_failed": "Échec du démarrage du suivi.",
       "geography_descendant_note": "Cette liste inclut les personnes de cette zone et de ses localités subordonnées.",
-      "outside_direct_scope": "Dans une localité subordonnée"
+      "outside_direct_scope": "Dans une localité subordonnée",
+      "propose_action": "Proposer pour le leadership",
+      "propose_note_placeholder": "Note facultative pour l'Autorité Centrale",
+      "propose_submit": "Soumettre la proposition",
+      "propose_success": "Proposition soumise pour examen par l'Autorité Centrale.",
+      "propose_failed": "Échec de la soumission de la proposition."
+    },
+    "leadershipProposals": {
+      "title": "Mes propositions de leadership",
+      "load_failed": "Échec du chargement de vos propositions.",
+      "recommendation_note": "Il s'agit uniquement de recommandations. L'Autorité Centrale les examine et nomme formellement les leaders séparément.",
+      "table_candidate": "Candidat",
+      "table_geography": "Zone géographique",
+      "table_status": "Statut",
+      "table_date": "Date",
+      "table_action": "Action",
+      "status_proposed": "En attente d'examen",
+      "status_approved": "Approuvée",
+      "status_rejected": "Rejetée",
+      "status_withdrawn": "Retirée",
+      "withdraw": "Retirer",
+      "withdraw_failed": "Échec du retrait de la proposition."
     }
   },
   "admin": {
@@ -403,6 +424,29 @@
       "table_assigned_by": "Attribué par",
       "table_assigned_at": "Attribué le",
       "no_assignments": "Aucune attribution de rôle trouvée."
+    },
+    "leadershipProposals": {
+      "title": "Propositions de leadership",
+      "description": "Les leaders géographiques peuvent recommander une personne pour le leadership de leur territoire. Une proposition est uniquement une recommandation — l'approuver ne nomme pas la personne. Pour nommer formellement un leader, utilisez le formulaire « Nouvelle attribution » ci-dessus.",
+      "load_failed": "Échec du chargement des propositions de leadership.",
+      "decision_failed": "Échec de l'enregistrement de la décision.",
+      "table_candidate": "Candidat",
+      "table_geography": "Zone géographique",
+      "table_proposer": "Proposé par",
+      "table_date": "Date",
+      "table_status": "Statut",
+      "table_note": "Note",
+      "table_action": "Action",
+      "status_proposed": "En attente d'examen",
+      "status_approved": "Approuvée (recommandation uniquement)",
+      "status_rejected": "Rejetée",
+      "status_withdrawn": "Retirée",
+      "decided_by": "Décidé par {{name}} le {{date}}",
+      "decision_note_placeholder": "Note de décision facultative",
+      "approve": "Approuver la recommandation",
+      "reject": "Rejeter",
+      "no_proposals": "Aucune proposition de leadership trouvée.",
+      "appointment_separate_note": "Approuver une recommandation ne crée pas de nomination formelle. Pour nommer officiellement cette personne, utilisez le formulaire « Nouvelle attribution » ci-dessus."
     },
     "followUps": {
       "title": "Suivis",

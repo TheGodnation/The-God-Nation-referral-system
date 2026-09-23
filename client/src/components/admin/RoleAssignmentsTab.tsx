@@ -15,6 +15,34 @@ interface RoleAssignmentRow {
   assignedBy: { id: string; name: string; email: string };
 }
 
+type ProposalStatus = 'PROPOSED' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+
+interface LeadershipProposalRow {
+  id: string;
+  status: ProposalStatus;
+  note: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  proposedPerson: { id: string; name: string };
+  proposedByPerson: { id: string; name: string };
+  geography: { id: string; name: string; type: string };
+  decidedByUser: { id: string; name: string; email: string } | null;
+}
+
+function proposalStatusBadgeClass(status: ProposalStatus) {
+  switch (status) {
+    case 'APPROVED':
+      return 'bg-green-50 text-green-700';
+    case 'REJECTED':
+      return 'bg-red-50 text-red-700';
+    case 'WITHDRAWN':
+      return 'bg-slate-100 text-slate-500';
+    default:
+      return 'bg-amber-50 text-amber-700';
+  }
+}
+
 // Phase 3D — Admin-only screen for granting/ending a Person's scoped
 // leadership over an exact Community or Geography. This is a distinct
 // concept from a "Leader" User account: RoleAssignment always targets a
@@ -32,6 +60,48 @@ export function RoleAssignmentsTab() {
   const [scopeType, setScopeType] = useState<'COMMUNITY' | 'GEOGRAPHY'>('COMMUNITY');
   const [selectedScope, setSelectedScope] = useState<{ id: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [proposals, setProposals] = useState<LeadershipProposalRow[]>([]);
+  const [proposalsPage, setProposalsPage] = useState(1);
+  const [proposalsTotalPages, setProposalsTotalPages] = useState(1);
+  const [proposalsStatusFilter, setProposalsStatusFilter] = useState<'' | ProposalStatus>('PROPOSED');
+  const [proposalsError, setProposalsError] = useState<string | null>(null);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [decisionNotes, setDecisionNotes] = useState<Record<string, string>>({});
+
+  function loadProposals() {
+    const q = proposalsStatusFilter ? `&status=${proposalsStatusFilter}` : '';
+    api
+      .get<{ items: LeadershipProposalRow[]; pagination: { totalPages: number } }>(
+        `/api/admin/leadership-proposals?page=${proposalsPage}&pageSize=20${q}`,
+      )
+      .then((res) => {
+        setProposals(res.items);
+        setProposalsTotalPages(res.pagination.totalPages);
+      })
+      .catch(() => setProposalsError(t('admin.leadershipProposals.load_failed')));
+  }
+
+  useEffect(loadProposals, [proposalsPage, proposalsStatusFilter]);
+
+  // Phase 3L — records a decision only. This never creates, updates, or
+  // ends a RoleAssignment; if Central Authority decides to actually appoint
+  // this person, that remains the existing, separate "New Assignment" form
+  // above, unchanged.
+  async function decideProposal(id: string, action: 'approve' | 'reject') {
+    setDecidingId(id);
+    setProposalsError(null);
+    try {
+      await api.patch(`/api/admin/leadership-proposals/${id}/${action}`, {
+        decisionNote: decisionNotes[id]?.trim() || undefined,
+      });
+      loadProposals();
+    } catch (err) {
+      setProposalsError(err instanceof ApiError ? err.message : t('admin.leadershipProposals.decision_failed'));
+    } finally {
+      setDecidingId(null);
+    }
+  }
 
   function load() {
     const q = statusFilter ? `&status=${statusFilter}` : '';
@@ -272,6 +342,137 @@ export function RoleAssignmentsTab() {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="card mt-6">
+        <h2 className="mb-2 font-semibold text-brand-900">{t('admin.leadershipProposals.title')}</h2>
+        <p className="mb-4 text-sm text-slate-500">{t('admin.leadershipProposals.description')}</p>
+
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          <label className="label mb-0">{t('admin.roleAssignments.filter_status')}</label>
+          <select
+            className="input w-auto"
+            value={proposalsStatusFilter}
+            onChange={(e) => {
+              setProposalsStatusFilter(e.target.value as '' | ProposalStatus);
+              setProposalsPage(1);
+            }}
+          >
+            <option value="">{t('admin.roleAssignments.filter_all')}</option>
+            <option value="PROPOSED">{t('admin.leadershipProposals.status_proposed')}</option>
+            <option value="APPROVED">{t('admin.leadershipProposals.status_approved')}</option>
+            <option value="REJECTED">{t('admin.leadershipProposals.status_rejected')}</option>
+            <option value="WITHDRAWN">{t('admin.leadershipProposals.status_withdrawn')}</option>
+          </select>
+        </div>
+
+        {proposalsError && <p className="mb-4 text-sm text-red-700">{proposalsError}</p>}
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-slate-400">
+                <th className="py-2 pr-4">{t('admin.leadershipProposals.table_candidate')}</th>
+                <th className="py-2 pr-4">{t('admin.leadershipProposals.table_geography')}</th>
+                <th className="py-2 pr-4">{t('admin.leadershipProposals.table_proposer')}</th>
+                <th className="py-2 pr-4">{t('admin.leadershipProposals.table_date')}</th>
+                <th className="py-2 pr-4">{t('admin.leadershipProposals.table_status')}</th>
+                <th className="py-2 pr-4">{t('admin.leadershipProposals.table_note')}</th>
+                <th className="py-2 pr-4">{t('admin.leadershipProposals.table_action')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {proposals.map((p) => (
+                <tr key={p.id} className="border-b border-slate-50 align-top">
+                  <td className="py-2 pr-4">{p.proposedPerson.name}</td>
+                  <td className="py-2 pr-4">
+                    {p.geography.name} ({p.geography.type})
+                  </td>
+                  <td className="py-2 pr-4">{p.proposedByPerson.name}</td>
+                  <td className="py-2 pr-4">{new Date(p.createdAt).toLocaleDateString()}</td>
+                  <td className="py-2 pr-4">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${proposalStatusBadgeClass(p.status)}`}>
+                      {t(`admin.leadershipProposals.status_${p.status.toLowerCase()}`)}
+                    </span>
+                    {p.decidedByUser && p.decidedAt && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        {t('admin.leadershipProposals.decided_by', {
+                          name: p.decidedByUser.name,
+                          date: new Date(p.decidedAt).toLocaleDateString(),
+                        })}
+                      </p>
+                    )}
+                  </td>
+                  <td className="max-w-[200px] py-2 pr-4">
+                    {p.note && <p className="text-xs text-slate-500">{p.note}</p>}
+                    {p.decisionNote && <p className="mt-1 text-xs italic text-slate-400">{p.decisionNote}</p>}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {p.status === 'PROPOSED' ? (
+                      <div className="space-y-2">
+                        <textarea
+                          className="input text-xs"
+                          rows={1}
+                          placeholder={t('admin.leadershipProposals.decision_note_placeholder') ?? ''}
+                          value={decisionNotes[p.id] ?? ''}
+                          onChange={(e) => setDecisionNotes((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="btn-primary px-2 py-1 text-xs"
+                            disabled={decidingId === p.id}
+                            onClick={() => decideProposal(p.id, 'approve')}
+                          >
+                            {t('admin.leadershipProposals.approve')}
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs text-red-700 hover:underline"
+                            disabled={decidingId === p.id}
+                            onClick={() => decideProposal(p.id, 'reject')}
+                          >
+                            {t('admin.leadershipProposals.reject')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {proposals.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-4 text-center text-slate-400">
+                    {t('admin.leadershipProposals.no_proposals')}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {proposalsTotalPages > 1 && (
+            <div className="mt-4 flex items-center justify-center gap-3 text-sm">
+              <button
+                className="btn-secondary px-3 py-1.5"
+                disabled={proposalsPage <= 1}
+                onClick={() => setProposalsPage((p) => p - 1)}
+              >
+                {t('admin.prev')}
+              </button>
+              <span>{t('admin.page_of', { page: proposalsPage, total: proposalsTotalPages })}</span>
+              <button
+                className="btn-secondary px-3 py-1.5"
+                disabled={proposalsPage >= proposalsTotalPages}
+                onClick={() => setProposalsPage((p) => p + 1)}
+              >
+                {t('admin.next')}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <p className="mt-4 text-xs text-slate-400">{t('admin.leadershipProposals.appointment_separate_note')}</p>
       </div>
     </div>
   );
