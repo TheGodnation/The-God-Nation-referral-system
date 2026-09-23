@@ -271,6 +271,30 @@ router.get('/me/geographic-assignment', asyncHandler(async (req, res) => {
   });
 }));
 
+// GET /api/member/me/follow-ups — Phase 3M.2. Only FollowUpAssignments
+// where the authenticated Member is the followedPersonId — never another
+// Person's. Deliberately excludes FollowUpContact entirely (no note, no
+// wellbeingStatus, no internal organizational information): that record
+// stays a private Leader/Admin log, never exposed to the Member. No
+// pagination, matching the existing unpaginated GET /api/leader/follow-ups
+// (a Person is not expected to accumulate a large number of followers).
+router.get('/me/follow-ups', asyncHandler(async (req, res) => {
+  const items = await prisma.followUpAssignment.findMany({
+    where: { followedPersonId: req.member!.personId },
+    include: { follower: { select: { id: true, name: true } } },
+    orderBy: { assignedAt: 'desc' },
+  });
+  res.json({
+    items: items.map((a) => ({
+      id: a.id,
+      status: a.status,
+      assignedAt: a.assignedAt,
+      closedAt: a.closedAt,
+      follower: a.follower,
+    })),
+  });
+}));
+
 // ---------------------------------------------------------------------------
 // Profile self-service (Phase 3F) — a Member may edit only their own
 // Person.name and Person.preferredLanguage. Everything else (WhatsApp

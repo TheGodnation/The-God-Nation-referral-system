@@ -10,6 +10,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { requireLinkedPerson, findActiveScopedRole, personBelongsToContext, contextTargetExists } from '../lib/leadership';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { computeAttentionForLeader } from '../lib/followUpAttention';
+import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
 
 const router = Router();
 
@@ -168,6 +169,9 @@ router.post('/follow-ups', leadershipMutationLimiter, requireCsrf, asyncHandler(
     throw err;
   }
 
+  // Phase 3M.2: every FollowUpAssignment gets its own conversation eagerly.
+  await getOrCreateFollowUpConversation(created.id);
+
   await recordAudit({
     actorId: req.user!.id,
     actorEmail: req.user!.email,
@@ -313,7 +317,7 @@ router.post('/follow-ups/:id/reassign', leadershipMutationLimiter, requireCsrf, 
           closeReason: closeReason ?? 'Reassigned',
         },
       });
-      return tx.followUpAssignment.create({
+      const newAssignment = await tx.followUpAssignment.create({
         data: {
           followerId: newFollowerId,
           followedPersonId: current.followedPersonId,
@@ -322,6 +326,12 @@ router.post('/follow-ups/:id/reassign', leadershipMutationLimiter, requireCsrf, 
           assignedByUserId: req.user!.id,
         },
       });
+      // Phase 3M.2: the new assignment gets its own, independent
+      // conversation — the old assignment's conversation stays exactly
+      // where it is, attached to the now-closed old assignment, never
+      // merged or transferred.
+      await tx.followUpConversation.create({ data: { followUpAssignmentId: newAssignment.id } });
+      return newAssignment;
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {

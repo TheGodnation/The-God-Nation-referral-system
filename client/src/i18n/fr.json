@@ -883,6 +883,26 @@
     "sending": "Envoi…",
     "send_failed": "Échec de l'envoi du message."
   },
+  "followUpConversation": {
+    "title": "Conversation",
+    "loading": "Chargement…",
+    "load_failed": "Échec du chargement de la conversation.",
+    "load_older": "Charger les messages plus anciens",
+    "no_messages": "Aucun message pour l'instant.",
+    "read_only_note": "Ce suivi a été clôturé. La conversation est en lecture seule.",
+    "composer_placeholder": "Écrire un message…",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "send_failed": "Échec de l'envoi du message."
+  },
+  "memberFollowUps": {
+    "title": "Mon suivi",
+    "load_failed": "Échec du chargement de vos suivis.",
+    "back_to_list": "Retour",
+    "status_active": "Actif",
+    "status_closed": "Clôturé",
+    "open_conversation": "Ouvrir la conversation"
+  },
   "common": {
     "language_en": "English",
     "language_fr": "Français",

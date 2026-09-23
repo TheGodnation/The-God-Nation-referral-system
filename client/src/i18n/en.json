@@ -883,6 +883,26 @@
     "sending": "Sending…",
     "send_failed": "Failed to send message."
   },
+  "followUpConversation": {
+    "title": "Conversation",
+    "loading": "Loading…",
+    "load_failed": "Failed to load the conversation.",
+    "load_older": "Load older messages",
+    "no_messages": "No messages yet.",
+    "read_only_note": "This follow-up has been closed. The conversation is read-only.",
+    "composer_placeholder": "Write a message…",
+    "send": "Send",
+    "sending": "Sending…",
+    "send_failed": "Failed to send message."
+  },
+  "memberFollowUps": {
+    "title": "My Follow-Up",
+    "load_failed": "Failed to load your follow-ups.",
+    "back_to_list": "Back",
+    "status_active": "Active",
+    "status_closed": "Closed",
+    "open_conversation": "Open Conversation"
+  },
   "common": {
     "language_en": "English",
     "language_fr": "Français",

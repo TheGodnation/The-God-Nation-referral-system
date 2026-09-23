@@ -33,6 +33,7 @@ import leaderFollowUpsRoutes from './routes/leaderFollowUps';
 import leaderLeadershipProposalsRoutes from './routes/leaderLeadershipProposals';
 import adminLeadershipProposalsRoutes from './routes/adminLeadershipProposals';
 import communityConversationsRoutes from './routes/communityConversations';
+import followUpConversationsRoutes from './routes/followUpConversations';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -103,6 +104,12 @@ export function createApp() {
   // internally (see communityConversations.ts) rather than duplicating
   // routes per role.
   app.use('/api/communities', communityConversationsRoutes);
+  // Phase 3M.2: one shared resource family for a FollowUpAssignment's
+  // conversation, reachable by its follower (Leader) or followed Person
+  // (Member, only if they have a MemberAccount) — structurally separate
+  // from communityConversationsRoutes above (own models, own tables, own
+  // authorization helper in lib/followUpConversation.ts).
+  app.use('/api/follow-ups', followUpConversationsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

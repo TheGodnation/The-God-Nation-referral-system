@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from '../admin/SearchPicker';
+import { FollowUpConversation } from '../FollowUpConversation';
 
 type ContextType = 'COMMUNITY' | 'GEOGRAPHY';
 type WellbeingStatus = 'GOOD' | 'NEEDS_ATTENTION' | 'EMERGENCY' | 'UNABLE_TO_REACH';
@@ -307,6 +308,8 @@ export function MyFollowUp() {
 
         <h2 className="mb-2 font-semibold text-brand-900">{selected.followedPerson.name}</h2>
         {detailError && <p className="mb-4 text-sm text-red-700">{detailError}</p>}
+
+        <FollowUpConversation followUpAssignmentId={selected.id} />
 
         {selected.status === 'ACTIVE' && (
           <>

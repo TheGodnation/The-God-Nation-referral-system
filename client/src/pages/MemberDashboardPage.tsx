@@ -5,6 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { CommunityConversation } from '../components/CommunityConversation';
+import { MyFollowUps } from '../components/member/MyFollowUps';
 
 interface AssessmentSummary {
   id: string;
@@ -266,6 +267,8 @@ export function MemberDashboardPage() {
               .map((m) => (
                 <CommunityConversation key={m.communityId} communityId={m.communityId} communityName={m.communityName} />
               ))}
+
+            <MyFollowUps />
 
             <div className="card">
               <h2 className="mb-3 font-semibold text-brand-900">{t('memberDashboard.geography_heading')}</h2>
