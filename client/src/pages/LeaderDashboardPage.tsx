@@ -134,6 +134,7 @@ export function LeaderDashboardPage() {
   const messageTemplate = content[`leaderInviteMessage${lang}`] || undefined;
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [links, setLinks] = useState<{ en: string; fr: string } | null>(null);
+  const [outreachLinks, setOutreachLinks] = useState<{ en: string; fr: string } | null>(null);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [items, setItems] = useState<ReferralItem[]>([]);
   const [page, setPage] = useState(1);
@@ -149,9 +150,11 @@ export function LeaderDashboardPage() {
       .get<{
         referralCode: string | null;
         links: { en: string; fr: string } | null;
+        outreachLinks: { en: string; fr: string } | null;
       }>('/api/leader/links')
       .then((res) => {
         setLinks(res.links);
+        setOutreachLinks(res.outreachLinks);
       });
   }, []);
 
@@ -213,6 +216,27 @@ export function LeaderDashboardPage() {
             <p className="text-sm text-slate-400">{t('leader.no_referral_code')}</p>
           )}
         </div>
+
+        {outreachLinks && (
+          <div className="card mt-6">
+            <h2 className="mb-1 font-semibold text-brand-900">{t('leader.outreach_links_title')}</h2>
+            <p className="mb-3 text-xs text-slate-500">{t('leader.outreach_links_hint')}</p>
+            <div className="space-y-3">
+              {(['en', 'fr'] as const).map((lang) => (
+                <div key={lang} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <span className="w-10 text-sm font-medium uppercase text-slate-500">{lang}</span>
+                  <input readOnly value={outreachLinks[lang]} className="input flex-1 bg-slate-50 text-sm" />
+                  <button
+                    className="btn-secondary sm:w-32"
+                    onClick={() => copy(outreachLinks[lang], `outreach-${lang}`)}
+                  >
+                    {copied === `outreach-${lang}` ? t('leader.copied') : t('leader.copy')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <InvitePeople links={links} messageTemplate={messageTemplate} />
 
