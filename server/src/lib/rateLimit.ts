@@ -195,3 +195,17 @@ export const followUpMessageSendLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many messages sent. Please slow down.' },
 });
+
+// Phase 3M.3: Admin announcement create/edit/publish/archive mutations.
+// Authenticated, Admin-only, lower enumeration risk than the public
+// limiters above, but still a dedicated limiter per the project's "never
+// rely solely on generalApiLimiter" convention — matching the magnitude of
+// communityGeographyMutationLimiter, the closest existing precedent for an
+// Admin-authenticated structural-mutation category.
+export const announcementMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

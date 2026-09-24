@@ -338,6 +338,7 @@
       "assessments": "Évaluations",
       "roleAssignments": "Attributions de rôles",
       "followUps": "Suivis",
+      "announcements": "Annonces",
       "account": "Compte",
       "audit": "Journal d'audit"
     },
@@ -484,6 +485,42 @@
       "close_confirm": "Clôturer cette attribution de suivi ?",
       "close_failed": "Échec de la clôture du suivi.",
       "history_title": "Historique des contacts"
+    },
+    "announcements": {
+      "title": "Annonces",
+      "description": "Créez et publiez des annonces organisationnelles ciblées vers une ou plusieurs Communautés ou Géographies. Les Membres et Leaders actuellement éligibles à une cible la voient dans leur propre tableau de bord une fois publiée.",
+      "new_announcement": "+ Nouvelle annonce",
+      "edit_announcement": "Modifier le brouillon",
+      "title_en_label": "Titre (Anglais)",
+      "title_fr_label": "Titre (Français)",
+      "body_en_label": "Corps (Anglais)",
+      "body_fr_label": "Corps (Français)",
+      "targets_label": "Cibles",
+      "no_targets": "Aucune cible ajoutée pour le moment.",
+      "add_target": "Ajouter la cible",
+      "remove_target": "Retirer",
+      "create_draft": "Créer le brouillon",
+      "save_changes": "Enregistrer les modifications",
+      "cancel": "Annuler",
+      "edit": "Modifier",
+      "publish": "Publier",
+      "archive": "Archiver",
+      "archive_confirm": "Archiver cette annonce ? Elle n'apparaîtra plus dans le flux d'annonces de personne.",
+      "create_failed": "Échec de la création de l'annonce.",
+      "update_failed": "Échec de la mise à jour de l'annonce.",
+      "publish_failed": "Échec de la publication de l'annonce.",
+      "archive_failed": "Échec de l'archivage de l'annonce.",
+      "load_failed": "Échec du chargement des annonces.",
+      "table_title": "Titre",
+      "table_status": "Statut",
+      "table_created": "Créée",
+      "table_published": "Publiée",
+      "table_targets": "Cibles",
+      "table_actions": "Actions",
+      "status_draft": "Brouillon",
+      "status_published": "Publiée",
+      "status_archived": "Archivée",
+      "no_announcements": "Aucune annonce trouvée."
     },
     "registrations": {
       "title": "Inscriptions",
@@ -902,6 +939,12 @@
     "status_active": "Actif",
     "status_closed": "Clôturé",
     "open_conversation": "Ouvrir la conversation"
+  },
+  "announcements": {
+    "title": "Annonces",
+    "load_failed": "Échec du chargement des annonces.",
+    "back_to_list": "Retour",
+    "read_more": "Lire la suite"
   },
   "common": {
     "language_en": "English",

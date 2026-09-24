@@ -338,6 +338,7 @@
       "assessments": "Assessments",
       "roleAssignments": "Role Assignments",
       "followUps": "Follow-Ups",
+      "announcements": "Announcements",
       "account": "Account",
       "audit": "Audit Log"
     },
@@ -484,6 +485,42 @@
       "close_confirm": "Close this follow-up assignment?",
       "close_failed": "Failed to close follow-up.",
       "history_title": "Contact History"
+    },
+    "announcements": {
+      "title": "Announcements",
+      "description": "Create and publish organizational announcements targeted at one or more Communities or Geographies. Members and Leaders currently eligible for a target see it in their own dashboard once published.",
+      "new_announcement": "+ New Announcement",
+      "edit_announcement": "Edit Draft",
+      "title_en_label": "Title (English)",
+      "title_fr_label": "Title (French)",
+      "body_en_label": "Body (English)",
+      "body_fr_label": "Body (French)",
+      "targets_label": "Targets",
+      "no_targets": "No targets added yet.",
+      "add_target": "Add Target",
+      "remove_target": "Remove",
+      "create_draft": "Create Draft",
+      "save_changes": "Save Changes",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "publish": "Publish",
+      "archive": "Archive",
+      "archive_confirm": "Archive this announcement? It will no longer appear in anyone's announcement feed.",
+      "create_failed": "Failed to create announcement.",
+      "update_failed": "Failed to update announcement.",
+      "publish_failed": "Failed to publish announcement.",
+      "archive_failed": "Failed to archive announcement.",
+      "load_failed": "Failed to load announcements.",
+      "table_title": "Title",
+      "table_status": "Status",
+      "table_created": "Created",
+      "table_published": "Published",
+      "table_targets": "Targets",
+      "table_actions": "Actions",
+      "status_draft": "Draft",
+      "status_published": "Published",
+      "status_archived": "Archived",
+      "no_announcements": "No announcements found."
     },
     "registrations": {
       "title": "Registrations",
@@ -902,6 +939,12 @@
     "status_active": "Active",
     "status_closed": "Closed",
     "open_conversation": "Open Conversation"
+  },
+  "announcements": {
+    "title": "Announcements",
+    "load_failed": "Failed to load announcements.",
+    "back_to_list": "Back",
+    "read_more": "Read More"
   },
   "common": {
     "language_en": "English",

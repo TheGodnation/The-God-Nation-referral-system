@@ -150,6 +150,7 @@ model User {
   followUpAssignmentsClosed  FollowUpAssignment[]   @relation("FollowUpClosedBy")
   followUpContactsLogged     FollowUpContact[]
   leadershipProposalsDecided LeadershipProposal[]
+  announcementsCreated       Announcement[]
 
   @@index([role])
 }
@@ -467,6 +468,7 @@ model Community {
   devotionals     MonthlyDevotional[]
   roleAssignments RoleAssignment[]
   conversation    Conversation?
+  announcementTargets AnnouncementTarget[]
 
   @@index([parentId])
   @@index([active])
@@ -514,6 +516,7 @@ model Geography {
   assignments     GeographicAssignment[]
   roleAssignments RoleAssignment[]
   leadershipProposals LeadershipProposal[]
+  announcementTargets AnnouncementTarget[]
 
   @@index([parentId])
   @@index([countryCode, parentId])
@@ -978,6 +981,57 @@ model FollowUpMessage {
   sender       Person               @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+// Phase 3M.3: one-way, Admin-authored organizational communication —
+// structurally unrelated to the public ContentPage "ANNOUNCEMENT" type
+// (that stays public/unauthenticated/untargeted) and to Conversation/
+// FollowUpConversation (those are two-way). Lifecycle is expressed purely
+// through timestamps, no status enum: draft (publishedAt null) -> published
+// (publishedAt set) -> archived (archivedAt set, from either draft or
+// published). Published content/targets are immutable — see
+// adminAnnouncements.ts for the enforcement. No recipient/read-state table
+// exists here by design: eligibility is always computed live from current
+// CommunityMembership/GeographicAssignment state (see lib/announcements.ts).
+model Announcement {
+  id              String    @id @default(uuid())
+  titleEn         String
+  titleFr         String?
+  bodyEn          String
+  bodyFr          String?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  publishedAt     DateTime?
+  archivedAt      DateTime?
+
+  createdBy User                 @relation(fields: [createdByUserId], references: [id])
+  targets   AnnouncementTarget[]
+
+  @@index([publishedAt, archivedAt])
+  @@index([createdAt])
+}
+
+// Exactly one of communityId/geographyId is set (DB CHECK, mirroring
+// RoleAssignment's community-xor-geography pattern) — never both, never
+// neither. A Community target is always exact (active membership in that
+// exact Community); a Geography target reaches that node and all of its
+// descendants (see lib/announcements.ts) — deliberately not the same thing
+// as Phase 3K's descendant-aware Leader roster visibility, which is an
+// unrelated authorization concept.
+model AnnouncementTarget {
+  id             String   @id @default(uuid())
+  announcementId String
+  communityId    String?
+  geographyId    String?
+  createdAt      DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  community    Community?   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  geography    Geography?   @relation(fields: [geographyId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@index([communityId])
+  @@index([geographyId])
 }
 
 model AuditLog {

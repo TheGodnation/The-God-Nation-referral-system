@@ -34,6 +34,8 @@ import leaderLeadershipProposalsRoutes from './routes/leaderLeadershipProposals'
 import adminLeadershipProposalsRoutes from './routes/adminLeadershipProposals';
 import communityConversationsRoutes from './routes/communityConversations';
 import followUpConversationsRoutes from './routes/followUpConversations';
+import announcementsRoutes from './routes/announcements';
+import adminAnnouncementsRoutes from './routes/adminAnnouncements';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -110,6 +112,11 @@ export function createApp() {
   // from communityConversationsRoutes above (own models, own tables, own
   // authorization helper in lib/followUpConversation.ts).
   app.use('/api/follow-ups', followUpConversationsRoutes);
+  // Phase 3M.3: shared authenticated recipient surface for Central Authority
+  // targeted announcements (Member or Leader, never Admin — see
+  // announcements.ts), plus the separate Admin management surface.
+  app.use('/api/me/announcements', announcementsRoutes);
+  app.use('/api/admin/announcements', adminAnnouncementsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

@@ -6,6 +6,7 @@ import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { CommunityConversation } from '../components/CommunityConversation';
 import { MyFollowUps } from '../components/member/MyFollowUps';
+import { Announcements } from '../components/Announcements';
 
 interface AssessmentSummary {
   id: string;
@@ -267,6 +268,8 @@ export function MemberDashboardPage() {
               .map((m) => (
                 <CommunityConversation key={m.communityId} communityId={m.communityId} communityName={m.communityName} />
               ))}
+
+            <Announcements />
 
             <MyFollowUps />
 

@@ -6,6 +6,7 @@ import { TrainingProgress } from '../components/leader/TrainingProgress';
 import { MyMembers } from '../components/leader/MyMembers';
 import { MyLeadershipProposals } from '../components/leader/MyLeadershipProposals';
 import { LeaderCommunityConversations } from '../components/leader/LeaderCommunityConversations';
+import { Announcements } from '../components/Announcements';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { usePublicSettings } from '../lib/usePublicSettings';
@@ -239,6 +240,8 @@ export function LeaderDashboardPage() {
         )}
 
         <InvitePeople links={links} messageTemplate={messageTemplate} />
+
+        <Announcements />
 
         <MyFollowUp />
 
