@@ -1,9 +1,17 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../lib/asyncHandler';
+import { requireCsrf } from '../lib/csrf';
+import { announcementReadLimiter } from '../lib/rateLimit';
 import { resolveActingPersonId } from '../lib/leadership';
 import { parsePagination, paginatedResult } from '../lib/pagination';
-import { computeVisibleAnnouncementsForPerson, personCanViewAnnouncement } from '../lib/announcements';
+import {
+  computeVisibleAnnouncementsForPerson,
+  personCanViewAnnouncement,
+  isAnnouncementRead,
+  markAnnouncementRead,
+  getReadAnnouncementIds,
+} from '../lib/announcements';
 
 declare global {
   namespace Express {
@@ -48,17 +56,20 @@ const router = Router();
 
 router.use(requireAnnouncementRecipient);
 
-// Recipient-facing shape only: content and publishedAt, never target
-// definitions, Community/Geography ids, creator, or any other internal
-// organizational detail.
-function toRecipientResponse(a: {
-  id: string;
-  titleEn: string;
-  titleFr: string | null;
-  bodyEn: string;
-  bodyFr: string | null;
-  publishedAt: Date | null;
-}) {
+// Recipient-facing shape only: content, publishedAt, and (Phase 3M.5) the
+// caller's own isRead flag — never target definitions, Community/Geography
+// ids, creator, or any other internal organizational detail.
+function toRecipientResponse(
+  a: {
+    id: string;
+    titleEn: string;
+    titleFr: string | null;
+    bodyEn: string;
+    bodyFr: string | null;
+    publishedAt: Date | null;
+  },
+  isRead: boolean,
+) {
   return {
     id: a.id,
     titleEn: a.titleEn,
@@ -66,6 +77,7 @@ function toRecipientResponse(a: {
     bodyEn: a.bodyEn,
     bodyFr: a.bodyFr,
     publishedAt: a.publishedAt,
+    isRead,
   };
 }
 
@@ -73,22 +85,31 @@ function toRecipientResponse(a: {
 // the caller currently qualifies for, newest-published-first, page-based
 // pagination. The full eligible set is derived fresh on every request (see
 // computeVisibleAnnouncementsForPerson) and paginated in memory — there is
-// no persisted recipient list to query directly.
+// no persisted recipient list to query directly. Phase 3M.5: one batch
+// query over the full eligible id set (not one per page item, not one per
+// announcement) supplies both each item's isRead flag and unreadCount —
+// unreadCount always reflects the full currently-eligible set, never just
+// the current page.
 router.get('/', asyncHandler(async (req, res) => {
   const personId = req.announcementRecipientPersonId!;
   const { page, pageSize, skip, take } = parsePagination(req);
 
   const eligible = await computeVisibleAnnouncementsForPerson(personId);
-  const pageItems = eligible.slice(skip, skip + take).map(toRecipientResponse);
+  const readIds = await getReadAnnouncementIds(personId, eligible.map((a) => a.id));
+  const unreadCount = eligible.length - readIds.size;
 
-  res.json(paginatedResult(pageItems, eligible.length, page, pageSize));
+  const pageItems = eligible.slice(skip, skip + take).map((a) => toRecipientResponse(a, readIds.has(a.id)));
+
+  res.json({ ...paginatedResult(pageItems, eligible.length, page, pageSize), unreadCount });
 }));
 
 // GET /api/me/announcements/:id — 404 (never 403) for a nonexistent id, an
 // unpublished/archived announcement, or one the caller doesn't qualify for
 // — a guessed id can never be distinguished from a real one that isn't the
 // caller's, matching the non-disclosure convention already used across
-// Follow-Up routes.
+// Follow-Up routes. Remains a pure read: it never creates or updates an
+// AnnouncementRead row (see POST .../read below for the one place that
+// happens) — it only reports whether one already exists.
 router.get('/:id', asyncHandler(async (req, res) => {
   const personId = req.announcementRecipientPersonId!;
   const { id } = req.params;
@@ -103,7 +124,35 @@ router.get('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Announcement not found.' });
   }
 
-  res.json(toRecipientResponse(announcement));
+  const isRead = await isAnnouncementRead(personId, id);
+  res.json(toRecipientResponse(announcement, isRead));
 }));
+
+// POST /api/me/announcements/:id/read — marks the announcement read for the
+// caller's own Person only (personId is always server-resolved via
+// requireAnnouncementRecipient, never accepted from the client). Idempotent
+// (markAnnouncementRead upserts on the (personId, announcementId) unique
+// constraint), CSRF-protected, and rate-limited like every other
+// authenticated mutation in this codebase. Same 404 non-disclosure as the
+// detail route for a draft/archived/unknown/ineligible announcement — never
+// reveals whether an inaccessible id exists. Never touches the Announcement
+// row itself, its targets, or any membership/geography data.
+router.post(
+  '/:id/read',
+  announcementReadLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const personId = req.announcementRecipientPersonId!;
+    const { id } = req.params;
+
+    const canView = await personCanViewAnnouncement(personId, id);
+    if (!canView) {
+      return res.status(404).json({ error: 'Announcement not found.' });
+    }
+
+    await markAnnouncementRead(personId, id);
+    res.json({ id, isRead: true });
+  }),
+);
 
 export default router;

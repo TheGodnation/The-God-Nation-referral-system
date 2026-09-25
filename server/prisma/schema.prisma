@@ -444,6 +444,7 @@ model Person {
   leadershipProposalsReceived LeadershipProposal[] @relation("LeadershipProposalCandidate")
   messages                    Message[]
   followUpMessages            FollowUpMessage[]
+  announcementReads           AnnouncementRead[]
 
   @@index([isTestData])
 }
@@ -990,9 +991,12 @@ model FollowUpMessage {
 // through timestamps, no status enum: draft (publishedAt null) -> published
 // (publishedAt set) -> archived (archivedAt set, from either draft or
 // published). Published content/targets are immutable — see
-// adminAnnouncements.ts for the enforcement. No recipient/read-state table
-// exists here by design: eligibility is always computed live from current
-// CommunityMembership/GeographicAssignment state (see lib/announcements.ts).
+// adminAnnouncements.ts for the enforcement. Eligibility (who currently
+// qualifies) is always computed live from current CommunityMembership/
+// GeographicAssignment state (see lib/announcements.ts) — no recipient
+// list is ever persisted. Phase 3M.5 adds AnnouncementRead purely to
+// record whether a given Person has opened a given Announcement; it is
+// not a recipient list and never influences eligibility.
 model Announcement {
   id              String    @id @default(uuid())
   titleEn         String
@@ -1006,6 +1010,7 @@ model Announcement {
 
   createdBy User                 @relation(fields: [createdByUserId], references: [id])
   targets   AnnouncementTarget[]
+  reads     AnnouncementRead[]
 
   @@index([publishedAt, archivedAt])
   @@index([createdAt])
@@ -1032,6 +1037,26 @@ model AnnouncementTarget {
   @@index([announcementId])
   @@index([communityId])
   @@index([geographyId])
+}
+
+// Phase 3M.5 — records that a Person has opened a given Announcement.
+// Deliberately minimal: the absence of a row means unread, and this table
+// is never consulted for eligibility (see lib/announcements.ts, unchanged
+// by this phase) — it only answers "has this Person read this
+// Announcement," nothing about targets, geography, or community. Historical
+// by design: never deleted when eligibility later changes (see
+// lib/announcements.ts's read-state helpers). Not a recipient list — it is
+// only ever queried/written for the requesting Person's own personId.
+model AnnouncementRead {
+  id             String   @id @default(uuid())
+  announcementId String
+  personId       String
+  readAt         DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, announcementId])
 }
 
 model AuditLog {

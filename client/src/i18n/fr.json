@@ -944,7 +944,9 @@
     "title": "Annonces",
     "load_failed": "Échec du chargement des annonces.",
     "back_to_list": "Retour",
-    "read_more": "Lire la suite"
+    "read_more": "Lire la suite",
+    "loading": "Chargement…",
+    "unread_badge": "Non lu"
   },
   "common": {
     "language_en": "English",

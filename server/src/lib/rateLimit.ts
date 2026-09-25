@@ -209,3 +209,19 @@ export const announcementMutationLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Phase 3M.5: a Member/Leader marking one of their own visible announcements
+// read. Own-data-only, idempotent, and expected to fire once per
+// announcement a Person actually opens — a higher ceiling than
+// announcementMutationLimiter (an Admin authoring action) is appropriate,
+// but this remains its own dedicated limiter per the project's "never rely
+// solely on generalApiLimiter" convention, so a burst of read-marking (e.g.
+// opening several announcements in one session) never competes with any
+// other mutation category's quota.
+export const announcementReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

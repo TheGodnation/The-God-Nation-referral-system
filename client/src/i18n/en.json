@@ -944,7 +944,9 @@
     "title": "Announcements",
     "load_failed": "Failed to load announcements.",
     "back_to_list": "Back",
-    "read_more": "Read More"
+    "read_more": "Read More",
+    "loading": "Loading…",
+    "unread_badge": "Unread"
   },
   "common": {
     "language_en": "English",

@@ -132,6 +132,63 @@ export async function computeVisibleAnnouncementsForPerson(
 }
 
 /**
+ * Phase 3M.5 — read-state helpers. Deliberately small and
+ * announcement-specific (no generic notification/read-state engine): every
+ * function here takes personId as an argument, never resolves it itself —
+ * callers (routes/announcements.ts) are responsible for resolving personId
+ * via the existing requireAnnouncementRecipient middleware, exactly as
+ * personCanViewAnnouncement/computeVisibleAnnouncementsForPerson already
+ * require. Read state is historical: nothing here ever deletes a row, and
+ * nothing here is consulted by personMatchesTargets/personCanViewAnnouncement
+ * /computeVisibleAnnouncementsForPerson — eligibility and read state are
+ * fully independent concerns.
+ */
+
+/**
+ * Marks announcementId as read by personId. Idempotent: a second call for
+ * the same pair is a safe no-op (the unique constraint on
+ * (personId, announcementId) makes this a create-if-absent, not a
+ * create-or-overwrite of readAt). Never called for a Person who cannot
+ * currently view the announcement — callers must check
+ * personCanViewAnnouncement first.
+ */
+export async function markAnnouncementRead(personId: string, announcementId: string): Promise<void> {
+  await prisma.announcementRead.upsert({
+    where: { personId_announcementId: { personId, announcementId } },
+    create: { personId, announcementId },
+    update: {},
+  });
+}
+
+/**
+ * Whether personId has ever read announcementId. Used only by the detail
+ * route, which must remain a pure read (see markAnnouncementRead for the
+ * one place a read row is ever created).
+ */
+export async function isAnnouncementRead(personId: string, announcementId: string): Promise<boolean> {
+  const row = await prisma.announcementRead.findUnique({
+    where: { personId_announcementId: { personId, announcementId } },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+/**
+ * Batch lookup: which of the given announcementIds has personId already
+ * read? One query regardless of how many ids are passed — used by the list
+ * route to flag isRead per item and derive unreadCount without a
+ * per-announcement query.
+ */
+export async function getReadAnnouncementIds(personId: string, announcementIds: string[]): Promise<Set<string>> {
+  if (announcementIds.length === 0) return new Set();
+  const rows = await prisma.announcementRead.findMany({
+    where: { personId, announcementId: { in: announcementIds } },
+    select: { announcementId: true },
+  });
+  return new Set(rows.map((r) => r.announcementId));
+}
+
+/**
  * Confirms every referenced Community/Geography id in a proposed target
  * list actually exists. Used at both draft-creation/edit time and again at
  * publish time (defensive re-validation) — a client-supplied id is never
