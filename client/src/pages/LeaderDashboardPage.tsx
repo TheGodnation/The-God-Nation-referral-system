@@ -6,6 +6,7 @@ import { TrainingProgress } from '../components/leader/TrainingProgress';
 import { MyMembers } from '../components/leader/MyMembers';
 import { MyLeadershipProposals } from '../components/leader/MyLeadershipProposals';
 import { LeaderCommunityConversations } from '../components/leader/LeaderCommunityConversations';
+import { LeaderGeographyConversations } from '../components/leader/LeaderGeographyConversations';
 import { Announcements } from '../components/Announcements';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
@@ -252,6 +253,8 @@ export function LeaderDashboardPage() {
         <MyLeadershipProposals />
 
         <LeaderCommunityConversations />
+
+        <LeaderGeographyConversations />
 
         <div className="card mt-6 overflow-x-auto">
           <h2 className="mb-3 font-semibold text-brand-900">{t('leader.referrals_title')}</h2>

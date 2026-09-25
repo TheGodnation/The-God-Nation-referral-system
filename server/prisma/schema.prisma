@@ -445,6 +445,7 @@ model Person {
   messages                    Message[]
   followUpMessages            FollowUpMessage[]
   announcementReads           AnnouncementRead[]
+  geographyMessages           GeographyMessage[]
 
   @@index([isTestData])
 }
@@ -518,6 +519,7 @@ model Geography {
   roleAssignments RoleAssignment[]
   leadershipProposals LeadershipProposal[]
   announcementTargets AnnouncementTarget[]
+  conversation    GeographyConversation?
 
   @@index([parentId])
   @@index([countryCode, parentId])
@@ -980,6 +982,45 @@ model FollowUpMessage {
 
   conversation FollowUpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       Person               @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// Phase 3M.6 — a persistent, text-only, two-way GROUP conversation tied to
+// exactly one Geography node (geographyId is unique — never a generic,
+// reusable Conversation abstraction shared with Phase 3M.1's Community
+// Conversation). Structurally a sibling of Conversation, not a refactor of
+// it. No ConversationParticipant table: access is derived dynamically on
+// every request from the caller's current GeographicAssignment (exact node
+// or a descendant) or an ACTIVE exact-match Geography-scoped RoleAssignment
+// — see lib/geographyConversation.ts. Created lazily (get-or-create on
+// first access, race-safe via upsert), unlike Community Conversation's
+// eager creation, because the Geography tree is far larger and deeper than
+// the curated set of Communities — most nodes will never need one.
+model GeographyConversation {
+  id          String   @id @default(uuid())
+  geographyId String   @unique
+  createdAt   DateTime @default(now())
+
+  geography Geography          @relation(fields: [geographyId], references: [id], onDelete: Cascade)
+  messages  GeographyMessage[]
+}
+
+// A single, immutable text message in a Geography's Conversation.
+// senderPersonId is always the authenticated caller's own linked Person
+// (Member via MemberAccount, Leader via User.personId) — never accepted
+// from the request body. Deliberately no editedAt/deletedAt/readAt: this
+// phase carries no message editing, deletion, or read state (matching
+// Conversation/FollowUpMessage — read state exists only for Announcement).
+model GeographyMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderPersonId String
+  body           String
+  createdAt      DateTime @default(now())
+
+  conversation GeographyConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Person                @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
 }

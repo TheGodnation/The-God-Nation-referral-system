@@ -36,6 +36,7 @@ import communityConversationsRoutes from './routes/communityConversations';
 import followUpConversationsRoutes from './routes/followUpConversations';
 import announcementsRoutes from './routes/announcements';
 import adminAnnouncementsRoutes from './routes/adminAnnouncements';
+import geographyConversationsRoutes from './routes/geographyConversations';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -117,6 +118,13 @@ export function createApp() {
   // announcements.ts), plus the separate Admin management surface.
   app.use('/api/me/announcements', announcementsRoutes);
   app.use('/api/admin/announcements', adminAnnouncementsRoutes);
+  // Phase 3M.6: one shared resource family for a Geography's two-way group
+  // conversation, reachable by an authenticated Member or Leader whose
+  // current GeographicAssignment or exact-match Geography RoleAssignment
+  // authorizes it (see lib/geographyConversation.ts) — a structural sibling
+  // of communityConversationsRoutes above, never a shared/generic engine
+  // with it.
+  app.use('/api/geographies', geographyConversationsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

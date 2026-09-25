@@ -264,6 +264,11 @@ router.get('/me/geographic-assignment', asyncHandler(async (req, res) => {
   if (!assignment) return res.json({ assignment: null });
   res.json({
     assignment: {
+      // Phase 3M.6: geographyId is additive — needed so the client can
+      // mount GET/POST /api/geographies/:geographyId/conversation for the
+      // Member's own current assignment. Everything else here is
+      // unchanged.
+      geographyId: assignment.geographyId,
       geographyName: assignment.geography.name,
       geographyType: assignment.geography.type,
       assignedAt: assignment.assignedAt,

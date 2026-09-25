@@ -225,3 +225,16 @@ export const announcementReadLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Phase 3M.6: sending a message to a Geography's conversation. Same design
+// and magnitude as messageSendLimiter/followUpMessageSendLimiter, kept as
+// its own dedicated export per the project's per-category-limiter
+// convention — Community, Follow-Up, and Geography messaging quotas never
+// share or starve one another.
+export const geographyMessageSendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many messages sent. Please slow down.' },
+});
