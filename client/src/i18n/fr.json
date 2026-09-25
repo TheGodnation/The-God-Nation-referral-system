@@ -296,7 +296,15 @@
       "propose_note_placeholder": "Note facultative pour l'Autorité Centrale",
       "propose_submit": "Soumettre la proposition",
       "propose_success": "Proposition soumise pour examen par l'Autorité Centrale.",
-      "propose_failed": "Échec de la soumission de la proposition."
+      "propose_failed": "Échec de la soumission de la proposition.",
+      "add_member_placeholder": "Numéro WhatsApp du membre existant",
+      "add_member_submit": "Ajouter à la Communauté",
+      "add_member_submitting": "Ajout…",
+      "add_member_success": "Membre ajouté.",
+      "add_member_failed": "Échec de l'ajout de cette personne à la Communauté.",
+      "remove_action": "Retirer",
+      "remove_confirm": "Retirer cette personne de la Communauté ?",
+      "remove_failed": "Échec du retrait de cette personne de la Communauté."
     },
     "leadershipProposals": {
       "title": "Mes propositions de leadership",
@@ -918,7 +926,11 @@
     "composer_placeholder": "Écrire un message…",
     "send": "Envoyer",
     "sending": "Envoi…",
-    "send_failed": "Échec de l'envoi du message."
+    "send_failed": "Échec de l'envoi du message.",
+    "delete_message": "Supprimer",
+    "delete_confirm": "Supprimer ce message pour tous les membres de la Communauté ? Cette action ne peut pas être annulée par vous.",
+    "delete_failed": "Échec de la suppression du message.",
+    "message_deleted": "Ce message a été supprimé."
   },
   "geographyConversation": {
     "title": "{{geography}} — Conversation",

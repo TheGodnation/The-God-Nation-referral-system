@@ -268,3 +268,18 @@ export const geographyConversationReadLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Phase 3M.8A: Community Administrator moderation/administration mutations
+// (deleting a message, adding/removing a Community member). Authenticated,
+// role-gated, lower enumeration risk than the public limiters above, but
+// still its own dedicated limiter per the project's "never rely solely on
+// generalApiLimiter" convention — matching leadershipMutationLimiter's
+// magnitude, the closest existing precedent for an authenticated,
+// non-enumeration-risk structural mutation.
+export const communityModerationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

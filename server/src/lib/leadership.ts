@@ -105,6 +105,21 @@ export async function isGeographyInLeaderScope(personId: string, requestedGeogra
   return false;
 }
 
+/**
+ * Phase 3M.8A — whether personId is an active Community Administrator for
+ * EXACTLY this Community: an ACTIVE SCOPED_LEADER RoleAssignment for that
+ * exact communityId. Deliberately a thin, named wrapper around the existing
+ * exact-match findActiveScopedRole — no new role, no new model, no
+ * descendant/generation coverage (a role on a parent or child Community
+ * never authorizes this one). Multiple Persons may each independently
+ * satisfy this for the same Community, since RoleAssignment's own unique
+ * constraint only prevents one Person from holding the role twice, never
+ * multiple Persons from holding it simultaneously.
+ */
+export async function isCommunityAdministrator(personId: string, communityId: string): Promise<boolean> {
+  return Boolean(await findActiveScopedRole(personId, 'COMMUNITY', communityId));
+}
+
 /** Confirms the referenced Community or Geography actually exists. */
 export async function contextTargetExists(contextType: FollowUpContextType, contextId: string): Promise<boolean> {
   if (contextType === 'COMMUNITY') {

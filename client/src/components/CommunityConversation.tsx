@@ -5,8 +5,9 @@ import { api, ApiError } from '../lib/api';
 interface MessageRow {
   id: string;
   senderName: string;
-  body: string;
+  body: string | null;
   createdAt: string;
+  deleted: boolean;
 }
 
 // Phase 3M.1 — a single, persistent, text-only conversation per Community.
@@ -25,6 +26,14 @@ interface MessageRow {
 // into history never marks the whole conversation read. A failed read-mark
 // is a silent best-effort follow-up: it never hides or discards the
 // messages that are already rendered, and never shows a false "read" state.
+//
+// Phase 3M.8A — Community Administrator moderation. `isAdministrator` comes
+// straight from the server (isCommunityAdministrator) — this component makes
+// no authorization decision of its own, it only shows/hides the Remove
+// action based on what the server already told it, and the server
+// independently re-checks on every DELETE request regardless of what this
+// renders. A moderated message never carries its original body to this
+// component at all (server-redacted) — it only ever sees `deleted: true`.
 export function CommunityConversation({ communityId, communityName }: { communityId: string; communityName: string }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -33,6 +42,9 @@ export function CommunityConversation({ communityId, communityName }: { communit
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isAdministrator, setIsAdministrator] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
@@ -48,13 +60,14 @@ export function CommunityConversation({ communityId, communityName }: { communit
   function loadLatest() {
     setError(null);
     api
-      .get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number }>(
+      .get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number; isAdministrator: boolean }>(
         `/api/communities/${communityId}/conversation/messages`,
       )
       .then((res) => {
         setMessages(res.items);
         setHasMore(res.hasMore);
         setUnreadCount(res.unreadCount);
+        setIsAdministrator(res.isAdministrator);
         if (res.unreadCount > 0 && res.items.length > 0) {
           markRead(res.items[res.items.length - 1].id);
         }
@@ -79,6 +92,21 @@ export function CommunityConversation({ communityId, communityName }: { communit
       })
       .catch(() => setError(t('communityConversation.load_failed')))
       .finally(() => setLoadingOlder(false));
+  }
+
+  async function deleteMessage(messageId: string) {
+    if (deletingId) return;
+    if (!window.confirm(t('communityConversation.delete_confirm') ?? '')) return;
+    setDeletingId(messageId);
+    setDeleteError(null);
+    try {
+      await api.delete(`/api/communities/${communityId}/conversation/messages/${messageId}`);
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, deleted: true, body: null } : m)));
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : t('communityConversation.delete_failed'));
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function send() {
@@ -123,17 +151,33 @@ export function CommunityConversation({ communityId, communityName }: { communit
             </button>
           )}
 
+          {deleteError && <p className="mb-2 text-sm text-red-700">{deleteError}</p>}
+
           {messages.length === 0 ? (
             <p className="text-sm text-slate-400">{t('communityConversation.no_messages')}</p>
           ) : (
             <div className="mb-3 max-h-96 space-y-3 overflow-y-auto rounded border border-slate-100 p-3">
               {messages.map((m) => (
                 <div key={m.id} className="text-sm">
-                  <div className="flex flex-wrap items-baseline gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-brand-900">{m.senderName}</span>
                     <span className="text-xs text-slate-400">{new Date(m.createdAt).toLocaleString()}</span>
+                    {isAdministrator && !m.deleted && (
+                      <button
+                        type="button"
+                        className="ml-auto text-xs text-red-700 hover:underline disabled:text-slate-300"
+                        disabled={deletingId === m.id}
+                        onClick={() => deleteMessage(m.id)}
+                      >
+                        {t('communityConversation.delete_message')}
+                      </button>
+                    )}
                   </div>
-                  <p className="whitespace-pre-wrap text-slate-700">{m.body}</p>
+                  {m.deleted ? (
+                    <p className="italic text-slate-400">{t('communityConversation.message_deleted')}</p>
+                  ) : (
+                    <p className="whitespace-pre-wrap text-slate-700">{m.body}</p>
+                  )}
                 </div>
               ))}
             </div>

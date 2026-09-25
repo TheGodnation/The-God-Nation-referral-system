@@ -443,6 +443,7 @@ model Person {
   leadershipProposalsMade     LeadershipProposal[] @relation("LeadershipProposalProposer")
   leadershipProposalsReceived LeadershipProposal[] @relation("LeadershipProposalCandidate")
   messages                    Message[]
+  deletedMessages             Message[]                    @relation("MessageDeletedBy")
   followUpMessages            FollowUpMessage[]
   announcementReads           AnnouncementRead[]
   geographyMessages           GeographyMessage[]
@@ -933,20 +934,34 @@ model Conversation {
   reads     CommunityConversationRead[]
 }
 
-// A single, immutable text message in a Community's Conversation.
-// senderPersonId is always the authenticated caller's own linked Person
-// (Member via MemberAccount, Leader via User.personId) — never accepted
-// from the request body. Deliberately no editedAt/deletedAt: Phase 3M.1
-// messages cannot be edited or deleted once posted.
+// A single message in a Community's Conversation. senderPersonId is always
+// the authenticated caller's own linked Person (Member via MemberAccount,
+// Leader via User.personId) — never accepted from the request body.
+// Deliberately still no editedAt or any revision history: Phase 3M.8A adds
+// moderation (soft delete) only, never ordinary editing — a sender who made
+// a mistake posts a new correction message, exactly as before.
+//
+// Phase 3M.8A — deletedAt/deletedByPersonId represent SOFT deletion only:
+// the row and its original body are never physically removed, so Central
+// Authority investigative access (a future phase) can still see what was
+// actually said. Ordinary participants must never be served the original
+// body once deletedAt is set — see communityConversations.ts's messages
+// route, which redacts body and returns `deleted: true` instead.
+// deletedByPersonId is nullable and SetNull-on-delete (unlike senderPersonId's
+// Cascade) so a moderator's own Person record can never be removed later in
+// a way that would delete someone else's message as a side effect.
 model Message {
-  id             String   @id @default(uuid())
-  conversationId String
-  senderPersonId String
-  body           String
-  createdAt      DateTime @default(now())
+  id                String    @id @default(uuid())
+  conversationId    String
+  senderPersonId    String
+  body              String
+  createdAt         DateTime  @default(now())
+  deletedAt         DateTime?
+  deletedByPersonId String?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       Person       @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+  deletedBy    Person?      @relation("MessageDeletedBy", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
 
   @@index([conversationId, createdAt])
 }

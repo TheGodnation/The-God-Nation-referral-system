@@ -30,6 +30,7 @@ import memberAuthRoutes from './routes/memberAuth';
 import memberAssessmentsRoutes from './routes/memberAssessments';
 import adminLeadershipRoutes from './routes/adminLeadership';
 import leaderFollowUpsRoutes from './routes/leaderFollowUps';
+import leaderCommunitiesRoutes from './routes/leaderCommunities';
 import leaderLeadershipProposalsRoutes from './routes/leaderLeadershipProposals';
 import adminLeadershipProposalsRoutes from './routes/adminLeadershipProposals';
 import communityConversationsRoutes from './routes/communityConversations';
@@ -97,6 +98,11 @@ export function createApp() {
   // adminPeopleRoutes/adminAttemptsRoutes above.
   app.use('/api/admin', adminLeadershipRoutes);
   app.use('/api/leader', leaderFollowUpsRoutes);
+  // Phase 3M.8A: leaderCommunitiesRoutes defines '/communities/:communityId/members',
+  // the Community Administrator's own membership-management surface — kept
+  // separate from adminPeople.ts's Admin-only membership routes, same
+  // per-concern file split as every other leader*/admin* pair in this app.
+  app.use('/api/leader', leaderCommunitiesRoutes);
   // Phase 3L: leaderLeadershipProposalsRoutes defines '/leadership-proposals'
   // under '/api/leader'; adminLeadershipProposalsRoutes defines the same
   // path under '/api/admin' — same root-mount pattern as the routes above.

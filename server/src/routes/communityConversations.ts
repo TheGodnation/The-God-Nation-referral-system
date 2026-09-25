@@ -2,9 +2,10 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireCsrf } from '../lib/csrf';
-import { messageSendLimiter, communityConversationReadLimiter } from '../lib/rateLimit';
+import { messageSendLimiter, communityConversationReadLimiter, communityModerationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
-import { resolveActingPersonId, contextTargetExists } from '../lib/leadership';
+import { resolveActingPersonId, contextTargetExists, isCommunityAdministrator } from '../lib/leadership';
+import { recordAudit } from '../lib/audit';
 import {
   hasConversationAccess,
   getOrCreateConversation,
@@ -69,7 +70,14 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
 
   const conversation = await getOrCreateConversation(communityId);
   const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
-  res.json({ id: conversation.id, communityId: conversation.communityId, createdAt: conversation.createdAt, unreadCount });
+  const isAdministrator = await isCommunityAdministrator(personId, communityId);
+  res.json({
+    id: conversation.id,
+    communityId: conversation.communityId,
+    createdAt: conversation.createdAt,
+    unreadCount,
+    isAdministrator,
+  });
 }));
 
 const DEFAULT_MESSAGE_PAGE_SIZE = 30;
@@ -130,11 +138,23 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit).reverse();
   const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
+  const isAdministrator = await isCommunityAdministrator(personId, communityId);
 
   res.json({
-    items: page.map((m) => ({ id: m.id, senderName: m.sender.name, body: m.body, createdAt: m.createdAt })),
+    // Phase 3M.8A: a moderated message's original body is never sent to
+    // ordinary participants — only `deleted: true`. The row itself (and its
+    // real body) is preserved server-side for future Central Authority
+    // investigative access (Phase 3M.8B), never exposed here.
+    items: page.map((m) => ({
+      id: m.id,
+      senderName: m.sender.name,
+      body: m.deletedAt ? null : m.body,
+      createdAt: m.createdAt,
+      deleted: Boolean(m.deletedAt),
+    })),
     hasMore,
     unreadCount,
+    isAdministrator,
   });
 }));
 
@@ -223,6 +243,69 @@ router.post(
     const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
 
     res.json({ unreadCount });
+  }),
+);
+
+// DELETE /api/communities/:communityId/conversation/messages/:messageId —
+// Phase 3M.8A moderation. Only an active Community Administrator for this
+// EXACT Community (isCommunityAdministrator — an ACTIVE SCOPED_LEADER
+// RoleAssignment for communityId itself, never a parent/child/geography
+// scope) may remove a message. This is reachable through the same shared
+// requireConversationActor middleware as every other route in this file
+// (Member or Leader session), because authority here belongs to the acting
+// Person, not to which session they happen to be using — the same
+// shared-identity precedent already established by Phase 3M.7's read state.
+// An ordinary Member or a Leader without this exact role is rejected by
+// isCommunityAdministrator itself, never by the session type.
+//
+// Soft delete only: deletedAt/deletedByPersonId are set, the row and its
+// original body are never removed — see the Message model's own schema
+// comment. Idempotent: deleting an already-deleted message is a safe no-op,
+// not an error.
+router.delete(
+  '/:communityId/conversation/messages/:messageId',
+  communityModerationLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { communityId, messageId } = req.params;
+
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+
+    const personId = req.conversationActorPersonId!;
+    if (!(await isCommunityAdministrator(personId, communityId))) {
+      return res.status(403).json({ error: 'Only an active Community Administrator may remove a message.' });
+    }
+
+    const conversation = await getOrCreateConversation(communityId);
+
+    // Validated to belong to THIS exact conversation — the same
+    // never-trust-a-bare-id pattern already used for the pagination cursor
+    // and the read-state messageId above, so a message id from a different
+    // Community's conversation can never be moderated via this route.
+    const message = await prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.conversationId !== conversation.id) {
+      return res.status(404).json({ error: 'Message not found.' });
+    }
+
+    if (!message.deletedAt) {
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { deletedAt: new Date(), deletedByPersonId: personId },
+      });
+
+      await recordAudit({
+        actorId: req.user?.id ?? null,
+        actorEmail: req.user?.email ?? null,
+        action: 'COMMUNITY_MESSAGE_DELETED',
+        targetType: 'Message',
+        targetId: messageId,
+        metadata: { communityId, conversationId: conversation.id, deletedByPersonId: personId },
+      });
+    }
+
+    res.json({ id: messageId, deleted: true });
   }),
 );
 

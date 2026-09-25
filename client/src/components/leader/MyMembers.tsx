@@ -65,6 +65,15 @@ interface GeographyRosterRow {
 // roster for that scope, exact or descendant alike, so the action is
 // offered unconditionally here — the server independently re-verifies both
 // directions on every request regardless of what this component assumes.
+//
+// Phase 3M.8A adds Community Administrator membership management —
+// "Add existing member" (by WhatsApp number, this Community's identity key;
+// never a free-text search across all Persons) and "Remove" for Community
+// rows only, since Geography membership isn't something a Leader manages
+// here at all (GeographicAssignment is set by Admin, see adminPeople.ts).
+// Both actions post to leaderCommunities.ts, which independently re-verifies
+// the exact-scope Community Administrator role on every request — this
+// component's own scope selector is a display convenience only.
 export function MyMembers() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -82,6 +91,13 @@ export function MyMembers() {
   const [proposalNote, setProposalNote] = useState('');
   const [proposalSubmitting, setProposalSubmitting] = useState(false);
   const [proposalResults, setProposalResults] = useState<Record<string, { ok: boolean; text: string }>>({});
+
+  const [addWhatsapp, setAddWhatsapp] = useState('');
+  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [addResult, setAddResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const [removingPersonId, setRemovingPersonId] = useState<string | null>(null);
+  const [removeResults, setRemoveResults] = useState<Record<string, { ok: boolean; text: string }>>({});
 
   useEffect(() => {
     api
@@ -101,7 +117,7 @@ export function MyMembers() {
 
   const selected = scopes.find((s) => `${s.scopeType}:${s.scopeId}` === selectedKey) ?? null;
 
-  useEffect(() => {
+  function loadRoster() {
     if (!selected) return;
     setError(null);
     api
@@ -113,8 +129,9 @@ export function MyMembers() {
         setTotalPages(res.pagination.totalPages);
       })
       .catch(() => setError(t('leader.myMembers.load_failed') ?? ''));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedKey, page]);
+  }
+
+  useEffect(loadRoster, [selectedKey, page]);
 
   if (loading || scopes.length === 0) return null;
 
@@ -164,6 +181,40 @@ export function MyMembers() {
   function cancelProposeForm() {
     setProposingPersonId(null);
     setProposalNote('');
+  }
+
+  async function addMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected || selected.scopeType !== 'COMMUNITY' || !addWhatsapp.trim() || addSubmitting) return;
+    setAddSubmitting(true);
+    setAddResult(null);
+    try {
+      await api.post(`/api/leader/communities/${selected.scopeId}/members`, { whatsappNumber: addWhatsapp.trim() });
+      setAddWhatsapp('');
+      setAddResult({ ok: true, text: t('leader.myMembers.add_member_success') ?? '' });
+      setPage(1);
+      loadRoster();
+    } catch (err) {
+      const text = err instanceof ApiError ? err.message : t('leader.myMembers.add_member_failed') ?? '';
+      setAddResult({ ok: false, text });
+    } finally {
+      setAddSubmitting(false);
+    }
+  }
+
+  async function removeMember(personId: string) {
+    if (!selected || selected.scopeType !== 'COMMUNITY' || removingPersonId) return;
+    if (!window.confirm(t('leader.myMembers.remove_confirm') ?? '')) return;
+    setRemovingPersonId(personId);
+    try {
+      await api.patch(`/api/leader/communities/${selected.scopeId}/members/${personId}`, { status: 'INACTIVE' });
+      loadRoster();
+    } catch (err) {
+      const text = err instanceof ApiError ? err.message : t('leader.myMembers.remove_failed') ?? '';
+      setRemoveResults((prev) => ({ ...prev, [personId]: { ok: false, text } }));
+    } finally {
+      setRemovingPersonId(null);
+    }
   }
 
   async function submitProposal(personId: string) {
@@ -224,6 +275,24 @@ export function MyMembers() {
         <p className="mb-3 text-xs text-slate-400">{t('leader.myMembers.geography_descendant_note')}</p>
       )}
 
+      {selected?.scopeType === 'COMMUNITY' && (
+        <form onSubmit={addMember} className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            className="input flex-1"
+            placeholder={t('leader.myMembers.add_member_placeholder') ?? ''}
+            value={addWhatsapp}
+            onChange={(e) => setAddWhatsapp(e.target.value)}
+            disabled={addSubmitting}
+          />
+          <button type="submit" className="btn-secondary sm:w-40" disabled={addSubmitting || !addWhatsapp.trim()}>
+            {addSubmitting ? t('leader.myMembers.add_member_submitting') : t('leader.myMembers.add_member_submit')}
+          </button>
+          {addResult && (
+            <span className={`text-xs ${addResult.ok ? 'text-green-700' : 'text-red-700'}`}>{addResult.text}</span>
+          )}
+        </form>
+      )}
+
       {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
 
       <div className="overflow-x-auto">
@@ -239,6 +308,7 @@ export function MyMembers() {
             {rows.map((r) => {
               const result = actionResults[r.personId];
               const proposalResult = proposalResults[r.personId];
+              const removeResult = removeResults[r.personId];
               return (
                 <tr key={r.personId} className="border-b border-slate-50">
                   <td className="py-2 pr-4">{r.name}</td>
@@ -295,6 +365,20 @@ export function MyMembers() {
                             {t('leader.myMembers.propose_action')}
                           </button>
                         ))}
+
+                      {selected?.scopeType === 'COMMUNITY' && (
+                        <div>
+                          <button
+                            type="button"
+                            className="text-xs text-red-700 hover:underline disabled:text-slate-300"
+                            disabled={removingPersonId === r.personId}
+                            onClick={() => removeMember(r.personId)}
+                          >
+                            {t('leader.myMembers.remove_action')}
+                          </button>
+                          {removeResult && !removeResult.ok && <p className="text-xs text-red-700">{removeResult.text}</p>}
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>

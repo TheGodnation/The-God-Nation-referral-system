@@ -296,7 +296,15 @@
       "propose_note_placeholder": "Optional note for Central Authority",
       "propose_submit": "Submit Proposal",
       "propose_success": "Proposal submitted for Central Authority review.",
-      "propose_failed": "Failed to submit proposal."
+      "propose_failed": "Failed to submit proposal.",
+      "add_member_placeholder": "Existing member's WhatsApp number",
+      "add_member_submit": "Add to Community",
+      "add_member_submitting": "Adding…",
+      "add_member_success": "Member added.",
+      "add_member_failed": "Failed to add this person to the Community.",
+      "remove_action": "Remove",
+      "remove_confirm": "Remove this person from the Community?",
+      "remove_failed": "Failed to remove this person from the Community."
     },
     "leadershipProposals": {
       "title": "My Leadership Proposals",
@@ -918,7 +926,11 @@
     "composer_placeholder": "Write a message…",
     "send": "Send",
     "sending": "Sending…",
-    "send_failed": "Failed to send message."
+    "send_failed": "Failed to send message.",
+    "delete_message": "Remove",
+    "delete_confirm": "Remove this message for everyone in the Community? This cannot be undone by you.",
+    "delete_failed": "Failed to remove the message.",
+    "message_deleted": "This message was removed."
   },
   "geographyConversation": {
     "title": "{{geography}} — Conversation",

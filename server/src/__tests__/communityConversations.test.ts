@@ -837,3 +837,243 @@ describe('Phase 3M.7 — Community Conversation — read state', () => {
     expect(lastStatus).toBe(429);
   });
 });
+
+describe('Phase 3M.8A — Community Administration — message moderation', () => {
+  async function seedMessage(communityId: string, senderId: string, body = 'inappropriate content') {
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId },
+      create: { communityId },
+      update: {},
+    });
+    const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: senderId, body } });
+    return { conversation, message };
+  }
+
+  it('an active Community Administrator can delete a message in their exact Community', async () => {
+    const community = await makeCommunity('Moderation Community 1');
+    const { agent, csrf } = await setupCommunityLeader(201, community.id);
+    const sender = await makePerson('+237698200001', 'Sender 1');
+    await makeMembership(sender.id, community.id);
+    const { message } = await seedMessage(community.id, sender.id);
+
+    const res = await agent
+      .delete(`/api/communities/${community.id}/conversation/messages/${message.id}`)
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(true);
+
+    const stored = await prisma.message.findUnique({ where: { id: message.id } });
+    expect(stored!.deletedAt).not.toBeNull();
+  });
+
+  it('the original message body is preserved in the database (soft delete only)', async () => {
+    const community = await makeCommunity('Moderation Community 2');
+    const { agent, csrf } = await setupCommunityLeader(202, community.id);
+    const sender = await makePerson('+237698200002', 'Sender 2');
+    await makeMembership(sender.id, community.id);
+    const { message } = await seedMessage(community.id, sender.id, 'the real original text');
+
+    await agent
+      .delete(`/api/communities/${community.id}/conversation/messages/${message.id}`)
+      .set('X-CSRF-Token', csrf);
+
+    const stored = await prisma.message.findUnique({ where: { id: message.id } });
+    expect(stored!.body).toBe('the real original text');
+    expect(stored!.deletedByPersonId).toBeTruthy();
+  });
+
+  it('an ordinary Member (no scoped role) cannot delete a message', async () => {
+    const community = await makeCommunity('Moderation Community 3');
+    const { agent, csrf, person } = await loginAsMember('+237698200003', 'mod3@example.com');
+    await makeMembership(person.id, community.id);
+    const { message } = await seedMessage(community.id, person.id);
+
+    const res = await agent
+      .delete(`/api/communities/${community.id}/conversation/messages/${message.id}`)
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(403);
+
+    const stored = await prisma.message.findUnique({ where: { id: message.id } });
+    expect(stored!.deletedAt).toBeNull();
+  });
+
+  it('a Leader scoped to a DIFFERENT Community cannot delete a message here', async () => {
+    const communityA = await makeCommunity('Moderation Community 4A');
+    const communityB = await makeCommunity('Moderation Community 4B');
+    const { agent, csrf } = await setupCommunityLeader(204, communityB.id);
+    const sender = await makePerson('+237698200004', 'Sender 4');
+    await makeMembership(sender.id, communityA.id);
+    const { message } = await seedMessage(communityA.id, sender.id);
+
+    const res = await agent
+      .delete(`/api/communities/${communityA.id}/conversation/messages/${message.id}`)
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(403);
+  });
+
+  it('a former Community Administrator (ended role) cannot delete a message', async () => {
+    const community = await makeCommunity('Moderation Community 5');
+    const { agent, csrf, role } = await setupCommunityLeader(205, community.id);
+    await prisma.roleAssignment.update({ where: { id: role.id }, data: { status: 'ENDED', endedAt: new Date() } });
+    const sender = await makePerson('+237698200005', 'Sender 5');
+    await makeMembership(sender.id, community.id);
+    const { message } = await seedMessage(community.id, sender.id);
+
+    const res = await agent
+      .delete(`/api/communities/${community.id}/conversation/messages/${message.id}`)
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(403);
+  });
+
+  it('an unauthenticated caller cannot delete a message', async () => {
+    const community = await makeCommunity('Moderation Community 6');
+    const sender = await makePerson('+237698200006', 'Sender 6');
+    await makeMembership(sender.id, community.id);
+    const { message } = await seedMessage(community.id, sender.id);
+
+    const anon = agentWithUniqueIp();
+    const res = await anon.delete(`/api/communities/${community.id}/conversation/messages/${message.id}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('requires CSRF protection', async () => {
+    const community = await makeCommunity('Moderation Community 7');
+    const { agent } = await setupCommunityLeader(207, community.id);
+    const sender = await makePerson('+237698200007', 'Sender 7');
+    await makeMembership(sender.id, community.id);
+    const { message } = await seedMessage(community.id, sender.id);
+
+    const res = await agent.delete(`/api/communities/${community.id}/conversation/messages/${message.id}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('a message id from a different Community\'s conversation is rejected (IDOR)', async () => {
+    const communityA = await makeCommunity('Moderation Community 8A');
+    const communityB = await makeCommunity('Moderation Community 8B');
+    const { agent, csrf } = await setupCommunityLeader(208, communityA.id);
+    const sender = await makePerson('+237698200008', 'Sender 8');
+    await makeMembership(sender.id, communityB.id);
+    const { message: msgInB } = await seedMessage(communityB.id, sender.id);
+
+    const res = await agent
+      .delete(`/api/communities/${communityA.id}/conversation/messages/${msgInB.id}`)
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(404);
+  });
+
+  it('a nonexistent Community returns 404', async () => {
+    const { agent, csrf } = await setupCommunityLeader(209, (await makeCommunity('Moderation Community 9')).id);
+    const res = await agent
+      .delete('/api/communities/00000000-0000-0000-0000-000000000000/conversation/messages/00000000-0000-0000-0000-000000000000')
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(404);
+  });
+
+  it('a nonexistent message id returns 404', async () => {
+    const community = await makeCommunity('Moderation Community 10');
+    const { agent, csrf } = await setupCommunityLeader(210, community.id);
+
+    const res = await agent
+      .delete(`/api/communities/${community.id}/conversation/messages/00000000-0000-0000-0000-000000000000`)
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(404);
+  });
+
+  it('deleting an already-deleted message is idempotent and preserves the original deleter', async () => {
+    const community = await makeCommunity('Moderation Community 11');
+    const { agent: agentA, csrf: csrfA, person: personA } = await setupCommunityLeader(211, community.id);
+    const { agent: agentB, csrf: csrfB } = await setupCommunityLeader(212, community.id);
+    const sender = await makePerson('+237698200011', 'Sender 11');
+    await makeMembership(sender.id, community.id);
+    const { message } = await seedMessage(community.id, sender.id);
+
+    const first = await agentA
+      .delete(`/api/communities/${community.id}/conversation/messages/${message.id}`)
+      .set('X-CSRF-Token', csrfA);
+    expect(first.status).toBe(200);
+
+    const second = await agentB
+      .delete(`/api/communities/${community.id}/conversation/messages/${message.id}`)
+      .set('X-CSRF-Token', csrfB);
+    expect(second.status).toBe(200);
+
+    const stored = await prisma.message.findUnique({ where: { id: message.id } });
+    expect(stored!.deletedByPersonId).toBe(personA.id);
+  });
+
+  it('a deleted message is redacted (body null, deleted true) for an ordinary participant reading the conversation', async () => {
+    const community = await makeCommunity('Moderation Community 13');
+    const { agent: leaderAgent, csrf: leaderCsrf } = await setupCommunityLeader(213, community.id);
+    const { agent: memberAgent, person: memberPerson } = await loginAsMember('+237698200013', 'mod13@example.com');
+    await makeMembership(memberPerson.id, community.id);
+    const { message } = await seedMessage(community.id, memberPerson.id, 'to be removed');
+
+    await leaderAgent
+      .delete(`/api/communities/${community.id}/conversation/messages/${message.id}`)
+      .set('X-CSRF-Token', leaderCsrf);
+
+    const res = await memberAgent.get(`/api/communities/${community.id}/conversation/messages`);
+    expect(res.status).toBe(200);
+    const row = res.body.items.find((i: any) => i.id === message.id);
+    expect(row.deleted).toBe(true);
+    expect(row.body).toBeNull();
+  });
+
+  it('GET conversation metadata and messages report isAdministrator correctly for an administrator and an ordinary member', async () => {
+    const community = await makeCommunity('Moderation Community 14');
+    const { agent: leaderAgent } = await setupCommunityLeader(214, community.id);
+    const { agent: memberAgent, person: memberPerson } = await loginAsMember('+237698200014', 'mod14@example.com');
+    await makeMembership(memberPerson.id, community.id);
+
+    const leaderMeta = await leaderAgent.get(`/api/communities/${community.id}/conversation`);
+    expect(leaderMeta.body.isAdministrator).toBe(true);
+    const memberMeta = await memberAgent.get(`/api/communities/${community.id}/conversation`);
+    expect(memberMeta.body.isAdministrator).toBe(false);
+
+    const leaderMsgs = await leaderAgent.get(`/api/communities/${community.id}/conversation/messages`);
+    expect(leaderMsgs.body.isAdministrator).toBe(true);
+    const memberMsgs = await memberAgent.get(`/api/communities/${community.id}/conversation/messages`);
+    expect(memberMsgs.body.isAdministrator).toBe(false);
+  });
+
+  it('multiple active Community Administrators for the same Community may each independently moderate messages', async () => {
+    const community = await makeCommunity('Moderation Community 15');
+    const { agent: agentA, csrf: csrfA } = await setupCommunityLeader(215, community.id);
+    const { agent: agentB, csrf: csrfB } = await setupCommunityLeader(216, community.id);
+    const sender = await makePerson('+237698200015', 'Sender 15');
+    await makeMembership(sender.id, community.id);
+    const { message: msg1 } = await seedMessage(community.id, sender.id, 'first');
+    const { message: msg2 } = await seedMessage(community.id, sender.id, 'second');
+
+    const resA = await agentA
+      .delete(`/api/communities/${community.id}/conversation/messages/${msg1.id}`)
+      .set('X-CSRF-Token', csrfA);
+    expect(resA.status).toBe(200);
+    const resB = await agentB
+      .delete(`/api/communities/${community.id}/conversation/messages/${msg2.id}`)
+      .set('X-CSRF-Token', csrfB);
+    expect(resB.status).toBe(200);
+
+    const stored1 = await prisma.message.findUnique({ where: { id: msg1.id } });
+    const stored2 = await prisma.message.findUnique({ where: { id: msg2.id } });
+    expect(stored1!.deletedAt).not.toBeNull();
+    expect(stored2!.deletedAt).not.toBeNull();
+  });
+
+  it('the dedicated moderation rate limiter applies independently of the message-send limiter', async () => {
+    const community = await makeCommunity('Moderation Community 17');
+    const { agent, csrf } = await setupCommunityLeader(217, community.id);
+    const sender = await makePerson('+237698200017', 'Sender 17');
+    await makeMembership(sender.id, community.id);
+
+    let lastStatus = 200;
+    for (let i = 0; i < 61; i++) {
+      const { message } = await seedMessage(community.id, sender.id, `msg ${i}`);
+      const res = await agent
+        .delete(`/api/communities/${community.id}/conversation/messages/${message.id}`)
+        .set('X-CSRF-Token', csrf);
+      lastStatus = res.status;
+    }
+    expect(lastStatus).toBe(429);
+  });
+});
