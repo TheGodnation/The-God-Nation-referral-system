@@ -452,3 +452,388 @@ describe('Phase 3M.1 — Community Conversation — rate limiting', () => {
     expect(lastStatus).toBe(429);
   });
 });
+
+describe('Phase 3M.7 — Community Conversation — read state', () => {
+  it('a member can mark the conversation read up to a given message', async () => {
+    const community = await makeCommunity('Read Community 1');
+    const { agent, csrf, person } = await loginAsMember('+237698100001', 'read1@example.com');
+    await makeMembership(person.id, community.id);
+
+    const sender = await makePerson('+237698100101', 'Other Sender 1');
+    await makeMembership(sender.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'Hello' },
+    });
+
+    const res = await agent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(200);
+    expect(res.body.unreadCount).toBe(0);
+
+    const stored = await prisma.communityConversationRead.findUnique({
+      where: { personId_conversationId: { personId: person.id, conversationId: conversation.id } },
+    });
+    expect(stored).toBeTruthy();
+    expect(stored!.lastReadAt.getTime()).toBe(msg.createdAt.getTime());
+  });
+
+  it('a leader can mark the conversation read even without a CommunityMembership row', async () => {
+    const community = await makeCommunity('Read Community 2');
+    const { agent, csrf, person } = await setupCommunityLeader(102, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'Leader own message' },
+    });
+
+    const res = await agent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(200);
+  });
+
+  it('a person with no access to the community cannot mark it read', async () => {
+    const community = await makeCommunity('Read Community 3');
+    const { agent, csrf } = await loginAsMember('+237698100003', 'read3@example.com');
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const other = await makePerson('+237698100103', 'Someone Else 3');
+    const msg = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: other.id, body: 'Not yours to read' },
+    });
+
+    const res = await agent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(403);
+  });
+
+  it('an unauthenticated user cannot mark a conversation read', async () => {
+    const community = await makeCommunity('Read Community 4');
+    const anon = agentWithUniqueIp();
+    const res = await anon.post(`/api/communities/${community.id}/conversation/read`).send({ messageId: 'anything' });
+    expect(res.status).toBe(401);
+  });
+
+  it('requires CSRF protection', async () => {
+    const community = await makeCommunity('Read Community 5');
+    const { agent, person } = await loginAsMember('+237698100005', 'read5@example.com');
+    await makeMembership(person.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'x' },
+    });
+
+    const res = await agent.post(`/api/communities/${community.id}/conversation/read`).send({ messageId: msg.id });
+    expect(res.status).toBe(403);
+  });
+
+  it('a client-supplied personId is ignored — the cursor is always the authenticated caller\'s own', async () => {
+    const community = await makeCommunity('Read Community 6');
+    const { agent, csrf, person } = await loginAsMember('+237698100006', 'read6@example.com');
+    await makeMembership(person.id, community.id);
+    const other = await makePerson('+237698100106', 'Someone Else 6');
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'x' },
+    });
+
+    const res = await agent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id, personId: other.id });
+    expect(res.status).toBe(200);
+
+    const otherRead = await prisma.communityConversationRead.findUnique({
+      where: { personId_conversationId: { personId: other.id, conversationId: conversation.id } },
+    });
+    expect(otherRead).toBeNull();
+  });
+
+  it('a message id from a different conversation is rejected (IDOR)', async () => {
+    const communityA = await makeCommunity('Read Community 7A');
+    const communityB = await makeCommunity('Read Community 7B');
+    const { agent, csrf, person } = await loginAsMember('+237698100007', 'read7@example.com');
+    await makeMembership(person.id, communityA.id);
+    await makeMembership(person.id, communityB.id);
+    const conversationB = await prisma.conversation.upsert({
+      where: { communityId: communityB.id },
+      create: { communityId: communityB.id },
+      update: {},
+    });
+    const msgInB = await prisma.message.create({
+      data: { conversationId: conversationB.id, senderPersonId: person.id, body: 'In B' },
+    });
+
+    const res = await agent
+      .post(`/api/communities/${communityA.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msgInB.id });
+    expect(res.status).toBe(400);
+  });
+
+  it('GET requests never write read state — only the dedicated POST route does', async () => {
+    const community = await makeCommunity('Read Community 8');
+    const { agent, person } = await loginAsMember('+237698100008', 'read8@example.com');
+    await makeMembership(person.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: person.id, body: 'x' } });
+
+    await agent.get(`/api/communities/${community.id}/conversation`);
+    await agent.get(`/api/communities/${community.id}/conversation/messages`);
+
+    const read = await prisma.communityConversationRead.findUnique({
+      where: { personId_conversationId: { personId: person.id, conversationId: conversation.id } },
+    });
+    expect(read).toBeNull();
+  });
+
+  it('marking read is idempotent — repeating the same messageId does not error or duplicate rows', async () => {
+    const community = await makeCommunity('Read Community 9');
+    const { agent, csrf, person } = await loginAsMember('+237698100009', 'read9@example.com');
+    await makeMembership(person.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'x' },
+    });
+
+    const first = await agent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(first.status).toBe(200);
+    const second = await agent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(second.status).toBe(200);
+
+    const count = await prisma.communityConversationRead.count({
+      where: { personId: person.id, conversationId: conversation.id },
+    });
+    expect(count).toBe(1);
+  });
+
+  it('a stale (older) read-mark request never moves the cursor backwards', async () => {
+    const community = await makeCommunity('Read Community 10');
+    const { agent, csrf, person } = await loginAsMember('+237698100010', 'read10@example.com');
+    await makeMembership(person.id, community.id);
+    const sender = await makePerson('+237698100110', 'Other Sender 10');
+    await makeMembership(sender.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const older = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'older' },
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const newer = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'newer' },
+    });
+
+    await agent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: newer.id });
+
+    const staleRes = await agent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: older.id });
+    expect(staleRes.status).toBe(200);
+
+    const stored = await prisma.communityConversationRead.findUnique({
+      where: { personId_conversationId: { personId: person.id, conversationId: conversation.id } },
+    });
+    expect(stored!.lastReadAt.getTime()).toBe(newer.createdAt.getTime());
+  });
+
+  it('unread count excludes the reader\'s own sent messages', async () => {
+    const community = await makeCommunity('Read Community 11');
+    const { agent, person } = await loginAsMember('+237698100011', 'read11@example.com');
+    await makeMembership(person.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'my own message' },
+    });
+
+    const res = await agent.get(`/api/communities/${community.id}/conversation`);
+    expect(res.status).toBe(200);
+    expect(res.body.unreadCount).toBe(0);
+  });
+
+  it('unread count reflects messages from others and drops to zero after marking read', async () => {
+    const community = await makeCommunity('Read Community 12');
+    const { agent, csrf, person } = await loginAsMember('+237698100012', 'read12@example.com');
+    await makeMembership(person.id, community.id);
+    const sender = await makePerson('+237698100112', 'Other Sender 12');
+    await makeMembership(sender.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg1 = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'one' },
+    });
+    await new Promise((r) => setTimeout(r, 2));
+    await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'two' },
+    });
+
+    const before = await agent.get(`/api/communities/${community.id}/conversation`);
+    expect(before.body.unreadCount).toBe(2);
+
+    await agent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg1.id });
+
+    const afterPartial = await agent.get(`/api/communities/${community.id}/conversation`);
+    expect(afterPartial.body.unreadCount).toBe(1);
+  });
+
+  it('read state is Person-specific — one member\'s read state never affects another\'s unread count', async () => {
+    const community = await makeCommunity('Read Community 13');
+    const { agent: agentA, csrf: csrfA, person: personA } = await loginAsMember('+237698100013', 'read13a@example.com');
+    const { agent: agentB } = await loginAsMember('+237698100014', 'read13b@example.com');
+    await makeMembership(personA.id, community.id);
+    const personBRecord = await prisma.person.findFirst({ where: { whatsappNumber: '+237698100014' } });
+    await makeMembership(personBRecord!.id, community.id);
+    const sender = await makePerson('+237698100115', 'Other Sender 13');
+    await makeMembership(sender.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'shared' },
+    });
+
+    await agentA
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', csrfA)
+      .send({ messageId: msg.id });
+
+    const aRes = await agentA.get(`/api/communities/${community.id}/conversation`);
+    expect(aRes.body.unreadCount).toBe(0);
+
+    const bRes = await agentB.get(`/api/communities/${community.id}/conversation`);
+    expect(bRes.body.unreadCount).toBe(1);
+  });
+
+  it('a nonexistent Community returns 404 for the read route', async () => {
+    const { agent, csrf } = await loginAsMember('+237698100099', 'read99@example.com');
+    const res = await agent
+      .post('/api/communities/00000000-0000-0000-0000-000000000000/conversation/read')
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: 'x' });
+    expect(res.status).toBe(404);
+  });
+
+  it('the same Person shares one read cursor whether they authenticate as Member or as Leader', async () => {
+    const community = await makeCommunity('Read Community 15');
+    const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237698100016', 'read15@example.com');
+    await makeMembership(person.id, community.id);
+
+    const { user } = await createLeader('Shared Identity Leader 15', 'read15-leader@test.local', 'RD15CODE');
+    await prisma.user.update({ where: { id: user.id }, data: { personId: person.id } });
+    await prisma.roleAssignment.create({
+      data: { personId: person.id, roleType: 'SCOPED_LEADER', assignedByUserId: user.id, communityId: community.id },
+    });
+    const leaderAgent = agentWithUniqueIp();
+    const { csrf: leaderCsrf } = await bootstrap(leaderAgent as any);
+    await leaderAgent
+      .post('/api/auth/login')
+      .set('X-CSRF-Token', leaderCsrf)
+      .send({ email: 'read15-leader@test.local', password: 'password123' });
+
+    const sender = await makePerson('+237698100116', 'Other Sender 15');
+    await makeMembership(sender.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'shared identity' },
+    });
+
+    // Mark read via the Member session...
+    await memberAgent
+      .post(`/api/communities/${community.id}/conversation/read`)
+      .set('X-CSRF-Token', memberCsrf)
+      .send({ messageId: msg.id });
+
+    // ...and the Leader session for the SAME Person sees it as already read.
+    const leaderRes = await leaderAgent.get(`/api/communities/${community.id}/conversation`);
+    expect(leaderRes.body.unreadCount).toBe(0);
+
+    const rows = await prisma.communityConversationRead.count({
+      where: { personId: person.id, conversationId: conversation.id },
+    });
+    expect(rows).toBe(1);
+  });
+
+  it('the dedicated read rate limiter applies independently of the message-send limiter', async () => {
+    const community = await makeCommunity('Read Community 14');
+    const { agent, csrf, person } = await loginAsMember('+237698100015', 'read14@example.com');
+    await makeMembership(person.id, community.id);
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'x' },
+    });
+
+    let lastStatus = 200;
+    for (let i = 0; i < 121; i++) {
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/read`)
+        .set('X-CSRF-Token', csrf)
+        .send({ messageId: msg.id });
+      lastStatus = res.status;
+    }
+    expect(lastStatus).toBe(429);
+  });
+});

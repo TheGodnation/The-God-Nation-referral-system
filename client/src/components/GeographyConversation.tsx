@@ -21,6 +21,13 @@ interface MessageRow {
 // there is no leader-only posting restriction. No realtime, no polling:
 // loading the panel and sending a message are the only two things that
 // ever fetch. Text-only — no attachments of any kind.
+//
+// Phase 3M.7 — read/unread state, same pattern as CommunityConversation:
+// loadLatest is a genuine, side-effect-free GET; once it succeeds and there
+// is at least one unread message, this component fires POST .../read once
+// with the newest visible message — never from loadOlder(). A failed
+// read-mark is a silent best-effort follow-up; messages already rendered
+// are never hidden or discarded because of it.
 export function GeographyConversation({ geographyId, geographyName }: { geographyId: string; geographyName: string }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -28,18 +35,32 @@ export function GeographyConversation({ geographyId, geographyName }: { geograph
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
+  function markRead(latestMessageId: string) {
+    api
+      .post<{ unreadCount: number }>(`/api/geographies/${geographyId}/conversation/read`, { messageId: latestMessageId })
+      .then((res) => setUnreadCount(res.unreadCount))
+      .catch(() => {});
+  }
+
   function loadLatest() {
     setError(null);
     api
-      .get<{ items: MessageRow[]; hasMore: boolean }>(`/api/geographies/${geographyId}/conversation/messages`)
+      .get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number }>(
+        `/api/geographies/${geographyId}/conversation/messages`,
+      )
       .then((res) => {
         setMessages(res.items);
         setHasMore(res.hasMore);
+        setUnreadCount(res.unreadCount);
+        if (res.unreadCount > 0 && res.items.length > 0) {
+          markRead(res.items[res.items.length - 1].id);
+        }
       })
       .catch(() => setError(t('geographyConversation.load_failed')))
       .finally(() => setLoading(false));
@@ -81,8 +102,11 @@ export function GeographyConversation({ geographyId, geographyName }: { geograph
 
   return (
     <div className="card mt-6">
-      <h2 className="mb-3 font-semibold text-brand-900">
+      <h2 className="mb-3 flex items-center gap-2 font-semibold text-brand-900">
         {t('geographyConversation.title', { geography: geographyName })}
+        {unreadCount > 0 && (
+          <span className="rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">{unreadCount}</span>
+        )}
       </h2>
 
       {loading ? (

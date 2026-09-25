@@ -461,3 +461,229 @@ describe('Phase 3M.6 — lazy get-or-create and dynamic reassignment', () => {
     expect(afterNew.status).toBe(200);
   });
 });
+
+describe('Phase 3M.7 — Geography Conversation — read state', () => {
+  it('an authorized ordinary Person can mark the conversation read', async () => {
+    const geography = await makeGeography('Read Region 1');
+    const { agent, csrf, person } = await loginAsMember('+237696900101', 'geoconv-read1@example.com');
+    await assignGeography(person.id, geography.id);
+    const leader = await prisma.person.create({ data: { name: 'Sender Leader 1', whatsappNumber: '+237696900201' } });
+    const conversation = await prisma.geographyConversation.upsert({
+      where: { geographyId: geography.id },
+      create: { geographyId: geography.id },
+      update: {},
+    });
+    const msg = await prisma.geographyMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: leader.id, body: 'From someone else' },
+    });
+
+    const res = await agent
+      .post(`/api/geographies/${geography.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(200);
+    expect(res.body.unreadCount).toBe(0);
+  });
+
+  it('an authorized exact-match Leader can mark the conversation read', async () => {
+    const geography = await makeGeography('Read Region 2');
+    const { agent, csrf, person } = await setupGeographyLeader(105, geography.id);
+    const conversation = await prisma.geographyConversation.upsert({
+      where: { geographyId: geography.id },
+      create: { geographyId: geography.id },
+      update: {},
+    });
+    const msg = await prisma.geographyMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'Leader own message' },
+    });
+
+    const res = await agent
+      .post(`/api/geographies/${geography.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(200);
+  });
+
+  it('an unauthorized Person (no relationship to G) cannot mark it read — hierarchy rules preserved', async () => {
+    const region = await makeGeography('Read Region 3 Parent');
+    const village = await makeGeography('Read Region 3 Child', region.id);
+    const { agent, csrf, person } = await loginAsMember('+237696900102', 'geoconv-read3@example.com');
+    // Assigned to the region — an ANCESTOR of village — so still denied
+    // access to the village's own conversation.
+    await assignGeography(person.id, region.id);
+    const conversation = await prisma.geographyConversation.upsert({
+      where: { geographyId: village.id },
+      create: { geographyId: village.id },
+      update: {},
+    });
+    const msg = await prisma.geographyMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'x' },
+    });
+
+    const res = await agent
+      .post(`/api/geographies/${village.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(404);
+  });
+
+  it('a messageId from a different Geography\'s conversation is rejected (IDOR)', async () => {
+    const geographyA = await makeGeography('Read Region 4A');
+    const geographyB = await makeGeography('Read Region 4B');
+    const { agent, csrf, person } = await loginAsMember('+237696900103', 'geoconv-read4@example.com');
+    await assignGeography(person.id, geographyA.id);
+    const conversationB = await prisma.geographyConversation.upsert({
+      where: { geographyId: geographyB.id },
+      create: { geographyId: geographyB.id },
+      update: {},
+    });
+    const msgInB = await prisma.geographyMessage.create({
+      data: { conversationId: conversationB.id, senderPersonId: person.id, body: 'In B' },
+    });
+
+    const res = await agent
+      .post(`/api/geographies/${geographyA.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msgInB.id });
+    expect(res.status).toBe(400);
+  });
+
+  it('GET requests never write read state', async () => {
+    const geography = await makeGeography('Read Region 5');
+    const { agent, person } = await loginAsMember('+237696900104', 'geoconv-read5@example.com');
+    await assignGeography(person.id, geography.id);
+    const conversation = await prisma.geographyConversation.upsert({
+      where: { geographyId: geography.id },
+      create: { geographyId: geography.id },
+      update: {},
+    });
+    await prisma.geographyMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'x' },
+    });
+
+    await agent.get(`/api/geographies/${geography.id}/conversation`);
+    await agent.get(`/api/geographies/${geography.id}/conversation/messages`);
+
+    const read = await prisma.geographyConversationRead.findUnique({
+      where: { personId_conversationId: { personId: person.id, conversationId: conversation.id } },
+    });
+    expect(read).toBeNull();
+  });
+
+  it('requires CSRF protection', async () => {
+    const geography = await makeGeography('Read Region 6');
+    const { agent, person } = await loginAsMember('+237696900105', 'geoconv-read6@example.com');
+    await assignGeography(person.id, geography.id);
+    const conversation = await prisma.geographyConversation.upsert({
+      where: { geographyId: geography.id },
+      create: { geographyId: geography.id },
+      update: {},
+    });
+    const msg = await prisma.geographyMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: person.id, body: 'x' },
+    });
+
+    const res = await agent.post(`/api/geographies/${geography.id}/conversation/read`).send({ messageId: msg.id });
+    expect(res.status).toBe(403);
+  });
+
+  it('an unauthenticated caller cannot mark read', async () => {
+    const geography = await makeGeography('Read Region 7');
+    const anon = agentWithUniqueIp();
+    const res = await anon.post(`/api/geographies/${geography.id}/conversation/read`).send({ messageId: 'x' });
+    expect(res.status).toBe(401);
+  });
+
+  it('a nonexistent Geography returns 404 for the read route, indistinguishable from a real inaccessible one', async () => {
+    const { agent, csrf } = await loginAsMember('+237696900106', 'geoconv-read8@example.com');
+    const res = await agent
+      .post('/api/geographies/00000000-0000-0000-0000-000000000000/conversation/read')
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: 'x' });
+    expect(res.status).toBe(404);
+  });
+
+  it('a stale read-mark request never moves the cursor backwards', async () => {
+    const geography = await makeGeography('Read Region 8');
+    const { agent, csrf, person } = await loginAsMember('+237696900107', 'geoconv-read9@example.com');
+    await assignGeography(person.id, geography.id);
+    const other = await prisma.person.create({ data: { name: 'Other Sender', whatsappNumber: '+237696900207' } });
+    const conversation = await prisma.geographyConversation.upsert({
+      where: { geographyId: geography.id },
+      create: { geographyId: geography.id },
+      update: {},
+    });
+    const older = await prisma.geographyMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: other.id, body: 'older' },
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const newer = await prisma.geographyMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: other.id, body: 'newer' },
+    });
+
+    await agent
+      .post(`/api/geographies/${geography.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: newer.id });
+    await agent
+      .post(`/api/geographies/${geography.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: older.id });
+
+    const stored = await prisma.geographyConversationRead.findUnique({
+      where: { personId_conversationId: { personId: person.id, conversationId: conversation.id } },
+    });
+    expect(stored!.lastReadAt.getTime()).toBe(newer.createdAt.getTime());
+  });
+
+  it('unread count excludes the reader\'s own sent messages', async () => {
+    const geography = await makeGeography('Read Region 9');
+    const { agent, csrf, person } = await loginAsMember('+237696900108', 'geoconv-read10@example.com');
+    await assignGeography(person.id, geography.id);
+
+    await agent
+      .post(`/api/geographies/${geography.id}/conversation/messages`)
+      .set('X-CSRF-Token', csrf)
+      .send({ body: 'my own message' });
+
+    const res = await agent.get(`/api/geographies/${geography.id}/conversation`);
+    expect(res.body.unreadCount).toBe(0);
+  });
+
+  it('read state is Person-specific and tied to the correct conversation across the Geography hierarchy', async () => {
+    const region = await makeGeography('Read Region 10 Parent');
+    const village = await makeGeography('Read Region 10 Child', region.id);
+    const { agent, csrf, person } = await loginAsMember('+237696900109', 'geoconv-read11@example.com');
+    await assignGeography(person.id, village.id);
+    const other = await prisma.person.create({ data: { name: 'Other Sender 10', whatsappNumber: '+237696900209' } });
+
+    const regionConversation = await prisma.geographyConversation.upsert({
+      where: { geographyId: region.id },
+      create: { geographyId: region.id },
+      update: {},
+    });
+    const villageConversation = await prisma.geographyConversation.upsert({
+      where: { geographyId: village.id },
+      create: { geographyId: village.id },
+      update: {},
+    });
+    const regionMsg = await prisma.geographyMessage.create({
+      data: { conversationId: regionConversation.id, senderPersonId: other.id, body: 'in region' },
+    });
+    await prisma.geographyMessage.create({
+      data: { conversationId: villageConversation.id, senderPersonId: other.id, body: 'in village' },
+    });
+
+    // Marking the region's conversation read must not affect the village's
+    // own, separate unread count.
+    await agent
+      .post(`/api/geographies/${region.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: regionMsg.id });
+
+    const regionRes = await agent.get(`/api/geographies/${region.id}/conversation`);
+    expect(regionRes.body.unreadCount).toBe(0);
+    const villageRes = await agent.get(`/api/geographies/${village.id}/conversation`);
+    expect(villageRes.body.unreadCount).toBe(1);
+  });
+});

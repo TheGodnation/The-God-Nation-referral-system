@@ -16,6 +16,13 @@ interface MessageRow {
 // its own namespace, own routes, own read-only-after-close rule. Never
 // touches or displays FollowUpContact (wellbeing/notes) — that stays a
 // private Leader/Admin log, entirely unrelated to this conversation.
+//
+// Phase 3M.7 — read/unread state, same pattern as CommunityConversation:
+// loading (loadAll) is a genuine, side-effect-free GET; once it succeeds and
+// there is at least one unread message, this component fires POST .../read
+// once with the newest visible message — never from loadOlder(). Marking
+// read stays available even when the assignment is CLOSED (only sending is
+// gated on isActive). A failed read-mark is a silent best-effort follow-up.
 export function FollowUpConversation({ followUpAssignmentId }: { followUpAssignmentId: string }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -24,21 +31,37 @@ export function FollowUpConversation({ followUpAssignmentId }: { followUpAssignm
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
+  function markRead(latestMessageId: string) {
+    api
+      .post<{ unreadCount: number }>(`/api/follow-ups/${followUpAssignmentId}/conversation/read`, {
+        messageId: latestMessageId,
+      })
+      .then((res) => setUnreadCount(res.unreadCount))
+      .catch(() => {});
+  }
+
   function loadAll() {
     setError(null);
     Promise.all([
       api.get<{ assignmentStatus: 'ACTIVE' | 'CLOSED' }>(`/api/follow-ups/${followUpAssignmentId}/conversation`),
-      api.get<{ items: MessageRow[]; hasMore: boolean }>(`/api/follow-ups/${followUpAssignmentId}/conversation/messages`),
+      api.get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number }>(
+        `/api/follow-ups/${followUpAssignmentId}/conversation/messages`,
+      ),
     ])
       .then(([meta, msgs]) => {
         setAssignmentStatus(meta.assignmentStatus);
         setMessages(msgs.items);
         setHasMore(msgs.hasMore);
+        setUnreadCount(msgs.unreadCount);
+        if (msgs.unreadCount > 0 && msgs.items.length > 0) {
+          markRead(msgs.items[msgs.items.length - 1].id);
+        }
       })
       .catch(() => setError(t('followUpConversation.load_failed')))
       .finally(() => setLoading(false));
@@ -82,7 +105,12 @@ export function FollowUpConversation({ followUpAssignmentId }: { followUpAssignm
 
   return (
     <div className="mt-4 rounded-lg border border-slate-100 p-3">
-      <h3 className="mb-2 font-medium text-brand-900">{t('followUpConversation.title')}</h3>
+      <h3 className="mb-2 flex items-center gap-2 font-medium text-brand-900">
+        {t('followUpConversation.title')}
+        {unreadCount > 0 && (
+          <span className="rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">{unreadCount}</span>
+        )}
+      </h3>
 
       {loading ? (
         <p className="text-sm text-slate-400">{t('followUpConversation.loading')}</p>

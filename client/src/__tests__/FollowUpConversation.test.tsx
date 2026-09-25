@@ -198,6 +198,145 @@ describe('FollowUpConversation', () => {
     expect((textarea as HTMLTextAreaElement).value).toBe('');
   });
 
+  it('shows an unread badge and marks the conversation read after successfully rendering', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(init.body as string) : undefined });
+        if (method === 'POST' && url.includes('/conversation/read')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ unreadCount: 0 }),
+          });
+        }
+        if (url.includes('/conversation/messages')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: { get: () => 'application/json' },
+            json: async () => ({
+              items: [{ id: 'm1', senderName: 'Mary Ngu', body: 'How are you doing?', createdAt: '2026-01-10T00:00:00Z' }],
+              hasMore: false,
+              unreadCount: 1,
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({ assignmentStatus: 'ACTIVE' }),
+        });
+      }),
+    );
+
+    render(<FollowUpConversation followUpAssignmentId="f1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const readCall = calls.find((c) => c.method === 'POST' && c.url.includes('/conversation/read'));
+      expect(readCall).toBeTruthy();
+      expect(readCall!.body).toEqual({ messageId: 'm1' });
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('1')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('How are you doing?')).toBeInTheDocument();
+  });
+
+  it('marks read even for a CLOSED assignment', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(init.body as string) : undefined });
+        if (method === 'POST' && url.includes('/conversation/read')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ unreadCount: 0 }),
+          });
+        }
+        if (url.includes('/conversation/messages')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: { get: () => 'application/json' },
+            json: async () => ({
+              items: [{ id: 'm1', senderName: 'Mary Ngu', body: 'Historical.', createdAt: '2026-01-10T00:00:00Z' }],
+              hasMore: false,
+              unreadCount: 1,
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({ assignmentStatus: 'CLOSED' }),
+        });
+      }),
+    );
+
+    render(<FollowUpConversation followUpAssignmentId="f1" />);
+
+    await waitFor(() => {
+      const readCall = calls.find((c) => c.method === 'POST' && c.url.includes('/conversation/read'));
+      expect(readCall).toBeTruthy();
+    });
+  });
+
+  it('keeps messages visible when marking read fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(init.body as string) : undefined });
+        if (method === 'POST' && url.includes('/conversation/read')) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ error: 'boom' }),
+          });
+        }
+        if (url.includes('/conversation/messages')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: { get: () => 'application/json' },
+            json: async () => ({
+              items: [{ id: 'm1', senderName: 'Mary Ngu', body: 'How are you doing?', createdAt: '2026-01-10T00:00:00Z' }],
+              hasMore: false,
+              unreadCount: 1,
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({ assignmentStatus: 'ACTIVE' }),
+        });
+      }),
+    );
+
+    render(<FollowUpConversation followUpAssignmentId="f1" />);
+
+    await waitFor(() => {
+      const readCall = calls.find((c) => c.method === 'POST' && c.url.includes('/conversation/read'));
+      expect(readCall).toBeTruthy();
+    });
+    expect(screen.getByText('How are you doing?')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
+  });
+
   it('renders in French when the active language is French', async () => {
     i18n.changeLanguage('fr');
     mockFetchByUrl({

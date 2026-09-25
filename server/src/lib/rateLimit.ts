@@ -238,3 +238,33 @@ export const geographyMessageSendLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many messages sent. Please slow down.' },
 });
+
+// Phase 3M.7: marking a conversation read. Same design and magnitude as
+// announcementReadLimiter (own-data-only, idempotent, expected to fire
+// once per conversation a Person actually opens) — one dedicated limiter
+// per conversation surface, per the project's per-category-limiter
+// convention, so Community/Follow-Up/Geography read-marking quotas never
+// share or starve one another, or the surfaces' own message-send limiters.
+export const communityConversationReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
+export const followUpConversationReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
+export const geographyConversationReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

@@ -35,3 +35,54 @@ export async function getOrCreateConversation(communityId: string) {
     update: {},
   });
 }
+
+/**
+ * Phase 3M.7 — read-state helpers. A LAST-READ CURSOR (lastReadAt), not a
+ * per-message flag like AnnouncementRead: a Conversation is a continuous
+ * stream, so tracking "has this Person read THIS message" per message
+ * would grow without bound. Never consulted by hasConversationAccess — a
+ * read row is state about what a Person has seen, never proof of what they
+ * may see.
+ */
+
+/**
+ * Advances personId's read cursor for this conversation to `upTo`, but
+ * never moves it backwards — a stale/out-of-order client request can never
+ * regress an already-later cursor. Idempotent: repeating the same `upTo`
+ * (or an older one) is a safe no-op once the cursor already covers it.
+ */
+export async function markCommunityConversationRead(personId: string, conversationId: string, upTo: Date): Promise<void> {
+  const advanced = await prisma.communityConversationRead.updateMany({
+    where: { personId, conversationId, lastReadAt: { lt: upTo } },
+    data: { lastReadAt: upTo },
+  });
+  if (advanced.count > 0) return;
+  // Either no row exists yet (first-ever read), or one exists whose cursor
+  // is already >= upTo (a stale request) — upsert's `create` only fires in
+  // the former case; its `update: {}` is a deliberate no-op in the latter,
+  // so the existing (later) cursor is never overwritten.
+  await prisma.communityConversationRead.upsert({
+    where: { personId_conversationId: { personId, conversationId } },
+    create: { personId, conversationId, lastReadAt: upTo },
+    update: {},
+  });
+}
+
+/**
+ * Number of messages in this conversation newer than personId's read
+ * cursor, excluding personId's own messages (a Person's own newly sent
+ * message is never counted as "unread" for themselves). No cursor row at
+ * all means everything (other than the Person's own messages) is unread.
+ */
+export async function getCommunityConversationUnreadCount(personId: string, conversationId: string): Promise<number> {
+  const read = await prisma.communityConversationRead.findUnique({
+    where: { personId_conversationId: { personId, conversationId } },
+  });
+  return prisma.message.count({
+    where: {
+      conversationId,
+      senderPersonId: { not: personId },
+      ...(read ? { createdAt: { gt: read.lastReadAt } } : {}),
+    },
+  });
+}

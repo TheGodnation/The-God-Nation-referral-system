@@ -567,3 +567,265 @@ describe('Phase 3M.2 — Follow-Up Conversation — uniqueness and eager creatio
     await expect(prisma.followUpConversation.create({ data: { followUpAssignmentId: assignment.id } })).rejects.toThrow();
   });
 });
+
+describe('Phase 3M.7 — Follow-Up Conversation — read state', () => {
+  it('the follower can mark the conversation read', async () => {
+    const { agent, csrf, person: leaderPerson, user } = await setupLeader(36);
+    const followed = await makePerson('+237696900001');
+    const assignment = await makeAssignment(leaderPerson.id, followed.id, user.id);
+    const conversation = await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId: assignment.id },
+      create: { followUpAssignmentId: assignment.id },
+      update: {},
+    });
+    const msg = await prisma.followUpMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: followed.id, body: 'From the followed.' },
+    });
+
+    const res = await agent
+      .post(`/api/follow-ups/${assignment.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(200);
+    expect(res.body.unreadCount).toBe(0);
+  });
+
+  it('the followed Member can mark the conversation read', async () => {
+    const { person: leaderPerson, user } = await setupLeader(37);
+    const { agent, csrf, person: memberPerson } = await loginAsMember('+237696900002', 'read37@example.com');
+    const assignment = await makeAssignment(leaderPerson.id, memberPerson.id, user.id);
+    const conversation = await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId: assignment.id },
+      create: { followUpAssignmentId: assignment.id },
+      update: {},
+    });
+    const msg = await prisma.followUpMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: leaderPerson.id, body: 'From the leader.' },
+    });
+
+    const res = await agent
+      .post(`/api/follow-ups/${assignment.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(200);
+  });
+
+  it('an unrelated Leader cannot mark another Leader\'s Follow-Up conversation read', async () => {
+    const { person: leaderAPerson, user: userA } = await setupLeader(38);
+    const { agent: agentB, csrf: csrfB } = await setupLeader(39);
+    const followed = await makePerson('+237696900003');
+    const assignment = await makeAssignment(leaderAPerson.id, followed.id, userA.id);
+    const conversation = await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId: assignment.id },
+      create: { followUpAssignmentId: assignment.id },
+      update: {},
+    });
+    const msg = await prisma.followUpMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: followed.id, body: 'x' },
+    });
+
+    const res = await agentB
+      .post(`/api/follow-ups/${assignment.id}/conversation/read`)
+      .set('X-CSRF-Token', csrfB)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(404);
+  });
+
+  it('marking read remains available for a CLOSED assignment\'s original participants (unlike sending)', async () => {
+    const { agent, csrf, person: leaderPerson, user } = await setupLeader(40);
+    const followed = await makePerson('+237696900004');
+    const assignment = await makeAssignment(leaderPerson.id, followed.id, user.id, 'CLOSED');
+    const conversation = await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId: assignment.id },
+      create: { followUpAssignmentId: assignment.id },
+      update: {},
+    });
+    const msg = await prisma.followUpMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: followed.id, body: 'historical' },
+    });
+
+    const res = await agent
+      .post(`/api/follow-ups/${assignment.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: msg.id });
+    expect(res.status).toBe(200);
+
+    // Marking read never reopens the assignment.
+    const stillClosed = await prisma.followUpAssignment.findUnique({ where: { id: assignment.id } });
+    expect(stillClosed!.status).toBe('CLOSED');
+  });
+
+  it('reassignment: the old follower\'s read state is never transferred to the new follower', async () => {
+    const { agent: agentOld, csrf: csrfOld, person: oldLeaderPerson, user: userOld } = await setupLeader(41);
+    const { agent: agentNew, person: newLeaderPerson } = await setupLeader(42);
+    const { person: memberPerson } = await loginAsMember('+237696900005', 'read41@example.com');
+
+    const community = await prisma.community.create({ data: { name: 'Read Reassign Community' } });
+    await prisma.roleAssignment.create({
+      data: { personId: newLeaderPerson.id, roleType: 'SCOPED_LEADER', assignedByUserId: userOld.id, communityId: community.id },
+    });
+    const oldAssignment = await prisma.followUpAssignment.create({
+      data: {
+        followerId: oldLeaderPerson.id,
+        followedPersonId: memberPerson.id,
+        contextType: 'COMMUNITY',
+        contextId: community.id,
+        assignedByUserId: userOld.id,
+      },
+    });
+    const oldConversation = await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId: oldAssignment.id },
+      create: { followUpAssignmentId: oldAssignment.id },
+      update: {},
+    });
+    const oldMsg = await prisma.followUpMessage.create({
+      data: { conversationId: oldConversation.id, senderPersonId: memberPerson.id, body: 'old conversation message' },
+    });
+    await agentOld
+      .post(`/api/follow-ups/${oldAssignment.id}/conversation/read`)
+      .set('X-CSRF-Token', csrfOld)
+      .send({ messageId: oldMsg.id });
+
+    const reassignRes = await agentOld
+      .post(`/api/leader/follow-ups/${oldAssignment.id}/reassign`)
+      .set('X-CSRF-Token', csrfOld)
+      .send({ newFollowerId: newLeaderPerson.id });
+    expect(reassignRes.status).toBe(200);
+    const newAssignmentId = reassignRes.body.id;
+
+    const newConversation = await prisma.followUpConversation.findUnique({ where: { followUpAssignmentId: newAssignmentId } });
+    const newFollowerRead = await prisma.followUpConversationRead.findUnique({
+      where: { personId_conversationId: { personId: newLeaderPerson.id, conversationId: newConversation!.id } },
+    });
+    expect(newFollowerRead).toBeNull();
+
+    // The old follower's read row stays tied to the old conversation id.
+    const oldFollowerRead = await prisma.followUpConversationRead.findUnique({
+      where: { personId_conversationId: { personId: oldLeaderPerson.id, conversationId: oldConversation.id } },
+    });
+    expect(oldFollowerRead).toBeTruthy();
+
+    // New follower's unread count on the new conversation is unaffected by
+    // the old conversation's history.
+    const newRes = await agentNew.get(`/api/follow-ups/${newAssignmentId}/conversation`);
+    expect(newRes.body.unreadCount).toBe(0);
+  });
+
+  it('a messageId from a different conversation is rejected (IDOR)', async () => {
+    const { agent: agentA, csrf: csrfA, person: leaderAPerson, user: userA } = await setupLeader(43);
+    const followedA = await makePerson('+237696900006');
+    const assignmentA = await makeAssignment(leaderAPerson.id, followedA.id, userA.id);
+
+    const followedB = await makePerson('+237696900007');
+    const assignmentB = await makeAssignment(leaderAPerson.id, followedB.id, userA.id);
+    const conversationB = await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId: assignmentB.id },
+      create: { followUpAssignmentId: assignmentB.id },
+      update: {},
+    });
+    const msgInB = await prisma.followUpMessage.create({
+      data: { conversationId: conversationB.id, senderPersonId: followedB.id, body: 'In B' },
+    });
+
+    const res = await agentA
+      .post(`/api/follow-ups/${assignmentA.id}/conversation/read`)
+      .set('X-CSRF-Token', csrfA)
+      .send({ messageId: msgInB.id });
+    expect(res.status).toBe(400);
+  });
+
+  it('GET requests never write read state', async () => {
+    const { agent, person: leaderPerson, user } = await setupLeader(44);
+    const followed = await makePerson('+237696900008');
+    const assignment = await makeAssignment(leaderPerson.id, followed.id, user.id);
+    const conversation = await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId: assignment.id },
+      create: { followUpAssignmentId: assignment.id },
+      update: {},
+    });
+    await prisma.followUpMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: followed.id, body: 'x' },
+    });
+
+    await agent.get(`/api/follow-ups/${assignment.id}/conversation`);
+    await agent.get(`/api/follow-ups/${assignment.id}/conversation/messages`);
+
+    const read = await prisma.followUpConversationRead.findUnique({
+      where: { personId_conversationId: { personId: leaderPerson.id, conversationId: conversation.id } },
+    });
+    expect(read).toBeNull();
+  });
+
+  it('requires CSRF protection', async () => {
+    const { agent, person: leaderPerson, user } = await setupLeader(45);
+    const followed = await makePerson('+237696900009');
+    const assignment = await makeAssignment(leaderPerson.id, followed.id, user.id);
+    const conversation = await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId: assignment.id },
+      create: { followUpAssignmentId: assignment.id },
+      update: {},
+    });
+    const msg = await prisma.followUpMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: followed.id, body: 'x' },
+    });
+
+    const res = await agent.post(`/api/follow-ups/${assignment.id}/conversation/read`).send({ messageId: msg.id });
+    expect(res.status).toBe(403);
+  });
+
+  it('an unauthenticated caller cannot mark read', async () => {
+    const { person: leaderPerson, user } = await setupLeader(46);
+    const followed = await makePerson('+237696900010');
+    const assignment = await makeAssignment(leaderPerson.id, followed.id, user.id);
+
+    const anon = agentWithUniqueIp();
+    const res = await anon.post(`/api/follow-ups/${assignment.id}/conversation/read`).send({ messageId: 'x' });
+    expect(res.status).toBe(401);
+  });
+
+  it('a stale read-mark request never moves the cursor backwards', async () => {
+    const { agent, csrf, person: leaderPerson, user } = await setupLeader(47);
+    const followed = await makePerson('+237696900011');
+    const assignment = await makeAssignment(leaderPerson.id, followed.id, user.id);
+    const conversation = await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId: assignment.id },
+      create: { followUpAssignmentId: assignment.id },
+      update: {},
+    });
+    const older = await prisma.followUpMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: followed.id, body: 'older' },
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const newer = await prisma.followUpMessage.create({
+      data: { conversationId: conversation.id, senderPersonId: followed.id, body: 'newer' },
+    });
+
+    await agent
+      .post(`/api/follow-ups/${assignment.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: newer.id });
+    await agent
+      .post(`/api/follow-ups/${assignment.id}/conversation/read`)
+      .set('X-CSRF-Token', csrf)
+      .send({ messageId: older.id });
+
+    const stored = await prisma.followUpConversationRead.findUnique({
+      where: { personId_conversationId: { personId: leaderPerson.id, conversationId: conversation.id } },
+    });
+    expect(stored!.lastReadAt.getTime()).toBe(newer.createdAt.getTime());
+  });
+
+  it('unread count excludes the reader\'s own sent messages', async () => {
+    const { agent, csrf, person: leaderPerson, user } = await setupLeader(48);
+    const followed = await makePerson('+237696900012');
+    const assignment = await makeAssignment(leaderPerson.id, followed.id, user.id);
+
+    await agent
+      .post(`/api/follow-ups/${assignment.id}/conversation/messages`)
+      .set('X-CSRF-Token', csrf)
+      .send({ body: 'my own message' });
+
+    const res = await agent.get(`/api/follow-ups/${assignment.id}/conversation`);
+    expect(res.body.unreadCount).toBe(0);
+  });
+});

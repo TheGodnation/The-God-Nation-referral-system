@@ -2,10 +2,15 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireCsrf } from '../lib/csrf';
-import { messageSendLimiter } from '../lib/rateLimit';
+import { messageSendLimiter, communityConversationReadLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { resolveActingPersonId, contextTargetExists } from '../lib/leadership';
-import { hasConversationAccess, getOrCreateConversation } from '../lib/communityConversation';
+import {
+  hasConversationAccess,
+  getOrCreateConversation,
+  markCommunityConversationRead,
+  getCommunityConversationUnreadCount,
+} from '../lib/communityConversation';
 
 declare global {
   namespace Express {
@@ -63,7 +68,8 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
   }
 
   const conversation = await getOrCreateConversation(communityId);
-  res.json({ id: conversation.id, communityId: conversation.communityId, createdAt: conversation.createdAt });
+  const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
+  res.json({ id: conversation.id, communityId: conversation.communityId, createdAt: conversation.createdAt, unreadCount });
 }));
 
 const DEFAULT_MESSAGE_PAGE_SIZE = 30;
@@ -123,10 +129,12 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
 
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit).reverse();
+  const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
 
   res.json({
     items: page.map((m) => ({ id: m.id, senderName: m.sender.name, body: m.body, createdAt: m.createdAt })),
     hasMore,
+    unreadCount,
   });
 }));
 
@@ -168,6 +176,53 @@ router.post(
     });
 
     res.status(201).json({ id: created.id, body: created.body, createdAt: created.createdAt });
+  }),
+);
+
+const markReadSchema = z.object({
+  messageId: z.string().min(1),
+});
+
+// POST /api/communities/:communityId/conversation/read — advances the
+// caller's own read cursor to the given message's createdAt. `messageId` is
+// validated to belong to THIS conversation (same pattern as the `before`
+// pagination cursor above) — never a raw client-supplied timestamp, and
+// never another Person's id. Idempotent; never moves the cursor backwards
+// (see markCommunityConversationRead). Read state never grants access: the
+// same contextTargetExists / hasConversationAccess checks run first, exactly
+// as every other route in this file.
+router.post(
+  '/:communityId/conversation/read',
+  communityConversationReadLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { communityId } = req.params;
+
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+
+    const personId = req.conversationActorPersonId!;
+    if (!(await hasConversationAccess(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    }
+
+    const parsed = markReadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'A messageId is required.' });
+    }
+
+    const conversation = await getOrCreateConversation(communityId);
+
+    const message = await prisma.message.findUnique({ where: { id: parsed.data.messageId } });
+    if (!message || message.conversationId !== conversation.id) {
+      return res.status(400).json({ error: 'Invalid message reference.' });
+    }
+
+    await markCommunityConversationRead(personId, conversation.id, message.createdAt);
+    const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
+
+    res.json({ unreadCount });
   }),
 );
 

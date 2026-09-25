@@ -2,10 +2,15 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireCsrf } from '../lib/csrf';
-import { followUpMessageSendLimiter } from '../lib/rateLimit';
+import { followUpMessageSendLimiter, followUpConversationReadLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { resolveActingPersonId } from '../lib/leadership';
-import { resolveFollowUpConversationRole, getOrCreateFollowUpConversation } from '../lib/followUpConversation';
+import {
+  resolveFollowUpConversationRole,
+  getOrCreateFollowUpConversation,
+  markFollowUpConversationRead,
+  getFollowUpConversationUnreadCount,
+} from '../lib/followUpConversation';
 
 declare global {
   namespace Express {
@@ -81,11 +86,13 @@ router.get('/:followUpAssignmentId/conversation', asyncHandler(async (req, res) 
   }
 
   const conversation = await getOrCreateFollowUpConversation(followUpAssignmentId);
+  const unreadCount = await getFollowUpConversationUnreadCount(personId, conversation.id);
   res.json({
     id: conversation.id,
     followUpAssignmentId: conversation.followUpAssignmentId,
     createdAt: conversation.createdAt,
     assignmentStatus: authorized.assignment.status,
+    unreadCount,
   });
 }));
 
@@ -145,10 +152,12 @@ router.get('/:followUpAssignmentId/conversation/messages', asyncHandler(async (r
 
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit).reverse();
+  const unreadCount = await getFollowUpConversationUnreadCount(personId, conversation.id);
 
   res.json({
     items: page.map((m) => ({ id: m.id, senderName: m.sender.name, body: m.body, createdAt: m.createdAt })),
     hasMore,
+    unreadCount,
   });
 }));
 
@@ -192,6 +201,48 @@ router.post(
     });
 
     res.status(201).json({ id: created.id, body: created.body, createdAt: created.createdAt });
+  }),
+);
+
+const markReadSchema = z.object({
+  messageId: z.string().min(1),
+});
+
+// POST /api/follow-ups/:followUpAssignmentId/conversation/read — advances
+// the caller's own read cursor. Deliberately does NOT gate on
+// assignment.status: unlike sending, marking read (like GET above) remains
+// available for a closed assignment's original participants, and never
+// reopens or reactivates the assignment — it only ever writes to this
+// Person's own read cursor.
+router.post(
+  '/:followUpAssignmentId/conversation/read',
+  followUpConversationReadLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { followUpAssignmentId } = req.params;
+    const personId = req.followUpConversationActorPersonId!;
+
+    const authorized = await loadAuthorizedAssignment(followUpAssignmentId, personId);
+    if (!authorized) {
+      return res.status(404).json({ error: 'Follow-up assignment not found.' });
+    }
+
+    const parsed = markReadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'A messageId is required.' });
+    }
+
+    const conversation = await getOrCreateFollowUpConversation(followUpAssignmentId);
+
+    const message = await prisma.followUpMessage.findUnique({ where: { id: parsed.data.messageId } });
+    if (!message || message.conversationId !== conversation.id) {
+      return res.status(400).json({ error: 'Invalid message reference.' });
+    }
+
+    await markFollowUpConversationRead(personId, conversation.id, message.createdAt);
+    const unreadCount = await getFollowUpConversationUnreadCount(personId, conversation.id);
+
+    res.json({ unreadCount });
   }),
 );
 

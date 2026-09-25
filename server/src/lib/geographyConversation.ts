@@ -78,3 +78,44 @@ export async function getOrCreateGeographyConversation(geographyId: string) {
     update: {},
   });
 }
+
+/**
+ * Phase 3M.7 — read-state helpers, same last-read-cursor shape as
+ * lib/communityConversation.ts's and lib/followUpConversation.ts's. Never
+ * consulted by canAccessGeographyConversation, and canAccessGeographyConversation
+ * itself is completely unchanged by this addition.
+ */
+
+/**
+ * Advances personId's read cursor for this GeographyConversation to `upTo`,
+ * never backwards. Idempotent, mirroring the other two surfaces' helper.
+ */
+export async function markGeographyConversationRead(personId: string, conversationId: string, upTo: Date): Promise<void> {
+  const advanced = await prisma.geographyConversationRead.updateMany({
+    where: { personId, conversationId, lastReadAt: { lt: upTo } },
+    data: { lastReadAt: upTo },
+  });
+  if (advanced.count > 0) return;
+  await prisma.geographyConversationRead.upsert({
+    where: { personId_conversationId: { personId, conversationId } },
+    create: { personId, conversationId, lastReadAt: upTo },
+    update: {},
+  });
+}
+
+/**
+ * Number of messages newer than personId's read cursor, excluding
+ * personId's own messages. No cursor row means everything else is unread.
+ */
+export async function getGeographyConversationUnreadCount(personId: string, conversationId: string): Promise<number> {
+  const read = await prisma.geographyConversationRead.findUnique({
+    where: { personId_conversationId: { personId, conversationId } },
+  });
+  return prisma.geographyMessage.count({
+    where: {
+      conversationId,
+      senderPersonId: { not: personId },
+      ...(read ? { createdAt: { gt: read.lastReadAt } } : {}),
+    },
+  });
+}

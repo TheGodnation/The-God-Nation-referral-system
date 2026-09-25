@@ -17,6 +17,14 @@ interface MessageRow {
 // authorization decisions, it only renders whatever the server returns.
 // No realtime, no polling: loading the panel and sending a message are the
 // only two things that ever fetch. Text-only — no attachments of any kind.
+//
+// Phase 3M.7 — read/unread state. Fetching the latest messages is a genuine
+// GET (kept side-effect-free server-side); once that succeeds and there is
+// at least one unread message, this component fires POST .../read once with
+// the newest message actually visible — never from loadOlder(), so paging
+// into history never marks the whole conversation read. A failed read-mark
+// is a silent best-effort follow-up: it never hides or discards the
+// messages that are already rendered, and never shows a false "read" state.
 export function CommunityConversation({ communityId, communityName }: { communityId: string; communityName: string }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -24,18 +32,32 @@ export function CommunityConversation({ communityId, communityName }: { communit
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
+  function markRead(latestMessageId: string) {
+    api
+      .post<{ unreadCount: number }>(`/api/communities/${communityId}/conversation/read`, { messageId: latestMessageId })
+      .then((res) => setUnreadCount(res.unreadCount))
+      .catch(() => {});
+  }
+
   function loadLatest() {
     setError(null);
     api
-      .get<{ items: MessageRow[]; hasMore: boolean }>(`/api/communities/${communityId}/conversation/messages`)
+      .get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number }>(
+        `/api/communities/${communityId}/conversation/messages`,
+      )
       .then((res) => {
         setMessages(res.items);
         setHasMore(res.hasMore);
+        setUnreadCount(res.unreadCount);
+        if (res.unreadCount > 0 && res.items.length > 0) {
+          markRead(res.items[res.items.length - 1].id);
+        }
       })
       .catch(() => setError(t('communityConversation.load_failed')))
       .finally(() => setLoading(false));
@@ -77,8 +99,11 @@ export function CommunityConversation({ communityId, communityName }: { communit
 
   return (
     <div className="card mt-6">
-      <h2 className="mb-3 font-semibold text-brand-900">
+      <h2 className="mb-3 flex items-center gap-2 font-semibold text-brand-900">
         {t('communityConversation.title', { community: communityName })}
+        {unreadCount > 0 && (
+          <span className="rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">{unreadCount}</span>
+        )}
       </h2>
 
       {loading ? (

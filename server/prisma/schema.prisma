@@ -446,6 +446,9 @@ model Person {
   followUpMessages            FollowUpMessage[]
   announcementReads           AnnouncementRead[]
   geographyMessages           GeographyMessage[]
+  communityConversationReads  CommunityConversationRead[]
+  followUpConversationReads   FollowUpConversationRead[]
+  geographyConversationReads  GeographyConversationRead[]
 
   @@index([isTestData])
 }
@@ -927,6 +930,7 @@ model Conversation {
 
   community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   messages  Message[]
+  reads     CommunityConversationRead[]
 }
 
 // A single, immutable text message in a Community's Conversation.
@@ -947,6 +951,28 @@ model Message {
   @@index([conversationId, createdAt])
 }
 
+// Phase 3M.7 — a Person's last-read position in one Community Conversation.
+// Deliberately a LAST-READ CURSOR, not a per-message flag like
+// AnnouncementRead: Announcements are a bounded, discrete list, but a
+// Conversation is a continuous stream, so tracking "has this Person read
+// THIS message" per message would grow without bound. Unread count is
+// derived as messages newer than lastReadAt (see lib/communityConversation.ts)
+// — never persisted or cached. Never consulted for conversation access
+// (hasConversationAccess is completely unchanged by this model's
+// existence) — this is state about what a Person has seen, not proof of
+// what they may see.
+model CommunityConversationRead {
+  id             String   @id @default(uuid())
+  personId       String
+  conversationId String
+  lastReadAt     DateTime
+
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, conversationId])
+}
+
 // Phase 3M.2: exactly one persistent, text-only conversation per
 // FollowUpAssignment (followUpAssignmentId is unique) — structurally
 // separate from Phase 3M.1's Community Conversation/Message, never a
@@ -965,6 +991,7 @@ model FollowUpConversation {
 
   followUpAssignment FollowUpAssignment @relation(fields: [followUpAssignmentId], references: [id], onDelete: Cascade)
   messages           FollowUpMessage[]
+  reads              FollowUpConversationRead[]
 }
 
 // A single, immutable text message between a FollowUpAssignment's follower
@@ -986,6 +1013,29 @@ model FollowUpMessage {
   @@index([conversationId, createdAt])
 }
 
+// Phase 3M.7 — a Person's last-read position in one FollowUpConversation.
+// Same last-read-cursor shape as CommunityConversationRead, kept as its own
+// dedicated model (never a shared/generic read-state table). Reassignment
+// (which always creates a brand-new FollowUpConversation, never reusing the
+// old one — see FollowUpConversation's own comment) means a new follower's
+// conversation naturally starts with zero read rows for anyone; the old
+// follower's read state stays tied to the old, closed conversation's id
+// forever, and can never be transferred or confused with the new one
+// purely because both ids reference the same FollowUpAssignment lineage.
+// Never consulted for conversation access — resolveFollowUpConversationRole
+// is completely unchanged by this model's existence.
+model FollowUpConversationRead {
+  id             String   @id @default(uuid())
+  personId       String
+  conversationId String
+  lastReadAt     DateTime
+
+  person       Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  conversation FollowUpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, conversationId])
+}
+
 // Phase 3M.6 — a persistent, text-only, two-way GROUP conversation tied to
 // exactly one Geography node (geographyId is unique — never a generic,
 // reusable Conversation abstraction shared with Phase 3M.1's Community
@@ -1004,14 +1054,16 @@ model GeographyConversation {
 
   geography Geography          @relation(fields: [geographyId], references: [id], onDelete: Cascade)
   messages  GeographyMessage[]
+  reads     GeographyConversationRead[]
 }
 
 // A single, immutable text message in a Geography's Conversation.
 // senderPersonId is always the authenticated caller's own linked Person
 // (Member via MemberAccount, Leader via User.personId) — never accepted
-// from the request body. Deliberately no editedAt/deletedAt/readAt: this
-// phase carries no message editing, deletion, or read state (matching
-// Conversation/FollowUpMessage — read state exists only for Announcement).
+// from the request body. Deliberately no editedAt/deletedAt: this phase
+// carries no message editing or deletion. Read state (Phase 3M.7) lives on
+// the separate GeographyConversationRead model below, never as a field
+// here — the message row itself never changes after it's posted.
 model GeographyMessage {
   id             String   @id @default(uuid())
   conversationId String
@@ -1023,6 +1075,23 @@ model GeographyMessage {
   sender       Person                @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+// Phase 3M.7 — a Person's last-read position in one GeographyConversation.
+// Same last-read-cursor shape as CommunityConversationRead/
+// FollowUpConversationRead, kept as its own dedicated model. Never
+// consulted for conversation access — canAccessGeographyConversation is
+// completely unchanged by this model's existence.
+model GeographyConversationRead {
+  id             String   @id @default(uuid())
+  personId       String
+  conversationId String
+  lastReadAt     DateTime
+
+  person       Person                @relation(fields: [personId], references: [id], onDelete: Cascade)
+  conversation GeographyConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, conversationId])
 }
 
 // Phase 3M.3: one-way, Admin-authored organizational communication —

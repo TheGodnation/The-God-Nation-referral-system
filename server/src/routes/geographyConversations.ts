@@ -2,10 +2,15 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireCsrf } from '../lib/csrf';
-import { geographyMessageSendLimiter } from '../lib/rateLimit';
+import { geographyMessageSendLimiter, geographyConversationReadLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { resolveActingPersonId } from '../lib/leadership';
-import { canAccessGeographyConversation, getOrCreateGeographyConversation } from '../lib/geographyConversation';
+import {
+  canAccessGeographyConversation,
+  getOrCreateGeographyConversation,
+  markGeographyConversationRead,
+  getGeographyConversationUnreadCount,
+} from '../lib/geographyConversation';
 
 declare global {
   namespace Express {
@@ -71,8 +76,10 @@ router.get(
   requireGeographyConversationAccess,
   asyncHandler(async (req, res) => {
     const { geographyId } = req.params;
+    const personId = req.geographyConversationActorPersonId!;
     const conversation = await getOrCreateGeographyConversation(geographyId);
-    res.json({ id: conversation.id, geographyId: conversation.geographyId, createdAt: conversation.createdAt });
+    const unreadCount = await getGeographyConversationUnreadCount(personId, conversation.id);
+    res.json({ id: conversation.id, geographyId: conversation.geographyId, createdAt: conversation.createdAt, unreadCount });
   }),
 );
 
@@ -95,6 +102,7 @@ router.get(
   requireGeographyConversationAccess,
   asyncHandler(async (req, res) => {
     const { geographyId } = req.params;
+    const personId = req.geographyConversationActorPersonId!;
 
     const parsed = listMessagesQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -127,10 +135,12 @@ router.get(
 
     const hasMore = rows.length > limit;
     const page = rows.slice(0, limit).reverse();
+    const unreadCount = await getGeographyConversationUnreadCount(personId, conversation.id);
 
     res.json({
       items: page.map((m) => ({ id: m.id, senderName: m.sender.name, body: m.body, createdAt: m.createdAt })),
       hasMore,
+      unreadCount,
     });
   }),
 );
@@ -169,6 +179,42 @@ router.post(
     });
 
     res.status(201).json({ id: created.id, body: created.body, createdAt: created.createdAt });
+  }),
+);
+
+const markReadSchema = z.object({
+  messageId: z.string().min(1),
+});
+
+// POST /api/geographies/:geographyId/conversation/read — advances the
+// caller's own read cursor. Reuses requireGeographyConversationAccess and
+// its uniform 404 (never 403) — a probed Geography id must stay
+// indistinguishable from a made-up one on this route too.
+router.post(
+  '/:geographyId/conversation/read',
+  geographyConversationReadLimiter,
+  requireCsrf,
+  requireGeographyConversationAccess,
+  asyncHandler(async (req, res) => {
+    const { geographyId } = req.params;
+    const personId = req.geographyConversationActorPersonId!;
+
+    const parsed = markReadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'A messageId is required.' });
+    }
+
+    const conversation = await getOrCreateGeographyConversation(geographyId);
+
+    const message = await prisma.geographyMessage.findUnique({ where: { id: parsed.data.messageId } });
+    if (!message || message.conversationId !== conversation.id) {
+      return res.status(400).json({ error: 'Invalid message reference.' });
+    }
+
+    await markGeographyConversationRead(personId, conversation.id, message.createdAt);
+    const unreadCount = await getGeographyConversationUnreadCount(personId, conversation.id);
+
+    res.json({ unreadCount });
   }),
 );
 

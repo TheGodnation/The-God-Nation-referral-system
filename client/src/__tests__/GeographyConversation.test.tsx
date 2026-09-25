@@ -212,6 +212,133 @@ describe('GeographyConversation', () => {
     expect((textarea as HTMLTextAreaElement).value).toBe('Blocked message');
   });
 
+  it('shows an unread badge and marks the conversation read after successfully rendering', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(init.body as string) : undefined });
+        if (method === 'POST' && url.includes('/conversation/read')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ unreadCount: 0 }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({
+            items: [{ id: 'm1', senderName: 'Jane Doe', body: 'Hello neighbors!', createdAt: '2026-01-10T00:00:00Z' }],
+            hasMore: false,
+            unreadCount: 1,
+          }),
+        });
+      }),
+    );
+
+    render(<GeographyConversation geographyId="g1" geographyName="Quarter A" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const readCall = calls.find((c) => c.method === 'POST' && c.url.includes('/conversation/read'));
+      expect(readCall).toBeTruthy();
+      expect(readCall!.body).toEqual({ messageId: 'm1' });
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('1')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('Hello neighbors!')).toBeInTheDocument();
+  });
+
+  it('never marks read as a side effect of loading older messages', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(init.body as string) : undefined });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({
+            items: [{ id: 'm2', senderName: 'Jane', body: 'Recent message', createdAt: '2026-01-10T00:00:00Z' }],
+            hasMore: true,
+            unreadCount: 0,
+          }),
+        });
+      }),
+    );
+
+    render(<GeographyConversation geographyId="g1" geographyName="Quarter A" />);
+    const loadOlder = await screen.findByText('Load older messages');
+    calls.length = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(init.body as string) : undefined });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({
+            items: [{ id: 'm0', senderName: 'Jane', body: 'Older message', createdAt: '2026-01-01T00:00:00Z' }],
+            hasMore: false,
+            unreadCount: 0,
+          }),
+        });
+      }),
+    );
+    fireEvent.click(loadOlder);
+
+    await waitFor(() => {
+      expect(screen.getByText('Older message')).toBeInTheDocument();
+    });
+    expect(calls.find((c) => c.method === 'POST' && c.url.includes('/conversation/read'))).toBeUndefined();
+  });
+
+  it('keeps messages visible when marking read fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(init.body as string) : undefined });
+        if (method === 'POST' && url.includes('/conversation/read')) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ error: 'boom' }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({
+            items: [{ id: 'm1', senderName: 'Jane Doe', body: 'Hello neighbors!', createdAt: '2026-01-10T00:00:00Z' }],
+            hasMore: false,
+            unreadCount: 1,
+          }),
+        });
+      }),
+    );
+
+    render(<GeographyConversation geographyId="g1" geographyName="Quarter A" />);
+
+    await waitFor(() => {
+      const readCall = calls.find((c) => c.method === 'POST' && c.url.includes('/conversation/read'));
+      expect(readCall).toBeTruthy();
+    });
+    expect(screen.getByText('Hello neighbors!')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
+  });
+
   it('renders in French when the active language is French', async () => {
     i18n.changeLanguage('fr');
     mockFetchByUrl({
