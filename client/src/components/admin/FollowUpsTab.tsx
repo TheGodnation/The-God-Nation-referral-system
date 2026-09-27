@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
+import { CentralAuthorityConversationOversight } from './CentralAuthorityConversationOversight';
 
 type WellbeingStatus = 'GOOD' | 'NEEDS_ATTENTION' | 'EMERGENCY' | 'UNABLE_TO_REACH';
 
@@ -295,6 +296,12 @@ export function FollowUpsTab() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="card mt-4">
+          <h3 className="mb-1 font-semibold text-brand-900">{t('admin.conversationOversight.title')}</h3>
+          <p className="mb-3 text-xs text-slate-500">{t('admin.conversationOversight.followup_note')}</p>
+          <CentralAuthorityConversationOversight messagesUrl={`/api/admin/follow-ups/${selected.id}/conversation/messages`} />
         </div>
       </div>
     );

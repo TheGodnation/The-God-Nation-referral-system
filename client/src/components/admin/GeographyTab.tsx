@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
+import { CentralAuthorityConversationOversight } from './CentralAuthorityConversationOversight';
 
 interface GeographyNode {
   id: string;
@@ -33,6 +34,7 @@ export function GeographyTab() {
   const [editParentId, setEditParentId] = useState<string | null>(null);
   const [editParentName, setEditParentName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [oversightId, setOversightId] = useState<string | null>(null);
 
   const parentId = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null;
 
@@ -250,26 +252,43 @@ export function GeographyTab() {
           </thead>
           <tbody>
             {items.map((node) => (
-              <tr key={node.id} className="border-b border-slate-50">
-                <td className="space-x-2 whitespace-nowrap py-2 pr-4">
-                  <button className="text-brand-700 hover:underline" onClick={() => openChildren(node)}>
-                    {t('admin.geography.open')}
-                  </button>
-                  <button className="text-brand-700 hover:underline" onClick={() => startEdit(node)}>
-                    {t('admin.geography.edit')}
-                  </button>
-                  <button className="text-brand-700 hover:underline" onClick={() => toggleActive(node)}>
-                    {node.active ? t('admin.geography.deactivate') : t('admin.geography.activate')}
-                  </button>
-                </td>
-                <td className="py-2 pr-4">{node.name}</td>
-                <td className="py-2 pr-4">{node.type}</td>
-                <td className="py-2 pr-4">{node.countryCode}</td>
-                <td className="py-2 pr-4">
-                  {node.active ? t('admin.geography.yes') : t('admin.geography.no')}
-                </td>
-                <td className="py-2 pr-4">{node._count?.children ?? 0}</td>
-              </tr>
+              <Fragment key={node.id}>
+                <tr className="border-b border-slate-50">
+                  <td className="space-x-2 whitespace-nowrap py-2 pr-4">
+                    <button className="text-brand-700 hover:underline" onClick={() => openChildren(node)}>
+                      {t('admin.geography.open')}
+                    </button>
+                    <button className="text-brand-700 hover:underline" onClick={() => startEdit(node)}>
+                      {t('admin.geography.edit')}
+                    </button>
+                    <button className="text-brand-700 hover:underline" onClick={() => toggleActive(node)}>
+                      {node.active ? t('admin.geography.deactivate') : t('admin.geography.activate')}
+                    </button>
+                    <button
+                      className="text-brand-700 hover:underline"
+                      onClick={() => setOversightId((cur) => (cur === node.id ? null : node.id))}
+                    >
+                      {t('admin.conversationOversight.open_action')}
+                    </button>
+                  </td>
+                  <td className="py-2 pr-4">{node.name}</td>
+                  <td className="py-2 pr-4">{node.type}</td>
+                  <td className="py-2 pr-4">{node.countryCode}</td>
+                  <td className="py-2 pr-4">
+                    {node.active ? t('admin.geography.yes') : t('admin.geography.no')}
+                  </td>
+                  <td className="py-2 pr-4">{node._count?.children ?? 0}</td>
+                </tr>
+                {oversightId === node.id && (
+                  <tr className="border-b border-slate-50">
+                    <td colSpan={6} className="p-3">
+                      <CentralAuthorityConversationOversight
+                        messagesUrl={`/api/admin/geographies/${node.id}/conversation/messages`}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
             {items.length === 0 && (
               <tr>
