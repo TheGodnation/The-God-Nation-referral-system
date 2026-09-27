@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 
+interface OversightAttachmentRow {
+  id: string;
+  originalFilename: string;
+  mimeType: string;
+  byteSize: number;
+}
+
 interface OversightMessageRow {
   id: string;
   senderName: string;
@@ -11,6 +18,8 @@ interface OversightMessageRow {
   deleted?: boolean;
   deletedAt?: string | null;
   deletedByName?: string | null;
+  // Community only (Phase 3M.8C) — absent for Geography/Follow-Up.
+  attachments?: OversightAttachmentRow[];
 }
 
 type OversightReason = 'SECURITY' | 'FRAUD_OR_DECEPTION' | 'ABUSE_OR_SAFEGUARDING' | 'ORGANIZATIONAL_REVIEW' | 'OTHER';
@@ -41,13 +50,31 @@ export function CentralAuthorityConversationOversight({ messagesUrl }: { message
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<OversightMessageRow[]>([]);
   const [hasMore, setHasMore] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  function buildUrl(activeReason: { reason: OversightReason; reasonNote: string }, before?: string) {
+  // Community-only: .../communities/:id/conversation/messages -> the
+  // sibling .../communities/:id/attachments/:attachmentId/download-url
+  // route. Unused (never referenced) for Geography/Follow-Up, whose rows
+  // never carry an `attachments` field in the first place.
+  const attachmentsBaseUrl = messagesUrl.replace(/\/conversation\/messages$/, '/attachments');
+
+  function buildUrl(base: string, activeReason: { reason: OversightReason; reasonNote: string }, before?: string) {
     const params = new URLSearchParams();
     params.set('reason', activeReason.reason);
     if (activeReason.reason === 'OTHER') params.set('reasonNote', activeReason.reasonNote);
     if (before) params.set('before', before);
-    return `${messagesUrl}?${params.toString()}`;
+    return `${base}?${params.toString()}`;
+  }
+
+  async function openAttachment(attachmentId: string) {
+    if (!submittedReason) return;
+    setDownloadError(null);
+    try {
+      const res = await api.get<{ url: string }>(buildUrl(`${attachmentsBaseUrl}/${attachmentId}/download-url`, submittedReason));
+      window.open(res.url, '_blank', 'noopener');
+    } catch (err) {
+      setDownloadError(err instanceof ApiError ? err.message : t('admin.conversationOversight.load_failed'));
+    }
   }
 
   function startViewing(e: React.FormEvent) {
@@ -59,7 +86,7 @@ export function CentralAuthorityConversationOversight({ messagesUrl }: { message
     setError(null);
     setLoading(true);
     api
-      .get<{ items: OversightMessageRow[]; hasMore: boolean }>(buildUrl(active))
+      .get<{ items: OversightMessageRow[]; hasMore: boolean }>(buildUrl(messagesUrl, active))
       .then((res) => {
         setMessages(res.items);
         setHasMore(res.hasMore);
@@ -73,7 +100,7 @@ export function CentralAuthorityConversationOversight({ messagesUrl }: { message
     setLoadingOlder(true);
     const oldestId = messages[0].id;
     api
-      .get<{ items: OversightMessageRow[]; hasMore: boolean }>(buildUrl(submittedReason, oldestId))
+      .get<{ items: OversightMessageRow[]; hasMore: boolean }>(buildUrl(messagesUrl, submittedReason, oldestId))
       .then((res) => {
         setMessages((prev) => [...res.items, ...prev]);
         setHasMore(res.hasMore);
@@ -145,6 +172,8 @@ export function CentralAuthorityConversationOversight({ messagesUrl }: { message
         </button>
       </div>
 
+      {downloadError && <p className="mb-2 text-sm text-red-700">{downloadError}</p>}
+
       {loading ? (
         <p className="text-sm text-slate-400">{t('admin.conversationOversight.loading')}</p>
       ) : error ? (
@@ -180,6 +209,20 @@ export function CentralAuthorityConversationOversight({ messagesUrl }: { message
                     )}
                   </div>
                   <p className="whitespace-pre-wrap text-slate-700">{m.body}</p>
+                  {m.attachments && m.attachments.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {m.attachments.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          className="rounded border border-slate-200 px-2 py-1 text-xs text-brand-700 hover:underline"
+                          onClick={() => openAttachment(a.id)}
+                        >
+                          {t('admin.conversationOversight.open_attachment')}: {a.originalFilename}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

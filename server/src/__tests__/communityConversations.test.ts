@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
@@ -5,6 +6,31 @@ import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { createLeader, createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
+
+// Phase 3M.8C — lib/storage.ts is the ONLY file that talks to Cloudflare
+// R2; every attachment test below mocks it rather than touching real object
+// storage (no R2 credentials exist in this test environment, by design —
+// see the Phase 3M.8C architecture report). This lets every test below
+// exercise the real authorization/validation/finalize logic in
+// communityConversations.ts while treating "does R2 actually store the
+// bytes" as already covered by the AWS SDK itself.
+vi.mock('../lib/storage', () => ({
+  isStorageConfigured: vi.fn(() => true),
+  createUploadUrl: vi.fn(async ({ storageKey }: { storageKey: string }) => ({
+    url: `https://mock-r2.example/upload/${storageKey}`,
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+  })),
+  createDownloadUrl: vi.fn(async ({ storageKey }: { storageKey: string }) => ({
+    url: `https://mock-r2.example/download/${storageKey}`,
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+  })),
+  headObject: vi.fn(async () => null),
+}));
+import * as storage from '../lib/storage';
+
+function communityStorageKey(communityId: string): string {
+  return `communities/${communityId}/attachments/${crypto.randomUUID()}`;
+}
 
 // Phase 3M.1 — Community Text Conversation. Mirrors the exact conventions
 // established in leadershipProposals.test.ts (Phase 3L): agentWithUniqueIp,
@@ -1075,5 +1101,661 @@ describe('Phase 3M.8A — Community Administration — message moderation', () =
       lastStatus = res.status;
     }
     expect(lastStatus).toBe(429);
+  });
+});
+
+describe('Phase 3M.8C — Community Administration — delete for me', () => {
+  it('1. a Member can hide their own message for themselves', async () => {
+    const community = await makeCommunity('Hide Community 1');
+    const { agent, csrf, person } = await loginAsMember('+237698300001', 'hide1@example.com');
+    await makeMembership(person.id, community.id);
+    await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'oops' });
+    const msgs = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const messageId = msgs.body.items[0].id;
+
+    const res = await agent
+      .post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`)
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(200);
+    expect(res.body.hidden).toBe(true);
+  });
+
+  it('2. a Member cannot hide another person\'s message', async () => {
+    const community = await makeCommunity('Hide Community 2');
+    const { person: sender } = await loginAsMember('+237698300002', 'hide2a@example.com');
+    await makeMembership(sender.id, community.id);
+    const { agent: otherAgent, csrf: otherCsrf, person: other } = await loginAsMember('+237698300003', 'hide2b@example.com');
+    await makeMembership(other.id, community.id);
+    const conversation = await prisma.conversation.upsert({ where: { communityId: community.id }, create: { communityId: community.id }, update: {} });
+    const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'sender text' } });
+
+    const res = await otherAgent
+      .post(`/api/communities/${community.id}/conversation/messages/${message.id}/hide`)
+      .set('X-CSRF-Token', otherCsrf);
+    expect(res.status).toBe(403);
+
+    const hiddenRow = await prisma.messageHiddenForPerson.findUnique({
+      where: { messageId_personId: { messageId: message.id, personId: other.id } },
+    });
+    expect(hiddenRow).toBeNull();
+  });
+
+  it('3 & 4. hiding disappears only from that Member\'s own view — other participants still see it', async () => {
+    const community = await makeCommunity('Hide Community 3');
+    const { agent, csrf, person } = await loginAsMember('+237698300004', 'hide3a@example.com');
+    await makeMembership(person.id, community.id);
+    const { agent: otherAgent, person: other } = await loginAsMember('+237698300005', 'hide3b@example.com');
+    await makeMembership(other.id, community.id);
+
+    await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'visible to others' });
+    const listed = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const messageId = listed.body.items[0].id;
+
+    await agent.post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`).set('X-CSRF-Token', csrf);
+
+    const ownView = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    expect(ownView.body.items.find((m: any) => m.id === messageId)).toBeUndefined();
+
+    const otherView = await otherAgent.get(`/api/communities/${community.id}/conversation/messages`);
+    const row = otherView.body.items.find((m: any) => m.id === messageId);
+    expect(row).toBeTruthy();
+    expect(row.body).toBe('visible to others');
+  });
+
+  it('5. a Community Leader still sees a message the sender hid for themselves', async () => {
+    const community = await makeCommunity('Hide Community 4');
+    const { agent, csrf, person } = await loginAsMember('+237698300006', 'hide4@example.com');
+    await makeMembership(person.id, community.id);
+    const { agent: leaderAgent } = await setupCommunityLeader(301, community.id);
+
+    await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'leader should see this' });
+    const listed = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const messageId = listed.body.items[0].id;
+    await agent.post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`).set('X-CSRF-Token', csrf);
+
+    const leaderView = await leaderAgent.get(`/api/communities/${community.id}/conversation/messages`);
+    const row = leaderView.body.items.find((m: any) => m.id === messageId);
+    expect(row).toBeTruthy();
+    expect(row.body).toBe('leader should see this');
+  });
+
+  it('7 & 8. personal hiding never sets deletedAt or deletedByPersonId', async () => {
+    const community = await makeCommunity('Hide Community 5');
+    const { agent, csrf, person } = await loginAsMember('+237698300007', 'hide5@example.com');
+    await makeMembership(person.id, community.id);
+    await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'text' });
+    const listed = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const messageId = listed.body.items[0].id;
+
+    await agent.post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`).set('X-CSRF-Token', csrf);
+
+    const stored = await prisma.message.findUnique({ where: { id: messageId } });
+    expect(stored!.deletedAt).toBeNull();
+    expect(stored!.deletedByPersonId).toBeNull();
+  });
+
+  it('9. personal hiding never creates a COMMUNITY_MESSAGE_DELETED audit event', async () => {
+    const community = await makeCommunity('Hide Community 6');
+    const { agent, csrf, person } = await loginAsMember('+237698300008', 'hide6@example.com');
+    await makeMembership(person.id, community.id);
+    await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'text' });
+    const listed = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const messageId = listed.body.items[0].id;
+
+    await agent.post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`).set('X-CSRF-Token', csrf);
+
+    const auditRows = await prisma.auditLog.findMany({ where: { targetId: messageId, action: 'COMMUNITY_MESSAGE_DELETED' } });
+    expect(auditRows).toHaveLength(0);
+  });
+
+  it('10. repeating the hide action is idempotent', async () => {
+    const community = await makeCommunity('Hide Community 7');
+    const { agent, csrf, person } = await loginAsMember('+237698300009', 'hide7@example.com');
+    await makeMembership(person.id, community.id);
+    await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'text' });
+    const listed = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const messageId = listed.body.items[0].id;
+
+    const first = await agent.post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`).set('X-CSRF-Token', csrf);
+    const second = await agent.post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`).set('X-CSRF-Token', csrf);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+
+    const count = await prisma.messageHiddenForPerson.count({ where: { messageId, personId: person.id } });
+    expect(count).toBe(1);
+  });
+
+  it('11. a hidden message stays hidden on a subsequent fetch (simulated refresh) with the same session', async () => {
+    const community = await makeCommunity('Hide Community 8');
+    const { agent, csrf, person } = await loginAsMember('+237698300010', 'hide8@example.com');
+    await makeMembership(person.id, community.id);
+    await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'text' });
+    const listed = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const messageId = listed.body.items[0].id;
+    await agent.post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`).set('X-CSRF-Token', csrf);
+
+    const refreshed = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    expect(refreshed.body.items.find((m: any) => m.id === messageId)).toBeUndefined();
+  });
+
+  it('12 & 13. moderator delete-for-everyone behavior is unchanged by the existence of personal hiding', async () => {
+    const community = await makeCommunity('Hide Community 9');
+    const { agent, csrf, person } = await loginAsMember('+237698300011', 'hide9@example.com');
+    await makeMembership(person.id, community.id);
+    const { agent: leaderAgent, csrf: leaderCsrf } = await setupCommunityLeader(302, community.id);
+
+    await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'will be moderated' });
+    const listed = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const messageId = listed.body.items[0].id;
+
+    await agent.post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`).set('X-CSRF-Token', csrf);
+
+    const delRes = await leaderAgent
+      .delete(`/api/communities/${community.id}/conversation/messages/${messageId}`)
+      .set('X-CSRF-Token', leaderCsrf);
+    expect(delRes.status).toBe(200);
+
+    const stored = await prisma.message.findUnique({ where: { id: messageId } });
+    expect(stored!.deletedAt).not.toBeNull();
+    expect(stored!.deletedByPersonId).toBeTruthy();
+
+    const leaderView = await leaderAgent.get(`/api/communities/${community.id}/conversation/messages`);
+    const leaderRow = leaderView.body.items.find((m: any) => m.id === messageId);
+    expect(leaderRow.deleted).toBe(true);
+    expect(leaderRow.body).toBeNull();
+  });
+
+  it('requires CSRF protection', async () => {
+    const community = await makeCommunity('Hide Community 10');
+    const { agent, csrf, person } = await loginAsMember('+237698300012', 'hide10@example.com');
+    await makeMembership(person.id, community.id);
+    await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'text' });
+    const listed = await agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const messageId = listed.body.items[0].id;
+
+    const res = await agent.post(`/api/communities/${community.id}/conversation/messages/${messageId}/hide`);
+    expect(res.status).toBe(403);
+  });
+
+  it('an unauthenticated caller cannot hide a message', async () => {
+    const community = await makeCommunity('Hide Community 11');
+    const sender = await makePerson('+237698300013', 'Hide Sender 11');
+    await makeMembership(sender.id, community.id);
+    const conversation = await prisma.conversation.upsert({ where: { communityId: community.id }, create: { communityId: community.id }, update: {} });
+    const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'x' } });
+
+    const anon = agentWithUniqueIp();
+    const res = await anon.post(`/api/communities/${community.id}/conversation/messages/${message.id}/hide`);
+    expect(res.status).toBe(401);
+  });
+
+  it('a message id from a different Community\'s conversation is rejected (IDOR)', async () => {
+    const communityA = await makeCommunity('Hide Community 12A');
+    const communityB = await makeCommunity('Hide Community 12B');
+    const { agent, csrf, person } = await loginAsMember('+237698300014', 'hide12@example.com');
+    await makeMembership(person.id, communityA.id);
+    await makeMembership(person.id, communityB.id);
+    await agent.post(`/api/communities/${communityB.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'in B' });
+    const listedB = await agent.get(`/api/communities/${communityB.id}/conversation/messages`);
+    const messageId = listedB.body.items[0].id;
+
+    const res = await agent
+      .post(`/api/communities/${communityA.id}/conversation/messages/${messageId}/hide`)
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('Phase 3M.8C — Community Administration — attachments', () => {
+  function validDescriptor(communityId: string, overrides: Partial<{ storageKey: string; originalFilename: string; mimeType: string; byteSize: number }> = {}) {
+    return {
+      storageKey: communityStorageKey(communityId),
+      originalFilename: 'photo.png',
+      mimeType: 'image/png',
+      byteSize: 1024,
+      ...overrides,
+    };
+  }
+
+  function mockHeadMatches(descriptor: { byteSize: number; mimeType: string }) {
+    vi.mocked(storage.headObject).mockResolvedValueOnce({ contentLength: descriptor.byteSize, contentType: descriptor.mimeType });
+  }
+
+  describe('upload authorization', () => {
+    it('an authenticated participant can request an upload authorization', async () => {
+      const community = await makeCommunity('Attachment Community 1');
+      const { agent, csrf, person } = await loginAsMember('+237698400001', 'att1@example.com');
+      await makeMembership(person.id, community.id);
+
+      const res = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .set('X-CSRF-Token', csrf)
+        .send({ originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 1024 });
+      expect(res.status).toBe(200);
+      expect(res.body.storageKey).toMatch(new RegExp(`^communities/${community.id}/attachments/[0-9a-f-]{36}$`));
+      expect(res.body.uploadUrl).toContain(res.body.storageKey);
+      expect(res.body.maxBytes).toBe(8 * 1024 * 1024);
+    });
+
+    it('an unauthenticated caller cannot request an upload authorization', async () => {
+      const community = await makeCommunity('Attachment Community 2');
+      const anon = agentWithUniqueIp();
+      const res = await anon
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .send({ originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 1024 });
+      expect(res.status).toBe(401);
+    });
+
+    it('a non-member of the Community is rejected', async () => {
+      const community = await makeCommunity('Attachment Community 3');
+      const { agent, csrf } = await loginAsMember('+237698400002', 'att2@example.com');
+      const res = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .set('X-CSRF-Token', csrf)
+        .send({ originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 1024 });
+      expect(res.status).toBe(403);
+    });
+
+    it('a Community Leader can also request an upload authorization', async () => {
+      const community = await makeCommunity('Attachment Community 4');
+      const { agent, csrf } = await setupCommunityLeader(401, community.id);
+      const res = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .set('X-CSRF-Token', csrf)
+        .send({ originalFilename: 'doc.pdf', mimeType: 'application/pdf', byteSize: 2048 });
+      expect(res.status).toBe(200);
+    });
+
+    it('an unsupported MIME type is rejected', async () => {
+      const community = await makeCommunity('Attachment Community 5');
+      const { agent, csrf, person } = await loginAsMember('+237698400003', 'att3@example.com');
+      await makeMembership(person.id, community.id);
+      const res = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .set('X-CSRF-Token', csrf)
+        .send({ originalFilename: 'app.exe', mimeType: 'application/x-msdownload', byteSize: 1024 });
+      expect(res.status).toBe(400);
+    });
+
+    it('an oversized declared file is rejected', async () => {
+      const community = await makeCommunity('Attachment Community 6');
+      const { agent, csrf, person } = await loginAsMember('+237698400004', 'att4@example.com');
+      await makeMembership(person.id, community.id);
+      const res = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .set('X-CSRF-Token', csrf)
+        .send({ originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 9 * 1024 * 1024 });
+      expect(res.status).toBe(400);
+    });
+
+    it('an invalid filename (path-shaped) is rejected', async () => {
+      const community = await makeCommunity('Attachment Community 7');
+      const { agent, csrf, person } = await loginAsMember('+237698400005', 'att5@example.com');
+      await makeMembership(person.id, community.id);
+      const res = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .set('X-CSRF-Token', csrf)
+        .send({ originalFilename: '../../etc/passwd', mimeType: 'image/png', byteSize: 1024 });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 503 when object storage is not configured', async () => {
+      const community = await makeCommunity('Attachment Community 8');
+      const { agent, csrf, person } = await loginAsMember('+237698400006', 'att6@example.com');
+      await makeMembership(person.id, community.id);
+      vi.mocked(storage.isStorageConfigured).mockReturnValueOnce(false);
+      const res = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .set('X-CSRF-Token', csrf)
+        .send({ originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 1024 });
+      expect(res.status).toBe(503);
+    });
+
+    it('requires CSRF protection', async () => {
+      const community = await makeCommunity('Attachment Community 9');
+      const { agent, person } = await loginAsMember('+237698400007', 'att7@example.com');
+      await makeMembership(person.id, community.id);
+      const res = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .send({ originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 1024 });
+      expect(res.status).toBe(403);
+    });
+
+    it('the server controls the storage path — two authorizations for the same file never collide', async () => {
+      const community = await makeCommunity('Attachment Community 10');
+      const { agent, csrf, person } = await loginAsMember('+237698400008', 'att8@example.com');
+      await makeMembership(person.id, community.id);
+      const first = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .set('X-CSRF-Token', csrf)
+        .send({ originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 1024 });
+      const second = await agent
+        .post(`/api/communities/${community.id}/attachments/authorize`)
+        .set('X-CSRF-Token', csrf)
+        .send({ originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 1024 });
+      expect(first.body.storageKey).not.toBe(second.body.storageKey);
+    });
+
+    it('the dedicated attachment-authorize rate limiter applies', async () => {
+      const community = await makeCommunity('Attachment Community 11');
+      const { agent, csrf, person } = await loginAsMember('+237698400009', 'att9@example.com');
+      await makeMembership(person.id, community.id);
+      let lastStatus = 200;
+      for (let i = 0; i < 41; i++) {
+        const res = await agent
+          .post(`/api/communities/${community.id}/attachments/authorize`)
+          .set('X-CSRF-Token', csrf)
+          .send({ originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 1024 });
+        lastStatus = res.status;
+      }
+      expect(lastStatus).toBe(429);
+    });
+  });
+
+  describe('message creation with attachments', () => {
+    it('a text-only message still works and reports an empty attachments array', async () => {
+      const community = await makeCommunity('Attachment Community 20');
+      const { agent, csrf, person } = await loginAsMember('+237698400020', 'att20@example.com');
+      await makeMembership(person.id, community.id);
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ body: 'just text' });
+      expect(res.status).toBe(201);
+      expect(res.body.attachments).toEqual([]);
+    });
+
+    it('an attachment-only message (no body) is valid', async () => {
+      const community = await makeCommunity('Attachment Community 21');
+      const { agent, csrf, person } = await loginAsMember('+237698400021', 'att21@example.com');
+      await makeMembership(person.id, community.id);
+      const descriptor = validDescriptor(community.id);
+      mockHeadMatches(descriptor);
+
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments: [descriptor] });
+      expect(res.status).toBe(201);
+      expect(res.body.body).toBeNull();
+      expect(res.body.attachments).toHaveLength(1);
+      expect(res.body.attachments[0].originalFilename).toBe('photo.png');
+    });
+
+    it('a text + attachment message works', async () => {
+      const community = await makeCommunity('Attachment Community 22');
+      const { agent, csrf, person } = await loginAsMember('+237698400022', 'att22@example.com');
+      await makeMembership(person.id, community.id);
+      const descriptor = validDescriptor(community.id);
+      mockHeadMatches(descriptor);
+
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ body: 'see attached', attachments: [descriptor] });
+      expect(res.status).toBe(201);
+      expect(res.body.body).toBe('see attached');
+      expect(res.body.attachments).toHaveLength(1);
+    });
+
+    it('multiple attachments on one message are all created', async () => {
+      const community = await makeCommunity('Attachment Community 23');
+      const { agent, csrf, person } = await loginAsMember('+237698400023', 'att23@example.com');
+      await makeMembership(person.id, community.id);
+      const d1 = validDescriptor(community.id, { originalFilename: 'a.png' });
+      const d2 = validDescriptor(community.id, { originalFilename: 'b.pdf', mimeType: 'application/pdf', byteSize: 4096 });
+      mockHeadMatches(d1);
+      mockHeadMatches(d2);
+
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments: [d1, d2] });
+      expect(res.status).toBe(201);
+      expect(res.body.attachments).toHaveLength(2);
+    });
+
+    it('an empty message (no text, no attachments) is rejected', async () => {
+      const community = await makeCommunity('Attachment Community 24');
+      const { agent, csrf, person } = await loginAsMember('+237698400024', 'att24@example.com');
+      await makeMembership(person.id, community.id);
+      const res = await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('too many attachments on one message is rejected', async () => {
+      const community = await makeCommunity('Attachment Community 25');
+      const { agent, csrf, person } = await loginAsMember('+237698400025', 'att25@example.com');
+      await makeMembership(person.id, community.id);
+      const attachments = Array.from({ length: 6 }, (_, i) => validDescriptor(community.id, { originalFilename: `f${i}.png` }));
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments });
+      expect(res.status).toBe(400);
+    });
+
+    it('a storage key shaped as an arbitrary/public URL is rejected', async () => {
+      const community = await makeCommunity('Attachment Community 26');
+      const { agent, csrf, person } = await loginAsMember('+237698400026', 'att26@example.com');
+      await makeMembership(person.id, community.id);
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments: [validDescriptor(community.id, { storageKey: 'https://evil.example/steal.png' })] });
+      expect(res.status).toBe(400);
+      const count = await prisma.message.count({ where: { conversationId: (await prisma.conversation.findUnique({ where: { communityId: community.id } }))?.id ?? '' } });
+      expect(count).toBe(0);
+    });
+
+    it('a storage key generated for a DIFFERENT Community is rejected (cannot attach across Communities)', async () => {
+      const communityA = await makeCommunity('Attachment Community 27A');
+      const communityB = await makeCommunity('Attachment Community 27B');
+      const { agent, csrf, person } = await loginAsMember('+237698400027', 'att27@example.com');
+      await makeMembership(person.id, communityA.id);
+      const foreignDescriptor = validDescriptor(communityB.id);
+
+      const res = await agent
+        .post(`/api/communities/${communityA.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments: [foreignDescriptor] });
+      expect(res.status).toBe(400);
+    });
+
+    it('an unsupported MIME type is rejected at finalize too', async () => {
+      const community = await makeCommunity('Attachment Community 28');
+      const { agent, csrf, person } = await loginAsMember('+237698400028', 'att28@example.com');
+      await makeMembership(person.id, community.id);
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments: [validDescriptor(community.id, { mimeType: 'text/html' })] });
+      expect(res.status).toBe(400);
+    });
+
+    it('an oversized file is rejected at finalize too', async () => {
+      const community = await makeCommunity('Attachment Community 29');
+      const { agent, csrf, person } = await loginAsMember('+237698400029', 'att29@example.com');
+      await makeMembership(person.id, community.id);
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments: [validDescriptor(community.id, { byteSize: 9 * 1024 * 1024 })] });
+      expect(res.status).toBe(400);
+    });
+
+    it('an unfinalized (never actually uploaded) attachment never becomes visible', async () => {
+      const community = await makeCommunity('Attachment Community 30');
+      const { agent, csrf, person } = await loginAsMember('+237698400030', 'att30@example.com');
+      await makeMembership(person.id, community.id);
+      const descriptor = validDescriptor(community.id);
+      // headObject default mock resolves to null (object not found in R2).
+
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments: [descriptor] });
+      expect(res.status).toBe(400);
+
+      const rows = await prisma.messageAttachment.findMany({ where: { storageKey: descriptor.storageKey } });
+      expect(rows).toHaveLength(0);
+    });
+
+    it('a declared byteSize that does not match the actual uploaded object is rejected', async () => {
+      const community = await makeCommunity('Attachment Community 31');
+      const { agent, csrf, person } = await loginAsMember('+237698400031', 'att31@example.com');
+      await makeMembership(person.id, community.id);
+      const descriptor = validDescriptor(community.id, { byteSize: 1024 });
+      vi.mocked(storage.headObject).mockResolvedValueOnce({ contentLength: 999, contentType: 'image/png' });
+
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments: [descriptor] });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 503 when storage is not configured and attachments were supplied', async () => {
+      const community = await makeCommunity('Attachment Community 32');
+      const { agent, csrf, person } = await loginAsMember('+237698400032', 'att32@example.com');
+      await makeMembership(person.id, community.id);
+      const descriptor = validDescriptor(community.id);
+      vi.mocked(storage.isStorageConfigured).mockReturnValueOnce(false);
+
+      const res = await agent
+        .post(`/api/communities/${community.id}/conversation/messages`)
+        .set('X-CSRF-Token', csrf)
+        .send({ attachments: [descriptor] });
+      expect(res.status).toBe(503);
+    });
+  });
+
+  describe('download authorization', () => {
+    async function seedMessageWithAttachment(communityId: string, senderId: string) {
+      const conversation = await prisma.conversation.upsert({ where: { communityId }, create: { communityId }, update: {} });
+      const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: senderId, body: 'has attachment' } });
+      const attachment = await prisma.messageAttachment.create({
+        data: {
+          messageId: message.id,
+          storageKey: communityStorageKey(communityId),
+          originalFilename: 'photo.png',
+          mimeType: 'image/png',
+          byteSize: 1024,
+          uploadedByPersonId: senderId,
+        },
+      });
+      return { message, attachment };
+    }
+
+    it('a participant can get a fresh download URL for an attachment they are authorized to see', async () => {
+      const community = await makeCommunity('Attachment Community 40');
+      const { agent, csrf, person } = await loginAsMember('+237698400040', 'att40@example.com');
+      await makeMembership(person.id, community.id);
+      const { message, attachment } = await seedMessageWithAttachment(community.id, person.id);
+      void csrf;
+
+      const res = await agent.get(
+        `/api/communities/${community.id}/conversation/messages/${message.id}/attachments/${attachment.id}/download-url`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.url).toContain(attachment.storageKey);
+    });
+
+    it('a non-participant is rejected', async () => {
+      const community = await makeCommunity('Attachment Community 41');
+      const sender = await makePerson('+237698400041', 'Sender 41');
+      await makeMembership(sender.id, community.id);
+      const { message, attachment } = await seedMessageWithAttachment(community.id, sender.id);
+      const { agent: outsiderAgent } = await loginAsMember('+237698400042', 'att41@example.com');
+
+      const res = await outsiderAgent.get(
+        `/api/communities/${community.id}/conversation/messages/${message.id}/attachments/${attachment.id}/download-url`,
+      );
+      expect(res.status).toBe(403);
+    });
+
+    it('an attachment id belonging to a different message/Community is rejected (IDOR)', async () => {
+      const communityA = await makeCommunity('Attachment Community 42A');
+      const communityB = await makeCommunity('Attachment Community 42B');
+      const senderB = await makePerson('+237698400043', 'Sender 42B');
+      await makeMembership(senderB.id, communityB.id);
+      const { attachment: attachmentInB } = await seedMessageWithAttachment(communityB.id, senderB.id);
+
+      const { agent, csrf, person } = await loginAsMember('+237698400044', 'att42@example.com');
+      await makeMembership(person.id, communityA.id);
+      await agent.post(`/api/communities/${communityA.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'unrelated' });
+      const listed = await agent.get(`/api/communities/${communityA.id}/conversation/messages`);
+      const messageInA = listed.body.items[0].id;
+
+      const res = await agent.get(
+        `/api/communities/${communityA.id}/conversation/messages/${messageInA}/attachments/${attachmentInB.id}/download-url`,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it('a moderator-deleted message\'s attachment is not downloadable by an ordinary participant', async () => {
+      const community = await makeCommunity('Attachment Community 43');
+      const { agent, person } = await loginAsMember('+237698400045', 'att43@example.com');
+      await makeMembership(person.id, community.id);
+      const { agent: leaderAgent, csrf: leaderCsrf } = await setupCommunityLeader(402, community.id);
+      const { message, attachment } = await seedMessageWithAttachment(community.id, person.id);
+
+      await leaderAgent.delete(`/api/communities/${community.id}/conversation/messages/${message.id}`).set('X-CSRF-Token', leaderCsrf);
+
+      const res = await agent.get(
+        `/api/communities/${community.id}/conversation/messages/${message.id}/attachments/${attachment.id}/download-url`,
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it('a personally-hidden message\'s attachment is unavailable only to the Person who hid it', async () => {
+      const community = await makeCommunity('Attachment Community 44');
+      const { agent, csrf, person } = await loginAsMember('+237698400046', 'att44@example.com');
+      await makeMembership(person.id, community.id);
+      const { agent: otherAgent, person: other } = await loginAsMember('+237698400047', 'att44b@example.com');
+      await makeMembership(other.id, community.id);
+      const { message, attachment } = await seedMessageWithAttachment(community.id, person.id);
+
+      await agent.post(`/api/communities/${community.id}/conversation/messages/${message.id}/hide`).set('X-CSRF-Token', csrf);
+
+      const ownRes = await agent.get(
+        `/api/communities/${community.id}/conversation/messages/${message.id}/attachments/${attachment.id}/download-url`,
+      );
+      expect(ownRes.status).toBe(404);
+
+      const otherRes = await otherAgent.get(
+        `/api/communities/${community.id}/conversation/messages/${message.id}/attachments/${attachment.id}/download-url`,
+      );
+      expect(otherRes.status).toBe(200);
+    });
+
+    it('returns 503 when storage is not configured', async () => {
+      const community = await makeCommunity('Attachment Community 45');
+      const { agent, person } = await loginAsMember('+237698400048', 'att45@example.com');
+      await makeMembership(person.id, community.id);
+      const { message, attachment } = await seedMessageWithAttachment(community.id, person.id);
+      vi.mocked(storage.isStorageConfigured).mockReturnValueOnce(false);
+
+      const res = await agent.get(
+        `/api/communities/${community.id}/conversation/messages/${message.id}/attachments/${attachment.id}/download-url`,
+      );
+      expect(res.status).toBe(503);
+    });
+
+    it('the dedicated attachment-download rate limiter applies', async () => {
+      const community = await makeCommunity('Attachment Community 46');
+      const { agent, person } = await loginAsMember('+237698400049', 'att46@example.com');
+      await makeMembership(person.id, community.id);
+      const { message, attachment } = await seedMessageWithAttachment(community.id, person.id);
+
+      let lastStatus = 200;
+      for (let i = 0; i < 151; i++) {
+        const res = await agent.get(
+          `/api/communities/${community.id}/conversation/messages/${message.id}/attachments/${attachment.id}/download-url`,
+        );
+        lastStatus = res.status;
+      }
+      expect(lastStatus).toBe(429);
+    });
   });
 });

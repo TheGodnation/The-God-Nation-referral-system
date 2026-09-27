@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
@@ -5,6 +6,23 @@ import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { createLeader, createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
+
+// Phase 3M.8C — same storage mock strategy as communityConversations.test.ts:
+// no real R2 credentials exist in this test environment, so lib/storage.ts
+// is mocked rather than touched.
+vi.mock('../lib/storage', () => ({
+  isStorageConfigured: vi.fn(() => true),
+  createUploadUrl: vi.fn(async ({ storageKey }: { storageKey: string }) => ({
+    url: `https://mock-r2.example/upload/${storageKey}`,
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+  })),
+  createDownloadUrl: vi.fn(async ({ storageKey }: { storageKey: string }) => ({
+    url: `https://mock-r2.example/download/${storageKey}`,
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+  })),
+  headObject: vi.fn(async () => null),
+}));
+import * as storage from '../lib/storage';
 
 // Phase 3M.8B — Central Authority Conversation Oversight. Mirrors the exact
 // conventions established in communityConversations.test.ts (Phase 3M.1)
@@ -254,6 +272,177 @@ describe('Phase 3M.8B — Central Authority oversight — Community conversation
     let lastStatus = 200;
     for (let i = 0; i < 91; i++) {
       const res = await agent.get(`/api/admin/communities/${community.id}/conversation/messages?reason=SECURITY`);
+      lastStatus = res.status;
+    }
+    expect(lastStatus).toBe(429);
+  });
+
+  // Phase 3M.8C — attachment metadata in the existing oversight listing, and
+  // the dedicated fresh-signed-URL route. Extends the surface above only —
+  // no second oversight mechanism.
+  it('the message listing includes attachment metadata, unredacted even for a moderated message', async () => {
+    const community = await makeCommunity('Oversight Community 15');
+    const { agent: leaderAgent, csrf: leaderCsrf } = await setupCommunityLeader(15, community.id);
+    const sender = await makePerson('+237693100015', 'Sender 15');
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'has a file' } });
+    const attachment = await prisma.messageAttachment.create({
+      data: {
+        messageId: msg.id,
+        storageKey: `communities/${community.id}/attachments/${crypto.randomUUID()}`,
+        originalFilename: 'evidence.png',
+        mimeType: 'image/png',
+        byteSize: 2048,
+        uploadedByPersonId: sender.id,
+      },
+    });
+    await leaderAgent.delete(`/api/communities/${community.id}/conversation/messages/${msg.id}`).set('X-CSRF-Token', leaderCsrf);
+
+    const { agent } = await loginAsAdmin(15);
+    const res = await agent.get(`/api/admin/communities/${community.id}/conversation/messages?reason=SECURITY`);
+    expect(res.status).toBe(200);
+    const row = res.body.items.find((i: any) => i.id === msg.id);
+    expect(row.deleted).toBe(true);
+    expect(row.attachments).toHaveLength(1);
+    expect(row.attachments[0].id).toBe(attachment.id);
+    expect(row.attachments[0].originalFilename).toBe('evidence.png');
+  });
+
+  it('the listing never includes a storageKey or a signed URL', async () => {
+    const community = await makeCommunity('Oversight Community 16');
+    const sender = await makePerson('+237693100016', 'Sender 16');
+    const conversation = await prisma.conversation.upsert({
+      where: { communityId: community.id },
+      create: { communityId: community.id },
+      update: {},
+    });
+    const msg = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'x' } });
+    await prisma.messageAttachment.create({
+      data: {
+        messageId: msg.id,
+        storageKey: `communities/${community.id}/attachments/${crypto.randomUUID()}`,
+        originalFilename: 'a.png',
+        mimeType: 'image/png',
+        byteSize: 10,
+        uploadedByPersonId: sender.id,
+      },
+    });
+
+    const { agent } = await loginAsAdmin(16);
+    const res = await agent.get(`/api/admin/communities/${community.id}/conversation/messages?reason=SECURITY`);
+    expect(JSON.stringify(res.body)).not.toContain('storageKey');
+    expect(JSON.stringify(res.body)).not.toContain('http');
+  });
+});
+
+describe('Phase 3M.8C — Central Authority oversight — attachment download', () => {
+  async function seedAttachment(communityId: string, n: number) {
+    const sender = await makePerson(`+237693200${String(n).padStart(3, '0')}`, `Attachment Sender ${n}`);
+    const conversation = await prisma.conversation.upsert({ where: { communityId }, create: { communityId }, update: {} });
+    const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'x' } });
+    const attachment = await prisma.messageAttachment.create({
+      data: {
+        messageId: message.id,
+        storageKey: `communities/${communityId}/attachments/${crypto.randomUUID()}`,
+        originalFilename: 'file.png',
+        mimeType: 'image/png',
+        byteSize: 100,
+        uploadedByPersonId: sender.id,
+      },
+    });
+    return { message, attachment };
+  }
+
+  it('an Admin with a valid reason gets a fresh signed download URL, and it is audited without the URL itself', async () => {
+    const community = await makeCommunity('Oversight Attachment Community 1');
+    const { attachment } = await seedAttachment(community.id, 1);
+    const { agent, email } = await loginAsAdmin(101);
+
+    const res = await agent.get(`/api/admin/communities/${community.id}/attachments/${attachment.id}/download-url?reason=SECURITY`);
+    expect(res.status).toBe(200);
+    expect(res.body.url).toContain(attachment.storageKey);
+
+    const row = await prisma.auditLog.findFirst({
+      where: { action: 'CENTRAL_AUTHORITY_ATTACHMENT_ACCESSED', targetId: attachment.id },
+    });
+    expect(row).toBeTruthy();
+    expect(row!.actorEmail).toBe(email);
+    expect((row!.metadata as any).reason).toBe('SECURITY');
+    expect(JSON.stringify(row!.metadata)).not.toContain('http');
+  });
+
+  it('a missing reason is rejected', async () => {
+    const community = await makeCommunity('Oversight Attachment Community 2');
+    const { attachment } = await seedAttachment(community.id, 2);
+    const { agent } = await loginAsAdmin(102);
+
+    const res = await agent.get(`/api/admin/communities/${community.id}/attachments/${attachment.id}/download-url`);
+    expect(res.status).toBe(400);
+  });
+
+  it('an attachment belonging to a DIFFERENT Community is rejected', async () => {
+    const communityA = await makeCommunity('Oversight Attachment Community 3A');
+    const communityB = await makeCommunity('Oversight Attachment Community 3B');
+    const { attachment } = await seedAttachment(communityB.id, 3);
+    const { agent } = await loginAsAdmin(103);
+
+    const res = await agent.get(`/api/admin/communities/${communityA.id}/attachments/${attachment.id}/download-url?reason=SECURITY`);
+    expect(res.status).toBe(404);
+  });
+
+  it('a nonexistent attachment id returns 404', async () => {
+    const community = await makeCommunity('Oversight Attachment Community 4');
+    const { agent } = await loginAsAdmin(104);
+
+    const res = await agent.get(
+      `/api/admin/communities/${community.id}/attachments/00000000-0000-0000-0000-000000000000/download-url?reason=SECURITY`,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('a Leader cannot access this route', async () => {
+    const community = await makeCommunity('Oversight Attachment Community 5');
+    const { attachment } = await seedAttachment(community.id, 5);
+    const { agent } = await setupCommunityLeader(105, community.id);
+
+    const res = await agent.get(`/api/admin/communities/${community.id}/attachments/${attachment.id}/download-url?reason=SECURITY`);
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 503 when object storage is not configured', async () => {
+    const community = await makeCommunity('Oversight Attachment Community 6');
+    const { attachment } = await seedAttachment(community.id, 6);
+    const { agent } = await loginAsAdmin(106);
+    vi.mocked(storage.isStorageConfigured).mockReturnValueOnce(false);
+
+    const res = await agent.get(`/api/admin/communities/${community.id}/attachments/${attachment.id}/download-url?reason=SECURITY`);
+    expect(res.status).toBe(503);
+  });
+
+  it('mints a fresh URL on every call rather than reusing a stored one', async () => {
+    const community = await makeCommunity('Oversight Attachment Community 7');
+    const { attachment } = await seedAttachment(community.id, 7);
+    const { agent } = await loginAsAdmin(107);
+    const callsBefore = vi.mocked(storage.createDownloadUrl).mock.calls.length;
+
+    const first = await agent.get(`/api/admin/communities/${community.id}/attachments/${attachment.id}/download-url?reason=SECURITY`);
+    const second = await agent.get(`/api/admin/communities/${community.id}/attachments/${attachment.id}/download-url?reason=SECURITY`);
+    expect(vi.mocked(storage.createDownloadUrl).mock.calls.length - callsBefore).toBe(2);
+    expect(first.body.url).toBe(second.body.url); // same mocked deterministic output, but both are real calls
+  });
+
+  it('the dedicated oversight rate limiter applies to attachment downloads too', async () => {
+    const community = await makeCommunity('Oversight Attachment Community 8');
+    const { attachment } = await seedAttachment(community.id, 8);
+    const { agent } = await loginAsAdmin(108);
+
+    let lastStatus = 200;
+    for (let i = 0; i < 91; i++) {
+      const res = await agent.get(`/api/admin/communities/${community.id}/attachments/${attachment.id}/download-url?reason=SECURITY`);
       lastStatus = res.status;
     }
     expect(lastStatus).toBe(429);

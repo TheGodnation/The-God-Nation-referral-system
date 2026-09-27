@@ -444,6 +444,8 @@ model Person {
   leadershipProposalsReceived LeadershipProposal[] @relation("LeadershipProposalCandidate")
   messages                    Message[]
   deletedMessages             Message[]                    @relation("MessageDeletedBy")
+  hiddenMessages              MessageHiddenForPerson[]
+  uploadedAttachments         MessageAttachment[]          @relation("MessageAttachmentUploadedBy")
   followUpMessages            FollowUpMessage[]
   announcementReads           AnnouncementRead[]
   geographyMessages           GeographyMessage[]
@@ -950,11 +952,18 @@ model Conversation {
 // deletedByPersonId is nullable and SetNull-on-delete (unlike senderPersonId's
 // Cascade) so a moderator's own Person record can never be removed later in
 // a way that would delete someone else's message as a side effect.
+//
+// Phase 3M.8C — body became optional to support an attachment-only message
+// (image/document/audio/video with no text) — see MessageAttachment below.
+// The API layer (communityConversations.ts) is what actually enforces "never
+// both empty": a message must have a non-empty trimmed body OR at least one
+// attachment. This column's own nullability says nothing about that rule by
+// itself.
 model Message {
   id                String    @id @default(uuid())
   conversationId    String
   senderPersonId    String
-  body              String
+  body              String?
   createdAt         DateTime  @default(now())
   deletedAt         DateTime?
   deletedByPersonId String?
@@ -962,8 +971,71 @@ model Message {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       Person       @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
   deletedBy    Person?      @relation("MessageDeletedBy", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  hiddenFor    MessageHiddenForPerson[]
+  attachments  MessageAttachment[]
 
   @@index([conversationId, createdAt])
+}
+
+// Phase 3M.8C — a Person's own "delete for me" visibility preference for one
+// Community Message. Deliberately NOT a deletion of the Message: this is a
+// per-viewer preference row, exactly parallel in spirit to
+// CommunityConversationRead (also a per-Person, per-conversation-object
+// preference, never consulted for authorization) — never touches
+// Message.deletedAt/deletedByPersonId, never recorded as a
+// COMMUNITY_MESSAGE_DELETED audit event (that action name means "deleted for
+// everyone by a moderator", which this categorically is not), and never
+// visible to or affecting any other Person's view of the same message,
+// including Central Authority oversight (3M.8B), which inspects the actual
+// Community message history and is untouched by any individual's personal
+// hiding. Community-only, like Message itself — no Geography/Follow-Up
+// equivalent exists or is implied by this model.
+model MessageHiddenForPerson {
+  id        String   @id @default(uuid())
+  messageId String
+  personId  String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  person  Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, personId])
+  @@index([personId])
+}
+
+// Phase 3M.8C — metadata for one file attached to a Community Message.
+// Deliberately metadata-only: the actual bytes live in a private Cloudflare
+// R2 bucket, never in this database and never on Render's local disk (see
+// lib/storage.ts) — storageKey is an opaque, server-generated pointer into
+// that bucket, never a client-supplied path, and never a public URL.
+// One Message may have zero or more attachments (plain, non-unique
+// messageId FK) — an attachment-only message (no body) is valid, see
+// Message's own comment above. storageKey is @unique so two attachment rows
+// can never silently alias the same object. Community-only: no
+// Geography/Follow-Up equivalent, and deliberately not a generic/polymorphic
+// "Attachment" table shared across communication surfaces, matching this
+// schema's established one-model-per-surface discipline (see
+// CommunityConversationRead/GeographyConversationRead/
+// FollowUpConversationRead for the same precedent applied to read state).
+// Visibility follows the owning Message: an ordinary participant's personal
+// "delete for me" (MessageHiddenForPerson) or a moderator's delete-for-
+// everyone (Message.deletedAt) both hide a message's attachments from
+// ordinary participants via the existing route-level checks — this table
+// itself carries no visibility flag of its own.
+model MessageAttachment {
+  id                 String   @id @default(uuid())
+  messageId          String
+  storageKey         String   @unique
+  originalFilename   String
+  mimeType           String
+  byteSize           Int
+  uploadedByPersonId String
+  createdAt          DateTime @default(now())
+
+  message    Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedBy Person  @relation("MessageAttachmentUploadedBy", fields: [uploadedByPersonId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
 }
 
 // Phase 3M.7 — a Person's last-read position in one Community Conversation.

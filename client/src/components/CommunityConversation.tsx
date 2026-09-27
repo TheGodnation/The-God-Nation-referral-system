@@ -1,13 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
+import { isAllowedAttachmentMime, maxBytesForMime, formatBytes, MAX_ATTACHMENTS_PER_MESSAGE } from '../lib/attachmentLimits';
+
+interface AttachmentRow {
+  id: string;
+  originalFilename: string;
+  mimeType: string;
+  byteSize: number;
+}
+
+interface PendingAttachment {
+  storageKey: string;
+  originalFilename: string;
+  mimeType: string;
+  byteSize: number;
+}
 
 interface MessageRow {
   id: string;
   senderName: string;
+  isOwn: boolean;
   body: string | null;
   createdAt: string;
   deleted: boolean;
+  attachments: AttachmentRow[];
 }
 
 // Phase 3M.1 — a single, persistent, text-only conversation per Community.
@@ -17,7 +34,7 @@ interface MessageRow {
 // required, never merged into one check) — this component itself makes no
 // authorization decisions, it only renders whatever the server returns.
 // No realtime, no polling: loading the panel and sending a message are the
-// only two things that ever fetch. Text-only — no attachments of any kind.
+// only two things that ever fetch.
 //
 // Phase 3M.7 — read/unread state. Fetching the latest messages is a genuine
 // GET (kept side-effect-free server-side); once that succeeds and there is
@@ -34,6 +51,17 @@ interface MessageRow {
 // independently re-checks on every DELETE request regardless of what this
 // renders. A moderated message never carries its original body to this
 // component at all (server-redacted) — it only ever sees `deleted: true`.
+//
+// Phase 3M.8C — two additions, deliberately kept separate:
+// (1) "Delete for me" — shown only on a message this component was told is
+// the caller's own (`m.isOwn`, server-resolved, never inferred client-side)
+// — removes it from THIS caller's own view only, never affects anyone
+// else's. (2) Attachments — a selected file is uploaded DIRECTLY to R2 via
+// a server-issued presigned URL (this component never proxies file bytes
+// through its own app server); only after that upload succeeds does the
+// resulting descriptor get attached to the next sent message. Downloading
+// an attachment always re-fetches a fresh, short-lived signed URL first —
+// never a stored/cached one.
 export function CommunityConversation({ communityId, communityName }: { communityId: string; communityName: string }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -45,10 +73,18 @@ export function CommunityConversation({ communityId, communityName }: { communit
   const [isAdministrator, setIsAdministrator] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [hidingId, setHidingId] = useState<string | null>(null);
+  const [hideError, setHideError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function markRead(latestMessageId: string) {
     api
@@ -101,7 +137,7 @@ export function CommunityConversation({ communityId, communityName }: { communit
     setDeleteError(null);
     try {
       await api.delete(`/api/communities/${communityId}/conversation/messages/${messageId}`);
-      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, deleted: true, body: null } : m)));
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, deleted: true, body: null, attachments: [] } : m)));
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : t('communityConversation.delete_failed'));
     } finally {
@@ -109,14 +145,93 @@ export function CommunityConversation({ communityId, communityName }: { communit
     }
   }
 
+  async function hideMessage(messageId: string) {
+    if (hidingId) return;
+    if (!window.confirm(t('communityConversation.hide_confirm') ?? '')) return;
+    setHidingId(messageId);
+    setHideError(null);
+    try {
+      await api.post(`/api/communities/${communityId}/conversation/messages/${messageId}/hide`);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (err) {
+      setHideError(err instanceof ApiError ? err.message : t('communityConversation.hide_failed'));
+    } finally {
+      setHidingId(null);
+    }
+  }
+
+  async function openAttachment(messageId: string, attachmentId: string) {
+    setDownloadError(null);
+    try {
+      const res = await api.get<{ url: string }>(
+        `/api/communities/${communityId}/conversation/messages/${messageId}/attachments/${attachmentId}/download-url`,
+      );
+      window.open(res.url, '_blank', 'noopener');
+    } catch (err) {
+      setDownloadError(err instanceof ApiError ? err.message : t('communityConversation.download_failed'));
+    }
+  }
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadError(null);
+
+    if (pendingAttachments.length >= MAX_ATTACHMENTS_PER_MESSAGE) {
+      setUploadError(t('communityConversation.attachment_too_large') ?? '');
+      return;
+    }
+    if (!isAllowedAttachmentMime(file.type)) {
+      setUploadError(t('communityConversation.attachment_unsupported_type') ?? '');
+      return;
+    }
+    const maxBytes = maxBytesForMime(file.type)!;
+    if (file.size > maxBytes) {
+      setUploadError(t('communityConversation.attachment_too_large') ?? '');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const auth = await api.post<{ storageKey: string; uploadUrl: string }>(`/api/communities/${communityId}/attachments/authorize`, {
+        originalFilename: file.name,
+        mimeType: file.type,
+        byteSize: file.size,
+      });
+      const uploadRes = await fetch(auth.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+      if (!uploadRes.ok) throw new Error('upload failed');
+      setPendingAttachments((prev) => [
+        ...prev,
+        { storageKey: auth.storageKey, originalFilename: file.name, mimeType: file.type, byteSize: file.size },
+      ]);
+    } catch (err) {
+      setUploadError(err instanceof ApiError ? err.message : t('communityConversation.upload_failed'));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removePendingAttachment(storageKey: string) {
+    setPendingAttachments((prev) => prev.filter((a) => a.storageKey !== storageKey));
+  }
+
   async function send() {
     const trimmed = body.trim();
-    if (!trimmed || sending) return;
+    if ((!trimmed && pendingAttachments.length === 0) || sending) return;
     setSending(true);
     setSendError(null);
     try {
-      await api.post(`/api/communities/${communityId}/conversation/messages`, { body: trimmed });
+      await api.post(`/api/communities/${communityId}/conversation/messages`, {
+        body: trimmed || undefined,
+        attachments: pendingAttachments.length ? pendingAttachments : undefined,
+      });
       setBody('');
+      setPendingAttachments([]);
       loadLatest();
     } catch (err) {
       setSendError(err instanceof ApiError ? err.message : t('communityConversation.send_failed'));
@@ -152,6 +267,8 @@ export function CommunityConversation({ communityId, communityName }: { communit
           )}
 
           {deleteError && <p className="mb-2 text-sm text-red-700">{deleteError}</p>}
+          {hideError && <p className="mb-2 text-sm text-red-700">{hideError}</p>}
+          {downloadError && <p className="mb-2 text-sm text-red-700">{downloadError}</p>}
 
           {messages.length === 0 ? (
             <p className="text-sm text-slate-400">{t('communityConversation.no_messages')}</p>
@@ -162,21 +279,49 @@ export function CommunityConversation({ communityId, communityName }: { communit
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-brand-900">{m.senderName}</span>
                     <span className="text-xs text-slate-400">{new Date(m.createdAt).toLocaleString()}</span>
-                    {isAdministrator && !m.deleted && (
-                      <button
-                        type="button"
-                        className="ml-auto text-xs text-red-700 hover:underline disabled:text-slate-300"
-                        disabled={deletingId === m.id}
-                        onClick={() => deleteMessage(m.id)}
-                      >
-                        {t('communityConversation.delete_message')}
-                      </button>
-                    )}
+                    <div className="ml-auto flex items-center gap-2">
+                      {m.isOwn && !m.deleted && (
+                        <button
+                          type="button"
+                          className="text-xs text-slate-500 hover:underline disabled:text-slate-300"
+                          disabled={hidingId === m.id}
+                          onClick={() => hideMessage(m.id)}
+                        >
+                          {t('communityConversation.hide_message')}
+                        </button>
+                      )}
+                      {isAdministrator && !m.deleted && (
+                        <button
+                          type="button"
+                          className="text-xs text-red-700 hover:underline disabled:text-slate-300"
+                          disabled={deletingId === m.id}
+                          onClick={() => deleteMessage(m.id)}
+                        >
+                          {t('communityConversation.delete_message')}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {m.deleted ? (
                     <p className="italic text-slate-400">{t('communityConversation.message_deleted')}</p>
                   ) : (
-                    <p className="whitespace-pre-wrap text-slate-700">{m.body}</p>
+                    <>
+                      {m.body && <p className="whitespace-pre-wrap text-slate-700">{m.body}</p>}
+                      {(m.attachments ?? []).length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {m.attachments.map((a) => (
+                            <button
+                              key={a.id}
+                              type="button"
+                              className="rounded border border-slate-200 px-2 py-1 text-xs text-brand-700 hover:underline"
+                              onClick={() => openAttachment(m.id, a.id)}
+                            >
+                              {t('communityConversation.download_attachment')}: {a.originalFilename} ({formatBytes(a.byteSize)})
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
@@ -193,8 +338,47 @@ export function CommunityConversation({ communityId, communityName }: { communit
               onChange={(e) => setBody(e.target.value)}
               disabled={sending}
             />
+
+            {pendingAttachments.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {pendingAttachments.map((a) => (
+                  <span key={a.storageKey} className="flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs text-slate-600">
+                    {a.originalFilename} ({formatBytes(a.byteSize)})
+                    <button type="button" className="text-red-700 hover:underline" onClick={() => removePendingAttachment(a.storageKey)}>
+                      {t('communityConversation.remove_attachment')}
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp,application/pdf,audio/mpeg,audio/ogg,audio/mp4,video/mp4,video/webm"
+                onChange={handleFileSelected}
+                disabled={uploading || pendingAttachments.length >= MAX_ATTACHMENTS_PER_MESSAGE}
+              />
+              <button
+                type="button"
+                className="btn-secondary px-3 py-1.5 text-sm"
+                disabled={uploading || pendingAttachments.length >= MAX_ATTACHMENTS_PER_MESSAGE}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploading ? t('communityConversation.uploading') : t('communityConversation.attach_file')}
+              </button>
+              {uploadError && <span className="text-sm text-red-700">{uploadError}</span>}
+            </div>
+
             {sendError && <p className="text-sm text-red-700">{sendError}</p>}
-            <button type="button" className="btn-primary" disabled={sending || !body.trim()} onClick={send}>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={sending || uploading || (!body.trim() && pendingAttachments.length === 0)}
+              onClick={send}
+            >
               {sending ? t('communityConversation.sending') : t('communityConversation.send')}
             </button>
           </div>

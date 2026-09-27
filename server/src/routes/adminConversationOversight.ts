@@ -9,6 +9,7 @@ import { contextTargetExists } from '../lib/leadership';
 import { getOrCreateConversation } from '../lib/communityConversation';
 import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
 import { getOrCreateGeographyConversation } from '../lib/geographyConversation';
+import { isStorageConfigured, createDownloadUrl } from '../lib/storage';
 
 // ---------------------------------------------------------------------------
 // Phase 3M.8B — Central Authority Conversation Oversight.
@@ -111,7 +112,16 @@ router.get(
           ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
           : {}),
       },
-      include: { sender: { select: { name: true } }, deletedBy: { select: { name: true } } },
+      include: {
+        sender: { select: { name: true } },
+        deletedBy: { select: { name: true } },
+        // Phase 3M.8C — attachment METADATA only (id/filename/mime/size).
+        // Never the storageKey and never a signed URL here: an actual
+        // download always goes through the dedicated, freshly-authorized
+        // route below, so nothing resolvable to file bytes is ever
+        // returned by this listing endpoint or written into AuditLog.
+        attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true } },
+      },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
     });
@@ -137,9 +147,71 @@ router.get(
         deleted: Boolean(m.deletedAt),
         deletedAt: m.deletedAt,
         deletedByName: m.deletedBy?.name ?? null,
+        // Unredacted regardless of moderation state — this oversight
+        // listing has always shown deleted messages' original body too
+        // (see above); attachment metadata follows the same rule.
+        attachments: m.attachments.map((a) => ({ id: a.id, originalFilename: a.originalFilename, mimeType: a.mimeType, byteSize: a.byteSize })),
       })),
       hasMore,
     });
+  }),
+);
+
+// GET /api/admin/communities/:communityId/attachments/:attachmentId/download-url
+// — Phase 3M.8C. Extends the existing Community oversight surface only (no
+// second oversight mechanism): same controlled reason gate, same
+// centralAuthorityOversightLimiter, same recordAudit. Resolves
+// attachment -> message -> conversation -> Community and confirms they all
+// match communityId before ever touching R2, exactly like the message
+// listing route above never trusts a bare id. Mints a fresh signed URL on
+// every call — never persisted, never included in AuditLog metadata.
+router.get(
+  '/communities/:communityId/attachments/:attachmentId/download-url',
+  centralAuthorityOversightLimiter,
+  asyncHandler(async (req, res) => {
+    const { communityId, attachmentId } = req.params;
+
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+
+    const parsed = oversightQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'A valid reason is required.' });
+    }
+    const { reason, reasonNote } = parsed.data;
+
+    const conversation = await getOrCreateConversation(communityId);
+
+    const attachment = await prisma.messageAttachment.findUnique({
+      where: { id: attachmentId },
+      include: { message: true },
+    });
+    if (!attachment || attachment.message.conversationId !== conversation.id) {
+      return res.status(404).json({ error: 'Attachment not found.' });
+    }
+
+    if (!isStorageConfigured()) {
+      return res.status(503).json({ error: 'Attachments are not available right now.' });
+    }
+
+    const { url, expiresAt } = await createDownloadUrl({ storageKey: attachment.storageKey });
+
+    await recordAudit({
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      action: 'CENTRAL_AUTHORITY_ATTACHMENT_ACCESSED',
+      targetType: 'MessageAttachment',
+      targetId: attachmentId,
+      metadata: {
+        communityId,
+        conversationId: conversation.id,
+        messageId: attachment.messageId,
+        ...reasonMetadata(reason, reasonNote),
+      },
+    });
+
+    res.json({ url, expiresAt });
   }),
 );
 

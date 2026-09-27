@@ -353,7 +353,8 @@
       "load_older": "Charger les messages plus anciens",
       "no_messages": "Aucun message pour l'instant.",
       "removed": "Supprimé",
-      "removed_by": "Supprimé par {{name}}"
+      "removed_by": "Supprimé par {{name}}",
+      "open_attachment": "Ouvrir la pièce jointe"
     },
     "tabs": {
       "overview": "Aperçu",
@@ -954,7 +955,18 @@
     "delete_message": "Supprimer",
     "delete_confirm": "Supprimer ce message pour tous les membres de la Communauté ? Cette action ne peut pas être annulée par vous.",
     "delete_failed": "Échec de la suppression du message.",
-    "message_deleted": "Ce message a été supprimé."
+    "message_deleted": "Ce message a été supprimé.",
+    "hide_message": "Supprimer pour moi",
+    "hide_confirm": "Supprimer ce message seulement pour vous ? Les autres participants continueront de le voir.",
+    "hide_failed": "Échec de la suppression du message pour vous.",
+    "attach_file": "Joindre un fichier",
+    "remove_attachment": "Retirer",
+    "uploading": "Téléversement…",
+    "upload_failed": "Échec du téléversement de la pièce jointe.",
+    "attachment_too_large": "Ce fichier est trop volumineux.",
+    "attachment_unsupported_type": "Ce type de fichier n'est pas pris en charge.",
+    "download_attachment": "Ouvrir",
+    "download_failed": "Échec de l'ouverture de la pièce jointe."
   },
   "geographyConversation": {
     "title": "{{geography}} — Conversation",

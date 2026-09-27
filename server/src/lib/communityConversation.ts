@@ -86,3 +86,23 @@ export async function getCommunityConversationUnreadCount(personId: string, conv
     },
   });
 }
+
+/**
+ * Phase 3M.8C — a Person's own "delete for me" visibility preference,
+ * restricted to their OWN messages only (senderPersonId === personId is
+ * checked by the caller, e.g. communityConversations.ts, before this is
+ * ever invoked — this function itself does not re-check ownership, so it
+ * must never be called for a message the caller doesn't already know
+ * belongs to that Person). Upsert makes repeating the action a safe no-op
+ * (the unique (messageId, personId) constraint is what actually enforces
+ * idempotency). Never touches Message.deletedAt/deletedByPersonId, and
+ * never recorded as a moderation audit event — this is a personal
+ * preference, not a deletion of the shared Message.
+ */
+export async function hideMessageForPerson(personId: string, messageId: string): Promise<void> {
+  await prisma.messageHiddenForPerson.upsert({
+    where: { messageId_personId: { messageId, personId } },
+    create: { messageId, personId },
+    update: {},
+  });
+}

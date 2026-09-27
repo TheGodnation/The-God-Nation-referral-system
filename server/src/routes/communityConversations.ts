@@ -2,7 +2,14 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireCsrf } from '../lib/csrf';
-import { messageSendLimiter, communityConversationReadLimiter, communityModerationLimiter } from '../lib/rateLimit';
+import {
+  messageSendLimiter,
+  communityConversationReadLimiter,
+  communityModerationLimiter,
+  messageHideLimiter,
+  attachmentUploadAuthorizeLimiter,
+  attachmentDownloadLimiter,
+} from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { resolveActingPersonId, contextTargetExists, isCommunityAdministrator } from '../lib/leadership';
 import { recordAudit } from '../lib/audit';
@@ -11,7 +18,18 @@ import {
   getOrCreateConversation,
   markCommunityConversationRead,
   getCommunityConversationUnreadCount,
+  hideMessageForPerson,
 } from '../lib/communityConversation';
+import {
+  isAllowedAttachmentMime,
+  maxBytesForMime,
+  isValidOriginalFilename,
+  isStorageKeyForCommunity,
+  generateStorageKey,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  MAX_ORIGINAL_FILENAME_LENGTH,
+} from '../lib/attachmentPolicy';
+import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
 
 declare global {
   namespace Express {
@@ -126,11 +144,19 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   const rows = await prisma.message.findMany({
     where: {
       conversationId: conversation.id,
+      // Phase 3M.8C: a message this Person personally hid ("delete for me")
+      // never appears in their own view again — other participants' queries
+      // are completely unaffected, since this filters on personId, not on
+      // the shared Message row itself.
+      NOT: { hiddenFor: { some: { personId } } },
       ...(cursor
         ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
         : {}),
     },
-    include: { sender: { select: { name: true } } },
+    include: {
+      sender: { select: { name: true } },
+      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true } },
+    },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
   });
@@ -145,12 +171,25 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     // ordinary participants — only `deleted: true`. The row itself (and its
     // real body) is preserved server-side for future Central Authority
     // investigative access (Phase 3M.8B), never exposed here.
+    // Phase 3M.8C: attachments follow the same redaction — a moderated
+    // message's attachments are never listed to ordinary participants
+    // either, only its metadata rows preserved server-side. Never exposes
+    // storageKey — a download requires a dedicated, re-authorized route
+    // (see .../attachments/:attachmentId/download-url below).
     items: page.map((m) => ({
       id: m.id,
       senderName: m.sender.name,
+      // Phase 3M.8C — lets the client show its own "delete for me" action
+      // only on the caller's own messages, mirroring isCommunityAdministrator
+      // being resolved server-side rather than trusted from the client. Never
+      // exposes senderPersonId itself.
+      isOwn: m.senderPersonId === personId,
       body: m.deletedAt ? null : m.body,
       createdAt: m.createdAt,
       deleted: Boolean(m.deletedAt),
+      attachments: m.deletedAt
+        ? []
+        : m.attachments.map((a) => ({ id: a.id, originalFilename: a.originalFilename, mimeType: a.mimeType, byteSize: a.byteSize })),
     })),
     hasMore,
     unreadCount,
@@ -158,9 +197,25 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   });
 }));
 
-const sendMessageSchema = z.object({
-  body: z.string().trim().min(1).max(2000),
+const attachmentDescriptorSchema = z.object({
+  storageKey: z.string().min(1),
+  originalFilename: z.string().trim().min(1).max(MAX_ORIGINAL_FILENAME_LENGTH),
+  mimeType: z.string().min(1),
+  byteSize: z.number().int().positive(),
 });
+
+// Phase 3M.8C: body is now optional (an attachment-only message is valid),
+// but a message must never be completely empty — the .refine below is the
+// one place that rule is actually enforced; Message.body's own nullability
+// says nothing about it by itself (see that column's schema comment).
+const sendMessageSchema = z
+  .object({
+    body: z.string().trim().max(2000).optional(),
+    attachments: z.array(attachmentDescriptorSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
+  })
+  .refine((d) => Boolean(d.body && d.body.length > 0) || Boolean(d.attachments && d.attachments.length > 0), {
+    message: 'A message must include text or at least one attachment.',
+  });
 
 // POST /api/communities/:communityId/conversation/messages — senderPersonId
 // is always req.conversationActorPersonId, never accepted from the body.
@@ -184,6 +239,51 @@ router.post(
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid message.' });
     }
+    const attachmentDescriptors = parsed.data.attachments ?? [];
+
+    // Phase 3M.8C — re-validates every attachment descriptor at the one
+    // point that actually matters (finalization), never trusting whatever
+    // the client echoes back from the authorize step. A storage key that
+    // doesn't match THIS Community's own namespace is rejected outright —
+    // see isStorageKeyForCommunity's own comment for why that alone already
+    // prevents attaching another Community's (or a fabricated) object.
+    for (const a of attachmentDescriptors) {
+      if (!isStorageKeyForCommunity(a.storageKey, communityId)) {
+        return res.status(400).json({ error: 'Invalid attachment reference.' });
+      }
+      if (!isAllowedAttachmentMime(a.mimeType)) {
+        return res.status(400).json({ error: 'Unsupported attachment type.' });
+      }
+      const maxBytes = maxBytesForMime(a.mimeType)!;
+      if (a.byteSize > maxBytes) {
+        return res.status(400).json({ error: 'Attachment is too large.' });
+      }
+      if (!isValidOriginalFilename(a.originalFilename)) {
+        return res.status(400).json({ error: 'Invalid attachment filename.' });
+      }
+    }
+    // storageKey is @unique on MessageAttachment — reject a duplicate
+    // within one message explicitly (400) rather than letting Prisma's
+    // own unique-constraint violation surface as an opaque 500.
+    if (new Set(attachmentDescriptors.map((a) => a.storageKey)).size !== attachmentDescriptors.length) {
+      return res.status(400).json({ error: 'Duplicate attachment reference.' });
+    }
+
+    if (attachmentDescriptors.length > 0) {
+      if (!isStorageConfigured()) {
+        return res.status(503).json({ error: 'Attachments are not available right now.' });
+      }
+      // Confirms the browser actually finished the direct-to-R2 upload
+      // (and that what landed there matches what was declared) before any
+      // MessageAttachment row is created — an authorized-but-never-uploaded
+      // storage key can never become a visible attachment this way.
+      for (const a of attachmentDescriptors) {
+        const head = await headObject({ storageKey: a.storageKey });
+        if (!head || head.contentLength !== a.byteSize || (head.contentType && head.contentType !== a.mimeType)) {
+          return res.status(400).json({ error: 'Attachment upload could not be verified.' });
+        }
+      }
+    }
 
     const conversation = await getOrCreateConversation(communityId);
 
@@ -191,11 +291,87 @@ router.post(
       data: {
         conversationId: conversation.id,
         senderPersonId: personId,
-        body: parsed.data.body,
+        body: parsed.data.body && parsed.data.body.length > 0 ? parsed.data.body : null,
+        attachments: attachmentDescriptors.length
+          ? {
+              create: attachmentDescriptors.map((a) => ({
+                storageKey: a.storageKey,
+                originalFilename: a.originalFilename,
+                mimeType: a.mimeType,
+                byteSize: a.byteSize,
+                uploadedByPersonId: personId,
+              })),
+            }
+          : undefined,
       },
+      include: { attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true } } },
     });
 
-    res.status(201).json({ id: created.id, body: created.body, createdAt: created.createdAt });
+    res.status(201).json({
+      id: created.id,
+      body: created.body,
+      createdAt: created.createdAt,
+      attachments: created.attachments,
+    });
+  }),
+);
+
+// POST /api/communities/:communityId/attachments/authorize — Step 1 of the
+// direct-to-R2 upload lifecycle. Validates the caller's own Community
+// access, the declared MIME type/size/filename against attachmentPolicy's
+// allow-list, and returns a short-lived presigned PUT URL plus a
+// server-generated, opaque storage key (never a client-supplied path).
+// Nothing is persisted here — no row is created until the message that
+// finalizes this attachment is actually sent (see the message-creation
+// route above), so an authorized-but-abandoned upload can never become a
+// visible attachment purely by calling this route.
+const authorizeAttachmentSchema = z.object({
+  originalFilename: z.string().trim().min(1).max(MAX_ORIGINAL_FILENAME_LENGTH),
+  mimeType: z.string().min(1),
+  byteSize: z.number().int().positive(),
+});
+
+router.post(
+  '/:communityId/attachments/authorize',
+  attachmentUploadAuthorizeLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { communityId } = req.params;
+
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+
+    const personId = req.conversationActorPersonId!;
+    if (!(await hasConversationAccess(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    }
+
+    const parsed = authorizeAttachmentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid attachment request.' });
+    }
+    const { originalFilename, mimeType, byteSize } = parsed.data;
+
+    if (!isAllowedAttachmentMime(mimeType)) {
+      return res.status(400).json({ error: 'Unsupported attachment type.' });
+    }
+    const maxBytes = maxBytesForMime(mimeType)!;
+    if (byteSize > maxBytes) {
+      return res.status(400).json({ error: 'Attachment is too large.' });
+    }
+    if (!isValidOriginalFilename(originalFilename)) {
+      return res.status(400).json({ error: 'Invalid attachment filename.' });
+    }
+
+    if (!isStorageConfigured()) {
+      return res.status(503).json({ error: 'Attachments are not available right now.' });
+    }
+
+    const storageKey = generateStorageKey(communityId);
+    const { url, expiresAt } = await createUploadUrl({ storageKey, mimeType });
+
+    res.json({ storageKey, uploadUrl: url, expiresAt, maxBytes });
   }),
 );
 
@@ -306,6 +482,105 @@ router.delete(
     }
 
     res.json({ id: messageId, deleted: true });
+  }),
+);
+
+// POST /api/communities/:communityId/conversation/messages/:messageId/hide
+// — Phase 3M.8C "delete for me". Deliberately restricted to a Person's OWN
+// messages only (message.senderPersonId !== personId is rejected below) —
+// this is a sender retracting their own message from their own view, never
+// a way to hide someone else's message. Never touches
+// deletedAt/deletedByPersonId, never records a COMMUNITY_MESSAGE_DELETED (or
+// any other) audit event — see MessageHiddenForPerson's own schema comment.
+// Idempotent via hideMessageForPerson's upsert.
+router.post(
+  '/:communityId/conversation/messages/:messageId/hide',
+  messageHideLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { communityId, messageId } = req.params;
+
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+
+    const personId = req.conversationActorPersonId!;
+    if (!(await hasConversationAccess(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    }
+
+    const conversation = await getOrCreateConversation(communityId);
+
+    // Validated to belong to THIS exact conversation — same never-trust-a-
+    // bare-id pattern as every other messageId in this file.
+    const message = await prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.conversationId !== conversation.id) {
+      return res.status(404).json({ error: 'Message not found.' });
+    }
+
+    if (message.senderPersonId !== personId) {
+      return res.status(403).json({ error: 'You may only hide your own messages.' });
+    }
+
+    await hideMessageForPerson(personId, messageId);
+
+    res.json({ id: messageId, hidden: true });
+  }),
+);
+
+// GET /api/communities/:communityId/conversation/messages/:messageId/attachments/:attachmentId/download-url
+// — Phase 3M.8C. The client supplies only an attachmentId; the server
+// resolves attachment -> message -> conversation -> Community and re-runs
+// the same hasConversationAccess check as every other route here, never
+// trusting a client-supplied storage key or URL. A deleted (moderator) or
+// personally-hidden message's attachment is treated as not found for an
+// ordinary participant — Central Authority's separate, reason-gated
+// oversight route (adminConversationOversight.ts) is the only path that can
+// still reach it. Mints a fresh, short-lived signed URL on every call —
+// never persisted, never cached.
+router.get(
+  '/:communityId/conversation/messages/:messageId/attachments/:attachmentId/download-url',
+  attachmentDownloadLimiter,
+  asyncHandler(async (req, res) => {
+    const { communityId, messageId, attachmentId } = req.params;
+
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+
+    const personId = req.conversationActorPersonId!;
+    if (!(await hasConversationAccess(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    }
+
+    const conversation = await getOrCreateConversation(communityId);
+
+    const message = await prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.conversationId !== conversation.id) {
+      return res.status(404).json({ error: 'Attachment not found.' });
+    }
+    if (message.deletedAt) {
+      return res.status(404).json({ error: 'Attachment not found.' });
+    }
+
+    const hidden = await prisma.messageHiddenForPerson.findUnique({
+      where: { messageId_personId: { messageId, personId } },
+    });
+    if (hidden) {
+      return res.status(404).json({ error: 'Attachment not found.' });
+    }
+
+    const attachment = await prisma.messageAttachment.findUnique({ where: { id: attachmentId } });
+    if (!attachment || attachment.messageId !== message.id) {
+      return res.status(404).json({ error: 'Attachment not found.' });
+    }
+
+    if (!isStorageConfigured()) {
+      return res.status(503).json({ error: 'Attachments are not available right now.' });
+    }
+
+    const { url, expiresAt } = await createDownloadUrl({ storageKey: attachment.storageKey });
+    res.json({ url, expiresAt });
   }),
 );
 

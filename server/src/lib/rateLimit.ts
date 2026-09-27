@@ -301,3 +301,41 @@ export const centralAuthorityOversightLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Phase 3M.8C: a Member's own "delete for me" action on one of their own
+// messages. Low-risk (never affects another Person's view), but still its
+// own dedicated limiter per the project's convention — sized like
+// communityConversationReadLimiter, since this is a lightweight, frequent,
+// idempotent participant action, not a moderation action.
+export const messageHideLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
+// Phase 3M.8C: requesting a presigned upload URL for a Community message
+// attachment. Tighter than ordinary read/send limiters — each call causes
+// this server to mint a real (if short-lived) credential for writing to the
+// R2 bucket, so a burst here is a more meaningful abuse signal than an
+// ordinary message send.
+export const attachmentUploadAuthorizeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
+// Phase 3M.8C: requesting a presigned download URL for an existing
+// attachment. Higher than the upload-authorize limiter (opening a
+// conversation with several image attachments legitimately fires several of
+// these in a row), but still its own dedicated category.
+export const attachmentDownloadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 150,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

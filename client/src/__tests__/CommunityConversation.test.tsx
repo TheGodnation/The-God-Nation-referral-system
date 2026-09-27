@@ -11,7 +11,12 @@ function mockFetchByUrl(responses: Record<string, { status: number; body: unknow
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, init?: RequestInit) => {
-      calls.push({ url, method: init?.method ?? 'GET', body: init?.body ? JSON.parse(init.body as string) : undefined });
+      // Phase 3M.8C — a direct-to-R2 upload sends a raw File as the body,
+      // not a JSON string (unlike every call through lib/api.ts) — parse
+      // only when it actually looks like JSON, so that request doesn't
+      // throw here.
+      const bodyIsString = typeof init?.body === 'string';
+      calls.push({ url, method: init?.method ?? 'GET', body: bodyIsString ? JSON.parse(init!.body as string) : init?.body });
       const match = Object.keys(responses).find((key) => url.includes(key));
       const res = match ? responses[match] : { status: 404, body: { error: 'not found' } };
       return Promise.resolve({
@@ -522,5 +527,263 @@ describe('CommunityConversation', () => {
       expect(screen.getByText('This message was removed.')).toBeInTheDocument();
     });
     expect(screen.queryByText('Remove')).not.toBeInTheDocument();
+  });
+});
+
+describe('CommunityConversation — Phase 3M.8C delete for me', () => {
+  it('shows a "Delete for me" action only on the caller\'s own message', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': {
+        status: 200,
+        body: {
+          items: [
+            { id: 'm1', senderName: 'Me', body: 'my message', createdAt: '2026-01-10T00:00:00Z', isOwn: true, attachments: [] },
+            { id: 'm2', senderName: 'Jane', body: 'her message', createdAt: '2026-01-10T00:00:00Z', isOwn: false, attachments: [] },
+          ],
+          hasMore: false,
+          isAdministrator: false,
+        },
+      },
+    });
+
+    render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    await waitFor(() => expect(screen.getByText('my message')).toBeInTheDocument());
+
+    expect(screen.getAllByText('Delete for me')).toHaveLength(1);
+  });
+
+  it('hiding a message removes it from view and posts to the hide endpoint', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockFetchByUrl({
+      '/hide': { status: 200, body: { id: 'm1', hidden: true } },
+      '/conversation/messages': {
+        status: 200,
+        body: {
+          items: [{ id: 'm1', senderName: 'Me', body: 'oops', createdAt: '2026-01-10T00:00:00Z', isOwn: true, attachments: [] }],
+          hasMore: false,
+          isAdministrator: false,
+        },
+      },
+    });
+
+    render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    const hideButton = await screen.findByText('Delete for me');
+    fireEvent.click(hideButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText('oops')).not.toBeInTheDocument();
+    });
+    const call = calls.find((c) => c.method === 'POST' && c.url.includes('/hide'));
+    expect(call).toBeTruthy();
+  });
+
+  it('does not hide when the confirmation dialog is cancelled', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    mockFetchByUrl({
+      '/conversation/messages': {
+        status: 200,
+        body: {
+          items: [{ id: 'm1', senderName: 'Me', body: 'keep me', createdAt: '2026-01-10T00:00:00Z', isOwn: true, attachments: [] }],
+          hasMore: false,
+          isAdministrator: false,
+        },
+      },
+    });
+
+    render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    const hideButton = await screen.findByText('Delete for me');
+    fireEvent.click(hideButton);
+
+    expect(screen.getByText('keep me')).toBeInTheDocument();
+    expect(calls.find((c) => c.method === 'POST' && c.url.includes('/hide'))).toBeUndefined();
+  });
+
+  it('shows an error and keeps the message visible when hiding fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockFetchByUrl({
+      '/hide': { status: 403, body: { error: 'You may only hide your own messages.' } },
+      '/conversation/messages': {
+        status: 200,
+        body: {
+          items: [{ id: 'm1', senderName: 'Me', body: 'still here', createdAt: '2026-01-10T00:00:00Z', isOwn: true, attachments: [] }],
+          hasMore: false,
+          isAdministrator: false,
+        },
+      },
+    });
+
+    render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    const hideButton = await screen.findByText('Delete for me');
+    fireEvent.click(hideButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('You may only hide your own messages.')).toBeInTheDocument();
+    });
+    expect(screen.getByText('still here')).toBeInTheDocument();
+  });
+});
+
+describe('CommunityConversation — Phase 3M.8C attachments', () => {
+  it('renders attachments on a message with an Open action per file', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': {
+        status: 200,
+        body: {
+          items: [
+            {
+              id: 'm1',
+              senderName: 'Jane',
+              body: 'see attached',
+              createdAt: '2026-01-10T00:00:00Z',
+              isOwn: false,
+              attachments: [{ id: 'a1', originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 2048 }],
+            },
+          ],
+          hasMore: false,
+          isAdministrator: false,
+        },
+      },
+    });
+
+    render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    await waitFor(() => {
+      expect(screen.getByText(/photo\.png/)).toBeInTheDocument();
+    });
+  });
+
+  it('opening an attachment fetches a fresh download URL and opens it', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    mockFetchByUrl({
+      '/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/xyz' } },
+      '/conversation/messages': {
+        status: 200,
+        body: {
+          items: [
+            {
+              id: 'm1',
+              senderName: 'Jane',
+              body: null,
+              createdAt: '2026-01-10T00:00:00Z',
+              isOwn: false,
+              attachments: [{ id: 'a1', originalFilename: 'photo.png', mimeType: 'image/png', byteSize: 2048 }],
+            },
+          ],
+          hasMore: false,
+          isAdministrator: false,
+        },
+      },
+    });
+
+    render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    const openButton = await screen.findByText(/photo\.png/);
+    fireEvent.click(openButton);
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith('https://mock-r2.example/download/xyz', '_blank', 'noopener');
+    });
+  });
+
+  it('selecting a file authorizes an upload, uploads directly to R2, and stages it as a pending attachment', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': { status: 200, body: { items: [], hasMore: false, isAdministrator: false } },
+      '/attachments/authorize': {
+        status: 200,
+        body: { storageKey: 'communities/c1/attachments/abc', uploadUrl: 'https://mock-r2.example/upload/abc', maxBytes: 8388608 },
+      },
+      'mock-r2.example/upload': { status: 200, body: {} },
+    });
+
+    const { container } = render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    await waitFor(() => expect(screen.getByText('No messages yet. Be the first to say something.')).toBeInTheDocument());
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['x'.repeat(10)], 'photo.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/photo\.png/)).toBeInTheDocument();
+    });
+    const uploadCall = calls.find((c) => c.method === 'PUT' && c.url.includes('mock-r2.example/upload'));
+    expect(uploadCall).toBeTruthy();
+  });
+
+  it('a pending attachment can be removed before sending', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': { status: 200, body: { items: [], hasMore: false, isAdministrator: false } },
+      '/attachments/authorize': {
+        status: 200,
+        body: { storageKey: 'communities/c1/attachments/abc', uploadUrl: 'https://mock-r2.example/upload/abc', maxBytes: 8388608 },
+      },
+      'mock-r2.example/upload': { status: 200, body: {} },
+    });
+
+    const { container } = render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    await waitFor(() => expect(screen.getByText('No messages yet. Be the first to say something.')).toBeInTheDocument());
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['x'], 'photo.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    await screen.findByText(/photo\.png/);
+
+    fireEvent.click(screen.getByText('Remove'));
+    expect(screen.queryByText(/photo\.png/)).not.toBeInTheDocument();
+  });
+
+  it('an oversized file is rejected client-side without calling the authorize endpoint', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': { status: 200, body: { items: [], hasMore: false, isAdministrator: false } },
+    });
+
+    const { container } = render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    await waitFor(() => expect(screen.getByText('No messages yet. Be the first to say something.')).toBeInTheDocument());
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const bigFile = new File(['x'], 'huge.png', { type: 'image/png' });
+    Object.defineProperty(bigFile, 'size', { value: 9 * 1024 * 1024 });
+    fireEvent.change(fileInput, { target: { files: [bigFile] } });
+
+    await waitFor(() => {
+      expect(screen.getByText("This file is too large.")).toBeInTheDocument();
+    });
+    expect(calls.find((c) => c.url.includes('/attachments/authorize'))).toBeUndefined();
+  });
+
+  it('an unsupported file type is rejected client-side', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': { status: 200, body: { items: [], hasMore: false, isAdministrator: false } },
+    });
+
+    const { container } = render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    await waitFor(() => expect(screen.getByText('No messages yet. Be the first to say something.')).toBeInTheDocument());
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['x'], 'app.exe', { type: 'application/x-msdownload' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText("This file type isn't supported.")).toBeInTheDocument();
+    });
+  });
+
+  it('an attachment-only message can be sent (Send enabled with no text)', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': { status: 200, body: { items: [], hasMore: false, isAdministrator: false } },
+      '/attachments/authorize': {
+        status: 200,
+        body: { storageKey: 'communities/c1/attachments/abc', uploadUrl: 'https://mock-r2.example/upload/abc', maxBytes: 8388608 },
+      },
+      'mock-r2.example/upload': { status: 200, body: {} },
+    });
+
+    const { container } = render(<CommunityConversation communityId="c1" communityName="My Community" />);
+    await waitFor(() => expect(screen.getByText('No messages yet. Be the first to say something.')).toBeInTheDocument());
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['x'], 'photo.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    await screen.findByText(/photo\.png/);
+
+    const sendButton = screen.getByText('Send') as HTMLButtonElement;
+    expect(sendButton.disabled).toBe(false);
   });
 });

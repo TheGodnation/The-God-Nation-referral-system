@@ -198,4 +198,58 @@ describe('CentralAuthorityConversationOversight', () => {
     expect(screen.getByText('Voir la conversation')).toBeInTheDocument();
     expect(screen.getByText('Sélectionner un motif…')).toBeInTheDocument();
   });
+
+  it('Phase 3M.8C — renders attachment metadata and opens a fresh signed URL on click', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    mockFetchByUrl({
+      '/api/admin/communities/c1/conversation/messages': {
+        status: 200,
+        body: {
+          items: [
+            {
+              id: 'm1',
+              senderName: 'Jane Doe',
+              body: 'see attached',
+              createdAt: '2026-01-10T00:00:00Z',
+              attachments: [{ id: 'a1', originalFilename: 'evidence.png', mimeType: 'image/png', byteSize: 2048 }],
+            },
+          ],
+          hasMore: false,
+        },
+      },
+      '/api/admin/communities/c1/attachments/a1/download-url': {
+        status: 200,
+        body: { url: 'https://mock-r2.example/download/evidence' },
+      },
+    });
+
+    render(<CentralAuthorityConversationOversight messagesUrl="/api/admin/communities/c1/conversation/messages" />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'SECURITY' } });
+    fireEvent.click(screen.getByText('View Conversation'));
+
+    const attachmentButton = await screen.findByText(/evidence\.png/);
+    fireEvent.click(attachmentButton);
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith('https://mock-r2.example/download/evidence', '_blank', 'noopener');
+    });
+    const call = calls.find((c) => c.url.includes('/attachments/a1/download-url'));
+    expect(call!.url).toContain('reason=SECURITY');
+  });
+
+  it('Phase 3M.8C — a message with no attachments renders no attachment buttons', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/c1/conversation/messages': {
+        status: 200,
+        body: { items: [{ id: 'm1', senderName: 'Jane', body: 'text only', createdAt: '2026-01-10T00:00:00Z', attachments: [] }], hasMore: false },
+      },
+    });
+
+    render(<CentralAuthorityConversationOversight messagesUrl="/api/admin/communities/c1/conversation/messages" />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'SECURITY' } });
+    fireEvent.click(screen.getByText('View Conversation'));
+
+    await waitFor(() => expect(screen.getByText('text only')).toBeInTheDocument());
+    expect(screen.queryByText(/Open attachment/)).not.toBeInTheDocument();
+  });
 });
