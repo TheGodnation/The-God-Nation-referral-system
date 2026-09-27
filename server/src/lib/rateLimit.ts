@@ -283,3 +283,21 @@ export const communityModerationLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Phase 3M.8B: Central Authority (Admin) conversation oversight — inspecting
+// a Community/Geography/Follow-Up conversation's message history. Every
+// call is reason-gated and audited (see adminConversationOversight.ts), so
+// this limiter exists to bound how much of that sensitive, accountable
+// activity can happen in a burst — its own dedicated category per the
+// project's "never rely solely on generalApiLimiter" convention, distinct
+// from every ordinary participant-facing conversation limiter above (this
+// is Admin-only, never a Member/Leader path). Sized a bit higher than
+// leadershipMutationLimiter's magnitude to comfortably allow paging through
+// a long conversation's history within one legitimate review.
+export const centralAuthorityOversightLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 90,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

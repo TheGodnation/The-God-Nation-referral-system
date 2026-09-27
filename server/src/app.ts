@@ -38,6 +38,7 @@ import followUpConversationsRoutes from './routes/followUpConversations';
 import announcementsRoutes from './routes/announcements';
 import adminAnnouncementsRoutes from './routes/adminAnnouncements';
 import geographyConversationsRoutes from './routes/geographyConversations';
+import adminConversationOversightRoutes from './routes/adminConversationOversight';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -131,6 +132,15 @@ export function createApp() {
   // of communityConversationsRoutes above, never a shared/generic engine
   // with it.
   app.use('/api/geographies', geographyConversationsRoutes);
+  // Phase 3M.8B: Central Authority (Admin) read-only conversation oversight
+  // — defines '/communities/:communityId/conversation/messages',
+  // '/geographies/:geographyId/conversation/messages', and
+  // '/follow-ups/:followUpAssignmentId/conversation/messages', so it mounts
+  // at the '/api/admin' root, same multi-file-sharing-one-prefix pattern as
+  // adminPeopleRoutes/adminAttemptsRoutes/adminLeadershipRoutes above. Fully
+  // independent of communityConversationsRoutes/followUpConversationsRoutes/
+  // geographyConversationsRoutes — no shared middleware, no shared route.
+  app.use('/api/admin', adminConversationOversightRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.
