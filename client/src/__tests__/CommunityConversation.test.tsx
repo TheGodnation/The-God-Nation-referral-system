@@ -787,3 +787,44 @@ describe('CommunityConversation — Phase 3M.8C attachments', () => {
     expect(sendButton.disabled).toBe(false);
   });
 });
+
+describe('CommunityConversation — Community Posting Policy composer UX', () => {
+  it('shows the composer when the server reports canPost: true', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': { status: 200, body: { items: [], hasMore: false, canPost: true } },
+    });
+
+    render(<CommunityConversation communityId="c1" communityName="My Community" />);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Write a message…')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Send')).toBeInTheDocument();
+  });
+
+  it('hides the composer and shows a restricted-posting notice when the server reports canPost: false', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': { status: 200, body: { items: [], hasMore: false, canPost: false } },
+    });
+
+    render(<CommunityConversation communityId="c1" communityName="My Community" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Posting in this community is currently limited to Community Leaders.')).toBeInTheDocument();
+    });
+    expect(screen.queryByPlaceholderText('Write a message…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Send')).not.toBeInTheDocument();
+  });
+
+  it('treats a response that omits canPost as postable (backward-compatible default)', async () => {
+    mockFetchByUrl({
+      '/conversation/messages': { status: 200, body: { items: [], hasMore: false } },
+    });
+
+    render(<CommunityConversation communityId="c1" communityName="My Community" />);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Write a message…')).toBeInTheDocument();
+    });
+  });
+});

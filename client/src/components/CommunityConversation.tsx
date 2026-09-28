@@ -71,6 +71,10 @@ export function CommunityConversation({ communityId, communityName }: { communit
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isAdministrator, setIsAdministrator] = useState(false);
+  // Community Posting Policy — a UX hint only, computed server-side on every
+  // load (see GET .../conversation/messages); the server independently
+  // re-checks on every send regardless of what this hides/disables here.
+  const [canPost, setCanPost] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [hidingId, setHidingId] = useState<string | null>(null);
@@ -96,7 +100,7 @@ export function CommunityConversation({ communityId, communityName }: { communit
   function loadLatest() {
     setError(null);
     api
-      .get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number; isAdministrator: boolean }>(
+      .get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number; isAdministrator: boolean; canPost: boolean }>(
         `/api/communities/${communityId}/conversation/messages`,
       )
       .then((res) => {
@@ -104,6 +108,11 @@ export function CommunityConversation({ communityId, communityName }: { communit
         setHasMore(res.hasMore);
         setUnreadCount(res.unreadCount);
         setIsAdministrator(res.isAdministrator);
+        // Defensive default: only an explicit `false` hides the composer —
+        // an older/mocked response that omits this field is treated as
+        // "posting allowed," matching this component's pre-existing
+        // behavior before Community Posting Policy existed.
+        setCanPost(res.canPost !== false);
         if (res.unreadCount > 0 && res.items.length > 0) {
           markRead(res.items[res.items.length - 1].id);
         }
@@ -328,6 +337,11 @@ export function CommunityConversation({ communityId, communityName }: { communit
             </div>
           )}
 
+          {!canPost && (
+            <p className="mb-2 text-sm text-slate-500">{t('communityConversation.posting_restricted')}</p>
+          )}
+
+          {canPost && (
           <div className="space-y-2">
             <textarea
               className="input"
@@ -382,6 +396,7 @@ export function CommunityConversation({ communityId, communityName }: { communit
               {sending ? t('communityConversation.sending') : t('communityConversation.send')}
             </button>
           </div>
+          )}
         </>
       )}
     </div>

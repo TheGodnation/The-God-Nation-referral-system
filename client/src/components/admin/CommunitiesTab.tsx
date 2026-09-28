@@ -4,11 +4,14 @@ import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { CentralAuthorityConversationOversight } from './CentralAuthorityConversationOversight';
 
+type PostingPolicy = 'EVERYONE' | 'LEADERS_ONLY';
+
 interface CommunityNode {
   id: string;
   parentId: string | null;
   name: string;
   active: boolean;
+  postingPolicy: PostingPolicy;
   parent?: { id: string; name: string } | null;
   _count?: { children: number; memberships: number };
   // Purely derived server-side (never stored) — 0 for National Headquarters
@@ -41,6 +44,9 @@ export function CommunitiesTab() {
   const [editParentName, setEditParentName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [oversightId, setOversightId] = useState<string | null>(null);
+
+  const [savingPolicyId, setSavingPolicyId] = useState<string | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null);
 
   const [headquarters, setHeadquarters] = useState<HeadquartersCommunity | null>(null);
   const [headquartersLoaded, setHeadquartersLoaded] = useState(false);
@@ -140,6 +146,19 @@ export function CommunitiesTab() {
     load();
   }
 
+  async function changePostingPolicy(node: CommunityNode, postingPolicy: PostingPolicy) {
+    setSavingPolicyId(node.id);
+    setPolicyError(null);
+    try {
+      await api.patch(`/api/admin/communities/${node.id}`, { postingPolicy });
+      load();
+    } catch (err) {
+      setPolicyError(err instanceof ApiError ? err.message : t('admin.communities.posting_policy_save_failed'));
+    } finally {
+      setSavingPolicyId(null);
+    }
+  }
+
   return (
     <div>
       <div className="card mb-4 space-y-2">
@@ -193,6 +212,7 @@ export function CommunitiesTab() {
       </div>
 
       {error && !showForm && !editingId && <p className="mb-4 text-sm text-red-700">{error}</p>}
+      {policyError && <p className="mb-4 text-sm text-red-700">{policyError}</p>}
 
       {showForm && (
         <form onSubmit={create} className="card mb-4 space-y-3">
@@ -262,6 +282,7 @@ export function CommunitiesTab() {
               <th className="py-2 pr-4">{t('admin.communities.table_name')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_generation')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_active')}</th>
+              <th className="py-2 pr-4">{t('admin.communities.table_posting')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_members')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_children')}</th>
             </tr>
@@ -298,12 +319,33 @@ export function CommunitiesTab() {
                   <td className="py-2 pr-4">
                     {node.active ? t('admin.communities.yes') : t('admin.communities.no')}
                   </td>
+                  <td className="py-2 pr-4">
+                    <p>
+                      {node.postingPolicy === 'LEADERS_ONLY'
+                        ? t('admin.communities.posting_policy_leaders_only')
+                        : t('admin.communities.posting_policy_everyone')}
+                    </p>
+                    <button
+                      type="button"
+                      className="text-brand-700 hover:underline disabled:text-slate-300"
+                      disabled={savingPolicyId === node.id}
+                      onClick={() =>
+                        changePostingPolicy(node, node.postingPolicy === 'LEADERS_ONLY' ? 'EVERYONE' : 'LEADERS_ONLY')
+                      }
+                    >
+                      {savingPolicyId === node.id
+                        ? t('admin.communities.posting_policy_saving')
+                        : node.postingPolicy === 'LEADERS_ONLY'
+                          ? t('admin.communities.posting_policy_set_everyone')
+                          : t('admin.communities.posting_policy_set_leaders_only')}
+                    </button>
+                  </td>
                   <td className="py-2 pr-4">{node._count?.memberships ?? 0}</td>
                   <td className="py-2 pr-4">{node._count?.children ?? 0}</td>
                 </tr>
                 {oversightId === node.id && (
                   <tr key={`${node.id}-oversight`} className="border-b border-slate-50">
-                    <td colSpan={6} className="p-3">
+                    <td colSpan={7} className="p-3">
                       <CentralAuthorityConversationOversight
                         messagesUrl={`/api/admin/communities/${node.id}/conversation/messages`}
                       />
@@ -314,7 +356,7 @@ export function CommunitiesTab() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-4 text-center text-slate-400">
+                <td colSpan={7} className="py-4 text-center text-slate-400">
                   {t('admin.communities.no_communities')}
                 </td>
               </tr>

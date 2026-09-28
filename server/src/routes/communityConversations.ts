@@ -15,6 +15,7 @@ import { resolveActingPersonId, contextTargetExists, isCommunityAdministrator } 
 import { recordAudit } from '../lib/audit';
 import {
   hasConversationAccess,
+  canPostCommunityMessage,
   getOrCreateConversation,
   markCommunityConversationRead,
   getCommunityConversationUnreadCount,
@@ -165,6 +166,11 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   const page = rows.slice(0, limit).reverse();
   const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
   const isAdministrator = await isCommunityAdministrator(personId, communityId);
+  // Community Posting Policy — a read-only hint so the client can hide/
+  // disable its composer without a failed round-trip; never itself an
+  // authorization decision (see the POST route below, which independently
+  // re-checks canPostCommunityMessage on every send regardless of this).
+  const canPost = await canPostCommunityMessage(personId, communityId);
 
   res.json({
     // Phase 3M.8A: a moderated message's original body is never sent to
@@ -194,6 +200,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     hasMore,
     unreadCount,
     isAdministrator,
+    canPost,
   });
 }));
 
@@ -231,8 +238,13 @@ router.post(
     }
 
     const personId = req.conversationActorPersonId!;
-    if (!(await hasConversationAccess(personId, communityId))) {
-      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    // Community Posting Policy — this is the sole creation gate (never
+    // hasConversationAccess directly): under EVERYONE it delegates to the
+    // exact same check as before, so existing posting behavior is
+    // unchanged; under LEADERS_ONLY it additionally requires an active
+    // exact-Community SCOPED_LEADER. Read routes above are untouched.
+    if (!(await canPostCommunityMessage(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have permission to post in this community.' });
     }
 
     const parsed = sendMessageSchema.safeParse(req.body);

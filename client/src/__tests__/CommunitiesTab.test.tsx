@@ -168,3 +168,181 @@ describe('CommunitiesTab — National Headquarters designation', () => {
     });
   });
 });
+
+describe('CommunitiesTab — Community Posting Policy', () => {
+  const oneEveryoneCommunity = {
+    items: [
+      { id: 'c-1', name: 'Everyone Community', active: true, parentId: null, postingPolicy: 'EVERYONE', generation: null, _count: { children: 0, memberships: 0 } },
+    ],
+    pagination: { totalPages: 1 },
+  };
+
+  it('shows the current posting policy for each Community', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: oneEveryoneCommunity },
+    });
+
+    render(<CommunitiesTab />);
+
+    await waitFor(() => expect(screen.getByText('Everyone Community')).toBeInTheDocument());
+    expect(screen.getByText('Everyone')).toBeInTheDocument();
+    expect(screen.getByText('Set to Leaders only')).toBeInTheDocument();
+  });
+
+  it('an Admin can change a Community from Everyone to Leaders Only', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: oneEveryoneCommunity },
+    });
+
+    render(<CommunitiesTab />);
+    await waitFor(() => expect(screen.getByText('Everyone Community')).toBeInTheDocument());
+
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities/c-1': { status: 200, body: { ...oneEveryoneCommunity.items[0], postingPolicy: 'LEADERS_ONLY' } },
+      '/api/admin/communities?&page=': {
+        status: 200,
+        body: {
+          items: [{ ...oneEveryoneCommunity.items[0], postingPolicy: 'LEADERS_ONLY' }],
+          pagination: { totalPages: 1 },
+        },
+      },
+    });
+    fireEvent.click(screen.getByText('Set to Leaders only'));
+
+    await waitFor(() => {
+      const patchCall = calls.find((c) => c.method === 'PATCH' && c.url.includes('c-1'));
+      expect(patchCall).toBeTruthy();
+      expect(patchCall!.body).toEqual({ postingPolicy: 'LEADERS_ONLY' });
+    });
+    await waitFor(() => expect(screen.getByText('Leaders only')).toBeInTheDocument());
+    expect(screen.getByText('Set to Everyone')).toBeInTheDocument();
+  });
+
+  it('an Admin can change a Community from Leaders Only back to Everyone', async () => {
+    const leadersOnlyCommunity = {
+      items: [{ id: 'c-2', name: 'Leaders Only Community', active: true, parentId: null, postingPolicy: 'LEADERS_ONLY', generation: null, _count: { children: 0, memberships: 0 } }],
+      pagination: { totalPages: 1 },
+    };
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: leadersOnlyCommunity },
+    });
+
+    render(<CommunitiesTab />);
+    await waitFor(() => expect(screen.getByText('Leaders Only Community')).toBeInTheDocument());
+
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities/c-2': { status: 200, body: { ...leadersOnlyCommunity.items[0], postingPolicy: 'EVERYONE' } },
+      '/api/admin/communities?&page=': {
+        status: 200,
+        body: { items: [{ ...leadersOnlyCommunity.items[0], postingPolicy: 'EVERYONE' }], pagination: { totalPages: 1 } },
+      },
+    });
+    fireEvent.click(screen.getByText('Set to Everyone'));
+
+    await waitFor(() => {
+      const patchCall = calls.find((c) => c.method === 'PATCH' && c.url.includes('c-2'));
+      expect(patchCall!.body).toEqual({ postingPolicy: 'EVERYONE' });
+    });
+    await waitFor(() => expect(screen.getByText('Everyone')).toBeInTheDocument());
+  });
+
+  it('shows a saving indicator while the policy update is in flight, and disables the control', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: oneEveryoneCommunity },
+    });
+
+    render(<CommunitiesTab />);
+    await waitFor(() => expect(screen.getByText('Everyone Community')).toBeInTheDocument());
+
+    let resolvePatch: (() => void) | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        if (init?.method === 'PATCH') {
+          return new Promise<any>((resolve) => {
+            resolvePatch = () =>
+              resolve({
+                ok: true,
+                status: 200,
+                headers: { get: () => 'application/json' },
+                json: async () => ({ ...oneEveryoneCommunity.items[0], postingPolicy: 'LEADERS_ONLY' }),
+              });
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => oneEveryoneCommunity,
+        });
+      }),
+    );
+
+    const toggleButton = screen.getByText('Set to Leaders only') as HTMLButtonElement;
+    fireEvent.click(toggleButton);
+
+    await waitFor(() => expect(screen.getByText('Saving…')).toBeInTheDocument());
+    expect(toggleButton.disabled).toBe(true);
+
+    resolvePatch?.();
+    await waitFor(() => expect(screen.queryByText('Saving…')).not.toBeInTheDocument());
+  });
+
+  it('shows an error when the policy update fails, and leaves the value unchanged', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: oneEveryoneCommunity },
+    });
+
+    render(<CommunitiesTab />);
+    await waitFor(() => expect(screen.getByText('Everyone Community')).toBeInTheDocument());
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        if (init?.method === 'PATCH') {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ error: 'boom' }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => oneEveryoneCommunity,
+        });
+      }),
+    );
+
+    fireEvent.click(screen.getByText('Set to Leaders only'));
+
+    await waitFor(() => {
+      expect(screen.getByText('boom')).toBeInTheDocument();
+    });
+    // The value shown is unchanged — the rejected attempt never took effect.
+    expect(screen.getByText('Everyone')).toBeInTheDocument();
+  });
+
+  it('renders posting policy labels in French', async () => {
+    i18n.changeLanguage('fr');
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: oneEveryoneCommunity },
+    });
+
+    render(<CommunitiesTab />);
+
+    await waitFor(() => expect(screen.getByText('Everyone Community')).toBeInTheDocument());
+    expect(screen.getByText('Tout le monde')).toBeInTheDocument();
+    expect(screen.getByText('Définir sur Leaders uniquement')).toBeInTheDocument();
+  });
+});

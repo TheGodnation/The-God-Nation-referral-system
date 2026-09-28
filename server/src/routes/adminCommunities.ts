@@ -204,6 +204,9 @@ const patchSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   parentId: z.string().optional().nullable(),
   active: z.boolean().optional(),
+  // Community Posting Policy — validated against exactly these two values;
+  // an arbitrary string is rejected at this layer, never reaching Prisma.
+  postingPolicy: z.enum(['EVERYONE', 'LEADERS_ONLY']).optional(),
 });
 
 router.patch('/:id', communityGeographyMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -239,6 +242,7 @@ router.patch('/:id', communityGeographyMutationLimiter, requireCsrf, asyncHandle
       ...(d.name !== undefined ? { name: d.name } : {}),
       ...(d.parentId !== undefined ? { parentId: d.parentId } : {}),
       ...(d.active !== undefined ? { active: d.active } : {}),
+      ...(d.postingPolicy !== undefined ? { postingPolicy: d.postingPolicy } : {}),
     },
   });
 

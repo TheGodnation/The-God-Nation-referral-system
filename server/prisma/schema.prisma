@@ -123,6 +123,19 @@ enum OrganizationalLeadershipRecommendationStatus {
   WITHDRAWN
 }
 
+// Community Posting Policy — a Community-scoped posting PERMISSION, never a
+// new role or authorization engine. EVERYONE preserves this codebase's
+// existing behavior (any Person with hasConversationAccess may post);
+// LEADERS_ONLY narrows posting to an active SCOPED_LEADER for that EXACT
+// Community (see isCommunityAdministrator in lib/leadership.ts) — reading
+// the conversation is never affected by this value (see
+// lib/communityConversation.ts's canPostCommunityMessage, which is the only
+// place this enum is ever consulted).
+enum CommunityPostingPolicy {
+  EVERYONE
+  LEADERS_ONLY
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
@@ -518,6 +531,15 @@ model Community {
   parentId  String?
   name      String
   active    Boolean  @default(true)
+  // Community Posting Policy — who may create a new local Community
+  // message/post (see lib/communityConversation.ts's canPostCommunityMessage,
+  // the sole consumer of this field). Defaults to EVERYONE so every existing
+  // Community's current posting behavior is unchanged by this column's
+  // introduction. Never consulted for read access, comments, or reactions —
+  // see that function's own comment. Deliberately not applied to
+  // HeadquartersPost (a wholly separate model family with its own
+  // Admin-only authorization).
+  postingPolicy CommunityPostingPolicy @default(EVERYONE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -924,7 +924,14 @@
       "headquarters_search_button": "Find",
       "headquarters_designate_action": "Designate as Headquarters",
       "headquarters_designating": "Designating…",
-      "headquarters_designate_failed": "Failed to designate National Headquarters."
+      "headquarters_designate_failed": "Failed to designate National Headquarters.",
+      "table_posting": "Posting",
+      "posting_policy_everyone": "Everyone",
+      "posting_policy_leaders_only": "Leaders only",
+      "posting_policy_saving": "Saving…",
+      "posting_policy_save_failed": "Failed to save the posting policy.",
+      "posting_policy_set_everyone": "Set to Everyone",
+      "posting_policy_set_leaders_only": "Set to Leaders only"
     },
     "devotionals": {
       "title": "Devotionals",
@@ -1110,7 +1117,8 @@
     "attachment_too_large": "This file is too large.",
     "attachment_unsupported_type": "This file type isn't supported.",
     "download_attachment": "Open",
-    "download_failed": "Failed to open the attachment."
+    "download_failed": "Failed to open the attachment.",
+    "posting_restricted": "Posting in this community is currently limited to Community Leaders."
   },
   "geographyConversation": {
     "title": "{{geography}} — Conversation",

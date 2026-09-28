@@ -1,5 +1,5 @@
 import { prisma } from './prisma';
-import { findActiveScopedRole, personBelongsToContext } from './leadership';
+import { findActiveScopedRole, personBelongsToContext, isCommunityAdministrator } from './leadership';
 
 /**
  * Phase 3M.1: a person has access to a Community's conversation if EITHER
@@ -18,6 +18,31 @@ export async function hasConversationAccess(personId: string, communityId: strin
     findActiveScopedRole(personId, 'COMMUNITY', communityId),
   ]);
   return isMember || Boolean(leaderRole);
+}
+
+/**
+ * Community Posting Policy — whether personId may CREATE a new message in
+ * communityId's conversation right now, given that Community's current
+ * postingPolicy. This is the ONLY place postingPolicy is ever consulted —
+ * read access (hasConversationAccess above), unread counts, "delete for
+ * me", and moderation are all completely untouched by this value.
+ *
+ * EVERYONE: identical to the pre-existing hasConversationAccess check — an
+ * active member or an active exact-Community SCOPED_LEADER. LEADERS_ONLY:
+ * narrows this to isCommunityAdministrator alone (an ACTIVE SCOPED_LEADER
+ * RoleAssignment for this EXACT Community — the same exact-match check
+ * already used for message moderation, never inherited from a parent/child
+ * Community and never satisfied by a role held in a different Community).
+ * Returns false for a nonexistent Community — callers are expected to have
+ * already confirmed existence via contextTargetExists.
+ */
+export async function canPostCommunityMessage(personId: string, communityId: string): Promise<boolean> {
+  const community = await prisma.community.findUnique({ where: { id: communityId }, select: { postingPolicy: true } });
+  if (!community) return false;
+  if (community.postingPolicy === 'LEADERS_ONLY') {
+    return isCommunityAdministrator(personId, communityId);
+  }
+  return hasConversationAccess(personId, communityId);
 }
 
 /**
