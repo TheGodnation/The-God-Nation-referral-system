@@ -339,3 +339,27 @@ export const attachmentDownloadLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Phase 2B: sending a message to a generation's Leadership Collaboration
+// conversation. Same design and magnitude as messageSendLimiter/
+// followUpMessageSendLimiter/geographyMessageSendLimiter, kept as its own
+// dedicated export per the project's per-category-limiter convention — this
+// surface's messaging quota never shares or starves any other surface's.
+export const leadershipCollaborationMessageSendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many messages sent. Please slow down.' },
+});
+
+// Phase 2B: marking a Leadership Collaboration conversation read. Same
+// design and magnitude as communityConversationReadLimiter/
+// followUpConversationReadLimiter/geographyConversationReadLimiter.
+export const leadershipCollaborationReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

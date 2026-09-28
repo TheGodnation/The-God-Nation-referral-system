@@ -466,6 +466,8 @@ model Person {
   communityConversationReads  CommunityConversationRead[]
   followUpConversationReads   FollowUpConversationRead[]
   geographyConversationReads  GeographyConversationRead[]
+  leadershipCollaborationMessages      LeadershipCollaborationMessage[]
+  leadershipCollaborationConversationReads LeadershipCollaborationConversationRead[]
 
   @@index([isTestData])
 }
@@ -1192,6 +1194,82 @@ model GeographyConversationRead {
 
   person       Person                @relation(fields: [personId], references: [id], onDelete: Cascade)
   conversation GeographyConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, conversationId])
+}
+
+// Phase 2B — a two-way GROUP conversation for Leaders who share the same
+// Headquarters-relative organizational generation (see lib/tree.ts's
+// getCommunityGeneration/getCommunityIdsAtGeneration). Structurally a
+// sibling of Conversation/GeographyConversation/FollowUpConversation, not a
+// shared/generic engine with any of them — its own models, its own table,
+// its own authorization helper (lib/leadershipCollaboration.ts).
+//
+// Keyed by `generation` (a plain integer) rather than a foreign key to a
+// Community or Geography node, because a generation is not itself a row
+// anywhere in this schema — it is a derived distance from the single
+// National Headquarters Community. `generation` is therefore this model's
+// own natural identity (exactly one conversation may ever exist per
+// generation, enforced by @unique below), never a cached copy of any
+// Leader's or Community's own generation — no generation column exists or
+// is added on Person, Community, or RoleAssignment anywhere in this schema.
+// Created lazily (get-or-create on first access, race-safe via upsert),
+// mirroring GeographyConversation's own precedent — most generations may
+// never actually need one.
+//
+// No participant table exists here either, for the same reason
+// Conversation/GeographyConversation/FollowUpConversation have none:
+// eligibility is derived live, on every request, from the caller's own
+// ACTIVE Community-scoped SCOPED_LEADER RoleAssignment(s) — never stored,
+// never cached, and never affected by CommunityMembership, GeographicAssignment,
+// or any Geography relationship whatsoever.
+model LeadershipCollaborationConversation {
+  id         String   @id @default(uuid())
+  generation Int      @unique
+  createdAt  DateTime @default(now())
+
+  messages LeadershipCollaborationMessage[]
+  reads    LeadershipCollaborationConversationRead[]
+}
+
+// A single, immutable text message in a generation's Leadership
+// Collaboration conversation. senderPersonId is always the authenticated
+// caller's own linked Person (req.leaderPersonId, via requireLinkedPerson)
+// — never accepted from the request body, exactly like every other
+// conversation surface's Message model in this schema. Deliberately no
+// editedAt/deletedAt: this phase carries no message editing, deletion, or
+// moderation — a narrower scope than Community Conversation's (which has
+// Phase 3M.8A moderation), matching this phase's own explicit exclusion
+// list. Text-only — no MessageAttachment equivalent, no Phase 3M.8C
+// analog.
+model LeadershipCollaborationMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderPersonId String
+  body           String
+  createdAt      DateTime @default(now())
+
+  conversation LeadershipCollaborationConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Person                               @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// A Person's last-read position in one generation's Leadership
+// Collaboration conversation. Same last-read-cursor shape as
+// CommunityConversationRead/FollowUpConversationRead/GeographyConversationRead
+// — kept as its own dedicated model, never a shared/generic read-state
+// table. Never consulted for conversation access — the authorization helper
+// in lib/leadershipCollaboration.ts is completely unchanged by this model's
+// existence.
+model LeadershipCollaborationConversationRead {
+  id             String   @id @default(uuid())
+  personId       String
+  conversationId String
+  lastReadAt     DateTime
+
+  person       Person                              @relation(fields: [personId], references: [id], onDelete: Cascade)
+  conversation LeadershipCollaborationConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@unique([personId, conversationId])
 }

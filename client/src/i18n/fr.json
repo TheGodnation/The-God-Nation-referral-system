@@ -330,6 +330,14 @@
       "table_community": "Communauté",
       "table_generation": "Génération",
       "no_peers": "Aucun pair de leadership trouvé à votre génération pour le moment."
+    },
+    "leadershipCollaborationList": {
+      "title": "Collaboration de leadership",
+      "intro": "Collaborez avec les autres Leaders de votre propre génération organisationnelle sur le développement et la coordination de cette génération.",
+      "load_failed": "Impossible de charger la collaboration.",
+      "generation_label": "Génération {{generation}}",
+      "generation_hint": "Collaborez avec les autres leaders de votre génération",
+      "no_generations": "Vous n'êtes actuellement éligible à aucune collaboration de génération."
     }
   },
   "admin": {
@@ -997,6 +1005,17 @@
     "no_messages": "Aucun message pour l'instant. Soyez le premier à écrire.",
     "composer_placeholder": "Écrire un message…",
     "send": "Envoyer",
+    "sending": "Envoi…",
+    "send_failed": "Échec de l'envoi du message."
+  },
+  "leadershipCollaboration": {
+    "title": "Génération {{generation}} — Collaboration de leadership",
+    "loading": "Chargement…",
+    "load_failed": "Impossible de charger la collaboration.",
+    "load_older": "Charger les messages plus anciens",
+    "no_messages": "Aucun message de collaboration pour l'instant. Soyez le premier à écrire.",
+    "composer_placeholder": "Écrire un message…",
+    "send": "Envoyer le message",
     "sending": "Envoi…",
     "send_failed": "Échec de l'envoi du message."
   },

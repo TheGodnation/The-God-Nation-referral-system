@@ -330,6 +330,14 @@
       "table_community": "Community",
       "table_generation": "Generation",
       "no_peers": "No leadership peers found at your generation yet."
+    },
+    "leadershipCollaborationList": {
+      "title": "Leadership Collaboration",
+      "intro": "Collaborate with other Leaders in your own organizational generation about the development and coordination of that generation.",
+      "load_failed": "Unable to load collaboration.",
+      "generation_label": "Generation {{generation}}",
+      "generation_hint": "Collaborate with other leaders in your generation",
+      "no_generations": "You are not currently eligible for any generation collaboration."
     }
   },
   "admin": {
@@ -997,6 +1005,17 @@
     "no_messages": "No messages yet. Be the first to say something.",
     "composer_placeholder": "Write a message…",
     "send": "Send",
+    "sending": "Sending…",
+    "send_failed": "Failed to send message."
+  },
+  "leadershipCollaboration": {
+    "title": "Generation {{generation}} — Leadership Collaboration",
+    "loading": "Loading…",
+    "load_failed": "Unable to load collaboration.",
+    "load_older": "Load older messages",
+    "no_messages": "No collaboration messages yet. Be the first to say something.",
+    "composer_placeholder": "Write a message…",
+    "send": "Send message",
     "sending": "Sending…",
     "send_failed": "Failed to send message."
   },

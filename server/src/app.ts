@@ -39,6 +39,7 @@ import announcementsRoutes from './routes/announcements';
 import adminAnnouncementsRoutes from './routes/adminAnnouncements';
 import geographyConversationsRoutes from './routes/geographyConversations';
 import adminConversationOversightRoutes from './routes/adminConversationOversight';
+import leaderLeadershipCollaborationRoutes from './routes/leaderLeadershipCollaboration';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -141,6 +142,14 @@ export function createApp() {
   // independent of communityConversationsRoutes/followUpConversationsRoutes/
   // geographyConversationsRoutes — no shared middleware, no shared route.
   app.use('/api/admin', adminConversationOversightRoutes);
+  // Phase 2B: leaderLeadershipCollaborationRoutes defines
+  // '/leadership-collaboration' and its sub-routes under '/api/leader',
+  // Leader-only — same per-concern file split and root-mount pattern as
+  // leaderFollowUpsRoutes/leaderCommunitiesRoutes/leaderLeadershipProposalsRoutes
+  // above. Fully independent of communityConversationsRoutes/
+  // followUpConversationsRoutes/geographyConversationsRoutes — own models,
+  // own tables, own authorization helper (lib/leadershipCollaboration.ts).
+  app.use('/api/leader', leaderLeadershipCollaborationRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.
