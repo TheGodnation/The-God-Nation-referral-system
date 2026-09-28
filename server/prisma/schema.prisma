@@ -109,6 +109,20 @@ enum LeadershipProposalStatus {
   WITHDRAWN
 }
 
+// Phase 2C — kept as its own enum, deliberately never shared with
+// LeadershipProposalStatus above, even though the four states are named
+// identically: reusing one enum would semantically couple Geography
+// leadership recommendations and organizational (Community-generation)
+// recommendations, two unrelated concepts that happen to share a lifecycle
+// shape. Same convention as every other status enum in this schema — one
+// dedicated enum per model, never shared across unrelated models.
+enum OrganizationalLeadershipRecommendationStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
@@ -151,6 +165,7 @@ model User {
   followUpContactsLogged     FollowUpContact[]
   leadershipProposalsDecided LeadershipProposal[]
   announcementsCreated       Announcement[]
+  organizationalLeadershipRecommendationsDecided OrganizationalLeadershipRecommendation[]
 
   @@index([role])
 }
@@ -468,6 +483,8 @@ model Person {
   geographyConversationReads  GeographyConversationRead[]
   leadershipCollaborationMessages      LeadershipCollaborationMessage[]
   leadershipCollaborationConversationReads LeadershipCollaborationConversationRead[]
+  organizationalLeadershipRecommendationsMade     OrganizationalLeadershipRecommendation[] @relation("OrganizationalLeadershipRecommendationProposer")
+  organizationalLeadershipRecommendationsReceived OrganizationalLeadershipRecommendation[] @relation("OrganizationalLeadershipRecommendationCandidate")
 
   @@index([isTestData])
 }
@@ -494,6 +511,7 @@ model Community {
   conversation    Conversation?
   announcementTargets AnnouncementTarget[]
   headquartersSettings Settings[] @relation("SettingsHeadquarters")
+  organizationalLeadershipRecommendations OrganizationalLeadershipRecommendation[]
 
   @@index([parentId])
   @@index([active])
@@ -932,6 +950,58 @@ model LeadershipProposal {
   @@index([proposedByPersonId, status])
   @@index([proposedPersonId, status])
   @@index([geographyId, status])
+}
+
+// Phase 2C — an organizational (Community-generation) leadership
+// recommendation. Structurally a sibling of LeadershipProposal above, never
+// a shared/generic model or an extension of it: LeadershipProposal remains
+// exclusively the Geography-leadership recommendation mechanism (its
+// geographyId stays required and unmodified), and this model is exclusively
+// the Community-generation-growth recommendation mechanism — the two are
+// deliberately kept separate because their eligibility rules differ
+// (Geography subtree vs. exact Community match) and their subject differs
+// (an existing Geography's leadership vs. a FUTURE Community that does not
+// yet exist).
+//
+// communityId is the ANCHOR Community — "this recommendation concerns the
+// next-generation growth of this existing Community" — never a placeholder
+// for a Community that doesn't exist yet (no future-Community row is ever
+// created by this model or by approving it). Organizational generation is
+// intentionally NOT a column here: it is always derived on read from
+// communityId via lib/tree.ts's getCommunityGeneration, exactly like every
+// other generation-derived value in this schema (Phase 1/2A/2B's own
+// precedent) — a recommendation's displayed generation always reflects the
+// anchor Community's CURRENT position in the Headquarters tree, never a
+// value frozen at creation time.
+//
+// Approving a recommendation changes ONLY this row's own status/decision
+// fields — it never creates a Community, never creates a RoleAssignment,
+// never touches Community.parentId, and never touches Headquarters. Formal
+// Community creation and Leader appointment remain fully separate,
+// Admin-only actions (adminCommunities.ts / adminLeadership.ts), completely
+// unmodified by this model's existence — the exact same "recommend, never
+// appoint" boundary LeadershipProposal itself already established.
+model OrganizationalLeadershipRecommendation {
+  id                 String                                         @id @default(uuid())
+  proposedPersonId   String
+  communityId        String
+  proposedByPersonId String
+  status             OrganizationalLeadershipRecommendationStatus @default(PROPOSED)
+  note               String?
+  createdAt          DateTime                                       @default(now())
+  updatedAt          DateTime                                       @updatedAt
+  decidedAt          DateTime?
+  decidedByUserId    String?
+  decisionNote       String?
+
+  proposedPerson   Person    @relation("OrganizationalLeadershipRecommendationCandidate", fields: [proposedPersonId], references: [id], onDelete: Cascade)
+  proposedByPerson Person    @relation("OrganizationalLeadershipRecommendationProposer", fields: [proposedByPersonId], references: [id], onDelete: Cascade)
+  community        Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  decidedByUser    User?     @relation(fields: [decidedByUserId], references: [id])
+
+  @@index([proposedByPersonId, status])
+  @@index([proposedPersonId, status])
+  @@index([communityId, status])
 }
 
 // Phase 3M.1: exactly one persistent, text-only conversation per Community

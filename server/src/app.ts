@@ -40,6 +40,8 @@ import adminAnnouncementsRoutes from './routes/adminAnnouncements';
 import geographyConversationsRoutes from './routes/geographyConversations';
 import adminConversationOversightRoutes from './routes/adminConversationOversight';
 import leaderLeadershipCollaborationRoutes from './routes/leaderLeadershipCollaboration';
+import leaderOrganizationalLeadershipRecommendationsRoutes from './routes/leaderOrganizationalLeadershipRecommendations';
+import adminOrganizationalLeadershipRecommendationsRoutes from './routes/adminOrganizationalLeadershipRecommendations';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -150,6 +152,16 @@ export function createApp() {
   // followUpConversationsRoutes/geographyConversationsRoutes — own models,
   // own tables, own authorization helper (lib/leadershipCollaboration.ts).
   app.use('/api/leader', leaderLeadershipCollaborationRoutes);
+  // Phase 2C: leaderOrganizationalLeadershipRecommendationsRoutes defines
+  // '/organizational-leadership-recommendations' and its sub-routes under
+  // '/api/leader'; adminOrganizationalLeadershipRecommendationsRoutes
+  // defines the same path under '/api/admin' — same root-mount pattern as
+  // leaderLeadershipProposalsRoutes/adminLeadershipProposalsRoutes above.
+  // Fully independent of LeadershipProposal's own routes/model — own model,
+  // own table, own authorization helper
+  // (lib/organizationalLeadershipRecommendation.ts).
+  app.use('/api/leader', leaderOrganizationalLeadershipRecommendationsRoutes);
+  app.use('/api/admin', adminOrganizationalLeadershipRecommendationsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

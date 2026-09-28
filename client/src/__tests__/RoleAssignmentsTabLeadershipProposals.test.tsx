@@ -101,6 +101,18 @@ describe('RoleAssignmentsTab — Phase 3L Leadership Proposals', () => {
             json: async () => NO_ROLE_ASSIGNMENTS,
           });
         }
+        // Phase 2C — RoleAssignmentsTab also loads Organizational Leadership
+        // Recommendations (a structurally separate endpoint/section); this
+        // test only exercises the Geography Leadership Proposals section, so
+        // that second fetch is stubbed out to an empty list here.
+        if (url.includes('/api/admin/organizational-leadership-recommendations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ items: [], pagination: { totalPages: 1 } }),
+          });
+        }
         if (url.includes('/approve')) {
           approved = true;
           return Promise.resolve({
