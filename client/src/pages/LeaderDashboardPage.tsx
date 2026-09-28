@@ -11,6 +11,7 @@ import { LeaderLeadershipCollaboration } from '../components/leader/LeaderLeader
 import { LeaderCommunityConversations } from '../components/leader/LeaderCommunityConversations';
 import { LeaderGeographyConversations } from '../components/leader/LeaderGeographyConversations';
 import { Announcements } from '../components/Announcements';
+import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { usePublicSettings } from '../lib/usePublicSettings';
@@ -246,6 +247,8 @@ export function LeaderDashboardPage() {
         <InvitePeople links={links} messageTemplate={messageTemplate} />
 
         <Announcements />
+
+        <HeadquartersPosts />
 
         <MyFollowUp />
 

@@ -43,6 +43,8 @@ import leaderLeadershipCollaborationRoutes from './routes/leaderLeadershipCollab
 import leaderOrganizationalLeadershipRecommendationsRoutes from './routes/leaderOrganizationalLeadershipRecommendations';
 import adminOrganizationalLeadershipRecommendationsRoutes from './routes/adminOrganizationalLeadershipRecommendations';
 import adminLocationsRoutes from './routes/adminLocations';
+import headquartersPostsRoutes from './routes/headquartersPosts';
+import adminHeadquartersPostsRoutes from './routes/adminHeadquartersPosts';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -169,6 +171,14 @@ export function createApp() {
   // Read-only aggregation only; never creates/modifies a Community,
   // RoleAssignment, or CommunityMembership.
   app.use('/api/admin', adminLocationsRoutes);
+  // Headquarters Network Posts & Shared Engagement: shared authenticated
+  // recipient surface (Member or Leader, never Admin — same exclusion as
+  // announcementsRoutes above), plus the separate Admin-only management
+  // surface. Fully independent of Announcement's own routes/model — own
+  // model family, own tables, own authorization helper
+  // (lib/headquartersPosts.ts).
+  app.use('/api/me/headquarters-posts', headquartersPostsRoutes);
+  app.use('/api/admin/headquarters-posts', adminHeadquartersPostsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

@@ -8,6 +8,7 @@ import { CommunityConversation } from '../components/CommunityConversation';
 import { GeographyConversation } from '../components/GeographyConversation';
 import { MyFollowUps } from '../components/member/MyFollowUps';
 import { Announcements } from '../components/Announcements';
+import { HeadquartersPosts } from '../components/HeadquartersPosts';
 
 interface AssessmentSummary {
   id: string;
@@ -317,6 +318,8 @@ export function MemberDashboardPage() {
               ))}
 
             <Announcements />
+
+            <HeadquartersPosts />
 
             <MyFollowUps />
 

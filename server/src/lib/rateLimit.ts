@@ -363,3 +363,44 @@ export const leadershipCollaborationReadLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Headquarters Network Posts: Admin create/edit/publish/archive mutations.
+// Authenticated, Admin-only, lower enumeration risk than the public
+// limiters above, but still its own dedicated limiter per the project's
+// "never rely solely on generalApiLimiter" convention — matching the
+// magnitude of announcementMutationLimiter, the closest existing precedent
+// for an Admin-authenticated content-authoring category.
+export const headquartersPostMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
+// Headquarters Network Posts: a Member/Leader posting a comment on a post.
+// Same design and magnitude as messageSendLimiter/followUpMessageSendLimiter
+// /geographyMessageSendLimiter/leadershipCollaborationMessageSendLimiter,
+// kept as its own dedicated export per the project's per-category-limiter
+// convention.
+export const headquartersPostCommentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many messages sent. Please slow down.' },
+});
+
+// Headquarters Network Posts: a Member/Leader toggling their own reaction on
+// a post. Own-data-only, idempotent, and expected to fire whenever a Person
+// opens a post they want to acknowledge — sized like
+// announcementReadLimiter/communityConversationReadLimiter, its own
+// dedicated category so a burst of reacting never competes with any other
+// mutation category's quota.
+export const headquartersPostReactionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

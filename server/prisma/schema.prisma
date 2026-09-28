@@ -166,6 +166,7 @@ model User {
   leadershipProposalsDecided LeadershipProposal[]
   announcementsCreated       Announcement[]
   organizationalLeadershipRecommendationsDecided OrganizationalLeadershipRecommendation[]
+  headquartersPostsCreated   HeadquartersPost[]
 
   @@index([role])
 }
@@ -500,6 +501,8 @@ model Person {
   leadershipCollaborationConversationReads LeadershipCollaborationConversationRead[]
   organizationalLeadershipRecommendationsMade     OrganizationalLeadershipRecommendation[] @relation("OrganizationalLeadershipRecommendationProposer")
   organizationalLeadershipRecommendationsReceived OrganizationalLeadershipRecommendation[] @relation("OrganizationalLeadershipRecommendationCandidate")
+  headquartersPostComments   HeadquartersPostComment[]
+  headquartersPostReactions  HeadquartersPostReaction[]
 
   @@index([isTestData])
 }
@@ -527,6 +530,7 @@ model Community {
   announcementTargets AnnouncementTarget[]
   headquartersSettings Settings[] @relation("SettingsHeadquarters")
   organizationalLeadershipRecommendations OrganizationalLeadershipRecommendation[]
+  headquartersPostTargets HeadquartersPostTarget[]
 
   @@index([parentId])
   @@index([active])
@@ -1432,6 +1436,119 @@ model AnnouncementRead {
   person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@unique([personId, announcementId])
+}
+
+// Headquarters Network Posts — a two-way, shared-engagement post authored by
+// Central Authority (Admin only, this phase) from National Headquarters
+// (Settings.headquartersCommunityId), visible across many Communities at
+// once. Deliberately a NEW model family, structurally separate from both
+// Announcement (which stays strictly one-way: no comments, no reactions,
+// never converted into this) and Conversation/Message (whose
+// Conversation.communityId @unique binds each conversation to exactly one
+// Community, so a single post spanning many Communities cannot be
+// represented there). Mirrors Announcement's own "one canonical row, many
+// live-derived eligible readers" shape (see lib/headquartersPosts.ts) —
+// there is deliberately no HeadquartersPostRecipient materialized list.
+//
+// Audience is one of exactly two mutually exclusive modes, enforced at the
+// application layer (lib/headquartersPosts.ts), not by a DB CHECK:
+//   - networkWide: true  -> every Person with an ACTIVE CommunityMembership
+//     in the Headquarters Community itself or any of its descendants (see
+//     getDescendantCommunityIds in lib/tree.ts) qualifies. No
+//     HeadquartersPostTarget rows are used in this mode.
+//   - networkWide: false -> eligibility is exactly the union of ACTIVE
+//     CommunityMembership in one of this post's HeadquartersPostTarget
+//     Communities. EXACT match only — deliberately NOT descendant-aware,
+//     matching AnnouncementTarget's own existing Community-target semantics
+//     (only its Geography targets are descendant-aware) rather than
+//     inventing new descendant-target behavior without an explicit
+//     requirement to do so.
+// Draft -> Published -> Archived lifecycle, expressed purely through
+// publishedAt/archivedAt timestamps, identical in shape to Announcement's
+// own lifecycle: content/audience are only editable while a draft;
+// publishing is immediate; archiving is the only "deletion" path (no
+// hard-delete), from either draft or published state.
+model HeadquartersPost {
+  id              String    @id @default(uuid())
+  titleEn         String
+  titleFr         String?
+  bodyEn          String
+  bodyFr          String?
+  networkWide     Boolean   @default(false)
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  publishedAt     DateTime?
+  archivedAt      DateTime?
+
+  createdBy User                       @relation(fields: [createdByUserId], references: [id])
+  targets   HeadquartersPostTarget[]
+  comments  HeadquartersPostComment[]
+  reactions HeadquartersPostReaction[]
+
+  @@index([publishedAt, archivedAt])
+  @@index([createdAt])
+}
+
+// A Community explicitly selected as an audience for one HeadquartersPost.
+// Community-only by design — Geography/location/Leader/arbitrary-member
+// targeting is explicitly out of scope for Headquarters Posts in this
+// phase (unlike AnnouncementTarget, which also supports a Geography
+// target). See HeadquartersPost's own comment above for exact-match vs
+// descendant-aware semantics.
+model HeadquartersPostTarget {
+  id                 String   @id @default(uuid())
+  headquartersPostId String
+  communityId        String
+  createdAt          DateTime @default(now())
+
+  post      HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
+  community Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([headquartersPostId])
+  @@index([communityId])
+}
+
+// A comment on one HeadquartersPost — globally shared across every eligible
+// reader of that one canonical post (never per-Community/per-target copies).
+// Eligibility to write one is exactly personCanViewHeadquartersPost (see
+// lib/headquartersPosts.ts), re-checked at write time, never inherited from
+// having viewed the list. Deliberately minimal for this phase: no edit/soft
+// -delete/moderation columns — a participant who made a mistake posts a
+// correction, matching this schema's Message model precedent before its own
+// later moderation phase (3M.8A) was explicitly authorized.
+model HeadquartersPostComment {
+  id                 String   @id @default(uuid())
+  headquartersPostId String
+  authorPersonId     String
+  body               String
+  createdAt          DateTime @default(now())
+
+  post   HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
+  author Person           @relation(fields: [authorPersonId], references: [id], onDelete: Cascade)
+
+  @@index([headquartersPostId, createdAt])
+}
+
+// A Person's reaction to one HeadquartersPost — a single, untyped
+// acknowledgement (present/absent), not a multi-emoji reaction picker:
+// deliberately minimal rather than inventing a speculative reaction-type
+// enum with no requirement behind it. One shared reaction set per canonical
+// post (never per-Community/per-target copies). The (headquartersPostId,
+// personId) unique constraint is the same idempotent-row pattern already
+// established by AnnouncementRead/MessageHiddenForPerson/
+// CommunityConversationRead: toggling on is an upsert-if-absent, toggling
+// off is a delete, and reactionCount is always COUNT(*) over this table,
+// never a cached/denormalized counter.
+model HeadquartersPostReaction {
+  id                 String   @id @default(uuid())
+  headquartersPostId String
+  personId           String
+  createdAt          DateTime @default(now())
+
+  post   HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
+  person Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([headquartersPostId, personId])
 }
 
 model AuditLog {

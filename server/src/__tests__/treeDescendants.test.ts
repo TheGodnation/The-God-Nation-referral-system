@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { prisma } from '../lib/prisma';
-import { getDescendantGeographyIds, getCommunityGeneration } from '../lib/tree';
+import { getDescendantGeographyIds, getCommunityGeneration, getDescendantCommunityIds } from '../lib/tree';
 
 async function makeGeography(name: string, type = 'REGION', countryCode = 'CM', parentId?: string) {
   return prisma.geography.create({ data: { name, type, countryCode, parentId: parentId ?? null } });
@@ -95,6 +95,71 @@ describe('Phase 3K — getDescendantGeographyIds', () => {
     await prisma.geography.update({ where: { id: a.id }, data: { parentId: b.id } });
 
     const ids = await getDescendantGeographyIds(a.id);
+    expect(ids.slice().sort()).toEqual([a.id, b.id].sort());
+  });
+});
+
+describe('Headquarters Network Posts — getDescendantCommunityIds', () => {
+  it('a root with no children returns only itself', async () => {
+    const root = await makeCommunity('CDescendant Root A');
+    const ids = await getDescendantCommunityIds(root.id);
+    expect(ids).toEqual([root.id]);
+  });
+
+  it('a root with one child returns both', async () => {
+    const root = await makeCommunity('CDescendant Root B');
+    const child = await makeCommunity('CDescendant Child B', root.id);
+    const ids = await getDescendantCommunityIds(root.id);
+    expect(ids.slice().sort()).toEqual([root.id, child.id].sort());
+  });
+
+  it('a deep arbitrary-depth chain returns every level', async () => {
+    const root = await makeCommunity('CDescendant Root C');
+    const gen1 = await makeCommunity('CDescendant C1', root.id);
+    const gen2 = await makeCommunity('CDescendant C2', gen1.id);
+    const gen3 = await makeCommunity('CDescendant C3', gen2.id);
+
+    const ids = await getDescendantCommunityIds(root.id);
+    expect(ids.slice().sort()).toEqual([root.id, gen1.id, gen2.id, gen3.id].sort());
+  });
+
+  it('a wide branching tree returns every branch', async () => {
+    const root = await makeCommunity('CDescendant Root D');
+    const childA = await makeCommunity('CDescendant Child D-A', root.id);
+    const childB = await makeCommunity('CDescendant Child D-B', root.id);
+    const grandchildA1 = await makeCommunity('CDescendant Grandchild D-A1', childA.id);
+    const grandchildB1 = await makeCommunity('CDescendant Grandchild D-B1', childB.id);
+
+    const ids = await getDescendantCommunityIds(root.id);
+    expect(ids.slice().sort()).toEqual([root.id, childA.id, childB.id, grandchildA1.id, grandchildB1.id].sort());
+  });
+
+  it('a branch is included only when it is actually a descendant of the requested root, not merely a sibling of one', async () => {
+    const root = await makeCommunity('CDescendant Root G');
+    const childA = await makeCommunity('CDescendant Child G-A', root.id);
+    const childB = await makeCommunity('CDescendant Child G-B', root.id);
+
+    const idsFromChildA = await getDescendantCommunityIds(childA.id);
+    expect(idsFromChildA).toEqual([childA.id]);
+    expect(idsFromChildA).not.toContain(childB.id);
+    expect(idsFromChildA).not.toContain(root.id);
+  });
+
+  it('excludes an unrelated root entirely', async () => {
+    const root = await makeCommunity('CDescendant Root H');
+    await makeCommunity('CDescendant Child H', root.id);
+    const unrelated = await makeCommunity('CDescendant Unrelated H');
+
+    const ids = await getDescendantCommunityIds(root.id);
+    expect(ids).not.toContain(unrelated.id);
+  });
+
+  it('is defensive against malformed/cyclic parentId data and always terminates', async () => {
+    const a = await makeCommunity('CDescendant Cyclic A');
+    const b = await makeCommunity('CDescendant Cyclic B', a.id);
+    await prisma.community.update({ where: { id: a.id }, data: { parentId: b.id } });
+
+    const ids = await getDescendantCommunityIds(a.id);
     expect(ids.slice().sort()).toEqual([a.id, b.id].sort());
   });
 });

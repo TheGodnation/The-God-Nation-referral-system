@@ -54,6 +54,36 @@ export async function getDescendantGeographyIds(rootId: string): Promise<string[
 }
 
 /**
+ * Headquarters Network Posts — the Community-tree analog of
+ * getDescendantGeographyIds above, walking DOWN from rootId via
+ * Community.parentId (breadth-first, one batched query per level), same
+ * `seen`-set accumulator/cycle-guard shape. Used for network-wide
+ * Headquarters Post eligibility: every Person with an ACTIVE
+ * CommunityMembership in the Headquarters Community itself or any of its
+ * descendants qualifies (see lib/headquartersPosts.ts). Never used for
+ * selected-Community targeting, which is deliberately exact-match only.
+ */
+export async function getDescendantCommunityIds(rootId: string): Promise<string[]> {
+  const seen = new Set<string>([rootId]);
+  let frontier = [rootId];
+  while (frontier.length > 0) {
+    const children = await prisma.community.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true },
+    });
+    const next: string[] = [];
+    for (const child of children) {
+      if (!seen.has(child.id)) {
+        seen.add(child.id);
+        next.push(child.id);
+      }
+    }
+    frontier = next;
+  }
+  return Array.from(seen);
+}
+
+/**
  * National Headquarters generation — purely derived, never persisted (no
  * generation/depth column exists or is added anywhere in this schema).
  * Walks UP from communityId via Community.parentId one step at a time —
