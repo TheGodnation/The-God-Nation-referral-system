@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { prisma } from '../lib/prisma';
-import { getDescendantGeographyIds } from '../lib/tree';
+import { getDescendantGeographyIds, getCommunityGeneration } from '../lib/tree';
 
 async function makeGeography(name: string, type = 'REGION', countryCode = 'CM', parentId?: string) {
   return prisma.geography.create({ data: { name, type, countryCode, parentId: parentId ?? null } });
+}
+
+async function makeCommunity(name: string, parentId?: string) {
+  return prisma.community.create({ data: { name, parentId: parentId ?? null } });
 }
 
 describe('Phase 3K — getDescendantGeographyIds', () => {
@@ -92,5 +96,72 @@ describe('Phase 3K — getDescendantGeographyIds', () => {
 
     const ids = await getDescendantGeographyIds(a.id);
     expect(ids.slice().sort()).toEqual([a.id, b.id].sort());
+  });
+});
+
+describe('National Headquarters — getCommunityGeneration', () => {
+  it('Headquarters itself is generation 0', async () => {
+    const hq = await makeCommunity('Generation HQ A');
+    expect(await getCommunityGeneration(hq.id, hq.id)).toBe(0);
+  });
+
+  it('a direct child is generation 1', async () => {
+    const hq = await makeCommunity('Generation HQ B');
+    const child = await makeCommunity('Generation Child B', hq.id);
+    expect(await getCommunityGeneration(child.id, hq.id)).toBe(1);
+  });
+
+  it('a deep chain increments generation at every level', async () => {
+    const hq = await makeCommunity('Generation HQ C');
+    const gen1 = await makeCommunity('Generation C1', hq.id);
+    const gen2 = await makeCommunity('Generation C2', gen1.id);
+    const gen3 = await makeCommunity('Generation C3', gen2.id);
+    const gen4 = await makeCommunity('Generation C4', gen3.id);
+
+    expect(await getCommunityGeneration(gen1.id, hq.id)).toBe(1);
+    expect(await getCommunityGeneration(gen2.id, hq.id)).toBe(2);
+    expect(await getCommunityGeneration(gen3.id, hq.id)).toBe(3);
+    expect(await getCommunityGeneration(gen4.id, hq.id)).toBe(4);
+  });
+
+  it('a wide branching tree gives every sibling branch the correct generation', async () => {
+    const hq = await makeCommunity('Generation HQ D');
+    const a = await makeCommunity('Generation D-A', hq.id);
+    const b = await makeCommunity('Generation D-B', hq.id);
+    const a1 = await makeCommunity('Generation D-A1', a.id);
+    const b1 = await makeCommunity('Generation D-B1', b.id);
+
+    expect(await getCommunityGeneration(a.id, hq.id)).toBe(1);
+    expect(await getCommunityGeneration(b.id, hq.id)).toBe(1);
+    expect(await getCommunityGeneration(a1.id, hq.id)).toBe(2);
+    expect(await getCommunityGeneration(b1.id, hq.id)).toBe(2);
+  });
+
+  it('an unrelated root Community (not descended from Headquarters) returns null, never a fabricated generation', async () => {
+    const hq = await makeCommunity('Generation HQ E');
+    const unrelated = await makeCommunity('Generation Unrelated E');
+    expect(await getCommunityGeneration(unrelated.id, hq.id)).toBeNull();
+  });
+
+  it('a Community descended from an unrelated root (not Headquarters) also returns null', async () => {
+    const hq = await makeCommunity('Generation HQ F');
+    const unrelatedRoot = await makeCommunity('Generation Unrelated Root F');
+    const unrelatedChild = await makeCommunity('Generation Unrelated Child F', unrelatedRoot.id);
+    expect(await getCommunityGeneration(unrelatedChild.id, hq.id)).toBeNull();
+  });
+
+  it('is defensive against malformed/cyclic parentId data and always terminates', async () => {
+    const hq = await makeCommunity('Generation HQ G');
+    const a = await makeCommunity('Generation Cyclic G-A');
+    const b = await makeCommunity('Generation Cyclic G-B', a.id);
+    // Force a cycle the application itself would never create (wouldCreateCycle
+    // already prevents this on every reparent) — proves the upward walk can
+    // never loop forever even if the underlying data were corrupted, and
+    // never falsely reports a generation for data that never actually
+    // reaches Headquarters.
+    await prisma.community.update({ where: { id: a.id }, data: { parentId: b.id } });
+
+    expect(await getCommunityGeneration(a.id, hq.id)).toBeNull();
+    expect(await getCommunityGeneration(b.id, hq.id)).toBeNull();
   });
 });

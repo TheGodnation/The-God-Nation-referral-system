@@ -822,7 +822,19 @@
       "no_parent_selected": "Root — no parent.",
       "search_parent_placeholder": "Search communities by name",
       "select": "Select",
-      "clear_parent": "Clear — make this a root community"
+      "clear_parent": "Clear — make this a root community",
+      "table_generation": "Generation",
+      "generation_headquarters": "National Headquarters",
+      "generation_n": "Generation {{generation}}",
+      "headquarters_heading": "National Headquarters",
+      "headquarters_loading": "Loading…",
+      "headquarters_current": "Current Headquarters: {{name}}",
+      "headquarters_none": "No National Headquarters has been designated yet.",
+      "headquarters_search_placeholder": "Search for a community to designate as Headquarters",
+      "headquarters_search_button": "Find",
+      "headquarters_designate_action": "Designate as Headquarters",
+      "headquarters_designating": "Designating…",
+      "headquarters_designate_failed": "Failed to designate National Headquarters."
     },
     "devotionals": {
       "title": "Devotionals",

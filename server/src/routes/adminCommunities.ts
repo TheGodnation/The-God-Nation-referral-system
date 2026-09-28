@@ -5,13 +5,22 @@ import { requireAuth, requireRole } from '../lib/auth';
 import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
-import { wouldCreateCycle } from '../lib/tree';
+import { wouldCreateCycle, getCommunityGeneration } from '../lib/tree';
 import { communityGeographyMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
 router.use(requireAuth, requireRole('ADMIN'));
+
+// The single National Headquarters pointer lives on the Settings singleton
+// row (see schema.prisma's own comment on Settings.headquartersCommunityId
+// for why a singleton-row pointer, rather than a boolean flag on Community,
+// is what actually guarantees "at most one Headquarters").
+async function getHeadquartersCommunityId(): Promise<string | null> {
+  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { headquartersCommunityId: true } });
+  return settings?.headquartersCommunityId ?? null;
+}
 
 const listQuerySchema = z.object({
   parentId: z.string().optional(),
@@ -38,7 +47,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
   const where = { parentId: q.parentId ? q.parentId : null };
 
-  const [total, nodes] = await Promise.all([
+  const [total, nodes, headquartersId] = await Promise.all([
     prisma.community.count({ where }),
     prisma.community.findMany({
       where,
@@ -50,21 +59,92 @@ router.get('/', asyncHandler(async (req, res) => {
       skip,
       take,
     }),
+    getHeadquartersCommunityId(),
   ]);
 
-  res.json(paginatedResult(nodes, total, page, pageSize));
+  // Generation is purely derived (see lib/tree.ts's getCommunityGeneration)
+  // — never persisted, never computed at all when Headquarters isn't yet
+  // configured (every row's generation is simply null in that case, with
+  // zero extra tree walks).
+  const items = headquartersId
+    ? await Promise.all(nodes.map(async (n) => ({ ...n, generation: await getCommunityGeneration(n.id, headquartersId) })))
+    : nodes.map((n) => ({ ...n, generation: null as number | null }));
+
+  res.json(paginatedResult(items, total, page, pageSize));
+}));
+
+// GET /api/admin/communities/headquarters — the current National
+// Headquarters designation, or null if not yet configured. Registered
+// BEFORE the /:id route below so "headquarters" is never captured as a
+// Community id.
+router.get('/headquarters', asyncHandler(async (req, res) => {
+  const headquartersId = await getHeadquartersCommunityId();
+  if (!headquartersId) return res.json({ community: null });
+  const community = await prisma.community.findUnique({ where: { id: headquartersId }, select: { id: true, name: true } });
+  res.json({ community: community ?? null });
+}));
+
+const designateHeadquartersSchema = z.object({ communityId: z.string().min(1) });
+
+// PUT /api/admin/communities/headquarters — designates (or re-designates)
+// the single National Headquarters Community. Purely updates the Settings
+// singleton pointer: never touches Community.parentId, never creates or
+// moves any Community. Server-authoritative — only an existing, ROOT
+// (parentId === null) Community may be designated, never trusted from the
+// client beyond the id itself.
+//
+// Deliberately does NOT require `active: true`: no other route in this
+// codebase treats Community.active as an eligibility gate for anything (it
+// is a display-only toggle everywhere it's used — confirmed by inspection
+// before this phase) — inventing that requirement here, with no existing
+// precedent, would be exactly the kind of speculative rule this phase was
+// told not to add.
+router.put('/headquarters', communityGeographyMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = designateHeadquartersSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'A communityId is required.' });
+  }
+
+  const community = await prisma.community.findUnique({ where: { id: parsed.data.communityId } });
+  if (!community) {
+    return res.status(400).json({ error: 'Community not found.' });
+  }
+  if (community.parentId !== null) {
+    return res.status(400).json({ error: 'Only a root Community (no parent) may be designated as National Headquarters.' });
+  }
+
+  await prisma.settings.upsert({
+    where: { id: 'singleton' },
+    create: { id: 'singleton', headquartersCommunityId: community.id },
+    update: { headquartersCommunityId: community.id },
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'HEADQUARTERS_COMMUNITY_DESIGNATED',
+    targetType: 'Community',
+    targetId: community.id,
+    metadata: { name: community.name },
+  });
+
+  res.json({ community: { id: community.id, name: community.name } });
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {
-  const node = await prisma.community.findUnique({
-    where: { id: req.params.id },
-    include: {
-      parent: { select: { id: true, name: true } },
-      _count: { select: { children: true, memberships: true } },
-    },
-  });
+  const [node, headquartersId] = await Promise.all([
+    prisma.community.findUnique({
+      where: { id: req.params.id },
+      include: {
+        parent: { select: { id: true, name: true } },
+        _count: { select: { children: true, memberships: true } },
+      },
+    }),
+    getHeadquartersCommunityId(),
+  ]);
   if (!node) return res.status(404).json({ error: 'Community not found.' });
-  res.json(node);
+  const generation = headquartersId ? await getCommunityGeneration(node.id, headquartersId) : null;
+  res.json({ ...node, generation });
 }));
 
 // GET /api/admin/communities/:id/members — paginated CommunityMembership

@@ -52,3 +52,40 @@ export async function getDescendantGeographyIds(rootId: string): Promise<string[
   }
   return Array.from(seen);
 }
+
+/**
+ * National Headquarters generation — purely derived, never persisted (no
+ * generation/depth column exists or is added anywhere in this schema).
+ * Walks UP from communityId via Community.parentId one step at a time —
+ * bounded and cycle-safe, mirroring wouldCreateCycle's own upward-walk
+ * shape above (check `seen` before processing, one query per step, never a
+ * $queryRaw or recursive SQL CTE).
+ *
+ * Returns 0 when communityId IS headquartersCommunityId, 1 for a direct
+ * child, 2 for a grandchild, and so on. Returns null when communityId is
+ * not actually a descendant of headquartersCommunityId at all (an
+ * unrelated root, or any Community outside the Headquarters tree) — never
+ * a fabricated generation for a Community the Headquarters tree doesn't
+ * contain, and never hangs on malformed/cyclic parentId data.
+ */
+export async function getCommunityGeneration(
+  communityId: string,
+  headquartersCommunityId: string,
+): Promise<number | null> {
+  let currentId: string | null = communityId;
+  let depth = 0;
+  const seen = new Set<string>();
+  while (currentId) {
+    if (currentId === headquartersCommunityId) return depth;
+    if (seen.has(currentId)) return null; // defensive: an existing cycle
+    seen.add(currentId);
+    const node: { parentId: string | null } | null = await prisma.community.findUnique({
+      where: { id: currentId },
+      select: { parentId: true },
+    });
+    if (!node) return null;
+    currentId = node.parentId;
+    depth += 1;
+  }
+  return null; // walked to a root without ever reaching Headquarters
+}

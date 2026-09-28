@@ -11,6 +11,15 @@ interface CommunityNode {
   active: boolean;
   parent?: { id: string; name: string } | null;
   _count?: { children: number; memberships: number };
+  // Purely derived server-side (never stored) — 0 for National Headquarters
+  // itself, 1 for a direct child, and so on; null for any Community outside
+  // the Headquarters tree, or while Headquarters isn't configured yet.
+  generation?: number | null;
+}
+
+interface HeadquartersCommunity {
+  id: string;
+  name: string;
 }
 
 // Phase 3A: online God Nation communities — a self-referencing hierarchy
@@ -33,7 +42,38 @@ export function CommunitiesTab() {
   const [error, setError] = useState<string | null>(null);
   const [oversightId, setOversightId] = useState<string | null>(null);
 
+  const [headquarters, setHeadquarters] = useState<HeadquartersCommunity | null>(null);
+  const [headquartersLoaded, setHeadquartersLoaded] = useState(false);
+  const [designating, setDesignating] = useState(false);
+  const [designateError, setDesignateError] = useState<string | null>(null);
+
   const parentId = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null;
+
+  function loadHeadquarters() {
+    api
+      .get<{ community: HeadquartersCommunity | null }>('/api/admin/communities/headquarters')
+      .then((res) => setHeadquarters(res.community))
+      .catch(() => {})
+      .finally(() => setHeadquartersLoaded(true));
+  }
+
+  useEffect(loadHeadquarters, []);
+
+  async function designateHeadquarters(community: { id: string; name: string }) {
+    setDesignating(true);
+    setDesignateError(null);
+    try {
+      const res = await api.put<{ community: HeadquartersCommunity }>('/api/admin/communities/headquarters', {
+        communityId: community.id,
+      });
+      setHeadquarters(res.community);
+      load();
+    } catch (err) {
+      setDesignateError(err instanceof ApiError ? err.message : t('admin.communities.headquarters_designate_failed'));
+    } finally {
+      setDesignating(false);
+    }
+  }
 
   function load() {
     const query = parentId ? `parentId=${parentId}` : '';
@@ -102,6 +142,31 @@ export function CommunitiesTab() {
 
   return (
     <div>
+      <div className="card mb-4 space-y-2">
+        <h3 className="font-semibold text-brand-900">{t('admin.communities.headquarters_heading')}</h3>
+        {!headquartersLoaded ? (
+          <p className="text-sm text-slate-400">{t('admin.communities.headquarters_loading')}</p>
+        ) : (
+          <>
+            <p className="text-sm text-slate-600">
+              {headquarters
+                ? t('admin.communities.headquarters_current', { name: headquarters.name })
+                : t('admin.communities.headquarters_none')}
+            </p>
+            <SearchPicker
+              placeholder={t('admin.communities.headquarters_search_placeholder') ?? ''}
+              searchPath="/api/admin/communities?search="
+              renderLabel={(c) => c.name}
+              actionLabel={t('admin.communities.headquarters_designate_action')}
+              searchButtonLabel={t('admin.communities.headquarters_search_button')}
+              onPick={(c) => designateHeadquarters(c)}
+            />
+            {designating && <p className="text-sm text-slate-400">{t('admin.communities.headquarters_designating')}</p>}
+            {designateError && <p className="text-sm text-red-700">{designateError}</p>}
+          </>
+        )}
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1 text-sm">
           <button
@@ -195,6 +260,7 @@ export function CommunitiesTab() {
             <tr className="border-b border-slate-100 text-slate-400">
               <th className="py-2 pr-4">{t('admin.communities.table_action')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_name')}</th>
+              <th className="py-2 pr-4">{t('admin.communities.table_generation')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_active')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_members')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_children')}</th>
@@ -223,6 +289,13 @@ export function CommunitiesTab() {
                   </td>
                   <td className="py-2 pr-4">{node.name}</td>
                   <td className="py-2 pr-4">
+                    {node.generation === null || node.generation === undefined
+                      ? '—'
+                      : node.generation === 0
+                        ? t('admin.communities.generation_headquarters')
+                        : t('admin.communities.generation_n', { generation: node.generation })}
+                  </td>
+                  <td className="py-2 pr-4">
                     {node.active ? t('admin.communities.yes') : t('admin.communities.no')}
                   </td>
                   <td className="py-2 pr-4">{node._count?.memberships ?? 0}</td>
@@ -230,7 +303,7 @@ export function CommunitiesTab() {
                 </tr>
                 {oversightId === node.id && (
                   <tr key={`${node.id}-oversight`} className="border-b border-slate-50">
-                    <td colSpan={5} className="p-3">
+                    <td colSpan={6} className="p-3">
                       <CentralAuthorityConversationOversight
                         messagesUrl={`/api/admin/communities/${node.id}/conversation/messages`}
                       />
@@ -241,7 +314,7 @@ export function CommunitiesTab() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-4 text-center text-slate-400">
+                <td colSpan={6} className="py-4 text-center text-slate-400">
                   {t('admin.communities.no_communities')}
                 </td>
               </tr>

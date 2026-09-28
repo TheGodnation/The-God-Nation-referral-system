@@ -822,7 +822,19 @@
       "no_parent_selected": "Racine — aucun parent.",
       "search_parent_placeholder": "Rechercher une communauté par nom",
       "select": "Sélectionner",
-      "clear_parent": "Effacer — en faire une communauté racine"
+      "clear_parent": "Effacer — en faire une communauté racine",
+      "table_generation": "Génération",
+      "generation_headquarters": "Quartier général national",
+      "generation_n": "Génération {{generation}}",
+      "headquarters_heading": "Quartier général national",
+      "headquarters_loading": "Chargement…",
+      "headquarters_current": "Quartier général actuel : {{name}}",
+      "headquarters_none": "Aucun quartier général national n'a encore été désigné.",
+      "headquarters_search_placeholder": "Rechercher une communauté à désigner comme quartier général",
+      "headquarters_search_button": "Trouver",
+      "headquarters_designate_action": "Désigner comme quartier général",
+      "headquarters_designating": "Désignation en cours…",
+      "headquarters_designate_failed": "Échec de la désignation du quartier général national."
     },
     "devotionals": {
       "title": "Dévotions",

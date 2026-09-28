@@ -349,6 +349,20 @@ model Settings {
   // Recipient address for the public Contact form (Phase 2). Admin-editable;
   // never sent to the client. Null/blank means the contact form is disabled.
   contactEmail          String?
+  // National Headquarters designation — the single Community that is the
+  // root of the organizational Community tree and the operational home of
+  // Central Administration. Exactly one Settings row exists (id:
+  // "singleton"), so this field alone already guarantees "at most one
+  // Headquarters" with no additional uniqueness enforcement needed — unlike
+  // a boolean flag scattered across many Community rows would require.
+  // Nullable: Headquarters is unconfigured until an Admin explicitly
+  // designates one; nothing elsewhere assumes it exists. onDelete SetNull
+  // matches every other optional Community cross-reference in this schema
+  // (MonthlyDevotional.communityId, AnnouncementTarget.communityId).
+  // Server-side validation (adminCommunities.ts) is what actually enforces
+  // "must be a root Community" — this column itself accepts any Community id.
+  headquartersCommunityId String?
+  headquartersCommunity   Community? @relation("SettingsHeadquarters", fields: [headquartersCommunityId], references: [id], onDelete: SetNull)
   updatedAt             DateTime @updatedAt
   updatedByUserId       String?
 }
@@ -477,6 +491,7 @@ model Community {
   roleAssignments RoleAssignment[]
   conversation    Conversation?
   announcementTargets AnnouncementTarget[]
+  headquartersSettings Settings[] @relation("SettingsHeadquarters")
 
   @@index([parentId])
   @@index([active])
