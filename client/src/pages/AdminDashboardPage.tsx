@@ -10,6 +10,7 @@ import { AssessmentsTab } from '../components/admin/AssessmentsTab';
 import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
 import { FollowUpsTab } from '../components/admin/FollowUpsTab';
 import { AnnouncementsTab } from '../components/admin/AnnouncementsTab';
+import { LocationsTab } from '../components/admin/LocationsTab';
 import { SearchPicker } from '../components/admin/SearchPicker';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
@@ -30,6 +31,7 @@ type Tab =
   | 'roleAssignments'
   | 'followUps'
   | 'announcements'
+  | 'locations'
   | 'account'
   | 'audit';
 
@@ -1636,6 +1638,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'announcements'} onClick={() => setTab('announcements')}>
               {t('admin.tabs.announcements')}
             </TabButton>
+            <TabButton active={tab === 'locations'} onClick={() => setTab('locations')}>
+              {t('admin.tabs.locations')}
+            </TabButton>
             <TabButton active={tab === 'account'} onClick={() => setTab('account')}>
               {t('admin.tabs.account')}
             </TabButton>
@@ -1668,6 +1673,7 @@ export function AdminDashboardPage() {
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
         {tab === 'followUps' && <FollowUpsTab />}
         {tab === 'announcements' && <AnnouncementsTab />}
+        {tab === 'locations' && <LocationsTab includeTestData={includeTestData} />}
         {tab === 'account' && <AccountTab />}
         {tab === 'audit' && <AuditTab />}
       </section>

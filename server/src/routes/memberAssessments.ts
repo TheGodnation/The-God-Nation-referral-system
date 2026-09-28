@@ -302,27 +302,47 @@ router.get('/me/follow-ups', asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // Profile self-service (Phase 3F) — a Member may edit only their own
-// Person.name and Person.preferredLanguage. Everything else (WhatsApp
-// number, Person.email, MemberAccount.email, membership/geography/role/
-// follow-up data) is explicitly out of scope and never touched here: the
-// schema below is a closed allowlist, not a partial/loose object, so a
-// client sending extra fields (whatsappNumber, email, personId, etc.) has
-// them silently dropped by Zod before this handler ever sees them, and the
-// Prisma `data` object below only ever assembles from these two named
-// fields — never a spread of the request body.
+// Person.name, Person.preferredLanguage, and (this phase) their own
+// descriptive location fields. Everything else (WhatsApp number,
+// Person.email, MemberAccount.email, membership/geography/role/follow-up
+// data) is explicitly out of scope and never touched here: the schema below
+// is a closed allowlist, not a partial/loose object, so a client sending
+// extra fields (whatsappNumber, email, personId, etc.) has them silently
+// dropped by Zod before this handler ever sees them, and the Prisma `data`
+// object below only ever assembles from these named fields — never a spread
+// of the request body.
+//
+// locationCountry/locationCity/locationArea are member-provided descriptive
+// metadata only (see the Person model's own schema comment) — they carry no
+// authority and are never consulted by any authorization check. Each is
+// optional; a blank/empty value clears it to null, matching the natural
+// behavior of a plain text input left empty.
 // ---------------------------------------------------------------------------
+
+const locationFieldSchema = z.string().trim().max(100).optional();
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   preferredLanguage: z.enum(['en', 'fr']).optional(),
+  locationCountry: locationFieldSchema,
+  locationCity: locationFieldSchema,
+  locationArea: locationFieldSchema,
 });
+
+// An empty string means "clear this field" (null); undefined means "leave
+// it unchanged" — the field is omitted from the Prisma `data` object
+// entirely in that case.
+function toNullableLocationValue(value: string | undefined): string | null | undefined {
+  if (value === undefined) return undefined;
+  return value === '' ? null : value;
+}
 
 router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = updateProfileSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid profile update.' });
   }
-  const { name, preferredLanguage } = parsed.data;
+  const { name, preferredLanguage, locationCountry, locationCity, locationArea } = parsed.data;
 
   // Identity is always the authenticated member's own Person — never
   // accepted from the request body, so a client-supplied personId (or any
@@ -332,8 +352,11 @@ router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandle
     data: {
       ...(name !== undefined ? { name } : {}),
       ...(preferredLanguage !== undefined ? { preferredLanguage } : {}),
+      ...(locationCountry !== undefined ? { locationCountry: toNullableLocationValue(locationCountry) } : {}),
+      ...(locationCity !== undefined ? { locationCity: toNullableLocationValue(locationCity) } : {}),
+      ...(locationArea !== undefined ? { locationArea: toNullableLocationValue(locationArea) } : {}),
     },
-    select: { name: true, preferredLanguage: true },
+    select: { name: true, preferredLanguage: true, locationCountry: true, locationCity: true, locationArea: true },
   });
 
   await recordAudit({
@@ -343,7 +366,13 @@ router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandle
     metadata: { changedKeys: Object.keys(parsed.data) },
   });
 
-  res.json({ name: updated.name, preferredLanguage: updated.preferredLanguage });
+  res.json({
+    name: updated.name,
+    preferredLanguage: updated.preferredLanguage,
+    locationCountry: updated.locationCountry,
+    locationCity: updated.locationCity,
+    locationArea: updated.locationArea,
+  });
 }));
 
 export default router;

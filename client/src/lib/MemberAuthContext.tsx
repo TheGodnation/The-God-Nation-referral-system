@@ -5,6 +5,9 @@ export interface CurrentMember {
   name: string;
   email: string;
   preferredLanguage: 'en' | 'fr';
+  locationCountry: string | null;
+  locationCity: string | null;
+  locationArea: string | null;
 }
 
 interface MemberAuthContextValue {

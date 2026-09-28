@@ -456,6 +456,21 @@ model Person {
   // is created via the registration flow) so the Admin People list can use
   // the same "include test data" filter as every other list in the app.
   isTestData        Boolean  @default(false)
+  // Member-provided descriptive location — a Person may set any, all, or
+  // none of these via PATCH /api/member/me/profile. Deliberately plain,
+  // free-text, optional strings with NO relationship to Geography/
+  // GeographicAssignment: they carry no authority, grant no role, and are
+  // never consulted by any authorization check anywhere in this codebase —
+  // Central Authority uses them only for read-only aggregation (see
+  // GET /api/admin/locations) to *inform* a manual decision about where a
+  // future Community might be needed. No index is added: the aggregation
+  // query is an infrequent, Admin-only, human-scale scan, matching this
+  // schema's existing convention of never adding a speculative index ahead
+  // of a demonstrated need (e.g. the unindexed name/whatsapp/email search
+  // already used by GET /api/admin/people).
+  locationCountry   String?
+  locationCity      String?
+  locationArea      String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

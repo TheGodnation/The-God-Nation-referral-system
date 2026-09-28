@@ -42,6 +42,7 @@ import adminConversationOversightRoutes from './routes/adminConversationOversigh
 import leaderLeadershipCollaborationRoutes from './routes/leaderLeadershipCollaboration';
 import leaderOrganizationalLeadershipRecommendationsRoutes from './routes/leaderOrganizationalLeadershipRecommendations';
 import adminOrganizationalLeadershipRecommendationsRoutes from './routes/adminOrganizationalLeadershipRecommendations';
+import adminLocationsRoutes from './routes/adminLocations';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -162,6 +163,12 @@ export function createApp() {
   // (lib/organizationalLeadershipRecommendation.ts).
   app.use('/api/leader', leaderOrganizationalLeadershipRecommendationsRoutes);
   app.use('/api/admin', adminOrganizationalLeadershipRecommendationsRoutes);
+  // Member Location & Central Authority Location Intelligence:
+  // adminLocationsRoutes defines '/locations' under '/api/admin' — same
+  // root-mount pattern as adminPeopleRoutes/adminAttemptsRoutes above.
+  // Read-only aggregation only; never creates/modifies a Community,
+  // RoleAssignment, or CommunityMembership.
+  app.use('/api/admin', adminLocationsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

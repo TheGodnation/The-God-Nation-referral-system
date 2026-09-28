@@ -4,6 +4,7 @@ import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
+import { createLeader } from './helpers';
 
 const app = createApp();
 
@@ -235,5 +236,134 @@ describe('Phase 3F — PATCH /api/member/me/profile', () => {
       where: { action: 'MEMBER_PROFILE_UPDATED', targetType: 'Person', targetId: person.id },
     });
     expect(audit).toBeTruthy();
+  });
+});
+
+describe('Member Location — Person.locationCountry/locationCity/locationArea', () => {
+  it('a newly created Person has null location fields by default', async () => {
+    const { person } = await loginAsMember('+237690000018', 'location1@example.com');
+    const stored = await prisma.person.findUnique({ where: { id: person.id } });
+    expect(stored!.locationCountry).toBeNull();
+    expect(stored!.locationCity).toBeNull();
+    expect(stored!.locationArea).toBeNull();
+  });
+
+  it('an unauthenticated location update is rejected', async () => {
+    const anon = agentWithUniqueIp();
+    const res = await anon.patch('/api/member/me/profile').send({ locationCountry: 'Cameroon' });
+    expect(res.status).toBe(401);
+  });
+
+  it('an authenticated member can set their own country/city/area', async () => {
+    const { agent, csrf, person } = await loginAsMember('+237690000019', 'location2@example.com');
+
+    const res = await agent
+      .patch('/api/member/me/profile')
+      .set('X-CSRF-Token', csrf)
+      .send({ locationCountry: 'Cameroon', locationCity: 'Douala', locationArea: 'Bonamoussadi' });
+    expect(res.status).toBe(200);
+    expect(res.body.locationCountry).toBe('Cameroon');
+    expect(res.body.locationCity).toBe('Douala');
+    expect(res.body.locationArea).toBe('Bonamoussadi');
+
+    const stored = await prisma.person.findUnique({ where: { id: person.id } });
+    expect(stored!.locationCountry).toBe('Cameroon');
+    expect(stored!.locationCity).toBe('Douala');
+    expect(stored!.locationArea).toBe('Bonamoussadi');
+  });
+
+  it('a member cannot update another Person\'s location — a supplied personId cannot redirect the update', async () => {
+    const { agent: agentA, csrf: csrfA, person: personA } = await loginAsMember('+237690000020', 'location3a@example.com');
+    const { person: personB } = await loginAsMember('+237690000021', 'location3b@example.com');
+
+    const res = await agentA
+      .patch('/api/member/me/profile')
+      .set('X-CSRF-Token', csrfA)
+      .send({ locationCountry: 'Nigeria', personId: personB.id });
+    expect(res.status).toBe(200);
+
+    const storedA = await prisma.person.findUnique({ where: { id: personA.id } });
+    const storedB = await prisma.person.findUnique({ where: { id: personB.id } });
+    expect(storedA!.locationCountry).toBe('Nigeria');
+    expect(storedB!.locationCountry).toBeNull();
+  });
+
+  it('blank optional location values are accepted and clear an existing value', async () => {
+    const { agent, csrf, person } = await loginAsMember('+237690000022', 'location4@example.com');
+    await prisma.person.update({ where: { id: person.id }, data: { locationCity: 'Yaoundé' } });
+
+    const res = await agent.patch('/api/member/me/profile').set('X-CSRF-Token', csrf).send({ locationCity: '' });
+    expect(res.status).toBe(200);
+    expect(res.body.locationCity).toBeNull();
+
+    const stored = await prisma.person.findUnique({ where: { id: person.id } });
+    expect(stored!.locationCity).toBeNull();
+  });
+
+  it('a partial update (country only) leaves city and area unchanged', async () => {
+    const { agent, csrf, person } = await loginAsMember('+237690000023', 'location5@example.com');
+    await prisma.person.update({ where: { id: person.id }, data: { locationCity: 'Douala', locationArea: 'Akwa' } });
+
+    const res = await agent
+      .patch('/api/member/me/profile')
+      .set('X-CSRF-Token', csrf)
+      .send({ locationCountry: 'Cameroon' });
+    expect(res.status).toBe(200);
+
+    const stored = await prisma.person.findUnique({ where: { id: person.id } });
+    expect(stored!.locationCountry).toBe('Cameroon');
+    expect(stored!.locationCity).toBe('Douala');
+    expect(stored!.locationArea).toBe('Akwa');
+  });
+
+  it('omitting location fields entirely leaves them unchanged', async () => {
+    const { agent, csrf, person } = await loginAsMember('+237690000024', 'location6@example.com');
+    await prisma.person.update({ where: { id: person.id }, data: { locationCountry: 'Cameroon' } });
+
+    const res = await agent.patch('/api/member/me/profile').set('X-CSRF-Token', csrf).send({ name: 'Just A Name Change' });
+    expect(res.status).toBe(200);
+
+    const stored = await prisma.person.findUnique({ where: { id: person.id } });
+    expect(stored!.locationCountry).toBe('Cameroon');
+  });
+
+  it('a location value over the maximum length is rejected', async () => {
+    const { agent, csrf } = await loginAsMember('+237690000025', 'location7@example.com');
+    const res = await agent
+      .patch('/api/member/me/profile')
+      .set('X-CSRF-Token', csrf)
+      .send({ locationCountry: 'x'.repeat(101) });
+    expect(res.status).toBe(400);
+  });
+
+  it('location fields never leak into the Leader roster response', async () => {
+    // Regression guard: GET /api/leader/roster explicitly selects
+    // { id, name } for each Person (see leader.ts) — adding new Person
+    // columns must never surface them here.
+    const { csrf: memberCsrf, agent: memberAgent, person } = await loginAsMember('+237690000026', 'location8@example.com');
+    await memberAgent
+      .patch('/api/member/me/profile')
+      .set('X-CSRF-Token', memberCsrf)
+      .send({ locationCountry: 'Cameroon', locationCity: 'Douala', locationArea: 'Bonamoussadi' });
+
+    const community = await prisma.community.create({ data: { name: 'Location Leak Test Community' } });
+    await prisma.communityMembership.create({ data: { personId: person.id, communityId: community.id, status: 'ACTIVE' } });
+
+    const email = 'location-leak-leader@test.local';
+    const { user } = await createLeader('Location Leak Leader', email, 'LOCLEAK1');
+    const leaderPerson = await prisma.person.create({ data: { name: 'Location Leak Leader Person', whatsappNumber: '+237988700001' } });
+    await prisma.user.update({ where: { id: user.id }, data: { personId: leaderPerson.id } });
+    await prisma.roleAssignment.create({
+      data: { personId: leaderPerson.id, roleType: 'SCOPED_LEADER', communityId: community.id, assignedByUserId: user.id },
+    });
+
+    const leaderAgent = agentWithUniqueIp();
+    const { csrf: leaderCsrf } = await bootstrap(leaderAgent as any);
+    await leaderAgent.post('/api/auth/login').set('X-CSRF-Token', leaderCsrf).send({ email, password: 'password123' });
+
+    const res = await leaderAgent.get(`/api/leader/roster?scopeType=COMMUNITY&scopeId=${community.id}`);
+    expect(res.status).toBe(200);
+    const serialized = JSON.stringify(res.body);
+    expect(serialized).not.toMatch(/Bonamoussadi|Douala/);
   });
 });

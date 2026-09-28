@@ -85,6 +85,10 @@
     "profile_saving": "Saving…",
     "profile_saved": "Profile updated.",
     "profile_save_failed": "Failed to save changes.",
+    "profile_location_hint": "Optional. Helps us understand where our members are, and is never shared with other members or used to assign you to a Community automatically.",
+    "profile_country_label": "Country",
+    "profile_city_label": "City",
+    "profile_area_label": "Area / Neighborhood",
     "devotionals_heading": "Devotionals & Assessments",
     "no_devotionals": "Nothing available right now.",
     "no_assessments": "No assessment for this devotional yet.",
@@ -419,6 +423,7 @@
       "roleAssignments": "Role Assignments",
       "followUps": "Follow-Ups",
       "announcements": "Announcements",
+      "locations": "Locations",
       "account": "Account",
       "audit": "Audit Log"
     },
@@ -625,6 +630,19 @@
       "status_published": "Published",
       "status_archived": "Archived",
       "no_announcements": "No announcements found."
+    },
+    "locations": {
+      "title": "Locations",
+      "description": "See where members are concentrated, based on the location members have optionally shared on their own profile. This is intelligence only — it never assigns a member to a Community or creates one automatically. Use the Communities tab to act on what you see here.",
+      "load_failed": "Failed to load location data.",
+      "table_country": "Country",
+      "table_city": "City",
+      "table_area": "Area",
+      "table_member_count": "Members",
+      "table_assigned_count": "Assigned",
+      "table_unassigned_count": "Unassigned",
+      "table_communities": "Communities",
+      "no_data": "No members have shared a location yet."
     },
     "registrations": {
       "title": "Registrations",

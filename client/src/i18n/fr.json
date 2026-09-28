@@ -85,6 +85,10 @@
     "profile_saving": "Enregistrement…",
     "profile_saved": "Profil mis à jour.",
     "profile_save_failed": "Échec de l'enregistrement.",
+    "profile_location_hint": "Facultatif. Nous aide à comprendre où se trouvent nos membres, et n'est jamais partagé avec d'autres membres ni utilisé pour vous assigner automatiquement à une Communauté.",
+    "profile_country_label": "Pays",
+    "profile_city_label": "Ville",
+    "profile_area_label": "Zone / Quartier",
     "devotionals_heading": "Dévotions et évaluations",
     "no_devotionals": "Rien de disponible pour le moment.",
     "no_assessments": "Aucune évaluation pour cette dévotion pour le moment.",
@@ -419,6 +423,7 @@
       "roleAssignments": "Attributions de rôles",
       "followUps": "Suivis",
       "announcements": "Annonces",
+      "locations": "Localisations",
       "account": "Compte",
       "audit": "Journal d'audit"
     },
@@ -625,6 +630,19 @@
       "status_published": "Publiée",
       "status_archived": "Archivée",
       "no_announcements": "Aucune annonce trouvée."
+    },
+    "locations": {
+      "title": "Localisations",
+      "description": "Voyez où les membres sont concentrés, d'après la localisation que les membres ont facultativement partagée sur leur propre profil. Il s'agit uniquement d'une information — cela n'assigne jamais un membre à une Communauté et n'en crée jamais automatiquement. Utilisez l'onglet Communautés pour agir sur ce que vous voyez ici.",
+      "load_failed": "Échec du chargement des données de localisation.",
+      "table_country": "Pays",
+      "table_city": "Ville",
+      "table_area": "Zone",
+      "table_member_count": "Membres",
+      "table_assigned_count": "Assignés",
+      "table_unassigned_count": "Non assignés",
+      "table_communities": "Communautés",
+      "no_data": "Aucun membre n'a encore partagé de localisation."
     },
     "registrations": {
       "title": "Inscriptions",

@@ -77,7 +77,13 @@ describe('MemberDashboardPage — Phase 3F profile self-service', () => {
 
     const patchCall = calls.find((c) => c.url.includes('/api/member/me/profile') && c.method === 'PATCH');
     expect(patchCall).toBeTruthy();
-    expect(patchCall!.body).toEqual({ name: 'Jane Updated', preferredLanguage: 'fr' });
+    expect(patchCall!.body).toEqual({
+      name: 'Jane Updated',
+      preferredLanguage: 'fr',
+      locationCountry: '',
+      locationCity: '',
+      locationArea: '',
+    });
   });
 
   it('shows a validation/error state when the save fails', async () => {
@@ -94,6 +100,87 @@ describe('MemberDashboardPage — Phase 3F profile self-service', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Name is required.')).toBeInTheDocument();
+    });
+  });
+});
+
+describe('MemberDashboardPage — Member Location', () => {
+  it('pre-fills existing location values', async () => {
+    mockFetchByUrl({
+      '/api/member/auth/me': {
+        status: 200,
+        body: {
+          member: {
+            name: 'Jane',
+            email: 'jane@example.com',
+            preferredLanguage: 'en',
+            locationCountry: 'Cameroon',
+            locationCity: 'Douala',
+            locationArea: 'Bonamoussadi',
+          },
+        },
+      },
+      ...BASE_RESPONSES,
+    });
+
+    renderDashboard();
+
+    await screen.findByDisplayValue('Cameroon');
+    expect(screen.getByDisplayValue('Douala')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Bonamoussadi')).toBeInTheDocument();
+  });
+
+  it('lets a member set their country/city/area and save them', async () => {
+    mockFetchByUrl({
+      '/api/member/auth/me': { status: 200, body: { member: { name: 'Jane', email: 'jane@example.com', preferredLanguage: 'en' } } },
+      ...BASE_RESPONSES,
+      '/api/member/me/profile': {
+        status: 200,
+        body: { name: 'Jane', preferredLanguage: 'en', locationCountry: 'Cameroon', locationCity: 'Douala', locationArea: 'Bonamoussadi' },
+      },
+    });
+
+    renderDashboard();
+
+    await screen.findByDisplayValue('Jane');
+    // The profile form's labels aren't programmatically associated with
+    // their inputs (matching this file's own existing convention of
+    // locating the name field by display value rather than by label), so
+    // the three location text inputs are located by their DOM order
+    // (name, country, city, area — the language <select> isn't a textbox).
+    const [, countryInput, cityInput, areaInput] = screen.getAllByRole('textbox');
+    fireEvent.change(countryInput, { target: { value: 'Cameroon' } });
+    fireEvent.change(cityInput, { target: { value: 'Douala' } });
+    fireEvent.change(areaInput, { target: { value: 'Bonamoussadi' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => {
+      const patchCall = calls.find((c) => c.url.includes('/api/member/me/profile') && c.method === 'PATCH');
+      expect(patchCall).toBeTruthy();
+      expect(patchCall!.body).toEqual({
+        name: 'Jane',
+        preferredLanguage: 'en',
+        locationCountry: 'Cameroon',
+        locationCity: 'Douala',
+        locationArea: 'Bonamoussadi',
+      });
+    });
+  });
+
+  it('leaves location fields blank without any validation error', async () => {
+    mockFetchByUrl({
+      '/api/member/auth/me': { status: 200, body: { member: { name: 'Jane', email: 'jane@example.com', preferredLanguage: 'en' } } },
+      ...BASE_RESPONSES,
+      '/api/member/me/profile': { status: 200, body: { name: 'Jane', preferredLanguage: 'en' } },
+    });
+
+    renderDashboard();
+
+    await screen.findByDisplayValue('Jane');
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Profile updated.')).toBeInTheDocument();
     });
   });
 });

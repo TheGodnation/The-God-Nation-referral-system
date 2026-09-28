@@ -177,7 +177,16 @@ router.post('/logout', requireCsrf, requireMember, asyncHandler(async (req, res)
 
 router.get('/me', (req, res) => {
   if (!req.member) return res.json({ member: null });
-  res.json({ member: { name: req.member.name, email: req.member.email, preferredLanguage: req.member.preferredLanguage } });
+  res.json({
+    member: {
+      name: req.member.name,
+      email: req.member.email,
+      preferredLanguage: req.member.preferredLanguage,
+      locationCountry: req.member.locationCountry,
+      locationCity: req.member.locationCity,
+      locationArea: req.member.locationArea,
+    },
+  });
 });
 
 export default router;

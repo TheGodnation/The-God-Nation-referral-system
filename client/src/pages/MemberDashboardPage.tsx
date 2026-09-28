@@ -60,11 +60,21 @@ interface TrainingProgressSummary {
 // Phase 3F — self-service editing of the Member's own Person.name and
 // Person.preferredLanguage only. Deliberately not WhatsApp/email/community/
 // geography/leadership fields — see PATCH /api/member/me/profile.
+//
+// Member Location phase — adds three optional, plain descriptive location
+// fields (country/city/area). These carry no authority and never affect
+// Community assignment or any permission — see the server's own Person
+// model comment. A blank field is sent as an empty string, which the
+// server treats as "clear this field," matching a plain text input's
+// natural empty behavior.
 function ProfileSection() {
   const { t, i18n } = useTranslation();
   const { member, refresh } = useMemberAuth();
   const [name, setName] = useState(member?.name ?? '');
   const [preferredLanguage, setPreferredLanguage] = useState<'en' | 'fr'>(member?.preferredLanguage ?? 'en');
+  const [locationCountry, setLocationCountry] = useState(member?.locationCountry ?? '');
+  const [locationCity, setLocationCity] = useState(member?.locationCity ?? '');
+  const [locationArea, setLocationArea] = useState(member?.locationArea ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -73,6 +83,9 @@ function ProfileSection() {
     if (member) {
       setName(member.name);
       setPreferredLanguage(member.preferredLanguage);
+      setLocationCountry(member.locationCountry ?? '');
+      setLocationCity(member.locationCity ?? '');
+      setLocationArea(member.locationArea ?? '');
     }
   }, [member]);
 
@@ -82,7 +95,7 @@ function ProfileSection() {
     setSaved(false);
     setSaving(true);
     try {
-      await api.patch('/api/member/me/profile', { name, preferredLanguage });
+      await api.patch('/api/member/me/profile', { name, preferredLanguage, locationCountry, locationCity, locationArea });
       await refresh();
       // The language switcher elsewhere in the app changes the UI language
       // this exact same way — reusing it here rather than inventing a
@@ -124,6 +137,38 @@ function ProfileSection() {
             <option value="en">{t('common.language_en')}</option>
             <option value="fr">{t('common.language_fr')}</option>
           </select>
+        </div>
+        <div>
+          <p className="mb-2 text-xs text-slate-400">{t('memberDashboard.profile_location_hint')}</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className="label">{t('memberDashboard.profile_country_label')}</label>
+              <input
+                className="input"
+                value={locationCountry}
+                onChange={(e) => setLocationCountry(e.target.value)}
+                maxLength={100}
+              />
+            </div>
+            <div>
+              <label className="label">{t('memberDashboard.profile_city_label')}</label>
+              <input
+                className="input"
+                value={locationCity}
+                onChange={(e) => setLocationCity(e.target.value)}
+                maxLength={100}
+              />
+            </div>
+            <div>
+              <label className="label">{t('memberDashboard.profile_area_label')}</label>
+              <input
+                className="input"
+                value={locationArea}
+                onChange={(e) => setLocationArea(e.target.value)}
+                maxLength={100}
+              />
+            </div>
+          </div>
         </div>
         {error && <p className="text-sm text-red-700">{error}</p>}
         {saved && <p className="text-sm text-green-700">{t('memberDashboard.profile_saved')}</p>}

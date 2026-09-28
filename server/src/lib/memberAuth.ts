@@ -17,7 +17,16 @@ export const MEMBER_SESSION_COOKIE_NAME = 'msid';
 declare global {
   namespace Express {
     interface Request {
-      member?: { memberAccountId: string; personId: string; name: string; email: string; preferredLanguage: Language };
+      member?: {
+        memberAccountId: string;
+        personId: string;
+        name: string;
+        email: string;
+        preferredLanguage: Language;
+        locationCountry: string | null;
+        locationCity: string | null;
+        locationArea: string | null;
+      };
       memberSessionToken?: string;
     }
   }
@@ -75,6 +84,9 @@ export async function loadMemberSession(req: Request, _res: Response, next: Next
       name: account.person.name,
       email: account.email,
       preferredLanguage: account.person.preferredLanguage,
+      locationCountry: account.person.locationCountry,
+      locationCity: account.person.locationCity,
+      locationArea: account.person.locationArea,
     };
     req.memberSessionToken = token;
 
