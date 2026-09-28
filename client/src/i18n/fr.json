@@ -426,7 +426,8 @@
       "locations": "Localisations",
       "account": "Compte",
       "audit": "Journal d'audit",
-      "headquartersPosts": "Publications du Siège"
+      "headquartersPosts": "Publications du Siège",
+      "privateMessages": "Messages privés"
     },
     "overview": {
       "total_visits": "Visites totales",
@@ -1091,6 +1092,31 @@
       "status_archived": "Archivée",
       "no_posts": "Aucune publication trouvée.",
       "engagement_summary": "{{comments}} commentaires, {{reactions}} réactions"
+    },
+    "privateMessages": {
+      "title": "Messages privés",
+      "description": "Envoyez un message privé aux membres, au nom du Siège National. Les réponses apparaissent ci-dessous, dans vos propres conversations.",
+      "new_message": "+ Nouveau message",
+      "cancel": "Annuler",
+      "scope_label": "Envoyer à",
+      "scope_all_eligible": "Tous les membres éligibles",
+      "scope_selected_members": "Membres sélectionnés",
+      "scope_selected_community": "Communauté sélectionnée",
+      "members_label": "Membres",
+      "no_members_selected": "Aucun membre ajouté pour le moment.",
+      "add_member": "Ajouter le membre",
+      "remove_target": "Retirer",
+      "community_label": "Communauté",
+      "search_member_placeholder": "Rechercher des personnes par nom",
+      "search_community_placeholder": "Rechercher des communautés par nom",
+      "search_button": "Rechercher",
+      "select": "Sélectionner",
+      "body_label": "Message",
+      "send": "Envoyer",
+      "sending": "Envoi…",
+      "send_failed": "Échec de l'envoi du message.",
+      "sent_success": "Message envoyé à {{count}} destinataire(s).",
+      "inbox_heading": "Vos conversations"
     }
   },
   "communityConversation": {
@@ -1196,5 +1222,35 @@
     "reaction_count": "{{count}} réactions",
     "comment_count": "{{count}} commentaires",
     "load_earlier_comments": "Charger les commentaires précédents"
+  },
+  "privateMessages": {
+    "title": "Messages privés",
+    "load_failed": "Échec du chargement des messages privés.",
+    "back_to_list": "Retour",
+    "open": "Ouvrir",
+    "loading": "Chargement…",
+    "no_conversations": "Aucune conversation privée pour le moment.",
+    "composer_placeholder": "Écrire un message…",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "send_failed": "Échec de l'envoi du message.",
+    "no_messages": "Aucun message pour le moment.",
+    "load_older": "Charger les messages précédents",
+    "from_central_authority": "Autorité Centrale",
+    "with_leader": "{{name}} (Leader)"
+  },
+  "leaderPrivateMessages": {
+    "title": "Envoyer un message à un membre",
+    "community_label": "Communauté",
+    "select_community_placeholder": "Sélectionnez une de vos Communautés",
+    "search_member_placeholder": "Rechercher des membres par nom",
+    "search_button": "Rechercher",
+    "add_recipient": "Sélectionner",
+    "body_label": "Message",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "send_failed": "Échec de l'envoi du message.",
+    "sent_success": "Message envoyé.",
+    "no_communities": "Vous ne dirigez actuellement aucune Communauté."
   }
 }

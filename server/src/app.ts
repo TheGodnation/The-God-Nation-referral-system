@@ -45,6 +45,9 @@ import adminOrganizationalLeadershipRecommendationsRoutes from './routes/adminOr
 import adminLocationsRoutes from './routes/adminLocations';
 import headquartersPostsRoutes from './routes/headquartersPosts';
 import adminHeadquartersPostsRoutes from './routes/adminHeadquartersPosts';
+import privateMessagesRoutes from './routes/privateMessages';
+import adminPrivateMessagesRoutes from './routes/adminPrivateMessages';
+import leaderPrivateMessagesRoutes from './routes/leaderPrivateMessages';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -179,6 +182,15 @@ export function createApp() {
   // (lib/headquartersPosts.ts).
   app.use('/api/me/headquarters-posts', headquartersPostsRoutes);
   app.use('/api/admin/headquarters-posts', adminHeadquartersPostsRoutes);
+  // Private Communication / Messaging: privateMessagesRoutes is the shared
+  // authenticated participant surface (Member, Leader, or Admin — the one
+  // conversation surface in this app where Admin genuinely participates,
+  // see lib/privateMessaging.ts). adminPrivateMessagesRoutes/
+  // leaderPrivateMessagesRoutes are separate, creation-only surfaces —
+  // participant creation is never exposed through the shared route.
+  app.use('/api/private-messages', privateMessagesRoutes);
+  app.use('/api/admin/private-messages', adminPrivateMessagesRoutes);
+  app.use('/api/leader/private-messages', leaderPrivateMessagesRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

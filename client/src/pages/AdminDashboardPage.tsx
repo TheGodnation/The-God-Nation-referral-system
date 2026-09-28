@@ -12,6 +12,7 @@ import { FollowUpsTab } from '../components/admin/FollowUpsTab';
 import { AnnouncementsTab } from '../components/admin/AnnouncementsTab';
 import { LocationsTab } from '../components/admin/LocationsTab';
 import { HeadquartersPostsTab } from '../components/admin/HeadquartersPostsTab';
+import { PrivateMessagesTab } from '../components/admin/PrivateMessagesTab';
 import { SearchPicker } from '../components/admin/SearchPicker';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
@@ -33,6 +34,7 @@ type Tab =
   | 'followUps'
   | 'announcements'
   | 'headquartersPosts'
+  | 'privateMessages'
   | 'locations'
   | 'account'
   | 'audit';
@@ -1640,6 +1642,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'headquartersPosts'} onClick={() => setTab('headquartersPosts')}>
               {t('admin.tabs.headquartersPosts')}
             </TabButton>
+            <TabButton active={tab === 'privateMessages'} onClick={() => setTab('privateMessages')}>
+              {t('admin.tabs.privateMessages')}
+            </TabButton>
             <TabButton active={tab === 'announcements'} onClick={() => setTab('announcements')}>
               {t('admin.tabs.announcements')}
             </TabButton>
@@ -1679,6 +1684,7 @@ export function AdminDashboardPage() {
         {tab === 'followUps' && <FollowUpsTab />}
         {tab === 'announcements' && <AnnouncementsTab />}
         {tab === 'headquartersPosts' && <HeadquartersPostsTab />}
+        {tab === 'privateMessages' && <PrivateMessagesTab />}
         {tab === 'locations' && <LocationsTab includeTestData={includeTestData} />}
         {tab === 'account' && <AccountTab />}
         {tab === 'audit' && <AuditTab />}

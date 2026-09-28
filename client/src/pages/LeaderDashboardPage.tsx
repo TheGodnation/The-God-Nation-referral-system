@@ -12,6 +12,8 @@ import { LeaderCommunityConversations } from '../components/leader/LeaderCommuni
 import { LeaderGeographyConversations } from '../components/leader/LeaderGeographyConversations';
 import { Announcements } from '../components/Announcements';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
+import { PrivateMessages } from '../components/PrivateMessages';
+import { StartPrivateMessage } from '../components/leader/StartPrivateMessage';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { usePublicSettings } from '../lib/usePublicSettings';
@@ -249,6 +251,10 @@ export function LeaderDashboardPage() {
         <Announcements />
 
         <HeadquartersPosts />
+
+        <StartPrivateMessage />
+
+        <PrivateMessages />
 
         <MyFollowUp />
 

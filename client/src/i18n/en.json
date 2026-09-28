@@ -426,7 +426,8 @@
       "locations": "Locations",
       "account": "Account",
       "audit": "Audit Log",
-      "headquartersPosts": "Headquarters Posts"
+      "headquartersPosts": "Headquarters Posts",
+      "privateMessages": "Private Messages"
     },
     "overview": {
       "total_visits": "Total Visits",
@@ -1091,6 +1092,31 @@
       "status_archived": "Archived",
       "no_posts": "No headquarters posts found.",
       "engagement_summary": "{{comments}} comments, {{reactions}} reactions"
+    },
+    "privateMessages": {
+      "title": "Private Messages",
+      "description": "Send a private message to members, on behalf of National Headquarters. Replies appear below, in your own conversations.",
+      "new_message": "+ New Message",
+      "cancel": "Cancel",
+      "scope_label": "Send to",
+      "scope_all_eligible": "All eligible members",
+      "scope_selected_members": "Selected members",
+      "scope_selected_community": "Selected Community",
+      "members_label": "Members",
+      "no_members_selected": "No members added yet.",
+      "add_member": "Add Member",
+      "remove_target": "Remove",
+      "community_label": "Community",
+      "search_member_placeholder": "Search people by name",
+      "search_community_placeholder": "Search communities by name",
+      "search_button": "Search",
+      "select": "Select",
+      "body_label": "Message",
+      "send": "Send",
+      "sending": "Sending…",
+      "send_failed": "Failed to send message.",
+      "sent_success": "Message sent to {{count}} recipient(s).",
+      "inbox_heading": "Your Conversations"
     }
   },
   "communityConversation": {
@@ -1196,5 +1222,35 @@
     "reaction_count": "{{count}} reactions",
     "comment_count": "{{count}} comments",
     "load_earlier_comments": "Load earlier comments"
+  },
+  "privateMessages": {
+    "title": "Private Messages",
+    "load_failed": "Failed to load private messages.",
+    "back_to_list": "Back",
+    "open": "Open",
+    "loading": "Loading…",
+    "no_conversations": "No private conversations yet.",
+    "composer_placeholder": "Write a message…",
+    "send": "Send",
+    "sending": "Sending…",
+    "send_failed": "Failed to send message.",
+    "no_messages": "No messages yet.",
+    "load_older": "Load older messages",
+    "from_central_authority": "Central Authority",
+    "with_leader": "{{name}} (Leader)"
+  },
+  "leaderPrivateMessages": {
+    "title": "Message a Member",
+    "community_label": "Community",
+    "select_community_placeholder": "Select one of your Communities",
+    "search_member_placeholder": "Search members by name",
+    "search_button": "Search",
+    "add_recipient": "Select",
+    "body_label": "Message",
+    "send": "Send",
+    "sending": "Sending…",
+    "send_failed": "Failed to send message.",
+    "sent_success": "Message sent.",
+    "no_communities": "You do not currently lead any Community."
   }
 }
