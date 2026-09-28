@@ -5,22 +5,13 @@ import { requireAuth, requireRole } from '../lib/auth';
 import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
-import { wouldCreateCycle, getCommunityGeneration } from '../lib/tree';
+import { wouldCreateCycle, getCommunityGeneration, getHeadquartersCommunityId } from '../lib/tree';
 import { communityGeographyMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
 router.use(requireAuth, requireRole('ADMIN'));
-
-// The single National Headquarters pointer lives on the Settings singleton
-// row (see schema.prisma's own comment on Settings.headquartersCommunityId
-// for why a singleton-row pointer, rather than a boolean flag on Community,
-// is what actually guarantees "at most one Headquarters").
-async function getHeadquartersCommunityId(): Promise<string | null> {
-  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { headquartersCommunityId: true } });
-  return settings?.headquartersCommunityId ?? null;
-}
 
 const listQuerySchema = z.object({
   parentId: z.string().optional(),

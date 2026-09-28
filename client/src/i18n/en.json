@@ -321,6 +321,15 @@
       "status_withdrawn": "Withdrawn",
       "withdraw": "Withdraw",
       "withdraw_failed": "Failed to withdraw proposal."
+    },
+    "leadershipPeers": {
+      "title": "My Leadership Peers",
+      "intro": "Other Leaders at the same organizational generation as your own Community leadership role(s). This is a directory only — no messaging or actions are available here.",
+      "load_failed": "Failed to load your leadership peers.",
+      "table_name": "Name",
+      "table_community": "Community",
+      "table_generation": "Generation",
+      "no_peers": "No leadership peers found at your generation yet."
     }
   },
   "admin": {

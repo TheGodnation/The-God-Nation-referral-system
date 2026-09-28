@@ -89,3 +89,58 @@ export async function getCommunityGeneration(
   }
   return null; // walked to a root without ever reaching Headquarters
 }
+
+// Phase 1 — moved here from adminCommunities.ts (its original, private
+// location) so Phase 2A's peer-discovery logic can reuse the exact same
+// singleton-row read without a route file importing from another route
+// file. The single National Headquarters pointer lives on the Settings
+// singleton row (see schema.prisma's own comment on
+// Settings.headquartersCommunityId for why a singleton-row pointer, rather
+// than a boolean flag on Community, is what actually guarantees "at most
+// one Headquarters").
+export async function getHeadquartersCommunityId(): Promise<string | null> {
+  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { headquartersCommunityId: true } });
+  return settings?.headquartersCommunityId ?? null;
+}
+
+/**
+ * Phase 2A — the Communities at an exact Headquarters-relative generation.
+ * Walks DOWN from headquartersCommunityId exactly `generation` levels via
+ * Community.parentId (breadth-first, one batched query per level),
+ * mirroring getDescendantGeographyIds's own downward-walk style. Generation
+ * 0 returns the Headquarters id itself with no query at all. Deliberately
+ * bounded by the `generation` argument (a fixed, finite number of loop
+ * iterations) rather than by a `seen`-set termination check — malformed or
+ * cyclic parentId data can therefore never cause this to loop forever, no
+ * matter how the data is corrupted; `seen` here exists only to keep the
+ * returned ids de-duplicated (the same defensive-hygiene role it plays in
+ * getDescendantGeographyIds), not to guarantee termination. Returns an
+ * empty array once frontier is empty (a shallower Headquarters tree than
+ * the requested generation) — never invents a Community id.
+ */
+export async function getCommunityIdsAtGeneration(
+  headquartersCommunityId: string,
+  generation: number,
+): Promise<string[]> {
+  if (generation < 0) return [];
+
+  let frontier = [headquartersCommunityId];
+  const seen = new Set<string>(frontier);
+
+  for (let level = 0; level < generation; level++) {
+    if (frontier.length === 0) return [];
+    const children = await prisma.community.findMany({
+      where: { parentId: { in: frontier } },
+      select: { id: true },
+    });
+    const next: string[] = [];
+    for (const child of children) {
+      if (!seen.has(child.id)) {
+        seen.add(child.id);
+        next.push(child.id);
+      }
+    }
+    frontier = next;
+  }
+  return frontier;
+}

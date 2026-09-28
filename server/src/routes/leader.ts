@@ -8,6 +8,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { requireLinkedPerson, findActiveScopedRole, isGeographyInLeaderScope } from '../lib/leadership';
 import { getDescendantGeographyIds } from '../lib/tree';
 import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
+import { findLeaderPeers } from '../lib/leaderPeers';
 
 const router = Router();
 
@@ -285,6 +286,21 @@ router.get('/roster', requireLinkedPerson, asyncHandler(async (req, res) => {
     personGeographyId: a.geographyId,
   }));
   res.json({ scopeType, scopeId, ...paginatedResult(items, total, page, pageSize) });
+}));
+
+// GET /api/leader/peers — Phase 2A. Read-only discovery of the requesting
+// Leader's organizational-generation peers (see lib/leaderPeers.ts for the
+// full authorization/derivation logic). No client-supplied Person id,
+// Community id, or generation is ever accepted as an input — the entire
+// result is derived solely from req.leaderPersonId's own ACTIVE
+// Community-scoped SCOPED_LEADER RoleAssignment(s). Discovery only: no
+// messaging, no recommendation, no appointment — that is explicitly out of
+// scope for this phase (see lib/leaderPeers.ts's own module comment).
+router.get('/peers', requireLinkedPerson, asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const all = await findLeaderPeers(req.leaderPersonId!);
+  const items = all.slice(skip, skip + take);
+  res.json(paginatedResult(items, all.length, page, pageSize));
 }));
 
 // Section 26/39 originally let a Leader email their own referral link to

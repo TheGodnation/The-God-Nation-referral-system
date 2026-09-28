@@ -5,6 +5,7 @@ import { MyFollowUp } from '../components/leader/MyFollowUp';
 import { TrainingProgress } from '../components/leader/TrainingProgress';
 import { MyMembers } from '../components/leader/MyMembers';
 import { MyLeadershipProposals } from '../components/leader/MyLeadershipProposals';
+import { MyLeadershipPeers } from '../components/leader/MyLeadershipPeers';
 import { LeaderCommunityConversations } from '../components/leader/LeaderCommunityConversations';
 import { LeaderGeographyConversations } from '../components/leader/LeaderGeographyConversations';
 import { Announcements } from '../components/Announcements';
@@ -251,6 +252,8 @@ export function LeaderDashboardPage() {
         <MyMembers />
 
         <MyLeadershipProposals />
+
+        <MyLeadershipPeers />
 
         <LeaderCommunityConversations />
 

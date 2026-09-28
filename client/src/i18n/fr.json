@@ -321,6 +321,15 @@
       "status_withdrawn": "Retirée",
       "withdraw": "Retirer",
       "withdraw_failed": "Échec du retrait de la proposition."
+    },
+    "leadershipPeers": {
+      "title": "Mes pairs de leadership",
+      "intro": "Les autres Leaders situés à la même génération organisationnelle que votre/vos rôle(s) de leadership de Communauté. Il s'agit uniquement d'un annuaire — aucune messagerie ni action n'est disponible ici.",
+      "load_failed": "Échec du chargement de vos pairs de leadership.",
+      "table_name": "Nom",
+      "table_community": "Communauté",
+      "table_generation": "Génération",
+      "no_peers": "Aucun pair de leadership trouvé à votre génération pour le moment."
     }
   },
   "admin": {
