@@ -97,25 +97,10 @@ enum WellbeingStatus {
   UNABLE_TO_REACH
 }
 
-// Phase 3L: a proposal is a recommendation only — never an appointment.
-// PROPOSED is the only state either later transition originates from;
-// APPROVED/REJECTED/WITHDRAWN are all terminal (enforced in application
-// code, not by the enum itself, matching this schema's existing convention
-// of enforcing status transitions in routes rather than in the database).
-enum LeadershipProposalStatus {
-  PROPOSED
-  APPROVED
-  REJECTED
-  WITHDRAWN
-}
-
-// Phase 2C — kept as its own enum, deliberately never shared with
-// LeadershipProposalStatus above, even though the four states are named
-// identically: reusing one enum would semantically couple Geography
-// leadership recommendations and organizational (Community-generation)
-// recommendations, two unrelated concepts that happen to share a lifecycle
-// shape. Same convention as every other status enum in this schema — one
-// dedicated enum per model, never shared across unrelated models.
+// Phase 2C — kept as its own enum, deliberately never shared with any other
+// status enum in this schema even where states are named identically: same
+// convention as every other status enum in this schema — one dedicated enum
+// per model, never shared across unrelated models.
 enum OrganizationalLeadershipRecommendationStatus {
   PROPOSED
   APPROVED
@@ -185,7 +170,6 @@ model User {
   followUpAssignmentsCreated FollowUpAssignment[]   @relation("FollowUpAssignedBy")
   followUpAssignmentsClosed  FollowUpAssignment[]   @relation("FollowUpClosedBy")
   followUpContactsLogged     FollowUpContact[]
-  leadershipProposalsDecided LeadershipProposal[]
   announcementsCreated       Announcement[]
   organizationalLeadershipRecommendationsDecided OrganizationalLeadershipRecommendation[]
   headquartersPostsCreated   HeadquartersPost[]
@@ -512,8 +496,6 @@ model Person {
   roleAssignments       RoleAssignment[]
   followingAssignments  FollowUpAssignment[]  @relation("FollowUpFollower")
   followedByAssignments FollowUpAssignment[]  @relation("FollowUpFollowedPerson")
-  leadershipProposalsMade     LeadershipProposal[] @relation("LeadershipProposalProposer")
-  leadershipProposalsReceived LeadershipProposal[] @relation("LeadershipProposalCandidate")
   messages                    Message[]
   deletedMessages             Message[]                    @relation("MessageDeletedBy")
   hiddenMessages              MessageHiddenForPerson[]
@@ -618,7 +600,6 @@ model Geography {
   children        Geography[]            @relation("GeographyHierarchy")
   assignments     GeographicAssignment[]
   roleAssignments RoleAssignment[]
-  leadershipProposals LeadershipProposal[]
   announcementTargets AnnouncementTarget[]
   conversation    GeographyConversation?
 
@@ -981,47 +962,8 @@ model FollowUpContact {
   @@index([loggedByUserId])
 }
 
-// Phase 3L: a geographical Leader's recommendation of a Person for
-// leadership of a Geography node — NEVER an appointment. Approving a
-// proposal only changes this row (status/decidedAt/decidedByUserId/
-// decisionNote); it never creates, updates, or ends a RoleAssignment. The
-// existing Admin-only RoleAssignment flow (adminLeadership.ts) remains the
-// sole formal appointment mechanism, completely separate from this model.
-// Deliberately Geography-only (no communityId) — this phase is scoped to
-// geographical leadership only, so there's no need for RoleAssignment's
-// exactly-one-of-community-or-geography duality here.
-model LeadershipProposal {
-  id                 String                   @id @default(uuid())
-  proposedPersonId   String
-  geographyId        String
-  proposedByPersonId String
-  status             LeadershipProposalStatus @default(PROPOSED)
-  note               String?
-  createdAt          DateTime                 @default(now())
-  decidedAt          DateTime?
-  decidedByUserId    String?
-  decisionNote       String?
-
-  proposedPerson   Person    @relation("LeadershipProposalCandidate", fields: [proposedPersonId], references: [id], onDelete: Cascade)
-  proposedByPerson Person    @relation("LeadershipProposalProposer", fields: [proposedByPersonId], references: [id], onDelete: Cascade)
-  geography        Geography @relation(fields: [geographyId], references: [id], onDelete: Cascade)
-  decidedByUser    User?     @relation(fields: [decidedByUserId], references: [id])
-
-  @@index([proposedByPersonId, status])
-  @@index([proposedPersonId, status])
-  @@index([geographyId, status])
-}
-
 // Phase 2C — an organizational (Community-generation) leadership
-// recommendation. Structurally a sibling of LeadershipProposal above, never
-// a shared/generic model or an extension of it: LeadershipProposal remains
-// exclusively the Geography-leadership recommendation mechanism (its
-// geographyId stays required and unmodified), and this model is exclusively
-// the Community-generation-growth recommendation mechanism — the two are
-// deliberately kept separate because their eligibility rules differ
-// (Geography subtree vs. exact Community match) and their subject differs
-// (an existing Geography's leadership vs. a FUTURE Community that does not
-// yet exist).
+// recommendation: the Community-generation-growth recommendation mechanism.
 //
 // communityId is the ANCHOR Community — "this recommendation concerns the
 // next-generation growth of this existing Community" — never a placeholder
@@ -1039,8 +981,8 @@ model LeadershipProposal {
 // never touches Community.parentId, and never touches Headquarters. Formal
 // Community creation and Leader appointment remain fully separate,
 // Admin-only actions (adminCommunities.ts / adminLeadership.ts), completely
-// unmodified by this model's existence — the exact same "recommend, never
-// appoint" boundary LeadershipProposal itself already established.
+// unmodified by this model's existence — a "recommend, never appoint"
+// boundary.
 model OrganizationalLeadershipRecommendation {
   id                 String                                         @id @default(uuid())
   proposedPersonId   String

@@ -4,7 +4,6 @@ import { PageShell } from '../components/PageShell';
 import { MyFollowUp } from '../components/leader/MyFollowUp';
 import { TrainingProgress } from '../components/leader/TrainingProgress';
 import { MyMembers } from '../components/leader/MyMembers';
-import { MyLeadershipProposals } from '../components/leader/MyLeadershipProposals';
 import { MyOrganizationalLeadershipRecommendations } from '../components/leader/MyOrganizationalLeadershipRecommendations';
 import { MyLeadershipPeers } from '../components/leader/MyLeadershipPeers';
 import { LeaderLeadershipCollaboration } from '../components/leader/LeaderLeadershipCollaboration';
@@ -264,8 +263,6 @@ export function LeaderDashboardPage() {
         <TrainingProgress />
 
         <MyMembers />
-
-        <MyLeadershipProposals />
 
         <MyOrganizationalLeadershipRecommendations />
 

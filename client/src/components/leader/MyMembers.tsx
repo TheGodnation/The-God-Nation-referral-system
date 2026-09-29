@@ -57,15 +57,6 @@ interface GeographyRosterRow {
 // where personGeographyId === the selected scope's own id; a descendant-only
 // row shows an explanatory label instead of a button that would just fail.
 //
-// Phase 3L adds "Propose for Leadership" for Geography rows — a
-// recommendation only, never an appointment. Unlike Follow-Up, the
-// server's own authorization rule (isGeographyInLeaderScope + the
-// candidate's real GeographicAssignment falling within the *selected*
-// scope's subtree) is satisfied by every row already visible in a Geography
-// roster for that scope, exact or descendant alike, so the action is
-// offered unconditionally here — the server independently re-verifies both
-// directions on every request regardless of what this component assumes.
-//
 // Phase 3M.8A adds Community Administrator membership management —
 // "Add existing member" (by WhatsApp number, this Community's identity key;
 // never a free-text search across all Persons) and "Remove" for Community
@@ -86,11 +77,6 @@ export function MyMembers() {
 
   const [startingPersonId, setStartingPersonId] = useState<string | null>(null);
   const [actionResults, setActionResults] = useState<Record<string, { ok: boolean; text: string }>>({});
-
-  const [proposingPersonId, setProposingPersonId] = useState<string | null>(null);
-  const [proposalNote, setProposalNote] = useState('');
-  const [proposalSubmitting, setProposalSubmitting] = useState(false);
-  const [proposalResults, setProposalResults] = useState<Record<string, { ok: boolean; text: string }>>({});
 
   const [addWhatsapp, setAddWhatsapp] = useState('');
   const [addSubmitting, setAddSubmitting] = useState(false);
@@ -173,16 +159,6 @@ export function MyMembers() {
     }
   }
 
-  function openProposeForm(personId: string) {
-    setProposingPersonId(personId);
-    setProposalNote('');
-  }
-
-  function cancelProposeForm() {
-    setProposingPersonId(null);
-    setProposalNote('');
-  }
-
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
     if (!selected || selected.scopeType !== 'COMMUNITY' || !addWhatsapp.trim() || addSubmitting) return;
@@ -214,31 +190,6 @@ export function MyMembers() {
       setRemoveResults((prev) => ({ ...prev, [personId]: { ok: false, text } }));
     } finally {
       setRemovingPersonId(null);
-    }
-  }
-
-  async function submitProposal(personId: string) {
-    if (!selected) return;
-    setProposalSubmitting(true);
-    setProposalResults((prev) => {
-      const next = { ...prev };
-      delete next[personId];
-      return next;
-    });
-    try {
-      await api.post('/api/leader/leadership-proposals', {
-        proposedPersonId: personId,
-        geographyId: selected.scopeId,
-        note: proposalNote.trim() || undefined,
-      });
-      setProposingPersonId(null);
-      setProposalNote('');
-      setProposalResults((prev) => ({ ...prev, [personId]: { ok: true, text: t('leader.myMembers.propose_success') ?? '' } }));
-    } catch (err) {
-      const text = err instanceof ApiError ? err.message : t('leader.myMembers.propose_failed') ?? '';
-      setProposalResults((prev) => ({ ...prev, [personId]: { ok: false, text } }));
-    } finally {
-      setProposalSubmitting(false);
     }
   }
 
@@ -307,7 +258,6 @@ export function MyMembers() {
           <tbody>
             {rows.map((r) => {
               const result = actionResults[r.personId];
-              const proposalResult = proposalResults[r.personId];
               const removeResult = removeResults[r.personId];
               return (
                 <tr key={r.personId} className="border-b border-slate-50">
@@ -332,39 +282,6 @@ export function MyMembers() {
                       ) : (
                         <span className="block text-xs text-slate-400">{t('leader.myMembers.outside_direct_scope')}</span>
                       )}
-
-                      {selected?.scopeType === 'GEOGRAPHY' &&
-                        (proposalResult?.ok ? (
-                          <span className="block text-xs font-medium text-green-700">{proposalResult.text}</span>
-                        ) : proposingPersonId === r.personId ? (
-                          <div className="space-y-1 rounded border border-slate-100 p-2">
-                            <textarea
-                              className="input text-xs"
-                              rows={2}
-                              placeholder={t('leader.myMembers.propose_note_placeholder') ?? ''}
-                              value={proposalNote}
-                              onChange={(e) => setProposalNote(e.target.value)}
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                className="btn-primary px-2 py-1 text-xs"
-                                disabled={proposalSubmitting}
-                                onClick={() => submitProposal(r.personId)}
-                              >
-                                {t('leader.myMembers.propose_submit')}
-                              </button>
-                              <button type="button" className="text-xs text-slate-500 hover:underline" onClick={cancelProposeForm}>
-                                {t('leader.followUp.cancel')}
-                              </button>
-                            </div>
-                            {proposalResult && !proposalResult.ok && <p className="text-xs text-red-700">{proposalResult.text}</p>}
-                          </div>
-                        ) : (
-                          <button type="button" className="text-xs text-brand-700 hover:underline" onClick={() => openProposeForm(r.personId)}>
-                            {t('leader.myMembers.propose_action')}
-                          </button>
-                        ))}
 
                       {selected?.scopeType === 'COMMUNITY' && (
                         <div>

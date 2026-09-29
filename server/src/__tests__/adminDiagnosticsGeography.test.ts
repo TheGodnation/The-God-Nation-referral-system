@@ -11,8 +11,9 @@ import { bootstrap } from './testUtils';
 // createAdmin/createLeader, bootstrap, and delta-based assertions (before
 // vs. after) rather than absolute-value assertions, since this suite's
 // shared test database is never truncated between files and other test
-// files (geography.test.ts, leadershipProposals.test.ts, etc.) legitimately
-// create their own Geography-dependent rows.
+// files (geography.test.ts, etc.) legitimately create their own
+// Geography-dependent rows. LeadershipProposal was retired in Geography
+// Retirement Step 1 — this endpoint no longer reports on it.
 const RUN = Math.random().toString(36).slice(2, 10);
 
 const app = createApp();
@@ -103,7 +104,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — security / no wr
       geography: await prisma.geography.count(),
       geographicAssignment: await prisma.geographicAssignment.count(),
       roleAssignment: await prisma.roleAssignment.count(),
-      leadershipProposal: await prisma.leadershipProposal.count(),
       geographyConversation: await prisma.geographyConversation.count(),
       announcementTarget: await prisma.announcementTarget.count(),
       followUpAssignment: await prisma.followUpAssignment.count(),
@@ -116,7 +116,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — security / no wr
     expect(await prisma.geography.count()).toBe(counts.geography);
     expect(await prisma.geographicAssignment.count()).toBe(counts.geographicAssignment);
     expect(await prisma.roleAssignment.count()).toBe(counts.roleAssignment);
-    expect(await prisma.leadershipProposal.count()).toBe(counts.leadershipProposal);
     expect(await prisma.geographyConversation.count()).toBe(counts.geographyConversation);
     expect(await prisma.announcementTarget.count()).toBe(counts.announcementTarget);
     expect(await prisma.followUpAssignment.count()).toBe(counts.followUpAssignment);
@@ -169,30 +168,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — Geography-scoped
     expect(after.body.roleAssignments.geographyScopedTotal).toBe(before.body.roleAssignments.geographyScopedTotal + 2);
     expect(after.body.roleAssignments.active).toBe(before.body.roleAssignments.active + 1);
     expect(after.body.roleAssignments.ended).toBe(before.body.roleAssignments.ended + 1);
-  });
-});
-
-describe('GET /api/admin/diagnostics/geography-dependencies — LeadershipProposal counts', () => {
-  it('status breakdown is correct', async () => {
-    const geo = await makeGeography('Diag Proposal Geo');
-    const candidate = await makePerson();
-    const proposer = await makePerson();
-
-    const { agent } = await loginAsAdmin(`diag-proposal-counts-${RUN}@test.local`);
-    const before = await getDiagnostics(agent);
-
-    await prisma.leadershipProposal.create({
-      data: { proposedPersonId: candidate.id, geographyId: geo.id, proposedByPersonId: proposer.id, status: 'PROPOSED' },
-    });
-    const candidate2 = await makePerson();
-    await prisma.leadershipProposal.create({
-      data: { proposedPersonId: candidate2.id, geographyId: geo.id, proposedByPersonId: proposer.id, status: 'APPROVED' },
-    });
-
-    const after = await getDiagnostics(agent);
-    expect(after.body.leadershipProposals.total).toBe(before.body.leadershipProposals.total + 2);
-    expect(after.body.leadershipProposals.proposed).toBe(before.body.leadershipProposals.proposed + 1);
-    expect(after.body.leadershipProposals.approved).toBe(before.body.leadershipProposals.approved + 1);
   });
 });
 

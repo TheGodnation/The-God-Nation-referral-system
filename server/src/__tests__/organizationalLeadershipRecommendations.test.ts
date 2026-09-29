@@ -8,9 +8,9 @@ import { isCommunityAdministrator, findActiveScopedRole } from '../lib/leadershi
 import { hasConversationAccess } from '../lib/communityConversation';
 
 // Phase 2C — Organizational Leadership Recommendation. Mirrors the exact
-// conventions established in leadershipProposals.test.ts (Phase 3L) and
-// leaderLeadershipCollaboration.test.ts (Phase 2B): agentWithUniqueIp,
-// createLeader/createAdmin, bootstrap, setupCommunityLeader.
+// conventions established in leaderLeadershipCollaboration.test.ts (Phase
+// 2B): agentWithUniqueIp, createLeader/createAdmin, bootstrap,
+// setupCommunityLeader.
 
 const app = createApp();
 
@@ -602,8 +602,8 @@ describe('Phase 2C — Admin review', () => {
   });
 });
 
-describe('Phase 2C — separation from LeadershipProposal', () => {
-  it('creating an organizational recommendation requires no geographyId and does not touch LeadershipProposal', async () => {
+describe('Phase 2C — separation from Geography', () => {
+  it('creating an organizational recommendation requires no geographyId', async () => {
     const hq = await makeCommunity('OrgRec Separation HQ A');
     await setHeadquarters(hq.id);
     const a = await makeCommunity('OrgRec Separation HQ A - A', hq.id);
@@ -611,22 +611,7 @@ describe('Phase 2C — separation from LeadershipProposal', () => {
     const candidate = await makePerson('+237987000028');
     await addActiveMember(candidate.id, a.id);
 
-    const before = await prisma.leadershipProposal.count();
     const res = await agent.post('/api/leader/organizational-leadership-recommendations').set('X-CSRF-Token', csrf).send({ proposedPersonId: candidate.id, communityId: a.id });
-    expect(res.status).toBe(201);
-    expect(await prisma.leadershipProposal.count()).toBe(before);
-  });
-
-  it('existing Geography LeadershipProposal creation still works unchanged', async () => {
-    const geography = await makeGeography('OrgRec Separation Geography A');
-    const { agent, csrf } = await setupGeographyOnlyLeader(50, geography.id);
-    const candidate = await makePerson('+237987000029');
-    await prisma.geographicAssignment.create({ data: { personId: candidate.id, geographyId: geography.id, status: 'ACTIVE' } });
-
-    const res = await agent
-      .post('/api/leader/leadership-proposals')
-      .set('X-CSRF-Token', csrf)
-      .send({ proposedPersonId: candidate.id, geographyId: geography.id });
     expect(res.status).toBe(201);
   });
 

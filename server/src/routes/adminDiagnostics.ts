@@ -40,7 +40,6 @@ const KNOWN_GEOGRAPHY_FOREIGN_KEYS = [
   'Geography.parentId (self-referencing tree)',
   'GeographicAssignment.geographyId (ON DELETE RESTRICT)',
   'RoleAssignment.geographyId (ON DELETE CASCADE)',
-  'LeadershipProposal.geographyId (ON DELETE CASCADE, NOT NULL)',
   'AnnouncementTarget.geographyId (ON DELETE CASCADE)',
   'GeographyConversation.geographyId (ON DELETE CASCADE, unique)',
   'GeographyMessage.conversationId -> GeographyConversation (transitive CASCADE)',
@@ -64,8 +63,6 @@ router.get(
       roleAssignmentGeographyActive,
       roleAssignmentGeographyEnded,
       roleAssignmentDistinctGeography,
-      leadershipProposalGroups,
-      leadershipProposalDistinctGeography,
       geographyConversationTotal,
       geographyMessageTotal,
       geographyConversationReadTotal,
@@ -86,8 +83,6 @@ router.get(
       prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ACTIVE' } }),
       prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ENDED' } }),
       prisma.roleAssignment.groupBy({ by: ['geographyId'], where: { geographyId: { not: null } } }),
-      prisma.leadershipProposal.groupBy({ by: ['status'], _count: { _all: true } }),
-      prisma.leadershipProposal.groupBy({ by: ['geographyId'] }),
       prisma.geographyConversation.count(),
       prisma.geographyMessage.count(),
       prisma.geographyConversationRead.count(),
@@ -129,10 +124,6 @@ router.get(
     // safe to return in full for migration planning.
     const orphanedGeographyIds = Array.from(new Set(followUpOrphaned.map((f) => f.contextId)));
 
-    const statusCounts = Object.fromEntries(
-      leadershipProposalGroups.map((g) => [g.status, g._count._all]),
-    ) as Record<string, number>;
-
     res.json({
       geography: {
         total: geographyTotal,
@@ -152,14 +143,6 @@ router.get(
         active: roleAssignmentGeographyActive,
         ended: roleAssignmentGeographyEnded,
         distinctGeographyIds: roleAssignmentDistinctGeography.length,
-      },
-      leadershipProposals: {
-        total: leadershipProposalGroups.reduce((sum, g) => sum + g._count._all, 0),
-        proposed: statusCounts.PROPOSED ?? 0,
-        approved: statusCounts.APPROVED ?? 0,
-        rejected: statusCounts.REJECTED ?? 0,
-        withdrawn: statusCounts.WITHDRAWN ?? 0,
-        distinctGeographyIds: leadershipProposalDistinctGeography.length,
       },
       geographyConversations: {
         total: geographyConversationTotal,

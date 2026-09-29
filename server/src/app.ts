@@ -31,8 +31,6 @@ import memberAssessmentsRoutes from './routes/memberAssessments';
 import adminLeadershipRoutes from './routes/adminLeadership';
 import leaderFollowUpsRoutes from './routes/leaderFollowUps';
 import leaderCommunitiesRoutes from './routes/leaderCommunities';
-import leaderLeadershipProposalsRoutes from './routes/leaderLeadershipProposals';
-import adminLeadershipProposalsRoutes from './routes/adminLeadershipProposals';
 import communityConversationsRoutes from './routes/communityConversations';
 import followUpConversationsRoutes from './routes/followUpConversations';
 import announcementsRoutes from './routes/announcements';
@@ -117,11 +115,6 @@ export function createApp() {
   // separate from adminPeople.ts's Admin-only membership routes, same
   // per-concern file split as every other leader*/admin* pair in this app.
   app.use('/api/leader', leaderCommunitiesRoutes);
-  // Phase 3L: leaderLeadershipProposalsRoutes defines '/leadership-proposals'
-  // under '/api/leader'; adminLeadershipProposalsRoutes defines the same
-  // path under '/api/admin' — same root-mount pattern as the routes above.
-  app.use('/api/leader', leaderLeadershipProposalsRoutes);
-  app.use('/api/admin', adminLeadershipProposalsRoutes);
   // Phase 3M.1: one shared resource family for a Community's conversation,
   // reachable by an authenticated Member or Leader — authorization branches
   // internally (see communityConversations.ts) rather than duplicating
@@ -157,18 +150,16 @@ export function createApp() {
   // Phase 2B: leaderLeadershipCollaborationRoutes defines
   // '/leadership-collaboration' and its sub-routes under '/api/leader',
   // Leader-only — same per-concern file split and root-mount pattern as
-  // leaderFollowUpsRoutes/leaderCommunitiesRoutes/leaderLeadershipProposalsRoutes
-  // above. Fully independent of communityConversationsRoutes/
-  // followUpConversationsRoutes/geographyConversationsRoutes — own models,
-  // own tables, own authorization helper (lib/leadershipCollaboration.ts).
+  // leaderFollowUpsRoutes/leaderCommunitiesRoutes above. Fully independent of
+  // communityConversationsRoutes/followUpConversationsRoutes/
+  // geographyConversationsRoutes — own models, own tables, own authorization
+  // helper (lib/leadershipCollaboration.ts).
   app.use('/api/leader', leaderLeadershipCollaborationRoutes);
   // Phase 2C: leaderOrganizationalLeadershipRecommendationsRoutes defines
   // '/organizational-leadership-recommendations' and its sub-routes under
   // '/api/leader'; adminOrganizationalLeadershipRecommendationsRoutes
   // defines the same path under '/api/admin' — same root-mount pattern as
-  // leaderLeadershipProposalsRoutes/adminLeadershipProposalsRoutes above.
-  // Fully independent of LeadershipProposal's own routes/model — own model,
-  // own table, own authorization helper
+  // the routes above. Own model, own table, own authorization helper
   // (lib/organizationalLeadershipRecommendation.ts).
   app.use('/api/leader', leaderOrganizationalLeadershipRecommendationsRoutes);
   app.use('/api/admin', adminOrganizationalLeadershipRecommendationsRoutes);
