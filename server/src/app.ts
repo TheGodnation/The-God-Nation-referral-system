@@ -48,6 +48,9 @@ import adminHeadquartersPostsRoutes from './routes/adminHeadquartersPosts';
 import privateMessagesRoutes from './routes/privateMessages';
 import adminPrivateMessagesRoutes from './routes/adminPrivateMessages';
 import leaderPrivateMessagesRoutes from './routes/leaderPrivateMessages';
+import resourcesRoutes from './routes/resources';
+import adminResourcesRoutes from './routes/adminResources';
+import adminResourceAccessRoutes from './routes/adminResourceAccess';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -191,6 +194,19 @@ export function createApp() {
   app.use('/api/private-messages', privateMessagesRoutes);
   app.use('/api/admin/private-messages', adminPrivateMessagesRoutes);
   app.use('/api/leader/private-messages', leaderPrivateMessagesRoutes);
+  // Book / Resource Access Grants: resourcesRoutes is the shared
+  // authenticated Member/Leader recipient surface (Admin excluded — Admin
+  // manages the catalog/grants below, it never "receives" a resource
+  // through this route, same exclusion as announcements.ts/
+  // headquartersPosts.ts). adminResourcesRoutes owns the Resource catalog;
+  // adminResourceAccessRoutes owns granting/revoking one Person's access
+  // and mounts at the '/api/admin' root (same multi-file-sharing-one
+  // -prefix pattern as adminPeopleRoutes/adminLeadershipRoutes) so its
+  // '/people/:personId/resource-access' routes read as an extension of the
+  // existing People management surface.
+  app.use('/api/me/resources', resourcesRoutes);
+  app.use('/api/admin/resources', adminResourcesRoutes);
+  app.use('/api/admin', adminResourceAccessRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

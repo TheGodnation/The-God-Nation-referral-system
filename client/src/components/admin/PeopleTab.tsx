@@ -47,6 +47,18 @@ interface TrainingProgressSummary {
   items: TrainingProgressItem[];
 }
 
+// Book / Resource Access Grants — independent of Community membership,
+// Geography, leadership, or any other domain (see server/src/lib/
+// resourceAccess.ts). Fetched independently of the person detail, same as
+// Training Progress above.
+interface ResourceAccessGrantRow {
+  id: string;
+  status: 'ACTIVE' | 'REVOKED';
+  grantedAt: string;
+  revokedAt: string | null;
+  resource: { id: string; titleEn: string; titleFr: string | null; active: boolean };
+}
+
 export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
@@ -62,6 +74,8 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
   const [editForm, setEditForm] = useState(EMPTY_PERSON_FORM);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [progress, setProgress] = useState<TrainingProgressSummary | null>(null);
+  const [resourceAccess, setResourceAccess] = useState<ResourceAccessGrantRow[] | null>(null);
+  const [resourceAccessError, setResourceAccessError] = useState<string | null>(null);
 
   function load() {
     const q = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
@@ -89,20 +103,31 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
     });
   }
 
+  function loadResourceAccess(id: string) {
+    api
+      .get<{ items: ResourceAccessGrantRow[] }>(`/api/admin/people/${id}/resource-access`)
+      .then((res) => setResourceAccess(res.items))
+      .catch(() => {});
+  }
+
   function openPerson(id: string) {
     setSelectedId(id);
     setDetailError(null);
     setProgress(null);
+    setResourceAccess(null);
+    setResourceAccessError(null);
     loadDetail(id);
     // Fetched independently of the person detail — a failure here must
     // never block editing the person's own record.
     api.get<TrainingProgressSummary>(`/api/admin/people/${id}/training-progress`).then(setProgress).catch(() => {});
+    loadResourceAccess(id);
   }
 
   function backToList() {
     setSelectedId(null);
     setDetail(null);
     setProgress(null);
+    setResourceAccess(null);
     load();
   }
 
@@ -168,6 +193,28 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
       status: currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
     });
     if (selectedId) loadDetail(selectedId);
+  }
+
+  async function grantResource(resource: any) {
+    if (!selectedId) return;
+    setResourceAccessError(null);
+    try {
+      await api.post(`/api/admin/people/${selectedId}/resource-access`, { resourceId: resource.id });
+      loadResourceAccess(selectedId);
+    } catch (err) {
+      setResourceAccessError(err instanceof ApiError ? err.message : t('admin.people.resource_access_grant_failed'));
+    }
+  }
+
+  async function revokeResourceAccess(grantId: string) {
+    if (!selectedId) return;
+    setResourceAccessError(null);
+    try {
+      await api.patch(`/api/admin/resource-access/${grantId}/revoke`);
+      loadResourceAccess(selectedId);
+    } catch (err) {
+      setResourceAccessError(err instanceof ApiError ? err.message : t('admin.people.resource_access_revoke_failed'));
+    }
   }
 
   if (selectedId && detail) {
@@ -306,6 +353,42 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
                 ))}
               </ul>
             )}
+          </div>
+        )}
+
+        {resourceAccess && (
+          <div className="card mt-4 space-y-3">
+            <h2 className="font-semibold text-brand-900">{t('admin.people.resourceAccess.title')}</h2>
+            {resourceAccessError && <p className="text-sm text-red-700">{resourceAccessError}</p>}
+            {resourceAccess.length === 0 ? (
+              <p className="text-sm text-slate-400">{t('admin.people.resourceAccess.no_grants')}</p>
+            ) : (
+              <ul className="space-y-2">
+                {resourceAccess.map((g) => (
+                  <li key={g.id} className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 text-sm">
+                    <span>
+                      {g.resource.titleEn} —{' '}
+                      <span className={g.status === 'ACTIVE' ? 'text-green-700' : 'text-slate-400'}>
+                        {g.status === 'ACTIVE' ? t('admin.people.resourceAccess.status_active') : t('admin.people.resourceAccess.status_revoked')}
+                      </span>
+                    </span>
+                    {g.status === 'ACTIVE' && (
+                      <button className="text-brand-700 hover:underline" onClick={() => revokeResourceAccess(g.id)}>
+                        {t('admin.people.resourceAccess.revoke')}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <SearchPicker
+              placeholder={t('admin.people.resourceAccess.search_placeholder') ?? ''}
+              searchPath="/api/admin/resources?search="
+              renderLabel={(r) => r.titleEn}
+              actionLabel={t('admin.people.resourceAccess.grant')}
+              searchButtonLabel={t('admin.people.search_button')}
+              onPick={grantResource}
+            />
           </div>
         )}
       </div>

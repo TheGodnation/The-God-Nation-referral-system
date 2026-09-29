@@ -13,6 +13,7 @@ import { LeaderGeographyConversations } from '../components/leader/LeaderGeograp
 import { Announcements } from '../components/Announcements';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { PrivateMessages } from '../components/PrivateMessages';
+import { MyResources } from '../components/MyResources';
 import { StartPrivateMessage } from '../components/leader/StartPrivateMessage';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
@@ -255,6 +256,8 @@ export function LeaderDashboardPage() {
         <StartPrivateMessage />
 
         <PrivateMessages />
+
+        <MyResources />
 
         <MyFollowUp />
 

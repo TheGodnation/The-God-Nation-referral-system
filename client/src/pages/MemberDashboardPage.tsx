@@ -10,6 +10,7 @@ import { MyFollowUps } from '../components/member/MyFollowUps';
 import { Announcements } from '../components/Announcements';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { PrivateMessages } from '../components/PrivateMessages';
+import { MyResources } from '../components/MyResources';
 
 interface AssessmentSummary {
   id: string;
@@ -323,6 +324,8 @@ export function MemberDashboardPage() {
             <HeadquartersPosts />
 
             <PrivateMessages />
+
+            <MyResources />
 
             <MyFollowUps />
 

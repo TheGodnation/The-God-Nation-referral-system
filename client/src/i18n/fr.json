@@ -427,7 +427,8 @@
       "account": "Compte",
       "audit": "Journal d'audit",
       "headquartersPosts": "Publications du Siège",
-      "privateMessages": "Messages privés"
+      "privateMessages": "Messages privés",
+      "resources": "Ressources"
     },
     "overview": {
       "total_visits": "Visites totales",
@@ -855,7 +856,18 @@
         "no_progress": "Aucune formation éligible pour le moment.",
         "completed": "Terminé",
         "not_yet": "Pas encore"
-      }
+      },
+      "resourceAccess": {
+        "title": "Accès aux ressources",
+        "no_grants": "Aucun accès aux ressources accordé pour le moment.",
+        "status_active": "Actif",
+        "status_revoked": "Révoqué",
+        "revoke": "Révoquer",
+        "search_placeholder": "Rechercher des ressources par titre",
+        "grant": "Accorder l'accès"
+      },
+      "resource_access_grant_failed": "Échec de l'octroi de l'accès à la ressource.",
+      "resource_access_revoke_failed": "Échec de la révocation de l'accès à la ressource."
     },
     "geography": {
       "root": "Racine",
@@ -1117,6 +1129,29 @@
       "send_failed": "Échec de l'envoi du message.",
       "sent_success": "Message envoyé à {{count}} destinataire(s).",
       "inbox_heading": "Vos conversations"
+    },
+    "resources": {
+      "title": "Ressources",
+      "new_resource": "+ Nouvelle ressource",
+      "title_en_label": "Titre (anglais)",
+      "title_fr_label": "Titre (français)",
+      "description_en_label": "Description (anglais)",
+      "description_fr_label": "Description (français)",
+      "url_label": "URL",
+      "create": "Créer la ressource",
+      "create_failed": "Échec de la création de la ressource.",
+      "edit": "Modifier",
+      "save_changes": "Enregistrer les modifications",
+      "save_failed": "Échec de l'enregistrement des modifications.",
+      "cancel": "Annuler",
+      "activate": "Activer",
+      "deactivate": "Désactiver",
+      "table_action": "Action",
+      "table_title": "Titre",
+      "table_active": "Actif",
+      "no_resources": "Aucune ressource trouvée.",
+      "yes": "Oui",
+      "no": "Non"
     }
   },
   "communityConversation": {
@@ -1222,6 +1257,12 @@
     "reaction_count": "{{count}} réactions",
     "comment_count": "{{count}} commentaires",
     "load_earlier_comments": "Charger les commentaires précédents"
+  },
+  "myResources": {
+    "title": "Ressources",
+    "load_failed": "Échec du chargement des ressources.",
+    "no_resources": "Aucune ressource disponible pour le moment.",
+    "open": "Ouvrir"
   },
   "privateMessages": {
     "title": "Messages privés",

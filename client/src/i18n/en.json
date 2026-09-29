@@ -427,7 +427,8 @@
       "account": "Account",
       "audit": "Audit Log",
       "headquartersPosts": "Headquarters Posts",
-      "privateMessages": "Private Messages"
+      "privateMessages": "Private Messages",
+      "resources": "Resources"
     },
     "overview": {
       "total_visits": "Total Visits",
@@ -855,7 +856,18 @@
         "no_progress": "No eligible training yet.",
         "completed": "Completed",
         "not_yet": "Not yet"
-      }
+      },
+      "resourceAccess": {
+        "title": "Resource Access",
+        "no_grants": "No resource access grants yet.",
+        "status_active": "Active",
+        "status_revoked": "Revoked",
+        "revoke": "Revoke",
+        "search_placeholder": "Search resources by title",
+        "grant": "Grant Access"
+      },
+      "resource_access_grant_failed": "Failed to grant resource access.",
+      "resource_access_revoke_failed": "Failed to revoke resource access."
     },
     "geography": {
       "root": "Root",
@@ -1117,6 +1129,29 @@
       "send_failed": "Failed to send message.",
       "sent_success": "Message sent to {{count}} recipient(s).",
       "inbox_heading": "Your Conversations"
+    },
+    "resources": {
+      "title": "Resources",
+      "new_resource": "+ New Resource",
+      "title_en_label": "Title (English)",
+      "title_fr_label": "Title (French)",
+      "description_en_label": "Description (English)",
+      "description_fr_label": "Description (French)",
+      "url_label": "URL",
+      "create": "Create Resource",
+      "create_failed": "Failed to create resource.",
+      "edit": "Edit",
+      "save_changes": "Save Changes",
+      "save_failed": "Failed to save changes.",
+      "cancel": "Cancel",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "table_action": "Action",
+      "table_title": "Title",
+      "table_active": "Active",
+      "no_resources": "No resources found.",
+      "yes": "Yes",
+      "no": "No"
     }
   },
   "communityConversation": {
@@ -1222,6 +1257,12 @@
     "reaction_count": "{{count}} reactions",
     "comment_count": "{{count}} comments",
     "load_earlier_comments": "Load earlier comments"
+  },
+  "myResources": {
+    "title": "Resources",
+    "load_failed": "Failed to load resources.",
+    "no_resources": "No resources available yet.",
+    "open": "Open"
   },
   "privateMessages": {
     "title": "Private Messages",

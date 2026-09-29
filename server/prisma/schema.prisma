@@ -136,6 +136,15 @@ enum CommunityPostingPolicy {
   LEADERS_ONLY
 }
 
+// Book / Resource Access Grants — kept as its own dedicated enum (never
+// shared with MembershipStatus/RoleAssignmentStatus, despite an identical
+// ACTIVE/REVOKED-shaped lifecycle) — same "one enum per model" convention
+// already established throughout this schema.
+enum ResourceAccessGrantStatus {
+  ACTIVE
+  REVOKED
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
@@ -183,6 +192,8 @@ model User {
   privateConversationsInitiated PrivateConversation[]
   privateMessagesSent           PrivateMessage[]
   privateConversationReads      PrivateConversationRead[]
+  resourceAccessGrantsGiven   ResourceAccessGrant[] @relation("ResourceAccessGrantGrantedBy")
+  resourceAccessGrantsRevoked ResourceAccessGrant[] @relation("ResourceAccessGrantRevokedBy")
 
   @@index([role])
 }
@@ -523,6 +534,7 @@ model Person {
   privateConversationsInitiated   PrivateConversation[] @relation("PrivateConversationInitiator")
   privateMessagesSent             PrivateMessage[]
   privateConversationReads        PrivateConversationRead[]
+  resourceAccessGrants             ResourceAccessGrant[]
 
   @@index([isTestData])
 }
@@ -1677,6 +1689,63 @@ model PrivateConversationRead {
 
   @@unique([personId, conversationId])
   @@unique([userId, conversationId])
+}
+
+// Book / Resource Access Grants — a minimal resource catalog entry. No
+// existing generic resource/book entity exists anywhere in this schema
+// (confirmed by inspection: MonthlyDevotional is a dated, Community
+// -scoped/global piece of teaching content with its own distinct
+// eligibility rule — see MonthlyDevotional's own comment — never a
+// generic resource, and never modified by this phase). `url` is an
+// optional external link (mirrors MonthlyDevotional.coverImageUrl's own
+// "plain optional URL, no file-storage architecture" precedent) — this
+// phase is access control only, not a hosting platform. `active` is a
+// simple availability toggle (mirrors Community.active), deliberately not
+// a Draft/Published/Archived lifecycle: there is no authoring workflow to
+// gate here, only "currently available or not."
+model Resource {
+  id            String   @id @default(uuid())
+  titleEn       String
+  titleFr       String?
+  descriptionEn String?
+  descriptionFr String?
+  url           String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  grants ResourceAccessGrant[]
+
+  @@index([active])
+}
+
+// An explicit access ENTITLEMENT, never a membership relationship — kept
+// structurally independent of CommunityMembership, Geography, RoleAssignment,
+// PrivateConversation, Announcement, and MonthlyDevotional access (see
+// lib/resourceAccess.ts's hasResourceAccess, the ONLY function this schema
+// expects to ever consult to answer "does this Person have access"). A
+// grant reactivates the SAME row on re-grant after revocation (mirroring
+// CommunityMembership's own reactivate-via-status precedent, not
+// RoleAssignment's multiple-historical-rows-via-partial-index precedent) —
+// deliberately minimal, no separate grant-history table, per this phase's
+// explicit "do not create unnecessary grant-history complexity" instruction.
+model ResourceAccessGrant {
+  id              String                     @id @default(uuid())
+  personId        String
+  resourceId      String
+  status          ResourceAccessGrantStatus  @default(ACTIVE)
+  grantedAt       DateTime                   @default(now())
+  grantedByUserId String
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  person        Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  resource      Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  grantedByUser User     @relation("ResourceAccessGrantGrantedBy", fields: [grantedByUserId], references: [id])
+  revokedByUser User?    @relation("ResourceAccessGrantRevokedBy", fields: [revokedByUserId], references: [id])
+
+  @@unique([personId, resourceId])
+  @@index([personId, status])
 }
 
 model AuditLog {
