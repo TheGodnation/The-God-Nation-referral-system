@@ -51,6 +51,7 @@ import leaderPrivateMessagesRoutes from './routes/leaderPrivateMessages';
 import resourcesRoutes from './routes/resources';
 import adminResourcesRoutes from './routes/adminResources';
 import adminResourceAccessRoutes from './routes/adminResourceAccess';
+import adminDiagnosticsRoutes from './routes/adminDiagnostics';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -207,6 +208,13 @@ export function createApp() {
   app.use('/api/me/resources', resourcesRoutes);
   app.use('/api/admin/resources', adminResourcesRoutes);
   app.use('/api/admin', adminResourceAccessRoutes);
+  // TEMPORARY — Geography-retirement planning diagnostic only. Strictly
+  // read-only (see adminDiagnostics.ts's own file comment); not part of
+  // Geography removal itself, and intended to be deleted again once the
+  // staging data has been reviewed. Same '/api/admin' root-mount pattern as
+  // adminPeopleRoutes/adminLocationsRoutes above, since this file defines
+  // its own '/diagnostics/geography-dependencies' sub-path.
+  app.use('/api/admin', adminDiagnosticsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.
