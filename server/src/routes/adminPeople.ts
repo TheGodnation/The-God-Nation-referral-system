@@ -332,4 +332,139 @@ router.patch('/community-memberships/:membershipId', requireCsrf, asyncHandler(a
   res.json(updated);
 }));
 
+// ---------------------------------------------------------------------------
+// Member Reassignment — atomic Community membership move.
+//
+// Moves one Person's ACTIVE membership from one Community directly to
+// another, as a single transaction: never a state where the source
+// membership was removed but the target was not created (or vice versa).
+// Reuses the exact same "reactivate an existing row, hard unique constraint
+// on (personId, communityId)" mechanism as POST .../community-memberships
+// above — no new membership lifecycle. Deliberately touches ONLY
+// CommunityMembership: RoleAssignment (leadership), GeographicAssignment,
+// ResourceAccessGrant, PrivateConversation/Message, FollowUpAssignment, and
+// every other domain are untouched by design — membership and leadership
+// are separate systems in this codebase, and this endpoint must not
+// silently move or alter leadership data.
+// ---------------------------------------------------------------------------
+
+class MembershipMoveConflictError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+const moveMembershipSchema = z.object({
+  fromCommunityId: z.string().min(1),
+  toCommunityId: z.string().min(1),
+});
+
+router.post('/people/:id/community-memberships/move', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = moveMembershipSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'fromCommunityId and toCommunityId are required.' });
+  }
+  const { fromCommunityId, toCommunityId } = parsed.data;
+
+  const person = await prisma.person.findUnique({ where: { id } });
+  if (!person) return res.status(404).json({ error: 'Person not found.' });
+
+  if (fromCommunityId === toCommunityId) {
+    return res.status(400).json({ error: 'The source and destination Community cannot be the same.', code: 'SAME_COMMUNITY' });
+  }
+
+  // Community.active is a display-only toggle everywhere else in this
+  // codebase (see adminCommunities.ts's own comment on the Headquarters
+  // designation route) — this move deliberately imposes no active-status
+  // gate either, matching that established rule rather than inventing one.
+  const [fromCommunity, toCommunity] = await Promise.all([
+    prisma.community.findUnique({ where: { id: fromCommunityId } }),
+    prisma.community.findUnique({ where: { id: toCommunityId } }),
+  ]);
+  if (!fromCommunity) return res.status(400).json({ error: 'Source Community not found.', code: 'COMMUNITY_UNAVAILABLE' });
+  if (!toCommunity) return res.status(400).json({ error: 'Target Community not found.', code: 'COMMUNITY_UNAVAILABLE' });
+
+  const sourceMembership = await prisma.communityMembership.findUnique({
+    where: { personId_communityId: { personId: id, communityId: fromCommunityId } },
+  });
+  if (!sourceMembership || sourceMembership.status !== 'ACTIVE') {
+    return res
+      .status(404)
+      .json({ error: 'This person does not have an active membership in the source Community.', code: 'NOT_IN_SOURCE' });
+  }
+
+  const targetMembership = await prisma.communityMembership.findUnique({
+    where: { personId_communityId: { personId: id, communityId: toCommunityId } },
+  });
+  if (targetMembership?.status === 'ACTIVE') {
+    return res
+      .status(409)
+      .json({ error: 'This person already has an active membership in the destination Community.', code: 'ALREADY_IN_TARGET' });
+  }
+
+  let moved;
+  try {
+    moved = await prisma.$transaction(async (tx) => {
+      // Atomic compare-and-swap, mirroring the resourceAccessGrant revoke
+      // pattern: guards against a concurrent request having already moved
+      // this exact membership out from under us between the read above and
+      // this write.
+      const deactivated = await tx.communityMembership.updateMany({
+        where: { id: sourceMembership.id, status: 'ACTIVE' },
+        data: { status: 'INACTIVE' },
+      });
+      if (deactivated.count !== 1) {
+        throw new MembershipMoveConflictError(
+          'This person does not have an active membership in the source Community.',
+          'NOT_IN_SOURCE',
+        );
+      }
+
+      // Reactivate an existing (inactive) target row rather than creating a
+      // duplicate — identical to POST .../community-memberships above. A
+      // concurrent request racing to create the same brand-new row instead
+      // hits the (personId, communityId) unique constraint (P2002, caught
+      // below), never a duplicate ACTIVE row.
+      const target = targetMembership
+        ? await tx.communityMembership.update({
+            where: { id: targetMembership.id },
+            data: { status: 'ACTIVE', joinedAt: new Date() },
+            select: { id: true, status: true, joinedAt: true, community: { select: { id: true, name: true } } },
+          })
+        : await tx.communityMembership.create({
+            data: { personId: id, communityId: toCommunityId },
+            select: { id: true, status: true, joinedAt: true, community: { select: { id: true, name: true } } },
+          });
+
+      return target;
+    });
+  } catch (err) {
+    if (err instanceof MembershipMoveConflictError) {
+      return res.status(409).json({ error: err.message, code: err.code });
+    }
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      // Transaction rolled back automatically — the source membership is
+      // still ACTIVE, exactly as if the move had never been attempted.
+      return res
+        .status(409)
+        .json({ error: 'This person already has an active membership in the destination Community.', code: 'ALREADY_IN_TARGET' });
+    }
+    throw err;
+  }
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'COMMUNITY_MEMBERSHIP_MOVED',
+    targetType: 'Person',
+    targetId: id,
+    metadata: { fromCommunityId, toCommunityId },
+  });
+
+  res.json(moved);
+}));
+
 export default router;

@@ -867,7 +867,22 @@
         "grant": "Grant Access"
       },
       "resource_access_grant_failed": "Failed to grant resource access.",
-      "resource_access_revoke_failed": "Failed to revoke resource access."
+      "resource_access_revoke_failed": "Failed to revoke resource access.",
+      "cancel": "Cancel",
+      "move": "Move",
+      "move_member": "Move Member",
+      "move_current_community": "Current Community: {{name}}",
+      "move_destination_label": "Destination Community",
+      "move_select_destination": "Select Destination",
+      "move_confirm_prompt": "Move to {{name}}?",
+      "move_confirm": "Confirm Move",
+      "move_moving": "Moving…",
+      "move_success": "Member moved successfully.",
+      "move_failed": "Unable to move member.",
+      "move_same_community": "Same Community",
+      "move_not_in_source": "Member is not currently in the source Community.",
+      "move_already_in_target": "Member already belongs to the destination Community.",
+      "move_community_unavailable": "Community unavailable."
     },
     "geography": {
       "root": "Root",

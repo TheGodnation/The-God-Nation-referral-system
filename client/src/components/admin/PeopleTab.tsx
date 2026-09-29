@@ -1,7 +1,19 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
+
+// Member Reassignment — the server's fixed set of machine-readable move
+// error codes (see POST .../community-memberships/move in adminPeople.ts),
+// mapped to their own localized copy. Reuses the same ApiError.code
+// mechanism already established for exactly this purpose (see api.ts) —
+// never a new localization system.
+const MOVE_ERROR_KEY_BY_CODE: Record<string, string> = {
+  SAME_COMMUNITY: 'admin.people.move_same_community',
+  NOT_IN_SOURCE: 'admin.people.move_not_in_source',
+  ALREADY_IN_TARGET: 'admin.people.move_already_in_target',
+  COMMUNITY_UNAVAILABLE: 'admin.people.move_community_unavailable',
+};
 
 interface PersonRow {
   id: string;
@@ -77,6 +89,14 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
   const [resourceAccess, setResourceAccess] = useState<ResourceAccessGrantRow[] | null>(null);
   const [resourceAccessError, setResourceAccessError] = useState<string | null>(null);
 
+  // Member Reassignment — movingMembershipId identifies which membership
+  // row's inline "Move" panel is open (never more than one at a time).
+  const [movingMembershipId, setMovingMembershipId] = useState<string | null>(null);
+  const [moveTarget, setMoveTarget] = useState<{ id: string; name: string } | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const [moveSuccess, setMoveSuccess] = useState<string | null>(null);
+
   function load() {
     const q = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
     api
@@ -116,6 +136,10 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
     setProgress(null);
     setResourceAccess(null);
     setResourceAccessError(null);
+    setMovingMembershipId(null);
+    setMoveTarget(null);
+    setMoveError(null);
+    setMoveSuccess(null);
     loadDetail(id);
     // Fetched independently of the person detail — a failure here must
     // never block editing the person's own record.
@@ -193,6 +217,54 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
       status: currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
     });
     if (selectedId) loadDetail(selectedId);
+  }
+
+  function startMove(membershipId: string) {
+    setMovingMembershipId(membershipId);
+    setMoveTarget(null);
+    setMoveError(null);
+    setMoveSuccess(null);
+  }
+
+  function cancelMove() {
+    setMovingMembershipId(null);
+    setMoveTarget(null);
+    setMoveError(null);
+  }
+
+  function pickMoveTarget(currentCommunityId: string, community: any) {
+    if (community.id === currentCommunityId) {
+      setMoveTarget(null);
+      setMoveError(t('admin.people.move_same_community'));
+      return;
+    }
+    setMoveError(null);
+    setMoveTarget({ id: community.id, name: community.name });
+  }
+
+  async function confirmMove(fromCommunityId: string) {
+    if (!selectedId || !moveTarget || moving) return;
+    setMoving(true);
+    setMoveError(null);
+    try {
+      await api.post(`/api/admin/people/${selectedId}/community-memberships/move`, {
+        fromCommunityId,
+        toCommunityId: moveTarget.id,
+      });
+      setMovingMembershipId(null);
+      setMoveTarget(null);
+      setMoveSuccess(t('admin.people.move_success'));
+      loadDetail(selectedId);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const key = err.code && MOVE_ERROR_KEY_BY_CODE[err.code];
+        setMoveError(key ? t(key) : err.message);
+      } else {
+        setMoveError(t('admin.people.move_failed'));
+      }
+    } finally {
+      setMoving(false);
+    }
   }
 
   async function grantResource(resource: any) {
@@ -289,22 +361,67 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
 
         <div className="card space-y-3">
           <h2 className="font-semibold text-brand-900">{t('admin.people.community_memberships')}</h2>
+          {moveSuccess && <p className="text-sm text-green-700">{moveSuccess}</p>}
           {detail.communityMemberships.length === 0 ? (
             <p className="text-sm text-slate-400">{t('admin.people.no_memberships')}</p>
           ) : (
             <ul className="space-y-2">
               {detail.communityMemberships.map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 text-sm">
-                  <span>
-                    {m.community.name} —{' '}
-                    <span className={m.status === 'ACTIVE' ? 'text-green-700' : 'text-slate-400'}>
-                      {m.status === 'ACTIVE' ? t('admin.people.status_active') : t('admin.people.status_inactive')}
+                <Fragment key={m.id}>
+                  <li className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 text-sm">
+                    <span>
+                      {m.community.name} —{' '}
+                      <span className={m.status === 'ACTIVE' ? 'text-green-700' : 'text-slate-400'}>
+                        {m.status === 'ACTIVE' ? t('admin.people.status_active') : t('admin.people.status_inactive')}
+                      </span>
                     </span>
-                  </span>
-                  <button className="text-brand-700 hover:underline" onClick={() => toggleMembership(m.id, m.status)}>
-                    {m.status === 'ACTIVE' ? t('admin.people.deactivate') : t('admin.people.activate')}
-                  </button>
-                </li>
+                    <span className="flex gap-2">
+                      <button className="text-brand-700 hover:underline" onClick={() => toggleMembership(m.id, m.status)}>
+                        {m.status === 'ACTIVE' ? t('admin.people.deactivate') : t('admin.people.activate')}
+                      </button>
+                      {m.status === 'ACTIVE' && (
+                        <button className="text-brand-700 hover:underline" onClick={() => startMove(m.id)}>
+                          {t('admin.people.move')}
+                        </button>
+                      )}
+                    </span>
+                  </li>
+                  {movingMembershipId === m.id && (
+                    <li className="border-b border-slate-50 pb-3 text-sm">
+                      <div className="rounded border border-slate-100 bg-slate-50 p-3 space-y-2">
+                        <p className="text-xs text-slate-500">
+                          {t('admin.people.move_current_community', { name: m.community.name })}
+                        </p>
+                        <p className="label">{t('admin.people.move_destination_label')}</p>
+                        <SearchPicker
+                          placeholder={t('admin.people.search_community_placeholder') ?? ''}
+                          searchPath="/api/admin/communities?search="
+                          renderLabel={(c) => c.name}
+                          actionLabel={t('admin.people.move_select_destination')}
+                          searchButtonLabel={t('admin.people.search_button')}
+                          onPick={(c) => pickMoveTarget(m.community.id, c)}
+                        />
+                        {moveTarget && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{t('admin.people.move_confirm_prompt', { name: moveTarget.name })}</span>
+                            <button
+                              type="button"
+                              className="btn-primary px-3 py-1.5"
+                              disabled={moving}
+                              onClick={() => confirmMove(m.community.id)}
+                            >
+                              {moving ? t('admin.people.move_moving') : t('admin.people.move_confirm')}
+                            </button>
+                          </div>
+                        )}
+                        {moveError && <p className="text-sm text-red-700">{moveError}</p>}
+                        <button type="button" className="text-xs text-slate-500 hover:underline" onClick={cancelMove}>
+                          {t('admin.people.cancel')}
+                        </button>
+                      </div>
+                    </li>
+                  )}
+                </Fragment>
               ))}
             </ul>
           )}

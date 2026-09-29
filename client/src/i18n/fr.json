@@ -867,7 +867,22 @@
         "grant": "Accorder l'accès"
       },
       "resource_access_grant_failed": "Échec de l'octroi de l'accès à la ressource.",
-      "resource_access_revoke_failed": "Échec de la révocation de l'accès à la ressource."
+      "resource_access_revoke_failed": "Échec de la révocation de l'accès à la ressource.",
+      "cancel": "Annuler",
+      "move": "Déplacer",
+      "move_member": "Déplacer le membre",
+      "move_current_community": "Communauté actuelle : {{name}}",
+      "move_destination_label": "Communauté de destination",
+      "move_select_destination": "Sélectionner la destination",
+      "move_confirm_prompt": "Déplacer vers {{name}} ?",
+      "move_confirm": "Confirmer le déplacement",
+      "move_moving": "Déplacement…",
+      "move_success": "Membre déplacé avec succès.",
+      "move_failed": "Impossible de déplacer le membre.",
+      "move_same_community": "Même communauté",
+      "move_not_in_source": "Ce membre n'appartient pas actuellement à la communauté source.",
+      "move_already_in_target": "Ce membre appartient déjà à la communauté de destination.",
+      "move_community_unavailable": "Communauté indisponible."
     },
     "geography": {
       "root": "Racine",
