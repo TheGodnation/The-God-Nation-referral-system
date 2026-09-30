@@ -23,6 +23,13 @@ import { bootstrap } from './testUtils';
 // couldn't authorize a Follow-Up) were updated then to use only Community
 // roles and plain Geography rows instead; the security property they prove
 // is unchanged and, if anything, now holds even more strongly.
+//
+// Final Geography Retirement later removed the Geography model itself —
+// every "a Geography id" test below now uses a fabricated random UUID
+// (crypto.randomUUID()) rather than a real Geography row, since no such row
+// can exist any more. The diagnostic describe block that used to close this
+// file was removed along with GET /api/admin/diagnostics/geography-dependencies
+// itself.
 const app = createApp();
 
 let ipCounter = 40000;
@@ -52,10 +59,6 @@ async function makePerson(whatsappNumber: string, name = 'Geo Retirement Test Pe
 
 async function makeCommunity(name: string) {
   return prisma.community.create({ data: { name } });
-}
-
-async function makeGeography(name: string, type = 'REGION', countryCode = 'CM') {
-  return prisma.geography.create({ data: { name, type, countryCode } });
 }
 
 /** Creates a Leader User linked to a fresh Person with an ACTIVE
@@ -98,24 +101,22 @@ describe('Geography Retirement Step 5A — context validation', () => {
 
   it('2. GEOGRAPHY Follow-Up creation is rejected outright — the enum no longer has that value, regardless of the acting Leader\'s own role', async () => {
     const community = await makeCommunity('GR Community A');
-    const geography = await makeGeography('GR Geography A');
     const { agent, csrf } = await setupScopedLeader(2, { communityId: community.id });
     const followed = await makePerson('+237676000002', 'Followed 2');
 
     const res = await agent
       .post('/api/leader/follow-ups')
       .set('X-CSRF-Token', csrf)
-      .send({ followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: geography.id });
+      .send({ followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: crypto.randomUUID() });
 
     expect(res.status).toBe(400);
   });
 
   it('3. GEOGRAPHY scoped-people request is rejected', async () => {
     const community = await makeCommunity('GR Community A2');
-    const geography = await makeGeography('GR Geography B');
     const { agent } = await setupScopedLeader(3, { communityId: community.id });
 
-    const res = await agent.get(`/api/leader/scoped-people?contextType=GEOGRAPHY&contextId=${geography.id}`);
+    const res = await agent.get(`/api/leader/scoped-people?contextType=GEOGRAPHY&contextId=${crypto.randomUUID()}`);
     expect(res.status).toBe(400);
   });
 
@@ -144,14 +145,13 @@ describe('Geography Retirement Step 5A — context validation', () => {
 
   it('5. No Geography Follow-Up can be created through the Admin API either', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-georetire1@test.local');
-    const geography = await makeGeography('GR Geography D');
     const follower = await makePerson('+237676000005', 'Admin Follower 5');
     const followed = await makePerson('+237676000006', 'Admin Followed 5');
 
     const res = await agent
       .post('/api/admin/follow-ups')
       .set('X-CSRF-Token', csrf)
-      .send({ followerId: follower.id, followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: geography.id });
+      .send({ followerId: follower.id, followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: crypto.randomUUID() });
 
     expect(res.status).toBe(400);
   });
@@ -171,19 +171,18 @@ describe('Geography Retirement Step 5A — authorization', () => {
     expect(res.status).toBe(201);
   });
 
-  it('7. A Leader cannot use a Geography id in place of a Community id to obtain Follow-Up access', async () => {
-    const geography = await makeGeography('GR Geography E');
+  it('7. A Leader cannot use a fabricated non-Community id in place of a Community id to obtain Follow-Up access', async () => {
     const ownCommunity = await makeCommunity('GR Community H');
     const { agent, csrf } = await setupScopedLeader(7, { communityId: ownCommunity.id });
     const followed = await makePerson('+237676000008', 'Followed 8');
 
-    // Submitting the Geography id as a COMMUNITY-context id: no matching
+    // Submitting a fabricated id as a COMMUNITY-context id: no matching
     // Community-scoped RoleAssignment exists for it, so this fails exactly
     // like any other unrecognized Community id would.
     const res = await agent
       .post('/api/leader/follow-ups')
       .set('X-CSRF-Token', csrf)
-      .send({ followedPersonId: followed.id, contextType: 'COMMUNITY', contextId: geography.id });
+      .send({ followedPersonId: followed.id, contextType: 'COMMUNITY', contextId: crypto.randomUUID() });
     expect(res.status).toBe(403);
   });
 
@@ -277,28 +276,5 @@ describe('Geography Retirement Step 5A — attention', () => {
     // before this step (followUpAttention.ts has no Geography branch at all).
     const row = attention.body.items.find((i: any) => i.followUpAssignmentId === created.body.id);
     expect(row?.reason).toBe('NOT_YET_CONTACTED');
-  });
-});
-
-describe('Geography Retirement Step 5A — diagnostic', () => {
-  it('30. The Geography diagnostic endpoint continues to work and reflects the retired Follow-Up Geography capability', async () => {
-    const { agent } = await loginAsAdmin('admin-georetire-diag@test.local');
-    const res = await agent.get('/api/admin/diagnostics/geography-dependencies');
-    expect(res.status).toBe(200);
-    expect(res.body.followUpAssignments).toEqual({
-      geographyContextRetired: true,
-      note: expect.stringContaining('Step 5A'),
-    });
-    // The Geography section is retained (the model itself is untouched by
-    // this step). geographicAssignments/roleAssignments remained real counts
-    // as of Step 5A — Step 5B later replaced them with retirement notices,
-    // but both keys are still present either way.
-    expect(res.body.geography).toBeDefined();
-    expect(res.body.geographicAssignments).toBeDefined();
-    expect(res.body.roleAssignments).toBeDefined();
-    expect(res.body.locationData).toBeDefined();
-    expect(res.body.knownGeographyForeignKeys).not.toEqual(
-      expect.arrayContaining([expect.stringContaining('FollowUpAssignment')]),
-    );
   });
 });

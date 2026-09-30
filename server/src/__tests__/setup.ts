@@ -33,7 +33,7 @@ beforeEach(async () => {
       "AuditLog", "Event", "ReferralRelationship", "Registration",
       "ReferralVisit", "ReferralCode", "LoginAttempt", "Session", "Settings", "User",
       "ContentPage", "ContactMessage",
-      "CommunityMembership", "Geography", "Community", "Person",
+      "CommunityMembership", "Community", "Person",
       "ParticipationEvent", "Answer", "Attempt", "Option", "Question", "Assessment", "MonthlyDevotional",
       "MemberSession", "MemberLoginToken", "MemberAccount",
       "FollowUpContact", "FollowUpAssignment", "RoleAssignment"

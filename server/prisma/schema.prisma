@@ -66,7 +66,8 @@ enum ParticipationEventType {
 
 // Phase 3D: the only supported role type. Deliberately not a role hierarchy
 // or generic permission engine — a single flat capability, scoped to
-// exactly one Community or Geography (see RoleAssignment).
+// exactly one Community (see RoleAssignment). Geography Retirement Step 5B
+// removed RoleAssignment.geographyId entirely — Community is the only scope.
 enum RoleType {
   SCOPED_LEADER
 }
@@ -578,38 +579,14 @@ model CommunityMembership {
   @@index([communityId])
 }
 
-// Represents a configurable geographic hierarchy — deliberately not
-// hard-coded to any one country's administrative structure. `type` is a
-// free-form label (e.g. COUNTRY, REGION, DIVISION, SUBDIVISION, QUARTER, or
-// a different country's own labels such as STATE/COUNTY/DISTRICT) rather
-// than a rigid enum, since different countries use different hierarchies.
-// `countryCode` is deliberately denormalized onto every node (not just the
-// root) so a country-scoped query never has to walk the parent chain.
-model Geography {
-  id          String   @id @default(uuid())
-  parentId    String?
-  name        String
-  type        String
-  countryCode String
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  parent   Geography?  @relation("GeographyHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children Geography[] @relation("GeographyHierarchy")
-
-  @@index([parentId])
-  @@index([countryCode, parentId])
-  @@index([active])
-}
-
-// Geography Retirement Step 5B removed GeographicAssignment (the
-// organizational Person<->Geography assignment table) and
-// RoleAssignment.geographyId entirely — Geography no longer has any
-// organizational/authorization role anywhere in this schema. The Geography
-// model itself, and Person's own descriptive locationCountry/City/Area
-// fields, are untouched; only the retirement of the final Geography model
-// remains, in a later dedicated step.
+// Final Geography Retirement removed the Geography model entirely (it had
+// already lost every organizational/authorization role in Steps 2, 4, 5A,
+// and 5B — GeographyConversation, AnnouncementTarget.geographyId,
+// FollowUpAssignment's GEOGRAPHY context, GeographicAssignment, and
+// RoleAssignment.geographyId). The final organizational model is Central
+// Authority -> Communities -> Members, with no geographic hierarchy of any
+// kind. Person's own descriptive locationCountry/City/Area fields are
+// untouched — they remain purely descriptive and never confer authority.
 
 // ---------------------------------------------------------------------------
 // Monthly Devotional + reusable Assessment foundation (Phase 3B)

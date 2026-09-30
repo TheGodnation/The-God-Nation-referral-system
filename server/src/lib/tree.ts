@@ -1,10 +1,11 @@
 import { prisma } from './prisma';
 
-// Shared helper for the two self-referencing hierarchies (Geography,
-// Community). Prevents a reparent operation from creating a cycle (making
-// a node its own ancestor) by walking up from the candidate new parent
-// toward the root — bounded by the tree's actual depth, never loading the
-// whole tree.
+// Helper for Community's self-referencing hierarchy (originally shared with
+// Geography's own tree too, before Final Geography Retirement removed the
+// Geography model entirely). Prevents a reparent operation from creating a
+// cycle (making a node its own ancestor) by walking up from the candidate
+// new parent toward the root — bounded by the tree's actual depth, never
+// loading the whole tree.
 export async function wouldCreateCycle(
   findById: (id: string) => Promise<{ id: string; parentId: string | null } | null>,
   nodeId: string,

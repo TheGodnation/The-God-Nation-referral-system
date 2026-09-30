@@ -27,9 +27,9 @@ interface HeadquartersCommunity {
 
 // Phase 3A: online God Nation communities — a self-referencing hierarchy
 // (Mother -> Child -> Grandchild -> ...), browsed one level at a time via
-// a breadcrumb, mirroring the Geography tab's pattern. Deliberately not
-// geographically restricted (see the schema-level docs on the Community
-// model) — no country/location fields here.
+// a breadcrumb. Deliberately not geographically restricted (see the
+// schema-level docs on the Community model) — no country/location fields
+// here.
 export function CommunitiesTab() {
   const { t } = useTranslation();
   const [breadcrumb, setBreadcrumb] = useState<{ id: string; name: string }[]>([]);

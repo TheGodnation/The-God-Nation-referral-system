@@ -488,11 +488,6 @@ describe('Community Posting Policy — regression isolation', () => {
     expect(commentRes.status).toBe(201);
   });
 
-  it('Geography remains unaffected — no postingPolicy field exists on Geography', async () => {
-    const geography = await prisma.geography.create({ data: { name: 'Untouched Geography', type: 'REGION', countryCode: 'CM' } });
-    expect((geography as any).postingPolicy).toBeUndefined();
-  });
-
   it('existing Community membership behavior (join/leave) is unaffected by postingPolicy', async () => {
     const community = await makeCommunity('Membership Unaffected Community');
     await setLeadersOnly(community.id);
@@ -550,12 +545,12 @@ describe('Community Posting Policy — security', () => {
     expect(res.status).toBe(403);
   });
 
-  it('the existing dedicated communityGeographyMutationLimiter is reused for the Admin policy update — no new limiter, and a rejected update never writes', async () => {
+  it('the existing dedicated communityMutationLimiter is reused for the Admin policy update — no new limiter, and a rejected update never writes', async () => {
     const community = await makeCommunity('Rate Limit Reuse Community');
     const { agent, csrf } = await loginAsAdmin('pp-admin12@test.local');
     // Sanity: a normal update still succeeds (proves the existing limiter
     // isn't broken by this change, without asserting its exact ceiling here
-    // — that magnitude is already covered by communityGeographyManagement.test.ts).
+    // — that magnitude is already covered by communityManagement.test.ts).
     const res = await agent
       .patch(`/api/admin/communities/${community.id}`)
       .set('X-CSRF-Token', csrf)

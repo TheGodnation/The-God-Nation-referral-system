@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { PasswordInput } from '../components/PasswordInput';
 import { PeopleTab } from '../components/admin/PeopleTab';
-import { GeographyTab } from '../components/admin/GeographyTab';
 import { CommunitiesTab } from '../components/admin/CommunitiesTab';
 import { DevotionalsTab } from '../components/admin/DevotionalsTab';
 import { AssessmentsTab } from '../components/admin/AssessmentsTab';
@@ -27,7 +26,6 @@ type Tab =
   | 'contentPages'
   | 'messages'
   | 'people'
-  | 'geography'
   | 'communities'
   | 'devotionals'
   | 'assessments'
@@ -1623,9 +1621,6 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'people'} onClick={() => setTab('people')}>
               {t('admin.tabs.people')}
             </TabButton>
-            <TabButton active={tab === 'geography'} onClick={() => setTab('geography')}>
-              {t('admin.tabs.geography')}
-            </TabButton>
             <TabButton active={tab === 'communities'} onClick={() => setTab('communities')}>
               {t('admin.tabs.communities')}
             </TabButton>
@@ -1681,7 +1676,6 @@ export function AdminDashboardPage() {
         {tab === 'contentPages' && <ContentPagesTab />}
         {tab === 'messages' && <MessagesTab />}
         {tab === 'people' && <PeopleTab includeTestData={includeTestData} />}
-        {tab === 'geography' && <GeographyTab />}
         {tab === 'communities' && <CommunitiesTab />}
         {tab === 'devotionals' && <DevotionalsTab />}
         {tab === 'assessments' && <AssessmentsTab />}

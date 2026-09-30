@@ -17,6 +17,15 @@ import { bootstrap } from './testUtils';
 // leaderRoster.test.ts, privateMessaging.test.ts, and
 // resourceAccessGrants.test.ts — none of those files construct a
 // Geography-scoped role any more and are unaffected by this step.
+//
+// Final Geography Retirement later removed the Geography model itself —
+// every "a Geography id" test below now uses a fabricated random UUID
+// (crypto.randomUUID()) rather than a real Geography row, since no such row
+// can exist any more; the security property under test (a non-Community
+// identifier can never grant authority) is unchanged and, if anything,
+// stronger now that the id cannot even belong to a real retired-model row.
+// The diagnostic describe block that used to close this file was removed
+// along with GET /api/admin/diagnostics/geography-dependencies itself.
 const app = createApp();
 
 let ipCounter = 50000;
@@ -48,10 +57,6 @@ async function makeCommunity(name: string) {
   return prisma.community.create({ data: { name } });
 }
 
-async function makeGeography(name: string) {
-  return prisma.geography.create({ data: { name, type: 'REGION', countryCode: 'CM' } });
-}
-
 /** Creates a Leader User linked to a fresh Person with an ACTIVE
  * SCOPED_LEADER RoleAssignment for the given exact Community, then logs in. */
 async function setupScopedLeader(n: number, communityId: string) {
@@ -77,12 +82,11 @@ describe('Geography Retirement Step 5B — GeographicAssignment retirement', () 
   it('2-4. No endpoint exists to create, update, or delete a GeographicAssignment — the route is gone entirely (404)', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-garetire-noroute@test.local');
     const person = await makePerson('+237677900001', 'No Route Person');
-    const geography = await makeGeography('GAR Geography A');
 
     const res = await agent
       .put(`/api/admin/people/${person.id}/geographic-assignment`)
       .set('X-CSRF-Token', csrf)
-      .send({ geographyId: geography.id });
+      .send({ geographyId: crypto.randomUUID() });
 
     expect(res.status).toBe(404);
   });
@@ -100,12 +104,11 @@ describe('Geography Retirement Step 5B — RoleAssignment Geography scope retire
   it('7. Geography-scoped Leader creation is rejected — geographyId alone is not a valid substitute for communityId', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-garetire-geo-only@test.local');
     const person = await makePerson('+237677900002', 'Geo Only Candidate');
-    const geography = await makeGeography('GAR Geography B');
 
     const res = await agent
       .post('/api/admin/role-assignments')
       .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER', geographyId: geography.id });
+      .send({ personId: person.id, roleType: 'SCOPED_LEADER', geographyId: crypto.randomUUID() });
 
     expect(res.status).toBe(400);
   });
@@ -164,19 +167,17 @@ describe('Geography Retirement Step 5B — RoleAssignment Geography scope retire
 describe('Geography Retirement Step 5B — roster retirement', () => {
   it('11. Geography roster access is rejected outright (400) — scopeType only accepts COMMUNITY', async () => {
     const community = await makeCommunity('GAR Community D');
-    const geography = await makeGeography('GAR Geography C');
     const { agent } = await setupScopedLeader(1, community.id);
 
-    const res = await agent.get(`/api/leader/roster?scopeType=GEOGRAPHY&scopeId=${geography.id}`);
+    const res = await agent.get(`/api/leader/roster?scopeType=GEOGRAPHY&scopeId=${crypto.randomUUID()}`);
     expect(res.status).toBe(400);
   });
 
-  it('12. A Geography id cannot be substituted for a Community id to obtain roster access', async () => {
+  it('12. A non-Community id cannot be substituted for a Community id to obtain roster access', async () => {
     const community = await makeCommunity('GAR Community E');
-    const geography = await makeGeography('GAR Geography D');
     const { agent } = await setupScopedLeader(2, community.id);
 
-    const res = await agent.get(`/api/leader/roster?scopeType=COMMUNITY&scopeId=${geography.id}`);
+    const res = await agent.get(`/api/leader/roster?scopeType=COMMUNITY&scopeId=${crypto.randomUUID()}`);
     expect(res.status).toBe(403);
   });
 
@@ -205,12 +206,11 @@ describe('Geography Retirement Step 5B — People / authority', () => {
   it('15. Geography cannot assign organizational membership — the endpoint that used to do this is gone', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-garetire-noassign@test.local');
     const person = await makePerson('+237677900008', 'No Assign Person');
-    const geography = await makeGeography('GAR Geography E');
 
     const res = await agent
       .put(`/api/admin/people/${person.id}/geographic-assignment`)
       .set('X-CSRF-Token', csrf)
-      .send({ geographyId: geography.id });
+      .send({ geographyId: crypto.randomUUID() });
     expect(res.status).toBe(404);
 
     const detail = await agent.get(`/api/admin/people/${person.id}`);
@@ -220,12 +220,11 @@ describe('Geography Retirement Step 5B — People / authority', () => {
   it('16. Geography cannot grant Leader authority — no route accepts geographyId to create a role', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-garetire-noauth@test.local');
     const person = await makePerson('+237677900009', 'No Auth Person');
-    const geography = await makeGeography('GAR Geography F');
 
     const res = await agent
       .post('/api/admin/role-assignments')
       .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER', geographyId: geography.id });
+      .send({ personId: person.id, roleType: 'SCOPED_LEADER', geographyId: crypto.randomUUID() });
     expect(res.status).toBe(400);
 
     const roles = await prisma.roleAssignment.count({ where: { personId: person.id } });
@@ -283,14 +282,13 @@ describe('Geography Retirement Step 5B — Follow-Up boundary (unchanged since S
 
   it('24. Geography cannot create Follow-Ups', async () => {
     const community = await makeCommunity('GAR Community K');
-    const geography = await makeGeography('GAR Geography G');
     const { agent, csrf } = await setupScopedLeader(7, community.id);
     const followed = await makePerson('+237677900014', 'Followed Person 2');
 
     const res = await agent
       .post('/api/leader/follow-ups')
       .set('X-CSRF-Token', csrf)
-      .send({ followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: geography.id });
+      .send({ followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: crypto.randomUUID() });
     expect(res.status).toBe(400);
   });
 
@@ -337,12 +335,11 @@ describe('Geography Retirement Step 5B — security', () => {
     const { agent, csrf } = await loginAsAdmin('admin-garetire-security1@test.local');
     const person = await makePerson('+237677900017', 'Security Person 1');
     const community = await makeCommunity('GAR Community N');
-    const geography = await makeGeography('GAR Geography H');
 
     const res = await agent
       .post('/api/admin/role-assignments')
       .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER', communityId: community.id, geographyId: geography.id });
+      .send({ personId: person.id, roleType: 'SCOPED_LEADER', communityId: community.id, geographyId: crypto.randomUUID() });
     expect(res.status).toBe(201);
     expect(res.body).not.toHaveProperty('geographyId');
   });
@@ -385,24 +382,5 @@ describe('Geography Retirement Step 5B — security', () => {
 
     const listB = await agentB.get('/api/leader/follow-ups');
     expect(listB.body.items.length).toBe(0);
-  });
-});
-
-describe('Geography Retirement Step 5B — diagnostic', () => {
-  it('The diagnostic endpoint reflects both retirements accurately', async () => {
-    const { agent } = await loginAsAdmin('admin-garetire-diag@test.local');
-    const res = await agent.get('/api/admin/diagnostics/geography-dependencies');
-    expect(res.status).toBe(200);
-    expect(res.body.geographicAssignments).toEqual({
-      organizationalStructureRetired: true,
-      note: expect.stringContaining('Step 5B'),
-    });
-    expect(res.body.roleAssignments).toEqual({
-      geographyScopeRetired: true,
-      note: expect.stringContaining('Step 5B'),
-    });
-    expect(res.body.geography).toBeDefined();
-    expect(res.body.locationData).toBeDefined();
-    expect(res.body.knownGeographyForeignKeys).toEqual(['Geography.parentId (self-referencing tree)']);
   });
 });

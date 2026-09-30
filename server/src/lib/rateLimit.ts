@@ -156,13 +156,16 @@ export const memberProfileUpdateLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
-// Phase 3G: Admin Community/Geography create/edit (including reparenting).
-// Authenticated, Admin-only, lower enumeration risk than the public
-// limiters above, but still a dedicated limiter per the project's "never
-// rely solely on generalApiLimiter" convention — matching the magnitude of
-// leadershipMutationLimiter, the closest existing precedent for an
-// Admin-authenticated structural-mutation category.
-export const communityGeographyMutationLimiter = rateLimit({
+// Phase 3G: Admin Community create/edit (including reparenting). Originally
+// shared with Geography's own admin mutations too; Final Geography
+// Retirement removed the Geography model and its admin routes entirely, so
+// this is Community-only now (renamed from communityGeographyMutationLimiter
+// accordingly). Authenticated, Admin-only, lower enumeration risk than the
+// public limiters above, but still a dedicated limiter per the project's
+// "never rely solely on generalApiLimiter" convention — matching the
+// magnitude of leadershipMutationLimiter, the closest existing precedent for
+// an Admin-authenticated structural-mutation category.
+export const communityMutationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 60,
   standardHeaders: true,
@@ -200,7 +203,7 @@ export const followUpMessageSendLimiter = rateLimit({
 // Authenticated, Admin-only, lower enumeration risk than the public
 // limiters above, but still a dedicated limiter per the project's "never
 // rely solely on generalApiLimiter" convention — matching the magnitude of
-// communityGeographyMutationLimiter, the closest existing precedent for an
+// communityMutationLimiter, the closest existing precedent for an
 // Admin-authenticated structural-mutation category.
 export const announcementMutationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

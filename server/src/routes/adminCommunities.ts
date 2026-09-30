@@ -6,7 +6,7 @@ import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
 import { wouldCreateCycle, getCommunityGeneration, getHeadquartersCommunityId } from '../lib/tree';
-import { communityGeographyMutationLimiter } from '../lib/rateLimit';
+import { communityMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
@@ -18,10 +18,10 @@ const listQuerySchema = z.object({
   search: z.string().trim().min(1).max(200).optional(),
 });
 
-// GET /api/admin/communities — same two-mode shape as Geography: `search`
-// for a flat name lookup (used by the "add Person to Community" picker),
-// otherwise browse mode (children of `parentId`, or root communities when
-// omitted). Never loads the whole hierarchy at once.
+// GET /api/admin/communities — two-mode shape: `search` for a flat name
+// lookup (used by the "add Person to Community" picker), otherwise browse
+// mode (children of `parentId`, or root communities when omitted). Never
+// loads the whole hierarchy at once.
 router.get('/', asyncHandler(async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req);
   const q = listQuerySchema.parse(req.query);
@@ -90,7 +90,7 @@ const designateHeadquartersSchema = z.object({ communityId: z.string().min(1) })
 // before this phase) — inventing that requirement here, with no existing
 // precedent, would be exactly the kind of speculative rule this phase was
 // told not to add.
-router.put('/headquarters', communityGeographyMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+router.put('/headquarters', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = designateHeadquartersSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'A communityId is required.' });
@@ -165,7 +165,7 @@ const createSchema = z.object({
   active: z.boolean().optional(),
 });
 
-router.post('/', communityGeographyMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid community.' });
@@ -209,7 +209,7 @@ const patchSchema = z.object({
   postingPolicy: z.enum(['EVERYONE', 'LEADERS_ONLY']).optional(),
 });
 
-router.patch('/:id', communityGeographyMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+router.patch('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) {

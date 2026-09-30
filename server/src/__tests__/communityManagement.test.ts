@@ -5,6 +5,11 @@ import { prisma } from '../lib/prisma';
 import { createLeader, createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
 
+// Phase 3G — Community reparenting protections, audit events, and rate
+// limiting. Originally shared this file with Geography's own admin
+// mutation coverage (communityGeographyManagement.test.ts); Final Geography
+// Retirement removed the Geography model and its admin routes entirely, so
+// this file (and its name) is Community-only now.
 const app = createApp();
 
 let ipCounter = 0;
@@ -80,74 +85,7 @@ describe('Phase 3G — Community reparenting protections', () => {
   });
 });
 
-describe('Phase 3G — Geography reparenting protections', () => {
-  it('rejects a Geography node being set as its own parent', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-cg4@test.local');
-    const node = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Self Parent', type: 'COUNTRY', countryCode: 'CG' });
-
-    const res = await agent
-      .patch(`/api/admin/geography/${node.body.id}`)
-      .set('X-CSRF-Token', csrf)
-      .send({ parentId: node.body.id });
-    expect(res.status).toBe(400);
-
-    const unchanged = await prisma.geography.findUnique({ where: { id: node.body.id } });
-    expect(unchanged!.parentId).toBeNull();
-  });
-
-  it('rejects reparenting a Geography node into its own descendant', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-cg5@test.local');
-    const country = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Country', type: 'COUNTRY', countryCode: 'CH' });
-    const region = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Region', type: 'REGION', parentId: country.body.id });
-    const division = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Division', type: 'DIVISION', parentId: region.body.id });
-
-    const res = await agent
-      .patch(`/api/admin/geography/${country.body.id}`)
-      .set('X-CSRF-Token', csrf)
-      .send({ parentId: division.body.id });
-    expect(res.status).toBe(400);
-
-    const unchanged = await prisma.geography.findUnique({ where: { id: country.body.id } });
-    expect(unchanged!.parentId).toBeNull();
-  });
-
-  it('allows a valid reparent to an unrelated existing Geography node', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-cg6@test.local');
-    const countryA = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Valid A', type: 'COUNTRY', countryCode: 'VA' });
-    const countryB = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Valid B', type: 'COUNTRY', countryCode: 'VB' });
-    const region = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Valid Region', type: 'REGION', parentId: countryA.body.id });
-
-    const res = await agent
-      .patch(`/api/admin/geography/${region.body.id}`)
-      .set('X-CSRF-Token', csrf)
-      .send({ parentId: countryB.body.id });
-    expect(res.status).toBe(200);
-    expect(res.body.parentId).toBe(countryB.body.id);
-  });
-});
-
-describe('Phase 3G — Community/Geography audit events', () => {
+describe('Phase 3G — Community audit events', () => {
   it('records COMMUNITY_CREATED on create', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-cg7@test.local');
     const created = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'CG Audit Create' });
@@ -168,59 +106,15 @@ describe('Phase 3G — Community/Geography audit events', () => {
     });
     expect(audit).toBeTruthy();
   });
-
-  it('records GEOGRAPHY_CREATED on create', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-cg9@test.local');
-    const created = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Audit Create', type: 'COUNTRY', countryCode: 'AC' });
-
-    const audit = await prisma.auditLog.findFirst({
-      where: { action: 'GEOGRAPHY_CREATED', targetType: 'Geography', targetId: created.body.id },
-    });
-    expect(audit).toBeTruthy();
-  });
-
-  it('records GEOGRAPHY_UPDATED on update', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-cg10@test.local');
-    const created = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Audit Update', type: 'COUNTRY', countryCode: 'AU' });
-    await agent
-      .patch(`/api/admin/geography/${created.body.id}`)
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'CG Geo Audit Updated Name' });
-
-    const audit = await prisma.auditLog.findFirst({
-      where: { action: 'GEOGRAPHY_UPDATED', targetType: 'Geography', targetId: created.body.id },
-    });
-    expect(audit).toBeTruthy();
-  });
 });
 
 describe('Phase 3G — dedicated rate limiting', () => {
-  it('enforces communityGeographyMutationLimiter on Community mutations', async () => {
+  it('enforces communityMutationLimiter on Community mutations', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-cg11@test.local');
 
     let lastStatus = 200;
     for (let i = 0; i < 61; i++) {
       const res = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: `CG Rate Limit ${i}` });
-      lastStatus = res.status;
-    }
-    expect(lastStatus).toBe(429);
-  });
-
-  it('enforces communityGeographyMutationLimiter on Geography mutations', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-cg12@test.local');
-
-    let lastStatus = 200;
-    for (let i = 0; i < 61; i++) {
-      const res = await agent
-        .post('/api/admin/geography')
-        .set('X-CSRF-Token', csrf)
-        .send({ name: `CG Geo Rate Limit ${i}`, type: 'COUNTRY', countryCode: 'R' + (i % 10) });
       lastStatus = res.status;
     }
     expect(lastStatus).toBe(429);
@@ -248,35 +142,6 @@ describe('Phase 3G — existing authorization/CSRF boundaries remain intact', ()
   it('rejects a Community mutation missing CSRF token', async () => {
     const { agent } = await loginAsAdmin('admin-cg13@test.local');
     const res = await agent.post('/api/admin/communities').send({ name: 'No CSRF' });
-    expect(res.status).toBe(403);
-  });
-
-  it('rejects a Geography mutation missing CSRF token', async () => {
-    const { agent } = await loginAsAdmin('admin-cg14@test.local');
-    const res = await agent.post('/api/admin/geography').send({ name: 'No CSRF', type: 'COUNTRY', countryCode: 'NC' });
-    expect(res.status).toBe(403);
-  });
-
-  it('rejects an unauthenticated Geography mutation', async () => {
-    const anon = agentWithUniqueIp();
-    const { csrf } = await bootstrap(anon as any);
-    const res = await anon
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Nope', type: 'COUNTRY', countryCode: 'XX' });
-    expect(res.status).toBe(401);
-  });
-
-  it('rejects a Leader session on a Geography mutation', async () => {
-    await createLeader('CG Geo Leader', 'leader-cg-geo@test.local', 'CGGEOLEADER1');
-    const agent = agentWithUniqueIp();
-    const { csrf } = await bootstrap(agent as any);
-    await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email: 'leader-cg-geo@test.local', password: 'password123' });
-
-    const res = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Nope', type: 'COUNTRY', countryCode: 'XX' });
     expect(res.status).toBe(403);
   });
 });

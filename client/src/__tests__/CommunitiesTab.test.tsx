@@ -5,7 +5,7 @@ import i18n from '../i18n';
 
 // National Headquarters designation + derived generation display. Mirrors
 // the exact URL-dispatching fetch mock pattern established in
-// CommunityGeographyReparenting.test.tsx.
+// CommunityReparenting.test.tsx.
 const calls: { url: string; method: string; body: unknown }[] = [];
 
 function mockFetchByUrl(responses: Record<string, { status: number; body: unknown }>) {

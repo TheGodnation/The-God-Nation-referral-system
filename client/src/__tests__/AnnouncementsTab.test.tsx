@@ -4,7 +4,7 @@ import { AnnouncementsTab } from '../components/admin/AnnouncementsTab';
 
 // Phase 3M.3 — Admin announcement management. Same URL-dispatching fetch
 // mock pattern established across prior admin-tab client tests (e.g.
-// RoleAssignmentsTabLeadershipProposals.test.tsx, CommunityGeographyReparenting.test.tsx).
+// RoleAssignmentsTabLeadershipProposals.test.tsx, CommunityReparenting.test.tsx).
 const calls: { url: string; method: string; body: unknown }[] = [];
 
 const DRAFT_ROW = {
