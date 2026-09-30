@@ -560,7 +560,7 @@
     },
     "announcements": {
       "title": "Annonces",
-      "description": "Créez et publiez des annonces organisationnelles ciblées vers une ou plusieurs Communautés. Les Membres et Leaders actuellement éligibles à une cible la voient dans leur propre tableau de bord une fois publiée.",
+      "description": "Créez et publiez des annonces organisationnelles ciblées vers une ou plusieurs Communautés. Les Membres et Leaders actuellement éligibles à une cible la voient dans leur propre tableau de bord une fois publiée. Les annonces sont des avis officiels à sens unique avec accusé de lecture — elles ne prennent pas en charge les commentaires ni les réactions. Pour la discussion et l'engagement, utilisez plutôt les Publications du Siège.",
       "new_announcement": "+ Nouvelle annonce",
       "edit_announcement": "Modifier le brouillon",
       "title_en_label": "Titre (Anglais)",
@@ -1003,7 +1003,7 @@
     },
     "headquartersPosts": {
       "title": "Publications du Siège",
-      "description": "Créez et publiez des publications du Siège National, visibles sur tout le réseau de Communautés. Les Membres et Leaders actuellement éligibles la voient dans leur propre tableau de bord une fois publiée, et peuvent commenter et réagir.",
+      "description": "Créez et publiez des publications du Siège National, visibles sur tout le réseau de Communautés. Les Membres et Leaders actuellement éligibles la voient dans leur propre tableau de bord une fois publiée, et peuvent commenter et réagir. Les Publications du Siège sont destinées à la discussion et à l'engagement — contrairement aux annonces, elles ne suivent pas d'accusé de lecture individuel.",
       "new_post": "+ Nouvelle publication",
       "edit_post": "Modifier le brouillon",
       "title_en_label": "Titre (Anglais)",

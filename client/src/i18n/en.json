@@ -560,7 +560,7 @@
     },
     "announcements": {
       "title": "Announcements",
-      "description": "Create and publish organizational announcements targeted at one or more Communities. Members and Leaders currently eligible for a target see it in their own dashboard once published.",
+      "description": "Create and publish organizational announcements targeted at one or more Communities. Members and Leaders currently eligible for a target see it in their own dashboard once published. Announcements are official one-way notices with read receipts — they do not support comments or reactions. For discussion and engagement, use Headquarters Posts instead.",
       "new_announcement": "+ New Announcement",
       "edit_announcement": "Edit Draft",
       "title_en_label": "Title (English)",
@@ -1003,7 +1003,7 @@
     },
     "headquartersPosts": {
       "title": "Headquarters Posts",
-      "description": "Create and publish posts from National Headquarters, visible across the Community network. Members and Leaders currently eligible see it in their own dashboard once published, and can comment and react.",
+      "description": "Create and publish posts from National Headquarters, visible across the Community network. Members and Leaders currently eligible see it in their own dashboard once published, and can comment and react. Headquarters Posts are intended for discussion and engagement — unlike Announcements, they do not track individual read receipts.",
       "new_post": "+ New Post",
       "edit_post": "Edit Draft",
       "title_en_label": "Title (English)",
