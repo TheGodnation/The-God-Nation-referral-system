@@ -39,13 +39,13 @@ function includeTestData(req: any): boolean {
 // Geography Retirement Step 2 removed GeographyConversation.geographyId,
 // GeographyMessage.conversationId, and GeographyConversationRead.conversationId
 // (and their tables) entirely — CommunityConversation is their retained
-// replacement. This inventory and the response below no longer report on
-// them.
+// replacement. Step 4 removed AnnouncementTarget.geographyId entirely —
+// Community targeting is its retained replacement. This inventory and the
+// response below no longer report on any of them.
 const KNOWN_GEOGRAPHY_FOREIGN_KEYS = [
   'Geography.parentId (self-referencing tree)',
   'GeographicAssignment.geographyId (ON DELETE RESTRICT)',
   'RoleAssignment.geographyId (ON DELETE CASCADE)',
-  'AnnouncementTarget.geographyId (ON DELETE CASCADE)',
   'FollowUpAssignment.contextId (NO foreign key — application-validated only, see followUpAssignments.orphaned below)',
 ];
 
@@ -65,8 +65,6 @@ router.get(
       roleAssignmentGeographyActive,
       roleAssignmentGeographyEnded,
       roleAssignmentDistinctGeography,
-      announcementTargetGeographyTotal,
-      announcementTargetDistinctGeography,
       followUpGeographyRows,
       personsWithCountry,
       personsWithCity,
@@ -82,8 +80,6 @@ router.get(
       prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ACTIVE' } }),
       prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ENDED' } }),
       prisma.roleAssignment.groupBy({ by: ['geographyId'], where: { geographyId: { not: null } } }),
-      prisma.announcementTarget.count({ where: { geographyId: { not: null } } }),
-      prisma.announcementTarget.groupBy({ by: ['geographyId'], where: { geographyId: { not: null } } }),
       prisma.followUpAssignment.findMany({
         where: { contextType: 'GEOGRAPHY' },
         select: { status: true, contextId: true },
@@ -139,10 +135,6 @@ router.get(
         active: roleAssignmentGeographyActive,
         ended: roleAssignmentGeographyEnded,
         distinctGeographyIds: roleAssignmentDistinctGeography.length,
-      },
-      announcementTargets: {
-        geographyTotal: announcementTargetGeographyTotal,
-        distinctGeographyIds: announcementTargetDistinctGeography.length,
       },
       followUpAssignments: {
         geographyContextTotal: followUpGeographyRows.length,

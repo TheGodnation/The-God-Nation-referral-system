@@ -13,9 +13,9 @@ import { bootstrap } from './testUtils';
 // shared test database is never truncated between files and other test
 // files (geography.test.ts, etc.) legitimately create their own
 // Geography-dependent rows. LeadershipProposal was retired in Geography
-// Retirement Step 1 and GeographyConversation/GeographyMessage/
-// GeographyConversationRead in Step 2 — this endpoint no longer reports on
-// either.
+// Retirement Step 1, GeographyConversation/GeographyMessage/
+// GeographyConversationRead in Step 2, and AnnouncementTarget.geographyId in
+// Step 4 — this endpoint no longer reports on any of them.
 const RUN = Math.random().toString(36).slice(2, 10);
 
 const app = createApp();
@@ -171,23 +171,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — Geography-scoped
   });
 });
 
-describe('GET /api/admin/diagnostics/geography-dependencies — AnnouncementTarget counts', () => {
-  it('geography-targeted total is correct', async () => {
-    const geo = await makeGeography('Diag Announcement Geo');
-    const admin = await createAdmin(`diag-announce-owner-${RUN}@test.local`);
-    const announcement = await prisma.announcement.create({
-      data: { titleEn: 'Diag Announcement', bodyEn: 'Body', createdByUserId: admin.id },
-    });
-
-    const { agent } = await loginAsAdmin(`diag-announce-counts-${RUN}@test.local`);
-    const before = await getDiagnostics(agent);
-
-    await prisma.announcementTarget.create({ data: { announcementId: announcement.id, geographyId: geo.id } });
-
-    const after = await getDiagnostics(agent);
-    expect(after.body.announcementTargets.geographyTotal).toBe(before.body.announcementTargets.geographyTotal + 1);
-  });
-});
 
 describe('GET /api/admin/diagnostics/geography-dependencies — FollowUpAssignment Geography-context counts and orphan detection', () => {
   it('active/closed counts and orphan detection are correct', async () => {

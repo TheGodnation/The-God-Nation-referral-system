@@ -17,7 +17,7 @@ const DRAFT_ROW = {
   publishedAt: null,
   archivedAt: null,
   createdBy: { id: 'admin-1', email: 'admin@test.local' },
-  targets: [{ id: 't1', communityId: 'community-1', communityName: 'Youth Ministry', geographyId: null, geographyName: null }],
+  targets: [{ id: 't1', communityId: 'community-1', communityName: 'Youth Ministry' }],
 };
 
 const PUBLISHED_ROW = {
@@ -116,10 +116,9 @@ describe('AnnouncementsTab (Admin)', () => {
     fireEvent.change(screen.getByPlaceholderText('Search communities by name'), { target: { value: 'Youth' } });
     fireEvent.click(screen.getByText('Search'));
     await waitFor(() => {
-      expect(screen.getAllByRole('combobox')).toHaveLength(2);
+      expect(screen.getAllByRole('combobox')).toHaveLength(1);
     });
-    const comboboxes = screen.getAllByRole('combobox');
-    fireEvent.change(comboboxes[comboboxes.length - 1], { target: { value: 'community-1' } });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'community-1' } });
     fireEvent.click(screen.getByText('Add Target'));
 
     expect(screen.getAllByText(/Youth Ministry/).length).toBeGreaterThan(0);

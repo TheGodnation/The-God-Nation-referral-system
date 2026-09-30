@@ -13,20 +13,14 @@ const router = Router();
 
 router.use(requireAuth, requireRole('ADMIN'));
 
-const targetSchema = z
-  .object({
-    communityId: z.string().min(1).optional(),
-    geographyId: z.string().min(1).optional(),
-  })
-  .refine((t) => Boolean(t.communityId) !== Boolean(t.geographyId), {
-    message: 'Each target must have exactly one of communityId or geographyId.',
-  });
+const targetSchema = z.object({
+  communityId: z.string().min(1),
+});
 
 const targetInclude = {
   targets: {
     include: {
       community: { select: { id: true, name: true } },
-      geography: { select: { id: true, name: true } },
     },
   },
   createdBy: { select: { id: true, email: true } },
@@ -45,9 +39,7 @@ function toAdminResponse(a: {
   targets: {
     id: string;
     communityId: string | null;
-    geographyId: string | null;
     community: { id: string; name: string } | null;
-    geography: { id: string; name: string } | null;
   }[];
 }) {
   return {
@@ -64,16 +56,14 @@ function toAdminResponse(a: {
       id: t.id,
       communityId: t.communityId,
       communityName: t.community?.name ?? null,
-      geographyId: t.geographyId,
-      geographyName: t.geography?.name ?? null,
     })),
   };
 }
 
 // GET /api/admin/announcements — page-based, newest-created-first. Never
 // exposes a per-Person recipient list or audience count — target
-// definitions only (Community/Geography names), matching what an Admin
-// configured, not who currently qualifies.
+// definitions only (Community names), matching what an Admin configured,
+// not who currently qualifies.
 router.get('/', asyncHandler(async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req);
 
@@ -120,7 +110,7 @@ router.post('/', announcementMutationLimiter, requireCsrf, asyncHandler(async (r
 
   if (d.targets && d.targets.length > 0) {
     const valid = await validateTargetReferences(d.targets);
-    if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community or Geography.' });
+    if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community.' });
   }
 
   const created = await prisma.announcement.create({
@@ -131,7 +121,7 @@ router.post('/', announcementMutationLimiter, requireCsrf, asyncHandler(async (r
       bodyFr: d.bodyFr ?? null,
       createdByUserId: req.user!.id,
       targets: d.targets && d.targets.length > 0
-        ? { create: d.targets.map((t) => ({ communityId: t.communityId ?? null, geographyId: t.geographyId ?? null })) }
+        ? { create: d.targets.map((t) => ({ communityId: t.communityId })) }
         : undefined,
     },
     include: targetInclude,
@@ -176,7 +166,7 @@ router.patch('/:id', announcementMutationLimiter, requireCsrf, asyncHandler(asyn
 
   if (d.targets && d.targets.length > 0) {
     const valid = await validateTargetReferences(d.targets);
-    if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community or Geography.' });
+    if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community.' });
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -184,7 +174,7 @@ router.patch('/:id', announcementMutationLimiter, requireCsrf, asyncHandler(asyn
       await tx.announcementTarget.deleteMany({ where: { announcementId: id } });
       if (d.targets.length > 0) {
         await tx.announcementTarget.createMany({
-          data: d.targets.map((t) => ({ announcementId: id, communityId: t.communityId ?? null, geographyId: t.geographyId ?? null })),
+          data: d.targets.map((t) => ({ announcementId: id, communityId: t.communityId })),
         });
       }
     }
@@ -220,7 +210,7 @@ router.post('/:id/publish', announcementMutationLimiter, requireCsrf, asyncHandl
 
   const existing = await prisma.announcement.findUnique({
     where: { id },
-    include: { targets: { select: { communityId: true, geographyId: true } } },
+    include: { targets: { select: { communityId: true } } },
   });
   if (!existing) return res.status(404).json({ error: 'Announcement not found.' });
   if (existing.archivedAt) return res.status(409).json({ error: 'An archived announcement cannot be published.' });
@@ -229,7 +219,7 @@ router.post('/:id/publish', announcementMutationLimiter, requireCsrf, asyncHandl
     return res.status(400).json({ error: 'At least one target is required before publishing.' });
   }
   const valid = await validateTargetReferences(existing.targets);
-  if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community or Geography.' });
+  if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community.' });
 
   const result = await prisma.announcement.updateMany({
     where: { id, publishedAt: null, archivedAt: null },

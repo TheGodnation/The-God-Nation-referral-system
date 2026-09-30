@@ -598,7 +598,6 @@ model Geography {
   children        Geography[]            @relation("GeographyHierarchy")
   assignments     GeographicAssignment[]
   roleAssignments RoleAssignment[]
-  announcementTargets AnnouncementTarget[]
 
   @@index([parentId])
   @@index([countryCode, parentId])
@@ -1316,27 +1315,24 @@ model Announcement {
   @@index([createdAt])
 }
 
-// Exactly one of communityId/geographyId is set (DB CHECK, mirroring
-// RoleAssignment's community-xor-geography pattern) — never both, never
-// neither. A Community target is always exact (active membership in that
-// exact Community); a Geography target reaches that node and all of its
-// descendants (see lib/announcements.ts) — deliberately not the same thing
-// as Phase 3K's descendant-aware Leader roster visibility, which is an
-// unrelated authorization concept.
+// A Community target is exact (active membership in that exact Community —
+// see lib/announcements.ts). Geography-based targeting was retired in
+// Geography Retirement Step 4; communityId stays nullable at the database
+// level (a prior Geography-only target row simply becomes an inert,
+// non-matching target once its geographyId is gone — never a migration
+// failure on unknown production data), but the application layer
+// (adminAnnouncements.ts) requires it for every newly created target.
 model AnnouncementTarget {
   id             String   @id @default(uuid())
   announcementId String
   communityId    String?
-  geographyId    String?
   createdAt      DateTime @default(now())
 
   announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   community    Community?   @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  geography    Geography?   @relation(fields: [geographyId], references: [id], onDelete: Cascade)
 
   @@index([announcementId])
   @@index([communityId])
-  @@index([geographyId])
 }
 
 // Phase 3M.5 — records that a Person has opened a given Announcement.

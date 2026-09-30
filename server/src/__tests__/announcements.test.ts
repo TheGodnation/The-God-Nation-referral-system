@@ -71,49 +71,17 @@ async function makeCommunity(name: string, parentId?: string) {
   return prisma.community.create({ data: { name, parentId: parentId ?? null } });
 }
 
-async function makeGeography(name: string, parentId?: string) {
-  return prisma.geography.create({
-    data: { name, parentId: parentId ?? null, type: 'REGION', countryCode: 'CM' },
-  });
-}
-
 async function joinCommunity(personId: string, communityId: string, status: 'ACTIVE' | 'INACTIVE' = 'ACTIVE') {
   return prisma.communityMembership.create({ data: { personId, communityId, status } });
 }
 
-async function assignGeography(personId: string, geographyId: string, status: 'ACTIVE' | 'INACTIVE' = 'ACTIVE') {
-  return prisma.geographicAssignment.create({ data: { personId, geographyId, status } });
-}
-
-describe('Phase 3M.3 — Announcement model integrity', () => {
-  it('rejects an AnnouncementTarget with both communityId and geographyId set', async () => {
-    const user = await createAdmin('ann-model-integrity1@test.local');
-    const announcement = await prisma.announcement.create({
-      data: { titleEn: 'T', bodyEn: 'B', createdByUserId: user.id },
-    });
-    const community = await makeCommunity('Check Constraint Community');
-    const geography = await makeGeography('Check Constraint Geography');
-
-    await expect(
-      prisma.announcementTarget.create({
-        data: { announcementId: announcement.id, communityId: community.id, geographyId: geography.id },
-      }),
-    ).rejects.toThrow();
-  });
-
-  it('rejects an AnnouncementTarget with neither communityId nor geographyId set', async () => {
-    const user = await createAdmin('ann-model-integrity2@test.local');
-    const announcement = await prisma.announcement.create({
-      data: { titleEn: 'T', bodyEn: 'B', createdByUserId: user.id },
-    });
-
-    await expect(
-      prisma.announcementTarget.create({
-        data: { announcementId: announcement.id },
-      }),
-    ).rejects.toThrow();
-  });
-});
+// Phase 3M.3 — the "Announcement model integrity" describe block previously
+// here tested the AnnouncementTarget_scope_exclusive_check DB CHECK
+// constraint (communityId XOR geographyId). Geography Retirement Step 4
+// removed geographyId (and that CHECK, which had no meaning with only one
+// field left) entirely — Community-only target validation is now enforced
+// at the application layer instead (see "Phase 3M.3 — target validation"
+// below, which covers a missing/invalid communityId via the actual API).
 
 describe('Phase 3M.3 — Admin authorization', () => {
   it('an Admin can create a draft announcement', async () => {
@@ -441,152 +409,7 @@ describe('Phase 3M.3 — Community targeting', () => {
   });
 });
 
-describe('Phase 3M.3 — Geography targeting', () => {
-  it('a Person whose GeographicAssignment matches the exact targeted Geography sees the announcement', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(20);
-    const geography = await makeGeography('Exact Match Geography');
-    const { agent: memberAgent, person } = await loginAsMember('+237699900007', 'ann-member7@example.com');
-    await assignGeography(person.id, geography.id);
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Geo Exact', bodyEn: 'Body.', targets: [{ geographyId: geography.id }] });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await memberAgent.get('/api/me/announcements');
-    expect(res.body.items.map((a: any) => a.id)).toContain(created.body.id);
-  });
-
-  it('a Person whose GeographicAssignment is a descendant of the targeted Geography sees the announcement', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(21);
-    const region = await makeGeography('Descendant Region');
-    const city = await makeGeography('Descendant City', region.id);
-    const { agent: memberAgent, person } = await loginAsMember('+237699900008', 'ann-member8@example.com');
-    await assignGeography(person.id, city.id);
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Geo Descendant', bodyEn: 'Body.', targets: [{ geographyId: region.id }] });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await memberAgent.get('/api/me/announcements');
-    expect(res.body.items.map((a: any) => a.id)).toContain(created.body.id);
-  });
-
-  it('multi-level descendant (grandchild) still qualifies', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(22);
-    const country = await makeGeography('GC Country');
-    const region = await makeGeography('GC Region', country.id);
-    const city = await makeGeography('GC City', region.id);
-    const { agent: memberAgent, person } = await loginAsMember('+237699900009', 'ann-member9@example.com');
-    await assignGeography(person.id, city.id);
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Geo Grandchild', bodyEn: 'Body.', targets: [{ geographyId: country.id }] });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await memberAgent.get('/api/me/announcements');
-    expect(res.body.items.map((a: any) => a.id)).toContain(created.body.id);
-  });
-
-  it('a Person whose GeographicAssignment is an ANCESTOR of the targeted Geography does not qualify (outside subtree)', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(23);
-    const region = await makeGeography('Ancestor Region');
-    const city = await makeGeography('Ancestor City', region.id);
-    const { agent: memberAgent, person } = await loginAsMember('+237699900010', 'ann-member10@example.com');
-    await assignGeography(person.id, region.id);
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Geo Ancestor Exclusion', bodyEn: 'Body.', targets: [{ geographyId: city.id }] });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await memberAgent.get('/api/me/announcements');
-    expect(res.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
-  });
-
-  it('a Person with an INACTIVE GeographicAssignment does not qualify', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(24);
-    const geography = await makeGeography('Inactive Geo Assignment');
-    const { agent: memberAgent, person } = await loginAsMember('+237699900011', 'ann-member11@example.com');
-    await assignGeography(person.id, geography.id, 'INACTIVE');
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Geo Inactive', bodyEn: 'Body.', targets: [{ geographyId: geography.id }] });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await memberAgent.get('/api/me/announcements');
-    expect(res.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
-  });
-
-  it('Phase 3M.4 — an active geographical RoleAssignment alone does not grant Geography-targeted announcement access (RoleAssignment ≠ GeographicAssignment)', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(44);
-    const geography = await makeGeography('Leader Geo Role Only Region');
-    const { agent: leaderAgent, person: leaderPerson, user: leaderUser } = await setupLeader(106);
-    await prisma.roleAssignment.create({
-      data: { personId: leaderPerson.id, roleType: 'SCOPED_LEADER', assignedByUserId: leaderUser.id, geographyId: geography.id },
-    });
-    // Deliberately no GeographicAssignment for leaderPerson at all.
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Geo Leader Role Only', bodyEn: 'Body.', targets: [{ geographyId: geography.id }] });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await leaderAgent.get('/api/me/announcements');
-    expect(res.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
-  });
-
-  it('Phase 3M.4 — a Person with NO GeographicAssignment row at all (distinct from an INACTIVE one) does not qualify', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(45);
-    const geography = await makeGeography('No Assignment At All Region');
-    const { agent: memberAgent } = await loginAsMember('+237699900024', 'ann-member24@example.com');
-    // No assignGeography call at all — no GeographicAssignment row exists for this Person.
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Geo No Assignment', bodyEn: 'Body.', targets: [{ geographyId: geography.id }] });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await memberAgent.get('/api/me/announcements');
-    expect(res.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
-
-    const assignment = await prisma.geographicAssignment.findFirst({ where: { geographyId: geography.id } });
-    expect(assignment).toBeNull();
-  });
-});
-
 describe('Phase 3M.3 — combined targeting and deduplication', () => {
-  it('a Person matching only the Geography target of a combined Community+Geography announcement still sees it', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(25);
-    const community = await makeCommunity('Combined Community');
-    const geography = await makeGeography('Combined Geography');
-    const { agent: memberAgent, person } = await loginAsMember('+237699900012', 'ann-member12@example.com');
-    await assignGeography(person.id, geography.id);
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({
-        titleEn: 'Combined Target',
-        bodyEn: 'Body.',
-        targets: [{ communityId: community.id }, { geographyId: geography.id }],
-      });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await memberAgent.get('/api/me/announcements');
-    expect(res.body.items.map((a: any) => a.id)).toContain(created.body.id);
-  });
-
   it('a Person matching multiple targets of the same announcement sees it only once', async () => {
     const { agent: adminAgent, csrf } = await loginAsAdmin(26);
     const communityA = await makeCommunity('Dedup Community A');
@@ -610,52 +433,6 @@ describe('Phase 3M.3 — combined targeting and deduplication', () => {
     expect(matches).toHaveLength(1);
   });
 
-  it('Phase 3M.4 — a Person matching two Geography targets on the same announcement receives it only once', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(46);
-    const country = await makeGeography('Dedup Geo Country');
-    const region = await makeGeography('Dedup Geo Region', country.id);
-    const city = await makeGeography('Dedup Geo City', region.id);
-    const { agent: memberAgent, person } = await loginAsMember('+237699900025', 'ann-member25@example.com');
-    await assignGeography(person.id, city.id);
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({
-        titleEn: 'Dedup Geo Target',
-        bodyEn: 'Body.',
-        // Both targets are ancestors of `city` at different levels of the
-        // same chain, so `person` independently matches both.
-        targets: [{ geographyId: country.id }, { geographyId: region.id }],
-      });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await memberAgent.get('/api/me/announcements');
-    const matches = res.body.items.filter((a: any) => a.id === created.body.id);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('Phase 3M.4 — overlapping parent + child Geography targets on the same announcement: Person assigned to the child is eligible and receives it once', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(47);
-    const parentGeo = await makeGeography('Overlap Parent Region');
-    const childGeo = await makeGeography('Overlap Child Division', parentGeo.id);
-    const { agent: memberAgent, person } = await loginAsMember('+237699900026', 'ann-member26@example.com');
-    await assignGeography(person.id, childGeo.id);
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({
-        titleEn: 'Overlapping Parent Child Geo',
-        bodyEn: 'Body.',
-        targets: [{ geographyId: parentGeo.id }, { geographyId: childGeo.id }],
-      });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await memberAgent.get('/api/me/announcements');
-    const matches = res.body.items.filter((a: any) => a.id === created.body.id);
-    expect(matches).toHaveLength(1);
-  });
 });
 
 describe('Phase 3M.3 — dynamic eligibility (current state controls access)', () => {
@@ -700,54 +477,25 @@ describe('Phase 3M.3 — dynamic eligibility (current state controls access)', (
     expect(after.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
   });
 
-  it('moving Geography after publication removes access to the old target and can grant access to a new one', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(29);
-    const oldGeo = await makeGeography('Move From Geo');
-    const newGeo = await makeGeography('Move To Geo');
-    const { agent: memberAgent, person } = await loginAsMember('+237699900016', 'ann-member16@example.com');
-    await assignGeography(person.id, oldGeo.id);
-
-    const oldAnnouncement = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Old Geo Announcement', bodyEn: 'Body.', targets: [{ geographyId: oldGeo.id }] });
-    await adminAgent.post(`/api/admin/announcements/${oldAnnouncement.body.id}/publish`).set('X-CSRF-Token', csrf);
-    const newAnnouncement = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'New Geo Announcement', bodyEn: 'Body.', targets: [{ geographyId: newGeo.id }] });
-    await adminAgent.post(`/api/admin/announcements/${newAnnouncement.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const before = await memberAgent.get('/api/me/announcements');
-    expect(before.body.items.map((a: any) => a.id)).toContain(oldAnnouncement.body.id);
-    expect(before.body.items.map((a: any) => a.id)).not.toContain(newAnnouncement.body.id);
-
-    await prisma.geographicAssignment.update({ where: { personId: person.id }, data: { geographyId: newGeo.id } });
-
-    const after = await memberAgent.get('/api/me/announcements');
-    expect(after.body.items.map((a: any) => a.id)).not.toContain(oldAnnouncement.body.id);
-    expect(after.body.items.map((a: any) => a.id)).toContain(newAnnouncement.body.id);
-  });
-
-  it('a Person eligible via one target retains access after losing eligibility via another target', async () => {
+  it('a Person eligible via one Community target retains access after losing eligibility via another target', async () => {
     const { agent: adminAgent, csrf } = await loginAsAdmin(30);
-    const community = await makeCommunity('Retain Via Other Target Community');
-    const geography = await makeGeography('Retain Via Other Target Geography');
+    const communityA = await makeCommunity('Retain Via Other Target Community A');
+    const communityB = await makeCommunity('Retain Via Other Target Community B');
     const { agent: memberAgent, person } = await loginAsMember('+237699900017', 'ann-member17@example.com');
-    const membership = await joinCommunity(person.id, community.id);
-    await assignGeography(person.id, geography.id);
+    const membershipA = await joinCommunity(person.id, communityA.id);
+    await joinCommunity(person.id, communityB.id);
 
     const created = await adminAgent
       .post('/api/admin/announcements')
       .set('X-CSRF-Token', csrf)
       .send({
-        titleEn: 'Retained Via Geography',
+        titleEn: 'Retained Via Other Community',
         bodyEn: 'Body.',
-        targets: [{ communityId: community.id }, { geographyId: geography.id }],
+        targets: [{ communityId: communityA.id }, { communityId: communityB.id }],
       });
     await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
 
-    await prisma.communityMembership.update({ where: { id: membership.id }, data: { status: 'INACTIVE' } });
+    await prisma.communityMembership.update({ where: { id: membershipA.id }, data: { status: 'INACTIVE' } });
 
     const res = await memberAgent.get('/api/me/announcements');
     expect(res.body.items.map((a: any) => a.id)).toContain(created.body.id);
@@ -765,22 +513,6 @@ describe('Phase 3M.3 — Member/Leader/Admin recipient-surface separation', () =
       .post('/api/admin/announcements')
       .set('X-CSRF-Token', csrf)
       .send({ titleEn: 'For Leader Too', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
-    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
-
-    const res = await leaderAgent.get('/api/me/announcements');
-    expect(res.body.items.map((a: any) => a.id)).toContain(created.body.id);
-  });
-
-  it('Phase 3M.4 — a Leader receives a Geography-targeted announcement under the exact same audience rules as a Member (via their own linked Person), with no special access granted', async () => {
-    const { agent: adminAgent, csrf } = await loginAsAdmin(43);
-    const geography = await makeGeography('Leader Geography Recipient Region');
-    const { agent: leaderAgent, person: leaderPerson } = await setupLeader(105);
-    await assignGeography(leaderPerson.id, geography.id);
-
-    const created = await adminAgent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Geo For Leader Too', bodyEn: 'Body.', targets: [{ geographyId: geography.id }] });
     await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
 
     const res = await leaderAgent.get('/api/me/announcements');
@@ -955,17 +687,6 @@ describe('Phase 3M.3 — i18n fallback fields', () => {
 });
 
 describe('Phase 3M.3 — target validation', () => {
-  it('rejects a target with both communityId and geographyId at the API layer', async () => {
-    const { agent, csrf } = await loginAsAdmin(41);
-    const community = await makeCommunity('Invalid Target Community');
-    const geography = await makeGeography('Invalid Target Geography');
-    const res = await agent
-      .post('/api/admin/announcements')
-      .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Invalid', bodyEn: 'Body.', targets: [{ communityId: community.id, geographyId: geography.id }] });
-    expect(res.status).toBe(400);
-  });
-
   it('rejects a target referencing an unknown Community id', async () => {
     const { agent, csrf } = await loginAsAdmin(42);
     const res = await agent
@@ -973,6 +694,37 @@ describe('Phase 3M.3 — target validation', () => {
       .set('X-CSRF-Token', csrf)
       .send({ titleEn: 'Unknown Ref', bodyEn: 'Body.', targets: [{ communityId: '00000000-0000-0000-0000-000000000000' }] });
     expect(res.status).toBe(400);
+  });
+
+  // Geography Retirement Step 4 — Geography is no longer a selectable
+  // announcement target. geographyId is not a recognized field on the
+  // target schema at all anymore (not merely optional), so these confirm
+  // it is fully absent rather than just unused.
+  it('rejects a target with no communityId at all (geographyId alone is not a valid substitute)', async () => {
+    const { agent, csrf } = await loginAsAdmin(65);
+    const res = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Geography Only', bodyEn: 'Body.', targets: [{ geographyId: '00000000-0000-0000-0000-000000000000' }] });
+    expect(res.status).toBe(400);
+  });
+
+  it('a geographyId sent alongside a valid communityId is silently ignored — the created target is Community-only', async () => {
+    const { agent, csrf } = await loginAsAdmin(66);
+    const community = await makeCommunity('Geography Field Ignored Community');
+    const res = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({
+        titleEn: 'Geography Field Ignored',
+        bodyEn: 'Body.',
+        targets: [{ communityId: community.id, geographyId: '00000000-0000-0000-0000-000000000000' }],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.targets).toHaveLength(1);
+    expect(res.body.targets[0].communityId).toBe(community.id);
+    expect(res.body.targets[0]).not.toHaveProperty('geographyId');
+    expect(res.body.targets[0]).not.toHaveProperty('geographyName');
   });
 });
 

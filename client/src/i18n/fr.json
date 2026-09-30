@@ -556,7 +556,7 @@
     },
     "announcements": {
       "title": "Annonces",
-      "description": "Créez et publiez des annonces organisationnelles ciblées vers une ou plusieurs Communautés ou Géographies. Les Membres et Leaders actuellement éligibles à une cible la voient dans leur propre tableau de bord une fois publiée.",
+      "description": "Créez et publiez des annonces organisationnelles ciblées vers une ou plusieurs Communautés. Les Membres et Leaders actuellement éligibles à une cible la voient dans leur propre tableau de bord une fois publiée.",
       "new_announcement": "+ Nouvelle annonce",
       "edit_announcement": "Modifier le brouillon",
       "title_en_label": "Titre (Anglais)",

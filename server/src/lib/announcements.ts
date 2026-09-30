@@ -1,38 +1,29 @@
 import { prisma } from './prisma';
-import { getDescendantGeographyIds } from './tree';
 import type { Announcement, AnnouncementTarget } from '@prisma/client';
 
-type TargetRow = Pick<AnnouncementTarget, 'communityId' | 'geographyId'>;
+type TargetRow = Pick<AnnouncementTarget, 'communityId'>;
 
 /**
  * Phase 3M.3 — audience/authorization for Central Authority targeted
  * announcements. Kept entirely separate from lib/leadership.ts: existing
  * leadership authorization semantics (findActiveScopedRole,
- * isGeographyInLeaderScope, personBelongsToContext) are never modified or
- * reused here as an authority source — only the plain tree-traversal
- * utility getDescendantGeographyIds is reused, for the same reason two
- * unrelated features can both use a sorting function.
+ * personBelongsToContext) are never modified or reused here as an
+ * authority source.
  *
  * A Person qualifies for a Community target only via an ACTIVE
  * CommunityMembership in that EXACT Community — never via holding a
  * RoleAssignment/leadership role there, and never via roster visibility.
- * A Person qualifies for a Geography target if their own current ACTIVE
- * GeographicAssignment is that exact Geography or one of its descendants
- * — this is an announcement-audience rule, not a re-derivation of Phase
- * 3K's Leader-roster descendant visibility (a different concept entirely,
- * scoped to a Leader's own authority, not to who is eligible to read an
- * announcement).
+ * Geography-based targeting was retired in Geography Retirement Step 4.
  */
 
 /**
  * Whether personId matches at least one of the given targets, using only
  * live, server-side organizational data. Never trusts anything about the
- * targets except their own communityId/geographyId — the caller is
- * responsible for having loaded those from the database.
+ * targets except their own communityId — the caller is responsible for
+ * having loaded those from the database.
  */
 export async function personMatchesTargets(personId: string, targets: TargetRow[]): Promise<boolean> {
   const communityTargetIds = targets.map((t) => t.communityId).filter((id): id is string => Boolean(id));
-  const geographyTargetIds = targets.map((t) => t.geographyId).filter((id): id is string => Boolean(id));
 
   if (communityTargetIds.length > 0) {
     const membership = await prisma.communityMembership.findFirst({
@@ -40,16 +31,6 @@ export async function personMatchesTargets(personId: string, targets: TargetRow[
       select: { id: true },
     });
     if (membership) return true;
-  }
-
-  if (geographyTargetIds.length > 0) {
-    const assignment = await prisma.geographicAssignment.findUnique({ where: { personId } });
-    if (assignment && assignment.status === 'ACTIVE') {
-      for (const targetGeographyId of geographyTargetIds) {
-        const descendants = await getDescendantGeographyIds(targetGeographyId);
-        if (descendants.includes(assignment.geographyId)) return true;
-      }
-    }
   }
 
   return false;
@@ -65,7 +46,7 @@ export async function personMatchesTargets(personId: string, targets: TargetRow[
 export async function personCanViewAnnouncement(personId: string, announcementId: string): Promise<boolean> {
   const announcement = await prisma.announcement.findUnique({
     where: { id: announcementId },
-    include: { targets: { select: { communityId: true, geographyId: true } } },
+    include: { targets: { select: { communityId: true } } },
   });
   if (!announcement) return false;
   if (!announcement.publishedAt) return false;
@@ -76,39 +57,22 @@ export async function personCanViewAnnouncement(personId: string, announcementId
 /**
  * Every published, non-archived Announcement personId currently qualifies
  * for, ordered publishedAt DESC (already the required recipient-feed
- * order). Derived fresh on every call — nothing is persisted or cached
- * beyond the lifetime of this one computation (a per-target descendant-set
- * cache, to avoid recomputing the same tree walk for the same Geography
- * target across multiple announcements in one request).
+ * order). Derived fresh on every call — nothing is persisted or cached.
  */
 export async function computeVisibleAnnouncementsForPerson(
   personId: string,
 ): Promise<(Announcement & { targets: TargetRow[] })[]> {
-  const [memberships, assignment] = await Promise.all([
-    prisma.communityMembership.findMany({
-      where: { personId, status: 'ACTIVE' },
-      select: { communityId: true },
-    }),
-    prisma.geographicAssignment.findUnique({ where: { personId } }),
-  ]);
+  const memberships = await prisma.communityMembership.findMany({
+    where: { personId, status: 'ACTIVE' },
+    select: { communityId: true },
+  });
   const communityIds = new Set(memberships.map((m) => m.communityId));
-  const personGeographyId = assignment && assignment.status === 'ACTIVE' ? assignment.geographyId : null;
 
   const announcements = await prisma.announcement.findMany({
     where: { publishedAt: { not: null }, archivedAt: null },
-    include: { targets: { select: { communityId: true, geographyId: true } } },
+    include: { targets: { select: { communityId: true } } },
     orderBy: { publishedAt: 'desc' },
   });
-
-  const descendantCache = new Map<string, string[]>();
-  async function descendantsOf(geographyId: string): Promise<string[]> {
-    let cached = descendantCache.get(geographyId);
-    if (!cached) {
-      cached = await getDescendantGeographyIds(geographyId);
-      descendantCache.set(geographyId, cached);
-    }
-    return cached;
-  }
 
   const eligible: (Announcement & { targets: TargetRow[] })[] = [];
   for (const announcement of announcements) {
@@ -117,13 +81,6 @@ export async function computeVisibleAnnouncementsForPerson(
       if (target.communityId && communityIds.has(target.communityId)) {
         matches = true;
         break;
-      }
-      if (target.geographyId && personGeographyId) {
-        const descendants = await descendantsOf(target.geographyId);
-        if (descendants.includes(personGeographyId)) {
-          matches = true;
-          break;
-        }
       }
     }
     if (matches) eligible.push(announcement);
@@ -189,25 +146,18 @@ export async function getReadAnnouncementIds(personId: string, announcementIds: 
 }
 
 /**
- * Confirms every referenced Community/Geography id in a proposed target
- * list actually exists. Used at both draft-creation/edit time and again at
- * publish time (defensive re-validation) — a client-supplied id is never
- * trusted merely because it was accepted once before.
+ * Confirms every referenced Community id in a proposed target list actually
+ * exists. Used at both draft-creation/edit time and again at publish time
+ * (defensive re-validation) — a client-supplied id is never trusted merely
+ * because it was accepted once before.
  */
 export async function validateTargetReferences(
-  targets: { communityId?: string | null; geographyId?: string | null }[],
+  targets: { communityId?: string | null }[],
 ): Promise<boolean> {
   const communityIds = targets.map((t) => t.communityId).filter((id): id is string => Boolean(id));
-  const geographyIds = targets.map((t) => t.geographyId).filter((id): id is string => Boolean(id));
 
-  const [communityCount, geographyCount] = await Promise.all([
-    communityIds.length > 0
-      ? prisma.community.count({ where: { id: { in: communityIds } } })
-      : Promise.resolve(0),
-    geographyIds.length > 0
-      ? prisma.geography.count({ where: { id: { in: geographyIds } } })
-      : Promise.resolve(0),
-  ]);
+  const communityCount =
+    communityIds.length > 0 ? await prisma.community.count({ where: { id: { in: communityIds } } }) : 0;
 
-  return communityCount === new Set(communityIds).size && geographyCount === new Set(geographyIds).size;
+  return communityCount === new Set(communityIds).size;
 }

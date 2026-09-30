@@ -556,7 +556,7 @@
     },
     "announcements": {
       "title": "Announcements",
-      "description": "Create and publish organizational announcements targeted at one or more Communities or Geographies. Members and Leaders currently eligible for a target see it in their own dashboard once published.",
+      "description": "Create and publish organizational announcements targeted at one or more Communities. Members and Leaders currently eligible for a target see it in their own dashboard once published.",
       "new_announcement": "+ New Announcement",
       "edit_announcement": "Edit Draft",
       "title_en_label": "Title (English)",

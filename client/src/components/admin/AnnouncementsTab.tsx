@@ -7,8 +7,6 @@ interface AnnouncementTargetRow {
   id: string;
   communityId: string | null;
   communityName: string | null;
-  geographyId: string | null;
-  geographyName: string | null;
 }
 
 interface AnnouncementRow {
@@ -24,7 +22,7 @@ interface AnnouncementRow {
   targets: AnnouncementTargetRow[];
 }
 
-type FormTarget = { type: 'COMMUNITY' | 'GEOGRAPHY'; id: string; name: string };
+type FormTarget = { id: string; name: string };
 
 const EMPTY_FORM = { titleEn: '', titleFr: '', bodyEn: '', bodyFr: '' };
 
@@ -47,7 +45,7 @@ function statusBadgeClass(status: 'draft' | 'published' | 'archived') {
 
 function targetSummary(targets: AnnouncementTargetRow[]): string {
   if (targets.length === 0) return '—';
-  return targets.map((t) => t.communityName ?? t.geographyName ?? '').join(', ');
+  return targets.map((t) => t.communityName ?? '').join(', ');
 }
 
 // Phase 3M.3 — Admin management surface for Central Authority targeted
@@ -66,7 +64,6 @@ export function AnnouncementsTab() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [targetType, setTargetType] = useState<'COMMUNITY' | 'GEOGRAPHY'>('COMMUNITY');
   const [formTargets, setFormTargets] = useState<FormTarget[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -89,7 +86,6 @@ export function AnnouncementsTab() {
 
   function resetForm() {
     setForm(EMPTY_FORM);
-    setTargetType('COMMUNITY');
     setFormTargets([]);
     setFormError(null);
     setEditingId(null);
@@ -103,21 +99,18 @@ export function AnnouncementsTab() {
   function startEdit(row: AnnouncementRow) {
     setForm({ titleEn: row.titleEn, titleFr: row.titleFr ?? '', bodyEn: row.bodyEn, bodyFr: row.bodyFr ?? '' });
     setFormTargets(
-      row.targets.map((tgt) =>
-        tgt.communityId
-          ? { type: 'COMMUNITY', id: tgt.communityId, name: tgt.communityName ?? '' }
-          : { type: 'GEOGRAPHY', id: tgt.geographyId as string, name: tgt.geographyName ?? '' },
-      ),
+      row.targets
+        .filter((tgt) => tgt.communityId)
+        .map((tgt) => ({ id: tgt.communityId as string, name: tgt.communityName ?? '' })),
     );
-    setTargetType('COMMUNITY');
     setFormError(null);
     setEditingId(row.id);
     setShowForm(true);
   }
 
   function addTarget(item: { id: string; name: string }) {
-    if (formTargets.some((f) => f.type === targetType && f.id === item.id)) return;
-    setFormTargets((prev) => [...prev, { type: targetType, id: item.id, name: item.name }]);
+    if (formTargets.some((f) => f.id === item.id)) return;
+    setFormTargets((prev) => [...prev, { id: item.id, name: item.name }]);
   }
 
   function removeTarget(index: number) {
@@ -132,7 +125,7 @@ export function AnnouncementsTab() {
       titleFr: form.titleFr.trim() || null,
       bodyEn: form.bodyEn.trim(),
       bodyFr: form.bodyFr.trim() || null,
-      targets: formTargets.map((f) => (f.type === 'COMMUNITY' ? { communityId: f.id } : { geographyId: f.id })),
+      targets: formTargets.map((f) => ({ communityId: f.id })),
     };
     try {
       if (editingId) {
@@ -258,12 +251,9 @@ export function AnnouncementsTab() {
             {formTargets.length > 0 && (
               <ul className="mb-2 space-y-1">
                 {formTargets.map((tgt, i) => (
-                  <li key={`${tgt.type}-${tgt.id}`} className="flex items-center justify-between text-sm">
+                  <li key={tgt.id} className="flex items-center justify-between text-sm">
                     <span>
-                      {tgt.type === 'COMMUNITY'
-                        ? t('admin.roleAssignments.scope_community')
-                        : t('admin.roleAssignments.scope_geography')}
-                      : {tgt.name}
+                      {t('admin.roleAssignments.scope_community')}: {tgt.name}
                     </span>
                     <button
                       type="button"
@@ -280,35 +270,14 @@ export function AnnouncementsTab() {
               <p className="mb-2 text-xs text-slate-400">{t('admin.announcements.no_targets')}</p>
             )}
 
-            <div className="mb-2">
-              <select
-                className="input w-auto"
-                value={targetType}
-                onChange={(e) => setTargetType(e.target.value as 'COMMUNITY' | 'GEOGRAPHY')}
-              >
-                <option value="COMMUNITY">{t('admin.roleAssignments.scope_community')}</option>
-                <option value="GEOGRAPHY">{t('admin.roleAssignments.scope_geography')}</option>
-              </select>
-            </div>
-            {targetType === 'COMMUNITY' ? (
-              <SearchPicker
-                placeholder={t('admin.people.search_community_placeholder') ?? ''}
-                searchPath="/api/admin/communities?search="
-                renderLabel={(c) => c.name}
-                actionLabel={t('admin.announcements.add_target')}
-                searchButtonLabel={t('admin.people.search_button')}
-                onPick={(c) => addTarget({ id: c.id, name: c.name })}
-              />
-            ) : (
-              <SearchPicker
-                placeholder={t('admin.people.search_geography_placeholder') ?? ''}
-                searchPath="/api/admin/geography?search="
-                renderLabel={(g) => `${g.name} (${g.type})`}
-                actionLabel={t('admin.announcements.add_target')}
-                searchButtonLabel={t('admin.people.search_button')}
-                onPick={(g) => addTarget({ id: g.id, name: g.name })}
-              />
-            )}
+            <SearchPicker
+              placeholder={t('admin.people.search_community_placeholder') ?? ''}
+              searchPath="/api/admin/communities?search="
+              renderLabel={(c) => c.name}
+              actionLabel={t('admin.announcements.add_target')}
+              searchButtonLabel={t('admin.people.search_button')}
+              onPick={(c) => addTarget({ id: c.id, name: c.name })}
+            />
           </div>
 
           {formError && <p className="text-sm text-red-700">{formError}</p>}
