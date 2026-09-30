@@ -296,6 +296,7 @@
       "start_followup_failed": "Échec du démarrage du suivi.",
       "geography_descendant_note": "Cette liste inclut les personnes de cette zone et de ses localités subordonnées.",
       "outside_direct_scope": "Dans une localité subordonnée",
+      "followup_geography_retired": "Le suivi n'est plus disponible par géographie.",
       "add_member_placeholder": "Numéro WhatsApp du membre existant",
       "add_member_submit": "Ajouter à la Communauté",
       "add_member_submitting": "Ajout…",

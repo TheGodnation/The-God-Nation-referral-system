@@ -18,7 +18,8 @@ interface ContactRow {
 interface FollowUpRow {
   id: string;
   status: 'ACTIVE' | 'CLOSED';
-  contextType: 'COMMUNITY' | 'GEOGRAPHY';
+  // Geography Retirement Step 5A: Follow-Up is Community-scoped only now.
+  contextType: 'COMMUNITY';
   contextId: string;
   assignedAt: string;
   closedAt: string | null;
@@ -61,7 +62,6 @@ export function FollowUpsTab() {
   const [showForm, setShowForm] = useState(false);
   const [follower, setFollower] = useState<{ id: string; name: string } | null>(null);
   const [followedPerson, setFollowedPerson] = useState<{ id: string; name: string } | null>(null);
-  const [contextType, setContextType] = useState<'COMMUNITY' | 'GEOGRAPHY'>('COMMUNITY');
   const [context, setContext] = useState<{ id: string; name: string } | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -90,7 +90,6 @@ export function FollowUpsTab() {
   function resetCreateForm() {
     setFollower(null);
     setFollowedPerson(null);
-    setContextType('COMMUNITY');
     setContext(null);
     setCreateError(null);
   }
@@ -102,7 +101,7 @@ export function FollowUpsTab() {
       await api.post('/api/admin/follow-ups', {
         followerId: follower.id,
         followedPersonId: followedPerson.id,
-        contextType,
+        contextType: 'COMMUNITY',
         contextId: context.id,
       });
       resetCreateForm();
@@ -363,21 +362,6 @@ export function FollowUpsTab() {
           </div>
 
           <div>
-            <label className="label">{t('admin.roleAssignments.scope_type_label')}</label>
-            <select
-              className="input"
-              value={contextType}
-              onChange={(e) => {
-                setContextType(e.target.value as 'COMMUNITY' | 'GEOGRAPHY');
-                setContext(null);
-              }}
-            >
-              <option value="COMMUNITY">{t('admin.roleAssignments.scope_community')}</option>
-              <option value="GEOGRAPHY">{t('admin.roleAssignments.scope_geography')}</option>
-            </select>
-          </div>
-
-          <div>
             <label className="label">{t('admin.roleAssignments.scope_label')}</label>
             {context ? (
               <p className="text-sm text-brand-900">
@@ -386,7 +370,7 @@ export function FollowUpsTab() {
                   {t('admin.roleAssignments.change')}
                 </button>
               </p>
-            ) : contextType === 'COMMUNITY' ? (
+            ) : (
               <SearchPicker
                 placeholder={t('admin.people.search_community_placeholder') ?? ''}
                 searchPath="/api/admin/communities?search="
@@ -394,15 +378,6 @@ export function FollowUpsTab() {
                 actionLabel={t('admin.roleAssignments.select')}
                 searchButtonLabel={t('admin.people.search_button')}
                 onPick={(c) => setContext({ id: c.id, name: c.name })}
-              />
-            ) : (
-              <SearchPicker
-                placeholder={t('admin.people.search_geography_placeholder') ?? ''}
-                searchPath="/api/admin/geography?search="
-                renderLabel={(g) => `${g.name} (${g.type})`}
-                actionLabel={t('admin.roleAssignments.select')}
-                searchButtonLabel={t('admin.people.search_button')}
-                onPick={(g) => setContext({ id: g.id, name: g.name })}
               />
             )}
           </div>

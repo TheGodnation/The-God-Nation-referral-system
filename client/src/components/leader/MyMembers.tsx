@@ -51,11 +51,14 @@ interface GeographyRosterRow {
 // Phase 3K makes the Geography branch descendant-aware server-side (a
 // Region Leader's roster now also includes people in that Region's
 // Divisions/Sub-Divisions/Villages) while Community stays exact-scope only.
-// Follow-Up creation itself is NOT widened to match — it still requires the
-// person's own GeographicAssignment to exactly equal the submitted
-// contextId — so this component only offers "Start Follow-Up" on rows
-// where personGeographyId === the selected scope's own id; a descendant-only
-// row shows an explanatory label instead of a button that would just fail.
+//
+// Geography Retirement Step 5A: "Start Follow-Up" is Community-only now —
+// POST /api/leader/follow-ups rejects a GEOGRAPHY context outright, so a
+// Geography row (exact-scope or descendant) shows an explanatory label
+// instead of a button that would just fail. This is isolated to the
+// Follow-Up action alone — the Geography roster itself (viewing who is
+// assigned to a Geography, including its descendants) is untouched and
+// retired in a later, dedicated step.
 //
 // Phase 3M.8A adds Community Administrator membership management —
 // "Add existing member" (by WhatsApp number, this Community's identity key;
@@ -126,14 +129,6 @@ export function MyMembers() {
 
   function rowDate(row: CommunityRosterRow | GeographyRosterRow): string {
     return 'membershipJoinedAt' in row ? row.membershipJoinedAt : row.geographicAssignedAt;
-  }
-
-  // Community rows are always exact-scope (Phase 3H never made Community
-  // descendant-aware), so this is only ever meaningful for Geography rows.
-  function isExactScopeRow(row: CommunityRosterRow | GeographyRosterRow): boolean {
-    if (!selected) return false;
-    if (!('personGeographyId' in row)) return true;
-    return row.personGeographyId === selected.scopeId;
   }
 
   async function startFollowUp(personId: string) {
@@ -267,7 +262,7 @@ export function MyMembers() {
                     <div className="space-y-1">
                       {result?.ok ? (
                         <span className="block text-xs font-medium text-green-700">{result.text}</span>
-                      ) : isExactScopeRow(r) ? (
+                      ) : selected?.scopeType === 'COMMUNITY' ? (
                         <div>
                           <button
                             className="text-brand-700 hover:underline disabled:text-slate-300"
@@ -280,7 +275,7 @@ export function MyMembers() {
                           {result && !result.ok && <p className="text-xs text-red-700">{result.text}</p>}
                         </div>
                       ) : (
-                        <span className="block text-xs text-slate-400">{t('leader.myMembers.outside_direct_scope')}</span>
+                        <span className="block text-xs text-slate-400">{t('leader.myMembers.followup_geography_retired')}</span>
                       )}
 
                       {selected?.scopeType === 'COMMUNITY' && (

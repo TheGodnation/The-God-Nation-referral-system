@@ -36,19 +36,15 @@ async function makeCommunity(name: string) {
   return prisma.community.create({ data: { name } });
 }
 
-async function makeGeography(name: string, type = 'REGION', countryCode = 'CM') {
-  return prisma.geography.create({ data: { name, type, countryCode } });
-}
-
 /** Creates a Leader User, links it to a fresh Person, grants that Person an
- * ACTIVE SCOPED_LEADER RoleAssignment for the given exact scope, and logs
- * in as that Leader. The link/role are set up directly against the DB
+ * ACTIVE SCOPED_LEADER RoleAssignment for the given exact Community, and
+ * logs in as that Leader. The link/role are set up directly against the DB
  * (already covered by their own dedicated test files) so this file can
- * focus purely on FollowUpAssignment behavior. */
-async function setupScopedLeader(
-  n: number,
-  scope: { communityId: string } | { geographyId: string },
-) {
+ * focus purely on FollowUpAssignment behavior. Geography Retirement Step 5A
+ * retired the GEOGRAPHY Follow-Up context entirely — the Geography-scoped
+ * variant this helper used to also accept moved to
+ * followUpGeographyRetirement.test.ts, which tests the rejection directly. */
+async function setupScopedLeader(n: number, scope: { communityId: string }) {
   const email = `leader-fu${n}@test.local`;
   const { user } = await createLeader(`FollowUp Leader ${n}`, email, `FU${n}CODE`);
   const person = await makePerson(`+237673${String(n).padStart(6, '0')}`, `FollowUp Leader Person ${n}`);
@@ -58,7 +54,7 @@ async function setupScopedLeader(
       personId: person.id,
       roleType: 'SCOPED_LEADER',
       assignedByUserId: user.id,
-      ...('communityId' in scope ? { communityId: scope.communityId } : { geographyId: scope.geographyId }),
+      communityId: scope.communityId,
     },
   });
 
@@ -85,20 +81,6 @@ describe('Phase 3D — FollowUpAssignment creation and authorization', () => {
     expect(res.body.status).toBe('ACTIVE');
   });
 
-  it('a valid Geography-scoped Leader can create a valid Geography follow-up', async () => {
-    const geography = await makeGeography('FU Geography A');
-    const { agent, csrf } = await setupScopedLeader(2, { geographyId: geography.id });
-    const followed = await makePerson('+237674000002', 'Followed Person 2');
-    await prisma.geographicAssignment.create({ data: { personId: followed.id, geographyId: geography.id } });
-
-    const res = await agent
-      .post('/api/leader/follow-ups')
-      .set('X-CSRF-Token', csrf)
-      .send({ followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: geography.id });
-
-    expect(res.status).toBe(201);
-  });
-
   it('rejects when the followed Person lacks the required ACTIVE CommunityMembership', async () => {
     const community = await makeCommunity('FU Community B');
     const { agent, csrf } = await setupScopedLeader(3, { communityId: community.id });
@@ -109,19 +91,6 @@ describe('Phase 3D — FollowUpAssignment creation and authorization', () => {
       .post('/api/leader/follow-ups')
       .set('X-CSRF-Token', csrf)
       .send({ followedPersonId: followed.id, contextType: 'COMMUNITY', contextId: community.id });
-
-    expect(res.status).toBe(400);
-  });
-
-  it('rejects when the followed Person lacks the required ACTIVE GeographicAssignment', async () => {
-    const geography = await makeGeography('FU Geography B');
-    const { agent, csrf } = await setupScopedLeader(4, { geographyId: geography.id });
-    const followed = await makePerson('+237674000004', 'Followed Person 4');
-
-    const res = await agent
-      .post('/api/leader/follow-ups')
-      .set('X-CSRF-Token', csrf)
-      .send({ followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: geography.id });
 
     expect(res.status).toBe(400);
   });
@@ -138,37 +107,6 @@ describe('Phase 3D — FollowUpAssignment creation and authorization', () => {
       .set('X-CSRF-Token', csrf)
       .send({ followedPersonId: followed.id, contextType: 'COMMUNITY', contextId: communityB.id });
 
-    expect(res.status).toBe(403);
-  });
-
-  it('a Geography Leader cannot create a follow-up for a different Geography than assigned', async () => {
-    const geoA = await makeGeography('FU Geography D-A');
-    const geoB = await makeGeography('FU Geography D-B');
-    const { agent, csrf } = await setupScopedLeader(6, { geographyId: geoA.id });
-    const followed = await makePerson('+237674000006', 'Followed Person 6');
-    await prisma.geographicAssignment.create({ data: { personId: followed.id, geographyId: geoB.id } });
-
-    const res = await agent
-      .post('/api/leader/follow-ups')
-      .set('X-CSRF-Token', csrf)
-      .send({ followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: geoB.id });
-
-    expect(res.status).toBe(403);
-  });
-
-  it('a Geography Leader assigned to a parent does not automatically cover a child Geography', async () => {
-    const parent = await makeGeography('FU Parent Geography');
-    const child = await prisma.geography.create({ data: { name: 'FU Child Geography', type: 'DIVISION', countryCode: 'CM', parentId: parent.id } });
-    const { agent, csrf } = await setupScopedLeader(7, { geographyId: parent.id });
-    const followed = await makePerson('+237674000007', 'Followed Person 7');
-    await prisma.geographicAssignment.create({ data: { personId: followed.id, geographyId: child.id } });
-
-    const res = await agent
-      .post('/api/leader/follow-ups')
-      .set('X-CSRF-Token', csrf)
-      .send({ followedPersonId: followed.id, contextType: 'GEOGRAPHY', contextId: child.id });
-
-    // No active role for the child Geography at all — exact-scope only.
     expect(res.status).toBe(403);
   });
 

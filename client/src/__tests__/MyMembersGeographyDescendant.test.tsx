@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MyMembers } from '../components/leader/MyMembers';
 
-// Phase 3K — MyMembers now distinguishes an exact-scope roster row (Start
-// Follow-Up offered, matching the still-exact-scope Follow-Up creation
-// endpoint) from a descendant-only row (explanatory label instead, since
-// POST /api/leader/follow-ups would reject it). Same URL-dispatching fetch
-// mock pattern as MyMembersAction.test.tsx.
+// Phase 3K — MyMembers roster visibility distinguishes an exact-scope row
+// from a descendant-only row for Geography scopes; this file tests that
+// distinction, which is unaffected by Follow-Up retirement. Geography
+// Retirement Step 5A then retired "Start Follow-Up" for Geography rows
+// entirely (exact-scope and descendant alike) — see
+// MyMembersAction.test.tsx for that. Same URL-dispatching fetch mock
+// pattern as MyMembersAction.test.tsx.
 const calls: { url: string; method: string; body: unknown }[] = [];
 
 function mockFetchByUrl(responses: Record<string, { status: number; body: unknown }>) {
@@ -32,7 +34,7 @@ afterEach(() => {
 });
 
 describe('MyMembers — Phase 3K Geography descendant visibility', () => {
-  it('offers Start Follow-Up on an exact-scope row and an explanatory label on a descendant-only row', async () => {
+  it('Geography Retirement Step 5A: neither an exact-scope row nor a descendant-only row offers Start Follow-Up any more — both show the same explanatory label', async () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
@@ -62,9 +64,10 @@ describe('MyMembers — Phase 3K Geography descendant visibility', () => {
     const exactRow = rows.find((r) => r.textContent?.includes('Exact Scope Person'))!;
     const descendantRow = rows.find((r) => r.textContent?.includes('Descendant Person'))!;
 
-    expect(exactRow.textContent).toContain('Start Follow-Up');
+    expect(exactRow.textContent).not.toContain('Start Follow-Up');
     expect(descendantRow.textContent).not.toContain('Start Follow-Up');
-    expect(descendantRow.textContent).toContain('In a subordinate locality');
+    expect(exactRow.textContent).toContain('Follow-up is no longer available by Geography.');
+    expect(descendantRow.textContent).toContain('Follow-up is no longer available by Geography.');
   });
 
   it('shows the descendant-inclusion note for a Geography scope', async () => {
@@ -113,32 +116,4 @@ describe('MyMembers — Phase 3K Geography descendant visibility', () => {
     expect(screen.getByText('Start Follow-Up')).toBeInTheDocument();
   });
 
-  it('submits Start Follow-Up for an exact-scope row with the expected payload', async () => {
-    mockFetchByUrl({
-      '/api/leader/role-assignments': {
-        status: 200,
-        body: { items: [{ id: 'r1', community: null, geography: { id: 'region-1', name: 'My Region', type: 'REGION' } }] },
-      },
-      '/api/leader/roster': {
-        status: 200,
-        body: {
-          scopeType: 'GEOGRAPHY',
-          scopeId: 'region-1',
-          items: [{ personId: 'p1', name: 'Exact Scope Person', geographicAssignedAt: '2026-01-15T00:00:00Z', personGeographyId: 'region-1' }],
-          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-        },
-      },
-      '/api/leader/follow-ups': { status: 201, body: { id: 'assignment-1' } },
-    });
-
-    render(<MyMembers />);
-
-    fireEvent.click(await screen.findByText('Start Follow-Up'));
-
-    await waitFor(() => {
-      const postCall = calls.find((c) => c.url === '/api/leader/follow-ups' && c.method === 'POST');
-      expect(postCall).toBeTruthy();
-      expect(postCall!.body).toEqual({ followedPersonId: 'p1', contextType: 'GEOGRAPHY', contextId: 'region-1' });
-    });
-  });
 });

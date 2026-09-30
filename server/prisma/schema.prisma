@@ -77,12 +77,14 @@ enum RoleAssignmentStatus {
 }
 
 // Deliberately small, closed set — not a generic polymorphic authorization
-// framework. contextId refers to a Community.id or Geography.id depending
-// on this value; the server validates the referenced row exists for either
-// case (see routes/adminLeadership.ts / leaderFollowUps.ts).
+// framework. contextId refers to a Community.id (the server validates the
+// referenced row exists — see routes/adminLeadership.ts / leaderFollowUps.ts).
+// Geography Retirement Step 5A removed the GEOGRAPHY value: Follow-Up is now
+// Community-scoped only. GeographicAssignment and RoleAssignment.geographyId
+// still exist (retired in a later step) but no longer have any Follow-Up
+// authorization path that reaches them.
 enum FollowUpContextType {
   COMMUNITY
-  GEOGRAPHY
 }
 
 enum FollowUpStatus {

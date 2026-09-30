@@ -4,9 +4,14 @@ import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from '../admin/SearchPicker';
 import { FollowUpConversation } from '../FollowUpConversation';
 
-type ContextType = 'COMMUNITY' | 'GEOGRAPHY';
+// Geography Retirement Step 5A: Follow-Up is now Community-scoped only.
+type ContextType = 'COMMUNITY';
 type WellbeingStatus = 'GOOD' | 'NEEDS_ATTENTION' | 'EMERGENCY' | 'UNABLE_TO_REACH';
 
+// GET /api/leader/role-assignments still returns both community and
+// geography (RoleAssignment.geographyId is retained until a later step, and
+// this endpoint is shared with other, non-Follow-Up consumers) — this
+// component only ever uses the community-scoped roles.
 interface RoleAssignmentItem {
   id: string;
   community: { id: string; name: string } | null;
@@ -71,10 +76,10 @@ function wellbeingBadgeClass(status: WellbeingStatus) {
   }
 }
 
+// Only ever called on a Community role (see communityRoles below) — Follow-Up
+// no longer supports a Geography scope (Geography Retirement Step 5A).
 function scopeOf(role: RoleAssignmentItem): { contextType: ContextType; contextId: string; name: string } {
-  return role.community
-    ? { contextType: 'COMMUNITY', contextId: role.community.id, name: role.community.name }
-    : { contextType: 'GEOGRAPHY', contextId: role.geography!.id, name: role.geography!.name };
+  return { contextType: 'COMMUNITY', contextId: role.community!.id, name: role.community!.name };
 }
 
 // Phase 3D — a Leader's own "My Follow-Up" area. Gated entirely on having
@@ -136,9 +141,13 @@ export function MyFollowUp() {
     api
       .get<{ items: RoleAssignmentItem[] }>('/api/leader/role-assignments')
       .then((res) => {
-        setRoles(res.items);
+        // Follow-Up is Community-scoped only (Geography Retirement Step
+        // 5A) — a Leader holding only a Geography-scoped role has no
+        // Follow-Up capability here, same as holding no role at all.
+        const communityOnly = res.items.filter((r) => r.community);
+        setRoles(communityOnly);
         setLoading(false);
-        if (res.items.length > 0) {
+        if (communityOnly.length > 0) {
           loadFollowUps();
           loadAttention();
         }

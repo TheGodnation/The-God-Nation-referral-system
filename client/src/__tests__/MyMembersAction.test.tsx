@@ -84,7 +84,7 @@ describe('MyMembers — Phase 3J Roster → Start Follow-Up', () => {
     });
   });
 
-  it('submits GEOGRAPHY contextType and the selected geography ID for a Geography roster', async () => {
+  it('Geography Retirement Step 5A: does not offer Start Follow-Up for a Geography roster at all', async () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
@@ -99,18 +99,16 @@ describe('MyMembers — Phase 3J Roster → Start Follow-Up', () => {
           pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
         },
       },
-      '/api/leader/follow-ups': { status: 201, body: { id: 'assignment-2' } },
     });
 
     render(<MyMembers />);
 
-    fireEvent.click(await screen.findByText('Start Follow-Up'));
-
     await waitFor(() => {
-      const postCall = calls.find((c) => c.url === '/api/leader/follow-ups' && c.method === 'POST');
-      expect(postCall).toBeTruthy();
-      expect(postCall!.body).toEqual({ followedPersonId: 'p2', contextType: 'GEOGRAPHY', contextId: 'g1' });
+      expect(screen.getByText('John Smith')).toBeInTheDocument();
     });
+    expect(screen.queryByText('Start Follow-Up')).not.toBeInTheDocument();
+    expect(screen.getByText("Follow-up is no longer available by Geography.")).toBeInTheDocument();
+    expect(calls.some((c) => c.url === '/api/leader/follow-ups')).toBe(false);
   });
 
   it('shows success feedback after successfully starting a follow-up', async () => {

@@ -40,13 +40,16 @@ function includeTestData(req: any): boolean {
 // GeographyMessage.conversationId, and GeographyConversationRead.conversationId
 // (and their tables) entirely — CommunityConversation is their retained
 // replacement. Step 4 removed AnnouncementTarget.geographyId entirely —
-// Community targeting is its retained replacement. This inventory and the
+// Community targeting is its retained replacement. Step 5A removed the
+// GEOGRAPHY value from FollowUpAssignment.contextType — Follow-Up is now
+// Community-scoped only, so FollowUpAssignment.contextId (never a true
+// database foreign key, even before this) is removed from this inventory:
+// it can no longer reference a Geography at all. This inventory and the
 // response below no longer report on any of them.
 const KNOWN_GEOGRAPHY_FOREIGN_KEYS = [
   'Geography.parentId (self-referencing tree)',
   'GeographicAssignment.geographyId (ON DELETE RESTRICT)',
   'RoleAssignment.geographyId (ON DELETE CASCADE)',
-  'FollowUpAssignment.contextId (NO foreign key — application-validated only, see followUpAssignments.orphaned below)',
 ];
 
 router.get(
@@ -65,7 +68,6 @@ router.get(
       roleAssignmentGeographyActive,
       roleAssignmentGeographyEnded,
       roleAssignmentDistinctGeography,
-      followUpGeographyRows,
       personsWithCountry,
       personsWithCity,
       personsWithArea,
@@ -80,10 +82,6 @@ router.get(
       prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ACTIVE' } }),
       prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ENDED' } }),
       prisma.roleAssignment.groupBy({ by: ['geographyId'], where: { geographyId: { not: null } } }),
-      prisma.followUpAssignment.findMany({
-        where: { contextType: 'GEOGRAPHY' },
-        select: { status: true, contextId: true },
-      }),
       prisma.person.count({ where: { ...testFilter, locationCountry: { not: null } } }),
       prisma.person.count({ where: { ...testFilter, locationCity: { not: null } } }),
       prisma.person.count({ where: { ...testFilter, locationArea: { not: null } } }),
@@ -92,15 +90,12 @@ router.get(
     // GeographicAssignment.geographyId is ON DELETE RESTRICT, so an orphan
     // here should be structurally impossible — checked anyway, defensively,
     // the same way every other orphan check in this endpoint is: in
-    // application code, never a raw anti-join query.
-    const referencedGeographyIds = Array.from(
-      new Set([
-        ...geographicAssignmentDistinctGeography.map((g) => g.geographyId),
-        ...followUpGeographyRows.map((f) => f.contextId),
-      ]),
-    );
+    // application code, never a raw anti-join query. Step 5A removed
+    // FollowUpAssignment from this cross-reference entirely: it can no
+    // longer hold a Geography context id at all (see followUpAssignments
+    // below), so it is no longer a source of referenced Geography ids here.
     const existingGeographyRows = await prisma.geography.findMany({
-      where: { id: { in: referencedGeographyIds } },
+      where: { id: { in: geographicAssignmentDistinctGeography.map((g) => g.geographyId) } },
       select: { id: true },
     });
     const existingGeographyIdSet = new Set(existingGeographyRows.map((g) => g.id));
@@ -108,13 +103,6 @@ router.get(
     const geographicAssignmentOrphaned = geographicAssignmentDistinctGeography.filter(
       (g) => !existingGeographyIdSet.has(g.geographyId),
     ).length;
-
-    const followUpExisting = followUpGeographyRows.filter((f) => existingGeographyIdSet.has(f.contextId));
-    const followUpOrphaned = followUpGeographyRows.filter((f) => !existingGeographyIdSet.has(f.contextId));
-    const followUpDistinctGeographyIds = new Set(followUpGeographyRows.map((f) => f.contextId));
-    // Geography ids only (place identifiers, never a Person id) — bounded,
-    // safe to return in full for migration planning.
-    const orphanedGeographyIds = Array.from(new Set(followUpOrphaned.map((f) => f.contextId)));
 
     res.json({
       geography: {
@@ -137,13 +125,9 @@ router.get(
         distinctGeographyIds: roleAssignmentDistinctGeography.length,
       },
       followUpAssignments: {
-        geographyContextTotal: followUpGeographyRows.length,
-        active: followUpGeographyRows.filter((f) => f.status === 'ACTIVE').length,
-        closed: followUpGeographyRows.filter((f) => f.status === 'CLOSED').length,
-        existingGeographyReference: followUpExisting.length,
-        orphaned: followUpOrphaned.length,
-        distinctGeographyIdsReferenced: followUpDistinctGeographyIds.size,
-        orphanedGeographyIds,
+        geographyContextRetired: true,
+        note:
+          'Geography Retirement Step 5A removed GEOGRAPHY from FollowUpAssignment.contextType — every FollowUpAssignment is now COMMUNITY-scoped only, and a Geography-context row can no longer exist.',
       },
       locationData: {
         personsWithCountry,

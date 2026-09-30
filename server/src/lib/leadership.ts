@@ -41,44 +41,48 @@ export async function resolveActingPersonId(userId: string): Promise<string | nu
 
 /**
  * Finds the Person's ACTIVE SCOPED_LEADER RoleAssignment matching the exact
- * given context (Community or Geography id). Geography/Community scope is
- * always exact — a parent scope never authorizes a child, and vice versa.
+ * given Community context. Scope is always exact — a parent scope never
+ * authorizes a child, and vice versa. `contextType` is retained in the
+ * signature (every current caller still passes 'COMMUNITY' explicitly) even
+ * though FollowUpContextType now has only that one value — Geography
+ * Retirement Step 5A removed the GEOGRAPHY branch that used to consult
+ * RoleAssignment.geographyId here; that field itself is retired in a later
+ * step.
  */
 export async function findActiveScopedRole(
   personId: string,
   contextType: FollowUpContextType,
   contextId: string,
 ) {
+  void contextType;
   return prisma.roleAssignment.findFirst({
     where: {
       personId,
       roleType: 'SCOPED_LEADER',
       status: 'ACTIVE',
-      ...(contextType === 'COMMUNITY' ? { communityId: contextId } : { geographyId: contextId }),
+      communityId: contextId,
     },
   });
 }
 
 /**
- * Whether a Person currently belongs to the exact given Community/Geography
- * scope — an ACTIVE CommunityMembership for that exact Community, or an
- * ACTIVE GeographicAssignment for that exact Geography. No ancestor or
- * descendant coverage; membership/assignment changes are read live here
- * (this is distinct from a FollowUpAssignment's frozen historical context).
+ * Whether a Person currently belongs to the exact given Community scope — an
+ * ACTIVE CommunityMembership for that exact Community. No ancestor or
+ * descendant coverage; membership changes are read live here (this is
+ * distinct from a FollowUpAssignment's frozen historical context). Geography
+ * Retirement Step 5A removed the GeographicAssignment branch this used to
+ * take for a GEOGRAPHY context — see findActiveScopedRole's own comment.
  */
 export async function personBelongsToContext(
   personId: string,
   contextType: FollowUpContextType,
   contextId: string,
 ): Promise<boolean> {
-  if (contextType === 'COMMUNITY') {
-    const membership = await prisma.communityMembership.findUnique({
-      where: { personId_communityId: { personId, communityId: contextId } },
-    });
-    return membership?.status === 'ACTIVE';
-  }
-  const assignment = await prisma.geographicAssignment.findUnique({ where: { personId } });
-  return Boolean(assignment && assignment.status === 'ACTIVE' && assignment.geographyId === contextId);
+  void contextType;
+  const membership = await prisma.communityMembership.findUnique({
+    where: { personId_communityId: { personId, communityId: contextId } },
+  });
+  return membership?.status === 'ACTIVE';
 }
 
 /**
@@ -120,10 +124,13 @@ export async function isCommunityAdministrator(personId: string, communityId: st
   return Boolean(await findActiveScopedRole(personId, 'COMMUNITY', communityId));
 }
 
-/** Confirms the referenced Community or Geography actually exists. */
+/**
+ * Confirms the referenced Community actually exists. Geography Retirement
+ * Step 5A removed the Geography branch this used to take — see
+ * findActiveScopedRole's own comment for why `contextType` is still a
+ * parameter.
+ */
 export async function contextTargetExists(contextType: FollowUpContextType, contextId: string): Promise<boolean> {
-  if (contextType === 'COMMUNITY') {
-    return Boolean(await prisma.community.findUnique({ where: { id: contextId }, select: { id: true } }));
-  }
-  return Boolean(await prisma.geography.findUnique({ where: { id: contextId }, select: { id: true } }));
+  void contextType;
+  return Boolean(await prisma.community.findUnique({ where: { id: contextId }, select: { id: true } }));
 }

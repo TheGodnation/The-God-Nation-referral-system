@@ -172,64 +172,15 @@ describe('GET /api/admin/diagnostics/geography-dependencies — Geography-scoped
 });
 
 
-describe('GET /api/admin/diagnostics/geography-dependencies — FollowUpAssignment Geography-context counts and orphan detection', () => {
-  it('active/closed counts and orphan detection are correct', async () => {
-    const geo = await makeGeography('Diag FollowUp Geo');
-    const admin = await createAdmin(`diag-followup-owner-${RUN}@test.local`);
-    const follower = await makePerson();
-    const followedActive = await makePerson();
-    const followedClosed = await makePerson();
-    const followedOrphan = await makePerson();
-
-    const { agent } = await loginAsAdmin(`diag-followup-counts-${RUN}@test.local`);
-    const before = await getDiagnostics(agent);
-
-    await prisma.followUpAssignment.create({
-      data: {
-        followerId: follower.id,
-        followedPersonId: followedActive.id,
-        contextType: 'GEOGRAPHY',
-        contextId: geo.id,
-        assignedByUserId: admin.id,
-        status: 'ACTIVE',
-      },
-    });
-    await prisma.followUpAssignment.create({
-      data: {
-        followerId: follower.id,
-        followedPersonId: followedClosed.id,
-        contextType: 'GEOGRAPHY',
-        contextId: geo.id,
-        assignedByUserId: admin.id,
-        status: 'CLOSED',
-        closedAt: new Date(),
-      },
-    });
-    // No FK exists on contextId (see the route's own comment) — this row's
-    // contextId deliberately points at a Geography that was never created,
-    // simulating exactly the orphan scenario the diagnostic exists to find.
-    await prisma.followUpAssignment.create({
-      data: {
-        followerId: follower.id,
-        followedPersonId: followedOrphan.id,
-        contextType: 'GEOGRAPHY',
-        contextId: '00000000-0000-0000-0000-000000000000',
-        assignedByUserId: admin.id,
-        status: 'ACTIVE',
-      },
-    });
-
-    const after = await getDiagnostics(agent);
-    expect(after.body.followUpAssignments.geographyContextTotal).toBe(before.body.followUpAssignments.geographyContextTotal + 3);
-    expect(after.body.followUpAssignments.active).toBe(before.body.followUpAssignments.active + 2);
-    expect(after.body.followUpAssignments.closed).toBe(before.body.followUpAssignments.closed + 1);
-    expect(after.body.followUpAssignments.orphaned).toBe(before.body.followUpAssignments.orphaned + 1);
-    expect(after.body.followUpAssignments.existingGeographyReference).toBe(
-      before.body.followUpAssignments.existingGeographyReference + 2,
-    );
-    expect(after.body.followUpAssignments.orphanedGeographyIds).toContain('00000000-0000-0000-0000-000000000000');
-  });
-});
+// Geography Retirement Step 5A removed the GEOGRAPHY value from
+// FollowUpAssignment.contextType entirely (see the
+// 20260930094423_retire_followup_geography_context migration) — a
+// Geography-context FollowUpAssignment can no longer be created at all, so
+// the counts/orphan-detection test that used to live here (which depended on
+// creating exactly that kind of row) no longer applies. The endpoint's
+// followUpAssignments section is now a fixed { geographyContextRetired,
+// note } shape — covered directly in
+// followUpGeographyRetirement.test.ts's diagnostic test.
 
 describe('GET /api/admin/diagnostics/geography-dependencies — location data counts', () => {
   it('person location field counts are correct (delta-based, using default test-data exclusion)', async () => {

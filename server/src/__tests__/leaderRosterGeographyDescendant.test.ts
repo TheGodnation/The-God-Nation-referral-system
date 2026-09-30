@@ -279,7 +279,7 @@ describe('Phase 3K — GET /api/leader/roster — Geography descendant visibilit
     expect(descendantRow.personGeographyId).toBe(chain.village.id);
   });
 
-  it('23. Visibility does not widen Follow-Up authorization — a Regional leader cannot start a Follow-Up for a descendant-only person using the Region as context', async () => {
+  it('23. Roster visibility does not widen Follow-Up authorization — Geography Retirement Step 5A now rejects any GEOGRAPHY-context Follow-Up outright, even for a Regional leader\'s own exact-scope descendant roster', async () => {
     const chain = await buildChain('N');
     const { agent, csrf } = await setupScopedLeader(16, chain.region.id);
     const descendantPerson = await makePerson('+237694000016', 'Descendant Only Followup Target');

@@ -296,6 +296,7 @@
       "start_followup_failed": "Failed to start follow-up.",
       "geography_descendant_note": "This list includes people in this area and its subordinate localities.",
       "outside_direct_scope": "In a subordinate locality",
+      "followup_geography_retired": "Follow-up is no longer available by Geography.",
       "add_member_placeholder": "Existing member's WhatsApp number",
       "add_member_submit": "Add to Community",
       "add_member_submitting": "Adding…",

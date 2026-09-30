@@ -20,10 +20,13 @@ const router = Router();
 router.use(requireAuth, requireRole('LEADER'), requireLinkedPerson);
 
 // GET /api/leader/role-assignments — the acting Leader's OWN active scoped
-// roles only. Not in the originally suggested endpoint list, but required
-// by the UI: it's what gates whether "My Follow-Up" shows at all, and
-// supplies the exact Community/Geography scope options the create-follow-up
-// form must offer (never letting the client submit an arbitrary scope).
+// roles (both Community and Geography-scoped — RoleAssignment.geographyId is
+// retained until a later step, and this endpoint is shared with other,
+// non-Follow-Up consumers such as MyMembers.tsx and TrainingProgress.tsx).
+// It's what gates whether "My Follow-Up" shows at all, and supplies the
+// scope options the create-follow-up form offers — the client filters this
+// down to Community-only roles since Geography Retirement Step 5A (never
+// letting the client submit an arbitrary scope either way).
 router.get('/role-assignments', asyncHandler(async (req, res) => {
   const items = await prisma.roleAssignment.findMany({
     where: { personId: req.leaderPersonId, roleType: 'SCOPED_LEADER', status: 'ACTIVE' },
@@ -76,7 +79,7 @@ router.get('/follow-ups/attention', asyncHandler(async (req, res) => {
 }));
 
 const scopedPeopleQuerySchema = z.object({
-  contextType: z.enum(['COMMUNITY', 'GEOGRAPHY']),
+  contextType: z.enum(['COMMUNITY']),
   contextId: z.string().min(1),
   search: z.string().trim().max(200).optional(),
 });
@@ -86,6 +89,8 @@ const scopedPeopleQuerySchema = z.object({
 // RoleAssignment scope (never an arbitrary Person, and never a scope the
 // Leader doesn't hold) — this is the read-side counterpart of the same
 // authorization check enforced again server-side on POST /follow-ups below.
+// Geography Retirement Step 5A: contextType now accepts only 'COMMUNITY' —
+// a GEOGRAPHY request is rejected by scopedPeopleQuerySchema itself.
 router.get('/scoped-people', asyncHandler(async (req, res) => {
   const parsed = scopedPeopleQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -103,10 +108,7 @@ router.get('/scoped-people', asyncHandler(async (req, res) => {
     : {};
 
   const items = await prisma.person.findMany({
-    where:
-      contextType === 'COMMUNITY'
-        ? { communityMemberships: { some: { communityId: contextId, status: 'ACTIVE' } }, ...searchFilter }
-        : { geographicAssignment: { geographyId: contextId, status: 'ACTIVE' }, ...searchFilter },
+    where: { communityMemberships: { some: { communityId: contextId, status: 'ACTIVE' } }, ...searchFilter },
     select: { id: true, name: true, whatsappNumber: true },
     take: 20,
     orderBy: { name: 'asc' },
@@ -115,9 +117,11 @@ router.get('/scoped-people', asyncHandler(async (req, res) => {
   res.json({ items });
 }));
 
+// Geography Retirement Step 5A: contextType now accepts only 'COMMUNITY' —
+// a GEOGRAPHY create request is rejected by createFollowUpSchema itself.
 const createFollowUpSchema = z.object({
   followedPersonId: z.string().min(1),
-  contextType: z.enum(['COMMUNITY', 'GEOGRAPHY']),
+  contextType: z.enum(['COMMUNITY']),
   contextId: z.string().min(1),
 });
 
@@ -147,7 +151,7 @@ router.post('/follow-ups', leadershipMutationLimiter, requireCsrf, asyncHandler(
   ]);
   if (!followedPerson) return res.status(400).json({ error: 'Followed Person not found.' });
   if (!targetExists) {
-    return res.status(400).json({ error: contextType === 'COMMUNITY' ? 'Community not found.' : 'Geography not found.' });
+    return res.status(400).json({ error: 'Community not found.' });
   }
 
   const belongs = await personBelongsToContext(followedPersonId, contextType, contextId);

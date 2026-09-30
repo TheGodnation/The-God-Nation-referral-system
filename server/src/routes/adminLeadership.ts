@@ -188,10 +188,12 @@ router.get('/follow-ups', asyncHandler(async (req, res) => {
   res.json(paginatedResult(items, total, page, pageSize));
 }));
 
+// Geography Retirement Step 5A: contextType now accepts only 'COMMUNITY' —
+// a GEOGRAPHY create request is rejected by createFollowUpSchema itself.
 const createFollowUpSchema = z.object({
   followerId: z.string().min(1),
   followedPersonId: z.string().min(1),
-  contextType: z.enum(['COMMUNITY', 'GEOGRAPHY']),
+  contextType: z.enum(['COMMUNITY']),
   contextId: z.string().min(1),
 });
 
@@ -218,7 +220,7 @@ router.post('/follow-ups', leadershipMutationLimiter, requireCsrf, asyncHandler(
   if (!follower) return res.status(400).json({ error: 'Follower Person not found.' });
   if (!followedPerson) return res.status(400).json({ error: 'Followed Person not found.' });
   if (!targetExists) {
-    return res.status(400).json({ error: contextType === 'COMMUNITY' ? 'Community not found.' : 'Geography not found.' });
+    return res.status(400).json({ error: 'Community not found.' });
   }
 
   let created;
