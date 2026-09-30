@@ -10,6 +10,7 @@ import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { findActiveScopedRole, contextTargetExists } from '../lib/leadership';
 import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
+import { computeAttentionAcrossNetwork } from '../lib/followUpAttention';
 
 const router = Router();
 
@@ -176,6 +177,44 @@ router.get('/follow-ups', asyncHandler(async (req, res) => {
   ]);
 
   res.json(paginatedResult(items, total, page, pageSize));
+}));
+
+// GET /api/admin/follow-ups/attention — Central Authority Follow-Up
+// Attention. A derived, read-only, network-wide view of every ACTIVE
+// FollowUpAssignment (across every Leader and every Community) that
+// currently needs attention — see lib/followUpAttention.ts's
+// computeAttentionAcrossNetwork, which reuses the exact same classification
+// rule and priority ordering as the Leader's own
+// GET /api/leader/follow-ups/attention rather than a second rules engine.
+// Placed before the '/follow-ups/:id/...' routes below only for reading
+// order — 'attention' can never collide with those, since none of them are
+// a bare 'GET /follow-ups/:id'. Only the minimum fields a Central Authority
+// oversight view needs are returned: no WhatsApp number, email, address,
+// DOB, photo, contact note, full contact history, or training/assessment
+// data — exactly like the Leader's own attention response, plus the
+// follower and Community identification a network-wide view requires.
+// Classification depends on each assignment's latest contact, so the full
+// ACTIVE set is classified first and paginated in memory afterward — the
+// returned pagination.total reflects the actual attention result set, not
+// the total ACTIVE assignment count (same convention as the Leader route).
+router.get('/follow-ups/attention', asyncHandler(async (req, res) => {
+  const attention = await computeAttentionAcrossNetwork();
+  const { page, pageSize, skip, take } = parsePagination(req);
+
+  const pageItems = attention.slice(skip, skip + take).map((i) => ({
+    followUpAssignmentId: i.followUpAssignmentId,
+    followerPersonId: i.followerPersonId,
+    followerName: i.followerName,
+    personId: i.personId,
+    name: i.name,
+    communityId: i.communityId,
+    communityName: i.communityName,
+    reason: i.reason,
+    lastContactedAt: i.lastContactedAt,
+    nextFollowUpDate: i.nextFollowUpDate,
+  }));
+
+  res.json(paginatedResult(pageItems, attention.length, page, pageSize));
 }));
 
 // Geography Retirement Step 5A: contextType now accepts only 'COMMUNITY' —

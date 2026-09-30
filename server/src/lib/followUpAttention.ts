@@ -57,8 +57,7 @@ function classify(latest: LatestContact | null, now: Date): AttentionReason | nu
  * currently needs attention, in fixed priority order (EMERGENCY first, then
  * NEEDS_ATTENTION, UNABLE_TO_REACH, OVERDUE, NOT_YET_CONTACTED), tied by the
  * assignment's assignedAt (oldest first). CLOSED assignments are never
- * considered. Used by GET /api/leader/follow-ups/attention only — there is
- * deliberately no Admin equivalent in this phase.
+ * considered. Used by GET /api/leader/follow-ups/attention.
  */
 export async function computeAttentionForLeader(followerId: string): Promise<AttentionItem[]> {
   const assignments = await prisma.followUpAssignment.findMany({
@@ -92,4 +91,72 @@ export async function computeAttentionForLeader(followerId: string): Promise<Att
   });
 
   return items;
+}
+
+export interface NetworkAttentionItem extends AttentionItem {
+  followerPersonId: string;
+  followerName: string;
+  communityId: string;
+  communityName: string | null;
+}
+
+/**
+ * Central Authority Follow-Up Attention — every ACTIVE FollowUpAssignment
+ * across the ENTIRE network that currently needs attention, not just one
+ * Leader's own. Reuses the exact same `classify` rule and `REASON_PRIORITY`
+ * ordering as computeAttentionForLeader above — this is deliberately not a
+ * second rules engine; only the query scope (no followerId filter) and the
+ * extra follower/Community identification fields (needed for a network-wide
+ * oversight view, not needed for a Leader's own implicit-scope view) differ.
+ * Used by GET /api/admin/follow-ups/attention only.
+ */
+export async function computeAttentionAcrossNetwork(): Promise<NetworkAttentionItem[]> {
+  const assignments = await prisma.followUpAssignment.findMany({
+    where: { status: 'ACTIVE' },
+    include: {
+      follower: { select: { id: true, name: true } },
+      followedPerson: { select: { id: true, name: true } },
+      contacts: { orderBy: { contactedAt: 'desc' }, take: 1 },
+    },
+  });
+
+  const now = new Date();
+  const classified: { assignment: (typeof assignments)[number]; reason: AttentionReason; latest: LatestContact | null }[] = [];
+  for (const a of assignments) {
+    const latest = a.contacts[0] ?? null;
+    const reason = classify(latest, now);
+    if (!reason) continue;
+    classified.push({ assignment: a, reason, latest });
+  }
+
+  classified.sort((x, y) => {
+    const byPriority = REASON_PRIORITY[x.reason] - REASON_PRIORITY[y.reason];
+    return byPriority !== 0 ? byPriority : x.assignment.assignedAt.getTime() - y.assignment.assignedAt.getTime();
+  });
+
+  // contextId is a plain string column (FollowUpContextType is COMMUNITY-only
+  // since Geography Retirement Step 5A), not a Prisma relation, so the
+  // Community name is resolved in one batched follow-up query rather than an
+  // `include` — same "batch-resolve, don't N+1" convention as every other
+  // cross-model lookup in this codebase.
+  const communityIds = [...new Set(classified.map((c) => c.assignment.contextId))];
+  const communities = await prisma.community.findMany({
+    where: { id: { in: communityIds } },
+    select: { id: true, name: true },
+  });
+  const communityNameById = new Map(communities.map((c) => [c.id, c.name]));
+
+  return classified.map(({ assignment: a, reason, latest }) => ({
+    followUpAssignmentId: a.id,
+    followerPersonId: a.follower.id,
+    followerName: a.follower.name,
+    personId: a.followedPerson.id,
+    name: a.followedPerson.name,
+    communityId: a.contextId,
+    communityName: communityNameById.get(a.contextId) ?? null,
+    reason,
+    lastContactedAt: latest?.contactedAt ?? null,
+    nextFollowUpDate: latest?.nextFollowUpDate ?? null,
+    assignedAt: a.assignedAt,
+  }));
 }

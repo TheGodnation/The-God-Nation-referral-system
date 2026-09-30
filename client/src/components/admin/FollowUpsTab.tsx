@@ -31,6 +31,36 @@ interface FollowUpRow {
   contacts: ContactRow[];
 }
 
+type AttentionReason = 'EMERGENCY' | 'NEEDS_ATTENTION' | 'UNABLE_TO_REACH' | 'OVERDUE' | 'NOT_YET_CONTACTED';
+
+interface AttentionRow {
+  followUpAssignmentId: string;
+  followerPersonId: string;
+  followerName: string;
+  personId: string;
+  name: string;
+  communityId: string;
+  communityName: string | null;
+  reason: AttentionReason;
+  lastContactedAt: string | null;
+  nextFollowUpDate: string | null;
+}
+
+function attentionBadgeClass(reason: AttentionReason) {
+  switch (reason) {
+    case 'EMERGENCY':
+      return 'bg-red-50 text-red-700';
+    case 'NEEDS_ATTENTION':
+      return 'bg-amber-50 text-amber-700';
+    case 'UNABLE_TO_REACH':
+      return 'bg-slate-100 text-slate-500';
+    case 'OVERDUE':
+      return 'bg-orange-50 text-orange-700';
+    default:
+      return 'bg-slate-100 text-slate-500';
+  }
+}
+
 const WELLBEING_OPTIONS: WellbeingStatus[] = ['GOOD', 'NEEDS_ATTENTION', 'EMERGENCY', 'UNABLE_TO_REACH'];
 
 function wellbeingBadgeClass(status: WellbeingStatus) {
@@ -72,6 +102,32 @@ export function FollowUpsTab() {
   const [note, setNote] = useState('');
   const [nextFollowUpDate, setNextFollowUpDate] = useState('');
   const [reassignTarget, setReassignTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const [attentionItems, setAttentionItems] = useState<AttentionRow[]>([]);
+  const [attentionPage, setAttentionPage] = useState(1);
+  const [attentionTotalPages, setAttentionTotalPages] = useState(1);
+  const [attentionLoading, setAttentionLoading] = useState(true);
+  const [attentionError, setAttentionError] = useState<string | null>(null);
+
+  function loadAttention() {
+    setAttentionLoading(true);
+    setAttentionError(null);
+    api
+      .get<{ items: AttentionRow[]; pagination: { totalPages: number } }>(
+        `/api/admin/follow-ups/attention?page=${attentionPage}&pageSize=20`,
+      )
+      .then((res) => {
+        setAttentionItems(res.items);
+        setAttentionTotalPages(res.pagination.totalPages);
+        setAttentionLoading(false);
+      })
+      .catch(() => {
+        setAttentionError(t('admin.followUps.attention_load_failed'));
+        setAttentionLoading(false);
+      });
+  }
+
+  useEffect(loadAttention, [attentionPage]);
 
   function load() {
     const q = statusFilter ? `&status=${statusFilter}` : '';
@@ -316,6 +372,63 @@ export function FollowUpsTab() {
       </div>
 
       <p className="mb-4 text-sm text-slate-500">{t('admin.followUps.description')}</p>
+
+      <div className="mb-4 rounded-lg border border-slate-100 p-3">
+        <h3 className="mb-2 font-medium text-brand-900">{t('admin.followUps.attention_title')}</h3>
+        {attentionLoading && <p className="text-sm text-slate-400">{t('admin.followUps.attention_loading')}</p>}
+        {attentionError && <p className="text-sm text-red-700">{attentionError}</p>}
+        {!attentionLoading && !attentionError && (
+          <>
+            <ul className="space-y-2">
+              {attentionItems.map((a) => (
+                <li key={a.followUpAssignmentId} className="border-b border-slate-50 pb-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-brand-900">{a.name}</p>
+                      <p className="text-slate-500">
+                        {t('admin.followUps.table_community')}: {a.communityName ?? '—'} ·{' '}
+                        {t('admin.followUps.table_follower')}: {a.followerName}
+                      </p>
+                      <p className="text-slate-400">
+                        {a.lastContactedAt
+                          ? t('admin.followUps.attention_last_contact', { date: new Date(a.lastContactedAt).toLocaleDateString() })
+                          : t('admin.followUps.attention_no_contact')}
+                        {a.nextFollowUpDate &&
+                          ` · ${t('admin.followUps.attention_next_followup', { date: new Date(a.nextFollowUpDate).toLocaleDateString() })}`}
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${attentionBadgeClass(a.reason)}`}>
+                      {t(`admin.followUps.attention_reason_${a.reason.toLowerCase()}`)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+              {attentionItems.length === 0 && (
+                <li className="py-2 text-center text-sm text-slate-400">{t('admin.followUps.attention_empty')}</li>
+              )}
+            </ul>
+            {attentionTotalPages > 1 && (
+              <div className="mt-3 flex items-center justify-center gap-3 text-sm">
+                <button
+                  className="btn-secondary px-3 py-1.5"
+                  disabled={attentionPage <= 1}
+                  onClick={() => setAttentionPage((p) => p - 1)}
+                >
+                  {t('admin.prev')}
+                </button>
+                <span>{t('admin.page_of', { page: attentionPage, total: attentionTotalPages })}</span>
+                <button
+                  className="btn-secondary px-3 py-1.5"
+                  disabled={attentionPage >= attentionTotalPages}
+                  onClick={() => setAttentionPage((p) => p + 1)}
+                >
+                  {t('admin.next')}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {showForm && (
         <div className="card mb-4 space-y-4">
