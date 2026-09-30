@@ -87,7 +87,7 @@ async function buildPath(id: string): Promise<{ id: string; name: string }[]> {
 router.get('/:id', asyncHandler(async (req, res) => {
   const node = await prisma.geography.findUnique({
     where: { id: req.params.id },
-    include: { parent: { select: { id: true, name: true } }, _count: { select: { children: true, assignments: true } } },
+    include: { parent: { select: { id: true, name: true } }, _count: { select: { children: true } } },
   });
   if (!node) return res.status(404).json({ error: 'Geography node not found.' });
   res.json({ ...node, path: await buildPath(node.id) });

@@ -14,8 +14,10 @@ import { bootstrap } from './testUtils';
 // files (geography.test.ts, etc.) legitimately create their own
 // Geography-dependent rows. LeadershipProposal was retired in Geography
 // Retirement Step 1, GeographyConversation/GeographyMessage/
-// GeographyConversationRead in Step 2, and AnnouncementTarget.geographyId in
-// Step 4 — this endpoint no longer reports on any of them.
+// GeographyConversationRead in Step 2, AnnouncementTarget.geographyId in
+// Step 4, FollowUpAssignment's GEOGRAPHY context in Step 5A, and
+// GeographicAssignment/RoleAssignment.geographyId entirely in Step 5B — this
+// endpoint no longer reports on any of them.
 const RUN = Math.random().toString(36).slice(2, 10);
 
 const app = createApp();
@@ -104,7 +106,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — security / no wr
   it('performs no write of any kind', async () => {
     const counts = {
       geography: await prisma.geography.count(),
-      geographicAssignment: await prisma.geographicAssignment.count(),
       roleAssignment: await prisma.roleAssignment.count(),
       announcementTarget: await prisma.announcementTarget.count(),
       followUpAssignment: await prisma.followUpAssignment.count(),
@@ -115,7 +116,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — security / no wr
     await getDiagnostics(agent);
 
     expect(await prisma.geography.count()).toBe(counts.geography);
-    expect(await prisma.geographicAssignment.count()).toBe(counts.geographicAssignment);
     expect(await prisma.roleAssignment.count()).toBe(counts.roleAssignment);
     expect(await prisma.announcementTarget.count()).toBe(counts.announcementTarget);
     expect(await prisma.followUpAssignment.count()).toBe(counts.followUpAssignment);
@@ -140,38 +140,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — Geography counts
   });
 });
 
-describe('GET /api/admin/diagnostics/geography-dependencies — Geography-scoped RoleAssignment counts', () => {
-  it('total/active/ended counts are correct', async () => {
-    const geo = await makeGeography('Diag Role Geo');
-    const admin = await createAdmin(`diag-role-owner-${RUN}@test.local`);
-    const personActive = await makePerson();
-    const personEnded = await makePerson();
-
-    const { agent } = await loginAsAdmin(`diag-role-counts-${RUN}@test.local`);
-    const before = await getDiagnostics(agent);
-
-    await prisma.roleAssignment.create({
-      data: { personId: personActive.id, roleType: 'SCOPED_LEADER', assignedByUserId: admin.id, geographyId: geo.id },
-    });
-    await prisma.roleAssignment.create({
-      data: {
-        personId: personEnded.id,
-        roleType: 'SCOPED_LEADER',
-        assignedByUserId: admin.id,
-        geographyId: geo.id,
-        status: 'ENDED',
-        endedAt: new Date(),
-      },
-    });
-
-    const after = await getDiagnostics(agent);
-    expect(after.body.roleAssignments.geographyScopedTotal).toBe(before.body.roleAssignments.geographyScopedTotal + 2);
-    expect(after.body.roleAssignments.active).toBe(before.body.roleAssignments.active + 1);
-    expect(after.body.roleAssignments.ended).toBe(before.body.roleAssignments.ended + 1);
-  });
-});
-
-
 // Geography Retirement Step 5A removed the GEOGRAPHY value from
 // FollowUpAssignment.contextType entirely (see the
 // 20260930094423_retire_followup_geography_context migration) — a
@@ -181,6 +149,15 @@ describe('GET /api/admin/diagnostics/geography-dependencies — Geography-scoped
 // followUpAssignments section is now a fixed { geographyContextRetired,
 // note } shape — covered directly in
 // followUpGeographyRetirement.test.ts's diagnostic test.
+//
+// Geography Retirement Step 5B removed GeographicAssignment and
+// RoleAssignment.geographyId entirely (see the
+// 20260930105022_retire_geographic_assignment_and_role_geography
+// migration) — a Geography-scoped RoleAssignment can no longer be created
+// at all, so the counts test that used to live here no longer applies.
+// Both the geographicAssignments and roleAssignments sections of the
+// endpoint's response are now fixed retirement-notice shapes — covered
+// directly in geographicAssignmentRetirement.test.ts's diagnostic test.
 
 describe('GET /api/admin/diagnostics/geography-dependencies — location data counts', () => {
   it('person location field counts are correct (delta-based, using default test-data exclusion)', async () => {

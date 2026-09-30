@@ -36,10 +36,6 @@ async function makeCommunity(name: string) {
   return prisma.community.create({ data: { name } });
 }
 
-async function makeGeography(name: string, type = 'REGION', countryCode = 'CM') {
-  return prisma.geography.create({ data: { name, type, countryCode } });
-}
-
 describe('Phase 3D — RoleAssignment', () => {
   it('lets an Admin create a Community-scoped SCOPED_LEADER assignment', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-role1@test.local');
@@ -53,47 +49,33 @@ describe('Phase 3D — RoleAssignment', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.communityId).toBe(community.id);
-    expect(res.body.geographyId).toBeNull();
+    expect(res.body).not.toHaveProperty('geographyId');
     expect(res.body.status).toBe('ACTIVE');
   });
 
-  it('lets an Admin create a Geography-scoped SCOPED_LEADER assignment', async () => {
+  it('a stray geographyId sent alongside a valid communityId is silently ignored — the created assignment is Community-only', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-role2@test.local');
     const person = await makePerson('+237672000002');
-    const geography = await makeGeography('Role Test Geography 2');
+    const community = await makeCommunity('Role Test Community 2');
 
     const res = await agent
       .post('/api/admin/role-assignments')
       .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER', geographyId: geography.id });
+      .send({ personId: person.id, roleType: 'SCOPED_LEADER', communityId: community.id, geographyId: '00000000-0000-0000-0000-000000000000' });
 
     expect(res.status).toBe(201);
-    expect(res.body.geographyId).toBe(geography.id);
-    expect(res.body.communityId).toBeNull();
+    expect(res.body.communityId).toBe(community.id);
+    expect(res.body).not.toHaveProperty('geographyId');
   });
 
-  it('rejects an assignment with both communityId and geographyId', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-role3@test.local');
-    const person = await makePerson('+237672000003');
-    const community = await makeCommunity('Role Test Community 3');
-    const geography = await makeGeography('Role Test Geography 3');
-
-    const res = await agent
-      .post('/api/admin/role-assignments')
-      .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER', communityId: community.id, geographyId: geography.id });
-
-    expect(res.status).toBe(400);
-  });
-
-  it('rejects an assignment with neither communityId nor geographyId', async () => {
+  it('rejects an assignment with no communityId at all (geographyId alone is not a valid substitute)', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-role4@test.local');
     const person = await makePerson('+237672000004');
 
     const res = await agent
       .post('/api/admin/role-assignments')
       .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER' });
+      .send({ personId: person.id, roleType: 'SCOPED_LEADER', geographyId: '00000000-0000-0000-0000-000000000000' });
 
     expect(res.status).toBe(400);
   });
@@ -127,46 +109,6 @@ describe('Phase 3D — RoleAssignment', () => {
       .set('X-CSRF-Token', csrf)
       .send({ personId: person.id, roleType: 'SCOPED_LEADER', communityId: community.id });
     expect(second.status).toBe(409);
-  });
-
-  it('rejects a duplicate active assignment for the same Person and Geography', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-role7@test.local');
-    const person = await makePerson('+237672000007');
-    const geography = await makeGeography('Role Test Geography 7');
-
-    const first = await agent
-      .post('/api/admin/role-assignments')
-      .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER', geographyId: geography.id });
-    expect(first.status).toBe(201);
-
-    const second = await agent
-      .post('/api/admin/role-assignments')
-      .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER', geographyId: geography.id });
-    expect(second.status).toBe(409);
-  });
-
-  it('allows the same Person to hold distinct Community and Geography scopes simultaneously', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-role8@test.local');
-    const person = await makePerson('+237672000008');
-    const community = await makeCommunity('Role Test Community 8');
-    const geography = await makeGeography('Role Test Geography 8');
-
-    const communityRes = await agent
-      .post('/api/admin/role-assignments')
-      .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER', communityId: community.id });
-    expect(communityRes.status).toBe(201);
-
-    const geographyRes = await agent
-      .post('/api/admin/role-assignments')
-      .set('X-CSRF-Token', csrf)
-      .send({ personId: person.id, roleType: 'SCOPED_LEADER', geographyId: geography.id });
-    expect(geographyRes.status).toBe(201);
-
-    const active = await prisma.roleAssignment.count({ where: { personId: person.id, status: 'ACTIVE' } });
-    expect(active).toBe(2);
   });
 
   it('lets an Admin end an active role assignment', async () => {
@@ -237,7 +179,7 @@ describe('Phase 3D — RoleAssignment', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects a nonexistent Community/Geography target', async () => {
+  it('rejects a nonexistent Community target', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-role13@test.local');
     const person = await makePerson('+237672000013');
 

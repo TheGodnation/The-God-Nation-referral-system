@@ -491,7 +491,6 @@ model Person {
   users                 User[]
   registrations         Registration[]
   communityMemberships  CommunityMembership[]
-  geographicAssignment  GeographicAssignment?
   attempts              Attempt[]
   participationEvents   ParticipationEvent[]
   memberAccount         MemberAccount?
@@ -596,38 +595,21 @@ model Geography {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  parent          Geography?             @relation("GeographyHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children        Geography[]            @relation("GeographyHierarchy")
-  assignments     GeographicAssignment[]
-  roleAssignments RoleAssignment[]
+  parent   Geography?  @relation("GeographyHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Geography[] @relation("GeographyHierarchy")
 
   @@index([parentId])
   @@index([countryCode, parentId])
   @@index([active])
 }
 
-// Associates a Person with their current geographic locality. `personId` is
-// unique because Phase 3A supports exactly one CURRENT active assignment
-// per person — reassigning updates this same row's geographyId/assignedAt
-// rather than creating a new one. Ancestors (Region/Division/Subdivision/
-// etc.) are derived through Geography.parentId, never redundantly stored
-// here. Historical movement tracking is an explicitly deferred future
-// phase; this table represents "current residence/locality" only, not
-// place of birth or origin.
-model GeographicAssignment {
-  id          String           @id @default(uuid())
-  personId    String           @unique
-  geographyId String
-  assignedAt  DateTime         @default(now())
-  status      MembershipStatus @default(ACTIVE)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-
-  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
-  geography Geography @relation(fields: [geographyId], references: [id])
-
-  @@index([geographyId])
-}
+// Geography Retirement Step 5B removed GeographicAssignment (the
+// organizational Person<->Geography assignment table) and
+// RoleAssignment.geographyId entirely — Geography no longer has any
+// organizational/authorization role anywhere in this schema. The Geography
+// model itself, and Person's own descriptive locationCountry/City/Area
+// fields, are untouched; only the retirement of the final Geography model
+// remains, in a later dedicated step.
 
 // ---------------------------------------------------------------------------
 // Monthly Devotional + reusable Assessment foundation (Phase 3B)
@@ -875,12 +857,17 @@ model MemberSession {
 // no inherited/ancestor scope coverage, no additional role types. Never
 // hard-deleted — ending a role sets status=ENDED/endedAt rather than
 // removing the row, preserving the historical record.
+// Geography Retirement Step 5B removed geographyId (and its CHECK
+// constraint/partial unique index/FK/index) entirely — SCOPED_LEADER is
+// Community-scoped only now. communityId stays nullable at the database
+// level rather than gaining a NOT NULL constraint, matching the same
+// safety precedent as AnnouncementTarget (Step 4): the application layer
+// (adminLeadership.ts) requires it for every newly created assignment.
 model RoleAssignment {
   id               String               @id @default(uuid())
   personId         String
   roleType         RoleType
   communityId      String?
-  geographyId      String?
   assignedByUserId String
   assignedAt       DateTime             @default(now())
   status           RoleAssignmentStatus @default(ACTIVE)
@@ -890,12 +877,10 @@ model RoleAssignment {
 
   person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
   community  Community? @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  geography  Geography? @relation(fields: [geographyId], references: [id], onDelete: Cascade)
   assignedBy User       @relation("RoleAssignmentAssignedBy", fields: [assignedByUserId], references: [id])
 
   @@index([personId])
   @@index([communityId])
-  @@index([geographyId])
   @@index([status])
   @@index([assignedByUserId])
 }

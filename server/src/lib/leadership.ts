@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from './prisma';
 import type { FollowUpContextType } from '@prisma/client';
-import { getDescendantGeographyIds } from './tree';
 
 declare global {
   namespace Express {
@@ -45,9 +44,9 @@ export async function resolveActingPersonId(userId: string): Promise<string | nu
  * authorizes a child, and vice versa. `contextType` is retained in the
  * signature (every current caller still passes 'COMMUNITY' explicitly) even
  * though FollowUpContextType now has only that one value — Geography
- * Retirement Step 5A removed the GEOGRAPHY branch that used to consult
- * RoleAssignment.geographyId here; that field itself is retired in a later
- * step.
+ * Retirement Step 5A removed the GEOGRAPHY branch that used to consult this,
+ * and Step 5B removed RoleAssignment.geographyId itself: SCOPED_LEADER is
+ * Community-scoped only now.
  */
 export async function findActiveScopedRole(
   personId: string,
@@ -83,30 +82,6 @@ export async function personBelongsToContext(
     where: { personId_communityId: { personId, communityId: contextId } },
   });
   return membership?.status === 'ACTIVE';
-}
-
-/**
- * Phase 3K — additive, Geography-only, descendant-aware authorization
- * check. Does NOT replace or alter findActiveScopedRole, which remains
- * exact-match and is still the sole authorization gate for Follow-Up
- * creation/reassignment/contacts, Community roster, and community-progress
- * — none of those callers are touched by this addition.
- *
- * True when the Leader holds an ACTIVE SCOPED_LEADER RoleAssignment for a
- * Geography node that is `requestedGeographyId` itself, or an ancestor of
- * it (i.e. `requestedGeographyId` is that node or one of its descendants).
- * Used only by the Geography branch of GET /api/leader/roster.
- */
-export async function isGeographyInLeaderScope(personId: string, requestedGeographyId: string): Promise<boolean> {
-  const roles = await prisma.roleAssignment.findMany({
-    where: { personId, roleType: 'SCOPED_LEADER', status: 'ACTIVE', geographyId: { not: null } },
-    select: { geographyId: true },
-  });
-  for (const role of roles) {
-    const descendants = await getDescendantGeographyIds(role.geographyId!);
-    if (descendants.includes(requestedGeographyId)) return true;
-  }
-  return false;
 }
 
 /**

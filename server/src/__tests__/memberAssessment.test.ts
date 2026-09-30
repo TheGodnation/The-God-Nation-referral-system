@@ -308,7 +308,7 @@ describe('Phase 3C — Member self-service attempt ownership and scoring', () =>
   });
 });
 
-describe('Phase 3C — Member read-only own Community/Geography', () => {
+describe('Phase 3C — Member read-only own Community', () => {
   it('returns only the member\'s own CommunityMembership, minimal fields, no editing', async () => {
     const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-member-readonly-community@test.local');
     const community = await adminAgent.post('/api/admin/communities').set('X-CSRF-Token', adminCsrf).send({ name: 'Readonly Community' });
@@ -330,29 +330,7 @@ describe('Phase 3C — Member read-only own Community/Geography', () => {
     expect(editAttempt.status).toBe(404);
   });
 
-  it('returns only the member\'s own GeographicAssignment, or null if unassigned', async () => {
-    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-member-readonly-geo@test.local');
-    const { agent: memberAgentUnassigned } = await loginAsMember('+237670012002', 'readonly-geo-none@example.com');
-
-    const none = await memberAgentUnassigned.get('/api/member/me/geographic-assignment');
-    expect(none.body.assignment).toBeNull();
-
-    const country = await adminAgent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', adminCsrf)
-      .send({ name: 'Readonly Land', type: 'COUNTRY', countryCode: 'RL' });
-    const { agent: memberAgentAssigned, person } = await loginAsMember('+237670012003', 'readonly-geo-yes@example.com');
-    await adminAgent
-      .put(`/api/admin/people/${person.id}/geographic-assignment`)
-      .set('X-CSRF-Token', adminCsrf)
-      .send({ geographyId: country.body.id });
-
-    const assigned = await memberAgentAssigned.get('/api/member/me/geographic-assignment');
-    expect(assigned.body.assignment.geographyName).toBe('Readonly Land');
-    expect(assigned.body.assignment.geographyType).toBe('COUNTRY');
-  });
-
-  it('never exposes another member\'s community/geography data', async () => {
+  it('never exposes another member\'s community data', async () => {
     const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-member-readonly-isolation@test.local');
     const community = await adminAgent.post('/api/admin/communities').set('X-CSRF-Token', adminCsrf).send({ name: 'Isolated Community' });
     const { person: personA } = await loginAsMember('+237670012004', 'isolation-a@example.com');

@@ -5,13 +5,9 @@ import { api, ApiError } from '../../lib/api';
 interface RoleAssignmentItem {
   id: string;
   community: { id: string; name: string } | null;
-  geography: { id: string; name: string; type: string } | null;
 }
 
-type ScopeType = 'COMMUNITY' | 'GEOGRAPHY';
-
 interface ScopeOption {
-  scopeType: ScopeType;
   scopeId: string;
   scopeName: string;
 }
@@ -22,58 +18,36 @@ interface CommunityRosterRow {
   membershipJoinedAt: string;
 }
 
-interface GeographyRosterRow {
-  personId: string;
-  name: string;
-  geographicAssignedAt: string;
-  // Phase 3K only: the person's own assigned Geography id, present so this
-  // component can tell an exact-scope row apart from a descendant-only row
-  // without a second request (see the server-side comment in leader.ts).
-  personGeographyId: string;
-}
-
-// Phase 3H — a read-only roster of the People belonging to a scope the
-// Leader currently holds an ACTIVE SCOPED_LEADER RoleAssignment for. Gated
-// on holding at least one active role of EITHER scope type (unlike
-// TrainingProgress, which is Community-only, since training has no
-// Geography concept) — a component-level convenience only; the server
-// enforces authorization independently on every request.
+// Phase 3H — a read-only roster of the People belonging to a Community the
+// Leader currently holds an ACTIVE SCOPED_LEADER RoleAssignment for. The
+// server enforces authorization independently on every request.
 //
 // Phase 3J adds one action — "Start Follow-Up" — that posts directly to the
 // existing POST /api/leader/follow-ups using this row's personId and the
-// currently selected scope as contextType/contextId. No new authorization
-// logic lives here: the server independently re-verifies the scoped role,
-// the person's membership in the exact scope, and the no-duplicate-active
-// constraint on every request, exactly as it already does for the create
-// form in MyFollowUp.tsx. Still no reassign/close/bulk actions, and no
-// roster-level display of any other Person's follow-up state.
-//
-// Phase 3K makes the Geography branch descendant-aware server-side (a
-// Region Leader's roster now also includes people in that Region's
-// Divisions/Sub-Divisions/Villages) while Community stays exact-scope only.
-//
-// Geography Retirement Step 5A: "Start Follow-Up" is Community-only now —
-// POST /api/leader/follow-ups rejects a GEOGRAPHY context outright, so a
-// Geography row (exact-scope or descendant) shows an explanatory label
-// instead of a button that would just fail. This is isolated to the
-// Follow-Up action alone — the Geography roster itself (viewing who is
-// assigned to a Geography, including its descendants) is untouched and
-// retired in a later, dedicated step.
+// currently selected Community as contextType/contextId. No new
+// authorization logic lives here: the server independently re-verifies the
+// scoped role, the person's membership in the exact scope, and the
+// no-duplicate-active constraint on every request, exactly as it already
+// does for the create form in MyFollowUp.tsx. Still no reassign/close/bulk
+// actions, and no roster-level display of any other Person's follow-up
+// state.
 //
 // Phase 3M.8A adds Community Administrator membership management —
 // "Add existing member" (by WhatsApp number, this Community's identity key;
-// never a free-text search across all Persons) and "Remove" for Community
-// rows only, since Geography membership isn't something a Leader manages
-// here at all (GeographicAssignment is set by Admin, see adminPeople.ts).
-// Both actions post to leaderCommunities.ts, which independently re-verifies
-// the exact-scope Community Administrator role on every request — this
+// never a free-text search across all Persons) and "Remove". Both actions
+// post to leaderCommunities.ts, which independently re-verifies the
+// exact-scope Community Administrator role on every request — this
 // component's own scope selector is a display convenience only.
+//
+// Geography Retirement Step 5B removed the Geography branch this component
+// used to also offer entirely — GET /api/leader/roster is Community-scoped
+// only now, and RoleAssignment can no longer be Geography-scoped at all.
 export function MyMembers() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [scopes, setScopes] = useState<ScopeOption[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>('');
-  const [rows, setRows] = useState<(CommunityRosterRow | GeographyRosterRow)[]>([]);
+  const [rows, setRows] = useState<CommunityRosterRow[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -92,26 +66,24 @@ export function MyMembers() {
     api
       .get<{ items: RoleAssignmentItem[] }>('/api/leader/role-assignments')
       .then((res) => {
-        const options: ScopeOption[] = res.items.map((r) =>
-          r.community
-            ? { scopeType: 'COMMUNITY' as const, scopeId: r.community.id, scopeName: r.community.name }
-            : { scopeType: 'GEOGRAPHY' as const, scopeId: r.geography!.id, scopeName: r.geography!.name },
-        );
+        const options: ScopeOption[] = res.items
+          .filter((r): r is RoleAssignmentItem & { community: { id: string; name: string } } => Boolean(r.community))
+          .map((r) => ({ scopeId: r.community.id, scopeName: r.community.name }));
         setScopes(options);
-        if (options.length > 0) setSelectedKey(`${options[0].scopeType}:${options[0].scopeId}`);
+        if (options.length > 0) setSelectedKey(options[0].scopeId);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
-  const selected = scopes.find((s) => `${s.scopeType}:${s.scopeId}` === selectedKey) ?? null;
+  const selected = scopes.find((s) => s.scopeId === selectedKey) ?? null;
 
   function loadRoster() {
     if (!selected) return;
     setError(null);
     api
-      .get<{ items: (CommunityRosterRow | GeographyRosterRow)[]; pagination: { totalPages: number } }>(
-        `/api/leader/roster?scopeType=${selected.scopeType}&scopeId=${selected.scopeId}&page=${page}&pageSize=20`,
+      .get<{ items: CommunityRosterRow[]; pagination: { totalPages: number } }>(
+        `/api/leader/roster?scopeType=COMMUNITY&scopeId=${selected.scopeId}&page=${page}&pageSize=20`,
       )
       .then((res) => {
         setRows(res.items);
@@ -124,13 +96,6 @@ export function MyMembers() {
 
   if (loading || scopes.length === 0) return null;
 
-  const dateLabel =
-    selected?.scopeType === 'COMMUNITY' ? t('leader.myMembers.table_joined') : t('leader.myMembers.table_assigned');
-
-  function rowDate(row: CommunityRosterRow | GeographyRosterRow): string {
-    return 'membershipJoinedAt' in row ? row.membershipJoinedAt : row.geographicAssignedAt;
-  }
-
   async function startFollowUp(personId: string) {
     if (!selected) return;
     setStartingPersonId(personId);
@@ -142,7 +107,7 @@ export function MyMembers() {
     try {
       await api.post('/api/leader/follow-ups', {
         followedPersonId: personId,
-        contextType: selected.scopeType,
+        contextType: 'COMMUNITY',
         contextId: selected.scopeId,
       });
       setActionResults((prev) => ({ ...prev, [personId]: { ok: true, text: t('leader.myMembers.start_followup_success') ?? '' } }));
@@ -156,7 +121,7 @@ export function MyMembers() {
 
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
-    if (!selected || selected.scopeType !== 'COMMUNITY' || !addWhatsapp.trim() || addSubmitting) return;
+    if (!selected || !addWhatsapp.trim() || addSubmitting) return;
     setAddSubmitting(true);
     setAddResult(null);
     try {
@@ -174,7 +139,7 @@ export function MyMembers() {
   }
 
   async function removeMember(personId: string) {
-    if (!selected || selected.scopeType !== 'COMMUNITY' || removingPersonId) return;
+    if (!selected || removingPersonId) return;
     if (!window.confirm(t('leader.myMembers.remove_confirm') ?? '')) return;
     setRemovingPersonId(personId);
     try {
@@ -202,8 +167,8 @@ export function MyMembers() {
             }}
           >
             {scopes.map((s) => (
-              <option key={`${s.scopeType}:${s.scopeId}`} value={`${s.scopeType}:${s.scopeId}`}>
-                {s.scopeName} ({s.scopeType === 'COMMUNITY' ? t('leader.myMembers.scope_community') : t('leader.myMembers.scope_geography')})
+              <option key={s.scopeId} value={s.scopeId}>
+                {s.scopeName}
               </option>
             ))}
           </select>
@@ -211,33 +176,28 @@ export function MyMembers() {
       </div>
 
       {selected && (
-        <p className="mb-1 text-sm text-slate-500">
-          {selected.scopeType === 'COMMUNITY' ? t('leader.myMembers.scope_community') : t('leader.myMembers.scope_geography')}
+        <p className="mb-3 text-sm text-slate-500">
+          {t('leader.myMembers.scope_community')}
           {': '}
           {selected.scopeName}
         </p>
       )}
-      {selected?.scopeType === 'GEOGRAPHY' && (
-        <p className="mb-3 text-xs text-slate-400">{t('leader.myMembers.geography_descendant_note')}</p>
-      )}
 
-      {selected?.scopeType === 'COMMUNITY' && (
-        <form onSubmit={addMember} className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <input
-            className="input flex-1"
-            placeholder={t('leader.myMembers.add_member_placeholder') ?? ''}
-            value={addWhatsapp}
-            onChange={(e) => setAddWhatsapp(e.target.value)}
-            disabled={addSubmitting}
-          />
-          <button type="submit" className="btn-secondary sm:w-40" disabled={addSubmitting || !addWhatsapp.trim()}>
-            {addSubmitting ? t('leader.myMembers.add_member_submitting') : t('leader.myMembers.add_member_submit')}
-          </button>
-          {addResult && (
-            <span className={`text-xs ${addResult.ok ? 'text-green-700' : 'text-red-700'}`}>{addResult.text}</span>
-          )}
-        </form>
-      )}
+      <form onSubmit={addMember} className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          className="input flex-1"
+          placeholder={t('leader.myMembers.add_member_placeholder') ?? ''}
+          value={addWhatsapp}
+          onChange={(e) => setAddWhatsapp(e.target.value)}
+          disabled={addSubmitting}
+        />
+        <button type="submit" className="btn-secondary sm:w-40" disabled={addSubmitting || !addWhatsapp.trim()}>
+          {addSubmitting ? t('leader.myMembers.add_member_submitting') : t('leader.myMembers.add_member_submit')}
+        </button>
+        {addResult && (
+          <span className={`text-xs ${addResult.ok ? 'text-green-700' : 'text-red-700'}`}>{addResult.text}</span>
+        )}
+      </form>
 
       {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
 
@@ -246,7 +206,7 @@ export function MyMembers() {
           <thead>
             <tr className="border-b border-slate-100 text-slate-400">
               <th className="py-2 pr-4">{t('leader.myMembers.table_person')}</th>
-              <th className="py-2 pr-4">{dateLabel}</th>
+              <th className="py-2 pr-4">{t('leader.myMembers.table_joined')}</th>
               <th className="py-2 pr-4">{t('leader.myMembers.table_action')}</th>
             </tr>
           </thead>
@@ -257,12 +217,12 @@ export function MyMembers() {
               return (
                 <tr key={r.personId} className="border-b border-slate-50">
                   <td className="py-2 pr-4">{r.name}</td>
-                  <td className="py-2 pr-4">{new Date(rowDate(r)).toLocaleDateString()}</td>
+                  <td className="py-2 pr-4">{new Date(r.membershipJoinedAt).toLocaleDateString()}</td>
                   <td className="py-2 pr-4">
                     <div className="space-y-1">
                       {result?.ok ? (
                         <span className="block text-xs font-medium text-green-700">{result.text}</span>
-                      ) : selected?.scopeType === 'COMMUNITY' ? (
+                      ) : (
                         <div>
                           <button
                             className="text-brand-700 hover:underline disabled:text-slate-300"
@@ -274,23 +234,19 @@ export function MyMembers() {
                           </button>
                           {result && !result.ok && <p className="text-xs text-red-700">{result.text}</p>}
                         </div>
-                      ) : (
-                        <span className="block text-xs text-slate-400">{t('leader.myMembers.followup_geography_retired')}</span>
                       )}
 
-                      {selected?.scopeType === 'COMMUNITY' && (
-                        <div>
-                          <button
-                            type="button"
-                            className="text-xs text-red-700 hover:underline disabled:text-slate-300"
-                            disabled={removingPersonId === r.personId}
-                            onClick={() => removeMember(r.personId)}
-                          >
-                            {t('leader.myMembers.remove_action')}
-                          </button>
-                          {removeResult && !removeResult.ok && <p className="text-xs text-red-700">{removeResult.text}</p>}
-                        </div>
-                      )}
+                      <div>
+                        <button
+                          type="button"
+                          className="text-xs text-red-700 hover:underline disabled:text-slate-300"
+                          disabled={removingPersonId === r.personId}
+                          onClick={() => removeMember(r.personId)}
+                        >
+                          {t('leader.myMembers.remove_action')}
+                        </button>
+                        {removeResult && !removeResult.ok && <p className="text-xs text-red-700">{removeResult.text}</p>}
+                      </div>
                     </div>
                   </td>
                 </tr>

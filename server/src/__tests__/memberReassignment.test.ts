@@ -454,21 +454,6 @@ describe('Member Reassignment — data isolation', () => {
     expect(refreshedPerson?.locationArea).toBe('Bonapriso');
   });
 
-  it('a Geographic Assignment remains unchanged by a Community membership move', async () => {
-    const { agent, csrf } = await loginAsAdmin(15);
-    const person = await makePerson('+237600000116');
-    const a = await makeCommunity('MR Geo Community A');
-    const b = await makeCommunity('MR Geo Community B');
-    await makeMembership(person.id, a.id);
-    const geography = await prisma.geography.create({ data: { name: 'MR Test Region', type: 'REGION', countryCode: 'CM' } });
-    const assignment = await prisma.geographicAssignment.create({ data: { personId: person.id, geographyId: geography.id } });
-
-    const res = await move(agent, csrf, person.id, a.id, b.id);
-    expect(res.status).toBe(200);
-
-    const refreshed = await prisma.geographicAssignment.findUnique({ where: { id: assignment.id } });
-    expect(refreshed?.geographyId).toBe(geography.id);
-  });
 });
 
 describe('Member Reassignment — endpoint behavior', () => {

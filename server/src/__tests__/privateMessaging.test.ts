@@ -233,27 +233,6 @@ describe('Private Messaging — Leader authorization', () => {
     expect(res.status).toBe(403);
   });
 
-  it('Geography does not grant permission (a Geography-only Leader cannot message anyone via this route)', async () => {
-    const geography = await prisma.geography.create({ data: { name: 'PM Geography', type: 'REGION', countryCode: 'CM' } });
-    const email = 'pm-geo-leader@test.local';
-    const { user } = await createLeader('PM Geo Leader', email, 'PMGEOCODE');
-    const leaderPerson = await makePerson('+237695900001', 'PM Geo Leader Person');
-    await prisma.user.update({ where: { id: user.id }, data: { personId: leaderPerson.id } });
-    await prisma.roleAssignment.create({
-      data: { personId: leaderPerson.id, roleType: 'SCOPED_LEADER', assignedByUserId: user.id, geographyId: geography.id },
-    });
-    const agent = agentWithUniqueIp();
-    const { csrf } = await bootstrap(agent as any);
-    await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'password123' });
-
-    const { person: member } = await loginAsMember('+237694900011', 'pm-member11@example.com');
-
-    const res = await agent
-      .post('/api/leader/private-messages/conversations')
-      .set('X-CSRF-Token', csrf)
-      .send({ personIds: [member.id], body: 'Should be rejected' });
-    expect(res.status).toBe(403);
-  });
 });
 
 describe('Private Messaging — participant isolation', () => {

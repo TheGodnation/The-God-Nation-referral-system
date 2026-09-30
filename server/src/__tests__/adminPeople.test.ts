@@ -30,7 +30,6 @@ describe('Phase 3A — Admin People management', () => {
     const detail = await agent.get(`/api/admin/people/${created.body.id}`);
     expect(detail.status).toBe(200);
     expect(detail.body.name).toBe('Grace Mbeki');
-    expect(detail.body.geographicAssignment).toBeNull();
     expect(detail.body.communityMemberships).toEqual([]);
 
     const edited = await agent

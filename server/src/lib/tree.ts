@@ -24,40 +24,10 @@ export async function wouldCreateCycle(
 }
 
 /**
- * Phase 3K — narrowly scoped to Geography only (unlike wouldCreateCycle
- * above, which is a generic two-hierarchy helper). Returns `rootId` itself
- * plus every descendant id, walking DOWN via Geography.parentId one level
- * at a time (breadth-first, one batched query per level) — application-
- * level traversal consistent with the rest of this codebase, never a
- * $queryRaw or recursive SQL CTE. The `seen` set is both the accumulator
- * and the cycle guard: a child already seen is never re-queued, so
- * malformed/cyclic data can never cause an infinite loop.
- */
-export async function getDescendantGeographyIds(rootId: string): Promise<string[]> {
-  const seen = new Set<string>([rootId]);
-  let frontier = [rootId];
-  while (frontier.length > 0) {
-    const children = await prisma.geography.findMany({
-      where: { parentId: { in: frontier } },
-      select: { id: true },
-    });
-    const next: string[] = [];
-    for (const child of children) {
-      if (!seen.has(child.id)) {
-        seen.add(child.id);
-        next.push(child.id);
-      }
-    }
-    frontier = next;
-  }
-  return Array.from(seen);
-}
-
-/**
- * Headquarters Network Posts — the Community-tree analog of
- * getDescendantGeographyIds above, walking DOWN from rootId via
- * Community.parentId (breadth-first, one batched query per level), same
- * `seen`-set accumulator/cycle-guard shape. Used for network-wide
+ * Headquarters Network Posts — walks DOWN from rootId via Community.parentId
+ * (breadth-first, one batched query per level), returning rootId itself plus
+ * every descendant id; a `seen`-set accumulator/cycle-guard, same shape as
+ * wouldCreateCycle above. Used for network-wide
  * Headquarters Post eligibility: every Person with an ACTIVE
  * CommunityMembership in the Headquarters Community itself or any of its
  * descendants qualifies (see lib/headquartersPosts.ts). Never used for
@@ -136,15 +106,14 @@ export async function getHeadquartersCommunityId(): Promise<string | null> {
 /**
  * Phase 2A — the Communities at an exact Headquarters-relative generation.
  * Walks DOWN from headquartersCommunityId exactly `generation` levels via
- * Community.parentId (breadth-first, one batched query per level),
- * mirroring getDescendantGeographyIds's own downward-walk style. Generation
+ * Community.parentId (breadth-first, one batched query per level), the same
+ * downward-walk style as getDescendantCommunityIds above. Generation
  * 0 returns the Headquarters id itself with no query at all. Deliberately
  * bounded by the `generation` argument (a fixed, finite number of loop
  * iterations) rather than by a `seen`-set termination check — malformed or
  * cyclic parentId data can therefore never cause this to loop forever, no
  * matter how the data is corrupted; `seen` here exists only to keep the
- * returned ids de-duplicated (the same defensive-hygiene role it plays in
- * getDescendantGeographyIds), not to guarantee termination. Returns an
+ * returned ids de-duplicated, not to guarantee termination. Returns an
  * empty array once frontier is empty (a shallower Headquarters tree than
  * the requested generation) — never invents a Community id.
  */

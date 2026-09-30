@@ -352,12 +352,14 @@ describe('Resource Access Grants — domain isolation', () => {
     void leaderPerson;
   });
 
-  it('Geography does not grant access', async () => {
-    const geography = await prisma.geography.create({ data: { name: 'RA Geography', type: 'REGION', countryCode: 'CM' } });
+  it('descriptive location fields do not grant access', async () => {
     const { agent: adminAgent, csrf } = await loginAsAdmin(18);
-    const resource = await createResource(adminAgent, csrf, 'Geography Alone Resource');
+    const resource = await createResource(adminAgent, csrf, 'Location Alone Resource');
     const { agent: memberAgent, person } = await loginAsMember('+237692900021', 'ra-member15@example.com');
-    await prisma.geographicAssignment.create({ data: { personId: person.id, geographyId: geography.id } });
+    await prisma.person.update({
+      where: { id: person.id },
+      data: { locationCountry: 'Cameroon', locationCity: 'Douala', locationArea: 'Bonapriso' },
+    });
 
     const res = await memberAgent.get('/api/me/resources');
     expect(res.body.items.map((r: any) => r.id)).not.toContain(resource.id);

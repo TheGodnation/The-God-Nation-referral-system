@@ -6,7 +6,6 @@ import { SearchPicker } from '../admin/SearchPicker';
 interface RoleAssignmentItem {
   id: string;
   community: { id: string; name: string } | null;
-  geography: { id: string; name: string; type: string } | null;
 }
 
 type RecommendationStatus = 'PROPOSED' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';

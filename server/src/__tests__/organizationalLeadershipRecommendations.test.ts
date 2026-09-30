@@ -51,10 +51,6 @@ async function makePerson(whatsappNumber: string, name = 'Recommendation Test Pe
   return prisma.person.create({ data: { name, whatsappNumber } });
 }
 
-async function makeGeography(name: string) {
-  return prisma.geography.create({ data: { name, type: 'REGION', countryCode: 'CM' } });
-}
-
 async function addActiveMember(personId: string, communityId: string) {
   return prisma.communityMembership.create({ data: { personId, communityId, status: 'ACTIVE' } });
 }
@@ -74,21 +70,6 @@ async function setupCommunityLeader(n: number, communityId: string, name?: strin
   const { csrf } = await bootstrap(agent as any);
   await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'password123' });
   return { agent, csrf, user, person, role };
-}
-
-async function setupGeographyOnlyLeader(n: number, geographyId: string) {
-  const email = `leader-orgrec-geo${n}@test.local`;
-  const { user } = await createLeader(`OrgRec Geo Leader ${n}`, email, `ORG${n}CODE`);
-  const person = await makePerson(`+237986${String(900000 + n).padStart(6, '0')}`, `OrgRec Geo Leader Person ${n}`);
-  await prisma.user.update({ where: { id: user.id }, data: { personId: person.id } });
-  await prisma.roleAssignment.create({
-    data: { personId: person.id, roleType: 'SCOPED_LEADER', assignedByUserId: user.id, geographyId },
-  });
-
-  const agent = agentWithUniqueIp();
-  const { csrf } = await bootstrap(agent as any);
-  await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'password123' });
-  return { agent, csrf, user, person };
 }
 
 describe('Phase 2C — authentication', () => {
@@ -227,21 +208,6 @@ describe('Phase 2C — Leader authorization (anchor Community exactness)', () =>
     expect(res.status).toBe(403);
   });
 
-  it('a Geography-only Leader cannot create an organizational recommendation', async () => {
-    const geography = await makeGeography('OrgRec Auth Geography A');
-    const hq = await makeCommunity('OrgRec Auth HQ H');
-    await setHeadquarters(hq.id);
-    const a = await makeCommunity('OrgRec Auth HQ H - A', hq.id);
-    const { agent, csrf } = await setupGeographyOnlyLeader(9, geography.id);
-    const candidate = await makePerson('+237987000006');
-    await addActiveMember(candidate.id, a.id);
-
-    const res = await agent
-      .post('/api/leader/organizational-leadership-recommendations')
-      .set('X-CSRF-Token', csrf)
-      .send({ proposedPersonId: candidate.id, communityId: a.id });
-    expect(res.status).toBe(403);
-  });
 
   it('a client-supplied proposer Person id cannot impersonate another Leader', async () => {
     const hq = await makeCommunity('OrgRec Auth HQ I');
@@ -615,18 +581,6 @@ describe('Phase 2C — separation from Geography', () => {
     expect(res.status).toBe(201);
   });
 
-  it('an organizational recommendation never modifies Geography leadership', async () => {
-    const hq = await makeCommunity('OrgRec Separation HQ B');
-    await setHeadquarters(hq.id);
-    const a = await makeCommunity('OrgRec Separation HQ B - A', hq.id);
-    const { agent, csrf } = await setupCommunityLeader(34, a.id);
-    const candidate = await makePerson('+237987000030');
-    await addActiveMember(candidate.id, a.id);
-
-    const geoRolesBefore = await prisma.roleAssignment.count({ where: { geographyId: { not: null } } });
-    await agent.post('/api/leader/organizational-leadership-recommendations').set('X-CSRF-Token', csrf).send({ proposedPersonId: candidate.id, communityId: a.id });
-    expect(await prisma.roleAssignment.count({ where: { geographyId: { not: null } } })).toBe(geoRolesBefore);
-  });
 });
 
 describe('Phase 2C — administrative isolation', () => {

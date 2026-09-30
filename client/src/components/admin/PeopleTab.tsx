@@ -21,15 +21,10 @@ interface PersonRow {
   whatsappNumber: string;
   email: string | null;
   preferredLanguage: string;
-  geographicAssignment: { geography: { id: string; name: string; type: string } } | null;
   _count: { communityMemberships: number; registrations: number };
 }
 
-interface PersonDetail extends Omit<PersonRow, 'geographicAssignment'> {
-  geographicAssignment: {
-    id: string;
-    geography: { id: string; name: string; type: string; countryCode: string };
-  } | null;
+interface PersonDetail extends PersonRow {
   communityMemberships: {
     id: string;
     status: 'ACTIVE' | 'INACTIVE';
@@ -190,17 +185,6 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
     }
   }
 
-  async function assignGeography(geo: any) {
-    if (!selectedId) return;
-    setDetailError(null);
-    try {
-      await api.put(`/api/admin/people/${selectedId}/geographic-assignment`, { geographyId: geo.id });
-      loadDetail(selectedId);
-    } catch (err) {
-      setDetailError(err instanceof ApiError ? err.message : t('admin.people.assign_failed'));
-    }
-  }
-
   async function addMembership(community: any) {
     if (!selectedId) return;
     setDetailError(null);
@@ -341,23 +325,6 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
             {t('admin.people.save_changes')}
           </button>
         </form>
-
-        <div className="card mb-4 space-y-3">
-          <h2 className="font-semibold text-brand-900">{t('admin.people.geographic_assignment')}</h2>
-          <p className="text-sm text-slate-600">
-            {detail.geographicAssignment
-              ? `${detail.geographicAssignment.geography.name} (${detail.geographicAssignment.geography.type})`
-              : t('admin.people.no_assignment')}
-          </p>
-          <SearchPicker
-            placeholder={t('admin.people.search_geography_placeholder') ?? ''}
-            searchPath="/api/admin/geography?search="
-            renderLabel={(g) => `${g.name} (${g.type}, ${g.countryCode})`}
-            actionLabel={t('admin.people.assign')}
-            searchButtonLabel={t('admin.people.search_button')}
-            onPick={assignGeography}
-          />
-        </div>
 
         <div className="card space-y-3">
           <h2 className="font-semibold text-brand-900">{t('admin.people.community_memberships')}</h2>
@@ -579,7 +546,6 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
               <th className="py-2 pr-4">{t('admin.people.table_action')}</th>
               <th className="py-2 pr-4">{t('admin.people.table_name')}</th>
               <th className="py-2 pr-4">{t('admin.people.table_whatsapp')}</th>
-              <th className="py-2 pr-4">{t('admin.people.table_geography')}</th>
               <th className="py-2 pr-4">{t('admin.people.table_communities')}</th>
             </tr>
           </thead>
@@ -593,13 +559,12 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
                 </td>
                 <td className="py-2 pr-4">{p.name}</td>
                 <td className="py-2 pr-4">{p.whatsappNumber}</td>
-                <td className="py-2 pr-4">{p.geographicAssignment?.geography.name ?? '—'}</td>
                 <td className="py-2 pr-4">{p._count.communityMemberships}</td>
               </tr>
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-4 text-center text-slate-400">
+                <td colSpan={4} className="py-4 text-center text-slate-400">
                   {t('admin.people.no_people')}
                 </td>
               </tr>

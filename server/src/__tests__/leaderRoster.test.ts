@@ -36,14 +36,10 @@ async function makeCommunity(name: string) {
   return prisma.community.create({ data: { name } });
 }
 
-async function makeGeography(name: string, type = 'REGION', countryCode = 'CM') {
-  return prisma.geography.create({ data: { name, type, countryCode } });
-}
-
 /** Creates a Leader User linked to a Person, with an ACTIVE SCOPED_LEADER
- * RoleAssignment for the given scope, then logs in. Mirrors the pattern
+ * RoleAssignment for the given Community, then logs in. Mirrors the pattern
  * already established in followUpAssignment.test.ts / trainingProgressLeader.test.ts. */
-async function setupScopedLeader(n: number, scope: { communityId: string } | { geographyId: string }) {
+async function setupScopedLeader(n: number, scope: { communityId: string }) {
   const email = `leader-roster${n}@test.local`;
   const { user } = await createLeader(`Roster Leader ${n}`, email, `RO${n}CODE`);
   const person = await makePerson(`+237691${String(n).padStart(6, '0')}`, `Roster Leader Person ${n}`);
@@ -53,7 +49,7 @@ async function setupScopedLeader(n: number, scope: { communityId: string } | { g
       personId: person.id,
       roleType: 'SCOPED_LEADER',
       assignedByUserId: user.id,
-      ...('communityId' in scope ? { communityId: scope.communityId } : { geographyId: scope.geographyId }),
+      communityId: scope.communityId,
     },
   });
 
@@ -101,17 +97,7 @@ describe('Phase 3H — GET /api/leader/roster — authorization', () => {
     expect(res.body.scopeId).toBe(community.id);
   });
 
-  it('an exact Geography-scoped Leader can access that exact Geography roster', async () => {
-    const geography = await makeGeography('Roster Geography A');
-    const { agent } = await setupScopedLeader(2, { geographyId: geography.id });
-
-    const res = await agent.get(`/api/leader/roster?scopeType=GEOGRAPHY&scopeId=${geography.id}`);
-    expect(res.status).toBe(200);
-    expect(res.body.scopeType).toBe('GEOGRAPHY');
-    expect(res.body.scopeId).toBe(geography.id);
-  });
-
-  it('rejects a scopeType that is neither COMMUNITY nor GEOGRAPHY with 400, no silent fallback', async () => {
+  it('rejects a scopeType that is not COMMUNITY with 400, no silent fallback', async () => {
     const community = await makeCommunity('Roster Community Invalid Type');
     const { agent } = await setupScopedLeader(3, { communityId: community.id });
 
@@ -176,31 +162,6 @@ describe('Phase 3H — GET /api/leader/roster — authorization', () => {
     expect(res.status).toBe(403);
   });
 
-  // Phase 3K deliberately supersedes this Phase 3H invariant for Geography
-  // specifically — Community, directly above, is untouched and remains
-  // exact-scope only. Geographical leadership visibility is intentionally
-  // descendant-aware: a Leader assigned to a parent Geography node is now
-  // authorized to view a descendant node's roster directly. See
-  // leaderRosterGeographyDescendant.test.ts for the full descendant-visibility
-  // matrix across every level (Sub-Division/Division/Region/Country).
-  it('a parent Geography RoleAssignment DOES expose the child Geography roster (Phase 3K descendant visibility)', async () => {
-    const parent = await makeGeography('Roster Parent Geography');
-    const child = await prisma.geography.create({ data: { name: 'Roster Child Geography', type: 'DIVISION', countryCode: 'CM', parentId: parent.id } });
-    const { agent } = await setupScopedLeader(11, { geographyId: parent.id });
-
-    const res = await agent.get(`/api/leader/roster?scopeType=GEOGRAPHY&scopeId=${child.id}`);
-    expect(res.status).toBe(200);
-    expect(res.body.scopeId).toBe(child.id);
-  });
-
-  it('a child Geography RoleAssignment does not expose the parent Geography roster', async () => {
-    const parent = await makeGeography('Roster Parent Geography 2');
-    const child = await prisma.geography.create({ data: { name: 'Roster Child Geography 2', type: 'DIVISION', countryCode: 'CM', parentId: parent.id } });
-    const { agent } = await setupScopedLeader(12, { geographyId: child.id });
-
-    const res = await agent.get(`/api/leader/roster?scopeType=GEOGRAPHY&scopeId=${parent.id}`);
-    expect(res.status).toBe(403);
-  });
 });
 
 describe('Phase 3H — GET /api/leader/roster — population', () => {
@@ -219,20 +180,6 @@ describe('Phase 3H — GET /api/leader/roster — population', () => {
     expect(ids).not.toContain(inactivePerson.id);
   });
 
-  it('returns active GeographicAssignment records and excludes inactive ones', async () => {
-    const geography = await makeGeography('Roster Geography Population');
-    const { agent } = await setupScopedLeader(14, { geographyId: geography.id });
-    const activePerson = await makePerson('+237692000014', 'Active Geo Member');
-    const inactivePerson = await makePerson('+237692000114', 'Inactive Geo Member');
-    await prisma.geographicAssignment.create({ data: { personId: activePerson.id, geographyId: geography.id, status: 'ACTIVE' } });
-    await prisma.geographicAssignment.create({ data: { personId: inactivePerson.id, geographyId: geography.id, status: 'INACTIVE' } });
-
-    const res = await agent.get(`/api/leader/roster?scopeType=GEOGRAPHY&scopeId=${geography.id}`);
-    expect(res.status).toBe(200);
-    const ids = res.body.items.map((i: any) => i.personId);
-    expect(ids).toContain(activePerson.id);
-    expect(ids).not.toContain(inactivePerson.id);
-  });
 });
 
 describe('Phase 3H — GET /api/leader/roster — response correctness', () => {
@@ -246,18 +193,6 @@ describe('Phase 3H — GET /api/leader/roster — response correctness', () => {
     expect(res.status).toBe(200);
     expect(res.body.items[0].membershipJoinedAt).toBeTruthy();
     expect(res.body.items[0].geographicAssignedAt).toBeUndefined();
-  });
-
-  it('a Geography response returns geographicAssignedAt and never membershipJoinedAt', async () => {
-    const geography = await makeGeography('Roster Geography Fields');
-    const { agent } = await setupScopedLeader(16, { geographyId: geography.id });
-    const person = await makePerson('+237692000016', 'Field Check Geo Person');
-    await prisma.geographicAssignment.create({ data: { personId: person.id, geographyId: geography.id } });
-
-    const res = await agent.get(`/api/leader/roster?scopeType=GEOGRAPHY&scopeId=${geography.id}`);
-    expect(res.status).toBe(200);
-    expect(res.body.items[0].geographicAssignedAt).toBeTruthy();
-    expect(res.body.items[0].membershipJoinedAt).toBeUndefined();
   });
 
   it('returns only the permitted minimum fields — no WhatsApp/email/other Person data', async () => {
@@ -348,7 +283,7 @@ describe('Phase 3H — GET /api/leader/roster — security/data isolation', () =
     expect(ids).not.toContain(personB.id);
   });
 
-  it('performs no writes — CommunityMembership/GeographicAssignment rows are unchanged after a roster read', async () => {
+  it('performs no writes — CommunityMembership rows are unchanged after a roster read', async () => {
     const community = await makeCommunity('Roster No Writes');
     const { agent } = await setupScopedLeader(23, { communityId: community.id });
     const person = await makePerson('+237692000023', 'No Writes Person');

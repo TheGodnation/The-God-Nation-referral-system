@@ -15,10 +15,14 @@ import { bootstrap } from './testUtils';
 // covered by followUpAssignment.test.ts, followUpContacts.test.ts,
 // followUpReassignClose.test.ts, and followUpAttention.test.ts — all four
 // already exclusively use Community context and are unaffected by this step.
-// GeographicAssignment and RoleAssignment.geographyId are NOT removed in
-// this step (a later, dedicated step) — Geography-scoped RoleAssignment
-// creation itself still succeeds; only its ability to authorize a Follow-Up
-// is gone.
+//
+// Geography Retirement Step 5B (a later step) went on to remove
+// GeographicAssignment and RoleAssignment.geographyId entirely — a
+// Geography-scoped RoleAssignment can no longer be created at all. The
+// handful of tests below that originally set one up (to prove it still
+// couldn't authorize a Follow-Up) were updated then to use only Community
+// roles and plain Geography rows instead; the security property they prove
+// is unchanged and, if anything, now holds even more strongly.
 const app = createApp();
 
 let ipCounter = 40000;
@@ -55,11 +59,8 @@ async function makeGeography(name: string, type = 'REGION', countryCode = 'CM') 
 }
 
 /** Creates a Leader User linked to a fresh Person with an ACTIVE
- * SCOPED_LEADER RoleAssignment for the given exact scope, then logs in.
- * Geography-scoped RoleAssignment creation itself still works (retained
- * until a later step) — only its Follow-Up authorization capability is
- * gone, which is exactly what this file tests. */
-async function setupScopedLeader(n: number, scope: { communityId: string } | { geographyId: string }) {
+ * SCOPED_LEADER RoleAssignment for the given exact Community, then logs in. */
+async function setupScopedLeader(n: number, scope: { communityId: string }) {
   const email = `leader-georetire${n}@test.local`;
   const { user } = await createLeader(`Geo Retirement Leader ${n}`, email, `GR${n}CODE`);
   const person = await makePerson(`+237675${String(n).padStart(6, '0')}`, `Geo Retirement Leader Person ${n}`);
@@ -69,7 +70,7 @@ async function setupScopedLeader(n: number, scope: { communityId: string } | { g
       personId: person.id,
       roleType: 'SCOPED_LEADER',
       assignedByUserId: user.id,
-      ...('communityId' in scope ? { communityId: scope.communityId } : { geographyId: scope.geographyId }),
+      communityId: scope.communityId,
     },
   });
 
@@ -95,11 +96,11 @@ describe('Geography Retirement Step 5A — context validation', () => {
     expect(res.body.followerId).toBe(leaderPerson.id);
   });
 
-  it('2. GEOGRAPHY Follow-Up creation is rejected, even for a Leader holding an active Geography-scoped RoleAssignment for that exact Geography', async () => {
+  it('2. GEOGRAPHY Follow-Up creation is rejected outright — the enum no longer has that value, regardless of the acting Leader\'s own role', async () => {
+    const community = await makeCommunity('GR Community A');
     const geography = await makeGeography('GR Geography A');
-    const { agent, csrf } = await setupScopedLeader(2, { geographyId: geography.id });
+    const { agent, csrf } = await setupScopedLeader(2, { communityId: community.id });
     const followed = await makePerson('+237676000002', 'Followed 2');
-    await prisma.geographicAssignment.create({ data: { personId: followed.id, geographyId: geography.id } });
 
     const res = await agent
       .post('/api/leader/follow-ups')
@@ -110,18 +111,18 @@ describe('Geography Retirement Step 5A — context validation', () => {
   });
 
   it('3. GEOGRAPHY scoped-people request is rejected', async () => {
+    const community = await makeCommunity('GR Community A2');
     const geography = await makeGeography('GR Geography B');
-    const { agent } = await setupScopedLeader(3, { geographyId: geography.id });
+    const { agent } = await setupScopedLeader(3, { communityId: community.id });
 
     const res = await agent.get(`/api/leader/scoped-people?contextType=GEOGRAPHY&contextId=${geography.id}`);
     expect(res.status).toBe(400);
   });
 
-  it('4. GEOGRAPHY Follow-Up reassignment is rejected — a Geography-scoped Leader cannot be the new follower of any reassignment', async () => {
+  it('4. Follow-Up reassignment is rejected for a Person with no matching Community role (the same path a Geography-scoped Leader would once have failed on)', async () => {
     const community = await makeCommunity('GR Community B');
-    const geography = await makeGeography('GR Geography C');
     const { agent: communityAgent, csrf: communityCsrf } = await setupScopedLeader(4, { communityId: community.id });
-    const { person: geoPerson } = await setupScopedLeader(5, { geographyId: geography.id });
+    const unrelatedPerson = await makePerson('+237676000005', 'Unrelated Person 5');
     const followed = await makePerson('+237676000004', 'Followed 4');
     await prisma.communityMembership.create({ data: { personId: followed.id, communityId: community.id } });
 
@@ -131,13 +132,13 @@ describe('Geography Retirement Step 5A — context validation', () => {
       .send({ followedPersonId: followed.id, contextType: 'COMMUNITY', contextId: community.id });
     expect(created.status).toBe(201);
 
-    // geoPerson only holds a Geography-scoped role, never a Community one —
-    // findActiveScopedRole(geoPerson.id, 'COMMUNITY', community.id) can only
-    // ever fail now, exactly like any other Person with no matching role.
+    // unrelatedPerson holds no RoleAssignment at all —
+    // findActiveScopedRole(unrelatedPerson.id, 'COMMUNITY', community.id)
+    // fails, exactly as it would for any Person with no matching role.
     const reassign = await communityAgent
       .post(`/api/leader/follow-ups/${created.body.id}/reassign`)
       .set('X-CSRF-Token', communityCsrf)
-      .send({ newFollowerId: geoPerson.id });
+      .send({ newFollowerId: unrelatedPerson.id });
     expect(reassign.status).toBe(400);
   });
 
@@ -172,7 +173,8 @@ describe('Geography Retirement Step 5A — authorization', () => {
 
   it('7. A Leader cannot use a Geography id in place of a Community id to obtain Follow-Up access', async () => {
     const geography = await makeGeography('GR Geography E');
-    const { agent, csrf } = await setupScopedLeader(7, { geographyId: geography.id });
+    const ownCommunity = await makeCommunity('GR Community H');
+    const { agent, csrf } = await setupScopedLeader(7, { communityId: ownCommunity.id });
     const followed = await makePerson('+237676000008', 'Followed 8');
 
     // Submitting the Geography id as a COMMUNITY-context id: no matching
@@ -287,8 +289,10 @@ describe('Geography Retirement Step 5A — diagnostic', () => {
       geographyContextRetired: true,
       note: expect.stringContaining('Step 5A'),
     });
-    // Geography, GeographicAssignment, and RoleAssignment Geography-scope
-    // sections are all retained — none of those structures were removed.
+    // The Geography section is retained (the model itself is untouched by
+    // this step). geographicAssignments/roleAssignments remained real counts
+    // as of Step 5A — Step 5B later replaced them with retirement notices,
+    // but both keys are still present either way.
     expect(res.body.geography).toBeDefined();
     expect(res.body.geographicAssignments).toBeDefined();
     expect(res.body.roleAssignments).toBeDefined();

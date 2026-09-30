@@ -107,56 +107,14 @@ describe('Phase 3A — Geography hierarchy and assignment', () => {
     expect(deactivated.body.active).toBe(false);
   });
 
-  it('supports exactly one active GeographicAssignment per Person, with reassignment updating it in place', async () => {
-    const { agent, csrf } = await loginAsAdmin('admin-geo-assign@test.local');
-    const country = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Assignland', type: 'COUNTRY', countryCode: 'AS' });
-    const quarterA = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Quarter A', type: 'QUARTER', parentId: country.body.id });
-    const quarterB = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Quarter B', type: 'QUARTER', parentId: country.body.id });
+  // Geography Retirement Step 5B removed GeographicAssignment (the
+  // organizational Person<->Geography assignment table) and
+  // PUT /api/admin/people/:id/geographic-assignment entirely — the test
+  // that used to live here verified that endpoint's upsert-in-place
+  // behavior, which no longer exists.
 
-    const person = await makePerson('+237670003001');
-
-    const assign = await agent
-      .put(`/api/admin/people/${person.id}/geographic-assignment`)
-      .set('X-CSRF-Token', csrf)
-      .send({ geographyId: quarterA.body.id });
-    expect(assign.status).toBe(200);
-    expect(assign.body.geography.id).toBe(quarterA.body.id);
-
-    const onlyOne = await prisma.geographicAssignment.count({ where: { personId: person.id } });
-    expect(onlyOne).toBe(1);
-
-    // Reassignment updates the same row rather than creating a second one.
-    const reassign = await agent
-      .put(`/api/admin/people/${person.id}/geographic-assignment`)
-      .set('X-CSRF-Token', csrf)
-      .send({ geographyId: quarterB.body.id });
-    expect(reassign.status).toBe(200);
-    expect(reassign.body.geography.id).toBe(quarterB.body.id);
-    expect(reassign.body.id).toBe(assign.body.id);
-
-    const stillOnlyOne = await prisma.geographicAssignment.count({ where: { personId: person.id } });
-    expect(stillOnlyOne).toBe(1);
-  });
-
-  it('never lets Geography affect CommunityMembership', async () => {
+  it('never lets descriptive location affect CommunityMembership', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-geo-vs-community@test.local');
-    const country = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Independence Land', type: 'COUNTRY', countryCode: 'IL' });
-    const otherCountry = await agent
-      .post('/api/admin/geography')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Faraway Land', type: 'COUNTRY', countryCode: 'FL' });
     const community = await agent
       .post('/api/admin/communities')
       .set('X-CSRF-Token', csrf)
@@ -164,18 +122,11 @@ describe('Phase 3A — Geography hierarchy and assignment', () => {
 
     const personHere = await makePerson('+237670003002', 'Local Person');
     const personThere = await makePerson('+237670003003', 'Distant Person');
+    await prisma.person.update({ where: { id: personHere.id }, data: { locationCountry: 'Independence Land' } });
+    await prisma.person.update({ where: { id: personThere.id }, data: { locationCountry: 'Faraway Land' } });
 
-    await agent
-      .put(`/api/admin/people/${personHere.id}/geographic-assignment`)
-      .set('X-CSRF-Token', csrf)
-      .send({ geographyId: country.body.id });
-    await agent
-      .put(`/api/admin/people/${personThere.id}/geographic-assignment`)
-      .set('X-CSRF-Token', csrf)
-      .send({ geographyId: otherCountry.body.id });
-
-    // Both people, despite being in different countries, join the SAME
-    // online community with no restriction from Geography.
+    // Both people, despite having different descriptive locations, join the
+    // SAME online community with no restriction from location.
     const join1 = await agent
       .post(`/api/admin/people/${personHere.id}/community-memberships`)
       .set('X-CSRF-Token', csrf)

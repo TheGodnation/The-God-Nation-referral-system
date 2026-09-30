@@ -8,14 +8,9 @@ import { FollowUpConversation } from '../FollowUpConversation';
 type ContextType = 'COMMUNITY';
 type WellbeingStatus = 'GOOD' | 'NEEDS_ATTENTION' | 'EMERGENCY' | 'UNABLE_TO_REACH';
 
-// GET /api/leader/role-assignments still returns both community and
-// geography (RoleAssignment.geographyId is retained until a later step, and
-// this endpoint is shared with other, non-Follow-Up consumers) — this
-// component only ever uses the community-scoped roles.
 interface RoleAssignmentItem {
   id: string;
   community: { id: string; name: string } | null;
-  geography: { id: string; name: string; type: string } | null;
 }
 
 interface ContactRow {

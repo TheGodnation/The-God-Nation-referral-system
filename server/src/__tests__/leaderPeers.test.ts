@@ -63,10 +63,6 @@ async function setupCommunityLeader(n: number, communityId: string, name?: strin
   return { agent, csrf, user, person, role };
 }
 
-async function makeGeography(name: string) {
-  return prisma.geography.create({ data: { name, type: 'REGION', countryCode: 'CM' } });
-}
-
 describe('Phase 2A — getCommunityIdsAtGeneration (lib/tree.ts)', () => {
   it('generation 0 returns Headquarters itself, with no query needed', async () => {
     const hq = await makeCommunity('Peers Gen HQ A');
@@ -159,23 +155,6 @@ describe('Phase 2A — GET /api/leader/peers — authentication', () => {
     expect(res.status).toBe(403);
   });
 
-  it('a Geography-only Leader receives no Community-generation peers', async () => {
-    const geography = await makeGeography('Peers Auth Geography D');
-    const email = 'leader-peers-geo-only@test.local';
-    const { user } = await createLeader('Peers Geo Only Leader', email, 'PRGEOONLY');
-    const person = await makePerson('+237988900001', 'Peers Geo Only Person');
-    await prisma.user.update({ where: { id: user.id }, data: { personId: person.id } });
-    await prisma.roleAssignment.create({
-      data: { personId: person.id, roleType: 'SCOPED_LEADER', assignedByUserId: user.id, geographyId: geography.id },
-    });
-    const agent = agentWithUniqueIp();
-    const { csrf } = await bootstrap(agent as any);
-    await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'password123' });
-
-    const res = await agent.get('/api/leader/peers');
-    expect(res.status).toBe(200);
-    expect(res.body.items).toEqual([]);
-  });
 });
 
 describe('Phase 2A — GET /api/leader/peers — peer discovery', () => {
@@ -380,7 +359,7 @@ describe('Phase 2A — GET /api/leader/peers — isolation', () => {
     expect(tampered.body.items.map((p: any) => p.personId)).toContain(personB.id);
   });
 
-  it('the requesting Leader\'s own GeographicAssignment/CommunityMembership never affect peer discovery', async () => {
+  it('the requesting Leader\'s own CommunityMembership never affects peer discovery', async () => {
     const hq = await makeCommunity('Peers Isolation HQ B');
     await setHeadquarters(hq.id);
     const a = await makeCommunity('Peers Isolation HQ B - A', hq.id);
@@ -389,26 +368,24 @@ describe('Phase 2A — GET /api/leader/peers — isolation', () => {
     const { person: personB } = await setupCommunityLeader(129, b.id);
 
     // Give the requester an active Community MEMBERSHIP (not a role) in a
-    // totally different, unrelated Community, plus a Geography assignment —
-    // neither should influence the result at all.
+    // totally different, unrelated Community — it should not influence the
+    // result at all.
     const unrelated = await makeCommunity('Peers Isolation Unrelated');
     await prisma.communityMembership.create({ data: { personId: person.id, communityId: unrelated.id } });
-    const geography = await makeGeography('Peers Isolation Geography');
-    await prisma.geographicAssignment.create({ data: { personId: person.id, geographyId: geography.id } });
 
     const res = await agent.get('/api/leader/peers');
     expect(res.body.items.map((p: any) => p.personId)).toEqual([personB.id]);
   });
 
-  it('a candidate peer\'s own Geography/CommunityMembership never affects whether they qualify', async () => {
+  it('a candidate peer\'s own CommunityMembership never affects whether they qualify', async () => {
     const hq = await makeCommunity('Peers Isolation HQ C');
     await setHeadquarters(hq.id);
     const a = await makeCommunity('Peers Isolation HQ C - A', hq.id);
     const b = await makeCommunity('Peers Isolation HQ C - B', hq.id);
     const { agent } = await setupCommunityLeader(130, a.id);
     const { person: personB } = await setupCommunityLeader(131, b.id);
-    // personB has no CommunityMembership or GeographicAssignment at all —
-    // they still qualify purely via their RoleAssignment.
+    // personB has no CommunityMembership at all — they still qualify purely
+    // via their RoleAssignment.
     const membership = await prisma.communityMembership.findFirst({ where: { personId: personB.id } });
     expect(membership).toBeNull();
 

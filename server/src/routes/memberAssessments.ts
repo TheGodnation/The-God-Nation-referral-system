@@ -233,8 +233,10 @@ router.get('/me/training-progress', asyncHandler(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------------------
-// Read-only own Community/Geography (Section 20) — no editing, minimal
-// fields, own data only.
+// Read-only own Community (Section 20) — no editing, minimal fields, own
+// data only. Geography Retirement Step 5B removed this section's own
+// GET /me/geographic-assignment route (GeographicAssignment no longer
+// exists) — Community is the only organizational membership left here.
 // ---------------------------------------------------------------------------
 
 router.get('/me/community-memberships', asyncHandler(async (req, res) => {
@@ -253,26 +255,6 @@ router.get('/me/community-memberships', asyncHandler(async (req, res) => {
       status: m.status,
       joinedAt: m.joinedAt,
     })),
-  });
-}));
-
-router.get('/me/geographic-assignment', asyncHandler(async (req, res) => {
-  const assignment = await prisma.geographicAssignment.findUnique({
-    where: { personId: req.member!.personId },
-    include: { geography: { select: { name: true, type: true } } },
-  });
-  if (!assignment) return res.json({ assignment: null });
-  res.json({
-    assignment: {
-      // Phase 3M.6: geographyId is additive — needed so the client can
-      // mount GET/POST /api/geographies/:geographyId/conversation for the
-      // Member's own current assignment. Everything else here is
-      // unchanged.
-      geographyId: assignment.geographyId,
-      geographyName: assignment.geography.name,
-      geographyType: assignment.geography.type,
-      assignedAt: assignment.assignedAt,
-    },
   });
 }));
 

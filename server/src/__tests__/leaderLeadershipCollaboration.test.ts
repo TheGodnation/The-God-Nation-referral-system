@@ -51,10 +51,6 @@ async function makePerson(whatsappNumber: string, name = 'Collab Test Person') {
   return prisma.person.create({ data: { name, whatsappNumber } });
 }
 
-async function makeGeography(name: string) {
-  return prisma.geography.create({ data: { name, type: 'REGION', countryCode: 'CM' } });
-}
-
 /** Creates a Leader User linked to a Person, with an ACTIVE SCOPED_LEADER
  * RoleAssignment for the given Community, then logs in. Mirrors
  * leaderPeers.test.ts's setupCommunityLeader exactly. */
@@ -71,21 +67,6 @@ async function setupCommunityLeader(n: number, communityId: string, name?: strin
   const { csrf } = await bootstrap(agent as any);
   await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'password123' });
   return { agent, csrf, user, person, role };
-}
-
-async function setupGeographyOnlyLeader(n: number, geographyId: string) {
-  const email = `leader-collab-geo${n}@test.local`;
-  const { user } = await createLeader(`Collab Geo Leader ${n}`, email, `LCG${n}CODE`);
-  const person = await makePerson(`+237989${String(900000 + n).padStart(6, '0')}`, `Collab Geo Leader Person ${n}`);
-  await prisma.user.update({ where: { id: user.id }, data: { personId: person.id } });
-  await prisma.roleAssignment.create({
-    data: { personId: person.id, roleType: 'SCOPED_LEADER', assignedByUserId: user.id, geographyId },
-  });
-
-  const agent = agentWithUniqueIp();
-  const { csrf } = await bootstrap(agent as any);
-  await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'password123' });
-  return { agent, csrf, user, person };
 }
 
 describe('Phase 2B — authentication', () => {
@@ -118,17 +99,6 @@ describe('Phase 2B — authentication', () => {
     expect(res.status).toBe(403);
   });
 
-  it('a Geography-only Leader has no eligible generations and cannot access any generation', async () => {
-    const geography = await makeGeography('Collab Auth Geography');
-    const { agent } = await setupGeographyOnlyLeader(1, geography.id);
-
-    const list = await agent.get('/api/leader/leadership-collaboration');
-    expect(list.status).toBe(200);
-    expect(list.body.items).toEqual([]);
-
-    const messages = await agent.get('/api/leader/leadership-collaboration/0/messages');
-    expect(messages.status).toBe(404);
-  });
 });
 
 describe('Phase 2B — generation isolation', () => {
@@ -299,44 +269,6 @@ describe('Phase 2B — administrative isolation', () => {
     // Community Conversation route for B1's own Community.
     const res = await agentA1.get(`/api/communities/${b1.id}/conversation`);
     expect(res.status).toBe(403);
-  });
-});
-
-describe('Phase 2B — geography isolation', () => {
-  it('a Geography assignment/role does not expand collaboration scope', async () => {
-    const hq = await makeCommunity('Collab Geo HQ A');
-    await setHeadquarters(hq.id);
-    const a = await makeCommunity('Collab Geo HQ A - A', hq.id);
-    const geography = await makeGeography('Collab Geo Isolation Region A');
-    const { agent, person, user } = await setupCommunityLeader(19, a.id);
-    // Also give this Leader a Geography-scoped role — must not expand which
-    // organizational generations they can reach.
-    await prisma.roleAssignment.create({
-      data: { personId: person.id, roleType: 'SCOPED_LEADER', geographyId: geography.id, assignedByUserId: user.id },
-    });
-
-    const list = await agent.get('/api/leader/leadership-collaboration');
-    expect(list.body.items.map((i: any) => i.generation)).toEqual([1]);
-  });
-
-  it('different Geography does not prevent same-generation organizational collaboration', async () => {
-    const hq = await makeCommunity('Collab Geo HQ B');
-    await setHeadquarters(hq.id);
-    const a = await makeCommunity('Collab Geo HQ B - A', hq.id);
-    const b = await makeCommunity('Collab Geo HQ B - B', hq.id);
-    const geoA = await makeGeography('Collab Geo Isolation Region B-A');
-    const geoB = await makeGeography('Collab Geo Isolation Region B-B');
-    const { agent: agentA, person: personA, user: userA } = await setupCommunityLeader(20, a.id, 'Geo Isolation A');
-    const { agent: agentB, person: personB, user: userB } = await setupCommunityLeader(21, b.id, 'Geo Isolation B');
-    await prisma.roleAssignment.create({
-      data: { personId: personA.id, roleType: 'SCOPED_LEADER', geographyId: geoA.id, assignedByUserId: userA.id },
-    });
-    await prisma.roleAssignment.create({
-      data: { personId: personB.id, roleType: 'SCOPED_LEADER', geographyId: geoB.id, assignedByUserId: userB.id },
-    });
-
-    expect((await agentA.get('/api/leader/leadership-collaboration/1/messages')).status).toBe(200);
-    expect((await agentB.get('/api/leader/leadership-collaboration/1/messages')).status).toBe(200);
   });
 });
 

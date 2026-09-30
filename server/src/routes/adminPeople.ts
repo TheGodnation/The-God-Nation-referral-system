@@ -23,9 +23,9 @@ const listQuerySchema = z.object({
 });
 
 // GET /api/admin/people — search/filter, paginated. Each row includes only
-// what the People list UI needs: the current geographic assignment (if
-// any) and a membership count — not the full membership list, which is
-// fetched only when an Admin opens a specific person's detail.
+// what the People list UI needs: a membership count — not the full
+// membership list, which is fetched only when an Admin opens a specific
+// person's detail.
 router.get('/people', asyncHandler(async (req, res) => {
   const { page, pageSize, skip, take } = parsePagination(req);
   const q = listQuerySchema.parse(req.query);
@@ -49,7 +49,6 @@ router.get('/people', asyncHandler(async (req, res) => {
     prisma.person.findMany({
       where,
       include: {
-        geographicAssignment: { include: { geography: { select: { id: true, name: true, type: true } } } },
         _count: { select: { communityMemberships: true, registrations: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -66,7 +65,6 @@ router.get('/people/:id', asyncHandler(async (req, res) => {
   const person = await prisma.person.findUnique({
     where: { id: req.params.id },
     include: {
-      geographicAssignment: { include: { geography: true } },
       communityMemberships: {
         include: { community: { select: { id: true, name: true } } },
         orderBy: { joinedAt: 'desc' },
@@ -205,46 +203,6 @@ router.patch('/people/:id', requireCsrf, asyncHandler(async (req, res) => {
   });
 
   res.json(updated);
-}));
-
-// ---------------------------------------------------------------------------
-// Geographic assignment (Phase 3A) — one current assignment per Person.
-// ---------------------------------------------------------------------------
-
-const assignGeographySchema = z.object({ geographyId: z.string().min(1) });
-
-router.put('/people/:id/geographic-assignment', requireCsrf, asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const parsed = assignGeographySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'geographyId is required.' });
-  }
-
-  const person = await prisma.person.findUnique({ where: { id } });
-  if (!person) return res.status(404).json({ error: 'Person not found.' });
-
-  const geography = await prisma.geography.findUnique({ where: { id: parsed.data.geographyId } });
-  if (!geography) return res.status(400).json({ error: 'Geography node not found.' });
-
-  // Upsert-by-personId: Phase 3A supports exactly one current assignment,
-  // so a reassignment updates the same row rather than creating a new one.
-  const assignment = await prisma.geographicAssignment.upsert({
-    where: { personId: id },
-    create: { personId: id, geographyId: geography.id },
-    update: { geographyId: geography.id, assignedAt: new Date(), status: 'ACTIVE' },
-    include: { geography: { select: { id: true, name: true, type: true } } },
-  });
-
-  await recordAudit({
-    actorId: req.user!.id,
-    actorEmail: req.user!.email,
-    action: 'GEOGRAPHIC_ASSIGNMENT_SET',
-    targetType: 'Person',
-    targetId: id,
-    metadata: { geographyId: geography.id },
-  });
-
-  res.json(assignment);
 }));
 
 // ---------------------------------------------------------------------------

@@ -5,8 +5,7 @@ import { requireAuth, requireRole } from '../lib/auth';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { CLIENT_URL } from '../lib/env';
 import { asyncHandler } from '../lib/asyncHandler';
-import { requireLinkedPerson, findActiveScopedRole, isGeographyInLeaderScope } from '../lib/leadership';
-import { getDescendantGeographyIds } from '../lib/tree';
+import { requireLinkedPerson, findActiveScopedRole } from '../lib/leadership';
 import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
 import { findLeaderPeers } from '../lib/leaderPeers';
 
@@ -190,100 +189,57 @@ router.get('/community-progress', requireLinkedPerson, asyncHandler(async (req, 
   res.json(paginatedResult(items, total, page, pageSize));
 }));
 
+// Geography Retirement Step 5B: scopeType now accepts only 'COMMUNITY' — a
+// GEOGRAPHY request is rejected by rosterQuerySchema itself. Geography
+// Retirement Step 5A previously retired Follow-Up's own Geography context;
+// this retires the roster's.
 const rosterQuerySchema = z.object({
-  scopeType: z.enum(['COMMUNITY', 'GEOGRAPHY']),
+  scopeType: z.enum(['COMMUNITY']),
   scopeId: z.string().min(1),
 });
 
-// GET /api/leader/roster?scopeType=COMMUNITY|GEOGRAPHY&scopeId=:id — Phase
-// 3H (Community; Phase 3K extended Geography to be descendant-aware). A
-// read-only roster of the People belonging to a scope the Leader currently
-// holds an ACTIVE SCOPED_LEADER RoleAssignment for, plus the existing
-// pagination convention. Deliberately separate from FollowUpAssignment —
-// this is visibility only, never a mutation or a path to create/act on a
-// follow-up. Community stays exact-scope, unmodified, per Phase 3H.
+// GET /api/leader/roster?scopeType=COMMUNITY&scopeId=:id — Phase 3H. A
+// read-only roster of the People belonging to a Community the Leader
+// currently holds an ACTIVE SCOPED_LEADER RoleAssignment for, plus the
+// existing pagination convention. Deliberately separate from
+// FollowUpAssignment — this is visibility only, never a mutation or a path
+// to create/act on a follow-up. Exact-scope only: a parent RoleAssignment
+// never exposes a child Community's roster, and vice versa.
 router.get('/roster', requireLinkedPerson, asyncHandler(async (req, res) => {
   const parsed = rosterQuerySchema.safeParse(req.query);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'scopeType must be COMMUNITY or GEOGRAPHY, and scopeId is required.' });
+    return res.status(400).json({ error: 'scopeType must be COMMUNITY, and scopeId is required.' });
   }
   const { scopeType, scopeId } = parsed.data;
   const { page, pageSize, skip, take } = parsePagination(req);
 
-  if (scopeType === 'COMMUNITY') {
-    // Authorization is established before any population data is touched.
-    // findActiveScopedRole matches personId + roleType SCOPED_LEADER +
-    // status ACTIVE + the exact communityId — unmodified from Phase 3H, no
-    // parent/child coverage, no hierarchy. No exact match means 403 — the
-    // same response whether the scope doesn't exist, belongs to someone
-    // else, or is a parent/child of one the Leader actually holds, so the
-    // response never reveals which.
-    const role = await findActiveScopedRole(req.leaderPersonId!, scopeType, scopeId);
-    if (!role) {
-      return res.status(403).json({ error: 'You do not have an active scoped leader role for this exact Community.' });
-    }
-
-    const where = { communityId: scopeId, status: 'ACTIVE' as const };
-    const [total, memberships] = await Promise.all([
-      prisma.communityMembership.count({ where }),
-      prisma.communityMembership.findMany({
-        where,
-        include: { person: { select: { id: true, name: true } } },
-        orderBy: { joinedAt: 'asc' },
-        skip,
-        take,
-      }),
-    ]);
-    const items = memberships.map((m) => ({
-      personId: m.person.id,
-      name: m.person.name,
-      membershipJoinedAt: m.joinedAt,
-    }));
-    return res.json({ scopeType, scopeId, ...paginatedResult(items, total, page, pageSize) });
+  // Authorization is established before any population data is touched.
+  // findActiveScopedRole matches personId + roleType SCOPED_LEADER +
+  // status ACTIVE + the exact communityId — unmodified from Phase 3H, no
+  // parent/child coverage, no hierarchy. No exact match means 403 — the
+  // same response whether the scope doesn't exist, belongs to someone
+  // else, or is a parent/child of one the Leader actually holds, so the
+  // response never reveals which.
+  const role = await findActiveScopedRole(req.leaderPersonId!, scopeType, scopeId);
+  if (!role) {
+    return res.status(403).json({ error: 'You do not have an active scoped leader role for this exact Community.' });
   }
 
-  // Geography branch — Phase 3K: descendant-aware. Authorization is still
-  // established before any population data is touched, but is no longer a
-  // single exact-match lookup: isGeographyInLeaderScope confirms scopeId is
-  // either a Geography the Leader is directly assigned to, or a descendant
-  // of one they are — never trusting the client-supplied scopeId on its
-  // own. The 403 response text is identical to the pre-Phase-3K exact-match
-  // response, so it still never reveals whether scopeId exists, belongs to
-  // someone else, or is an unrelated/sibling node.
-  const authorized = await isGeographyInLeaderScope(req.leaderPersonId!, scopeId);
-  if (!authorized) {
-    return res.status(403).json({ error: 'You do not have an active scoped leader role for this exact Geography.' });
-  }
-
-  // Population is scoped to scopeId's own subtree (itself + descendants) —
-  // not the Leader's full assigned subtree — so requesting a narrower node
-  // than the Leader's own assignment never returns more than that node's
-  // own descendants. findActiveScopedRole and Follow-Up creation are
-  // untouched by this: they still require an exact-match RoleAssignment,
-  // so this wider roster visibility never widens who can be followed up.
-  const geographyIds = await getDescendantGeographyIds(scopeId);
-  const where = { geographyId: { in: geographyIds }, status: 'ACTIVE' as const };
-  const [total, assignments] = await Promise.all([
-    prisma.geographicAssignment.count({ where }),
-    prisma.geographicAssignment.findMany({
+  const where = { communityId: scopeId, status: 'ACTIVE' as const };
+  const [total, memberships] = await Promise.all([
+    prisma.communityMembership.count({ where }),
+    prisma.communityMembership.findMany({
       where,
       include: { person: { select: { id: true, name: true } } },
-      orderBy: { assignedAt: 'asc' },
+      orderBy: { joinedAt: 'asc' },
       skip,
       take,
     }),
   ]);
-  const items = assignments.map((a) => ({
-    personId: a.person.id,
-    name: a.person.name,
-    geographicAssignedAt: a.assignedAt,
-    // Additive, Phase 3K only: the person's own assigned Geography id —
-    // not new personal data (it's exactly what the existing where-clause
-    // already filters on), surfaced so the client can tell an exact-scope
-    // row (personGeographyId === scopeId) from a descendant-only row
-    // without a second request. Used to avoid offering "Start Follow-Up"
-    // on a row that Follow-Up creation's own exact-match check would reject.
-    personGeographyId: a.geographyId,
+  const items = memberships.map((m) => ({
+    personId: m.person.id,
+    name: m.person.name,
+    membershipJoinedAt: m.joinedAt,
   }));
   res.json({ scopeType, scopeId, ...paginatedResult(items, total, page, pageSize) });
 }));

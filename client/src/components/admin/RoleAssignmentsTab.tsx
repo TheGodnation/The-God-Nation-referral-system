@@ -11,7 +11,6 @@ interface RoleAssignmentRow {
   endedAt: string | null;
   person: { id: string; name: string; whatsappNumber: string };
   community: { id: string; name: string } | null;
-  geography: { id: string; name: string; type: string } | null;
   assignedBy: { id: string; name: string; email: string };
 }
 
@@ -48,10 +47,11 @@ interface OrganizationalRecommendationRow {
 }
 
 // Phase 3D — Admin-only screen for granting/ending a Person's scoped
-// leadership over an exact Community or Geography. This is a distinct
-// concept from a "Leader" User account: RoleAssignment always targets a
-// Person, never a User, and never implies any hierarchy over parent/child
-// scopes — every grant is exact.
+// leadership over an exact Community. This is a distinct concept from a
+// "Leader" User account: RoleAssignment always targets a Person, never a
+// User, and never implies any hierarchy over parent/child scopes — every
+// grant is exact. Geography Retirement Step 5B removed Geography-scoped
+// leadership entirely — Community is the only supported scope now.
 export function RoleAssignmentsTab() {
   const { t } = useTranslation();
   const [items, setItems] = useState<RoleAssignmentRow[]>([]);
@@ -61,7 +61,6 @@ export function RoleAssignmentsTab() {
 
   const [showForm, setShowForm] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string } | null>(null);
-  const [scopeType, setScopeType] = useState<'COMMUNITY' | 'GEOGRAPHY'>('COMMUNITY');
   const [selectedScope, setSelectedScope] = useState<{ id: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,7 +126,6 @@ export function RoleAssignmentsTab() {
   function resetForm() {
     setSelectedPerson(null);
     setSelectedScope(null);
-    setScopeType('COMMUNITY');
     setError(null);
   }
 
@@ -138,7 +136,7 @@ export function RoleAssignmentsTab() {
       await api.post('/api/admin/role-assignments', {
         personId: selectedPerson.id,
         roleType: 'SCOPED_LEADER',
-        ...(scopeType === 'COMMUNITY' ? { communityId: selectedScope.id } : { geographyId: selectedScope.id }),
+        communityId: selectedScope.id,
       });
       resetForm();
       setShowForm(false);
@@ -194,21 +192,6 @@ export function RoleAssignmentsTab() {
           </div>
 
           <div>
-            <label className="label">{t('admin.roleAssignments.scope_type_label')}</label>
-            <select
-              className="input"
-              value={scopeType}
-              onChange={(e) => {
-                setScopeType(e.target.value as 'COMMUNITY' | 'GEOGRAPHY');
-                setSelectedScope(null);
-              }}
-            >
-              <option value="COMMUNITY">{t('admin.roleAssignments.scope_community')}</option>
-              <option value="GEOGRAPHY">{t('admin.roleAssignments.scope_geography')}</option>
-            </select>
-          </div>
-
-          <div>
             <label className="label">{t('admin.roleAssignments.scope_label')}</label>
             {selectedScope ? (
               <p className="text-sm text-brand-900">
@@ -217,7 +200,7 @@ export function RoleAssignmentsTab() {
                   {t('admin.roleAssignments.change')}
                 </button>
               </p>
-            ) : scopeType === 'COMMUNITY' ? (
+            ) : (
               <SearchPicker
                 placeholder={t('admin.people.search_community_placeholder') ?? ''}
                 searchPath="/api/admin/communities?search="
@@ -225,15 +208,6 @@ export function RoleAssignmentsTab() {
                 actionLabel={t('admin.roleAssignments.select')}
                 searchButtonLabel={t('admin.people.search_button')}
                 onPick={(c) => setSelectedScope({ id: c.id, name: c.name })}
-              />
-            ) : (
-              <SearchPicker
-                placeholder={t('admin.people.search_geography_placeholder') ?? ''}
-                searchPath="/api/admin/geography?search="
-                renderLabel={(g) => `${g.name} (${g.type})`}
-                actionLabel={t('admin.roleAssignments.select')}
-                searchButtonLabel={t('admin.people.search_button')}
-                onPick={(g) => setSelectedScope({ id: g.id, name: g.name })}
               />
             )}
           </div>
@@ -304,11 +278,7 @@ export function RoleAssignmentsTab() {
                 </td>
                 <td className="py-2 pr-4">{r.person.name}</td>
                 <td className="py-2 pr-4">
-                  {r.community
-                    ? `${t('admin.roleAssignments.scope_community')}: ${r.community.name}`
-                    : r.geography
-                      ? `${t('admin.roleAssignments.scope_geography')}: ${r.geography.name}`
-                      : '—'}
+                  {r.community ? `${t('admin.roleAssignments.scope_community')}: ${r.community.name}` : '—'}
                 </td>
                 <td className="py-2 pr-4">
                   {r.status === 'ACTIVE' ? (

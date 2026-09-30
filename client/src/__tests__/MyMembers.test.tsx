@@ -43,7 +43,7 @@ describe('MyMembers', () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
-        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] },
+        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] },
       },
       '/api/leader/roster': {
         status: 200,
@@ -65,40 +65,14 @@ describe('MyMembers', () => {
     expect(screen.queryByText('Assigned')).not.toBeInTheDocument();
   });
 
-  it('shows the Geography roster with the assignment date', async () => {
-    mockFetchByUrl({
-      '/api/leader/role-assignments': {
-        status: 200,
-        body: { items: [{ id: 'r1', community: null, geography: { id: 'g1', name: 'My Region', type: 'REGION' } }] },
-      },
-      '/api/leader/roster': {
-        status: 200,
-        body: {
-          scopeType: 'GEOGRAPHY',
-          scopeId: 'g1',
-          items: [{ personId: 'p2', name: 'John Smith', geographicAssignedAt: '2026-02-20T00:00:00Z' }],
-          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-        },
-      },
-    });
-
-    render(<MyMembers />);
-
-    await waitFor(() => {
-      expect(screen.getByText('John Smith')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Assigned')).toBeInTheDocument();
-    expect(screen.queryByText('Joined')).not.toBeInTheDocument();
-  });
-
   it('keeps multiple scopes separated via a scope selector, not aggregated', async () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
         body: {
           items: [
-            { id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null },
-            { id: 'r2', community: null, geography: { id: 'g1', name: 'My Region', type: 'REGION' } },
+            { id: 'r1', community: { id: 'c1', name: 'My Community' } },
+            { id: 'r2', community: { id: 'c2', name: 'My Other Community' } },
           ],
         },
       },
@@ -111,12 +85,12 @@ describe('MyMembers', () => {
           pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
         },
       },
-      'scopeType=GEOGRAPHY&scopeId=g1': {
+      'scopeType=COMMUNITY&scopeId=c2': {
         status: 200,
         body: {
-          scopeType: 'GEOGRAPHY',
-          scopeId: 'g1',
-          items: [{ personId: 'p2', name: 'John Smith', geographicAssignedAt: '2026-02-20T00:00:00Z' }],
+          scopeType: 'COMMUNITY',
+          scopeId: 'c2',
+          items: [{ personId: 'p2', name: 'John Smith', membershipJoinedAt: '2026-02-20T00:00:00Z' }],
           pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
         },
       },
@@ -130,7 +104,7 @@ describe('MyMembers', () => {
     expect(screen.queryByText('John Smith')).not.toBeInTheDocument();
 
     const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'GEOGRAPHY:g1' } });
+    fireEvent.change(select, { target: { value: 'c2' } });
 
     await waitFor(() => {
       expect(screen.getByText('John Smith')).toBeInTheDocument();
@@ -142,7 +116,7 @@ describe('MyMembers', () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
-        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] },
+        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] },
       },
       '/api/leader/roster': {
         status: 200,
@@ -166,7 +140,7 @@ describe('MyMembers', () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
-        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] },
+        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] },
       },
       '/api/leader/roster': { status: 500, body: { error: 'boom' } },
     });
@@ -176,41 +150,6 @@ describe('MyMembers', () => {
     await waitFor(() => {
       expect(screen.getByText('Failed to load your roster.')).toBeInTheDocument();
     });
-  });
-
-  it('shows the add-member form for a Community scope, and hides it for a Geography scope', async () => {
-    mockFetchByUrl({
-      '/api/leader/role-assignments': {
-        status: 200,
-        body: {
-          items: [
-            { id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null },
-            { id: 'r2', community: null, geography: { id: 'g1', name: 'My Region', type: 'REGION' } },
-          ],
-        },
-      },
-      'scopeType=COMMUNITY&scopeId=c1': {
-        status: 200,
-        body: { items: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 1 } },
-      },
-      'scopeType=GEOGRAPHY&scopeId=g1': {
-        status: 200,
-        body: { items: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 1 } },
-      },
-    });
-
-    render(<MyMembers />);
-
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText("Existing member's WhatsApp number")).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'GEOGRAPHY:g1' } });
-
-    await waitFor(() => {
-      expect(screen.getByText('No active members in this scope yet.')).toBeInTheDocument();
-    });
-    expect(screen.queryByPlaceholderText("Existing member's WhatsApp number")).not.toBeInTheDocument();
   });
 
   it('adding an existing member by WhatsApp number succeeds and refreshes the roster', async () => {
@@ -226,7 +165,7 @@ describe('MyMembers', () => {
             ok: true,
             status: 200,
             headers: { get: () => 'application/json' },
-            json: async () => ({ items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] }),
+            json: async () => ({ items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] }),
           });
         }
         if (method === 'POST' && url.includes('/api/leader/communities/c1/members')) {
@@ -277,7 +216,7 @@ describe('MyMembers', () => {
             ok: true,
             status: 200,
             headers: { get: () => 'application/json' },
-            json: async () => ({ items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] }),
+            json: async () => ({ items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] }),
           });
         }
         if (method === 'POST') {
@@ -322,7 +261,7 @@ describe('MyMembers', () => {
             ok: true,
             status: 200,
             headers: { get: () => 'application/json' },
-            json: async () => ({ items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] }),
+            json: async () => ({ items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] }),
           });
         }
         if (method === 'PATCH' && url.includes('/api/leader/communities/c1/members/p1')) {
@@ -363,7 +302,7 @@ describe('MyMembers', () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
-        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] },
+        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] },
       },
       '/api/leader/roster': {
         status: 200,
@@ -381,25 +320,4 @@ describe('MyMembers', () => {
     expect(screen.getByText('Jane Doe')).toBeInTheDocument();
   });
 
-  it('hides the Remove action for Geography rows', async () => {
-    mockFetchByUrl({
-      '/api/leader/role-assignments': {
-        status: 200,
-        body: { items: [{ id: 'r1', community: null, geography: { id: 'g1', name: 'My Region', type: 'REGION' } }] },
-      },
-      '/api/leader/roster': {
-        status: 200,
-        body: {
-          scopeType: 'GEOGRAPHY',
-          scopeId: 'g1',
-          items: [{ personId: 'p2', name: 'John Smith', geographicAssignedAt: '2026-02-20T00:00:00Z', personGeographyId: 'g1' }],
-          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-        },
-      },
-    });
-
-    render(<MyMembers />);
-    await screen.findByText('John Smith');
-    expect(screen.queryByText('Remove')).not.toBeInTheDocument();
-  });
 });

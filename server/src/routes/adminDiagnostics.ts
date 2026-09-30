@@ -41,68 +41,28 @@ function includeTestData(req: any): boolean {
 // (and their tables) entirely — CommunityConversation is their retained
 // replacement. Step 4 removed AnnouncementTarget.geographyId entirely —
 // Community targeting is its retained replacement. Step 5A removed the
-// GEOGRAPHY value from FollowUpAssignment.contextType — Follow-Up is now
-// Community-scoped only, so FollowUpAssignment.contextId (never a true
-// database foreign key, even before this) is removed from this inventory:
-// it can no longer reference a Geography at all. This inventory and the
-// response below no longer report on any of them.
-const KNOWN_GEOGRAPHY_FOREIGN_KEYS = [
-  'Geography.parentId (self-referencing tree)',
-  'GeographicAssignment.geographyId (ON DELETE RESTRICT)',
-  'RoleAssignment.geographyId (ON DELETE CASCADE)',
-];
+// GEOGRAPHY value from FollowUpAssignment.contextType. Step 5B removed
+// GeographicAssignment (the whole table) and RoleAssignment.geographyId
+// entirely — Geography no longer has any organizational/authorization role
+// anywhere in this codebase. The only remaining Geography dependency is the
+// Geography model's own self-referencing tree, which this diagnostic exists
+// to track until its own final retirement (a later, dedicated step).
+const KNOWN_GEOGRAPHY_FOREIGN_KEYS = ['Geography.parentId (self-referencing tree)'];
 
 router.get(
   '/diagnostics/geography-dependencies',
   asyncHandler(async (req, res) => {
     const testFilter = includeTestData(req) ? {} : { isTestData: false };
 
-    const [
-      geographyTotal,
-      geographyActive,
-      geographyWithParent,
-      geographicAssignmentTotal,
-      geographicAssignmentActive,
-      geographicAssignmentDistinctGeography,
-      roleAssignmentGeographyTotal,
-      roleAssignmentGeographyActive,
-      roleAssignmentGeographyEnded,
-      roleAssignmentDistinctGeography,
-      personsWithCountry,
-      personsWithCity,
-      personsWithArea,
-    ] = await Promise.all([
-      prisma.geography.count(),
-      prisma.geography.count({ where: { active: true } }),
-      prisma.geography.count({ where: { parentId: { not: null } } }),
-      prisma.geographicAssignment.count(),
-      prisma.geographicAssignment.count({ where: { status: 'ACTIVE' } }),
-      prisma.geographicAssignment.groupBy({ by: ['geographyId'] }),
-      prisma.roleAssignment.count({ where: { geographyId: { not: null } } }),
-      prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ACTIVE' } }),
-      prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ENDED' } }),
-      prisma.roleAssignment.groupBy({ by: ['geographyId'], where: { geographyId: { not: null } } }),
-      prisma.person.count({ where: { ...testFilter, locationCountry: { not: null } } }),
-      prisma.person.count({ where: { ...testFilter, locationCity: { not: null } } }),
-      prisma.person.count({ where: { ...testFilter, locationArea: { not: null } } }),
-    ]);
-
-    // GeographicAssignment.geographyId is ON DELETE RESTRICT, so an orphan
-    // here should be structurally impossible — checked anyway, defensively,
-    // the same way every other orphan check in this endpoint is: in
-    // application code, never a raw anti-join query. Step 5A removed
-    // FollowUpAssignment from this cross-reference entirely: it can no
-    // longer hold a Geography context id at all (see followUpAssignments
-    // below), so it is no longer a source of referenced Geography ids here.
-    const existingGeographyRows = await prisma.geography.findMany({
-      where: { id: { in: geographicAssignmentDistinctGeography.map((g) => g.geographyId) } },
-      select: { id: true },
-    });
-    const existingGeographyIdSet = new Set(existingGeographyRows.map((g) => g.id));
-
-    const geographicAssignmentOrphaned = geographicAssignmentDistinctGeography.filter(
-      (g) => !existingGeographyIdSet.has(g.geographyId),
-    ).length;
+    const [geographyTotal, geographyActive, geographyWithParent, personsWithCountry, personsWithCity, personsWithArea] =
+      await Promise.all([
+        prisma.geography.count(),
+        prisma.geography.count({ where: { active: true } }),
+        prisma.geography.count({ where: { parentId: { not: null } } }),
+        prisma.person.count({ where: { ...testFilter, locationCountry: { not: null } } }),
+        prisma.person.count({ where: { ...testFilter, locationCity: { not: null } } }),
+        prisma.person.count({ where: { ...testFilter, locationArea: { not: null } } }),
+      ]);
 
     res.json({
       geography: {
@@ -113,16 +73,14 @@ router.get(
         root: geographyTotal - geographyWithParent,
       },
       geographicAssignments: {
-        total: geographicAssignmentTotal,
-        active: geographicAssignmentActive,
-        distinctGeographyIds: geographicAssignmentDistinctGeography.length,
-        orphaned: geographicAssignmentOrphaned,
+        organizationalStructureRetired: true,
+        note:
+          'Geography Retirement Step 5B removed the GeographicAssignment model entirely — Geography no longer has an organizational Person assignment mechanism of any kind.',
       },
       roleAssignments: {
-        geographyScopedTotal: roleAssignmentGeographyTotal,
-        active: roleAssignmentGeographyActive,
-        ended: roleAssignmentGeographyEnded,
-        distinctGeographyIds: roleAssignmentDistinctGeography.length,
+        geographyScopeRetired: true,
+        note:
+          'Geography Retirement Step 5B removed RoleAssignment.geographyId entirely — SCOPED_LEADER is Community-scoped only, and a Geography-scoped role can no longer exist.',
       },
       followUpAssignments: {
         geographyContextRetired: true,

@@ -34,7 +34,7 @@ describe('MyMembers — Phase 3J Roster → Start Follow-Up', () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
-        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] },
+        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] },
       },
       '/api/leader/roster': {
         status: 200,
@@ -59,7 +59,7 @@ describe('MyMembers — Phase 3J Roster → Start Follow-Up', () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
-        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] },
+        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] },
       },
       '/api/leader/roster': {
         status: 200,
@@ -84,38 +84,11 @@ describe('MyMembers — Phase 3J Roster → Start Follow-Up', () => {
     });
   });
 
-  it('Geography Retirement Step 5A: does not offer Start Follow-Up for a Geography roster at all', async () => {
-    mockFetchByUrl({
-      '/api/leader/role-assignments': {
-        status: 200,
-        body: { items: [{ id: 'r1', community: null, geography: { id: 'g1', name: 'My Region', type: 'REGION' } }] },
-      },
-      '/api/leader/roster': {
-        status: 200,
-        body: {
-          scopeType: 'GEOGRAPHY',
-          scopeId: 'g1',
-          items: [{ personId: 'p2', name: 'John Smith', geographicAssignedAt: '2026-02-20T00:00:00Z' }],
-          pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-        },
-      },
-    });
-
-    render(<MyMembers />);
-
-    await waitFor(() => {
-      expect(screen.getByText('John Smith')).toBeInTheDocument();
-    });
-    expect(screen.queryByText('Start Follow-Up')).not.toBeInTheDocument();
-    expect(screen.getByText("Follow-up is no longer available by Geography.")).toBeInTheDocument();
-    expect(calls.some((c) => c.url === '/api/leader/follow-ups')).toBe(false);
-  });
-
   it('shows success feedback after successfully starting a follow-up', async () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
-        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] },
+        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] },
       },
       '/api/leader/roster': {
         status: 200,
@@ -143,7 +116,7 @@ describe('MyMembers — Phase 3J Roster → Start Follow-Up', () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
-        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] },
+        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] },
       },
       '/api/leader/roster': {
         status: 200,
@@ -172,7 +145,7 @@ describe('MyMembers — Phase 3J Roster → Start Follow-Up', () => {
     mockFetchByUrl({
       '/api/leader/role-assignments': {
         status: 200,
-        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' }, geography: null }] },
+        body: { items: [{ id: 'r1', community: { id: 'c1', name: 'My Community' } }] },
       },
       '/api/leader/roster': {
         status: 200,

@@ -20,19 +20,16 @@ const router = Router();
 router.use(requireAuth, requireRole('LEADER'), requireLinkedPerson);
 
 // GET /api/leader/role-assignments — the acting Leader's OWN active scoped
-// roles (both Community and Geography-scoped — RoleAssignment.geographyId is
-// retained until a later step, and this endpoint is shared with other,
-// non-Follow-Up consumers such as MyMembers.tsx and TrainingProgress.tsx).
-// It's what gates whether "My Follow-Up" shows at all, and supplies the
-// scope options the create-follow-up form offers — the client filters this
-// down to Community-only roles since Geography Retirement Step 5A (never
-// letting the client submit an arbitrary scope either way).
+// roles. Community-scoped only since Geography Retirement Step 5B removed
+// RoleAssignment.geographyId entirely. Shared with other, non-Follow-Up
+// consumers (MyMembers.tsx, TrainingProgress.tsx, etc.) — it's what gates
+// whether "My Follow-Up" shows at all, and supplies the scope options the
+// create-follow-up form offers.
 router.get('/role-assignments', asyncHandler(async (req, res) => {
   const items = await prisma.roleAssignment.findMany({
     where: { personId: req.leaderPersonId, roleType: 'SCOPED_LEADER', status: 'ACTIVE' },
     include: {
       community: { select: { id: true, name: true } },
-      geography: { select: { id: true, name: true, type: true } },
     },
     orderBy: { assignedAt: 'desc' },
   });

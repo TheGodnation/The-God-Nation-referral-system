@@ -37,13 +37,6 @@ interface MembershipRow {
   joinedAt: string;
 }
 
-interface GeographicAssignmentInfo {
-  geographyId: string;
-  geographyName: string;
-  geographyType: string;
-  assignedAt: string;
-}
-
 // Phase 3E — read-only, derived from existing Attempt data (never a new
 // persisted "completion" record). See server/src/lib/trainingProgress.ts.
 interface TrainingProgressItem {
@@ -187,7 +180,6 @@ export function MemberDashboardPage() {
   const { member, logout } = useMemberAuth();
   const [devotionals, setDevotionals] = useState<DevotionalSummary[]>([]);
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
-  const [assignment, setAssignment] = useState<GeographicAssignmentInfo | null>(null);
   const [progress, setProgress] = useState<TrainingProgressSummary | null>(null);
   const [progressError, setProgressError] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -198,12 +190,10 @@ export function MemberDashboardPage() {
     Promise.all([
       api.get<{ items: DevotionalSummary[] }>('/api/member/devotionals'),
       api.get<{ items: MembershipRow[] }>('/api/member/me/community-memberships'),
-      api.get<{ assignment: GeographicAssignmentInfo | null }>('/api/member/me/geographic-assignment'),
     ])
-      .then(([d, m, a]) => {
+      .then(([d, m]) => {
         setDevotionals(d.items);
         setMemberships(m.items);
-        setAssignment(a.assignment);
       })
       .finally(() => setLoaded(true));
 
@@ -327,17 +317,6 @@ export function MemberDashboardPage() {
             <MyResources />
 
             <MyFollowUps />
-
-            <div className="card">
-              <h2 className="mb-3 font-semibold text-brand-900">{t('memberDashboard.geography_heading')}</h2>
-              {assignment ? (
-                <p className="text-sm text-slate-600">
-                  {assignment.geographyName} ({assignment.geographyType})
-                </p>
-              ) : (
-                <p className="text-sm text-slate-400">{t('memberDashboard.no_assignment')}</p>
-              )}
-            </div>
           </div>
         )}
       </section>

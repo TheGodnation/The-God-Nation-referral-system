@@ -5,7 +5,6 @@ import { api } from '../../lib/api';
 interface RoleAssignmentItem {
   id: string;
   community: { id: string; name: string } | null;
-  geography: { id: string; name: string; type: string } | null;
 }
 
 interface ProgressRow {
@@ -20,12 +19,9 @@ interface ProgressRow {
 
 // Phase 3E — read-only training-progress visibility for a Leader's own
 // Community. Gated entirely on holding an ACTIVE Community-scoped
-// SCOPED_LEADER RoleAssignment (Phase 3D) — a Geography-only Leader sees no
-// section at all here, exactly like MyFollowUp's own gating, but on a
-// DIFFERENT condition (Community scope specifically, not any active role).
-// The server enforces this exact-scope check independently on every
-// request; this component's own gating is a convenience, never the source
-// of authorization.
+// SCOPED_LEADER RoleAssignment (Phase 3D). The server enforces this
+// exact-scope check independently on every request; this component's own
+// gating is a convenience, never the source of authorization.
 export function TrainingProgress() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);

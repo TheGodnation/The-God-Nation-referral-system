@@ -23,7 +23,6 @@ router.use(requireAuth, requireRole('ADMIN'));
 const listRoleAssignmentsSchema = z.object({
   personId: z.string().min(1).optional(),
   communityId: z.string().min(1).optional(),
-  geographyId: z.string().min(1).optional(),
   status: z.enum(['ACTIVE', 'ENDED']).optional(),
 });
 
@@ -34,7 +33,6 @@ router.get('/role-assignments', asyncHandler(async (req, res) => {
   const where: Prisma.RoleAssignmentWhereInput = {
     ...(q.personId ? { personId: q.personId } : {}),
     ...(q.communityId ? { communityId: q.communityId } : {}),
-    ...(q.geographyId ? { geographyId: q.geographyId } : {}),
     ...(q.status ? { status: q.status } : {}),
   };
 
@@ -45,7 +43,6 @@ router.get('/role-assignments', asyncHandler(async (req, res) => {
       include: {
         person: { select: { id: true, name: true, whatsappNumber: true } },
         community: { select: { id: true, name: true } },
-        geography: { select: { id: true, name: true, type: true } },
         assignedBy: { select: { id: true, name: true, email: true } },
       },
       orderBy: { assignedAt: 'desc' },
@@ -57,36 +54,30 @@ router.get('/role-assignments', asyncHandler(async (req, res) => {
   res.json(paginatedResult(items, total, page, pageSize));
 }));
 
-const createRoleAssignmentSchema = z
-  .object({
-    personId: z.string().min(1),
-    roleType: z.literal('SCOPED_LEADER'),
-    communityId: z.string().min(1).optional(),
-    geographyId: z.string().min(1).optional(),
-  })
-  .refine((d) => Boolean(d.communityId) !== Boolean(d.geographyId), {
-    message: 'Exactly one of communityId or geographyId must be provided.',
-  });
+// Geography Retirement Step 5B: communityId is now the only scope a
+// SCOPED_LEADER assignment can target — a stray geographyId field is
+// silently stripped by Zod's default non-strict parsing, same convention
+// established for AnnouncementTarget in Step 4.
+const createRoleAssignmentSchema = z.object({
+  personId: z.string().min(1),
+  roleType: z.literal('SCOPED_LEADER'),
+  communityId: z.string().min(1),
+});
 
 router.post('/role-assignments', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = createRoleAssignmentSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid role assignment.' });
   }
-  const { personId, roleType, communityId, geographyId } = parsed.data;
+  const { personId, roleType, communityId } = parsed.data;
 
   const person = await prisma.person.findUnique({ where: { id: personId } });
   if (!person) {
     return res.status(400).json({ error: 'Person not found.' });
   }
 
-  if (communityId) {
-    const community = await prisma.community.findUnique({ where: { id: communityId } });
-    if (!community) return res.status(400).json({ error: 'Community not found.' });
-  } else if (geographyId) {
-    const geography = await prisma.geography.findUnique({ where: { id: geographyId } });
-    if (!geography) return res.status(400).json({ error: 'Geography not found.' });
-  }
+  const community = await prisma.community.findUnique({ where: { id: communityId } });
+  if (!community) return res.status(400).json({ error: 'Community not found.' });
 
   let created;
   try {
@@ -94,15 +85,14 @@ router.post('/role-assignments', leadershipMutationLimiter, requireCsrf, asyncHa
       data: {
         personId,
         roleType,
-        communityId: communityId ?? null,
-        geographyId: geographyId ?? null,
+        communityId,
         assignedByUserId: req.user!.id,
       },
     });
   } catch (err) {
-    // The partial unique indexes (active person+community / active
-    // person+geography) are the final authority — a concurrent duplicate
-    // request races against these, and the loser lands here cleanly.
+    // The partial unique index (active person+community) is the final
+    // authority — a concurrent duplicate request races against it, and the
+    // loser lands here cleanly.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       return res.status(409).json({ error: 'An active role assignment already exists for this Person and scope.' });
     }
@@ -115,7 +105,7 @@ router.post('/role-assignments', leadershipMutationLimiter, requireCsrf, asyncHa
     action: 'ROLE_ASSIGNMENT_CREATED',
     targetType: 'RoleAssignment',
     targetId: created.id,
-    metadata: { personId, roleType, communityId: communityId ?? null, geographyId: geographyId ?? null },
+    metadata: { personId, roleType, communityId },
   });
 
   res.status(201).json(created);

@@ -36,14 +36,10 @@ async function makeCommunity(name: string) {
   return prisma.community.create({ data: { name } });
 }
 
-async function makeGeography(name: string, type = 'REGION', countryCode = 'CM') {
-  return prisma.geography.create({ data: { name, type, countryCode } });
-}
-
 /** Creates a Leader User linked to a Person, with an ACTIVE SCOPED_LEADER
- * RoleAssignment for the given scope, then logs in. Mirrors the pattern
+ * RoleAssignment for the given Community, then logs in. Mirrors the pattern
  * established in followUpAssignment.test.ts's setupScopedLeader. */
-async function setupScopedLeader(n: number, scope: { communityId: string } | { geographyId: string }) {
+async function setupScopedLeader(n: number, scope: { communityId: string }) {
   const email = `leader-tp${n}@test.local`;
   const { user } = await createLeader(`TP Leader ${n}`, email, `TP${n}CODE`);
   const person = await makePerson(`+237681${String(n).padStart(6, '0')}`, `TP Leader Person ${n}`);
@@ -53,7 +49,7 @@ async function setupScopedLeader(n: number, scope: { communityId: string } | { g
       personId: person.id,
       roleType: 'SCOPED_LEADER',
       assignedByUserId: user.id,
-      ...('communityId' in scope ? { communityId: scope.communityId } : { geographyId: scope.geographyId }),
+      communityId: scope.communityId,
     },
   });
 
@@ -73,15 +69,6 @@ describe('Phase 3E — GET /api/leader/community-progress', () => {
     const res = await agent.get(`/api/leader/community-progress?communityId=${community.id}`);
     expect(res.status).toBe(200);
     expect(res.body.items.some((i: any) => i.personId === member.id)).toBe(true);
-  });
-
-  it('rejects a Geography-only Leader — no Geography role authorizes this endpoint', async () => {
-    const geography = await makeGeography('TP Geography A');
-    const community = await makeCommunity('TP Community B');
-    const { agent } = await setupScopedLeader(2, { geographyId: geography.id });
-
-    const res = await agent.get(`/api/leader/community-progress?communityId=${community.id}`);
-    expect(res.status).toBe(403);
   });
 
   it('rejects a request for a Community the Leader is not scoped to', async () => {
