@@ -10,8 +10,7 @@ interface GenerationItem {
 
 // Phase 2B — renders the shared LeadershipCollaboration panel once for
 // every organizational generation the Leader is currently eligible for
-// (see server/src/lib/leadershipCollaboration.ts). Mirrors
-// LeaderGeographyConversations.tsx's own precedent: this component's own
+// (see server/src/lib/leadershipCollaboration.ts). This component's own
 // filtering only decides which panels to render — the server independently
 // re-verifies eligibility for each generation on every request. No new
 // page: this section lives directly on the existing Leader Dashboard.

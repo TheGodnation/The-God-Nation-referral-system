@@ -502,10 +502,8 @@ model Person {
   uploadedAttachments         MessageAttachment[]          @relation("MessageAttachmentUploadedBy")
   followUpMessages            FollowUpMessage[]
   announcementReads           AnnouncementRead[]
-  geographyMessages           GeographyMessage[]
   communityConversationReads  CommunityConversationRead[]
   followUpConversationReads   FollowUpConversationRead[]
-  geographyConversationReads  GeographyConversationRead[]
   leadershipCollaborationMessages      LeadershipCollaborationMessage[]
   leadershipCollaborationConversationReads LeadershipCollaborationConversationRead[]
   organizationalLeadershipRecommendationsMade     OrganizationalLeadershipRecommendation[] @relation("OrganizationalLeadershipRecommendationProposer")
@@ -601,7 +599,6 @@ model Geography {
   assignments     GeographicAssignment[]
   roleAssignments RoleAssignment[]
   announcementTargets AnnouncementTarget[]
-  conversation    GeographyConversation?
 
   @@index([parentId])
   @@index([countryCode, parentId])
@@ -1104,8 +1101,8 @@ model MessageHiddenForPerson {
 // Geography/Follow-Up equivalent, and deliberately not a generic/polymorphic
 // "Attachment" table shared across communication surfaces, matching this
 // schema's established one-model-per-surface discipline (see
-// CommunityConversationRead/GeographyConversationRead/
-// FollowUpConversationRead for the same precedent applied to read state).
+// CommunityConversationRead/FollowUpConversationRead for the same precedent
+// applied to read state).
 // Visibility follows the owning Message: an ordinary participant's personal
 // "delete for me" (MessageHiddenForPerson) or a moderator's delete-for-
 // everyone (Message.deletedAt) both hide a message's attachments from
@@ -1212,69 +1209,11 @@ model FollowUpConversationRead {
   @@unique([personId, conversationId])
 }
 
-// Phase 3M.6 — a persistent, text-only, two-way GROUP conversation tied to
-// exactly one Geography node (geographyId is unique — never a generic,
-// reusable Conversation abstraction shared with Phase 3M.1's Community
-// Conversation). Structurally a sibling of Conversation, not a refactor of
-// it. No ConversationParticipant table: access is derived dynamically on
-// every request from the caller's current GeographicAssignment (exact node
-// or a descendant) or an ACTIVE exact-match Geography-scoped RoleAssignment
-// — see lib/geographyConversation.ts. Created lazily (get-or-create on
-// first access, race-safe via upsert), unlike Community Conversation's
-// eager creation, because the Geography tree is far larger and deeper than
-// the curated set of Communities — most nodes will never need one.
-model GeographyConversation {
-  id          String   @id @default(uuid())
-  geographyId String   @unique
-  createdAt   DateTime @default(now())
-
-  geography Geography          @relation(fields: [geographyId], references: [id], onDelete: Cascade)
-  messages  GeographyMessage[]
-  reads     GeographyConversationRead[]
-}
-
-// A single, immutable text message in a Geography's Conversation.
-// senderPersonId is always the authenticated caller's own linked Person
-// (Member via MemberAccount, Leader via User.personId) — never accepted
-// from the request body. Deliberately no editedAt/deletedAt: this phase
-// carries no message editing or deletion. Read state (Phase 3M.7) lives on
-// the separate GeographyConversationRead model below, never as a field
-// here — the message row itself never changes after it's posted.
-model GeographyMessage {
-  id             String   @id @default(uuid())
-  conversationId String
-  senderPersonId String
-  body           String
-  createdAt      DateTime @default(now())
-
-  conversation GeographyConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       Person                @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId, createdAt])
-}
-
-// Phase 3M.7 — a Person's last-read position in one GeographyConversation.
-// Same last-read-cursor shape as CommunityConversationRead/
-// FollowUpConversationRead, kept as its own dedicated model. Never
-// consulted for conversation access — canAccessGeographyConversation is
-// completely unchanged by this model's existence.
-model GeographyConversationRead {
-  id             String   @id @default(uuid())
-  personId       String
-  conversationId String
-  lastReadAt     DateTime
-
-  person       Person                @relation(fields: [personId], references: [id], onDelete: Cascade)
-  conversation GeographyConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@unique([personId, conversationId])
-}
-
 // Phase 2B — a two-way GROUP conversation for Leaders who share the same
 // Headquarters-relative organizational generation (see lib/tree.ts's
 // getCommunityGeneration/getCommunityIdsAtGeneration). Structurally a
-// sibling of Conversation/GeographyConversation/FollowUpConversation, not a
-// shared/generic engine with any of them — its own models, its own table,
+// sibling of Conversation/FollowUpConversation, not a shared/generic engine
+// with any of them — its own models, its own table,
 // its own authorization helper (lib/leadershipCollaboration.ts).
 //
 // Keyed by `generation` (a plain integer) rather than a foreign key to a
@@ -1285,12 +1224,11 @@ model GeographyConversationRead {
 // generation, enforced by @unique below), never a cached copy of any
 // Leader's or Community's own generation — no generation column exists or
 // is added on Person, Community, or RoleAssignment anywhere in this schema.
-// Created lazily (get-or-create on first access, race-safe via upsert),
-// mirroring GeographyConversation's own precedent — most generations may
-// never actually need one.
+// Created lazily (get-or-create on first access, race-safe via upsert) —
+// most generations may never actually need one.
 //
 // No participant table exists here either, for the same reason
-// Conversation/GeographyConversation/FollowUpConversation have none:
+// Conversation/FollowUpConversation have none:
 // eligibility is derived live, on every request, from the caller's own
 // ACTIVE Community-scoped SCOPED_LEADER RoleAssignment(s) — never stored,
 // never cached, and never affected by CommunityMembership, GeographicAssignment,
@@ -1329,7 +1267,7 @@ model LeadershipCollaborationMessage {
 
 // A Person's last-read position in one generation's Leadership
 // Collaboration conversation. Same last-read-cursor shape as
-// CommunityConversationRead/FollowUpConversationRead/GeographyConversationRead
+// CommunityConversationRead/FollowUpConversationRead
 // — kept as its own dedicated model, never a shared/generic read-state
 // table. Never consulted for conversation access — the authorization helper
 // in lib/leadershipCollaboration.ts is completely unchanged by this model's
@@ -1539,7 +1477,7 @@ model HeadquartersPostReaction {
 // memberPersonId) and the ONE organizational actor who initiated it. Kept
 // entirely separate from Conversation/Message (Community), FollowUpConversation
 // (strictly bound to one FollowUpAssignment, never repurposed here),
-// GeographyConversation, LeadershipCollaborationConversation, Announcement
+// LeadershipCollaborationConversation, Announcement
 // (one-way), and HeadquartersPost (canonical shared-engagement post) —
 // none of those models are modified or reused for this feature.
 //
@@ -1560,7 +1498,7 @@ model HeadquartersPostReaction {
 // User.personId's own comment and PATCH /api/admin/leaders/:id/link-person,
 // which explicitly refuses to link an Admin), initiatorPersonId when a
 // Leader initiates (Leaders already act via their linked Person on every
-// other messaging surface — Message, FollowUpMessage, GeographyMessage,
+// other messaging surface — Message, FollowUpMessage,
 // LeadershipCollaborationMessage — so this stays consistent with that
 // existing convention rather than inventing a second identity path for
 // Leaders too).
@@ -1613,7 +1551,7 @@ model PrivateMessage {
 
 // A participant's last-read position in one PrivateConversation — the same
 // last-read-cursor shape as CommunityConversationRead/
-// FollowUpConversationRead/GeographyConversationRead, generalized with the
+// FollowUpConversationRead, generalized with the
 // same personId/userId duality as this model family's other two tables
 // (exactly one set; DB CHECK). Never consulted for conversation access —
 // see lib/privateMessaging.ts's resolvePrivateConversationRole, which is

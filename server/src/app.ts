@@ -35,7 +35,6 @@ import communityConversationsRoutes from './routes/communityConversations';
 import followUpConversationsRoutes from './routes/followUpConversations';
 import announcementsRoutes from './routes/announcements';
 import adminAnnouncementsRoutes from './routes/adminAnnouncements';
-import geographyConversationsRoutes from './routes/geographyConversations';
 import adminConversationOversightRoutes from './routes/adminConversationOversight';
 import leaderLeadershipCollaborationRoutes from './routes/leaderLeadershipCollaboration';
 import leaderOrganizationalLeadershipRecommendationsRoutes from './routes/leaderOrganizationalLeadershipRecommendations';
@@ -131,29 +130,20 @@ export function createApp() {
   // announcements.ts), plus the separate Admin management surface.
   app.use('/api/me/announcements', announcementsRoutes);
   app.use('/api/admin/announcements', adminAnnouncementsRoutes);
-  // Phase 3M.6: one shared resource family for a Geography's two-way group
-  // conversation, reachable by an authenticated Member or Leader whose
-  // current GeographicAssignment or exact-match Geography RoleAssignment
-  // authorizes it (see lib/geographyConversation.ts) — a structural sibling
-  // of communityConversationsRoutes above, never a shared/generic engine
-  // with it.
-  app.use('/api/geographies', geographyConversationsRoutes);
   // Phase 3M.8B: Central Authority (Admin) read-only conversation oversight
-  // — defines '/communities/:communityId/conversation/messages',
-  // '/geographies/:geographyId/conversation/messages', and
+  // — defines '/communities/:communityId/conversation/messages' and
   // '/follow-ups/:followUpAssignmentId/conversation/messages', so it mounts
   // at the '/api/admin' root, same multi-file-sharing-one-prefix pattern as
   // adminPeopleRoutes/adminAttemptsRoutes/adminLeadershipRoutes above. Fully
-  // independent of communityConversationsRoutes/followUpConversationsRoutes/
-  // geographyConversationsRoutes — no shared middleware, no shared route.
+  // independent of communityConversationsRoutes/followUpConversationsRoutes
+  // — no shared middleware, no shared route.
   app.use('/api/admin', adminConversationOversightRoutes);
   // Phase 2B: leaderLeadershipCollaborationRoutes defines
   // '/leadership-collaboration' and its sub-routes under '/api/leader',
   // Leader-only — same per-concern file split and root-mount pattern as
   // leaderFollowUpsRoutes/leaderCommunitiesRoutes above. Fully independent of
-  // communityConversationsRoutes/followUpConversationsRoutes/
-  // geographyConversationsRoutes — own models, own tables, own authorization
-  // helper (lib/leadershipCollaboration.ts).
+  // communityConversationsRoutes/followUpConversationsRoutes — own models,
+  // own tables, own authorization helper (lib/leadershipCollaboration.ts).
   app.use('/api/leader', leaderLeadershipCollaborationRoutes);
   // Phase 2C: leaderOrganizationalLeadershipRecommendationsRoutes defines
   // '/organizational-leadership-recommendations' and its sub-routes under

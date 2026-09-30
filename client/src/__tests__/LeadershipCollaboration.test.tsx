@@ -3,8 +3,8 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { LeadershipCollaboration } from '../components/LeadershipCollaboration';
 import i18n from '../i18n';
 
-// Phase 2B — same URL-dispatching fetch mock pattern established in
-// GeographyConversation.test.tsx (Phase 3M.6).
+// Phase 2B — same URL-dispatching fetch mock pattern established for
+// CommunityConversation.test.tsx.
 const calls: { url: string; method: string; body: unknown }[] = [];
 
 function mockFetchByUrl(responses: Record<string, { status: number; body: unknown }>) {

@@ -8,7 +8,6 @@ import { centralAuthorityOversightLimiter } from '../lib/rateLimit';
 import { contextTargetExists } from '../lib/leadership';
 import { getOrCreateConversation } from '../lib/communityConversation';
 import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
-import { getOrCreateGeographyConversation } from '../lib/geographyConversation';
 import { isStorageConfigured, createDownloadUrl } from '../lib/storage';
 
 // ---------------------------------------------------------------------------
@@ -20,11 +19,10 @@ import { isStorageConfigured, createDownloadUrl } from '../lib/storage';
 // one of these routes could send a message, moderate content, or manage
 // participants. Admin's authority here is its platform-wide ADMIN role
 // only — never a client-supplied Person id, never the ordinary
-// hasConversationAccess/resolveFollowUpConversationRole/
-// canAccessGeographyConversation checks (all three remain completely
-// unmodified and are never called from this file), so Central Authority
-// never becomes a participant, never gains a read cursor, and never affects
-// any *ConversationRead model merely by inspecting.
+// hasConversationAccess/resolveFollowUpConversationRole checks (both remain
+// completely unmodified and are never called from this file), so Central
+// Authority never becomes a participant, never gains a read cursor, and
+// never affects any *ConversationRead model merely by inspecting.
 //
 // Every successful inspection requires a controlled reason (SECURITY,
 // FRAUD_OR_DECEPTION, ABUSE_OR_SAFEGUARDING, ORGANIZATIONAL_REVIEW, or OTHER
@@ -212,70 +210,6 @@ router.get(
     });
 
     res.json({ url, expiresAt });
-  }),
-);
-
-// GET /api/admin/geographies/:geographyId/conversation/messages — Central
-// Authority inspection of a Geography's conversation. GeographyMessage has
-// no moderation fields (Phase 3M.8A was Community-only), so there is
-// nothing to unredact here — this simply returns the same message history
-// participants see, via a separate, reason-gated, audited, Admin-only path.
-router.get(
-  '/geographies/:geographyId/conversation/messages',
-  centralAuthorityOversightLimiter,
-  asyncHandler(async (req, res) => {
-    const { geographyId } = req.params;
-
-    if (!(await contextTargetExists('GEOGRAPHY', geographyId))) {
-      return res.status(404).json({ error: 'Geography not found.' });
-    }
-
-    const parsed = oversightQuerySchema.safeParse(req.query);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'A valid reason is required.' });
-    }
-    const { reason, reasonNote, before, limit: rawLimit } = parsed.data;
-    const limit = Math.min(rawLimit ?? DEFAULT_MESSAGE_PAGE_SIZE, MAX_MESSAGE_PAGE_SIZE);
-
-    const conversation = await getOrCreateGeographyConversation(geographyId);
-
-    let cursor: { createdAt: Date; id: string } | null = null;
-    if (before) {
-      const cursorMessage = await prisma.geographyMessage.findUnique({ where: { id: before } });
-      if (!cursorMessage || cursorMessage.conversationId !== conversation.id) {
-        return res.status(400).json({ error: 'Invalid pagination cursor.' });
-      }
-      cursor = { createdAt: cursorMessage.createdAt, id: cursorMessage.id };
-    }
-
-    const rows = await prisma.geographyMessage.findMany({
-      where: {
-        conversationId: conversation.id,
-        ...(cursor
-          ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
-          : {}),
-      },
-      include: { sender: { select: { name: true } } },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: limit + 1,
-    });
-
-    const hasMore = rows.length > limit;
-    const page = rows.slice(0, limit).reverse();
-
-    await recordAudit({
-      actorId: req.user!.id,
-      actorEmail: req.user!.email,
-      action: 'CENTRAL_AUTHORITY_GEOGRAPHY_CONVERSATION_VIEWED',
-      targetType: 'Geography',
-      targetId: geographyId,
-      metadata: { conversationId: conversation.id, ...reasonMetadata(reason, reasonNote) },
-    });
-
-    res.json({
-      items: page.map((m) => ({ id: m.id, senderName: m.sender.name, body: m.body, createdAt: m.createdAt })),
-      hasMore,
-    });
   }),
 );
 

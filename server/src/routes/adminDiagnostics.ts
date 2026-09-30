@@ -36,14 +36,16 @@ function includeTestData(req: any): boolean {
 // `prisma migrate status` (checked in every phase's regression, including
 // this one) already confirms there is no drift between them and the live
 // database.
+// Geography Retirement Step 2 removed GeographyConversation.geographyId,
+// GeographyMessage.conversationId, and GeographyConversationRead.conversationId
+// (and their tables) entirely — CommunityConversation is their retained
+// replacement. This inventory and the response below no longer report on
+// them.
 const KNOWN_GEOGRAPHY_FOREIGN_KEYS = [
   'Geography.parentId (self-referencing tree)',
   'GeographicAssignment.geographyId (ON DELETE RESTRICT)',
   'RoleAssignment.geographyId (ON DELETE CASCADE)',
   'AnnouncementTarget.geographyId (ON DELETE CASCADE)',
-  'GeographyConversation.geographyId (ON DELETE CASCADE, unique)',
-  'GeographyMessage.conversationId -> GeographyConversation (transitive CASCADE)',
-  'GeographyConversationRead.conversationId -> GeographyConversation (transitive CASCADE)',
   'FollowUpAssignment.contextId (NO foreign key — application-validated only, see followUpAssignments.orphaned below)',
 ];
 
@@ -63,9 +65,6 @@ router.get(
       roleAssignmentGeographyActive,
       roleAssignmentGeographyEnded,
       roleAssignmentDistinctGeography,
-      geographyConversationTotal,
-      geographyMessageTotal,
-      geographyConversationReadTotal,
       announcementTargetGeographyTotal,
       announcementTargetDistinctGeography,
       followUpGeographyRows,
@@ -83,9 +82,6 @@ router.get(
       prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ACTIVE' } }),
       prisma.roleAssignment.count({ where: { geographyId: { not: null }, status: 'ENDED' } }),
       prisma.roleAssignment.groupBy({ by: ['geographyId'], where: { geographyId: { not: null } } }),
-      prisma.geographyConversation.count(),
-      prisma.geographyMessage.count(),
-      prisma.geographyConversationRead.count(),
       prisma.announcementTarget.count({ where: { geographyId: { not: null } } }),
       prisma.announcementTarget.groupBy({ by: ['geographyId'], where: { geographyId: { not: null } } }),
       prisma.followUpAssignment.findMany({
@@ -143,11 +139,6 @@ router.get(
         active: roleAssignmentGeographyActive,
         ended: roleAssignmentGeographyEnded,
         distinctGeographyIds: roleAssignmentDistinctGeography.length,
-      },
-      geographyConversations: {
-        total: geographyConversationTotal,
-        messageTotal: geographyMessageTotal,
-        readReceiptTotal: geographyConversationReadTotal,
       },
       announcementTargets: {
         geographyTotal: announcementTargetGeographyTotal,

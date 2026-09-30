@@ -8,9 +8,9 @@ import type { PrivateConversation } from '@prisma/client';
  * two-sided private conversation between one Member and the ONE
  * organizational actor (Admin or Leader) who initiated it. Kept entirely
  * separate from lib/announcements.ts, lib/communityConversation.ts,
- * lib/followUpConversation.ts, lib/geographyConversation.ts, and
- * lib/headquartersPosts.ts — no existing conversation model or
- * authorization helper is modified or reused as an authority source here.
+ * lib/followUpConversation.ts, and lib/headquartersPosts.ts — no existing
+ * conversation model or authorization helper is modified or reused as an
+ * authority source here.
  *
  * See PrivateConversation's own schema comment for the fan-out and
  * initiator-identity-duality design rationale.

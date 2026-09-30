@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { LeaderLeadershipCollaboration } from '../components/leader/LeaderLeadershipCollaboration';
 
 // Phase 2B — same URL-dispatching fetch mock pattern established for
-// LeaderGeographyConversations.test.tsx (Phase 3M.6).
+// LeaderCommunityConversations.test.tsx.
 function mockFetchByUrl(responses: Record<string, { status: number; body: unknown }>) {
   vi.stubGlobal(
     'fetch',

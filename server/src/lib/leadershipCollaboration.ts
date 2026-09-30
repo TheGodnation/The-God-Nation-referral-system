@@ -68,10 +68,9 @@ export async function canAccessLeadershipCollaboration(requestingPersonId: strin
 /**
  * Every generation has at most one LeadershipCollaborationConversation
  * (LeadershipCollaborationConversation.generation is unique). Created
- * lazily, on first access — mirroring GeographyConversation's own
- * precedent (lib/geographyConversation.ts) — most generations may never
- * actually need one. `upsert` makes this race-safe under the same unique
- * constraint, so concurrent callers can never create two.
+ * lazily, on first access — most generations may never actually need one.
+ * `upsert` makes this race-safe under the same unique constraint, so
+ * concurrent callers can never create two.
  */
 export async function getOrCreateLeadershipCollaborationConversation(generation: number) {
   return prisma.leadershipCollaborationConversation.upsert({
@@ -83,9 +82,9 @@ export async function getOrCreateLeadershipCollaborationConversation(generation:
 
 /**
  * Read-state helpers, same last-read-cursor shape as
- * lib/communityConversation.ts's / lib/geographyConversation.ts's. Never
- * consulted by canAccessLeadershipCollaboration — a read row is state about
- * what a Person has seen, never proof of what they may see.
+ * lib/communityConversation.ts's. Never consulted by
+ * canAccessLeadershipCollaboration — a read row is state about what a
+ * Person has seen, never proof of what they may see.
  */
 
 export async function markLeadershipCollaborationConversationRead(

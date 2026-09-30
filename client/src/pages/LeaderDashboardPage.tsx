@@ -8,7 +8,6 @@ import { MyOrganizationalLeadershipRecommendations } from '../components/leader/
 import { MyLeadershipPeers } from '../components/leader/MyLeadershipPeers';
 import { LeaderLeadershipCollaboration } from '../components/leader/LeaderLeadershipCollaboration';
 import { LeaderCommunityConversations } from '../components/leader/LeaderCommunityConversations';
-import { LeaderGeographyConversations } from '../components/leader/LeaderGeographyConversations';
 import { Announcements } from '../components/Announcements';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { PrivateMessages } from '../components/PrivateMessages';
@@ -271,8 +270,6 @@ export function LeaderDashboardPage() {
         <LeaderLeadershipCollaboration />
 
         <LeaderCommunityConversations />
-
-        <LeaderGeographyConversations />
 
         <div className="card mt-6 overflow-x-auto">
           <h2 className="mb-3 font-semibold text-brand-900">{t('leader.referrals_title')}</h2>

@@ -5,7 +5,6 @@ import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { CommunityConversation } from '../components/CommunityConversation';
-import { GeographyConversation } from '../components/GeographyConversation';
 import { MyFollowUps } from '../components/member/MyFollowUps';
 import { Announcements } from '../components/Announcements';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
@@ -339,10 +338,6 @@ export function MemberDashboardPage() {
                 <p className="text-sm text-slate-400">{t('memberDashboard.no_assignment')}</p>
               )}
             </div>
-
-            {assignment && (
-              <GeographyConversation geographyId={assignment.geographyId} geographyName={assignment.geographyName} />
-            )}
           </div>
         )}
       </section>

@@ -226,25 +226,12 @@ export const announcementReadLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
-// Phase 3M.6: sending a message to a Geography's conversation. Same design
-// and magnitude as messageSendLimiter/followUpMessageSendLimiter, kept as
-// its own dedicated export per the project's per-category-limiter
-// convention — Community, Follow-Up, and Geography messaging quotas never
-// share or starve one another.
-export const geographyMessageSendLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many messages sent. Please slow down.' },
-});
-
 // Phase 3M.7: marking a conversation read. Same design and magnitude as
 // announcementReadLimiter (own-data-only, idempotent, expected to fire
 // once per conversation a Person actually opens) — one dedicated limiter
 // per conversation surface, per the project's per-category-limiter
-// convention, so Community/Follow-Up/Geography read-marking quotas never
-// share or starve one another, or the surfaces' own message-send limiters.
+// convention, so Community/Follow-Up read-marking quotas never share or
+// starve one another, or the surfaces' own message-send limiters.
 export const communityConversationReadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 120,
@@ -254,14 +241,6 @@ export const communityConversationReadLimiter = rateLimit({
 });
 
 export const followUpConversationReadLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests. Please slow down.' },
-});
-
-export const geographyConversationReadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 120,
   standardHeaders: true,
@@ -285,7 +264,7 @@ export const communityModerationLimiter = rateLimit({
 });
 
 // Phase 3M.8B: Central Authority (Admin) conversation oversight — inspecting
-// a Community/Geography/Follow-Up conversation's message history. Every
+// a Community/Follow-Up conversation's message history. Every
 // call is reason-gated and audited (see adminConversationOversight.ts), so
 // this limiter exists to bound how much of that sensitive, accountable
 // activity can happen in a burst — its own dedicated category per the
@@ -342,7 +321,7 @@ export const attachmentDownloadLimiter = rateLimit({
 
 // Phase 2B: sending a message to a generation's Leadership Collaboration
 // conversation. Same design and magnitude as messageSendLimiter/
-// followUpMessageSendLimiter/geographyMessageSendLimiter, kept as its own
+// followUpMessageSendLimiter, kept as its own
 // dedicated export per the project's per-category-limiter convention — this
 // surface's messaging quota never shares or starves any other surface's.
 export const leadershipCollaborationMessageSendLimiter = rateLimit({
@@ -355,7 +334,7 @@ export const leadershipCollaborationMessageSendLimiter = rateLimit({
 
 // Phase 2B: marking a Leadership Collaboration conversation read. Same
 // design and magnitude as communityConversationReadLimiter/
-// followUpConversationReadLimiter/geographyConversationReadLimiter.
+// followUpConversationReadLimiter.
 export const leadershipCollaborationReadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 120,
@@ -380,7 +359,7 @@ export const headquartersPostMutationLimiter = rateLimit({
 
 // Headquarters Network Posts: a Member/Leader posting a comment on a post.
 // Same design and magnitude as messageSendLimiter/followUpMessageSendLimiter
-// /geographyMessageSendLimiter/leadershipCollaborationMessageSendLimiter,
+// /leadershipCollaborationMessageSendLimiter,
 // kept as its own dedicated export per the project's per-category-limiter
 // convention.
 export const headquartersPostCommentLimiter = rateLimit({

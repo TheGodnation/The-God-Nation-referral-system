@@ -52,10 +52,6 @@ async function makeCommunity(name: string) {
   return prisma.community.create({ data: { name } });
 }
 
-async function makeGeography(name: string) {
-  return prisma.geography.create({ data: { name, type: 'REGION', countryCode: 'CM' } });
-}
-
 async function loginAsAdmin(n: number) {
   const email = `oversight-admin${n}@test.local`;
   await createAdmin(email);
@@ -446,55 +442,6 @@ describe('Phase 3M.8C — Central Authority oversight — attachment download', 
       lastStatus = res.status;
     }
     expect(lastStatus).toBe(429);
-  });
-});
-
-describe('Phase 3M.8B — Central Authority oversight — Geography conversation', () => {
-  it('an Admin with a valid reason can view messages, and it is audited', async () => {
-    const geography = await makeGeography('Oversight Region 1');
-    const { agent, email } = await loginAsAdmin(20);
-    const sender = await makePerson('+237693200001', 'Geo Sender 1');
-    const conversation = await prisma.geographyConversation.upsert({
-      where: { geographyId: geography.id },
-      create: { geographyId: geography.id },
-      update: {},
-    });
-    await prisma.geographyMessage.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'Hi region' } });
-
-    const res = await agent.get(`/api/admin/geographies/${geography.id}/conversation/messages?reason=ORGANIZATIONAL_REVIEW`);
-    expect(res.status).toBe(200);
-    expect(res.body.items[0].body).toBe('Hi region');
-
-    const row = await prisma.auditLog.findFirst({
-      where: { action: 'CENTRAL_AUTHORITY_GEOGRAPHY_CONVERSATION_VIEWED', targetId: geography.id },
-    });
-    expect(row).toBeTruthy();
-    expect(row!.actorEmail).toBe(email);
-    expect(row!.targetType).toBe('Geography');
-  });
-
-  it('a nonexistent Geography returns 404', async () => {
-    const { agent } = await loginAsAdmin(21);
-    const res = await agent.get(
-      '/api/admin/geographies/00000000-0000-0000-0000-000000000000/conversation/messages?reason=SECURITY',
-    );
-    expect(res.status).toBe(404);
-  });
-
-  it('a missing reason is rejected', async () => {
-    const geography = await makeGeography('Oversight Region 2');
-    const { agent } = await loginAsAdmin(22);
-    const res = await agent.get(`/api/admin/geographies/${geography.id}/conversation/messages`);
-    expect(res.status).toBe(400);
-  });
-
-  it('an ordinary Person assigned to this Geography cannot use the Admin oversight route', async () => {
-    const geography = await makeGeography('Oversight Region 3');
-    const { agent, person } = await loginAsMember('+237693200003', 'oversight-geo3@example.com');
-    await prisma.geographicAssignment.create({ data: { personId: person.id, geographyId: geography.id } });
-
-    const res = await agent.get(`/api/admin/geographies/${geography.id}/conversation/messages?reason=SECURITY`);
-    expect(res.status).toBe(401);
   });
 });
 

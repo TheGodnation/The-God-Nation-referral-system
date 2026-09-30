@@ -8,8 +8,7 @@ import { isCommunityAdministrator, findActiveScopedRole } from '../lib/leadershi
 import { hasConversationAccess } from '../lib/communityConversation';
 
 // Phase 2B — Same-Generation Leader Collaboration. Mirrors the exact
-// conventions established in leaderPeers.test.ts (Phase 2A) and
-// geographyConversations.test.ts (Phase 3M.6): agentWithUniqueIp,
+// conventions established in leaderPeers.test.ts (Phase 2A): agentWithUniqueIp,
 // createLeader/createAdmin, bootstrap, cursor-pagination assertions, CSRF
 // and rate-limiter assertions.
 

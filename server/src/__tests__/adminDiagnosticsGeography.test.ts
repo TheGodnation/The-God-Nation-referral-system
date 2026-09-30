@@ -13,7 +13,9 @@ import { bootstrap } from './testUtils';
 // shared test database is never truncated between files and other test
 // files (geography.test.ts, etc.) legitimately create their own
 // Geography-dependent rows. LeadershipProposal was retired in Geography
-// Retirement Step 1 — this endpoint no longer reports on it.
+// Retirement Step 1 and GeographyConversation/GeographyMessage/
+// GeographyConversationRead in Step 2 — this endpoint no longer reports on
+// either.
 const RUN = Math.random().toString(36).slice(2, 10);
 
 const app = createApp();
@@ -104,7 +106,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — security / no wr
       geography: await prisma.geography.count(),
       geographicAssignment: await prisma.geographicAssignment.count(),
       roleAssignment: await prisma.roleAssignment.count(),
-      geographyConversation: await prisma.geographyConversation.count(),
       announcementTarget: await prisma.announcementTarget.count(),
       followUpAssignment: await prisma.followUpAssignment.count(),
       person: await prisma.person.count(),
@@ -116,7 +117,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — security / no wr
     expect(await prisma.geography.count()).toBe(counts.geography);
     expect(await prisma.geographicAssignment.count()).toBe(counts.geographicAssignment);
     expect(await prisma.roleAssignment.count()).toBe(counts.roleAssignment);
-    expect(await prisma.geographyConversation.count()).toBe(counts.geographyConversation);
     expect(await prisma.announcementTarget.count()).toBe(counts.announcementTarget);
     expect(await prisma.followUpAssignment.count()).toBe(counts.followUpAssignment);
     expect(await prisma.person.count()).toBe(counts.person);
@@ -168,28 +168,6 @@ describe('GET /api/admin/diagnostics/geography-dependencies — Geography-scoped
     expect(after.body.roleAssignments.geographyScopedTotal).toBe(before.body.roleAssignments.geographyScopedTotal + 2);
     expect(after.body.roleAssignments.active).toBe(before.body.roleAssignments.active + 1);
     expect(after.body.roleAssignments.ended).toBe(before.body.roleAssignments.ended + 1);
-  });
-});
-
-describe('GET /api/admin/diagnostics/geography-dependencies — GeographyConversation counts', () => {
-  it('conversation and message totals are correct', async () => {
-    const geo = await makeGeography('Diag Conversation Geo');
-    const sender = await makePerson();
-
-    const { agent } = await loginAsAdmin(`diag-convo-counts-${RUN}@test.local`);
-    const before = await getDiagnostics(agent);
-
-    const conversation = await prisma.geographyConversation.create({ data: { geographyId: geo.id } });
-    await prisma.geographyMessage.create({
-      data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'diagnostic test message' },
-    });
-    await prisma.geographyMessage.create({
-      data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'diagnostic test message 2' },
-    });
-
-    const after = await getDiagnostics(agent);
-    expect(after.body.geographyConversations.total).toBe(before.body.geographyConversations.total + 1);
-    expect(after.body.geographyConversations.messageTotal).toBe(before.body.geographyConversations.messageTotal + 2);
   });
 });
 

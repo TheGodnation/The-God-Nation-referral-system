@@ -27,9 +27,8 @@ router.use(requireAuth, requireRole('LEADER'), requireLinkedPerson);
 
 // A single non-disclosing 404 for both "this generation has no Headquarters
 // tree to belong to" and "this generation exists but the caller is not
-// eligible for it" — matching requireGeographyConversationAccess's own
-// precedent in geographyConversations.ts. A probed generation must never be
-// distinguishable from one the caller is simply ineligible for.
+// eligible for it". A probed generation must never be distinguishable from
+// one the caller is simply ineligible for.
 async function requireLeadershipCollaborationAccess(generation: number, personId: string): Promise<boolean> {
   if (!Number.isInteger(generation) || generation < 0) return false;
   return canAccessLeadershipCollaboration(personId, generation);

@@ -10,8 +10,8 @@ interface MessageRow {
 }
 
 // Phase 2B — a single generation's Leadership Collaboration conversation.
-// Structurally a sibling of CommunityConversation/GeographyConversation/
-// FollowUpConversation (client/src/components/*.tsx) — its own dedicated
+// Structurally a sibling of CommunityConversation/FollowUpConversation
+// (client/src/components/*.tsx) — its own dedicated
 // component, not a shared/generic one, hardwired to
 // /api/leader/leadership-collaboration/:generation/... (Leader-only, unlike
 // those three, which are reachable by an authenticated Member too). This
@@ -19,7 +19,7 @@ interface MessageRow {
 // whatever the server returns for the given generation, and the server
 // independently re-verifies eligibility on every request.
 //
-// Same read/unread pattern as GeographyConversation: loadLatest is a
+// Same read/unread pattern as CommunityConversation: loadLatest is a
 // genuine, side-effect-free GET; once it succeeds and there is at least one
 // unread message, this component fires POST .../read once with the newest
 // visible message — never from loadOlder().
