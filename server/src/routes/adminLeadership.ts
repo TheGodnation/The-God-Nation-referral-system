@@ -11,6 +11,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { findActiveScopedRole, contextTargetExists } from '../lib/leadership';
 import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
 import { computeAttentionAcrossNetwork } from '../lib/followUpAttention';
+import { notifyFollowUpAssigned, notifyRoleAssigned } from '../lib/notifications';
 
 const router = Router();
 
@@ -108,6 +109,8 @@ router.post('/role-assignments', leadershipMutationLimiter, requireCsrf, asyncHa
     targetId: created.id,
     metadata: { personId, roleType, communityId },
   });
+
+  await notifyRoleAssigned(created);
 
   res.status(201).json(created);
 }));
@@ -276,6 +279,8 @@ router.post('/follow-ups', leadershipMutationLimiter, requireCsrf, asyncHandler(
     metadata: { followerId, followedPersonId, contextType, contextId },
   });
 
+  await notifyFollowUpAssigned(created);
+
   res.status(201).json(created);
 }));
 
@@ -346,6 +351,8 @@ router.post('/follow-ups/:id/reassign', leadershipMutationLimiter, requireCsrf, 
     targetId: id,
     metadata: { newAssignmentId: created.id, newFollowerId },
   });
+
+  await notifyFollowUpAssigned(created);
 
   res.json(created);
 }));

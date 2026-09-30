@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { NotificationBell } from '../components/NotificationBell';
 import { PasswordInput } from '../components/PasswordInput';
 import { PeopleTab } from '../components/admin/PeopleTab';
 import { CommunitiesTab } from '../components/admin/CommunitiesTab';
@@ -1590,9 +1591,12 @@ export function AdminDashboardPage() {
             <h1 className="text-2xl font-bold text-brand-900">{t('admin.dashboard_title')}</h1>
             <p className="text-sm text-slate-500">{user?.name}</p>
           </div>
-          <button onClick={() => logout()} className="btn-secondary">
-            {t('admin.logout')}
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button onClick={() => logout()} className="btn-secondary">
+              {t('admin.logout')}
+            </button>
+          </div>
         </div>
 
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">

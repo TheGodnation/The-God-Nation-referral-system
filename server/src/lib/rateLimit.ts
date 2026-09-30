@@ -386,3 +386,17 @@ export const headquartersPostReactionLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// In-App Notifications Foundation: marking one notification read. Own-data
+// -only, idempotent, expected to fire often as a user opens their
+// notification list — same design and magnitude as
+// communityConversationReadLimiter/headquartersPostReactionLimiter, its own
+// dedicated category so this never competes with any other mutation
+// category's quota.
+export const notificationReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

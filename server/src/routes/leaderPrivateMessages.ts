@@ -7,6 +7,7 @@ import { requireLinkedPerson } from '../lib/leadership';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { getLeaderExactCommunityIds, getOrCreatePrivateConversation } from '../lib/privateMessaging';
+import { notifyPrivateMessageReceived } from '../lib/notifications';
 
 const router = Router();
 
@@ -75,6 +76,7 @@ router.post('/conversations', leadershipMutationLimiter, requireCsrf, asyncHandl
     await prisma.privateMessage.create({
       data: { conversationId: conversation.id, senderPersonId: leaderPersonId, body },
     });
+    await notifyPrivateMessageReceived(conversation, { type: 'PERSON', personId: leaderPersonId });
   }
 
   res.status(201).json({

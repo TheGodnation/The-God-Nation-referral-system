@@ -47,6 +47,7 @@ import leaderPrivateMessagesRoutes from './routes/leaderPrivateMessages';
 import resourcesRoutes from './routes/resources';
 import adminResourcesRoutes from './routes/adminResources';
 import adminResourceAccessRoutes from './routes/adminResourceAccess';
+import notificationsRoutes from './routes/notifications';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -186,6 +187,11 @@ export function createApp() {
   app.use('/api/me/resources', resourcesRoutes);
   app.use('/api/admin/resources', adminResourcesRoutes);
   app.use('/api/admin', adminResourceAccessRoutes);
+  // In-App Notifications Foundation: notificationsRoutes is a shared
+  // authenticated surface (Member, Leader, or Admin — reuses
+  // lib/privateMessaging.ts's own identity resolver, same reasoning as
+  // privateMessagesRoutes above for why Admin is included here too).
+  app.use('/api/notifications', notificationsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

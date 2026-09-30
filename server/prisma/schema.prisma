@@ -133,6 +133,15 @@ enum ResourceAccessGrantStatus {
   REVOKED
 }
 
+// In-App Notifications Foundation — exactly the four supported events;
+// deliberately not a generic event-bus enum with room "for later" values.
+enum NotificationType {
+  FOLLOW_UP_ASSIGNED
+  PRIVATE_MESSAGE_RECEIVED
+  RESOURCE_GRANTED
+  ROLE_ASSIGNED
+}
+
 // ---------------------------------------------------------------------------
 // User / Auth
 // ---------------------------------------------------------------------------
@@ -181,6 +190,7 @@ model User {
   privateConversationReads      PrivateConversationRead[]
   resourceAccessGrantsGiven   ResourceAccessGrant[] @relation("ResourceAccessGrantGrantedBy")
   resourceAccessGrantsRevoked ResourceAccessGrant[] @relation("ResourceAccessGrantRevokedBy")
+  notifications               Notification[]
 
   @@index([role])
 }
@@ -517,6 +527,7 @@ model Person {
   privateMessagesSent             PrivateMessage[]
   privateConversationReads        PrivateConversationRead[]
   resourceAccessGrants             ResourceAccessGrant[]
+  notifications                    Notification[]
 
   @@index([isTestData])
 }
@@ -1600,4 +1611,42 @@ model AuditLog {
 
   @@index([action, createdAt])
   @@index([actorId, createdAt])
+}
+
+// In-App Notifications Foundation — a small, reusable persisted notification
+// for an authenticated Person (Member or Leader) or, for the one case where
+// Central Authority genuinely participates as a private-messaging party
+// (see lib/privateMessaging.ts's own comment on why), a User (Admin).
+// recipientPersonId/recipientUserId is the same identity-duality pattern
+// already established by PrivateConversation/PrivateMessage/
+// PrivateConversationRead — exactly one set, never both, never neither
+// (enforced by a database CHECK constraint added in the migration, since
+// Prisma's schema DSL has no native support for it).
+//
+// No message text is ever stored: `type` plus the small `metadata` JSON bag
+// (names only — never a WhatsApp number, email, or note) is all a client
+// needs to render its own localized message via the existing i18n
+// convention, exactly like every other bilingual surface in this app — a
+// pre-rendered English/French string would defeat that. `targetType`/
+// `targetId` is the same generic, non-FK reference pattern already used by
+// AuditLog above, deliberately not a real relation to four different
+// tables: this phase never navigates from a notification to its target, so
+// a live FK (with four more nullable columns and its own exclusivity
+// constraint) would be speculative complexity ahead of any actual need.
+model Notification {
+  id                String            @id @default(uuid())
+  recipientPersonId String?
+  recipientUserId   String?
+  type              NotificationType
+  metadata          Json?
+  targetType        String?
+  targetId          String?
+  readAt            DateTime?
+  createdAt         DateTime          @default(now())
+
+  recipientPerson Person? @relation(fields: [recipientPersonId], references: [id], onDelete: Cascade)
+  recipientUser   User?   @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([recipientPersonId, readAt, createdAt])
+  @@index([recipientUserId, readAt, createdAt])
 }

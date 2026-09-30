@@ -5,6 +5,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { requireCsrf } from '../lib/csrf';
 import { messageSendLimiter, communityConversationReadLimiter } from '../lib/rateLimit';
 import { parsePagination, paginatedResult } from '../lib/pagination';
+import { notifyPrivateMessageReceived } from '../lib/notifications';
 import {
   resolvePrivateMessagingActor,
   resolvePrivateConversationRole,
@@ -209,6 +210,8 @@ router.post(
         ...(actor.type === 'PERSON' ? { senderPersonId: actor.personId } : { senderUserId: actor.userId }),
       },
     });
+
+    await notifyPrivateMessageReceived(conversation, actor);
 
     res.status(201).json({ id: created.id, isOwn: true, body: created.body, createdAt: created.createdAt });
   }),

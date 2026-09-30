@@ -1220,5 +1220,15 @@
     "send_failed": "Failed to send message.",
     "sent_success": "Message sent.",
     "no_communities": "You do not currently lead any Community."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "loading": "Loading…",
+    "load_failed": "Failed to load notifications.",
+    "empty": "You have no notifications yet.",
+    "follow_up_assigned": "New Follow-Up: {{name}}",
+    "private_message_received": "New message from {{name}}",
+    "resource_granted": "You now have access to: {{title}}",
+    "role_assigned": "You are now a Leader for {{community}}"
   }
 }

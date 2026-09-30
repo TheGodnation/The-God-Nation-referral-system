@@ -25,11 +25,24 @@ export async function hasResourceAccess(personId: string, resourceId: string): P
  * cycle (see ResourceAccessGrant's own schema comment for why this phase
  * deliberately avoids RoleAssignment's alternative, multiple-historical
  * -rows pattern).
+ *
+ * `wasNewlyActivated` distinguishes a genuinely new grant (or a
+ * reactivation after revocation) from a redundant re-call against an
+ * already-ACTIVE grant — this upsert is otherwise silently idempotent, so
+ * the caller uses this flag to avoid creating a duplicate Notification for
+ * the same underlying grant on a retried request (see
+ * lib/notifications.ts's notifyResourceGranted).
  */
 export async function grantResourceAccess(personId: string, resourceId: string, grantedByUserId: string) {
-  return prisma.resourceAccessGrant.upsert({
+  const existing = await prisma.resourceAccessGrant.findUnique({
+    where: { personId_resourceId: { personId, resourceId } },
+    select: { status: true },
+  });
+  const grant = await prisma.resourceAccessGrant.upsert({
     where: { personId_resourceId: { personId, resourceId } },
     create: { personId, resourceId, grantedByUserId },
     update: { status: 'ACTIVE', grantedAt: new Date(), grantedByUserId, revokedAt: null, revokedByUserId: null },
   });
+  const wasNewlyActivated = !existing || existing.status !== 'ACTIVE';
+  return { grant, wasNewlyActivated };
 }

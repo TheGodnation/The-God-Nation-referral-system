@@ -1220,5 +1220,15 @@
     "send_failed": "Échec de l'envoi du message.",
     "sent_success": "Message envoyé.",
     "no_communities": "Vous ne dirigez actuellement aucune Communauté."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "loading": "Chargement…",
+    "load_failed": "Échec du chargement des notifications.",
+    "empty": "Vous n'avez aucune notification pour le moment.",
+    "follow_up_assigned": "Nouveau suivi : {{name}}",
+    "private_message_received": "Nouveau message de {{name}}",
+    "resource_granted": "Vous avez maintenant accès à : {{title}}",
+    "role_assigned": "Vous êtes maintenant Leader pour {{community}}"
   }
 }

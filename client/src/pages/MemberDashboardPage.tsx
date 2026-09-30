@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { NotificationBell } from '../components/NotificationBell';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { CommunityConversation } from '../components/CommunityConversation';
@@ -217,9 +218,12 @@ export function MemberDashboardPage() {
             <h1 className="text-2xl font-bold text-brand-900">{t('memberDashboard.title')}</h1>
             {member && <p className="text-sm text-slate-500">{member.name}</p>}
           </div>
-          <button onClick={() => logout()} className="btn-secondary">
-            {t('memberDashboard.logout')}
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button onClick={() => logout()} className="btn-secondary">
+              {t('memberDashboard.logout')}
+            </button>
+          </div>
         </div>
 
         {!loaded ? (

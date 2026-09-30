@@ -7,6 +7,7 @@ import { recordAudit } from '../lib/audit';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { grantResourceAccess } from '../lib/resourceAccess';
+import { notifyResourceGranted } from '../lib/notifications';
 
 const router = Router();
 
@@ -79,7 +80,7 @@ router.post('/people/:personId/resource-access', leadershipMutationLimiter, requ
   if (!person) return res.status(404).json({ error: 'Person not found.' });
   if (!resource) return res.status(400).json({ error: 'Resource not found.' });
 
-  const grant = await grantResourceAccess(personId, resource.id, req.user!.id);
+  const { grant, wasNewlyActivated } = await grantResourceAccess(personId, resource.id, req.user!.id);
 
   await recordAudit({
     actorId: req.user!.id,
@@ -89,6 +90,10 @@ router.post('/people/:personId/resource-access', leadershipMutationLimiter, requ
     targetId: grant.id,
     metadata: { personId, resourceId: resource.id },
   });
+
+  if (wasNewlyActivated) {
+    await notifyResourceGranted(grant);
+  }
 
   res.status(201).json(toGrantResponse({ ...grant, resource }));
 }));

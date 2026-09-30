@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { NotificationBell } from '../components/NotificationBell';
 import { MyFollowUp } from '../components/leader/MyFollowUp';
 import { TrainingProgress } from '../components/leader/TrainingProgress';
 import { MyMembers } from '../components/leader/MyMembers';
@@ -194,9 +195,12 @@ export function LeaderDashboardPage() {
             <h1 className="text-2xl font-bold text-brand-900">{t('leader.dashboard_title')}</h1>
             <p className="text-sm text-slate-500">{user?.name}</p>
           </div>
-          <button onClick={() => logout()} className="btn-secondary">
-            {t('leader.logout')}
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button onClick={() => logout()} className="btn-secondary">
+              {t('leader.logout')}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
