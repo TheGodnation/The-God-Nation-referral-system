@@ -206,9 +206,14 @@ export function CommunitiesTab() {
             </span>
           ))}
         </div>
-        <button className="btn-primary px-4 py-2" onClick={() => { setEditingId(null); setShowForm((v) => !v); }}>
-          {t('admin.communities.new_community')}
-        </button>
+        <div className="flex items-center gap-3">
+          <a className="text-sm text-brand-700 hover:underline" href="/api/admin/communities/export">
+            {t('admin.communities.export_memberships_csv')}
+          </a>
+          <button className="btn-primary px-4 py-2" onClick={() => { setEditingId(null); setShowForm((v) => !v); }}>
+            {t('admin.communities.new_community')}
+          </button>
+        </div>
       </div>
 
       {error && !showForm && !editingId && <p className="mb-4 text-sm text-red-700">{error}</p>}

@@ -841,6 +841,7 @@
     "communities": {
       "root": "Racine",
       "new_community": "+ Nouvelle communauté",
+      "export_memberships_csv": "Exporter les adhésions (CSV)",
       "name_placeholder": "Nom de la communauté",
       "create": "Créer",
       "create_failed": "Échec de la création de la communauté.",

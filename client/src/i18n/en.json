@@ -841,6 +841,7 @@
     "communities": {
       "root": "Root",
       "new_community": "+ New Community",
+      "export_memberships_csv": "Export Memberships (CSV)",
       "name_placeholder": "Community name",
       "create": "Create",
       "create_failed": "Failed to create community.",

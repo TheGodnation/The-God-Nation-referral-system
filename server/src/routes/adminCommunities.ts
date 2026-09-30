@@ -122,6 +122,56 @@ router.put('/headquarters', communityMutationLimiter, requireCsrf, asyncHandler(
   res.json({ community: { id: community.id, name: community.name } });
 }));
 
+// GET /api/admin/communities/export — CSV export of every CommunityMembership
+// row, network-wide. Registered BEFORE /:id so "export" is never captured as
+// a Community id. Minimum-necessary fields only (Person name/id, Community
+// name/id, membership status, joinedAt) — deliberately excludes WhatsApp,
+// email, DOB, location, photo, notes, and every other Person field, matching
+// this codebase's established "minimum necessary" convention for any export
+// or report surface (see the Follow-Up Attention and Notifications phases).
+// Follows the exact manual-CSV-builder pattern already established by
+// GET /api/admin/export (registrations) — no new CSV library.
+router.get('/export', asyncHandler(async (req, res) => {
+  const memberships = await prisma.communityMembership.findMany({
+    include: {
+      person: { select: { id: true, name: true } },
+      community: { select: { id: true, name: true } },
+    },
+    orderBy: { joinedAt: 'desc' },
+    take: 5000,
+  });
+
+  const header = 'personName,personId,communityName,communityId,status,joinedAt\n';
+  const rows = memberships
+    .map((m) =>
+      [
+        JSON.stringify(m.person.name),
+        m.personId,
+        JSON.stringify(m.community.name),
+        m.communityId,
+        m.status,
+        m.joinedAt.toISOString(),
+      ].join(','),
+    )
+    .join('\n');
+
+  // Audit metadata records that an export happened and how large it was —
+  // never the exported rows themselves (no Person/Community names or ids in
+  // metadata), matching the instruction to identify the export without
+  // storing the exported personal data in the audit entry.
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'COMMUNITY_MEMBERSHIPS_EXPORTED',
+    targetType: 'CommunityMembership',
+    metadata: { rowCount: memberships.length },
+  });
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="community-memberships.csv"');
+  res.send(header + rows);
+}));
+
 router.get('/:id', asyncHandler(async (req, res) => {
   const [node, headquartersId] = await Promise.all([
     prisma.community.findUnique({

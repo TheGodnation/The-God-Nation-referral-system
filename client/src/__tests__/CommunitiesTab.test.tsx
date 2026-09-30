@@ -169,6 +169,33 @@ describe('CommunitiesTab — National Headquarters designation', () => {
   });
 });
 
+describe('CommunitiesTab — membership export', () => {
+  it('renders an Export CSV link pointing at the membership export endpoint', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: emptyList },
+    });
+
+    render(<CommunitiesTab />);
+
+    const link = await screen.findByText('Export Memberships (CSV)');
+    expect(link.closest('a')).toHaveAttribute('href', '/api/admin/communities/export');
+  });
+
+  it('renders the export link label in French', async () => {
+    i18n.changeLanguage('fr');
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: emptyList },
+    });
+
+    render(<CommunitiesTab />);
+
+    const link = await screen.findByText('Exporter les adhésions (CSV)');
+    expect(link.closest('a')).toHaveAttribute('href', '/api/admin/communities/export');
+  });
+});
+
 describe('CommunitiesTab — Community Posting Policy', () => {
   const oneEveryoneCommunity = {
     items: [

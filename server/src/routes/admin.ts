@@ -682,6 +682,14 @@ router.get('/export', asyncHandler(async (req, res) => {
     )
     .join('\n');
 
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'REGISTRATIONS_EXPORTED',
+    targetType: 'Registration',
+    metadata: { rowCount: registrations.length, includeTestData: includeTestData(req) },
+  });
+
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="registrations.csv"');
   res.send(header + rows);
