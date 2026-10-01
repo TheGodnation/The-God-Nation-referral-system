@@ -1042,7 +1042,20 @@
       "status_published": "Publiée",
       "status_archived": "Archivée",
       "no_posts": "Aucune publication trouvée.",
-      "engagement_summary": "{{comments}} commentaires, {{reactions}} réactions"
+      "engagement_summary": "{{comments}} commentaires, {{reactions}} réactions",
+      "media_label": "Média",
+      "media_none": "Aucun média joint pour le moment.",
+      "media_current": "Joint : {{filename}} ({{type}})",
+      "attach_media": "Joindre un média",
+      "replace_media": "Remplacer le média",
+      "media_uploading": "Téléversement…",
+      "media_upload_failed": "Échec du téléversement du média.",
+      "media_unsupported_type": "Type de fichier non pris en charge.",
+      "media_too_large": "Le fichier est trop volumineux.",
+      "media_type_image": "Image",
+      "media_type_video": "Vidéo",
+      "media_type_audio": "Audio",
+      "media_type_pdf": "PDF"
     },
     "privateMessages": {
       "title": "Messages privés",
@@ -1184,7 +1197,11 @@
     "reaction_failed": "Échec de la mise à jour de la réaction.",
     "reaction_count": "{{count}} réactions",
     "comment_count": "{{count}} commentaires",
-    "load_earlier_comments": "Charger les commentaires précédents"
+    "load_earlier_comments": "Charger les commentaires précédents",
+    "media_loading": "Chargement du média…",
+    "media_load_failed": "Échec du chargement du média.",
+    "media_pdf_open": "Ouvrir le PDF ({{filename}})",
+    "media_image_alt": "Image jointe à cette publication"
   },
   "myResources": {
     "title": "Ressources",

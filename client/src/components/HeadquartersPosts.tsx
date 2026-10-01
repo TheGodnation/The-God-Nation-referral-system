@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
+import { formatBytes } from '../lib/attachmentLimits';
+
+interface HeadquartersPostMediaInfo {
+  mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
+  originalFilename: string;
+  byteSize: number;
+}
 
 interface HeadquartersPostRow {
   id: string;
@@ -13,6 +20,7 @@ interface HeadquartersPostRow {
   commentCount: number;
   reactionCount: number;
   viewerHasReacted: boolean;
+  media: HeadquartersPostMediaInfo | null;
 }
 
 interface CommentRow {
@@ -49,6 +57,14 @@ export function HeadquartersPosts() {
   const [commentDraft, setCommentDraft] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [reacting, setReacting] = useState(false);
+
+  // Media Phase 1 — a fresh, short-lived signed URL is fetched once per
+  // post-open (never persisted, never reused across posts), exactly like
+  // CommunityConversation.tsx's own openAttachment pattern. A failed fetch
+  // never blocks the already-loaded post text/comments/reactions above.
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -87,12 +103,22 @@ export function HeadquartersPosts() {
     setDetailLoading(true);
     setComments([]);
     setCommentDraft('');
+    setMediaUrl(null);
+    setMediaError(null);
     api
       .get<HeadquartersPostRow>(`/api/me/headquarters-posts/${id}`)
       .then((res) => {
         setDetail(res);
         setDetailLoading(false);
         loadComments(id);
+        if (res.media) {
+          setMediaLoading(true);
+          api
+            .get<{ url: string }>(`/api/me/headquarters-posts/${id}/media/download-url`)
+            .then((mediaRes) => setMediaUrl(mediaRes.url))
+            .catch(() => setMediaError(t('headquartersPosts.media_load_failed')))
+            .finally(() => setMediaLoading(false));
+        }
       })
       .catch(() => {
         setDetailError(t('headquartersPosts.load_failed'));
@@ -105,6 +131,8 @@ export function HeadquartersPosts() {
     setDetail(null);
     setDetailError(null);
     setComments([]);
+    setMediaUrl(null);
+    setMediaError(null);
   }
 
   async function submitComment() {
@@ -167,6 +195,37 @@ export function HeadquartersPosts() {
             <h2 className="mb-1 font-semibold text-brand-900">{isFr ? detail.titleFr || detail.titleEn : detail.titleEn}</h2>
             <p className="mb-3 text-xs text-slate-400">{new Date(detail.publishedAt).toLocaleDateString()}</p>
             <p className="whitespace-pre-wrap text-sm text-slate-700">{isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn}</p>
+
+            {detail.media && (
+              <div className="mt-4">
+                {mediaLoading && <p className="text-sm text-slate-400">{t('headquartersPosts.media_loading')}</p>}
+                {mediaError && <p className="text-sm text-red-700">{mediaError}</p>}
+                {mediaUrl && detail.media.mediaType === 'IMAGE' && (
+                  <img
+                    src={mediaUrl}
+                    alt={t('headquartersPosts.media_image_alt') ?? ''}
+                    className="max-h-96 w-full rounded-lg object-contain"
+                  />
+                )}
+                {mediaUrl && detail.media.mediaType === 'VIDEO' && (
+                  // eslint-disable-next-line jsx-a11y/media-has-caption
+                  <video src={mediaUrl} controls className="w-full rounded-lg" />
+                )}
+                {mediaUrl && detail.media.mediaType === 'AUDIO' && (
+                  <audio src={mediaUrl} controls className="w-full" />
+                )}
+                {mediaUrl && detail.media.mediaType === 'PDF' && (
+                  <a href={mediaUrl} target="_blank" rel="noreferrer" className="btn-secondary inline-block px-4 py-2 text-sm">
+                    {t('headquartersPosts.media_pdf_open', { filename: detail.media.originalFilename })}
+                  </a>
+                )}
+                {!mediaLoading && !mediaUrl && !mediaError && (
+                  <p className="text-xs text-slate-400">
+                    {detail.media.originalFilename} · {formatBytes(detail.media.byteSize)}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-3">
               <button

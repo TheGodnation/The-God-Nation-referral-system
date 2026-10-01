@@ -628,7 +628,7 @@ describe('Headquarters Network Posts — recipient response privacy', () => {
     const res = await memberAgent.get(`/api/me/headquarters-posts/${id}`);
     expect(res.status).toBe(200);
     expect(Object.keys(res.body).sort()).toEqual(
-      ['bodyEn', 'bodyFr', 'commentCount', 'id', 'networkWide', 'publishedAt', 'reactionCount', 'titleEn', 'titleFr', 'viewerHasReacted'].sort(),
+      ['bodyEn', 'bodyFr', 'commentCount', 'id', 'media', 'networkWide', 'publishedAt', 'reactionCount', 'titleEn', 'titleFr', 'viewerHasReacted'].sort(),
     );
     expect(res.body).not.toHaveProperty('targets');
     expect(res.body).not.toHaveProperty('createdByUserId');

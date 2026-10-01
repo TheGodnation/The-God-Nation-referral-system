@@ -5,9 +5,19 @@ import { requireAuth, requireRole } from '../lib/auth';
 import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
-import { headquartersPostMutationLimiter } from '../lib/rateLimit';
+import { headquartersPostMutationLimiter, attachmentUploadAuthorizeLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { validateCommunityTargetReferences } from '../lib/headquartersPosts';
+import {
+  isAllowedAttachmentMime,
+  maxBytesForMime,
+  isValidOriginalFilename,
+  isStorageKeyForHeadquartersPostMedia,
+  generateHeadquartersPostMediaStorageKey,
+  mediaKindForMime,
+  MAX_ORIGINAL_FILENAME_LENGTH,
+} from '../lib/attachmentPolicy';
+import { isStorageConfigured, createUploadUrl, headObject } from '../lib/storage';
 
 const router = Router();
 
@@ -24,7 +34,18 @@ const targetInclude = {
   },
   createdBy: { select: { id: true, email: true } },
   _count: { select: { comments: true, reactions: true } },
+  // Media Phase 1 — metadata only, never storageKey (see
+  // toAdminResponse/toMediaResponse: a download/preview always goes through
+  // the signed-URL routes, never a raw storage reference in any response).
+  media: {
+    select: { id: true, originalFilename: true, mimeType: true, byteSize: true, mediaType: true },
+  },
 } as const;
+
+function toMediaResponse(m: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null) {
+  if (!m) return null;
+  return { id: m.id, originalFilename: m.originalFilename, mimeType: m.mimeType, byteSize: m.byteSize, mediaType: m.mediaType };
+}
 
 function toAdminResponse(p: {
   id: string;
@@ -39,6 +60,7 @@ function toAdminResponse(p: {
   createdBy: { id: string; email: string };
   targets: { id: string; communityId: string; community: { id: string; name: string } }[];
   _count: { comments: number; reactions: number };
+  media: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null;
 }) {
   return {
     id: p.id,
@@ -54,6 +76,7 @@ function toAdminResponse(p: {
     targets: p.targets.map((t) => ({ id: t.id, communityId: t.communityId, communityName: t.community.name })),
     commentCount: p._count.comments,
     reactionCount: p._count.reactions,
+    media: toMediaResponse(p.media),
   };
 }
 
@@ -197,6 +220,156 @@ router.patch('/:id', headquartersPostMutationLimiter, requireCsrf, asyncHandler(
 
   res.json(toAdminResponse(updated));
 }));
+
+const authorizeMediaSchema = z.object({
+  originalFilename: z.string().trim().min(1).max(MAX_ORIGINAL_FILENAME_LENGTH),
+  mimeType: z.string().min(1),
+  byteSize: z.number().int().positive(),
+});
+
+// POST /api/admin/headquarters-posts/:id/media/authorize — Media Phase 1,
+// step 1 of the direct-to-R2 upload lifecycle. Mirrors
+// communityConversations.ts's own attachments/authorize route exactly:
+// validates the declared MIME type/size/filename against
+// attachmentPolicy.ts's existing allow-list (no new limits introduced),
+// returns a short-lived presigned PUT URL plus a server-generated, opaque
+// storage key namespaced to this exact HeadquartersPost. Nothing is
+// persisted here — no HeadquartersPostMedia row exists until the finalize
+// route below actually creates it, so an authorized-but-abandoned upload
+// can never become visible media purely by calling this route. Draft-only,
+// matching every other HeadquartersPost mutation's own edit-only-while-
+// draft rule — content/audience/media are only editable before publish.
+router.post(
+  '/:id/media/authorize',
+  attachmentUploadAuthorizeLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const existing = await prisma.headquartersPost.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Headquarters post not found.' });
+    if (existing.publishedAt || existing.archivedAt) {
+      return res.status(409).json({ error: 'Only a draft headquarters post can have its media changed.' });
+    }
+
+    const parsed = authorizeMediaSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid media request.' });
+    }
+    const { originalFilename, mimeType, byteSize } = parsed.data;
+
+    if (!isAllowedAttachmentMime(mimeType)) {
+      return res.status(400).json({ error: 'Unsupported media type.' });
+    }
+    const maxBytes = maxBytesForMime(mimeType)!;
+    if (byteSize > maxBytes) {
+      return res.status(400).json({ error: 'Media file is too large.' });
+    }
+    if (!isValidOriginalFilename(originalFilename)) {
+      return res.status(400).json({ error: 'Invalid media filename.' });
+    }
+
+    if (!isStorageConfigured()) {
+      return res.status(503).json({ error: 'Media uploads are not available right now.' });
+    }
+
+    const storageKey = generateHeadquartersPostMediaStorageKey(id);
+    const { url, expiresAt } = await createUploadUrl({ storageKey, mimeType });
+
+    res.json({ storageKey, uploadUrl: url, expiresAt, maxBytes });
+  }),
+);
+
+const finalizeMediaSchema = z.object({
+  storageKey: z.string().min(1),
+  originalFilename: z.string().trim().min(1).max(MAX_ORIGINAL_FILENAME_LENGTH),
+  mimeType: z.string().min(1),
+  byteSize: z.number().int().positive(),
+});
+
+// POST /api/admin/headquarters-posts/:id/media — Media Phase 1, step 2:
+// finalize/register the media after the browser's direct PUT to R2.
+// Re-validates everything at the one point that actually matters, never
+// trusting whatever the client echoes back from the authorize step (same
+// pattern as communityConversations.ts's own message-creation route): the
+// storage key must belong to THIS post's own namespace, the MIME/size must
+// still pass the allow-list, and headObject must confirm the object
+// actually landed in R2 with the declared size/type before any
+// HeadquartersPostMedia row is created. At most one media row per post
+// (schema-enforced via @@unique) — finalizing again on the same draft
+// replaces the previous row (the old R2 object is simply left unreferenced,
+// the same "never clean up R2 objects" precedent already established by
+// MessageAttachment, which has no delete path either).
+router.post(
+  '/:id/media',
+  headquartersPostMutationLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const existing = await prisma.headquartersPost.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Headquarters post not found.' });
+    if (existing.publishedAt || existing.archivedAt) {
+      return res.status(409).json({ error: 'Only a draft headquarters post can have its media changed.' });
+    }
+
+    const parsed = finalizeMediaSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid media.' });
+    }
+    const d = parsed.data;
+
+    if (!isStorageKeyForHeadquartersPostMedia(d.storageKey, id)) {
+      return res.status(400).json({ error: 'Invalid media reference.' });
+    }
+    if (!isAllowedAttachmentMime(d.mimeType)) {
+      return res.status(400).json({ error: 'Unsupported media type.' });
+    }
+    const maxBytes = maxBytesForMime(d.mimeType)!;
+    if (d.byteSize > maxBytes) {
+      return res.status(400).json({ error: 'Media file is too large.' });
+    }
+    if (!isValidOriginalFilename(d.originalFilename)) {
+      return res.status(400).json({ error: 'Invalid media filename.' });
+    }
+    const mediaType = mediaKindForMime(d.mimeType);
+    if (!mediaType) {
+      return res.status(400).json({ error: 'Unsupported media type.' });
+    }
+
+    if (!isStorageConfigured()) {
+      return res.status(503).json({ error: 'Media uploads are not available right now.' });
+    }
+    const head = await headObject({ storageKey: d.storageKey });
+    if (!head || head.contentLength !== d.byteSize || (head.contentType && head.contentType !== d.mimeType)) {
+      return res.status(400).json({ error: 'Media upload could not be verified.' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.headquartersPostMedia.deleteMany({ where: { headquartersPostId: id } });
+      await tx.headquartersPostMedia.create({
+        data: {
+          headquartersPostId: id,
+          storageKey: d.storageKey,
+          originalFilename: d.originalFilename,
+          mimeType: d.mimeType,
+          byteSize: d.byteSize,
+          mediaType,
+        },
+      });
+    });
+
+    await recordAudit({
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      action: 'HEADQUARTERS_POST_MEDIA_ATTACHED',
+      targetType: 'HeadquartersPost',
+      targetId: id,
+      metadata: { mediaType, mimeType: d.mimeType, byteSize: d.byteSize },
+    });
+
+    const updated = await prisma.headquartersPost.findUnique({ where: { id }, include: targetInclude });
+    res.status(201).json(toAdminResponse(updated!));
+  }),
+);
 
 // POST /api/admin/headquarters-posts/:id/publish — immediate, atomic
 // (compare-and-swap on publishedAt IS NULL / archivedAt IS NULL), requires

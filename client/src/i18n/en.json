@@ -1042,7 +1042,20 @@
       "status_published": "Published",
       "status_archived": "Archived",
       "no_posts": "No headquarters posts found.",
-      "engagement_summary": "{{comments}} comments, {{reactions}} reactions"
+      "engagement_summary": "{{comments}} comments, {{reactions}} reactions",
+      "media_label": "Media",
+      "media_none": "No media attached yet.",
+      "media_current": "Attached: {{filename}} ({{type}})",
+      "attach_media": "Attach Media",
+      "replace_media": "Replace Media",
+      "media_uploading": "Uploading…",
+      "media_upload_failed": "Failed to upload media.",
+      "media_unsupported_type": "Unsupported file type.",
+      "media_too_large": "File is too large.",
+      "media_type_image": "Image",
+      "media_type_video": "Video",
+      "media_type_audio": "Audio",
+      "media_type_pdf": "PDF"
     },
     "privateMessages": {
       "title": "Private Messages",
@@ -1184,7 +1197,11 @@
     "reaction_failed": "Failed to update reaction.",
     "reaction_count": "{{count}} reactions",
     "comment_count": "{{count}} comments",
-    "load_earlier_comments": "Load earlier comments"
+    "load_earlier_comments": "Load earlier comments",
+    "media_loading": "Loading media…",
+    "media_load_failed": "Failed to load media.",
+    "media_pdf_open": "Open PDF ({{filename}})",
+    "media_image_alt": "Image attached to this post"
   },
   "myResources": {
     "title": "Resources",

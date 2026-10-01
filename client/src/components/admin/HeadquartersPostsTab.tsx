@@ -2,11 +2,21 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
+import { isAllowedAttachmentMime, maxBytesForMime, formatBytes } from '../../lib/attachmentLimits';
 
 interface HeadquartersPostTargetRow {
   id: string;
   communityId: string;
   communityName: string;
+}
+
+type HeadquartersPostMediaType = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
+
+interface HeadquartersPostMediaRow {
+  originalFilename: string;
+  mimeType: string;
+  byteSize: number;
+  mediaType: HeadquartersPostMediaType;
 }
 
 interface HeadquartersPostRow {
@@ -23,6 +33,7 @@ interface HeadquartersPostRow {
   targets: HeadquartersPostTargetRow[];
   commentCount: number;
   reactionCount: number;
+  media: HeadquartersPostMediaRow | null;
 }
 
 const EMPTY_FORM = { titleEn: '', titleFr: '', bodyEn: '', bodyFr: '' };
@@ -69,6 +80,15 @@ export function HeadquartersPostsTab() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actingOnId, setActingOnId] = useState<string | null>(null);
 
+  // Media Phase 1 — media is attached to an already-created draft (it needs
+  // the post's own id for the storage-key namespace), so this is tracked
+  // separately from the title/body form above and only shown once editingId
+  // is set. Mirrors CommunityConversation.tsx's own uploading/uploadError
+  // state shape for the same authorize-then-PUT-then-finalize flow.
+  const [editingMedia, setEditingMedia] = useState<HeadquartersPostMediaRow | null>(null);
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+
   function load() {
     api
       .get<{ items: HeadquartersPostRow[]; pagination: { totalPages: number } }>(
@@ -89,6 +109,8 @@ export function HeadquartersPostsTab() {
     setFormTargets([]);
     setFormError(null);
     setEditingId(null);
+    setEditingMedia(null);
+    setMediaError(null);
   }
 
   function startCreate() {
@@ -102,7 +124,66 @@ export function HeadquartersPostsTab() {
     setFormTargets(row.targets.map((tgt) => ({ id: tgt.communityId, name: tgt.communityName })));
     setFormError(null);
     setEditingId(row.id);
+    setEditingMedia(row.media);
+    setMediaError(null);
     setShowForm(true);
+  }
+
+  function mediaTypeLabel(type: HeadquartersPostMediaType): string {
+    switch (type) {
+      case 'IMAGE':
+        return t('admin.headquartersPosts.media_type_image');
+      case 'VIDEO':
+        return t('admin.headquartersPosts.media_type_video');
+      case 'AUDIO':
+        return t('admin.headquartersPosts.media_type_audio');
+      case 'PDF':
+        return t('admin.headquartersPosts.media_type_pdf');
+    }
+  }
+
+  async function handleMediaSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !editingId) return;
+    setMediaError(null);
+
+    if (!isAllowedAttachmentMime(file.type)) {
+      setMediaError(t('admin.headquartersPosts.media_unsupported_type') ?? '');
+      return;
+    }
+    const maxBytes = maxBytesForMime(file.type)!;
+    if (file.size > maxBytes) {
+      setMediaError(t('admin.headquartersPosts.media_too_large') ?? '');
+      return;
+    }
+
+    setMediaUploading(true);
+    try {
+      const auth = await api.post<{ storageKey: string; uploadUrl: string }>(
+        `/api/admin/headquarters-posts/${editingId}/media/authorize`,
+        { originalFilename: file.name, mimeType: file.type, byteSize: file.size },
+      );
+      const uploadRes = await fetch(auth.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+      if (!uploadRes.ok) throw new Error('upload failed');
+
+      const finalized = await api.post<HeadquartersPostRow>(`/api/admin/headquarters-posts/${editingId}/media`, {
+        storageKey: auth.storageKey,
+        originalFilename: file.name,
+        mimeType: file.type,
+        byteSize: file.size,
+      });
+      setEditingMedia(finalized.media);
+      load();
+    } catch (err) {
+      setMediaError(err instanceof ApiError ? err.message : t('admin.headquartersPosts.media_upload_failed'));
+    } finally {
+      setMediaUploading(false);
+    }
   }
 
   function addTarget(item: { id: string; name: string }) {
@@ -304,6 +385,39 @@ export function HeadquartersPostsTab() {
               </>
             )}
           </div>
+
+          {editingId && (
+            <div>
+              <label className="label">{t('admin.headquartersPosts.media_label')}</label>
+              {editingMedia ? (
+                <p className="mb-2 text-sm text-slate-600">
+                  {t('admin.headquartersPosts.media_current', {
+                    filename: editingMedia.originalFilename,
+                    type: mediaTypeLabel(editingMedia.mediaType),
+                  })}
+                  {' · '}
+                  {formatBytes(editingMedia.byteSize)}
+                </p>
+              ) : (
+                <p className="mb-2 text-xs text-slate-400">{t('admin.headquartersPosts.media_none')}</p>
+              )}
+              <label className="btn-secondary inline-block cursor-pointer px-3 py-1.5 text-sm">
+                {mediaUploading
+                  ? t('admin.headquartersPosts.media_uploading')
+                  : editingMedia
+                    ? t('admin.headquartersPosts.replace_media')
+                    : t('admin.headquartersPosts.attach_media')}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf,audio/mpeg,audio/ogg,audio/mp4,video/mp4,video/webm"
+                  className="hidden"
+                  disabled={mediaUploading}
+                  onChange={handleMediaSelected}
+                />
+              </label>
+              {mediaError && <p className="mt-1 text-sm text-red-700">{mediaError}</p>}
+            </div>
+          )}
 
           {formError && <p className="text-sm text-red-700">{formError}</p>}
           <div className="flex gap-3">

@@ -6,6 +6,7 @@ import { requireCsrf } from '../lib/csrf';
 import {
   headquartersPostCommentLimiter,
   headquartersPostReactionLimiter,
+  attachmentDownloadLimiter,
 } from '../lib/rateLimit';
 import { resolveActingPersonId } from '../lib/leadership';
 import { parsePagination, paginatedResult } from '../lib/pagination';
@@ -14,6 +15,7 @@ import {
   personCanViewHeadquartersPost,
   getHeadquartersPostEngagementCounts,
 } from '../lib/headquartersPosts';
+import { createDownloadUrl, isStorageConfigured } from '../lib/storage';
 
 declare global {
   namespace Express {
@@ -54,6 +56,16 @@ router.use(requireHeadquartersPostRecipient);
 // any other internal organizational detail. Deliberately excludes every
 // unrelated Person field (WhatsApp, email, DOB, address, location,
 // training/assessment progress, follow-up state, private messages).
+// Media Phase 1 — metadata only (mediaType/originalFilename/byteSize), never
+// a storageKey or a signed URL: a recipient always fetches a fresh,
+// short-lived download URL from GET .../media/download-url below, exactly
+// once they actually want to view/play/download it, never as part of this
+// list/detail payload.
+function toMediaResponse(m: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null) {
+  if (!m) return null;
+  return { mediaType: m.mediaType, originalFilename: m.originalFilename, byteSize: m.byteSize };
+}
+
 function toRecipientResponse(
   p: {
     id: string;
@@ -63,6 +75,7 @@ function toRecipientResponse(
     bodyFr: string | null;
     publishedAt: Date | null;
     networkWide: boolean;
+    media?: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null;
   },
   engagement: { commentCount: number; reactionCount: number; viewerHasReacted: boolean },
 ) {
@@ -77,6 +90,7 @@ function toRecipientResponse(
     commentCount: engagement.commentCount,
     reactionCount: engagement.reactionCount,
     viewerHasReacted: engagement.viewerHasReacted,
+    media: toMediaResponse(p.media ?? null),
   };
 }
 
@@ -110,7 +124,10 @@ router.get('/:id', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Headquarters post not found.' });
   }
 
-  const post = await prisma.headquartersPost.findUnique({ where: { id } });
+  const post = await prisma.headquartersPost.findUnique({
+    where: { id },
+    include: { media: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, mediaType: true } } },
+  });
   if (!post) {
     return res.status(404).json({ error: 'Headquarters post not found.' });
   }
@@ -118,6 +135,42 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const engagement = await getHeadquartersPostEngagementCounts([id], personId);
   res.json(toRecipientResponse(post, engagement.get(id) ?? { commentCount: 0, reactionCount: 0, viewerHasReacted: false }));
 }));
+
+// GET /api/me/headquarters-posts/:id/media/download-url — mints a fresh,
+// short-lived signed R2 download URL for this post's one media item. Same
+// non-disclosure convention as every other route in this file: 404 (never
+// 403) for a nonexistent id, an unpublished/archived post, a post the
+// caller doesn't qualify for, or one with no media at all — a guessed id,
+// or probing for whether media exists, can never be distinguished from any
+// other reason this 404s. Never accepts a storageKey from the caller —
+// the only storage key ever used here is the one already stored against
+// THIS post, so a recipient can never supply their own key to read an
+// arbitrary R2 object.
+router.get(
+  '/:id/media/download-url',
+  attachmentDownloadLimiter,
+  asyncHandler(async (req, res) => {
+    const personId = req.headquartersPostRecipientPersonId!;
+    const { id } = req.params;
+
+    const canView = await personCanViewHeadquartersPost(personId, id);
+    if (!canView) {
+      return res.status(404).json({ error: 'Headquarters post not found.' });
+    }
+
+    const media = await prisma.headquartersPostMedia.findUnique({ where: { headquartersPostId: id } });
+    if (!media) {
+      return res.status(404).json({ error: 'Headquarters post not found.' });
+    }
+
+    if (!isStorageConfigured()) {
+      return res.status(503).json({ error: 'Media is not available right now.' });
+    }
+
+    const { url, expiresAt } = await createDownloadUrl({ storageKey: media.storageKey });
+    res.json({ url, expiresAt, mediaType: media.mediaType, mimeType: media.mimeType });
+  }),
+);
 
 const DEFAULT_COMMENT_PAGE_SIZE = 30;
 const MAX_COMMENT_PAGE_SIZE = 50;

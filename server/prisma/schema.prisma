@@ -1376,6 +1376,7 @@ model HeadquartersPost {
   targets   HeadquartersPostTarget[]
   comments  HeadquartersPostComment[]
   reactions HeadquartersPostReaction[]
+  media     HeadquartersPostMedia?
 
   @@index([publishedAt, archivedAt])
   @@index([createdAt])
@@ -1441,6 +1442,44 @@ model HeadquartersPostReaction {
   person Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@unique([headquartersPostId, personId])
+}
+
+enum HeadquartersPostMediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  PDF
+}
+
+// Media Phase 1 — at most ONE media attachment per HeadquartersPost
+// (@@unique below is the schema-level backstop; adminHeadquartersPosts.ts's
+// own finalize route is the only place that ever writes this table, and it
+// replaces any existing row rather than allowing a second one). Reuses the
+// exact storage/security pattern already established by MessageAttachment
+// (see lib/storage.ts, lib/attachmentPolicy.ts): object bytes live only in
+// the existing Cloudflare R2 bucket, never in Postgres; storageKey is
+// server-generated and opaque, namespaced to this exact
+// headquartersPostId (see attachmentPolicy.ts's
+// isStorageKeyForHeadquartersPostMedia); no signed URL is ever persisted —
+// one is minted fresh on every authorized read via lib/storage.ts's
+// createDownloadUrl. mimeType is validated against attachmentPolicy.ts's
+// existing ATTACHMENT_MIME_LIMITS allow-list — no new allow-list or size
+// limit is introduced by this phase. mediaType is the coarse category
+// (derived from mimeType, see mediaKindForMime) the client needs to pick a
+// preview/player without parsing a MIME string itself. Deliberately NOT a
+// generic Media model: this table only ever relates to HeadquartersPost,
+// by design (see the Media Domain Audit this phase followed).
+model HeadquartersPostMedia {
+  id                 String                    @id @default(uuid())
+  headquartersPostId String                    @unique
+  storageKey         String                    @unique
+  originalFilename   String
+  mimeType           String
+  byteSize           Int
+  mediaType          HeadquartersPostMediaType
+  createdAt          DateTime                  @default(now())
+
+  post HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
 }
 
 // Private Communication / Messaging — a dedicated, minimal, strictly

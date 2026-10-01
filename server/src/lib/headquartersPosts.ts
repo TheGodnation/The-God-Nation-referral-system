@@ -19,6 +19,12 @@ import type { HeadquartersPost } from '@prisma/client';
 
 type TargetRow = { communityId: string };
 
+// Media Phase 1 — metadata only (see adminHeadquartersPosts.ts/
+// headquartersPosts.ts's own toMediaResponse/toRecipientResponse): a
+// storageKey is never selected here, so it can never leak into a recipient
+// response even by accident.
+type MediaRow = { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null;
+
 /**
  * Whether personId qualifies for post's audience, using only live,
  * server-side organizational data (never a persisted recipient list).
@@ -76,7 +82,7 @@ export async function personCanViewHeadquartersPost(personId: string, headquarte
  */
 export async function computeVisibleHeadquartersPostsForPerson(
   personId: string,
-): Promise<(HeadquartersPost & { targets: TargetRow[] })[]> {
+): Promise<(HeadquartersPost & { targets: TargetRow[]; media: MediaRow })[]> {
   const [memberships, headquartersCommunityId] = await Promise.all([
     prisma.communityMembership.findMany({
       where: { personId, status: 'ACTIVE' },
@@ -93,11 +99,14 @@ export async function computeVisibleHeadquartersPostsForPerson(
 
   const posts = await prisma.headquartersPost.findMany({
     where: { publishedAt: { not: null }, archivedAt: null },
-    include: { targets: { select: { communityId: true } } },
+    include: {
+      targets: { select: { communityId: true } },
+      media: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, mediaType: true } },
+    },
     orderBy: { publishedAt: 'desc' },
   });
 
-  const eligible: (HeadquartersPost & { targets: TargetRow[] })[] = [];
+  const eligible: (HeadquartersPost & { targets: TargetRow[]; media: MediaRow })[] = [];
   for (const post of posts) {
     if (post.networkWide) {
       if (treeIds && [...communityIds].some((id) => treeIds!.has(id))) {

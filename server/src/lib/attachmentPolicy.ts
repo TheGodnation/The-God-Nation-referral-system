@@ -69,3 +69,36 @@ export function isStorageKeyForCommunity(storageKey: string, communityId: string
   if (!match) return false;
   return match[1] === communityId;
 }
+
+// Media Phase 1 (HeadquartersPost media) — reuses every MIME/size rule and
+// filename check above as-is (no new allow-list, no new limits). Only the
+// storage-key namespace and the mime-to-coarse-category mapping are new,
+// mirroring the exact generateStorageKey/isStorageKeyForCommunity pattern
+// above for a HeadquartersPost instead of a Community.
+const HEADQUARTERS_POST_MEDIA_KEY_PATTERN =
+  /^headquarters-posts\/([0-9a-f-]{36})\/media\/([0-9a-f-]{36})$/;
+
+export function generateHeadquartersPostMediaStorageKey(headquartersPostId: string): string {
+  return `headquarters-posts/${headquartersPostId}/media/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForHeadquartersPostMedia(storageKey: string, headquartersPostId: string): boolean {
+  const match = HEADQUARTERS_POST_MEDIA_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === headquartersPostId;
+}
+
+export type HeadquartersPostMediaKind = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
+
+// Only ever called after isAllowedAttachmentMime(mimeType) has already
+// passed, so every mime currently in ATTACHMENT_MIME_LIMITS resolves to
+// exactly one of the four kinds below — null is unreachable in practice,
+// kept only so a future addition to the allow-list can't silently fall
+// through to an invalid mediaType.
+export function mediaKindForMime(mimeType: string): HeadquartersPostMediaKind | null {
+  if (mimeType.startsWith('image/')) return 'IMAGE';
+  if (mimeType.startsWith('video/')) return 'VIDEO';
+  if (mimeType.startsWith('audio/')) return 'AUDIO';
+  if (mimeType === 'application/pdf') return 'PDF';
+  return null;
+}
