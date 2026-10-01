@@ -76,7 +76,15 @@ member and a Community-scoped Leader, proves membership/leadership are
 exact-scoped, performs the atomic membership move, and verifies real
 authorization-boundary enforcement for a Leader with no relationship to a
 Community — see its own two dedicated sections below for what it could
-not fully verify and why). No Follow-Up/Resource fixture exists yet.
+not fully verify and why), and the Private Messaging journey
+(`privateMessaging.spec.ts`: Admin initiates two separate private
+conversations through the real UI — one via Selected Community, one via
+Selected Members — the real recipient behind one of them logs in for
+real, sees the message, replies, and has it marked read, and
+server-enforced conversation/message isolation and Leader-authorization
+boundaries are verified with real requests — see its own dedicated
+section below for what it could not verify and why). No Follow-Up/
+Resource fixture exists yet.
 
 ### Known environment limitation — R2 object storage
 
@@ -158,3 +166,37 @@ limit.** This is not a functional defect in any spec, and resolving it
 would mean either raising a real security rate limit or reducing this
 suite's genuine UI coverage purely to fit inside that budget — neither was
 done in this phase.
+
+### Known environment limitation — Private Messaging recipient-side and Leader-authorized-messaging coverage
+
+`privateMessaging.spec.ts` gets further than the other specs' Member/Leader
+limitations might suggest, because Private Messaging's "Member" side
+(`PrivateConversation.memberPersonId`) is authorized purely by Person id,
+not by requiring a genuine Member magic-link session. Mary Ngu's existing,
+already-linked Person (the `SEED_E2E_MEDIA` fixture) is a real, eligible
+private-message recipient with a real password login, so this spec
+verifies actual recipient-side behavior for real: she sees the Admin's
+message, replies to it, and the unread badge clears only after the server
+records her read cursor (confirmed via a page reload, not just local
+state). What this does **not** verify is the Member Dashboard's own
+rendering of this same shared `<PrivateMessages>` component through a
+genuine Member magic-link session — that remains blocked by the same
+email-delivery gap as `memberJourney.spec.ts`; the component code and its
+server-side authorization are identical either way, so this is a narrower,
+UI-rendering-only gap, not an authorization gap.
+
+Separately, the Leader-authorized-messaging **positive** case (a Leader who
+actually holds a Community role sends to one of their own members, and is
+denied for a different Community) is blocked by the same `isTestData`
+Role-Assignment-picker exclusion documented above — Mary Ngu (our only
+usable real Leader login) currently holds zero RoleAssignments, and
+granting her one hits that same picker gap. This spec instead verifies the
+**negative** case with her real session: the real UI (`StartPrivateMessage`)
+never offers a way to even attempt sending when the Leader holds no
+Community role, and a direct, authenticated `POST
+/api/leader/private-messages/conversations` is independently rejected
+`403` server-side regardless of which Person id is requested — proving the
+gate is enforced server-side, not merely hidden by the UI. The more
+specific "has Community A, denied for Community B" variant remains
+unverified in this environment for the same root cause, not re-solved
+here.
