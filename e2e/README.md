@@ -67,10 +67,16 @@ test runs.
 Covers the Leader and Admin login/dashboard/logout journeys, the
 Headquarters Post media lifecycle (`headquartersMedia.spec.ts`: Admin
 creates/targets/publishes a post, attempts a real media attach through the
-browser upload workflow, and an authorized Leader views the result), and
-the reachable boundary of the Member magic-link request flow
-(`memberJourney.spec.ts` — see the dedicated section below). No
-Follow-Up/Resource fixture exists yet.
+browser upload workflow, and an authorized Leader views the result), the
+reachable boundary of the Member magic-link request flow
+(`memberJourney.spec.ts` — see the dedicated section below), and the
+Community & Membership journey (`communityMembership.spec.ts`: Admin
+creates two Communities under the existing root, assigns an ordinary
+member and a Community-scoped Leader, proves membership/leadership are
+exact-scoped, performs the atomic membership move, and verifies real
+authorization-boundary enforcement for a Leader with no relationship to a
+Community — see its own two dedicated sections below for what it could
+not fully verify and why). No Follow-Up/Resource fixture exists yet.
 
 ### Known environment limitation — R2 object storage
 
@@ -112,3 +118,43 @@ generic confirmation message is shown. **The authenticated Member
 journey — Dashboard, Profile, Communities, Headquarters Posts, Resources,
 Notifications, and logout — remains unverified through a genuine
 authenticated browser session in this environment.**
+
+### Known environment limitation — Role Assignment grant cannot target a named test Leader
+
+The Admin UI's "Grant Role Assignment" person-picker and "Link Person to
+Leader" picker both call `GET /api/admin/people?search=`, which
+unconditionally excludes `isTestData: true` Persons — unlike the main
+People list, this specific search never respects the "include test data"
+checkbox. Mary Ngu's linked Person (the `SEED_E2E_MEDIA` fixture) is
+`isTestData: true`, so she is invisible to that picker; John Tabi has no
+linked Person, and `headquartersMedia.spec.ts`'s own authorization check
+depends on him staying that way. `communityMembership.spec.ts` therefore
+grants its RoleAssignment to a brand-new Person created live via the real
+"+ New Person" form (`isTestData: false` by default, so it IS visible to
+that picker) instead of either named test Leader. That Person has no login
+of its own, so **a named deterministic test Leader's own Dashboard
+reflecting a brand-new RoleAssignment, and that Leader posting under a
+LEADERS_ONLY policy as the Community's own leader, are not verified
+through a genuine authenticated browser session in this environment.**
+Mary Ngu's real Leader login is used instead for the parts that don't
+require being that specific Community's leader (the negative/isolation
+checks — see the spec file's own header comment for the full reasoning).
+
+### Known environment limitation — full-suite request volume vs. the production rate limiter
+
+`communityMembership.spec.ts` exercises a materially larger admin surface
+than this suite's other specs. Measured directly on repeated fresh-server
+runs: the four pre-existing specs alone already consume roughly 190 of the
+production `generalApiLimiter`'s 300-requests-per-60-seconds-per-IP budget
+(`server/src/lib/rateLimit.ts`) when run back to back, leaving too little
+headroom for this fifth spec's own realistic request volume in the same
+60-second window. This was reproduced deterministically (not a transient
+flake) across multiple fresh-server restarts. **Every spec, including
+`communityMembership.spec.ts`, passes reliably run alone and in the
+pre-existing four-spec baseline combination; it is specifically running
+all five together in one `npx playwright test` invocation (which completes
+in under 20 seconds) that can trip this real, production-faithful rate
+limit.** This is not a functional defect in any spec, and resolving it
+would mean either raising a real security rate limit or reducing this
+suite's genuine UI coverage purely to fit inside that budget — neither was
+done in this phase.
