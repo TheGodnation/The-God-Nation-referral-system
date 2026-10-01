@@ -64,12 +64,13 @@ test runs.
 
 ## Scope
 
-Covers the Leader and Admin login/dashboard/logout journeys, and the
+Covers the Leader and Admin login/dashboard/logout journeys, the
 Headquarters Post media lifecycle (`headquartersMedia.spec.ts`: Admin
 creates/targets/publishes a post, attempts a real media attach through the
-browser upload workflow, and an authorized Leader views the result).
-Member login (passwordless, email-link based) is deliberately not covered
-yet, nor is any Follow-Up/Resource fixture.
+browser upload workflow, and an authorized Leader views the result), and
+the reachable boundary of the Member magic-link request flow
+(`memberJourney.spec.ts` — see the dedicated section below). No
+Follow-Up/Resource fixture exists yet.
 
 ### Known environment limitation — R2 object storage
 
@@ -88,3 +89,26 @@ egress to `*.r2.cloudflarestorage.com` allowed). **The real R2 PUT and
 signed-GET/browser-rendering round trip remains unverified in any
 environment this test has actually been run in so far** — closing that
 gap requires running this spec where R2 connectivity exists.
+
+### Known environment limitation — Member magic-link email delivery
+
+`memberJourney.spec.ts` covers only the reachable boundary of Member
+authentication. Member login is a passwordless magic-link flow: the real
+one-time token is never persisted in raw form and is never returned by any
+API response or rendered in any UI — it exists only inside an email sent
+via `EmailService.sendMemberLoginLink` (Resend). This environment has no
+`RESEND_API_KEY` configured and no mailbox-reading tooling
+(Mailhog/Mailpit/Mailosaur/etc.), so the token cannot legitimately be
+obtained by a genuine browser-driven test here. Closing this gap would
+require either real email delivery plus a way to read the destination
+inbox, or a deliberate, explicitly-authorized decision to add a test-only
+token-exposure/bypass to `server/src/routes/memberAuth.ts` — neither was
+added in this phase.
+
+`memberJourney.spec.ts` therefore verifies only that the real Member Sign
+In UI submits the real request-link form, that the real
+`/api/member/auth/request-link` endpoint is reached, and that the correct
+generic confirmation message is shown. **The authenticated Member
+journey — Dashboard, Profile, Communities, Headquarters Posts, Resources,
+Notifications, and logout — remains unverified through a genuine
+authenticated browser session in this environment.**
