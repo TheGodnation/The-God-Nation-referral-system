@@ -128,6 +128,60 @@ async function main() {
   }
 
   // -------------------------------------------------------------------
+  // E2E Phase 3 — Headquarters Post Media recipient fixture, opt-in via
+  // SEED_E2E_MEDIA=true. The Test Leaders above have no linked Person (by
+  // design — see that block's own comment), so Mary Ngu cannot otherwise
+  // qualify as a Headquarters Post recipient. This block links her to a
+  // dedicated Person and gives that Person an ACTIVE membership in a
+  // dedicated, clearly-test-only Community, so
+  // e2e/headquartersMedia.spec.ts has a deterministic, already-authorized
+  // recipient to log in as. It supplies only the underlying data — the
+  // HeadquartersPost itself and its Community targeting are created by
+  // the E2E test through the real Admin UI, never here. Inert unless
+  // SEED_E2E_MEDIA is explicitly set — a normal/staging/production seed
+  // run never sets it, so no other Leader/Person/Community behavior is
+  // affected. isTestData: true throughout; never touches the real
+  // bootstrap Admin or any non-test data.
+  // -------------------------------------------------------------------
+  if (process.env.SEED_E2E_MEDIA === 'true') {
+    const leaderEmail = 'mary.ngu@example.com';
+    const leader = await prisma.user.findUnique({ where: { email: leaderEmail } });
+
+    if (!leader) {
+      console.warn('SEED_E2E_MEDIA=true but test Leader Mary Ngu does not exist — skipping media recipient fixture.');
+    } else {
+      const communityName = 'E2E Media Community';
+      let community = await prisma.community.findFirst({ where: { name: communityName } });
+      if (!community) {
+        community = await prisma.community.create({ data: { name: communityName } });
+      }
+
+      let person = leader.personId ? await prisma.person.findUnique({ where: { id: leader.personId } }) : null;
+      if (!person) {
+        person = await prisma.person.create({
+          data: { name: 'Mary Ngu (E2E)', whatsappNumber: '+237600000001', isTestData: true },
+        });
+        await prisma.user.update({ where: { id: leader.id }, data: { personId: person.id } });
+      }
+
+      const existingMembership = await prisma.communityMembership.findFirst({
+        where: { personId: person.id, communityId: community.id },
+      });
+      if (!existingMembership) {
+        await prisma.communityMembership.create({
+          data: { personId: person.id, communityId: community.id, status: 'ACTIVE' },
+        });
+      } else if (existingMembership.status !== 'ACTIVE') {
+        await prisma.communityMembership.update({ where: { id: existingMembership.id }, data: { status: 'ACTIVE' } });
+      }
+
+      console.log(
+        `E2E media recipient fixture ready: Leader <${leaderEmail}> linked to Person <${person.id}>, ACTIVE in Community "${communityName}" (${community.id}).`,
+      );
+    }
+  }
+
+  // -------------------------------------------------------------------
   // Phase 3A: link every existing Registration to its Person identity.
   // Idempotent — safe to run on every deploy.
   // -------------------------------------------------------------------
