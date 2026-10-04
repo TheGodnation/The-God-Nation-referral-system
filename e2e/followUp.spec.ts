@@ -133,6 +133,46 @@ test.describe('Follow-Up journey', () => {
     // logged live) — also correctly absent from Attention.
     await expect(attentionCard.getByText('E2E FollowUp Person A')).toHaveCount(0);
 
+    // -----------------------------------------------------------------
+    // Regression check: the "Needs Attention" staleness fix. Resolving a
+    // genuinely attention-worthy case (Emergency) through the SAME
+    // primary workflow used above — open via the main list, log a GOOD
+    // contact through the real "Log a Contact" form, return via the real
+    // "← Back to My Follow-Up" button — must make it disappear from
+    // "Needs Attention" immediately, with no page reload anywhere in this
+    // test. Before the fix, MyFollowUp.tsx's logContact() never refreshed
+    // attentionItems, so this case kept showing "Emergency" until a full
+    // reload; it now calls loadAttention() alongside its existing
+    // openDetail() refresh.
+    // -----------------------------------------------------------------
+    const emergencyRow = mainList.locator('li', { hasText: 'E2E FollowUp Emergency' });
+    await expect(emergencyRow).toBeVisible();
+    await emergencyRow.getByRole('button', { name: 'View' }).click();
+    await expect(page.getByRole('heading', { name: 'E2E FollowUp Emergency' })).toBeVisible();
+
+    // Scoped the same way as Person A's contact above — this detail view
+    // also embeds the separate Follow-Up Conversation composer.
+    const emergencyLogContactForm = page.getByRole('heading', { name: 'Log a Contact', level: 3 }).locator('xpath=..');
+    // GOOD is already the form's own default, but selecting it explicitly
+    // keeps this assertion from silently depending on that default never
+    // changing.
+    await emergencyLogContactForm.locator('select').selectOption({ label: 'Good' });
+    await emergencyLogContactForm.locator('textarea').fill('E2E Final Phase — resolved, now doing well.');
+    await emergencyLogContactForm.getByRole('button', { name: 'Log Contact' }).click();
+    await expect(page.getByText('E2E Final Phase — resolved, now doing well.')).toBeVisible();
+
+    await page.getByRole('button', { name: '← Back to My Follow-Up' }).click();
+
+    // No page reload above — the real regression proof for the fix: the
+    // just-resolved Emergency case is gone from Attention immediately.
+    await expect(attentionCard.getByText('E2E FollowUp Emergency')).toHaveCount(0);
+    // The rest of the matrix, untouched by this action, is unchanged —
+    // this is a correctly scoped refresh, not a wider reset of the card.
+    await expect(attentionCard.getByText('E2E FollowUp NeedsAttention')).toBeVisible();
+    await expect(attentionCard.getByText('E2E FollowUp UnableToReach')).toBeVisible();
+    await expect(attentionCard.getByText('E2E FollowUp Overdue')).toBeVisible();
+    await expect(attentionCard.getByText('E2E FollowUp NotYetContacted')).toBeVisible();
+
     await page.getByRole('button', { name: 'Log out' }).click();
     await expect(page).toHaveURL(/\/login$/);
 
@@ -145,11 +185,18 @@ test.describe('Follow-Up journey', () => {
     await expect(page).toHaveURL(/\/leader\/dashboard$/);
     await expect(page.getByRole('heading', { name: 'Leader Dashboard' })).toBeVisible();
 
-    await expect(page.getByText('E2E FollowUp Person B')).toBeVisible();
+    // Scoped to the "My Follow-Up" card itself: Leader B's dashboard also
+    // renders a separate Community Members widget that happens to list the
+    // same Person twice more (by name), which would otherwise make a
+    // bare page-wide text locator ambiguous.
+    const followUpCardB = page
+      .getByRole('heading', { name: 'My Follow-Up', level: 2 })
+      .locator('xpath=ancestor::div[contains(@class,"card")][1]');
+    await expect(followUpCardB.getByText('E2E FollowUp Person B')).toBeVisible();
     // None of Leader A's people are visible anywhere on Leader B's own
-    // dashboard — the strongest UI-level isolation statement available.
-    await expect(page.getByText('E2E FollowUp Person A')).toHaveCount(0);
-    await expect(page.getByText('E2E FollowUp Emergency')).toHaveCount(0);
+    // Follow-Up card — the strongest UI-level isolation statement available.
+    await expect(followUpCardB.getByText('E2E FollowUp Person A')).toHaveCount(0);
+    await expect(followUpCardB.getByText('E2E FollowUp Emergency')).toHaveCount(0);
 
     // Empty state: Person B's own single contact is GOOD with a far-future
     // next-follow-up date, so Leader B's own Attention section is empty.

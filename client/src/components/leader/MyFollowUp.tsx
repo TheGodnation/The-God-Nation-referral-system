@@ -218,6 +218,7 @@ export function MyFollowUp() {
       setNote('');
       setNextFollowUpDate('');
       openDetail(selectedId);
+      loadAttention();
     } catch (err) {
       setDetailError(err instanceof ApiError ? err.message : t('leader.followUp.contact_failed'));
     }
