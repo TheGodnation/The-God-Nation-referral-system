@@ -8,6 +8,13 @@ export interface CurrentMember {
   locationCountry: string | null;
   locationCity: string | null;
   locationArea: string | null;
+  locationRegion?: string | null;
+  locationDivision?: string | null;
+  locationSubdivision?: string | null;
+  locationQuarter?: string | null;
+  // false only for a brand-new sign-up who still has to fill in their
+  // details; missing (older server) is treated as complete.
+  profileComplete?: boolean;
 }
 
 interface MemberAuthContextValue {

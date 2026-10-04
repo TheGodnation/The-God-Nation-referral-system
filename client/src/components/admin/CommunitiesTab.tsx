@@ -3,8 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { CentralAuthorityConversationOversight } from './CentralAuthorityConversationOversight';
+import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../../lib/locations';
 
 type PostingPolicy = 'EVERYONE' | 'LEADERS_ONLY';
+type PlacementMode = 'SMALLEST_GROUP' | 'BY_LOCATION';
 
 interface CommunityNode {
   id: string;
@@ -12,6 +14,9 @@ interface CommunityNode {
   name: string;
   active: boolean;
   postingPolicy: PostingPolicy;
+  // Optional location tag used when new members are placed "by location".
+  placementCountry?: string | null;
+  placementRegion?: string | null;
   parent?: { id: string; name: string } | null;
   _count?: { children: number; memberships: number };
   // Purely derived server-side (never stored) — 0 for National Headquarters
@@ -31,7 +36,7 @@ interface HeadquartersCommunity {
 // schema-level docs on the Community model) — no country/location fields
 // here.
 export function CommunitiesTab() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [breadcrumb, setBreadcrumb] = useState<{ id: string; name: string }[]>([]);
   const [items, setItems] = useState<CommunityNode[]>([]);
   const [page, setPage] = useState(1);
@@ -42,6 +47,11 @@ export function CommunitiesTab() {
   const [editName, setEditName] = useState('');
   const [editParentId, setEditParentId] = useState<string | null>(null);
   const [editParentName, setEditParentName] = useState('');
+  const [editPlacementCountry, setEditPlacementCountry] = useState('');
+  const [editPlacementRegion, setEditPlacementRegion] = useState('');
+  const [placementMode, setPlacementMode] = useState<PlacementMode | null>(null);
+  const [savingPlacement, setSavingPlacement] = useState(false);
+  const [placementError, setPlacementError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [oversightId, setOversightId] = useState<string | null>(null);
 
@@ -64,6 +74,29 @@ export function CommunitiesTab() {
   }
 
   useEffect(loadHeadquarters, []);
+
+  function loadPlacementMode() {
+    api
+      .get<{ placementMode: PlacementMode }>('/api/admin/communities/placement-settings')
+      .then((res) => setPlacementMode(res.placementMode))
+      .catch(() => setPlacementMode(null));
+  }
+  useEffect(loadPlacementMode, []);
+
+  async function changePlacementMode(mode: PlacementMode) {
+    setSavingPlacement(true);
+    setPlacementError(null);
+    try {
+      const res = await api.put<{ placementMode: PlacementMode }>('/api/admin/communities/placement-settings', {
+        placementMode: mode,
+      });
+      setPlacementMode(res.placementMode);
+    } catch (err) {
+      setPlacementError(err instanceof ApiError ? err.message : t('admin.communities.placement_save_failed'));
+    } finally {
+      setSavingPlacement(false);
+    }
+  }
 
   async function designateHeadquarters(community: { id: string; name: string }) {
     setDesignating(true);
@@ -126,6 +159,8 @@ export function CommunitiesTab() {
     setEditName(node.name);
     setEditParentId(node.parentId);
     setEditParentName(node.parent?.name ?? '');
+    setEditPlacementCountry(node.placementCountry ?? '');
+    setEditPlacementRegion(node.placementRegion ?? '');
   }
 
   async function saveEdit(e: React.FormEvent) {
@@ -133,7 +168,12 @@ export function CommunitiesTab() {
     if (!editingId) return;
     setError(null);
     try {
-      await api.patch(`/api/admin/communities/${editingId}`, { name: editName, parentId: editParentId });
+      await api.patch(`/api/admin/communities/${editingId}`, {
+        name: editName,
+        parentId: editParentId,
+        placementCountry: editPlacementCountry,
+        placementRegion: editPlacementRegion,
+      });
       setEditingId(null);
       load();
     } catch (err) {
@@ -184,6 +224,40 @@ export function CommunitiesTab() {
             {designateError && <p className="text-sm text-red-700">{designateError}</p>}
           </>
         )}
+      </div>
+
+      <div className="card mb-4 space-y-2">
+        <h3 className="font-semibold text-brand-900">{t('admin.communities.placement_heading')}</h3>
+        <p className="text-sm text-slate-600">{t('admin.communities.placement_help')}</p>
+        {placementMode && (
+          <div className="space-y-2">
+            {(['SMALLEST_GROUP', 'BY_LOCATION'] as const).map((mode) => (
+              <label key={mode} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="placement-mode"
+                  className="mt-1"
+                  checked={placementMode === mode}
+                  disabled={savingPlacement}
+                  onChange={() => changePlacementMode(mode)}
+                />
+                <span>
+                  <span className="font-medium text-slate-800">
+                    {mode === 'SMALLEST_GROUP'
+                      ? t('admin.communities.placement_smallest')
+                      : t('admin.communities.placement_by_location')}
+                  </span>
+                  <span className="block text-slate-500">
+                    {mode === 'SMALLEST_GROUP'
+                      ? t('admin.communities.placement_smallest_help')
+                      : t('admin.communities.placement_by_location_help')}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+        {placementError && <p className="text-sm text-red-700">{placementError}</p>}
       </div>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -267,6 +341,46 @@ export function CommunitiesTab() {
               </button>
             )}
           </div>
+          <div>
+            <label className="label">{t('admin.communities.placement_tag_label')}</label>
+            <p className="mb-2 text-xs text-slate-500">{t('admin.communities.placement_tag_help')}</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                className="input"
+                aria-label={t('admin.communities.placement_tag_country') ?? ''}
+                value={editPlacementCountry}
+                onChange={(e) => {
+                  setEditPlacementCountry(e.target.value);
+                  setEditPlacementRegion('');
+                }}
+              >
+                <option value="">{t('admin.communities.placement_tag_none')}</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {optionLabel(c, i18n.language)}
+                  </option>
+                ))}
+                {editPlacementCountry && !COUNTRIES.some((c) => c.value === editPlacementCountry) && (
+                  <option value={editPlacementCountry}>{editPlacementCountry}</option>
+                )}
+              </select>
+              {editPlacementCountry === CAMEROON ? (
+                <select
+                  className="input"
+                  aria-label={t('admin.communities.placement_tag_region') ?? ''}
+                  value={editPlacementRegion}
+                  onChange={(e) => setEditPlacementRegion(e.target.value)}
+                >
+                  <option value="">{t('admin.communities.placement_tag_whole_country')}</option>
+                  {CAMEROON_REGIONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {optionLabel(r, i18n.language)}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
+          </div>
           {error && <p className="text-sm text-red-700">{error}</p>}
           <div className="flex gap-2">
             <button className="btn-primary" type="submit">
@@ -313,7 +427,16 @@ export function CommunitiesTab() {
                       {t('admin.conversationOversight.open_action')}
                     </button>
                   </td>
-                  <td className="py-2 pr-4">{node.name}</td>
+                  <td className="py-2 pr-4">
+                    {node.name}
+                    {node.placementCountry && (
+                      <span className="block text-xs text-slate-500">
+                        {t('admin.communities.placement_tag_shown', {
+                          place: [node.placementCountry, node.placementRegion].filter(Boolean).join(' – '),
+                        })}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2 pr-4">
                     {node.generation === null || node.generation === undefined
                       ? '—'

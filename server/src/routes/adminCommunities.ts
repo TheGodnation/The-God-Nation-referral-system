@@ -122,6 +122,38 @@ router.put('/headquarters', communityMutationLimiter, requireCsrf, asyncHandler(
   res.json({ community: { id: community.id, name: community.name } });
 }));
 
+// GET/PUT /api/admin/communities/placement-settings — how newly signed-up
+// members are placed into groups (see lib/placement.ts). Registered before
+// /:id so "placement-settings" is never captured as a Community id.
+router.get('/placement-settings', asyncHandler(async (_req, res) => {
+  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { placementMode: true } });
+  res.json({ placementMode: settings?.placementMode ?? 'SMALLEST_GROUP' });
+}));
+
+const placementSettingsSchema = z.object({ placementMode: z.enum(['SMALLEST_GROUP', 'BY_LOCATION']) });
+
+router.put('/placement-settings', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = placementSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'placementMode must be SMALLEST_GROUP or BY_LOCATION.' });
+  }
+  const { placementMode } = parsed.data;
+  await prisma.settings.upsert({
+    where: { id: 'singleton' },
+    create: { id: 'singleton', placementMode },
+    update: { placementMode },
+  });
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'PLACEMENT_MODE_UPDATED',
+    targetType: 'Settings',
+    targetId: 'singleton',
+    metadata: { placementMode },
+  });
+  res.json({ placementMode });
+}));
+
 // GET /api/admin/communities/export — CSV export of every CommunityMembership
 // row, network-wide. Registered BEFORE /:id so "export" is never captured as
 // a Community id. Minimum-necessary fields only (Person name/id, Community
@@ -213,6 +245,9 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(200),
   parentId: z.string().optional().nullable(),
   active: z.boolean().optional(),
+  // Optional location tag for BY_LOCATION placement. Blank clears it.
+  placementCountry: z.string().trim().max(100).optional().nullable().transform((v) => (v === undefined ? undefined : v ? v : null)),
+  placementRegion: z.string().trim().max(100).optional().nullable().transform((v) => (v === undefined ? undefined : v ? v : null)),
 });
 
 router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -232,7 +267,13 @@ router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req,
   // unique constraint guarantees this can never produce more than one.
   const created = await prisma.$transaction(async (tx) => {
     const community = await tx.community.create({
-      data: { name: d.name, parentId: d.parentId ?? null, active: d.active ?? true },
+      data: {
+        name: d.name,
+        parentId: d.parentId ?? null,
+        active: d.active ?? true,
+        placementCountry: d.placementCountry ?? null,
+        placementRegion: d.placementRegion ?? null,
+      },
     });
     await tx.conversation.create({ data: { communityId: community.id } });
     return community;
@@ -257,6 +298,9 @@ const patchSchema = z.object({
   // Community Posting Policy — validated against exactly these two values;
   // an arbitrary string is rejected at this layer, never reaching Prisma.
   postingPolicy: z.enum(['EVERYONE', 'LEADERS_ONLY']).optional(),
+  // Optional location tag for BY_LOCATION placement. Blank clears it.
+  placementCountry: z.string().trim().max(100).optional().nullable().transform((v) => (v === undefined ? undefined : v ? v : null)),
+  placementRegion: z.string().trim().max(100).optional().nullable().transform((v) => (v === undefined ? undefined : v ? v : null)),
 });
 
 router.patch('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -293,6 +337,8 @@ router.patch('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (
       ...(d.parentId !== undefined ? { parentId: d.parentId } : {}),
       ...(d.active !== undefined ? { active: d.active } : {}),
       ...(d.postingPolicy !== undefined ? { postingPolicy: d.postingPolicy } : {}),
+      ...(d.placementCountry !== undefined ? { placementCountry: d.placementCountry } : {}),
+      ...(d.placementRegion !== undefined ? { placementRegion: d.placementRegion } : {}),
     },
   });
 

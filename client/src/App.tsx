@@ -55,6 +55,10 @@ const MemberLoginPage = lazy(() => import('./pages/MemberLoginPage').then((m) =>
 const MemberLoginConfirmPage = lazy(() =>
   import('./pages/MemberLoginConfirmPage').then((m) => ({ default: m.MemberLoginConfirmPage })),
 );
+const MemberSignupPage = lazy(() => import('./pages/MemberSignupPage').then((m) => ({ default: m.MemberSignupPage })));
+const MemberCompleteProfilePage = lazy(() =>
+  import('./pages/MemberCompleteProfilePage').then((m) => ({ default: m.MemberCompleteProfilePage })),
+);
 const MemberDashboardPage = lazy(() =>
   import('./pages/MemberDashboardPage').then((m) => ({ default: m.MemberDashboardPage })),
 );
@@ -89,6 +93,15 @@ export default function App() {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/member/login" element={<MemberLoginPage />} />
             <Route path="/member/login/confirm" element={<MemberLoginConfirmPage />} />
+            <Route path="/member/join" element={<MemberSignupPage />} />
+            <Route
+              path="/member/complete-profile"
+              element={
+                <RequireMember>
+                  <MemberCompleteProfilePage />
+                </RequireMember>
+              }
+            />
             <Route
               path="/change-password"
               element={
