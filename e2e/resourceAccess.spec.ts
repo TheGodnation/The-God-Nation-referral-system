@@ -105,21 +105,29 @@ test.describe('Resource Access Grants journey', () => {
     await page.getByRole('button', { name: 'Resources' }).click();
     await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible();
 
+    // The "Title (English)" <label> isn't associated with its <input> via
+    // htmlFor/id, so getByLabel can't find it — scoped instead to the "New
+    // Resource" <form> itself (identified by its own "Create Resource"
+    // submit button) and its first <input> (Title English is the first
+    // field; Title French is the second, Description fields are
+    // <textarea>s, URL comes last).
     await page.getByRole('button', { name: '+ New Resource' }).click();
-    await page.getByLabel('Title (English)').fill(resourceAName);
+    const newResourceFormA = page.locator('form').filter({ has: page.getByRole('button', { name: 'Create Resource' }) });
+    await newResourceFormA.locator('input').first().fill(resourceAName);
     const createAResponsePromise = page.waitForResponse(
       (res) => res.url().includes('/api/admin/resources') && res.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: 'Create Resource' }).click();
+    await newResourceFormA.getByRole('button', { name: 'Create Resource' }).click();
     const resourceA = await (await createAResponsePromise).json();
     await expect(page.locator('tr', { hasText: resourceAName })).toBeVisible();
 
     await page.getByRole('button', { name: '+ New Resource' }).click();
-    await page.getByLabel('Title (English)').fill(resourceBName);
+    const newResourceFormB = page.locator('form').filter({ has: page.getByRole('button', { name: 'Create Resource' }) });
+    await newResourceFormB.locator('input').first().fill(resourceBName);
     const createBResponsePromise = page.waitForResponse(
       (res) => res.url().includes('/api/admin/resources') && res.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: 'Create Resource' }).click();
+    await newResourceFormB.getByRole('button', { name: 'Create Resource' }).click();
     const resourceB = await (await createBResponsePromise).json();
     await expect(page.locator('tr', { hasText: resourceBName })).toBeVisible();
 
@@ -174,8 +182,19 @@ test.describe('Resource Access Grants journey', () => {
     await page.getByRole('button', { name: '← Back to People' }).click();
     await page.getByPlaceholder('Search by name, WhatsApp, or email').fill('E2E FollowUp Leader A');
     await page.getByRole('button', { name: 'Search' }).click();
+    // .count() has no auto-wait like expect(...).toBeVisible()/waitFor() do
+    // — a bare .count() right after the click can read 0 purely from
+    // network timing, before a genuinely-present fixture's row has
+    // rendered. Same try/catch + waitFor pattern as findRowAcrossPages
+    // above, used here because this fixture is only CONDITIONALLY present.
     const leaderARow = page.locator('tr', { hasText: 'E2E FollowUp Leader A' });
-    if ((await leaderARow.count()) > 0) {
+    let leaderAPresent = true;
+    try {
+      await leaderARow.waitFor({ state: 'visible', timeout: 3000 });
+    } catch {
+      leaderAPresent = false;
+    }
+    if (leaderAPresent) {
       await leaderARow.getByRole('button', { name: 'View' }).click();
       await expect(page.getByText('No resource access grants yet.')).toBeVisible();
 
