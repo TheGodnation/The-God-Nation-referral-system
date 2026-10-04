@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
+import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
 import { createLeader, createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
 
@@ -827,5 +828,29 @@ describe('Phase 3M.7 — Follow-Up Conversation — read state', () => {
 
     const res = await agent.get(`/api/follow-ups/${assignment.id}/conversation`);
     expect(res.body.unreadCount).toBe(0);
+  });
+});
+
+describe('Phase 3M.2 — Follow-Up Conversation — getOrCreateFollowUpConversation concurrency', () => {
+  it('two concurrent callers for the same assignment resolve to the same conversation, with exactly one row created', async () => {
+    const { person: leaderPerson, user } = await setupLeader(49);
+    const followed = await makePerson('+237697000001');
+    // makeAssignment writes the FollowUpAssignment directly (not through the
+    // eager-creation route), so it predates any FollowUpConversation —
+    // exactly the lazy-creation case this helper exists for.
+    const assignment = await makeAssignment(leaderPerson.id, followed.id, user.id);
+
+    const [a, b] = await Promise.all([
+      getOrCreateFollowUpConversation(assignment.id),
+      getOrCreateFollowUpConversation(assignment.id),
+    ]);
+    expect(a.id).toBe(b.id);
+
+    const rows = await prisma.followUpConversation.findMany({ where: { followUpAssignmentId: assignment.id } });
+    expect(rows).toHaveLength(1);
+  });
+
+  it('an unrelated database error (e.g. a foreign-key violation for a nonexistent assignment) is not swallowed as the expected race', async () => {
+    await expect(getOrCreateFollowUpConversation('00000000-0000-0000-0000-000000000000')).rejects.toThrow();
   });
 });

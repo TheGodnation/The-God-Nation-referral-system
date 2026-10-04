@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import type { FollowUpAssignment } from '@prisma/client';
 
@@ -28,15 +29,30 @@ export function resolveFollowUpConversationRole(
  * gets one eagerly, in the same create/transaction as the assignment itself
  * (see leaderFollowUps.ts / adminLeadership.ts). This lazily creates one for
  * any assignment that predates Phase 3M.2, the first time its conversation
- * is accessed — `upsert` makes this race-safe under the same unique
- * constraint, so concurrent callers can never create two.
+ * is accessed.
+ *
+ * `upsert`'s own find-then-write is not atomic against another concurrent
+ * upsert for the same followUpAssignmentId (observed in practice — two
+ * near-simultaneous requests, e.g. React StrictMode's doubled mount effect
+ * in dev), so the losing call can still hit this unique constraint. Caught
+ * and recovered the same way every other unique-constraint race in this
+ * codebase is handled (see leaderFollowUps.ts's P2002 catches): the loser
+ * simply re-reads the row the winner just created, rather than surfacing
+ * the conflict as a request failure. Any other error is rethrown as-is.
  */
 export async function getOrCreateFollowUpConversation(followUpAssignmentId: string) {
-  return prisma.followUpConversation.upsert({
-    where: { followUpAssignmentId },
-    create: { followUpAssignmentId },
-    update: {},
-  });
+  try {
+    return await prisma.followUpConversation.upsert({
+      where: { followUpAssignmentId },
+      create: { followUpAssignmentId },
+      update: {},
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return await prisma.followUpConversation.findUniqueOrThrow({ where: { followUpAssignmentId } });
+    }
+    throw err;
+  }
 }
 
 /**
