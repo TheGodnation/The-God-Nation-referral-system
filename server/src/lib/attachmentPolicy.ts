@@ -102,3 +102,29 @@ export function mediaKindForMime(mimeType: string): HeadquartersPostMediaKind | 
   if (mimeType === 'application/pdf') return 'PDF';
   return null;
 }
+
+// Profile pictures — images only, smaller ceiling than chat images (a
+// profile picture is shown small and often, so it should load fast on
+// mobile data). Keys are namespaced to the Person they belong to, same
+// pattern as the two namespaces above.
+export const PROFILE_PHOTO_MIME_LIMITS: Record<string, number> = {
+  'image/jpeg': 5 * 1024 * 1024,
+  'image/png': 5 * 1024 * 1024,
+  'image/webp': 5 * 1024 * 1024,
+};
+
+export function isAllowedProfilePhotoMime(mimeType: string): boolean {
+  return Object.prototype.hasOwnProperty.call(PROFILE_PHOTO_MIME_LIMITS, mimeType);
+}
+
+const PROFILE_PHOTO_KEY_PATTERN = /^people\/([0-9a-f-]{36})\/photo\/([0-9a-f-]{36})$/;
+
+export function generateProfilePhotoStorageKey(personId: string): string {
+  return `people/${personId}/photo/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForProfilePhoto(storageKey: string, personId: string): boolean {
+  const match = PROFILE_PHOTO_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === personId;
+}

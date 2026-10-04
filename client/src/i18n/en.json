@@ -136,7 +136,15 @@
     "progress_completed": "Completed",
     "progress_not_yet": "Not yet",
     "progress_best_percentage": "Best: {{percentage}}%",
-    "progress_unavailable": "Training progress is temporarily unavailable."
+    "progress_unavailable": "Training progress is temporarily unavailable.",
+    "photo_add": "Add a profile picture",
+    "photo_change": "Change picture",
+    "photo_remove": "Remove",
+    "photo_uploading": "Uploading…",
+    "photo_wrong_type": "Please choose a JPG, PNG or WebP picture.",
+    "photo_too_large": "This picture is too large (5 MB maximum).",
+    "photo_failed": "The picture could not be saved. Please try again.",
+    "photo_unavailable": "Picture uploads are not available right now."
   },
   "memberAssessment": {
     "loading": "Loading…",
