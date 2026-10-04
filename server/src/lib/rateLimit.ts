@@ -110,6 +110,25 @@ export const memberLoginRequestLimiter = rateLimit({
   message: { error: 'Too many requests. Please try again later.' },
 });
 
+// Public member sign-up (email + phone -> sign-in link). Same enumeration
+// threat model as memberLoginRequestLimiter, so equally tight.
+export const memberSignupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+// Member finishing their sign-up details form.
+export const memberCompleteProfileLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
 // Member magic-link consumption (token -> session). Tokens are 32 random
 // bytes (infeasible to brute force) but this limiter is still defense in
 // depth, matching passwordResetRedeemLimiter's precedent.

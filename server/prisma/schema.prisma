@@ -135,6 +135,16 @@ enum ResourceAccessGrantStatus {
 
 // In-App Notifications Foundation — exactly the four supported events;
 // deliberately not a generic event-bus enum with room "for later" values.
+// How the system chooses a group for a newly signed-up member.
+// SMALLEST_GROUP: the open (leaf) group in the Headquarters tree with the
+// fewest active members. BY_LOCATION: an open group tagged with the
+// member's country/region first; falls back to SMALLEST_GROUP when no
+// tagged group matches, so nobody is ever left without a group.
+enum PlacementMode {
+  SMALLEST_GROUP
+  BY_LOCATION
+}
+
 enum NotificationType {
   FOLLOW_UP_ASSIGNED
   PRIVATE_MESSAGE_RECEIVED
@@ -403,6 +413,7 @@ model Settings {
   // "must be a root Community" — this column itself accepts any Community id.
   headquartersCommunityId String?
   headquartersCommunity   Community? @relation("SettingsHeadquarters", fields: [headquartersCommunityId], references: [id], onDelete: SetNull)
+  placementMode           PlacementMode @default(SMALLEST_GROUP)
   updatedAt             DateTime @updatedAt
   updatedByUserId       String?
 }
@@ -496,6 +507,16 @@ model Person {
   locationCountry   String?
   locationCity      String?
   locationArea      String?
+  // Cameroon administrative location (filled during sign-up when the
+  // country is Cameroon). Same "descriptive only, no authority" rule as
+  // the fields above; also used by BY_LOCATION group placement.
+  locationRegion      String?
+  locationDivision    String?
+  locationSubdivision String?
+  locationQuarter     String?
+  // Set when the member finishes the sign-up details form. Null means the
+  // member still has to complete their details before entering the app.
+  profileCompletedAt  DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -552,6 +573,10 @@ model Community {
   // HeadquartersPost (a wholly separate model family with its own
   // Admin-only authorization).
   postingPolicy CommunityPostingPolicy @default(EVERYONE)
+  // Optional location tag used only by BY_LOCATION placement: newcomers
+  // whose country (and region, when set) match go to this group first.
+  placementCountry String?
+  placementRegion  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

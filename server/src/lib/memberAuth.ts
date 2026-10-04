@@ -26,6 +26,11 @@ declare global {
         locationCountry: string | null;
         locationCity: string | null;
         locationArea: string | null;
+        locationRegion: string | null;
+        locationDivision: string | null;
+        locationSubdivision: string | null;
+        locationQuarter: string | null;
+        profileCompletedAt: Date | null;
       };
       memberSessionToken?: string;
     }
@@ -87,6 +92,11 @@ export async function loadMemberSession(req: Request, _res: Response, next: Next
       locationCountry: account.person.locationCountry,
       locationCity: account.person.locationCity,
       locationArea: account.person.locationArea,
+      locationRegion: account.person.locationRegion,
+      locationDivision: account.person.locationDivision,
+      locationSubdivision: account.person.locationSubdivision,
+      locationQuarter: account.person.locationQuarter,
+      profileCompletedAt: account.person.profileCompletedAt,
     };
     req.memberSessionToken = token;
 

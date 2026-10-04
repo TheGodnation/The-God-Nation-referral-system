@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
@@ -83,6 +84,13 @@ export function MemberLoginPage() {
             </button>
           </form>
         )}
+
+        <p className="mt-6 text-center text-sm text-slate-500">
+          {t('memberLogin.new_here')}{' '}
+          <Link to="/member/join" className="font-medium text-brand-700 underline">
+            {t('memberLogin.join_link')}
+          </Link>
+        </p>
       </section>
     </PageShell>
   );

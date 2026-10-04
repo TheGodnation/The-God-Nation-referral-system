@@ -309,6 +309,10 @@ const updateProfileSchema = z.object({
   locationCountry: locationFieldSchema,
   locationCity: locationFieldSchema,
   locationArea: locationFieldSchema,
+  locationRegion: locationFieldSchema,
+  locationDivision: locationFieldSchema,
+  locationSubdivision: locationFieldSchema,
+  locationQuarter: locationFieldSchema,
 });
 
 // An empty string means "clear this field" (null); undefined means "leave
@@ -324,7 +328,17 @@ router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandle
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid profile update.' });
   }
-  const { name, preferredLanguage, locationCountry, locationCity, locationArea } = parsed.data;
+  const {
+    name,
+    preferredLanguage,
+    locationCountry,
+    locationCity,
+    locationArea,
+    locationRegion,
+    locationDivision,
+    locationSubdivision,
+    locationQuarter,
+  } = parsed.data;
 
   // Identity is always the authenticated member's own Person — never
   // accepted from the request body, so a client-supplied personId (or any
@@ -337,8 +351,22 @@ router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandle
       ...(locationCountry !== undefined ? { locationCountry: toNullableLocationValue(locationCountry) } : {}),
       ...(locationCity !== undefined ? { locationCity: toNullableLocationValue(locationCity) } : {}),
       ...(locationArea !== undefined ? { locationArea: toNullableLocationValue(locationArea) } : {}),
+      ...(locationRegion !== undefined ? { locationRegion: toNullableLocationValue(locationRegion) } : {}),
+      ...(locationDivision !== undefined ? { locationDivision: toNullableLocationValue(locationDivision) } : {}),
+      ...(locationSubdivision !== undefined ? { locationSubdivision: toNullableLocationValue(locationSubdivision) } : {}),
+      ...(locationQuarter !== undefined ? { locationQuarter: toNullableLocationValue(locationQuarter) } : {}),
     },
-    select: { name: true, preferredLanguage: true, locationCountry: true, locationCity: true, locationArea: true },
+    select: {
+      name: true,
+      preferredLanguage: true,
+      locationCountry: true,
+      locationCity: true,
+      locationArea: true,
+      locationRegion: true,
+      locationDivision: true,
+      locationSubdivision: true,
+      locationQuarter: true,
+    },
   });
 
   await recordAudit({
@@ -354,6 +382,10 @@ router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandle
     locationCountry: updated.locationCountry,
     locationCity: updated.locationCity,
     locationArea: updated.locationArea,
+    locationRegion: updated.locationRegion,
+    locationDivision: updated.locationDivision,
+    locationSubdivision: updated.locationSubdivision,
+    locationQuarter: updated.locationQuarter,
   });
 }));
 
