@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { InstallAppBanner } from '../components/member/InstallAppBanner';
-import { CommunityConversation } from '../components/CommunityConversation';
+import { Avatar } from '../components/Avatar';
 import { PrivateMessages } from '../components/PrivateMessages';
 import { Announcements } from '../components/Announcements';
 import { api } from '../lib/api';
@@ -15,8 +16,35 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-// "Chats": the member's group chat(s), announcements and private messages.
-// (The WhatsApp-style chat screen itself comes in the next step.)
+function GroupRow({ m }: { m: MembershipRow }) {
+  const { t } = useTranslation();
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    api
+      .get<{ unreadCount: number }>(`/api/communities/${m.communityId}/conversation`)
+      .then((r) => setUnread(r.unreadCount))
+      .catch(() => {});
+  }, [m.communityId]);
+  return (
+    <li>
+      <Link to={`/member/chats/group/${m.communityId}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+        <Avatar name={m.communityName} size={48} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-semibold text-slate-900">{m.communityName}</span>
+          <span className="block truncate text-sm text-slate-500">{t('groupChat.tap_to_open')}</span>
+        </span>
+        {unread > 0 && (
+          <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white" aria-label={t('groupChat.unread', { count: unread }) ?? ''}>
+            {unread}
+          </span>
+        )}
+      </Link>
+    </li>
+  );
+}
+
+// "Chats": the member's group chat(s) as WhatsApp-style rows (tap to open
+// the full chat screen), then announcements and private messages.
 export function MemberChatsPage() {
   const { t } = useTranslation();
   const [memberships, setMemberships] = useState<MembershipRow[] | null>(null);
@@ -39,13 +67,16 @@ export function MemberChatsPage() {
         </div>
         <InstallAppBanner />
         <div className="space-y-6">
-          {memberships === null && <p className="text-center text-slate-400">{t('memberDashboard.loading')}</p>}
-          {memberships !== null && active.length === 0 && (
-            <p className="card text-sm text-slate-500">{t('memberDashboard.no_memberships')}</p>
-          )}
-          {active.map((m) => (
-            <CommunityConversation key={m.communityId} communityId={m.communityId} communityName={m.communityName} />
-          ))}
+          <section className="card p-0">
+            <h2 className="px-4 pt-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{t('groupChat.groups')}</h2>
+            {memberships === null && <p className="px-4 py-3 text-sm text-slate-400">{t('memberDashboard.loading')}</p>}
+            {memberships !== null && active.length === 0 && <p className="px-4 py-3 text-sm text-slate-500">{t('memberDashboard.no_memberships')}</p>}
+            <ul className="divide-y divide-slate-100">
+              {active.map((m) => (
+                <GroupRow key={m.communityId} m={m} />
+              ))}
+            </ul>
+          </section>
           <Announcements />
           <PrivateMessages />
         </div>

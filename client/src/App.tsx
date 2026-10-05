@@ -62,6 +62,7 @@ const MemberCompleteProfilePage = lazy(() =>
 const MemberPeoplePage = lazy(() => import('./pages/MemberPeoplePage').then((m) => ({ default: m.MemberPeoplePage })));
 const MemberPersonPage = lazy(() => import('./pages/MemberPersonPage').then((m) => ({ default: m.MemberPersonPage })));
 const MemberChatsPage = lazy(() => import('./pages/MemberChatsPage').then((m) => ({ default: m.MemberChatsPage })));
+const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').then((m) => ({ default: m.MemberGroupChatPage })));
 const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
 const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
 const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
@@ -140,6 +141,14 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberChatsPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/chats/group/:communityId"
+              element={
+                <RequireMember>
+                  <MemberGroupChatPage />
                 </RequireMember>
               }
             />
