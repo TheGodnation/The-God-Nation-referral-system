@@ -61,6 +61,8 @@ const MemberCompleteProfilePage = lazy(() =>
 );
 const MemberPeoplePage = lazy(() => import('./pages/MemberPeoplePage').then((m) => ({ default: m.MemberPeoplePage })));
 const MemberPersonPage = lazy(() => import('./pages/MemberPersonPage').then((m) => ({ default: m.MemberPersonPage })));
+const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
+const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
 const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
 const MemberDashboardPage = lazy(() =>
   import('./pages/MemberDashboardPage').then((m) => ({ default: m.MemberDashboardPage })),
@@ -150,6 +152,22 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberPersonPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/learn"
+              element={
+                <RequireMember>
+                  <MemberLearnPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/read/:bookId"
+              element={
+                <RequireMember>
+                  <MemberReaderPage />
                 </RequireMember>
               }
             />

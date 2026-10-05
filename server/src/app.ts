@@ -52,6 +52,9 @@ import profilePhotosRoutes from './routes/profilePhotos';
 import updatesRoutes from './routes/updates';
 import socialRoutes from './routes/social';
 import { adminMemberReportsRouter, leaderMemberReportsRouter } from './routes/memberReports';
+import examWorldRoutes from './routes/examWorld';
+import adminLibraryRoutes from './routes/adminLibrary';
+import leaderExamResultsRoutes from './routes/leaderExamResults';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -204,6 +207,10 @@ export function createApp() {
   app.use('/api/member', socialRoutes);
   app.use('/api/admin/member-reports', adminMemberReportsRouter);
   app.use('/api/leader/member-reports', leaderMemberReportsRouter);
+  // Exam World: member summary/reader, admin library & trainees, leader results.
+  app.use('/api/member', examWorldRoutes);
+  app.use('/api/admin/library', adminLibraryRoutes);
+  app.use('/api/leader', leaderExamResultsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

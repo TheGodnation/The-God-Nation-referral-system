@@ -102,3 +102,18 @@ export async function headObject(params: { storageKey: string }): Promise<{ cont
     throw err;
   }
 }
+
+// Exam World books are read inside the app only: the server streams the
+// PDF to the signed-in reader itself (same origin, no shareable storage
+// link ever reaches the browser). Returns null if the object doesn't exist.
+export async function getObjectStream(params: { storageKey: string }): Promise<{ body: NodeJS.ReadableStream; contentLength: number | undefined } | null> {
+  const { client, bucketName } = requireClient();
+  try {
+    const result = await client.send(new GetObjectCommand({ Bucket: bucketName, Key: params.storageKey }));
+    if (!result.Body) return null;
+    return { body: result.Body as NodeJS.ReadableStream, contentLength: result.ContentLength };
+  } catch (err: any) {
+    if (err?.name === 'NoSuchKey' || err?.$metadata?.httpStatusCode === 404) return null;
+    throw err;
+  }
+}
