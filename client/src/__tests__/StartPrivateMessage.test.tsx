@@ -108,8 +108,10 @@ describe('StartPrivateMessage (Leader compose action)', () => {
     fireEvent.click(screen.getByText('Select'));
     await waitFor(() => expect(screen.getByText('Grace Doe')).toBeInTheDocument());
 
+    // The selected-recipient composer's textarea is the first on the page —
+    // the second is the unrelated "message all my members" composer below it.
     const textboxes = screen.getAllByRole('textbox');
-    fireEvent.change(textboxes[textboxes.length - 1], { target: { value: 'Hello Grace' } });
+    fireEvent.change(textboxes[0], { target: { value: 'Hello Grace' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     await waitFor(() => {
