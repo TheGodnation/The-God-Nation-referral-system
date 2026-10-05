@@ -15,6 +15,9 @@ export function MemberNav() {
       <NavLink to="/member/updates" className={item}>
         {t('memberNav.updates')}
       </NavLink>
+      <NavLink to="/member/people" className={item}>
+        {t('memberNav.people')}
+      </NavLink>
     </nav>
   );
 }

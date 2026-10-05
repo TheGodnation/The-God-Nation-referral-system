@@ -445,7 +445,8 @@
       "headquartersPosts": "Headquarters Posts",
       "privateMessages": "Private Messages",
       "resources": "Resources",
-      "updates": "Updates"
+      "updates": "Updates",
+      "memberReports": "Member reports"
     },
     "overview": {
       "total_visits": "Total Visits",
@@ -1139,7 +1140,8 @@
       "sending": "Sending…",
       "send_failed": "Failed to send message.",
       "sent_success": "Message sent to {{count}} recipient(s).",
-      "inbox_heading": "Your Conversations"
+      "inbox_heading": "Your Conversations",
+      "scope_all_leaders": "All leaders"
     },
     "resources": {
       "title": "Resources",
@@ -1296,7 +1298,11 @@
     "sending": "Sending…",
     "send_failed": "Failed to send message.",
     "sent_success": "Message sent.",
-    "no_communities": "You do not currently lead any Community."
+    "no_communities": "You do not currently lead any Community.",
+    "all_title": "Message all my members",
+    "all_help": "Each member of your groups receives this privately and can reply only to you.",
+    "all_send": "Send to all my members",
+    "all_sent": "Sent to {{count}} members."
   },
   "notifications": {
     "title": "Notifications",
@@ -1306,7 +1312,9 @@
     "follow_up_assigned": "New Follow-Up: {{name}}",
     "private_message_received": "New message from {{name}}",
     "resource_granted": "You now have access to: {{title}}",
-    "role_assigned": "You are now a Leader for {{community}}"
+    "role_assigned": "You are now a Leader for {{community}}",
+    "friend_request_received": "{{name}} sent you a friend request",
+    "friend_request_accepted": "{{name}} accepted your friend request"
   },
   "updates": {
     "title": "Updates",
@@ -1364,11 +1372,82 @@
     "admin_live_need_link": "Paste the YouTube link first.",
     "admin_live_failed": "Could not save. Please try again.",
     "show": "Show",
-    "hide": "Hide"
+    "hide": "Hide",
+    "view_label": "Show posts from",
+    "view_everyone": "Everyone",
+    "view_friends": "Friends"
   },
   "memberNav": {
     "label": "Member sections",
     "home": "Home",
-    "updates": "Updates"
+    "updates": "Updates",
+    "people": "People"
+  },
+  "people": {
+    "title": "People",
+    "loading": "Loading…",
+    "requests": "Friend requests",
+    "search": "Search",
+    "search_label": "Search members by name",
+    "search_placeholder": "Search members by name",
+    "search_too_short": "Type at least 2 letters.",
+    "no_results": "Nobody found with that name.",
+    "near_you": "People near you",
+    "near_empty": "No members near you yet.",
+    "may_know": "People you may know",
+    "my_friends": "My friends",
+    "no_friends": "You have no friends here yet. Add people near you or from your group!",
+    "add_friend": "Add friend",
+    "cancel_request": "Cancel request",
+    "accept": "Accept",
+    "decline": "Decline",
+    "friends": "Friends",
+    "confirm_unfriend": "Remove this person from your friends?",
+    "mutual_friends": "{{count}} mutual friends",
+    "mutual_friends_one": "{{count}} mutual friend",
+    "mutual_friends_other": "{{count}} mutual friends",
+    "same_group_only": "This person only accepts friend requests from their own group.",
+    "action_failed": "Something went wrong. Please try again.",
+    "settings_title": "Friend request settings",
+    "policy_label": "Who can send you friend requests?",
+    "policy_everyone": "Everyone in the community",
+    "policy_same_group": "Only people in my group",
+    "not_found": "This person could not be found.",
+    "back": "Back to People",
+    "leader_badge": "Leader",
+    "friend_count": "{{count}} friends",
+    "friend_count_one": "{{count}} friend",
+    "friend_count_other": "{{count}} friends",
+    "message": "Message",
+    "message_label": "Your message",
+    "send": "Send",
+    "message_sent": "Message sent. Continue the conversation in Messages on your Home page.",
+    "message_not_allowed": "You can message friends, people in your group and your leaders. Send a friend request first.",
+    "message_hint": "Become friends to send a message.",
+    "block": "Block",
+    "unblock": "Unblock",
+    "confirm_block": "Block {{name}}? They will not be able to message you or send you friend requests, and you will not see each other’s posts.",
+    "report": "Report",
+    "report_help": "Tell the leaders briefly what happened. Only leaders and the central admin will see this.",
+    "report_label": "What happened?",
+    "report_send": "Send report",
+    "report_need_reason": "Please say briefly what happened.",
+    "report_sent": "Thank you. Your report was sent to the leaders.",
+    "posts_title": "Posts"
+  },
+  "reports": {
+    "title": "Member reports",
+    "open": "Open",
+    "resolved": "Dealt with",
+    "loading": "Loading…",
+    "load_failed": "Could not load reports.",
+    "resolve_failed": "Could not save. Please try again.",
+    "none_open": "No open reports.",
+    "none_resolved": "No reports dealt with yet.",
+    "reported": "reported",
+    "note_label": "Note (optional)",
+    "note_placeholder": "What was done (optional)",
+    "mark_resolved": "Mark as dealt with",
+    "note": "Note: {{note}}"
   }
 }

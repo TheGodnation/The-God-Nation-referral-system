@@ -19,10 +19,17 @@ router.use(requireAuth, requireRole('LEADER'), requireLinkedPerson);
 
 const MAX_SELECTED_MEMBERS = 50;
 
-const createSchema = z.object({
-  personIds: z.array(z.string().min(1)).min(1).max(MAX_SELECTED_MEMBERS),
-  body: z.string().trim().min(1).max(2000),
-});
+// Either chosen members (personIds), or every ACTIVE member of every group
+// the leader leads (allMyMembers: true) — "message all my members at once".
+const createSchema = z
+  .object({
+    personIds: z.array(z.string().min(1)).min(1).max(MAX_SELECTED_MEMBERS).optional(),
+    allMyMembers: z.literal(true).optional(),
+    body: z.string().trim().min(1).max(2000),
+  })
+  .refine((d) => Boolean(d.allMyMembers) !== Boolean(d.personIds), {
+    message: 'Choose members, or send to all your members.',
+  });
 
 // POST /api/leader/private-messages/conversations — a Leader may initiate a
 // private conversation only with a Person who is an ACTIVE member of a
@@ -39,15 +46,29 @@ router.post('/conversations', leadershipMutationLimiter, requireCsrf, asyncHandl
   }
   const { body } = parsed.data;
   const leaderPersonId = req.leaderPersonId!;
-  const requestedPersonIds = Array.from(new Set(parsed.data.personIds));
 
-  if (requestedPersonIds.includes(leaderPersonId)) {
+  if (parsed.data.personIds?.includes(leaderPersonId)) {
     return res.status(400).json({ error: 'A Leader cannot start a private conversation with themselves.' });
   }
 
   const leaderCommunityIds = await getLeaderExactCommunityIds(leaderPersonId);
   if (leaderCommunityIds.length === 0) {
     return res.status(403).json({ error: 'You do not have an active Community leadership role.' });
+  }
+
+  let requestedPersonIds: string[];
+  if (parsed.data.allMyMembers) {
+    const rows = await prisma.communityMembership.findMany({
+      where: { status: 'ACTIVE', communityId: { in: leaderCommunityIds }, personId: { not: leaderPersonId } },
+      select: { personId: true },
+      distinct: ['personId'],
+    });
+    requestedPersonIds = rows.map((r) => r.personId);
+    if (requestedPersonIds.length === 0) {
+      return res.status(400).json({ error: 'Your groups have no members yet.' });
+    }
+  } else {
+    requestedPersonIds = Array.from(new Set(parsed.data.personIds!));
   }
 
   const eligibleMemberships = await prisma.communityMembership.findMany({

@@ -13,6 +13,7 @@ import {
   markPrivateConversationRead,
   type PrivateMessagingActor,
 } from '../lib/privateMessaging';
+import { isBlockedEitherWay } from '../lib/social';
 
 declare global {
   namespace Express {
@@ -41,7 +42,9 @@ const router = Router();
 
 router.use(requirePrivateMessagingActor);
 
-type OtherParty = { otherPartyType: 'CENTRAL_AUTHORITY' } | { otherPartyType: 'LEADER' | 'MEMBER'; otherPartyName: string | null };
+type OtherParty =
+  | { otherPartyType: 'CENTRAL_AUTHORITY' }
+  | { otherPartyType: 'LEADER' | 'MEMBER'; otherPartyName: string | null; otherPartyPersonId: string };
 
 async function resolveOtherParty(
   role: 'MEMBER' | 'INITIATOR',
@@ -49,11 +52,17 @@ async function resolveOtherParty(
 ): Promise<OtherParty> {
   if (role === 'MEMBER') {
     if (conversation.initiatorUserId) return { otherPartyType: 'CENTRAL_AUTHORITY' };
-    const person = await prisma.person.findUnique({ where: { id: conversation.initiatorPersonId! }, select: { name: true } });
-    return { otherPartyType: 'LEADER', otherPartyName: person?.name ?? null };
+    const initiatorId = conversation.initiatorPersonId!;
+    const [person, roleCount] = await Promise.all([
+      prisma.person.findUnique({ where: { id: initiatorId }, select: { name: true } }),
+      prisma.roleAssignment.count({ where: { personId: initiatorId } }),
+    ]);
+    // A conversation started by another member (friends / same group) is
+    // shown as with a member; one started by a leader as with a leader.
+    return { otherPartyType: roleCount > 0 ? 'LEADER' : 'MEMBER', otherPartyName: person?.name ?? null, otherPartyPersonId: initiatorId };
   }
   const person = await prisma.person.findUnique({ where: { id: conversation.memberPersonId }, select: { name: true } });
-  return { otherPartyType: 'MEMBER', otherPartyName: person?.name ?? null };
+  return { otherPartyType: 'MEMBER', otherPartyName: person?.name ?? null, otherPartyPersonId: conversation.memberPersonId };
 }
 
 // GET /api/private-messages/conversations — every PrivateConversation the
@@ -201,6 +210,15 @@ router.post(
     const parsed = sendMessageSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid message.' });
+    }
+
+    // Between two people, a block (either way) stops replies too.
+    if (actor.type === 'PERSON') {
+      const otherPersonId =
+        conversation.memberPersonId === actor.personId ? conversation.initiatorPersonId : conversation.memberPersonId;
+      if (otherPersonId && (await isBlockedEitherWay(actor.personId, otherPersonId))) {
+        return res.status(403).json({ error: 'You cannot message this person.', code: 'BLOCKED' });
+      }
     }
 
     const created = await prisma.privateMessage.create({

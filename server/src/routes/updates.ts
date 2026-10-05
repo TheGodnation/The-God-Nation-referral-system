@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireCsrf } from '../lib/csrf';
@@ -27,6 +28,7 @@ import {
   REACTION_TYPES,
   type UpdatesViewer,
 } from '../lib/updates';
+import { getBlockedIds, getFriendIds } from '../lib/social';
 
 // ---------------------------------------------------------------------------
 // /api/updates — the community-wide Updates feed (see UpdatePost schema).
@@ -179,6 +181,8 @@ router.delete('/comments/:commentId', updateCommentLimiter, requireCsrf, require
 const listQuerySchema = z.object({
   before: z.string().datetime().optional(),
   authorPersonId: z.string().uuid().optional(),
+  // friends=true: only posts from the viewer's friends (and the viewer).
+  friends: z.enum(['true', 'false']).optional(),
 });
 
 router.get('/', requireViewer, asyncHandler(async (req, res) => {
@@ -186,10 +190,21 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
   const q = listQuerySchema.safeParse(req.query);
   if (!q.success) return res.status(400).json({ error: 'Invalid request.' });
 
+  // Members never see posts from people they blocked or who blocked them;
+  // the Friends view narrows to friends (plus the viewer's own posts).
+  const hiddenAuthors = viewer.personId ? await getBlockedIds(viewer.personId) : [];
+  const friendsOnly = q.data.friends === 'true' && viewer.personId !== null;
+  const friendAuthors = friendsOnly ? [...(await getFriendIds(viewer.personId!)), viewer.personId!] : null;
+
+  const authorFilters: Prisma.UpdatePostWhereInput[] = [];
+  if (hiddenAuthors.length && !viewer.canModerate) authorFilters.push({ authorPersonId: { notIn: hiddenAuthors } });
+  if (friendAuthors) authorFilters.push({ authorPersonId: { in: friendAuthors } });
+  if (q.data.authorPersonId) authorFilters.push({ authorPersonId: q.data.authorPersonId });
+
   const posts = await prisma.updatePost.findMany({
     where: {
       deletedAt: null,
-      ...(q.data.authorPersonId ? { authorPersonId: q.data.authorPersonId } : {}),
+      AND: authorFilters,
       ...(q.data.before ? { createdAt: { lt: new Date(q.data.before) } } : {}),
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],

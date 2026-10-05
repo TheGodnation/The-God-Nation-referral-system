@@ -50,6 +50,8 @@ import adminResourceAccessRoutes from './routes/adminResourceAccess';
 import notificationsRoutes from './routes/notifications';
 import profilePhotosRoutes from './routes/profilePhotos';
 import updatesRoutes from './routes/updates';
+import socialRoutes from './routes/social';
+import { adminMemberReportsRouter, leaderMemberReportsRouter } from './routes/memberReports';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -198,6 +200,10 @@ export function createApp() {
   app.use('/api', profilePhotosRoutes);
   // Community-wide Updates feed (posts, photos, comments, reactions, live slot).
   app.use('/api/updates', updatesRoutes);
+  // Friends, people search, blocking, reports, member-to-member messages.
+  app.use('/api/member', socialRoutes);
+  app.use('/api/admin/member-reports', adminMemberReportsRouter);
+  app.use('/api/leader/member-reports', leaderMemberReportsRouter);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

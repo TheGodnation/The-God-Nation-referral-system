@@ -24,6 +24,9 @@ export function StartPrivateMessage() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sentMessage, setSentMessage] = useState<string | null>(null);
+  const [allBody, setAllBody] = useState('');
+  const [allSending, setAllSending] = useState(false);
+  const [allResult, setAllResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     api
@@ -62,6 +65,24 @@ export function StartPrivateMessage() {
       setSendError(err instanceof ApiError ? err.message : t('leaderPrivateMessages.send_failed'));
     } finally {
       setSending(false);
+    }
+  }
+
+  // One message to every member of every group this leader leads; each
+  // member receives it privately and can reply only to the leader.
+  async function sendToAll() {
+    const trimmed = allBody.trim();
+    if (!trimmed || allSending) return;
+    setAllSending(true);
+    setAllResult(null);
+    try {
+      const res = await api.post<{ targetCount: number }>('/api/leader/private-messages/conversations', { allMyMembers: true, body: trimmed });
+      setAllResult({ ok: true, text: t('leaderPrivateMessages.all_sent', { count: res.targetCount }) });
+      setAllBody('');
+    } catch (err) {
+      setAllResult({ ok: false, text: err instanceof ApiError ? err.message : t('leaderPrivateMessages.send_failed') });
+    } finally {
+      setAllSending(false);
     }
   }
 
@@ -121,6 +142,23 @@ export function StartPrivateMessage() {
           </button>
         </>
       )}
+
+      <div className="space-y-2 border-t border-slate-100 pt-3">
+        <h3 className="font-semibold text-brand-900">{t('leaderPrivateMessages.all_title')}</h3>
+        <p className="text-sm text-slate-500">{t('leaderPrivateMessages.all_help')}</p>
+        <textarea
+          className="input"
+          rows={3}
+          maxLength={2000}
+          aria-label={t('leaderPrivateMessages.all_title') ?? ''}
+          value={allBody}
+          onChange={(e) => setAllBody(e.target.value)}
+        />
+        {allResult && <p className={`text-sm ${allResult.ok ? 'text-green-700' : 'text-red-700'}`}>{allResult.text}</p>}
+        <button className="btn-primary" disabled={allSending || !allBody.trim()} onClick={sendToAll}>
+          {allSending ? t('leaderPrivateMessages.sending') : t('leaderPrivateMessages.all_send')}
+        </button>
+      </div>
     </div>
   );
 }
