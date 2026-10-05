@@ -132,3 +132,17 @@ export function isStorageKeyForProfilePhoto(storageKey: string, personId: string
   if (!match) return false;
   return match[1] === personId;
 }
+
+// Cover (wall) pictures: same image types and size limit as profile
+// pictures, their own key namespace.
+const COVER_PHOTO_KEY_PATTERN = /^people\/([0-9a-f-]{36})\/cover\/([0-9a-f-]{36})$/;
+
+export function generateCoverPhotoStorageKey(personId: string): string {
+  return `people/${personId}/cover/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForCoverPhoto(storageKey: string, personId: string): boolean {
+  const match = COVER_PHOTO_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === personId;
+}

@@ -318,6 +318,8 @@ const updateProfileSchema = z.object({
   locationDivision: locationFieldSchema,
   locationSubdivision: locationFieldSchema,
   locationQuarter: locationFieldSchema,
+  // A short line shown under the member's name on their wall.
+  bio: z.string().trim().max(160).optional(),
 });
 
 // An empty string means "clear this field" (null); undefined means "leave
@@ -343,6 +345,7 @@ router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandle
     locationDivision,
     locationSubdivision,
     locationQuarter,
+    bio,
   } = parsed.data;
 
   // Identity is always the authenticated member's own Person — never
@@ -360,6 +363,7 @@ router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandle
       ...(locationDivision !== undefined ? { locationDivision: toNullableLocationValue(locationDivision) } : {}),
       ...(locationSubdivision !== undefined ? { locationSubdivision: toNullableLocationValue(locationSubdivision) } : {}),
       ...(locationQuarter !== undefined ? { locationQuarter: toNullableLocationValue(locationQuarter) } : {}),
+      ...(bio !== undefined ? { bio: toNullableLocationValue(bio) } : {}),
     },
     select: {
       name: true,
@@ -371,6 +375,7 @@ router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandle
       locationDivision: true,
       locationSubdivision: true,
       locationQuarter: true,
+      bio: true,
     },
   });
 
@@ -391,6 +396,7 @@ router.patch('/me/profile', memberProfileUpdateLimiter, requireCsrf, asyncHandle
     locationDivision: updated.locationDivision,
     locationSubdivision: updated.locationSubdivision,
     locationQuarter: updated.locationQuarter,
+    bio: updated.bio,
   });
 }));
 
