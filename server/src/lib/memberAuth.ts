@@ -33,6 +33,9 @@ declare global {
         profileCompletedAt: Date | null;
         photoStorageKey: string | null;
         photoUpdatedAt: Date | null;
+        coverStorageKey: string | null;
+        coverUpdatedAt: Date | null;
+        bio: string | null;
       };
       memberSessionToken?: string;
     }
@@ -101,6 +104,9 @@ export async function loadMemberSession(req: Request, res: Response, next: NextF
       profileCompletedAt: account.person.profileCompletedAt,
       photoStorageKey: account.person.photoStorageKey,
       photoUpdatedAt: account.person.photoUpdatedAt,
+      coverStorageKey: account.person.coverStorageKey,
+      coverUpdatedAt: account.person.coverUpdatedAt,
+      bio: account.person.bio,
     };
     req.memberSessionToken = token;
 

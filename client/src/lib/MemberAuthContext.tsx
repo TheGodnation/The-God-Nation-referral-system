@@ -18,6 +18,10 @@ export interface CurrentMember {
   personId?: string;
   // Path of the member's own profile picture, or null when they have none.
   photoUrl?: string | null;
+  // The wide picture at the top of the member's wall, and a short line
+  // about themselves.
+  coverUrl?: string | null;
+  bio?: string | null;
 }
 
 interface MemberAuthContextValue {

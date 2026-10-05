@@ -576,6 +576,11 @@ model Person {
   // picture so browsers fetch the new one instead of a cached old one.
   photoStorageKey     String?
   photoUpdatedAt      DateTime?
+  // The wide "cover" picture at the top of a member's profile wall, and a
+  // short line about themselves. Same viewing rules as photoStorageKey.
+  coverStorageKey     String?
+  coverUpdatedAt      DateTime?
+  bio                 String?
   friendRequestPolicy FriendRequestPolicy @default(EVERYONE)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

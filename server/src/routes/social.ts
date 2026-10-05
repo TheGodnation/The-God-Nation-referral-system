@@ -6,7 +6,7 @@ import { requireMember } from '../lib/memberAuth';
 import { requireCsrf } from '../lib/csrf';
 import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
-import { profilePhotoPath } from '../lib/profilePhoto';
+import { profilePhotoPath, coverPhotoPath } from '../lib/profilePhoto';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
 import { getOrCreatePrivateConversation } from '../lib/privateMessaging';
 import { friendRequestLimiter, socialMutationLimiter, memberReportLimiter, peopleSearchLimiter, messageSendLimiter } from '../lib/rateLimit';
@@ -37,6 +37,9 @@ const personSelect = {
   name: true,
   photoStorageKey: true,
   photoUpdatedAt: true,
+  coverStorageKey: true,
+  coverUpdatedAt: true,
+  bio: true,
   locationCountry: true,
   locationRegion: true,
   locationDivision: true,
@@ -189,6 +192,8 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
     personId: person.id,
     name: person.name,
     photoUrl: profilePhotoPath(person),
+    coverUrl: coverPhotoPath(person),
+    bio: person.bio,
     area: publicAreaLabel(person),
     isLeader,
     sameGroup,

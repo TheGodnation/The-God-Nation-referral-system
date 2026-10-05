@@ -153,6 +153,29 @@ router.get('/photos/:photoId', requireViewer, asyncHandler(async (req, res) => {
   res.redirect(302, url);
 }));
 
+// GET /api/updates/photo-wall?authorPersonId=… — the photos someone has
+// posted, newest first, for the "Photos" tab on their profile wall. Hidden
+// when either person blocked the other (moderators still see them).
+const photoWallSchema = z.object({ authorPersonId: z.string().uuid() });
+
+router.get('/photo-wall', requireViewer, asyncHandler(async (req, res) => {
+  const viewer = req.updatesViewer!;
+  const q = photoWallSchema.safeParse(req.query);
+  if (!q.success) return res.status(400).json({ error: 'Invalid request.' });
+  const authorPersonId = q.data.authorPersonId;
+  if (viewer.personId && !viewer.canModerate) {
+    const blocked = await getBlockedIds(viewer.personId);
+    if (blocked.includes(authorPersonId)) return res.json({ items: [] });
+  }
+  const photos = await prisma.updatePostPhoto.findMany({
+    where: { post: { authorPersonId, deletedAt: null } },
+    orderBy: [{ post: { createdAt: 'desc' } }, { position: 'asc' }],
+    take: 60,
+    select: { id: true, postId: true },
+  });
+  res.json({ items: photos.map((ph) => ({ id: ph.id, postId: ph.postId, url: `/api/updates/photos/${ph.id}` })) });
+}));
+
 // ----------------------------- Comments (by id) ----------------------------
 
 router.delete('/comments/:commentId', updateCommentLimiter, requireCsrf, requireViewer, asyncHandler(async (req, res) => {

@@ -66,9 +66,8 @@ const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').the
 const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
 const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
 const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
-const MemberDashboardPage = lazy(() =>
-  import('./pages/MemberDashboardPage').then((m) => ({ default: m.MemberDashboardPage })),
-);
+const MemberMePage = lazy(() => import('./pages/MemberMePage').then((m) => ({ default: m.MemberMePage })));
+const MemberEditProfilePage = lazy(() => import('./pages/MemberEditProfilePage').then((m) => ({ default: m.MemberEditProfilePage })));
 const MemberAssessmentPage = lazy(() =>
   import('./pages/MemberAssessmentPage').then((m) => ({ default: m.MemberAssessmentPage })),
 );
@@ -156,7 +155,15 @@ export default function App() {
               path="/member/me"
               element={
                 <RequireMember>
-                  <MemberDashboardPage view="me" />
+                  <MemberMePage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/me/edit"
+              element={
+                <RequireMember>
+                  <MemberEditProfilePage />
                 </RequireMember>
               }
             />

@@ -16,7 +16,7 @@ import {
 } from '../lib/rateLimit';
 import { selectApplicableReferralVisit } from '../lib/attribution';
 import { placePersonInGroup } from '../lib/placement';
-import { profilePhotoPath } from '../lib/profilePhoto';
+import { profilePhotoPath, coverPhotoPath } from '../lib/profilePhoto';
 import { EmailService } from '../lib/email';
 import { CLIENT_URL, MEMBER_LOGIN_TOKEN_TTL_MS } from '../lib/env';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -461,6 +461,12 @@ router.get('/me', (req, res) => {
         photoStorageKey: req.member.photoStorageKey,
         photoUpdatedAt: req.member.photoUpdatedAt,
       }),
+      coverUrl: coverPhotoPath({
+        id: req.member.personId,
+        coverStorageKey: req.member.coverStorageKey ?? null,
+        coverUpdatedAt: req.member.coverUpdatedAt ?? null,
+      }),
+      bio: req.member.bio ?? null,
     },
   });
 });

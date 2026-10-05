@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
-import { Avatar } from '../components/Avatar';
+import { WallHeader } from '../components/wall/WallHeader';
+import { PhotoGrid, WallTabs } from '../components/wall/PhotoGrid';
 import { FriendButton, type FriendStatus } from '../components/people/PersonCard';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { api, ApiError } from '../lib/api';
@@ -13,6 +14,8 @@ interface Profile {
   personId: string;
   name: string;
   photoUrl: string | null;
+  coverUrl?: string | null;
+  bio?: string | null;
   area: string | null;
   isLeader: boolean;
   sameGroup: boolean;
@@ -30,6 +33,7 @@ export function MemberPersonPage() {
   const { member } = useMemberAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [tab, setTab] = useState<'posts' | 'photos'>('posts');
 
   const [composing, setComposing] = useState(false);
   const [message, setMessage] = useState('');
@@ -94,9 +98,9 @@ export function MemberPersonPage() {
 
   return (
     <PageShell minimal>
-      <section className="mx-auto max-w-2xl px-4 py-8">
+      <section className="mx-auto max-w-2xl pb-6 sm:px-4 sm:pt-4">
         {notFound && (
-          <div className="card space-y-2">
+          <div className="card mx-4 mt-6 space-y-2 sm:mx-0">
             <p className="text-slate-600">{t('people.not_found')}</p>
             <Link to="/member/people" className="text-brand-700 underline">
               {t('people.back')}
@@ -105,22 +109,20 @@ export function MemberPersonPage() {
         )}
         {!profile && !notFound && <p className="text-center text-slate-400">{t('people.loading')}</p>}
         {profile && (
-          <div className="space-y-6">
-            <div className="card space-y-4 text-center">
-              <div className="flex justify-center">
-                <Avatar name={profile.name} photoUrl={profile.photoUrl} size={96} />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-brand-900">{profile.name}</h1>
-                <p className="text-sm text-slate-500">
-                  {[profile.isLeader ? t('people.leader_badge') : null, profile.area, t('people.friend_count', { count: profile.friendCount })]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
-              </div>
+          <div className="space-y-4">
+            <WallHeader
+              name={profile.name}
+              photoUrl={profile.photoUrl}
+              coverUrl={profile.coverUrl}
+              bio={profile.bio}
+              subtitle={[profile.isLeader ? t('people.leader_badge') : null, profile.area, t('people.friend_count', { count: profile.friendCount })]
+                .filter(Boolean)
+                .join(' · ')}
+            >
+            <div className="space-y-4">
 
               {!isMe && (
-                <div className="flex flex-wrap justify-center gap-2">
+                <div className="flex flex-wrap gap-2">
                   {profile.friendStatus !== 'BLOCKED' && (
                     <FriendButton person={profile} onChange={() => load()} />
                   )}
@@ -158,7 +160,7 @@ export function MemberPersonPage() {
               )}
 
               {!isMe && (
-                <div className="flex justify-center gap-4 border-t border-slate-100 pt-3 text-sm">
+                <div className="flex gap-4 border-t border-slate-100 pt-3 text-sm">
                   <button type="button" className="text-slate-600 underline" onClick={toggleBlock}>
                     {profile.friendStatus === 'BLOCKED' ? t('people.unblock') : t('people.block')}
                   </button>
@@ -190,11 +192,25 @@ export function MemberPersonPage() {
                 </p>
               )}
             </div>
+            </WallHeader>
 
             {profile.friendStatus !== 'BLOCKED' && (
               <div>
-                <h2 className="mb-3 font-semibold text-brand-900">{t('people.posts_title')}</h2>
-                <UpdatesFeed authorPersonId={profile.personId} showComposer={false} />
+                <WallTabs<'posts' | 'photos'>
+                  value={tab}
+                  onChange={setTab}
+                  tabs={[
+                    { id: 'posts', label: t('wall.tab_posts') },
+                    { id: 'photos', label: t('wall.tab_photos') },
+                  ]}
+                />
+                <div className="mt-4 px-4 sm:px-0">
+                  {tab === 'posts' ? (
+                    <UpdatesFeed authorPersonId={profile.personId} showComposer={false} />
+                  ) : (
+                    <PhotoGrid personId={profile.personId} />
+                  )}
+                </div>
               </div>
             )}
           </div>
