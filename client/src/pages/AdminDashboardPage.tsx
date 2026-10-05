@@ -13,6 +13,7 @@ import { AnnouncementsTab } from '../components/admin/AnnouncementsTab';
 import { LocationsTab } from '../components/admin/LocationsTab';
 import { HeadquartersPostsTab } from '../components/admin/HeadquartersPostsTab';
 import { ReportsList } from '../components/ReportsList';
+import { LibraryTab } from '../components/admin/LibraryTab';
 import { AdminLiveControl } from '../components/updates/AdminLiveControl';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { PrivateMessagesTab } from '../components/admin/PrivateMessagesTab';
@@ -39,6 +40,7 @@ type Tab =
   | 'headquartersPosts'
   | 'updates'
   | 'memberReports'
+  | 'library'
   | 'privateMessages'
   | 'resources'
   | 'locations'
@@ -1636,6 +1638,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'devotionals'} onClick={() => setTab('devotionals')}>
               {t('admin.tabs.devotionals')}
             </TabButton>
+            <TabButton active={tab === 'library'} onClick={() => setTab('library')}>
+              {t('admin.tabs.library')}
+            </TabButton>
             <TabButton active={tab === 'assessments'} onClick={() => setTab('assessments')}>
               {t('admin.tabs.assessments')}
             </TabButton>
@@ -1694,6 +1699,7 @@ export function AdminDashboardPage() {
         {tab === 'communities' && <CommunitiesTab />}
         {tab === 'devotionals' && <DevotionalsTab />}
         {tab === 'assessments' && <AssessmentsTab />}
+        {tab === 'library' && <LibraryTab />}
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
         {tab === 'followUps' && <FollowUpsTab />}
         {tab === 'announcements' && <AnnouncementsTab />}

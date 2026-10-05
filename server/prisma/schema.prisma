@@ -55,6 +55,17 @@ enum AssessmentStatus {
   LOCKED
 }
 
+enum LibraryBookKind {
+  DEVOTIONAL
+  TRAINING
+}
+
+enum TrainingEnrollmentStatus {
+  REQUESTED
+  ACTIVE
+  REVOKED
+}
+
 enum AttemptStatus {
   IN_PROGRESS
   SUBMITTED
@@ -232,6 +243,7 @@ model User {
   updatePostsDeleted          UpdatePost[]    @relation("UpdatePostDeletedByUser")
   updateCommentsDeleted       UpdateComment[] @relation("UpdateCommentDeletedByUser")
   memberReportsResolved       MemberReport[]  @relation("MemberReportResolvedByUser")
+  trainingEnrollmentsActivated TrainingEnrollment[] @relation("TrainingEnrollmentActivatedBy")
 
   @@index([role])
 }
@@ -451,6 +463,10 @@ model Settings {
   liveYoutubeVideoId      String?
   liveTitle               String?
   liveStartedAt           DateTime?
+  // Free-will offering instructions shown beside the monthly devotional
+  // (e.g. Mobile Money numbers). Giving is never required.
+  offeringInstructionsEn  String?
+  offeringInstructionsFr  String?
   updatedAt             DateTime @updatedAt
   updatedByUserId       String?
 }
@@ -598,6 +614,8 @@ model Person {
   updateComments                   UpdateComment[]         @relation("UpdateCommentAuthor")
   updateCommentsDeleted            UpdateComment[]         @relation("UpdateCommentDeletedByPerson")
   updateReactions                  UpdateReaction[]
+  trainingEnrollment               TrainingEnrollment?
+  devotionalOfferings              DevotionalOffering[]
   friendRequestsSent               Friendship[]            @relation("FriendshipRequester")
   friendRequestsReceived           Friendship[]            @relation("FriendshipAddressee")
   blocksMade                       PersonBlock[]           @relation("PersonBlockBlocker")
@@ -707,6 +725,8 @@ model MonthlyDevotional {
 
   community   Community?   @relation(fields: [communityId], references: [id], onDelete: SetNull)
   assessments Assessment[]
+  book        LibraryBook?
+  offerings   DevotionalOffering[]
 
   @@index([communityId])
   @@index([status])
@@ -736,9 +756,15 @@ model Assessment {
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
-  devotional MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
-  questions  Question[]
-  attempts   Attempt[]
+  // Exam World: a devotional's weekly exam (Week 1, 2, 3...) has a
+  // weekNumber; a leadership-training book's exam has trainingBookId.
+  weekNumber     Int?
+  trainingBookId String? @unique
+
+  devotional   MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
+  trainingBook LibraryBook?       @relation(fields: [trainingBookId], references: [id], onDelete: SetNull)
+  questions    Question[]
+  attempts     Attempt[]
 
   @@index([devotionalId])
 }
@@ -1909,4 +1935,74 @@ model MemberReport {
 
   @@index([status, createdAt])
   @@index([reportedPersonId])
+}
+
+// ---------------------------------------------------------------------------
+// Exam World library. Books are PDFs read INSIDE the app only (streamed
+// through the server to signed-in members who may read them; never a
+// download link). DEVOTIONAL books belong to one monthly devotional (free
+// for every member who can see that devotional). TRAINING books are the
+// leadership-training eBooks, numbered 1, 2, 3... (trainingOrder): a paid
+// trainee reads Book 1, passes its exam (70%), which opens Book 2, and so
+// on. Once a book is open for someone it stays open for good.
+// ---------------------------------------------------------------------------
+
+model LibraryBook {
+  id            String          @id @default(uuid())
+  kind          LibraryBookKind
+  titleEn       String
+  titleFr       String?
+  descriptionEn String?
+  descriptionFr String?
+  // The PDF in object storage (null until the admin uploads it).
+  storageKey    String?
+  byteSize      Int?
+  trainingOrder Int?            @unique
+  devotionalId  String?         @unique
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  devotional MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
+  exam       Assessment?
+
+  @@index([kind])
+}
+
+// Leadership training access. A member asks to join (REQUESTED); once they
+// have paid (payment happens outside the app for now) the central admin
+// marks them ACTIVE, which opens Book 1.
+model TrainingEnrollment {
+  id                String                   @id @default(uuid())
+  personId          String                   @unique
+  status            TrainingEnrollmentStatus @default(REQUESTED)
+  requestedAt       DateTime?
+  activatedAt       DateTime?
+  activatedByUserId String?
+  note              String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  person      Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  activatedBy User?  @relation("TrainingEnrollmentActivatedBy", fields: [activatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
+
+// A member saying "I have given" a free-will offering for a monthly
+// devotional, with the amount if they choose to say it. Purely a record
+// for the central admin — giving is optional and never gates anything.
+model DevotionalOffering {
+  id           String   @id @default(uuid())
+  personId     String
+  devotionalId String
+  amount       Int?
+  currency     String   @default("XAF")
+  note         String?
+  createdAt    DateTime @default(now())
+
+  person     Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  devotional MonthlyDevotional @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
+
+  @@index([devotionalId, createdAt])
+  @@index([personId])
 }

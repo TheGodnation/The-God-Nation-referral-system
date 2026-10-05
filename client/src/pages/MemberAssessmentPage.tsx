@@ -10,6 +10,19 @@ interface AssessmentInfo {
   titleFr: string | null;
   passMark: number;
   maxAttempts: number | null;
+  // Exam World: weekly devotional exams count only the first try; a
+  // weekly exam closes when its devotional ends.
+  firstTryCounts?: boolean;
+  open?: boolean;
+}
+
+interface ReviewQuestion {
+  id: string;
+  textEn: string;
+  textFr: string | null;
+  options: { id: string; textEn: string; textFr: string | null; isCorrect?: boolean }[];
+  selectedOptionId: string | null;
+  wasCorrect: boolean | null;
 }
 
 interface AttemptSummary {
@@ -48,6 +61,7 @@ export function MemberAssessmentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [starting, setStarting] = useState(false);
   const [lastResult, setLastResult] = useState<AttemptSummary | null>(null);
+  const [review, setReview] = useState<ReviewQuestion[] | null>(null);
 
   function load() {
     if (!id) return;
@@ -82,6 +96,7 @@ export function MemberAssessmentPage() {
       const attempt = await api.post<{ id: string }>(`/api/member/assessments/${id}/attempts`);
       setActiveAttemptId(attempt.id);
       setLastResult(null);
+      setReview(null);
       const q = await api.get<{ questions: TakingQuestion[] }>(`/api/member/attempts/${attempt.id}/questions`);
       setQuestions(q.questions);
       setSelections({});
@@ -98,11 +113,17 @@ export function MemberAssessmentPage() {
     setError(null);
     try {
       const answers = Object.entries(selections).map(([questionId, selectedOptionId]) => ({ questionId, selectedOptionId }));
-      const result = await api.post<AttemptSummary>(`/api/member/attempts/${activeAttemptId}/submit`, { answers });
+      const submittedId = activeAttemptId;
+      const result = await api.post<AttemptSummary>(`/api/member/attempts/${submittedId}/submit`, { answers });
       setLastResult(result);
       setActiveAttemptId(null);
       setQuestions([]);
       load();
+      // Show the right answers so the member can correct themselves.
+      api
+        .get<{ questions: ReviewQuestion[] }>(`/api/member/attempts/${submittedId}/questions`)
+        .then((r) => setReview(r.questions))
+        .catch(() => setReview(null));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('memberAssessment.submit_failed'));
     } finally {
@@ -136,16 +157,21 @@ export function MemberAssessmentPage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-lg px-4 py-8">
-        <Link to="/member/dashboard" className="text-sm text-brand-700 hover:underline">
-          {t('memberAssessment.back_to_dashboard')}
+        <Link to="/member/learn" className="text-sm text-brand-700 hover:underline">
+          {t('memberAssessment.back_to_learn')}
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-brand-900">{title}</h1>
         <p className="mt-1 text-sm text-slate-500">
           {t('memberAssessment.pass_mark', { passMark: assessment.passMark })}
         </p>
 
+        {assessment.firstTryCounts && (
+          <p className="mt-1 text-xs text-slate-500">{t('memberAssessment.first_try_counts')}</p>
+        )}
+
         {lastResult && (
           <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm">
+            <p className="mb-1 text-base font-semibold text-brand-900">{t('memberAssessment.thank_you')}</p>
             <p className="font-medium">
               {t('memberAssessment.result_summary', {
                 score: lastResult.score,
@@ -156,6 +182,35 @@ export function MemberAssessmentPage() {
             <p className={lastResult.passed ? 'font-semibold text-green-700' : 'font-semibold text-red-700'}>
               {lastResult.passed ? t('memberAssessment.passed') : t('memberAssessment.failed')}
             </p>
+            {assessment.firstTryCounts && attempts.filter((a) => a.status === 'SUBMITTED').length > 1 && (
+              <p className="mt-1 text-xs text-slate-500">{t('memberAssessment.practice_note')}</p>
+            )}
+          </div>
+        )}
+
+        {review && review.length > 0 && (
+          <div className="card mt-4 space-y-4">
+            <h2 className="font-semibold text-brand-900">{t('memberAssessment.right_answers')}</h2>
+            {review.map((q, i) => (
+              <div key={q.id}>
+                <p className="mb-1 font-medium text-slate-700">
+                  {i + 1}. {isFr ? q.textFr || q.textEn : q.textEn}
+                </p>
+                <ul className="space-y-1 text-sm">
+                  {q.options.map((o) => {
+                    const chosen = q.selectedOptionId === o.id;
+                    const cls = o.isCorrect ? 'font-semibold text-green-700' : chosen ? 'text-red-700 line-through' : 'text-slate-600';
+                    return (
+                      <li key={o.id} className={cls}>
+                        {o.isCorrect ? '✓ ' : chosen ? '✗ ' : '• '}
+                        {isFr ? o.textFr || o.textEn : o.textEn}
+                        {chosen && <span className="ml-1 text-xs text-slate-500">({t('memberAssessment.your_answer')})</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
         )}
 
@@ -197,6 +252,8 @@ export function MemberAssessmentPage() {
             {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
             {limitReached ? (
               <p className="text-sm text-slate-500">{t('memberAssessment.limit_reached')}</p>
+            ) : assessment.open === false && !hasInProgressAttempt ? (
+              <p className="text-sm text-slate-500">{t('memberAssessment.closed')}</p>
             ) : (
               <button className="btn-primary w-full" onClick={startAttempt} disabled={starting}>
                 {starting

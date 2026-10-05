@@ -13,6 +13,7 @@ import { Announcements } from '../components/Announcements';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { LeaderUpdates } from '../components/updates/LeaderUpdates';
 import { ReportsList } from '../components/ReportsList';
+import { ExamResults } from '../components/leader/ExamResults';
 import { PrivateMessages } from '../components/PrivateMessages';
 import { MyResources } from '../components/MyResources';
 import { StartPrivateMessage } from '../components/leader/StartPrivateMessage';
@@ -258,6 +259,8 @@ export function LeaderDashboardPage() {
         <HeadquartersPosts />
 
         <LeaderUpdates />
+
+        <ExamResults />
 
         <ReportsList basePath="/api/leader/member-reports" />
 

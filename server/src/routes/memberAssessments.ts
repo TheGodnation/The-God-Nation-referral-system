@@ -7,33 +7,25 @@ import { memberAssessmentLimiter, memberProfileUpdateLimiter } from '../lib/rate
 import { createAttempt, submitAttempt, AssessmentSubmissionError } from '../lib/assessmentScoring';
 import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
 import { recordAudit } from '../lib/audit';
+import { examAccess } from '../lib/examWorld';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
 router.use(requireMember);
 
-// Section 14: deliberately simple eligibility — global (no community) or a
-// Community the Person has an ACTIVE membership in. No geography, no
-// multi-community assignment, no new eligibility engine. An assessment with
-// no devotional link has no defined member-eligibility path in Phase 3C —
-// it remains Admin-only (e.g. a future training exam), never member-visible.
+// Who may see/take an exam: devotional exams for members who can see the
+// devotional (network-wide, or one of their groups); leadership-training
+// book exams only for a paid trainee whose book is open. See
+// lib/examWorld.ts. An exam that is neither stays Admin-only.
 async function getEligibleAssessmentForMember(personId: string, assessmentId: string) {
+  const access = await examAccess(personId, assessmentId);
+  if (!access.canView) return null;
   const assessment = await prisma.assessment.findUnique({
     where: { id: assessmentId },
-    include: { devotional: true },
+    include: { devotional: true, trainingBook: true },
   });
-  if (!assessment || assessment.status === 'DRAFT') return null;
-  if (!assessment.devotional || assessment.devotional.status !== 'PUBLISHED') return null;
-
-  if (assessment.devotional.communityId) {
-    const membership = await prisma.communityMembership.findUnique({
-      where: { personId_communityId: { personId, communityId: assessment.devotional.communityId } },
-    });
-    if (membership?.status !== 'ACTIVE') return null;
-  }
-
-  return assessment;
+  return assessment ? { ...assessment, access } : null;
 }
 
 // GET /api/member/devotionals — eligible, published devotionals with their
@@ -77,7 +69,17 @@ router.get('/assessments/:id', asyncHandler(async (req, res) => {
     passMark: assessment.passMark,
     maxAttempts: assessment.maxAttempts,
     status: assessment.status,
-    devotional: { id: assessment.devotional!.id, titleEn: assessment.devotional!.titleEn, titleFr: assessment.devotional!.titleFr },
+    devotional: assessment.devotional
+      ? { id: assessment.devotional.id, titleEn: assessment.devotional.titleEn, titleFr: assessment.devotional.titleFr }
+      : null,
+    // Exam World extras.
+    weekNumber: assessment.weekNumber,
+    trainingBook: assessment.trainingBook
+      ? { id: assessment.trainingBook.id, trainingOrder: assessment.trainingBook.trainingOrder, titleEn: assessment.trainingBook.titleEn, titleFr: assessment.trainingBook.titleFr }
+      : null,
+    // Weekly devotional exams: only the first try counts.
+    firstTryCounts: assessment.weekNumber !== null,
+    open: assessment.access.canStart,
   });
 }));
 
@@ -106,6 +108,9 @@ router.post(
     const personId = req.member!.personId;
     const assessment = await getEligibleAssessmentForMember(personId, req.params.id);
     if (!assessment) return res.status(404).json({ error: 'Assessment not found.' });
+    if (!assessment.access.canStart) {
+      return res.status(409).json({ error: 'This exam is closed.', code: 'EXAM_CLOSED' });
+    }
 
     // Section 17: resume an existing in-progress attempt instead of
     // creating a new one (which would otherwise consume another slot of a
