@@ -15,6 +15,9 @@ export interface CurrentMember {
   // false only for a brand-new sign-up who still has to fill in their
   // details; missing (older server) is treated as complete.
   profileComplete?: boolean;
+  personId?: string;
+  // Path of the member's own profile picture, or null when they have none.
+  photoUrl?: string | null;
 }
 
 interface MemberAuthContextValue {

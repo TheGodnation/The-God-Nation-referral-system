@@ -11,6 +11,7 @@ import { Announcements } from '../components/Announcements';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { PrivateMessages } from '../components/PrivateMessages';
 import { MyResources } from '../components/MyResources';
+import { ProfilePhotoEditor } from '../components/member/ProfilePhotoEditor';
 
 interface AssessmentSummary {
   id: string;
@@ -112,6 +113,7 @@ function ProfileSection() {
   return (
     <div className="card">
       <h2 className="mb-3 font-semibold text-brand-900">{t('memberDashboard.profile_heading')}</h2>
+      <ProfilePhotoEditor />
       <form onSubmit={save} className="space-y-3">
         <div>
           <label className="label">{t('memberDashboard.profile_name_label')}</label>

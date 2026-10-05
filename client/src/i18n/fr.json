@@ -136,7 +136,15 @@
     "progress_completed": "Terminé",
     "progress_not_yet": "Pas encore",
     "progress_best_percentage": "Meilleur score : {{percentage}}%",
-    "progress_unavailable": "La progression de formation est temporairement indisponible."
+    "progress_unavailable": "La progression de formation est temporairement indisponible.",
+    "photo_add": "Ajouter une photo de profil",
+    "photo_change": "Changer la photo",
+    "photo_remove": "Supprimer",
+    "photo_uploading": "Envoi…",
+    "photo_wrong_type": "Veuillez choisir une image JPG, PNG ou WebP.",
+    "photo_too_large": "Cette image est trop grande (5 Mo maximum).",
+    "photo_failed": "La photo n’a pas pu être enregistrée. Veuillez réessayer.",
+    "photo_unavailable": "L’envoi de photos n’est pas disponible pour le moment."
   },
   "memberAssessment": {
     "loading": "Chargement…",

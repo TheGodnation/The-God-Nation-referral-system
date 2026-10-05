@@ -155,7 +155,12 @@ test.describe('Private Messaging journey', () => {
     // search (see limitation 2).
     // -----------------------------------------------------------------
     await page.getByRole('button', { name: 'Private Messages' }).click();
-    await expect(page.getByRole('heading', { name: 'Private Messages' })).toBeVisible();
+    // Two headings legitimately say "Private Messages" here: the tab's own
+    // section heading, and the embedded shared <PrivateMessages> inbox's
+    // title (shown via alwaysShow once its own conversations fetch
+    // resolves) — .first() targets the tab heading, which is what signals
+    // the tab actually navigated.
+    await expect(page.getByRole('heading', { name: 'Private Messages' }).first()).toBeVisible();
 
     await page.getByRole('radio', { name: 'Selected Community' }).check();
     await pickFromSearchPicker(page, 'Search communities by name', 'E2E Media Community', 'E2E Media Community', 'Select');

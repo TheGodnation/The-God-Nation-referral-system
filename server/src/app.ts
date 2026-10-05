@@ -48,6 +48,7 @@ import resourcesRoutes from './routes/resources';
 import adminResourcesRoutes from './routes/adminResources';
 import adminResourceAccessRoutes from './routes/adminResourceAccess';
 import notificationsRoutes from './routes/notifications';
+import profilePhotosRoutes from './routes/profilePhotos';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -192,6 +193,8 @@ export function createApp() {
   // lib/privateMessaging.ts's own identity resolver, same reasoning as
   // privateMessagesRoutes above for why Admin is included here too).
   app.use('/api/notifications', notificationsRoutes);
+  // Profile pictures: member upload + signed-in viewing (/api/member/me/photo*, /api/people/:id/photo).
+  app.use('/api', profilePhotosRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

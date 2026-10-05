@@ -517,6 +517,12 @@ model Person {
   // Set when the member finishes the sign-up details form. Null means the
   // member still has to complete their details before entering the app.
   profileCompletedAt  DateTime?
+  // Profile picture: the key of the image in object storage (never a public
+  // URL — pictures are served through GET /api/people/:id/photo, which
+  // checks the viewer is signed in). photoUpdatedAt changes on every new
+  // picture so browsers fetch the new one instead of a cached old one.
+  photoStorageKey     String?
+  photoUpdatedAt      DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

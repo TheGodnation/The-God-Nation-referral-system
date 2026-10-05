@@ -31,6 +31,8 @@ declare global {
         locationSubdivision: string | null;
         locationQuarter: string | null;
         profileCompletedAt: Date | null;
+        photoStorageKey: string | null;
+        photoUpdatedAt: Date | null;
       };
       memberSessionToken?: string;
     }
@@ -97,6 +99,8 @@ export async function loadMemberSession(req: Request, _res: Response, next: Next
       locationSubdivision: account.person.locationSubdivision,
       locationQuarter: account.person.locationQuarter,
       profileCompletedAt: account.person.profileCompletedAt,
+      photoStorageKey: account.person.photoStorageKey,
+      photoUpdatedAt: account.person.photoUpdatedAt,
     };
     req.memberSessionToken = token;
 

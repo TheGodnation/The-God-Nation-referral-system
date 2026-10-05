@@ -16,6 +16,7 @@ import {
 } from '../lib/rateLimit';
 import { selectApplicableReferralVisit } from '../lib/attribution';
 import { placePersonInGroup } from '../lib/placement';
+import { profilePhotoPath } from '../lib/profilePhoto';
 import { EmailService } from '../lib/email';
 import { CLIENT_URL, MEMBER_LOGIN_TOKEN_TTL_MS } from '../lib/env';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -361,6 +362,12 @@ router.get('/me', (req, res) => {
       // false only for a brand-new sign-up who hasn't filled in the
       // details form yet — the app sends them there first.
       profileComplete: req.member.profileCompletedAt !== null,
+      personId: req.member.personId,
+      photoUrl: profilePhotoPath({
+        id: req.member.personId,
+        photoStorageKey: req.member.photoStorageKey,
+        photoUpdatedAt: req.member.photoUpdatedAt,
+      }),
     },
   });
 });
