@@ -18,8 +18,12 @@ export const ATTACHMENT_MIME_LIMITS: Record<string, number> = {
   'audio/mpeg': 20 * 1024 * 1024,
   'audio/ogg': 20 * 1024 * 1024,
   'audio/mp4': 20 * 1024 * 1024,
+  // Voice notes recorded in the browser (Chrome/Android record WebM).
+  'audio/webm': 20 * 1024 * 1024,
   'video/mp4': 60 * 1024 * 1024,
   'video/webm': 60 * 1024 * 1024,
+  // Videos picked from an iPhone gallery.
+  'video/quicktime': 60 * 1024 * 1024,
 };
 
 // Kept small and fixed — this is a chat message, not a bulk file-sharing

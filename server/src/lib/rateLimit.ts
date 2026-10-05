@@ -308,6 +308,15 @@ export const centralAuthorityOversightLimiter = rateLimit({
 // own dedicated limiter per the project's convention — sized like
 // communityConversationReadLimiter, since this is a lightweight, frequent,
 // idempotent participant action, not a moderation action.
+// Reacting to group chat messages (👍 ❤️ …) — cheap and frequent.
+export const messageReactionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
 export const messageHideLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 120,

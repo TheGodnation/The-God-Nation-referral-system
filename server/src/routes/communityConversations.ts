@@ -7,6 +7,7 @@ import {
   communityConversationReadLimiter,
   communityModerationLimiter,
   messageHideLimiter,
+  messageReactionLimiter,
   attachmentUploadAuthorizeLimiter,
   attachmentDownloadLimiter,
 } from '../lib/rateLimit';
@@ -31,6 +32,55 @@ import {
   MAX_ORIGINAL_FILENAME_LENGTH,
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
+import { profilePhotoPath } from '../lib/profilePhoto';
+
+// WhatsApp-style quick reactions. A short fixed list keeps it simple and
+// stops anyone storing arbitrary text as a "reaction".
+export const ALLOWED_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'] as const;
+
+type ReactionRow = { emoji: string; personId: string };
+
+function summarizeReactions(rows: ReactionRow[], viewerPersonId: string) {
+  const byEmoji = new Map<string, { emoji: string; count: number; mine: boolean }>();
+  for (const r of rows) {
+    const entry = byEmoji.get(r.emoji) ?? { emoji: r.emoji, count: 0, mine: false };
+    entry.count += 1;
+    if (r.personId === viewerPersonId) entry.mine = true;
+    byEmoji.set(r.emoji, entry);
+  }
+  return ALLOWED_REACTIONS.filter((e) => byEmoji.has(e)).map((e) => byEmoji.get(e)!);
+}
+
+type ReplySource = {
+  id: string;
+  body: string | null;
+  deletedAt: Date | null;
+  sender: { name: string };
+  attachments: { mimeType: string }[];
+} | null;
+
+// A short preview of the message being replied to (never the body of a
+// removed message).
+function replyPreview(r: ReplySource) {
+  if (!r) return null;
+  return {
+    id: r.id,
+    senderName: r.sender.name,
+    body: r.deletedAt ? null : r.body,
+    deleted: Boolean(r.deletedAt),
+    attachmentMimeType: r.deletedAt ? null : r.attachments[0]?.mimeType ?? null,
+  };
+}
+
+const replyToInclude = {
+  select: {
+    id: true,
+    body: true,
+    deletedAt: true,
+    sender: { select: { name: true } },
+    attachments: { select: { mimeType: true }, take: 1 },
+  },
+} as const;
 
 declare global {
   namespace Express {
@@ -155,8 +205,10 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
         : {}),
     },
     include: {
-      sender: { select: { name: true } },
+      sender: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } },
       attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true } },
+      replyTo: replyToInclude,
+      reactions: { select: { emoji: true, personId: true } },
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
@@ -185,6 +237,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     items: page.map((m) => ({
       id: m.id,
       senderName: m.sender.name,
+      senderPhotoUrl: profilePhotoPath(m.sender),
       // Phase 3M.8C — lets the client show its own "delete for me" action
       // only on the caller's own messages, mirroring isCommunityAdministrator
       // being resolved server-side rather than trusted from the client. Never
@@ -196,6 +249,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       attachments: m.deletedAt
         ? []
         : m.attachments.map((a) => ({ id: a.id, originalFilename: a.originalFilename, mimeType: a.mimeType, byteSize: a.byteSize })),
+      replyTo: m.deletedAt ? null : replyPreview(m.replyTo),
+      reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, personId),
     })),
     hasMore,
     unreadCount,
@@ -219,6 +274,7 @@ const sendMessageSchema = z
   .object({
     body: z.string().trim().max(2000).optional(),
     attachments: z.array(attachmentDescriptorSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
+    replyToMessageId: z.string().min(1).optional(),
   })
   .refine((d) => Boolean(d.body && d.body.length > 0) || Boolean(d.attachments && d.attachments.length > 0), {
     message: 'A message must include text or at least one attachment.',
@@ -299,10 +355,20 @@ router.post(
 
     const conversation = await getOrCreateConversation(communityId);
 
+    // A reply must point at a message in THIS same group chat.
+    const replyToMessageId = parsed.data.replyToMessageId ?? null;
+    if (replyToMessageId) {
+      const original = await prisma.message.findUnique({ where: { id: replyToMessageId }, select: { conversationId: true } });
+      if (!original || original.conversationId !== conversation.id) {
+        return res.status(400).json({ error: 'Invalid reply reference.' });
+      }
+    }
+
     const created = await prisma.message.create({
       data: {
         conversationId: conversation.id,
         senderPersonId: personId,
+        replyToMessageId,
         body: parsed.data.body && parsed.data.body.length > 0 ? parsed.data.body : null,
         attachments: attachmentDescriptors.length
           ? {
@@ -316,7 +382,10 @@ router.post(
             }
           : undefined,
       },
-      include: { attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true } } },
+      include: {
+        attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true } },
+        replyTo: replyToInclude,
+      },
     });
 
     res.status(201).json({
@@ -324,6 +393,7 @@ router.post(
       body: created.body,
       createdAt: created.createdAt,
       attachments: created.attachments,
+      replyTo: replyPreview(created.replyTo),
     });
   }),
 );
@@ -494,6 +564,76 @@ router.delete(
     }
 
     res.json({ id: messageId, deleted: true });
+  }),
+);
+
+// PUT /api/communities/:communityId/conversation/messages/:messageId/reaction
+// { emoji } — set (or change) the caller's own reaction. DELETE removes it.
+// Anyone who can read the group chat may react; removed messages can't be
+// reacted to.
+const reactionSchema = z.object({ emoji: z.enum(ALLOWED_REACTIONS) });
+
+async function loadReactableMessage(req: Request, res: Response) {
+  const { communityId, messageId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) {
+    res.status(404).json({ error: 'Community not found.' });
+    return null;
+  }
+  const personId = req.conversationActorPersonId!;
+  if (!(await hasConversationAccess(personId, communityId))) {
+    res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    return null;
+  }
+  const conversation = await getOrCreateConversation(communityId);
+  const message = await prisma.message.findUnique({ where: { id: messageId } });
+  if (!message || message.conversationId !== conversation.id || message.deletedAt) {
+    res.status(404).json({ error: 'Message not found.' });
+    return null;
+  }
+  const hidden = await prisma.messageHiddenForPerson.findUnique({
+    where: { messageId_personId: { messageId, personId } },
+  });
+  if (hidden) {
+    res.status(404).json({ error: 'Message not found.' });
+    return null;
+  }
+  return { personId, messageId };
+}
+
+async function reactionsFor(messageId: string, personId: string) {
+  const rows = await prisma.messageReaction.findMany({ where: { messageId }, select: { emoji: true, personId: true } });
+  return summarizeReactions(rows, personId);
+}
+
+router.put(
+  '/:communityId/conversation/messages/:messageId/reaction',
+  messageReactionLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const target = await loadReactableMessage(req, res);
+    if (!target) return;
+    const parsed = reactionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Unsupported reaction.' });
+    }
+    await prisma.messageReaction.upsert({
+      where: { messageId_personId: { messageId: target.messageId, personId: target.personId } },
+      create: { messageId: target.messageId, personId: target.personId, emoji: parsed.data.emoji },
+      update: { emoji: parsed.data.emoji },
+    });
+    res.json({ reactions: await reactionsFor(target.messageId, target.personId) });
+  }),
+);
+
+router.delete(
+  '/:communityId/conversation/messages/:messageId/reaction',
+  messageReactionLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const target = await loadReactableMessage(req, res);
+    if (!target) return;
+    await prisma.messageReaction.deleteMany({ where: { messageId: target.messageId, personId: target.personId } });
+    res.json({ reactions: await reactionsFor(target.messageId, target.personId) });
   }),
 );
 
