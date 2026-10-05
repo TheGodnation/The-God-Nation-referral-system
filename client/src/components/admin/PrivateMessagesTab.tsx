@@ -4,7 +4,7 @@ import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { PrivateMessages } from '../PrivateMessages';
 
-type Scope = 'ALL_ELIGIBLE' | 'SELECTED_MEMBERS' | 'SELECTED_COMMUNITY';
+type Scope = 'ALL_ELIGIBLE' | 'SELECTED_MEMBERS' | 'SELECTED_COMMUNITY' | 'ALL_LEADERS';
 
 // Private Communication / Messaging — Admin (Central Authority) management
 // surface. Initiation only (see server/src/routes/adminPrivateMessages.ts);
@@ -58,7 +58,7 @@ export function PrivateMessagesTab() {
 
   const canSend =
     body.trim().length > 0 &&
-    (scope === 'ALL_ELIGIBLE' || (scope === 'SELECTED_MEMBERS' && members.length > 0) || (scope === 'SELECTED_COMMUNITY' && Boolean(communityId)));
+    (scope === 'ALL_ELIGIBLE' || scope === 'ALL_LEADERS' || (scope === 'SELECTED_MEMBERS' && members.length > 0) || (scope === 'SELECTED_COMMUNITY' && Boolean(communityId)));
 
   return (
     <div>
@@ -80,6 +80,10 @@ export function PrivateMessagesTab() {
             <label className="flex items-center gap-1.5">
               <input type="radio" checked={scope === 'SELECTED_COMMUNITY'} onChange={() => setScope('SELECTED_COMMUNITY')} />
               {t('admin.privateMessages.scope_selected_community')}
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={scope === 'ALL_LEADERS'} onChange={() => setScope('ALL_LEADERS')} />
+              {t('admin.privateMessages.scope_all_leaders')}
             </label>
           </div>
         </div>

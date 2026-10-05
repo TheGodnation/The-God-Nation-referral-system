@@ -160,6 +160,24 @@ enum NotificationType {
   PRIVATE_MESSAGE_RECEIVED
   RESOURCE_GRANTED
   ROLE_ASSIGNED
+  FRIEND_REQUEST_RECEIVED
+  FRIEND_REQUEST_ACCEPTED
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+// Who may send this person a friend request.
+enum FriendRequestPolicy {
+  EVERYONE
+  SAME_GROUP
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
 }
 
 // ---------------------------------------------------------------------------
@@ -213,6 +231,7 @@ model User {
   notifications               Notification[]
   updatePostsDeleted          UpdatePost[]    @relation("UpdatePostDeletedByUser")
   updateCommentsDeleted       UpdateComment[] @relation("UpdateCommentDeletedByUser")
+  memberReportsResolved       MemberReport[]  @relation("MemberReportResolvedByUser")
 
   @@index([role])
 }
@@ -541,6 +560,7 @@ model Person {
   // picture so browsers fetch the new one instead of a cached old one.
   photoStorageKey     String?
   photoUpdatedAt      DateTime?
+  friendRequestPolicy FriendRequestPolicy @default(EVERYONE)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -578,6 +598,12 @@ model Person {
   updateComments                   UpdateComment[]         @relation("UpdateCommentAuthor")
   updateCommentsDeleted            UpdateComment[]         @relation("UpdateCommentDeletedByPerson")
   updateReactions                  UpdateReaction[]
+  friendRequestsSent               Friendship[]            @relation("FriendshipRequester")
+  friendRequestsReceived           Friendship[]            @relation("FriendshipAddressee")
+  blocksMade                       PersonBlock[]           @relation("PersonBlockBlocker")
+  blocksReceived                   PersonBlock[]           @relation("PersonBlockBlocked")
+  reportsMade                      MemberReport[]          @relation("MemberReportReporter")
+  reportsAbout                     MemberReport[]          @relation("MemberReportReported")
 
   @@index([isTestData])
 }
@@ -1821,4 +1847,66 @@ model UpdateReaction {
   person Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@unique([postId, personId])
+}
+
+// ---------------------------------------------------------------------------
+// Friends, blocking and reports. Friendship is one row per pair (whoever
+// asked first is the requester); a declined request is simply deleted so
+// it can be sent again later. Blocking either way stops friend requests and
+// private messages between the two, and ends any friendship.
+// ---------------------------------------------------------------------------
+
+model Friendship {
+  id                String           @id @default(uuid())
+  requesterPersonId String
+  addresseePersonId String
+  status            FriendshipStatus @default(PENDING)
+  createdAt         DateTime         @default(now())
+  respondedAt       DateTime?
+
+  requester Person @relation("FriendshipRequester", fields: [requesterPersonId], references: [id], onDelete: Cascade)
+  addressee Person @relation("FriendshipAddressee", fields: [addresseePersonId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterPersonId, addresseePersonId])
+  @@index([addresseePersonId, status])
+  @@index([requesterPersonId, status])
+}
+
+model PersonBlock {
+  id              String   @id @default(uuid())
+  blockerPersonId String
+  blockedPersonId String
+  createdAt       DateTime @default(now())
+
+  blocker Person @relation("PersonBlockBlocker", fields: [blockerPersonId], references: [id], onDelete: Cascade)
+  blocked Person @relation("PersonBlockBlocked", fields: [blockedPersonId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerPersonId, blockedPersonId])
+  @@index([blockedPersonId])
+}
+
+// A member reporting another member (their behaviour, a message, a post or
+// a comment). Seen by the central admin, and by leaders of the reported
+// person's groups.
+model MemberReport {
+  id                 String       @id @default(uuid())
+  reporterPersonId   String
+  reportedPersonId   String
+  // What was reported: PERSON, PRIVATE_MESSAGE, UPDATE_POST, UPDATE_COMMENT.
+  targetType         String
+  targetId           String?
+  reason             String
+  status             ReportStatus @default(OPEN)
+  createdAt          DateTime     @default(now())
+  resolvedAt         DateTime?
+  resolvedByUserId   String?
+  resolvedByPersonId String?
+  resolutionNote     String?
+
+  reporter       Person @relation("MemberReportReporter", fields: [reporterPersonId], references: [id], onDelete: Cascade)
+  reported       Person @relation("MemberReportReported", fields: [reportedPersonId], references: [id], onDelete: Cascade)
+  resolvedByUser User?  @relation("MemberReportResolvedByUser", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reportedPersonId])
 }

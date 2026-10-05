@@ -23,7 +23,9 @@ const MAX_SELECTED_MEMBERS = 200;
 
 const createSchema = z
   .object({
-    scope: z.enum(['ALL_ELIGIBLE', 'SELECTED_MEMBERS', 'SELECTED_COMMUNITY']),
+    // ALL_LEADERS: every person with an ACTIVE leader role. Chosen leaders
+    // are sent with SELECTED_MEMBERS (their person ids).
+    scope: z.enum(['ALL_ELIGIBLE', 'SELECTED_MEMBERS', 'SELECTED_COMMUNITY', 'ALL_LEADERS']),
     personIds: z.array(z.string().min(1)).max(MAX_SELECTED_MEMBERS).optional(),
     communityId: z.string().min(1).optional(),
     body: z.string().trim().min(1).max(2000),
@@ -58,6 +60,13 @@ router.post('/conversations', leadershipMutationLimiter, requireCsrf, asyncHandl
     const community = await prisma.community.findUnique({ where: { id: d.communityId! }, select: { id: true } });
     if (!community) return res.status(400).json({ error: 'Community not found.' });
     targetPersonIds = await getCommunityMemberPersonIds(d.communityId!);
+  } else if (d.scope === 'ALL_LEADERS') {
+    const rows = await prisma.roleAssignment.findMany({
+      where: { status: 'ACTIVE', roleType: 'SCOPED_LEADER' },
+      select: { personId: true },
+      distinct: ['personId'],
+    });
+    targetPersonIds = rows.map((r) => r.personId);
   } else {
     const requested = Array.from(new Set(d.personIds!));
     const existingCount = await prisma.person.count({ where: { id: { in: requested } } });

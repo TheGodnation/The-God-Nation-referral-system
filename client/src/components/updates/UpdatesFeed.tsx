@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Avatar } from '../Avatar';
@@ -290,10 +291,12 @@ function PostCard({
   item,
   canReact,
   onDeleted,
+  linkAuthors,
 }: {
   item: UpdateItem;
   canReact: boolean;
   onDeleted: (id: string) => void;
+  linkAuthors: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [myReaction, setMyReaction] = useState<ReactionType | null>(item.myReaction);
@@ -345,7 +348,13 @@ function PostCard({
       <header className="flex items-center gap-3">
         <Avatar name={item.author.name} photoUrl={item.author.photoUrl} size={40} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-slate-800">{item.author.name}</p>
+          {linkAuthors ? (
+            <Link to={`/member/people/${item.author.personId}`} className="block truncate font-semibold text-slate-800 hover:underline">
+              {item.author.name}
+            </Link>
+          ) : (
+            <p className="truncate font-semibold text-slate-800">{item.author.name}</p>
+          )}
           <p className="text-xs text-slate-400">{formatWhen(item.createdAt, i18n.language)}</p>
         </div>
         {item.canDelete && (
@@ -416,13 +425,30 @@ function PostCard({
 
 // ---------------------------------------------------------------- Feed
 
-export function UpdatesFeed({ authorPersonId, showComposer = true }: { authorPersonId?: string; showComposer?: boolean }) {
+export function UpdatesFeed({
+  authorPersonId,
+  showComposer = true,
+  friendsOnly = false,
+  linkAuthors = false,
+}: {
+  authorPersonId?: string;
+  showComposer?: boolean;
+  /** Only posts from the viewer's friends (and the viewer). */
+  friendsOnly?: boolean;
+  /** Make author names open their profile (member pages only). */
+  linkAuthors?: boolean;
+}) {
   const { t } = useTranslation();
   const [data, setData] = useState<FeedResponse | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const query = authorPersonId ? `authorPersonId=${encodeURIComponent(authorPersonId)}` : '';
+  const query = [
+    authorPersonId ? `authorPersonId=${encodeURIComponent(authorPersonId)}` : '',
+    friendsOnly ? 'friends=true' : '',
+  ]
+    .filter(Boolean)
+    .join('&');
 
   function load() {
     setError(null);
@@ -432,7 +458,7 @@ export function UpdatesFeed({ authorPersonId, showComposer = true }: { authorPer
       .catch(() => setError(t('updates.load_failed')));
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [authorPersonId]);
+  useEffect(load, [authorPersonId, friendsOnly]);
 
   async function loadMore() {
     if (!data?.nextBefore) return;
@@ -460,7 +486,7 @@ export function UpdatesFeed({ authorPersonId, showComposer = true }: { authorPer
       {!data && !error && <p className="text-center text-slate-400">{t('updates.loading')}</p>}
       {data && data.items.length === 0 && <p className="text-center text-slate-500">{t('updates.empty')}</p>}
       {data?.items.map((item) => (
-        <PostCard key={item.id} item={item} canReact={data.viewer.canPost} onDeleted={removeLocally} />
+        <PostCard key={item.id} item={item} canReact={data.viewer.canPost} onDeleted={removeLocally} linkAuthors={linkAuthors} />
       ))}
       {data?.nextBefore && (
         <button type="button" className="btn-secondary w-full" onClick={loadMore} disabled={loadingMore}>

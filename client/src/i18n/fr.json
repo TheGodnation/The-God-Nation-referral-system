@@ -446,6 +446,7 @@
       "privateMessages": "Messages privés",
       "resources": "Ressources",
       "updates": "Actualités",
+      "memberReports": "Signalements",
       "memberMap": "Carte des membres"
     },
     "overview": {
@@ -1140,7 +1141,8 @@
       "sending": "Envoi…",
       "send_failed": "Échec de l'envoi du message.",
       "sent_success": "Message envoyé à {{count}} destinataire(s).",
-      "inbox_heading": "Vos conversations"
+      "inbox_heading": "Vos conversations",
+      "scope_all_leaders": "Tous les responsables"
     },
     "resources": {
       "title": "Ressources",
@@ -1336,7 +1338,11 @@
     "sending": "Envoi…",
     "send_failed": "Échec de l'envoi du message.",
     "sent_success": "Message envoyé.",
-    "no_communities": "Vous ne dirigez actuellement aucune Communauté."
+    "no_communities": "Vous ne dirigez actuellement aucune Communauté.",
+    "all_title": "Écrire à tous mes membres",
+    "all_help": "Chaque membre de vos groupes le reçoit en privé et ne peut répondre qu’à vous.",
+    "all_send": "Envoyer à tous mes membres",
+    "all_sent": "Envoyé à {{count}} membres."
   },
   "notifications": {
     "title": "Notifications",
@@ -1346,7 +1352,9 @@
     "follow_up_assigned": "Nouveau suivi : {{name}}",
     "private_message_received": "Nouveau message de {{name}}",
     "resource_granted": "Vous avez maintenant accès à : {{title}}",
-    "role_assigned": "Vous êtes maintenant Leader pour {{community}}"
+    "role_assigned": "Vous êtes maintenant Leader pour {{community}}",
+    "friend_request_received": "{{name}} vous a envoyé une demande d’amitié",
+    "friend_request_accepted": "{{name}} a accepté votre demande d’amitié"
   },
   "updates": {
     "title": "Actualités",
@@ -1404,11 +1412,82 @@
     "admin_live_need_link": "Collez d’abord le lien YouTube.",
     "admin_live_failed": "Enregistrement impossible. Veuillez réessayer.",
     "show": "Afficher",
-    "hide": "Masquer"
+    "hide": "Masquer",
+    "view_label": "Afficher les publications de",
+    "view_everyone": "Tout le monde",
+    "view_friends": "Amis"
   },
   "memberNav": {
     "label": "Sections membre",
     "home": "Accueil",
-    "updates": "Actualités"
+    "updates": "Actualités",
+    "people": "Personnes"
+  },
+  "people": {
+    "title": "Personnes",
+    "loading": "Chargement…",
+    "requests": "Demandes d’amitié",
+    "search": "Chercher",
+    "search_label": "Chercher des membres par nom",
+    "search_placeholder": "Chercher des membres par nom",
+    "search_too_short": "Tapez au moins 2 lettres.",
+    "no_results": "Personne trouvée avec ce nom.",
+    "near_you": "Personnes près de vous",
+    "near_empty": "Aucun membre près de vous pour le moment.",
+    "may_know": "Personnes que vous connaissez peut-être",
+    "my_friends": "Mes amis",
+    "no_friends": "Vous n’avez pas encore d’amis ici. Ajoutez des personnes près de vous ou de votre groupe !",
+    "add_friend": "Ajouter",
+    "cancel_request": "Annuler la demande",
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "friends": "Amis",
+    "confirm_unfriend": "Retirer cette personne de vos amis ?",
+    "mutual_friends": "{{count}} amis en commun",
+    "mutual_friends_one": "{{count}} ami en commun",
+    "mutual_friends_other": "{{count}} amis en commun",
+    "same_group_only": "Cette personne n’accepte que les demandes de son propre groupe.",
+    "action_failed": "Une erreur s’est produite. Veuillez réessayer.",
+    "settings_title": "Réglages des demandes d’amitié",
+    "policy_label": "Qui peut vous envoyer des demandes d’amitié ?",
+    "policy_everyone": "Tout le monde dans la communauté",
+    "policy_same_group": "Seulement les personnes de mon groupe",
+    "not_found": "Cette personne est introuvable.",
+    "back": "Retour aux Personnes",
+    "leader_badge": "Responsable",
+    "friend_count": "{{count}} amis",
+    "friend_count_one": "{{count}} ami",
+    "friend_count_other": "{{count}} amis",
+    "message": "Message",
+    "message_label": "Votre message",
+    "send": "Envoyer",
+    "message_sent": "Message envoyé. Continuez la conversation dans Messages sur votre page Accueil.",
+    "message_not_allowed": "Vous pouvez écrire à vos amis, aux personnes de votre groupe et à vos responsables. Envoyez d’abord une demande d’amitié.",
+    "message_hint": "Devenez amis pour envoyer un message.",
+    "block": "Bloquer",
+    "unblock": "Débloquer",
+    "confirm_block": "Bloquer {{name}} ? Cette personne ne pourra plus vous écrire ni vous envoyer de demande d’amitié, et vous ne verrez plus vos publications respectives.",
+    "report": "Signaler",
+    "report_help": "Dites brièvement aux responsables ce qui s’est passé. Seuls les responsables et l’administration centrale le verront.",
+    "report_label": "Que s’est-il passé ?",
+    "report_send": "Envoyer le signalement",
+    "report_need_reason": "Veuillez dire brièvement ce qui s’est passé.",
+    "report_sent": "Merci. Votre signalement a été envoyé aux responsables.",
+    "posts_title": "Publications"
+  },
+  "reports": {
+    "title": "Signalements de membres",
+    "open": "Ouverts",
+    "resolved": "Traités",
+    "loading": "Chargement…",
+    "load_failed": "Impossible de charger les signalements.",
+    "resolve_failed": "Enregistrement impossible. Veuillez réessayer.",
+    "none_open": "Aucun signalement ouvert.",
+    "none_resolved": "Aucun signalement traité.",
+    "reported": "a signalé",
+    "note_label": "Note (facultatif)",
+    "note_placeholder": "Ce qui a été fait (facultatif)",
+    "mark_resolved": "Marquer comme traité",
+    "note": "Note : {{note}}"
   }
 }

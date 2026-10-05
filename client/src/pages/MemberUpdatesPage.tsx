@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
@@ -10,6 +11,7 @@ import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 // central admin's posts to everyone, then the community feed.
 export function MemberUpdatesPage() {
   const { t } = useTranslation();
+  const [friendsOnly, setFriendsOnly] = useState(false);
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-2xl px-4 py-8">
@@ -21,7 +23,15 @@ export function MemberUpdatesPage() {
         <div className="space-y-6">
           <LiveBanner />
           <HeadquartersPosts />
-          <UpdatesFeed />
+          <div className="flex gap-2" role="tablist" aria-label={t('updates.view_label') ?? ''}>
+            <button type="button" role="tab" aria-selected={!friendsOnly} className={!friendsOnly ? 'btn-primary' : 'btn-secondary'} onClick={() => setFriendsOnly(false)}>
+              {t('updates.view_everyone')}
+            </button>
+            <button type="button" role="tab" aria-selected={friendsOnly} className={friendsOnly ? 'btn-primary' : 'btn-secondary'} onClick={() => setFriendsOnly(true)}>
+              {t('updates.view_friends')}
+            </button>
+          </div>
+          <UpdatesFeed friendsOnly={friendsOnly} linkAuthors />
         </div>
       </section>
     </PageShell>

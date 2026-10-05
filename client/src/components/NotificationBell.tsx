@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 
-type NotificationType = 'FOLLOW_UP_ASSIGNED' | 'PRIVATE_MESSAGE_RECEIVED' | 'RESOURCE_GRANTED' | 'ROLE_ASSIGNED';
+type NotificationType =
+  | 'FOLLOW_UP_ASSIGNED'
+  | 'PRIVATE_MESSAGE_RECEIVED'
+  | 'RESOURCE_GRANTED'
+  | 'ROLE_ASSIGNED'
+  | 'FRIEND_REQUEST_RECEIVED'
+  | 'FRIEND_REQUEST_ACCEPTED';
 
 interface NotificationRow {
   id: string;
@@ -93,6 +99,10 @@ export function NotificationBell() {
       }
       case 'ROLE_ASSIGNED':
         return t('notifications.role_assigned', { community: metadata.communityName ?? '' });
+      case 'FRIEND_REQUEST_RECEIVED':
+        return t('notifications.friend_request_received', { name: metadata.senderName ?? '' });
+      case 'FRIEND_REQUEST_ACCEPTED':
+        return t('notifications.friend_request_accepted', { name: metadata.senderName ?? '' });
       default:
         return '';
     }
