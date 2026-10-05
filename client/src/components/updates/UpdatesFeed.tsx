@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Avatar } from '../Avatar';
 import { YoutubeEmbed } from './YoutubeEmbed';
+import { baseMime, shrinkPhoto } from '../../lib/chatMedia';
 
 // The community-wide Updates feed, Facebook-style. Used on the member
 // Updates page (with the "write a post" box), on a person's profile
@@ -66,30 +67,88 @@ function formatWhen(iso: string, language: string) {
   });
 }
 
+/** "Just now", "5 min", "3 h", "Yesterday at 14:05", or the date. */
+function relativeWhen(iso: string, t: ReturnType<typeof useTranslation>['t'], language: string) {
+  const then = new Date(iso);
+  const mins = Math.floor((Date.now() - then.getTime()) / 60000);
+  if (mins < 1) return t('updates.time_now');
+  if (mins < 60) return t('updates.time_minutes', { count: mins });
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return t('updates.time_hours', { count: hours });
+  const locale = language.startsWith('fr') ? 'fr-FR' : 'en-GB';
+  const time = then.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (then.toDateString() === yesterday.toDateString()) return t('updates.time_yesterday', { time });
+  return formatWhen(iso, language);
+}
+
 // ---------------------------------------------------------------- Composer
 
-function Composer({ onPosted }: { onPosted: () => void }) {
+interface PickedPhoto {
+  key: string;
+  blob: Blob;
+  name: string;
+  preview: string | null;
+}
+
+function previewUrl(b: Blob): string | null {
+  return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(b) : null;
+}
+
+function revokeUrl(u: string | null) {
+  if (u && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(u);
+}
+
+function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
   const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
   const [body, setBody] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [showVideo, setShowVideo] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<PickedPhoto[]>([]);
+  const [preparing, setPreparing] = useState(false);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function addFiles(list: FileList | null) {
-    if (!list) return;
+  async function addFiles(list: FileList | null) {
+    if (!list || list.length === 0) return;
     setError(null);
     const picked = Array.from(list);
-    for (const f of picked) {
-      if (!PHOTO_TYPES.includes(f.type)) return setError(t('updates.photo_wrong_type'));
-      if (f.size > MAX_PHOTO_BYTES) return setError(t('updates.photo_too_large'));
-    }
-    const next = [...files, ...picked];
-    if (next.length > MAX_PHOTOS) return setError(t('updates.too_many_photos', { max: MAX_PHOTOS }));
-    setFiles(next);
     if (fileInput.current) fileInput.current.value = '';
+    if (files.length + picked.length > MAX_PHOTOS) {
+      setError(t('updates.too_many_photos', { max: MAX_PHOTOS }));
+      return;
+    }
+    setPreparing(true);
+    const ready: PickedPhoto[] = [];
+    for (const f of picked) {
+      // Big phone photos are made smaller first so they post quickly.
+      const blob = f.type.startsWith('image/') ? await shrinkPhoto(f) : f;
+      const type = baseMime(blob.type);
+      if (!PHOTO_TYPES.includes(type)) {
+        setError(t('updates.photo_wrong_type'));
+        setPreparing(false);
+        return;
+      }
+      if (blob.size > MAX_PHOTO_BYTES) {
+        setError(t('updates.photo_too_large'));
+        setPreparing(false);
+        return;
+      }
+      ready.push({ key: `${f.name}-${f.size}-${Math.random()}`, blob, name: f.name, preview: previewUrl(blob) });
+    }
+    setFiles((prev) => [...prev, ...ready]);
+    setPreparing(false);
+  }
+
+  function removeFile(key: string) {
+    setFiles((prev) => {
+      const gone = prev.find((p) => p.key === key);
+      if (gone) revokeUrl(gone.preview);
+      return prev.filter((p) => p.key !== key);
+    });
   }
 
   async function submit(e: React.FormEvent) {
@@ -103,13 +162,14 @@ function Composer({ onPosted }: { onPosted: () => void }) {
     try {
       const photos = [];
       for (const file of files) {
+        const mimeType = baseMime(file.blob.type);
         const auth = await api.post<{ storageKey: string; uploadUrl: string }>('/api/updates/photos/authorize', {
-          mimeType: file.type,
-          byteSize: file.size,
+          mimeType,
+          byteSize: file.blob.size,
         });
-        const put = await fetch(auth.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+        const put = await fetch(auth.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: file.blob });
         if (!put.ok) throw new Error('upload failed');
-        photos.push({ storageKey: auth.storageKey, mimeType: file.type, byteSize: file.size });
+        photos.push({ storageKey: auth.storageKey, mimeType, byteSize: file.blob.size });
       }
       await api.post('/api/updates', {
         body: body.trim(),
@@ -119,7 +179,9 @@ function Composer({ onPosted }: { onPosted: () => void }) {
       setBody('');
       setYoutubeUrl('');
       setShowVideo(false);
+      files.forEach((f) => revokeUrl(f.preview));
       setFiles([]);
+      if (textRef.current) textRef.current.style.height = '';
       onPosted();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'INVALID_YOUTUBE') setError(t('updates.invalid_youtube'));
@@ -132,25 +194,35 @@ function Composer({ onPosted }: { onPosted: () => void }) {
   }
 
   return (
-    <form onSubmit={submit} className="card space-y-3">
+    <form onSubmit={submit} className={`space-y-3 bg-white p-4 shadow-sm ${wall ? 'sm:rounded-xl' : 'rounded-xl border border-slate-100'}`}>
       <textarea
-        className="input min-h-[80px]"
+        ref={textRef}
+        className="w-full resize-none rounded-2xl border-0 bg-slate-100 px-4 py-3 text-[16px] outline-none focus:ring-2 focus:ring-brand-200"
+        rows={2}
         aria-label={t('updates.compose_label') ?? ''}
         placeholder={t('updates.compose_placeholder') ?? ''}
         value={body}
         maxLength={3000}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={(e) => {
+          setBody(e.target.value);
+          e.target.style.height = 'auto';
+          e.target.style.height = `${Math.min(e.target.scrollHeight, 320)}px`;
+        }}
       />
       {files.length > 0 && (
-        <ul className="flex flex-wrap gap-2 text-xs text-slate-600">
-          {files.map((f, i) => (
-            <li key={`${f.name}-${i}`} className="flex items-center gap-1 rounded bg-slate-100 px-2 py-1">
-              {f.name}
+        <ul className="grid grid-cols-4 gap-2">
+          {files.map((f) => (
+            <li key={f.key} className="relative aspect-square overflow-hidden rounded-lg bg-slate-200">
+              {f.preview ? (
+                <img src={f.preview} alt={f.name} className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full items-center justify-center p-1 text-center text-[10px] text-slate-600">{f.name}</span>
+              )}
               <button
                 type="button"
-                className="text-slate-500"
+                className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 text-xs text-white"
                 aria-label={t('updates.remove_photo', { name: f.name }) ?? ''}
-                onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                onClick={() => removeFile(f.key)}
               >
                 ✕
               </button>
@@ -172,25 +244,35 @@ function Composer({ onPosted }: { onPosted: () => void }) {
           {error}
         </p>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => fileInput.current?.click()} disabled={posting}>
-            📷 {t('updates.add_photos')}
+      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        <div className="flex gap-1">
+          <button
+            type="button"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            onClick={() => fileInput.current?.click()}
+            disabled={posting || preparing}
+          >
+            <span className="text-green-600">🖼️</span> {preparing ? t('updates.loading') : t('updates.add_photos')}
           </button>
-          <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setShowVideo((v) => !v)} disabled={posting}>
-            ▶ {t('updates.add_video')}
+          <button
+            type="button"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            onClick={() => setShowVideo((v) => !v)}
+            disabled={posting}
+          >
+            <span className="text-red-600">▶</span> {t('updates.add_video')}
           </button>
           <input
             ref={fileInput}
             type="file"
             multiple
-            accept={PHOTO_TYPES.join(',')}
+            accept="image/*"
             className="hidden"
             aria-label={t('updates.add_photos') ?? ''}
-            onChange={(e) => addFiles(e.target.files)}
+            onChange={(e) => void addFiles(e.target.files)}
           />
         </div>
-        <button type="submit" className="btn-primary px-4 py-1.5" disabled={posting}>
+        <button type="submit" className="btn-primary px-5 py-1.5" disabled={posting || preparing}>
           {posting ? t('updates.posting') : t('updates.post')}
         </button>
       </div>
@@ -285,18 +367,129 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
   );
 }
 
+// ---------------------------------------------------------------- Photos
+
+function PhotoTile({ url, onOpen, className }: { url: string; onOpen: () => void; className: string }) {
+  const { t } = useTranslation();
+  const [state, setState] = useState<'loading' | 'ok' | 'failed'>('loading');
+  return (
+    <button type="button" onClick={onOpen} className={`relative block overflow-hidden bg-slate-200 ${className}`} aria-label={t('updates.open_photo') ?? ''}>
+      {state !== 'failed' && (
+        <img
+          src={url}
+          alt=""
+          loading="lazy"
+          onLoad={() => setState('ok')}
+          onError={() => setState('failed')}
+          className={`h-full w-full object-cover transition-opacity ${state === 'ok' ? 'opacity-100' : 'opacity-0'}`}
+        />
+      )}
+      {state === 'loading' && <span className="absolute inset-0 animate-pulse bg-slate-200" aria-hidden />}
+      {state === 'failed' && (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-center text-xs text-slate-500">
+          <span className="text-2xl">📷</span>
+          {t('updates.photo_unavailable')}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Facebook-style photo layout: 1 big, 2 side by side, 3 as one tall + two
+ * small, 4 as a square grid. */
+function PhotoLayout({ photos, onOpen }: { photos: { id: string; url: string }[]; onOpen: (index: number) => void }) {
+  if (photos.length === 1) {
+    return <PhotoTile url={photos[0].url} onOpen={() => onOpen(0)} className="aspect-[4/3] max-h-[36rem] w-full" />;
+  }
+  if (photos.length === 3) {
+    return (
+      <div className="grid aspect-square grid-cols-2 grid-rows-2 gap-0.5">
+        <PhotoTile url={photos[0].url} onOpen={() => onOpen(0)} className="row-span-2 h-full" />
+        <PhotoTile url={photos[1].url} onOpen={() => onOpen(1)} className="h-full" />
+        <PhotoTile url={photos[2].url} onOpen={() => onOpen(2)} className="h-full" />
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-2 gap-0.5">
+      {photos.map((p, i) => (
+        <PhotoTile key={p.id} url={p.url} onOpen={() => onOpen(i)} className="aspect-square" />
+      ))}
+    </div>
+  );
+}
+
+/** Full-screen photo viewer: swipe or use the arrows to move between a
+ * post's photos. */
+function PhotoViewer({ photos, start, onClose }: { photos: { id: string; url: string }[]; start: number; onClose: () => void }) {
+  const { t } = useTranslation();
+  const [index, setIndex] = useState(start);
+  const touchX = useRef<number | null>(null);
+  const go = (d: number) => setIndex((i) => Math.min(photos.length - 1, Math.max(0, i + d)));
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') go(1);
+      if (e.key === 'ArrowLeft') go(-1);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      role="dialog"
+      aria-label={t('updates.photo_viewer') ?? ''}
+      className="fixed inset-0 z-50 flex flex-col bg-black"
+      onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
+      onTouchEnd={(e) => {
+        if (touchX.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchX.current;
+        if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
+        touchX.current = null;
+      }}
+    >
+      <div className="flex items-center justify-between p-3 text-white">
+        <span className="text-sm">{photos.length > 1 ? `${index + 1} / ${photos.length}` : ''}</span>
+        <button type="button" onClick={onClose} aria-label={t('updates.close') ?? ''} className="text-2xl">
+          ✕
+        </button>
+      </div>
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden">
+        <img src={photos[index].url} alt="" className="max-h-full max-w-full object-contain" />
+        {index > 0 && (
+          <button type="button" onClick={() => go(-1)} aria-label={t('updates.prev_photo') ?? ''} className="absolute left-2 rounded-full bg-white/20 px-3 py-2 text-2xl text-white">
+            ‹
+          </button>
+        )}
+        {index < photos.length - 1 && (
+          <button type="button" onClick={() => go(1)} aria-label={t('updates.next_photo') ?? ''} className="absolute right-2 rounded-full bg-white/20 px-3 py-2 text-2xl text-white">
+            ›
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- Post card
+
+const LONG_POST_CHARS = 300;
 
 function PostCard({
   item,
   canReact,
   onDeleted,
   linkAuthors,
+  wall,
 }: {
   item: UpdateItem;
   canReact: boolean;
   onDeleted: (id: string) => void;
   linkAuthors: boolean;
+  wall: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [myReaction, setMyReaction] = useState<ReactionType | null>(item.myReaction);
@@ -305,9 +498,12 @@ function PostCard({
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(item.commentCount);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [viewerAt, setViewerAt] = useState<number | null>(null);
 
   const totalReactions = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
   const topEmojis = REACTIONS.filter((r) => (counts[r.type] ?? 0) > 0).map((r) => r.emoji).join('');
+  const isLong = item.body.length > LONG_POST_CHARS || item.body.split('\n').length > 7;
 
   async function react(type: ReactionType) {
     setPickerOpen(false);
@@ -344,69 +540,89 @@ function PostCard({
   const mine = REACTIONS.find((r) => r.type === myReaction);
 
   return (
-    <article className="card space-y-3" aria-label={t('updates.post_by', { name: item.author.name }) ?? ''}>
-      <header className="flex items-center gap-3">
-        <Avatar name={item.author.name} photoUrl={item.author.photoUrl} size={40} />
+    <article
+      className={wall ? 'bg-white shadow-sm sm:rounded-xl' : 'card overflow-hidden p-0 sm:p-0'}
+      aria-label={t('updates.post_by', { name: item.author.name }) ?? ''}
+    >
+      <header className="flex items-center gap-3 px-4 pt-3">
+        <Avatar name={item.author.name} photoUrl={item.author.photoUrl} size={42} />
         <div className="min-w-0 flex-1">
           {linkAuthors ? (
-            <Link to={`/member/people/${item.author.personId}`} className="block truncate font-semibold text-slate-800 hover:underline">
+            <Link to={`/member/people/${item.author.personId}`} className="block truncate font-semibold text-slate-900 hover:underline">
               {item.author.name}
             </Link>
           ) : (
-            <p className="truncate font-semibold text-slate-800">{item.author.name}</p>
+            <p className="truncate font-semibold text-slate-900">{item.author.name}</p>
           )}
-          <p className="text-xs text-slate-400">{formatWhen(item.createdAt, i18n.language)}</p>
+          <p className="text-xs text-slate-500" title={formatWhen(item.createdAt, i18n.language)}>
+            {relativeWhen(item.createdAt, t, i18n.language)} · 🌍
+          </p>
         </div>
         {item.canDelete && (
-          <button type="button" className="text-sm text-red-700 underline" onClick={remove}>
-            {t('updates.delete')}
+          <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label={t('updates.delete') ?? ''} title={t('updates.delete') ?? ''} onClick={remove}>
+            🗑
           </button>
         )}
       </header>
 
-      {item.body && <p className="whitespace-pre-wrap break-words text-slate-800">{item.body}</p>}
+      {item.body && (
+        <div className="px-4 pt-2">
+          <p className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`}>{item.body}</p>
+          {isLong && (
+            <button type="button" className="text-sm font-semibold text-slate-500 hover:underline" onClick={() => setExpanded((v) => !v)}>
+              {expanded ? t('updates.see_less') : t('updates.see_more')}
+            </button>
+          )}
+        </div>
+      )}
 
       {item.photos.length > 0 && (
-        <div className={`grid gap-1 ${item.photos.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          {item.photos.map((p) => (
-            <a key={p.id} href={p.url} target="_blank" rel="noreferrer">
-              <img src={p.url} alt="" loading="lazy" className="max-h-96 w-full rounded-lg object-cover" />
-            </a>
-          ))}
+        <div className="mt-3">
+          <PhotoLayout photos={item.photos} onOpen={setViewerAt} />
         </div>
       )}
 
-      {item.youtubeVideoId && <YoutubeEmbed videoId={item.youtubeVideoId} />}
+      {item.youtubeVideoId && (
+        <div className="mt-3 px-4">
+          <YoutubeEmbed videoId={item.youtubeVideoId} />
+        </div>
+      )}
 
       {(totalReactions > 0 || commentCount > 0) && (
-        <div className="flex justify-between text-xs text-slate-500">
+        <div className="flex items-center justify-between px-4 pt-2 text-sm text-slate-500">
           <span>{totalReactions > 0 ? `${topEmojis} ${totalReactions}` : ''}</span>
-          <span>{commentCount > 0 ? t('updates.comment_count', { count: commentCount }) : ''}</span>
+          {commentCount > 0 ? (
+            <button type="button" className="hover:underline" onClick={() => setShowComments(true)}>
+              {t('updates.comment_count', { count: commentCount })}
+            </button>
+          ) : (
+            <span />
+          )}
         </div>
       )}
 
-      <div className="relative flex gap-2 border-t border-slate-100 pt-2">
+      <div className="relative mx-4 mt-2 flex border-t border-slate-200 py-1">
         {canReact && (
           <button
             type="button"
-            className={`btn-secondary flex-1 py-1.5 text-sm ${myReaction ? 'font-semibold text-brand-700' : ''}`}
+            className={`flex-1 rounded-lg py-2 text-sm font-semibold hover:bg-slate-100 ${myReaction ? 'text-brand-700' : 'text-slate-600'}`}
             onClick={() => setPickerOpen((v) => !v)}
             aria-expanded={pickerOpen}
           >
             {mine ? `${mine.emoji} ${t(`updates.reaction_${mine.type.toLowerCase()}`)}` : `👍 ${t('updates.react')}`}
           </button>
         )}
-        <button type="button" className="btn-secondary flex-1 py-1.5 text-sm" onClick={() => setShowComments((v) => !v)}>
+        <button type="button" className="flex-1 rounded-lg py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100" onClick={() => setShowComments((v) => !v)}>
           💬 {t('updates.comments')}
         </button>
         {pickerOpen && (
-          <div role="menu" className="absolute bottom-full left-0 z-10 mb-1 flex gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 shadow">
+          <div role="menu" className="absolute bottom-full left-0 z-10 mb-1 flex gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-lg">
             {REACTIONS.map((r) => (
               <button
                 key={r.type}
                 type="button"
                 role="menuitem"
-                className={`rounded-full px-1.5 text-2xl ${myReaction === r.type ? 'bg-brand-100' : ''}`}
+                className={`rounded-full px-1.5 text-2xl transition-transform hover:scale-125 ${myReaction === r.type ? 'bg-brand-100' : ''}`}
                 aria-label={t(`updates.reaction_${r.type.toLowerCase()}`) ?? ''}
                 onClick={() => react(r.type)}
               >
@@ -417,19 +633,27 @@ function PostCard({
         )}
       </div>
 
-      {showComments && <Comments postId={item.id} canComment={canReact} onCountChange={setCommentCount} />}
-      {error && <p className="text-sm text-red-700">{error}</p>}
+      {showComments && (
+        <div className="px-4 pb-3">
+          <Comments postId={item.id} canComment={canReact} onCountChange={setCommentCount} />
+        </div>
+      )}
+      {error && <p className="px-4 pb-3 text-sm text-red-700">{error}</p>}
+      {viewerAt !== null && <PhotoViewer photos={item.photos} start={viewerAt} onClose={() => setViewerAt(null)} />}
     </article>
   );
 }
 
 // ---------------------------------------------------------------- Feed
 
+const NEW_POSTS_CHECK_MS = 60 * 1000;
+
 export function UpdatesFeed({
   authorPersonId,
   showComposer = true,
   friendsOnly = false,
   linkAuthors = false,
+  wall = false,
 }: {
   authorPersonId?: string;
   showComposer?: boolean;
@@ -437,11 +661,17 @@ export function UpdatesFeed({
   friendsOnly?: boolean;
   /** Make author names open their profile (member pages only). */
   linkAuthors?: boolean;
+  /** Facebook-style wall look: edge-to-edge white posts on a grey page. */
+  wall?: boolean;
 }) {
   const { t } = useTranslation();
   const [data, setData] = useState<FeedResponse | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newer, setNewer] = useState<FeedResponse | null>(null);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const dataRef = useRef<FeedResponse | null>(null);
+  dataRef.current = data;
 
   const query = [
     authorPersonId ? `authorPersonId=${encodeURIComponent(authorPersonId)}` : '',
@@ -452,6 +682,7 @@ export function UpdatesFeed({
 
   function load() {
     setError(null);
+    setNewer(null);
     api
       .get<FeedResponse>(`/api/updates${query ? `?${query}` : ''}`)
       .then(setData)
@@ -461,13 +692,14 @@ export function UpdatesFeed({
   useEffect(load, [authorPersonId, friendsOnly]);
 
   async function loadMore() {
-    if (!data?.nextBefore) return;
+    const current = dataRef.current;
+    if (!current?.nextBefore || loadingMore) return;
     setLoadingMore(true);
     try {
       const more = await api.get<FeedResponse>(
-        `/api/updates?before=${encodeURIComponent(data.nextBefore)}${query ? `&${query}` : ''}`,
+        `/api/updates?before=${encodeURIComponent(current.nextBefore)}${query ? `&${query}` : ''}`,
       );
-      setData({ ...more, items: [...data.items, ...more.items] });
+      setData((prev) => (prev ? { ...more, items: [...prev.items, ...more.items.filter((m) => !prev.items.some((p) => p.id === m.id))] } : more));
     } catch {
       setError(t('updates.load_failed'));
     } finally {
@@ -475,24 +707,67 @@ export function UpdatesFeed({
     }
   }
 
+  // Keep scrolling: older posts load by themselves near the bottom.
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !data?.nextBefore || typeof IntersectionObserver === 'undefined') return;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) void loadMore();
+    }, { rootMargin: '600px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.nextBefore, loadingMore]);
+
+  // Every minute, quietly check for new posts and offer a "New posts" button.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible' || !dataRef.current) return;
+      api
+        .get<FeedResponse>(`/api/updates${query ? `?${query}` : ''}`)
+        .then((res) => {
+          const known = new Set(dataRef.current?.items.map((i) => i.id) ?? []);
+          if (res.items.some((i) => !known.has(i.id))) setNewer(res);
+        })
+        .catch(() => {});
+    }, NEW_POSTS_CHECK_MS);
+    return () => window.clearInterval(timer);
+  }, [query]);
+
+  function showNewer() {
+    if (!newer) return;
+    setData(newer);
+    setNewer(null);
+    window.scrollTo?.({ top: 0, behavior: 'smooth' });
+  }
+
   function removeLocally(id: string) {
-    if (data) setData({ ...data, items: data.items.filter((i) => i.id !== id) });
+    setData((prev) => (prev ? { ...prev, items: prev.items.filter((i) => i.id !== id) } : prev));
   }
 
   return (
-    <div className="space-y-4">
-      {showComposer && data?.viewer.canPost && <Composer onPosted={load} />}
-      {error && <p className="text-sm text-red-700">{error}</p>}
-      {!data && !error && <p className="text-center text-slate-400">{t('updates.loading')}</p>}
-      {data && data.items.length === 0 && <p className="text-center text-slate-500">{t('updates.empty')}</p>}
+    <div className={wall ? 'space-y-2 sm:space-y-4' : 'space-y-4'}>
+      {newer && (
+        <div className="sticky top-16 z-20 flex justify-center">
+          <button type="button" onClick={showNewer} className="rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+            ↑ {t('updates.new_posts')}
+          </button>
+        </div>
+      )}
+      {showComposer && data?.viewer.canPost && <Composer onPosted={load} wall={wall} />}
+      {error && <p className="px-4 text-sm text-red-700">{error}</p>}
+      {!data && !error && <p className="py-6 text-center text-slate-400">{t('updates.loading')}</p>}
+      {data && data.items.length === 0 && <p className="py-6 text-center text-slate-500">{t('updates.empty')}</p>}
       {data?.items.map((item) => (
-        <PostCard key={item.id} item={item} canReact={data.viewer.canPost} onDeleted={removeLocally} linkAuthors={linkAuthors} />
+        <PostCard key={item.id} item={item} canReact={data.viewer.canPost} onDeleted={removeLocally} linkAuthors={linkAuthors} wall={wall} />
       ))}
+      <div ref={sentinel} aria-hidden />
       {data?.nextBefore && (
-        <button type="button" className="btn-secondary w-full" onClick={loadMore} disabled={loadingMore}>
+        <button type="button" className="btn-secondary mx-auto block" onClick={() => void loadMore()} disabled={loadingMore}>
           {loadingMore ? t('updates.loading') : t('updates.load_more')}
         </button>
       )}
+      {data && !data.nextBefore && data.items.length > 3 && <p className="py-4 text-center text-xs text-slate-400">{t('updates.all_caught_up')}</p>}
     </div>
   );
 }

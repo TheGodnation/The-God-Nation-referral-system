@@ -1428,7 +1428,21 @@
     "hide": "Masquer",
     "view_label": "Afficher les publications de",
     "view_everyone": "Tout le monde",
-    "view_friends": "Amis"
+    "view_friends": "Amis",
+    "open_photo": "Ouvrir la photo",
+    "photo_viewer": "Photo",
+    "close": "Fermer",
+    "prev_photo": "Photo précédente",
+    "next_photo": "Photo suivante",
+    "photo_unavailable": "Cette photo ne peut pas être affichée pour le moment.",
+    "see_more": "Voir plus",
+    "see_less": "Voir moins",
+    "new_posts": "Nouvelles publications",
+    "all_caught_up": "Vous avez tout vu 🙌",
+    "time_now": "À l'instant",
+    "time_minutes": "{{count}} min",
+    "time_hours": "{{count}} h",
+    "time_yesterday": "Hier à {{time}}"
   },
   "memberNav": {
     "label": "Sections membre",

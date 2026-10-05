@@ -1428,7 +1428,21 @@
     "hide": "Hide",
     "view_label": "Show posts from",
     "view_everyone": "Everyone",
-    "view_friends": "Friends"
+    "view_friends": "Friends",
+    "open_photo": "Open photo",
+    "photo_viewer": "Photo",
+    "close": "Close",
+    "prev_photo": "Previous photo",
+    "next_photo": "Next photo",
+    "photo_unavailable": "This photo can't be shown right now.",
+    "see_more": "See more",
+    "see_less": "See less",
+    "new_posts": "New posts",
+    "all_caught_up": "You're all caught up 🙌",
+    "time_now": "Just now",
+    "time_minutes": "{{count}} min",
+    "time_hours": "{{count}} h",
+    "time_yesterday": "Yesterday at {{time}}"
   },
   "memberNav": {
     "label": "Member sections",
