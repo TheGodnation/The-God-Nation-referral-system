@@ -55,7 +55,7 @@ async function resolveOtherParty(
     const initiatorId = conversation.initiatorPersonId!;
     const [person, roleCount] = await Promise.all([
       prisma.person.findUnique({ where: { id: initiatorId }, select: { name: true } }),
-      prisma.roleAssignment.count({ where: { personId: initiatorId } }),
+      prisma.roleAssignment.count({ where: { personId: initiatorId, status: 'ACTIVE' } }),
     ]);
     // A conversation started by another member (friends / same group) is
     // shown as with a member; one started by a leader as with a leader.

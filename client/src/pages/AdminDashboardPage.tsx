@@ -14,6 +14,7 @@ import { LocationsTab } from '../components/admin/LocationsTab';
 import { HeadquartersPostsTab } from '../components/admin/HeadquartersPostsTab';
 import { ReportsList } from '../components/ReportsList';
 import { LibraryTab } from '../components/admin/LibraryTab';
+import { MemberMapTab } from '../components/admin/MemberMapTab';
 import { AdminLiveControl } from '../components/updates/AdminLiveControl';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { PrivateMessagesTab } from '../components/admin/PrivateMessagesTab';
@@ -44,6 +45,7 @@ type Tab =
   | 'privateMessages'
   | 'resources'
   | 'locations'
+  | 'memberMap'
   | 'account'
   | 'audit';
 
@@ -1668,6 +1670,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'announcements'} onClick={() => setTab('announcements')}>
               {t('admin.tabs.announcements')}
             </TabButton>
+            <TabButton active={tab === 'memberMap'} onClick={() => setTab('memberMap')}>
+              {t('admin.tabs.memberMap')}
+            </TabButton>
             <TabButton active={tab === 'locations'} onClick={() => setTab('locations')}>
               {t('admin.tabs.locations')}
             </TabButton>
@@ -1714,6 +1719,7 @@ export function AdminDashboardPage() {
         {tab === 'memberReports' && <ReportsList basePath="/api/admin/member-reports" />}
         {tab === 'resources' && <ResourcesTab />}
         {tab === 'locations' && <LocationsTab includeTestData={includeTestData} />}
+        {tab === 'memberMap' && <MemberMapTab includeTestData={includeTestData} />}
         {tab === 'account' && <AccountTab />}
         {tab === 'audit' && <AuditTab />}
       </section>
