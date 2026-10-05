@@ -145,6 +145,16 @@ enum PlacementMode {
   BY_LOCATION
 }
 
+// Reactions on Updates posts (one per person per post; changeable).
+enum UpdateReactionType {
+  LIKE
+  LOVE
+  PRAY
+  PRAISE
+  JOY
+  SAD
+}
+
 enum NotificationType {
   FOLLOW_UP_ASSIGNED
   PRIVATE_MESSAGE_RECEIVED
@@ -201,6 +211,8 @@ model User {
   resourceAccessGrantsGiven   ResourceAccessGrant[] @relation("ResourceAccessGrantGrantedBy")
   resourceAccessGrantsRevoked ResourceAccessGrant[] @relation("ResourceAccessGrantRevokedBy")
   notifications               Notification[]
+  updatePostsDeleted          UpdatePost[]    @relation("UpdatePostDeletedByUser")
+  updateCommentsDeleted       UpdateComment[] @relation("UpdateCommentDeletedByUser")
 
   @@index([role])
 }
@@ -414,6 +426,12 @@ model Settings {
   headquartersCommunityId String?
   headquartersCommunity   Community? @relation("SettingsHeadquarters", fields: [headquartersCommunityId], references: [id], onDelete: SetNull)
   placementMode           PlacementMode @default(SMALLEST_GROUP)
+  // "Live now" slot on the Updates page: the YouTube video id of the live
+  // (video or audio-only) the central admin is streaming, or null when
+  // nothing is live. Set/cleared from the admin Updates tab.
+  liveYoutubeVideoId      String?
+  liveTitle               String?
+  liveStartedAt           DateTime?
   updatedAt             DateTime @updatedAt
   updatedByUserId       String?
 }
@@ -555,6 +573,11 @@ model Person {
   privateConversationReads        PrivateConversationRead[]
   resourceAccessGrants             ResourceAccessGrant[]
   notifications                    Notification[]
+  updatePosts                      UpdatePost[]            @relation("UpdatePostAuthor")
+  updatePostsDeleted               UpdatePost[]            @relation("UpdatePostDeletedByPerson")
+  updateComments                   UpdateComment[]         @relation("UpdateCommentAuthor")
+  updateCommentsDeleted            UpdateComment[]         @relation("UpdateCommentDeletedByPerson")
+  updateReactions                  UpdateReaction[]
 
   @@index([isTestData])
 }
@@ -1719,4 +1742,83 @@ model Notification {
 
   @@index([recipientPersonId, readAt, createdAt])
   @@index([recipientUserId, readAt, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Updates — the community-wide, Facebook-style feed. Every signed-in member
+// sees every member's posts (group chats stay inside their group; this is
+// the one shared space). Members post freely; the author, the central
+// admin, or any leader with an ACTIVE leadership role can delete a post or
+// comment. Deletes are soft (deletedAt + who deleted) so there is always a
+// record of who removed what.
+// ---------------------------------------------------------------------------
+
+model UpdatePost {
+  id               String    @id @default(uuid())
+  authorPersonId   String
+  body             String
+  // YouTube video id (never a raw URL) when the author attached a video.
+  youtubeVideoId   String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+  deletedByPersonId String?
+  deletedByUserId  String?
+
+  author          Person           @relation("UpdatePostAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  deletedByPerson Person?          @relation("UpdatePostDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?            @relation("UpdatePostDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  photos          UpdatePostPhoto[]
+  comments        UpdateComment[]
+  reactions       UpdateReaction[]
+
+  @@index([createdAt])
+  @@index([authorPersonId])
+  @@index([deletedAt])
+}
+
+model UpdatePostPhoto {
+  id         String   @id @default(uuid())
+  postId     String
+  storageKey String
+  mimeType   String
+  byteSize   Int
+  position   Int
+  createdAt  DateTime @default(now())
+
+  post UpdatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model UpdateComment {
+  id                String    @id @default(uuid())
+  postId            String
+  authorPersonId    String
+  body              String
+  createdAt         DateTime  @default(now())
+  deletedAt         DateTime?
+  deletedByPersonId String?
+  deletedByUserId   String?
+
+  post            UpdatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author          Person     @relation("UpdateCommentAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  deletedByPerson Person?    @relation("UpdateCommentDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?      @relation("UpdateCommentDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([postId, createdAt])
+}
+
+model UpdateReaction {
+  id        String             @id @default(uuid())
+  postId    String
+  personId  String
+  type      UpdateReactionType
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  post   UpdatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  person Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, personId])
 }

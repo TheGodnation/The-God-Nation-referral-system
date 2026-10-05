@@ -419,3 +419,28 @@ export const notificationReadLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Updates feed (Facebook-style community posts).
+export const updatePostLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'You are posting too fast. Please wait a little.' },
+});
+
+export const updateCommentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 90,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'You are commenting too fast. Please wait a little.' },
+});
+
+export const updateReactionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
