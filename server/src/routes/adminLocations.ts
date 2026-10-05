@@ -172,10 +172,20 @@ function addPath(root: Map<string, Bucket>, path: (string | null)[]) {
   }
 }
 
+// When two spellings of the same place are equally common, prefer the one
+// that starts with a capital letter (how a place name is normally written)
+// over e.g. an all-lowercase variant — localeCompare alone sorts lowercase
+// before uppercase, which would otherwise pick the worse-looking spelling.
+function capitalizedFirst(s: string): number {
+  return /^[A-ZÀ-ÖØ-Þ]/.test(s) ? 0 : 1;
+}
+
 function toNodes(level: Map<string, Bucket>): PlaceNode[] {
   return Array.from(level.values())
     .map((b) => ({
-      name: Array.from(b.spellings.entries()).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))[0][0],
+      name: Array.from(b.spellings.entries()).sort(
+        (x, y) => y[1] - x[1] || capitalizedFirst(x[0]) - capitalizedFirst(y[0]) || x[0].localeCompare(y[0]),
+      )[0][0],
       count: b.count,
       children: toNodes(b.children),
     }))
