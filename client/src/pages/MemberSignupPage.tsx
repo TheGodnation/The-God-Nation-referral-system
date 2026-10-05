@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
+import { CodeEntry } from '../components/member/CodeEntry';
 
 // Step 1 of joining the community: email + phone only. The server always
 // gives the same reply (it never says whether someone is already known),
@@ -48,10 +49,13 @@ export function MemberSignupPage() {
         <p className="mt-2 text-sm text-slate-500">{t('memberSignup.subtitle')}</p>
 
         {sent ? (
-          <div role="status" className="mt-6 space-y-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
-            <p className="font-medium">{t('memberSignup.sent_title')}</p>
-            <p>{t('memberSignup.sent_message', { email: email.trim() })}</p>
-          </div>
+          <>
+            <div role="status" className="mt-6 space-y-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+              <p className="font-medium">{t('memberSignup.sent_title')}</p>
+              <p>{t('memberSignup.sent_message', { email: email.trim() })}</p>
+            </div>
+            <CodeEntry email={email.trim()} onChangeEmail={() => setSent(false)} />
+          </>
         ) : (
           <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
             <div>

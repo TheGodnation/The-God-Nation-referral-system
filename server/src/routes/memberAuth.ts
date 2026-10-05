@@ -37,8 +37,13 @@ async function sendMemberLoginLink(memberAccount: MemberAccount, person: Person)
   const rawToken = crypto.randomBytes(32).toString('hex');
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + MEMBER_LOGIN_TOKEN_TTL_MS);
+  // The same email also carries a 6-digit code (see verify-code below).
+  const id = crypto.randomUUID();
+  const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
 
-  await prisma.memberLoginToken.create({ data: { memberAccountId: memberAccount.id, tokenHash, expiresAt } });
+  await prisma.memberLoginToken.create({
+    data: { id, memberAccountId: memberAccount.id, tokenHash, codeHash: hashCode(id, code), expiresAt },
+  });
 
   const loginUrl = `${CLIENT_URL}/member/login/confirm?token=${rawToken}`;
   const isFr = person.preferredLanguage === 'fr';
@@ -50,6 +55,7 @@ async function sendMemberLoginLink(memberAccount: MemberAccount, person: Person)
     name: greetingName,
     language: person.preferredLanguage,
     link: loginUrl,
+    code,
   });
 
   await recordAudit({
@@ -58,6 +64,12 @@ async function sendMemberLoginLink(memberAccount: MemberAccount, person: Person)
     targetId: memberAccount.id,
   });
 }
+
+function hashCode(tokenId: string, code: string): string {
+  return hashToken(`${tokenId}:${code}`);
+}
+
+const MAX_CODE_ATTEMPTS = 5;
 
 const requestLinkSchema = z.object({
   whatsapp: z.string().trim().min(1).max(32),
@@ -282,6 +294,87 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
   }
 
   return res.json(GENERIC_SIGNUP_RESPONSE);
+}));
+
+// ---------------------------------------------------------------------------
+// Simple sign-in: email only. POST /api/member/auth/request-code emails a
+// 6-digit code (and a link) to that address if it belongs to a member; the
+// reply is always the same, so it never reveals who is a member. The
+// member then types the code on the same screen: POST verify-code.
+// ---------------------------------------------------------------------------
+
+const GENERIC_CODE_RESPONSE = {
+  message: 'If this email belongs to a member, we sent a 6-digit code to it.',
+};
+
+const requestCodeSchema = z.object({ email: z.string().trim().email().max(320) });
+
+router.post('/request-code', memberLoginRequestLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = requestCodeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Please enter a valid email address.', code: 'INVALID_EMAIL' });
+  }
+  const account = await prisma.memberAccount.findUnique({
+    where: { email: parsed.data.email.toLowerCase() },
+    include: { person: true },
+  });
+  if (account) await sendMemberLoginLink(account, account.person);
+  return res.json(GENERIC_CODE_RESPONSE);
+}));
+
+const verifyCodeSchema = z.object({
+  email: z.string().trim().email().max(320),
+  code: z.string().trim().regex(/^\d{6}$/),
+});
+
+const BAD_CODE = { error: 'That code is not right or has expired. Check the latest email, or ask for a new code.', code: 'BAD_CODE' };
+
+router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = verifyCodeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(BAD_CODE);
+
+  const account = await prisma.memberAccount.findUnique({
+    where: { email: parsed.data.email.toLowerCase() },
+    include: { person: true },
+  });
+  if (!account) return res.status(400).json(BAD_CODE);
+
+  // Only the newest still-valid code counts.
+  const token = await prisma.memberLoginToken.findFirst({
+    where: { memberAccountId: account.id, consumedAt: null, expiresAt: { gt: new Date() }, codeHash: { not: null } },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!token) return res.status(400).json(BAD_CODE);
+
+  if (hashCode(token.id, parsed.data.code) !== token.codeHash) {
+    const attempts = token.codeAttempts + 1;
+    await prisma.memberLoginToken.update({
+      where: { id: token.id },
+      // Too many wrong tries: the code (and its link) stop working.
+      data: { codeAttempts: attempts, ...(attempts >= MAX_CODE_ATTEMPTS ? { consumedAt: new Date() } : {}) },
+    });
+    await recordAudit({ action: 'MEMBER_LOGIN_CODE_WRONG', targetType: 'MemberAccount', targetId: account.id, metadata: { attempts } });
+    return res.status(400).json(BAD_CODE);
+  }
+
+  // Same atomic, single-use claim as the link.
+  const claim = await prisma.memberLoginToken.updateMany({
+    where: { id: token.id, consumedAt: null, expiresAt: { gt: new Date() } },
+    data: { consumedAt: new Date() },
+  });
+  if (claim.count !== 1) return res.status(400).json(BAD_CODE);
+
+  await prisma.memberAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
+  await createMemberSession(account.id, res);
+  await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'code' } });
+
+  res.json({
+    member: {
+      name: account.person.name,
+      email: account.email,
+      preferredLanguage: account.person.preferredLanguage,
+    },
+  });
 }));
 
 const consumeSchema = z.object({ token: z.string().min(1) });

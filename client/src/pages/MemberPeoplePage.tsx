@@ -78,7 +78,6 @@ export function MemberPeoplePage() {
           <h1 className="text-2xl font-bold text-brand-900">{t('people.title')}</h1>
           <NotificationBell />
         </div>
-        <MemberNav />
 
         <div className="space-y-6">
           <Section title={t('people.requests')} items={incoming} />
@@ -124,6 +123,7 @@ export function MemberPeoplePage() {
             </section>
           )}
         </div>
+        <MemberNav />
       </section>
     </PageShell>
   );

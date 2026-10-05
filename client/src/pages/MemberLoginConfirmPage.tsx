@@ -32,7 +32,7 @@ export function MemberLoginConfirmPage() {
       .then(async () => {
         await refresh();
         setStatus('success');
-        setTimeout(() => navigate('/member/dashboard'), 1000);
+        setTimeout(() => navigate('/member/chats'), 1000);
       })
       .catch((err) => {
         setStatus('error');

@@ -48,26 +48,23 @@ test.describe('Member magic-link request boundary', () => {
     await page.goto('/member/login');
     await expect(page.getByRole('heading', { name: 'Member Sign In' })).toBeVisible();
 
-    await page.getByLabel('WhatsApp Number').fill('+237600000099');
     await page.getByLabel('Email').fill('e2e-member-boundary@test.local');
 
-    const requestLinkResponsePromise = page.waitForResponse(
-      (res) => res.url().includes('/api/member/auth/request-link') && res.request().method() === 'POST',
+    const requestCodeResponsePromise = page.waitForResponse(
+      (res) => res.url().includes('/api/member/auth/request-code') && res.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: 'Send Sign-In Link' }).click();
-    const requestLinkResponse = await requestLinkResponsePromise;
+    await page.getByRole('button', { name: 'Send me a code' }).click();
+    const requestCodeResponse = await requestCodeResponsePromise;
 
     // The real server endpoint was genuinely reached and responded
     // successfully — this is the actual application boundary, not a mock.
-    expect(requestLinkResponse.ok()).toBeTruthy();
-    const body = await requestLinkResponse.json();
-    expect(body.message).toBe(
-      'If that WhatsApp number is registered, a sign-in link has been sent to the email you provided.',
-    );
+    expect(requestCodeResponse.ok()).toBeTruthy();
+    const body = await requestCodeResponse.json();
+    expect(body.message).toBe('If this email belongs to a member, we sent a 6-digit code to it.');
 
-    await expect(page.getByRole('status')).toHaveText(
-      'If that WhatsApp number is registered, a sign-in link has been sent to the email you provided.',
-    );
+    // The page moves on to "type your 6-digit code".
+    await expect(page.getByText('We sent a 6-digit code to e2e-member-boundary@test.local. Type it below.')).toBeVisible();
+    await expect(page.getByLabel('6-digit code')).toBeVisible();
 
     // Stop here. The real one-time token now exists only inside an email
     // this environment cannot send or read — see the file-level comment

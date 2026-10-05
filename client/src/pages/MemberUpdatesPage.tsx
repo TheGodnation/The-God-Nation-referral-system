@@ -19,7 +19,6 @@ export function MemberUpdatesPage() {
           <h1 className="text-2xl font-bold text-brand-900">{t('updates.title')}</h1>
           <NotificationBell />
         </div>
-        <MemberNav />
         <div className="space-y-6">
           <LiveBanner />
           <HeadquartersPosts />
@@ -33,6 +32,7 @@ export function MemberUpdatesPage() {
           </div>
           <UpdatesFeed friendsOnly={friendsOnly} linkAuthors />
         </div>
+        <MemberNav />
       </section>
     </PageShell>
   );

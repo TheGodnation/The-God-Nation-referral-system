@@ -911,6 +911,11 @@ model MemberLoginToken {
   id              String    @id @default(uuid())
   memberAccountId String
   tokenHash       String    @unique
+  // 6-digit code sent in the same email (typed in the app instead of
+  // tapping the link). Only its hash is stored; after 5 wrong tries the
+  // token is used up.
+  codeHash        String?
+  codeAttempts    Int       @default(0)
   expiresAt       DateTime
   consumedAt      DateTime?
   createdAt       DateTime  @default(now())

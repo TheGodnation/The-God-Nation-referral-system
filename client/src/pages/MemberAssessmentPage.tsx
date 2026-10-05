@@ -136,7 +136,7 @@ export function MemberAssessmentPage() {
       <PageShell minimal>
         <div className="mx-auto max-w-sm px-4 py-16 text-center">
           <p className="text-slate-500">{t('memberAssessment.not_found')}</p>
-          <Link to="/member/dashboard" className="mt-4 inline-block text-brand-700 hover:underline">
+          <Link to="/member/learn" className="mt-4 inline-block text-brand-700 hover:underline">
             {t('memberAssessment.back_to_dashboard')}
           </Link>
         </div>

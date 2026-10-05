@@ -148,7 +148,6 @@ export function MemberLearnPage() {
           <h1 className="text-2xl font-bold text-brand-900">{t('learn.title')}</h1>
           <NotificationBell />
         </div>
-        <MemberNav />
         {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
         {!data && !error && <p className="text-center text-slate-400">{t('learn.loading')}</p>}
 
@@ -254,6 +253,7 @@ export function MemberLearnPage() {
             </section>
           </div>
         )}
+        <MemberNav />
       </section>
     </PageShell>
   );
