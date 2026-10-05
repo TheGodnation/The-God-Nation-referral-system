@@ -49,6 +49,7 @@ import adminResourcesRoutes from './routes/adminResources';
 import adminResourceAccessRoutes from './routes/adminResourceAccess';
 import notificationsRoutes from './routes/notifications';
 import profilePhotosRoutes from './routes/profilePhotos';
+import updatesRoutes from './routes/updates';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -195,6 +196,8 @@ export function createApp() {
   app.use('/api/notifications', notificationsRoutes);
   // Profile pictures: member upload + signed-in viewing (/api/member/me/photo*, /api/people/:id/photo).
   app.use('/api', profilePhotosRoutes);
+  // Community-wide Updates feed (posts, photos, comments, reactions, live slot).
+  app.use('/api/updates', updatesRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

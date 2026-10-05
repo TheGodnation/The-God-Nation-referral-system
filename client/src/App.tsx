@@ -59,6 +59,7 @@ const MemberSignupPage = lazy(() => import('./pages/MemberSignupPage').then((m) 
 const MemberCompleteProfilePage = lazy(() =>
   import('./pages/MemberCompleteProfilePage').then((m) => ({ default: m.MemberCompleteProfilePage })),
 );
+const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
 const MemberDashboardPage = lazy(() =>
   import('./pages/MemberDashboardPage').then((m) => ({ default: m.MemberDashboardPage })),
 );
@@ -131,6 +132,14 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberDashboardPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/updates"
+              element={
+                <RequireMember>
+                  <MemberUpdatesPage />
                 </RequireMember>
               }
             />

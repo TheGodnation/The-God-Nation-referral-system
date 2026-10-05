@@ -12,6 +12,7 @@ import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { PrivateMessages } from '../components/PrivateMessages';
 import { MyResources } from '../components/MyResources';
 import { ProfilePhotoEditor } from '../components/member/ProfilePhotoEditor';
+import { MemberNav } from '../components/member/MemberNav';
 
 interface AssessmentSummary {
   id: string;
@@ -227,6 +228,8 @@ export function MemberDashboardPage() {
             </button>
           </div>
         </div>
+
+        <MemberNav />
 
         {!loaded ? (
           <p className="text-center text-slate-400">{t('memberDashboard.loading')}</p>

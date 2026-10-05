@@ -11,6 +11,7 @@ import { LeaderLeadershipCollaboration } from '../components/leader/LeaderLeader
 import { LeaderCommunityConversations } from '../components/leader/LeaderCommunityConversations';
 import { Announcements } from '../components/Announcements';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
+import { LeaderUpdates } from '../components/updates/LeaderUpdates';
 import { PrivateMessages } from '../components/PrivateMessages';
 import { MyResources } from '../components/MyResources';
 import { StartPrivateMessage } from '../components/leader/StartPrivateMessage';
@@ -254,6 +255,8 @@ export function LeaderDashboardPage() {
         <Announcements />
 
         <HeadquartersPosts />
+
+        <LeaderUpdates />
 
         <StartPrivateMessage />
 
