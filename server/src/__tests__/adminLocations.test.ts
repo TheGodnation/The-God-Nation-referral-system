@@ -283,3 +283,66 @@ describe('GET /api/admin/locations — security / no unintended writes', () => {
     expect(await prisma.roleAssignment.count()).toBe(roleCountBefore);
   });
 });
+
+describe('Admin member map — GET /api/admin/location-map', () => {
+  let ip = 0;
+  async function adminAgent() {
+    ip += 1;
+    const email = `map-admin-${Math.random().toString(36).slice(2)}@test.local`;
+    await createAdmin(email, 'AdminPass123!');
+    const agent = request.agent(app);
+    const { csrf } = await bootstrap(agent);
+    await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).set('X-Forwarded-For', `10.115.0.${ip}`).send({ email, password: 'AdminPass123!' });
+    return agent;
+  }
+
+  let n = 0;
+  async function personAt(loc: Record<string, string | null>) {
+    n += 1;
+    return prisma.person.create({ data: { name: `Map ${n}`, whatsappNumber: `+23767150${String(n).padStart(4, '0')}`, ...loc } });
+  }
+
+  it('builds a tree of counts: Cameroon by region/division/subdivision/quarter, abroad by city', async () => {
+    const cm = { locationCountry: 'Cameroon', locationRegion: 'Centre', locationDivision: 'Mfoundi', locationSubdivision: 'Yaoundé III' };
+    await personAt({ ...cm, locationQuarter: 'Efoulan' });
+    await personAt({ ...cm, locationQuarter: 'efoulan ' });
+    await personAt({ ...cm, locationQuarter: 'Obili' });
+    await personAt({ locationCountry: 'Cameroon', locationRegion: 'Littoral', locationDivision: 'Wouri', locationSubdivision: 'Douala V', locationQuarter: 'Bonamoussadi' });
+    await personAt({ locationCountry: 'Nigeria', locationCity: 'Lagos' });
+    await personAt({ locationCountry: null });
+
+    const agent = await adminAgent();
+    const res = await agent.get('/api/admin/location-map');
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(5);
+    expect(res.body.withoutLocation).toBeGreaterThanOrEqual(1);
+
+    const [cameroon, nigeria] = res.body.countries;
+    expect(cameroon).toMatchObject({ name: 'Cameroon', count: 4 });
+    expect(nigeria).toMatchObject({ name: 'Nigeria', count: 1, children: [{ name: 'Lagos', count: 1, children: [] }] });
+
+    const centre = cameroon.children[0];
+    expect(centre).toMatchObject({ name: 'Centre', count: 3 });
+    const quarters = centre.children[0].children[0].children;
+    // "Efoulan" and "efoulan " are counted together under the common spelling.
+    expect(quarters).toEqual([
+      { name: 'Efoulan', count: 2, children: [] },
+      { name: 'Obili', count: 1, children: [] },
+    ]);
+  });
+
+  it('never returns names or phone numbers', async () => {
+    await personAt({ locationCountry: 'Ghana', locationCity: 'Accra' });
+    const agent = await adminAgent();
+    const res = await agent.get('/api/admin/location-map');
+    const text = JSON.stringify(res.body);
+    expect(text).not.toContain('+2376715');
+    expect(text).not.toContain('Map ');
+  });
+
+  it('is admin-only', async () => {
+    const agent = request.agent(app);
+    await bootstrap(agent);
+    expect((await agent.get('/api/admin/location-map')).status).toBe(401);
+  });
+});
