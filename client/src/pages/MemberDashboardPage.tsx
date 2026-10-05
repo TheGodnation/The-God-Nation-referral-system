@@ -179,7 +179,12 @@ function ProfileSection() {
   );
 }
 
-export function MemberDashboardPage() {
+// view="me" is the "Me" tab of the member app: profile, studies, groups,
+// resources. Chats, announcements and admin posts live on their own tabs
+// (Chats, Updates), so they are left out there. The default shows
+// everything (kept for older links and screens).
+export function MemberDashboardPage({ view = 'all' }: { view?: 'all' | 'me' } = {}) {
+  const showChats = view === 'all';
   const { t, i18n } = useTranslation();
   const { member, logout } = useMemberAuth();
   const [devotionals, setDevotionals] = useState<DevotionalSummary[]>([]);
@@ -218,7 +223,7 @@ export function MemberDashboardPage() {
       <section className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-brand-900">{t('memberDashboard.title')}</h1>
+            <h1 className="text-2xl font-bold text-brand-900">{view === 'me' ? t('memberNav.me') : t('memberDashboard.title')}</h1>
             {member && <p className="text-sm text-slate-500">{member.name}</p>}
           </div>
           <div className="flex items-center gap-2">
@@ -229,7 +234,6 @@ export function MemberDashboardPage() {
           </div>
         </div>
 
-        <MemberNav />
 
         {!loaded ? (
           <p className="text-center text-slate-400">{t('memberDashboard.loading')}</p>
@@ -311,23 +315,25 @@ export function MemberDashboardPage() {
               )}
             </div>
 
-            {memberships
-              .filter((m) => m.status === 'ACTIVE')
-              .map((m) => (
-                <CommunityConversation key={m.communityId} communityId={m.communityId} communityName={m.communityName} />
-              ))}
+            {showChats &&
+              memberships
+                .filter((m) => m.status === 'ACTIVE')
+                .map((m) => (
+                  <CommunityConversation key={m.communityId} communityId={m.communityId} communityName={m.communityName} />
+                ))}
 
-            <Announcements />
+            {showChats && <Announcements />}
 
-            <HeadquartersPosts />
+            {showChats && <HeadquartersPosts />}
 
-            <PrivateMessages />
+            {showChats && <PrivateMessages />}
 
             <MyResources />
 
             <MyFollowUps />
           </div>
         )}
+        <MemberNav />
       </section>
     </PageShell>
   );

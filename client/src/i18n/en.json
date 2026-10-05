@@ -30,7 +30,9 @@
     "how_3_title": "Get Connected",
     "how_3_body": "You're directed straight to the right WhatsApp Community for your language.",
     "connect_title": "CONNECT WITH US",
-    "learn_more_vision": "Learn more about our vision"
+    "learn_more_vision": "Learn more about our vision",
+    "member_join": "Join the community",
+    "member_sign_in": "Members: sign in"
   },
   "join": {
     "loading": "Preparing your visit…"
@@ -66,7 +68,10 @@
     "sent_message": "If that WhatsApp number is registered, a sign-in link has been sent to the email you provided.",
     "error_generic": "Something went wrong. Please check your details and try again.",
     "new_here": "New here?",
-    "join_link": "Join the community"
+    "join_link": "Join the community",
+    "subtitle_email": "Type your email. We will send you a 6-digit code.",
+    "submit_code": "Send me a code",
+    "error_email": "Please enter a valid email address."
   },
   "memberSignup": {
     "title": "Join the community",
@@ -77,7 +82,7 @@
     "submit": "Send me the link",
     "submitting": "Sending…",
     "sent_title": "Check your email",
-    "sent_message": "We sent a link to {{email}}. Open it on this phone to continue. It works once and expires soon. If you don’t see it, check your spam folder.",
+    "sent_message": "We sent a 6-digit code to {{email}}. Type it below to continue. If you don’t see the email, check your spam folder.",
     "have_account": "Already a member?",
     "sign_in_link": "Sign in",
     "error_email": "Please enter a valid email address.",
@@ -1430,7 +1435,9 @@
     "home": "Home",
     "updates": "Updates",
     "people": "People",
-    "learn": "Learn"
+    "learn": "Learn",
+    "chats": "Chats",
+    "me": "Me"
   },
   "people": {
     "title": "People",
@@ -1595,5 +1602,25 @@
     "status_requested": "Asked to join",
     "status_active": "Paid · active",
     "status_revoked": "Access removed"
+  },
+  "memberCode": {
+    "sent_to": "We sent a 6-digit code to {{email}}. Type it below.",
+    "label": "6-digit code",
+    "need_six": "Type the 6 digits from the email.",
+    "bad_code": "That code is not right or has expired. Check the latest email, or ask for a new code.",
+    "failed": "Something went wrong. Please try again.",
+    "resent": "A new code was sent.",
+    "checking": "Checking…",
+    "submit": "Sign in",
+    "resend": "Send a new code",
+    "change_email": "Use another email",
+    "spam_hint": "Not in your inbox? Look in Spam or Promotions. The code works for 15 minutes."
+  },
+  "installApp": {
+    "title": "Install the God Nation app",
+    "body": "Put the app on your home screen and open your community in one tap.",
+    "ios": "On iPhone: tap the Share button in Safari, then \"Add to Home Screen\".",
+    "button": "Install",
+    "close": "Close"
   }
 }

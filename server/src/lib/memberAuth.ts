@@ -70,7 +70,7 @@ export async function destroyMemberSession(token: string) {
  * Loads the current member session (if any) and attaches req.member. Never
  * touches req.user. Safe to run globally, mirroring loadSession.
  */
-export async function loadMemberSession(req: Request, _res: Response, next: NextFunction) {
+export async function loadMemberSession(req: Request, res: Response, next: NextFunction) {
   try {
     const token = req.cookies?.[MEMBER_SESSION_COOKIE_NAME];
     if (!token || typeof token !== 'string') return next();
@@ -104,9 +104,23 @@ export async function loadMemberSession(req: Request, _res: Response, next: Next
     };
     req.memberSessionToken = token;
 
+    // Rolling sign-in: at most once a day, push the expiry 90 days ahead and
+    // refresh the cookie, so someone who uses the app stays signed in.
+    const now = Date.now();
+    const renewDue = session.expiresAt.getTime() - now < MEMBER_SESSION_MAX_AGE_MS - 24 * 60 * 60 * 1000;
+    const newExpiry = new Date(now + MEMBER_SESSION_MAX_AGE_MS);
     prisma.memberSession
-      .update({ where: { id: session.id }, data: { lastActivityAt: new Date() } })
+      .update({ where: { id: session.id }, data: { lastActivityAt: new Date(), ...(renewDue ? { expiresAt: newExpiry } : {}) } })
       .catch(() => {});
+    if (renewDue) {
+      res.cookie(MEMBER_SESSION_COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: 'lax',
+        maxAge: MEMBER_SESSION_MAX_AGE_MS,
+        path: '/',
+      });
+    }
 
     next();
   } catch (err) {

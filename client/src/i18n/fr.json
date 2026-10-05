@@ -30,7 +30,9 @@
     "how_3_title": "Soyez connecté",
     "how_3_body": "Vous êtes dirigé directement vers la bonne Communauté WhatsApp selon votre langue.",
     "connect_title": "RESTEZ CONNECTÉ",
-    "learn_more_vision": "En savoir plus sur notre vision"
+    "learn_more_vision": "En savoir plus sur notre vision",
+    "member_join": "Rejoindre la communauté",
+    "member_sign_in": "Membres : se connecter"
   },
   "join": {
     "loading": "Préparation de votre visite…"
@@ -66,7 +68,10 @@
     "sent_message": "Si ce numéro WhatsApp est enregistré, un lien de connexion a été envoyé à l'adresse e-mail fournie.",
     "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer.",
     "new_here": "Nouveau ici ?",
-    "join_link": "Rejoindre la communauté"
+    "join_link": "Rejoindre la communauté",
+    "subtitle_email": "Tapez votre e-mail. Nous vous enverrons un code à 6 chiffres.",
+    "submit_code": "Envoyez-moi un code",
+    "error_email": "Veuillez entrer une adresse e-mail valide."
   },
   "memberSignup": {
     "title": "Rejoindre la communauté",
@@ -77,7 +82,7 @@
     "submit": "Envoyez-moi le lien",
     "submitting": "Envoi…",
     "sent_title": "Consultez votre e-mail",
-    "sent_message": "Nous avons envoyé un lien à {{email}}. Ouvrez-le sur ce téléphone pour continuer. Il ne fonctionne qu’une fois et expire bientôt. Si vous ne le voyez pas, regardez dans les spams.",
+    "sent_message": "Nous avons envoyé un code à 6 chiffres à {{email}}. Tapez-le ci-dessous pour continuer. Si vous ne voyez pas l’e-mail, regardez dans les spams.",
     "have_account": "Déjà membre ?",
     "sign_in_link": "Se connecter",
     "error_email": "Veuillez entrer une adresse e-mail valide.",
@@ -1430,7 +1435,9 @@
     "home": "Accueil",
     "updates": "Actualités",
     "people": "Personnes",
-    "learn": "Apprendre"
+    "learn": "Apprendre",
+    "chats": "Discussions",
+    "me": "Moi"
   },
   "people": {
     "title": "Personnes",
@@ -1595,5 +1602,25 @@
     "status_requested": "Demande reçue",
     "status_active": "Payé · actif",
     "status_revoked": "Accès retiré"
+  },
+  "memberCode": {
+    "sent_to": "Nous avons envoyé un code à 6 chiffres à {{email}}. Tapez-le ci-dessous.",
+    "label": "Code à 6 chiffres",
+    "need_six": "Tapez les 6 chiffres de l’e-mail.",
+    "bad_code": "Ce code n’est pas bon ou a expiré. Regardez le dernier e-mail, ou demandez un nouveau code.",
+    "failed": "Une erreur s’est produite. Veuillez réessayer.",
+    "resent": "Un nouveau code a été envoyé.",
+    "checking": "Vérification…",
+    "submit": "Se connecter",
+    "resend": "Envoyer un nouveau code",
+    "change_email": "Utiliser un autre e-mail",
+    "spam_hint": "Pas dans votre boîte ? Regardez dans Spam ou Promotions. Le code est valable 15 minutes."
+  },
+  "installApp": {
+    "title": "Installez l’application God Nation",
+    "body": "Mettez l’application sur votre écran d’accueil et ouvrez votre communauté en un clic.",
+    "ios": "Sur iPhone : touchez le bouton Partager dans Safari, puis « Sur l’écran d’accueil ».",
+    "button": "Installer",
+    "close": "Fermer"
   }
 }

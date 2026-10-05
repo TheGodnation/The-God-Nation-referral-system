@@ -115,6 +115,18 @@ export function HomePage() {
           >
             {c('heroCta') || t('home.hero_cta')}
           </a>
+          {/* The community app: join, or sign back in. */}
+          <div className="mx-auto mt-6 flex max-w-sm flex-col gap-3 sm:max-w-md sm:flex-row sm:justify-center">
+            <Link to="/member/join" className="btn-primary inline-flex flex-1 justify-center bg-white text-brand-900 hover:bg-brand-50">
+              {t('home.member_join')}
+            </Link>
+            <Link
+              to="/member/login"
+              className="inline-flex flex-1 items-center justify-center rounded-lg border border-white/60 px-4 py-2.5 font-semibold text-white hover:bg-white/10"
+            >
+              {t('home.member_sign_in')}
+            </Link>
+          </div>
         </div>
       </section>
 

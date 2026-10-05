@@ -95,7 +95,6 @@ export function MemberPersonPage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-2xl px-4 py-8">
-        <MemberNav />
         {notFound && (
           <div className="card space-y-2">
             <p className="text-slate-600">{t('people.not_found')}</p>
@@ -200,6 +199,7 @@ export function MemberPersonPage() {
             )}
           </div>
         )}
+        <MemberNav />
       </section>
     </PageShell>
   );
