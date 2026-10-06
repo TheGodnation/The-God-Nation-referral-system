@@ -199,6 +199,43 @@ router.delete('/comments/:commentId', updateCommentLimiter, requireCsrf, require
   res.json({ ok: true });
 }));
 
+// PUT/DELETE /api/updates/comments/:commentId/reaction — react to a comment
+// with one of the six reactions (one per person; choosing again changes it).
+async function visibleComment(id: string) {
+  const comment = await prisma.updateComment.findUnique({
+    where: { id },
+    select: { id: true, deletedAt: true, post: { select: { deletedAt: true } } },
+  });
+  return comment && !comment.deletedAt && !comment.post.deletedAt ? comment : null;
+}
+
+async function commentReactionSummary(commentId: string, personId: string) {
+  const rows = await prisma.updateCommentReaction.findMany({ where: { commentId }, select: { type: true, personId: true } });
+  const reactionCounts: Record<string, number> = {};
+  for (const r of rows) reactionCounts[r.type] = (reactionCounts[r.type] ?? 0) + 1;
+  return { reactionCounts, myReaction: rows.find((r) => r.personId === personId)?.type ?? null };
+}
+
+router.put('/comments/:commentId/reaction', updateReactionLimiter, requireCsrf, requireViewer, requirePerson, asyncHandler(async (req, res) => {
+  const parsed = reactionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid reaction.' });
+  if (!(await visibleComment(req.params.commentId))) return res.status(404).json({ error: 'Comment not found.' });
+  const personId = req.updatesViewer!.personId!;
+  await prisma.updateCommentReaction.upsert({
+    where: { commentId_personId: { commentId: req.params.commentId, personId } },
+    create: { commentId: req.params.commentId, personId, type: parsed.data.type },
+    update: { type: parsed.data.type },
+  });
+  res.json(await commentReactionSummary(req.params.commentId, personId));
+}));
+
+router.delete('/comments/:commentId/reaction', updateReactionLimiter, requireCsrf, requireViewer, requirePerson, asyncHandler(async (req, res) => {
+  const personId = req.updatesViewer!.personId!;
+  if (!(await visibleComment(req.params.commentId))) return res.status(404).json({ error: 'Comment not found.' });
+  await prisma.updateCommentReaction.deleteMany({ where: { commentId: req.params.commentId, personId } });
+  res.json(await commentReactionSummary(req.params.commentId, personId));
+}));
+
 // ----------------------------- Feed ----------------------------------------
 
 const listQuerySchema = z.object({
@@ -397,30 +434,59 @@ router.get('/:id/comments', requireViewer, asyncHandler(async (req, res) => {
     where: { postId: req.params.id, deletedAt: null },
     orderBy: { createdAt: 'asc' },
     take: 200,
-    include: { author: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } } },
+    include: {
+      author: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } },
+      reactions: { select: { type: true, personId: true } },
+    },
   });
   res.json({
-    items: comments.map((c) => ({
-      id: c.id,
-      author: { personId: c.author.id, name: c.author.name, photoUrl: profilePhotoPath(c.author) },
-      body: c.body,
-      createdAt: c.createdAt,
-      canDelete: viewer.canModerate || (viewer.personId !== null && c.author.id === viewer.personId),
-    })),
+    items: comments.map((c) => {
+      const reactionCounts: Record<string, number> = {};
+      for (const r of c.reactions) reactionCounts[r.type] = (reactionCounts[r.type] ?? 0) + 1;
+      return {
+        id: c.id,
+        // Replies point at their top comment; the screen shows them under it.
+        parentCommentId: c.parentCommentId,
+        author: { personId: c.author.id, name: c.author.name, photoUrl: profilePhotoPath(c.author) },
+        body: c.body,
+        createdAt: c.createdAt,
+        reactionCounts,
+        myReaction: viewer.personId ? c.reactions.find((r) => r.personId === viewer.personId)?.type ?? null : null,
+        canDelete: viewer.canModerate || (viewer.personId !== null && c.author.id === viewer.personId),
+      };
+    }),
   });
 }));
 
-const commentSchema = z.object({ body: z.string().trim().min(1).max(MAX_COMMENT_BODY) });
+const commentSchema = z.object({
+  body: z.string().trim().min(1).max(MAX_COMMENT_BODY),
+  parentCommentId: z.string().uuid().optional(),
+});
 
 router.post('/:id/comments', updateCommentLimiter, requireCsrf, requireViewer, requirePerson, asyncHandler(async (req, res) => {
   const parsed = commentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Write a comment first.' });
   if (!(await visiblePost(req.params.id))) return res.status(404).json({ error: 'Post not found.' });
+
+  // A reply must answer a comment on this same post. Replying to a reply
+  // attaches to the same top comment (one level, like Facebook).
+  let parentCommentId: string | null = null;
+  if (parsed.data.parentCommentId) {
+    const parent = await prisma.updateComment.findUnique({
+      where: { id: parsed.data.parentCommentId },
+      select: { id: true, postId: true, deletedAt: true, parentCommentId: true },
+    });
+    if (!parent || parent.postId !== req.params.id || parent.deletedAt) {
+      return res.status(400).json({ error: 'That comment is no longer there.' });
+    }
+    parentCommentId = parent.parentCommentId ?? parent.id;
+  }
+
   const comment = await prisma.updateComment.create({
-    data: { postId: req.params.id, authorPersonId: req.updatesViewer!.personId!, body: parsed.data.body },
+    data: { postId: req.params.id, authorPersonId: req.updatesViewer!.personId!, body: parsed.data.body, parentCommentId },
     select: { id: true },
   });
-  res.status(201).json({ id: comment.id });
+  res.status(201).json({ id: comment.id, parentCommentId });
 }));
 
 export default router;

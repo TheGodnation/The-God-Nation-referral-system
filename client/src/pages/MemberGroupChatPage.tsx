@@ -33,6 +33,41 @@ function mergeLatest(prev: ChatMessage[], latest: ChatMessage[]): ChatMessage[] 
   return [...older, ...latest, ...pending];
 }
 
+const TIP_KEY = 'chatTipSeen';
+
+/** A one-time hint so people discover swipe-to-reply and hold-to-react. */
+function ChatTip() {
+  const { t } = useTranslation();
+  const [show, setShow] = useState(() => {
+    try {
+      return localStorage.getItem(TIP_KEY) !== '1';
+    } catch {
+      return true;
+    }
+  });
+  if (!show) return null;
+  return (
+    <div className="mx-auto mb-3 flex max-w-sm items-start gap-2 rounded-lg bg-[#fff5c4] px-3 py-2 text-xs text-slate-700 shadow-sm" role="note">
+      <span className="flex-1">💡 {t('groupChat.tip')}</span>
+      <button
+        type="button"
+        className="font-semibold text-slate-600"
+        aria-label={t('groupChat.tip_close') ?? ''}
+        onClick={() => {
+          setShow(false);
+          try {
+            localStorage.setItem(TIP_KEY, '1');
+          } catch {
+            /* ignore */
+          }
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 // The WhatsApp-style group chat screen: full screen, bubbles, swipe to
 // reply, hold for reactions, photos/videos/voice notes inline. New messages
 // are checked every few seconds while the screen is open.
@@ -292,6 +327,8 @@ export function MemberGroupChatPage() {
         {loaded && !loadError && !notAllowed && messages.length === 0 && (
           <p className="mx-auto mt-10 max-w-xs rounded-lg bg-[#fff5c4] p-3 text-center text-sm text-slate-700">{t('groupChat.empty')}</p>
         )}
+
+        {loaded && messages.length > 0 && <ChatTip />}
 
         <div className="space-y-1">
           {messages.map((m, i) => {

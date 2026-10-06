@@ -48,9 +48,13 @@ interface FeedResponse {
 
 interface CommentItem {
   id: string;
+  /** Set on replies: the comment this one answers. */
+  parentCommentId?: string | null;
   author: Author;
   body: string;
   createdAt: string;
+  reactionCounts?: Partial<Record<ReactionType, number>>;
+  myReaction?: ReactionType | null;
   canDelete: boolean;
 }
 
@@ -257,12 +261,174 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
 
 // ---------------------------------------------------------------- Comments
 
-function Comments({ postId, canComment, onCountChange }: { postId: string; canComment: boolean; onCountChange: (n: number) => void }) {
+function CommentReactionPicker({ current, onPick }: { current: ReactionType | null; onPick: (type: ReactionType) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div role="menu" className="absolute bottom-full left-0 z-10 mb-1 flex gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-lg">
+      {REACTIONS.map((r) => (
+        <button
+          key={r.type}
+          type="button"
+          role="menuitem"
+          className={`rounded-full px-1 text-xl transition-transform hover:scale-125 ${current === r.type ? 'bg-brand-100' : ''}`}
+          aria-label={t(`updates.reaction_${r.type.toLowerCase()}`) ?? ''}
+          onClick={() => onPick(r.type)}
+        >
+          {r.emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CommentBubble({
+  c,
+  canReact,
+  small,
+  onReply,
+  onDelete,
+  onReacted,
+}: {
+  c: CommentItem;
+  canReact: boolean;
+  small?: boolean;
+  onReply: () => void;
+  onDelete: () => void;
+  onReacted: (counts: CommentItem['reactionCounts'], mine: ReactionType | null) => void;
+}) {
   const { t, i18n } = useTranslation();
-  const [items, setItems] = useState<CommentItem[] | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const counts = c.reactionCounts ?? {};
+  const total = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
+  const emojis = REACTIONS.filter((r) => (counts[r.type] ?? 0) > 0).map((r) => r.emoji).join('');
+  const mine = REACTIONS.find((r) => r.type === c.myReaction);
+
+  async function react(type: ReactionType) {
+    setPickerOpen(false);
+    try {
+      const res =
+        c.myReaction === type
+          ? await api.delete<{ reactionCounts: CommentItem['reactionCounts']; myReaction: ReactionType | null }>(`/api/updates/comments/${c.id}/reaction`)
+          : await api.put<{ reactionCounts: CommentItem['reactionCounts']; myReaction: ReactionType | null }>(`/api/updates/comments/${c.id}/reaction`, { type });
+      onReacted(res.reactionCounts, res.myReaction);
+    } catch {
+      /* the comment stays as it was */
+    }
+  }
+
+  return (
+    <div className="flex gap-2" aria-label={t('updates.comment_by', { name: c.author.name }) ?? ''} role="group">
+      <Avatar name={c.author.name} photoUrl={c.author.photoUrl} size={small ? 24 : 32} />
+      <div className="min-w-0 flex-1">
+        <div className="relative inline-block max-w-full rounded-2xl bg-slate-100 px-3 py-2">
+          <span className="block text-sm font-semibold text-slate-900">{c.author.name}</span>
+          <p className="whitespace-pre-wrap break-words text-sm text-slate-800">{c.body}</p>
+          {total > 0 && (
+            <span className="absolute -bottom-3 right-1 rounded-full border border-slate-200 bg-white px-1.5 text-xs shadow-sm">
+              {`${emojis} ${total}`}
+            </span>
+          )}
+        </div>
+        <div className="relative mt-1 flex items-center gap-3 pl-2 text-xs font-semibold text-slate-500">
+          <span className="font-normal">{relativeWhen(c.createdAt, t, i18n.language)}</span>
+          {canReact && (
+            <button
+              type="button"
+              className={mine ? 'text-brand-700' : 'hover:underline'}
+              aria-expanded={pickerOpen}
+              onClick={() => setPickerOpen((v) => !v)}
+            >
+              {mine ? `${mine.emoji} ${t(`updates.reaction_${mine.type.toLowerCase()}`)}` : t('updates.like')}
+            </button>
+          )}
+          {canReact && (
+            <button type="button" className="hover:underline" onClick={onReply}>
+              {t('updates.reply')}
+            </button>
+          )}
+          {c.canDelete && (
+            <button type="button" className="text-red-700 hover:underline" onClick={onDelete}>
+              {t('updates.delete')}
+            </button>
+          )}
+          {pickerOpen && <CommentReactionPicker current={c.myReaction ?? null} onPick={(type) => void react(type)} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CommentForm({
+  postId,
+  parent,
+  onCancel,
+  onSent,
+  autoFocus,
+}: {
+  postId: string;
+  parent: { id: string; name: string } | null;
+  onCancel?: () => void;
+  onSent: () => void;
+  autoFocus?: boolean;
+}) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft.trim()) return;
+    setSending(true);
+    setError(null);
+    try {
+      await api.post(`/api/updates/${postId}/comments`, { body: draft.trim(), ...(parent ? { parentCommentId: parent.id } : {}) });
+      setDraft('');
+      onSent();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('updates.comment_failed'));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <form onSubmit={send} className="space-y-1">
+      {parent && (
+        <p className="flex items-center gap-2 text-xs text-slate-500">
+          {t('updates.replying_to', { name: parent.name })}
+          <button type="button" className="font-semibold hover:underline" onClick={onCancel}>
+            {t('updates.cancel')}
+          </button>
+        </p>
+      )}
+      <div className="flex gap-2">
+        <input
+          className="flex-1 rounded-full border-0 bg-slate-100 px-4 py-2 text-[15px] outline-none focus:ring-2 focus:ring-brand-200"
+          aria-label={(parent ? t('updates.reply_label', { name: parent.name }) : t('updates.comment_label')) ?? ''}
+          placeholder={(parent ? t('updates.reply_placeholder') : t('updates.comment_placeholder')) ?? ''}
+          value={draft}
+          maxLength={1000}
+          autoFocus={autoFocus}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <button type="submit" className="btn-primary rounded-full px-4" disabled={sending || !draft.trim()}>
+          {t('updates.send')}
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-700">{error}</p>}
+    </form>
+  );
+}
+
+// Comments under a post, Facebook-style: each comment has Like (six
+// reactions, with counts) and Reply. Replies sit just under the comment
+// they answer.
+function Comments({ postId, canComment, onCountChange }: { postId: string; canComment: boolean; onCountChange: (n: number) => void }) {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<CommentItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
 
   function load() {
     api
@@ -276,22 +442,6 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [postId]);
 
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
-    if (!draft.trim()) return;
-    setSending(true);
-    setError(null);
-    try {
-      await api.post(`/api/updates/${postId}/comments`, { body: draft.trim() });
-      setDraft('');
-      load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('updates.comment_failed'));
-    } finally {
-      setSending(false);
-    }
-  }
-
   async function remove(id: string) {
     if (!window.confirm(t('updates.confirm_delete_comment') ?? '')) return;
     try {
@@ -302,41 +452,58 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
     }
   }
 
+  function setReaction(id: string, reactionCounts: CommentItem['reactionCounts'], myReaction: ReactionType | null) {
+    setItems((prev) => prev?.map((c) => (c.id === id ? { ...c, reactionCounts, myReaction } : c)) ?? prev);
+  }
+
+  const all = items ?? [];
+  const ids = new Set(all.map((c) => c.id));
+  // A reply whose top comment was removed is shown as a normal comment.
+  const tops = all.filter((c) => !c.parentCommentId || !ids.has(c.parentCommentId));
+  const repliesOf = (id: string) => all.filter((c) => c.parentCommentId === id);
+
   return (
-    <div className="space-y-2 border-t border-slate-100 pt-3">
+    <div className="space-y-3 border-t border-slate-100 pt-3">
       {items === null && !error && <p className="text-sm text-slate-400">{t('updates.loading')}</p>}
-      {items?.map((c) => (
-        <div key={c.id} className="flex gap-2">
-          <Avatar name={c.author.name} photoUrl={c.author.photoUrl} size={28} />
-          <div className="min-w-0 flex-1 rounded-lg bg-slate-50 px-3 py-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-sm font-semibold text-slate-800">{c.author.name}</span>
-              <span className="text-xs text-slate-400">{formatWhen(c.createdAt, i18n.language)}</span>
+      {tops.map((c) => (
+        <div key={c.id} className="space-y-3">
+          <CommentBubble
+            c={c}
+            canReact={canComment}
+            onReply={() => setReplyTo({ id: c.id, name: c.author.name })}
+            onDelete={() => void remove(c.id)}
+            onReacted={(counts, mine) => setReaction(c.id, counts, mine)}
+          />
+          {(repliesOf(c.id).length > 0 || replyTo?.id === c.id) && (
+            <div className="ml-10 space-y-3">
+              {repliesOf(c.id).map((r) => (
+                <CommentBubble
+                  key={r.id}
+                  c={r}
+                  small
+                  canReact={canComment}
+                  onReply={() => setReplyTo({ id: c.id, name: r.author.name })}
+                  onDelete={() => void remove(r.id)}
+                  onReacted={(counts, mine) => setReaction(r.id, counts, mine)}
+                />
+              ))}
+              {replyTo?.id === c.id && canComment && (
+                <CommentForm
+                  postId={postId}
+                  parent={replyTo}
+                  autoFocus
+                  onCancel={() => setReplyTo(null)}
+                  onSent={() => {
+                    setReplyTo(null);
+                    load();
+                  }}
+                />
+              )}
             </div>
-            <p className="whitespace-pre-wrap break-words text-sm text-slate-700">{c.body}</p>
-            {c.canDelete && (
-              <button type="button" className="text-xs text-red-700 underline" onClick={() => remove(c.id)}>
-                {t('updates.delete')}
-              </button>
-            )}
-          </div>
+          )}
         </div>
       ))}
-      {canComment && (
-        <form onSubmit={send} className="flex gap-2">
-          <input
-            className="input flex-1"
-            aria-label={t('updates.comment_label') ?? ''}
-            placeholder={t('updates.comment_placeholder') ?? ''}
-            value={draft}
-            maxLength={1000}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-          <button type="submit" className="btn-primary px-3" disabled={sending || !draft.trim()}>
-            {t('updates.send')}
-          </button>
-        </form>
-      )}
+      {canComment && <CommentForm postId={postId} parent={null} onSent={load} />}
       {error && <p className="text-sm text-red-700">{error}</p>}
     </div>
   );

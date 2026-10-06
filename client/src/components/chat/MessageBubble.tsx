@@ -262,7 +262,7 @@ export function MessageBubble({ m, communityId, showSender, highlighted, onReply
                 className={`rounded-full border px-1.5 text-xs shadow-sm ${r.mine ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}
               >
                 {r.emoji}
-                {r.count > 1 && <span className="ml-0.5 text-slate-600">{r.count}</span>}
+                <span className="ml-0.5 text-slate-600">{r.count}</span>
               </button>
             ))}
           </div>

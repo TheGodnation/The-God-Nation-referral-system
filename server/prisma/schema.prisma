@@ -598,6 +598,7 @@ model Person {
   deletedMessages             Message[]                    @relation("MessageDeletedBy")
   hiddenMessages              MessageHiddenForPerson[]
   messageReactions            MessageReaction[]
+  updateCommentReactions      UpdateCommentReaction[]
   uploadedAttachments         MessageAttachment[]          @relation("MessageAttachmentUploadedBy")
   followUpMessages            FollowUpMessage[]
   announcementReads           AnnouncementRead[]
@@ -1884,13 +1885,35 @@ model UpdateComment {
   deletedAt         DateTime?
   deletedByPersonId String?
   deletedByUserId   String?
+  // A reply to another comment on the same post (one level, like Facebook:
+  // replying to a reply attaches to the same top comment).
+  parentCommentId   String?
 
   post            UpdatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
   author          Person     @relation("UpdateCommentAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  parent          UpdateComment?  @relation("UpdateCommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         UpdateComment[] @relation("UpdateCommentReplies")
+  reactions       UpdateCommentReaction[]
   deletedByPerson Person?    @relation("UpdateCommentDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
   deletedByUser   User?      @relation("UpdateCommentDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
 
   @@index([postId, createdAt])
+}
+
+// A reaction (👍 ❤️ 🙏 🙌 😊 😢) on an Updates comment — one per person per
+// comment, same six types as on posts.
+model UpdateCommentReaction {
+  id        String             @id @default(uuid())
+  commentId String
+  personId  String
+  type      UpdateReactionType
+  createdAt DateTime           @default(now())
+
+  comment UpdateComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  person  Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, personId])
+  @@index([commentId])
 }
 
 model UpdateReaction {

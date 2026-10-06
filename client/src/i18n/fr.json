@@ -1452,7 +1452,14 @@
     "time_now": "À l'instant",
     "time_minutes": "{{count}} min",
     "time_hours": "{{count}} h",
-    "time_yesterday": "Hier à {{time}}"
+    "time_yesterday": "Hier à {{time}}",
+    "like": "J'aime",
+    "reply": "Répondre",
+    "replying_to": "Réponse à {{name}}",
+    "cancel": "Annuler",
+    "reply_label": "Répondre à {{name}}",
+    "reply_placeholder": "Écrivez une réponse…",
+    "comment_by": "Commentaire de {{name}}"
   },
   "memberNav": {
     "label": "Sections membre",
@@ -1716,7 +1723,9 @@
     "open_photo": "Ouvrir la photo",
     "video": "Vidéo",
     "voice": "Message vocal",
-    "document_label": "Document"
+    "document_label": "Document",
+    "tip": "Glissez un message vers la droite pour répondre. Maintenez un message appuyé pour réagir 👍 ❤️ 🙏.",
+    "tip_close": "Compris"
   },
   "wall": {
     "cover_alt": "Photo de couverture de {{name}}",
