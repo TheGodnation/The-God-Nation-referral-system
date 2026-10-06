@@ -6,7 +6,8 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { InstallAppBanner } from '../components/member/InstallAppBanner';
 import { Avatar } from '../components/Avatar';
-import { PrivateChatList } from '../components/chat/PrivateChatList';
+import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatList';
+import { mediaKind } from '../components/chat/types';
 import { Announcements } from '../components/Announcements';
 import { api } from '../lib/api';
 
@@ -16,28 +17,72 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
+interface GroupMeta {
+  unreadCount: number;
+  name?: string | null;
+  photoUrl?: string | null;
+  lastMessage?: {
+    senderName: string;
+    isOwn: boolean;
+    body: string | null;
+    deleted: boolean;
+    attachmentMimeType: string | null;
+    createdAt: string;
+  } | null;
+}
+
+// One group in the Chats list, WhatsApp-style: its picture, its name, the
+// last message ("Grace: Amen 🙏") with the time, and the number of new ones.
 function GroupRow({ m }: { m: MembershipRow }) {
-  const { t } = useTranslation();
-  const [unread, setUnread] = useState(0);
+  const { t, i18n } = useTranslation();
+  const [meta, setMeta] = useState<GroupMeta | null>(null);
   useEffect(() => {
     api
-      .get<{ unreadCount: number }>(`/api/communities/${m.communityId}/conversation`)
-      .then((r) => setUnread(r.unreadCount))
+      .get<GroupMeta>(`/api/communities/${m.communityId}/conversation`)
+      .then(setMeta)
       .catch(() => {});
   }, [m.communityId]);
+  const unread = meta?.unreadCount ?? 0;
+  const last = meta?.lastMessage;
+  const kind = mediaKind(last?.attachmentMimeType);
+  const media =
+    kind === 'photo'
+      ? `📷 ${t('groupChat.photo')}`
+      : kind === 'video'
+        ? `🎥 ${t('groupChat.video')}`
+        : kind === 'voice'
+          ? `🎤 ${t('groupChat.voice')}`
+          : kind === 'document'
+            ? `📄 ${t('groupChat.document_label')}`
+            : '';
+  const preview = !last
+    ? t('groupChat.tap_to_open')
+    : `${last.isOwn ? t('groupChat.you') : last.senderName.split(' ')[0]}: ${last.deleted ? t('groupChat.removed') : last.body || media}`;
   return (
     <li>
       <Link to={`/member/chats/group/${m.communityId}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
-        <Avatar name={m.communityName} size={48} />
+        <Avatar name={m.communityName} photoUrl={meta?.photoUrl} size={52} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold text-slate-900">{m.communityName}</span>
-          <span className="block truncate text-sm text-slate-500">{t('groupChat.tap_to_open')}</span>
-        </span>
-        {unread > 0 && (
-          <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white" aria-label={t('groupChat.unread', { count: unread }) ?? ''}>
-            {unread}
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="truncate font-semibold text-slate-900">{meta?.name || m.communityName}</span>
+            {last && (
+              <span className={`shrink-0 text-xs ${unread > 0 ? 'font-semibold text-emerald-600' : 'text-slate-400'}`}>
+                {chatListTime(last.createdAt, i18n.language)}
+              </span>
+            )}
           </span>
-        )}
+          <span className="flex items-center justify-between gap-2">
+            <span className={`truncate text-sm ${unread > 0 ? 'font-medium text-slate-800' : 'text-slate-500'}`}>{preview}</span>
+            {unread > 0 && (
+              <span
+                className="shrink-0 rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white"
+                aria-label={t('groupChat.unread', { count: unread }) ?? ''}
+              >
+                {unread}
+              </span>
+            )}
+          </span>
+        </span>
       </Link>
     </li>
   );

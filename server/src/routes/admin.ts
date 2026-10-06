@@ -758,6 +758,12 @@ const CONTENT_BASE_KEYS = [
   // that Leader's own referral link; for Telegram, any line containing
   // `{{link}}` is dropped instead, since Telegram attaches the link itself.
   'leaderInviteMessage',
+  // The banner at the top of the member Updates page: a short slogan and
+  // the ministry's Mission, Vision and Purpose (picture: routes/appBranding.ts).
+  'appSlogan',
+  'appMission',
+  'appVision',
+  'appPurpose',
 ] as const;
 
 const CONTENT_KEYS = CONTENT_BASE_KEYS.flatMap((k) => [`${k}En`, `${k}Fr`] as const);

@@ -15,7 +15,6 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 // URLs; the browser talks to R2 directly for both upload and download.
 
 const UPLOAD_URL_TTL_SECONDS = 5 * 60;
-const DOWNLOAD_URL_TTL_SECONDS = 5 * 60;
 
 export class StorageNotConfiguredError extends Error {
   constructor() {
@@ -79,13 +78,29 @@ export async function createUploadUrl(params: { storageKey: string; mimeType: st
   return { url, expiresAt: new Date(Date.now() + UPLOAD_URL_TTL_SECONDS * 1000) };
 }
 
-// Never persisted, never logged, minted fresh on every authorized request —
-// see communityConversations.ts / adminConversationOversight.ts callers.
+// Light on data: download links are signed for a fixed 3-hour window
+// (valid for 4 hours), so the SAME link comes back for the same file within
+// that window and the phone reuses the photo it already downloaded instead
+// of fetching it again. Storage is told to let the phone keep it for a day.
+// Still never persisted or logged, and still only handed out after the
+// usual permission checks on every request.
+const DOWNLOAD_WINDOW_MS = 3 * 60 * 60 * 1000;
+const DOWNLOAD_URL_VALID_SECONDS = 4 * 60 * 60;
+
+export function downloadSigningWindowStart(now = Date.now()): Date {
+  return new Date(Math.floor(now / DOWNLOAD_WINDOW_MS) * DOWNLOAD_WINDOW_MS);
+}
+
 export async function createDownloadUrl(params: { storageKey: string }): Promise<{ url: string; expiresAt: Date }> {
   const { client, bucketName } = requireClient();
-  const command = new GetObjectCommand({ Bucket: bucketName, Key: params.storageKey });
-  const url = await getSignedUrl(client, command, { expiresIn: DOWNLOAD_URL_TTL_SECONDS });
-  return { url, expiresAt: new Date(Date.now() + DOWNLOAD_URL_TTL_SECONDS * 1000) };
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: params.storageKey,
+    ResponseCacheControl: 'private, max-age=86400',
+  });
+  const signingDate = downloadSigningWindowStart();
+  const url = await getSignedUrl(client, command, { expiresIn: DOWNLOAD_URL_VALID_SECONDS, signingDate });
+  return { url, expiresAt: new Date(signingDate.getTime() + DOWNLOAD_URL_VALID_SECONDS * 1000) };
 }
 
 // Confirms the browser's direct upload actually landed in R2 before a

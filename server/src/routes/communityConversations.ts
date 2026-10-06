@@ -35,7 +35,7 @@ import {
   THUMB_DATA_URL_PATTERN,
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
-import { profilePhotoPath } from '../lib/profilePhoto';
+import { profilePhotoPath, groupPhotoPath } from '../lib/profilePhoto';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping } from '../lib/presence';
 
 // WhatsApp-style quick reactions. A short fixed list keeps it simple and
@@ -142,14 +142,40 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
   }
 
   const conversation = await getOrCreateConversation(communityId);
-  const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
-  const isAdministrator = await isCommunityAdministrator(personId, communityId);
+  const [unreadCount, isAdministrator, community, last] = await Promise.all([
+    getCommunityConversationUnreadCount(personId, conversation.id),
+    isCommunityAdministrator(personId, communityId),
+    prisma.community.findUnique({
+      where: { id: communityId },
+      select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true, aboutEn: true, aboutFr: true },
+    }),
+    prisma.message.findFirst({
+      where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: { sender: { select: { name: true } }, attachments: { select: { mimeType: true }, take: 1 } },
+    }),
+  ]);
   res.json({
     id: conversation.id,
     communityId: conversation.communityId,
     createdAt: conversation.createdAt,
     unreadCount,
     isAdministrator,
+    // For the WhatsApp-style chat list and chat header.
+    name: community?.name ?? null,
+    photoUrl: community ? groupPhotoPath(community) : null,
+    aboutEn: community?.aboutEn ?? null,
+    aboutFr: community?.aboutFr ?? null,
+    lastMessage: last
+      ? {
+          senderName: last.sender.name,
+          isOwn: last.senderPersonId === personId,
+          body: last.deletedAt ? null : last.body,
+          deleted: Boolean(last.deletedAt),
+          attachmentMimeType: last.deletedAt ? null : last.attachments[0]?.mimeType ?? null,
+          createdAt: last.createdAt,
+        }
+      : null,
   });
 }));
 
@@ -697,6 +723,40 @@ router.delete(
     res.json({ reactions: await reactionsFor(target.messageId, target.personId) });
   }),
 );
+
+// GET /api/communities/:communityId/conversation/members — the group info
+// page: everyone in the group (leaders first, then who is online), with a
+// green dot for those online now.
+router.get('/:communityId/conversation/members', asyncHandler(async (req, res) => {
+  const { communityId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) {
+    return res.status(404).json({ error: 'Community not found.' });
+  }
+  const personId = req.conversationActorPersonId!;
+  if (!(await hasConversationAccess(personId, communityId))) {
+    return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+  }
+  const [audience, leaders] = await Promise.all([
+    communityAudience(communityId),
+    prisma.roleAssignment.findMany({
+      where: { communityId, roleType: 'SCOPED_LEADER', status: 'ACTIVE' },
+      select: { personId: true },
+    }),
+  ]);
+  const leaderIds = new Set(leaders.map((l) => l.personId));
+  const now = Date.now();
+  const members = audience
+    .map((a) => ({
+      personId: a.personId,
+      name: a.name,
+      photoUrl: a.photoUrl,
+      isLeader: leaderIds.has(a.personId),
+      isYou: a.personId === personId,
+      online: a.personId === personId || isOnline(a.lastSeenAt, now),
+    }))
+    .sort((x, y) => Number(y.isLeader) - Number(x.isLeader) || Number(y.online) - Number(x.online) || x.name.localeCompare(y.name));
+  res.json({ members, memberCount: members.length, onlineCount: members.filter((m) => m.online).length });
+}));
 
 // GET .../conversation/messages/:messageId/info — "Message info" for the
 // sender's OWN message: who has seen it and who has received it.

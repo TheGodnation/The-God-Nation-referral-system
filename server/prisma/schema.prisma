@@ -440,6 +440,10 @@ model Settings {
   // password. Null/blank means self-signup is turned off entirely.
   leaderSignupPhrase    String?
   content               Json?
+  // The wide picture at the top of the member Updates page (the ministry's
+  // banner). Its Mission / Vision / Purpose text lives in `content`.
+  appBannerStorageKey   String?
+  appBannerUpdatedAt    DateTime?
   // Recipient address for the public Contact form (Phase 2). Admin-editable;
   // never sent to the client. Null/blank means the contact form is disabled.
   contactEmail          String?
@@ -662,6 +666,12 @@ model Community {
   // whose country (and region, when set) match go to this group first.
   placementCountry String?
   placementRegion  String?
+  // The group's picture and its purpose / vision, shown in the chat list and
+  // on the group info page. Only the admin changes these.
+  photoStorageKey String?
+  photoUpdatedAt  DateTime?
+  aboutEn         String?
+  aboutFr         String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
