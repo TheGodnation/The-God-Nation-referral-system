@@ -1233,6 +1233,8 @@ model MessageAttachment {
   originalFilename   String
   mimeType           String
   byteSize           Int
+  // Tiny blurred photo preview (data URL, a few KB) for slow networks.
+  thumbDataUrl       String?
   uploadedByPersonId String
   createdAt          DateTime @default(now())
 
@@ -1726,6 +1728,8 @@ model PrivateMessageAttachment {
   originalFilename String
   mimeType         String
   byteSize         Int
+  // Tiny blurred photo preview (data URL, a few KB) for slow networks.
+  thumbDataUrl     String?
   createdAt        DateTime @default(now())
 
   message PrivateMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)

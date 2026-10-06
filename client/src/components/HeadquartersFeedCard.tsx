@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { useInView } from '../lib/chatMedia';
+import { useDataSaver } from '../lib/dataSaver';
 
 export interface HeadquartersFeedItem {
   id: string;
@@ -22,14 +23,17 @@ function HeadquartersImage({ postId, onOpen }: { postId: string; onOpen: () => v
   const [ref, inView] = useInView<HTMLDivElement>();
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const saver = useDataSaver();
+  const [wanted, setWanted] = useState(false);
 
   useEffect(() => {
-    if (!inView || url) return;
+    // "Save data": wait for a tap before downloading the photo.
+    if (!inView || url || (saver && !wanted)) return;
     api
       .get<{ url: string }>(`/api/me/headquarters-posts/${postId}/media/download-url`)
       .then((r) => setUrl(r.url))
       .catch(() => setFailed(true));
-  }, [inView, url, postId]);
+  }, [inView, url, postId, saver, wanted]);
 
   return (
     <div ref={ref} className="bg-slate-100">
@@ -40,7 +44,15 @@ function HeadquartersImage({ postId, onOpen }: { postId: string; onOpen: () => v
       ) : (
         <div className="flex aspect-[16/9] w-full flex-col items-center justify-center gap-1 text-sm text-slate-500">
           <span className="text-3xl">📷</span>
-          {failed ? t('headquartersPosts.photo_unavailable') : t('headquartersPosts.loading')}
+          {failed ? (
+            t('headquartersPosts.photo_unavailable')
+          ) : saver && !wanted ? (
+            <button type="button" onClick={() => setWanted(true)} className="rounded-full bg-black/55 px-3 py-1.5 font-semibold text-white">
+              ⬇ {t('network.tap_to_load')}
+            </button>
+          ) : (
+            t('headquartersPosts.loading')
+          )}
         </div>
       )}
     </div>

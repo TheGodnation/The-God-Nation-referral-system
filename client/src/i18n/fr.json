@@ -1806,5 +1806,21 @@
     "group_line": "{{online}} en ligne sur {{members}}",
     "show_all": "Voir les {{count}} groupes",
     "show_less": "Voir moins"
+  },
+  "network": {
+    "connecting": "Connexion… (réseau faible ou absent)",
+    "waiting": "En attente du réseau",
+    "tap_to_load": "Touchez pour charger",
+    "tap_to_load_photo": "Touchez pour charger la photo",
+    "download_photo": "Télécharger la photo ({{size}})",
+    "download_voice": "Télécharger le message vocal ({{size}})",
+    "download_video": "Télécharger la vidéo ({{size}})",
+    "saver_title": "Économiser les données",
+    "saver_auto": "Automatique (recommandé)",
+    "saver_auto_hint": "Économise les données tout seul quand le réseau est très lent (2G) ou que l'économiseur de données du téléphone est activé.",
+    "saver_on": "Toujours économiser",
+    "saver_on_hint": "Les photos, vidéos et messages vocaux se téléchargent seulement quand vous les touchez.",
+    "saver_off": "Désactivé",
+    "saver_off_hint": "Les photos et messages vocaux se téléchargent tout seuls."
   }
 }

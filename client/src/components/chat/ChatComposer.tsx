@@ -8,6 +8,7 @@ import {
   formatDuration,
   pickRecorderMime,
   shrinkPhoto,
+  makeThumb,
   uploadChatFile,
   type UploadedAttachment,
   type UploadProblem,
@@ -161,11 +162,13 @@ export function ChatComposer({
         try {
           let blob: Blob = file;
           let name = file.name || `file.${extensionFor(type)}`;
+          let thumb: string | undefined;
           if (kind === 'photo') {
             blob = await shrinkPhoto(file);
             if (blob !== file) name = name.replace(/\.[^.]+$/, '') + '.jpg';
+            thumb = await makeThumb(blob);
           }
-          const uploaded = await uploadChatFile(uploadPath, blob, name);
+          const uploaded = { ...(await uploadChatFile(uploadPath, blob, name)), ...(thumb ? { thumb } : {}) };
           setTray((prev) => prev.map((x) => (x.localId === item.localId ? { ...x, status: 'ready', uploaded } : x)));
         } catch (err) {
           setTray((prev) => prev.map((x) => (x.localId === item.localId ? { ...x, status: 'error' } : x)));

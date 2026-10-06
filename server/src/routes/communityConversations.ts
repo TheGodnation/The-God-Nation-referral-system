@@ -31,6 +31,8 @@ import {
   generateStorageKey,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ORIGINAL_FILENAME_LENGTH,
+  MAX_THUMB_DATA_URL_LENGTH,
+  THUMB_DATA_URL_PATTERN,
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
 import { profilePhotoPath } from '../lib/profilePhoto';
@@ -156,6 +158,9 @@ const MAX_MESSAGE_PAGE_SIZE = 50;
 
 const listMessagesQuerySchema = z.object({
   before: z.string().optional(),
+  // Light polling: only messages newer than this one (plus a tiny list of
+  // what changed on the most recent messages) — see `recent` below.
+  after: z.string().optional(),
   // A requested limit above the maximum is capped, not rejected — a client
   // asking for "too much" is not a malformed request.
   limit: z.coerce.number().int().min(1).optional(),
@@ -193,6 +198,14 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     }
     cursor = { createdAt: cursorMessage.createdAt, id: cursorMessage.id };
   }
+  let afterCursor: { createdAt: Date; id: string } | null = null;
+  if (parsed.data.after && !parsed.data.before) {
+    const afterMessage = await prisma.message.findUnique({ where: { id: parsed.data.after } });
+    if (!afterMessage || afterMessage.conversationId !== conversation.id) {
+      return res.status(400).json({ error: 'Invalid pagination cursor.' });
+    }
+    afterCursor = { createdAt: afterMessage.createdAt, id: afterMessage.id };
+  }
 
   const rows = await prisma.message.findMany({
     where: {
@@ -205,19 +218,24 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       ...(cursor
         ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
         : {}),
+      ...(afterCursor
+        ? { OR: [{ createdAt: { gt: afterCursor.createdAt } }, { createdAt: afterCursor.createdAt, id: { gt: afterCursor.id } }] }
+        : {}),
     },
     include: {
       sender: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } },
-      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true } },
+      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true } },
       replyTo: replyToInclude,
       reactions: { select: { emoji: true, personId: true } },
     },
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    orderBy: afterCursor ? [{ createdAt: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
   });
 
-  const hasMore = rows.length > limit;
-  const page = rows.slice(0, limit).reverse();
+  const hasMore = afterCursor ? false : rows.length > limit;
+  // More new messages than one page: the app simply reloads the latest page.
+  const newerOverflow = afterCursor ? rows.length > limit : undefined;
+  const page = afterCursor ? rows.slice(0, limit) : rows.slice(0, limit).reverse();
   const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
   const isAdministrator = await isCommunityAdministrator(personId, communityId);
   // Community Posting Policy — a read-only hint so the client can hide/
@@ -259,11 +277,35 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       deleted: Boolean(m.deletedAt),
       attachments: m.deletedAt
         ? []
-        : m.attachments.map((a) => ({ id: a.id, originalFilename: a.originalFilename, mimeType: a.mimeType, byteSize: a.byteSize })),
+        : m.attachments.map((a) => ({
+            id: a.id,
+            originalFilename: a.originalFilename,
+            mimeType: a.mimeType,
+            byteSize: a.byteSize,
+            thumb: a.thumbDataUrl ?? undefined,
+          })),
       replyTo: m.deletedAt ? null : replyPreview(m.replyTo),
       reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, personId),
       status: m.senderPersonId === personId ? groupMessageReceipt(m, audience, readAtByPerson).status : undefined,
     })),
+    newerOverflow,
+    // Light polling: what changed on the 30 most recent messages (ticks,
+    // reactions, removals) — a few hundred bytes instead of the full page.
+    recent: afterCursor
+      ? (
+          await prisma.message.findMany({
+            where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } } },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: 30,
+            select: { id: true, createdAt: true, deletedAt: true, senderPersonId: true, reactions: { select: { emoji: true, personId: true } } },
+          })
+        ).map((m) => ({
+          id: m.id,
+          deleted: Boolean(m.deletedAt),
+          reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, personId),
+          status: m.senderPersonId === personId ? groupMessageReceipt(m, audience, readAtByPerson).status : undefined,
+        }))
+      : undefined,
     memberCount: audience.length,
     onlineCount: audience.filter((a) => a.personId === personId || isOnline(a.lastSeenAt, now)).length,
     typing: whoIsTyping(`group:${conversation.id}`, personId),
@@ -279,6 +321,9 @@ const attachmentDescriptorSchema = z.object({
   originalFilename: z.string().trim().min(1).max(MAX_ORIGINAL_FILENAME_LENGTH),
   mimeType: z.string().min(1),
   byteSize: z.number().int().positive(),
+  // A tiny blurred preview of a photo (a few KB), shown before the real
+  // photo downloads — see lib/attachmentPolicy.ts THUMB_DATA_URL_PATTERN.
+  thumb: z.string().max(MAX_THUMB_DATA_URL_LENGTH).regex(THUMB_DATA_URL_PATTERN).optional(),
 });
 
 // Phase 3M.8C: body is now optional (an attachment-only message is valid),
@@ -392,6 +437,7 @@ router.post(
                 originalFilename: a.originalFilename,
                 mimeType: a.mimeType,
                 byteSize: a.byteSize,
+                thumbDataUrl: a.thumb ?? null,
                 uploadedByPersonId: personId,
               })),
             }

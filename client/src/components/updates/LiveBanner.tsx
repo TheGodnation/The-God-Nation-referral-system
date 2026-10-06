@@ -26,7 +26,7 @@ export function LiveBanner() {
     load();
     // Check again every minute so a live that starts while the page is
     // open appears without a refresh.
-    const timer = setInterval(load, 60_000);
+    const timer = setInterval(() => document.visibilityState === 'visible' && load(), 60_000);
     return () => {
       cancelled = true;
       clearInterval(timer);

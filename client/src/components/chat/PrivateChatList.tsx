@@ -43,7 +43,7 @@ export function PrivateChatList() {
         .catch(() => alive && setItems((prev) => prev ?? []));
     }
     load();
-    const timer = window.setInterval(() => document.visibilityState === 'visible' && load(), 15000);
+    const timer = window.setInterval(() => document.visibilityState === 'visible' && load(), 30000);
     return () => {
       alive = false;
       window.clearInterval(timer);

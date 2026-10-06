@@ -11,6 +11,8 @@ export interface UploadedAttachment {
   originalFilename: string;
   mimeType: string;
   byteSize: number;
+  /** Tiny blurred preview of a photo (a few KB) for slow networks. */
+  thumb?: string;
 }
 
 export type UploadProblem = 'type' | 'size' | 'storage' | 'failed';
@@ -72,31 +74,55 @@ export async function uploadChatFile(authorizePath: string, file: Blob, filename
   return { storageKey: auth.storageKey, originalFilename: filename, mimeType, byteSize: body.size };
 }
 
-const MAX_PHOTO_SIDE = 1600;
-const SHRINK_ABOVE_BYTES = 1.5 * 1024 * 1024;
+// Light for slow networks: photos are sent at most 1280px wide (usually
+// 150–300 KB), profile pictures at 512px.
+const MAX_PHOTO_SIDE = 1280;
+const SHRINK_ABOVE_BYTES = 400 * 1024;
 
-/** Makes big phone photos smaller (max 1600px, JPEG). Also turns photo
- * types we can't send (like HEIC) into JPEG when the browser can read them.
- * Returns the original file when nothing needs doing or shrinking fails. */
-export async function shrinkPhoto(file: File): Promise<Blob> {
+/** Makes phone photos smaller (max 1280px, JPEG) — or `maxSide` if given.
+ * Also turns photo types we can't send (like HEIC) into JPEG when the
+ * browser can read them. Returns the original file when nothing needs
+ * doing or shrinking fails. */
+export async function shrinkPhoto(file: File, maxSide = MAX_PHOTO_SIDE): Promise<Blob> {
   const type = baseMime(file.type);
   const allowed = isAllowedAttachmentMime(type);
-  if (allowed && file.size <= SHRINK_ABOVE_BYTES) return file;
+  if (allowed && file.size <= SHRINK_ABOVE_BYTES && maxSide >= MAX_PHOTO_SIDE) return file;
   if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return file;
   try {
     const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
+    if (allowed && file.size <= SHRINK_ABOVE_BYTES && Math.max(bitmap.width, bitmap.height) <= maxSide) return file;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(bitmap.width * scale);
     canvas.height = Math.round(bitmap.height * scale);
     const ctx = canvas.getContext('2d');
     if (!ctx) return file;
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.78));
     if (!blob) return file;
     return allowed && blob.size >= file.size ? file : blob;
   } catch {
     return file;
+  }
+}
+
+/** A tiny (48px) blurred-looking JPEG of a photo as a data URL — a few KB —
+ * shown straight away in chats before the real photo downloads. */
+export async function makeThumb(file: Blob): Promise<string | undefined> {
+  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return undefined;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = 48 / Math.max(bitmap.width, bitmap.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return undefined;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const url = canvas.toDataURL('image/jpeg', 0.5);
+    return url.startsWith('data:image/jpeg;base64,') && url.length < 8000 ? url : undefined;
+  } catch {
+    return undefined;
   }
 }
 

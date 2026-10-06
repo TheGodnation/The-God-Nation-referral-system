@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { api, ApiError } from '../lib/api';
+import { api, ApiError, NetworkError } from '../lib/api';
+import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
 import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatComposer';
@@ -21,6 +22,8 @@ interface PrivateRow {
 interface PrivateResponse {
   items: PrivateRow[];
   hasMore: boolean;
+  newerOverflow?: boolean;
+  recent?: RecentChange[];
   unreadCount: number;
   otherPartyType: 'CENTRAL_AUTHORITY' | 'LEADER' | 'MEMBER';
   otherPartyName?: string | null;
@@ -110,11 +113,34 @@ export function MemberPrivateChatPage() {
     api.post(`${base}/read`, { messageId: latest.id }).catch(() => {});
   }
 
+  const messagesRef = useRef<ChatMessage[]>([]);
+  messagesRef.current = messages;
+  const pokeRef = useRef<() => void>(() => {});
+
+  // Messages typed while offline: shown with 🕓, sent when the network is back.
+  const outbox = useOutbox(
+    `private:${conversationId}`,
+    (out) => api.post(`${base}/messages`, out).then(() => undefined),
+    (tempId) => {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      pokeRef.current();
+    },
+    (tempId) => {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      showToast(t('groupChat.send_failed'));
+    },
+  );
+  const queuedRef = useRef(outbox.queued);
+  queuedRef.current = outbox.queued;
+
+  // First load: the latest page. After that, only what is new.
   const fetchLatest = useCallback(
-    (first = false) =>
-      api
-        .get<PrivateResponse>(`${base}/messages`)
-        .then((res) => {
+    (first = false): Promise<boolean> => {
+      const lastId = first ? null : lastServerId(messagesRef.current);
+      return api
+        .get<PrivateResponse>(`${base}/messages${lastId ? `?after=${encodeURIComponent(lastId)}` : ''}`)
+        .then((res): boolean | Promise<boolean> => {
+          if (lastId && res.newerOverflow) return fetchLatest(true);
           setOther({
             otherPartyType: res.otherPartyType,
             otherPartyName: res.otherPartyName,
@@ -126,16 +152,25 @@ export function MemberPrivateChatPage() {
           if (res.otherPartyType === 'CENTRAL_AUTHORITY') otherNameRef.current = t('privateChat.headquarters');
           else otherNameRef.current = res.otherPartyName || t('privateChat.someone');
           const items = res.items.map(toChat);
-          setMessages((prev) => (first ? items : mergeLatest(prev, items)));
+          setMessages((prev) => {
+            if (first) {
+              const queued = queuedRef.current.map((q) => q.message).filter((q) => !prev.some((m) => m.id === q.id));
+              return [...items, ...queued];
+            }
+            return lastId ? applyRecent(appendNew(prev, items), res.recent) : mergeLatest(prev, items);
+          });
           if (first) setHasMore(res.hasMore);
           setLoadError(false);
           markRead(res.items, res.unreadCount);
+          return items.length > 0 || Boolean(res.typing);
         })
         .catch((err) => {
           if (err instanceof ApiError && err.status === 404) setNotFound(true);
           else if (first) setLoadError(true);
+          return false;
         })
-        .finally(() => first && setLoaded(true)),
+        .finally(() => first && setLoaded(true));
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [conversationId, toChat],
   );
@@ -143,11 +178,11 @@ export function MemberPrivateChatPage() {
   useEffect(() => {
     stickToBottom.current = true;
     void fetchLatest(true);
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void fetchLatest(false);
-    }, POLL_MS);
-    return () => window.clearInterval(timer);
   }, [fetchLatest]);
+
+  // Checks every few seconds while chatting, up to every 30 s when quiet.
+  const poke = useAdaptivePoll(() => fetchLatest(false), POLL_MS, loaded && !notFound);
+  pokeRef.current = poke;
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -212,8 +247,25 @@ export function MemberPrivateChatPage() {
       await api.post(`${base}/messages`, out);
       await fetchLatest(false);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      poke();
       return true;
     } catch (err) {
+      if (err instanceof NetworkError) {
+        // No network: keep it with a 🕓 and send it when the network is back.
+        const temp: ChatMessage = messagesRef.current.find((m) => m.id === tempId) ?? {
+          id: tempId,
+          senderName: t('groupChat.you'),
+          isOwn: true,
+          body: out.body ?? null,
+          createdAt: new Date().toISOString(),
+          deleted: false,
+          attachments: [],
+          pending: true,
+        };
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, queued: true } : m)));
+        outbox.enqueue(tempId, out, temp);
+        return true;
+      }
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setReplyTo(reply);
       if (err instanceof ApiError && err.status === 503) showToast(t('groupChat.storage_off'));

@@ -243,6 +243,8 @@ const listQuerySchema = z.object({
   authorPersonId: z.string().uuid().optional(),
   // friends=true: only posts from the viewer's friends (and the viewer).
   friends: z.enum(['true', 'false']).optional(),
+  // A smaller page — e.g. limit=1 for the light "any new posts?" check.
+  limit: z.coerce.number().int().min(1).max(UPDATES_PAGE_SIZE).optional(),
 });
 
 router.get('/', requireViewer, asyncHandler(async (req, res) => {
@@ -268,15 +270,16 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
       ...(q.data.before ? { createdAt: { lt: new Date(q.data.before) } } : {}),
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take: UPDATES_PAGE_SIZE + 1,
+    take: (q.data.limit ?? UPDATES_PAGE_SIZE) + 1,
     include: {
       author: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } },
       photos: { orderBy: { position: 'asc' }, select: { id: true } },
       _count: { select: { comments: { where: { deletedAt: null } } } },
     },
   });
-  const hasMore = posts.length > UPDATES_PAGE_SIZE;
-  const page = posts.slice(0, UPDATES_PAGE_SIZE);
+  const pageSize = q.data.limit ?? UPDATES_PAGE_SIZE;
+  const hasMore = posts.length > pageSize;
+  const page = posts.slice(0, pageSize);
   const ids = page.map((p) => p.id);
 
   const [reactionGroups, myReactions] = await Promise.all([
