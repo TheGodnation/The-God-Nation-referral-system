@@ -430,7 +430,9 @@ describe('Community Posting Policy — read access is unaffected', () => {
 
     const res = await agent.get(`/api/communities/${community.id}/conversation/messages`);
     expect(res.status).toBe(200);
-    expect(Object.keys(res.body).sort()).toEqual(['canPost', 'hasMore', 'isAdministrator', 'items', 'unreadCount'].sort());
+    expect(Object.keys(res.body).sort()).toEqual(
+      ['canPost', 'hasMore', 'isAdministrator', 'items', 'memberCount', 'onlineCount', 'typing', 'unreadCount'].sort(),
+    );
   });
 });
 
