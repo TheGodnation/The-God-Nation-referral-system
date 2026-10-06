@@ -278,9 +278,12 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
           {showSender && !m.isOwn && <p className={`mb-0.5 text-xs font-semibold ${nameColor(m.senderName)}`}>{m.senderName}</p>}
 
           {m.deleted ? (
-            <p className="italic text-slate-500">🚫 {t('groupChat.removed')}</p>
+            <p className="italic text-slate-500">
+              🚫 {m.deletedBySender ? (m.isOwn ? t('chatActions.you_deleted') : t('chatActions.deleted')) : t('groupChat.removed')}
+            </p>
           ) : (
             <>
+              {m.forwarded && <p className="mb-0.5 text-xs italic text-slate-500">↪ {t('chatActions.forwarded')}</p>}
               {m.replyTo && <ReplyQuote reply={m.replyTo} own={m.isOwn} onClick={() => onJumpTo(m.replyTo!.id)} />}
               {photos.length > 0 && (
                 <div className={`mb-1 grid gap-1 ${photos.length > 1 ? 'grid-cols-2' : ''}`}>
@@ -304,6 +307,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
           )}
 
           <p className="mt-0.5 flex items-center justify-end gap-1 text-[11px] text-slate-500">
+            {m.edited && !m.deleted && <span className="italic">{t('chatActions.edited')}</span>}
             {m.pending ? `🕓 ${m.queued ? t('network.waiting') : t('groupChat.sending')}` : timeOf(m.createdAt)}
             {m.isOwn && !m.pending && !m.deleted && m.status && <Ticks status={m.status} />}
           </p>

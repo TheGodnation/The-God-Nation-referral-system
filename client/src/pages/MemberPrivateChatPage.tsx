@@ -7,15 +7,20 @@ import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
 import { CHAT_WALLPAPER_STYLE } from '../components/chat/wallpaper';
 import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatComposer';
-import { REACTIONS, type ChatAttachment, type ChatMessage, type ChatReaction } from '../components/chat/types';
+import { REACTIONS, canEditMessage, canUnsendMessage, type ChatAttachment, type ChatMessage, type ChatReaction } from '../components/chat/types';
+import { ChatSearch, EditSheet, ForwardSheet, findAndJump } from '../components/chat/ChatActions';
 
 interface PrivateRow {
   id: string;
   isOwn: boolean;
-  body: string;
+  body: string | null;
   createdAt: string;
+  deleted?: boolean;
+  deletedBySender?: boolean;
+  edited?: boolean;
+  forwarded?: boolean;
   attachments?: ChatAttachment[];
-  replyTo?: { id: string; isOwn: boolean; body: string; attachmentMimeType: string | null } | null;
+  replyTo?: { id: string; isOwn: boolean; body: string | null; deleted?: boolean; attachmentMimeType: string | null } | null;
   reactions?: ChatReaction[];
   status?: 'sent' | 'delivered' | 'read';
 }
@@ -72,6 +77,9 @@ export function MemberPrivateChatPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [presence, setPresence] = useState<PrivateResponse['otherPartyPresence']>(null);
   const [otherTyping, setOtherTyping] = useState(false);
+  const [editing, setEditing] = useState<ChatMessage | null>(null);
+  const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
+  const [searching, setSearching] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -90,7 +98,10 @@ export function MemberPrivateChatPage() {
       isOwn: r.isOwn,
       body: r.body || null,
       createdAt: r.createdAt,
-      deleted: false,
+      deleted: Boolean(r.deleted),
+      deletedBySender: r.deletedBySender,
+      edited: r.edited,
+      forwarded: r.forwarded,
       attachments: r.attachments ?? [],
       reactions: r.reactions ?? [],
       status: r.status,
@@ -99,7 +110,7 @@ export function MemberPrivateChatPage() {
             id: r.replyTo.id,
             senderName: r.replyTo.isOwn ? t('groupChat.you') : otherNameRef.current,
             body: r.replyTo.body || null,
-            deleted: false,
+            deleted: Boolean(r.replyTo.deleted),
             attachmentMimeType: r.replyTo.attachmentMimeType,
           }
         : null,
@@ -201,21 +212,59 @@ export function MemberPrivateChatPage() {
     if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   }
 
+  /** Loads one page of older messages; false when there is nothing older. */
+  function loadOlderPage(): Promise<boolean> {
+    const first = messagesRef.current.find((m) => !m.pending);
+    if (!first) return Promise.resolve(false);
+    return api.get<PrivateResponse>(`${base}/messages?before=${first.id}`).then((res) => {
+      const el = scrollRef.current;
+      if (el) keepOffsetFromBottom.current = el.scrollHeight - el.scrollTop;
+      const older = res.items.map(toChat);
+      messagesRef.current = [...older.filter((m) => !messagesRef.current.some((p) => p.id === m.id)), ...messagesRef.current];
+      setMessages((prev) => [...older.filter((m) => !prev.some((p) => p.id === m.id)), ...prev]);
+      setHasMore(res.hasMore);
+      return res.hasMore && older.length > 0;
+    });
+  }
+
   function loadOlder() {
-    const first = messages.find((m) => !m.pending);
-    if (loadingOlder || !first) return;
+    if (loadingOlder || !messages.some((m) => !m.pending)) return;
     setLoadingOlder(true);
-    api
-      .get<PrivateResponse>(`${base}/messages?before=${first.id}`)
-      .then((res) => {
-        const el = scrollRef.current;
-        if (el) keepOffsetFromBottom.current = el.scrollHeight - el.scrollTop;
-        const older = res.items.map(toChat);
-        setMessages((prev) => [...older.filter((m) => !prev.some((p) => p.id === m.id)), ...prev]);
-        setHasMore(res.hasMore);
-      })
+    loadOlderPage()
       .catch(() => showToast(t('groupChat.load_failed')))
       .finally(() => setLoadingOlder(false));
+  }
+
+  function openSearchResult(id: string) {
+    setSearching(false);
+    stickToBottom.current = false;
+    void findAndJump(id, () => loadOlderPage().catch(() => false), jumpTo, () => showToast(t('groupChat.not_loaded')));
+  }
+
+  async function saveEdit(m: ChatMessage, body: string) {
+    try {
+      const res = await api.patch<{ body: string }>(`${base}/messages/${m.id}`, { body });
+      setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, body: res.body, edited: true } : x)));
+      setEditing(null);
+    } catch (err) {
+      setEditing(null);
+      showToast(err instanceof ApiError && err.status === 400 ? t('chatActions.edit_too_late') : t('groupChat.action_failed'));
+    }
+  }
+
+  async function unsend(m: ChatMessage) {
+    setMenuFor(null);
+    if (!window.confirm(t('chatActions.unsend_confirm') ?? '')) return;
+    try {
+      await api.post(`${base}/messages/${m.id}/unsend`);
+      setMessages((prev) =>
+        prev.map((x) =>
+          x.id === m.id ? { ...x, deleted: true, deletedBySender: true, body: null, attachments: [], reactions: [], replyTo: null, edited: false, forwarded: false } : x,
+        ),
+      );
+    } catch (err) {
+      showToast(err instanceof ApiError && err.status === 400 ? t('chatActions.unsend_too_late') : t('groupChat.action_failed'));
+    }
   }
 
   function showToast(text: string) {
@@ -373,7 +422,13 @@ export function MemberPrivateChatPage() {
         ) : (
           <div className="flex min-w-0 items-center gap-3">{headerInner}</div>
         )}
+        <span className="flex-1" />
+        <button type="button" onClick={() => setSearching(true)} aria-label={t('chatActions.search') ?? ''} className="px-2 text-xl">
+          🔍
+        </button>
       </header>
+
+      {searching && <ChatSearch searchPath={`${base}/search`} onPick={openSearchResult} onClose={() => setSearching(false)} />}
 
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto overscroll-contain px-2 py-3" aria-live="polite">
         {!loaded && <p className="mt-10 text-center text-sm text-slate-500">{t('groupChat.loading')}</p>}
@@ -486,9 +541,50 @@ export function MemberPrivateChatPage() {
                   📋 {t('groupChat.copy')}
                 </button>
               )}
+              <button
+                type="button"
+                className="block w-full py-3 text-left"
+                onClick={() => {
+                  setForwarding(menuFor);
+                  setMenuFor(null);
+                }}
+              >
+                ↪️ {t('chatActions.forward')}
+              </button>
+              {canEditMessage(menuFor) && (
+                <button
+                  type="button"
+                  className="block w-full py-3 text-left"
+                  onClick={() => {
+                    setEditing(menuFor);
+                    setMenuFor(null);
+                  }}
+                >
+                  ✏️ {t('chatActions.edit')}
+                </button>
+              )}
+              {canUnsendMessage(menuFor) && (
+                <button type="button" className="block w-full py-3 text-left text-red-700" onClick={() => void unsend(menuFor)}>
+                  🗑️ {t('chatActions.delete_for_everyone')}
+                </button>
+              )}
             </div>
           </div>
         </div>
+      )}
+
+      {editing && <EditSheet message={editing} onCancel={() => setEditing(null)} onSave={(body) => saveEdit(editing, body)} />}
+
+      {forwarding && (
+        <ForwardSheet
+          source={{ kind: 'private', chatId: conversationId, messageId: forwarding.id }}
+          onClose={() => setForwarding(null)}
+          onDone={(count) => {
+            setForwarding(null);
+            showToast(t('chatActions.forwarded_to', { count }));
+            poke();
+          }}
+        />
       )}
 
       {photoUrl && (

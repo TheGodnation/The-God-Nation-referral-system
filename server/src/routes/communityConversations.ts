@@ -11,6 +11,7 @@ import {
   typingLimiter,
   attachmentUploadAuthorizeLimiter,
   attachmentDownloadLimiter,
+  chatSearchLimiter,
 } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { resolveActingPersonId, contextTargetExists, isCommunityAdministrator } from '../lib/leadership';
@@ -37,6 +38,7 @@ import {
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
 import { profilePhotoPath, groupPhotoPath } from '../lib/profilePhoto';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping } from '../lib/presence';
+import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema, muteSchema, muteUntil } from '../lib/chatActions';
 
 // WhatsApp-style quick reactions. A short fixed list keeps it simple and
 // stops anyone storing arbitrary text as a "reaction".
@@ -142,7 +144,7 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
   }
 
   const conversation = await getOrCreateConversation(communityId);
-  const [unreadCount, isAdministrator, community, last] = await Promise.all([
+  const [unreadCount, isAdministrator, community, last, mute] = await Promise.all([
     getCommunityConversationUnreadCount(personId, conversation.id),
     isCommunityAdministrator(personId, communityId),
     prisma.community.findUnique({
@@ -154,7 +156,9 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: { sender: { select: { name: true } }, attachments: { select: { mimeType: true }, take: 1 } },
     }),
+    prisma.groupChatMute.findUnique({ where: { personId_communityId: { personId, communityId } } }),
   ]);
+  const muted = Boolean(mute && (!mute.until || mute.until.getTime() > Date.now()));
   res.json({
     id: conversation.id,
     communityId: conversation.communityId,
@@ -172,10 +176,14 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
           isOwn: last.senderPersonId === personId,
           body: last.deletedAt ? null : last.body,
           deleted: Boolean(last.deletedAt),
+          deletedBySender: Boolean(last.deletedAt) && last.deletedByPersonId === last.senderPersonId,
           attachmentMimeType: last.deletedAt ? null : last.attachments[0]?.mimeType ?? null,
           createdAt: last.createdAt,
         }
       : null,
+    // 🔕 Muted: no unread badge colour / count in the Chats list.
+    muted,
+    mutedUntil: muted ? mute?.until ?? null : null,
   });
 }));
 
@@ -301,6 +309,10 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       body: m.deletedAt ? null : m.body,
       createdAt: m.createdAt,
       deleted: Boolean(m.deletedAt),
+      // "This message was deleted" (by the sender) vs "removed" by a leader.
+      deletedBySender: Boolean(m.deletedAt) && m.deletedByPersonId === m.senderPersonId,
+      edited: !m.deletedAt && Boolean(m.editedAt),
+      forwarded: !m.deletedAt && m.forwarded,
       attachments: m.deletedAt
         ? []
         : m.attachments.map((a) => ({
@@ -323,11 +335,23 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
             where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } } },
             orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             take: 30,
-            select: { id: true, createdAt: true, deletedAt: true, senderPersonId: true, reactions: { select: { emoji: true, personId: true } } },
+            select: {
+              id: true,
+              createdAt: true,
+              deletedAt: true,
+              deletedByPersonId: true,
+              editedAt: true,
+              body: true,
+              senderPersonId: true,
+              reactions: { select: { emoji: true, personId: true } },
+            },
           })
         ).map((m) => ({
           id: m.id,
           deleted: Boolean(m.deletedAt),
+          deletedBySender: m.deletedAt ? m.deletedByPersonId === m.senderPersonId : undefined,
+          // An edited message's new text (only sent when it was edited).
+          ...(m.editedAt && !m.deletedAt ? { edited: true, body: m.body } : {}),
           reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, personId),
           status: m.senderPersonId === personId ? groupMessageReceipt(m, audience, readAtByPerson).status : undefined,
         }))
@@ -915,6 +939,166 @@ router.get(
 
     const { url, expiresAt } = await createDownloadUrl({ storageKey: attachment.storageKey });
     res.json({ url, expiresAt });
+  }),
+);
+
+// ── WhatsApp actions: delete for everyone, edit, search, mute ──────────
+
+async function loadOwnGroupMessage(req: Request, res: Response) {
+  const { communityId, messageId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) {
+    res.status(404).json({ error: 'Community not found.' });
+    return null;
+  }
+  const personId = req.conversationActorPersonId!;
+  if (!(await hasConversationAccess(personId, communityId))) {
+    res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    return null;
+  }
+  const conversation = await getOrCreateConversation(communityId);
+  const message = await prisma.message.findUnique({ where: { id: messageId } });
+  if (!message || message.conversationId !== conversation.id) {
+    res.status(404).json({ error: 'Message not found.' });
+    return null;
+  }
+  if (message.senderPersonId !== personId) {
+    res.status(403).json({ error: 'You can only change your own messages.' });
+    return null;
+  }
+  return { personId, communityId, conversation, message };
+}
+
+// POST .../conversation/messages/:messageId/unsend — "Delete for everyone".
+// The sender's OWN message only, within 2 days (like WhatsApp). Everyone
+// then sees "This message was deleted". Soft delete like moderation: the
+// row is kept for Central Authority oversight, never shown to members.
+router.post(
+  '/:communityId/conversation/messages/:messageId/unsend',
+  messageHideLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const target = await loadOwnGroupMessage(req, res);
+    if (!target) return;
+    const { message, personId, communityId, conversation } = target;
+    if (!message.deletedAt) {
+      if (Date.now() - message.createdAt.getTime() > UNSEND_WINDOW_MS) {
+        return res.status(400).json({ error: 'This message is too old to delete for everyone.' });
+      }
+      await prisma.message.update({ where: { id: message.id }, data: { deletedAt: new Date(), deletedByPersonId: personId } });
+      await prisma.messageReaction.deleteMany({ where: { messageId: message.id } });
+      await recordAudit({
+        actorId: req.user?.id ?? null,
+        actorEmail: req.user?.email ?? null,
+        action: 'COMMUNITY_MESSAGE_UNSENT',
+        targetType: 'Message',
+        targetId: message.id,
+        metadata: { communityId, conversationId: conversation.id, personId },
+      });
+    }
+    res.json({ id: message.id, deleted: true, deletedBySender: true });
+  }),
+);
+
+// PATCH .../conversation/messages/:messageId { body } — edit your own text
+// within 15 minutes (like WhatsApp). Shows "edited" next to the time.
+router.patch(
+  '/:communityId/conversation/messages/:messageId',
+  messageSendLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const target = await loadOwnGroupMessage(req, res);
+    if (!target) return;
+    const { message, personId, communityId } = target;
+    if (message.deletedAt) return res.status(404).json({ error: 'Message not found.' });
+    if (!(await canPostCommunityMessage(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have permission to post in this community.' });
+    }
+    if (!message.body) return res.status(400).json({ error: 'Only text can be edited.' });
+    if (Date.now() - message.createdAt.getTime() > EDIT_WINDOW_MS) {
+      return res.status(400).json({ error: 'This message is too old to edit.' });
+    }
+    const parsed = editMessageSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid message.' });
+    const updated = await prisma.message.update({
+      where: { id: message.id },
+      data: { body: parsed.data.body, editedAt: new Date() },
+    });
+    res.json({ id: updated.id, body: updated.body, edited: true, editedAt: updated.editedAt });
+  }),
+);
+
+// GET .../conversation/search?q=word — find messages in this group (newest
+// first, up to 30). Never searches removed or hidden messages.
+router.get('/:communityId/conversation/search', chatSearchLimiter, asyncHandler(async (req, res) => {
+  const { communityId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) {
+    return res.status(404).json({ error: 'Community not found.' });
+  }
+  const personId = req.conversationActorPersonId!;
+  if (!(await hasConversationAccess(personId, communityId))) {
+    return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+  }
+  const parsed = searchQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: 'Type at least 2 letters.' });
+  const conversation = await getOrCreateConversation(communityId);
+  const rows = await prisma.message.findMany({
+    where: {
+      conversationId: conversation.id,
+      deletedAt: null,
+      body: { contains: parsed.data.q, mode: 'insensitive' },
+      NOT: { hiddenFor: { some: { personId } } },
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: 30,
+    select: { id: true, body: true, createdAt: true, senderPersonId: true, sender: { select: { name: true } } },
+  });
+  res.json({
+    items: rows.map((m) => ({ id: m.id, senderName: m.sender.name, isOwn: m.senderPersonId === personId, body: m.body, createdAt: m.createdAt })),
+  });
+}));
+
+// PUT .../conversation/mute { for: '8h' | '1w' | 'always' } and DELETE to
+// unmute — only changes the caller's own Chats list.
+router.put(
+  '/:communityId/conversation/mute',
+  messageHideLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { communityId } = req.params;
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+    const personId = req.conversationActorPersonId!;
+    if (!(await hasConversationAccess(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    }
+    const parsed = muteSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Choose 8 hours, 1 week or always.' });
+    const until = muteUntil(parsed.data.for);
+    await prisma.groupChatMute.upsert({
+      where: { personId_communityId: { personId, communityId } },
+      create: { personId, communityId, until },
+      update: { until },
+    });
+    res.json({ muted: true, mutedUntil: until });
+  }),
+);
+
+router.delete(
+  '/:communityId/conversation/mute',
+  messageHideLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { communityId } = req.params;
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+    const personId = req.conversationActorPersonId!;
+    if (!(await hasConversationAccess(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    }
+    await prisma.groupChatMute.deleteMany({ where: { personId, communityId } });
+    res.json({ muted: false, mutedUntil: null });
   }),
 );
 

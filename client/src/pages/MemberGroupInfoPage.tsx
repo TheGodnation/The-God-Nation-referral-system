@@ -9,6 +9,8 @@ interface GroupMeta {
   photoUrl?: string | null;
   aboutEn?: string | null;
   aboutFr?: string | null;
+  muted?: boolean;
+  mutedUntil?: string | null;
 }
 
 interface MemberRow {
@@ -67,6 +69,21 @@ export function MemberGroupInfoPage() {
   const [failed, setFailed] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [muteOpen, setMuteOpen] = useState(false);
+  const [muteError, setMuteError] = useState(false);
+
+  async function setMute(choice: '8h' | '1w' | 'always' | null) {
+    setMuteOpen(false);
+    setMuteError(false);
+    try {
+      const r = choice
+        ? await api.put<{ muted: boolean; mutedUntil: string | null }>(`/api/communities/${communityId}/conversation/mute`, { for: choice })
+        : await api.delete<{ muted: boolean; mutedUntil: string | null }>(`/api/communities/${communityId}/conversation/mute`);
+      setMeta((cur) => ({ ...(cur ?? {}), muted: r.muted, mutedUntil: r.mutedUntil }));
+    } catch {
+      setMuteError(true);
+    }
+  }
 
   useEffect(() => {
     api
@@ -128,6 +145,42 @@ export function MemberGroupInfoPage() {
               )}
             </section>
           )}
+
+          <section className="bg-white px-4 py-3 shadow-sm sm:rounded-xl">
+            <div className="flex items-center justify-between gap-3">
+              <span>
+                <span className="block font-medium text-slate-900">{meta?.muted ? '🔕' : '🔔'} {t('chatActions.mute_title')}</span>
+                <span className="block text-xs text-slate-500">
+                  {meta?.muted
+                    ? meta.mutedUntil
+                      ? t('chatActions.muted_until', {
+                          when: new Date(meta.mutedUntil).toLocaleString(isFr ? 'fr-FR' : 'en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }),
+                        })
+                      : t('chatActions.muted_always')
+                    : t('chatActions.not_muted')}
+                </span>
+              </span>
+              {meta?.muted ? (
+                <button type="button" onClick={() => void setMute(null)} className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-700">
+                  {t('chatActions.unmute')}
+                </button>
+              ) : (
+                <button type="button" onClick={() => setMuteOpen((v) => !v)} className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-700">
+                  {t('chatActions.mute')}
+                </button>
+              )}
+            </div>
+            {muteOpen && !meta?.muted && (
+              <div role="group" aria-label={t('chatActions.mute_title') ?? ''} className="mt-2 flex flex-wrap gap-2">
+                {(['8h', '1w', 'always'] as const).map((c) => (
+                  <button key={c} type="button" onClick={() => void setMute(c)} className="rounded-full bg-slate-100 px-3 py-1.5 text-sm">
+                    {t(`chatActions.mute_${c}`)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {muteError && <p className="mt-1 text-xs text-red-700">{t('groupChat.action_failed')}</p>}
+          </section>
 
           {members === null && <p className="py-6 text-center text-sm text-slate-400">{t('groupChat.loading')}</p>}
 

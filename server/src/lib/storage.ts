@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, CopyObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Phase 3M.8C — the ONLY file in this codebase that knows Cloudflare R2 is
@@ -131,4 +131,18 @@ export async function getObjectStream(params: { storageKey: string }): Promise<{
     if (err?.name === 'NoSuchKey' || err?.$metadata?.httpStatusCode === 404) return null;
     throw err;
   }
+}
+
+// Forwarding a photo / voice note: storage copies the file to the new
+// chat's own key, server side (nothing passes through the phone or the app
+// server), so each message keeps its own file and permissions.
+export async function copyObject(params: { sourceKey: string; destKey: string }): Promise<void> {
+  const { client, bucketName } = requireClient();
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: bucketName,
+      Key: params.destKey,
+      CopySource: `${bucketName}/${params.sourceKey.split('/').map(encodeURIComponent).join('/')}`,
+    }),
+  );
 }

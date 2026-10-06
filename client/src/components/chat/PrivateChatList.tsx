@@ -13,7 +13,7 @@ interface ConversationRow {
   otherPartyName?: string | null;
   otherPartyPhotoUrl?: string | null;
   unreadCount: number;
-  lastMessage?: { body: string; attachmentMimeType: string | null; isOwn: boolean; createdAt: string; status?: 'sent' | 'delivered' | 'read' } | null;
+  lastMessage?: { body: string | null; deleted?: boolean; attachmentMimeType: string | null; isOwn: boolean; createdAt: string; status?: 'sent' | 'delivered' | 'read' } | null;
 }
 
 /** "10:45" today, "Yesterday", or a short date — like WhatsApp's chat list. */
@@ -70,7 +70,7 @@ export function PrivateChatList() {
             : kind === 'document'
               ? `📄 ${t('groupChat.document_label')}`
               : '';
-    const text = m.body || media;
+    const text = m.deleted ? `🚫 ${m.isOwn ? t('chatActions.you_deleted') : t('chatActions.deleted')}` : m.body || media;
     return m.isOwn ? `${t('groupChat.you')}: ${text}` : text;
   }
 

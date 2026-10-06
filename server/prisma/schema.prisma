@@ -607,6 +607,7 @@ model Person {
   hiddenMessages              MessageHiddenForPerson[]
   messageReactions            MessageReaction[]
   updateCommentReactions      UpdateCommentReaction[]
+  groupChatMutes              GroupChatMute[]
   uploadedAttachments         MessageAttachment[]          @relation("MessageAttachmentUploadedBy")
   followUpMessages            FollowUpMessage[]
   announcementReads           AnnouncementRead[]
@@ -681,6 +682,7 @@ model Community {
   devotionals     MonthlyDevotional[]
   roleAssignments RoleAssignment[]
   conversation    Conversation?
+  chatMutes       GroupChatMute[]
   announcementTargets AnnouncementTarget[]
   headquartersSettings Settings[] @relation("SettingsHeadquarters")
   organizationalLeadershipRecommendations OrganizationalLeadershipRecommendation[]
@@ -1162,6 +1164,10 @@ model Message {
   deletedByPersonId String?
   // WhatsApp-style "reply": the message this one answers (same conversation).
   replyToMessageId  String?
+  // Set when the sender corrected the text (within 15 minutes).
+  editedAt          DateTime?
+  // Shown as "↪ Forwarded" (copied from another chat).
+  forwarded         Boolean   @default(false)
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       Person       @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
@@ -1202,6 +1208,21 @@ model MessageReaction {
 
   @@unique([messageId, personId])
   @@index([messageId])
+}
+
+// "Mute" a busy group for one person: no new-message alerts and a grey
+// count in the chat list. `until` null means always.
+model GroupChatMute {
+  id          String    @id @default(uuid())
+  personId    String
+  communityId String
+  until       DateTime?
+  createdAt   DateTime  @default(now())
+
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, communityId])
 }
 
 model MessageHiddenForPerson {
@@ -1710,6 +1731,13 @@ model PrivateMessage {
   createdAt      DateTime @default(now())
   // WhatsApp-style reply: the message this one answers (same conversation).
   replyToMessageId String?
+  // "Delete for everyone" by the sender (within an hour) — kept, but shown
+  // to both sides as "This message was removed".
+  deletedAt        DateTime?
+  // Set when the sender corrected the text (within 15 minutes).
+  editedAt         DateTime?
+  // Shown as "↪ Forwarded" (copied from another chat).
+  forwarded        Boolean   @default(false)
 
   conversation PrivateConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderPerson Person?             @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
