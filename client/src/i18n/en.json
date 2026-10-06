@@ -1725,7 +1725,16 @@
     "voice": "Voice message",
     "document_label": "Document",
     "tip": "Swipe a message to the right to reply. Press and hold a message to react 👍 ❤️ 🙏.",
-    "tip_close": "Got it"
+    "tip_close": "Got it",
+    "tick_sent": "Sent",
+    "tick_delivered": "Received",
+    "tick_read": "Seen",
+    "typing_one": "{{name}} is typing…",
+    "typing_many": "{{count}} people are typing…",
+    "members_online": "{{members}} members · {{online}} online",
+    "message_info": "Message info",
+    "seen_by": "Seen by {{count}} of {{total}}",
+    "delivered_to": "Received, not yet seen ({{count}})"
   },
   "wall": {
     "cover_alt": "{{name}}'s cover picture",
@@ -1782,6 +1791,20 @@
     "not_found": "This chat was not found.",
     "empty": "Say hello to {{name}} 👋",
     "blocked": "You cannot message this person.",
-    "no_messages_yet": "No messages yet"
+    "no_messages_yet": "No messages yet",
+    "typing": "typing…",
+    "online": "online",
+    "last_seen_today": "last seen today at {{time}}",
+    "last_seen_yesterday": "last seen yesterday at {{time}}",
+    "last_seen_date": "last seen {{date}} at {{time}}"
+  },
+  "presence": {
+    "title": "Online now",
+    "online_now_one": "{{count}} person online now",
+    "online_now_other": "{{count}} people online now",
+    "online_now": "{{count}} people online now",
+    "group_line": "{{online}} online of {{members}}",
+    "show_all": "Show all {{count}} groups",
+    "show_less": "Show less"
   }
 }

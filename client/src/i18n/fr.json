@@ -1725,7 +1725,16 @@
     "voice": "Message vocal",
     "document_label": "Document",
     "tip": "Glissez un message vers la droite pour répondre. Maintenez un message appuyé pour réagir 👍 ❤️ 🙏.",
-    "tip_close": "Compris"
+    "tip_close": "Compris",
+    "tick_sent": "Envoyé",
+    "tick_delivered": "Reçu",
+    "tick_read": "Vu",
+    "typing_one": "{{name}} écrit…",
+    "typing_many": "{{count}} personnes écrivent…",
+    "members_online": "{{members}} membres · {{online}} en ligne",
+    "message_info": "Infos du message",
+    "seen_by": "Vu par {{count}} sur {{total}}",
+    "delivered_to": "Reçu, pas encore vu ({{count}})"
   },
   "wall": {
     "cover_alt": "Photo de couverture de {{name}}",
@@ -1782,6 +1791,20 @@
     "not_found": "Cette discussion est introuvable.",
     "empty": "Dites bonjour à {{name}} 👋",
     "blocked": "Vous ne pouvez pas écrire à cette personne.",
-    "no_messages_yet": "Pas encore de messages"
+    "no_messages_yet": "Pas encore de messages",
+    "typing": "écrit…",
+    "online": "en ligne",
+    "last_seen_today": "vu aujourd'hui à {{time}}",
+    "last_seen_yesterday": "vu hier à {{time}}",
+    "last_seen_date": "vu le {{date}} à {{time}}"
+  },
+  "presence": {
+    "title": "En ligne maintenant",
+    "online_now_one": "{{count}} personne en ligne",
+    "online_now_other": "{{count}} personnes en ligne",
+    "online_now": "{{count}} personnes en ligne",
+    "group_line": "{{online}} en ligne sur {{members}}",
+    "show_all": "Voir les {{count}} groupes",
+    "show_less": "Voir moins"
   }
 }

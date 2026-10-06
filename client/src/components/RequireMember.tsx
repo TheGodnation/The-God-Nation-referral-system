@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useMemberAuth } from '../lib/MemberAuthContext';
+import { PresencePing } from './member/PresencePing';
 
 // Phase 3C equivalent of ProtectedRoute/RequireAuth, but for the entirely
 // separate member session — never checks or interacts with the Admin/
@@ -21,5 +22,10 @@ export function RequireMember({ children }: { children: ReactNode }) {
     return <Navigate to="/member/complete-profile" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <PresencePing />
+    </>
+  );
 }

@@ -582,6 +582,9 @@ model Person {
   coverStorageKey     String?
   coverUpdatedAt      DateTime?
   bio                 String?
+  // When the person's app last talked to the server — for "online" and
+  // "last seen" (see lib/presence.ts).
+  lastSeenAt          DateTime?
   friendRequestPolicy FriendRequestPolicy @default(EVERYONE)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

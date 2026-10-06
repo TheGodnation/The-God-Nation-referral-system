@@ -13,6 +13,22 @@ interface MessagesResponse {
   unreadCount: number;
   isAdministrator: boolean;
   canPost: boolean;
+  memberCount?: number;
+  onlineCount?: number;
+  typing?: string[];
+}
+
+interface InfoPerson {
+  personId: string;
+  name: string;
+  photoUrl: string | null;
+}
+
+interface MessageInfo {
+  status: 'sent' | 'delivered' | 'read';
+  total: number;
+  readBy: InfoPerson[];
+  deliveredTo: InfoPerson[];
 }
 
 const POLL_MS = 8000;
@@ -88,6 +104,9 @@ export function MemberGroupChatPage() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [counts, setCounts] = useState<{ members: number; online: number } | null>(null);
+  const [typingNames, setTypingNames] = useState<string[]>([]);
+  const [info, setInfo] = useState<{ message: ChatMessage; data: MessageInfo | null } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -116,6 +135,8 @@ export function MemberGroupChatPage() {
           setMessages((prev) => (first ? res.items : mergeLatest(prev, res.items)));
           if (first) setHasMore(res.hasMore);
           setIsAdministrator(res.isAdministrator);
+          if (typeof res.memberCount === 'number') setCounts({ members: res.memberCount, online: res.onlineCount ?? 0 });
+          setTypingNames(res.typing ?? []);
           setCanPost(res.canPost !== false);
           setLoadError(false);
           markRead(res.items, res.unreadCount);
@@ -248,6 +269,18 @@ export function MemberGroupChatPage() {
     }
   }
 
+  async function openInfo(m: ChatMessage) {
+    setMenuFor(null);
+    setInfo({ message: m, data: null });
+    try {
+      const data = await api.get<MessageInfo>(`/api/communities/${communityId}/conversation/messages/${m.id}/info`);
+      setInfo((cur) => (cur && cur.message.id === m.id ? { message: m, data } : cur));
+    } catch {
+      setInfo(null);
+      showToast(t('groupChat.action_failed'));
+    }
+  }
+
   async function hideForMe(m: ChatMessage) {
     setMenuFor(null);
     if (!window.confirm(t('groupChat.hide_confirm') ?? '')) return;
@@ -300,7 +333,15 @@ export function MemberGroupChatPage() {
         <Avatar name={groupName || '?'} size={40} />
         <div className="min-w-0">
           <h1 className="truncate font-semibold">{groupName || t('groupChat.group')}</h1>
-          <p className="text-xs text-white/70">{t('groupChat.subtitle')}</p>
+          <p className={`truncate text-xs ${typingNames.length ? 'font-semibold text-emerald-300' : 'text-white/70'}`}>
+            {typingNames.length === 1
+              ? t('groupChat.typing_one', { name: typingNames[0] })
+              : typingNames.length > 1
+                ? t('groupChat.typing_many', { count: typingNames.length })
+                : counts
+                  ? t('groupChat.members_online', { members: counts.members, online: counts.online })
+                  : t('groupChat.subtitle')}
+          </p>
         </div>
       </header>
 
@@ -367,7 +408,13 @@ export function MemberGroupChatPage() {
 
       {!notAllowed &&
         (canPost ? (
-          <ChatComposer uploadPath={`/api/communities/${communityId}/attachments/authorize`} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onSend={send} />
+          <ChatComposer
+            uploadPath={`/api/communities/${communityId}/attachments/authorize`}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(null)}
+            onSend={send}
+            onTyping={(typing) => void api.post(`/api/communities/${communityId}/conversation/typing`, { typing }).catch(() => {})}
+          />
         ) : (
           <p className="bg-[#f0f2f5] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 text-center text-sm text-slate-600">{t('groupChat.only_leaders')}</p>
         ))}
@@ -416,6 +463,11 @@ export function MemberGroupChatPage() {
                 </button>
               )}
               {menuFor.isOwn && (
+                <button type="button" className="block w-full py-3 text-left" onClick={() => void openInfo(menuFor)}>
+                  ℹ️ {t('groupChat.message_info')}
+                </button>
+              )}
+              {menuFor.isOwn && (
                 <button type="button" className="block w-full py-3 text-left" onClick={() => void hideForMe(menuFor)}>
                   🗑️ {t('groupChat.delete_for_me')}
                 </button>
@@ -426,6 +478,52 @@ export function MemberGroupChatPage() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {info && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/30" onClick={() => setInfo(null)}>
+          <div
+            role="dialog"
+            aria-label={t('groupChat.message_info') ?? ''}
+            className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-1 font-semibold text-slate-900">ℹ️ {t('groupChat.message_info')}</h2>
+            {info.message.body && <p className="mb-3 line-clamp-3 rounded-lg bg-[#dcf8c6] px-3 py-2 text-sm">{info.message.body}</p>}
+            {!info.data ? (
+              <p className="text-sm text-slate-500">{t('groupChat.loading')}</p>
+            ) : (
+              <>
+                <p className="mb-2 text-sm font-semibold text-sky-600">
+                  ✓✓ {t('groupChat.seen_by', { count: info.data.readBy.length, total: info.data.total })}
+                </p>
+                <ul className="mb-4 space-y-2">
+                  {info.data.readBy.map((p) => (
+                    <li key={p.personId} className="flex items-center gap-2 text-sm">
+                      <Avatar name={p.name} photoUrl={p.photoUrl} size={28} />
+                      {p.name}
+                    </li>
+                  ))}
+                </ul>
+                {info.data.deliveredTo.length > 0 && (
+                  <>
+                    <p className="mb-2 text-sm font-semibold text-slate-500">
+                      ✓✓ {t('groupChat.delivered_to', { count: info.data.deliveredTo.length })}
+                    </p>
+                    <ul className="space-y-2">
+                      {info.data.deliveredTo.map((p) => (
+                        <li key={p.personId} className="flex items-center gap-2 text-sm text-slate-600">
+                          <Avatar name={p.name} photoUrl={p.photoUrl} size={28} />
+                          {p.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
