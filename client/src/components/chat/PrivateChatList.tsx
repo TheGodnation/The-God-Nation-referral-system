@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { Avatar } from '../Avatar';
 import { mediaKind } from './types';
+import { Ticks } from './MessageBubble';
 
 interface ConversationRow {
   id: string;
@@ -12,7 +13,7 @@ interface ConversationRow {
   otherPartyName?: string | null;
   otherPartyPhotoUrl?: string | null;
   unreadCount: number;
-  lastMessage?: { body: string; attachmentMimeType: string | null; isOwn: boolean; createdAt: string } | null;
+  lastMessage?: { body: string; attachmentMimeType: string | null; isOwn: boolean; createdAt: string; status?: 'sent' | 'delivered' | 'read' } | null;
 }
 
 /** "10:45" today, "Yesterday", or a short date — like WhatsApp's chat list. */
@@ -97,7 +98,14 @@ export function PrivateChatList() {
                     )}
                   </span>
                   <span className="flex items-center justify-between gap-2">
-                    <span className={`truncate text-sm ${c.unreadCount > 0 ? 'font-medium text-slate-800' : 'text-slate-500'}`}>{preview(c)}</span>
+                    <span className={`truncate text-sm ${c.unreadCount > 0 ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
+                      {c.lastMessage?.isOwn && c.lastMessage.status && (
+                        <>
+                          <Ticks status={c.lastMessage.status} />{' '}
+                        </>
+                      )}
+                      {preview(c)}
+                    </span>
                     {c.unreadCount > 0 && (
                       <span
                         className="shrink-0 rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white"

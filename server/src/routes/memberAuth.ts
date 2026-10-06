@@ -438,6 +438,13 @@ router.post('/logout', requireCsrf, requireMember, asyncHandler(async (req, res)
   res.json({ ok: true });
 }));
 
+// GET /api/member/auth/ping — the member app calls this every 30 seconds
+// while it is open, so others can see "online" (loadMemberSession records
+// the visit). Answers whether the session is still signed in.
+router.get('/ping', (req, res) => {
+  res.json({ ok: Boolean(req.member) });
+});
+
 router.get('/me', (req, res) => {
   if (!req.member) return res.json({ member: null });
   res.json({

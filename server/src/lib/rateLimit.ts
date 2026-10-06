@@ -309,6 +309,16 @@ export const centralAuthorityOversightLimiter = rateLimit({
 // communityConversationReadLimiter, since this is a lightweight, frequent,
 // idempotent participant action, not a moderation action.
 // Reacting to group chat messages (👍 ❤️ …) — cheap and frequent.
+// "typing…" signals — the app sends at most one every few seconds while
+// someone is typing.
+export const typingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 900,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
 export const messageReactionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,

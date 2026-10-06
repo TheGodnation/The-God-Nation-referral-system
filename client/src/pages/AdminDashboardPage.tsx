@@ -1,3 +1,4 @@
+import { AdminOnlineNow } from '../components/admin/AdminOnlineNow';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
@@ -1693,6 +1694,7 @@ export function AdminDashboardPage() {
           </label>
         </div>
 
+        {tab === 'overview' && <AdminOnlineNow />}
         {tab === 'overview' && <OverviewTab includeTestData={includeTestData} />}
         {tab === 'leaders' && <LeadersTab includeTestData={includeTestData} />}
         {tab === 'registrations' && <RegistrationsTab includeTestData={includeTestData} />}

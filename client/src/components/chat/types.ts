@@ -32,6 +32,8 @@ export interface ChatMessage {
   reactions?: ChatReaction[];
   /** Shown while a message is still being sent. */
   pending?: boolean;
+  /** Ticks on your own messages: ✓ sent, ✓✓ received, blue ✓✓ seen. */
+  status?: 'sent' | 'delivered' | 'read';
 }
 
 export const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'] as const;

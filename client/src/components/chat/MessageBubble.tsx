@@ -108,6 +108,21 @@ function DocumentAttachment({ mediaBase, messageId, a }: { mediaBase: string; me
   );
 }
 
+/** WhatsApp ticks: ✓ sent, ✓✓ grey received, ✓✓ blue seen. */
+export function Ticks({ status }: { status: 'sent' | 'delivered' | 'read' }) {
+  const { t } = useTranslation();
+  return (
+    <span
+      role="img"
+      aria-label={t(`groupChat.tick_${status}`) ?? ''}
+      title={t(`groupChat.tick_${status}`) ?? ''}
+      className={`ml-0.5 font-bold tracking-[-0.25em] ${status === 'read' ? 'text-sky-500' : 'text-slate-400'}`}
+    >
+      {status === 'sent' ? '✓' : '✓✓'}
+    </span>
+  );
+}
+
 interface BubbleProps {
   m: ChatMessage;
   mediaBase: string;
@@ -239,6 +254,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
 
           <p className="mt-0.5 flex items-center justify-end gap-1 text-[11px] text-slate-500">
             {m.pending ? `🕓 ${t('groupChat.sending')}` : timeOf(m.createdAt)}
+            {m.isOwn && !m.pending && !m.deleted && m.status && <Ticks status={m.status} />}
           </p>
 
           {canInteract && (

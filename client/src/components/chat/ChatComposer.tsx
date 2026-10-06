@@ -56,15 +56,33 @@ export function ChatComposer({
   replyTo,
   onCancelReply,
   onSend,
+  onTyping,
 }: {
   /** Where to ask for an upload link (group or private chat). */
   uploadPath: string;
   replyTo: ChatMessage | null;
   onCancelReply: () => void;
   onSend: (msg: OutgoingMessage) => Promise<boolean>;
+  /** Tells the others "typing…" (sent at most every few seconds). */
+  onTyping?: (typing: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [text, setText] = useState('');
+  const lastTypingSent = useRef(0);
+
+  function signalTyping(value: string) {
+    if (!onTyping) return;
+    const now = Date.now();
+    if (!value.trim()) {
+      if (lastTypingSent.current) onTyping(false);
+      lastTypingSent.current = 0;
+      return;
+    }
+    if (now - lastTypingSent.current > 3000) {
+      lastTypingSent.current = now;
+      onTyping(true);
+    }
+  }
   const [tray, setTray] = useState<TrayItem[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
@@ -194,6 +212,7 @@ export function ChatComposer({
     });
     setBusy(false);
     if (ok) {
+      signalTyping('');
       setText('');
       tray.forEach((x) => revoke(x.previewUrl));
       setTray([]);
@@ -445,6 +464,7 @@ export function ChatComposer({
               onChange={(e) => {
                 setText(e.target.value);
                 resizeText(e.target);
+                signalTyping(e.target.value);
               }}
               onKeyDown={onKeyDown}
               className="max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-[16px] leading-6 outline-none focus:ring-0"

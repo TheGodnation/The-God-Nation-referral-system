@@ -15,6 +15,7 @@ interface PrivateRow {
   attachments?: ChatAttachment[];
   replyTo?: { id: string; isOwn: boolean; body: string; attachmentMimeType: string | null } | null;
   reactions?: ChatReaction[];
+  status?: 'sent' | 'delivered' | 'read';
 }
 
 interface PrivateResponse {
@@ -25,6 +26,8 @@ interface PrivateResponse {
   otherPartyName?: string | null;
   otherPartyPersonId?: string;
   otherPartyPhotoUrl?: string | null;
+  otherPartyPresence?: { online: boolean; lastSeenAt: string | null } | null;
+  typing?: boolean;
 }
 
 const POLL_MS = 5000;
@@ -63,6 +66,8 @@ export function MemberPrivateChatPage() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [presence, setPresence] = useState<PrivateResponse['otherPartyPresence']>(null);
+  const [otherTyping, setOtherTyping] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -84,6 +89,7 @@ export function MemberPrivateChatPage() {
       deleted: false,
       attachments: r.attachments ?? [],
       reactions: r.reactions ?? [],
+      status: r.status,
       replyTo: r.replyTo
         ? {
             id: r.replyTo.id,
@@ -115,6 +121,8 @@ export function MemberPrivateChatPage() {
             otherPartyPersonId: res.otherPartyPersonId,
             otherPartyPhotoUrl: res.otherPartyPhotoUrl,
           });
+          setPresence(res.otherPartyPresence ?? null);
+          setOtherTyping(Boolean(res.typing));
           if (res.otherPartyType === 'CENTRAL_AUTHORITY') otherNameRef.current = t('privateChat.headquarters');
           else otherNameRef.current = res.otherPartyName || t('privateChat.someone');
           const items = res.items.map(toChat);
@@ -259,12 +267,29 @@ export function MemberPrivateChatPage() {
     return new Date(iso).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
-  const subtitle =
+  function lastSeenText(iso: string) {
+    const d = new Date(iso);
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (dayKey(iso) === dayKey(new Date().toISOString())) return t('privateChat.last_seen_today', { time });
+    if (dayKey(iso) === dayKey(yesterday.toISOString())) return t('privateChat.last_seen_yesterday', { time });
+    return t('privateChat.last_seen_date', { date: d.toLocaleDateString([], { day: 'numeric', month: 'short' }), time });
+  }
+
+  const roleLabel =
     other?.otherPartyType === 'CENTRAL_AUTHORITY'
       ? t('privateChat.official')
       : other?.otherPartyType === 'LEADER'
         ? t('privateChat.leader')
         : t('privateChat.member');
+  const subtitle = otherTyping
+    ? t('privateChat.typing')
+    : presence?.online
+      ? t('privateChat.online')
+      : presence?.lastSeenAt
+        ? lastSeenText(presence.lastSeenAt)
+        : roleLabel;
 
   const headerInner = (
     <>
@@ -275,7 +300,9 @@ export function MemberPrivateChatPage() {
       )}
       <span className="min-w-0">
         <h1 className="truncate font-semibold">{other ? otherName : t('groupChat.loading')}</h1>
-        {other && <p className="text-xs text-white/70">{subtitle}</p>}
+        {other && (
+          <p className={`truncate text-xs ${otherTyping || presence?.online ? 'font-semibold text-emerald-300' : 'text-white/70'}`}>{subtitle}</p>
+        )}
       </span>
     </>
   );
@@ -356,7 +383,13 @@ export function MemberPrivateChatPage() {
       )}
 
       {!notFound && (
-        <ChatComposer uploadPath={`${base}/attachments/authorize`} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onSend={send} />
+        <ChatComposer
+          uploadPath={`${base}/attachments/authorize`}
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
+          onSend={send}
+          onTyping={(typing) => void api.post(`${base}/typing`, { typing }).catch(() => {})}
+        />
       )}
 
       {menuFor && (

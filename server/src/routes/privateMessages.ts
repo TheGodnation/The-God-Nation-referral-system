@@ -9,6 +9,7 @@ import {
   attachmentUploadAuthorizeLimiter,
   attachmentDownloadLimiter,
   messageReactionLimiter,
+  typingLimiter,
 } from '../lib/rateLimit';
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
 import {
@@ -21,6 +22,7 @@ import {
   MAX_ORIGINAL_FILENAME_LENGTH,
 } from '../lib/attachmentPolicy';
 import { profilePhotoPath } from '../lib/profilePhoto';
+import { isOnline, setTyping, clearTyping, whoIsTyping, type TickStatus } from '../lib/presence';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
 import {
@@ -90,6 +92,46 @@ function isOwnMessage(actor: PrivateMessagingActor, m: { senderPersonId: string 
   return actor.type === 'PERSON' ? m.senderPersonId === actor.personId : m.senderUserId === actor.userId;
 }
 
+/** The other side of a conversation: when they last read it and (for a
+ * person) when their app was last open — for ✓ / ✓✓ / blue ✓✓. */
+async function otherSide(
+  actor: PrivateMessagingActor,
+  conversation: { id: string; memberPersonId: string; initiatorUserId: string | null; initiatorPersonId: string | null },
+) {
+  const iAmMember = actor.type === 'PERSON' && actor.personId === conversation.memberPersonId;
+  const otherPersonId = iAmMember ? conversation.initiatorPersonId : conversation.memberPersonId;
+  const otherUserId = iAmMember ? conversation.initiatorUserId : null;
+  const [read, person] = await Promise.all([
+    otherPersonId
+      ? prisma.privateConversationRead.findUnique({ where: { personId_conversationId: { personId: otherPersonId, conversationId: conversation.id } } })
+      : otherUserId
+        ? prisma.privateConversationRead.findUnique({ where: { userId_conversationId: { userId: otherUserId, conversationId: conversation.id } } })
+        : null,
+    otherPersonId ? prisma.person.findUnique({ where: { id: otherPersonId }, select: { lastSeenAt: true } }) : null,
+  ]);
+  const readAt = read?.lastReadAt ?? null;
+  const lastSeenAt = person?.lastSeenAt ?? null;
+  return {
+    otherPersonId,
+    readAt,
+    lastSeenAt,
+    statusOf(createdAt: Date): TickStatus {
+      const t = createdAt.getTime();
+      if (readAt && readAt.getTime() >= t) return 'read';
+      if (lastSeenAt && lastSeenAt.getTime() >= t) return 'delivered';
+      return 'sent';
+    },
+  };
+}
+
+function typingKey(conversationId: string) {
+  return `private:${conversationId}`;
+}
+
+function actorKey(actor: PrivateMessagingActor) {
+  return actor.type === 'PERSON' ? actor.personId : `user:${actor.userId}`;
+}
+
 async function resolveOtherParty(
   role: 'MEMBER' | 'INITIATOR',
   conversation: { memberPersonId: string; initiatorUserId: string | null; initiatorPersonId: string | null },
@@ -156,12 +198,15 @@ router.get('/conversations', asyncHandler(async (req, res) => {
         }),
       ]);
       // The newest message, for the WhatsApp-style chat list preview.
+      const own = last ? isOwnMessage(actor, last) : false;
+      const receipt = last && own ? await otherSide(actor, c) : null;
       const lastMessage = last
         ? {
             body: last.body,
             attachmentMimeType: last.attachments[0]?.mimeType ?? null,
-            isOwn: isOwnMessage(actor, last),
+            isOwn: own,
             createdAt: last.createdAt,
+            status: receipt ? receipt.statusOf(last.createdAt) : undefined,
           }
         : null;
       return { id: c.id, createdAt: c.createdAt, ...otherParty, unreadCount, lastMessage };
@@ -242,9 +287,10 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
 
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit).reverse();
-  const [otherParty, unreadCount] = await Promise.all([
+  const [otherParty, unreadCount, side] = await Promise.all([
     resolveOtherParty(role, conversation),
     getPrivateConversationUnreadCount(actor, conversation),
+    otherSide(actor, conversation),
   ]);
 
   res.json({
@@ -268,10 +314,14 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
           }
         : null,
       reactions: summarizeReactions(m.reactions, actor),
+      status: isOwnMessage(actor, m) ? side.statusOf(m.createdAt) : undefined,
     })),
     hasMore,
     unreadCount,
     ...otherParty,
+    // "online" / "last seen today at 10:45" under the name (people only).
+    otherPartyPresence: side.otherPersonId ? { online: isOnline(side.lastSeenAt), lastSeenAt: side.lastSeenAt } : null,
+    typing: whoIsTyping(typingKey(conversation.id), actorKey(actor)).length > 0,
   });
 }));
 
@@ -525,6 +575,23 @@ router.delete(
     const who = actor.type === 'PERSON' ? { personId: actor.personId } : { userId: actor.userId };
     await prisma.privateMessageReaction.deleteMany({ where: { messageId: message.id, ...who } });
     res.json({ reactions: await reactionsFor(message.id, actor) });
+  }),
+);
+
+// POST .../conversations/:id/typing { typing: true|false } — shows
+// "typing…" to the other person for a few seconds.
+router.post(
+  '/conversations/:id/typing',
+  typingLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const loaded = await loadAuthorizedConversation(req, res);
+    if (!loaded) return;
+    const actor = req.privateMessagingActor!;
+    const key = typingKey(loaded.conversation.id);
+    if (req.body?.typing === false) clearTyping(key, actorKey(actor));
+    else setTyping(key, actorKey(actor), '');
+    res.json({ ok: true });
   }),
 );
 

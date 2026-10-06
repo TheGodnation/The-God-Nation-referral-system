@@ -1,3 +1,4 @@
+import { touchLastSeen } from './presence';
 import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from './prisma';
@@ -109,6 +110,7 @@ export async function loadMemberSession(req: Request, res: Response, next: NextF
       bio: account.person.bio,
     };
     req.memberSessionToken = token;
+    touchLastSeen(account.personId, account.person.lastSeenAt);
 
     // Rolling sign-in: at most once a day, push the expiry 90 days ahead and
     // refresh the cookie, so someone who uses the app stays signed in.

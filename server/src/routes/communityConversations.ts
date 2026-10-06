@@ -8,6 +8,7 @@ import {
   communityModerationLimiter,
   messageHideLimiter,
   messageReactionLimiter,
+  typingLimiter,
   attachmentUploadAuthorizeLimiter,
   attachmentDownloadLimiter,
 } from '../lib/rateLimit';
@@ -33,6 +34,7 @@ import {
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
 import { profilePhotoPath } from '../lib/profilePhoto';
+import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping } from '../lib/presence';
 
 // WhatsApp-style quick reactions. A short fixed list keeps it simple and
 // stops anyone storing arbitrary text as a "reaction".
@@ -224,6 +226,15 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   // re-checks canPostCommunityMessage on every send regardless of this).
   const canPost = await canPostCommunityMessage(personId, communityId);
 
+  // Ticks on the viewer's own messages, how many are online, and who is
+  // typing — the WhatsApp details.
+  const [audience, reads] = await Promise.all([
+    communityAudience(communityId),
+    prisma.communityConversationRead.findMany({ where: { conversationId: conversation.id }, select: { personId: true, lastReadAt: true } }),
+  ]);
+  const readAtByPerson = new Map(reads.map((r) => [r.personId, r.lastReadAt]));
+  const now = Date.now();
+
   res.json({
     // Phase 3M.8A: a moderated message's original body is never sent to
     // ordinary participants — only `deleted: true`. The row itself (and its
@@ -251,7 +262,11 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
         : m.attachments.map((a) => ({ id: a.id, originalFilename: a.originalFilename, mimeType: a.mimeType, byteSize: a.byteSize })),
       replyTo: m.deletedAt ? null : replyPreview(m.replyTo),
       reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, personId),
+      status: m.senderPersonId === personId ? groupMessageReceipt(m, audience, readAtByPerson).status : undefined,
     })),
+    memberCount: audience.length,
+    onlineCount: audience.filter((a) => a.personId === personId || isOnline(a.lastSeenAt, now)).length,
+    typing: whoIsTyping(`group:${conversation.id}`, personId),
     hasMore,
     unreadCount,
     isAdministrator,
@@ -634,6 +649,67 @@ router.delete(
     if (!target) return;
     await prisma.messageReaction.deleteMany({ where: { messageId: target.messageId, personId: target.personId } });
     res.json({ reactions: await reactionsFor(target.messageId, target.personId) });
+  }),
+);
+
+// GET .../conversation/messages/:messageId/info — "Message info" for the
+// sender's OWN message: who has seen it and who has received it.
+router.get('/:communityId/conversation/messages/:messageId/info', asyncHandler(async (req, res) => {
+  const { communityId, messageId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) {
+    return res.status(404).json({ error: 'Community not found.' });
+  }
+  const personId = req.conversationActorPersonId!;
+  if (!(await hasConversationAccess(personId, communityId))) {
+    return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+  }
+  const conversation = await getOrCreateConversation(communityId);
+  const message = await prisma.message.findUnique({ where: { id: messageId } });
+  if (!message || message.conversationId !== conversation.id) {
+    return res.status(404).json({ error: 'Message not found.' });
+  }
+  if (message.senderPersonId !== personId) {
+    return res.status(403).json({ error: 'You can only see info for your own messages.' });
+  }
+  const [audience, reads] = await Promise.all([
+    communityAudience(communityId),
+    prisma.communityConversationRead.findMany({ where: { conversationId: conversation.id }, select: { personId: true, lastReadAt: true } }),
+  ]);
+  const receipt = groupMessageReceipt(message, audience, new Map(reads.map((r) => [r.personId, r.lastReadAt])));
+  const readIds = new Set(receipt.readBy.map((p) => p.personId));
+  const person = (p: { personId: string; name: string; photoUrl: string | null }) => ({ personId: p.personId, name: p.name, photoUrl: p.photoUrl });
+  res.json({
+    status: receipt.status,
+    total: receipt.total,
+    readBy: receipt.readBy.map(person),
+    deliveredTo: receipt.deliveredTo.filter((p) => !readIds.has(p.personId)).map(person),
+  });
+}));
+
+// POST .../conversation/typing { typing: true|false } — shows "Ada is
+// typing…" to the others for a few seconds.
+router.post(
+  '/:communityId/conversation/typing',
+  typingLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { communityId } = req.params;
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+    const personId = req.conversationActorPersonId!;
+    if (!(await canPostCommunityMessage(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have permission to post in this community.' });
+    }
+    const conversation = await getOrCreateConversation(communityId);
+    const key = `group:${conversation.id}`;
+    if (req.body?.typing === false) {
+      clearTyping(key, personId);
+    } else {
+      const me = await prisma.person.findUnique({ where: { id: personId }, select: { name: true } });
+      setTyping(key, personId, me?.name ?? '');
+    }
+    res.json({ ok: true });
   }),
 );
 

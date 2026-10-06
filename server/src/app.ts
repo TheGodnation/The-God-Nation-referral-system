@@ -39,6 +39,7 @@ import leaderLeadershipCollaborationRoutes from './routes/leaderLeadershipCollab
 import leaderOrganizationalLeadershipRecommendationsRoutes from './routes/leaderOrganizationalLeadershipRecommendations';
 import adminOrganizationalLeadershipRecommendationsRoutes from './routes/adminOrganizationalLeadershipRecommendations';
 import adminLocationsRoutes from './routes/adminLocations';
+import adminPresenceRoutes from './routes/adminPresence';
 import headquartersPostsRoutes from './routes/headquartersPosts';
 import adminHeadquartersPostsRoutes from './routes/adminHeadquartersPosts';
 import privateMessagesRoutes from './routes/privateMessages';
@@ -100,6 +101,7 @@ export function createApp() {
   // '/community-memberships' sub-paths, so it mounts at the '/api/admin'
   // root rather than a specific sub-path — matching adminRoutes above.
   app.use('/api/admin', adminPeopleRoutes);
+  app.use('/api/admin/presence', adminPresenceRoutes);
   app.use('/api/admin/communities', adminCommunitiesRoutes);
   app.use('/api/admin/devotionals', adminDevotionalsRoutes);
   app.use('/api/admin/assessments', adminAssessmentsRoutes);
