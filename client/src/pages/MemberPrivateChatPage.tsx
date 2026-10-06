@@ -5,84 +5,59 @@ import { api, ApiError } from '../lib/api';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
 import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatComposer';
-import { REACTIONS, type ChatMessage, type ChatReaction } from '../components/chat/types';
+import { REACTIONS, type ChatAttachment, type ChatMessage, type ChatReaction } from '../components/chat/types';
 
-interface MessagesResponse {
-  items: ChatMessage[];
-  hasMore: boolean;
-  unreadCount: number;
-  isAdministrator: boolean;
-  canPost: boolean;
+interface PrivateRow {
+  id: string;
+  isOwn: boolean;
+  body: string;
+  createdAt: string;
+  attachments?: ChatAttachment[];
+  replyTo?: { id: string; isOwn: boolean; body: string; attachmentMimeType: string | null } | null;
+  reactions?: ChatReaction[];
 }
 
-const POLL_MS = 8000;
+interface PrivateResponse {
+  items: PrivateRow[];
+  hasMore: boolean;
+  unreadCount: number;
+  otherPartyType: 'CENTRAL_AUTHORITY' | 'LEADER' | 'MEMBER';
+  otherPartyName?: string | null;
+  otherPartyPersonId?: string;
+  otherPartyPhotoUrl?: string | null;
+}
+
+const POLL_MS = 5000;
 
 function dayKey(iso: string) {
   const d = new Date(iso);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-/** Puts a fresh page of the newest messages together with what we already
- * have (older pages the member scrolled up to stay in place). */
 function mergeLatest(prev: ChatMessage[], latest: ChatMessage[]): ChatMessage[] {
   const pending = prev.filter((m) => m.pending);
   if (latest.length === 0) return pending;
   const ids = new Set(latest.map((m) => m.id));
-  const oldestLatest = latest[0].createdAt;
-  const older = prev.filter((m) => !m.pending && !ids.has(m.id) && m.createdAt < oldestLatest);
+  const oldest = latest[0].createdAt;
+  const older = prev.filter((m) => !m.pending && !ids.has(m.id) && m.createdAt < oldest);
   return [...older, ...latest, ...pending];
 }
 
-const TIP_KEY = 'chatTipSeen';
-
-/** A one-time hint so people discover swipe-to-reply and hold-to-react. */
-function ChatTip() {
+// A one-to-one chat, WhatsApp-style: the other person's photo and name at
+// the top, bubbles, swipe to reply, hold to react, voice notes, photos,
+// videos and documents. New messages show up every few seconds.
+export function MemberPrivateChatPage() {
   const { t } = useTranslation();
-  const [show, setShow] = useState(() => {
-    try {
-      return localStorage.getItem(TIP_KEY) !== '1';
-    } catch {
-      return true;
-    }
-  });
-  if (!show) return null;
-  return (
-    <div className="mx-auto mb-3 flex max-w-sm items-start gap-2 rounded-lg bg-[#fff5c4] px-3 py-2 text-xs text-slate-700 shadow-sm" role="note">
-      <span className="flex-1">💡 {t('groupChat.tip')}</span>
-      <button
-        type="button"
-        className="font-semibold text-slate-600"
-        aria-label={t('groupChat.tip_close') ?? ''}
-        onClick={() => {
-          setShow(false);
-          try {
-            localStorage.setItem(TIP_KEY, '1');
-          } catch {
-            /* ignore */
-          }
-        }}
-      >
-        ✕
-      </button>
-    </div>
-  );
-}
+  const { conversationId = '' } = useParams();
+  const base = `/api/private-messages/conversations/${conversationId}`;
 
-// The WhatsApp-style group chat screen: full screen, bubbles, swipe to
-// reply, hold for reactions, photos/videos/voice notes inline. New messages
-// are checked every few seconds while the screen is open.
-export function MemberGroupChatPage() {
-  const { t } = useTranslation();
-  const { communityId = '' } = useParams();
-  const [groupName, setGroupName] = useState<string>('');
+  const [other, setOther] = useState<Pick<PrivateResponse, 'otherPartyType' | 'otherPartyName' | 'otherPartyPersonId' | 'otherPartyPhotoUrl'> | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [notAllowed, setNotAllowed] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [isAdministrator, setIsAdministrator] = useState(false);
-  const [canPost, setCanPost] = useState(true);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [menuFor, setMenuFor] = useState<ChatMessage | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -93,41 +68,68 @@ export function MemberGroupChatPage() {
   const stickToBottom = useRef(true);
   const keepOffsetFromBottom = useRef<number | null>(null);
   const lastReadId = useRef<string | null>(null);
+  const otherNameRef = useRef('');
 
-  useEffect(() => {
-    api
-      .get<{ items: { communityId: string; communityName: string }[] }>('/api/member/me/community-memberships')
-      .then((r) => setGroupName(r.items.find((m) => m.communityId === communityId)?.communityName ?? ''))
-      .catch(() => {});
-  }, [communityId]);
+  const otherName =
+    other?.otherPartyType === 'CENTRAL_AUTHORITY' ? t('privateChat.headquarters') : other?.otherPartyName || t('privateChat.someone');
+  otherNameRef.current = otherName;
 
-  function markRead(items: ChatMessage[], unread: number) {
+  const toChat = useCallback(
+    (r: PrivateRow): ChatMessage => ({
+      id: r.id,
+      senderName: r.isOwn ? t('groupChat.you') : otherNameRef.current,
+      isOwn: r.isOwn,
+      body: r.body || null,
+      createdAt: r.createdAt,
+      deleted: false,
+      attachments: r.attachments ?? [],
+      reactions: r.reactions ?? [],
+      replyTo: r.replyTo
+        ? {
+            id: r.replyTo.id,
+            senderName: r.replyTo.isOwn ? t('groupChat.you') : otherNameRef.current,
+            body: r.replyTo.body || null,
+            deleted: false,
+            attachmentMimeType: r.replyTo.attachmentMimeType,
+          }
+        : null,
+    }),
+    [t],
+  );
+
+  function markRead(items: PrivateRow[], unread: number) {
     const latest = items[items.length - 1];
     if (!latest || unread === 0 || lastReadId.current === latest.id) return;
     lastReadId.current = latest.id;
-    api.post(`/api/communities/${communityId}/conversation/read`, { messageId: latest.id }).catch(() => {});
+    api.post(`${base}/read`, { messageId: latest.id }).catch(() => {});
   }
 
   const fetchLatest = useCallback(
-    (first = false) => {
-      return api
-        .get<MessagesResponse>(`/api/communities/${communityId}/conversation/messages`)
+    (first = false) =>
+      api
+        .get<PrivateResponse>(`${base}/messages`)
         .then((res) => {
-          setMessages((prev) => (first ? res.items : mergeLatest(prev, res.items)));
+          setOther({
+            otherPartyType: res.otherPartyType,
+            otherPartyName: res.otherPartyName,
+            otherPartyPersonId: res.otherPartyPersonId,
+            otherPartyPhotoUrl: res.otherPartyPhotoUrl,
+          });
+          if (res.otherPartyType === 'CENTRAL_AUTHORITY') otherNameRef.current = t('privateChat.headquarters');
+          else otherNameRef.current = res.otherPartyName || t('privateChat.someone');
+          const items = res.items.map(toChat);
+          setMessages((prev) => (first ? items : mergeLatest(prev, items)));
           if (first) setHasMore(res.hasMore);
-          setIsAdministrator(res.isAdministrator);
-          setCanPost(res.canPost !== false);
           setLoadError(false);
           markRead(res.items, res.unreadCount);
         })
         .catch((err) => {
-          if (err instanceof ApiError && (err.status === 403 || err.status === 404)) setNotAllowed(true);
+          if (err instanceof ApiError && err.status === 404) setNotFound(true);
           else if (first) setLoadError(true);
         })
-        .finally(() => first && setLoaded(true));
-    },
+        .finally(() => first && setLoaded(true)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [communityId],
+    [conversationId, toChat],
   );
 
   useEffect(() => {
@@ -139,8 +141,6 @@ export function MemberGroupChatPage() {
     return () => window.clearInterval(timer);
   }, [fetchLatest]);
 
-  // Keep the view at the bottom for new messages, and in place when older
-  // messages are added above.
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -154,24 +154,23 @@ export function MemberGroupChatPage() {
 
   function onScroll() {
     const el = scrollRef.current;
-    if (!el) return;
-    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   }
 
   function loadOlder() {
-    if (loadingOlder || messages.length === 0) return;
     const first = messages.find((m) => !m.pending);
-    if (!first) return;
+    if (loadingOlder || !first) return;
     setLoadingOlder(true);
     api
-      .get<MessagesResponse>(`/api/communities/${communityId}/conversation/messages?before=${first.id}`)
+      .get<PrivateResponse>(`${base}/messages?before=${first.id}`)
       .then((res) => {
         const el = scrollRef.current;
         if (el) keepOffsetFromBottom.current = el.scrollHeight - el.scrollTop;
-        setMessages((prev) => [...res.items.filter((m) => !prev.some((p) => p.id === m.id)), ...prev]);
+        const older = res.items.map(toChat);
+        setMessages((prev) => [...older.filter((m) => !prev.some((p) => p.id === m.id)), ...prev]);
         setHasMore(res.hasMore);
       })
-      .catch(() => setToast(t('groupChat.load_failed')))
+      .catch(() => showToast(t('groupChat.load_failed')))
       .finally(() => setLoadingOlder(false));
   }
 
@@ -183,30 +182,26 @@ export function MemberGroupChatPage() {
   async function send(out: OutgoingMessage): Promise<boolean> {
     const tempId = `pending-${Date.now()}`;
     const reply = replyTo;
-    const temp: ChatMessage = {
-      id: tempId,
-      senderName: t('groupChat.you'),
-      isOwn: true,
-      body: out.body ?? null,
-      createdAt: new Date().toISOString(),
-      deleted: false,
-      attachments: [],
-      pending: true,
-      replyTo: reply
-        ? {
-            id: reply.id,
-            senderName: reply.senderName,
-            body: reply.body,
-            deleted: reply.deleted,
-            attachmentMimeType: reply.attachments[0]?.mimeType ?? null,
-          }
-        : null,
-    };
     stickToBottom.current = true;
-    setMessages((prev) => [...prev, temp]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        senderName: t('groupChat.you'),
+        isOwn: true,
+        body: out.body ?? null,
+        createdAt: new Date().toISOString(),
+        deleted: false,
+        attachments: [],
+        pending: true,
+        replyTo: reply
+          ? { id: reply.id, senderName: reply.senderName, body: reply.body, deleted: false, attachmentMimeType: reply.attachments[0]?.mimeType ?? null }
+          : null,
+      },
+    ]);
     setReplyTo(null);
     try {
-      await api.post(`/api/communities/${communityId}/conversation/messages`, out);
+      await api.post(`${base}/messages`, out);
       await fetchLatest(false);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       return true;
@@ -214,14 +209,10 @@ export function MemberGroupChatPage() {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setReplyTo(reply);
       if (err instanceof ApiError && err.status === 503) showToast(t('groupChat.storage_off'));
-      else if (err instanceof ApiError && err.status === 403) showToast(t('groupChat.only_leaders'));
+      else if (err instanceof ApiError && err.status === 403) showToast(t('privateChat.blocked'));
       else showToast(t('groupChat.send_failed'));
       return false;
     }
-  }
-
-  function setReactions(messageId: string, reactions: ChatReaction[]) {
-    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, reactions } : m)));
   }
 
   async function react(m: ChatMessage, emoji: string) {
@@ -230,9 +221,9 @@ export function MemberGroupChatPage() {
     try {
       const res =
         mine?.emoji === emoji
-          ? await api.delete<{ reactions: ChatReaction[] }>(`/api/communities/${communityId}/conversation/messages/${m.id}/reaction`)
-          : await api.put<{ reactions: ChatReaction[] }>(`/api/communities/${communityId}/conversation/messages/${m.id}/reaction`, { emoji });
-      setReactions(m.id, res.reactions);
+          ? await api.delete<{ reactions: ChatReaction[] }>(`${base}/messages/${m.id}/reaction`)
+          : await api.put<{ reactions: ChatReaction[] }>(`${base}/messages/${m.id}/reaction`, { emoji });
+      setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, reactions: res.reactions } : x)));
     } catch {
       showToast(t('groupChat.action_failed'));
     }
@@ -248,28 +239,6 @@ export function MemberGroupChatPage() {
     }
   }
 
-  async function hideForMe(m: ChatMessage) {
-    setMenuFor(null);
-    if (!window.confirm(t('groupChat.hide_confirm') ?? '')) return;
-    try {
-      await api.post(`/api/communities/${communityId}/conversation/messages/${m.id}/hide`);
-      setMessages((prev) => prev.filter((x) => x.id !== m.id));
-    } catch {
-      showToast(t('groupChat.action_failed'));
-    }
-  }
-
-  async function removeForAll(m: ChatMessage) {
-    setMenuFor(null);
-    if (!window.confirm(t('groupChat.remove_confirm') ?? '')) return;
-    try {
-      await api.delete(`/api/communities/${communityId}/conversation/messages/${m.id}`);
-      setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, deleted: true, body: null, attachments: [], reactions: [], replyTo: null } : x)));
-    } catch {
-      showToast(t('groupChat.action_failed'));
-    }
-  }
-
   function jumpTo(id: string) {
     const el = document.getElementById(`msg-${id}`);
     if (!el) {
@@ -282,14 +251,34 @@ export function MemberGroupChatPage() {
   }
 
   function dayLabel(iso: string) {
-    const d = new Date(iso);
     const today = new Date();
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
     if (dayKey(iso) === dayKey(today.toISOString())) return t('groupChat.today');
     if (dayKey(iso) === dayKey(yesterday.toISOString())) return t('groupChat.yesterday');
-    return d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+    return new Date(iso).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
   }
+
+  const subtitle =
+    other?.otherPartyType === 'CENTRAL_AUTHORITY'
+      ? t('privateChat.official')
+      : other?.otherPartyType === 'LEADER'
+        ? t('privateChat.leader')
+        : t('privateChat.member');
+
+  const headerInner = (
+    <>
+      {other?.otherPartyType === 'CENTRAL_AUTHORITY' ? (
+        <img src="/icons/icon-192.png" alt="" className="h-10 w-10 rounded-full bg-white object-contain p-0.5" />
+      ) : (
+        <Avatar name={otherName} photoUrl={other?.otherPartyPhotoUrl} size={40} />
+      )}
+      <span className="min-w-0">
+        <h1 className="truncate font-semibold">{other ? otherName : t('groupChat.loading')}</h1>
+        {other && <p className="text-xs text-white/70">{subtitle}</p>}
+      </span>
+    </>
+  );
 
   return (
     <div className="fixed inset-0 flex flex-col bg-[#efeae2]">
@@ -297,17 +286,19 @@ export function MemberGroupChatPage() {
         <Link to="/member/chats" aria-label={t('groupChat.back') ?? ''} className="px-2 text-2xl leading-none">
           ←
         </Link>
-        <Avatar name={groupName || '?'} size={40} />
-        <div className="min-w-0">
-          <h1 className="truncate font-semibold">{groupName || t('groupChat.group')}</h1>
-          <p className="text-xs text-white/70">{t('groupChat.subtitle')}</p>
-        </div>
+        {other?.otherPartyPersonId ? (
+          <Link to={`/member/people/${other.otherPartyPersonId}`} className="flex min-w-0 items-center gap-3">
+            {headerInner}
+          </Link>
+        ) : (
+          <div className="flex min-w-0 items-center gap-3">{headerInner}</div>
+        )}
       </header>
 
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto overscroll-contain px-2 py-3" aria-live="polite">
         {!loaded && <p className="mt-10 text-center text-sm text-slate-500">{t('groupChat.loading')}</p>}
-        {notAllowed && <p className="mx-auto mt-10 max-w-xs rounded-lg bg-white p-4 text-center text-sm text-slate-600">{t('groupChat.not_allowed')}</p>}
-        {loadError && !notAllowed && (
+        {notFound && <p className="mx-auto mt-10 max-w-xs rounded-lg bg-white p-4 text-center text-sm text-slate-600">{t('privateChat.not_found')}</p>}
+        {loadError && !notFound && (
           <div className="mx-auto mt-10 max-w-xs rounded-lg bg-white p-4 text-center text-sm">
             <p className="text-red-700">{t('groupChat.load_failed')}</p>
             <button type="button" className="mt-2 text-brand-700 underline" onClick={() => void fetchLatest(true)}>
@@ -315,7 +306,6 @@ export function MemberGroupChatPage() {
             </button>
           </div>
         )}
-
         {hasMore && (
           <div className="mb-3 text-center">
             <button type="button" onClick={loadOlder} disabled={loadingOlder} className="rounded-full bg-white px-3 py-1 text-xs text-slate-600 shadow">
@@ -323,20 +313,19 @@ export function MemberGroupChatPage() {
             </button>
           </div>
         )}
-
-        {loaded && !loadError && !notAllowed && messages.length === 0 && (
-          <p className="mx-auto mt-10 max-w-xs rounded-lg bg-[#fff5c4] p-3 text-center text-sm text-slate-700">{t('groupChat.empty')}</p>
+        {loaded && !loadError && !notFound && messages.length === 0 && (
+          <p className="mx-auto mt-10 max-w-xs rounded-lg bg-[#fff5c4] p-3 text-center text-sm text-slate-700">
+            {t('privateChat.empty', { name: otherName })}
+          </p>
         )}
-
-        {loaded && messages.length > 0 && <ChatTip />}
 
         <div className="space-y-1">
           {messages.map((m, i) => {
             const prev = messages[i - 1];
             const newDay = !prev || dayKey(prev.createdAt) !== dayKey(m.createdAt);
-            const showSender = newDay || !prev || prev.senderName !== m.senderName || prev.isOwn !== m.isOwn;
+            const gap = prev && !newDay && prev.isOwn !== m.isOwn;
             return (
-              <div key={m.id} className={showSender && !newDay ? 'pt-2' : ''}>
+              <div key={m.id} className={gap ? 'pt-2' : ''}>
                 {newDay && (
                   <div className="my-3 text-center">
                     <span className="rounded-md bg-white/90 px-3 py-1 text-xs text-slate-600 shadow-sm">{dayLabel(m.createdAt)}</span>
@@ -344,8 +333,9 @@ export function MemberGroupChatPage() {
                 )}
                 <MessageBubble
                   m={m}
-                  mediaBase={`/api/communities/${communityId}/conversation`}
-                  showSender={showSender}
+                  mediaBase={base}
+                  showSender={false}
+                  privateChat
                   highlighted={highlightId === m.id}
                   onReply={setReplyTo}
                   onMenu={setMenuFor}
@@ -365,12 +355,9 @@ export function MemberGroupChatPage() {
         </div>
       )}
 
-      {!notAllowed &&
-        (canPost ? (
-          <ChatComposer uploadPath={`/api/communities/${communityId}/attachments/authorize`} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onSend={send} />
-        ) : (
-          <p className="bg-[#f0f2f5] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 text-center text-sm text-slate-600">{t('groupChat.only_leaders')}</p>
-        ))}
+      {!notFound && (
+        <ChatComposer uploadPath={`${base}/attachments/authorize`} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onSend={send} />
+      )}
 
       {menuFor && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/30" onClick={() => setMenuFor(null)}>
@@ -398,31 +385,19 @@ export function MemberGroupChatPage() {
               })}
             </div>
             <div className="divide-y divide-slate-100 text-[15px]">
-              {canPost && (
-                <button
-                  type="button"
-                  className="block w-full py-3 text-left"
-                  onClick={() => {
-                    setReplyTo(menuFor);
-                    setMenuFor(null);
-                  }}
-                >
-                  ↩️ {t('groupChat.reply')}
-                </button>
-              )}
+              <button
+                type="button"
+                className="block w-full py-3 text-left"
+                onClick={() => {
+                  setReplyTo(menuFor);
+                  setMenuFor(null);
+                }}
+              >
+                ↩️ {t('groupChat.reply')}
+              </button>
               {menuFor.body && (
                 <button type="button" className="block w-full py-3 text-left" onClick={() => void copy(menuFor)}>
                   📋 {t('groupChat.copy')}
-                </button>
-              )}
-              {menuFor.isOwn && (
-                <button type="button" className="block w-full py-3 text-left" onClick={() => void hideForMe(menuFor)}>
-                  🗑️ {t('groupChat.delete_for_me')}
-                </button>
-              )}
-              {isAdministrator && (
-                <button type="button" className="block w-full py-3 text-left text-red-700" onClick={() => void removeForAll(menuFor)}>
-                  🚫 {t('groupChat.remove_all')}
                 </button>
               )}
             </div>

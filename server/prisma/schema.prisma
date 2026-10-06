@@ -237,6 +237,7 @@ model User {
   privateConversationsInitiated PrivateConversation[]
   privateMessagesSent           PrivateMessage[]
   privateConversationReads      PrivateConversationRead[]
+  privateMessageReactions       PrivateMessageReaction[]
   resourceAccessGrantsGiven   ResourceAccessGrant[] @relation("ResourceAccessGrantGrantedBy")
   resourceAccessGrantsRevoked ResourceAccessGrant[] @relation("ResourceAccessGrantRevokedBy")
   notifications               Notification[]
@@ -614,6 +615,7 @@ model Person {
   privateConversationsInitiated   PrivateConversation[] @relation("PrivateConversationInitiator")
   privateMessagesSent             PrivateMessage[]
   privateConversationReads        PrivateConversationRead[]
+  privateMessageReactions         PrivateMessageReaction[]
   resourceAccessGrants             ResourceAccessGrant[]
   notifications                    Notification[]
   updatePosts                      UpdatePost[]            @relation("UpdatePostAuthor")
@@ -1688,12 +1690,19 @@ model PrivateMessage {
   conversationId String
   senderPersonId String?
   senderUserId   String?
+  // Empty ("") for a message that is only a photo / voice note / video.
   body           String
   createdAt      DateTime @default(now())
+  // WhatsApp-style reply: the message this one answers (same conversation).
+  replyToMessageId String?
 
   conversation PrivateConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderPerson Person?             @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
   senderUser   User?               @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+  replyTo      PrivateMessage?     @relation("PrivateMessageReply", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies      PrivateMessage[]    @relation("PrivateMessageReply")
+  attachments  PrivateMessageAttachment[]
+  reactions    PrivateMessageReaction[]
 
   @@index([conversationId, createdAt])
 }
@@ -1705,6 +1714,41 @@ model PrivateMessage {
 // (exactly one set; DB CHECK). Never consulted for conversation access —
 // see lib/privateMessaging.ts's resolvePrivateConversationRole, which is
 // completely unaffected by this model's existence.
+// A photo, voice note, video or PDF in a private message. Stored in object
+// storage like group chat attachments; viewed through short-lived links.
+model PrivateMessageAttachment {
+  id               String   @id @default(uuid())
+  messageId        String
+  storageKey       String   @unique
+  originalFilename String
+  mimeType         String
+  byteSize         Int
+  createdAt        DateTime @default(now())
+
+  message PrivateMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+// A reaction on a private message — one per participant per message. The
+// reacting side is a Person (member/leader) or a User (admin), like senders.
+model PrivateMessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  personId  String?
+  userId    String?
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message PrivateMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  person  Person?        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  user    User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, personId])
+  @@unique([messageId, userId])
+  @@index([messageId])
+}
+
 model PrivateConversationRead {
   id             String   @id @default(uuid())
   personId       String?

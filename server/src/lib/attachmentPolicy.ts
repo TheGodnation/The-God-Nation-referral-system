@@ -107,6 +107,20 @@ export function mediaKindForMime(mimeType: string): HeadquartersPostMediaKind | 
   return null;
 }
 
+// Private message attachments — same types and sizes as group chat
+// attachments, namespaced to the exact private conversation.
+const PRIVATE_ATTACHMENT_KEY_PATTERN = /^private-conversations\/([0-9a-f-]{36})\/attachments\/([0-9a-f-]{36})$/;
+
+export function generatePrivateAttachmentStorageKey(conversationId: string): string {
+  return `private-conversations/${conversationId}/attachments/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForPrivateConversation(storageKey: string, conversationId: string): boolean {
+  const match = PRIVATE_ATTACHMENT_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === conversationId;
+}
+
 // Profile pictures — images only, smaller ceiling than chat images (a
 // profile picture is shown small and often, so it should load fast on
 // mobile data). Keys are namespaced to the Person they belong to, same

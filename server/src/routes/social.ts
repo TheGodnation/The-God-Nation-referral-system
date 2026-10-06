@@ -458,4 +458,41 @@ router.post('/messages/start', messageSendLimiter, requireCsrf, requireMember, a
   res.status(201).json({ conversationId: conversation.id });
 }));
 
+// POST /api/member/messages/open — opens (or creates, without a message)
+// the private chat with another member, so the app can show the WhatsApp-
+// style chat screen straight away. Same rules as /messages/start: friends,
+// same group, own leaders — and never across a block. An existing chat
+// between the two can always be reopened (unless blocked).
+const openChatSchema = z.object({ personId: z.string().uuid() });
+
+router.post('/messages/open', socialMutationLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
+  const parsed = openChatSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request.' });
+  const me = req.member!.personId;
+  const other = parsed.data.personId;
+  if (other === me) return res.status(400).json({ error: 'Invalid request.' });
+  if (await isBlockedEitherWay(me, other)) {
+    return res.status(403).json({ error: 'You cannot message this person.', code: 'NOT_ALLOWED' });
+  }
+
+  const existing = await prisma.privateConversation.findFirst({
+    where: {
+      OR: [
+        { memberPersonId: other, initiatorPersonId: me },
+        { memberPersonId: me, initiatorPersonId: other },
+      ],
+    },
+  });
+  if (existing) return res.json({ conversationId: existing.id });
+
+  if (!(await canMessage(me, other))) {
+    return res.status(403).json({
+      error: 'You can message your friends, people in your group and your leaders. Send a friend request first.',
+      code: 'NOT_ALLOWED',
+    });
+  }
+  const conversation = await getOrCreatePrivateConversation(other, { type: 'PERSON', personId: me });
+  res.json({ conversationId: conversation.id });
+}));
+
 export default router;

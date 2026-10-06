@@ -1771,5 +1771,17 @@
     "save": "Save",
     "saving": "Saving…",
     "save_failed": "Your changes were not saved. Please try again."
+  },
+  "privateChat": {
+    "title": "Private messages",
+    "headquarters": "God's Nation Headquarters",
+    "someone": "Someone",
+    "official": "Official account",
+    "leader": "Leader",
+    "member": "Member",
+    "not_found": "This chat was not found.",
+    "empty": "Say hello to {{name}} 👋",
+    "blocked": "You cannot message this person.",
+    "no_messages_yet": "No messages yet"
   }
 }

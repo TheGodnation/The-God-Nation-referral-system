@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
@@ -35,8 +35,7 @@ export function MemberPersonPage() {
   const [notFound, setNotFound] = useState(false);
   const [tab, setTab] = useState<'posts' | 'photos'>('posts');
 
-  const [composing, setComposing] = useState(false);
-  const [message, setMessage] = useState('');
+  const navigate = useNavigate();
   const [messageResult, setMessageResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const [reporting, setReporting] = useState(false);
@@ -53,15 +52,12 @@ export function MemberPersonPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [personId]);
 
-  async function sendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    if (!message.trim()) return;
+  // "Message" opens the WhatsApp-style private chat with this person.
+  async function openChat() {
     setMessageResult(null);
     try {
-      await api.post('/api/member/messages/start', { personId, body: message.trim() });
-      setMessage('');
-      setComposing(false);
-      setMessageResult({ ok: true, text: t('people.message_sent') });
+      const res = await api.post<{ conversationId: string }>('/api/member/messages/open', { personId });
+      navigate(`/member/chats/private/${res.conversationId}`);
     } catch (err) {
       setMessageResult({ ok: false, text: err instanceof ApiError && err.code === 'NOT_ALLOWED' ? t('people.message_not_allowed') : t('people.action_failed') });
     }
@@ -127,7 +123,7 @@ export function MemberPersonPage() {
                     <FriendButton person={profile} onChange={() => load()} />
                   )}
                   {profile.canMessage && (
-                    <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setComposing((v) => !v)}>
+                    <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => void openChat()}>
                       💬 {t('people.message')}
                     </button>
                   )}
@@ -138,21 +134,6 @@ export function MemberPersonPage() {
                 <p className="text-xs text-slate-500">{t('people.message_hint')}</p>
               )}
 
-              {composing && (
-                <form onSubmit={sendMessage} className="space-y-2 text-left">
-                  <textarea
-                    className="input"
-                    rows={3}
-                    maxLength={2000}
-                    aria-label={t('people.message_label') ?? ''}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                  />
-                  <button type="submit" className="btn-primary" disabled={!message.trim()}>
-                    {t('people.send')}
-                  </button>
-                </form>
-              )}
               {messageResult && (
                 <p role="status" className={`text-sm ${messageResult.ok ? 'text-green-700' : 'text-red-700'}`}>
                   {messageResult.text}

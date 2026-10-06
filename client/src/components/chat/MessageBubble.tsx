@@ -46,10 +46,10 @@ export function ReplyQuote({ reply, onClick, own }: { reply: ChatReplyPreview; o
   );
 }
 
-function PhotoAttachment({ communityId, messageId, a, onOpen }: { communityId: string; messageId: string; a: ChatAttachment; onOpen: (url: string) => void }) {
+function PhotoAttachment({ mediaBase, messageId, a, onOpen }: { mediaBase: string; messageId: string; a: ChatAttachment; onOpen: (url: string) => void }) {
   const { t } = useTranslation();
   const [ref, inView] = useInView<HTMLDivElement>();
-  const { url, failed } = useAttachmentUrl(communityId, messageId, a.id, inView);
+  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView);
   return (
     <div ref={ref} className="overflow-hidden rounded-md bg-slate-200">
       {url ? (
@@ -63,10 +63,10 @@ function PhotoAttachment({ communityId, messageId, a, onOpen }: { communityId: s
   );
 }
 
-function PlayableAttachment({ communityId, messageId, a }: { communityId: string; messageId: string; a: ChatAttachment }) {
+function PlayableAttachment({ mediaBase, messageId, a }: { mediaBase: string; messageId: string; a: ChatAttachment }) {
   const { t } = useTranslation();
   const [ref, inView] = useInView<HTMLDivElement>();
-  const { url, failed } = useAttachmentUrl(communityId, messageId, a.id, inView);
+  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView);
   const kind = mediaKind(a.mimeType);
   return (
     <div ref={ref}>
@@ -88,10 +88,10 @@ function PlayableAttachment({ communityId, messageId, a }: { communityId: string
   );
 }
 
-function DocumentAttachment({ communityId, messageId, a }: { communityId: string; messageId: string; a: ChatAttachment }) {
+function DocumentAttachment({ mediaBase, messageId, a }: { mediaBase: string; messageId: string; a: ChatAttachment }) {
   async function open() {
     try {
-      const url = await getAttachmentUrl(communityId, messageId, a.id);
+      const url = await getAttachmentUrl(mediaBase, messageId, a.id);
       window.open(url, '_blank', 'noopener');
     } catch {
       /* the bubble stays as it is */
@@ -110,7 +110,7 @@ function DocumentAttachment({ communityId, messageId, a }: { communityId: string
 
 interface BubbleProps {
   m: ChatMessage;
-  communityId: string;
+  mediaBase: string;
   showSender: boolean;
   highlighted: boolean;
   onReply: (m: ChatMessage) => void;
@@ -118,6 +118,8 @@ interface BubbleProps {
   onReact: (m: ChatMessage, emoji: string) => void;
   onJumpTo: (messageId: string) => void;
   onOpenPhoto: (url: string) => void;
+  /** One-to-one chats (like WhatsApp) show no sender photos or names. */
+  privateChat?: boolean;
 }
 
 const SWIPE_TRIGGER = 60;
@@ -125,7 +127,8 @@ const LONG_PRESS_MS = 450;
 
 // One chat bubble. Swipe it right to reply, press and hold (or right-click)
 // for reactions and options — the same gestures as WhatsApp.
-export function MessageBubble({ m, communityId, showSender, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto }: BubbleProps) {
+export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto, privateChat = false }: BubbleProps) {
+  const showSender = showSenderProp && !privateChat;
   const { t } = useTranslation();
   const [dx, setDx] = useState(0);
   const touch = useRef<{ x: number; y: number; swiping: boolean; timer: number | null; longPressed: boolean } | null>(null);
@@ -176,7 +179,7 @@ export function MessageBubble({ m, communityId, showSender, highlighted, onReply
 
   return (
     <div id={`msg-${m.id}`} className={`group relative flex items-end gap-1.5 ${m.isOwn ? 'justify-end' : 'justify-start'}`}>
-      {!m.isOwn && (
+      {!m.isOwn && !privateChat && (
         <span className="w-8 shrink-0">{showSender && <Avatar name={m.senderName} photoUrl={m.senderPhotoUrl} size={32} />}</span>
       )}
 
@@ -216,18 +219,18 @@ export function MessageBubble({ m, communityId, showSender, highlighted, onReply
               {photos.length > 0 && (
                 <div className={`mb-1 grid gap-1 ${photos.length > 1 ? 'grid-cols-2' : ''}`}>
                   {photos.map((a) => (
-                    <PhotoAttachment key={a.id} communityId={communityId} messageId={m.id} a={a} onOpen={onOpenPhoto} />
+                    <PhotoAttachment key={a.id} mediaBase={mediaBase} messageId={m.id} a={a} onOpen={onOpenPhoto} />
                   ))}
                 </div>
               )}
               {playables.map((a) => (
                 <div key={a.id} className="mb-1">
-                  <PlayableAttachment communityId={communityId} messageId={m.id} a={a} />
+                  <PlayableAttachment mediaBase={mediaBase} messageId={m.id} a={a} />
                 </div>
               ))}
               {documents.map((a) => (
                 <div key={a.id} className="mb-1">
-                  <DocumentAttachment communityId={communityId} messageId={m.id} a={a} />
+                  <DocumentAttachment mediaBase={mediaBase} messageId={m.id} a={a} />
                 </div>
               ))}
               {m.body && <p className="whitespace-pre-wrap break-words text-slate-900">{m.body}</p>}

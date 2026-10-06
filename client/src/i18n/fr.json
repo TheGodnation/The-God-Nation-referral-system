@@ -1771,5 +1771,17 @@
     "save": "Enregistrer",
     "saving": "Enregistrement…",
     "save_failed": "Vos changements n'ont pas été enregistrés. Veuillez réessayer."
+  },
+  "privateChat": {
+    "title": "Messages privés",
+    "headquarters": "Quartier général de God's Nation",
+    "someone": "Quelqu'un",
+    "official": "Compte officiel",
+    "leader": "Responsable",
+    "member": "Membre",
+    "not_found": "Cette discussion est introuvable.",
+    "empty": "Dites bonjour à {{name}} 👋",
+    "blocked": "Vous ne pouvez pas écrire à cette personne.",
+    "no_messages_yet": "Pas encore de messages"
   }
 }
