@@ -140,7 +140,7 @@ router.get(
     const { url } = await createDownloadUrl({ storageKey: person.photoStorageKey });
     // The signed link lasts 5 minutes; let the browser reuse this redirect
     // for 4 of them so a page full of pictures doesn't re-ask every time.
-    res.setHeader('Cache-Control', 'private, max-age=240');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
     res.redirect(302, url);
   }),
 );
@@ -242,7 +242,7 @@ router.get(
     if (!isStorageConfigured()) return res.status(404).json({ error: 'No photo.' });
 
     const { url } = await createDownloadUrl({ storageKey: person.coverStorageKey });
-    res.setHeader('Cache-Control', 'private, max-age=240');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
     res.redirect(302, url);
   }),
 );

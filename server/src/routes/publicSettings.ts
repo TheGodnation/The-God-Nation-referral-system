@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../lib/asyncHandler';
+import { appBannerPath } from '../lib/profilePhoto';
 
 const router = Router();
 
@@ -21,6 +22,8 @@ router.get('/public', asyncHandler(async (_req, res) => {
     telegramUrl: settings?.telegramUrl ?? null,
     messengerUrl: settings?.messengerUrl ?? null,
     content: (settings?.content as Record<string, string> | null) ?? {},
+    // Address of the Updates banner picture (viewing it needs sign-in).
+    appBannerUrl: appBannerPath(settings),
   });
 }));
 

@@ -5,6 +5,7 @@ import { api, ApiError, NetworkError } from '../lib/api';
 import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
+import { CHAT_WALLPAPER_STYLE } from '../components/chat/wallpaper';
 import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatComposer';
 import { REACTIONS, type ChatAttachment, type ChatMessage, type ChatReaction } from '../components/chat/types';
 
@@ -360,7 +361,7 @@ export function MemberPrivateChatPage() {
   );
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#efeae2]">
+    <div className="fixed inset-0 flex flex-col" style={CHAT_WALLPAPER_STYLE}>
       <header className="flex items-center gap-3 bg-brand-800 px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-white shadow">
         <Link to="/member/chats" aria-label={t('groupChat.back') ?? ''} className="px-2 text-2xl leading-none">
           ←

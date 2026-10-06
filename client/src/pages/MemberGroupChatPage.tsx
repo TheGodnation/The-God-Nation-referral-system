@@ -5,6 +5,7 @@ import { api, ApiError, NetworkError } from '../lib/api';
 import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
+import { CHAT_WALLPAPER_STYLE } from '../components/chat/wallpaper';
 import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatComposer';
 import { REACTIONS, type ChatMessage, type ChatReaction } from '../components/chat/types';
 
@@ -94,6 +95,7 @@ export function MemberGroupChatPage() {
   const { t } = useTranslation();
   const { communityId = '' } = useParams();
   const [groupName, setGroupName] = useState<string>('');
+  const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -119,7 +121,15 @@ export function MemberGroupChatPage() {
   useEffect(() => {
     api
       .get<{ items: { communityId: string; communityName: string }[] }>('/api/member/me/community-memberships')
-      .then((r) => setGroupName(r.items.find((m) => m.communityId === communityId)?.communityName ?? ''))
+      .then((r) => setGroupName((cur) => cur || (r.items.find((m) => m.communityId === communityId)?.communityName ?? '')))
+      .catch(() => {});
+    // The group's picture and proper name (set by the admin).
+    api
+      .get<{ name?: string | null; photoUrl?: string | null }>(`/api/communities/${communityId}/conversation`)
+      .then((r) => {
+        if (r.name) setGroupName(r.name);
+        setGroupPhoto(r.photoUrl ?? null);
+      })
       .catch(() => {});
   }, [communityId]);
 
@@ -368,12 +378,17 @@ export function MemberGroupChatPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#efeae2]">
+    <div className="fixed inset-0 flex flex-col" style={CHAT_WALLPAPER_STYLE}>
       <header className="flex items-center gap-3 bg-brand-800 px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-white shadow">
         <Link to="/member/chats" aria-label={t('groupChat.back') ?? ''} className="px-2 text-2xl leading-none">
           ←
         </Link>
-        <Avatar name={groupName || '?'} size={40} />
+        <Link
+          to={`/member/chats/group/${communityId}/info`}
+          aria-label={t('groupChat.group_info') ?? ''}
+          className="flex min-w-0 flex-1 items-center gap-3"
+        >
+        <Avatar name={groupName || '?'} photoUrl={groupPhoto} size={40} />
         <div className="min-w-0">
           <h1 className="truncate font-semibold">{groupName || t('groupChat.group')}</h1>
           <p className={`truncate text-xs ${typingNames.length ? 'font-semibold text-emerald-300' : 'text-white/70'}`}>
@@ -386,6 +401,7 @@ export function MemberGroupChatPage() {
                   : t('groupChat.subtitle')}
           </p>
         </div>
+        </Link>
       </header>
 
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto overscroll-contain px-2 py-3" aria-live="polite">

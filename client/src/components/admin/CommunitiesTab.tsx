@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { CentralAuthorityConversationOversight } from './CentralAuthorityConversationOversight';
+import { GroupDetailsEditor } from './GroupDetailsEditor';
 import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../../lib/locations';
 
 type PostingPolicy = 'EVERYONE' | 'LEADERS_ONLY';
@@ -54,6 +55,7 @@ export function CommunitiesTab() {
   const [placementError, setPlacementError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [oversightId, setOversightId] = useState<string | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
 
   const [savingPolicyId, setSavingPolicyId] = useState<string | null>(null);
   const [policyError, setPolicyError] = useState<string | null>(null);
@@ -426,6 +428,12 @@ export function CommunitiesTab() {
                     >
                       {t('admin.conversationOversight.open_action')}
                     </button>
+                    <button
+                      className="text-brand-700 hover:underline"
+                      onClick={() => setDetailsId((cur) => (cur === node.id ? null : node.id))}
+                    >
+                      🖼️ {t('admin.branding.group_action')}
+                    </button>
                   </td>
                   <td className="py-2 pr-4">
                     {node.name}
@@ -471,6 +479,13 @@ export function CommunitiesTab() {
                   <td className="py-2 pr-4">{node._count?.memberships ?? 0}</td>
                   <td className="py-2 pr-4">{node._count?.children ?? 0}</td>
                 </tr>
+                {detailsId === node.id && (
+                  <tr key={`${node.id}-details`} className="border-b border-slate-50">
+                    <td colSpan={7} className="p-3">
+                      <GroupDetailsEditor communityId={node.id} communityName={node.name} />
+                    </td>
+                  </tr>
+                )}
                 {oversightId === node.id && (
                   <tr key={`${node.id}-oversight`} className="border-b border-slate-50">
                     <td colSpan={7} className="p-3">

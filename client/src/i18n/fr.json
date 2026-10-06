@@ -727,7 +727,8 @@
         "success": "Page de confirmation",
         "emails": "E-mails",
         "leaderInvite": "Message de parrainage des Leaders",
-        "welcome": "Page d'accueil pour l'évangélisation"
+        "welcome": "Page d'accueil pour l'évangélisation",
+        "appBanner": "Bannière de la page Actualités"
       },
       "emails_hint": "Vous pouvez utiliser {{name}} et {{link}} (ou {{setupUrl}} / {{resetUrl}} lorsqu'ils sont indiqués) dans votre texte — ils sont automatiquement remplacés par la vraie valeur lors de l'envoi de chaque e-mail.",
       "leader_invite_hint": "C'est le message que les Leaders partagent sur WhatsApp, Telegram, ou le menu de partage du téléphone pour inviter des personnes. Utilisez {{link}} à l'endroit où le lien de parrainage de chaque Leader doit apparaître. Pour Telegram en particulier, toute ligne contenant {{link}} est automatiquement omise, car Telegram joint le lien lui-même.",
@@ -775,7 +776,11 @@
         "welcomeBody2": "Deuxième paragraphe",
         "welcomeSupporting": "Accroche de soutien",
         "welcomeCta": "Texte du bouton",
-        "welcomeSupportNote": "Texte sous le bouton"
+        "welcomeSupportNote": "Texte sous le bouton",
+        "appSlogan": "Slogan (courte phrase sur la bannière)",
+        "appMission": "Mission",
+        "appVision": "Vision",
+        "appPurpose": "But"
       }
     },
     "audit": {
@@ -1218,6 +1223,22 @@
       "created": "Groupe « {{name}} » créé pour {{place}}.",
       "created_hint": "N’oubliez pas : dans l’onglet Communautés, réglez « Comment les nouveaux membres rejoignent un groupe » sur « Par localisation », et nommez un responsable pour ce groupe.",
       "close": "Fermer"
+    },
+    "branding": {
+      "banner_title": "Bannière de la page Actualités",
+      "banner_hint": "La grande image en haut de la page Actualités des membres. Choisissez un visuel qui représente le ministère. Son slogan et la Mission, la Vision et le But s'écrivent dans la case « Bannière de la page Actualités » ci-dessous.",
+      "add_picture": "Ajouter une image",
+      "change_picture": "Changer l'image",
+      "group_action": "Image et but",
+      "group_title": "{{name}} — image et but",
+      "group_picture": "Image du groupe",
+      "about_hint": "Le but ou la vision du groupe. Les membres le voient sur la page d'infos du groupe. Vous seul (l'administrateur) pouvez le modifier.",
+      "about_en": "But / vision (anglais)",
+      "about_fr": "But / vision (français)",
+      "save": "Enregistrer",
+      "saved": "Enregistré.",
+      "save_failed": "Impossible d'enregistrer. Veuillez réessayer.",
+      "load_failed": "Impossible de charger les détails du groupe."
     }
   },
   "communityConversation": {
@@ -1459,7 +1480,11 @@
     "cancel": "Annuler",
     "reply_label": "Répondre à {{name}}",
     "reply_placeholder": "Écrivez une réponse…",
-    "comment_by": "Commentaire de {{name}}"
+    "comment_by": "Commentaire de {{name}}",
+    "mission": "Mission",
+    "vision": "Vision",
+    "purpose": "But",
+    "banner_label": "À propos de God's Nation"
   },
   "memberNav": {
     "label": "Sections membre",
@@ -1734,7 +1759,8 @@
     "members_online": "{{members}} membres · {{online}} en ligne",
     "message_info": "Infos du message",
     "seen_by": "Vu par {{count}} sur {{total}}",
-    "delivered_to": "Reçu, pas encore vu ({{count}})"
+    "delivered_to": "Reçu, pas encore vu ({{count}})",
+    "group_info": "Infos du groupe"
   },
   "wall": {
     "cover_alt": "Photo de couverture de {{name}}",
@@ -1822,5 +1848,15 @@
     "saver_on_hint": "Les photos, vidéos et messages vocaux se téléchargent seulement quand vous les touchez.",
     "saver_off": "Désactivé",
     "saver_off_hint": "Les photos et messages vocaux se téléchargent tout seuls."
+  },
+  "groupInfo": {
+    "back": "Retour à la discussion",
+    "online": "en ligne",
+    "leader": "Responsable",
+    "open_chat": "Ouvrir la discussion",
+    "about": "But et vision",
+    "leaders": "Responsables",
+    "members": "Membres ({{count}})",
+    "show_all": "Voir les {{count}} membres"
   }
 }

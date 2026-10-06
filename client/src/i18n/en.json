@@ -727,7 +727,8 @@
         "success": "Success Page",
         "emails": "Emails",
         "leaderInvite": "Leader Referral Message",
-        "welcome": "Outreach Welcome Page"
+        "welcome": "Outreach Welcome Page",
+        "appBanner": "Updates page banner"
       },
       "emails_hint": "You can use {{name}} and {{link}} (or {{setupUrl}} / {{resetUrl}} where shown) inside your text — they're automatically replaced with the real value when each email is sent.",
       "leader_invite_hint": "This is the message Leaders share on WhatsApp, Telegram, or the phone's own share menu to invite people. Use {{link}} where you want each Leader's own referral link to appear. For Telegram specifically, any line containing {{link}} is left out automatically, since Telegram attaches the link on its own.",
@@ -775,7 +776,11 @@
         "welcomeBody2": "Second Paragraph",
         "welcomeSupporting": "Supporting Tagline",
         "welcomeCta": "Button Text",
-        "welcomeSupportNote": "Text Below the Button"
+        "welcomeSupportNote": "Text Below the Button",
+        "appSlogan": "Slogan (short line on the banner)",
+        "appMission": "Mission",
+        "appVision": "Vision",
+        "appPurpose": "Purpose"
       }
     },
     "audit": {
@@ -1218,6 +1223,22 @@
       "created": "Group \"{{name}}\" created for {{place}}.",
       "created_hint": "Remember: in the Communities tab, set \"How new members join a group\" to \"By location\", and assign a leader to the new group.",
       "close": "Close"
+    },
+    "branding": {
+      "banner_title": "Updates page banner",
+      "banner_hint": "The wide picture at the top of the members' Updates page. Use a design that represents the ministry. Its slogan and the Mission, Vision and Purpose are written in the \"Updates page banner\" box below.",
+      "add_picture": "Add picture",
+      "change_picture": "Change picture",
+      "group_action": "Picture & purpose",
+      "group_title": "{{name}} — picture and purpose",
+      "group_picture": "Group picture",
+      "about_hint": "The group's purpose or vision. Members see it on the group info page. Only you (the admin) can change it.",
+      "about_en": "Purpose / vision (English)",
+      "about_fr": "Purpose / vision (French)",
+      "save": "Save",
+      "saved": "Saved.",
+      "save_failed": "Could not save. Please try again.",
+      "load_failed": "Could not load the group details."
     }
   },
   "communityConversation": {
@@ -1459,7 +1480,11 @@
     "cancel": "Cancel",
     "reply_label": "Reply to {{name}}",
     "reply_placeholder": "Write a reply…",
-    "comment_by": "Comment by {{name}}"
+    "comment_by": "Comment by {{name}}",
+    "mission": "Mission",
+    "vision": "Vision",
+    "purpose": "Purpose",
+    "banner_label": "About God's Nation"
   },
   "memberNav": {
     "label": "Member sections",
@@ -1734,7 +1759,8 @@
     "members_online": "{{members}} members · {{online}} online",
     "message_info": "Message info",
     "seen_by": "Seen by {{count}} of {{total}}",
-    "delivered_to": "Received, not yet seen ({{count}})"
+    "delivered_to": "Received, not yet seen ({{count}})",
+    "group_info": "Group info"
   },
   "wall": {
     "cover_alt": "{{name}}'s cover picture",
@@ -1822,5 +1848,15 @@
     "saver_on_hint": "Photos, videos and voice notes download only when you tap them.",
     "saver_off": "Off",
     "saver_off_hint": "Photos and voice notes download by themselves."
+  },
+  "groupInfo": {
+    "back": "Back to the chat",
+    "online": "online",
+    "leader": "Leader",
+    "open_chat": "Open the chat",
+    "about": "Purpose & vision",
+    "leaders": "Leaders",
+    "members": "Members ({{count}})",
+    "show_all": "Show all {{count}} members"
   }
 }

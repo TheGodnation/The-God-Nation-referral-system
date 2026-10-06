@@ -150,10 +150,12 @@ const urlCache = new Map<string, { url: string; expires: number }>();
 export async function getAttachmentUrl(mediaBase: string, messageId: string, attachmentId: string): Promise<string> {
   const hit = urlCache.get(attachmentId);
   if (hit && hit.expires > Date.now()) return hit.url;
-  const res = await api.get<{ url: string }>(
+  const res = await api.get<{ url: string; expiresAt?: string }>(
     `${mediaBase}/messages/${messageId}/attachments/${attachmentId}/download-url`,
   );
-  urlCache.set(attachmentId, { url: res.url, expires: Date.now() + 4 * 60 * 1000 });
+  // Keep the link until 10 minutes before it stops working (at least 4 min).
+  const until = res.expiresAt ? new Date(res.expiresAt).getTime() - 10 * 60 * 1000 : 0;
+  urlCache.set(attachmentId, { url: res.url, expires: Math.max(until, Date.now() + 4 * 60 * 1000) });
   return res.url;
 }
 

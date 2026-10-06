@@ -1,4 +1,5 @@
 import { AdminOnlineNow } from '../components/admin/AdminOnlineNow';
+import { AdminBannerPicture } from '../components/admin/AdminBannerPicture';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
@@ -851,6 +852,16 @@ const CONTENT_SECTIONS: {
   fields: { key: string; multiline?: boolean; bilingual?: boolean }[];
 }[] = [
   {
+    // Top of the member Updates page (its picture is set just above).
+    section: 'appBanner',
+    fields: [
+      { key: 'appSlogan' },
+      { key: 'appMission', multiline: true },
+      { key: 'appVision', multiline: true },
+      { key: 'appPurpose', multiline: true },
+    ],
+  },
+  {
     section: 'hero',
     fields: [
       { key: 'homepageTitle' },
@@ -984,6 +995,7 @@ function ContentTab() {
         <h2 className="font-semibold text-brand-900">{t('admin.content.title')}</h2>
         <p className="text-xs text-slate-400">{t('admin.content.hint')}</p>
       </div>
+      <AdminBannerPicture />
       {CONTENT_SECTIONS.map(({ section, fields }) => (
         <div key={section} className="card space-y-4">
           <h3 className="font-semibold text-brand-900">{t(`admin.content.sections.${section}`)}</h3>

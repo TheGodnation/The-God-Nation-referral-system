@@ -149,7 +149,7 @@ router.get('/photos/:photoId', requireViewer, asyncHandler(async (req, res) => {
   });
   if (!photo || photo.post.deletedAt || !isStorageConfigured()) return res.status(404).json({ error: 'Not found.' });
   const { url } = await createDownloadUrl({ storageKey: photo.storageKey });
-  res.setHeader('Cache-Control', 'private, max-age=240');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
   res.redirect(302, url);
 }));
 

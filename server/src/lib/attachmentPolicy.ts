@@ -127,6 +127,28 @@ export function isStorageKeyForPrivateConversation(storageKey: string, conversat
   return match[1] === conversationId;
 }
 
+// The Updates banner and group pictures (admin uploads; same image rules as
+// profile pictures).
+const APP_BANNER_KEY_PATTERN = /^settings\/app-banner\/([0-9a-f-]{36})$/;
+const GROUP_PHOTO_KEY_PATTERN = /^communities\/([0-9a-f-]{36})\/photo\/([0-9a-f-]{36})$/;
+
+export function generateAppBannerStorageKey(): string {
+  return `settings/app-banner/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForAppBanner(storageKey: string): boolean {
+  return APP_BANNER_KEY_PATTERN.test(storageKey);
+}
+
+export function generateGroupPhotoStorageKey(communityId: string): string {
+  return `communities/${communityId}/photo/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForGroupPhoto(storageKey: string, communityId: string): boolean {
+  const match = GROUP_PHOTO_KEY_PATTERN.exec(storageKey);
+  return Boolean(match) && match![1] === communityId;
+}
+
 // Profile pictures — images only, smaller ceiling than chat images (a
 // profile picture is shown small and often, so it should load fast on
 // mobile data). Keys are namespaced to the Person they belong to, same
