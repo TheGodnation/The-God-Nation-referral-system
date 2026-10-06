@@ -22,10 +22,10 @@ export function MemberUpdatesPage() {
             <NotificationBell />
           </div>
           <div className="mt-2 space-y-2 sm:mt-4 sm:space-y-4">
-            <div className="space-y-2 px-4 empty:hidden sm:px-0">
+            <div className="px-4 empty:hidden sm:px-0">
               <LiveBanner />
-              <HeadquartersPosts />
             </div>
+            <HeadquartersPosts variant="feed" />
             <div className="flex gap-2 px-4 sm:px-0" role="tablist" aria-label={t('updates.view_label') ?? ''}>
               <button
                 type="button"

@@ -105,8 +105,6 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [body, setBody] = useState('');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [showVideo, setShowVideo] = useState(false);
   const [files, setFiles] = useState<PickedPhoto[]>([]);
   const [preparing, setPreparing] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -154,7 +152,7 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!body.trim() && files.length === 0 && !youtubeUrl.trim()) {
+    if (!body.trim() && files.length === 0) {
       setError(t('updates.empty_post'));
       return;
     }
@@ -171,21 +169,15 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
         if (!put.ok) throw new Error('upload failed');
         photos.push({ storageKey: auth.storageKey, mimeType, byteSize: file.blob.size });
       }
-      await api.post('/api/updates', {
-        body: body.trim(),
-        ...(youtubeUrl.trim() ? { youtubeUrl: youtubeUrl.trim() } : {}),
-        photos,
-      });
+      // Members share words and photos only (no YouTube links).
+      await api.post('/api/updates', { body: body.trim(), photos });
       setBody('');
-      setYoutubeUrl('');
-      setShowVideo(false);
       files.forEach((f) => revokeUrl(f.preview));
       setFiles([]);
       if (textRef.current) textRef.current.style.height = '';
       onPosted();
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'INVALID_YOUTUBE') setError(t('updates.invalid_youtube'));
-      else if (err instanceof ApiError && err.code === 'STORAGE_UNAVAILABLE') setError(t('updates.photos_unavailable'));
+      if (err instanceof ApiError && err.code === 'STORAGE_UNAVAILABLE') setError(t('updates.photos_unavailable'));
       else if (err instanceof ApiError) setError(err.message);
       else setError(t('updates.post_failed'));
     } finally {
@@ -230,15 +222,6 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
           ))}
         </ul>
       )}
-      {showVideo && (
-        <input
-          className="input"
-          aria-label={t('updates.youtube_label') ?? ''}
-          placeholder="https://youtu.be/…"
-          value={youtubeUrl}
-          onChange={(e) => setYoutubeUrl(e.target.value)}
-        />
-      )}
       {error && (
         <p role="alert" className="text-sm text-red-700">
           {error}
@@ -253,14 +236,6 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
             disabled={posting || preparing}
           >
             <span className="text-green-600">🖼️</span> {preparing ? t('updates.loading') : t('updates.add_photos')}
-          </button>
-          <button
-            type="button"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-            onClick={() => setShowVideo((v) => !v)}
-            disabled={posting}
-          >
-            <span className="text-red-600">▶</span> {t('updates.add_video')}
           </button>
           <input
             ref={fileInput}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
 import { formatBytes } from '../lib/attachmentLimits';
+import { HeadquartersFeedCard } from './HeadquartersFeedCard';
 
 interface HeadquartersPostMediaInfo {
   mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
@@ -39,7 +40,10 @@ interface CommentRow {
 // server/src/lib/headquartersPosts.ts. Silent-hide when there is nothing
 // to show, matching the established Announcements convention for an
 // inapplicable section.
-export function HeadquartersPosts() {
+// variant="feed" (member Updates page) shows each post as a full post card
+// with the start of the message and its photo; the default "list" keeps the
+// compact list used on the dashboards.
+export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'feed' } = {}) {
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<HeadquartersPostRow[]>([]);
@@ -181,7 +185,7 @@ export function HeadquartersPosts() {
 
   if (selectedId) {
     return (
-      <div className="card mt-6">
+      <div className={variant === 'feed' ? 'border-t-4 border-amber-400 bg-white p-4 shadow-sm sm:rounded-xl' : 'card mt-6'}>
         <button className="mb-4 text-sm text-brand-700 hover:underline" onClick={closePost}>
           {t('headquartersPosts.back_to_list')}
         </button>
@@ -284,6 +288,24 @@ export function HeadquartersPosts() {
           </>
         )}
       </div>
+    );
+  }
+
+  if (variant === 'feed') {
+    if (error) return <p className="px-4 text-sm text-red-700 sm:px-0">{error}</p>;
+    return (
+      <section className="space-y-2 sm:space-y-4" aria-label={t('headquartersPosts.title') ?? ''}>
+        {items.map((i) => (
+          <HeadquartersFeedCard
+            key={i.id}
+            item={i}
+            onOpen={() => openPost(i.id)}
+            onReactionChange={(viewerHasReacted, reactionCount) =>
+              setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, viewerHasReacted, reactionCount } : x)))
+            }
+          />
+        ))}
+      </section>
     );
   }
 

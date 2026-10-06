@@ -1315,7 +1315,17 @@
     "media_loading": "Chargement du média…",
     "media_load_failed": "Échec du chargement du média.",
     "media_pdf_open": "Ouvrir le PDF ({{filename}})",
-    "media_image_alt": "Image jointe à cette publication"
+    "media_image_alt": "Image jointe à cette publication",
+    "hq_name": "Quartier général de God's Nation",
+    "official": "Officiel",
+    "pinned": "Épinglé",
+    "like": "J'aime",
+    "comment": "Commenter",
+    "video_tap": "Touchez pour regarder la vidéo",
+    "audio_tap": "Touchez pour écouter",
+    "pdf_tap": "Touchez pour ouvrir le document",
+    "photo_unavailable": "Cette photo ne peut pas être affichée pour le moment.",
+    "post_label": "Publication du quartier général : {{title}}"
   },
   "myResources": {
     "title": "Ressources",
@@ -1382,7 +1392,7 @@
     "youtube_label": "Lien YouTube",
     "post": "Publier",
     "posting": "Publication…",
-    "empty_post": "Écrivez quelque chose, ou ajoutez une photo ou une vidéo.",
+    "empty_post": "Écrivez quelque chose, ou ajoutez une photo.",
     "post_failed": "Votre publication n’a pas pu être partagée. Veuillez réessayer.",
     "photo_wrong_type": "Veuillez choisir des images JPG, PNG ou WebP.",
     "photo_too_large": "Une image est trop grande (8 Mo maximum).",
