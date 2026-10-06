@@ -52,12 +52,13 @@ function newId() {
 // photos/videos/documents, record a video, or hold the microphone to record
 // a voice note (slide left to cancel; a quick tap records hands-free).
 export function ChatComposer({
-  communityId,
+  uploadPath,
   replyTo,
   onCancelReply,
   onSend,
 }: {
-  communityId: string;
+  /** Where to ask for an upload link (group or private chat). */
+  uploadPath: string;
   replyTo: ChatMessage | null;
   onCancelReply: () => void;
   onSend: (msg: OutgoingMessage) => Promise<boolean>;
@@ -146,7 +147,7 @@ export function ChatComposer({
             blob = await shrinkPhoto(file);
             if (blob !== file) name = name.replace(/\.[^.]+$/, '') + '.jpg';
           }
-          const uploaded = await uploadChatFile(communityId, blob, name);
+          const uploaded = await uploadChatFile(uploadPath, blob, name);
           setTray((prev) => prev.map((x) => (x.localId === item.localId ? { ...x, status: 'ready', uploaded } : x)));
         } catch (err) {
           setTray((prev) => prev.map((x) => (x.localId === item.localId ? { ...x, status: 'error' } : x)));
@@ -267,7 +268,7 @@ export function ChatComposer({
   async function sendVoice(blob: Blob, mime: string) {
     setBusy(true);
     try {
-      const uploaded = await uploadChatFile(communityId, blob, `voice-note-${Date.now()}.${extensionFor(mime)}`);
+      const uploaded = await uploadChatFile(uploadPath, blob, `voice-note-${Date.now()}.${extensionFor(mime)}`);
       await onSend({ attachments: [uploaded], replyToMessageId: replyTo?.id });
     } catch (err) {
       setError(problemText(err instanceof ChatUploadError ? err.reason : 'failed'));

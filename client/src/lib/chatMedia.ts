@@ -45,7 +45,8 @@ export function extensionFor(mime: string): string {
   return map[mime] ?? 'bin';
 }
 
-export async function uploadChatFile(communityId: string, file: Blob, filename: string): Promise<UploadedAttachment> {
+/** authorizePath: the chat's "ask for an upload link" address (group or private chat). */
+export async function uploadChatFile(authorizePath: string, file: Blob, filename: string): Promise<UploadedAttachment> {
   const mimeType = baseMime(file.type);
   if (!isAllowedAttachmentMime(mimeType)) throw new ChatUploadError('type');
   if (file.size > (maxBytesForMime(mimeType) ?? 0)) throw new ChatUploadError('size');
@@ -54,7 +55,7 @@ export async function uploadChatFile(communityId: string, file: Blob, filename: 
 
   let auth: { storageKey: string; uploadUrl: string };
   try {
-    auth = await api.post<{ storageKey: string; uploadUrl: string }>(`/api/communities/${communityId}/attachments/authorize`, {
+    auth = await api.post<{ storageKey: string; uploadUrl: string }>(authorizePath, {
       originalFilename: filename,
       mimeType,
       byteSize: body.size,
@@ -118,11 +119,13 @@ export function canRecord(kind: 'audio' | 'video'): boolean {
 // forth doesn't ask the server again and again.
 const urlCache = new Map<string, { url: string; expires: number }>();
 
-export async function getAttachmentUrl(communityId: string, messageId: string, attachmentId: string): Promise<string> {
+/** mediaBase: the chat's base address, e.g. /api/communities/:id/conversation
+ * or /api/private-messages/conversations/:id. */
+export async function getAttachmentUrl(mediaBase: string, messageId: string, attachmentId: string): Promise<string> {
   const hit = urlCache.get(attachmentId);
   if (hit && hit.expires > Date.now()) return hit.url;
   const res = await api.get<{ url: string }>(
-    `/api/communities/${communityId}/conversation/messages/${messageId}/attachments/${attachmentId}/download-url`,
+    `${mediaBase}/messages/${messageId}/attachments/${attachmentId}/download-url`,
   );
   urlCache.set(attachmentId, { url: res.url, expires: Date.now() + 4 * 60 * 1000 });
   return res.url;
@@ -150,19 +153,19 @@ export function useInView<T extends Element>(): [React.RefObject<T>, boolean] {
   return [ref, inView];
 }
 
-export function useAttachmentUrl(communityId: string, messageId: string, attachmentId: string, enabled: boolean) {
+export function useAttachmentUrl(mediaBase: string, messageId: string, attachmentId: string, enabled: boolean) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (!enabled || url) return;
     let alive = true;
-    getAttachmentUrl(communityId, messageId, attachmentId)
+    getAttachmentUrl(mediaBase, messageId, attachmentId)
       .then((u) => alive && setUrl(u))
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
-  }, [enabled, url, communityId, messageId, attachmentId]);
+  }, [enabled, url, mediaBase, messageId, attachmentId]);
   return { url, failed };
 }
 

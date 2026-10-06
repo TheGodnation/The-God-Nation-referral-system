@@ -6,7 +6,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { InstallAppBanner } from '../components/member/InstallAppBanner';
 import { Avatar } from '../components/Avatar';
-import { PrivateMessages } from '../components/PrivateMessages';
+import { PrivateChatList } from '../components/chat/PrivateChatList';
 import { Announcements } from '../components/Announcements';
 import { api } from '../lib/api';
 
@@ -77,8 +77,8 @@ export function MemberChatsPage() {
               ))}
             </ul>
           </section>
+          <PrivateChatList />
           <Announcements />
-          <PrivateMessages />
         </div>
         <MemberNav />
       </section>

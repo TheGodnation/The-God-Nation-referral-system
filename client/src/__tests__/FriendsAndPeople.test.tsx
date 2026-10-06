@@ -52,6 +52,7 @@ function renderAt(path: string) {
         <Routes>
           <Route path="/member/people" element={<MemberPeoplePage />} />
           <Route path="/member/people/:personId" element={<MemberPersonPage />} />
+          <Route path="/member/chats/private/:conversationId" element={<p>Private chat screen</p>} />
         </Routes>
       </MemberAuthProvider>
     </MemoryRouter>,
@@ -115,17 +116,16 @@ describe('Person profile page', () => {
       'GET /api/member/auth/me': () => ({ body: ME }),
       'GET /api/member/people/p9': () => ({ body: profile }),
       'GET /api/updates': () => ({ body: { viewer: { canPost: true, canModerate: false, personId: 'me' }, items: [], nextBefore: null } }),
-      'POST /api/member/messages/start': () => ({ status: 201, body: { conversationId: 'c1' } }),
+      'POST /api/member/messages/open': () => ({ body: { conversationId: 'c1' } }),
     });
     renderAt('/member/people/p9');
     expect(await screen.findByRole('heading', { name: 'Paul Profile' })).toBeInTheDocument();
     expect(screen.getByText('Douala V, Littoral · 3 friends')).toBeInTheDocument();
 
+    // "Message" opens the WhatsApp-style private chat screen.
     fireEvent.click(screen.getByRole('button', { name: /Message/ }));
-    fireEvent.change(screen.getByLabelText('Your message'), { target: { value: 'Hello Paul' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    expect(await screen.findByText(/Message sent/)).toBeInTheDocument();
-    expect(calls.find((c) => c.url === '/api/member/messages/start')?.body).toEqual({ personId: 'p9', body: 'Hello Paul' });
+    expect(await screen.findByText('Private chat screen')).toBeInTheDocument();
+    expect(calls.find((c) => c.url === '/api/member/messages/open')?.body).toEqual({ personId: 'p9' });
   });
 
   it('hides Message for strangers and explains why', async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
+import { getAttachmentUrl } from '../lib/chatMedia';
 
 type OtherPartyType = 'CENTRAL_AUTHORITY' | 'LEADER' | 'MEMBER';
 
@@ -17,6 +18,8 @@ interface MessageRow {
   isOwn: boolean;
   body: string;
   createdAt: string;
+  // Photos / voice notes / videos sent from the member app.
+  attachments?: { id: string; originalFilename: string; mimeType: string }[];
 }
 
 // Private Communication / Messaging — a shared authenticated participant
@@ -148,6 +151,21 @@ export function PrivateMessages({ alwaysShow = false }: { alwaysShow?: boolean }
                       }`}
                     >
                       {m.body}
+                      {(m.attachments ?? []).map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          className="block text-left text-brand-700 underline"
+                          onClick={() =>
+                            selectedId &&
+                            getAttachmentUrl(`/api/private-messages/conversations/${selectedId}`, m.id, a.id)
+                              .then((url) => window.open(url, '_blank', 'noopener'))
+                              .catch(() => {})
+                          }
+                        >
+                          📎 {a.originalFilename}
+                        </button>
+                      ))}
                     </p>
                     <span className="block text-xs text-slate-400">{new Date(m.createdAt).toLocaleString()}</span>
                   </div>
