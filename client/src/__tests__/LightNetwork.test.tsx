@@ -114,9 +114,17 @@ describe('Photos on slow networks', () => {
 
   it('with "Save data" on, the photo downloads only after a tap', async () => {
     setDataSaverSetting('on');
+    // A different message/attachment id than the test above — getAttachmentUrl
+    // caches download links for a few minutes, so reusing "a1" here would
+    // silently serve that test's cached URL instead of exercising this tap.
+    const saverPhotoMsg = {
+      ...photoMsg,
+      id: 'm2',
+      attachments: [{ ...photoMsg.attachments[0], id: 'a2' }],
+    };
     mockFetch({
-      [`GET ${BASE}/messages`]: () => ({ body: chatBody([photoMsg]) }),
-      [`GET ${BASE}/messages/m1/attachments/a1/download-url`]: () => ({ body: { url: 'https://files.example/p.jpg' } }),
+      [`GET ${BASE}/messages`]: () => ({ body: chatBody([saverPhotoMsg]) }),
+      [`GET ${BASE}/messages/m2/attachments/a2/download-url`]: () => ({ body: { url: 'https://files.example/p.jpg' } }),
     });
     renderChat();
     const button = await screen.findByRole('button', { name: /Download photo/ });
