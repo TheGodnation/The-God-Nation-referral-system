@@ -104,7 +104,7 @@ describe('Edit and delete for everyone', () => {
     const box = screen.getByLabelText('Edit message', { selector: 'textarea' });
     fireEvent.change(box, { target: { value: 'Typo here' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('Typo here')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Typo here')).toBeInTheDocument());
     expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ body: 'Typo here' });
   });
 
