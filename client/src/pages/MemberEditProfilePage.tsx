@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
+import { DataSaverSetting } from '../components/member/DataSaverSetting';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { ProfileImageError, removeProfileImage, uploadProfileImage } from '../lib/profileImages';
@@ -207,6 +208,7 @@ export function MemberEditProfilePage() {
             {saving ? t('wall.saving') : t('wall.save')}
           </button>
         </form>
+        <DataSaverSetting />
       </section>
     </PageShell>
   );

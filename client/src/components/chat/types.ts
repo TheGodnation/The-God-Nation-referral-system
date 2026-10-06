@@ -3,6 +3,8 @@ export interface ChatAttachment {
   originalFilename: string;
   mimeType: string;
   byteSize: number;
+  /** Tiny blurred preview (data URL) shown before the photo downloads. */
+  thumb?: string;
 }
 
 export interface ChatReaction {
@@ -32,6 +34,8 @@ export interface ChatMessage {
   reactions?: ChatReaction[];
   /** Shown while a message is still being sent. */
   pending?: boolean;
+  /** Typed while offline — will be sent when the network comes back. */
+  queued?: boolean;
   /** Ticks on your own messages: ✓ sent, ✓✓ received, blue ✓✓ seen. */
   status?: 'sent' | 'delivered' | 'read';
 }

@@ -18,6 +18,33 @@ export class ApiError extends Error {
   }
 }
 
+/** The request never reached the server (no network, or it dropped). */
+export class NetworkError extends Error {
+  constructor() {
+    super('Network unavailable');
+    this.name = 'NetworkError';
+  }
+}
+
+// Tells the app whether the server can be reached, so it can show a small
+// "Connecting…" bar on weak networks (see ConnectionBar).
+let lastReachable = true;
+function reportReachable(ok: boolean) {
+  if (ok === lastReachable) return;
+  lastReachable = ok;
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('api-reachable', { detail: ok }));
+}
+
+export function isServerReachable() {
+  return lastReachable;
+}
+
+let lastRequestAt = 0;
+/** When the app last talked to the server (ms). */
+export function lastServerContact() {
+  return lastRequestAt;
+}
+
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -34,12 +61,20 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     if (csrf) headers['X-CSRF-Token'] = csrf;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: payload,
-    credentials: 'include',
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: payload,
+      credentials: 'include',
+    });
+  } catch {
+    reportReachable(false);
+    throw new NetworkError();
+  }
+  reportReachable(true);
+  lastRequestAt = Date.now();
 
   const contentType = res.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await res.json().catch(() => ({})) : undefined;

@@ -5,6 +5,7 @@ import { api, ApiError } from '../../lib/api';
 import { Avatar } from '../Avatar';
 import { YoutubeEmbed } from './YoutubeEmbed';
 import { baseMime, shrinkPhoto } from '../../lib/chatMedia';
+import { useDataSaver } from '../../lib/dataSaver';
 
 // The community-wide Updates feed, Facebook-style. Used on the member
 // Updates page (with the "write a post" box), on a person's profile
@@ -514,6 +515,21 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
 function PhotoTile({ url, onOpen, className }: { url: string; onOpen: () => void; className: string }) {
   const { t } = useTranslation();
   const [state, setState] = useState<'loading' | 'ok' | 'failed'>('loading');
+  const saver = useDataSaver();
+  const [wanted, setWanted] = useState(false);
+  // "Save data": the photo only downloads after a tap.
+  if (saver && !wanted) {
+    return (
+      <button
+        type="button"
+        onClick={() => setWanted(true)}
+        className={`relative flex flex-col items-center justify-center gap-1 bg-slate-200 text-sm font-semibold text-slate-600 ${className}`}
+        aria-label={t('network.tap_to_load_photo') ?? ''}
+      >
+        <span className="text-2xl">📷</span>⬇ {t('network.tap_to_load')}
+      </button>
+    );
+  }
   return (
     <button type="button" onClick={onOpen} className={`relative block overflow-hidden bg-slate-200 ${className}`} aria-label={t('updates.open_photo') ?? ''}>
       {state !== 'failed' && (
@@ -788,7 +804,7 @@ function PostCard({
 
 // ---------------------------------------------------------------- Feed
 
-const NEW_POSTS_CHECK_MS = 60 * 1000;
+const NEW_POSTS_CHECK_MS = 2 * 60 * 1000;
 
 export function UpdatesFeed({
   authorPersonId,
@@ -814,6 +830,8 @@ export function UpdatesFeed({
   const sentinel = useRef<HTMLDivElement>(null);
   const dataRef = useRef<FeedResponse | null>(null);
   dataRef.current = data;
+  const newerRef = useRef<FeedResponse | null>(null);
+  newerRef.current = newer;
 
   const query = [
     authorPersonId ? `authorPersonId=${encodeURIComponent(authorPersonId)}` : '',
@@ -861,12 +879,13 @@ export function UpdatesFeed({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.nextBefore, loadingMore]);
 
-  // Every minute, quietly check for new posts and offer a "New posts" button.
+  // Every couple of minutes, quietly ask for just the newest post (very
+  // little data); if it's new, offer a "New posts" button that loads them.
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (document.visibilityState !== 'visible' || !dataRef.current) return;
+      if (document.visibilityState !== 'visible' || !dataRef.current || newerRef.current) return;
       api
-        .get<FeedResponse>(`/api/updates${query ? `?${query}` : ''}`)
+        .get<FeedResponse>(`/api/updates?limit=1${query ? `&${query}` : ''}`)
         .then((res) => {
           const known = new Set(dataRef.current?.items.map((i) => i.id) ?? []);
           if (res.items.some((i) => !known.has(i.id))) setNewer(res);
@@ -878,8 +897,8 @@ export function UpdatesFeed({
 
   function showNewer() {
     if (!newer) return;
-    setData(newer);
     setNewer(null);
+    load();
     window.scrollTo?.({ top: 0, behavior: 'smooth' });
   }
 

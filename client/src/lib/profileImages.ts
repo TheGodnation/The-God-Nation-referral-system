@@ -17,7 +17,8 @@ export class ProfileImageError extends Error {
 /** Uploads the member's own profile picture ("photo") or wall cover
  * ("cover"). Big phone photos are made smaller first. */
 export async function uploadProfileImage(kind: 'photo' | 'cover', file: File): Promise<void> {
-  const blob = await shrinkPhoto(file);
+  // Profile pictures are shown small, so 512px is plenty (and light).
+  const blob = await shrinkPhoto(file, kind === 'photo' ? 512 : 1280);
   const mimeType = baseMime(blob.type);
   if (!ALLOWED.includes(mimeType)) throw new ProfileImageError('type');
   if (blob.size > MAX_BYTES) throw new ProfileImageError('size');

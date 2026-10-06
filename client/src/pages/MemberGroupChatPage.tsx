@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { api, ApiError } from '../lib/api';
+import { api, ApiError, NetworkError } from '../lib/api';
+import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
 import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatComposer';
@@ -13,6 +14,8 @@ interface MessagesResponse {
   unreadCount: number;
   isAdministrator: boolean;
   canPost: boolean;
+  newerOverflow?: boolean;
+  recent?: RecentChange[];
   memberCount?: number;
   onlineCount?: number;
   typing?: string[];
@@ -31,7 +34,7 @@ interface MessageInfo {
   deliveredTo: InfoPerson[];
 }
 
-const POLL_MS = 8000;
+const POLL_MS = 6000;
 
 function dayKey(iso: string) {
   const d = new Date(iso);
@@ -127,12 +130,43 @@ export function MemberGroupChatPage() {
     api.post(`/api/communities/${communityId}/conversation/read`, { messageId: latest.id }).catch(() => {});
   }
 
+  const messagesRef = useRef<ChatMessage[]>([]);
+  messagesRef.current = messages;
+
+  // Messages typed while offline: shown with 🕓, sent when the network is back.
+  const outbox = useOutbox(
+    `group:${communityId}`,
+    (out) => api.post(`/api/communities/${communityId}/conversation/messages`, out).then(() => undefined),
+    (tempId) => {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      pokeRef.current();
+    },
+    (tempId) => {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      showToast(t('groupChat.send_failed'));
+    },
+  );
+  const queuedRef = useRef(outbox.queued);
+  queuedRef.current = outbox.queued;
+  const pokeRef = useRef<() => void>(() => {});
+
+  // First load: the latest page. After that, only what is new (light on
+  // data): `after` = the newest message we already have.
   const fetchLatest = useCallback(
-    (first = false) => {
+    (first = false): Promise<boolean> => {
+      const lastId = first ? null : lastServerId(messagesRef.current);
+      const query = lastId ? `?after=${encodeURIComponent(lastId)}` : '';
       return api
-        .get<MessagesResponse>(`/api/communities/${communityId}/conversation/messages`)
+        .get<MessagesResponse>(`/api/communities/${communityId}/conversation/messages${query}`)
         .then((res) => {
-          setMessages((prev) => (first ? res.items : mergeLatest(prev, res.items)));
+          if (lastId && res.newerOverflow) return fetchLatest(true);
+          setMessages((prev) => {
+            if (first) {
+              const queued = queuedRef.current.map((q) => q.message).filter((q) => !prev.some((m) => m.id === q.id));
+              return [...res.items, ...queued];
+            }
+            return lastId ? applyRecent(appendNew(prev, res.items), res.recent) : mergeLatest(prev, res.items);
+          });
           if (first) setHasMore(res.hasMore);
           setIsAdministrator(res.isAdministrator);
           if (typeof res.memberCount === 'number') setCounts({ members: res.memberCount, online: res.onlineCount ?? 0 });
@@ -140,10 +174,12 @@ export function MemberGroupChatPage() {
           setCanPost(res.canPost !== false);
           setLoadError(false);
           markRead(res.items, res.unreadCount);
+          return res.items.length > 0 || (res.typing ?? []).length > 0;
         })
         .catch((err) => {
           if (err instanceof ApiError && (err.status === 403 || err.status === 404)) setNotAllowed(true);
           else if (first) setLoadError(true);
+          return false;
         })
         .finally(() => first && setLoaded(true));
     },
@@ -154,11 +190,11 @@ export function MemberGroupChatPage() {
   useEffect(() => {
     stickToBottom.current = true;
     void fetchLatest(true);
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void fetchLatest(false);
-    }, POLL_MS);
-    return () => window.clearInterval(timer);
   }, [fetchLatest]);
+
+  // Checks every few seconds while the chat is busy, up to every 30 s when quiet.
+  const poke = useAdaptivePoll(() => fetchLatest(false), POLL_MS, loaded && !notAllowed);
+  pokeRef.current = poke;
 
   // Keep the view at the bottom for new messages, and in place when older
   // messages are added above.
@@ -230,8 +266,15 @@ export function MemberGroupChatPage() {
       await api.post(`/api/communities/${communityId}/conversation/messages`, out);
       await fetchLatest(false);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      poke();
       return true;
     } catch (err) {
+      if (err instanceof NetworkError) {
+        // No network: keep it with a 🕓 and send it when the network is back.
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, queued: true } : m)));
+        outbox.enqueue(tempId, out, temp);
+        return true;
+      }
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setReplyTo(reply);
       if (err instanceof ApiError && err.status === 503) showToast(t('groupChat.storage_off'));

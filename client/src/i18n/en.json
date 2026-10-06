@@ -1806,5 +1806,21 @@
     "group_line": "{{online}} online of {{members}}",
     "show_all": "Show all {{count}} groups",
     "show_less": "Show less"
+  },
+  "network": {
+    "connecting": "Connecting… (weak or no network)",
+    "waiting": "Waiting for network",
+    "tap_to_load": "Tap to load",
+    "tap_to_load_photo": "Tap to load photo",
+    "download_photo": "Download photo ({{size}})",
+    "download_voice": "Download voice message ({{size}})",
+    "download_video": "Download video ({{size}})",
+    "saver_title": "Save data",
+    "saver_auto": "Automatic (recommended)",
+    "saver_auto_hint": "Saves data by itself when the network is very slow (2G) or your phone's data saver is on.",
+    "saver_on": "Always save data",
+    "saver_on_hint": "Photos, videos and voice notes download only when you tap them.",
+    "saver_off": "Off",
+    "saver_off_hint": "Photos and voice notes download by themselves."
   }
 }

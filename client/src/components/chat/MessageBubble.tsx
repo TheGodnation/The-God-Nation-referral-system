@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Avatar } from '../Avatar';
 import { formatBytes } from '../../lib/attachmentLimits';
 import { getAttachmentUrl, useAttachmentUrl, useInView } from '../../lib/chatMedia';
+import { useDataSaver } from '../../lib/dataSaver';
 import { mediaKind, type ChatAttachment, type ChatMessage, type ChatReplyPreview } from './types';
 
 const NAME_COLORS = ['text-rose-700', 'text-emerald-700', 'text-violet-700', 'text-amber-700', 'text-sky-700', 'text-fuchsia-700', 'text-teal-700', 'text-orange-700'];
@@ -48,16 +49,44 @@ export function ReplyQuote({ reply, onClick, own }: { reply: ChatReplyPreview; o
 
 function PhotoAttachment({ mediaBase, messageId, a, onOpen }: { mediaBase: string; messageId: string; a: ChatAttachment; onOpen: (url: string) => void }) {
   const { t } = useTranslation();
+  const saver = useDataSaver();
+  const [wanted, setWanted] = useState(false);
   const [ref, inView] = useInView<HTMLDivElement>();
-  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView);
+  // With "Save data" on, the real photo only downloads after a tap.
+  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView && (!saver || wanted));
+  const [loaded, setLoaded] = useState(false);
   return (
-    <div ref={ref} className="overflow-hidden rounded-md bg-slate-200">
-      {url ? (
-        <button type="button" className="block" onClick={() => onOpen(url)} aria-label={t('groupChat.open_photo') ?? ''}>
-          <img src={url} alt={t('groupChat.photo') ?? ''} className="max-h-80 w-full min-w-[12rem] object-cover" />
+    <div ref={ref} className="relative min-h-[8rem] min-w-[12rem] overflow-hidden rounded-md bg-slate-200">
+      {a.thumb && !loaded && (
+        <img src={a.thumb} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover blur-md" />
+      )}
+      {url && (
+        <button type="button" className="relative block w-full" onClick={() => onOpen(url)} aria-label={t('groupChat.open_photo') ?? ''}>
+          <img
+            src={url}
+            alt={t('groupChat.photo') ?? ''}
+            onLoad={() => setLoaded(true)}
+            className={`max-h-80 w-full object-cover transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          />
         </button>
-      ) : (
-        <div className="flex h-48 w-56 items-center justify-center text-2xl text-slate-400">{failed ? '⚠️' : '📷'}</div>
+      )}
+      {!url && (
+        <div className="relative flex h-48 w-full items-center justify-center">
+          {failed ? (
+            <span className="text-2xl">⚠️</span>
+          ) : saver && !wanted ? (
+            <button
+              type="button"
+              onClick={() => setWanted(true)}
+              className="rounded-full bg-black/55 px-3 py-2 text-sm font-semibold text-white"
+              aria-label={t('network.download_photo', { size: formatBytes(a.byteSize) }) ?? ''}
+            >
+              ⬇ {formatBytes(a.byteSize)}
+            </button>
+          ) : (
+            !a.thumb && <span className="text-2xl text-slate-400">📷</span>
+          )}
+        </div>
       )}
     </div>
   );
@@ -65,22 +94,44 @@ function PhotoAttachment({ mediaBase, messageId, a, onOpen }: { mediaBase: strin
 
 function PlayableAttachment({ mediaBase, messageId, a }: { mediaBase: string; messageId: string; a: ChatAttachment }) {
   const { t } = useTranslation();
+  const saver = useDataSaver();
+  const [wanted, setWanted] = useState(false);
   const [ref, inView] = useInView<HTMLDivElement>();
-  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView);
+  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView && (!saver || wanted));
   const kind = mediaKind(a.mimeType);
+  const waitForTap = saver && !wanted && !url;
   return (
     <div ref={ref}>
       {kind === 'voice' ? (
         <div className="flex items-center gap-2">
           <span aria-hidden className="text-xl">🎤</span>
           {url ? (
-            <audio controls preload="metadata" src={url} className="h-10 w-56 max-w-full" aria-label={t('groupChat.voice') ?? ''} />
+            <audio controls preload={saver ? 'none' : 'metadata'} src={url} className="h-10 w-56 max-w-full" aria-label={t('groupChat.voice') ?? ''} />
+          ) : waitForTap ? (
+            <button
+              type="button"
+              onClick={() => setWanted(true)}
+              className="rounded-full bg-slate-900/10 px-3 py-1.5 text-sm font-medium text-slate-700"
+              aria-label={t('network.download_voice', { size: formatBytes(a.byteSize) }) ?? ''}
+            >
+              ⬇ {t('groupChat.voice')} · {formatBytes(a.byteSize)}
+            </button>
           ) : (
             <span className="text-xs text-slate-500">{failed ? '⚠️' : t('groupChat.loading')}</span>
           )}
         </div>
       ) : url ? (
-        <video controls playsInline preload="metadata" src={url} className="max-h-80 w-full min-w-[12rem] rounded-md bg-black" aria-label={t('groupChat.video') ?? ''} />
+        // preload="none": nothing downloads until the person presses play.
+        <video controls playsInline preload="none" src={url} className="max-h-80 w-full min-w-[12rem] rounded-md bg-black" aria-label={t('groupChat.video') ?? ''} />
+      ) : waitForTap ? (
+        <button
+          type="button"
+          onClick={() => setWanted(true)}
+          className="flex h-40 w-56 flex-col items-center justify-center gap-1 rounded-md bg-slate-800 text-sm font-semibold text-white"
+          aria-label={t('network.download_video', { size: formatBytes(a.byteSize) }) ?? ''}
+        >
+          <span className="text-3xl">▶</span>⬇ {formatBytes(a.byteSize)}
+        </button>
       ) : (
         <div className="flex h-40 w-56 items-center justify-center rounded-md bg-slate-800 text-2xl text-white/70">{failed ? '⚠️' : '🎥'}</div>
       )}
@@ -253,7 +304,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
           )}
 
           <p className="mt-0.5 flex items-center justify-end gap-1 text-[11px] text-slate-500">
-            {m.pending ? `🕓 ${t('groupChat.sending')}` : timeOf(m.createdAt)}
+            {m.pending ? `🕓 ${m.queued ? t('network.waiting') : t('groupChat.sending')}` : timeOf(m.createdAt)}
             {m.isOwn && !m.pending && !m.deleted && m.status && <Ticks status={m.status} />}
           </p>
 

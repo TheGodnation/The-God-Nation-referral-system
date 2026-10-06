@@ -20,6 +20,8 @@ import {
   isStorageKeyForPrivateConversation,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ORIGINAL_FILENAME_LENGTH,
+  MAX_THUMB_DATA_URL_LENGTH,
+  THUMB_DATA_URL_PATTERN,
 } from '../lib/attachmentPolicy';
 import { profilePhotoPath } from '../lib/profilePhoto';
 import { isOnline, setTyping, clearTyping, whoIsTyping, type TickStatus } from '../lib/presence';
@@ -221,6 +223,8 @@ const MAX_MESSAGE_PAGE_SIZE = 50;
 
 const listMessagesQuerySchema = z.object({
   before: z.string().optional(),
+  // Light polling: only messages newer than this one, plus `recent` changes.
+  after: z.string().optional(),
   limit: z.coerce.number().int().min(1).optional(),
 });
 
@@ -266,6 +270,14 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
     }
     cursor = { createdAt: cursorMessage.createdAt, id: cursorMessage.id };
   }
+  let afterCursor: { createdAt: Date; id: string } | null = null;
+  if (parsed.data.after && !parsed.data.before) {
+    const afterMessage = await prisma.privateMessage.findUnique({ where: { id: parsed.data.after } });
+    if (!afterMessage || afterMessage.conversationId !== conversation.id) {
+      return res.status(400).json({ error: 'Invalid pagination cursor.' });
+    }
+    afterCursor = { createdAt: afterMessage.createdAt, id: afterMessage.id };
+  }
 
   const rows = await prisma.privateMessage.findMany({
     where: {
@@ -273,11 +285,14 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
       ...(cursor
         ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
         : {}),
+      ...(afterCursor
+        ? { OR: [{ createdAt: { gt: afterCursor.createdAt } }, { createdAt: afterCursor.createdAt, id: { gt: afterCursor.id } }] }
+        : {}),
     },
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    orderBy: afterCursor ? [{ createdAt: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
     include: {
-      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true } },
+      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true } },
       replyTo: {
         select: { id: true, body: true, senderPersonId: true, senderUserId: true, attachments: { select: { mimeType: true }, take: 1 } },
       },
@@ -285,8 +300,9 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
     },
   });
 
-  const hasMore = rows.length > limit;
-  const page = rows.slice(0, limit).reverse();
+  const hasMore = afterCursor ? false : rows.length > limit;
+  const newerOverflow = afterCursor ? rows.length > limit : undefined;
+  const page = afterCursor ? rows.slice(0, limit) : rows.slice(0, limit).reverse();
   const [otherParty, unreadCount, side] = await Promise.all([
     resolveOtherParty(role, conversation),
     getPrivateConversationUnreadCount(actor, conversation),
@@ -304,7 +320,13 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
       isOwn: isOwnMessage(actor, m),
       body: m.body,
       createdAt: m.createdAt,
-      attachments: m.attachments,
+      attachments: m.attachments.map((a) => ({
+        id: a.id,
+        originalFilename: a.originalFilename,
+        mimeType: a.mimeType,
+        byteSize: a.byteSize,
+        thumb: a.thumbDataUrl ?? undefined,
+      })),
       replyTo: m.replyTo
         ? {
             id: m.replyTo.id,
@@ -317,6 +339,28 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
       status: isOwnMessage(actor, m) ? side.statusOf(m.createdAt) : undefined,
     })),
     hasMore,
+    newerOverflow,
+    // Light polling: ticks and reactions on the 30 most recent messages.
+    recent: afterCursor
+      ? (
+          await prisma.privateMessage.findMany({
+            where: { conversationId: conversation.id },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: 30,
+            select: {
+              id: true,
+              createdAt: true,
+              senderPersonId: true,
+              senderUserId: true,
+              reactions: { select: { emoji: true, personId: true, userId: true } },
+            },
+          })
+        ).map((m) => ({
+          id: m.id,
+          reactions: summarizeReactions(m.reactions, actor),
+          status: isOwnMessage(actor, m) ? side.statusOf(m.createdAt) : undefined,
+        }))
+      : undefined,
     unreadCount,
     ...otherParty,
     // "online" / "last seen today at 10:45" under the name (people only).
@@ -330,6 +374,7 @@ const attachmentDescriptorSchema = z.object({
   originalFilename: z.string().trim().min(1).max(MAX_ORIGINAL_FILENAME_LENGTH),
   mimeType: z.string().min(1),
   byteSize: z.number().int().positive(),
+  thumb: z.string().max(MAX_THUMB_DATA_URL_LENGTH).regex(THUMB_DATA_URL_PATTERN).optional(),
 });
 
 // Text, attachments (photos, voice notes, videos, PDFs), or both — never
@@ -417,6 +462,7 @@ router.post(
                 originalFilename: a.originalFilename,
                 mimeType: a.mimeType,
                 byteSize: a.byteSize,
+                thumbDataUrl: a.thumb ?? null,
               })),
             }
           : undefined,
