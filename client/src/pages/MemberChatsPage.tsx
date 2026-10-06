@@ -47,8 +47,8 @@ function GroupRow({ m }: { m: MembershipRow }) {
   }, [m.communityId]);
   const unread = meta?.unreadCount ?? 0;
   const muted = Boolean(meta?.muted);
-  const deletedText = last?.deletedBySender ? (last.isOwn ? t('chatActions.you_deleted') : t('chatActions.deleted')) : t('groupChat.removed');
   const last = meta?.lastMessage;
+  const deletedText = last?.deletedBySender ? (last.isOwn ? t('chatActions.you_deleted') : t('chatActions.deleted')) : t('groupChat.removed');
   const kind = mediaKind(last?.attachmentMimeType);
   const media =
     kind === 'photo'
