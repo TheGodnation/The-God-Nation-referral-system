@@ -41,6 +41,7 @@ import adminOrganizationalLeadershipRecommendationsRoutes from './routes/adminOr
 import adminLocationsRoutes from './routes/adminLocations';
 import adminPresenceRoutes from './routes/adminPresence';
 import appBrandingRoutes from './routes/appBranding';
+import chatForwardRoutes from './routes/chatForward';
 import headquartersPostsRoutes from './routes/headquartersPosts';
 import adminHeadquartersPostsRoutes from './routes/adminHeadquartersPosts';
 import privateMessagesRoutes from './routes/privateMessages';
@@ -205,6 +206,8 @@ export function createApp() {
   // Profile pictures: member upload + signed-in viewing (/api/member/me/photo*, /api/people/:id/photo).
   app.use('/api', profilePhotosRoutes);
   app.use('/api', appBrandingRoutes);
+  // Forward a chat message to other groups / private chats.
+  app.use('/api/chat', chatForwardRoutes);
   // Community-wide Updates feed (posts, photos, comments, reactions, live slot).
   app.use('/api/updates', updatesRoutes);
   // Friends, people search, blocking, reports, member-to-member messages.

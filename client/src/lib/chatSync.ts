@@ -12,6 +12,10 @@ import type { OutgoingMessage } from '../components/chat/ChatComposer';
 export interface RecentChange {
   id: string;
   deleted?: boolean;
+  deletedBySender?: boolean;
+  /** Set (with the new text) when the message was edited. */
+  edited?: boolean;
+  body?: string | null;
   reactions?: ChatReaction[];
   status?: 'sent' | 'delivered' | 'read';
 }
@@ -37,11 +41,15 @@ export function applyRecent(prev: ChatMessage[], recent: RecentChange[] | undefi
       ...m,
       reactions: r.reactions ?? m.reactions,
       status: r.status ?? m.status,
-      ...(r.deleted && !m.deleted ? { deleted: true, body: null, attachments: [], replyTo: null, reactions: [] } : {}),
+      ...(r.edited && !m.deleted ? { edited: true, body: r.body ?? m.body } : {}),
+      ...(r.deleted && !m.deleted
+        ? { deleted: true, deletedBySender: r.deletedBySender, body: null, attachments: [], replyTo: null, reactions: [], edited: false, forwarded: false }
+        : {}),
     };
     if (
       updated.status !== m.status ||
       updated.deleted !== m.deleted ||
+      updated.body !== m.body ||
       JSON.stringify(updated.reactions ?? []) !== JSON.stringify(m.reactions ?? [])
     ) {
       changed = true;

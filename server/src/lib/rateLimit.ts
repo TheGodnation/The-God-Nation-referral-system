@@ -496,3 +496,20 @@ export const peopleSearchLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many searches. Please slow down.' },
 });
+
+// Searching inside one chat (group or private) and forwarding messages.
+export const chatSearchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 150,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
+export const chatForwardLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

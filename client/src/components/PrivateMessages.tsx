@@ -16,8 +16,10 @@ interface ConversationRow {
 interface MessageRow {
   id: string;
   isOwn: boolean;
-  body: string;
+  body: string | null;
   createdAt: string;
+  deleted?: boolean;
+  edited?: boolean;
   // Photos / voice notes / videos sent from the member app.
   attachments?: { id: string; originalFilename: string; mimeType: string }[];
 }
@@ -150,7 +152,8 @@ export function PrivateMessages({ alwaysShow = false }: { alwaysShow?: boolean }
                         m.isOwn ? 'bg-brand-50 text-brand-900' : 'bg-slate-50 text-slate-700'
                       }`}
                     >
-                      {m.body}
+                      {m.deleted ? <span className="italic text-slate-400">🚫 {t('chatActions.deleted')}</span> : m.body}
+                      {m.edited && <span className="ml-1 text-xs italic text-slate-400">({t('chatActions.edited')})</span>}
                       {(m.attachments ?? []).map((a) => (
                         <button
                           key={a.id}

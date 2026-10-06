@@ -7,7 +7,8 @@ import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
 import { CHAT_WALLPAPER_STYLE } from '../components/chat/wallpaper';
 import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatComposer';
-import { REACTIONS, type ChatMessage, type ChatReaction } from '../components/chat/types';
+import { REACTIONS, canEditMessage, canUnsendMessage, type ChatMessage, type ChatReaction } from '../components/chat/types';
+import { ChatSearch, EditSheet, ForwardSheet, findAndJump } from '../components/chat/ChatActions';
 
 interface MessagesResponse {
   items: ChatMessage[];
@@ -112,6 +113,9 @@ export function MemberGroupChatPage() {
   const [counts, setCounts] = useState<{ members: number; online: number } | null>(null);
   const [typingNames, setTypingNames] = useState<string[]>([]);
   const [info, setInfo] = useState<{ message: ChatMessage; data: MessageInfo | null } | null>(null);
+  const [editing, setEditing] = useState<ChatMessage | null>(null);
+  const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
+  const [searching, setSearching] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -225,21 +229,61 @@ export function MemberGroupChatPage() {
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   }
 
-  function loadOlder() {
-    if (loadingOlder || messages.length === 0) return;
-    const first = messages.find((m) => !m.pending);
-    if (!first) return;
-    setLoadingOlder(true);
-    api
+  /** Loads one page of older messages; false when there is nothing older. */
+  function loadOlderPage(): Promise<boolean> {
+    const first = messagesRef.current.find((m) => !m.pending);
+    if (!first) return Promise.resolve(false);
+    return api
       .get<MessagesResponse>(`/api/communities/${communityId}/conversation/messages?before=${first.id}`)
       .then((res) => {
         const el = scrollRef.current;
         if (el) keepOffsetFromBottom.current = el.scrollHeight - el.scrollTop;
+        const next = [...res.items.filter((m) => !messagesRef.current.some((p) => p.id === m.id)), ...messagesRef.current];
+        messagesRef.current = next;
         setMessages((prev) => [...res.items.filter((m) => !prev.some((p) => p.id === m.id)), ...prev]);
         setHasMore(res.hasMore);
-      })
+        return res.hasMore && res.items.length > 0;
+      });
+  }
+
+  function loadOlder() {
+    if (loadingOlder || messages.length === 0) return;
+    setLoadingOlder(true);
+    loadOlderPage()
       .catch(() => setToast(t('groupChat.load_failed')))
       .finally(() => setLoadingOlder(false));
+  }
+
+  function openSearchResult(id: string) {
+    setSearching(false);
+    stickToBottom.current = false;
+    void findAndJump(id, () => loadOlderPage().catch(() => false), jumpTo, () => showToast(t('groupChat.not_loaded')));
+  }
+
+  async function saveEdit(m: ChatMessage, body: string) {
+    try {
+      const res = await api.patch<{ body: string }>(`/api/communities/${communityId}/conversation/messages/${m.id}`, { body });
+      setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, body: res.body, edited: true } : x)));
+      setEditing(null);
+    } catch (err) {
+      setEditing(null);
+      showToast(err instanceof ApiError && err.status === 400 ? t('chatActions.edit_too_late') : t('groupChat.action_failed'));
+    }
+  }
+
+  async function unsend(m: ChatMessage) {
+    setMenuFor(null);
+    if (!window.confirm(t('chatActions.unsend_confirm') ?? '')) return;
+    try {
+      await api.post(`/api/communities/${communityId}/conversation/messages/${m.id}/unsend`);
+      setMessages((prev) =>
+        prev.map((x) =>
+          x.id === m.id ? { ...x, deleted: true, deletedBySender: true, body: null, attachments: [], reactions: [], replyTo: null, edited: false, forwarded: false } : x,
+        ),
+      );
+    } catch (err) {
+      showToast(err instanceof ApiError && err.status === 400 ? t('chatActions.unsend_too_late') : t('groupChat.action_failed'));
+    }
   }
 
   function showToast(text: string) {
@@ -350,7 +394,9 @@ export function MemberGroupChatPage() {
     if (!window.confirm(t('groupChat.remove_confirm') ?? '')) return;
     try {
       await api.delete(`/api/communities/${communityId}/conversation/messages/${m.id}`);
-      setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, deleted: true, body: null, attachments: [], reactions: [], replyTo: null } : x)));
+      setMessages((prev) =>
+        prev.map((x) => (x.id === m.id ? { ...x, deleted: true, deletedBySender: false, body: null, attachments: [], reactions: [], replyTo: null } : x)),
+      );
     } catch {
       showToast(t('groupChat.action_failed'));
     }
@@ -402,7 +448,18 @@ export function MemberGroupChatPage() {
           </p>
         </div>
         </Link>
+        <button type="button" onClick={() => setSearching(true)} aria-label={t('chatActions.search') ?? ''} className="px-2 text-xl">
+          🔍
+        </button>
       </header>
+
+      {searching && (
+        <ChatSearch
+          searchPath={`/api/communities/${communityId}/conversation/search`}
+          onPick={openSearchResult}
+          onClose={() => setSearching(false)}
+        />
+      )}
 
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto overscroll-contain px-2 py-3" aria-live="polite">
         {!loaded && <p className="mt-10 text-center text-sm text-slate-500">{t('groupChat.loading')}</p>}
@@ -521,6 +578,28 @@ export function MemberGroupChatPage() {
                   📋 {t('groupChat.copy')}
                 </button>
               )}
+              <button
+                type="button"
+                className="block w-full py-3 text-left"
+                onClick={() => {
+                  setForwarding(menuFor);
+                  setMenuFor(null);
+                }}
+              >
+                ↪️ {t('chatActions.forward')}
+              </button>
+              {canPost && canEditMessage(menuFor) && (
+                <button
+                  type="button"
+                  className="block w-full py-3 text-left"
+                  onClick={() => {
+                    setEditing(menuFor);
+                    setMenuFor(null);
+                  }}
+                >
+                  ✏️ {t('chatActions.edit')}
+                </button>
+              )}
               {menuFor.isOwn && (
                 <button type="button" className="block w-full py-3 text-left" onClick={() => void openInfo(menuFor)}>
                   ℹ️ {t('groupChat.message_info')}
@@ -531,6 +610,11 @@ export function MemberGroupChatPage() {
                   🗑️ {t('groupChat.delete_for_me')}
                 </button>
               )}
+              {canUnsendMessage(menuFor) && (
+                <button type="button" className="block w-full py-3 text-left text-red-700" onClick={() => void unsend(menuFor)}>
+                  🗑️ {t('chatActions.delete_for_everyone')}
+                </button>
+              )}
               {isAdministrator && (
                 <button type="button" className="block w-full py-3 text-left text-red-700" onClick={() => void removeForAll(menuFor)}>
                   🚫 {t('groupChat.remove_all')}
@@ -539,6 +623,20 @@ export function MemberGroupChatPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {editing && <EditSheet message={editing} onCancel={() => setEditing(null)} onSave={(body) => saveEdit(editing, body)} />}
+
+      {forwarding && (
+        <ForwardSheet
+          source={{ kind: 'group', chatId: communityId, messageId: forwarding.id }}
+          onClose={() => setForwarding(null)}
+          onDone={(count) => {
+            setForwarding(null);
+            showToast(t('chatActions.forwarded_to', { count }));
+            poke();
+          }}
+        />
       )}
 
       {info && (

@@ -10,6 +10,8 @@ import {
   attachmentDownloadLimiter,
   messageReactionLimiter,
   typingLimiter,
+  messageHideLimiter,
+  chatSearchLimiter,
 } from '../lib/rateLimit';
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
 import {
@@ -35,6 +37,7 @@ import {
   type PrivateMessagingActor,
 } from '../lib/privateMessaging';
 import { isBlockedEitherWay } from '../lib/social';
+import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
 
 declare global {
   namespace Express {
@@ -204,8 +207,9 @@ router.get('/conversations', asyncHandler(async (req, res) => {
       const receipt = last && own ? await otherSide(actor, c) : null;
       const lastMessage = last
         ? {
-            body: last.body,
-            attachmentMimeType: last.attachments[0]?.mimeType ?? null,
+            body: last.deletedAt ? null : last.body,
+            deleted: Boolean(last.deletedAt),
+            attachmentMimeType: last.deletedAt ? null : last.attachments[0]?.mimeType ?? null,
             isOwn: own,
             createdAt: last.createdAt,
             status: receipt ? receipt.statusOf(last.createdAt) : undefined,
@@ -294,7 +298,7 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
     include: {
       attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true } },
       replyTo: {
-        select: { id: true, body: true, senderPersonId: true, senderUserId: true, attachments: { select: { mimeType: true }, take: 1 } },
+        select: { id: true, body: true, deletedAt: true, senderPersonId: true, senderUserId: true, attachments: { select: { mimeType: true }, take: 1 } },
       },
       reactions: { select: { emoji: true, personId: true, userId: true } },
     },
@@ -318,24 +322,34 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
       // sufficient (unlike Community/Headquarters messages, which can have
       // many distinct senders and so need a per-message name).
       isOwn: isOwnMessage(actor, m),
-      body: m.body,
+      // "This message was deleted": the text, files and reactions of a
+      // message deleted for everyone are never sent again.
+      body: m.deletedAt ? null : m.body,
       createdAt: m.createdAt,
-      attachments: m.attachments.map((a) => ({
-        id: a.id,
-        originalFilename: a.originalFilename,
-        mimeType: a.mimeType,
-        byteSize: a.byteSize,
-        thumb: a.thumbDataUrl ?? undefined,
-      })),
-      replyTo: m.replyTo
-        ? {
-            id: m.replyTo.id,
-            isOwn: isOwnMessage(actor, m.replyTo),
-            body: m.replyTo.body,
-            attachmentMimeType: m.replyTo.attachments[0]?.mimeType ?? null,
-          }
-        : null,
-      reactions: summarizeReactions(m.reactions, actor),
+      deleted: Boolean(m.deletedAt),
+      deletedBySender: Boolean(m.deletedAt),
+      edited: !m.deletedAt && Boolean(m.editedAt),
+      forwarded: !m.deletedAt && m.forwarded,
+      attachments: m.deletedAt
+        ? []
+        : m.attachments.map((a) => ({
+            id: a.id,
+            originalFilename: a.originalFilename,
+            mimeType: a.mimeType,
+            byteSize: a.byteSize,
+            thumb: a.thumbDataUrl ?? undefined,
+          })),
+      replyTo:
+        m.replyTo && !m.deletedAt
+          ? {
+              id: m.replyTo.id,
+              isOwn: isOwnMessage(actor, m.replyTo),
+              body: m.replyTo.deletedAt ? null : m.replyTo.body,
+              deleted: Boolean(m.replyTo.deletedAt),
+              attachmentMimeType: m.replyTo.deletedAt ? null : m.replyTo.attachments[0]?.mimeType ?? null,
+            }
+          : null,
+      reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, actor),
       status: isOwnMessage(actor, m) ? side.statusOf(m.createdAt) : undefined,
     })),
     hasMore,
@@ -352,12 +366,17 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
               createdAt: true,
               senderPersonId: true,
               senderUserId: true,
+              deletedAt: true,
+              editedAt: true,
+              body: true,
               reactions: { select: { emoji: true, personId: true, userId: true } },
             },
           })
         ).map((m) => ({
           id: m.id,
-          reactions: summarizeReactions(m.reactions, actor),
+          ...(m.deletedAt ? { deleted: true, deletedBySender: true } : {}),
+          ...(m.editedAt && !m.deletedAt ? { edited: true, body: m.body } : {}),
+          reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, actor),
           status: isOwnMessage(actor, m) ? side.statusOf(m.createdAt) : undefined,
         }))
       : undefined,
@@ -558,9 +577,14 @@ router.get(
     if (!loaded) return;
     const attachment = await prisma.privateMessageAttachment.findUnique({
       where: { id: req.params.attachmentId },
-      include: { message: { select: { id: true, conversationId: true } } },
+      include: { message: { select: { id: true, conversationId: true, deletedAt: true } } },
     });
-    if (!attachment || attachment.message.id !== req.params.messageId || attachment.message.conversationId !== loaded.conversation.id) {
+    if (
+      !attachment ||
+      attachment.message.id !== req.params.messageId ||
+      attachment.message.conversationId !== loaded.conversation.id ||
+      attachment.message.deletedAt
+    ) {
       return res.status(404).json({ error: 'Attachment not found.' });
     }
     if (!isStorageConfigured()) return res.status(503).json({ error: 'Attachments are not available right now.' });
@@ -576,8 +600,8 @@ const reactionSchema = z.object({ emoji: z.enum(ALLOWED_REACTIONS) });
 async function loadMessageInConversation(req: Request, res: Response) {
   const loaded = await loadAuthorizedConversation(req, res);
   if (!loaded) return null;
-  const message = await prisma.privateMessage.findUnique({ where: { id: req.params.messageId }, select: { id: true, conversationId: true } });
-  if (!message || message.conversationId !== loaded.conversation.id) {
+  const message = await prisma.privateMessage.findUnique({ where: { id: req.params.messageId }, select: { id: true, conversationId: true, deletedAt: true } });
+  if (!message || message.conversationId !== loaded.conversation.id || message.deletedAt) {
     res.status(404).json({ error: 'Message not found.' });
     return null;
   }
@@ -640,5 +664,93 @@ router.post(
     res.json({ ok: true });
   }),
 );
+
+// ── WhatsApp actions: delete for everyone, edit, search ────────────────
+
+async function loadOwnPrivateMessage(req: Request, res: Response) {
+  const loaded = await loadAuthorizedConversation(req, res);
+  if (!loaded) return null;
+  const actor = req.privateMessagingActor!;
+  const message = await prisma.privateMessage.findUnique({ where: { id: req.params.messageId } });
+  if (!message || message.conversationId !== loaded.conversation.id) {
+    res.status(404).json({ error: 'Message not found.' });
+    return null;
+  }
+  if (!isOwnMessage(actor, message)) {
+    res.status(403).json({ error: 'You can only change your own messages.' });
+    return null;
+  }
+  return { message, conversation: loaded.conversation, actor };
+}
+
+// POST .../conversations/:id/messages/:messageId/unsend — "Delete for
+// everyone" on your own message, within 2 days. Both sides then see "This
+// message was deleted". The row is kept (soft delete), never shown again.
+router.post(
+  '/conversations/:id/messages/:messageId/unsend',
+  messageHideLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const target = await loadOwnPrivateMessage(req, res);
+    if (!target) return;
+    const { message } = target;
+    if (!message.deletedAt) {
+      if (Date.now() - message.createdAt.getTime() > UNSEND_WINDOW_MS) {
+        return res.status(400).json({ error: 'This message is too old to delete for everyone.' });
+      }
+      await prisma.privateMessage.update({ where: { id: message.id }, data: { deletedAt: new Date() } });
+      await prisma.privateMessageReaction.deleteMany({ where: { messageId: message.id } });
+    }
+    res.json({ id: message.id, deleted: true, deletedBySender: true });
+  }),
+);
+
+// PATCH .../conversations/:id/messages/:messageId { body } — edit your own
+// text within 15 minutes; shows "edited".
+router.patch(
+  '/conversations/:id/messages/:messageId',
+  messageSendLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const target = await loadOwnPrivateMessage(req, res);
+    if (!target) return;
+    const { message, conversation, actor } = target;
+    if (message.deletedAt) return res.status(404).json({ error: 'Message not found.' });
+    if (!message.body) return res.status(400).json({ error: 'Only text can be edited.' });
+    if (Date.now() - message.createdAt.getTime() > EDIT_WINDOW_MS) {
+      return res.status(400).json({ error: 'This message is too old to edit.' });
+    }
+    if (actor.type === 'PERSON') {
+      const otherPersonId =
+        conversation.memberPersonId === actor.personId ? conversation.initiatorPersonId : conversation.memberPersonId;
+      if (otherPersonId && (await isBlockedEitherWay(actor.personId, otherPersonId))) {
+        return res.status(403).json({ error: 'You cannot message this person.', code: 'BLOCKED' });
+      }
+    }
+    const parsed = editMessageSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid message.' });
+    const updated = await prisma.privateMessage.update({
+      where: { id: message.id },
+      data: { body: parsed.data.body, editedAt: new Date() },
+    });
+    res.json({ id: updated.id, body: updated.body, edited: true, editedAt: updated.editedAt });
+  }),
+);
+
+// GET .../conversations/:id/search?q=word — newest first, up to 30.
+router.get('/conversations/:id/search', chatSearchLimiter, asyncHandler(async (req, res) => {
+  const loaded = await loadAuthorizedConversation(req, res);
+  if (!loaded) return;
+  const actor = req.privateMessagingActor!;
+  const parsed = searchQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: 'Type at least 2 letters.' });
+  const rows = await prisma.privateMessage.findMany({
+    where: { conversationId: loaded.conversation.id, deletedAt: null, body: { contains: parsed.data.q, mode: 'insensitive' } },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: 30,
+    select: { id: true, body: true, createdAt: true, senderPersonId: true, senderUserId: true },
+  });
+  res.json({ items: rows.map((m) => ({ id: m.id, isOwn: isOwnMessage(actor, m), body: m.body, createdAt: m.createdAt })) });
+}));
 
 export default router;
