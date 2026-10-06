@@ -1315,7 +1315,17 @@
     "media_loading": "Loading media…",
     "media_load_failed": "Failed to load media.",
     "media_pdf_open": "Open PDF ({{filename}})",
-    "media_image_alt": "Image attached to this post"
+    "media_image_alt": "Image attached to this post",
+    "hq_name": "God's Nation Headquarters",
+    "official": "Official",
+    "pinned": "Pinned",
+    "like": "Like",
+    "comment": "Comment",
+    "video_tap": "Tap to watch the video",
+    "audio_tap": "Tap to listen",
+    "pdf_tap": "Tap to open the document",
+    "photo_unavailable": "This photo can't be shown right now.",
+    "post_label": "Headquarters post: {{title}}"
   },
   "myResources": {
     "title": "Resources",
@@ -1382,7 +1392,7 @@
     "youtube_label": "YouTube link",
     "post": "Post",
     "posting": "Posting…",
-    "empty_post": "Write something, or add a photo or video.",
+    "empty_post": "Write something, or add a photo.",
     "post_failed": "Your post could not be shared. Please try again.",
     "photo_wrong_type": "Please choose JPG, PNG or WebP pictures.",
     "photo_too_large": "A picture is too large (8 MB maximum).",

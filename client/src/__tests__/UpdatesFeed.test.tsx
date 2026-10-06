@@ -85,7 +85,7 @@ describe('UpdatesFeed', () => {
     mockFetch({ 'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, []) }) });
     render(<UpdatesFeed />);
     fireEvent.click(await screen.findByRole('button', { name: 'Post' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Write something, or add a photo or video.');
+    expect(screen.getByRole('alert')).toHaveTextContent('Write something, or add a photo.');
     expect(calls.some((c) => c.method === 'POST')).toBe(false);
   });
 
