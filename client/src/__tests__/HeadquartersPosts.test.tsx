@@ -44,6 +44,7 @@ const POST_A = {
   commentCount: 0,
   reactionCount: 0,
   viewerHasReacted: false,
+  media: [],
 };
 
 describe('HeadquartersPosts (shared Member/Leader recipient view)', () => {

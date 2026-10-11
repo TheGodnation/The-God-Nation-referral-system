@@ -4,6 +4,13 @@ import { api } from '../lib/api';
 import { useInView } from '../lib/chatMedia';
 import { useDataSaver } from '../lib/dataSaver';
 
+export interface HeadquartersFeedMedia {
+  id: string;
+  mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
+  originalFilename: string;
+  byteSize: number;
+}
+
 export interface HeadquartersFeedItem {
   id: string;
   titleEn: string;
@@ -15,10 +22,10 @@ export interface HeadquartersFeedItem {
   commentCount: number;
   reactionCount: number;
   viewerHasReacted: boolean;
-  media: { mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF'; originalFilename: string; byteSize: number } | null;
+  media: HeadquartersFeedMedia[];
 }
 
-function HeadquartersImage({ postId, onOpen }: { postId: string; onOpen: () => void }) {
+function HeadquartersImage({ postId, mediaId, extraCount, onOpen }: { postId: string; mediaId: string; extraCount: number; onOpen: () => void }) {
   const { t } = useTranslation();
   const [ref, inView] = useInView<HTMLDivElement>();
   const [url, setUrl] = useState<string | null>(null);
@@ -30,16 +37,19 @@ function HeadquartersImage({ postId, onOpen }: { postId: string; onOpen: () => v
     // "Save data": wait for a tap before downloading the photo.
     if (!inView || url || (saver && !wanted)) return;
     api
-      .get<{ url: string }>(`/api/me/headquarters-posts/${postId}/media/download-url`)
+      .get<{ url: string }>(`/api/me/headquarters-posts/${postId}/media/${mediaId}/download-url`)
       .then((r) => setUrl(r.url))
       .catch(() => setFailed(true));
-  }, [inView, url, postId, saver, wanted]);
+  }, [inView, url, postId, mediaId, saver, wanted]);
 
   return (
-    <div ref={ref} className="bg-slate-100">
+    <div ref={ref} className="relative bg-slate-100">
       {url && !failed ? (
         <button type="button" onClick={onOpen} className="block w-full" aria-label={t('headquartersPosts.media_image_alt') ?? ''}>
           <img src={url} alt={t('headquartersPosts.media_image_alt') ?? ''} className="max-h-[32rem] w-full object-cover" onError={() => setFailed(true)} />
+          {extraCount > 0 && (
+            <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-semibold text-white">+{extraCount}</span>
+          )}
         </button>
       ) : (
         <div className="flex aspect-[16/9] w-full flex-col items-center justify-center gap-1 text-sm text-slate-500">
@@ -92,12 +102,13 @@ export function HeadquartersFeedCard({
     }
   }
 
+  const firstMedia = item.media[0] ?? null;
   const mediaLabel =
-    item.media?.mediaType === 'VIDEO'
+    firstMedia?.mediaType === 'VIDEO'
       ? `▶ ${t('headquartersPosts.video_tap')}`
-      : item.media?.mediaType === 'AUDIO'
+      : firstMedia?.mediaType === 'AUDIO'
         ? `🎧 ${t('headquartersPosts.audio_tap')}`
-        : item.media?.mediaType === 'PDF'
+        : firstMedia?.mediaType === 'PDF'
           ? `📄 ${t('headquartersPosts.pdf_tap')}`
           : null;
 
@@ -129,9 +140,9 @@ export function HeadquartersFeedCard({
         </button>
       </div>
 
-      {item.media?.mediaType === 'IMAGE' && (
+      {firstMedia?.mediaType === 'IMAGE' && (
         <div className="mt-3">
-          <HeadquartersImage postId={item.id} onOpen={onOpen} />
+          <HeadquartersImage postId={item.id} mediaId={firstMedia.id} extraCount={item.media.length - 1} onOpen={onOpen} />
         </div>
       )}
       {mediaLabel && (

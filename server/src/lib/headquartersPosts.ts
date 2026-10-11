@@ -23,7 +23,7 @@ type TargetRow = { communityId: string };
 // headquartersPosts.ts's own toMediaResponse/toRecipientResponse): a
 // storageKey is never selected here, so it can never leak into a recipient
 // response even by accident.
-type MediaRow = { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null;
+type MediaRow = { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[];
 
 /**
  * Whether personId qualifies for post's audience, using only live,
@@ -101,7 +101,7 @@ export async function computeVisibleHeadquartersPostsForPerson(
     where: { publishedAt: { not: null }, archivedAt: null },
     include: {
       targets: { select: { communityId: true } },
-      media: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, mediaType: true } },
+      media: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, mediaType: true }, orderBy: { position: 'asc' } },
     },
     orderBy: { publishedAt: 'desc' },
   });

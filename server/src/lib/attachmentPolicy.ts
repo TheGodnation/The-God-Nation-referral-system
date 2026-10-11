@@ -98,6 +98,12 @@ export function isStorageKeyForHeadquartersPostMedia(storageKey: string, headqua
   return match[1] === headquartersPostId;
 }
 
+// Media Phase 2 — a HeadquartersPost may now carry several media items
+// (a gallery), capped the same way group chat caps attachments per
+// message (MAX_ATTACHMENTS_PER_MESSAGE above) — a fixed small number
+// rather than an unbounded gallery, kept light for slow networks.
+export const MAX_HEADQUARTERS_POST_MEDIA = 5;
+
 export type HeadquartersPostMediaKind = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
 
 // Only ever called after isAllowedAttachmentMime(mimeType) has already
@@ -147,6 +153,21 @@ export function generateGroupPhotoStorageKey(communityId: string): string {
 export function isStorageKeyForGroupPhoto(storageKey: string, communityId: string): boolean {
   const match = GROUP_PHOTO_KEY_PATTERN.exec(storageKey);
   return Boolean(match) && match![1] === communityId;
+}
+
+// Home/chat wallpaper (Admin-uploaded custom image; same image rules as
+// profile pictures) — one of two targets, never a third.
+export type WallpaperTarget = 'home' | 'chat';
+const WALLPAPER_KEY_PATTERN = /^settings\/wallpaper\/(home|chat)\/([0-9a-f-]{36})$/;
+
+export function generateWallpaperStorageKey(target: WallpaperTarget): string {
+  return `settings/wallpaper/${target}/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForWallpaper(storageKey: string, target: WallpaperTarget): boolean {
+  const match = WALLPAPER_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === target;
 }
 
 // Profile pictures — images only, smaller ceiling than chat images (a

@@ -500,6 +500,18 @@ model Settings {
   // (e.g. Mobile Money numbers). Giving is never required.
   offeringInstructionsEn  String?
   offeringInstructionsFr  String?
+  // Home page and chat background, Admin-set for everyone (never
+  // per-member). `*WallpaperPreset` names one of the client's own
+  // built-in, zero-download patterns (client/src/lib/wallpaper.ts); a
+  // `*WallpaperStorageKey` upload always takes precedence when set, and
+  // setting one clears the other (see appBranding.ts) — a single
+  // background per surface, never both at once.
+  homeWallpaperPreset     String?
+  homeWallpaperStorageKey String?
+  homeWallpaperUpdatedAt  DateTime?
+  chatWallpaperPreset     String?
+  chatWallpaperStorageKey String?
+  chatWallpaperUpdatedAt  DateTime?
   updatedAt             DateTime @updatedAt
   updatedByUserId       String?
 }
@@ -1615,7 +1627,7 @@ model HeadquartersPost {
   targets   HeadquartersPostTarget[]
   comments  HeadquartersPostComment[]
   reactions HeadquartersPostReaction[]
-  media     HeadquartersPostMedia?
+  media     HeadquartersPostMedia[]
 
   @@index([publishedAt, archivedAt])
   @@index([createdAt])
@@ -1690,27 +1702,27 @@ enum HeadquartersPostMediaType {
   PDF
 }
 
-// Media Phase 1 — at most ONE media attachment per HeadquartersPost
-// (@@unique below is the schema-level backstop; adminHeadquartersPosts.ts's
-// own finalize route is the only place that ever writes this table, and it
-// replaces any existing row rather than allowing a second one). Reuses the
-// exact storage/security pattern already established by MessageAttachment
-// (see lib/storage.ts, lib/attachmentPolicy.ts): object bytes live only in
-// the existing Cloudflare R2 bucket, never in Postgres; storageKey is
-// server-generated and opaque, namespaced to this exact
-// headquartersPostId (see attachmentPolicy.ts's
-// isStorageKeyForHeadquartersPostMedia); no signed URL is ever persisted —
-// one is minted fresh on every authorized read via lib/storage.ts's
-// createDownloadUrl. mimeType is validated against attachmentPolicy.ts's
-// existing ATTACHMENT_MIME_LIMITS allow-list — no new allow-list or size
-// limit is introduced by this phase. mediaType is the coarse category
-// (derived from mimeType, see mediaKindForMime) the client needs to pick a
-// preview/player without parsing a MIME string itself. Deliberately NOT a
-// generic Media model: this table only ever relates to HeadquartersPost,
-// by design (see the Media Domain Audit this phase followed).
+// Media Phase 2 — up to MAX_HEADQUARTERS_POST_MEDIA (lib/attachmentPolicy.ts)
+// media attachments per HeadquartersPost, ordered by `position` (append-
+// only: a new upload gets the next position, removing one never
+// renumbers the rest). Reuses the exact storage/security pattern already
+// established by MessageAttachment (see lib/storage.ts,
+// lib/attachmentPolicy.ts): object bytes live only in the existing
+// Cloudflare R2 bucket, never in Postgres; storageKey is server-generated
+// and opaque, namespaced to this exact headquartersPostId (see
+// attachmentPolicy.ts's isStorageKeyForHeadquartersPostMedia); no signed
+// URL is ever persisted — one is minted fresh on every authorized read via
+// lib/storage.ts's createDownloadUrl. mimeType is validated against
+// attachmentPolicy.ts's existing ATTACHMENT_MIME_LIMITS allow-list — no new
+// allow-list or size limit is introduced by this phase. mediaType is the
+// coarse category (derived from mimeType, see mediaKindForMime) the client
+// needs to pick a preview/player without parsing a MIME string itself.
+// Deliberately NOT a generic Media model: this table only ever relates to
+// HeadquartersPost, by design (see the Media Domain Audit Phase 1 followed).
 model HeadquartersPostMedia {
   id                 String                    @id @default(uuid())
-  headquartersPostId String                    @unique
+  headquartersPostId String
+  position           Int                       @default(0)
   storageKey         String                    @unique
   originalFilename   String
   mimeType           String
@@ -1719,6 +1731,8 @@ model HeadquartersPostMedia {
   createdAt          DateTime                  @default(now())
 
   post HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
+
+  @@index([headquartersPostId, position])
 }
 
 // Private Communication / Messaging — a dedicated, minimal, strictly

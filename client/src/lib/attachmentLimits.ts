@@ -20,6 +20,9 @@ export const ATTACHMENT_MIME_LIMITS: Record<string, number> = {
 
 export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
 
+// Mirrors server/src/lib/attachmentPolicy.ts's MAX_HEADQUARTERS_POST_MEDIA.
+export const MAX_HEADQUARTERS_POST_MEDIA = 5;
+
 export function isAllowedAttachmentMime(mimeType: string): boolean {
   return Object.prototype.hasOwnProperty.call(ATTACHMENT_MIME_LIMITS, mimeType);
 }

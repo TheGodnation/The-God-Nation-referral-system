@@ -40,14 +40,14 @@ const HQ = {
   commentCount: 2,
   reactionCount: 4,
   viewerHasReacted: false,
-  media: { mediaType: 'IMAGE', originalFilename: 'flyer.jpg', byteSize: 1000 },
+  media: [{ id: 'm1', mediaType: 'IMAGE', originalFilename: 'flyer.jpg', byteSize: 1000 }],
 };
 
 describe('Headquarters posts in the Updates feed', () => {
   it('shows the title, the start of the message and the photo, like a real post', async () => {
     mockFetch({
       'GET /api/me/headquarters-posts': () => ({ body: { items: [HQ] } }),
-      'GET /api/me/headquarters-posts/hq1/media/download-url': () => ({ body: { url: 'https://files.example/flyer.jpg' } }),
+      'GET /api/me/headquarters-posts/hq1/media/m1/download-url': () => ({ body: { url: 'https://files.example/flyer.jpg' } }),
     });
     render(<HeadquartersPosts variant="feed" />);
     const card = await screen.findByRole('article', { name: 'Headquarters post: Fasting week' });
@@ -61,7 +61,7 @@ describe('Headquarters posts in the Updates feed', () => {
 
   it('Like works straight from the card', async () => {
     mockFetch({
-      'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: null }] } }),
+      'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [] }] } }),
       'POST /api/me/headquarters-posts/hq1/reaction': () => ({ body: { viewerHasReacted: true, reactionCount: 5 } }),
     });
     render(<HeadquartersPosts variant="feed" />);
@@ -73,9 +73,9 @@ describe('Headquarters posts in the Updates feed', () => {
 
   it('Read more opens the full post with its comments', async () => {
     mockFetch({
-      'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: null }] } }),
+      'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [] }] } }),
       'GET /api/me/headquarters-posts/hq1/comments': () => ({ body: { items: [{ id: 'c1', authorName: 'Ada', isOwn: false, body: 'Amen', createdAt: HQ.publishedAt }], hasMore: false } }),
-      'GET /api/me/headquarters-posts/hq1': () => ({ body: { ...HQ, media: null } }),
+      'GET /api/me/headquarters-posts/hq1': () => ({ body: { ...HQ, media: [] } }),
     });
     render(<HeadquartersPosts variant="feed" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Read More' }));

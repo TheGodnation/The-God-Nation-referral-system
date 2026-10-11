@@ -47,7 +47,7 @@ const BASE_POST = {
 };
 
 function postWithMedia(mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF', originalFilename: string) {
-  return { ...BASE_POST, media: { mediaType, originalFilename, byteSize: 2048 } };
+  return { ...BASE_POST, media: [{ id: 'm1', mediaType, originalFilename, byteSize: 2048 }] };
 }
 
 async function openDetail() {
@@ -60,7 +60,7 @@ describe('HeadquartersPosts — media rendering', () => {
   it('renders an actual image preview for IMAGE media', async () => {
     mockFetchByUrl({
       '/api/me/headquarters-posts/p1/comments': { status: 200, body: { items: [], hasMore: false } },
-      '/api/me/headquarters-posts/p1/media/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/img', mediaType: 'IMAGE' } },
+      '/api/me/headquarters-posts/p1/media/m1/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/img', mediaType: 'IMAGE' } },
       '/api/me/headquarters-posts/p1': { status: 200, body: postWithMedia('IMAGE', 'photo.png') },
       '/api/me/headquarters-posts': { status: 200, body: { items: [postWithMedia('IMAGE', 'photo.png')] } },
     });
@@ -75,7 +75,7 @@ describe('HeadquartersPosts — media rendering', () => {
   it('renders a native video player with controls for VIDEO media', async () => {
     mockFetchByUrl({
       '/api/me/headquarters-posts/p1/comments': { status: 200, body: { items: [], hasMore: false } },
-      '/api/me/headquarters-posts/p1/media/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/vid', mediaType: 'VIDEO' } },
+      '/api/me/headquarters-posts/p1/media/m1/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/vid', mediaType: 'VIDEO' } },
       '/api/me/headquarters-posts/p1': { status: 200, body: postWithMedia('VIDEO', 'clip.mp4') },
       '/api/me/headquarters-posts': { status: 200, body: { items: [postWithMedia('VIDEO', 'clip.mp4')] } },
     });
@@ -93,7 +93,7 @@ describe('HeadquartersPosts — media rendering', () => {
   it('renders a native audio player with controls for AUDIO media', async () => {
     mockFetchByUrl({
       '/api/me/headquarters-posts/p1/comments': { status: 200, body: { items: [], hasMore: false } },
-      '/api/me/headquarters-posts/p1/media/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/aud', mediaType: 'AUDIO' } },
+      '/api/me/headquarters-posts/p1/media/m1/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/aud', mediaType: 'AUDIO' } },
       '/api/me/headquarters-posts/p1': { status: 200, body: postWithMedia('AUDIO', 'sermon.mp3') },
       '/api/me/headquarters-posts': { status: 200, body: { items: [postWithMedia('AUDIO', 'sermon.mp3')] } },
     });
@@ -111,7 +111,7 @@ describe('HeadquartersPosts — media rendering', () => {
   it('renders a clear open/download action for PDF media, not a plain text URL', async () => {
     mockFetchByUrl({
       '/api/me/headquarters-posts/p1/comments': { status: 200, body: { items: [], hasMore: false } },
-      '/api/me/headquarters-posts/p1/media/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/pdf', mediaType: 'PDF' } },
+      '/api/me/headquarters-posts/p1/media/m1/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/pdf', mediaType: 'PDF' } },
       '/api/me/headquarters-posts/p1': { status: 200, body: postWithMedia('PDF', 'handout.pdf') },
       '/api/me/headquarters-posts': { status: 200, body: { items: [postWithMedia('PDF', 'handout.pdf')] } },
     });
@@ -128,8 +128,8 @@ describe('HeadquartersPosts — media rendering', () => {
   it('renders no media element at all when the post has no media', async () => {
     mockFetchByUrl({
       '/api/me/headquarters-posts/p1/comments': { status: 200, body: { items: [], hasMore: false } },
-      '/api/me/headquarters-posts/p1': { status: 200, body: { ...BASE_POST, media: null } },
-      '/api/me/headquarters-posts': { status: 200, body: { items: [{ ...BASE_POST, media: null }] } },
+      '/api/me/headquarters-posts/p1': { status: 200, body: { ...BASE_POST, media: [] } },
+      '/api/me/headquarters-posts': { status: 200, body: { items: [{ ...BASE_POST, media: [] }] } },
     });
 
     await openDetail();
@@ -137,13 +137,13 @@ describe('HeadquartersPosts — media rendering', () => {
     expect(document.querySelector('video')).toBeNull();
     expect(document.querySelector('audio')).toBeNull();
     expect(screen.queryByAltText('Image attached to this post')).not.toBeInTheDocument();
-    expect(calls.find((c) => c.url.includes('/media/download-url'))).toBeUndefined();
+    expect(calls.find((c) => c.url.includes('/media/m1/download-url'))).toBeUndefined();
   });
 
   it('never renders media the caller is not authorized for (a failed/absent download-url yields no media element)', async () => {
     mockFetchByUrl({
       '/api/me/headquarters-posts/p1/comments': { status: 200, body: { items: [], hasMore: false } },
-      '/api/me/headquarters-posts/p1/media/download-url': { status: 404, body: { error: 'not found' } },
+      '/api/me/headquarters-posts/p1/media/m1/download-url': { status: 404, body: { error: 'not found' } },
       '/api/me/headquarters-posts/p1': { status: 200, body: postWithMedia('IMAGE', 'photo.png') },
       '/api/me/headquarters-posts': { status: 200, body: { items: [postWithMedia('IMAGE', 'photo.png')] } },
     });
@@ -158,7 +158,7 @@ describe('HeadquartersPosts — media rendering', () => {
     i18n.changeLanguage('fr');
     mockFetchByUrl({
       '/api/me/headquarters-posts/p1/comments': { status: 200, body: { items: [], hasMore: false } },
-      '/api/me/headquarters-posts/p1/media/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/pdf', mediaType: 'PDF' } },
+      '/api/me/headquarters-posts/p1/media/m1/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/pdf', mediaType: 'PDF' } },
       '/api/me/headquarters-posts/p1': { status: 200, body: postWithMedia('PDF', 'handout.pdf') },
       '/api/me/headquarters-posts': { status: 200, body: { items: [postWithMedia('PDF', 'handout.pdf')] } },
     });
@@ -173,7 +173,7 @@ describe('HeadquartersPosts — media rendering', () => {
   it('existing comments and reactions remain intact on a post with media', async () => {
     mockFetchByUrl({
       '/api/me/headquarters-posts/p1/comments': { status: 200, body: { items: [], hasMore: false } },
-      '/api/me/headquarters-posts/p1/media/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/img', mediaType: 'IMAGE' } },
+      '/api/me/headquarters-posts/p1/media/m1/download-url': { status: 200, body: { url: 'https://mock-r2.example/download/img', mediaType: 'IMAGE' } },
       '/api/me/headquarters-posts/p1': { status: 200, body: postWithMedia('IMAGE', 'photo.png') },
       '/api/me/headquarters-posts': { status: 200, body: { items: [postWithMedia('IMAGE', 'photo.png')] } },
     });

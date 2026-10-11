@@ -14,8 +14,11 @@ import {
   isStorageKeyForAppBanner,
   generateGroupPhotoStorageKey,
   isStorageKeyForGroupPhoto,
+  generateWallpaperStorageKey,
+  isStorageKeyForWallpaper,
+  type WallpaperTarget,
 } from '../lib/attachmentPolicy';
-import { appBannerPath, groupPhotoPath } from '../lib/profilePhoto';
+import { appBannerPath, groupPhotoPath, wallpaperPath } from '../lib/profilePhoto';
 
 // The ministry's look in the member app, set by the admin only:
 //  - the banner picture at the top of the Updates page (its Mission /
@@ -94,6 +97,105 @@ router.get('/app-banner', requireSignedIn, attachmentDownloadLimiter, asyncHandl
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { appBannerStorageKey: true } });
   if (!settings?.appBannerStorageKey || !isStorageConfigured()) return res.status(404).json({ error: 'No banner.' });
   const { url } = await createDownloadUrl({ storageKey: settings.appBannerStorageKey });
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.redirect(302, url);
+}));
+
+// ------------------------------------------------------------ Wallpaper
+//
+// Home page and chat background — Admin sets ONE for everyone (never a
+// per-member choice), separately for 'home' and 'chat'. Either a built-in,
+// zero-download preset (client/src/lib/wallpaper.ts; validated server-side
+// against the same small allow-list, kept in sync by hand since client and
+// server are separate bundles) or an uploaded custom image (same three-step
+// pattern as the Updates banner above) — never both at once: setting a
+// preset clears any uploaded image, and uploading an image clears any
+// preset. Clearing resets to the app's own built-in default.
+
+const WALLPAPER_PRESETS = ['classic', 'sky', 'sage', 'blush', 'sand'] as const;
+
+function isWallpaperTarget(value: string): value is WallpaperTarget {
+  return value === 'home' || value === 'chat';
+}
+
+function requireWallpaperTarget(req: Request, res: Response, next: NextFunction) {
+  if (!isWallpaperTarget(req.params.target)) {
+    return res.status(404).json({ error: 'Unknown wallpaper target.' });
+  }
+  next();
+}
+
+const presetSchema = z.object({ preset: z.enum(WALLPAPER_PRESETS) });
+
+// PATCH /api/admin/wallpaper/:target — pick a built-in preset.
+router.patch('/admin/wallpaper/:target', ...adminOnly, requireWallpaperTarget, requireCsrf, asyncHandler(async (req, res) => {
+  const target = req.params.target as WallpaperTarget;
+  const parsed = presetSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid wallpaper preset.' });
+
+  const data =
+    target === 'home'
+      ? { homeWallpaperPreset: parsed.data.preset, homeWallpaperStorageKey: null, homeWallpaperUpdatedAt: new Date() }
+      : { chatWallpaperPreset: parsed.data.preset, chatWallpaperStorageKey: null, chatWallpaperUpdatedAt: new Date() };
+  await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', ...data }, update: data });
+  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'WALLPAPER_PRESET_SET', targetType: 'Settings', targetId: 'singleton', metadata: { target, preset: parsed.data.preset } });
+  res.json({ target, preset: parsed.data.preset, imageUrl: null });
+}));
+
+router.post('/admin/wallpaper/:target/authorize', ...adminOnly, requireWallpaperTarget, attachmentUploadAuthorizeLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const target = req.params.target as WallpaperTarget;
+  const parsed = authorizeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid photo.' });
+  const problem = checkImage(parsed.data.mimeType, parsed.data.byteSize);
+  if (problem) return res.status(problem.code === 'STORAGE_UNAVAILABLE' ? 503 : 400).json(problem);
+  const storageKey = generateWallpaperStorageKey(target);
+  const { url, expiresAt } = await createUploadUrl({ storageKey, mimeType: parsed.data.mimeType });
+  res.json({ storageKey, uploadUrl: url, expiresAt });
+}));
+
+router.post('/admin/wallpaper/:target', ...adminOnly, requireWallpaperTarget, requireCsrf, asyncHandler(async (req, res) => {
+  const target = req.params.target as WallpaperTarget;
+  const parsed = finalizeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid photo.' });
+  const d = parsed.data;
+  if (!isStorageKeyForWallpaper(d.storageKey, target)) return res.status(400).json({ error: 'Invalid photo reference.' });
+  const problem = checkImage(d.mimeType, d.byteSize);
+  if (problem) return res.status(problem.code === 'STORAGE_UNAVAILABLE' ? 503 : 400).json(problem);
+  if (!(await verifyUpload(d.storageKey, d.mimeType, d.byteSize))) {
+    return res.status(400).json({ error: 'The photo upload could not be verified. Please try again.' });
+  }
+  const data =
+    target === 'home'
+      ? { homeWallpaperStorageKey: d.storageKey, homeWallpaperUpdatedAt: new Date(), homeWallpaperPreset: null }
+      : { chatWallpaperStorageKey: d.storageKey, chatWallpaperUpdatedAt: new Date(), chatWallpaperPreset: null };
+  const settings = await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', ...data }, update: data });
+  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'WALLPAPER_IMAGE_SET', targetType: 'Settings', targetId: 'singleton', metadata: { target } });
+  res.json({ target, preset: null, imageUrl: wallpaperPath(target, settings) });
+}));
+
+router.delete('/admin/wallpaper/:target', ...adminOnly, requireWallpaperTarget, requireCsrf, asyncHandler(async (req, res) => {
+  const target = req.params.target as WallpaperTarget;
+  const data =
+    target === 'home'
+      ? { homeWallpaperPreset: null, homeWallpaperStorageKey: null, homeWallpaperUpdatedAt: new Date() }
+      : { chatWallpaperPreset: null, chatWallpaperStorageKey: null, chatWallpaperUpdatedAt: new Date() };
+  await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton' }, update: data });
+  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'WALLPAPER_RESET', targetType: 'Settings', targetId: 'singleton', metadata: { target } });
+  res.json({ target, preset: null, imageUrl: null });
+}));
+
+// GET /api/wallpaper/:target — the uploaded wallpaper image, for signed-in
+// people. Only ever reached when a custom image is actually set — the
+// client otherwise renders a built-in preset with no request at all.
+router.get('/wallpaper/:target', requireWallpaperTarget, requireSignedIn, attachmentDownloadLimiter, asyncHandler(async (req, res) => {
+  const target = req.params.target as WallpaperTarget;
+  const settings = await prisma.settings.findUnique({
+    where: { id: 'singleton' },
+    select: { homeWallpaperStorageKey: true, chatWallpaperStorageKey: true },
+  });
+  const storageKey = target === 'home' ? settings?.homeWallpaperStorageKey : settings?.chatWallpaperStorageKey;
+  if (!storageKey || !isStorageConfigured()) return res.status(404).json({ error: 'No wallpaper.' });
+  const { url } = await createDownloadUrl({ storageKey });
   res.setHeader('Cache-Control', 'private, max-age=3600');
   res.redirect(302, url);
 }));

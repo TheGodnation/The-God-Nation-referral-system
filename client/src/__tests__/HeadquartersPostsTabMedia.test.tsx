@@ -22,7 +22,7 @@ const DRAFT_ROW = {
   targets: [],
   commentCount: 0,
   reactionCount: 0,
-  media: null as null | { originalFilename: string; mimeType: string; byteSize: number; mediaType: string },
+  media: [] as { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[],
 };
 
 function mockFetchByUrl(responses: Record<string, { status: number; body: unknown }>) {
@@ -73,7 +73,7 @@ function attachResponses(descriptor: { originalFilename: string; mimeType: strin
     'mock-r2.example/upload': { status: 200, body: {} },
     [`/api/admin/headquarters-posts/${DRAFT_ROW.id}/media`]: {
       status: 201,
-      body: { ...DRAFT_ROW, media: descriptor },
+      body: { ...DRAFT_ROW, media: [{ id: 'm1', ...descriptor }] },
     },
   };
 }
@@ -136,7 +136,7 @@ describe('HeadquartersPostsTab — media attachment', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/handout\.pdf/)).toBeInTheDocument();
-      expect(screen.getByText(/\(PDF\)/)).toBeInTheDocument();
+      expect(screen.getByText(/PDF/)).toBeInTheDocument();
     });
   });
 

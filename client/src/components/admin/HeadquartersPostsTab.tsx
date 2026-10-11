@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
-import { isAllowedAttachmentMime, maxBytesForMime, formatBytes } from '../../lib/attachmentLimits';
+import { isAllowedAttachmentMime, maxBytesForMime, formatBytes, MAX_HEADQUARTERS_POST_MEDIA } from '../../lib/attachmentLimits';
 
 interface HeadquartersPostTargetRow {
   id: string;
@@ -13,6 +13,7 @@ interface HeadquartersPostTargetRow {
 type HeadquartersPostMediaType = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
 
 interface HeadquartersPostMediaRow {
+  id: string;
   originalFilename: string;
   mimeType: string;
   byteSize: number;
@@ -33,7 +34,7 @@ interface HeadquartersPostRow {
   targets: HeadquartersPostTargetRow[];
   commentCount: number;
   reactionCount: number;
-  media: HeadquartersPostMediaRow | null;
+  media: HeadquartersPostMediaRow[];
 }
 
 const EMPTY_FORM = { titleEn: '', titleFr: '', bodyEn: '', bodyFr: '' };
@@ -80,12 +81,13 @@ export function HeadquartersPostsTab() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actingOnId, setActingOnId] = useState<string | null>(null);
 
-  // Media Phase 1 — media is attached to an already-created draft (it needs
+  // Media Phase 2 — media is attached to an already-created draft (it needs
   // the post's own id for the storage-key namespace), so this is tracked
   // separately from the title/body form above and only shown once editingId
   // is set. Mirrors CommunityConversation.tsx's own uploading/uploadError
-  // state shape for the same authorize-then-PUT-then-finalize flow.
-  const [editingMedia, setEditingMedia] = useState<HeadquartersPostMediaRow | null>(null);
+  // state shape for the same authorize-then-PUT-then-finalize flow. Up to
+  // MAX_HEADQUARTERS_POST_MEDIA items, append-only from here.
+  const [editingMedia, setEditingMedia] = useState<HeadquartersPostMediaRow[]>([]);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
@@ -109,7 +111,7 @@ export function HeadquartersPostsTab() {
     setFormTargets([]);
     setFormError(null);
     setEditingId(null);
-    setEditingMedia(null);
+    setEditingMedia([]);
     setMediaError(null);
   }
 
@@ -148,6 +150,10 @@ export function HeadquartersPostsTab() {
     if (!file || !editingId) return;
     setMediaError(null);
 
+    if (editingMedia.length >= MAX_HEADQUARTERS_POST_MEDIA) {
+      setMediaError(t('admin.headquartersPosts.media_limit_reached', { max: MAX_HEADQUARTERS_POST_MEDIA }) ?? '');
+      return;
+    }
     if (!isAllowedAttachmentMime(file.type)) {
       setMediaError(t('admin.headquartersPosts.media_unsupported_type') ?? '');
       return;
@@ -178,6 +184,21 @@ export function HeadquartersPostsTab() {
         byteSize: file.size,
       });
       setEditingMedia(finalized.media);
+      load();
+    } catch (err) {
+      setMediaError(err instanceof ApiError ? err.message : t('admin.headquartersPosts.media_upload_failed'));
+    } finally {
+      setMediaUploading(false);
+    }
+  }
+
+  async function removeMedia(mediaId: string) {
+    if (!editingId) return;
+    setMediaError(null);
+    setMediaUploading(true);
+    try {
+      const updated = await api.delete<HeadquartersPostRow>(`/api/admin/headquarters-posts/${editingId}/media/${mediaId}`);
+      setEditingMedia(updated.media);
       load();
     } catch (err) {
       setMediaError(err instanceof ApiError ? err.message : t('admin.headquartersPosts.media_upload_failed'));
@@ -388,33 +409,40 @@ export function HeadquartersPostsTab() {
 
           {editingId && (
             <div>
-              <label className="label">{t('admin.headquartersPosts.media_label')}</label>
-              {editingMedia ? (
-                <p className="mb-2 text-sm text-slate-600">
-                  {t('admin.headquartersPosts.media_current', {
-                    filename: editingMedia.originalFilename,
-                    type: mediaTypeLabel(editingMedia.mediaType),
-                  })}
-                  {' · '}
-                  {formatBytes(editingMedia.byteSize)}
-                </p>
+              <label className="label">{t('admin.headquartersPosts.media_label', { count: editingMedia.length, max: MAX_HEADQUARTERS_POST_MEDIA })}</label>
+              {editingMedia.length > 0 ? (
+                <ul className="mb-2 space-y-1">
+                  {editingMedia.map((m) => (
+                    <li key={m.id} className="flex items-center justify-between text-sm text-slate-600">
+                      <span>
+                        {m.originalFilename} · {mediaTypeLabel(m.mediaType)} · {formatBytes(m.byteSize)}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-xs text-red-700 hover:underline disabled:text-slate-300"
+                        disabled={mediaUploading}
+                        onClick={() => void removeMedia(m.id)}
+                      >
+                        {t('admin.headquartersPosts.remove_media')}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               ) : (
                 <p className="mb-2 text-xs text-slate-400">{t('admin.headquartersPosts.media_none')}</p>
               )}
-              <label className="btn-secondary inline-block cursor-pointer px-3 py-1.5 text-sm">
-                {mediaUploading
-                  ? t('admin.headquartersPosts.media_uploading')
-                  : editingMedia
-                    ? t('admin.headquartersPosts.replace_media')
-                    : t('admin.headquartersPosts.attach_media')}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf,audio/mpeg,audio/ogg,audio/mp4,video/mp4,video/webm"
-                  className="hidden"
-                  disabled={mediaUploading}
-                  onChange={handleMediaSelected}
-                />
-              </label>
+              {editingMedia.length < MAX_HEADQUARTERS_POST_MEDIA && (
+                <label className="btn-secondary inline-block cursor-pointer px-3 py-1.5 text-sm">
+                  {mediaUploading ? t('admin.headquartersPosts.media_uploading') : t('admin.headquartersPosts.attach_media')}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf,audio/mpeg,audio/ogg,audio/mp4,video/mp4,video/webm"
+                    className="hidden"
+                    disabled={mediaUploading}
+                    onChange={handleMediaSelected}
+                  />
+                </label>
+              )}
               {mediaError && <p className="mt-1 text-sm text-red-700">{mediaError}</p>}
             </div>
           )}

@@ -16,6 +16,7 @@ import {
   generateHeadquartersPostMediaStorageKey,
   mediaKindForMime,
   MAX_ORIGINAL_FILENAME_LENGTH,
+  MAX_HEADQUARTERS_POST_MEDIA,
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, headObject } from '../lib/storage';
 
@@ -34,17 +35,18 @@ const targetInclude = {
   },
   createdBy: { select: { id: true, email: true } },
   _count: { select: { comments: true, reactions: true } },
-  // Media Phase 1 — metadata only, never storageKey (see
+  // Media Phase 2 — metadata only, never storageKey (see
   // toAdminResponse/toMediaResponse: a download/preview always goes through
   // the signed-URL routes, never a raw storage reference in any response).
+  // Ordered by position (append order) — a gallery, not a single slot.
   media: {
     select: { id: true, originalFilename: true, mimeType: true, byteSize: true, mediaType: true },
+    orderBy: { position: 'asc' },
   },
 } as const;
 
-function toMediaResponse(m: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null) {
-  if (!m) return null;
-  return { id: m.id, originalFilename: m.originalFilename, mimeType: m.mimeType, byteSize: m.byteSize, mediaType: m.mediaType };
+function toMediaResponse(media: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[]) {
+  return media.map((m) => ({ id: m.id, originalFilename: m.originalFilename, mimeType: m.mimeType, byteSize: m.byteSize, mediaType: m.mediaType }));
 }
 
 function toAdminResponse(p: {
@@ -60,7 +62,7 @@ function toAdminResponse(p: {
   createdBy: { id: string; email: string };
   targets: { id: string; communityId: string; community: { id: string; name: string } }[];
   _count: { comments: number; reactions: number };
-  media: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null;
+  media: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[];
 }) {
   return {
     id: p.id,
@@ -250,6 +252,10 @@ router.post(
     if (existing.publishedAt || existing.archivedAt) {
       return res.status(409).json({ error: 'Only a draft headquarters post can have its media changed.' });
     }
+    const mediaCount = await prisma.headquartersPostMedia.count({ where: { headquartersPostId: id } });
+    if (mediaCount >= MAX_HEADQUARTERS_POST_MEDIA) {
+      return res.status(409).json({ error: `A post can have at most ${MAX_HEADQUARTERS_POST_MEDIA} media items.` });
+    }
 
     const parsed = authorizeMediaSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -286,18 +292,19 @@ const finalizeMediaSchema = z.object({
   byteSize: z.number().int().positive(),
 });
 
-// POST /api/admin/headquarters-posts/:id/media — Media Phase 1, step 2:
-// finalize/register the media after the browser's direct PUT to R2.
+// POST /api/admin/headquarters-posts/:id/media — Media Phase 2, step 2:
+// finalize/register one media item after the browser's direct PUT to R2.
 // Re-validates everything at the one point that actually matters, never
 // trusting whatever the client echoes back from the authorize step (same
 // pattern as communityConversations.ts's own message-creation route): the
 // storage key must belong to THIS post's own namespace, the MIME/size must
 // still pass the allow-list, and headObject must confirm the object
 // actually landed in R2 with the declared size/type before any
-// HeadquartersPostMedia row is created. At most one media row per post
-// (schema-enforced via @@unique) — finalizing again on the same draft
-// replaces the previous row (the old R2 object is simply left unreferenced,
-// the same "never clean up R2 objects" precedent already established by
+// HeadquartersPostMedia row is created. Up to MAX_HEADQUARTERS_POST_MEDIA
+// items per post, append-only (each new item gets the next `position`) —
+// never replaces an existing item; use DELETE .../media/:mediaId to remove
+// one (the old R2 object is simply left unreferenced either way, the same
+// "never clean up R2 objects" precedent already established by
 // MessageAttachment, which has no delete path either).
 router.post(
   '/:id/media',
@@ -309,6 +316,10 @@ router.post(
     if (!existing) return res.status(404).json({ error: 'Headquarters post not found.' });
     if (existing.publishedAt || existing.archivedAt) {
       return res.status(409).json({ error: 'Only a draft headquarters post can have its media changed.' });
+    }
+    const mediaCount = await prisma.headquartersPostMedia.count({ where: { headquartersPostId: id } });
+    if (mediaCount >= MAX_HEADQUARTERS_POST_MEDIA) {
+      return res.status(409).json({ error: `A post can have at most ${MAX_HEADQUARTERS_POST_MEDIA} media items.` });
     }
 
     const parsed = finalizeMediaSchema.safeParse(req.body);
@@ -343,18 +354,16 @@ router.post(
       return res.status(400).json({ error: 'Media upload could not be verified.' });
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.headquartersPostMedia.deleteMany({ where: { headquartersPostId: id } });
-      await tx.headquartersPostMedia.create({
-        data: {
-          headquartersPostId: id,
-          storageKey: d.storageKey,
-          originalFilename: d.originalFilename,
-          mimeType: d.mimeType,
-          byteSize: d.byteSize,
-          mediaType,
-        },
-      });
+    await prisma.headquartersPostMedia.create({
+      data: {
+        headquartersPostId: id,
+        position: mediaCount,
+        storageKey: d.storageKey,
+        originalFilename: d.originalFilename,
+        mimeType: d.mimeType,
+        byteSize: d.byteSize,
+        mediaType,
+      },
     });
 
     await recordAudit({
@@ -370,6 +379,33 @@ router.post(
     res.status(201).json(toAdminResponse(updated!));
   }),
 );
+
+// DELETE /api/admin/headquarters-posts/:id/media/:mediaId — remove one item
+// from the gallery (draft-only, same edit-while-draft rule as everything
+// else here). Never renumbers the remaining items' `position`.
+router.delete('/:id/media/:mediaId', headquartersPostMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const { id, mediaId } = req.params;
+  const existing = await prisma.headquartersPost.findUnique({ where: { id } });
+  if (!existing) return res.status(404).json({ error: 'Headquarters post not found.' });
+  if (existing.publishedAt || existing.archivedAt) {
+    return res.status(409).json({ error: 'Only a draft headquarters post can have its media changed.' });
+  }
+
+  const result = await prisma.headquartersPostMedia.deleteMany({ where: { id: mediaId, headquartersPostId: id } });
+  if (result.count === 0) return res.status(404).json({ error: 'Media item not found.' });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'HEADQUARTERS_POST_MEDIA_REMOVED',
+    targetType: 'HeadquartersPost',
+    targetId: id,
+    metadata: { mediaId },
+  });
+
+  const updated = await prisma.headquartersPost.findUnique({ where: { id }, include: targetInclude });
+  res.json(toAdminResponse(updated!));
+}));
 
 // POST /api/admin/headquarters-posts/:id/publish — immediate, atomic
 // (compare-and-swap on publishedAt IS NULL / archivedAt IS NULL), requires

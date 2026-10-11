@@ -217,9 +217,10 @@ describe('Headquarters Post Media — finalize', () => {
 
     const res = await finalizeMedia(agent, csrf, postId, IMAGE);
     expect(res.status).toBe(201);
-    expect(res.body.media).toMatchObject({ originalFilename: IMAGE.originalFilename, mimeType: IMAGE.mimeType, byteSize: IMAGE.byteSize, mediaType: 'IMAGE' });
+    expect(res.body.media).toHaveLength(1);
+    expect(res.body.media[0]).toMatchObject({ originalFilename: IMAGE.originalFilename, mimeType: IMAGE.mimeType, byteSize: IMAGE.byteSize, mediaType: 'IMAGE' });
 
-    const stored = await prisma.headquartersPostMedia.findUnique({ where: { headquartersPostId: postId } });
+    const stored = await prisma.headquartersPostMedia.findFirst({ where: { headquartersPostId: postId } });
     expect(stored).not.toBeNull();
     expect(stored!.headquartersPostId).toBe(postId);
   });
@@ -300,7 +301,7 @@ describe('Headquarters Post Media — finalize', () => {
       .send({ storageKey, ...IMAGE });
     expect(res.status).toBe(400);
 
-    const stored = await prisma.headquartersPostMedia.findUnique({ where: { headquartersPostId: postId } });
+    const stored = await prisma.headquartersPostMedia.findFirst({ where: { headquartersPostId: postId } });
     expect(stored).toBeNull();
   });
 
@@ -334,17 +335,60 @@ describe('Headquarters Post Media — finalize', () => {
     expect(res.status).toBe(409);
   });
 
-  it('finalizing again on the same draft replaces the previous media (at most one per post)', async () => {
+  it('finalizing again on the same draft appends a second media item, ordered by attachment order', async () => {
     const { agent, csrf } = await loginAsAdmin(17);
     const postId = await createDraftPost(agent, csrf, 'Finalize J');
 
     await finalizeMedia(agent, csrf, postId, IMAGE);
     const second = await finalizeMedia(agent, csrf, postId, PDF);
     expect(second.status).toBe(201);
-    expect(second.body.media.mediaType).toBe('PDF');
+    expect(second.body.media).toHaveLength(2);
+    expect(second.body.media[0].mediaType).toBe('IMAGE');
+    expect(second.body.media[1].mediaType).toBe('PDF');
 
     const count = await prisma.headquartersPostMedia.count({ where: { headquartersPostId: postId } });
-    expect(count).toBe(1);
+    expect(count).toBe(2);
+  });
+
+  it('rejects a 6th media item beyond the cap, at both authorize and finalize time', async () => {
+    const { agent, csrf } = await loginAsAdmin(33);
+    const postId = await createDraftPost(agent, csrf, 'Finalize Cap');
+
+    for (let i = 0; i < 5; i++) {
+      const res = await finalizeMedia(agent, csrf, postId, IMAGE);
+      expect(res.status).toBe(201);
+    }
+    expect(await prisma.headquartersPostMedia.count({ where: { headquartersPostId: postId } })).toBe(5);
+
+    const authRes = await agent.post(`/api/admin/headquarters-posts/${postId}/media/authorize`).set('X-CSRF-Token', csrf).send(IMAGE);
+    expect(authRes.status).toBe(409);
+
+    // No mockHeadMatches here: the route rejects on the cap check before
+    // ever calling headObject (same pattern as other already-rejected
+    // finalize tests above) — queuing a headObject return value here would
+    // never be consumed by this request and would instead leak into a
+    // later test's own headObject call.
+    const storageKey = mediaStorageKey(postId);
+    const finalizeRes = await agent.post(`/api/admin/headquarters-posts/${postId}/media`).set('X-CSRF-Token', csrf).send({ storageKey, ...IMAGE });
+    expect(finalizeRes.status).toBe(409);
+    expect(await prisma.headquartersPostMedia.count({ where: { headquartersPostId: postId } })).toBe(5);
+  });
+
+  it('an Admin can remove one media item without affecting the others', async () => {
+    const { agent, csrf } = await loginAsAdmin(34);
+    const postId = await createDraftPost(agent, csrf, 'Finalize Remove');
+
+    await finalizeMedia(agent, csrf, postId, IMAGE);
+    const second = await finalizeMedia(agent, csrf, postId, PDF);
+    const [firstId, secondId] = second.body.media.map((m: { id: string }) => m.id);
+
+    const res = await agent.delete(`/api/admin/headquarters-posts/${postId}/media/${firstId}`).set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(200);
+    expect(res.body.media).toHaveLength(1);
+    expect(res.body.media[0].id).toBe(secondId);
+
+    const removeAgain = await agent.delete(`/api/admin/headquarters-posts/${postId}/media/${firstId}`).set('X-CSRF-Token', csrf);
+    expect(removeAgain.status).toBe(404);
   });
 
   it('records an audit log entry for a successful finalize', async () => {
@@ -363,11 +407,12 @@ describe('Headquarters Post Media — recipient download authorization', () => {
     const { agent: adminAgent, csrf } = await loginAsAdmin(19);
     const community = await makeCommunity('Media Unauthorized Community');
     const postId = await createDraftPost(adminAgent, csrf, 'Unauthorized Media Post');
-    await finalizeMedia(adminAgent, csrf, postId, IMAGE);
+    const finalized = await finalizeMedia(adminAgent, csrf, postId, IMAGE);
+    const mediaId = finalized.body.media[0].id;
     await publishTargeted(adminAgent, csrf, postId, [community.id]);
 
     const { agent: memberAgent } = await loginAsMember('+237699100001', 'hqm-member1@example.com');
-    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/${mediaId}/download-url`);
     expect(res.status).toBe(404);
   });
 
@@ -378,10 +423,11 @@ describe('Headquarters Post Media — recipient download authorization', () => {
     await joinCommunity(person.id, community.id);
 
     const postId = await createDraftPost(adminAgent, csrf, 'Authorized Media Post');
-    await finalizeMedia(adminAgent, csrf, postId, IMAGE);
+    const finalized = await finalizeMedia(adminAgent, csrf, postId, IMAGE);
+    const mediaId = finalized.body.media[0].id;
     await publishTargeted(adminAgent, csrf, postId, [community.id]);
 
-    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/${mediaId}/download-url`);
     expect(res.status).toBe(200);
     expect(res.body.url).toContain('mock-r2.example/download/');
     expect(res.body.expiresAt).toBeTruthy();
@@ -396,22 +442,25 @@ describe('Headquarters Post Media — recipient download authorization', () => {
     await joinCommunity(person.id, communityB.id);
 
     const postIdA = await createDraftPost(adminAgent, csrf, 'Cross-Post A');
-    await finalizeMedia(adminAgent, csrf, postIdA, IMAGE);
+    const finalizedA = await finalizeMedia(adminAgent, csrf, postIdA, IMAGE);
+    const mediaIdA = finalizedA.body.media[0].id;
     await publishTargeted(adminAgent, csrf, postIdA, [communityA.id]);
 
     const postIdB = await createDraftPost(adminAgent, csrf, 'Cross-Post B');
     await publishTargeted(adminAgent, csrf, postIdB, [communityB.id]);
 
     // The member qualifies for post B (no media) but not post A (has media)
-    // — requesting A's media via A's own id must 404 for this member, and B
-    // has no media of its own to leak either way.
-    const resA = await memberAgent.get(`/api/me/headquarters-posts/${postIdA}/media/download-url`);
+    // — requesting A's media via A's own id must 404 for this member.
+    const resA = await memberAgent.get(`/api/me/headquarters-posts/${postIdA}/media/${mediaIdA}/download-url`);
     expect(resA.status).toBe(404);
-    const resB = await memberAgent.get(`/api/me/headquarters-posts/${postIdB}/media/download-url`);
+    // Even though the member IS eligible for post B, post A's media id can
+    // never be reached through post B's id — cross-post access is blocked
+    // regardless of the requester's eligibility for either post.
+    const resB = await memberAgent.get(`/api/me/headquarters-posts/${postIdB}/media/${mediaIdA}/download-url`);
     expect(resB.status).toBe(404);
   });
 
-  it('a post with no media returns 404 for an otherwise-eligible recipient', async () => {
+  it('a nonexistent media id returns 404 for an otherwise-eligible recipient', async () => {
     const { agent: adminAgent, csrf } = await loginAsAdmin(22);
     const community = await makeCommunity('Media None Community');
     const { agent: memberAgent, person } = await loginAsMember('+237699100004', 'hqm-member4@example.com');
@@ -420,13 +469,13 @@ describe('Headquarters Post Media — recipient download authorization', () => {
     const postId = await createDraftPost(adminAgent, csrf, 'No Media Post');
     await publishTargeted(adminAgent, csrf, postId, [community.id]);
 
-    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/00000000-0000-0000-0000-000000000000/download-url`);
     expect(res.status).toBe(404);
   });
 
   it('an unauthenticated caller cannot obtain a download URL', async () => {
     const anon = agentWithUniqueIp();
-    const res = await anon.get('/api/me/headquarters-posts/00000000-0000-0000-0000-000000000000/media/download-url');
+    const res = await anon.get('/api/me/headquarters-posts/00000000-0000-0000-0000-000000000000/media/00000000-0000-0000-0000-000000000000/download-url');
     expect(res.status).toBe(401);
   });
 
@@ -437,10 +486,11 @@ describe('Headquarters Post Media — recipient download authorization', () => {
     await joinCommunity(leaderPerson.id, community.id);
 
     const postId = await createDraftPost(adminAgent, csrf, 'Leader Media Post');
-    await finalizeMedia(adminAgent, csrf, postId, IMAGE);
+    const finalized = await finalizeMedia(adminAgent, csrf, postId, IMAGE);
+    const mediaId = finalized.body.media[0].id;
     await publishTargeted(adminAgent, csrf, postId, [community.id]);
 
-    const res = await leaderAgent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await leaderAgent.get(`/api/me/headquarters-posts/${postId}/media/${mediaId}/download-url`);
     expect(res.status).toBe(200);
   });
 
@@ -448,10 +498,11 @@ describe('Headquarters Post Media — recipient download authorization', () => {
     const { agent, csrf } = await loginAsAdmin(24);
     const community = await makeCommunity('Media Admin Bypass Community');
     const postId = await createDraftPost(agent, csrf, 'Admin Bypass Post');
-    await finalizeMedia(agent, csrf, postId, IMAGE);
+    const finalized = await finalizeMedia(agent, csrf, postId, IMAGE);
+    const mediaId = finalized.body.media[0].id;
     await publishTargeted(agent, csrf, postId, [community.id]);
 
-    const res = await agent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await agent.get(`/api/me/headquarters-posts/${postId}/media/${mediaId}/download-url`);
     expect(res.status).toBe(401);
   });
 
@@ -467,11 +518,12 @@ describe('Headquarters Post Media — recipient download authorization', () => {
     await joinCommunity(person.id, hq.id);
 
     const postId = await createDraftPost(adminAgent, csrf, 'Network Wide Media Post');
-    await finalizeMedia(adminAgent, csrf, postId, VIDEO);
+    const finalized = await finalizeMedia(adminAgent, csrf, postId, VIDEO);
+    const mediaId = finalized.body.media[0].id;
     await adminAgent.patch(`/api/admin/headquarters-posts/${postId}`).set('X-CSRF-Token', csrf).send({ networkWide: true });
     await adminAgent.post(`/api/admin/headquarters-posts/${postId}/publish`).set('X-CSRF-Token', csrf);
 
-    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/${mediaId}/download-url`);
     expect(res.status).toBe(200);
     expect(res.body.mediaType).toBe('VIDEO');
   });
@@ -486,13 +538,13 @@ describe('Headquarters Post Media — all four media types', () => {
 
     const postId = await createDraftPost(adminAgent, csrf, 'Image Post');
     const finalized = await finalizeMedia(adminAgent, csrf, postId, IMAGE);
-    expect(finalized.body.media.mediaType).toBe('IMAGE');
+    expect(finalized.body.media[0].mediaType).toBe('IMAGE');
     await publishTargeted(adminAgent, csrf, postId, [community.id]);
 
-    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/${finalized.body.media[0].id}/download-url`);
     expect(res.body.mediaType).toBe('IMAGE');
     const detail = await memberAgent.get(`/api/me/headquarters-posts/${postId}`);
-    expect(detail.body.media).toMatchObject({ mediaType: 'IMAGE', originalFilename: IMAGE.originalFilename, byteSize: IMAGE.byteSize });
+    expect(detail.body.media[0]).toMatchObject({ mediaType: 'IMAGE', originalFilename: IMAGE.originalFilename, byteSize: IMAGE.byteSize });
   });
 
   it('a video is finalized and downloadable with mediaType VIDEO', async () => {
@@ -503,10 +555,10 @@ describe('Headquarters Post Media — all four media types', () => {
 
     const postId = await createDraftPost(adminAgent, csrf, 'Video Post');
     const finalized = await finalizeMedia(adminAgent, csrf, postId, VIDEO);
-    expect(finalized.body.media.mediaType).toBe('VIDEO');
+    expect(finalized.body.media[0].mediaType).toBe('VIDEO');
     await publishTargeted(adminAgent, csrf, postId, [community.id]);
 
-    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/${finalized.body.media[0].id}/download-url`);
     expect(res.body.mediaType).toBe('VIDEO');
   });
 
@@ -518,10 +570,10 @@ describe('Headquarters Post Media — all four media types', () => {
 
     const postId = await createDraftPost(adminAgent, csrf, 'Audio Post');
     const finalized = await finalizeMedia(adminAgent, csrf, postId, AUDIO);
-    expect(finalized.body.media.mediaType).toBe('AUDIO');
+    expect(finalized.body.media[0].mediaType).toBe('AUDIO');
     await publishTargeted(adminAgent, csrf, postId, [community.id]);
 
-    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/${finalized.body.media[0].id}/download-url`);
     expect(res.body.mediaType).toBe('AUDIO');
   });
 
@@ -533,10 +585,10 @@ describe('Headquarters Post Media — all four media types', () => {
 
     const postId = await createDraftPost(adminAgent, csrf, 'PDF Post');
     const finalized = await finalizeMedia(adminAgent, csrf, postId, PDF);
-    expect(finalized.body.media.mediaType).toBe('PDF');
+    expect(finalized.body.media[0].mediaType).toBe('PDF');
     await publishTargeted(adminAgent, csrf, postId, [community.id]);
 
-    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/download-url`);
+    const res = await memberAgent.get(`/api/me/headquarters-posts/${postId}/media/${finalized.body.media[0].id}/download-url`);
     expect(res.body.mediaType).toBe('PDF');
   });
 });
@@ -565,7 +617,7 @@ describe('Headquarters Post Media — comments/reactions remain functional on a 
     const detail = await memberAgent.get(`/api/me/headquarters-posts/${postId}`);
     expect(detail.body.commentCount).toBe(1);
     expect(detail.body.reactionCount).toBe(1);
-    expect(detail.body.media).not.toBeNull();
+    expect(detail.body.media.length).toBeGreaterThan(0);
   });
 });
 

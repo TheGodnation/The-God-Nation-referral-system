@@ -25,3 +25,15 @@ export function coverPhotoPath(person: { id: string; coverStorageKey: string | n
   const version = person.coverUpdatedAt ? person.coverUpdatedAt.getTime() : 0;
   return `/api/people/${person.id}/cover?v=${version}`;
 }
+
+/** Path of the Admin-uploaded Home or chat wallpaper image, or null when
+ * none is set (the client then falls back to a built-in preset). */
+export function wallpaperPath(
+  target: 'home' | 'chat',
+  s: { homeWallpaperStorageKey: string | null; homeWallpaperUpdatedAt: Date | null; chatWallpaperStorageKey: string | null; chatWallpaperUpdatedAt: Date | null } | null,
+): string | null {
+  const storageKey = target === 'home' ? s?.homeWallpaperStorageKey : s?.chatWallpaperStorageKey;
+  if (!storageKey) return null;
+  const updatedAt = target === 'home' ? s?.homeWallpaperUpdatedAt : s?.chatWallpaperUpdatedAt;
+  return `/api/wallpaper/${target}?v=${updatedAt ? updatedAt.getTime() : 0}`;
+}

@@ -1,5 +1,6 @@
 import { AdminOnlineNow } from '../components/admin/AdminOnlineNow';
 import { AdminBannerPicture } from '../components/admin/AdminBannerPicture';
+import { AdminWallpaperPicker } from '../components/admin/AdminWallpaperPicker';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
@@ -998,6 +999,8 @@ function ContentTab() {
         <p className="text-xs text-slate-400">{t('admin.content.hint')}</p>
       </div>
       <AdminBannerPicture />
+      <AdminWallpaperPicker target="home" title={t('admin.branding.home_wallpaper_title')} hint={t('admin.branding.home_wallpaper_hint')} />
+      <AdminWallpaperPicker target="chat" title={t('admin.branding.chat_wallpaper_title')} hint={t('admin.branding.chat_wallpaper_hint')} />
       {CONTENT_SECTIONS.map(({ section, fields }) => (
         <div key={section} className="card space-y-4">
           <h3 className="font-semibold text-brand-900">{t(`admin.content.sections.${section}`)}</h3>

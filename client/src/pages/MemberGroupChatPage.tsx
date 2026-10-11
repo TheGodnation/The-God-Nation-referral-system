@@ -5,7 +5,8 @@ import { api, ApiError, NetworkError } from '../lib/api';
 import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
-import { CHAT_WALLPAPER_STYLE } from '../components/chat/wallpaper';
+import { resolveWallpaperStyle } from '../lib/wallpaper';
+import { usePublicSettings } from '../lib/usePublicSettings';
 import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatComposer';
 import { REACTIONS, canEditMessage, canUnsendMessage, type ChatMessage, type ChatReaction } from '../components/chat/types';
 import { ChatSearch, EditSheet, ForwardSheet, findAndJump } from '../components/chat/ChatActions';
@@ -94,6 +95,7 @@ function ChatTip() {
 // are checked every few seconds while the screen is open.
 export function MemberGroupChatPage() {
   const { t } = useTranslation();
+  const { chatWallpaper } = usePublicSettings();
   const { communityId = '' } = useParams();
   const [groupName, setGroupName] = useState<string>('');
   const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
@@ -424,7 +426,7 @@ export function MemberGroupChatPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col" style={CHAT_WALLPAPER_STYLE}>
+    <div className="fixed inset-0 flex flex-col" style={resolveWallpaperStyle(chatWallpaper?.preset ?? null, chatWallpaper?.imageUrl ?? null)}>
       <header className="flex items-center gap-3 bg-brand-800 px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-white shadow">
         <Link to="/member/chats" aria-label={t('groupChat.back') ?? ''} className="px-2 text-2xl leading-none">
           ←

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../lib/asyncHandler';
-import { appBannerPath } from '../lib/profilePhoto';
+import { appBannerPath, wallpaperPath } from '../lib/profilePhoto';
 
 const router = Router();
 
@@ -24,6 +24,11 @@ router.get('/public', asyncHandler(async (_req, res) => {
     content: (settings?.content as Record<string, string> | null) ?? {},
     // Address of the Updates banner picture (viewing it needs sign-in).
     appBannerUrl: appBannerPath(settings),
+    // Home page / chat background — a preset name, an uploaded image URL
+    // (viewing it needs sign-in, same as appBannerUrl), or both null (the
+    // client's own built-in default applies).
+    homeWallpaper: { preset: settings?.homeWallpaperPreset ?? null, imageUrl: wallpaperPath('home', settings) },
+    chatWallpaper: { preset: settings?.chatWallpaperPreset ?? null, imageUrl: wallpaperPath('chat', settings) },
   });
 }));
 

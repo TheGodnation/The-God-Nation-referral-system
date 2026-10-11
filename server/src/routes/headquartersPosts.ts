@@ -56,14 +56,14 @@ router.use(requireHeadquartersPostRecipient);
 // any other internal organizational detail. Deliberately excludes every
 // unrelated Person field (WhatsApp, email, DOB, address, location,
 // training/assessment progress, follow-up state, private messages).
-// Media Phase 1 — metadata only (mediaType/originalFilename/byteSize), never
-// a storageKey or a signed URL: a recipient always fetches a fresh,
-// short-lived download URL from GET .../media/download-url below, exactly
-// once they actually want to view/play/download it, never as part of this
-// list/detail payload.
-function toMediaResponse(m: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null) {
-  if (!m) return null;
-  return { mediaType: m.mediaType, originalFilename: m.originalFilename, byteSize: m.byteSize };
+// Media Phase 2 — metadata only (id/mediaType/originalFilename/byteSize),
+// never a storageKey or a signed URL: a recipient always fetches a fresh,
+// short-lived download URL from GET .../media/:mediaId/download-url below,
+// exactly once they actually want to view/play/download one item, never as
+// part of this list/detail payload. Up to MAX_HEADQUARTERS_POST_MEDIA
+// items, in the order attached (position).
+function toMediaResponse(media: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[]) {
+  return media.map((m) => ({ id: m.id, mediaType: m.mediaType, originalFilename: m.originalFilename, byteSize: m.byteSize }));
 }
 
 function toRecipientResponse(
@@ -75,7 +75,7 @@ function toRecipientResponse(
     bodyFr: string | null;
     publishedAt: Date | null;
     networkWide: boolean;
-    media?: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string } | null;
+    media?: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[];
   },
   engagement: { commentCount: number; reactionCount: number; viewerHasReacted: boolean },
 ) {
@@ -90,7 +90,7 @@ function toRecipientResponse(
     commentCount: engagement.commentCount,
     reactionCount: engagement.reactionCount,
     viewerHasReacted: engagement.viewerHasReacted,
-    media: toMediaResponse(p.media ?? null),
+    media: toMediaResponse(p.media ?? []),
   };
 }
 
@@ -126,7 +126,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
   const post = await prisma.headquartersPost.findUnique({
     where: { id },
-    include: { media: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, mediaType: true } } },
+    include: { media: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, mediaType: true }, orderBy: { position: 'asc' } } },
   });
   if (!post) {
     return res.status(404).json({ error: 'Headquarters post not found.' });
@@ -136,29 +136,29 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json(toRecipientResponse(post, engagement.get(id) ?? { commentCount: 0, reactionCount: 0, viewerHasReacted: false }));
 }));
 
-// GET /api/me/headquarters-posts/:id/media/download-url — mints a fresh,
-// short-lived signed R2 download URL for this post's one media item. Same
-// non-disclosure convention as every other route in this file: 404 (never
-// 403) for a nonexistent id, an unpublished/archived post, a post the
-// caller doesn't qualify for, or one with no media at all — a guessed id,
-// or probing for whether media exists, can never be distinguished from any
-// other reason this 404s. Never accepts a storageKey from the caller —
-// the only storage key ever used here is the one already stored against
-// THIS post, so a recipient can never supply their own key to read an
-// arbitrary R2 object.
+// GET /api/me/headquarters-posts/:id/media/:mediaId/download-url — mints a
+// fresh, short-lived signed R2 download URL for exactly one of this post's
+// media items. Same non-disclosure convention as every other route in this
+// file: 404 (never 403) for a nonexistent post id, an unpublished/archived
+// post, a post the caller doesn't qualify for, or a mediaId that doesn't
+// belong to THIS post — a guessed id, or probing for whether media exists,
+// can never be distinguished from any other reason this 404s. Never
+// accepts a storageKey from the caller — the only storage key ever used
+// here is the one already stored against THIS exact media row, so a
+// recipient can never supply their own key to read an arbitrary R2 object.
 router.get(
-  '/:id/media/download-url',
+  '/:id/media/:mediaId/download-url',
   attachmentDownloadLimiter,
   asyncHandler(async (req, res) => {
     const personId = req.headquartersPostRecipientPersonId!;
-    const { id } = req.params;
+    const { id, mediaId } = req.params;
 
     const canView = await personCanViewHeadquartersPost(personId, id);
     if (!canView) {
       return res.status(404).json({ error: 'Headquarters post not found.' });
     }
 
-    const media = await prisma.headquartersPostMedia.findUnique({ where: { headquartersPostId: id } });
+    const media = await prisma.headquartersPostMedia.findFirst({ where: { id: mediaId, headquartersPostId: id } });
     if (!media) {
       return res.status(404).json({ error: 'Headquarters post not found.' });
     }

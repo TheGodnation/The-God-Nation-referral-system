@@ -5,6 +5,7 @@ import { formatBytes } from '../lib/attachmentLimits';
 import { HeadquartersFeedCard } from './HeadquartersFeedCard';
 
 interface HeadquartersPostMediaInfo {
+  id: string;
   mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
   originalFilename: string;
   byteSize: number;
@@ -21,7 +22,7 @@ interface HeadquartersPostRow {
   commentCount: number;
   reactionCount: number;
   viewerHasReacted: boolean;
-  media: HeadquartersPostMediaInfo | null;
+  media: HeadquartersPostMediaInfo[];
 }
 
 interface CommentRow {
@@ -62,13 +63,15 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [reacting, setReacting] = useState(false);
 
-  // Media Phase 1 — a fresh, short-lived signed URL is fetched once per
+  // Media Phase 2 — a fresh, short-lived signed URL is fetched for each of
+  // the post's (up to MAX_HEADQUARTERS_POST_MEDIA) media items once per
   // post-open (never persisted, never reused across posts), exactly like
   // CommunityConversation.tsx's own openAttachment pattern. A failed fetch
-  // never blocks the already-loaded post text/comments/reactions above.
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  // for one item never blocks the others or the already-loaded post
+  // text/comments/reactions above.
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [mediaLoading, setMediaLoading] = useState(false);
-  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [mediaErrorIds, setMediaErrorIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     api
@@ -107,21 +110,36 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
     setDetailLoading(true);
     setComments([]);
     setCommentDraft('');
-    setMediaUrl(null);
-    setMediaError(null);
+    setMediaUrls({});
+    setMediaErrorIds({});
     api
       .get<HeadquartersPostRow>(`/api/me/headquarters-posts/${id}`)
       .then((res) => {
         setDetail(res);
         setDetailLoading(false);
         loadComments(id);
-        if (res.media) {
+        if (res.media.length > 0) {
           setMediaLoading(true);
-          api
-            .get<{ url: string }>(`/api/me/headquarters-posts/${id}/media/download-url`)
-            .then((mediaRes) => setMediaUrl(mediaRes.url))
-            .catch(() => setMediaError(t('headquartersPosts.media_load_failed')))
-            .finally(() => setMediaLoading(false));
+          Promise.allSettled(
+            res.media.map((m) =>
+              api
+                .get<{ url: string }>(`/api/me/headquarters-posts/${id}/media/${m.id}/download-url`)
+                .then((mediaRes) => ({ id: m.id, url: mediaRes.url }))
+                .catch(() => {
+                  throw m.id;
+                }),
+            ),
+          ).then((results) => {
+            const urls: Record<string, string> = {};
+            const errors: Record<string, boolean> = {};
+            for (const r of results) {
+              if (r.status === 'fulfilled') urls[r.value.id] = r.value.url;
+              else errors[r.reason as string] = true;
+            }
+            setMediaUrls(urls);
+            setMediaErrorIds(errors);
+            setMediaLoading(false);
+          });
         }
       })
       .catch(() => {
@@ -135,8 +153,8 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
     setDetail(null);
     setDetailError(null);
     setComments([]);
-    setMediaUrl(null);
-    setMediaError(null);
+    setMediaUrls({});
+    setMediaErrorIds({});
   }
 
   async function submitComment() {
@@ -200,34 +218,36 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
             <p className="mb-3 text-xs text-slate-400">{new Date(detail.publishedAt).toLocaleDateString()}</p>
             <p className="whitespace-pre-wrap text-sm text-slate-700">{isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn}</p>
 
-            {detail.media && (
-              <div className="mt-4">
+            {detail.media.length > 0 && (
+              <div className="mt-4 space-y-3">
                 {mediaLoading && <p className="text-sm text-slate-400">{t('headquartersPosts.media_loading')}</p>}
-                {mediaError && <p className="text-sm text-red-700">{mediaError}</p>}
-                {mediaUrl && detail.media.mediaType === 'IMAGE' && (
-                  <img
-                    src={mediaUrl}
-                    alt={t('headquartersPosts.media_image_alt') ?? ''}
-                    className="max-h-96 w-full rounded-lg object-contain"
-                  />
-                )}
-                {mediaUrl && detail.media.mediaType === 'VIDEO' && (
-                  // eslint-disable-next-line jsx-a11y/media-has-caption
-                  <video src={mediaUrl} controls className="w-full rounded-lg" />
-                )}
-                {mediaUrl && detail.media.mediaType === 'AUDIO' && (
-                  <audio src={mediaUrl} controls className="w-full" />
-                )}
-                {mediaUrl && detail.media.mediaType === 'PDF' && (
-                  <a href={mediaUrl} target="_blank" rel="noreferrer" className="btn-secondary inline-block px-4 py-2 text-sm">
-                    {t('headquartersPosts.media_pdf_open', { filename: detail.media.originalFilename })}
-                  </a>
-                )}
-                {!mediaLoading && !mediaUrl && !mediaError && (
-                  <p className="text-xs text-slate-400">
-                    {detail.media.originalFilename} · {formatBytes(detail.media.byteSize)}
-                  </p>
-                )}
+                {detail.media.map((m) => {
+                  const url = mediaUrls[m.id];
+                  const failed = mediaErrorIds[m.id];
+                  return (
+                    <div key={m.id}>
+                      {failed && <p className="text-sm text-red-700">{t('headquartersPosts.media_load_failed')}</p>}
+                      {url && m.mediaType === 'IMAGE' && (
+                        <img src={url} alt={t('headquartersPosts.media_image_alt') ?? ''} className="max-h-96 w-full rounded-lg object-contain" />
+                      )}
+                      {url && m.mediaType === 'VIDEO' && (
+                        // eslint-disable-next-line jsx-a11y/media-has-caption
+                        <video src={url} controls className="w-full rounded-lg" />
+                      )}
+                      {url && m.mediaType === 'AUDIO' && <audio src={url} controls className="w-full" />}
+                      {url && m.mediaType === 'PDF' && (
+                        <a href={url} target="_blank" rel="noreferrer" className="btn-secondary inline-block px-4 py-2 text-sm">
+                          {t('headquartersPosts.media_pdf_open', { filename: m.originalFilename })}
+                        </a>
+                      )}
+                      {!mediaLoading && !url && !failed && (
+                        <p className="text-xs text-slate-400">
+                          {m.originalFilename} · {formatBytes(m.byteSize)}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
