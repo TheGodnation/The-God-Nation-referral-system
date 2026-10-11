@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
@@ -80,6 +81,10 @@ export function MemberPeoplePage() {
         </div>
 
         <div className="space-y-6">
+          <Link to="/member/leadership" className="block text-sm font-medium text-brand-700 underline">
+            {t('people.leadership_directory_link')}
+          </Link>
+
           <Section title={t('people.requests')} items={incoming} />
 
           <section className="card">

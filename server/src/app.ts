@@ -55,6 +55,8 @@ import profilePhotosRoutes from './routes/profilePhotos';
 import updatesRoutes from './routes/updates';
 import socialRoutes from './routes/social';
 import { adminMemberReportsRouter, leaderMemberReportsRouter } from './routes/memberReports';
+import representationRequestsRoutes from './routes/representationRequests';
+import adminRepresentationRequestsRoutes from './routes/adminRepresentationRequests';
 import examWorldRoutes from './routes/examWorld';
 import adminLibraryRoutes from './routes/adminLibrary';
 import leaderExamResultsRoutes from './routes/leaderExamResults';
@@ -214,6 +216,10 @@ export function createApp() {
   app.use('/api/member', socialRoutes);
   app.use('/api/admin/member-reports', adminMemberReportsRouter);
   app.use('/api/leader/member-reports', leaderMemberReportsRouter);
+  // Representation Requests: a Member's own free-text "I want to represent…"
+  // request, Admin review, and the public Leadership Directory.
+  app.use('/api/member', representationRequestsRoutes);
+  app.use('/api/admin', adminRepresentationRequestsRoutes);
   // Exam World: member summary/reader, admin library & trainees, leader results.
   app.use('/api/member', examWorldRoutes);
   app.use('/api/admin/library', adminLibraryRoutes);

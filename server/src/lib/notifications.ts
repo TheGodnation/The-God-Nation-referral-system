@@ -14,7 +14,13 @@ import type { PrivateMessagingActor } from './privateMessaging';
 interface CreateNotificationParams {
   recipientPersonId?: string;
   recipientUserId?: string;
-  type: 'FOLLOW_UP_ASSIGNED' | 'PRIVATE_MESSAGE_RECEIVED' | 'RESOURCE_GRANTED' | 'ROLE_ASSIGNED';
+  type:
+    | 'FOLLOW_UP_ASSIGNED'
+    | 'PRIVATE_MESSAGE_RECEIVED'
+    | 'RESOURCE_GRANTED'
+    | 'ROLE_ASSIGNED'
+    | 'REPRESENTATION_REQUEST_APPROVED'
+    | 'REPRESENTATION_REQUEST_DECLINED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -69,6 +75,18 @@ export async function notifyRoleAssigned(roleAssignment: { id: string; personId:
     metadata: { communityName: community?.name ?? '' },
     targetType: 'RoleAssignment',
     targetId: roleAssignment.id,
+  });
+}
+
+/** Event 5 — a Member's own Representation Request (see model comment in
+ * schema.prisma) has been approved or declined by Admin. */
+export async function notifyRepresentationRequestDecided(request: { id: string; personId: string; label: string; status: 'PENDING' | 'APPROVED' | 'DECLINED' }) {
+  await createNotification({
+    recipientPersonId: request.personId,
+    type: request.status === 'APPROVED' ? 'REPRESENTATION_REQUEST_APPROVED' : 'REPRESENTATION_REQUEST_DECLINED',
+    metadata: { label: request.label },
+    targetType: 'RepresentationRequest',
+    targetId: request.id,
   });
 }
 

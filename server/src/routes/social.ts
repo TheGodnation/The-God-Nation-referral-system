@@ -205,7 +205,7 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
   const person = blockedMe ? null : await prisma.person.findFirst({ where: { id: other, ...APP_MEMBER }, select: personSelect });
   if (!person) return res.status(404).json({ error: 'Not found.' });
 
-  const [rel, friendCount, messageAllowed, sameGroup, leaderOf, memberOf, followerCount, followingCount, viewerFollows] = await Promise.all([
+  const [rel, friendCount, messageAllowed, sameGroup, leaderOf, memberOf, representations, followerCount, followingCount, viewerFollows] = await Promise.all([
     friendStatusBetween(me, other),
     getFriendIds(other).then((ids) => ids.length),
     canMessage(me, other),
@@ -216,6 +216,9 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
     prisma.communityMembership
       .findMany({ where: { personId: other, status: 'ACTIVE' }, include: { community: { select: { name: true } } } })
       .then((rows) => rows.map((r) => r.community.name)),
+    prisma.representationRequest
+      .findMany({ where: { personId: other, status: 'APPROVED' }, select: { label: true } })
+      .then((rows) => rows.map((r) => r.label)),
     getFollowerCount(other),
     getFollowingCount(other),
     isFollowing(me, other),
@@ -231,6 +234,7 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
     isLeader: leaderOf.length > 0,
     leaderOf,
     memberOf,
+    representations,
     sameGroup,
     friendStatus: rel.status,
     requestId: rel.requestId,

@@ -8,7 +8,9 @@ type NotificationType =
   | 'RESOURCE_GRANTED'
   | 'ROLE_ASSIGNED'
   | 'FRIEND_REQUEST_RECEIVED'
-  | 'FRIEND_REQUEST_ACCEPTED';
+  | 'FRIEND_REQUEST_ACCEPTED'
+  | 'REPRESENTATION_REQUEST_APPROVED'
+  | 'REPRESENTATION_REQUEST_DECLINED';
 
 interface NotificationRow {
   id: string;
@@ -103,6 +105,10 @@ export function NotificationBell() {
         return t('notifications.friend_request_received', { name: metadata.senderName ?? '' });
       case 'FRIEND_REQUEST_ACCEPTED':
         return t('notifications.friend_request_accepted', { name: metadata.senderName ?? '' });
+      case 'REPRESENTATION_REQUEST_APPROVED':
+        return t('notifications.representation_request_approved', { label: metadata.label ?? '' });
+      case 'REPRESENTATION_REQUEST_DECLINED':
+        return t('notifications.representation_request_declined', { label: metadata.label ?? '' });
       default:
         return '';
     }

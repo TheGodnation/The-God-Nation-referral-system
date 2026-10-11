@@ -10,6 +10,7 @@ import { CommunitiesTab } from '../components/admin/CommunitiesTab';
 import { DevotionalsTab } from '../components/admin/DevotionalsTab';
 import { AssessmentsTab } from '../components/admin/AssessmentsTab';
 import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
+import { RepresentationRequestsTab } from '../components/admin/RepresentationRequestsTab';
 import { FollowUpsTab } from '../components/admin/FollowUpsTab';
 import { AnnouncementsTab } from '../components/admin/AnnouncementsTab';
 import { LocationsTab } from '../components/admin/LocationsTab';
@@ -38,6 +39,7 @@ type Tab =
   | 'devotionals'
   | 'assessments'
   | 'roleAssignments'
+  | 'representationRequests'
   | 'followUps'
   | 'announcements'
   | 'headquartersPosts'
@@ -1662,6 +1664,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'roleAssignments'} onClick={() => setTab('roleAssignments')}>
               {t('admin.tabs.roleAssignments')}
             </TabButton>
+            <TabButton active={tab === 'representationRequests'} onClick={() => setTab('representationRequests')}>
+              {t('admin.tabs.representationRequests')}
+            </TabButton>
             <TabButton active={tab === 'followUps'} onClick={() => setTab('followUps')}>
               {t('admin.tabs.followUps')}
             </TabButton>
@@ -1720,6 +1725,7 @@ export function AdminDashboardPage() {
         {tab === 'assessments' && <AssessmentsTab />}
         {tab === 'library' && <LibraryTab />}
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
+        {tab === 'representationRequests' && <RepresentationRequestsTab />}
         {tab === 'followUps' && <FollowUpsTab />}
         {tab === 'announcements' && <AnnouncementsTab />}
         {tab === 'headquartersPosts' && <HeadquartersPostsTab />}

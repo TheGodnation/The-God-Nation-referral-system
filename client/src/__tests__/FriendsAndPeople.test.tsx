@@ -106,6 +106,7 @@ describe('Person profile page', () => {
     isLeader: false,
     leaderOf: [],
     memberOf: [],
+    representations: [],
     sameGroup: false,
     friendStatus: 'FRIENDS',
     requestId: 'f1',
@@ -166,7 +167,7 @@ describe('Person profile page', () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: ME }),
       'GET /api/member/people/p9': () => ({
-        body: { ...profile, isLeader: true, leaderOf: ['Yaoundé Group'], memberOf: ['Douala Group'], isFollowing: following },
+        body: { ...profile, isLeader: true, leaderOf: ['Yaoundé Group'], memberOf: ['Douala Group'], representations: ['Kribi Fellowship'], isFollowing: following },
       }),
       'GET /api/updates': () => ({ body: { viewer: { canPost: true, canModerate: false, personId: 'me' }, items: [], nextBefore: null } }),
       'POST /api/member/follows': () => {
@@ -182,6 +183,7 @@ describe('Person profile page', () => {
     await screen.findByRole('heading', { name: 'Paul Profile' });
     expect(screen.getByText('Leader of Yaoundé Group')).toBeInTheDocument();
     expect(screen.getByText('Member of Douala Group')).toBeInTheDocument();
+    expect(screen.getByText('Represents Kribi Fellowship')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Follow/ }));
     await waitFor(() => expect(screen.getByRole('button', { name: /Following/ })).toBeInTheDocument());

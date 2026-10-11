@@ -173,6 +173,8 @@ enum NotificationType {
   ROLE_ASSIGNED
   FRIEND_REQUEST_RECEIVED
   FRIEND_REQUEST_ACCEPTED
+  REPRESENTATION_REQUEST_APPROVED
+  REPRESENTATION_REQUEST_DECLINED
 }
 
 enum FriendshipStatus {
@@ -189,6 +191,14 @@ enum FriendRequestPolicy {
 enum ReportStatus {
   OPEN
   RESOLVED
+}
+
+// A Member's own request to be shown as representing a free-text area or
+// community label — see RepresentationRequest model comment.
+enum RepresentationRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
 }
 
 // ---------------------------------------------------------------------------
@@ -245,6 +255,7 @@ model User {
   updateCommentsDeleted       UpdateComment[] @relation("UpdateCommentDeletedByUser")
   memberReportsResolved       MemberReport[]  @relation("MemberReportResolvedByUser")
   trainingEnrollmentsActivated TrainingEnrollment[] @relation("TrainingEnrollmentActivatedBy")
+  representationRequestsDecided RepresentationRequest[]
 
   @@index([role])
 }
@@ -641,6 +652,7 @@ model Person {
   followedBy                       Follow[]                @relation("FollowFollowing")
   reportsMade                      MemberReport[]          @relation("MemberReportReporter")
   reportsAbout                     MemberReport[]          @relation("MemberReportReported")
+  representationRequests           RepresentationRequest[]
 
   @@index([isTestData])
 }
@@ -1112,6 +1124,35 @@ model OrganizationalLeadershipRecommendation {
   @@index([proposedByPersonId, status])
   @@index([proposedPersonId, status])
   @@index([communityId, status])
+}
+
+// Phase 1 (profile overhaul) — Representation Requests: a Member's own,
+// deliberately lightweight request to be shown as representing a free-text
+// area/community label (e.g. "Yaoundé III Youth") on their profile and in
+// the public Leadership Directory. NOT tied to Geography (fully retired —
+// see RoleType's own comment) or to Community: `label` is free text only,
+// with no hierarchy, validation, or uniqueness enforced against any other
+// model. Approving a request changes ONLY this row — it never creates a
+// Community, a CommunityMembership, or a RoleAssignment; those remain the
+// existing, separate, Admin-only mechanisms (adminCommunities.ts /
+// adminLeadership.ts), completely unaffected by this model's existence.
+model RepresentationRequest {
+  id              String                      @id @default(uuid())
+  personId        String
+  label           String
+  note            String?
+  status          RepresentationRequestStatus @default(PENDING)
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+  decidedAt       DateTime?
+  decidedByUserId String?
+  decisionNote    String?
+
+  person        Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  decidedByUser User?  @relation(fields: [decidedByUserId], references: [id])
+
+  @@index([personId, status])
+  @@index([status])
 }
 
 // Phase 3M.1: exactly one persistent, text-only conversation per Community
