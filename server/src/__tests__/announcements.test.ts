@@ -1,0 +1,1102 @@
+import { describe, it, expect, vi } from 'vitest';
+import request from 'supertest';
+import { createApp } from '../app';
+import { prisma } from '../lib/prisma';
+import { EmailService } from '../lib/email';
+import { createLeader, createAdmin } from './helpers';
+import { bootstrap } from './testUtils';
+
+// Phase 3M.3 — Central Authority Targeted Announcements. Mirrors the exact
+// conventions established in communityConversations.test.ts/
+// followUpConversations.test.ts: agentWithUniqueIp, createLeader/createAdmin,
+// bootstrap, loginAsMember.
+
+const app = createApp();
+
+let ipCounter = 1000;
+function agentWithUniqueIp() {
+  ipCounter += 1;
+  const ip = `10.98.${Math.floor(ipCounter / 256) % 256}.${ipCounter % 256}`;
+  const raw = request.agent(app);
+  const methods = ['get', 'post', 'patch', 'put', 'delete'] as const;
+  const wrapped = {} as Record<(typeof methods)[number], (path: string) => request.Test>;
+  for (const m of methods) {
+    wrapped[m] = (path: string) => raw[m](path).set('X-Forwarded-For', ip);
+  }
+  return wrapped;
+}
+
+function extractToken(link: string): string {
+  return new URL(link).searchParams.get('token')!;
+}
+
+async function loginAsAdmin(n: number) {
+  const email = `ann-admin${n}@test.local`;
+  await createAdmin(email);
+  const agent = agentWithUniqueIp();
+  const { csrf } = await bootstrap(agent as any);
+  await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'AdminPass123!' });
+  return { agent, csrf, email };
+}
+
+async function setupLeader(n: number) {
+  const email = `ann-leader${n}@test.local`;
+  const { user } = await createLeader(`Announcement Leader ${n}`, email, `AN${n}CODE`);
+  const person = await prisma.person.create({
+    data: { name: `Announcement Leader Person ${n}`, whatsappNumber: `+237698${String(n).padStart(6, '0')}` },
+  });
+  await prisma.user.update({ where: { id: user.id }, data: { personId: person.id } });
+
+  const agent = agentWithUniqueIp();
+  const { csrf } = await bootstrap(agent as any);
+  await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'password123' });
+  return { agent, csrf, user, person };
+}
+
+async function loginAsMember(whatsapp: string, email: string, name = 'Announcement Member') {
+  const person = await prisma.person.create({ data: { name, whatsappNumber: whatsapp } });
+  const spy = vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true });
+  const requestAgent = agentWithUniqueIp();
+  const { csrf: requestCsrf } = await bootstrap(requestAgent as any);
+  await requestAgent.post('/api/member/auth/request-link').set('X-CSRF-Token', requestCsrf).send({ whatsapp, email });
+  const link = spy.mock.calls[spy.mock.calls.length - 1][0].link as string;
+  spy.mockRestore();
+  const agent = agentWithUniqueIp();
+  const { csrf } = await bootstrap(agent as any);
+  await agent.post('/api/member/auth/consume').set('X-CSRF-Token', csrf).send({ token: extractToken(link) });
+  return { agent, csrf, person };
+}
+
+async function makeCommunity(name: string, parentId?: string) {
+  return prisma.community.create({ data: { name, parentId: parentId ?? null } });
+}
+
+async function joinCommunity(personId: string, communityId: string, status: 'ACTIVE' | 'INACTIVE' = 'ACTIVE') {
+  return prisma.communityMembership.create({ data: { personId, communityId, status } });
+}
+
+// Phase 3M.3 — the "Announcement model integrity" describe block previously
+// here tested the AnnouncementTarget_scope_exclusive_check DB CHECK
+// constraint (communityId XOR geographyId). Geography Retirement Step 4
+// removed geographyId (and that CHECK, which had no meaning with only one
+// field left) entirely — Community-only target validation is now enforced
+// at the application layer instead (see "Phase 3M.3 — target validation"
+// below, which covers a missing/invalid communityId via the actual API).
+
+describe('Phase 3M.3 — Admin authorization', () => {
+  it('an Admin can create a draft announcement', async () => {
+    const { agent, csrf } = await loginAsAdmin(3);
+    const res = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Draft Title', bodyEn: 'Draft body.' });
+    expect(res.status).toBe(201);
+    expect(res.body.publishedAt).toBeNull();
+    expect(res.body.archivedAt).toBeNull();
+  });
+
+  it('a Leader cannot create an announcement', async () => {
+    const { agent, csrf } = await setupLeader(101);
+    const res = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Nope', bodyEn: 'Nope.' });
+    expect(res.status).toBe(403);
+  });
+
+  it('a Member cannot create an announcement', async () => {
+    const { agent, csrf } = await loginAsMember('+237699900001', 'ann-member1@example.com');
+    const res = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Nope', bodyEn: 'Nope.' });
+    expect(res.status).toBe(401);
+  });
+
+  it('an unauthenticated caller cannot create an announcement', async () => {
+    const anon = agentWithUniqueIp();
+    const res = await anon.post('/api/admin/announcements').send({ titleEn: 'Nope', bodyEn: 'Nope.' });
+    expect(res.status).toBe(401);
+  });
+
+  it('CSRF protection is enforced on create', async () => {
+    const { agent } = await loginAsAdmin(4);
+    const res = await agent.post('/api/admin/announcements').send({ titleEn: 'No CSRF', bodyEn: 'No CSRF.' });
+    expect(res.status).toBe(403);
+  });
+
+  it('the dedicated announcement mutation rate limiter applies', async () => {
+    const { agent, csrf } = await loginAsAdmin(5);
+    let lastStatus = 200;
+    for (let i = 0; i < 61; i++) {
+      const res = await agent
+        .post('/api/admin/announcements')
+        .set('X-CSRF-Token', csrf)
+        .send({ titleEn: `Rate ${i}`, bodyEn: 'Body.' });
+      lastStatus = res.status;
+    }
+    expect(lastStatus).toBe(429);
+  });
+
+  it('Phase 3M.4 — a Leader cannot PATCH an announcement', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(48);
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Symmetry Patch Target', bodyEn: 'Body.' });
+    const { agent: leaderAgent, csrf: leaderCsrf } = await setupLeader(107);
+
+    const res = await leaderAgent
+      .patch(`/api/admin/announcements/${created.body.id}`)
+      .set('X-CSRF-Token', leaderCsrf)
+      .send({ titleEn: 'Should not apply' });
+    expect(res.status).toBe(403);
+  });
+
+  it('Phase 3M.4 — a Leader cannot publish an announcement', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(49);
+    const community = await makeCommunity('Symmetry Publish Community');
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Symmetry Publish Target', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    const { agent: leaderAgent, csrf: leaderCsrf } = await setupLeader(108);
+
+    const res = await leaderAgent
+      .post(`/api/admin/announcements/${created.body.id}/publish`)
+      .set('X-CSRF-Token', leaderCsrf);
+    expect(res.status).toBe(403);
+  });
+
+  it('Phase 3M.4 — a Leader cannot archive an announcement', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(50);
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Symmetry Archive Target', bodyEn: 'Body.' });
+    const { agent: leaderAgent, csrf: leaderCsrf } = await setupLeader(109);
+
+    const res = await leaderAgent
+      .post(`/api/admin/announcements/${created.body.id}/archive`)
+      .set('X-CSRF-Token', leaderCsrf);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('Phase 3M.3 — draft editing and lifecycle immutability', () => {
+  it('an Admin can edit a draft\'s title/body/targets', async () => {
+    const { agent, csrf } = await loginAsAdmin(6);
+    const community = await makeCommunity('Editable Draft Community');
+    const created = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Original', bodyEn: 'Original body.' });
+
+    const patched = await agent
+      .patch(`/api/admin/announcements/${created.body.id}`)
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Updated', targets: [{ communityId: community.id }] });
+    expect(patched.status).toBe(200);
+    expect(patched.body.titleEn).toBe('Updated');
+    expect(patched.body.targets).toHaveLength(1);
+  });
+
+  it('editing a published announcement is rejected', async () => {
+    const { agent, csrf } = await loginAsAdmin(7);
+    const community = await makeCommunity('Published Immutable Community');
+    const created = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'To Publish', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    const published = await agent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    expect(published.status).toBe(200);
+
+    const patchAttempt = await agent
+      .patch(`/api/admin/announcements/${created.body.id}`)
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Should not apply' });
+    expect(patchAttempt.status).toBe(409);
+  });
+
+  it('editing an archived announcement is rejected', async () => {
+    const { agent, csrf } = await loginAsAdmin(8);
+    const created = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'To Archive', bodyEn: 'Body.' });
+    const archived = await agent.post(`/api/admin/announcements/${created.body.id}/archive`).set('X-CSRF-Token', csrf);
+    expect(archived.status).toBe(200);
+
+    const patchAttempt = await agent
+      .patch(`/api/admin/announcements/${created.body.id}`)
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Should not apply' });
+    expect(patchAttempt.status).toBe(409);
+  });
+});
+
+describe('Phase 3M.3 — publication atomicity', () => {
+  it('publishing without any target is rejected', async () => {
+    const { agent, csrf } = await loginAsAdmin(9);
+    const created = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'No Targets', bodyEn: 'Body.' });
+    const res = await agent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(400);
+  });
+
+  it('publishing twice returns 409 the second time', async () => {
+    const { agent, csrf } = await loginAsAdmin(10);
+    const community = await makeCommunity('Double Publish Community');
+    const created = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Once', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+
+    const first = await agent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    expect(first.status).toBe(200);
+    const second = await agent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    expect(second.status).toBe(409);
+  });
+
+  it('publishing an archived draft is rejected', async () => {
+    const { agent, csrf } = await loginAsAdmin(11);
+    const community = await makeCommunity('Archived Before Publish Community');
+    const created = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Archived First', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await agent.post(`/api/admin/announcements/${created.body.id}/archive`).set('X-CSRF-Token', csrf);
+
+    const res = await agent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(409);
+  });
+});
+
+describe('Phase 3M.3 — archive lifecycle', () => {
+  it('archiving a draft discards it (no separate hard-delete path)', async () => {
+    const { agent, csrf } = await loginAsAdmin(12);
+    const created = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Discard Me', bodyEn: 'Body.' });
+    const res = await agent.post(`/api/admin/announcements/${created.body.id}/archive`).set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(200);
+    expect(res.body.archivedAt).not.toBeNull();
+    expect(res.body.publishedAt).toBeNull();
+
+    const stillStored = await prisma.announcement.findUnique({ where: { id: created.body.id } });
+    expect(stillStored).not.toBeNull();
+  });
+
+  it('archiving an already-archived announcement returns 409', async () => {
+    const { agent, csrf } = await loginAsAdmin(13);
+    const created = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Archive Twice', bodyEn: 'Body.' });
+    await agent.post(`/api/admin/announcements/${created.body.id}/archive`).set('X-CSRF-Token', csrf);
+    const second = await agent.post(`/api/admin/announcements/${created.body.id}/archive`).set('X-CSRF-Token', csrf);
+    expect(second.status).toBe(409);
+  });
+
+  it('an archived announcement no longer appears in the recipient feed even though eligibility would otherwise match', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(14);
+    const community = await makeCommunity('Archived From Feed Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900002', 'ann-member2@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Will Be Archived', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/archive`).set('X-CSRF-Token', csrf);
+
+    const feed = await memberAgent.get('/api/me/announcements');
+    expect(feed.status).toBe(200);
+    expect(feed.body.items.find((a: any) => a.id === created.body.id)).toBeUndefined();
+
+    const detail = await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+    expect(detail.status).toBe(404);
+  });
+});
+
+describe('Phase 3M.3 — Community targeting', () => {
+  it('a Member with ACTIVE membership in the exact targeted Community sees the announcement', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(15);
+    const community = await makeCommunity('Exact Match Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900003', 'ann-member3@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Community Announcement', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get('/api/me/announcements');
+    expect(res.body.items.map((a: any) => a.id)).toContain(created.body.id);
+  });
+
+  it('a Member with INACTIVE membership in the targeted Community does not see it', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(16);
+    const community = await makeCommunity('Inactive Membership Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900004', 'ann-member4@example.com');
+    await joinCommunity(person.id, community.id, 'INACTIVE');
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Inactive Test', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get('/api/me/announcements');
+    expect(res.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
+  });
+
+  it('a Member in an untargeted Community does not see the announcement', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(17);
+    const targeted = await makeCommunity('Targeted Only Community');
+    const other = await makeCommunity('Untargeted Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900005', 'ann-member5@example.com');
+    await joinCommunity(person.id, other.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Targeted Only', bodyEn: 'Body.', targets: [{ communityId: targeted.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get('/api/me/announcements');
+    expect(res.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
+  });
+
+  it('a Leader with a RoleAssignment (but no CommunityMembership) in the targeted Community does not qualify', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(18);
+    const community = await makeCommunity('Leader Role Only Community');
+    const { agent: leaderAgent, person: leaderPerson, user: leaderUser } = await setupLeader(102);
+    await prisma.roleAssignment.create({
+      data: { personId: leaderPerson.id, roleType: 'SCOPED_LEADER', assignedByUserId: leaderUser.id, communityId: community.id },
+    });
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Leader Role Only', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await leaderAgent.get('/api/me/announcements');
+    expect(res.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
+  });
+
+  it('targeting a parent Community does not include a child Community\'s members (exact match only)', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(19);
+    const parent = await makeCommunity('Parent Community');
+    const child = await makeCommunity('Child Community', parent.id);
+    const { agent: memberAgent, person } = await loginAsMember('+237699900006', 'ann-member6@example.com');
+    await joinCommunity(person.id, child.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Parent Only', bodyEn: 'Body.', targets: [{ communityId: parent.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get('/api/me/announcements');
+    expect(res.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
+  });
+});
+
+describe('Phase 3M.3 — combined targeting and deduplication', () => {
+  it('a Person matching multiple targets of the same announcement sees it only once', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(26);
+    const communityA = await makeCommunity('Dedup Community A');
+    const communityB = await makeCommunity('Dedup Community B');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900013', 'ann-member13@example.com');
+    await joinCommunity(person.id, communityA.id);
+    await joinCommunity(person.id, communityB.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({
+        titleEn: 'Dedup Target',
+        bodyEn: 'Body.',
+        targets: [{ communityId: communityA.id }, { communityId: communityB.id }],
+      });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get('/api/me/announcements');
+    const matches = res.body.items.filter((a: any) => a.id === created.body.id);
+    expect(matches).toHaveLength(1);
+  });
+
+});
+
+describe('Phase 3M.3 — dynamic eligibility (current state controls access)', () => {
+  it('joining a targeted Community after publication grants access', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(27);
+    const community = await makeCommunity('Join After Publish Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900014', 'ann-member14@example.com');
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Join After', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const before = await memberAgent.get('/api/me/announcements');
+    expect(before.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
+
+    await joinCommunity(person.id, community.id);
+
+    const after = await memberAgent.get('/api/me/announcements');
+    expect(after.body.items.map((a: any) => a.id)).toContain(created.body.id);
+  });
+
+  it('leaving a targeted Community after publication removes access', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(28);
+    const community = await makeCommunity('Leave After Publish Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900015', 'ann-member15@example.com');
+    const membership = await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Leave After', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const before = await memberAgent.get('/api/me/announcements');
+    expect(before.body.items.map((a: any) => a.id)).toContain(created.body.id);
+
+    await prisma.communityMembership.update({ where: { id: membership.id }, data: { status: 'INACTIVE' } });
+
+    const after = await memberAgent.get('/api/me/announcements');
+    expect(after.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
+  });
+
+  it('a Person eligible via one Community target retains access after losing eligibility via another target', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(30);
+    const communityA = await makeCommunity('Retain Via Other Target Community A');
+    const communityB = await makeCommunity('Retain Via Other Target Community B');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900017', 'ann-member17@example.com');
+    const membershipA = await joinCommunity(person.id, communityA.id);
+    await joinCommunity(person.id, communityB.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({
+        titleEn: 'Retained Via Other Community',
+        bodyEn: 'Body.',
+        targets: [{ communityId: communityA.id }, { communityId: communityB.id }],
+      });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    await prisma.communityMembership.update({ where: { id: membershipA.id }, data: { status: 'INACTIVE' } });
+
+    const res = await memberAgent.get('/api/me/announcements');
+    expect(res.body.items.map((a: any) => a.id)).toContain(created.body.id);
+  });
+});
+
+describe('Phase 3M.3 — Member/Leader/Admin recipient-surface separation', () => {
+  it('a Leader qualifies under the exact same audience rules as a Member (via their own linked Person)', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(31);
+    const community = await makeCommunity('Leader Recipient Community');
+    const { agent: leaderAgent, person: leaderPerson } = await setupLeader(103);
+    await joinCommunity(leaderPerson.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'For Leader Too', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await leaderAgent.get('/api/me/announcements');
+    expect(res.body.items.map((a: any) => a.id)).toContain(created.body.id);
+  });
+
+  it('being a Leader alone (no matching membership/assignment) does not grant access', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(32);
+    const community = await makeCommunity('Leader Without Membership Community');
+    const { agent: leaderAgent } = await setupLeader(104);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Leader No Access', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await leaderAgent.get('/api/me/announcements');
+    expect(res.body.items.map((a: any) => a.id)).not.toContain(created.body.id);
+  });
+
+  it('an Admin session cannot use the recipient endpoint as a bypass', async () => {
+    const { agent } = await loginAsAdmin(33);
+    const res = await agent.get('/api/me/announcements');
+    expect(res.status).toBe(401);
+  });
+
+  it('an unauthenticated caller cannot access the recipient endpoint', async () => {
+    const anon = agentWithUniqueIp();
+    const res = await anon.get('/api/me/announcements');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('Phase 3M.3 — IDOR / non-disclosure', () => {
+  it('GET /api/me/announcements/:id returns 404 for an unknown id', async () => {
+    const { agent } = await loginAsMember('+237699900018', 'ann-member18@example.com');
+    const res = await agent.get('/api/me/announcements/00000000-0000-0000-0000-000000000000');
+    expect(res.status).toBe(404);
+  });
+
+  it('GET /api/me/announcements/:id returns 404 for a real but ineligible announcement', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(34);
+    const community = await makeCommunity('IDOR Community');
+    const { agent: memberAgent } = await loginAsMember('+237699900019', 'ann-member19@example.com');
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Not For You', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+    expect(res.status).toBe(404);
+  });
+
+  it('GET /api/me/announcements/:id returns 404 for an unpublished draft, even for an eligible Person', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(35);
+    const community = await makeCommunity('Draft Not Visible Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900020', 'ann-member20@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Still Draft', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+
+    const res = await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('Phase 3M.3 — recipient response privacy', () => {
+  it('the recipient response never exposes target/organizational internals', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(36);
+    const community = await makeCommunity('Privacy Check Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900021', 'ann-member21@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Privacy Check', titleFr: 'Verification', bodyEn: 'Body.', bodyFr: 'Corps.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+    expect(res.status).toBe(200);
+    // Phase 3M.5 adds `isRead` as an intentional, safe recipient-facing
+    // field (own read state) — still never a target/organizational detail.
+    expect(Object.keys(res.body).sort()).toEqual(
+      ['bodyEn', 'bodyFr', 'id', 'isRead', 'publishedAt', 'titleEn', 'titleFr'].sort(),
+    );
+    expect(res.body).not.toHaveProperty('targets');
+    expect(res.body).not.toHaveProperty('createdByUserId');
+    expect(res.body).not.toHaveProperty('createdBy');
+    expect(res.body).not.toHaveProperty('archivedAt');
+  });
+
+  it('the Admin list response never exposes a per-Person recipient list', async () => {
+    const { agent, csrf } = await loginAsAdmin(37);
+    const community = await makeCommunity('Admin Response Community');
+    const created = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Admin View', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+
+    const res = await agent.get(`/api/admin/announcements/${created.body.id}`);
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty('recipients');
+    expect(res.body).not.toHaveProperty('recipientCount');
+    expect(res.body.targets[0].communityName).toBe('Admin Response Community');
+  });
+});
+
+describe('Phase 3M.3 — pagination', () => {
+  it('GET /api/me/announcements paginates deterministically with no duplicates across pages', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(38);
+    const community = await makeCommunity('Pagination Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900022', 'ann-member22@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const created = await adminAgent
+        .post('/api/admin/announcements')
+        .set('X-CSRF-Token', csrf)
+        .send({ titleEn: `Page Item ${i}`, bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+      await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+      ids.push(created.body.id);
+    }
+
+    const page1 = await memberAgent.get('/api/me/announcements?page=1&pageSize=2');
+    const page2 = await memberAgent.get('/api/me/announcements?page=2&pageSize=2');
+    expect(page1.body.items).toHaveLength(2);
+    expect(page2.body.items).toHaveLength(2);
+    const page1Ids = page1.body.items.map((a: any) => a.id);
+    const page2Ids = page2.body.items.map((a: any) => a.id);
+    expect(page1Ids.filter((id: string) => page2Ids.includes(id))).toHaveLength(0);
+    expect(page1.body.pagination.total).toBeGreaterThanOrEqual(5);
+  });
+
+  it('GET /api/admin/announcements paginates by createdAt desc', async () => {
+    const { agent, csrf } = await loginAsAdmin(39);
+    const first = await agent.post('/api/admin/announcements').set('X-CSRF-Token', csrf).send({ titleEn: 'First Created', bodyEn: 'Body.' });
+    const second = await agent.post('/api/admin/announcements').set('X-CSRF-Token', csrf).send({ titleEn: 'Second Created', bodyEn: 'Body.' });
+
+    const res = await agent.get('/api/admin/announcements?page=1&pageSize=2');
+    expect(res.status).toBe(200);
+    const ids = res.body.items.map((a: any) => a.id);
+    expect(ids.indexOf(second.body.id)).toBeLessThan(ids.indexOf(first.body.id));
+  });
+});
+
+describe('Phase 3M.3 — i18n fallback fields', () => {
+  it('an announcement created without French content returns null titleFr/bodyFr for the client to fall back on', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(40);
+    const community = await makeCommunity('No French Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900023', 'ann-member23@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'English Only', bodyEn: 'English body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+    expect(res.body.titleFr).toBeNull();
+    expect(res.body.bodyFr).toBeNull();
+    expect(res.body.titleEn).toBe('English Only');
+  });
+});
+
+describe('Phase 3M.3 — target validation', () => {
+  it('rejects a target referencing an unknown Community id', async () => {
+    const { agent, csrf } = await loginAsAdmin(42);
+    const res = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Unknown Ref', bodyEn: 'Body.', targets: [{ communityId: '00000000-0000-0000-0000-000000000000' }] });
+    expect(res.status).toBe(400);
+  });
+
+  // Geography Retirement Step 4 — Geography is no longer a selectable
+  // announcement target. geographyId is not a recognized field on the
+  // target schema at all anymore (not merely optional), so these confirm
+  // it is fully absent rather than just unused.
+  it('rejects a target with no communityId at all (geographyId alone is not a valid substitute)', async () => {
+    const { agent, csrf } = await loginAsAdmin(65);
+    const res = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Geography Only', bodyEn: 'Body.', targets: [{ geographyId: '00000000-0000-0000-0000-000000000000' }] });
+    expect(res.status).toBe(400);
+  });
+
+  it('a geographyId sent alongside a valid communityId is silently ignored — the created target is Community-only', async () => {
+    const { agent, csrf } = await loginAsAdmin(66);
+    const community = await makeCommunity('Geography Field Ignored Community');
+    const res = await agent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({
+        titleEn: 'Geography Field Ignored',
+        bodyEn: 'Body.',
+        targets: [{ communityId: community.id, geographyId: '00000000-0000-0000-0000-000000000000' }],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.targets).toHaveLength(1);
+    expect(res.body.targets[0].communityId).toBe(community.id);
+    expect(res.body.targets[0]).not.toHaveProperty('geographyId');
+    expect(res.body.targets[0]).not.toHaveProperty('geographyName');
+  });
+});
+
+// Phase 3M.5 — reuses an already-created Person (rather than
+// loginAsMember's own prisma.person.create) so a single Person can be given
+// BOTH a Leader User link and a MemberAccount, exercising the real
+// production request-link/consume flow for an existing Person — needed to
+// prove read state is shared across a Person's Member and Leader logins.
+async function loginAsMemberForExistingPerson(person: { id: string; whatsappNumber: string }, email: string) {
+  const spy = vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true });
+  const requestAgent = agentWithUniqueIp();
+  const { csrf: requestCsrf } = await bootstrap(requestAgent as any);
+  await requestAgent
+    .post('/api/member/auth/request-link')
+    .set('X-CSRF-Token', requestCsrf)
+    .send({ whatsapp: person.whatsappNumber, email });
+  const link = spy.mock.calls[spy.mock.calls.length - 1][0].link as string;
+  spy.mockRestore();
+  const agent = agentWithUniqueIp();
+  const { csrf } = await bootstrap(agent as any);
+  await agent.post('/api/member/auth/consume').set('X-CSRF-Token', csrf).send({ token: extractToken(link) });
+  return { agent, csrf };
+}
+
+describe('Phase 3M.5 — Announcement read/unread state', () => {
+  it('a Member can mark a visible announcement as read, and it is reflected in the detail response', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(51);
+    const community = await makeCommunity('Read State Community');
+    const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237699900027', 'ann-member27@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Read Me', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const before = await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+    expect(before.body.isRead).toBe(false);
+
+    const markRes = await memberAgent
+      .post(`/api/me/announcements/${created.body.id}/read`)
+      .set('X-CSRF-Token', memberCsrf);
+    expect(markRes.status).toBe(200);
+    expect(markRes.body).toEqual({ id: created.body.id, isRead: true });
+
+    const after = await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+    expect(after.body.isRead).toBe(true);
+  });
+
+  it('GET /api/me/announcements/:id never itself creates a read row (remains a pure read)', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(52);
+    const community = await makeCommunity('Pure Read Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900028', 'ann-member28@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Pure Read', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+    await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+
+    const row = await prisma.announcementRead.findFirst({ where: { announcementId: created.body.id, personId: person.id } });
+    expect(row).toBeNull();
+  });
+
+  it('marking read is idempotent: repeated calls never create more than one AnnouncementRead row', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(53);
+    const community = await makeCommunity('Idempotent Read Community');
+    const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237699900029', 'ann-member29@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Idempotent', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    for (let i = 0; i < 3; i++) {
+      const res = await memberAgent
+        .post(`/api/me/announcements/${created.body.id}/read`)
+        .set('X-CSRF-Token', memberCsrf);
+      expect(res.status).toBe(200);
+    }
+
+    const rows = await prisma.announcementRead.findMany({ where: { announcementId: created.body.id, personId: person.id } });
+    expect(rows).toHaveLength(1);
+  });
+
+  it('marking a draft announcement as read returns 404 (same non-disclosure as the detail route)', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(54);
+    const community = await makeCommunity('Draft Read Community');
+    const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237699900030', 'ann-member30@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Still Draft', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+
+    const res = await memberAgent
+      .post(`/api/me/announcements/${created.body.id}/read`)
+      .set('X-CSRF-Token', memberCsrf);
+    expect(res.status).toBe(404);
+  });
+
+  it('marking an archived announcement as read returns 404', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(55);
+    const community = await makeCommunity('Archived Read Community');
+    const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237699900031', 'ann-member31@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Will Archive', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/archive`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent
+      .post(`/api/me/announcements/${created.body.id}/read`)
+      .set('X-CSRF-Token', memberCsrf);
+    expect(res.status).toBe(404);
+  });
+
+  it('marking an unknown announcement id as read returns 404', async () => {
+    const { agent, csrf } = await loginAsMember('+237699900032', 'ann-member32@example.com');
+    const res = await agent
+      .post('/api/me/announcements/00000000-0000-0000-0000-000000000000/read')
+      .set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(404);
+  });
+
+  it('marking an announcement as read that the Person is not eligible for returns 404, and no row is created', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(56);
+    const community = await makeCommunity('Ineligible Read Community');
+    const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237699900033', 'ann-member33@example.com');
+    // Deliberately not joining `community`.
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Not For You', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent
+      .post(`/api/me/announcements/${created.body.id}/read`)
+      .set('X-CSRF-Token', memberCsrf);
+    expect(res.status).toBe(404);
+
+    const row = await prisma.announcementRead.findFirst({ where: { announcementId: created.body.id, personId: person.id } });
+    expect(row).toBeNull();
+  });
+
+  it('CSRF protection is enforced on marking read', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(57);
+    const community = await makeCommunity('CSRF Read Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900034', 'ann-member34@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'No CSRF Read', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.post(`/api/me/announcements/${created.body.id}/read`);
+    expect(res.status).toBe(403);
+  });
+
+  it('an unauthenticated caller cannot mark an announcement as read', async () => {
+    const anon = agentWithUniqueIp();
+    const res = await anon.post('/api/me/announcements/00000000-0000-0000-0000-000000000000/read');
+    expect(res.status).toBe(401);
+  });
+
+  it('an Admin session cannot use the read mutation as a bypass', async () => {
+    const { agent } = await loginAsAdmin(58);
+    const res = await agent.post('/api/me/announcements/00000000-0000-0000-0000-000000000000/read');
+    expect(res.status).toBe(401);
+  });
+
+  it('a client-supplied personId in the request body is never trusted — the read is always attributed to the caller\'s own Person', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(59);
+    const community = await makeCommunity('Impersonation Read Community');
+    const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237699900035', 'ann-member35@example.com');
+    await joinCommunity(person.id, community.id);
+    const other = await prisma.person.create({ data: { name: 'Someone Else', whatsappNumber: '+237699900036' } });
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Impersonation Target', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    await memberAgent
+      .post(`/api/me/announcements/${created.body.id}/read`)
+      .set('X-CSRF-Token', memberCsrf)
+      .send({ personId: other.id });
+
+    const ownRow = await prisma.announcementRead.findFirst({ where: { announcementId: created.body.id, personId: person.id } });
+    expect(ownRow).not.toBeNull();
+    const otherRow = await prisma.announcementRead.findFirst({ where: { announcementId: created.body.id, personId: other.id } });
+    expect(otherRow).toBeNull();
+  });
+
+  it('the dedicated announcement read-mutation rate limiter applies', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(60);
+    const community = await makeCommunity('Rate Limit Read Community');
+    const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237699900037', 'ann-member37@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Rate Limited Read', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    let lastStatus = 200;
+    for (let i = 0; i < 121; i++) {
+      const res = await memberAgent
+        .post(`/api/me/announcements/${created.body.id}/read`)
+        .set('X-CSRF-Token', memberCsrf);
+      lastStatus = res.status;
+    }
+    expect(lastStatus).toBe(429);
+  });
+
+  it('GET /api/me/announcements marks isRead per item via a single batch lookup, and reports unreadCount across the full eligible set (not just the current page)', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(61);
+    const community = await makeCommunity('List Read State Community');
+    const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237699900038', 'ann-member38@example.com');
+    await joinCommunity(person.id, community.id);
+
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const created = await adminAgent
+        .post('/api/admin/announcements')
+        .set('X-CSRF-Token', csrf)
+        .send({ titleEn: `List Item ${i}`, bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+      await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+      ids.push(created.body.id);
+    }
+
+    const before = await memberAgent.get('/api/me/announcements?page=1&pageSize=2');
+    expect(before.body.unreadCount).toBe(3);
+    expect(before.body.items.every((a: any) => a.isRead === false)).toBe(true);
+
+    // Mark the oldest (last-published, so on page 2 with pageSize=2) as read.
+    await memberAgent.post(`/api/me/announcements/${ids[0]}/read`).set('X-CSRF-Token', memberCsrf);
+
+    const page1 = await memberAgent.get('/api/me/announcements?page=1&pageSize=2');
+    expect(page1.body.unreadCount).toBe(2);
+    expect(page1.body.items.find((a: any) => a.id === ids[0])).toBeUndefined();
+
+    const page2 = await memberAgent.get('/api/me/announcements?page=2&pageSize=2');
+    expect(page2.body.unreadCount).toBe(2);
+    const readItem = page2.body.items.find((a: any) => a.id === ids[0]);
+    expect(readItem.isRead).toBe(true);
+  });
+
+  it('unreadCount never counts drafts, archived, or ineligible announcements', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(62);
+    const community = await makeCommunity('Unread Count Exclusions Community');
+    const otherCommunity = await makeCommunity('Unread Count Other Community');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900039', 'ann-member39@example.com');
+    await joinCommunity(person.id, community.id);
+
+    // Eligible, published: counts.
+    const eligible = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Counts', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${eligible.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    // Draft: never counted.
+    await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Draft Not Counted', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+
+    // Archived: never counted.
+    const archived = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Archived Not Counted', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${archived.body.id}/publish`).set('X-CSRF-Token', csrf);
+    await adminAgent.post(`/api/admin/announcements/${archived.body.id}/archive`).set('X-CSRF-Token', csrf);
+
+    // Ineligible (different Community): never counted.
+    const ineligible = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Ineligible Not Counted', bodyEn: 'Body.', targets: [{ communityId: otherCommunity.id }] });
+    await adminAgent.post(`/api/admin/announcements/${ineligible.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get('/api/me/announcements');
+    expect(res.body.unreadCount).toBe(1);
+  });
+
+  it('unreadCount does not double-count an announcement matching multiple targets', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(63);
+    const communityA = await makeCommunity('Unread Dedup Community A');
+    const communityB = await makeCommunity('Unread Dedup Community B');
+    const { agent: memberAgent, person } = await loginAsMember('+237699900040', 'ann-member40@example.com');
+    await joinCommunity(person.id, communityA.id);
+    await joinCommunity(person.id, communityB.id);
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({
+        titleEn: 'Multi Target Unread',
+        bodyEn: 'Body.',
+        targets: [{ communityId: communityA.id }, { communityId: communityB.id }],
+      });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    const res = await memberAgent.get('/api/me/announcements');
+    expect(res.body.unreadCount).toBe(1);
+  });
+
+  it('a Leader and a Member session for the SAME Person share the same read state', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(64);
+    const community = await makeCommunity('Shared Identity Read Community');
+    const person = await prisma.person.create({ data: { name: 'Dual Access Person', whatsappNumber: '+237699900041' } });
+    await joinCommunity(person.id, community.id);
+
+    const { user: leaderUser } = await createLeader('Dual Access Leader', 'ann-dual-leader@test.local', 'DUALCODE');
+    await prisma.user.update({ where: { id: leaderUser.id }, data: { personId: person.id } });
+    const leaderAgent = agentWithUniqueIp();
+    const { csrf: leaderCsrf } = await bootstrap(leaderAgent as any);
+    await leaderAgent
+      .post('/api/auth/login')
+      .set('X-CSRF-Token', leaderCsrf)
+      .send({ email: 'ann-dual-leader@test.local', password: 'password123' });
+
+    const { agent: memberAgent } = await loginAsMemberForExistingPerson(person, 'ann-dual-member@example.com');
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Shared Identity Target', bodyEn: 'Body.', targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    // Mark read via the Leader login...
+    await leaderAgent.post(`/api/me/announcements/${created.body.id}/read`).set('X-CSRF-Token', leaderCsrf);
+
+    // ...and confirm it shows as read via the Member login for the SAME Person.
+    const memberView = await memberAgent.get(`/api/me/announcements/${created.body.id}`);
+    expect(memberView.body.isRead).toBe(true);
+
+    // Exactly one AnnouncementRead row exists for this Person, not two.
+    const rows = await prisma.announcementRead.findMany({ where: { announcementId: created.body.id, personId: person.id } });
+    expect(rows).toHaveLength(1);
+  });
+
+  it('rejects an AnnouncementRead with a duplicate (personId, announcementId) pair at the database layer', async () => {
+    const admin = await createAdmin('ann-read-model-integrity@test.local');
+    const community = await makeCommunity('Read Model Integrity Community');
+    const { person } = await loginAsMember('+237699900042', 'ann-member42@example.com');
+    const announcement = await prisma.announcement.create({
+      data: { titleEn: 'T', bodyEn: 'B', createdByUserId: admin.id, publishedAt: new Date() },
+    });
+    await joinCommunity(person.id, community.id);
+    await prisma.announcementRead.create({ data: { announcementId: announcement.id, personId: person.id } });
+
+    await expect(
+      prisma.announcementRead.create({ data: { announcementId: announcement.id, personId: person.id } }),
+    ).rejects.toThrow();
+  });
+});

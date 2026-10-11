@@ -11,6 +11,8 @@ export interface PublicSettings {
   telegramUrl: string | null;
   messengerUrl: string | null;
   content: Record<string, string>;
+  /** Address of the Updates banner picture, or null (viewing needs sign-in). */
+  appBannerUrl?: string | null;
   // True once the real settings have been fetched from the server (success
   // or failure). Callers should avoid rendering content-dependent text
   // (which otherwise falls back to hardcoded default copy) until this is

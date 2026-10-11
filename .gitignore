@@ -11,3 +11,6 @@ coverage/
 .DS_Store
 client/dist/
 server/dist/
+test-results/
+playwright-report/
+playwright/.cache/

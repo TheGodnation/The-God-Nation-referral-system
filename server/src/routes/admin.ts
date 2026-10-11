@@ -191,7 +191,7 @@ router.get('/leaders', asyncHandler(async (req, res) => {
     prisma.user.count({ where }),
     prisma.user.findMany({
       where,
-      include: { referralCodes: { where: { active: true } } },
+      include: { referralCodes: { where: { active: true } }, person: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
       skip,
       take,
@@ -214,6 +214,11 @@ router.get('/leaders', asyncHandler(async (req, res) => {
     referredCount: counts.get(l.id)?.referred ?? 0,
     whatsappJoinedCount: counts.get(l.id)?.joined ?? 0,
     createdAt: l.createdAt,
+    // Phase 3D: whether this Leader's User account is linked to a Person —
+    // required before they can perform any scoped-leadership/follow-up
+    // action. Never inferred; only set via the explicit link-person action.
+    personId: l.personId,
+    personName: l.person?.name ?? null,
   }));
 
   res.json(paginatedResult(items, total, page, pageSize));
@@ -402,6 +407,77 @@ router.patch('/leaders/:id', requireCsrf, asyncHandler(async (req, res) => {
     active: updated!.active,
     referralCode: updated!.referralCodes[0]?.code ?? null,
   });
+}));
+
+const linkPersonSchema = z.object({ personId: z.string().min(1) });
+
+// PATCH /api/admin/leaders/:id/link-person — Phase 3D. The one, explicit,
+// Admin-only action that establishes User.personId for a Leader — required
+// before that Leader can perform any scoped-leadership/follow-up action.
+// Deliberately a dedicated action, not folded into the general PATCH
+// /leaders/:id above: this is a one-time identity link, never inferred from
+// email/WhatsApp/name/registration/MemberAccount, and never silently
+// changed once set (calling this again with a DIFFERENT Person on an
+// already-linked Leader is rejected — an intentional relink/unlink flow is
+// explicitly out of scope for Phase 3D).
+router.patch('/leaders/:id/link-person', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = linkPersonSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'personId is required.' });
+  }
+  const { personId } = parsed.data;
+
+  const leader = await prisma.user.findUnique({ where: { id } });
+  if (!leader) {
+    return res.status(404).json({ error: 'Leader not found.' });
+  }
+  if (leader.role !== 'LEADER') {
+    // Admins are never required to have a Person — this action exists
+    // specifically to let a Leader exercise scoped-leadership actions.
+    return res.status(400).json({ error: 'Only a Leader account can be linked to a Person.' });
+  }
+
+  const person = await prisma.person.findUnique({ where: { id: personId } });
+  if (!person) {
+    return res.status(400).json({ error: 'Person not found.' });
+  }
+
+  if (leader.personId) {
+    if (leader.personId === personId) {
+      // Idempotent: calling this again with the exact same Person is safe.
+      return res.json({ id: leader.id, personId: leader.personId, personName: person.name });
+    }
+    return res.status(409).json({ error: 'This Leader is already linked to a Person.' });
+  }
+
+  const existingLinkForPerson = await prisma.user.findUnique({ where: { personId } });
+  if (existingLinkForPerson) {
+    return res.status(409).json({ error: 'This Person is already linked to another User.' });
+  }
+
+  try {
+    await prisma.user.update({ where: { id }, data: { personId } });
+  } catch (err) {
+    // The unique constraint on User.personId is the final authority — a
+    // concurrent link request for the same Person races against this, and
+    // the loser lands here with a clean conflict instead of a 500.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ error: 'This Person is already linked to another User.' });
+    }
+    throw err;
+  }
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'LEADER_PERSON_LINKED',
+    targetType: 'User',
+    targetId: id,
+    metadata: { personId },
+  });
+
+  res.json({ id: leader.id, personId, personName: person.name });
 }));
 
 // DELETE /api/admin/leaders/:id — permanently removes a Leader account.
@@ -606,6 +682,14 @@ router.get('/export', asyncHandler(async (req, res) => {
     )
     .join('\n');
 
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'REGISTRATIONS_EXPORTED',
+    targetType: 'Registration',
+    metadata: { rowCount: registrations.length, includeTestData: includeTestData(req) },
+  });
+
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="registrations.csv"');
   res.send(header + rows);
@@ -674,6 +758,12 @@ const CONTENT_BASE_KEYS = [
   // that Leader's own referral link; for Telegram, any line containing
   // `{{link}}` is dropped instead, since Telegram attaches the link itself.
   'leaderInviteMessage',
+  // The banner at the top of the member Updates page: a short slogan and
+  // the ministry's Mission, Vision and Purpose (picture: routes/appBranding.ts).
+  'appSlogan',
+  'appMission',
+  'appVision',
+  'appPurpose',
 ] as const;
 
 const CONTENT_KEYS = CONTENT_BASE_KEYS.flatMap((k) => [`${k}En`, `${k}Fr`] as const);
@@ -711,6 +801,7 @@ function settingsResponse(settings: {
   telegramUrl: string | null;
   messengerUrl: string | null;
   leaderSignupPhrase: string | null;
+  contactEmail: string | null;
   content: unknown;
 } | null) {
   return {
@@ -727,6 +818,7 @@ function settingsResponse(settings: {
     telegramUrl: settings?.telegramUrl ?? null,
     messengerUrl: settings?.messengerUrl ?? null,
     leaderSignupPhrase: settings?.leaderSignupPhrase ?? null,
+    contactEmail: settings?.contactEmail ?? null,
     content: (settings?.content as Record<string, string> | null) ?? {},
   };
 }
@@ -761,6 +853,19 @@ const settingsSchema = z.object({
     // Field omitted entirely -> leave untouched (undefined). Field sent as
     // '' or null -> normalize to null (explicitly turns signup off).
     .transform((v) => (v === undefined ? undefined : v ? v : null)),
+  // Public Contact form (Phase 2) recipient. Blank/null disables the form's
+  // email notification (messages are still saved to ContactMessage) — same
+  // blank-is-meaningful pattern as leaderSignupPhrase above.
+  contactEmail: z
+    .string()
+    .trim()
+    .max(320)
+    .optional()
+    .nullable()
+    .transform((v) => (v === undefined ? undefined : v ? v : null))
+    .refine((v) => v === undefined || v === null || z.string().email().safeParse(v).success, {
+      message: 'Please enter a valid email address.',
+    }),
   content: contentSchema.optional(),
 });
 
@@ -791,6 +896,7 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
     ...(d.telegramUrl !== undefined ? { telegramUrl: d.telegramUrl } : {}),
     ...(d.messengerUrl !== undefined ? { messengerUrl: d.messengerUrl } : {}),
     ...(d.leaderSignupPhrase !== undefined ? { leaderSignupPhrase: d.leaderSignupPhrase } : {}),
+    ...(d.contactEmail !== undefined ? { contactEmail: d.contactEmail } : {}),
   };
 
   const settings = await prisma.settings.upsert({
@@ -874,6 +980,169 @@ router.get('/audit', asyncHandler(async (req, res) => {
     prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, skip, take }),
   ]);
   res.json(paginatedResult(logs, total, page, pageSize));
+}));
+
+// ---------------------------------------------------------------------------
+// Public content (Phase 2) — Admin management of ContentPage rows. Public,
+// published-only reads live in routes/contentPages.ts; everything here
+// requires ADMIN (via the router.use gate above) plus CSRF on mutations.
+// ---------------------------------------------------------------------------
+
+const contentPageSchema = z.object({
+  type: z.enum(['PAGE', 'TEACHING', 'ANNOUNCEMENT']),
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug may only contain lowercase letters, numbers, and hyphens.'),
+  titleEn: z.string().trim().min(1).max(300),
+  titleFr: z.string().trim().max(300).optional().nullable(),
+  bodyEn: z.string().trim().min(1).max(50000),
+  bodyFr: z.string().trim().max(50000).optional().nullable(),
+  mediaUrl: z.string().trim().url().max(2000).optional().nullable().or(z.literal('').transform(() => null)),
+  order: z.number().int().optional(),
+});
+
+router.get('/content-pages', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const typeFilter = z.enum(['PAGE', 'TEACHING', 'ANNOUNCEMENT']).optional().safeParse(req.query.type);
+  const where = typeFilter.success && typeFilter.data ? { type: typeFilter.data } : {};
+
+  const [total, pages] = await Promise.all([
+    prisma.contentPage.count({ where }),
+    prisma.contentPage.findMany({ where, orderBy: [{ order: 'asc' }, { createdAt: 'desc' }], skip, take }),
+  ]);
+  res.json(paginatedResult(pages, total, page, pageSize));
+}));
+
+router.post('/content-pages', requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = contentPageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid content page.' });
+  }
+  const d = parsed.data;
+
+  const existing = await prisma.contentPage.findUnique({ where: { slug: d.slug } });
+  if (existing) {
+    return res.status(409).json({ error: 'A page with this slug already exists.' });
+  }
+
+  const created = await prisma.contentPage.create({
+    data: {
+      type: d.type,
+      slug: d.slug,
+      titleEn: d.titleEn,
+      titleFr: d.titleFr ?? null,
+      bodyEn: d.bodyEn,
+      bodyFr: d.bodyFr ?? null,
+      mediaUrl: d.mediaUrl ?? null,
+      order: d.order ?? 0,
+    },
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'CONTENT_PAGE_CREATED',
+    targetType: 'ContentPage',
+    targetId: created.id,
+    metadata: { slug: created.slug, type: created.type },
+  });
+
+  res.status(201).json(created);
+}));
+
+const patchContentPageSchema = contentPageSchema.partial().extend({
+  published: z.boolean().optional(),
+});
+
+router.patch('/content-pages/:id', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = patchContentPageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  }
+  const d = parsed.data;
+
+  const page = await prisma.contentPage.findUnique({ where: { id } });
+  if (!page) {
+    return res.status(404).json({ error: 'Page not found.' });
+  }
+
+  if (d.slug && d.slug !== page.slug) {
+    const existing = await prisma.contentPage.findUnique({ where: { slug: d.slug } });
+    if (existing) {
+      return res.status(409).json({ error: 'A page with this slug already exists.' });
+    }
+  }
+
+  const wasPublished = page.published;
+  const nowPublishing = d.published === true && !wasPublished;
+  const nowUnpublishing = d.published === false && wasPublished;
+
+  const updated = await prisma.contentPage.update({
+    where: { id },
+    data: {
+      ...(d.type !== undefined ? { type: d.type } : {}),
+      ...(d.slug !== undefined ? { slug: d.slug } : {}),
+      ...(d.titleEn !== undefined ? { titleEn: d.titleEn } : {}),
+      ...(d.titleFr !== undefined ? { titleFr: d.titleFr } : {}),
+      ...(d.bodyEn !== undefined ? { bodyEn: d.bodyEn } : {}),
+      ...(d.bodyFr !== undefined ? { bodyFr: d.bodyFr } : {}),
+      ...(d.mediaUrl !== undefined ? { mediaUrl: d.mediaUrl } : {}),
+      ...(d.order !== undefined ? { order: d.order } : {}),
+      ...(d.published !== undefined ? { published: d.published } : {}),
+      ...(nowPublishing ? { publishedAt: new Date() } : {}),
+      ...(nowUnpublishing ? { publishedAt: null } : {}),
+    },
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'CONTENT_PAGE_UPDATED',
+    targetType: 'ContentPage',
+    targetId: id,
+    metadata: { changedKeys: Object.keys(req.body ?? {}) },
+  });
+
+  res.json(updated);
+}));
+
+router.delete('/content-pages/:id', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const page = await prisma.contentPage.findUnique({ where: { id } });
+  if (!page) {
+    return res.status(404).json({ error: 'Page not found.' });
+  }
+
+  await prisma.contentPage.delete({ where: { id } });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'CONTENT_PAGE_DELETED',
+    targetType: 'ContentPage',
+    targetId: id,
+    metadata: { slug: page.slug },
+  });
+
+  res.status(204).end();
+}));
+
+// ---------------------------------------------------------------------------
+// Contact messages (Phase 2) — read-only for Admin; created by the public
+// POST /api/contact endpoint.
+// ---------------------------------------------------------------------------
+
+router.get('/messages', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const [total, messages] = await Promise.all([
+    prisma.contactMessage.count(),
+    prisma.contactMessage.findMany({ orderBy: { createdAt: 'desc' }, skip, take }),
+  ]);
+  res.json(paginatedResult(messages, total, page, pageSize));
 }));
 
 export default router;

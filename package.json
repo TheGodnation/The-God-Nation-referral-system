@@ -17,9 +17,13 @@
     "test:client": "npm run test --workspace client",
     "prisma:generate": "npm run prisma:generate --workspace server",
     "prisma:migrate": "npm run prisma:migrate --workspace server",
-    "seed": "npm run seed --workspace server"
+    "seed": "npm run seed --workspace server",
+    "test:e2e": "playwright test"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
   }
 }

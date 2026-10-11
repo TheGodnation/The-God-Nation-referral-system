@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { HomePage } from './pages/HomePage';
 import { JoinPage } from './pages/JoinPage';
@@ -7,7 +7,9 @@ import { WelcomePage } from './pages/WelcomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SuccessPage } from './pages/SuccessPage';
 import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
+import { RequireMember } from './components/RequireMember';
 import { AuthProvider } from './lib/AuthContext';
+import { MemberAuthProvider } from './lib/MemberAuthContext';
 
 // The public referral funnel above (Home -> Join -> Register -> Success) is
 // what the vast majority of visitors — people tapping a leader's referral
@@ -39,6 +41,38 @@ const ForgotPasswordPage = lazy(() =>
 const ResetPasswordPage = lazy(() =>
   import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
 );
+const ContentPageView = lazy(() =>
+  import('./pages/ContentPageView').then((m) => ({ default: m.ContentPageView })),
+);
+const TeachingsPage = lazy(() =>
+  import('./pages/ContentListPage').then((m) => ({ default: () => <m.ContentListPage type="TEACHING" /> })),
+);
+const AnnouncementsPage = lazy(() =>
+  import('./pages/ContentListPage').then((m) => ({ default: () => <m.ContentListPage type="ANNOUNCEMENT" /> })),
+);
+const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
+const MemberLoginPage = lazy(() => import('./pages/MemberLoginPage').then((m) => ({ default: m.MemberLoginPage })));
+const MemberLoginConfirmPage = lazy(() =>
+  import('./pages/MemberLoginConfirmPage').then((m) => ({ default: m.MemberLoginConfirmPage })),
+);
+const MemberSignupPage = lazy(() => import('./pages/MemberSignupPage').then((m) => ({ default: m.MemberSignupPage })));
+const MemberCompleteProfilePage = lazy(() =>
+  import('./pages/MemberCompleteProfilePage').then((m) => ({ default: m.MemberCompleteProfilePage })),
+);
+const MemberPeoplePage = lazy(() => import('./pages/MemberPeoplePage').then((m) => ({ default: m.MemberPeoplePage })));
+const MemberPersonPage = lazy(() => import('./pages/MemberPersonPage').then((m) => ({ default: m.MemberPersonPage })));
+const MemberChatsPage = lazy(() => import('./pages/MemberChatsPage').then((m) => ({ default: m.MemberChatsPage })));
+const MemberPrivateChatPage = lazy(() => import('./pages/MemberPrivateChatPage').then((m) => ({ default: m.MemberPrivateChatPage })));
+const MemberGroupInfoPage = lazy(() => import('./pages/MemberGroupInfoPage').then((m) => ({ default: m.MemberGroupInfoPage })));
+const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').then((m) => ({ default: m.MemberGroupChatPage })));
+const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
+const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
+const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
+const MemberMePage = lazy(() => import('./pages/MemberMePage').then((m) => ({ default: m.MemberMePage })));
+const MemberEditProfilePage = lazy(() => import('./pages/MemberEditProfilePage').then((m) => ({ default: m.MemberEditProfilePage })));
+const MemberAssessmentPage = lazy(() =>
+  import('./pages/MemberAssessmentPage').then((m) => ({ default: m.MemberAssessmentPage })),
+);
 
 function RouteFallback() {
   const { t } = useTranslation();
@@ -48,44 +82,160 @@ function RouteFallback() {
 export default function App() {
   return (
     <AuthProvider>
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/join" element={<JoinPage />} />
-          <Route path="/welcome" element={<WelcomePage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/success" element={<SuccessPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/leader/setup" element={<LeaderSetupPage />} />
-          <Route path="/leader-signup" element={<LeaderSignupPage />} />
-          <Route
-            path="/change-password"
-            element={
-              <RequireAuth>
-                <ChangePasswordPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/leader/dashboard"
-            element={
-              <ProtectedRoute role="LEADER">
-                <LeaderDashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute role="ADMIN">
-                <AdminDashboardPage />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Suspense>
+      <MemberAuthProvider>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/join" element={<JoinPage />} />
+            <Route path="/welcome" element={<WelcomePage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/success" element={<SuccessPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/leader/setup" element={<LeaderSetupPage />} />
+            <Route path="/leader-signup" element={<LeaderSignupPage />} />
+            <Route path="/page/:slug" element={<ContentPageView />} />
+            <Route path="/teachings" element={<TeachingsPage />} />
+            <Route path="/announcements" element={<AnnouncementsPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/member/login" element={<MemberLoginPage />} />
+            <Route path="/member/login/confirm" element={<MemberLoginConfirmPage />} />
+            <Route path="/member/join" element={<MemberSignupPage />} />
+            <Route
+              path="/member/complete-profile"
+              element={
+                <RequireMember>
+                  <MemberCompleteProfilePage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/change-password"
+              element={
+                <RequireAuth>
+                  <ChangePasswordPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/leader/dashboard"
+              element={
+                <ProtectedRoute role="LEADER">
+                  <LeaderDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute role="ADMIN">
+                  <AdminDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* Member app tabs: Chats · Updates · Learn · People · Me. The old
+                dashboard address now opens Chats. */}
+            <Route path="/member/dashboard" element={<Navigate to="/member/chats" replace />} />
+            <Route
+              path="/member/chats"
+              element={
+                <RequireMember>
+                  <MemberChatsPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/chats/private/:conversationId"
+              element={
+                <RequireMember>
+                  <MemberPrivateChatPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/chats/group/:communityId/info"
+              element={
+                <RequireMember>
+                  <MemberGroupInfoPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/chats/group/:communityId"
+              element={
+                <RequireMember>
+                  <MemberGroupChatPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/me"
+              element={
+                <RequireMember>
+                  <MemberMePage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/me/edit"
+              element={
+                <RequireMember>
+                  <MemberEditProfilePage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/people"
+              element={
+                <RequireMember>
+                  <MemberPeoplePage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/people/:personId"
+              element={
+                <RequireMember>
+                  <MemberPersonPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/learn"
+              element={
+                <RequireMember>
+                  <MemberLearnPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/read/:bookId"
+              element={
+                <RequireMember>
+                  <MemberReaderPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/updates"
+              element={
+                <RequireMember>
+                  <MemberUpdatesPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/assessments/:id"
+              element={
+                <RequireMember>
+                  <MemberAssessmentPage />
+                </RequireMember>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </MemberAuthProvider>
     </AuthProvider>
   );
 }

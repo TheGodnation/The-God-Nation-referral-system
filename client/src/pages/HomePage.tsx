@@ -115,6 +115,18 @@ export function HomePage() {
           >
             {c('heroCta') || t('home.hero_cta')}
           </a>
+          {/* The community app: join, or sign back in. */}
+          <div className="mx-auto mt-6 flex max-w-sm flex-col gap-3 sm:max-w-md sm:flex-row sm:justify-center">
+            <Link to="/member/join" className="btn-primary inline-flex flex-1 justify-center bg-white text-brand-900 hover:bg-brand-50">
+              {t('home.member_join')}
+            </Link>
+            <Link
+              to="/member/login"
+              className="inline-flex flex-1 items-center justify-center rounded-lg border border-white/60 px-4 py-2.5 font-semibold text-white hover:bg-white/10"
+            >
+              {t('home.member_sign_in')}
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -167,6 +179,9 @@ export function HomePage() {
       <section className="mx-auto max-w-2xl px-4 py-12 text-center">
         <h2 className="text-xl font-bold text-brand-900">{c('visionTitle') || t('home.vision_title')}</h2>
         <p className="mt-3 text-slate-600">{c('vision') || t('home.vision_body')}</p>
+        <Link to="/page/vision" className="mt-3 inline-block text-sm font-medium text-brand-700 hover:underline">
+          {t('home.learn_more_vision')}
+        </Link>
       </section>
 
       {/* Very short How It Works */}

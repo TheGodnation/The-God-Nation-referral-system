@@ -57,6 +57,8 @@ router.post('/', registrationLimiter, requireCsrf, asyncHandler(async (req, res)
 
   try {
     const registration = await prisma.$transaction(async (tx) => {
+      const isTestData = selectedVisit?.isTestData ?? false;
+
       const created = await tx.registration.create({
         data: {
           visitorId,
@@ -69,7 +71,24 @@ router.post('/', registrationLimiter, requireCsrf, asyncHandler(async (req, res)
           utmMedium: selectedVisit?.utmMedium ?? null,
           utmCampaign: selectedVisit?.utmCampaign ?? null,
           landingPage: selectedVisit?.landingPage ?? null,
-          isTestData: selectedVisit?.isTestData ?? false,
+          isTestData,
+          // Phase 3A: link (or create) the registrant's unified Person
+          // identity, keyed by the same normalized WhatsApp number that
+          // already guarantees one-registration-per-number. Purely
+          // additive — does not change any existing registration behavior,
+          // response shape, or error handling.
+          person: {
+            connectOrCreate: {
+              where: { whatsappNumber: normalizedWhatsApp },
+              create: {
+                name,
+                whatsappNumber: normalizedWhatsApp,
+                email: email ?? null,
+                preferredLanguage: language,
+                isTestData,
+              },
+            },
+          },
         },
       });
 

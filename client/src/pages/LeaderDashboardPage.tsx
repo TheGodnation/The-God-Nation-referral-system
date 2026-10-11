@@ -1,6 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { NotificationBell } from '../components/NotificationBell';
+import { MyFollowUp } from '../components/leader/MyFollowUp';
+import { TrainingProgress } from '../components/leader/TrainingProgress';
+import { MyMembers } from '../components/leader/MyMembers';
+import { MyOrganizationalLeadershipRecommendations } from '../components/leader/MyOrganizationalLeadershipRecommendations';
+import { MyLeadershipPeers } from '../components/leader/MyLeadershipPeers';
+import { LeaderLeadershipCollaboration } from '../components/leader/LeaderLeadershipCollaboration';
+import { LeaderCommunityConversations } from '../components/leader/LeaderCommunityConversations';
+import { Announcements } from '../components/Announcements';
+import { HeadquartersPosts } from '../components/HeadquartersPosts';
+import { LeaderUpdates } from '../components/updates/LeaderUpdates';
+import { ReportsList } from '../components/ReportsList';
+import { ExamResults } from '../components/leader/ExamResults';
+import { PrivateMessages } from '../components/PrivateMessages';
+import { MyResources } from '../components/MyResources';
+import { StartPrivateMessage } from '../components/leader/StartPrivateMessage';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { usePublicSettings } from '../lib/usePublicSettings';
@@ -182,9 +198,12 @@ export function LeaderDashboardPage() {
             <h1 className="text-2xl font-bold text-brand-900">{t('leader.dashboard_title')}</h1>
             <p className="text-sm text-slate-500">{user?.name}</p>
           </div>
-          <button onClick={() => logout()} className="btn-secondary">
-            {t('leader.logout')}
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button onClick={() => logout()} className="btn-secondary">
+              {t('leader.logout')}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
@@ -215,25 +234,55 @@ export function LeaderDashboardPage() {
         {outreachLinks && (
           <div className="card mt-6">
             <h2 className="mb-1 font-semibold text-brand-900">{t('leader.outreach_links_title')}</h2>
-            <p className="mb-3 text-sm text-slate-500">{t('leader.outreach_links_hint')}</p>
+            <p className="mb-3 text-xs text-slate-500">{t('leader.outreach_links_hint')}</p>
             <div className="space-y-3">
-              {(['en', 'fr'] as const).map((lang) => {
-                const copyKey = `outreach-${lang}`;
-                return (
-                  <div key={copyKey} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <span className="w-10 text-sm font-medium uppercase text-slate-500">{lang}</span>
-                    <input readOnly value={outreachLinks[lang]} className="input flex-1 bg-slate-50 text-sm" />
-                    <button className="btn-secondary sm:w-32" onClick={() => copy(outreachLinks[lang], copyKey)}>
-                      {copied === copyKey ? t('leader.copied') : t('leader.copy')}
-                    </button>
-                  </div>
-                );
-              })}
+              {(['en', 'fr'] as const).map((lang) => (
+                <div key={lang} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <span className="w-10 text-sm font-medium uppercase text-slate-500">{lang}</span>
+                  <input readOnly value={outreachLinks[lang]} className="input flex-1 bg-slate-50 text-sm" />
+                  <button
+                    className="btn-secondary sm:w-32"
+                    onClick={() => copy(outreachLinks[lang], `outreach-${lang}`)}
+                  >
+                    {copied === `outreach-${lang}` ? t('leader.copied') : t('leader.copy')}
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
         <InvitePeople links={links} messageTemplate={messageTemplate} />
+
+        <Announcements />
+
+        <HeadquartersPosts />
+
+        <LeaderUpdates />
+
+        <ExamResults />
+
+        <ReportsList basePath="/api/leader/member-reports" />
+
+        <StartPrivateMessage />
+
+        <PrivateMessages />
+
+        <MyResources />
+
+        <MyFollowUp />
+
+        <TrainingProgress />
+
+        <MyMembers />
+
+        <MyOrganizationalLeadershipRecommendations />
+
+        <MyLeadershipPeers />
+
+        <LeaderLeadershipCollaboration />
+
+        <LeaderCommunityConversations />
 
         <div className="card mt-6 overflow-x-auto">
           <h2 className="mb-3 font-semibold text-brand-900">{t('leader.referrals_title')}</h2>

@@ -75,6 +75,24 @@ const DEFAULTS = {
   passwordResetSubject: 'Reset your password',
   passwordResetBody:
     'We received a request to reset your password.\n{{resetUrl}}\n\nThis link expires in 1 hour and can only be used once. If you did not request this, you can safely ignore this email.',
+
+  contactNotificationSubject: 'New contact form message',
+  contactNotificationBody: 'New message from {{name}} ({{email}}), language: {{language}}.\n\n{{message}}',
+
+  memberLoginLinkSubjectEn: 'Your sign-in link',
+  memberLoginLinkSubjectFr: 'Votre lien de connexion',
+  memberLoginLinkBodyEn:
+    'Hi {{name}},\n\nTap the link below to sign in:\n{{link}}\n\nThis link expires in 15 minutes and can only be used once. If you did not request this, you can safely ignore this email.',
+  memberLoginLinkBodyFr:
+    'Bonjour {{name}},\n\nCliquez sur le lien ci-dessous pour vous connecter :\n{{link}}\n\nCe lien expire dans 15 minutes et ne peut être utilisé qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail en toute sécurité.',
+  // With a 6-digit code: typing the code in the app avoids the "link opens
+  // in the email app's own browser" problem on phones.
+  memberLoginCodeSubjectEn: '{{code}} is your God Nation sign-in code',
+  memberLoginCodeSubjectFr: '{{code}} est votre code de connexion God Nation',
+  memberLoginCodeBodyEn:
+    'Hi {{name}},\n\nYour sign-in code is: {{code}}\n\nType it in the app where you asked for it. Or tap this link to sign in:\n{{link}}\n\nThe code and the link expire in 15 minutes and work only once. If you did not ask for this, you can safely ignore this email.',
+  memberLoginCodeBodyFr:
+    'Bonjour {{name}},\n\nVotre code de connexion est : {{code}}\n\nTapez-le dans l’application, là où vous l’avez demandé. Ou cliquez sur ce lien pour vous connecter :\n{{link}}\n\nLe code et le lien expirent dans 15 minutes et ne fonctionnent qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
 };
 
 async function getEmailContent(): Promise<Record<string, string>> {
@@ -167,6 +185,57 @@ export const EmailService = {
     const bodyTemplate = content.emailPasswordResetBody || DEFAULTS.passwordResetBody;
     const htmlVars = { resetUrl: linkHtml(params.resetUrl) };
     const textVars = { resetUrl: params.resetUrl };
+    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
+  },
+
+  /** Phase 2: forwards a public Contact form submission to the Admin's
+   * configured recipient (Settings.contactEmail). Internal notification
+   * only — not visitor-facing, so it isn't Admin-editable like the other
+   * templates above. */
+  async sendContactMessage(params: {
+    to: string;
+    name: string;
+    email: string;
+    message: string;
+    language: 'en' | 'fr';
+  }): Promise<SendResult> {
+    const subject = DEFAULTS.contactNotificationSubject;
+    const htmlVars = {
+      name: escapeHtml(params.name),
+      email: escapeHtml(params.email),
+      language: params.language,
+      message: escapeHtml(params.message),
+    };
+    const textVars = { name: params.name, email: params.email, language: params.language, message: params.message };
+    return send(
+      params.to,
+      subject,
+      renderHtml(DEFAULTS.contactNotificationBody, htmlVars),
+      renderText(DEFAULTS.contactNotificationBody, textVars),
+    );
+  },
+
+  /** Phase 3C: member magic-link sign-in. Not Admin-editable (unlike the
+   * visitor-facing templates above) — a transactional security email,
+   * following the same non-editable pattern as sendPasswordReset, just
+   * bilingual since a Person's preferred language is already known. */
+  async sendMemberLoginLink(params: { to: string; name: string; language: 'en' | 'fr'; link: string; code?: string }): Promise<SendResult> {
+    const isFr = params.language === 'fr';
+    const withCode = Boolean(params.code);
+    const subject = withCode
+      ? (isFr ? DEFAULTS.memberLoginCodeSubjectFr : DEFAULTS.memberLoginCodeSubjectEn).replace('{{code}}', params.code!)
+      : isFr
+        ? DEFAULTS.memberLoginLinkSubjectFr
+        : DEFAULTS.memberLoginLinkSubjectEn;
+    const bodyTemplate = withCode
+      ? isFr
+        ? DEFAULTS.memberLoginCodeBodyFr
+        : DEFAULTS.memberLoginCodeBodyEn
+      : isFr
+        ? DEFAULTS.memberLoginLinkBodyFr
+        : DEFAULTS.memberLoginLinkBodyEn;
+    const htmlVars = { name: escapeHtml(params.name), link: linkHtml(params.link), code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code ?? '')}</strong>` };
+    const textVars = { name: params.name, link: params.link, code: params.code ?? '' };
     return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
   },
 };
