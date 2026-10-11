@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-// The member app's bottom bar, like WhatsApp: Chats · Updates · Learn ·
+// The member app's bottom bar, like WhatsApp: Chats · Home · Learn ·
 // People · Me. Fixed to the bottom of the screen; the spacer keeps page
 // content from hiding behind it.
 const TABS = [
@@ -12,8 +12,8 @@ const TABS = [
   },
   {
     to: '/member/updates',
-    key: 'updates',
-    icon: 'M4 4h16v4H4zM4 10h10v10H4zM16 10h4v10h-4z',
+    key: 'home',
+    icon: 'M4 11l8-7 8 7M6 10v9h12v-9',
   },
   {
     to: '/member/learn',

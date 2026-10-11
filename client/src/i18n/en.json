@@ -1418,6 +1418,10 @@
     "friend_request_received": "{{name}} sent you a friend request",
     "friend_request_accepted": "{{name}} accepted your friend request"
   },
+  "memberHome": {
+    "title": "Home",
+    "member_slider_title": "Discover Members"
+  },
   "updates": {
     "title": "Updates",
     "loading": "Loading…",

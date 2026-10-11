@@ -90,7 +90,7 @@ describe('Bottom bar', () => {
     const links = screen.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')]);
     expect(links).toEqual([
       ['Chats', '/member/chats'],
-      ['Updates', '/member/updates'],
+      ['Home', '/member/updates'],
       ['Learn', '/member/learn'],
       ['People', '/member/people'],
       ['Me', '/member/me'],

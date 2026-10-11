@@ -168,6 +168,28 @@ router.get('/people/suggested', peopleSearchLimiter, requireMember, asyncHandler
   });
 }));
 
+// GET /api/member/people/with-photo — the Home page member slider. Deliberately
+// minimal (id/name/photo only, no friend-status lookups) since this loads on
+// every Home page view and must stay light on slow connections; opening a
+// card still goes through GET /people/:personId for the full profile.
+router.get('/people/with-photo', requireMember, asyncHandler(async (req, res) => {
+  const me = req.member!.personId;
+  const blockedIds = await getBlockedIds(me);
+  const people = await prisma.person.findMany({
+    where: {
+      ...APP_MEMBER,
+      id: { notIn: [me, ...blockedIds] },
+      photoStorageKey: { not: null },
+    },
+    select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true },
+    orderBy: { photoUpdatedAt: 'desc' },
+    take: 30,
+  });
+  res.json({
+    items: people.map((p) => ({ personId: p.id, name: p.name, photoUrl: profilePhotoPath(p) })),
+  });
+}));
+
 // One person's profile card, as seen by the signed-in member.
 router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => {
   const parsed = personIdSchema.safeParse(req.params);

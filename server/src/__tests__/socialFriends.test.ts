@@ -227,6 +227,36 @@ describe('Finding people', () => {
   });
 });
 
+describe('Home page member slider', () => {
+  it('lists only members with an uploaded photo, newest photo first, never me or someone who blocked me', async () => {
+    const me = await member('Slider Viewer');
+    const withPhoto = await member('Has Photo');
+    const withPhotoNewer = await member('Has Newer Photo');
+    const noPhoto = await member('No Photo');
+    const blocker = await member('Blocked Me');
+
+    await prisma.person.update({
+      where: { id: withPhoto.id },
+      data: { photoStorageKey: 'profile-photos/a.jpg', photoUpdatedAt: new Date('2026-01-01') },
+    });
+    await prisma.person.update({
+      where: { id: withPhotoNewer.id },
+      data: { photoStorageKey: 'profile-photos/b.jpg', photoUpdatedAt: new Date('2026-06-01') },
+    });
+    await prisma.person.update({
+      where: { id: blocker.id },
+      data: { photoStorageKey: 'profile-photos/c.jpg', photoUpdatedAt: new Date('2026-03-01') },
+    });
+    await send(blocker, '/api/member/blocks', { personId: me.id });
+
+    const res = await me.agent.get('/api/member/people/with-photo');
+    expect(res.body.items.map((p: any) => p.name)).toEqual(['Has Newer Photo', 'Has Photo']);
+    expect(res.body.items.every((p: any) => typeof p.photoUrl === 'string')).toBe(true);
+    expect(JSON.stringify(res.body)).not.toContain('No Photo');
+    expect(JSON.stringify(res.body)).not.toContain('Blocked Me');
+  });
+});
+
 describe('Updates feed — Friends view', () => {
   it('shows only friends’ posts (and my own) in the Friends view', async () => {
     const a = await member('Feed Me');

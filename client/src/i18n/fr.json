@@ -1418,6 +1418,10 @@
     "friend_request_received": "{{name}} vous a envoyé une demande d’amitié",
     "friend_request_accepted": "{{name}} a accepté votre demande d’amitié"
   },
+  "memberHome": {
+    "title": "Accueil",
+    "member_slider_title": "Découvrir des membres"
+  },
   "updates": {
     "title": "Actualités",
     "loading": "Chargement…",
