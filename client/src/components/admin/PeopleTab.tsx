@@ -33,6 +33,7 @@ interface PersonDetail extends PersonRow {
   }[];
   registrations: { id: string; language: string; pathway: string; createdAt: string }[];
   users: { id: string; name: string; email: string; role: string }[];
+  memberAccount: { id: string; email: string; createdAt: string; lastLoginAt: string | null } | null;
 }
 
 const EMPTY_PERSON_FORM = { name: '', whatsappNumber: '', email: '', preferredLanguage: 'en' as 'en' | 'fr' };
@@ -92,6 +93,15 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
   const [moveError, setMoveError] = useState<string | null>(null);
   const [moveSuccess, setMoveSuccess] = useState<string | null>(null);
 
+  const [signInEmail, setSignInEmail] = useState('');
+  const [signInEmailError, setSignInEmailError] = useState<string | null>(null);
+  const [signInEmailSuccess, setSignInEmailSuccess] = useState<string | null>(null);
+  const [savingSignInEmail, setSavingSignInEmail] = useState(false);
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   function load() {
     const q = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
     api
@@ -115,6 +125,7 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
         email: p.email ?? '',
         preferredLanguage: p.preferredLanguage as 'en' | 'fr',
       });
+      setSignInEmail(p.memberAccount?.email ?? '');
     });
   }
 
@@ -135,6 +146,10 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
     setMoveTarget(null);
     setMoveError(null);
     setMoveSuccess(null);
+    setSignInEmailError(null);
+    setSignInEmailSuccess(null);
+    setConfirmingDelete(false);
+    setDeleteError(null);
     loadDetail(id);
     // Fetched independently of the person detail — a failure here must
     // never block editing the person's own record.
@@ -182,6 +197,36 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
       loadDetail(selectedId);
     } catch (err) {
       setDetailError(err instanceof ApiError ? err.message : t('admin.people.save_failed'));
+    }
+  }
+
+  async function saveSignInEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedId || savingSignInEmail) return;
+    setSignInEmailError(null);
+    setSignInEmailSuccess(null);
+    setSavingSignInEmail(true);
+    try {
+      await api.patch(`/api/admin/people/${selectedId}/sign-in-email`, { email: signInEmail });
+      setSignInEmailSuccess(t('admin.people.signInEmail.success'));
+      loadDetail(selectedId);
+    } catch (err) {
+      setSignInEmailError(err instanceof ApiError ? err.message : t('admin.people.signInEmail.failed'));
+    } finally {
+      setSavingSignInEmail(false);
+    }
+  }
+
+  async function deletePerson() {
+    if (!selectedId || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.delete(`/api/admin/people/${selectedId}`);
+      backToList();
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : t('admin.people.delete_failed'));
+      setDeleting(false);
     }
   }
 
@@ -402,6 +447,29 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
           />
         </div>
 
+        <div className="card mt-4 space-y-3">
+          <h2 className="font-semibold text-brand-900">{t('admin.people.signInEmail.title')}</h2>
+          {detail.memberAccount ? (
+            <form onSubmit={saveSignInEmail} className="space-y-2">
+              <p className="text-xs text-slate-500">{t('admin.people.signInEmail.hint')}</p>
+              <input
+                className="input"
+                type="email"
+                value={signInEmail}
+                onChange={(e) => setSignInEmail(e.target.value)}
+                required
+              />
+              {signInEmailError && <p className="text-sm text-red-700">{signInEmailError}</p>}
+              {signInEmailSuccess && <p className="text-sm text-green-700">{signInEmailSuccess}</p>}
+              <button className="btn-primary px-3 py-1.5" type="submit" disabled={savingSignInEmail}>
+                {savingSignInEmail ? t('admin.people.signInEmail.saving') : t('admin.people.signInEmail.save')}
+              </button>
+            </form>
+          ) : (
+            <p className="text-sm text-slate-400">{t('admin.people.signInEmail.no_account')}</p>
+          )}
+        </div>
+
         {progress && (
           <div className="card mt-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -475,6 +543,42 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
             />
           </div>
         )}
+
+        <div className="card mt-4 space-y-3 border border-red-100">
+          <h2 className="font-semibold text-red-700">{t('admin.people.delete.title')}</h2>
+          <p className="text-xs text-slate-500">{t('admin.people.delete.hint')}</p>
+          {deleteError && <p className="text-sm text-red-700">{deleteError}</p>}
+          {!confirmingDelete ? (
+            <button
+              type="button"
+              className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+              onClick={() => setConfirmingDelete(true)}
+            >
+              {t('admin.people.delete.button')}
+            </button>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-red-700">
+                {t('admin.people.delete.confirm_prompt', { name: detail.name })}
+              </span>
+              <button
+                type="button"
+                className="rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                disabled={deleting}
+                onClick={deletePerson}
+              >
+                {deleting ? t('admin.people.delete.deleting') : t('admin.people.delete.confirm')}
+              </button>
+              <button
+                type="button"
+                className="text-xs text-slate-500 hover:underline"
+                onClick={() => setConfirmingDelete(false)}
+              >
+                {t('admin.people.cancel')}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

@@ -901,7 +901,25 @@
       "move_same_community": "Same Community",
       "move_not_in_source": "Member is not currently in the source Community.",
       "move_already_in_target": "Member already belongs to the destination Community.",
-      "move_community_unavailable": "Community unavailable."
+      "move_community_unavailable": "Community unavailable.",
+      "signInEmail": {
+        "title": "Sign-In Email",
+        "hint": "This is the email the 6-digit sign-in code is actually sent to. Editing the email above does not change this — it only updates this person's profile.",
+        "no_account": "This person has not completed member sign-up yet, so there is no sign-in email to change.",
+        "save": "Update Sign-In Email",
+        "saving": "Saving…",
+        "success": "Sign-in email updated.",
+        "failed": "Failed to update sign-in email."
+      },
+      "delete": {
+        "title": "Delete Person",
+        "hint": "Permanently deletes this person and everything linked to them (community memberships, registrations, their sign-in account, posts and messages). This cannot be undone.",
+        "button": "Delete This Person",
+        "confirm_prompt": "Permanently delete {{name}}?",
+        "confirm": "Yes, Delete",
+        "deleting": "Deleting…",
+        "failed": "Failed to delete this person."
+      }
     },
     "communities": {
       "root": "Root",

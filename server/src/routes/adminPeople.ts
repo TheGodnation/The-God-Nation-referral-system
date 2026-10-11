@@ -75,6 +75,7 @@ router.get('/people/:id', asyncHandler(async (req, res) => {
         take: 20,
       },
       users: { select: { id: true, name: true, email: true, role: true } },
+      memberAccount: { select: { id: true, email: true, createdAt: true, lastLoginAt: true } },
     },
   });
   if (!person) return res.status(404).json({ error: 'Person not found.' });
@@ -203,6 +204,78 @@ router.patch('/people/:id', requireCsrf, asyncHandler(async (req, res) => {
   });
 
   res.json(updated);
+}));
+
+// PATCH /api/admin/people/:id/sign-in-email — corrects a member's actual
+// sign-in email (MemberAccount.email). This is deliberately separate from
+// PATCH /people/:id above: that route only ever touches Person.email, a
+// plain descriptive field with no bearing on authentication — it has never
+// updated MemberAccount.email, so editing a Person's email there does NOT
+// change where that member's 6-digit sign-in code is sent. A Person with no
+// MemberAccount yet (never completed their own member sign-up) has nothing
+// to correct here; 404 in that case rather than silently creating one,
+// since Admin granting a login identity on someone's behalf is a distinct
+// decision this route does not make.
+const signInEmailSchema = z.object({ email: z.string().trim().email().max(320) });
+
+router.patch('/people/:id/sign-in-email', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = signInEmailSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Please enter a valid email address.' });
+  }
+  const normalizedEmail = parsed.data.email.toLowerCase();
+
+  const account = await prisma.memberAccount.findUnique({ where: { personId: id } });
+  if (!account) {
+    return res.status(404).json({ error: 'This person has no sign-in account yet — they have not completed member sign-up.' });
+  }
+
+  if (normalizedEmail !== account.email) {
+    const owner = await prisma.memberAccount.findUnique({ where: { email: normalizedEmail } });
+    if (owner) return res.status(409).json({ error: 'Another member already signs in with this email.' });
+  }
+
+  const updated = await prisma.memberAccount.update({
+    where: { id: account.id },
+    data: { email: normalizedEmail },
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'MEMBER_SIGN_IN_EMAIL_UPDATED',
+    targetType: 'MemberAccount',
+    targetId: account.id,
+    metadata: { personId: id, previousEmail: account.email, newEmail: normalizedEmail },
+  });
+
+  res.json({ id: updated.id, email: updated.email });
+}));
+
+// DELETE /api/admin/people/:id — permanently removes a Person and
+// everything tied to it (community memberships, registrations, the member
+// sign-in account and sessions, posts, messages, etc. — see the Person
+// relations in schema.prisma, all `onDelete: Cascade`). Meant for cleaning
+// up test/placeholder records an Admin created by hand; there is no undo,
+// so the client is expected to make the Admin confirm before calling this.
+router.delete('/people/:id', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const person = await prisma.person.findUnique({ where: { id } });
+  if (!person) return res.status(404).json({ error: 'Person not found.' });
+
+  await prisma.person.delete({ where: { id } });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'PERSON_DELETED',
+    targetType: 'Person',
+    targetId: id,
+    metadata: { name: person.name, whatsappNumber: person.whatsappNumber, email: person.email },
+  });
+
+  res.status(204).end();
 }));
 
 // ---------------------------------------------------------------------------

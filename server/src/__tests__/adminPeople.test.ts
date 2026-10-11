@@ -104,4 +104,84 @@ describe('Phase 3A — Admin People management', () => {
     const withFlag = await agent.get('/api/admin/people?search=Test Data Person&includeTestData=true');
     expect(withFlag.body.items).toHaveLength(1);
   });
+
+  it("edits a Person's profile email without touching their separate sign-in email", async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-people-signin-a@test.local');
+    const person = await prisma.person.create({
+      data: { name: 'Grace Signin', whatsappNumber: '+237670004005' },
+    });
+    await prisma.memberAccount.create({ data: { personId: person.id, email: 'grace-signin@example.com' } });
+
+    const edited = await agent
+      .patch(`/api/admin/people/${person.id}`)
+      .set('X-CSRF-Token', csrf)
+      .send({ email: 'grace-profile-only@example.com' });
+    expect(edited.status).toBe(200);
+
+    const detail = await agent.get(`/api/admin/people/${person.id}`);
+    expect(detail.body.email).toBe('grace-profile-only@example.com');
+    expect(detail.body.memberAccount.email).toBe('grace-signin@example.com');
+  });
+
+  it('updates the actual sign-in email via the dedicated route, rejects a duplicate, and 404s with no account', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-people-signin-b@test.local');
+    const person = await prisma.person.create({
+      data: { name: 'John Signin', whatsappNumber: '+237670004006' },
+    });
+    await prisma.memberAccount.create({ data: { personId: person.id, email: 'john-old@example.com' } });
+
+    const otherPerson = await prisma.person.create({
+      data: { name: 'Other Signin', whatsappNumber: '+237670004007' },
+    });
+    await prisma.memberAccount.create({ data: { personId: otherPerson.id, email: 'taken@example.com' } });
+
+    const duplicate = await agent
+      .patch(`/api/admin/people/${person.id}/sign-in-email`)
+      .set('X-CSRF-Token', csrf)
+      .send({ email: 'taken@example.com' });
+    expect(duplicate.status).toBe(409);
+
+    const updated = await agent
+      .patch(`/api/admin/people/${person.id}/sign-in-email`)
+      .set('X-CSRF-Token', csrf)
+      .send({ email: 'john-new@example.com' });
+    expect(updated.status).toBe(200);
+    expect(updated.body.email).toBe('john-new@example.com');
+
+    const detail = await agent.get(`/api/admin/people/${person.id}`);
+    expect(detail.body.memberAccount.email).toBe('john-new@example.com');
+    expect(detail.body.email).toBeNull(); // the plain profile email was never set/changed
+
+    const noAccountPerson = await prisma.person.create({
+      data: { name: 'No Account', whatsappNumber: '+237670004008' },
+    });
+    const noAccount = await agent
+      .patch(`/api/admin/people/${noAccountPerson.id}/sign-in-email`)
+      .set('X-CSRF-Token', csrf)
+      .send({ email: 'whoever@example.com' });
+    expect(noAccount.status).toBe(404);
+  });
+
+  it('deletes a Person and everything cascaded from it, and 404s for a second delete', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-people-delete@test.local');
+    const community = await prisma.community.create({ data: { name: 'Delete Cascade Test Community' } });
+    const person = await prisma.person.create({
+      data: { name: 'Delete Me', whatsappNumber: '+237670004009' },
+    });
+    await prisma.memberAccount.create({ data: { personId: person.id, email: 'delete-me@example.com' } });
+    await prisma.communityMembership.create({
+      data: { personId: person.id, communityId: community.id, status: 'ACTIVE' },
+    });
+
+    const del = await agent.delete(`/api/admin/people/${person.id}`).set('X-CSRF-Token', csrf);
+    expect(del.status).toBe(204);
+
+    const gone = await prisma.person.findUnique({ where: { id: person.id } });
+    expect(gone).toBeNull();
+    const accountGone = await prisma.memberAccount.findUnique({ where: { personId: person.id } });
+    expect(accountGone).toBeNull();
+
+    const secondDelete = await agent.delete(`/api/admin/people/${person.id}`).set('X-CSRF-Token', csrf);
+    expect(secondDelete.status).toBe(404);
+  });
 });

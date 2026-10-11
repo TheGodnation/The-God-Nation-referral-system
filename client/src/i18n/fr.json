@@ -901,7 +901,25 @@
       "move_same_community": "Même communauté",
       "move_not_in_source": "Ce membre n'appartient pas actuellement à la communauté source.",
       "move_already_in_target": "Ce membre appartient déjà à la communauté de destination.",
-      "move_community_unavailable": "Communauté indisponible."
+      "move_community_unavailable": "Communauté indisponible.",
+      "signInEmail": {
+        "title": "E-mail de connexion",
+        "hint": "C'est l'adresse à laquelle le code de connexion à 6 chiffres est réellement envoyé. Modifier l'e-mail ci-dessus ne change pas cette adresse — cela ne met à jour que le profil de cette personne.",
+        "no_account": "Cette personne n'a pas encore terminé son inscription membre, il n'y a donc pas d'e-mail de connexion à modifier.",
+        "save": "Mettre à jour l'e-mail de connexion",
+        "saving": "Enregistrement…",
+        "success": "E-mail de connexion mis à jour.",
+        "failed": "Échec de la mise à jour de l'e-mail de connexion."
+      },
+      "delete": {
+        "title": "Supprimer la personne",
+        "hint": "Supprime définitivement cette personne et tout ce qui lui est lié (adhésions aux communautés, inscriptions, son compte de connexion, publications et messages). Cette action est irréversible.",
+        "button": "Supprimer cette personne",
+        "confirm_prompt": "Supprimer définitivement {{name}} ?",
+        "confirm": "Oui, supprimer",
+        "deleting": "Suppression…",
+        "failed": "Échec de la suppression de cette personne."
+      }
     },
     "communities": {
       "root": "Racine",
