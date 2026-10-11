@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../lib/auth';
@@ -8,6 +9,11 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { requireLinkedPerson, findActiveScopedRole } from '../lib/leadership';
 import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
 import { findLeaderPeers } from '../lib/leaderPeers';
+import { normalizeToE164 } from '../lib/phone';
+import { recordAudit } from '../lib/audit';
+import { requireCsrf } from '../lib/csrf';
+import { createMemberSession } from '../lib/memberAuth';
+import { leadershipMutationLimiter } from '../lib/rateLimit';
 
 const router = Router();
 
@@ -79,6 +85,106 @@ router.get('/links', asyncHandler(async (req, res) => {
       fr: `${CLIENT_URL}/welcome?ref=${activeCode.code}&lang=fr`,
     },
   });
+}));
+
+// Leader <-> Member identity bridge (existing Leaders only — a Member
+// promoted to Leader going forward never needs this, since they already
+// have a Person; see RoleAssignment). This is the one-time, self-serve
+// alternative to the Admin-only PATCH /api/admin/leaders/:id/link-person
+// (Phase 3D) for a Leader who hasn't been linked yet: it also creates (or
+// connects to) the actual MemberAccount so the Leader's own existing
+// password session (sid) can, right here, additionally start a Member
+// session (msid) — two cookies, one action, "both sides together" as the
+// founder described it. Never changes sid itself: see
+// memberSessionIsolation.test.ts for the boundary this must never cross.
+const createMemberProfileSchema = z.object({
+  whatsapp: z.string().trim().min(1).max(32),
+  language: z.enum(['en', 'fr']).default('en'),
+});
+
+router.post('/me/create-member-profile', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = createMemberProfileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.' });
+  }
+  const normalizedWhatsApp = normalizeToE164(parsed.data.whatsapp);
+  if (!normalizedWhatsApp) {
+    return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.' });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user) return res.status(404).json({ error: 'Leader not found.' });
+  if (user.personId) {
+    return res.status(409).json({ error: 'Your account is already linked to a Member profile.' });
+  }
+
+  const normalizedEmail = user.email.toLowerCase();
+  const existingPersonByPhone = await prisma.person.findUnique({
+    where: { whatsappNumber: normalizedWhatsApp },
+    include: { memberAccount: true },
+  });
+
+  if (existingPersonByPhone?.memberAccount && existingPersonByPhone.memberAccount.email !== normalizedEmail) {
+    // Someone else's member account already owns this WhatsApp number —
+    // never take it over based on an unverified claim.
+    return res.status(409).json({ error: 'This WhatsApp number already belongs to a different member account. Please contact an Admin for help.' });
+  }
+
+  const conflictingAccount = await prisma.memberAccount.findUnique({ where: { email: normalizedEmail } });
+  if (conflictingAccount && conflictingAccount.personId !== existingPersonByPhone?.id) {
+    return res.status(409).json({ error: 'A different member profile already uses your email address. Please contact an Admin for help.' });
+  }
+
+  try {
+    const { memberAccount, person } = await prisma.$transaction(async (tx) => {
+      const person = existingPersonByPhone
+        ?? (await tx.person.create({
+          data: {
+            name: user.name,
+            whatsappNumber: normalizedWhatsApp,
+            email: normalizedEmail,
+            preferredLanguage: parsed.data.language,
+            isTestData: user.isTestData,
+          },
+        }));
+
+      const existingLinkForPerson = await tx.user.findUnique({ where: { personId: person.id } });
+      if (existingLinkForPerson) {
+        throw new Error('ALREADY_LINKED_TO_ANOTHER_USER');
+      }
+
+      const memberAccount = existingPersonByPhone?.memberAccount
+        ?? (await tx.memberAccount.create({ data: { personId: person.id, email: normalizedEmail } }));
+
+      await tx.user.update({ where: { id: user.id }, data: { personId: person.id } });
+
+      return { memberAccount, person };
+    });
+
+    await recordAudit({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'LEADER_SELF_LINKED_MEMBER_PROFILE',
+      targetType: 'User',
+      targetId: user.id,
+      metadata: { personId: person.id, memberAccountId: memberAccount.id },
+    });
+
+    // The Leader is already proven to be this account's owner (their
+    // existing password session) — sign them into the Member side right
+    // now too, rather than send a magic-link email to themselves.
+    await createMemberSession(memberAccount.id, res);
+
+    res.status(201).json({ personId: person.id, personName: person.name });
+  } catch (err) {
+    if (err instanceof Error && err.message === 'ALREADY_LINKED_TO_ANOTHER_USER') {
+      return res.status(409).json({ error: 'This phone number is already linked to a different account. Please contact an Admin for help.' });
+    }
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ error: 'That phone number or email is already in use. Please contact an Admin for help.' });
+    }
+    throw err;
+  }
 }));
 
 // GET /api/leader/referrals — paginated list of this Leader's registrations.

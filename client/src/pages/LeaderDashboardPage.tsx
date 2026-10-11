@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
@@ -17,8 +18,9 @@ import { ExamResults } from '../components/leader/ExamResults';
 import { PrivateMessages } from '../components/PrivateMessages';
 import { MyResources } from '../components/MyResources';
 import { StartPrivateMessage } from '../components/leader/StartPrivateMessage';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
+import { useMemberAuth } from '../lib/MemberAuthContext';
 import { usePublicSettings } from '../lib/usePublicSettings';
 
 interface DashboardStats {
@@ -137,9 +139,75 @@ function InvitePeople({
   );
 }
 
+// The Leader <-> Member identity bridge (existing Leaders only — see
+// server/src/routes/leader.ts POST /me/create-member-profile). One-time
+// and self-serve: once linked, this card is replaced by a simple link to
+// the Leader's own Member profile, which they're now also signed into.
+function MemberProfileBridge({ linked, onLinked }: { linked: boolean; onLinked: () => void }) {
+  const { t } = useTranslation();
+  const [showForm, setShowForm] = useState(false);
+  const [whatsapp, setWhatsapp] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (linked) {
+    return (
+      <div className="card mt-6 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-600">{t('leader.member_bridge_linked')}</p>
+        <Link to="/member/me" className="btn-secondary">
+          {t('leader.view_member_profile')}
+        </Link>
+      </div>
+    );
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await api.post('/api/leader/me/create-member-profile', { whatsapp });
+      onLinked();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('leader.member_bridge_failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card mt-6 space-y-2">
+      <h2 className="font-semibold text-brand-900">{t('leader.member_bridge_title')}</h2>
+      <p className="text-sm text-slate-500">{t('leader.member_bridge_help')}</p>
+      {!showForm ? (
+        <button type="button" className="btn-primary" onClick={() => setShowForm(true)}>
+          {t('leader.member_bridge_cta')}
+        </button>
+      ) : (
+        <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className="label">{t('leader.member_bridge_whatsapp_label')}</label>
+            <input
+              className="input"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+              placeholder="+237 6XX XXX XXX"
+            />
+          </div>
+          <button type="submit" className="btn-primary" disabled={busy}>
+            {t('leader.member_bridge_submit')}
+          </button>
+        </form>
+      )}
+      {error && <p className="text-sm text-red-700">{error}</p>}
+    </div>
+  );
+}
+
 export function LeaderDashboardPage() {
   const { t, i18n } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
+  const { refresh: refreshMember } = useMemberAuth();
   const { content } = usePublicSettings();
   const lang = i18n.language.startsWith('fr') ? 'Fr' : 'En';
   const messageTemplate = content[`leaderInviteMessage${lang}`] || undefined;
@@ -211,6 +279,14 @@ export function LeaderDashboardPage() {
           <StatCard label={t('leader.stat_whatsapp_clicks')} value={stats?.whatsappClicks ?? '—'} />
           <StatCard label={t('leader.stat_conversion')} value={stats ? `${stats.conversionRate}%` : '—'} />
         </div>
+
+        <MemberProfileBridge
+          linked={Boolean(user?.personId)}
+          onLinked={() => {
+            refresh();
+            refreshMember();
+          }}
+        />
 
         <div className="card mt-6">
           <h2 className="mb-3 font-semibold text-brand-900">{t('leader.links_title')}</h2>

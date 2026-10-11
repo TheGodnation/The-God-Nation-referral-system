@@ -9,7 +9,7 @@ export const SESSION_COOKIE_NAME = 'sid';
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: string; name: string; email: string; role: Role; mustChangePassword: boolean };
+      user?: { id: string; name: string; email: string; role: Role; mustChangePassword: boolean; personId: string | null };
       sessionToken?: string;
     }
   }
@@ -79,6 +79,7 @@ export async function loadSession(req: Request, _res: Response, next: NextFuncti
       email: user.email,
       role: user.role,
       mustChangePassword: user.mustChangePassword,
+      personId: user.personId,
     };
     req.sessionToken = token;
 

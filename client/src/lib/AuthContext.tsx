@@ -9,6 +9,7 @@ export interface CurrentUser {
   email: string;
   role: Role;
   mustChangePassword?: boolean;
+  personId?: string | null;
 }
 
 interface AuthContextValue {
