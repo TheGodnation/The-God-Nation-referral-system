@@ -644,7 +644,9 @@ router.get('/referrals', asyncHandler(async (req, res) => {
   const items = visits.map((v) => ({
     id: v.id,
     visitorId: v.visitorId,
-    leader: v.referralCode ? { id: v.referralCode.leaderId, name: v.referralCode.leader.name } : null,
+    // A visit's code may now belong to a Member instead of a Leader (see
+    // schema.prisma's ReferralCode comment) — those have no `leader`.
+    leader: v.referralCode?.leader ? { id: v.referralCode.leaderId, name: v.referralCode.leader.name } : null,
     language: v.language,
     utmSource: v.utmSource,
     utmMedium: v.utmMedium,

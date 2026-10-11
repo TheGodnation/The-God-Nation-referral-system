@@ -92,12 +92,19 @@ router.post('/', registrationLimiter, requireCsrf, asyncHandler(async (req, res)
         },
       });
 
-      if (selectedVisit?.referralCodeId) {
+      // A ReferralCode may now also belong to a Member (personId) rather
+      // than a Leader (leaderId) — see schema.prisma comment. This older,
+      // pre-membership landing-page flow only ever records Leader
+      // attribution; a Member-owned code simply isn't attributed here (no
+      // ReferralRelationship, no referredByPersonId) since this route
+      // never creates the real Person+MemberAccount pair that the Member
+      // referral/auto-friend feature (memberAuth.ts) is scoped to.
+      if (selectedVisit?.referralCode?.leaderId) {
         await tx.referralRelationship.create({
           data: {
-            leaderId: selectedVisit.referralCode!.leaderId,
+            leaderId: selectedVisit.referralCode.leaderId,
             registrationId: created.id,
-            referralCodeId: selectedVisit.referralCodeId,
+            referralCodeId: selectedVisit.referralCode.id,
           },
         });
       }

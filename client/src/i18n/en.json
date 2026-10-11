@@ -1470,6 +1470,20 @@
     "directory_empty": "Nobody has an approved representation yet.",
     "load_failed": "Failed to load the leadership directory."
   },
+  "myReferrals": {
+    "title": "My Referrals",
+    "back": "Back to Me",
+    "link_title": "Your invite link",
+    "link_help": "Share this link. Anyone who joins through it becomes your friend automatically.",
+    "copy_link": "Copy link",
+    "link_copied": "Link copied!",
+    "share_whatsapp": "Share on WhatsApp",
+    "share_generic": "Share",
+    "share_message": "Join The God Nation with me: {{link}}",
+    "list_title": "People you've referred",
+    "list_empty": "Nobody has joined through your link yet.",
+    "joined_on": "Joined {{date}}"
+  },
   "updates": {
     "title": "Updates",
     "loading": "Loading…",
@@ -1875,6 +1889,8 @@
     "training_not_started": "You have not started leadership training yet.",
     "go_learn": "Go to Learn",
     "my_groups": "My group",
+    "my_referrals": "My Referrals",
+    "my_referrals_link": "See everyone you've referred, and share your own invite link",
     "back": "Back",
     "name": "Name",
     "name_required": "Please type your name.",

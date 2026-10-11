@@ -131,6 +131,13 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
 
       <MyResources />
       <MyFollowUps />
+
+      <section className="card">
+        <h2 className="mb-2 font-semibold text-brand-900">👥 {t('wall.my_referrals')}</h2>
+        <Link to="/member/referrals" className="text-sm font-medium text-brand-700 underline">
+          {t('wall.my_referrals_link')}
+        </Link>
+      </section>
     </div>
   );
 }

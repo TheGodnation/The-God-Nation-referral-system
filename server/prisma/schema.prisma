@@ -321,17 +321,26 @@ model LoginAttempt {
 // Referral system
 // ---------------------------------------------------------------------------
 
+// A code names exactly one of a Leader (leaderId) or a Member (personId) —
+// enforced in application code only (same lightweight style as other
+// exclusivity rules in this schema), never both and never neither. Visit
+// recording (POST /api/referrals/visit) and the join-link format are
+// identical either way; only what happens when someone actually signs up
+// through it differs — see Registration.referredByPersonId and the
+// Friendship created in memberAuth.ts's signup route for the Member case.
 model ReferralCode {
   id            String    @id @default(uuid())
   code          String    @unique
-  leaderId      String
+  leaderId      String?
+  personId      String?   @unique
   active        Boolean   @default(true)
   isTestData    Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deactivatedAt DateTime?
 
-  leader        User                   @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  leader        User?                  @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  person        Person?                @relation(fields: [personId], references: [id], onDelete: Cascade)
   visits        ReferralVisit[]
   relationships ReferralRelationship[]
 
@@ -381,15 +390,23 @@ model Registration {
   // every new registration and backfilled for existing ones — never
   // changes any existing registration behavior or fields.
   personId           String?
+  // Set only when this registration completed through a Member's own
+  // referral link (ReferralCode.personId), scoped to the real in-app
+  // Member signup route (memberAuth.ts) only — forward-only from when
+  // that feature shipped, never backfilled for older registrations.
+  // Distinct from `relationship` (Leader attribution), which is unaffected.
+  referredByPersonId String?
 
-  person       Person?               @relation(fields: [personId], references: [id], onDelete: SetNull)
-  relationship ReferralRelationship?
-  events       Event[]
+  person           Person?               @relation(fields: [personId], references: [id], onDelete: SetNull)
+  referredByPerson Person?               @relation("RegistrationReferredBy", fields: [referredByPersonId], references: [id], onDelete: SetNull)
+  relationship     ReferralRelationship?
+  events           Event[]
 
   @@index([visitorId])
   @@index([createdAt])
   @@index([language])
   @@index([personId])
+  @@index([referredByPersonId])
 }
 
 model ReferralRelationship {
@@ -653,6 +670,8 @@ model Person {
   reportsMade                      MemberReport[]          @relation("MemberReportReporter")
   reportsAbout                     MemberReport[]          @relation("MemberReportReported")
   representationRequests           RepresentationRequest[]
+  referralCode                     ReferralCode?
+  referralsMade                    Registration[]          @relation("RegistrationReferredBy")
 
   @@index([isTestData])
 }

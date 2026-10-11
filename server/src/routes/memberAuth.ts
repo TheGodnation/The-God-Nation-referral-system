@@ -231,6 +231,10 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
   const visitorId = req.visitorId!;
   const selectedVisit = await selectApplicableReferralVisit(visitorId);
   const isTestData = selectedVisit?.isTestData ?? false;
+  // A ReferralCode names exactly one of a Leader (leaderId) or a Member
+  // (personId) — see schema.prisma comment. Only ever one of the two
+  // branches below runs for a given code.
+  const referralCode = selectedVisit?.referralCode ?? null;
   // Placeholder until the member gives their real name on the details form.
   const placeholderName = normalizedEmail;
 
@@ -259,14 +263,28 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
           landingPage: selectedVisit?.landingPage ?? null,
           isTestData,
           personId: person.id,
+          referredByPersonId: referralCode?.personId ?? null,
         },
       });
-      if (selectedVisit?.referralCodeId) {
+      if (referralCode?.leaderId) {
         await tx.referralRelationship.create({
           data: {
-            leaderId: selectedVisit.referralCode!.leaderId,
+            leaderId: referralCode.leaderId,
             registrationId: registration.id,
-            referralCodeId: selectedVisit.referralCodeId,
+            referralCodeId: referralCode.id,
+          },
+        });
+      } else if (referralCode?.personId) {
+        // Joined through a Member's own link: auto-friend, forward-only
+        // from here — never retroactive, and never for the old Leader
+        // landing-page/WhatsApp-redirect funnel (registrations.ts), only
+        // this real in-app Member signup.
+        await tx.friendship.create({
+          data: {
+            requesterPersonId: referralCode.personId,
+            addresseePersonId: person.id,
+            status: 'ACCEPTED',
+            respondedAt: new Date(),
           },
         });
       }

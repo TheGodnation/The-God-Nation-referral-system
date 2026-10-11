@@ -57,6 +57,7 @@ import socialRoutes from './routes/social';
 import { adminMemberReportsRouter, leaderMemberReportsRouter } from './routes/memberReports';
 import representationRequestsRoutes from './routes/representationRequests';
 import adminRepresentationRequestsRoutes from './routes/adminRepresentationRequests';
+import memberReferralsRoutes from './routes/memberReferrals';
 import examWorldRoutes from './routes/examWorld';
 import adminLibraryRoutes from './routes/adminLibrary';
 import leaderExamResultsRoutes from './routes/leaderExamResults';
@@ -220,6 +221,8 @@ export function createApp() {
   // request, Admin review, and the public Leadership Directory.
   app.use('/api/member', representationRequestsRoutes);
   app.use('/api/admin', adminRepresentationRequestsRoutes);
+  // A Member's own referral link and "My Referrals" page.
+  app.use('/api/member', memberReferralsRoutes);
   // Exam World: member summary/reader, admin library & trainees, leader results.
   app.use('/api/member', examWorldRoutes);
   app.use('/api/admin/library', adminLibraryRoutes);
