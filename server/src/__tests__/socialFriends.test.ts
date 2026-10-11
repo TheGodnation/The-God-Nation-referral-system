@@ -71,6 +71,48 @@ async function befriend(a: Member, b: Member) {
   await send(b, `/api/member/friends/requests/${r.body.requestId}/accept`);
 }
 
+describe('Follows', () => {
+  it('follows and unfollows without needing acceptance, and updates counts on the profile card', async () => {
+    const a = await member('Follower');
+    const b = await member('Followed');
+
+    const follow = await send(a, '/api/member/follows', { personId: b.id });
+    expect(follow.status).toBe(201);
+    expect(follow.body).toEqual({ isFollowing: true });
+
+    const card = await a.agent.get(`/api/member/people/${b.id}`);
+    expect(card.body).toMatchObject({ isFollowing: true, followerCount: 1, followingCount: 0 });
+
+    const viewedBack = await b.agent.get(`/api/member/people/${a.id}`);
+    expect(viewedBack.body).toMatchObject({ isFollowing: false, followerCount: 0, followingCount: 1 });
+
+    const unfollow = await a.agent.delete(`/api/member/follows/${b.id}`).set('X-CSRF-Token', a.csrf);
+    expect(unfollow.body).toEqual({ isFollowing: false });
+    const cardAfter = await a.agent.get(`/api/member/people/${b.id}`);
+    expect(cardAfter.body).toMatchObject({ isFollowing: false, followerCount: 0 });
+  });
+
+  it('rejects following yourself, and following is unaffected by friendship', async () => {
+    const a = await member('Solo Follower');
+    const self = await send(a, '/api/member/follows', { personId: a.id });
+    expect(self.status).toBe(400);
+  });
+
+  it('blocking clears any follow in either direction', async () => {
+    const a = await member('Will Block');
+    const b = await member('Will Be Blocked');
+    await send(a, '/api/member/follows', { personId: b.id });
+    await send(b, '/api/member/follows', { personId: a.id });
+
+    await send(a, '/api/member/blocks', { personId: b.id });
+
+    const remaining = await prisma.follow.count({
+      where: { OR: [{ followerPersonId: a.id, followingPersonId: b.id }, { followerPersonId: b.id, followingPersonId: a.id }] },
+    });
+    expect(remaining).toBe(0);
+  });
+});
+
 describe('Friend requests', () => {
   it('sends, notifies, accepts, and lists friends on both sides', async () => {
     const a = await member('Ada');

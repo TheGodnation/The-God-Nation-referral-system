@@ -92,6 +92,41 @@ export function FriendButton({
   );
 }
 
+/** Follow / Following — one-directional, never needs the other person's acceptance. */
+export function FollowButton({
+  personId,
+  isFollowing,
+  onChange,
+}: {
+  personId: string;
+  isFollowing: boolean;
+  onChange: (isFollowing: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+
+  async function toggle() {
+    setBusy(true);
+    try {
+      if (isFollowing) {
+        const res = await api.delete<{ isFollowing: boolean }>(`/api/member/follows/${personId}`);
+        onChange(res.isFollowing);
+      } else {
+        const res = await api.post<{ isFollowing: boolean }>('/api/member/follows', { personId });
+        onChange(res.isFollowing);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button type="button" className="btn-secondary px-3 py-1.5 text-sm" disabled={busy} onClick={() => void toggle()}>
+      {isFollowing ? `✓ ${t('people.following_button')}` : `＋ ${t('people.follow')}`}
+    </button>
+  );
+}
+
 export function PersonCard({ person, onChange }: { person: PersonCardData; onChange?: (p: PersonCardData) => void }) {
   const { t } = useTranslation();
   const [current, setCurrent] = useState(person);

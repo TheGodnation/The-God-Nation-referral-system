@@ -104,10 +104,15 @@ describe('Person profile page', () => {
     photoUrl: null,
     area: 'Douala V, Littoral',
     isLeader: false,
+    leaderOf: [],
+    memberOf: [],
     sameGroup: false,
     friendStatus: 'FRIENDS',
     requestId: 'f1',
     friendCount: 3,
+    followerCount: 0,
+    followingCount: 0,
+    isFollowing: false,
     canMessage: true,
   };
 
@@ -120,7 +125,7 @@ describe('Person profile page', () => {
     });
     renderAt('/member/people/p9');
     expect(await screen.findByRole('heading', { name: 'Paul Profile' })).toBeInTheDocument();
-    expect(screen.getByText('Douala V, Littoral · 3 friends')).toBeInTheDocument();
+    expect(screen.getByText('Douala V, Littoral · 3 friends · 0 followers · 0 following')).toBeInTheDocument();
 
     // "Message" opens the WhatsApp-style private chat screen.
     fireEvent.click(screen.getByRole('button', { name: /Message/ }));
@@ -154,6 +159,37 @@ describe('Person profile page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send report' }));
     expect(await screen.findByText('Thank you. Your report was sent to the leaders.')).toBeInTheDocument();
     expect(calls.find((c) => c.url === '/api/member/reports')?.body).toEqual({ personId: 'p9', targetType: 'PERSON', reason: 'He asked me for money' });
+  });
+
+  it('follows and unfollows from the profile page, and shows leadership/community lines', async () => {
+    let following = false;
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: ME }),
+      'GET /api/member/people/p9': () => ({
+        body: { ...profile, isLeader: true, leaderOf: ['Yaoundé Group'], memberOf: ['Douala Group'], isFollowing: following },
+      }),
+      'GET /api/updates': () => ({ body: { viewer: { canPost: true, canModerate: false, personId: 'me' }, items: [], nextBefore: null } }),
+      'POST /api/member/follows': () => {
+        following = true;
+        return { status: 201, body: { isFollowing: true } };
+      },
+      'DELETE /api/member/follows/p9': () => {
+        following = false;
+        return { body: { isFollowing: false } };
+      },
+    });
+    renderAt('/member/people/p9');
+    await screen.findByRole('heading', { name: 'Paul Profile' });
+    expect(screen.getByText('Leader of Yaoundé Group')).toBeInTheDocument();
+    expect(screen.getByText('Member of Douala Group')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Follow/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Following/ })).toBeInTheDocument());
+    expect(calls.find((c) => c.method === 'POST' && c.url === '/api/member/follows')?.body).toEqual({ personId: 'p9' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Following/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^＋ Follow/ })).toBeInTheDocument());
+    expect(calls.some((c) => c.method === 'DELETE' && c.url === '/api/member/follows/p9')).toBe(true);
   });
 });
 

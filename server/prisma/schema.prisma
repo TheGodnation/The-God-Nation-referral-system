@@ -637,6 +637,8 @@ model Person {
   friendRequestsReceived           Friendship[]            @relation("FriendshipAddressee")
   blocksMade                       PersonBlock[]           @relation("PersonBlockBlocker")
   blocksReceived                   PersonBlock[]           @relation("PersonBlockBlocked")
+  following                        Follow[]                @relation("FollowFollower")
+  followedBy                       Follow[]                @relation("FollowFollowing")
   reportsMade                      MemberReport[]          @relation("MemberReportReporter")
   reportsAbout                     MemberReport[]          @relation("MemberReportReported")
 
@@ -2040,6 +2042,23 @@ model Friendship {
   @@unique([requesterPersonId, addresseePersonId])
   @@index([addresseePersonId, status])
   @@index([requesterPersonId, status])
+}
+
+// One-directional following — distinct from Friendship (which is mutual and
+// unlocks messaging). Following someone never requires their acceptance and
+// never affects the messaging-permission rules in lib/social.ts.
+model Follow {
+  id                String   @id @default(uuid())
+  followerPersonId  String
+  followingPersonId String
+  createdAt         DateTime @default(now())
+
+  follower  Person @relation("FollowFollower", fields: [followerPersonId], references: [id], onDelete: Cascade)
+  following Person @relation("FollowFollowing", fields: [followingPersonId], references: [id], onDelete: Cascade)
+
+  @@unique([followerPersonId, followingPersonId])
+  @@index([followingPersonId])
+  @@index([followerPersonId])
 }
 
 model PersonBlock {

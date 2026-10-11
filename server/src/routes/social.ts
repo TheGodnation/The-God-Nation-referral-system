@@ -15,8 +15,11 @@ import {
   findFriendship,
   friendStatusBetween,
   getBlockedIds,
+  getFollowerCount,
+  getFollowingCount,
   getFriendIds,
   isBlockedEitherWay,
+  isFollowing,
   nearness,
   publicAreaLabel,
   shareActiveGroup,
@@ -202,12 +205,20 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
   const person = blockedMe ? null : await prisma.person.findFirst({ where: { id: other, ...APP_MEMBER }, select: personSelect });
   if (!person) return res.status(404).json({ error: 'Not found.' });
 
-  const [rel, friendCount, messageAllowed, sameGroup, isLeader] = await Promise.all([
+  const [rel, friendCount, messageAllowed, sameGroup, leaderOf, memberOf, followerCount, followingCount, viewerFollows] = await Promise.all([
     friendStatusBetween(me, other),
     getFriendIds(other).then((ids) => ids.length),
     canMessage(me, other),
     shareActiveGroup(me, other),
-    prisma.roleAssignment.count({ where: { personId: other, status: 'ACTIVE' } }).then((n) => n > 0),
+    prisma.roleAssignment
+      .findMany({ where: { personId: other, roleType: 'SCOPED_LEADER', status: 'ACTIVE' }, include: { community: { select: { name: true } } } })
+      .then((rows) => rows.map((r) => r.community?.name).filter((name): name is string => Boolean(name))),
+    prisma.communityMembership
+      .findMany({ where: { personId: other, status: 'ACTIVE' }, include: { community: { select: { name: true } } } })
+      .then((rows) => rows.map((r) => r.community.name)),
+    getFollowerCount(other),
+    getFollowingCount(other),
+    isFollowing(me, other),
   ]);
 
   res.json({
@@ -217,13 +228,45 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
     coverUrl: coverPhotoPath(person),
     bio: person.bio,
     area: publicAreaLabel(person),
-    isLeader,
+    isLeader: leaderOf.length > 0,
+    leaderOf,
+    memberOf,
     sameGroup,
     friendStatus: rel.status,
     requestId: rel.requestId,
     friendCount,
+    followerCount,
+    followingCount,
+    isFollowing: viewerFollows,
     canMessage: messageAllowed,
   });
+}));
+
+// ----------------------------- Follows -------------------------------------
+
+router.post('/follows', socialMutationLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
+  const parsed = personIdSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request.' });
+  const me = req.member!.personId;
+  const other = parsed.data.personId;
+  if (other === me) return res.status(400).json({ error: 'You cannot follow yourself.' });
+
+  const target = await prisma.person.findFirst({ where: { id: other, ...APP_MEMBER }, select: { id: true } });
+  if (!target || (await isBlockedEitherWay(me, other))) return res.status(404).json({ error: 'Not found.' });
+
+  await prisma.follow.upsert({
+    where: { followerPersonId_followingPersonId: { followerPersonId: me, followingPersonId: other } },
+    create: { followerPersonId: me, followingPersonId: other },
+    update: {},
+  });
+  res.status(201).json({ isFollowing: true });
+}));
+
+router.delete('/follows/:personId', socialMutationLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
+  await prisma.follow.deleteMany({
+    where: { followerPersonId: req.member!.personId, followingPersonId: req.params.personId },
+  });
+  res.json({ isFollowing: false });
 }));
 
 // ----------------------------- Friends -------------------------------------
@@ -378,6 +421,15 @@ router.post('/blocks', socialMutationLimiter, requireCsrf, requireMember, asyncH
         OR: [
           { requesterPersonId: me, addresseePersonId: other },
           { requesterPersonId: other, addresseePersonId: me },
+        ],
+      },
+    }),
+    // ...and any follow in either direction.
+    prisma.follow.deleteMany({
+      where: {
+        OR: [
+          { followerPersonId: me, followingPersonId: other },
+          { followerPersonId: other, followingPersonId: me },
         ],
       },
     }),

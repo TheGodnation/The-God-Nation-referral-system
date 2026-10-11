@@ -5,7 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { WallHeader } from '../components/wall/WallHeader';
 import { PhotoGrid, WallTabs } from '../components/wall/PhotoGrid';
-import { FriendButton, type FriendStatus } from '../components/people/PersonCard';
+import { FriendButton, FollowButton, type FriendStatus } from '../components/people/PersonCard';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
@@ -18,10 +18,15 @@ interface Profile {
   bio?: string | null;
   area: string | null;
   isLeader: boolean;
+  leaderOf: string[];
+  memberOf: string[];
   sameGroup: boolean;
   friendStatus: FriendStatus;
   requestId: string | null;
   friendCount: number;
+  followerCount: number;
+  followingCount: number;
+  isFollowing: boolean;
   canMessage: boolean;
 }
 
@@ -111,16 +116,35 @@ export function MemberPersonPage() {
               photoUrl={profile.photoUrl}
               coverUrl={profile.coverUrl}
               bio={profile.bio}
-              subtitle={[profile.isLeader ? t('people.leader_badge') : null, profile.area, t('people.friend_count', { count: profile.friendCount })]
+              subtitle={[
+                profile.isLeader ? t('people.leader_badge') : null,
+                profile.area,
+                t('people.friend_count', { count: profile.friendCount }),
+                t('people.follower_count', { count: profile.followerCount }),
+                t('people.following_count', { count: profile.followingCount }),
+              ]
                 .filter(Boolean)
                 .join(' · ')}
             >
             <div className="space-y-4">
+              {profile.leaderOf.length > 0 && (
+                <p className="text-sm font-medium text-brand-700">{t('people.leader_of', { groups: profile.leaderOf.join(', ') })}</p>
+              )}
+              {profile.memberOf.length > 0 && (
+                <p className="text-sm text-slate-500">{t('people.member_of', { groups: profile.memberOf.join(', ') })}</p>
+              )}
 
               {!isMe && (
                 <div className="flex flex-wrap gap-2">
                   {profile.friendStatus !== 'BLOCKED' && (
-                    <FriendButton person={profile} onChange={() => load()} />
+                    <>
+                      <FriendButton person={profile} onChange={() => load()} />
+                      <FollowButton
+                        personId={profile.personId}
+                        isFollowing={profile.isFollowing}
+                        onChange={(isFollowing) => setProfile((p) => (p ? { ...p, isFollowing } : p))}
+                      />
+                    </>
                   )}
                   {profile.canMessage && (
                     <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => void openChat()}>

@@ -42,6 +42,21 @@ export async function areFriends(a: string, b: string): Promise<boolean> {
   return f?.status === 'ACCEPTED';
 }
 
+export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {
+  const f = await prisma.follow.findUnique({
+    where: { followerPersonId_followingPersonId: { followerPersonId: followerId, followingPersonId: followingId } },
+  });
+  return Boolean(f);
+}
+
+export async function getFollowerCount(personId: string): Promise<number> {
+  return prisma.follow.count({ where: { followingPersonId: personId } });
+}
+
+export async function getFollowingCount(personId: string): Promise<number> {
+  return prisma.follow.count({ where: { followerPersonId: personId } });
+}
+
 export async function getFriendIds(personId: string): Promise<string[]> {
   const rows = await prisma.friendship.findMany({
     where: { status: 'ACCEPTED', OR: [{ requesterPersonId: personId }, { addresseePersonId: personId }] },
