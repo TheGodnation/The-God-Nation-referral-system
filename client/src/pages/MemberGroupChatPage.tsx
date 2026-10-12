@@ -650,7 +650,7 @@ export function MemberGroupChatPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="mb-1 font-semibold text-slate-900">ℹ️ {t('groupChat.message_info')}</h2>
-            {info.message.body && <p className="mb-3 line-clamp-3 rounded-lg bg-[#dcf8c6] px-3 py-2 text-sm">{info.message.body}</p>}
+            {info.message.body && <p className="mb-3 line-clamp-3 rounded-lg bg-[#d9fdd3] px-3 py-2 text-sm">{info.message.body}</p>}
             {!info.data ? (
               <p className="text-sm text-slate-500">{t('groupChat.loading')}</p>
             ) : (

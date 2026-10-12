@@ -1903,6 +1903,8 @@
     "open_photo": "Ouvrir la photo",
     "video": "Vidéo",
     "voice": "Message vocal",
+    "voice_play": "Lire le message vocal",
+    "voice_pause": "Mettre en pause le message vocal",
     "document_label": "Document",
     "tip": "Glissez un message vers la droite pour répondre. Maintenez un message appuyé pour réagir 👍 ❤️ 🙏.",
     "tip_close": "Compris",
@@ -1916,6 +1918,10 @@
     "seen_by": "Vu par {{count}} sur {{total}}",
     "delivered_to": "Reçu, pas encore vu ({{count}})",
     "group_info": "Infos du groupe"
+  },
+  "voiceInput": {
+    "start": "Parler pour écrire",
+    "stop": "Arrêter l'écoute"
   },
   "wall": {
     "cover_alt": "Photo de couverture de {{name}}",

@@ -15,6 +15,7 @@ import {
 } from '../../lib/chatMedia';
 import { VideoRecorder } from './VideoRecorder';
 import { ReplyQuote } from './MessageBubble';
+import { VoiceInputButton } from '../VoiceInputButton';
 import type { ChatMessage } from './types';
 
 export interface OutgoingMessage {
@@ -138,6 +139,21 @@ export function ChatComposer({
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }
+
+  // Dictation (Web Speech API) — distinct from the 🎤 voice-NOTE recorder
+  // below, which records and sends audio instead of typing it. The
+  // textarea is controlled, so resizing happens in the effect below once
+  // the new value actually reaches the DOM (unlike typing's onChange,
+  // which can resize synchronously off the browser's own DOM update).
+  function onVoiceInputResult(transcript: string) {
+    const next = text.trim() ? `${text.trim()} ${transcript}` : transcript;
+    setText(next);
+    signalTyping(next);
+  }
+
+  useEffect(() => {
+    if (textRef.current) resizeText(textRef.current);
+  }, [text]);
 
   // ---------- Attachments ----------
   async function addFiles(list: FileList | null) {
@@ -472,6 +488,7 @@ export function ChatComposer({
               onKeyDown={onKeyDown}
               className="max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-[16px] leading-6 outline-none focus:ring-0"
             />
+            <VoiceInputButton onResult={onVoiceInputResult} className="p-2 text-lg" />
             {!text.trim() && (
               <button type="button" onClick={() => cameraRef.current?.click()} aria-label={t('groupChat.camera') ?? ''} className="p-2 text-xl text-slate-500">
                 📷

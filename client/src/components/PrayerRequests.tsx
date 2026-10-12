@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
 import { Avatar } from './Avatar';
+import { VoiceInputButton } from './VoiceInputButton';
 
 // Phase 2 — Prayer requests. A Member/Leader shares a request either
 // PUBLIC (same flat, everyone-sees-it feed shape as Updates) or PRIVATE
@@ -91,7 +92,7 @@ function Composer({ onPosted }: { onPosted: () => void }) {
         onChange={(e) => setBody(e.target.value)}
       />
       <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <label className="flex items-center gap-1">
             <input type="radio" name="prayer-visibility" checked={visibility === 'PUBLIC'} onChange={() => setVisibility('PUBLIC')} />
             {t('prayerRequests.visibility_public')}
@@ -100,6 +101,7 @@ function Composer({ onPosted }: { onPosted: () => void }) {
             <input type="radio" name="prayer-visibility" checked={visibility === 'PRIVATE'} onChange={() => setVisibility('PRIVATE')} />
             {t('prayerRequests.visibility_private')}
           </label>
+          <VoiceInputButton onResult={(transcript) => setBody((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript))} />
         </div>
         <button type="submit" className="btn-primary px-5 py-1.5" disabled={posting || !body.trim()}>
           {posting ? t('prayerRequests.posting') : t('prayerRequests.post')}
@@ -146,6 +148,7 @@ function CommentForm({ requestId, onSent }: { requestId: string; onSent: () => v
           maxLength={1000}
           onChange={(e) => setDraft(e.target.value)}
         />
+        <VoiceInputButton onResult={(transcript) => setDraft((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript))} />
         <button type="submit" className="btn-primary rounded-full px-4" disabled={sending || !draft.trim()}>
           {t('prayerRequests.send')}
         </button>

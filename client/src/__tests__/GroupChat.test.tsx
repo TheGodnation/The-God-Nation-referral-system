@@ -104,7 +104,10 @@ describe('WhatsApp-style group chat', () => {
     // Reply quote inside my bubble shows the original text again.
     expect(screen.getAllByText('Who is coming on Sunday?')).toHaveLength(2);
     expect(screen.getByRole('button', { name: '🙏 2' })).toHaveAttribute('aria-pressed', 'true');
-    await waitFor(() => expect(screen.getByLabelText('Voice message', { selector: 'audio' })).toHaveAttribute('src', 'https://files.example/voice.webm'));
+    // The WhatsApp-style voice note: sender photo, play button, waveform —
+    // backed by a hidden <audio> element once the signed URL resolves.
+    await waitFor(() => expect(document.querySelector('audio')).toHaveAttribute('src', 'https://files.example/voice.webm'));
+    expect(screen.getByRole('button', { name: 'Play voice message' })).toBeInTheDocument();
     // Empty message box -> microphone button, like WhatsApp.
     expect(screen.getByRole('button', { name: /Hold to record a voice note/ })).toBeInTheDocument();
   });

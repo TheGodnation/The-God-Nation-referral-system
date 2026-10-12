@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
 import { formatBytes } from '../lib/attachmentLimits';
 import { HeadquartersFeedCard } from './HeadquartersFeedCard';
+import { VoiceInputButton } from './VoiceInputButton';
 
 interface HeadquartersPostMediaInfo {
   id: string;
@@ -295,6 +296,7 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
                   value={commentDraft}
                   onChange={(e) => setCommentDraft(e.target.value)}
                 />
+                <VoiceInputButton onResult={(transcript) => setCommentDraft((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript))} />
                 <button
                   type="button"
                   className="btn-primary sm:w-40"

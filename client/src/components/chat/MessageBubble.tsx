@@ -4,6 +4,7 @@ import { Avatar } from '../Avatar';
 import { formatBytes } from '../../lib/attachmentLimits';
 import { getAttachmentUrl, useAttachmentUrl, useInView } from '../../lib/chatMedia';
 import { useDataSaver } from '../../lib/dataSaver';
+import { VoiceNotePlayer } from './VoiceNotePlayer';
 import { mediaKind, type ChatAttachment, type ChatMessage, type ChatReplyPreview } from './types';
 
 const NAME_COLORS = ['text-rose-700', 'text-emerald-700', 'text-violet-700', 'text-amber-700', 'text-sky-700', 'text-fuchsia-700', 'text-teal-700', 'text-orange-700'];
@@ -92,7 +93,19 @@ function PhotoAttachment({ mediaBase, messageId, a, onOpen }: { mediaBase: strin
   );
 }
 
-function PlayableAttachment({ mediaBase, messageId, a }: { mediaBase: string; messageId: string; a: ChatAttachment }) {
+function PlayableAttachment({
+  mediaBase,
+  messageId,
+  a,
+  senderName,
+  senderPhotoUrl,
+}: {
+  mediaBase: string;
+  messageId: string;
+  a: ChatAttachment;
+  senderName: string;
+  senderPhotoUrl?: string | null;
+}) {
   const { t } = useTranslation();
   const saver = useDataSaver();
   const [wanted, setWanted] = useState(false);
@@ -103,23 +116,16 @@ function PlayableAttachment({ mediaBase, messageId, a }: { mediaBase: string; me
   return (
     <div ref={ref}>
       {kind === 'voice' ? (
-        <div className="flex items-center gap-2">
-          <span aria-hidden className="text-xl">🎤</span>
-          {url ? (
-            <audio controls preload={saver ? 'none' : 'metadata'} src={url} className="h-10 w-56 max-w-full" aria-label={t('groupChat.voice') ?? ''} />
-          ) : waitForTap ? (
-            <button
-              type="button"
-              onClick={() => setWanted(true)}
-              className="rounded-full bg-slate-900/10 px-3 py-1.5 text-sm font-medium text-slate-700"
-              aria-label={t('network.download_voice', { size: formatBytes(a.byteSize) }) ?? ''}
-            >
-              ⬇ {t('groupChat.voice')} · {formatBytes(a.byteSize)}
-            </button>
-          ) : (
-            <span className="text-xs text-slate-500">{failed ? '⚠️' : t('groupChat.loading')}</span>
-          )}
-        </div>
+        <VoiceNotePlayer
+          url={url}
+          byteSize={a.byteSize}
+          seedId={a.id}
+          avatarName={senderName}
+          avatarPhotoUrl={senderPhotoUrl}
+          waitForTap={waitForTap}
+          failed={failed}
+          onRequestDownload={() => setWanted(true)}
+        />
       ) : url ? (
         // preload="none": nothing downloads until the person presses play.
         <video controls playsInline preload="none" src={url} className="max-h-80 w-full min-w-[12rem] rounded-md bg-black" aria-label={t('groupChat.video') ?? ''} />
@@ -272,7 +278,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
       >
         <div
           className={`relative rounded-lg px-2 pb-1 pt-1.5 text-[15px] shadow-sm ${
-            m.isOwn ? 'rounded-br-sm bg-[#dcf8c6]' : 'rounded-bl-sm bg-white'
+            m.isOwn ? 'rounded-br-sm bg-[#d9fdd3]' : 'rounded-bl-sm bg-white'
           } ${highlighted ? 'ring-2 ring-amber-400' : ''} ${m.pending ? 'opacity-70' : ''}`}
         >
           {showSender && !m.isOwn && <p className={`mb-0.5 text-xs font-semibold ${nameColor(m.senderName)}`}>{m.senderName}</p>}
@@ -294,7 +300,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
               )}
               {playables.map((a) => (
                 <div key={a.id} className="mb-1">
-                  <PlayableAttachment mediaBase={mediaBase} messageId={m.id} a={a} />
+                  <PlayableAttachment mediaBase={mediaBase} messageId={m.id} a={a} senderName={m.senderName} senderPhotoUrl={m.senderPhotoUrl} />
                 </div>
               ))}
               {documents.map((a) => (

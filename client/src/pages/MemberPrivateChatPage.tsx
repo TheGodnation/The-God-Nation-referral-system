@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, NetworkError } from '../lib/api';
+import { useMemberAuth } from '../lib/MemberAuthContext';
 import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
@@ -61,6 +62,7 @@ function mergeLatest(prev: ChatMessage[], latest: ChatMessage[]): ChatMessage[] 
 // videos and documents. New messages show up every few seconds.
 export function MemberPrivateChatPage() {
   const { t } = useTranslation();
+  const { member } = useMemberAuth();
   const { chatWallpaper } = usePublicSettings();
   const { conversationId = '' } = useParams();
   const base = `/api/private-messages/conversations/${conversationId}`;
@@ -92,11 +94,16 @@ export function MemberPrivateChatPage() {
   const otherName =
     other?.otherPartyType === 'CENTRAL_AUTHORITY' ? t('privateChat.headquarters') : other?.otherPartyName || t('privateChat.someone');
   otherNameRef.current = otherName;
+  const otherPhotoUrlRef = useRef<string | null | undefined>(null);
+  otherPhotoUrlRef.current = other?.otherPartyPhotoUrl;
+  const ownPhotoUrlRef = useRef<string | null | undefined>(null);
+  ownPhotoUrlRef.current = member?.photoUrl;
 
   const toChat = useCallback(
     (r: PrivateRow): ChatMessage => ({
       id: r.id,
       senderName: r.isOwn ? t('groupChat.you') : otherNameRef.current,
+      senderPhotoUrl: r.isOwn ? ownPhotoUrlRef.current : otherPhotoUrlRef.current,
       isOwn: r.isOwn,
       body: r.body || null,
       createdAt: r.createdAt,

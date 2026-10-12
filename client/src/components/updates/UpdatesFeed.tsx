@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Avatar } from '../Avatar';
+import { VoiceInputButton } from '../VoiceInputButton';
 import { YoutubeEmbed } from './YoutubeEmbed';
 import { baseMime, shrinkPhoto } from '../../lib/chatMedia';
 import { useDataSaver } from '../../lib/dataSaver';
@@ -251,6 +252,10 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
             aria-label={t('updates.add_photos') ?? ''}
             onChange={(e) => void addFiles(e.target.files)}
           />
+          <VoiceInputButton
+            onResult={(transcript) => setBody((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript))}
+            className="rounded-lg p-2 text-lg hover:bg-slate-100"
+          />
         </div>
         <button type="submit" className="btn-primary px-5 py-1.5" disabled={posting || preparing}>
           {posting ? t('updates.posting') : t('updates.post')}
@@ -413,6 +418,7 @@ function CommentForm({
           autoFocus={autoFocus}
           onChange={(e) => setDraft(e.target.value)}
         />
+        <VoiceInputButton onResult={(transcript) => setDraft((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript))} />
         <button type="submit" className="btn-primary rounded-full px-4" disabled={sending || !draft.trim()}>
           {t('updates.send')}
         </button>

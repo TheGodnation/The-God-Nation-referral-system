@@ -1903,6 +1903,8 @@
     "open_photo": "Open photo",
     "video": "Video",
     "voice": "Voice message",
+    "voice_play": "Play voice message",
+    "voice_pause": "Pause voice message",
     "document_label": "Document",
     "tip": "Swipe a message to the right to reply. Press and hold a message to react 👍 ❤️ 🙏.",
     "tip_close": "Got it",
@@ -1916,6 +1918,10 @@
     "seen_by": "Seen by {{count}} of {{total}}",
     "delivered_to": "Received, not yet seen ({{count}})",
     "group_info": "Group info"
+  },
+  "voiceInput": {
+    "start": "Speak to type",
+    "stop": "Stop listening"
   },
   "wall": {
     "cover_alt": "{{name}}'s cover picture",
