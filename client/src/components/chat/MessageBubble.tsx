@@ -9,6 +9,11 @@ import { mediaKind, type ChatAttachment, type ChatMessage, type ChatReplyPreview
 
 const NAME_COLORS = ['text-rose-700', 'text-emerald-700', 'text-violet-700', 'text-amber-700', 'text-sky-700', 'text-fuchsia-700', 'text-teal-700', 'text-orange-700'];
 
+// Same thresholds as UpdatesFeed.tsx's own long-post truncation — a message
+// this long would otherwise fill the whole chat screen on its own.
+const LONG_MESSAGE_CHARS = 300;
+const LONG_MESSAGE_LINES = 7;
+
 export function nameColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
@@ -206,6 +211,12 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
   const showSender = showSenderProp && !privateChat;
   const { t } = useTranslation();
   const [dx, setDx] = useState(0);
+  // WhatsApp-style long-message truncation — same threshold/pattern as
+  // UpdatesFeed's own "Read more" (length OR line count, whichever comes
+  // first), so a long message never pushes the whole chat screen out of
+  // view. Collapsed by default; one toggle per bubble.
+  const [expanded, setExpanded] = useState(false);
+  const isLongBody = Boolean(m.body) && (m.body!.length > LONG_MESSAGE_CHARS || m.body!.split('\n').length > LONG_MESSAGE_LINES);
   const touch = useRef<{ x: number; y: number; swiping: boolean; timer: number | null; longPressed: boolean } | null>(null);
 
   const canInteract = !m.deleted && !m.pending;
@@ -311,7 +322,23 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                   <DocumentAttachment mediaBase={mediaBase} messageId={m.id} a={a} />
                 </div>
               ))}
-              {m.body && <p className="whitespace-pre-wrap break-words text-slate-900">{m.body}</p>}
+              {m.body && (
+                <>
+                  <p className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`}>{m.body}</p>
+                  {isLongBody && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpanded((v) => !v);
+                      }}
+                      className="text-sm font-semibold text-emerald-700"
+                    >
+                      {expanded ? t('groupChat.read_less') : t('groupChat.read_more')}
+                    </button>
+                  )}
+                </>
+              )}
             </>
           )}
 

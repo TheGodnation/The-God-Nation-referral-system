@@ -7,6 +7,7 @@ import { requireCsrf } from '../lib/csrf';
 import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { profilePhotoPath, coverPhotoPath } from '../lib/profilePhoto';
+import { titleForLevel, getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
 import { getOrCreatePrivateConversation } from '../lib/privateMessaging';
 import { friendRequestLimiter, socialMutationLimiter, memberReportLimiter, peopleSearchLimiter, messageSendLimiter } from '../lib/rateLimit';
@@ -205,7 +206,7 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
   const person = blockedMe ? null : await prisma.person.findFirst({ where: { id: other, ...APP_MEMBER }, select: personSelect });
   if (!person) return res.status(404).json({ error: 'Not found.' });
 
-  const [rel, friendCount, messageAllowed, sameGroup, leaderOf, memberOf, representations, followerCount, followingCount, viewerFollows] = await Promise.all([
+  const [rel, friendCount, messageAllowed, sameGroup, leaderOf, memberOf, representations, areaAssignments, followerCount, followingCount, viewerFollows] = await Promise.all([
     friendStatusBetween(me, other),
     getFriendIds(other).then((ids) => ids.length),
     canMessage(me, other),
@@ -219,10 +220,20 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
     prisma.representationRequest
       .findMany({ where: { personId: other, status: 'APPROVED' }, select: { label: true } })
       .then((rows) => rows.map((r) => r.label)),
+    prisma.areaLeadershipAssignment.findMany({ where: { personId: other, status: 'ACTIVE' }, include: { area: true } }),
     getFollowerCount(other),
     getFollowingCount(other),
     isFollowing(me, other),
   ]);
+
+  // Geographical Leadership Directory — "Divisional Leader of Wouri
+  // Division, Littoral, Cameroon," one entry per ACTIVE AreaLeadershipAssignment.
+  const areaLeaderOf = await Promise.all(
+    areaAssignments.map(async (a) => {
+      const ancestors = await getAreaAncestors(a.area.id);
+      return { title: titleForLevel(a.area.level), path: formatAreaPath(a.area, ancestors) };
+    }),
+  );
 
   res.json({
     personId: person.id,
@@ -235,6 +246,7 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
     leaderOf,
     memberOf,
     representations,
+    areaLeaderOf,
     sameGroup,
     friendStatus: rel.status,
     requestId: rel.requestId,

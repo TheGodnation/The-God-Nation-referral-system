@@ -21,6 +21,7 @@ interface Profile {
   leaderOf: string[];
   memberOf: string[];
   representations: string[];
+  areaLeaderOf: { title: string; path: string }[];
   sameGroup: boolean;
   friendStatus: FriendStatus;
   requestId: string | null;
@@ -136,6 +137,15 @@ export function MemberPersonPage() {
               )}
               {profile.representations.length > 0 && (
                 <p className="text-sm font-medium text-brand-700">{t('people.represents', { labels: profile.representations.join(', ') })}</p>
+              )}
+              {(profile.areaLeaderOf ?? []).length > 0 && (
+                <ul className="space-y-0.5">
+                  {profile.areaLeaderOf.map((a, i) => (
+                    <li key={i} className="text-sm font-medium text-brand-700">
+                      {a.title} — {a.path}
+                    </li>
+                  ))}
+                </ul>
               )}
 
               {!isMe && (

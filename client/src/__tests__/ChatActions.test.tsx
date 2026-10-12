@@ -171,12 +171,11 @@ describe('Search in a chat', () => {
   });
 });
 
-describe('Mute a group', () => {
-  it('mutes from the group info page', async () => {
+describe('No mute option (members always get notified)', () => {
+  it('the group info page has no mute button', async () => {
     mockFetch({
       [`GET /api/communities/${G}/conversation/members`]: () => ({ body: { members: [] } }),
-      [`GET /api/communities/${G}/conversation`]: () => ({ body: { name: 'Buea Group', muted: false } }),
-      [`PUT /api/communities/${G}/conversation/mute`]: () => ({ body: { muted: true, mutedUntil: null } }),
+      [`GET /api/communities/${G}/conversation`]: () => ({ body: { name: 'Buea Group' } }),
     });
     render(
       <MemoryRouter initialEntries={[`/member/chats/group/${G}/info`]}>
@@ -185,23 +184,22 @@ describe('Mute a group', () => {
         </Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByRole('button', { name: 'Mute' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Always' }));
-    expect(await screen.findByText('Muted always')).toBeInTheDocument();
-    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ for: 'always' });
+    await screen.findByText('Buea Group');
+    expect(screen.queryByRole('button', { name: 'Mute' })).not.toBeInTheDocument();
+    expect(screen.queryByText('🔕')).not.toBeInTheDocument();
   });
 
-  it('a muted group shows 🔕 and a grey count in the Chats list', async () => {
+  it('the Chats list always shows the unread count in green, with no muted badge', async () => {
     mockFetch({
       'GET /api/member/me/community-memberships': () => ({ body: { items: [{ communityId: G, communityName: 'Buea Group', status: 'ACTIVE' }] } }),
-      [`GET /api/communities/${G}/conversation`]: () => ({ body: { unreadCount: 3, name: 'Buea Group', muted: true, lastMessage: null } }),
+      [`GET /api/communities/${G}/conversation`]: () => ({ body: { unreadCount: 3, name: 'Buea Group', lastMessage: null } }),
     });
     render(
       <MemoryRouter>
         <MemberChatsPage />
       </MemoryRouter>,
     );
-    expect(await screen.findByLabelText('Muted')).toBeInTheDocument();
-    expect(screen.getByLabelText('3 new messages')).toHaveClass('bg-slate-400');
+    expect(screen.queryByLabelText('Muted')).not.toBeInTheDocument();
+    expect(await screen.findByLabelText('3 new messages')).toHaveClass('bg-emerald-600');
   });
 });

@@ -12,6 +12,8 @@ import { DevotionalsTab } from '../components/admin/DevotionalsTab';
 import { AssessmentsTab } from '../components/admin/AssessmentsTab';
 import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
 import { RepresentationRequestsTab } from '../components/admin/RepresentationRequestsTab';
+import { GeographicAreasTab } from '../components/admin/GeographicAreasTab';
+import { AreaRepresentationRequestsTab } from '../components/admin/AreaRepresentationRequestsTab';
 import { FollowUpsTab } from '../components/admin/FollowUpsTab';
 import { AnnouncementsTab } from '../components/admin/AnnouncementsTab';
 import { LocationsTab } from '../components/admin/LocationsTab';
@@ -42,6 +44,8 @@ type Tab =
   | 'assessments'
   | 'roleAssignments'
   | 'representationRequests'
+  | 'geographicAreas'
+  | 'areaRepresentationRequests'
   | 'followUps'
   | 'announcements'
   | 'headquartersPosts'
@@ -1672,6 +1676,12 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'representationRequests'} onClick={() => setTab('representationRequests')}>
               {t('admin.tabs.representationRequests')}
             </TabButton>
+            <TabButton active={tab === 'geographicAreas'} onClick={() => setTab('geographicAreas')}>
+              {t('admin.tabs.geographicAreas')}
+            </TabButton>
+            <TabButton active={tab === 'areaRepresentationRequests'} onClick={() => setTab('areaRepresentationRequests')}>
+              {t('admin.tabs.areaRepresentationRequests')}
+            </TabButton>
             <TabButton active={tab === 'followUps'} onClick={() => setTab('followUps')}>
               {t('admin.tabs.followUps')}
             </TabButton>
@@ -1734,6 +1744,8 @@ export function AdminDashboardPage() {
         {tab === 'library' && <LibraryTab />}
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
         {tab === 'representationRequests' && <RepresentationRequestsTab />}
+        {tab === 'geographicAreas' && <GeographicAreasTab />}
+        {tab === 'areaRepresentationRequests' && <AreaRepresentationRequestsTab />}
         {tab === 'followUps' && <FollowUpsTab />}
         {tab === 'announcements' && <AnnouncementsTab />}
         {tab === 'headquartersPosts' && <HeadquartersPostsTab />}

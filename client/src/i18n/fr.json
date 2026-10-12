@@ -470,7 +470,9 @@
       "updates": "Actualités",
       "memberReports": "Signalements",
       "library": "Bibliothèque et formation",
-      "memberMap": "Carte des membres"
+      "memberMap": "Carte des membres",
+      "geographicAreas": "Zones géographiques",
+      "areaRepresentationRequests": "Demandes de zone"
     },
     "overview": {
       "total_visits": "Visites totales",
@@ -1303,6 +1305,49 @@
       "saved": "Enregistré.",
       "save_failed": "Impossible d'enregistrer. Veuillez réessayer.",
       "load_failed": "Impossible de charger les détails du groupe."
+    },
+    "geographicAreas": {
+      "title": "Répertoire des responsables géographiques",
+      "description": "Construisez l'arborescence Pays -> Région -> Division -> Sous-division -> Quartier et désignez qui dirige chaque zone. Un niveau est toujours déduit de son parent — jamais choisi directement.",
+      "countries": "Pays",
+      "new_country": "+ Nouveau pays",
+      "new_sub_area": "+ Nouvelle sous-zone",
+      "country_name_label": "Nom du pays",
+      "sub_area_name_label": "Nom de la zone",
+      "name_placeholder": "ex. Littoral",
+      "create": "Créer",
+      "save": "Enregistrer",
+      "rename": "Renommer",
+      "delete": "Supprimer",
+      "assign_leader": "Désigner un responsable",
+      "end": "Mettre fin",
+      "vacant": "Vacant — aucun responsable désigné",
+      "table_name": "Nom",
+      "table_level": "Niveau",
+      "table_leader": "Responsable",
+      "table_action": "Action",
+      "level_national": "National",
+      "level_region": "Région",
+      "level_division": "Division",
+      "level_subdivision": "Sous-division",
+      "level_quarter": "Quartier",
+      "no_countries": "Aucun pays pour le moment.",
+      "no_sub_areas": "Aucune sous-zone pour le moment.",
+      "load_failed": "Échec du chargement des zones.",
+      "create_failed": "Échec de la création de la zone. Veuillez réessayer.",
+      "rename_failed": "Échec du renommage de la zone. Veuillez réessayer.",
+      "delete_failed": "Échec de la suppression de la zone. Veuillez réessayer.",
+      "assign_failed": "Échec de la désignation du responsable. Veuillez réessayer.",
+      "end_failed": "Échec de la fin de la désignation. Veuillez réessayer.",
+      "delete_confirm": "Supprimer cette zone ? Cette action est irréversible.",
+      "end_confirm": "Mettre fin à la responsabilité de cette personne sur cette zone ?"
+    },
+    "areaRepresentationRequests": {
+      "title": "Demandes de représentation de zone",
+      "description": "Examinez les demandes des membres pour représenter une zone géographique réelle. Approuver ici crée directement la désignation de responsable.",
+      "table_area": "Zone",
+      "load_failed": "Échec du chargement des demandes.",
+      "decision_failed": "Échec de l'enregistrement de la décision. Veuillez réessayer."
     }
   },
   "communityConversation": {
@@ -1466,7 +1511,17 @@
     "representation_request_approved": "Votre demande pour représenter « {{label}} » a été approuvée",
     "representation_request_declined": "Votre demande pour représenter « {{label}} » a été refusée",
     "prayer_request_comment": "{{name}} a commenté votre demande de prière",
-    "prayer_request_submitted_privately": "{{name}} a partagé une demande de prière privée avec vous"
+    "prayer_request_submitted_privately": "{{name}} a partagé une demande de prière privée avec vous",
+    "announcement_published": "Nouvelle annonce : {{title}}",
+    "headquarters_post_published": "Nouvelle publication du Quartier général : {{title}}",
+    "enable_title": "Activer les notifications",
+    "enable_body": "Soyez averti des nouveaux messages, annonces et mises à jour — même quand l’application est fermée.",
+    "enable_button": "Activer les notifications",
+    "enabling": "Activation…",
+    "enable_failed": "Impossible d’activer les notifications. Veuillez réessayer.",
+    "need_help": "Besoin d’aide ?",
+    "area_leadership_assigned": "Vous êtes maintenant {{title}} pour {{area}}",
+    "area_representation_request_declined": "Votre demande pour représenter {{area}} a été refusée"
   },
   "memberHome": {
     "title": "Accueil",
@@ -1494,7 +1549,17 @@
     "history_title": "Vos demandes",
     "directory_title": "Représentants approuvés",
     "directory_empty": "Personne n'a encore de représentation approuvée.",
-    "load_failed": "Échec du chargement de l'annuaire des leaders."
+    "load_failed": "Échec du chargement de l'annuaire des leaders.",
+    "geo_title": "Trouvez le responsable de votre zone",
+    "geo_help": "Parcourez par pays et par niveau pour voir qui représente votre zone — ou faites défiler pour demander à en représenter une vous-même.",
+    "geo_all_levels": "Tous les niveaux",
+    "geo_none_represented": "Aucune zone à ce niveau n'a encore de responsable désigné.",
+    "geo_vacant_title": "Zones sans responsable",
+    "geo_load_failed": "Échec du chargement du répertoire.",
+    "geo_request_title": "Demander à représenter une zone",
+    "geo_search_placeholder": "Rechercher une zone, ex. Bepanda",
+    "geo_no_matches": "Aucune zone correspondante trouvée.",
+    "geo_submit_failed": "Échec de l'envoi de votre demande. Veuillez réessayer."
   },
   "myReferrals": {
     "title": "Mes parrainages",
@@ -1833,7 +1898,8 @@
     "body": "Mettez l’application sur votre écran d’accueil et ouvrez votre communauté en un clic.",
     "ios": "Sur iPhone : touchez le bouton Partager dans Safari, puis « Sur l’écran d’accueil ».",
     "button": "Installer",
-    "close": "Fermer"
+    "close": "Fermer",
+    "need_help": "Besoin d’aide ?"
   },
   "groupChat": {
     "group": "Groupe",
@@ -1861,6 +1927,8 @@
     "record_video": "Vidéo",
     "document": "Document",
     "record_voice": "Touchez pour enregistrer un message vocal",
+    "read_more": "Lire la suite",
+    "read_less": "Réduire",
     "recording": "Enregistrement…",
     "hold_longer": "Maintenez le micro un peu plus longtemps pour enregistrer.",
     "cancel": "Annuler",
@@ -2049,16 +2117,6 @@
     "search": "Rechercher dans cette discussion",
     "search_placeholder": "Rechercher des messages…",
     "close_search": "Fermer la recherche",
-    "no_results": "Aucun message trouvé.",
-    "mute": "Mettre en sourdine",
-    "unmute": "Réactiver",
-    "mute_title": "Notifications en sourdine",
-    "mute_8h": "8 heures",
-    "mute_1w": "1 semaine",
-    "mute_always": "Toujours",
-    "muted": "En sourdine",
-    "muted_until": "En sourdine jusqu’à {{when}}",
-    "muted_always": "Toujours en sourdine",
-    "not_muted": "Les nouveaux messages s’affichent en vert dans vos Discussions."
+    "no_results": "Aucun message trouvé."
   }
 }

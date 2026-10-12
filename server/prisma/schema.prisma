@@ -178,6 +178,20 @@ enum NotificationType {
   // Phase 2 — Prayer requests.
   PRAYER_REQUEST_COMMENT
   PRAYER_REQUEST_SUBMITTED_PRIVATELY
+  // Phase 5 — Central Authority broadcasts. Fired once per publish, fanned
+  // out to every Person currently matching the item's own audience rule
+  // (Announcement's Community targets; HeadquartersPost's networkWide-or-
+  // targets) — never a separately stored recipient list, so it always
+  // reflects live membership at the moment of publish. Deliberately NOT
+  // added for UpdatePost (an ordinary Member's own wall post, not a Central
+  // Authority broadcast) — notifying the entire membership on every
+  // member's personal post would be spam, not the "important updates" this
+  // was asked for.
+  ANNOUNCEMENT_PUBLISHED
+  HEADQUARTERS_POST_PUBLISHED
+  // Phase 6 — Geographical Leadership Directory.
+  AREA_LEADERSHIP_ASSIGNED
+  AREA_REPRESENTATION_REQUEST_DECLINED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -266,11 +280,14 @@ model User {
   resourceAccessGrantsGiven                      ResourceAccessGrant[]                    @relation("ResourceAccessGrantGrantedBy")
   resourceAccessGrantsRevoked                    ResourceAccessGrant[]                    @relation("ResourceAccessGrantRevokedBy")
   notifications                                  Notification[]
+  pushSubscriptions                              PushSubscription[]
   updatePostsDeleted                             UpdatePost[]                             @relation("UpdatePostDeletedByUser")
   updateCommentsDeleted                          UpdateComment[]                          @relation("UpdateCommentDeletedByUser")
   memberReportsResolved                          MemberReport[]                           @relation("MemberReportResolvedByUser")
   trainingEnrollmentsActivated                   TrainingEnrollment[]                     @relation("TrainingEnrollmentActivatedBy")
   representationRequestsDecided                  RepresentationRequest[]
+  areaLeadershipAssignmentsAssigned              AreaLeadershipAssignment[]               @relation("AreaLeadershipAssignedBy")
+  areaRepresentationRequestsDecided              AreaRepresentationRequest[]
   prayerRequestsDeleted                          PrayerRequest[]                          @relation("PrayerRequestDeletedByUser")
   prayerRequestCommentsDeleted                   PrayerRequestComment[]                   @relation("PrayerRequestCommentDeletedByUser")
 
@@ -664,7 +681,6 @@ model Person {
   hiddenMessages                                  MessageHiddenForPerson[]
   messageReactions                                MessageReaction[]
   updateCommentReactions                          UpdateCommentReaction[]
-  groupChatMutes                                  GroupChatMute[]
   uploadedAttachments                             MessageAttachment[]                       @relation("MessageAttachmentUploadedBy")
   followUpMessages                                FollowUpMessage[]
   announcementReads                               AnnouncementRead[]
@@ -683,6 +699,7 @@ model Person {
   privateMessageReactions                         PrivateMessageReaction[]
   resourceAccessGrants                            ResourceAccessGrant[]
   notifications                                   Notification[]
+  pushSubscriptions                               PushSubscription[]
   updatePosts                                     UpdatePost[]                              @relation("UpdatePostAuthor")
   updatePostsDeleted                              UpdatePost[]                              @relation("UpdatePostDeletedByPerson")
   updateComments                                  UpdateComment[]                           @relation("UpdateCommentAuthor")
@@ -699,6 +716,8 @@ model Person {
   reportsMade                                     MemberReport[]                            @relation("MemberReportReporter")
   reportsAbout                                    MemberReport[]                            @relation("MemberReportReported")
   representationRequests                          RepresentationRequest[]
+  areaLeadershipAssignments                       AreaLeadershipAssignment[]
+  areaRepresentationRequests                      AreaRepresentationRequest[]
   referralCode                                    ReferralCode?
   referralsMade                                   Registration[]                            @relation("RegistrationReferredBy")
   prayerRequests                                  PrayerRequest[]                           @relation("PrayerRequestAuthor")
@@ -748,7 +767,6 @@ model Community {
   devotionals                             MonthlyDevotional[]
   roleAssignments                         RoleAssignment[]
   conversation                            Conversation?
-  chatMutes                               GroupChatMute[]
   announcementTargets                     AnnouncementTarget[]
   headquartersSettings                    Settings[]                               @relation("SettingsHeadquarters")
   organizationalLeadershipRecommendations OrganizationalLeadershipRecommendation[]
@@ -1208,6 +1226,125 @@ model RepresentationRequest {
   @@index([status])
 }
 
+// ---------------------------------------------------------------------------
+// Phase 6 — Geographical Leadership Directory.
+//
+// A past phase ("Geography Retirement") deliberately removed the old
+// Geography model and every authorization path through it, ending with the
+// explicit design decision recorded above RoleAssignment: the organizational
+// model is Community-scoped leadership only, with no geographic hierarchy.
+// This is a NEW, DELIBERATELY SEPARATE concept, not a resurrection of that
+// one: GeographicArea/AreaLeadershipAssignment below are a pure
+// directory/representation layer — "who represents this area, for people to
+// find and contact" — and are NEVER consulted for member placement,
+// Community routing, Follow-Up scope, or any other authorization check in
+// this codebase. A GeographicArea is not a Community, has no
+// CommunityMembership, and granting AreaLeadershipAssignment never creates a
+// RoleAssignment or any Community-scoped capability.
+// ---------------------------------------------------------------------------
+
+// Country -> Region -> Division -> Subdivision -> Quarter, exactly one level
+// at a time (enforced in adminGeographicAreas.ts, not the database — a tree
+// depth rule, like Community's own parent/child tree, belongs to the
+// application, not a CHECK constraint). A country's actual administrative
+// terms vary (not every country calls its second level "Region"), so the
+// same five ranks are reused for every country and the Admin UI/leadership
+// titles are the only place the English labels below are shown.
+enum GeographicLevel {
+  NATIONAL
+  REGION
+  DIVISION
+  SUBDIVISION
+  QUARTER
+}
+
+// Self-referencing tree, exactly the same proven shape as Community's own
+// "CommunityHierarchy" relation — deliberately reusing that pattern rather
+// than inventing a new one. `country` is denormalized onto every row (set
+// once at creation from the NATIONAL ancestor's own name, never edited
+// independently) purely so the directory can filter/group by country in one
+// indexed query instead of walking the tree for every row.
+model GeographicArea {
+  id        String          @id @default(uuid())
+  parentId  String?
+  level     GeographicLevel
+  name      String
+  country   String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  parent                 GeographicArea?             @relation("GeographicAreaHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children               GeographicArea[]            @relation("GeographicAreaHierarchy")
+  leadershipAssignments  AreaLeadershipAssignment[]
+  representationRequests AreaRepresentationRequest[]
+
+  @@index([parentId])
+  @@index([country, level])
+}
+
+enum AreaLeadershipStatus {
+  ACTIVE
+  ENDED
+}
+
+// Mirrors RoleAssignment's own shape and conventions exactly (admin-only
+// creation, soft-ended via status/endedAt, never hard-deleted) — "leader of
+// this exact GeographicArea" is a distinct capability from "leader of this
+// exact Community" (RoleAssignment), not a variant of it, so it gets its own
+// model rather than overloading RoleAssignment with a second scope type.
+model AreaLeadershipAssignment {
+  id               String               @id @default(uuid())
+  personId         String
+  areaId           String
+  assignedByUserId String
+  assignedAt       DateTime             @default(now())
+  status           AreaLeadershipStatus @default(ACTIVE)
+  endedAt          DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  person     Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  area       GeographicArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  assignedBy User           @relation("AreaLeadershipAssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@index([personId])
+  @@index([areaId])
+  @@index([status])
+}
+
+enum AreaRepresentationRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+// "Request to represent a geographical area" — same submit/decide shape as
+// RepresentationRequest, but targeting a real GeographicArea instead of a
+// free-text label, and an APPROVAL here actually creates an
+// AreaLeadershipAssignment (see routes/adminAreaRepresentationRequests.ts):
+// unlike RepresentationRequest's deliberate "decide, never appoint"
+// boundary, this one's whole purpose is the appointment — submitting a
+// request still never grants anything by itself, only Admin's approval does.
+model AreaRepresentationRequest {
+  id              String                          @id @default(uuid())
+  personId        String
+  areaId          String
+  note            String?
+  status          AreaRepresentationRequestStatus @default(PENDING)
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+  decidedAt       DateTime?
+  decidedByUserId String?
+  decisionNote    String?
+
+  person        Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  area          GeographicArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  decidedByUser User?          @relation(fields: [decidedByUserId], references: [id])
+
+  @@index([personId, status])
+  @@index([areaId, status])
+}
+
 // Phase 3M.1: exactly one persistent, text-only conversation per Community
 // (communityId is unique) — never a per-person or per-leader conversation,
 // and never a generic polymorphic conversation shape. Access is derived
@@ -1304,21 +1441,6 @@ model MessageReaction {
 
   @@unique([messageId, personId])
   @@index([messageId])
-}
-
-// "Mute" a busy group for one person: no new-message alerts and a grey
-// count in the chat list. `until` null means always.
-model GroupChatMute {
-  id          String    @id @default(uuid())
-  personId    String
-  communityId String
-  until       DateTime?
-  createdAt   DateTime  @default(now())
-
-  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
-  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-
-  @@unique([personId, communityId])
 }
 
 model MessageHiddenForPerson {
@@ -2014,6 +2136,31 @@ model Notification {
 
   @@index([recipientPersonId, readAt, createdAt])
   @@index([recipientUserId, readAt, createdAt])
+}
+
+// Phase 5 — Web Push subscriptions (background/closed-app delivery for the
+// Notification events above, plus the direct group-chat-message push — see
+// lib/push.ts). Same identity-duality shape as Notification: exactly one of
+// personId/userId is set, enforced by the same style of CHECK constraint
+// pattern. One row per browser/device subscription — a Person using the app
+// on two phones has two rows, both receive every push. `endpoint` is
+// globally unique (it already encodes the specific device+browser
+// registration), so re-subscribing the same device just upserts in place.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  personId  String?
+  userId    String?
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  person Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------

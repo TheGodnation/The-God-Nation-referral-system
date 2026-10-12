@@ -1,10 +1,12 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireCsrf } from '../lib/csrf';
 import { notificationReadLimiter } from '../lib/rateLimit';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { resolvePrivateMessagingActor, type PrivateMessagingActor } from '../lib/privateMessaging';
+import { isPushConfigured, vapidPublicKey } from '../lib/push';
 
 // In-App Notifications Foundation — a shared authenticated surface for
 // whichever identity the caller resolves to (a Member or Leader, both
@@ -107,6 +109,65 @@ router.patch('/:id/read', notificationReadLimiter, requireCsrf, asyncHandler(asy
     : await prisma.notification.update({ where: { id }, data: { readAt: new Date() } });
 
   res.json({ id: updated.id, readAt: updated.readAt });
+}));
+
+// ── Web Push subscriptions (background/closed-app delivery) ────────────
+// See lib/push.ts for why this exists: the Notification rows above are an
+// in-app inbox only — nothing reaches a closed app/tab without a real
+// browser Push subscription behind it.
+
+// GET /api/notifications/push/vapid-public-key — the public key the client
+// passes to PushManager.subscribe(). `configured: false` means the server
+// has no VAPID keys set (Render env vars) — the client should not attempt
+// to subscribe (it would "succeed" locally but nothing would ever be
+// delivered), and should say so rather than claiming notifications work.
+router.get('/push/vapid-public-key', asyncHandler(async (_req, res) => {
+  res.json({ configured: isPushConfigured(), publicKey: vapidPublicKey() });
+}));
+
+const subscribeSchema = z.object({
+  endpoint: z.string().trim().min(1).max(2000),
+  keys: z.object({
+    p256dh: z.string().trim().min(1).max(500),
+    auth: z.string().trim().min(1).max(500),
+  }),
+  userAgent: z.string().trim().max(500).optional(),
+});
+
+// POST /api/notifications/push/subscribe — registers (or re-registers) one
+// browser/device subscription for the caller. Keyed by `endpoint` (already
+// globally unique per registration), so calling this again for the same
+// device — e.g. the service worker refreshing its own subscription — just
+// updates who owns it rather than creating a duplicate row.
+router.post('/push/subscribe', notificationReadLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const actor = req.notificationActor!;
+  const parsed = subscribeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid subscription.' });
+  const { endpoint, keys, userAgent } = parsed.data;
+
+  const identity =
+    actor.type === 'PERSON'
+      ? { personId: actor.personId, userId: null }
+      : { personId: null, userId: actor.userId };
+
+  await prisma.pushSubscription.upsert({
+    where: { endpoint },
+    create: { endpoint, p256dh: keys.p256dh, auth: keys.auth, userAgent: userAgent ?? null, ...identity },
+    update: { p256dh: keys.p256dh, auth: keys.auth, userAgent: userAgent ?? null, ...identity },
+  });
+  res.status(201).json({ ok: true });
+}));
+
+// DELETE /api/notifications/push/subscribe — called when the client turns
+// notifications off, or the browser/OS has revoked permission. Ownership
+// isn't checked beyond the endpoint matching — an endpoint is an opaque,
+// unguessable per-device URL, the same trust boundary the browser itself
+// relies on, so this never needs to resolve "whose" it is first.
+router.delete('/push/subscribe', notificationReadLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = z.object({ endpoint: z.string().trim().min(1) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request.' });
+  await prisma.pushSubscription.deleteMany({ where: { endpoint: parsed.data.endpoint } });
+  res.json({ ok: true });
 }));
 
 export default router;

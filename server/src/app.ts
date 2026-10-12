@@ -58,6 +58,9 @@ import socialRoutes from './routes/social';
 import { adminMemberReportsRouter, leaderMemberReportsRouter } from './routes/memberReports';
 import representationRequestsRoutes from './routes/representationRequests';
 import adminRepresentationRequestsRoutes from './routes/adminRepresentationRequests';
+import areaRepresentationRequestsRoutes from './routes/areaRepresentationRequests';
+import adminAreaRepresentationRequestsRoutes from './routes/adminAreaRepresentationRequests';
+import adminGeographicAreasRoutes from './routes/adminGeographicAreas';
 import memberReferralsRoutes from './routes/memberReferrals';
 import examWorldRoutes from './routes/examWorld';
 import adminLibraryRoutes from './routes/adminLibrary';
@@ -227,6 +230,14 @@ export function createApp() {
   // request, Admin review, and the public Leadership Directory.
   app.use('/api/member', representationRequestsRoutes);
   app.use('/api/admin', adminRepresentationRequestsRoutes);
+  // Phase 6 — Geographical Leadership Directory: the Admin-managed area
+  // tree + area leadership assignments, a Member's own "request to
+  // represent an area" (targeting a real GeographicArea, unlike the
+  // free-text RepresentationRequest above) and its Admin review, and the
+  // Member-facing directory browse/search endpoints.
+  app.use('/api/admin', adminGeographicAreasRoutes);
+  app.use('/api/admin', adminAreaRepresentationRequestsRoutes);
+  app.use('/api/member', areaRepresentationRequestsRoutes);
   // A Member's own referral link and "My Referrals" page.
   app.use('/api/member', memberReferralsRoutes);
   // Exam World: member summary/reader, admin library & trainees, leader results.

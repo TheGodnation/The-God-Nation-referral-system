@@ -22,7 +22,9 @@ import { EmailService } from '../lib/email';
 import * as storage from '../lib/storage';
 import { bootstrap } from './testUtils';
 
-// WhatsApp actions: delete for everyone, edit, search, mute, forward.
+// WhatsApp actions: delete for everyone, edit, search, forward. (No mute —
+// members always receive notifications; see "No longer exposes a mute
+// endpoint" below.)
 const app = createApp();
 
 let ipCounter = 0;
@@ -128,12 +130,21 @@ describe('Group: edit', () => {
     expect(poll.body.recent.find((r: any) => r.id === id)).toMatchObject({ edited: true, body: 'Meeting at 6' });
 
     expect((await ada.agent.patch(`${g(c.id)}/messages/${id}`).set('X-CSRF-Token', ada.csrf).send({ body: '   ' })).status).toBe(400);
+
+    // An edit can be as long as the message was allowed to be when first
+    // sent (WhatsApp's own 65,536-char limit), not capped back down to an
+    // old, smaller bound.
+    const longEdit = await ada.agent.patch(`${g(c.id)}/messages/${id}`).set('X-CSRF-Token', ada.csrf).send({ body: 'x'.repeat(5000) });
+    expect(longEdit.status).toBe(200);
+    expect(longEdit.body.body).toHaveLength(5000);
+    expect((await ada.agent.patch(`${g(c.id)}/messages/${id}`).set('X-CSRF-Token', ada.csrf).send({ body: 'x'.repeat(65537) })).status).toBe(400);
+
     await prisma.message.update({ where: { id }, data: { createdAt: new Date(Date.now() - 20 * 60 * 1000) } });
     expect((await ada.agent.patch(`${g(c.id)}/messages/${id}`).set('X-CSRF-Token', ada.csrf).send({ body: 'Too late' })).status).toBe(400);
   });
 });
 
-describe('Group: search and mute', () => {
+describe('Group: search', () => {
   it('finds messages by a word, never removed ones, and only for members', async () => {
     const c = await prisma.community.create({ data: { name: 'Search Group' } });
     const ada = await member('Ada', c.id);
@@ -151,31 +162,11 @@ describe('Group: search and mute', () => {
     expect((await outsider.agent.get(`${g(c.id)}/search?q=prayer`)).status).toBe(403);
   });
 
-  it('mutes for 8 hours, always, and unmutes — only for the person who chose it', async () => {
-    const c = await prisma.community.create({ data: { name: 'Mute Group' } });
+  it('no longer exposes a mute endpoint — members always receive notifications', async () => {
+    const c = await prisma.community.create({ data: { name: 'No Mute Group' } });
     const ada = await member('Ada', c.id);
-    const ben = await member('Ben', c.id);
-
-    const muted = await ada.agent.put(`${g(c.id)}/mute`).set('X-CSRF-Token', ada.csrf).send({ for: '8h' });
-    expect(muted.status).toBe(200);
-    const meta = await ada.agent.get(g(c.id));
-    expect(meta.body.muted).toBe(true);
-    expect(new Date(meta.body.mutedUntil).getTime()).toBeGreaterThan(Date.now() + 7 * 60 * 60 * 1000);
-    expect((await ben.agent.get(g(c.id))).body.muted).toBe(false);
-
-    await ada.agent.put(`${g(c.id)}/mute`).set('X-CSRF-Token', ada.csrf).send({ for: 'always' });
-    expect((await ada.agent.get(g(c.id))).body).toMatchObject({ muted: true, mutedUntil: null });
-
-    // An expired mute counts as not muted.
-    await prisma.groupChatMute.update({
-      where: { personId_communityId: { personId: ada.person.id, communityId: c.id } },
-      data: { until: new Date(Date.now() - 1000) },
-    });
-    expect((await ada.agent.get(g(c.id))).body.muted).toBe(false);
-
-    await ada.agent.delete(`${g(c.id)}/mute`).set('X-CSRF-Token', ada.csrf);
-    expect(await prisma.groupChatMute.count({ where: { personId: ada.person.id } })).toBe(0);
-    expect((await ada.agent.put(`${g(c.id)}/mute`).set('X-CSRF-Token', ada.csrf).send({ for: 'forever' })).status).toBe(400);
+    expect((await ada.agent.put(`${g(c.id)}/mute`).set('X-CSRF-Token', ada.csrf).send({ for: '8h' })).status).toBe(404);
+    expect((await ada.agent.get(g(c.id))).body.muted).toBeUndefined();
   });
 });
 

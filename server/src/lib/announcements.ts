@@ -88,6 +88,21 @@ export async function computeVisibleAnnouncementsForPerson(
   return eligible;
 }
 
+/** Phase 5 — every Person currently matching an Announcement's targets, for
+ * the one-time notification fan-out at publish time (see
+ * notifyAnnouncementPublished). Same "exact active membership" rule as
+ * personMatchesTargets above, resolved in one query rather than per-person. */
+export async function resolveAnnouncementAudiencePersonIds(targets: TargetRow[]): Promise<string[]> {
+  const communityIds = targets.map((t) => t.communityId).filter((id): id is string => Boolean(id));
+  if (communityIds.length === 0) return [];
+  const memberships = await prisma.communityMembership.findMany({
+    where: { communityId: { in: communityIds }, status: 'ACTIVE' },
+    select: { personId: true },
+    distinct: ['personId'],
+  });
+  return memberships.map((m) => m.personId);
+}
+
 /**
  * Phase 3M.5 — read-state helpers. Deliberately small and
  * announcement-specific (no generic notification/read-state engine): every

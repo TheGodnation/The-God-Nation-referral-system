@@ -7,7 +7,8 @@ import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
 import { headquartersPostMutationLimiter, attachmentUploadAuthorizeLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
-import { validateCommunityTargetReferences } from '../lib/headquartersPosts';
+import { validateCommunityTargetReferences, resolveHeadquartersPostAudiencePersonIds } from '../lib/headquartersPosts';
+import { notifyHeadquartersPostPublished } from '../lib/notifications';
 import {
   isAllowedAttachmentMime,
   maxBytesForMime,
@@ -443,6 +444,9 @@ router.post('/:id/publish', headquartersPostMutationLimiter, requireCsrf, asyncH
     targetType: 'HeadquartersPost',
     targetId: id,
   });
+
+  const recipientPersonIds = await resolveHeadquartersPostAudiencePersonIds(existing);
+  await notifyHeadquartersPostPublished({ id, titleEn: existing.titleEn, titleFr: existing.titleFr }, recipientPersonIds);
 
   const updated = await prisma.headquartersPost.findUnique({ where: { id }, include: targetInclude });
   res.json(toAdminResponse(updated!));

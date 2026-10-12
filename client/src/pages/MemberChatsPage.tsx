@@ -5,6 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { InstallAppBanner } from '../components/member/InstallAppBanner';
+import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { Avatar } from '../components/Avatar';
 import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatList';
 import { mediaKind } from '../components/chat/types';
@@ -30,8 +31,6 @@ interface GroupMeta {
     attachmentMimeType: string | null;
     createdAt: string;
   } | null;
-  /** 🔕 Muted by this member: grey badge, no green. */
-  muted?: boolean;
 }
 
 // One group in the Chats list, WhatsApp-style: its picture, its name, the
@@ -46,7 +45,6 @@ function GroupRow({ m }: { m: MembershipRow }) {
       .catch(() => {});
   }, [m.communityId]);
   const unread = meta?.unreadCount ?? 0;
-  const muted = Boolean(meta?.muted);
   const last = meta?.lastMessage;
   const deletedText = last?.deletedBySender ? (last.isOwn ? t('chatActions.you_deleted') : t('chatActions.deleted')) : t('groupChat.removed');
   const kind = mediaKind(last?.attachmentMimeType);
@@ -71,7 +69,7 @@ function GroupRow({ m }: { m: MembershipRow }) {
           <span className="flex items-baseline justify-between gap-2">
             <span className="truncate font-semibold text-slate-900">{meta?.name || m.communityName}</span>
             {last && (
-              <span className={`shrink-0 text-xs ${unread > 0 && !muted ? 'font-semibold text-emerald-600' : 'text-slate-400'}`}>
+              <span className={`shrink-0 text-xs ${unread > 0 ? 'font-semibold text-emerald-600' : 'text-slate-400'}`}>
                 {chatListTime(last.createdAt, i18n.language)}
               </span>
             )}
@@ -79,14 +77,9 @@ function GroupRow({ m }: { m: MembershipRow }) {
           <span className="flex items-center justify-between gap-2">
             <span className={`truncate text-sm ${unread > 0 ? 'font-medium text-slate-800' : 'text-slate-500'}`}>{preview}</span>
             <span className="flex shrink-0 items-center gap-1">
-              {muted && (
-                <span role="img" aria-label={t('chatActions.muted') ?? ''} className="text-sm text-slate-400">
-                  🔕
-                </span>
-              )}
               {unread > 0 && (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-semibold text-white ${muted ? 'bg-slate-400' : 'bg-emerald-600'}`}
+                  className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white"
                   aria-label={t('groupChat.unread', { count: unread }) ?? ''}
                 >
                   {unread}
@@ -123,6 +116,7 @@ export function MemberChatsPage() {
           <NotificationBell />
         </div>
         <InstallAppBanner />
+        <EnableNotificationsBanner />
         <div className="space-y-6">
           <section className="card p-0">
             <h2 className="px-4 pt-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{t('groupChat.groups')}</h2>

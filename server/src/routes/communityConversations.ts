@@ -38,7 +38,8 @@ import {
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
 import { profilePhotoPath, groupPhotoPath } from '../lib/profilePhoto';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping } from '../lib/presence';
-import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema, muteSchema, muteUntil } from '../lib/chatActions';
+import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
+import { pushToPersons } from '../lib/push';
 
 // WhatsApp-style quick reactions. A short fixed list keeps it simple and
 // stops anyone storing arbitrary text as a "reaction".
@@ -144,7 +145,7 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
   }
 
   const conversation = await getOrCreateConversation(communityId);
-  const [unreadCount, isAdministrator, community, last, mute] = await Promise.all([
+  const [unreadCount, isAdministrator, community, last] = await Promise.all([
     getCommunityConversationUnreadCount(personId, conversation.id),
     isCommunityAdministrator(personId, communityId),
     prisma.community.findUnique({
@@ -156,9 +157,7 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: { sender: { select: { name: true } }, attachments: { select: { mimeType: true }, take: 1 } },
     }),
-    prisma.groupChatMute.findUnique({ where: { personId_communityId: { personId, communityId } } }),
   ]);
-  const muted = Boolean(mute && (!mute.until || mute.until.getTime() > Date.now()));
   res.json({
     id: conversation.id,
     communityId: conversation.communityId,
@@ -181,9 +180,6 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
           createdAt: last.createdAt,
         }
       : null,
-    // 🔕 Muted: no unread badge colour / count in the Chats list.
-    muted,
-    mutedUntil: muted ? mute?.until ?? null : null,
   });
 }));
 
@@ -499,6 +495,30 @@ router.post(
         replyTo: replyToInclude,
       },
     });
+
+    // Phase 5 — best-effort push to every other ACTIVE member of this
+    // group, so the message reaches a closed app, not just an open one.
+    // Deliberately NOT a Notification row per member — that would flood
+    // the bell with one entry per chat message; the chat's own unread
+    // badge (and the message itself, once opened) already covers in-app
+    // awareness, so push is the only thing closed-app delivery needs here.
+    // Fire-and-forget: never delays or can fail the message-send response.
+    void (async () => {
+      const [sender, community, recipients] = await Promise.all([
+        prisma.person.findUnique({ where: { id: personId }, select: { name: true } }),
+        prisma.community.findUnique({ where: { id: communityId }, select: { name: true } }),
+        prisma.communityMembership.findMany({
+          where: { communityId, status: 'ACTIVE', personId: { not: personId } },
+          select: { personId: true },
+        }),
+      ]);
+      const preview = created.body ?? (attachmentDescriptors.length > 0 ? '📎 Attachment' : '');
+      await pushToPersons(recipients.map((r) => r.personId), {
+        title: `${sender?.name ?? 'Someone'} • ${community?.name ?? 'Group'}`,
+        body: preview.length > 120 ? `${preview.slice(0, 120)}…` : preview,
+        url: `/member/chats/group/${communityId}`,
+      });
+    })().catch(() => {});
 
     res.status(201).json({
       id: created.id,
@@ -943,7 +963,7 @@ router.get(
   }),
 );
 
-// ── WhatsApp actions: delete for everyone, edit, search, mute ──────────
+// ── WhatsApp actions: delete for everyone, edit, search ────────────────
 
 async function loadOwnGroupMessage(req: Request, res: Response) {
   const { communityId, messageId } = req.params;
@@ -1057,50 +1077,5 @@ router.get('/:communityId/conversation/search', chatSearchLimiter, asyncHandler(
     items: rows.map((m) => ({ id: m.id, senderName: m.sender.name, isOwn: m.senderPersonId === personId, body: m.body, createdAt: m.createdAt })),
   });
 }));
-
-// PUT .../conversation/mute { for: '8h' | '1w' | 'always' } and DELETE to
-// unmute — only changes the caller's own Chats list.
-router.put(
-  '/:communityId/conversation/mute',
-  messageHideLimiter,
-  requireCsrf,
-  asyncHandler(async (req, res) => {
-    const { communityId } = req.params;
-    if (!(await contextTargetExists('COMMUNITY', communityId))) {
-      return res.status(404).json({ error: 'Community not found.' });
-    }
-    const personId = req.conversationActorPersonId!;
-    if (!(await hasConversationAccess(personId, communityId))) {
-      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
-    }
-    const parsed = muteSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Choose 8 hours, 1 week or always.' });
-    const until = muteUntil(parsed.data.for);
-    await prisma.groupChatMute.upsert({
-      where: { personId_communityId: { personId, communityId } },
-      create: { personId, communityId, until },
-      update: { until },
-    });
-    res.json({ muted: true, mutedUntil: until });
-  }),
-);
-
-router.delete(
-  '/:communityId/conversation/mute',
-  messageHideLimiter,
-  requireCsrf,
-  asyncHandler(async (req, res) => {
-    const { communityId } = req.params;
-    if (!(await contextTargetExists('COMMUNITY', communityId))) {
-      return res.status(404).json({ error: 'Community not found.' });
-    }
-    const personId = req.conversationActorPersonId!;
-    if (!(await hasConversationAccess(personId, communityId))) {
-      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
-    }
-    await prisma.groupChatMute.deleteMany({ where: { personId, communityId } });
-    res.json({ muted: false, mutedUntil: null });
-  }),
-);
 
 export default router;

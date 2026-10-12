@@ -5,6 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { Avatar } from '../components/Avatar';
 import { api, ApiError } from '../lib/api';
+import { GeographicDirectory } from '../components/member/GeographicDirectory';
 
 interface RequestRow {
   id: string;
@@ -84,6 +85,8 @@ export function MemberLeadershipPage() {
         </div>
 
         <div className="space-y-6">
+          <GeographicDirectory />
+
           <section className="card space-y-3">
             <h2 className="font-semibold text-brand-900">{t('leadershipDirectory.my_request_title')}</h2>
             <p className="text-sm text-slate-500">{t('leadershipDirectory.my_request_help')}</p>

@@ -470,7 +470,9 @@
       "updates": "Updates",
       "memberReports": "Member reports",
       "library": "Library & training",
-      "memberMap": "Member map"
+      "memberMap": "Member map",
+      "geographicAreas": "Geographic Areas",
+      "areaRepresentationRequests": "Area Requests"
     },
     "overview": {
       "total_visits": "Total Visits",
@@ -1303,6 +1305,49 @@
       "saved": "Saved.",
       "save_failed": "Could not save. Please try again.",
       "load_failed": "Could not load the group details."
+    },
+    "geographicAreas": {
+      "title": "Geographical Leadership Directory",
+      "description": "Build the Country -> Region -> Division -> Subdivision -> Quarter tree and assign who leads each area. A level is always derived from its parent — never chosen directly.",
+      "countries": "Countries",
+      "new_country": "+ New Country",
+      "new_sub_area": "+ New Sub-Area",
+      "country_name_label": "Country name",
+      "sub_area_name_label": "Area name",
+      "name_placeholder": "e.g. Littoral",
+      "create": "Create",
+      "save": "Save",
+      "rename": "Rename",
+      "delete": "Delete",
+      "assign_leader": "Assign leader",
+      "end": "End",
+      "vacant": "Vacant — no leader assigned",
+      "table_name": "Name",
+      "table_level": "Level",
+      "table_leader": "Leader",
+      "table_action": "Action",
+      "level_national": "National",
+      "level_region": "Region",
+      "level_division": "Division",
+      "level_subdivision": "Subdivision",
+      "level_quarter": "Quarter",
+      "no_countries": "No countries yet.",
+      "no_sub_areas": "No sub-areas yet.",
+      "load_failed": "Failed to load areas.",
+      "create_failed": "Failed to create area. Please try again.",
+      "rename_failed": "Failed to rename area. Please try again.",
+      "delete_failed": "Failed to delete area. Please try again.",
+      "assign_failed": "Failed to assign leader. Please try again.",
+      "end_failed": "Failed to end assignment. Please try again.",
+      "delete_confirm": "Delete this area? This cannot be undone.",
+      "end_confirm": "End this person's leadership of this area?"
+    },
+    "areaRepresentationRequests": {
+      "title": "Area Representation Requests",
+      "description": "Review Members' requests to represent a real geographical area. Approving one here creates the leadership assignment directly.",
+      "table_area": "Area",
+      "load_failed": "Failed to load requests.",
+      "decision_failed": "Failed to record decision. Please try again."
     }
   },
   "communityConversation": {
@@ -1466,7 +1511,17 @@
     "representation_request_approved": "Your request to represent \"{{label}}\" was approved",
     "representation_request_declined": "Your request to represent \"{{label}}\" was declined",
     "prayer_request_comment": "{{name}} commented on your prayer request",
-    "prayer_request_submitted_privately": "{{name}} shared a private prayer request with you"
+    "prayer_request_submitted_privately": "{{name}} shared a private prayer request with you",
+    "announcement_published": "New announcement: {{title}}",
+    "headquarters_post_published": "New Headquarters post: {{title}}",
+    "enable_title": "Turn on notifications",
+    "enable_body": "Get notified about new messages, announcements and updates — even when the app is closed.",
+    "enable_button": "Turn on notifications",
+    "enabling": "Turning on…",
+    "enable_failed": "Could not turn on notifications. Please try again.",
+    "need_help": "Need help?",
+    "area_leadership_assigned": "You are now the {{title}} for {{area}}",
+    "area_representation_request_declined": "Your request to represent {{area}} was declined"
   },
   "memberHome": {
     "title": "Home",
@@ -1494,7 +1549,17 @@
     "history_title": "Your requests",
     "directory_title": "Approved representatives",
     "directory_empty": "Nobody has an approved representation yet.",
-    "load_failed": "Failed to load the leadership directory."
+    "load_failed": "Failed to load the leadership directory.",
+    "geo_title": "Find your area's representative",
+    "geo_help": "Browse by country and level to see who represents your area — or scroll down to request representing one yourself.",
+    "geo_all_levels": "All levels",
+    "geo_none_represented": "No areas at this level have an assigned representative yet.",
+    "geo_vacant_title": "Areas without a representative",
+    "geo_load_failed": "Failed to load the directory.",
+    "geo_request_title": "Request to represent an area",
+    "geo_search_placeholder": "Search for an area, e.g. Bepanda",
+    "geo_no_matches": "No matching areas found.",
+    "geo_submit_failed": "Failed to submit your request. Please try again."
   },
   "myReferrals": {
     "title": "My Referrals",
@@ -1833,7 +1898,8 @@
     "body": "Put the app on your home screen and open your community in one tap.",
     "ios": "On iPhone: tap the Share button in Safari, then \"Add to Home Screen\".",
     "button": "Install",
-    "close": "Close"
+    "close": "Close",
+    "need_help": "Need help?"
   },
   "groupChat": {
     "group": "Group",
@@ -1861,6 +1927,8 @@
     "record_video": "Video",
     "document": "Document",
     "record_voice": "Tap to record a voice note",
+    "read_more": "Read more",
+    "read_less": "Read less",
     "recording": "Recording…",
     "hold_longer": "Hold the microphone a little longer to record.",
     "cancel": "Cancel",
@@ -2049,16 +2117,6 @@
     "search": "Search in this chat",
     "search_placeholder": "Search messages…",
     "close_search": "Close search",
-    "no_results": "No messages found.",
-    "mute": "Mute",
-    "unmute": "Unmute",
-    "mute_title": "Mute notifications",
-    "mute_8h": "8 hours",
-    "mute_1w": "1 week",
-    "mute_always": "Always",
-    "muted": "Muted",
-    "muted_until": "Muted until {{when}}",
-    "muted_always": "Muted always",
-    "not_muted": "New messages show in green in your Chats list."
+    "no_results": "No messages found."
   }
 }

@@ -7,7 +7,8 @@ import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
 import { announcementMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
-import { validateTargetReferences } from '../lib/announcements';
+import { validateTargetReferences, resolveAnnouncementAudiencePersonIds } from '../lib/announcements';
+import { notifyAnnouncementPublished } from '../lib/notifications';
 
 const router = Router();
 
@@ -236,6 +237,9 @@ router.post('/:id/publish', announcementMutationLimiter, requireCsrf, asyncHandl
     targetType: 'Announcement',
     targetId: id,
   });
+
+  const recipientPersonIds = await resolveAnnouncementAudiencePersonIds(existing.targets);
+  await notifyAnnouncementPublished({ id, titleEn: existing.titleEn, titleFr: existing.titleFr }, recipientPersonIds);
 
   const updated = await prisma.announcement.findUnique({ where: { id }, include: targetInclude });
   res.json(toAdminResponse(updated!));

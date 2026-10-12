@@ -465,3 +465,187 @@ describe('In-App Notifications — mark as read', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// Phase 5 — Central Authority broadcasts (Announcement, HeadquartersPost)
+// now fan out a Notification to every Person matching the item's own
+// audience at publish time, same as the user asked for messages,
+// announcements and important updates to actually notify people.
+describe('In-App Notifications — Phase 5: Announcement published', () => {
+  it('notifies every ACTIVE member of a targeted Community, and nobody outside it', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(14);
+    const community = await makeCommunity('Notif Announce Community');
+    const outsideCommunity = await makeCommunity('Notif Announce Outside Community');
+    const inside = await makePerson('+237699100001', 'Inside Member');
+    const outside = await makePerson('+237699100002', 'Outside Member');
+    await prisma.communityMembership.create({ data: { personId: inside.id, communityId: community.id } });
+    await prisma.communityMembership.create({ data: { personId: outside.id, communityId: outsideCommunity.id } });
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Sunday Service Moved', bodyEn: 'New time: 10am.' });
+    await adminAgent
+      .patch(`/api/admin/announcements/${created.body.id}`)
+      .set('X-CSRF-Token', csrf)
+      .send({ targets: [{ communityId: community.id }] });
+
+    const published = await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    expect(published.status).toBe(200);
+
+    const insideNotifications = await prisma.notification.findMany({ where: { recipientPersonId: inside.id } });
+    expect(insideNotifications.length).toBe(1);
+    expect(insideNotifications[0].type).toBe('ANNOUNCEMENT_PUBLISHED');
+    expect((insideNotifications[0].metadata as any).titleEn).toBe('Sunday Service Moved');
+    expect(insideNotifications[0].targetId).toBe(created.body.id);
+
+    const outsideNotifications = await prisma.notification.findMany({ where: { recipientPersonId: outside.id } });
+    expect(outsideNotifications.length).toBe(0);
+  });
+
+  it('notifies an INACTIVE member\'s community-mates but not the inactive member themself', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(15);
+    const community = await makeCommunity('Notif Announce Inactive Community');
+    const active = await makePerson('+237699100003', 'Active Member');
+    const inactive = await makePerson('+237699100004', 'Inactive Member');
+    await prisma.communityMembership.create({ data: { personId: active.id, communityId: community.id, status: 'ACTIVE' } });
+    await prisma.communityMembership.create({ data: { personId: inactive.id, communityId: community.id, status: 'INACTIVE' } });
+
+    const created = await adminAgent
+      .post('/api/admin/announcements')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Inactive Test', bodyEn: 'Body.' });
+    await adminAgent.patch(`/api/admin/announcements/${created.body.id}`).set('X-CSRF-Token', csrf).send({ targets: [{ communityId: community.id }] });
+    await adminAgent.post(`/api/admin/announcements/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    expect((await prisma.notification.findMany({ where: { recipientPersonId: active.id } })).length).toBe(1);
+    expect((await prisma.notification.findMany({ where: { recipientPersonId: inactive.id } })).length).toBe(0);
+  });
+});
+
+describe('In-App Notifications — Phase 5: Headquarters post published', () => {
+  async function setHeadquarters(communityId: string) {
+    await prisma.settings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', headquartersCommunityId: communityId },
+      update: { headquartersCommunityId: communityId },
+    });
+  }
+
+  it('a network-wide post notifies every member of the Headquarters tree', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(16);
+    const hq = await makeCommunity('Notif HQ Root');
+    const child = await prisma.community.create({ data: { name: 'Notif HQ Child', parentId: hq.id } });
+    await setHeadquarters(hq.id);
+    const member = await makePerson('+237699100005', 'HQ Tree Member');
+    await prisma.communityMembership.create({ data: { personId: member.id, communityId: child.id } });
+
+    const created = await adminAgent
+      .post('/api/admin/headquarters-posts')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Network Teaching', bodyEn: 'Body.' });
+    await adminAgent.patch(`/api/admin/headquarters-posts/${created.body.id}`).set('X-CSRF-Token', csrf).send({ networkWide: true });
+    const published = await adminAgent.post(`/api/admin/headquarters-posts/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    expect(published.status).toBe(200);
+
+    const notifications = await prisma.notification.findMany({ where: { recipientPersonId: member.id } });
+    expect(notifications.length).toBe(1);
+    expect(notifications[0].type).toBe('HEADQUARTERS_POST_PUBLISHED');
+    expect((notifications[0].metadata as any).titleEn).toBe('Network Teaching');
+  });
+
+  it('a targeted post only notifies the selected Community\'s members', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(17);
+    const targeted = await makeCommunity('Notif HQ Targeted');
+    const other = await makeCommunity('Notif HQ Other');
+    const inTarget = await makePerson('+237699100006', 'HQ Targeted Member');
+    const inOther = await makePerson('+237699100007', 'HQ Other Member');
+    await prisma.communityMembership.create({ data: { personId: inTarget.id, communityId: targeted.id } });
+    await prisma.communityMembership.create({ data: { personId: inOther.id, communityId: other.id } });
+
+    const created = await adminAgent
+      .post('/api/admin/headquarters-posts')
+      .set('X-CSRF-Token', csrf)
+      .send({ titleEn: 'Targeted Teaching', bodyEn: 'Body.' });
+    await adminAgent
+      .patch(`/api/admin/headquarters-posts/${created.body.id}`)
+      .set('X-CSRF-Token', csrf)
+      .send({ targetCommunityIds: [targeted.id] });
+    await adminAgent.post(`/api/admin/headquarters-posts/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+
+    expect((await prisma.notification.findMany({ where: { recipientPersonId: inTarget.id } })).length).toBe(1);
+    expect((await prisma.notification.findMany({ where: { recipientPersonId: inOther.id } })).length).toBe(0);
+  });
+});
+
+// Phase 5 — Web Push subscriptions: registering a browser/device so the
+// Notification events above can also reach a closed app.
+describe('Web Push subscriptions', () => {
+  const samplePush = (endpoint: string) => ({
+    endpoint,
+    keys: { p256dh: 'p256dh-test-value', auth: 'auth-test-value' },
+    userAgent: 'vitest',
+  });
+
+  it('rejects an unauthenticated caller', async () => {
+    const anon = agentWithUniqueIp();
+    const res = await anon.post('/api/notifications/push/subscribe').send(samplePush('https://push.example/ep-anon'));
+    expect(res.status).toBe(401);
+  });
+
+  it('a Leader can register, re-register, and remove their own push subscription', async () => {
+    const community = await makeCommunity('Notif Push Community');
+    const { agent: leaderAgent, csrf, person } = await setupCommunityLeader(16, community.id);
+
+    const sub = await leaderAgent
+      .post('/api/notifications/push/subscribe')
+      .set('X-CSRF-Token', csrf)
+      .send(samplePush('https://push.example/ep-leader-1'));
+    expect(sub.status).toBe(201);
+
+    const row = await prisma.pushSubscription.findUnique({ where: { endpoint: 'https://push.example/ep-leader-1' } });
+    expect(row?.personId).toBe(person.id);
+    expect(row?.userId).toBeNull();
+
+    // Re-subscribing the same endpoint (e.g. the service worker refreshing
+    // its own registration) updates in place, never duplicates.
+    const again = await leaderAgent
+      .post('/api/notifications/push/subscribe')
+      .set('X-CSRF-Token', csrf)
+      .send(samplePush('https://push.example/ep-leader-1'));
+    expect(again.status).toBe(201);
+    expect(await prisma.pushSubscription.count({ where: { endpoint: 'https://push.example/ep-leader-1' } })).toBe(1);
+
+    const removed = await leaderAgent
+      .delete('/api/notifications/push/subscribe')
+      .set('X-CSRF-Token', csrf)
+      .send({ endpoint: 'https://push.example/ep-leader-1' });
+    expect(removed.status).toBe(200);
+    expect(await prisma.pushSubscription.findUnique({ where: { endpoint: 'https://push.example/ep-leader-1' } })).toBeNull();
+  });
+
+  it('an Admin\'s subscription is stored under userId, not personId', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(18);
+    await adminAgent.post('/api/notifications/push/subscribe').set('X-CSRF-Token', csrf).send(samplePush('https://push.example/ep-admin-1'));
+
+    const row = await prisma.pushSubscription.findUnique({ where: { endpoint: 'https://push.example/ep-admin-1' } });
+    expect(row?.userId).toBeTruthy();
+    expect(row?.personId).toBeNull();
+  });
+
+  it('rejects a malformed subscription payload', async () => {
+    const community = await makeCommunity('Notif Push Bad Community');
+    const { agent: leaderAgent, csrf } = await setupCommunityLeader(17, community.id);
+    const res = await leaderAgent.post('/api/notifications/push/subscribe').set('X-CSRF-Token', csrf).send({ endpoint: 'https://push.example/bad' });
+    expect(res.status).toBe(400);
+  });
+
+  it('reports whether push is configured, without ever exposing a private key', async () => {
+    const community = await makeCommunity('Notif Push Config Community');
+    const { agent: leaderAgent } = await setupCommunityLeader(18, community.id);
+    const res = await leaderAgent.get('/api/notifications/push/vapid-public-key');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('configured');
+    expect(res.body).toHaveProperty('publicKey');
+    expect(JSON.stringify(res.body)).not.toMatch(/private/i);
+  });
+});

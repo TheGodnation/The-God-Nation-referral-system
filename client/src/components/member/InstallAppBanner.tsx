@@ -54,11 +54,16 @@ export function InstallAppBanner() {
       <div className="flex-1">
         <p className="font-semibold">{t('installApp.title')}</p>
         <p className="text-brand-800">{prompt ? t('installApp.body') : t('installApp.ios')}</p>
-        {prompt && (
-          <button type="button" className="btn-primary mt-2 px-3 py-1.5 text-sm" onClick={install}>
-            {t('installApp.button')}
-          </button>
-        )}
+        <div className="mt-2 flex items-center gap-3">
+          {prompt && (
+            <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={install}>
+              {t('installApp.button')}
+            </button>
+          )}
+          <a href="/notifications-guide/" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand-700 underline">
+            {t('installApp.need_help')}
+          </a>
+        </div>
       </div>
       <button type="button" aria-label={t('installApp.close') ?? ''} className="text-brand-700" onClick={close}>
         ✕

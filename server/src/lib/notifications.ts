@@ -1,15 +1,22 @@
 import { prisma } from './prisma';
 import type { PrivateMessagingActor } from './privateMessaging';
+import { pushToPerson, pushToUser, pushToPersons, type PushPayload } from './push';
 
-// In-App Notifications Foundation — exactly the four supported events
-// (see schema.prisma's own NotificationType comment). No message text is
-// ever persisted: only `type` and a small `metadata` JSON bag (names only)
-// are stored, so the client can render its own localized message via the
-// existing i18n convention — a server-rendered English/French string would
-// defeat that. Each helper below is called exactly once, immediately after
+// In-App Notifications Foundation (see schema.prisma's own NotificationType
+// comment). No message text is ever persisted: only `type` and a small
+// `metadata` JSON bag (names only) are stored, so the client can render its
+// own localized message via the existing i18n convention — a
+// server-rendered English/French string would defeat that. Each
+// single-recipient helper below is called exactly once, immediately after
 // the single Prisma `create()` call for the underlying event's own record,
 // so exactly one Notification results per event — never duplicated by a
 // retry, since none of those call sites retry their own create.
+//
+// Phase 5 — every helper now also fires a best-effort Web Push alongside
+// the in-app row (see lib/push.ts): closed-app delivery is the whole point
+// of removing the mute option, since an in-app-only row does nothing for a
+// Member who isn't currently looking at the app. Push failures never
+// affect the Notification row itself or the caller's own request.
 
 interface CreateNotificationParams {
   recipientPersonId?: string;
@@ -22,14 +29,19 @@ interface CreateNotificationParams {
     | 'REPRESENTATION_REQUEST_APPROVED'
     | 'REPRESENTATION_REQUEST_DECLINED'
     | 'PRAYER_REQUEST_COMMENT'
-    | 'PRAYER_REQUEST_SUBMITTED_PRIVATELY';
+    | 'PRAYER_REQUEST_SUBMITTED_PRIVATELY'
+    | 'ANNOUNCEMENT_PUBLISHED'
+    | 'HEADQUARTERS_POST_PUBLISHED'
+    | 'AREA_LEADERSHIP_ASSIGNED'
+    | 'AREA_REPRESENTATION_REQUEST_DECLINED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
+  push?: PushPayload;
 }
 
 async function createNotification(params: CreateNotificationParams) {
-  return prisma.notification.create({
+  const created = await prisma.notification.create({
     data: {
       recipientPersonId: params.recipientPersonId ?? null,
       recipientUserId: params.recipientUserId ?? null,
@@ -39,6 +51,15 @@ async function createNotification(params: CreateNotificationParams) {
       targetId: params.targetId ?? null,
     },
   });
+  if (params.push) {
+    const push = params.recipientPersonId
+      ? pushToPerson(params.recipientPersonId, params.push)
+      : params.recipientUserId
+        ? pushToUser(params.recipientUserId, params.push)
+        : null;
+    push?.catch(() => {});
+  }
+  return created;
 }
 
 /** Event 1 — a Leader receives a new Follow-Up assignment. Fires for every
@@ -58,6 +79,7 @@ export async function notifyFollowUpAssigned(assignment: { id: string; followerI
     metadata: { followedPersonName: followedPerson?.name ?? '' },
     targetType: 'FollowUpAssignment',
     targetId: assignment.id,
+    push: { title: 'New follow-up assigned', body: `You've been assigned to follow up with ${followedPerson?.name ?? 'someone'}.`, url: '/leader/dashboard' },
   });
 }
 
@@ -77,18 +99,25 @@ export async function notifyRoleAssigned(roleAssignment: { id: string; personId:
     metadata: { communityName: community?.name ?? '' },
     targetType: 'RoleAssignment',
     targetId: roleAssignment.id,
+    push: { title: 'New leadership role', body: `You've been made a Leader of ${community?.name ?? 'a Community'}.`, url: '/member/me' },
   });
 }
 
 /** Event 5 — a Member's own Representation Request (see model comment in
  * schema.prisma) has been approved or declined by Admin. */
 export async function notifyRepresentationRequestDecided(request: { id: string; personId: string; label: string; status: 'PENDING' | 'APPROVED' | 'DECLINED' }) {
+  const approved = request.status === 'APPROVED';
   await createNotification({
     recipientPersonId: request.personId,
-    type: request.status === 'APPROVED' ? 'REPRESENTATION_REQUEST_APPROVED' : 'REPRESENTATION_REQUEST_DECLINED',
+    type: approved ? 'REPRESENTATION_REQUEST_APPROVED' : 'REPRESENTATION_REQUEST_DECLINED',
     metadata: { label: request.label },
     targetType: 'RepresentationRequest',
     targetId: request.id,
+    push: {
+      title: approved ? 'Representation request approved' : 'Representation request declined',
+      body: approved ? `Your request to represent "${request.label}" was approved.` : `Your request to represent "${request.label}" was declined.`,
+      url: '/member/leadership',
+    },
   });
 }
 
@@ -107,6 +136,7 @@ export async function notifyResourceGranted(grant: { id: string; personId: strin
     },
     targetType: 'ResourceAccessGrant',
     targetId: grant.id,
+    push: { title: 'New resource unlocked', body: resource?.titleEn ? `You now have access to "${resource.titleEn}".` : 'You have a new resource available.', url: '/member/learn' },
   });
 }
 
@@ -157,6 +187,14 @@ export async function notifyPrivateMessageReceived(
     metadata: { senderName },
     targetType: 'PrivateConversation',
     targetId: conversation.id,
+    push: {
+      title: senderName || 'New message',
+      body: 'Sent you a message.',
+      // Only the Member side has a known, single chat route for this
+      // conversation id today — a Leader/Admin recipient opens their own
+      // private-messages surface instead, so no deep link is included.
+      url: recipientPersonId === conversation.memberPersonId ? `/member/chats/private/${conversation.id}` : undefined,
+    },
   });
 }
 
@@ -171,6 +209,7 @@ export async function notifyPrayerRequestComment(request: { id: string; authorPe
     metadata: { commenterName: commenter?.name ?? '' },
     targetType: 'PrayerRequest',
     targetId: request.id,
+    push: { title: 'New comment on your prayer request', body: `${commenter?.name ?? 'Someone'} commented on your prayer request.`, url: '/member/prayer' },
   });
 }
 
@@ -192,7 +231,99 @@ export async function notifyPrayerRequestSubmittedPrivately(
         metadata: { authorName: author?.name ?? '' },
         targetType: 'PrayerRequest',
         targetId: request.id,
+        push: { title: 'New private prayer request', body: `${author?.name ?? 'A member'} submitted a private prayer request.`, url: '/member/prayer' },
       }),
     ),
   );
+}
+
+/** Phase 5 — a published Announcement or HeadquartersPost, fanned out to
+ * every Person currently matching its own audience rule (computed by the
+ * caller — see lib/announcements.ts / lib/headquartersPosts.ts). Uses
+ * `createMany` rather than one `createNotification` per recipient: these
+ * audiences can be an entire Community (or the whole network for a
+ * HeadquartersPost's networkWide), so this is the one place in this module
+ * where per-row overhead actually matters. The push fan-out is still one
+ * call per recipient (each may have multiple devices), but happens after
+ * the Notification rows are safely committed. */
+async function notifyBroadcastPublished(
+  type: 'ANNOUNCEMENT_PUBLISHED' | 'HEADQUARTERS_POST_PUBLISHED',
+  target: { targetType: string; targetId: string },
+  metadata: Record<string, unknown>,
+  recipientPersonIds: string[],
+  push: PushPayload,
+) {
+  if (recipientPersonIds.length === 0) return;
+  await prisma.notification.createMany({
+    data: recipientPersonIds.map((recipientPersonId) => ({
+      recipientPersonId,
+      type,
+      metadata: metadata as any,
+      targetType: target.targetType,
+      targetId: target.targetId,
+    })),
+  });
+  pushToPersons(recipientPersonIds, push).catch(() => {});
+}
+
+/** Event — every Person currently eligible to see a newly published
+ * Announcement (see lib/announcements.ts's own audience resolution, which
+ * the caller must have already used to build recipientPersonIds). */
+export async function notifyAnnouncementPublished(
+  announcement: { id: string; titleEn: string; titleFr: string | null },
+  recipientPersonIds: string[],
+) {
+  await notifyBroadcastPublished(
+    'ANNOUNCEMENT_PUBLISHED',
+    { targetType: 'Announcement', targetId: announcement.id },
+    { titleEn: announcement.titleEn, titleFr: announcement.titleFr ?? announcement.titleEn },
+    recipientPersonIds,
+    { title: 'New announcement', body: announcement.titleEn, url: '/member/chats' },
+  );
+}
+
+/** Event — every Person currently eligible to see a newly published
+ * HeadquartersPost (see lib/headquartersPosts.ts's own audience
+ * resolution, which the caller must have already used to build
+ * recipientPersonIds). */
+export async function notifyHeadquartersPostPublished(
+  post: { id: string; titleEn: string; titleFr: string | null },
+  recipientPersonIds: string[],
+) {
+  await notifyBroadcastPublished(
+    'HEADQUARTERS_POST_PUBLISHED',
+    { targetType: 'HeadquartersPost', targetId: post.id },
+    { titleEn: post.titleEn, titleFr: post.titleFr ?? post.titleEn },
+    recipientPersonIds,
+    { title: 'New Headquarters post', body: post.titleEn, url: '/member/updates' },
+  );
+}
+
+/** Phase 6 — a Person has been made the Leader of a GeographicArea (either
+ * directly by Admin, or because Admin approved their own
+ * AreaRepresentationRequest — either path creates exactly one
+ * AreaLeadershipAssignment, so this is the one place that fires). */
+export async function notifyAreaLeadershipAssigned(assignment: { id: string; personId: string; areaTitle: string; areaPath: string }) {
+  await createNotification({
+    recipientPersonId: assignment.personId,
+    type: 'AREA_LEADERSHIP_ASSIGNED',
+    metadata: { areaTitle: assignment.areaTitle, areaPath: assignment.areaPath },
+    targetType: 'AreaLeadershipAssignment',
+    targetId: assignment.id,
+    push: { title: 'New leadership role', body: `You are now the ${assignment.areaTitle} for ${assignment.areaPath}.`, url: '/member/leadership' },
+  });
+}
+
+/** Phase 6 — a Member's own AreaRepresentationRequest has been declined.
+ * (Approval never fires this — see notifyAreaLeadershipAssigned above,
+ * which covers the approved case via the assignment it creates.) */
+export async function notifyAreaRepresentationRequestDeclined(request: { id: string; personId: string; areaPath: string }) {
+  await createNotification({
+    recipientPersonId: request.personId,
+    type: 'AREA_REPRESENTATION_REQUEST_DECLINED',
+    metadata: { areaPath: request.areaPath },
+    targetType: 'AreaRepresentationRequest',
+    targetId: request.id,
+    push: { title: 'Representation request declined', body: `Your request to represent ${request.areaPath} was declined.`, url: '/member/leadership' },
+  });
 }

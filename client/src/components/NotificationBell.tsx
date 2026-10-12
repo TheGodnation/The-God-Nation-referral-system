@@ -12,7 +12,11 @@ type NotificationType =
   | 'REPRESENTATION_REQUEST_APPROVED'
   | 'REPRESENTATION_REQUEST_DECLINED'
   | 'PRAYER_REQUEST_COMMENT'
-  | 'PRAYER_REQUEST_SUBMITTED_PRIVATELY';
+  | 'PRAYER_REQUEST_SUBMITTED_PRIVATELY'
+  | 'ANNOUNCEMENT_PUBLISHED'
+  | 'HEADQUARTERS_POST_PUBLISHED'
+  | 'AREA_LEADERSHIP_ASSIGNED'
+  | 'AREA_REPRESENTATION_REQUEST_DECLINED';
 
 interface NotificationRow {
   id: string;
@@ -115,6 +119,18 @@ export function NotificationBell() {
         return t('notifications.prayer_request_comment', { name: metadata.commenterName ?? '' });
       case 'PRAYER_REQUEST_SUBMITTED_PRIVATELY':
         return t('notifications.prayer_request_submitted_privately', { name: metadata.authorName ?? '' });
+      case 'ANNOUNCEMENT_PUBLISHED': {
+        const title = isFr ? metadata.titleFr || metadata.titleEn : metadata.titleEn;
+        return t('notifications.announcement_published', { title: title ?? '' });
+      }
+      case 'HEADQUARTERS_POST_PUBLISHED': {
+        const title = isFr ? metadata.titleFr || metadata.titleEn : metadata.titleEn;
+        return t('notifications.headquarters_post_published', { title: title ?? '' });
+      }
+      case 'AREA_LEADERSHIP_ASSIGNED':
+        return t('notifications.area_leadership_assigned', { title: metadata.areaTitle ?? '', area: metadata.areaPath ?? '' });
+      case 'AREA_REPRESENTATION_REQUEST_DECLINED':
+        return t('notifications.area_representation_request_declined', { area: metadata.areaPath ?? '' });
       default:
         return '';
     }

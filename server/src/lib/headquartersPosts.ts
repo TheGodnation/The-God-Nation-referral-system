@@ -121,6 +121,28 @@ export async function computeVisibleHeadquartersPostsForPerson(
   return eligible;
 }
 
+/** Phase 5 — every Person currently matching a HeadquartersPost's audience,
+ * for the one-time notification fan-out at publish time (see
+ * notifyHeadquartersPostPublished). Same two-mode rule as
+ * personMatchesHeadquartersPost above, resolved in one query. */
+export async function resolveHeadquartersPostAudiencePersonIds(post: { networkWide: boolean; targets: TargetRow[] }): Promise<string[]> {
+  let communityIds: string[];
+  if (post.networkWide) {
+    const headquartersCommunityId = await getHeadquartersCommunityId();
+    if (!headquartersCommunityId) return [];
+    communityIds = await getDescendantCommunityIds(headquartersCommunityId);
+  } else {
+    communityIds = post.targets.map((t) => t.communityId);
+  }
+  if (communityIds.length === 0) return [];
+  const memberships = await prisma.communityMembership.findMany({
+    where: { communityId: { in: communityIds }, status: 'ACTIVE' },
+    select: { personId: true },
+    distinct: ['personId'],
+  });
+  return memberships.map((m) => m.personId);
+}
+
 /**
  * Confirms every referenced Community id in a proposed target list actually
  * exists. A client-supplied id is never trusted merely because it was
