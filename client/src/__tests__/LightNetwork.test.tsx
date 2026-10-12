@@ -2,7 +2,6 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { appendNew, applyRecent, lastServerId } from '../lib/chatSync';
-import { setDataSaverSetting } from '../lib/dataSaver';
 import { MemberPrivateChatPage } from '../pages/MemberPrivateChatPage';
 import { ConnectionBar } from '../components/member/ConnectionBar';
 import { DataSaverSetting } from '../components/member/DataSaverSetting';
@@ -41,6 +40,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   calls.length = 0;
   localStorage.clear();
+  delete (navigator as unknown as { connection?: unknown }).connection;
 });
 
 const msg = (id: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
@@ -113,7 +113,9 @@ describe('Photos on slow networks', () => {
   });
 
   it('with "Save data" on, the photo downloads only after a tap', async () => {
-    setDataSaverSetting('on');
+    // "Automatic" turns save-data on by itself on a very slow network —
+    // there is no manual "always save data" option any more.
+    Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
     // A different message/attachment id than the test above — getAttachmentUrl
     // caches download links for a few minutes, so reusing "a1" here would
     // silently serve that test's cached URL instead of exercising this tap.
@@ -171,10 +173,11 @@ describe('Weak network', () => {
 });
 
 describe('Save data setting', () => {
-  it('remembers the choice on this phone', () => {
+  it('remembers the choice on this phone, with only Automatic and Off — never a manual tap-to-download option', () => {
     render(<DataSaverSetting />);
     expect(screen.getByLabelText(/Automatic/)).toBeChecked();
-    fireEvent.click(screen.getByLabelText(/Always save data/));
-    expect(localStorage.getItem('dataSaver')).toBe('on');
+    expect(screen.queryByLabelText(/Always save data/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/^Off/));
+    expect(localStorage.getItem('dataSaver')).toBe('off');
   });
 });

@@ -161,4 +161,26 @@ describe('VoiceNotePlayer', () => {
     );
     expect(container.firstElementChild).toHaveClass('flex-row-reverse');
   });
+
+  it('keeps the play button immediately left of the waveform for a received note too — only the avatar swaps sides', () => {
+    render(
+      <VoiceNotePlayer
+        url="https://files.example/voice.webm"
+        byteSize={4000}
+        seedId="a1"
+        avatarName="Ben Tabe"
+        own={false}
+        waitForTap={false}
+        failed={false}
+        onRequestDownload={vi.fn()}
+      />,
+    );
+    const playButton = screen.getByRole('button', { name: 'Play voice message' });
+    const waveform = screen.getByRole('slider');
+    // The button must come before the waveform in the content group's own
+    // (never-reversed) DOM order, same as for a sent note — only the
+    // avatar's side flips for a received note.
+    // eslint-disable-next-line no-bitwise
+    expect(playButton.compareDocumentPosition(waveform) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

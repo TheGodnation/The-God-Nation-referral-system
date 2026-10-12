@@ -202,9 +202,44 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
 
   const isFr = i18n.language.startsWith('fr');
 
+  if (variant === 'feed') {
+    if (error) return <p className="px-4 text-sm text-red-700 sm:px-0">{error}</p>;
+    return (
+      <section className="space-y-2 sm:space-y-4" aria-label={t('headquartersPosts.title') ?? ''}>
+        {items.map((i) => (
+          <HeadquartersFeedCard
+            key={i.id}
+            item={i}
+            expanded={selectedId === i.id}
+            detail={selectedId === i.id ? detail : null}
+            detailLoading={selectedId === i.id && detailLoading}
+            detailError={selectedId === i.id ? detailError : null}
+            comments={selectedId === i.id ? comments : []}
+            commentsLoading={commentsLoading}
+            commentsError={commentsError}
+            commentsHasMore={commentsHasMore}
+            commentDraft={selectedId === i.id ? commentDraft : ''}
+            commentSubmitting={commentSubmitting}
+            mediaUrls={mediaUrls}
+            mediaLoading={mediaLoading}
+            mediaErrorIds={mediaErrorIds}
+            onOpen={() => openPost(i.id)}
+            onCollapse={closePost}
+            onLoadEarlierComments={() => comments[0] && loadComments(i.id, comments[0].id)}
+            onCommentDraftChange={setCommentDraft}
+            onSubmitComment={submitComment}
+            onReactionChange={(viewerHasReacted, reactionCount) =>
+              setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, viewerHasReacted, reactionCount } : x)))
+            }
+          />
+        ))}
+      </section>
+    );
+  }
+
   if (selectedId) {
     return (
-      <div className={variant === 'feed' ? 'border-t-4 border-amber-400 bg-white p-4 shadow-sm sm:rounded-xl' : 'card mt-6'}>
+      <div className="card mt-6">
         <button className="mb-4 text-sm text-brand-700 hover:underline" onClick={closePost}>
           {t('headquartersPosts.back_to_list')}
         </button>
@@ -310,24 +345,6 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
           </>
         )}
       </div>
-    );
-  }
-
-  if (variant === 'feed') {
-    if (error) return <p className="px-4 text-sm text-red-700 sm:px-0">{error}</p>;
-    return (
-      <section className="space-y-2 sm:space-y-4" aria-label={t('headquartersPosts.title') ?? ''}>
-        {items.map((i) => (
-          <HeadquartersFeedCard
-            key={i.id}
-            item={i}
-            onOpen={() => openPost(i.id)}
-            onReactionChange={(viewerHasReacted, reactionCount) =>
-              setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, viewerHasReacted, reactionCount } : x)))
-            }
-          />
-        ))}
-      </section>
     );
   }
 

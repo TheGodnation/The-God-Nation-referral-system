@@ -32,6 +32,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   calls.length = 0;
   localStorage.clear();
+  delete (navigator as unknown as { connection?: unknown }).connection;
 });
 
 describe('Updates banner', () => {
@@ -54,7 +55,9 @@ describe('Updates banner', () => {
   });
 
   it('with Save data on, shows colours instead of the picture', async () => {
-    localStorage.setItem('dataSaver', 'on');
+    // "Automatic" turns save-data on by itself on a very slow network —
+    // there is no manual "always save data" option any more.
+    Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
     mockFetch({ 'GET /api/settings/public': () => ({ body: { content: {}, appBannerUrl: '/api/app-banner?v=1' } }) });
     const { container } = render(<UpdatesBanner />);
     expect(await screen.findByText('THE GOD NATION')).toBeInTheDocument();

@@ -109,7 +109,7 @@ describe('Private chat screen (WhatsApp style)', () => {
   it('headquarters chats show the ministry name', async () => {
     mockFetch({ [`GET ${BASE}/messages`]: () => ({ body: { ...MESSAGES, otherPartyType: 'CENTRAL_AUTHORITY', otherPartyName: undefined, otherPartyPersonId: undefined } }) });
     renderChat();
-    expect(await screen.findByRole('heading', { name: "God's Nation Headquarters" })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'The God Nation Headquarters' })).toBeInTheDocument();
   });
 });
 

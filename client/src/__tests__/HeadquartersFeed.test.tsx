@@ -51,7 +51,7 @@ describe('Headquarters posts in the Updates feed', () => {
     });
     render(<HeadquartersPosts variant="feed" />);
     const card = await screen.findByRole('article', { name: 'Headquarters post: Fasting week' });
-    expect(within(card).getByText("God's Nation Headquarters")).toBeInTheDocument();
+    expect(within(card).getByText('The God Nation Headquarters')).toBeInTheDocument();
     expect(within(card).getByRole('heading', { name: 'Fasting week' })).toBeInTheDocument();
     expect(within(card).getByText(/from Monday we will fast/)).toBeInTheDocument();
     expect(await within(card).findByAltText('Image attached to this post')).toHaveAttribute('src', 'https://files.example/flyer.jpg');
@@ -71,16 +71,23 @@ describe('Headquarters posts in the Updates feed', () => {
     expect(screen.getByRole('button', { name: /Like/ })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('Read more opens the full post with its comments', async () => {
+  it('Read more expands the full post with its comments right there in the card, Facebook-style — no "Back" page', async () => {
     mockFetch({
       'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [] }] } }),
       'GET /api/me/headquarters-posts/hq1/comments': () => ({ body: { items: [{ id: 'c1', authorName: 'Ada', isOwn: false, body: 'Amen', createdAt: HQ.publishedAt }], hasMore: false } }),
       'GET /api/me/headquarters-posts/hq1': () => ({ body: { ...HQ, media: [] } }),
     });
     render(<HeadquartersPosts variant="feed" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Read More' }));
-    expect(await screen.findByText('Amen')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    const card = await screen.findByRole('article', { name: 'Headquarters post: Fasting week' });
+    fireEvent.click(within(card).getByRole('button', { name: 'Read More' }));
+    expect(await within(card).findByText('Amen')).toBeInTheDocument();
+    // Still the same card — its title and Like/Comment buttons are right there, no separate "Back" page.
+    expect(within(card).getByRole('heading', { name: 'Fasting week' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Read less' })).toBeInTheDocument();
+
+    fireEvent.click(within(card).getByRole('button', { name: 'Read less' }));
+    expect(screen.queryByText('Amen')).not.toBeInTheDocument();
   });
 
   it('the dashboard list keeps its compact look', async () => {

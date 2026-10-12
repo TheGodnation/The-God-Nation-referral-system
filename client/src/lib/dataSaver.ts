@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 
-// "Save data": when on, photos, videos and voice notes are not downloaded
-// until you tap them. "auto" turns it on by itself when the phone says it
-// is on a very slow (2G) network or has its own data saver switched on.
-export type DataSaverSetting = 'auto' | 'on' | 'off';
+// "Save data": nothing ever waits on a manual tap to download. "auto"
+// (recommended) only holds off photos/videos/voice notes by itself when the
+// phone says it's on a very slow (2G) network or has its own data saver
+// switched on; "off" always downloads them straight away.
+export type DataSaverSetting = 'auto' | 'off';
 
 const KEY = 'dataSaver';
 const EVENT = 'data-saver-change';
@@ -11,7 +12,7 @@ const EVENT = 'data-saver-change';
 export function getDataSaverSetting(): DataSaverSetting {
   try {
     const v = localStorage.getItem(KEY);
-    return v === 'on' || v === 'off' ? v : 'auto';
+    return v === 'off' ? v : 'auto';
   } catch {
     return 'auto';
   }
@@ -34,7 +35,7 @@ function slowNetwork(): boolean {
 
 export function isDataSaverOn(): boolean {
   const s = getDataSaverSetting();
-  return s === 'on' || (s === 'auto' && slowNetwork());
+  return s === 'auto' && slowNetwork();
 }
 
 export function useDataSaver(): boolean {

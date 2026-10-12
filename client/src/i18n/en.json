@@ -1417,6 +1417,7 @@
     "load_failed": "Failed to load headquarters posts.",
     "back_to_list": "Back",
     "read_more": "Read More",
+    "read_less": "Read less",
     "loading": "Loading…",
     "source_network_wide": "From National Headquarters — Network Wide",
     "source_targeted": "From National Headquarters",
@@ -1436,7 +1437,7 @@
     "media_load_failed": "Failed to load media.",
     "media_pdf_open": "Open PDF ({{filename}})",
     "media_image_alt": "Image attached to this post",
-    "hq_name": "God's Nation Headquarters",
+    "hq_name": "The God Nation Headquarters",
     "official": "Official",
     "pinned": "Pinned",
     "like": "Like",
@@ -1637,7 +1638,7 @@
     "mission": "Mission",
     "vision": "Vision",
     "purpose": "Purpose",
-    "banner_label": "About God's Nation"
+    "banner_label": "About The God Nation"
   },
   "prayerRequests": {
     "title": "Prayer Requests",
@@ -2017,7 +2018,7 @@
   },
   "privateChat": {
     "title": "Private messages",
-    "headquarters": "God's Nation Headquarters",
+    "headquarters": "The God Nation Headquarters",
     "someone": "Someone",
     "official": "Official account",
     "leader": "Leader",
@@ -2052,8 +2053,6 @@
     "saver_title": "Save data",
     "saver_auto": "Automatic (recommended)",
     "saver_auto_hint": "Saves data by itself when the network is very slow (2G) or your phone's data saver is on.",
-    "saver_on": "Always save data",
-    "saver_on_hint": "Photos, videos and voice notes download only when you tap them.",
     "saver_off": "Off",
     "saver_off_hint": "Photos and voice notes download by themselves."
   },

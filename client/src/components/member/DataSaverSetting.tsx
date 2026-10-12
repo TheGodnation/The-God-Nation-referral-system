@@ -9,7 +9,6 @@ export function DataSaverSetting() {
   const [value, setValue] = useState<Setting>(getDataSaverSetting);
   const options: { id: Setting; label: string; hint: string }[] = [
     { id: 'auto', label: t('network.saver_auto'), hint: t('network.saver_auto_hint') },
-    { id: 'on', label: t('network.saver_on'), hint: t('network.saver_on_hint') },
     { id: 'off', label: t('network.saver_off'), hint: t('network.saver_off_hint') },
   ];
   return (

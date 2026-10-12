@@ -1417,6 +1417,7 @@
     "load_failed": "Échec du chargement des publications du siège national.",
     "back_to_list": "Retour",
     "read_more": "Lire la suite",
+    "read_less": "Réduire",
     "loading": "Chargement…",
     "source_network_wide": "Du Siège National — Réseau entier",
     "source_targeted": "Du Siège National",
@@ -1436,7 +1437,7 @@
     "media_load_failed": "Échec du chargement du média.",
     "media_pdf_open": "Ouvrir le PDF ({{filename}})",
     "media_image_alt": "Image jointe à cette publication",
-    "hq_name": "Quartier général de God's Nation",
+    "hq_name": "Quartier général de The God Nation",
     "official": "Officiel",
     "pinned": "Épinglé",
     "like": "J'aime",
@@ -1637,7 +1638,7 @@
     "mission": "Mission",
     "vision": "Vision",
     "purpose": "But",
-    "banner_label": "À propos de God's Nation"
+    "banner_label": "À propos de The God Nation"
   },
   "prayerRequests": {
     "title": "Demandes de prière",
@@ -2017,7 +2018,7 @@
   },
   "privateChat": {
     "title": "Messages privés",
-    "headquarters": "Quartier général de God's Nation",
+    "headquarters": "Quartier général de The God Nation",
     "someone": "Quelqu'un",
     "official": "Compte officiel",
     "leader": "Responsable",
@@ -2052,8 +2053,6 @@
     "saver_title": "Économiser les données",
     "saver_auto": "Automatique (recommandé)",
     "saver_auto_hint": "Économise les données tout seul quand le réseau est très lent (2G) ou que l'économiseur de données du téléphone est activé.",
-    "saver_on": "Toujours économiser",
-    "saver_on_hint": "Les photos, vidéos et messages vocaux se téléchargent seulement quand vous les touchez.",
     "saver_off": "Désactivé",
     "saver_off_hint": "Les photos et messages vocaux se téléchargent tout seuls."
   },

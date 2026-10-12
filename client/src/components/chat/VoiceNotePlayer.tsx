@@ -96,72 +96,77 @@ export function VoiceNotePlayer({
   return (
     <div className={`flex items-center gap-2 py-0.5 ${own ? 'flex-row' : 'flex-row-reverse'}`}>
       <Avatar name={avatarName} photoUrl={avatarPhotoUrl} size={36} />
-      {url ? (
-        <>
+      {/* This inner group's own order never reverses — only the avatar's
+       * side does — so the play button always sits immediately left of the
+       * waveform, for both sent and received voice notes. */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {url ? (
+          <>
+            <button
+              type="button"
+              onClick={togglePlay}
+              aria-label={t(playing ? 'groupChat.voice_pause' : 'groupChat.voice_play') ?? ''}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-white shadow-sm"
+            >
+              {playing ? (
+                <span aria-hidden className="text-base leading-none">⏸</span>
+              ) : (
+                <span aria-hidden className="ml-0.5 text-base leading-none">▶</span>
+              )}
+            </button>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <div
+                ref={barsRef}
+                role="slider"
+                aria-label={t('groupChat.voice') ?? ''}
+                aria-valuemin={0}
+                aria-valuemax={Math.round(duration)}
+                aria-valuenow={Math.round(currentTime)}
+                className="flex h-6 w-full min-w-[7rem] max-w-[11rem] cursor-pointer items-center gap-[2px]"
+                onClick={(e) => seekTo(e.clientX)}
+              >
+                {bars.map((h, i) => (
+                  <span
+                    key={i}
+                    aria-hidden
+                    className={`w-[2px] flex-1 rounded-full ${i < playedBars ? 'bg-[#075e54]' : 'bg-slate-400/50'}`}
+                    style={{ height: `${Math.round(h * 100)}%` }}
+                  />
+                ))}
+              </div>
+              <span className="text-[11px] text-slate-500">{formatDuration(remaining)}</span>
+            </div>
+            <audio
+              ref={audioRef}
+              src={url}
+              preload="metadata"
+              className="hidden"
+              onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+              onDurationChange={(e) => {
+                if (Number.isFinite(e.currentTarget.duration)) setDuration(e.currentTarget.duration);
+              }}
+              onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onEnded={() => {
+                setPlaying(false);
+                setCurrentTime(0);
+              }}
+            />
+          </>
+        ) : waitForTap ? (
           <button
             type="button"
-            onClick={togglePlay}
-            aria-label={t(playing ? 'groupChat.voice_pause' : 'groupChat.voice_play') ?? ''}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-white shadow-sm"
+            onClick={onRequestDownload}
+            className="flex items-center gap-2 rounded-full bg-slate-900/10 px-3 py-1.5 text-sm font-medium text-slate-700"
+            aria-label={t('network.download_voice', { size: formatBytes(byteSize) }) ?? ''}
           >
-            {playing ? (
-              <span aria-hidden className="text-base leading-none">⏸</span>
-            ) : (
-              <span aria-hidden className="ml-0.5 text-base leading-none">▶</span>
-            )}
+            ⬇ {t('groupChat.voice')} · {formatBytes(byteSize)}
           </button>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <div
-              ref={barsRef}
-              role="slider"
-              aria-label={t('groupChat.voice') ?? ''}
-              aria-valuemin={0}
-              aria-valuemax={Math.round(duration)}
-              aria-valuenow={Math.round(currentTime)}
-              className="flex h-6 w-full min-w-[7rem] max-w-[11rem] cursor-pointer items-center gap-[2px]"
-              onClick={(e) => seekTo(e.clientX)}
-            >
-              {bars.map((h, i) => (
-                <span
-                  key={i}
-                  aria-hidden
-                  className={`w-[2px] flex-1 rounded-full ${i < playedBars ? 'bg-[#075e54]' : 'bg-slate-400/50'}`}
-                  style={{ height: `${Math.round(h * 100)}%` }}
-                />
-              ))}
-            </div>
-            <span className="text-[11px] text-slate-500">{formatDuration(remaining)}</span>
-          </div>
-          <audio
-            ref={audioRef}
-            src={url}
-            preload="metadata"
-            className="hidden"
-            onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
-            onDurationChange={(e) => {
-              if (Number.isFinite(e.currentTarget.duration)) setDuration(e.currentTarget.duration);
-            }}
-            onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-            onEnded={() => {
-              setPlaying(false);
-              setCurrentTime(0);
-            }}
-          />
-        </>
-      ) : waitForTap ? (
-        <button
-          type="button"
-          onClick={onRequestDownload}
-          className="flex items-center gap-2 rounded-full bg-slate-900/10 px-3 py-1.5 text-sm font-medium text-slate-700"
-          aria-label={t('network.download_voice', { size: formatBytes(byteSize) }) ?? ''}
-        >
-          ⬇ {t('groupChat.voice')} · {formatBytes(byteSize)}
-        </button>
-      ) : (
-        <span className="text-xs text-slate-500">{failed ? '⚠️' : t('groupChat.loading')}</span>
-      )}
+        ) : (
+          <span className="text-xs text-slate-500">{failed ? '⚠️' : t('groupChat.loading')}</span>
+        )}
+      </div>
     </div>
   );
 }
