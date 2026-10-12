@@ -26,8 +26,6 @@ interface CreateNotificationParams {
     | 'PRIVATE_MESSAGE_RECEIVED'
     | 'RESOURCE_GRANTED'
     | 'ROLE_ASSIGNED'
-    | 'REPRESENTATION_REQUEST_APPROVED'
-    | 'REPRESENTATION_REQUEST_DECLINED'
     | 'PRAYER_REQUEST_COMMENT'
     | 'PRAYER_REQUEST_SUBMITTED_PRIVATELY'
     | 'ANNOUNCEMENT_PUBLISHED'
@@ -100,24 +98,6 @@ export async function notifyRoleAssigned(roleAssignment: { id: string; personId:
     targetType: 'RoleAssignment',
     targetId: roleAssignment.id,
     push: { title: 'New leadership role', body: `You've been made a Leader of ${community?.name ?? 'a Community'}.`, url: '/member/me' },
-  });
-}
-
-/** Event 5 — a Member's own Representation Request (see model comment in
- * schema.prisma) has been approved or declined by Admin. */
-export async function notifyRepresentationRequestDecided(request: { id: string; personId: string; label: string; status: 'PENDING' | 'APPROVED' | 'DECLINED' }) {
-  const approved = request.status === 'APPROVED';
-  await createNotification({
-    recipientPersonId: request.personId,
-    type: approved ? 'REPRESENTATION_REQUEST_APPROVED' : 'REPRESENTATION_REQUEST_DECLINED',
-    metadata: { label: request.label },
-    targetType: 'RepresentationRequest',
-    targetId: request.id,
-    push: {
-      title: approved ? 'Representation request approved' : 'Representation request declined',
-      body: approved ? `Your request to represent "${request.label}" was approved.` : `Your request to represent "${request.label}" was declined.`,
-      url: '/member/leadership',
-    },
   });
 }
 

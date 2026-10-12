@@ -84,9 +84,9 @@ export function AreaRepresentationRequestsTab() {
           }}
         >
           <option value="">{t('admin.roleAssignments.filter_all')}</option>
-          <option value="PENDING">{t('admin.representationRequests.status_pending')}</option>
-          <option value="APPROVED">{t('admin.representationRequests.status_approved')}</option>
-          <option value="DECLINED">{t('admin.representationRequests.status_declined')}</option>
+          <option value="PENDING">{t('admin.areaRepresentationRequests.status_pending')}</option>
+          <option value="APPROVED">{t('admin.areaRepresentationRequests.status_approved')}</option>
+          <option value="DECLINED">{t('admin.areaRepresentationRequests.status_declined')}</option>
         </select>
       </div>
 
@@ -96,12 +96,12 @@ export function AreaRepresentationRequestsTab() {
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400">
-              <th className="py-2 pr-4">{t('admin.representationRequests.table_person')}</th>
+              <th className="py-2 pr-4">{t('admin.areaRepresentationRequests.table_person')}</th>
               <th className="py-2 pr-4">{t('admin.areaRepresentationRequests.table_area')}</th>
-              <th className="py-2 pr-4">{t('admin.representationRequests.table_note')}</th>
-              <th className="py-2 pr-4">{t('admin.representationRequests.table_date')}</th>
-              <th className="py-2 pr-4">{t('admin.representationRequests.table_status')}</th>
-              <th className="py-2 pr-4">{t('admin.representationRequests.table_action')}</th>
+              <th className="py-2 pr-4">{t('admin.areaRepresentationRequests.table_note')}</th>
+              <th className="py-2 pr-4">{t('admin.areaRepresentationRequests.table_date')}</th>
+              <th className="py-2 pr-4">{t('admin.areaRepresentationRequests.table_status')}</th>
+              <th className="py-2 pr-4">{t('admin.areaRepresentationRequests.table_action')}</th>
             </tr>
           </thead>
           <tbody>
@@ -113,7 +113,7 @@ export function AreaRepresentationRequestsTab() {
                 <td className="py-2 pr-4">{new Date(r.createdAt).toLocaleDateString()}</td>
                 <td className="py-2 pr-4">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(r.status)}`}>
-                    {t(`admin.representationRequests.status_${r.status.toLowerCase()}`)}
+                    {t(`admin.areaRepresentationRequests.status_${r.status.toLowerCase()}`)}
                   </span>
                   {r.decisionNote && <p className="mt-1 text-xs italic text-slate-400">{r.decisionNote}</p>}
                 </td>
@@ -123,16 +123,16 @@ export function AreaRepresentationRequestsTab() {
                       <textarea
                         className="input text-xs"
                         rows={1}
-                        placeholder={t('admin.representationRequests.decision_note_placeholder') ?? ''}
+                        placeholder={t('admin.areaRepresentationRequests.decision_note_placeholder') ?? ''}
                         value={decisionNotes[r.id] ?? ''}
                         onChange={(e) => setDecisionNotes((prev) => ({ ...prev, [r.id]: e.target.value }))}
                       />
                       <div className="flex gap-2">
                         <button type="button" className="btn-primary px-2 py-1 text-xs" disabled={decidingId === r.id} onClick={() => decide(r.id, 'approve')}>
-                          {t('admin.representationRequests.approve')}
+                          {t('admin.areaRepresentationRequests.approve')}
                         </button>
                         <button type="button" className="text-xs text-red-700 hover:underline" disabled={decidingId === r.id} onClick={() => decide(r.id, 'decline')}>
-                          {t('admin.representationRequests.decline')}
+                          {t('admin.areaRepresentationRequests.decline')}
                         </button>
                       </div>
                     </div>
@@ -145,7 +145,7 @@ export function AreaRepresentationRequestsTab() {
             {items.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-4 text-center text-slate-400">
-                  {t('admin.representationRequests.no_requests')}
+                  {t('admin.areaRepresentationRequests.no_requests')}
                 </td>
               </tr>
             )}

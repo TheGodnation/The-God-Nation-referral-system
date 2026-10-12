@@ -9,8 +9,6 @@ type NotificationType =
   | 'ROLE_ASSIGNED'
   | 'FRIEND_REQUEST_RECEIVED'
   | 'FRIEND_REQUEST_ACCEPTED'
-  | 'REPRESENTATION_REQUEST_APPROVED'
-  | 'REPRESENTATION_REQUEST_DECLINED'
   | 'PRAYER_REQUEST_COMMENT'
   | 'PRAYER_REQUEST_SUBMITTED_PRIVATELY'
   | 'ANNOUNCEMENT_PUBLISHED'
@@ -111,10 +109,6 @@ export function NotificationBell() {
         return t('notifications.friend_request_received', { name: metadata.senderName ?? '' });
       case 'FRIEND_REQUEST_ACCEPTED':
         return t('notifications.friend_request_accepted', { name: metadata.senderName ?? '' });
-      case 'REPRESENTATION_REQUEST_APPROVED':
-        return t('notifications.representation_request_approved', { label: metadata.label ?? '' });
-      case 'REPRESENTATION_REQUEST_DECLINED':
-        return t('notifications.representation_request_declined', { label: metadata.label ?? '' });
       case 'PRAYER_REQUEST_COMMENT':
         return t('notifications.prayer_request_comment', { name: metadata.commenterName ?? '' });
       case 'PRAYER_REQUEST_SUBMITTED_PRIVATELY':

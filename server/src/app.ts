@@ -56,8 +56,6 @@ import updatesRoutes from './routes/updates';
 import prayerRequestsRoutes from './routes/prayerRequests';
 import socialRoutes from './routes/social';
 import { adminMemberReportsRouter, leaderMemberReportsRouter } from './routes/memberReports';
-import representationRequestsRoutes from './routes/representationRequests';
-import adminRepresentationRequestsRoutes from './routes/adminRepresentationRequests';
 import areaRepresentationRequestsRoutes from './routes/areaRepresentationRequests';
 import adminAreaRepresentationRequestsRoutes from './routes/adminAreaRepresentationRequests';
 import adminGeographicAreasRoutes from './routes/adminGeographicAreas';
@@ -226,15 +224,12 @@ export function createApp() {
   app.use('/api/member', socialRoutes);
   app.use('/api/admin/member-reports', adminMemberReportsRouter);
   app.use('/api/leader/member-reports', leaderMemberReportsRouter);
-  // Representation Requests: a Member's own free-text "I want to represent…"
-  // request, Admin review, and the public Leadership Directory.
-  app.use('/api/member', representationRequestsRoutes);
-  app.use('/api/admin', adminRepresentationRequestsRoutes);
-  // Phase 6 — Geographical Leadership Directory: the Admin-managed area
-  // tree + area leadership assignments, a Member's own "request to
-  // represent an area" (targeting a real GeographicArea, unlike the
-  // free-text RepresentationRequest above) and its Admin review, and the
-  // Member-facing directory browse/search endpoints.
+  // Geographical Leadership Directory (the sole Leadership Directory — an
+  // earlier free-text RepresentationRequest version was retired): the
+  // Admin-managed area tree + area leadership assignments, a Member's own
+  // "request to represent an area" (targeting a real GeographicArea) and
+  // its Admin review, and the Member-facing directory browse/search
+  // endpoints.
   app.use('/api/admin', adminGeographicAreasRoutes);
   app.use('/api/admin', adminAreaRepresentationRequestsRoutes);
   app.use('/api/member', areaRepresentationRequestsRoutes);

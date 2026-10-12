@@ -11,7 +11,6 @@ import { CommunitiesTab } from '../components/admin/CommunitiesTab';
 import { DevotionalsTab } from '../components/admin/DevotionalsTab';
 import { AssessmentsTab } from '../components/admin/AssessmentsTab';
 import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
-import { RepresentationRequestsTab } from '../components/admin/RepresentationRequestsTab';
 import { GeographicAreasTab } from '../components/admin/GeographicAreasTab';
 import { AreaRepresentationRequestsTab } from '../components/admin/AreaRepresentationRequestsTab';
 import { FollowUpsTab } from '../components/admin/FollowUpsTab';
@@ -43,7 +42,6 @@ type Tab =
   | 'devotionals'
   | 'assessments'
   | 'roleAssignments'
-  | 'representationRequests'
   | 'geographicAreas'
   | 'areaRepresentationRequests'
   | 'followUps'
@@ -1673,9 +1671,6 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'roleAssignments'} onClick={() => setTab('roleAssignments')}>
               {t('admin.tabs.roleAssignments')}
             </TabButton>
-            <TabButton active={tab === 'representationRequests'} onClick={() => setTab('representationRequests')}>
-              {t('admin.tabs.representationRequests')}
-            </TabButton>
             <TabButton active={tab === 'geographicAreas'} onClick={() => setTab('geographicAreas')}>
               {t('admin.tabs.geographicAreas')}
             </TabButton>
@@ -1743,7 +1738,6 @@ export function AdminDashboardPage() {
         {tab === 'assessments' && <AssessmentsTab />}
         {tab === 'library' && <LibraryTab />}
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
-        {tab === 'representationRequests' && <RepresentationRequestsTab />}
         {tab === 'geographicAreas' && <GeographicAreasTab />}
         {tab === 'areaRepresentationRequests' && <AreaRepresentationRequestsTab />}
         {tab === 'followUps' && <FollowUpsTab />}

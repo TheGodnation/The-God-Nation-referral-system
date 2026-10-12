@@ -20,7 +20,6 @@ interface Profile {
   isLeader: boolean;
   leaderOf: string[];
   memberOf: string[];
-  representations: string[];
   areaLeaderOf: { title: string; path: string }[];
   sameGroup: boolean;
   friendStatus: FriendStatus;
@@ -134,9 +133,6 @@ export function MemberPersonPage() {
               )}
               {profile.memberOf.length > 0 && (
                 <p className="text-sm text-slate-500">{t('people.member_of', { groups: profile.memberOf.join(', ') })}</p>
-              )}
-              {profile.representations.length > 0 && (
-                <p className="text-sm font-medium text-brand-700">{t('people.represents', { labels: profile.representations.join(', ') })}</p>
               )}
               {(profile.areaLeaderOf ?? []).length > 0 && (
                 <ul className="space-y-0.5">
