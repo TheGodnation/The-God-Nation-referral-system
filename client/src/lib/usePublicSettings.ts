@@ -36,6 +36,40 @@ const EMPTY: PublicSettings = {
   loaded: false,
 };
 
+// Shared across every call site for the life of the page (module-level, not
+// per-component) — PageShell mounts this on literally every page, so
+// without a cache a member would re-fetch the exact same rarely-changing
+// settings on every single in-app navigation. One real network round trip
+// per full page load is enough; a cleared cache (e.g. after an Admin edits
+// these settings mid-session) only takes effect on the next full reload,
+// which matches how this data already behaved before this cache existed
+// (nothing previously pushed a live update into already-mounted pages
+// either).
+let cached: Promise<PublicSettings> | null = null;
+
+// Test-only escape hatch — see src/__tests__/setup.ts, which calls this in
+// a global afterEach so one test's mocked /api/settings/public response can
+// never leak into the next test in the same file via this module-level
+// cache.
+export function resetPublicSettingsCacheForTests() {
+  cached = null;
+}
+
+function load(): Promise<PublicSettings> {
+  if (!cached) {
+    cached = api
+      .get<Omit<PublicSettings, 'loaded'>>('/api/settings/public')
+      .then((data) => ({ ...data, loaded: true }))
+      .catch(() => {
+        // Don't cache a failure — a transient blip shouldn't permanently
+        // deny every later page its one chance to actually load this.
+        cached = null;
+        return { ...EMPTY, loaded: true };
+      });
+  }
+  return cached;
+}
+
 // Section 22: Admin-editable website copy + social/support links. Content
 // keys not set by Admin simply fall back to the caller's own default text —
 // this is a light key/value override, not a full CMS.
@@ -43,10 +77,13 @@ export function usePublicSettings(): PublicSettings {
   const [settings, setSettings] = useState<PublicSettings>(EMPTY);
 
   useEffect(() => {
-    api
-      .get<Omit<PublicSettings, 'loaded'>>('/api/settings/public')
-      .then((data) => setSettings({ ...data, loaded: true }))
-      .catch(() => setSettings((prev) => ({ ...prev, loaded: true })));
+    let cancelled = false;
+    load().then((data) => {
+      if (!cancelled) setSettings(data);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return settings;

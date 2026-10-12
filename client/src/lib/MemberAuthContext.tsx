@@ -50,6 +50,12 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await api.get<{ member: CurrentMember | null }>('/api/member/auth/me');
       setMember(res.member);
+    } catch {
+      // A transient network blip (very plausible on the very first launch,
+      // e.g. a cold PWA start on a weak signal) must never leave this stuck
+      // in a loading/crashed state — fall back to "not signed in" so
+      // RequireMember can send the member to the login page instead.
+      setMember(null);
     } finally {
       setLoading(false);
     }

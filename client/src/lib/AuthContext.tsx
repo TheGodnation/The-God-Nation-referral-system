@@ -35,6 +35,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await api.get<{ user: CurrentUser | null }>('/api/auth/me');
       setUser(res.user);
+    } catch {
+      // A transient network blip must never leave this stuck in a loading
+      // state — fall back to "not signed in" so the login redirect kicks in.
+      setUser(null);
     } finally {
       setLoading(false);
     }
