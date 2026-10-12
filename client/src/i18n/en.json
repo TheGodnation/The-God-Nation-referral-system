@@ -1135,6 +1135,7 @@
       "description": "Create and publish posts from National Headquarters, visible across the Community network. Members and Leaders currently eligible see it in their own dashboard once published, and can comment and react. Headquarters Posts are intended for discussion and engagement — unlike Announcements, they do not track individual read receipts.",
       "new_post": "+ New Post",
       "edit_post": "Edit Draft",
+      "draft_saved_hint": "Draft saved. Attach media below, then Publish when you're ready — Members won't see it until then.",
       "title_en_label": "Title (English)",
       "title_fr_label": "Title (French)",
       "body_en_label": "Body (English)",

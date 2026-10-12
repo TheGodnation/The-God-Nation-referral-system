@@ -223,6 +223,7 @@ export function HeadquartersPostsTab() {
   }
 
   async function submitForm() {
+    const isNewPost = !editingId;
     setSubmitting(true);
     setFormError(null);
     const basePayload = {
@@ -237,6 +238,8 @@ export function HeadquartersPostsTab() {
           ...basePayload,
           ...(networkWide ? { networkWide: true } : { targetCommunityIds: formTargets.map((f) => f.id) }),
         });
+        resetForm();
+        setShowForm(false);
       } else {
         const created = await api.post<HeadquartersPostRow>('/api/admin/headquarters-posts', basePayload);
         if (networkWide || formTargets.length > 0) {
@@ -244,32 +247,45 @@ export function HeadquartersPostsTab() {
             ...(networkWide ? { networkWide: true } : { targetCommunityIds: formTargets.map((f) => f.id) }),
           });
         }
+        // Stay open in edit mode, right where the Add Media button now
+        // appears, instead of closing the form and making the admin hunt
+        // for the new draft back in the table to attach anything to it.
+        setEditingId(created.id);
+        setEditingMedia([]);
       }
-      resetForm();
-      setShowForm(false);
       setPage(1);
       load();
     } catch (err) {
       setFormError(
         err instanceof ApiError
           ? err.message
-          : t(editingId ? 'admin.headquartersPosts.update_failed' : 'admin.headquartersPosts.create_failed'),
+          : t(isNewPost ? 'admin.headquartersPosts.create_failed' : 'admin.headquartersPosts.update_failed'),
       );
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function publish(id: string) {
+  async function publish(id: string): Promise<boolean> {
     setActingOnId(id);
     setActionError(null);
     try {
       await api.post(`/api/admin/headquarters-posts/${id}/publish`, {});
       load();
+      return true;
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : t('admin.headquartersPosts.publish_failed'));
+      return false;
     } finally {
       setActingOnId(null);
+    }
+  }
+
+  async function publishFromForm() {
+    if (!editingId) return;
+    if (await publish(editingId)) {
+      resetForm();
+      setShowForm(false);
     }
   }
 
@@ -447,8 +463,9 @@ export function HeadquartersPostsTab() {
             </div>
           )}
 
+          {editingId && <p className="text-xs text-slate-500">{t('admin.headquartersPosts.draft_saved_hint')}</p>}
           {formError && <p className="text-sm text-red-700">{formError}</p>}
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               type="button"
               className="btn-primary"
@@ -457,6 +474,16 @@ export function HeadquartersPostsTab() {
             >
               {editingId ? t('admin.headquartersPosts.save_changes') : t('admin.headquartersPosts.create_draft')}
             </button>
+            {editingId && (
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={actingOnId === editingId || mediaUploading}
+                onClick={() => void publishFromForm()}
+              >
+                {t('admin.headquartersPosts.publish')}
+              </button>
+            )}
             <button
               type="button"
               className="text-sm text-slate-500 hover:underline"

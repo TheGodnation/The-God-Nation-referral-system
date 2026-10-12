@@ -163,6 +163,53 @@ describe('HeadquartersPostsTab (Admin)', () => {
     });
   });
 
+  it('creating a draft stays open in edit mode, with media and Publish available right away', async () => {
+    const created = { ...DRAFT_ROW, id: 'hqp-new', targets: [] };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(init.body as string) : undefined });
+        let res: { status: number; body: unknown };
+        if (method === 'POST' && url.endsWith('/api/admin/headquarters-posts')) {
+          res = { status: 201, body: created };
+        } else if (method === 'POST' && url.endsWith('/publish')) {
+          res = { status: 200, body: { ...created, publishedAt: '2026-02-01T00:00:00Z' } };
+        } else if (url.endsWith('/api/admin/headquarters-posts')) {
+          res = { status: 200, body: { items: [], pagination: { totalPages: 1 } } };
+        } else {
+          res = { status: 404, body: { error: 'not found' } };
+        }
+        return Promise.resolve({
+          ok: res.status >= 200 && res.status < 300,
+          status: res.status,
+          headers: { get: () => 'application/json' },
+          json: async () => res.body,
+        });
+      }),
+    );
+
+    render(<HeadquartersPostsTab />);
+    fireEvent.click(await screen.findByText('+ New Post'));
+    fireEvent.change(screen.getByLabelText('Title (English)'), { target: { value: 'New Post' } });
+    fireEvent.change(screen.getByLabelText('Body (English)'), { target: { value: 'New body.' } });
+    fireEvent.click(screen.getByText('Create Draft'));
+
+    // Still open, now showing the draft's own media section and a Publish
+    // button, without closing the form or returning to the table first.
+    expect(await screen.findByText('Edit Draft')).toBeInTheDocument();
+    expect(screen.getByText('Draft saved. Attach media below, then Publish when you\'re ready — Members won\'t see it until then.')).toBeInTheDocument();
+    expect(screen.getByText('No media attached yet.')).toBeInTheDocument();
+    expect(screen.getByText('Add Media')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+    await waitFor(() => {
+      expect(calls.some((c) => c.method === 'POST' && c.url.includes('/hqp-new/publish'))).toBe(true);
+    });
+    // The form closes once publishing succeeds.
+    await waitFor(() => expect(screen.queryByText('Edit Draft')).not.toBeInTheDocument());
+  });
+
   it('publishes a draft', async () => {
     mockFetchByUrl({
       '/api/admin/headquarters-posts/hqp-1/publish': { status: 200, body: { ...DRAFT_ROW, publishedAt: '2026-02-01T00:00:00Z' } },

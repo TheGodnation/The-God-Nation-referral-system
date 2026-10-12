@@ -1135,6 +1135,7 @@
       "description": "Créez et publiez des publications du Siège National, visibles sur tout le réseau de Communautés. Les Membres et Leaders actuellement éligibles la voient dans leur propre tableau de bord une fois publiée, et peuvent commenter et réagir. Les Publications du Siège sont destinées à la discussion et à l'engagement — contrairement aux annonces, elles ne suivent pas d'accusé de lecture individuel.",
       "new_post": "+ Nouvelle publication",
       "edit_post": "Modifier le brouillon",
+      "draft_saved_hint": "Brouillon enregistré. Ajoutez des médias ci-dessous, puis Publier quand vous êtes prêt — les membres ne le verront pas avant.",
       "title_en_label": "Titre (Anglais)",
       "title_fr_label": "Titre (Français)",
       "body_en_label": "Corps (Anglais)",
