@@ -10,7 +10,9 @@ type NotificationType =
   | 'FRIEND_REQUEST_RECEIVED'
   | 'FRIEND_REQUEST_ACCEPTED'
   | 'REPRESENTATION_REQUEST_APPROVED'
-  | 'REPRESENTATION_REQUEST_DECLINED';
+  | 'REPRESENTATION_REQUEST_DECLINED'
+  | 'PRAYER_REQUEST_COMMENT'
+  | 'PRAYER_REQUEST_SUBMITTED_PRIVATELY';
 
 interface NotificationRow {
   id: string;
@@ -109,6 +111,10 @@ export function NotificationBell() {
         return t('notifications.representation_request_approved', { label: metadata.label ?? '' });
       case 'REPRESENTATION_REQUEST_DECLINED':
         return t('notifications.representation_request_declined', { label: metadata.label ?? '' });
+      case 'PRAYER_REQUEST_COMMENT':
+        return t('notifications.prayer_request_comment', { name: metadata.commenterName ?? '' });
+      case 'PRAYER_REQUEST_SUBMITTED_PRIVATELY':
+        return t('notifications.prayer_request_submitted_privately', { name: metadata.authorName ?? '' });
       default:
         return '';
     }

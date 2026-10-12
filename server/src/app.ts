@@ -53,6 +53,7 @@ import adminResourceAccessRoutes from './routes/adminResourceAccess';
 import notificationsRoutes from './routes/notifications';
 import profilePhotosRoutes from './routes/profilePhotos';
 import updatesRoutes from './routes/updates';
+import prayerRequestsRoutes from './routes/prayerRequests';
 import socialRoutes from './routes/social';
 import { adminMemberReportsRouter, leaderMemberReportsRouter } from './routes/memberReports';
 import representationRequestsRoutes from './routes/representationRequests';
@@ -213,6 +214,8 @@ export function createApp() {
   app.use('/api/chat', chatForwardRoutes);
   // Community-wide Updates feed (posts, photos, comments, reactions, live slot).
   app.use('/api/updates', updatesRoutes);
+  // Phase 2: Prayer requests (public wall or private-to-leadership), plus comments.
+  app.use('/api/prayer-requests', prayerRequestsRoutes);
   // Friends, people search, blocking, reports, member-to-member messages.
   app.use('/api/member', socialRoutes);
   app.use('/api/admin/member-reports', adminMemberReportsRouter);

@@ -69,6 +69,28 @@ describe('NotificationBell — notification display', () => {
     expect(screen.getByText('You are now a Leader for Youth Ministry')).toBeInTheDocument();
   });
 
+  it('renders the two Phase 2 prayer request notification types', async () => {
+    mockFetchByUrl({
+      '/api/notifications/unread-count': { status: 200, body: { unreadCount: 2 } },
+      '/api/notifications': {
+        status: 200,
+        body: {
+          items: [
+            { id: 'n1', type: 'PRAYER_REQUEST_COMMENT', metadata: { commenterName: 'Ada Obi' }, targetType: 'PrayerRequest', targetId: 'pr1', readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+            { id: 'n2', type: 'PRAYER_REQUEST_SUBMITTED_PRIVATELY', metadata: { authorName: 'Pastor Ben' }, targetType: 'PrayerRequest', targetId: 'pr2', readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+          ],
+          pagination: { totalPages: 1 },
+        },
+      },
+    });
+
+    render(<NotificationBell />);
+    fireEvent.click(await screen.findByLabelText('Notifications'));
+
+    expect(await screen.findByText('Ada Obi commented on your prayer request')).toBeInTheDocument();
+    expect(screen.getByText('Pastor Ben shared a private prayer request with you')).toBeInTheDocument();
+  });
+
   it('renders the Central Authority label for a private message with no sender name', async () => {
     mockFetchByUrl({
       '/api/notifications/unread-count': { status: 200, body: { unreadCount: 1 } },

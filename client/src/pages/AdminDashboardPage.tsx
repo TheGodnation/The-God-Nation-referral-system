@@ -16,6 +16,7 @@ import { FollowUpsTab } from '../components/admin/FollowUpsTab';
 import { AnnouncementsTab } from '../components/admin/AnnouncementsTab';
 import { LocationsTab } from '../components/admin/LocationsTab';
 import { HeadquartersPostsTab } from '../components/admin/HeadquartersPostsTab';
+import { PrayerRequests } from '../components/PrayerRequests';
 import { ReportsList } from '../components/ReportsList';
 import { LibraryTab } from '../components/admin/LibraryTab';
 import { MemberMapTab } from '../components/admin/MemberMapTab';
@@ -44,6 +45,7 @@ type Tab =
   | 'followUps'
   | 'announcements'
   | 'headquartersPosts'
+  | 'prayerRequests'
   | 'updates'
   | 'memberReports'
   | 'library'
@@ -1676,6 +1678,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'headquartersPosts'} onClick={() => setTab('headquartersPosts')}>
               {t('admin.tabs.headquartersPosts')}
             </TabButton>
+            <TabButton active={tab === 'prayerRequests'} onClick={() => setTab('prayerRequests')}>
+              {t('admin.tabs.prayerRequests')}
+            </TabButton>
             <TabButton active={tab === 'updates'} onClick={() => setTab('updates')}>
               {t('admin.tabs.updates')}
             </TabButton>
@@ -1732,6 +1737,7 @@ export function AdminDashboardPage() {
         {tab === 'followUps' && <FollowUpsTab />}
         {tab === 'announcements' && <AnnouncementsTab />}
         {tab === 'headquartersPosts' && <HeadquartersPostsTab />}
+        {tab === 'prayerRequests' && <PrayerRequests />}
         {tab === 'updates' && (
           <div className="space-y-6">
             <AdminLiveControl />

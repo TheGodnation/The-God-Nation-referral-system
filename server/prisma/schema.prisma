@@ -175,6 +175,21 @@ enum NotificationType {
   FRIEND_REQUEST_ACCEPTED
   REPRESENTATION_REQUEST_APPROVED
   REPRESENTATION_REQUEST_DECLINED
+  // Phase 2 — Prayer requests.
+  PRAYER_REQUEST_COMMENT
+  PRAYER_REQUEST_SUBMITTED_PRIVATELY
+}
+
+// Phase 2 — Prayer requests. The submitter chooses, per request, whether
+// it is shared PUBLIC (same flat, network-wide feed shape as UpdatePost —
+// every signed-in Member/Leader sees it) or PRIVATE (seen only by the
+// submitter, the ACTIVE SCOPED_LEADER(s) of communityId, and Admin — a
+// confidential pastoral-care inbox, not a public feed). Encouragement
+// happens only through comments; there is deliberately no separate
+// "praying for this" reaction/counter.
+enum PrayerRequestVisibility {
+  PUBLIC
+  PRIVATE
 }
 
 enum FriendshipStatus {
@@ -231,31 +246,33 @@ model User {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  person                     Person?                @relation(fields: [personId], references: [id], onDelete: SetNull)
-  sessions                   Session[]
-  referralCodes              ReferralCode[]
-  referralRelationships      ReferralRelationship[]
-  setupTokens                LeaderSetupToken[]
-  passwordResetTokens        PasswordResetToken[]
-  roleAssignmentsAssigned    RoleAssignment[]       @relation("RoleAssignmentAssignedBy")
-  followUpAssignmentsCreated FollowUpAssignment[]   @relation("FollowUpAssignedBy")
-  followUpAssignmentsClosed  FollowUpAssignment[]   @relation("FollowUpClosedBy")
-  followUpContactsLogged     FollowUpContact[]
-  announcementsCreated       Announcement[]
+  person                                         Person?                                  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  sessions                                       Session[]
+  referralCodes                                  ReferralCode[]
+  referralRelationships                          ReferralRelationship[]
+  setupTokens                                    LeaderSetupToken[]
+  passwordResetTokens                            PasswordResetToken[]
+  roleAssignmentsAssigned                        RoleAssignment[]                         @relation("RoleAssignmentAssignedBy")
+  followUpAssignmentsCreated                     FollowUpAssignment[]                     @relation("FollowUpAssignedBy")
+  followUpAssignmentsClosed                      FollowUpAssignment[]                     @relation("FollowUpClosedBy")
+  followUpContactsLogged                         FollowUpContact[]
+  announcementsCreated                           Announcement[]
   organizationalLeadershipRecommendationsDecided OrganizationalLeadershipRecommendation[]
-  headquartersPostsCreated   HeadquartersPost[]
-  privateConversationsInitiated PrivateConversation[]
-  privateMessagesSent           PrivateMessage[]
-  privateConversationReads      PrivateConversationRead[]
-  privateMessageReactions       PrivateMessageReaction[]
-  resourceAccessGrantsGiven   ResourceAccessGrant[] @relation("ResourceAccessGrantGrantedBy")
-  resourceAccessGrantsRevoked ResourceAccessGrant[] @relation("ResourceAccessGrantRevokedBy")
-  notifications               Notification[]
-  updatePostsDeleted          UpdatePost[]    @relation("UpdatePostDeletedByUser")
-  updateCommentsDeleted       UpdateComment[] @relation("UpdateCommentDeletedByUser")
-  memberReportsResolved       MemberReport[]  @relation("MemberReportResolvedByUser")
-  trainingEnrollmentsActivated TrainingEnrollment[] @relation("TrainingEnrollmentActivatedBy")
-  representationRequestsDecided RepresentationRequest[]
+  headquartersPostsCreated                       HeadquartersPost[]
+  privateConversationsInitiated                  PrivateConversation[]
+  privateMessagesSent                            PrivateMessage[]
+  privateConversationReads                       PrivateConversationRead[]
+  privateMessageReactions                        PrivateMessageReaction[]
+  resourceAccessGrantsGiven                      ResourceAccessGrant[]                    @relation("ResourceAccessGrantGrantedBy")
+  resourceAccessGrantsRevoked                    ResourceAccessGrant[]                    @relation("ResourceAccessGrantRevokedBy")
+  notifications                                  Notification[]
+  updatePostsDeleted                             UpdatePost[]                             @relation("UpdatePostDeletedByUser")
+  updateCommentsDeleted                          UpdateComment[]                          @relation("UpdateCommentDeletedByUser")
+  memberReportsResolved                          MemberReport[]                           @relation("MemberReportResolvedByUser")
+  trainingEnrollmentsActivated                   TrainingEnrollment[]                     @relation("TrainingEnrollmentActivatedBy")
+  representationRequestsDecided                  RepresentationRequest[]
+  prayerRequestsDeleted                          PrayerRequest[]                          @relation("PrayerRequestDeletedByUser")
+  prayerRequestCommentsDeleted                   PrayerRequestComment[]                   @relation("PrayerRequestCommentDeletedByUser")
 
   @@index([role])
 }
@@ -449,32 +466,32 @@ model Event {
 // known keys — deliberately not a full CMS; missing keys fall back to
 // built-in defaults on the client.
 model Settings {
-  id                    String   @id @default("singleton")
-  whatsappUrlEn         String?
-  whatsappUrlFr         String?
-  whatsappUrlDiscoverEn String?
-  whatsappUrlDiscoverFr String?
-  supportWhatsappUrl    String?
-  facebookUrl           String?
-  instagramUrl          String?
-  tiktokUrl             String?
-  youtubeUrl            String?
-  whatsappContactUrl    String?
-  telegramUrl           String?
-  messengerUrl          String?
+  id                      String        @id @default("singleton")
+  whatsappUrlEn           String?
+  whatsappUrlFr           String?
+  whatsappUrlDiscoverEn   String?
+  whatsappUrlDiscoverFr   String?
+  supportWhatsappUrl      String?
+  facebookUrl             String?
+  instagramUrl            String?
+  tiktokUrl               String?
+  youtubeUrl              String?
+  whatsappContactUrl      String?
+  telegramUrl             String?
+  messengerUrl            String?
   // Shared access phrase gating Leader self-signup (POST
   // /api/auth/leader-signup). Stored in plain text — the Admin needs to be
   // able to read it back to share it in the WhatsApp group, so it isn't a
   // password. Null/blank means self-signup is turned off entirely.
-  leaderSignupPhrase    String?
-  content               Json?
+  leaderSignupPhrase      String?
+  content                 Json?
   // The wide picture at the top of the member Updates page (the ministry's
   // banner). Its Mission / Vision / Purpose text lives in `content`.
-  appBannerStorageKey   String?
-  appBannerUpdatedAt    DateTime?
+  appBannerStorageKey     String?
+  appBannerUpdatedAt      DateTime?
   // Recipient address for the public Contact form (Phase 2). Admin-editable;
   // never sent to the client. Null/blank means the contact form is disabled.
-  contactEmail          String?
+  contactEmail            String?
   // National Headquarters designation — the single Community that is the
   // root of the organizational Community tree and the operational home of
   // Central Administration. Exactly one Settings row exists (id:
@@ -488,7 +505,7 @@ model Settings {
   // Server-side validation (adminCommunities.ts) is what actually enforces
   // "must be a root Community" — this column itself accepts any Community id.
   headquartersCommunityId String?
-  headquartersCommunity   Community? @relation("SettingsHeadquarters", fields: [headquartersCommunityId], references: [id], onDelete: SetNull)
+  headquartersCommunity   Community?    @relation("SettingsHeadquarters", fields: [headquartersCommunityId], references: [id], onDelete: SetNull)
   placementMode           PlacementMode @default(SMALLEST_GROUP)
   // "Live now" slot on the Updates page: the YouTube video id of the live
   // (video or audio-only) the central admin is streaming, or null when
@@ -512,8 +529,8 @@ model Settings {
   chatWallpaperPreset     String?
   chatWallpaperStorageKey String?
   chatWallpaperUpdatedAt  DateTime?
-  updatedAt             DateTime @updatedAt
-  updatedByUserId       String?
+  updatedAt               DateTime      @updatedAt
+  updatedByUserId         String?
 }
 
 // ---------------------------------------------------------------------------
@@ -581,15 +598,15 @@ model ContactMessage {
 // birth, address fields, care fields, payment fields, leadership fields,
 // follow-up fields.
 model Person {
-  id                String   @id @default(uuid())
-  name              String
-  whatsappNumber    String   @unique
-  email             String?
-  preferredLanguage Language @default(en)
+  id                  String              @id @default(uuid())
+  name                String
+  whatsappNumber      String              @unique
+  email               String?
+  preferredLanguage   Language            @default(en)
   // Mirrors the originating Registration's isTestData flag (when a Person
   // is created via the registration flow) so the Admin People list can use
   // the same "include test data" filter as every other list in the app.
-  isTestData        Boolean  @default(false)
+  isTestData          Boolean             @default(false)
   // Member-provided descriptive location — a Person may set any, all, or
   // none of these via PATCH /api/member/me/profile. Deliberately plain,
   // free-text, optional strings with NO relationship to Geography/
@@ -602,9 +619,9 @@ model Person {
   // schema's existing convention of never adding a speculative index ahead
   // of a demonstrated need (e.g. the unindexed name/whatsapp/email search
   // already used by GET /api/admin/people).
-  locationCountry   String?
-  locationCity      String?
-  locationArea      String?
+  locationCountry     String?
+  locationCity        String?
+  locationArea        String?
   // Cameroon administrative location (filled during sign-up when the
   // country is Cameroon). Same "descriptive only, no authority" rule as
   // the fields above; also used by BY_LOCATION group placement.
@@ -630,60 +647,64 @@ model Person {
   // "last seen" (see lib/presence.ts).
   lastSeenAt          DateTime?
   friendRequestPolicy FriendRequestPolicy @default(EVERYONE)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
-  users                 User[]
-  registrations         Registration[]
-  communityMemberships  CommunityMembership[]
-  attempts              Attempt[]
-  participationEvents   ParticipationEvent[]
-  memberAccount         MemberAccount?
-  roleAssignments       RoleAssignment[]
-  followingAssignments  FollowUpAssignment[]  @relation("FollowUpFollower")
-  followedByAssignments FollowUpAssignment[]  @relation("FollowUpFollowedPerson")
-  messages                    Message[]
-  deletedMessages             Message[]                    @relation("MessageDeletedBy")
-  hiddenMessages              MessageHiddenForPerson[]
-  messageReactions            MessageReaction[]
-  updateCommentReactions      UpdateCommentReaction[]
-  groupChatMutes              GroupChatMute[]
-  uploadedAttachments         MessageAttachment[]          @relation("MessageAttachmentUploadedBy")
-  followUpMessages            FollowUpMessage[]
-  announcementReads           AnnouncementRead[]
-  communityConversationReads  CommunityConversationRead[]
-  followUpConversationReads   FollowUpConversationRead[]
-  leadershipCollaborationMessages      LeadershipCollaborationMessage[]
-  leadershipCollaborationConversationReads LeadershipCollaborationConversationRead[]
-  organizationalLeadershipRecommendationsMade     OrganizationalLeadershipRecommendation[] @relation("OrganizationalLeadershipRecommendationProposer")
-  organizationalLeadershipRecommendationsReceived OrganizationalLeadershipRecommendation[] @relation("OrganizationalLeadershipRecommendationCandidate")
-  headquartersPostComments   HeadquartersPostComment[]
-  headquartersPostReactions  HeadquartersPostReaction[]
-  privateConversationsAsMember    PrivateConversation[] @relation("PrivateConversationMember")
-  privateConversationsInitiated   PrivateConversation[] @relation("PrivateConversationInitiator")
-  privateMessagesSent             PrivateMessage[]
-  privateConversationReads        PrivateConversationRead[]
-  privateMessageReactions         PrivateMessageReaction[]
-  resourceAccessGrants             ResourceAccessGrant[]
-  notifications                    Notification[]
-  updatePosts                      UpdatePost[]            @relation("UpdatePostAuthor")
-  updatePostsDeleted               UpdatePost[]            @relation("UpdatePostDeletedByPerson")
-  updateComments                   UpdateComment[]         @relation("UpdateCommentAuthor")
-  updateCommentsDeleted            UpdateComment[]         @relation("UpdateCommentDeletedByPerson")
-  updateReactions                  UpdateReaction[]
-  trainingEnrollment               TrainingEnrollment?
-  devotionalOfferings              DevotionalOffering[]
-  friendRequestsSent               Friendship[]            @relation("FriendshipRequester")
-  friendRequestsReceived           Friendship[]            @relation("FriendshipAddressee")
-  blocksMade                       PersonBlock[]           @relation("PersonBlockBlocker")
-  blocksReceived                   PersonBlock[]           @relation("PersonBlockBlocked")
-  following                        Follow[]                @relation("FollowFollower")
-  followedBy                       Follow[]                @relation("FollowFollowing")
-  reportsMade                      MemberReport[]          @relation("MemberReportReporter")
-  reportsAbout                     MemberReport[]          @relation("MemberReportReported")
-  representationRequests           RepresentationRequest[]
-  referralCode                     ReferralCode?
-  referralsMade                    Registration[]          @relation("RegistrationReferredBy")
+  users                                           User[]
+  registrations                                   Registration[]
+  communityMemberships                            CommunityMembership[]
+  attempts                                        Attempt[]
+  participationEvents                             ParticipationEvent[]
+  memberAccount                                   MemberAccount?
+  roleAssignments                                 RoleAssignment[]
+  followingAssignments                            FollowUpAssignment[]                      @relation("FollowUpFollower")
+  followedByAssignments                           FollowUpAssignment[]                      @relation("FollowUpFollowedPerson")
+  messages                                        Message[]
+  deletedMessages                                 Message[]                                 @relation("MessageDeletedBy")
+  hiddenMessages                                  MessageHiddenForPerson[]
+  messageReactions                                MessageReaction[]
+  updateCommentReactions                          UpdateCommentReaction[]
+  groupChatMutes                                  GroupChatMute[]
+  uploadedAttachments                             MessageAttachment[]                       @relation("MessageAttachmentUploadedBy")
+  followUpMessages                                FollowUpMessage[]
+  announcementReads                               AnnouncementRead[]
+  communityConversationReads                      CommunityConversationRead[]
+  followUpConversationReads                       FollowUpConversationRead[]
+  leadershipCollaborationMessages                 LeadershipCollaborationMessage[]
+  leadershipCollaborationConversationReads        LeadershipCollaborationConversationRead[]
+  organizationalLeadershipRecommendationsMade     OrganizationalLeadershipRecommendation[]  @relation("OrganizationalLeadershipRecommendationProposer")
+  organizationalLeadershipRecommendationsReceived OrganizationalLeadershipRecommendation[]  @relation("OrganizationalLeadershipRecommendationCandidate")
+  headquartersPostComments                        HeadquartersPostComment[]
+  headquartersPostReactions                       HeadquartersPostReaction[]
+  privateConversationsAsMember                    PrivateConversation[]                     @relation("PrivateConversationMember")
+  privateConversationsInitiated                   PrivateConversation[]                     @relation("PrivateConversationInitiator")
+  privateMessagesSent                             PrivateMessage[]
+  privateConversationReads                        PrivateConversationRead[]
+  privateMessageReactions                         PrivateMessageReaction[]
+  resourceAccessGrants                            ResourceAccessGrant[]
+  notifications                                   Notification[]
+  updatePosts                                     UpdatePost[]                              @relation("UpdatePostAuthor")
+  updatePostsDeleted                              UpdatePost[]                              @relation("UpdatePostDeletedByPerson")
+  updateComments                                  UpdateComment[]                           @relation("UpdateCommentAuthor")
+  updateCommentsDeleted                           UpdateComment[]                           @relation("UpdateCommentDeletedByPerson")
+  updateReactions                                 UpdateReaction[]
+  trainingEnrollment                              TrainingEnrollment?
+  devotionalOfferings                             DevotionalOffering[]
+  friendRequestsSent                              Friendship[]                              @relation("FriendshipRequester")
+  friendRequestsReceived                          Friendship[]                              @relation("FriendshipAddressee")
+  blocksMade                                      PersonBlock[]                             @relation("PersonBlockBlocker")
+  blocksReceived                                  PersonBlock[]                             @relation("PersonBlockBlocked")
+  following                                       Follow[]                                  @relation("FollowFollower")
+  followedBy                                      Follow[]                                  @relation("FollowFollowing")
+  reportsMade                                     MemberReport[]                            @relation("MemberReportReporter")
+  reportsAbout                                    MemberReport[]                            @relation("MemberReportReported")
+  representationRequests                          RepresentationRequest[]
+  referralCode                                    ReferralCode?
+  referralsMade                                   Registration[]                            @relation("RegistrationReferredBy")
+  prayerRequests                                  PrayerRequest[]                           @relation("PrayerRequestAuthor")
+  prayerRequestsDeleted                           PrayerRequest[]                           @relation("PrayerRequestDeletedByPerson")
+  prayerRequestComments                           PrayerRequestComment[]                    @relation("PrayerRequestCommentAuthor")
+  prayerRequestCommentsDeleted                    PrayerRequestComment[]                    @relation("PrayerRequestCommentDeletedByPerson")
 
   @@index([isTestData])
 }
@@ -695,10 +716,10 @@ model Person {
 // deep Mother -> Child -> Grandchild hierarchy with no hard-coded depth
 // limit. No leadership/capacity logic yet — that is a later phase.
 model Community {
-  id        String   @id @default(uuid())
-  parentId  String?
-  name      String
-  active    Boolean  @default(true)
+  id               String                 @id @default(uuid())
+  parentId         String?
+  name             String
+  active           Boolean                @default(true)
   // Community Posting Policy — who may create a new local Community
   // message/post (see lib/communityConversation.ts's canPostCommunityMessage,
   // the sole consumer of this field). Defaults to EVERYONE so every existing
@@ -707,31 +728,32 @@ model Community {
   // see that function's own comment. Deliberately not applied to
   // HeadquartersPost (a wholly separate model family with its own
   // Admin-only authorization).
-  postingPolicy CommunityPostingPolicy @default(EVERYONE)
+  postingPolicy    CommunityPostingPolicy @default(EVERYONE)
   // Optional location tag used only by BY_LOCATION placement: newcomers
   // whose country (and region, when set) match go to this group first.
   placementCountry String?
   placementRegion  String?
   // The group's picture and its purpose / vision, shown in the chat list and
   // on the group info page. Only the admin changes these.
-  photoStorageKey String?
-  photoUpdatedAt  DateTime?
-  aboutEn         String?
-  aboutFr         String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  photoStorageKey  String?
+  photoUpdatedAt   DateTime?
+  aboutEn          String?
+  aboutFr          String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
-  parent          Community?            @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children        Community[]           @relation("CommunityHierarchy")
-  memberships     CommunityMembership[]
-  devotionals     MonthlyDevotional[]
-  roleAssignments RoleAssignment[]
-  conversation    Conversation?
-  chatMutes       GroupChatMute[]
-  announcementTargets AnnouncementTarget[]
-  headquartersSettings Settings[] @relation("SettingsHeadquarters")
+  parent                                  Community?                               @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children                                Community[]                              @relation("CommunityHierarchy")
+  memberships                             CommunityMembership[]
+  devotionals                             MonthlyDevotional[]
+  roleAssignments                         RoleAssignment[]
+  conversation                            Conversation?
+  chatMutes                               GroupChatMute[]
+  announcementTargets                     AnnouncementTarget[]
+  headquartersSettings                    Settings[]                               @relation("SettingsHeadquarters")
   organizationalLeadershipRecommendations OrganizationalLeadershipRecommendation[]
-  headquartersPostTargets HeadquartersPostTarget[]
+  headquartersPostTargets                 HeadquartersPostTarget[]
+  prayerRequests                          PrayerRequest[]
 
   @@index([parentId])
   @@index([active])
@@ -792,7 +814,7 @@ model MonthlyDevotional {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  community   Community?   @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  community   Community?           @relation(fields: [communityId], references: [id], onDelete: SetNull)
   assessments Assessment[]
   book        LibraryBook?
   offerings   DevotionalOffering[]
@@ -1078,10 +1100,10 @@ model FollowUpAssignment {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
-  follower       Person            @relation("FollowUpFollower", fields: [followerId], references: [id], onDelete: Cascade)
-  followedPerson Person            @relation("FollowUpFollowedPerson", fields: [followedPersonId], references: [id], onDelete: Cascade)
-  assignedBy     User              @relation("FollowUpAssignedBy", fields: [assignedByUserId], references: [id])
-  closedBy       User?             @relation("FollowUpClosedBy", fields: [closedByUserId], references: [id])
+  follower       Person                @relation("FollowUpFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followedPerson Person                @relation("FollowUpFollowedPerson", fields: [followedPersonId], references: [id], onDelete: Cascade)
+  assignedBy     User                  @relation("FollowUpAssignedBy", fields: [assignedByUserId], references: [id])
+  closedBy       User?                 @relation("FollowUpClosedBy", fields: [closedByUserId], references: [id])
   contacts       FollowUpContact[]
   conversation   FollowUpConversation?
 
@@ -1135,14 +1157,14 @@ model FollowUpContact {
 // unmodified by this model's existence — a "recommend, never appoint"
 // boundary.
 model OrganizationalLeadershipRecommendation {
-  id                 String                                         @id @default(uuid())
+  id                 String                                       @id @default(uuid())
   proposedPersonId   String
   communityId        String
   proposedByPersonId String
   status             OrganizationalLeadershipRecommendationStatus @default(PROPOSED)
   note               String?
-  createdAt          DateTime                                       @default(now())
-  updatedAt          DateTime                                       @updatedAt
+  createdAt          DateTime                                     @default(now())
+  updatedAt          DateTime                                     @updatedAt
   decidedAt          DateTime?
   decidedByUserId    String?
   decisionNote       String?
@@ -1200,7 +1222,7 @@ model Conversation {
   communityId String   @unique
   createdAt   DateTime @default(now())
 
-  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  community Community                   @relation(fields: [communityId], references: [id], onDelete: Cascade)
   messages  Message[]
   reads     CommunityConversationRead[]
 }
@@ -1243,11 +1265,11 @@ model Message {
   // Shown as "↪ Forwarded" (copied from another chat).
   forwarded         Boolean   @default(false)
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       Person       @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
-  deletedBy    Person?      @relation("MessageDeletedBy", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
-  replyTo      Message?     @relation("MessageReply", fields: [replyToMessageId], references: [id], onDelete: SetNull)
-  replies      Message[]    @relation("MessageReply")
+  conversation Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Person                   @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+  deletedBy    Person?                  @relation("MessageDeletedBy", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  replyTo      Message?                 @relation("MessageReply", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies      Message[]                @relation("MessageReply")
   hiddenFor    MessageHiddenForPerson[]
   attachments  MessageAttachment[]
   reactions    MessageReaction[]
@@ -1383,11 +1405,11 @@ model CommunityConversationRead {
 // FollowUpConversation — the old one stays attached to the closed
 // assignment, untouched, forever readable by its original participants.
 model FollowUpConversation {
-  id                    String   @id @default(uuid())
-  followUpAssignmentId  String   @unique
-  createdAt             DateTime @default(now())
+  id                   String   @id @default(uuid())
+  followUpAssignmentId String   @unique
+  createdAt            DateTime @default(now())
 
-  followUpAssignment FollowUpAssignment @relation(fields: [followUpAssignmentId], references: [id], onDelete: Cascade)
+  followUpAssignment FollowUpAssignment         @relation(fields: [followUpAssignmentId], references: [id], onDelete: Cascade)
   messages           FollowUpMessage[]
   reads              FollowUpConversationRead[]
 }
@@ -1485,7 +1507,7 @@ model LeadershipCollaborationMessage {
   createdAt      DateTime @default(now())
 
   conversation LeadershipCollaborationConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       Person                               @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+  sender       Person                              @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
 }
@@ -1798,13 +1820,13 @@ model PrivateConversation {
 // conversation. Deliberately minimal: no editedAt/deletedAt, no
 // attachments, no reactions — matching this phase's explicit scope.
 model PrivateMessage {
-  id             String   @id @default(uuid())
-  conversationId String
-  senderPersonId String?
-  senderUserId   String?
+  id               String    @id @default(uuid())
+  conversationId   String
+  senderPersonId   String?
+  senderUserId     String?
   // Empty ("") for a message that is only a photo / voice note / video.
-  body           String
-  createdAt      DateTime @default(now())
+  body             String
+  createdAt        DateTime  @default(now())
   // WhatsApp-style reply: the message this one answers (same conversation).
   replyToMessageId String?
   // "Delete for everyone" by the sender (within an hour) — kept, but shown
@@ -1815,11 +1837,11 @@ model PrivateMessage {
   // Shown as "↪ Forwarded" (copied from another chat).
   forwarded        Boolean   @default(false)
 
-  conversation PrivateConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  senderPerson Person?             @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
-  senderUser   User?               @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
-  replyTo      PrivateMessage?     @relation("PrivateMessageReply", fields: [replyToMessageId], references: [id], onDelete: SetNull)
-  replies      PrivateMessage[]    @relation("PrivateMessageReply")
+  conversation PrivateConversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderPerson Person?                    @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+  senderUser   User?                      @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+  replyTo      PrivateMessage?            @relation("PrivateMessageReply", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies      PrivateMessage[]           @relation("PrivateMessageReply")
   attachments  PrivateMessageAttachment[]
   reactions    PrivateMessageReaction[]
 
@@ -1924,11 +1946,11 @@ model Resource {
 // deliberately minimal, no separate grant-history table, per this phase's
 // explicit "do not create unnecessary grant-history complexity" instruction.
 model ResourceAccessGrant {
-  id              String                     @id @default(uuid())
+  id              String                    @id @default(uuid())
   personId        String
   resourceId      String
-  status          ResourceAccessGrantStatus  @default(ACTIVE)
-  grantedAt       DateTime                   @default(now())
+  status          ResourceAccessGrantStatus @default(ACTIVE)
+  grantedAt       DateTime                  @default(now())
   grantedByUserId String
   revokedAt       DateTime?
   revokedByUserId String?
@@ -1977,7 +1999,7 @@ model AuditLog {
 // a live FK (with four more nullable columns and its own exclusivity
 // constraint) would be speculative complexity ahead of any actual need.
 model Notification {
-  id                String            @id @default(uuid())
+  id                String           @id @default(uuid())
   recipientPersonId String?
   recipientUserId   String?
   type              NotificationType
@@ -1985,13 +2007,64 @@ model Notification {
   targetType        String?
   targetId          String?
   readAt            DateTime?
-  createdAt         DateTime          @default(now())
+  createdAt         DateTime         @default(now())
 
   recipientPerson Person? @relation(fields: [recipientPersonId], references: [id], onDelete: Cascade)
   recipientUser   User?   @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
 
   @@index([recipientPersonId, readAt, createdAt])
   @@index([recipientUserId, readAt, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — Prayer requests. See PrayerRequestVisibility's own comment for
+// the PUBLIC/PRIVATE design. Soft-deleted (deletedAt + who deleted) like
+// UpdatePost, by its author, by the exact Community's own Leaders (PRIVATE
+// only), or by Admin.
+// ---------------------------------------------------------------------------
+
+model PrayerRequest {
+  id                String                  @id @default(uuid())
+  authorPersonId    String
+  body              String
+  visibility        PrayerRequestVisibility @default(PUBLIC)
+  // Required for PRIVATE (the Community whose Leaders/Admin may see it);
+  // always null for PUBLIC.
+  communityId       String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  deletedAt         DateTime?
+  deletedByPersonId String?
+  deletedByUserId   String?
+
+  author          Person                 @relation("PrayerRequestAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  community       Community?             @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  deletedByPerson Person?                @relation("PrayerRequestDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?                  @relation("PrayerRequestDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  comments        PrayerRequestComment[]
+
+  @@index([visibility, createdAt])
+  @@index([communityId])
+  @@index([authorPersonId])
+  @@index([deletedAt])
+}
+
+model PrayerRequestComment {
+  id                String    @id @default(uuid())
+  prayerRequestId   String
+  authorPersonId    String
+  body              String
+  createdAt         DateTime  @default(now())
+  deletedAt         DateTime?
+  deletedByPersonId String?
+  deletedByUserId   String?
+
+  prayerRequest   PrayerRequest @relation(fields: [prayerRequestId], references: [id], onDelete: Cascade)
+  author          Person        @relation("PrayerRequestCommentAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  deletedByPerson Person?       @relation("PrayerRequestCommentDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?         @relation("PrayerRequestCommentDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([prayerRequestId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -2004,20 +2077,20 @@ model Notification {
 // ---------------------------------------------------------------------------
 
 model UpdatePost {
-  id               String    @id @default(uuid())
-  authorPersonId   String
-  body             String
+  id                String    @id @default(uuid())
+  authorPersonId    String
+  body              String
   // YouTube video id (never a raw URL) when the author attached a video.
-  youtubeVideoId   String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
+  youtubeVideoId    String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
   deletedByPersonId String?
-  deletedByUserId  String?
+  deletedByUserId   String?
 
-  author          Person           @relation("UpdatePostAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
-  deletedByPerson Person?          @relation("UpdatePostDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
-  deletedByUser   User?            @relation("UpdatePostDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  author          Person            @relation("UpdatePostAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  deletedByPerson Person?           @relation("UpdatePostDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?             @relation("UpdatePostDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
   photos          UpdatePostPhoto[]
   comments        UpdateComment[]
   reactions       UpdateReaction[]
@@ -2054,13 +2127,13 @@ model UpdateComment {
   // replying to a reply attaches to the same top comment).
   parentCommentId   String?
 
-  post            UpdatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author          Person     @relation("UpdateCommentAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
-  parent          UpdateComment?  @relation("UpdateCommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
-  replies         UpdateComment[] @relation("UpdateCommentReplies")
+  post            UpdatePost              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author          Person                  @relation("UpdateCommentAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  parent          UpdateComment?          @relation("UpdateCommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         UpdateComment[]         @relation("UpdateCommentReplies")
   reactions       UpdateCommentReaction[]
-  deletedByPerson Person?    @relation("UpdateCommentDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
-  deletedByUser   User?      @relation("UpdateCommentDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  deletedByPerson Person?                 @relation("UpdateCommentDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?                   @relation("UpdateCommentDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
 
   @@index([postId, createdAt])
 }

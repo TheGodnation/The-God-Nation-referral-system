@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
@@ -30,6 +31,12 @@ export function MemberUpdatesPage() {
             <MemberPhotoSlider />
             <div className="px-4 empty:hidden sm:px-0">
               <LiveBanner />
+            </div>
+            <div className="px-4 sm:px-0">
+              <Link to="/member/prayer" className="card flex items-center justify-between text-sm font-semibold text-brand-700">
+                🙏 {t('prayerRequests.title')}
+                <span aria-hidden>›</span>
+              </Link>
             </div>
             <HeadquartersPosts variant="feed" />
             <div className="flex gap-2 px-4 sm:px-0" role="tablist" aria-label={t('updates.view_label') ?? ''}>

@@ -464,6 +464,24 @@ export const updateReactionLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
+// Phase 2 — Prayer requests. Same magnitude as the equivalent Updates
+// limiters above.
+export const prayerRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'You are posting too fast. Please wait a little.' },
+});
+
+export const prayerRequestCommentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 90,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'You are commenting too fast. Please wait a little.' },
+});
+
 // Friends, blocking, reports and people search (member social features).
 export const friendRequestLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

@@ -12,6 +12,7 @@ import { LeaderLeadershipCollaboration } from '../components/leader/LeaderLeader
 import { LeaderCommunityConversations } from '../components/leader/LeaderCommunityConversations';
 import { Announcements } from '../components/Announcements';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
+import { PrayerRequests } from '../components/PrayerRequests';
 import { LeaderUpdates } from '../components/updates/LeaderUpdates';
 import { ReportsList } from '../components/ReportsList';
 import { ExamResults } from '../components/leader/ExamResults';
@@ -333,6 +334,8 @@ export function LeaderDashboardPage() {
         <Announcements />
 
         <HeadquartersPosts />
+
+        <PrayerRequests />
 
         <LeaderUpdates />
 

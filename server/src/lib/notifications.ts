@@ -20,7 +20,9 @@ interface CreateNotificationParams {
     | 'RESOURCE_GRANTED'
     | 'ROLE_ASSIGNED'
     | 'REPRESENTATION_REQUEST_APPROVED'
-    | 'REPRESENTATION_REQUEST_DECLINED';
+    | 'REPRESENTATION_REQUEST_DECLINED'
+    | 'PRAYER_REQUEST_COMMENT'
+    | 'PRAYER_REQUEST_SUBMITTED_PRIVATELY';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -156,4 +158,41 @@ export async function notifyPrivateMessageReceived(
     targetType: 'PrivateConversation',
     targetId: conversation.id,
   });
+}
+
+/** Phase 2 — the author of a prayer request receives a new comment on it
+ * (never fired for the author commenting on their own request). */
+export async function notifyPrayerRequestComment(request: { id: string; authorPersonId: string }, commenterPersonId: string) {
+  if (commenterPersonId === request.authorPersonId) return;
+  const commenter = await prisma.person.findUnique({ where: { id: commenterPersonId }, select: { name: true } });
+  await createNotification({
+    recipientPersonId: request.authorPersonId,
+    type: 'PRAYER_REQUEST_COMMENT',
+    metadata: { commenterName: commenter?.name ?? '' },
+    targetType: 'PrayerRequest',
+    targetId: request.id,
+  });
+}
+
+/** Phase 2 — every ACTIVE Leader of a PRIVATE prayer request's Community is
+ * notified of the new submission (its one fan-out recipient list, unlike
+ * every other notification helper above). Never fires for PUBLIC requests —
+ * there is no designated "leadership" to route those to. */
+export async function notifyPrayerRequestSubmittedPrivately(
+  request: { id: string; authorPersonId: string },
+  leaderPersonIds: string[],
+) {
+  if (leaderPersonIds.length === 0) return;
+  const author = await prisma.person.findUnique({ where: { id: request.authorPersonId }, select: { name: true } });
+  await Promise.all(
+    leaderPersonIds.map((recipientPersonId) =>
+      createNotification({
+        recipientPersonId,
+        type: 'PRAYER_REQUEST_SUBMITTED_PRIVATELY',
+        metadata: { authorName: author?.name ?? '' },
+        targetType: 'PrayerRequest',
+        targetId: request.id,
+      }),
+    ),
+  );
 }
