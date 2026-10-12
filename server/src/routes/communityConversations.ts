@@ -382,7 +382,8 @@ const attachmentDescriptorSchema = z.object({
 // says nothing about it by itself (see that column's schema comment).
 const sendMessageSchema = z
   .object({
-    body: z.string().trim().max(2000).optional(),
+    // WhatsApp's own per-message character limit — the client enforces the same.
+    body: z.string().trim().max(65536).optional(),
     attachments: z.array(attachmentDescriptorSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
     replyToMessageId: z.string().min(1).optional(),
   })

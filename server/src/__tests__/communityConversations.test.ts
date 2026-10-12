@@ -315,16 +315,26 @@ describe('Phase 3M.1 — Community Conversation — message validation', () => {
     expect(res.status).toBe(400);
   });
 
-  it('15. a body over 2000 characters is rejected', async () => {
+  it('15. a body over 65,536 characters (WhatsApp\'s own limit) is rejected, but a long one within it is accepted', async () => {
     const community = await makeCommunity('Validation Community 15');
     const { agent, csrf, person } = await loginAsMember('+237698000015', 'conv15@example.com');
     await makeMembership(person.id, community.id);
 
-    const res = await agent
+    const tooLong = await agent
       .post(`/api/communities/${community.id}/conversation/messages`)
       .set('X-CSRF-Token', csrf)
-      .send({ body: 'x'.repeat(2001) });
-    expect(res.status).toBe(400);
+      .send({ body: 'x'.repeat(65537) });
+    expect(tooLong.status).toBe(400);
+
+    // A message well past the old 2000-character cap must now go through
+    // in full, never silently cut short.
+    const longBody = 'x'.repeat(5000);
+    const accepted = await agent
+      .post(`/api/communities/${community.id}/conversation/messages`)
+      .set('X-CSRF-Token', csrf)
+      .send({ body: longBody });
+    expect(accepted.status).toBe(201);
+    expect(accepted.body.body).toHaveLength(5000);
   });
 
   it('16. a valid body is accepted', async () => {

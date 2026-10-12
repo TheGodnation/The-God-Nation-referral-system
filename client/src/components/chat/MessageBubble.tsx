@@ -99,12 +99,14 @@ function PlayableAttachment({
   a,
   senderName,
   senderPhotoUrl,
+  isOwn,
 }: {
   mediaBase: string;
   messageId: string;
   a: ChatAttachment;
   senderName: string;
   senderPhotoUrl?: string | null;
+  isOwn: boolean;
 }) {
   const { t } = useTranslation();
   const saver = useDataSaver();
@@ -122,6 +124,7 @@ function PlayableAttachment({
           seedId={a.id}
           avatarName={senderName}
           avatarPhotoUrl={senderPhotoUrl}
+          own={isOwn}
           waitForTap={waitForTap}
           failed={failed}
           onRequestDownload={() => setWanted(true)}
@@ -300,7 +303,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
               )}
               {playables.map((a) => (
                 <div key={a.id} className="mb-1">
-                  <PlayableAttachment mediaBase={mediaBase} messageId={m.id} a={a} senderName={m.senderName} senderPhotoUrl={m.senderPhotoUrl} />
+                  <PlayableAttachment mediaBase={mediaBase} messageId={m.id} a={a} senderName={m.senderName} senderPhotoUrl={m.senderPhotoUrl} isOwn={m.isOwn} />
                 </div>
               ))}
               {documents.map((a) => (

@@ -81,7 +81,10 @@ export function createApp() {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: '100kb' }));
+  // 1mb: a 65,536-character chat message (WhatsApp's own limit, now matched
+  // by communityConversations.ts/privateMessages.ts) can be a few hundred KB
+  // once multi-byte UTF-8 (accented French text, emoji) is accounted for.
+  app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(ensureVisitorId);
   app.use(ensureCsrfCookie);

@@ -39,6 +39,7 @@ export function VoiceNotePlayer({
   seedId,
   avatarName,
   avatarPhotoUrl,
+  own,
   waitForTap,
   failed,
   onRequestDownload,
@@ -48,6 +49,10 @@ export function VoiceNotePlayer({
   seedId: string;
   avatarName: string;
   avatarPhotoUrl?: string | null;
+  /** Sent voice notes keep the sender's own photo on the left; received
+   * ones mirror it to the right — same left/right split as the outer
+   * sent/received bubble alignment. */
+  own: boolean;
   waitForTap: boolean;
   failed: boolean;
   onRequestDownload: () => void;
@@ -89,7 +94,7 @@ export function VoiceNotePlayer({
   const remaining = playing || currentTime > 0 ? duration - currentTime : duration;
 
   return (
-    <div className="flex items-center gap-2 py-0.5">
+    <div className={`flex items-center gap-2 py-0.5 ${own ? 'flex-row' : 'flex-row-reverse'}`}>
       <Avatar name={avatarName} photoUrl={avatarPhotoUrl} size={36} />
       {url ? (
         <>

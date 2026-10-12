@@ -75,7 +75,7 @@ describe('Private chat screen (WhatsApp style)', () => {
     expect(await screen.findByText('Yes, I will')).toBeInTheDocument();
     expect(screen.getAllByText('Are you coming to the prayer?')).toHaveLength(2);
     expect(screen.getByRole('button', { name: '🙏 1' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: /Hold to record a voice note/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tap to record a voice note/ })).toBeInTheDocument();
   });
 
   it('reply to a message and send', async () => {

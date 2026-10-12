@@ -17,6 +17,7 @@ describe('VoiceNotePlayer', () => {
         seedId="a1"
         avatarName="Ben Tabe"
         avatarPhotoUrl={null}
+        own={false}
         waitForTap
         failed={false}
         onRequestDownload={vi.fn()}
@@ -35,6 +36,7 @@ describe('VoiceNotePlayer', () => {
         seedId="a1"
         avatarName="Ben Tabe"
         avatarPhotoUrl={null}
+        own={false}
         waitForTap
         failed={false}
         onRequestDownload={onRequestDownload}
@@ -46,10 +48,10 @@ describe('VoiceNotePlayer', () => {
 
   it('shows a loading state, then a failed state', () => {
     const { rerender } = render(
-      <VoiceNotePlayer url={null} byteSize={1000} seedId="a1" avatarName="Ben Tabe" waitForTap={false} failed={false} onRequestDownload={vi.fn()} />,
+      <VoiceNotePlayer url={null} byteSize={1000} seedId="a1" avatarName="Ben Tabe" own={false} waitForTap={false} failed={false} onRequestDownload={vi.fn()} />,
     );
     expect(screen.getByText('Loading…')).toBeInTheDocument();
-    rerender(<VoiceNotePlayer url={null} byteSize={1000} seedId="a1" avatarName="Ben Tabe" waitForTap={false} failed onRequestDownload={vi.fn()} />);
+    rerender(<VoiceNotePlayer url={null} byteSize={1000} seedId="a1" avatarName="Ben Tabe" own={false} waitForTap={false} failed onRequestDownload={vi.fn()} />);
     expect(screen.getByText('⚠️')).toBeInTheDocument();
   });
 
@@ -61,6 +63,7 @@ describe('VoiceNotePlayer', () => {
         seedId="a1"
         avatarName="Ben Tabe"
         avatarPhotoUrl={null}
+        own={false}
         waitForTap={false}
         failed={false}
         onRequestDownload={vi.fn()}
@@ -86,6 +89,7 @@ describe('VoiceNotePlayer', () => {
         byteSize={4000}
         seedId="a1"
         avatarName="Ben Tabe"
+        own={false}
         waitForTap={false}
         failed={false}
         onRequestDownload={vi.fn()}
@@ -108,6 +112,7 @@ describe('VoiceNotePlayer', () => {
         byteSize={4000}
         seedId="a1"
         avatarName="Ben Tabe"
+        own={false}
         waitForTap={false}
         failed={false}
         onRequestDownload={vi.fn()}
@@ -122,5 +127,38 @@ describe('VoiceNotePlayer', () => {
     fireEvent.ended(audio);
     expect(await screen.findByRole('button', { name: 'Play voice message' })).toBeInTheDocument();
     expect(screen.getByText('0:10')).toBeInTheDocument();
+  });
+
+  it('puts the avatar on the left for a sent (own) voice note', () => {
+    const { container } = render(
+      <VoiceNotePlayer
+        url="https://files.example/voice.webm"
+        byteSize={4000}
+        seedId="a1"
+        avatarName="Me"
+        own
+        waitForTap={false}
+        failed={false}
+        onRequestDownload={vi.fn()}
+      />,
+    );
+    expect(container.firstElementChild).toHaveClass('flex-row');
+    expect(container.firstElementChild).not.toHaveClass('flex-row-reverse');
+  });
+
+  it('puts the avatar on the right for a received voice note', () => {
+    const { container } = render(
+      <VoiceNotePlayer
+        url="https://files.example/voice.webm"
+        byteSize={4000}
+        seedId="a1"
+        avatarName="Ben Tabe"
+        own={false}
+        waitForTap={false}
+        failed={false}
+        onRequestDownload={vi.fn()}
+      />,
+    );
+    expect(container.firstElementChild).toHaveClass('flex-row-reverse');
   });
 });

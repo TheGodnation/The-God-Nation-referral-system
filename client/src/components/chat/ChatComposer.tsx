@@ -35,8 +35,8 @@ interface TrayItem {
 
 const MAX_VOICE_MS = 5 * 60 * 1000;
 const MIN_VOICE_MS = 700;
-const HOLD_TO_SEND_MS = 450;
-const SLIDE_TO_CANCEL_PX = 90;
+// WhatsApp's own per-message character limit — the server enforces the same.
+const MAX_CHAT_BODY = 65536;
 
 function objectUrl(b: Blob): string | null {
   return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(b) : null;
@@ -51,8 +51,8 @@ function newId() {
 }
 
 // The WhatsApp-style bar at the bottom of a chat: type a message, attach
-// photos/videos/documents, record a video, or hold the microphone to record
-// a voice note (slide left to cancel; a quick tap records hands-free).
+// photos/videos/documents, record a video, or tap the microphone to record
+// a voice note (no holding required — tap again, via the Send button, when done).
 export function ChatComposer({
   uploadPath,
   replyTo,
@@ -103,7 +103,6 @@ export function ChatComposer({
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef(0);
-  const pressRef = useRef<{ x: number; at: number; up: boolean } | null>(null);
   const lockedRef = useRef(false);
 
   useEffect(() => {
@@ -283,7 +282,6 @@ export function ChatComposer({
   function finishVoice(send: boolean) {
     const rec = recorderRef.current;
     recorderRef.current = null;
-    pressRef.current = null;
     setRecording(null);
     if (!rec) return;
     const duration = Date.now() - startedAtRef.current;
@@ -315,43 +313,12 @@ export function ChatComposer({
     }
   }
 
-  function micDown(e: React.PointerEvent<HTMLButtonElement>) {
+  // Tap to start recording (hands-free right away — no holding required,
+  // the way the record bar's own Cancel/Send buttons expect you to stop).
+  async function startRecording() {
     if (recording || busy) return;
-    e.preventDefault();
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* not supported */
-    }
-    const press = { x: e.clientX, at: Date.now(), up: false };
-    pressRef.current = press;
-    void startVoice().then((ok) => {
-      // Finger already lifted (e.g. while allowing the microphone): keep
-      // recording hands-free with Cancel / Send buttons.
-      if (ok && press.up) lockVoice();
-    });
-  }
-
-  function micMove(e: React.PointerEvent<HTMLButtonElement>) {
-    const press = pressRef.current;
-    if (!press || press.up || !recorderRef.current || lockedRef.current) return;
-    if (press.x - e.clientX > SLIDE_TO_CANCEL_PX) finishVoice(false);
-  }
-
-  function micUp() {
-    const press = pressRef.current;
-    if (!press) return;
-    press.up = true;
-    if (!recorderRef.current || lockedRef.current) return;
-    if (Date.now() - press.at < HOLD_TO_SEND_MS) lockVoice();
-    else finishVoice(true);
-  }
-
-  function micClick(e: React.MouseEvent) {
-    // Keyboard users (Enter/Space) start hands-free recording.
-    if (e.detail === 0 && !recording) {
-      void startVoice().then((ok) => ok && lockVoice());
-    }
+    const ok = await startVoice();
+    if (ok) lockVoice();
   }
 
   return (
@@ -449,34 +416,30 @@ export function ChatComposer({
       <div className="flex items-end gap-2">
         {recording ? (
           <div className="flex min-h-[44px] flex-1 items-center gap-3 rounded-3xl bg-white px-4 py-2">
-            {recording.locked && (
-              <button type="button" onClick={() => finishVoice(false)} aria-label={t('groupChat.cancel') ?? ''} className="text-xl">
-                🗑️
-              </button>
-            )}
+            <button type="button" onClick={() => finishVoice(false)} aria-label={t('groupChat.cancel') ?? ''} className="text-xl">
+              🗑️
+            </button>
             <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" aria-hidden />
             <span className="font-mono text-sm text-slate-700" aria-live="polite">
               {formatDuration(elapsed)}
             </span>
-            <span className="flex-1 truncate text-right text-sm text-slate-500">
-              {recording.locked ? t('groupChat.recording') : t('groupChat.slide_cancel')}
-            </span>
+            <span className="flex-1 truncate text-right text-sm text-slate-500">{t('groupChat.recording')}</span>
           </div>
         ) : (
-          <div className="flex min-h-[44px] flex-1 items-end rounded-3xl bg-white px-2">
+          <div className="flex min-h-[44px] min-w-0 flex-1 items-end rounded-3xl bg-white px-2">
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
               aria-label={t('groupChat.attach') ?? ''}
               aria-expanded={menuOpen}
-              className="p-2 text-xl text-slate-500"
+              className="shrink-0 p-2 text-xl text-slate-500"
             >
               📎
             </button>
             <textarea
               ref={textRef}
               rows={1}
-              maxLength={2000}
+              maxLength={MAX_CHAT_BODY}
               value={text}
               aria-label={t('groupChat.type_message') ?? ''}
               placeholder={t('groupChat.type_message') ?? ''}
@@ -486,14 +449,9 @@ export function ChatComposer({
                 signalTyping(e.target.value);
               }}
               onKeyDown={onKeyDown}
-              className="max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-[16px] leading-6 outline-none focus:ring-0"
+              className="min-w-0 max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-[16px] leading-6 outline-none focus:ring-0"
             />
-            <VoiceInputButton onResult={onVoiceInputResult} className="p-2 text-lg" />
-            {!text.trim() && (
-              <button type="button" onClick={() => cameraRef.current?.click()} aria-label={t('groupChat.camera') ?? ''} className="p-2 text-xl text-slate-500">
-                📷
-              </button>
-            )}
+            <VoiceInputButton onResult={onVoiceInputResult} className="shrink-0 p-2 text-lg" />
           </div>
         )}
 
@@ -519,19 +477,11 @@ export function ChatComposer({
         ) : (
           <button
             type="button"
-            onPointerDown={micDown}
-            onPointerMove={micMove}
-            onPointerUp={micUp}
-            onPointerCancel={micUp}
-            onClick={micClick}
-            onContextMenu={(e) => e.preventDefault()}
+            onClick={() => void startRecording()}
             disabled={busy}
-            style={{ touchAction: 'none' }}
             aria-label={t('groupChat.record_voice') ?? ''}
             title={t('groupChat.record_voice') ?? ''}
-            className={`flex shrink-0 select-none items-center justify-center rounded-full text-lg text-white transition-all ${
-              recording ? 'h-16 w-16 bg-red-500' : 'h-11 w-11 bg-emerald-600'
-            } disabled:bg-emerald-300`}
+            className="flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-full bg-emerald-600 text-lg text-white disabled:bg-emerald-300"
           >
             🎤
           </button>

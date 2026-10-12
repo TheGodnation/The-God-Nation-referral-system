@@ -427,8 +427,8 @@ export function MemberGroupChatPage() {
 
   return (
     <div className="fixed inset-0 flex flex-col" style={resolveWallpaperStyle(chatWallpaper?.preset ?? null, chatWallpaper?.imageUrl ?? null)}>
-      <header className="flex items-center gap-3 bg-brand-800 px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-white shadow">
-        <Link to="/member/chats" aria-label={t('groupChat.back') ?? ''} className="px-2 text-2xl leading-none">
+      <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-slate-900 shadow">
+        <Link to="/member/chats" aria-label={t('groupChat.back') ?? ''} className="px-2 text-2xl leading-none text-slate-700">
           ←
         </Link>
         <Link
@@ -439,7 +439,7 @@ export function MemberGroupChatPage() {
         <Avatar name={groupName || '?'} photoUrl={groupPhoto} size={40} />
         <div className="min-w-0">
           <h1 className="truncate font-semibold">{groupName || t('groupChat.group')}</h1>
-          <p className={`truncate text-xs ${typingNames.length ? 'font-semibold text-emerald-300' : 'text-white/70'}`}>
+          <p className={`truncate text-xs ${typingNames.length ? 'font-semibold text-emerald-600' : 'text-slate-500'}`}>
             {typingNames.length === 1
               ? t('groupChat.typing_one', { name: typingNames[0] })
               : typingNames.length > 1
@@ -450,7 +450,7 @@ export function MemberGroupChatPage() {
           </p>
         </div>
         </Link>
-        <button type="button" onClick={() => setSearching(true)} aria-label={t('chatActions.search') ?? ''} className="px-2 text-xl">
+        <button type="button" onClick={() => setSearching(true)} aria-label={t('chatActions.search') ?? ''} className="px-2 text-xl text-slate-700">
           🔍
         </button>
       </header>

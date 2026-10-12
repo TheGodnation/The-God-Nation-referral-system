@@ -109,7 +109,7 @@ describe('WhatsApp-style group chat', () => {
     await waitFor(() => expect(document.querySelector('audio')).toHaveAttribute('src', 'https://files.example/voice.webm'));
     expect(screen.getByRole('button', { name: 'Play voice message' })).toBeInTheDocument();
     // Empty message box -> microphone button, like WhatsApp.
-    expect(screen.getByRole('button', { name: /Hold to record a voice note/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tap to record a voice note/ })).toBeInTheDocument();
   });
 
   it('tapping my own reaction removes it', async () => {
