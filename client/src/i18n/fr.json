@@ -58,20 +58,21 @@
   },
   "memberLogin": {
     "title": "Connexion Membre",
-    "subtitle": "Entrez votre numéro WhatsApp et votre e-mail — nous vous enverrons un lien de connexion.",
-    "whatsapp_label": "Numéro WhatsApp",
-    "whatsapp_placeholder": "ex. +237 6XX XXX XXX",
     "email_label": "E-mail",
     "email_placeholder": "vous@example.com",
-    "submit": "Envoyer le lien de connexion",
-    "submitting": "Envoi en cours…",
-    "sent_message": "Si ce numéro WhatsApp est enregistré, un lien de connexion a été envoyé à l'adresse e-mail fournie.",
+    "password_label": "Mot de passe",
+    "submit": "Se connecter",
+    "submitting": "Un instant…",
     "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer.",
+    "error_credentials": "E-mail ou mot de passe incorrect.",
     "new_here": "Nouveau ici ?",
     "join_link": "Rejoindre la communauté",
-    "subtitle_email": "Tapez votre e-mail. Nous vous enverrons un code à 6 chiffres.",
+    "subtitle_password": "Entrez votre e-mail et votre mot de passe pour vous connecter.",
+    "subtitle_code": "Mot de passe oublié, ou jamais défini ? Entrez votre e-mail et nous vous enverrons un code à 6 chiffres pour en définir un.",
     "submit_code": "Envoyez-moi un code",
-    "error_email": "Veuillez entrer une adresse e-mail valide."
+    "error_email": "Veuillez entrer une adresse e-mail valide.",
+    "forgot_password_link": "Mot de passe oublié, ou jamais défini ?",
+    "back_to_password_link": "Retour à la connexion par mot de passe"
   },
   "memberSignup": {
     "title": "Rejoindre la communauté",
@@ -79,6 +80,8 @@
     "email_label": "E-mail",
     "phone_label": "Numéro de téléphone (WhatsApp)",
     "phone_hint": "Ajoutez l’indicatif du pays, par exemple +237.",
+    "password_label": "Mot de passe",
+    "password_hint": "Au moins 8 caractères.",
     "submit": "Envoyez-moi le lien",
     "submitting": "Envoi…",
     "sent_title": "Consultez votre e-mail",
@@ -87,6 +90,7 @@
     "sign_in_link": "Se connecter",
     "error_email": "Veuillez entrer une adresse e-mail valide.",
     "error_phone": "Veuillez entrer un numéro de téléphone valide, avec l’indicatif du pays.",
+    "error_password": "Veuillez choisir un mot de passe d’au moins 8 caractères.",
     "error_generic": "Une erreur s’est produite. Veuillez réessayer."
   },
   "memberCompleteProfile": {
@@ -1867,6 +1871,9 @@
     "resent": "Un nouveau code a été envoyé.",
     "checking": "Vérification…",
     "submit": "Se connecter",
+    "submit_set_password": "Définir le mot de passe et se connecter",
+    "new_password_label": "Nouveau mot de passe",
+    "password_too_short": "Veuillez choisir un mot de passe d’au moins 8 caractères.",
     "resend": "Envoyer un nouveau code",
     "change_email": "Utiliser un autre e-mail",
     "spam_hint": "Pas dans votre boîte ? Regardez dans Spam ou Promotions. Le code est valable 15 minutes."

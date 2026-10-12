@@ -58,20 +58,21 @@
   },
   "memberLogin": {
     "title": "Member Sign In",
-    "subtitle": "Enter your WhatsApp number and email — we'll send you a sign-in link.",
-    "whatsapp_label": "WhatsApp Number",
-    "whatsapp_placeholder": "e.g. +237 6XX XXX XXX",
     "email_label": "Email",
     "email_placeholder": "you@example.com",
-    "submit": "Send Sign-In Link",
-    "submitting": "Sending…",
-    "sent_message": "If that WhatsApp number is registered, a sign-in link has been sent to the email you provided.",
+    "password_label": "Password",
+    "submit": "Sign In",
+    "submitting": "Please wait…",
     "error_generic": "Something went wrong. Please check your details and try again.",
+    "error_credentials": "Incorrect email or password.",
     "new_here": "New here?",
     "join_link": "Join the community",
-    "subtitle_email": "Type your email. We will send you a 6-digit code.",
+    "subtitle_password": "Enter your email and password to sign in.",
+    "subtitle_code": "Forgot your password, or never set one? Enter your email and we'll send a 6-digit code to set one.",
     "submit_code": "Send me a code",
-    "error_email": "Please enter a valid email address."
+    "error_email": "Please enter a valid email address.",
+    "forgot_password_link": "Forgot your password, or never set one?",
+    "back_to_password_link": "Back to password sign-in"
   },
   "memberSignup": {
     "title": "Join the community",
@@ -79,6 +80,8 @@
     "email_label": "Email",
     "phone_label": "Phone number (WhatsApp)",
     "phone_hint": "Include your country code, for example +237.",
+    "password_label": "Password",
+    "password_hint": "At least 8 characters.",
     "submit": "Send me the link",
     "submitting": "Sending…",
     "sent_title": "Check your email",
@@ -87,6 +90,7 @@
     "sign_in_link": "Sign in",
     "error_email": "Please enter a valid email address.",
     "error_phone": "Please enter a valid phone number, including the country code.",
+    "error_password": "Please choose a password with at least 8 characters.",
     "error_generic": "Something went wrong. Please try again."
   },
   "memberCompleteProfile": {
@@ -1867,6 +1871,9 @@
     "resent": "A new code was sent.",
     "checking": "Checking…",
     "submit": "Sign in",
+    "submit_set_password": "Set password & sign in",
+    "new_password_label": "New password",
+    "password_too_short": "Please choose a password with at least 8 characters.",
     "resend": "Send a new code",
     "change_email": "Use another email",
     "spam_hint": "Not in your inbox? Look in Spam or Promotions. The code works for 15 minutes."

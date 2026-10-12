@@ -45,7 +45,7 @@ const NEW_MEMBER = {
 };
 
 describe('MemberSignupPage', () => {
-  it('sends email and phone, then tells the visitor to check their email', async () => {
+  it('sends email, phone and a password, then tells the visitor to check their email', async () => {
     mockFetchByUrl({ '/api/member/auth/signup': { status: 200, body: { message: 'ok' } } });
     render(
       <MemoryRouter>
@@ -55,11 +55,12 @@ describe('MemberSignupPage', () => {
 
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
     fireEvent.change(screen.getByLabelText('Phone number (WhatsApp)'), { target: { value: '+237670000001' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
 
     await waitFor(() => expect(screen.getByText('Check your email')).toBeInTheDocument());
     const post = calls.find((c) => c.url.includes('/api/member/auth/signup'));
-    expect(post?.body).toEqual({ email: 'ada@example.com', whatsapp: '+237670000001', language: 'en' });
+    expect(post?.body).toEqual({ email: 'ada@example.com', whatsapp: '+237670000001', password: 'Testpass123', language: 'en' });
   });
 
   it('shows a clear message for an invalid phone number', async () => {
@@ -71,10 +72,28 @@ describe('MemberSignupPage', () => {
     );
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
     fireEvent.change(screen.getByLabelText('Phone number (WhatsApp)'), { target: { value: '12' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Please enter a valid phone number, including the country code.'),
     );
+  });
+
+  it('requires a password of at least 8 characters before submitting', async () => {
+    mockFetchByUrl({ '/api/member/auth/signup': { status: 200, body: { message: 'ok' } } });
+    render(
+      <MemoryRouter>
+        <MemberSignupPage />
+      </MemoryRouter>,
+    );
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
+    fireEvent.change(screen.getByLabelText('Phone number (WhatsApp)'), { target: { value: '+237670000001' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'short' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Please choose a password with at least 8 characters.'),
+    );
+    expect(calls.some((c) => c.url.includes('/api/member/auth/signup'))).toBe(false);
   });
 });
 

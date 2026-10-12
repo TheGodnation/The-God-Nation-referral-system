@@ -2,17 +2,21 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 import { CodeEntry } from '../components/member/CodeEntry';
 
-// Step 1 of joining the community: email + phone only. The server always
-// gives the same reply (it never says whether someone is already known),
-// so after submitting we simply tell the visitor to check their email.
-// Step 2 (name + location) happens after they click the emailed link.
+// Step 1 of joining the community: email, phone and a password. The server
+// always gives the same reply (it never says whether someone is already
+// known), so after submitting we simply tell the visitor to check their
+// email. Step 2 (name + location) happens after they click the emailed
+// link/code — from then on they sign back in with this password; a code is
+// never sent again just to sign in.
 export function MemberSignupPage() {
   const { t, i18n } = useTranslation();
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -28,13 +32,18 @@ export function MemberSignupPage() {
       setError(t('memberSignup.error_phone'));
       return;
     }
+    if (password.length < 8) {
+      setError(t('memberSignup.error_password'));
+      return;
+    }
     setSubmitting(true);
     try {
       const language = i18n.language?.startsWith('fr') ? 'fr' : 'en';
-      await api.post('/api/member/auth/signup', { email: email.trim(), whatsapp: whatsapp.trim(), language });
+      await api.post('/api/member/auth/signup', { email: email.trim(), whatsapp: whatsapp.trim(), password, language });
       setSent(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'INVALID_PHONE') setError(t('memberSignup.error_phone'));
+      else if (err instanceof ApiError && err.code === 'INVALID_PASSWORD') setError(t('memberSignup.error_password'));
       else if (err instanceof ApiError && err.code === 'INVALID_INPUT') setError(t('memberSignup.error_email'));
       else setError(t('memberSignup.error_generic'));
     } finally {
@@ -88,6 +97,13 @@ export function MemberSignupPage() {
                 autoComplete="tel"
               />
               <p className="mt-1 text-xs text-slate-500">{t('memberSignup.phone_hint')}</p>
+            </div>
+            <div>
+              <label className="label" htmlFor="signup-password">
+                {t('memberSignup.password_label')}
+              </label>
+              <PasswordInput id="signup-password" value={password} onChange={setPassword} autoComplete="new-password" />
+              <p className="mt-1 text-xs text-slate-500">{t('memberSignup.password_hint')}</p>
             </div>
 
             {error && (

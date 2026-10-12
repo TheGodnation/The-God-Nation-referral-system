@@ -989,6 +989,13 @@ model MemberAccount {
   id          String    @id @default(uuid())
   personId    String    @unique
   email       String    @unique
+  // Null for any account created before password sign-in existed (and never
+  // backfilled — there is nothing to hash). POST /login refuses such an
+  // account exactly like a wrong password, never revealing the difference;
+  // the member sets one via the same emailed-code flow used for "forgot
+  // password" (POST /verify-code with newPassword), which works whether
+  // this is null or already set.
+  passwordHash String?
   createdAt   DateTime  @default(now())
   lastLoginAt DateTime?
 

@@ -107,10 +107,14 @@ gap requires running this spec where R2 connectivity exists.
 ### Known environment limitation — Member magic-link email delivery
 
 `memberJourney.spec.ts` covers only the reachable boundary of Member
-authentication. Member login is a passwordless magic-link flow: the real
-one-time token is never persisted in raw form and is never returned by any
-API response or rendered in any UI — it exists only inside an email sent
-via `EmailService.sendMemberLoginLink` (Resend). This environment has no
+authentication. Member sign-in is ordinarily email + password (see
+`server/src/routes/memberAuth.ts` `POST /login`) — that path needs a real
+password and has nothing email-delivery-dependent for this test to
+exercise. The one email-dependent path left is "Forgot your password, or
+never set one?", a magic-link/code flow: the real one-time token is never
+persisted in raw form and is never returned by any API response or
+rendered in any UI — it exists only inside an email sent via
+`EmailService.sendMemberLoginLink` (Resend). This environment has no
 `RESEND_API_KEY` configured and no mailbox-reading tooling
 (Mailhog/Mailpit/Mailosaur/etc.), so the token cannot legitimately be
 obtained by a genuine browser-driven test here. Closing this gap would
@@ -120,12 +124,13 @@ token-exposure/bypass to `server/src/routes/memberAuth.ts` — neither was
 added in this phase.
 
 `memberJourney.spec.ts` therefore verifies only that the real Member Sign
-In UI submits the real request-link form, that the real
-`/api/member/auth/request-link` endpoint is reached, and that the correct
-generic confirmation message is shown. **The authenticated Member
-journey — Dashboard, Profile, Communities, Headquarters Posts, Resources,
-Notifications, and logout — remains unverified through a genuine
-authenticated browser session in this environment.**
+In UI's "Forgot your password, or never set one?" link submits the real
+request-code form, that the real `/api/member/auth/request-code` endpoint
+is reached, and that the correct generic confirmation message is shown.
+**The authenticated Member journey — Dashboard, Profile, Communities,
+Headquarters Posts, Resources, Notifications, and logout — remains
+unverified through a genuine authenticated browser session in this
+environment.**
 
 ### Known environment limitation — Role Assignment grant cannot target a named test Leader
 

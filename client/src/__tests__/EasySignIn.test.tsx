@@ -43,37 +43,71 @@ function renderLogin() {
   );
 }
 
-describe('Sign in with email and a 6-digit code', () => {
-  it('asks only for email, then for the code, then opens Chats', async () => {
+describe('Sign in with email and password', () => {
+  it('asks for email and password, then opens Chats', async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: { member: null } }),
+      'POST /api/member/auth/login': () => ({ body: { member: { name: 'A' } } }),
+    });
+    renderLogin();
+    expect(screen.queryByLabelText('6-digit code')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+
+    expect(await screen.findByText('Chats screen')).toBeInTheDocument();
+    expect(calls.find((c) => c.url === '/api/member/auth/login')?.body).toEqual({ email: 'ada@example.com', password: 'Testpass123' });
+  });
+
+  it('explains wrong credentials without revealing which part was wrong', async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: { member: null } }),
+      'POST /api/member/auth/login': () => ({ status: 401, body: { error: 'Invalid email or password.', code: 'INVALID_CREDENTIALS' } }),
+    });
+    renderLogin();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrong-pass' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Incorrect email or password.'));
+  });
+
+  it('always offers "forgot password", which sends a code and sets a new password to sign in', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: { member: null } }),
       'POST /api/member/auth/request-code': () => ({ body: { message: 'ok' } }),
       'POST /api/member/auth/verify-code': () => ({ body: { member: { name: 'A' } } }),
     });
     renderLogin();
-    expect(screen.queryByLabelText(/WhatsApp/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Forgot your password/ }));
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
 
     expect(await screen.findByText('We sent a 6-digit code to ada@example.com. Type it below.')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('6-digit code'), { target: { value: '12 34 56' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'Newpass123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Set password & sign in' }));
 
     expect(await screen.findByText('Chats screen')).toBeInTheDocument();
-    expect(calls.find((c) => c.url === '/api/member/auth/verify-code')?.body).toEqual({ email: 'ada@example.com', code: '123456' });
+    expect(calls.find((c) => c.url === '/api/member/auth/verify-code')?.body).toEqual({
+      email: 'ada@example.com',
+      code: '123456',
+      newPassword: 'Newpass123',
+    });
   });
 
-  it('explains a wrong code', async () => {
+  it('explains a wrong code on the forgot-password screen', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: { member: null } }),
       'POST /api/member/auth/request-code': () => ({ body: { message: 'ok' } }),
       'POST /api/member/auth/verify-code': () => ({ status: 400, body: { error: 'x', code: 'BAD_CODE' } }),
     });
     renderLogin();
+    fireEvent.click(screen.getByRole('button', { name: /Forgot your password/ }));
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
     fireEvent.change(await screen.findByLabelText('6-digit code'), { target: { value: '000000' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'Newpass123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Set password & sign in' }));
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('That code is not right or has expired.'),
     );

@@ -140,6 +140,19 @@ export const memberLoginConsumeLimiter = rateLimit({
   message: { error: 'Too many attempts. Please try again later.' },
 });
 
+// Member email+password sign-in. Same magnitude as the Admin/Leader
+// loginLimiter (routes/auth.ts) — this is the account-takeover-risk
+// surface now that a Member can have a persistent password, on top of the
+// identifier-keyed isBruteForced/recordLoginAttempt check the route also
+// runs (see lib/audit.ts).
+export const memberPasswordLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again later.' },
+});
+
 // Member-initiated assessment actions (starting/submitting an own attempt).
 export const memberAssessmentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

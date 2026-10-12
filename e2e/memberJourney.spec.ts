@@ -24,8 +24,12 @@ import { test, expect } from '@playwright/test';
 // flow was not changed or weakened in any way.
 //
 // This test therefore verifies only the real, publicly reachable boundary
-// of that flow: opening the actual Member Sign In page, submitting the
-// real request-link form (through the UI, not a direct API call) with a
+// of that flow: opening the actual Member Sign In page, following its
+// "Forgot your password, or never set one?" link (the sign-in page itself
+// now defaults to an ordinary email+password form, added after this phase —
+// see memberAuth.ts POST /login — but that path needs a real password and
+// has nothing for this boundary test to exercise), submitting the real
+// request-code form (through the UI, not a direct API call) with a
 // synthetic identifier, and verifying the server's real response and the
 // generic confirmation message shown to the user. It does not claim that
 // Member login succeeds, and it does not attempt to reach the Member
@@ -37,9 +41,9 @@ import { test, expect } from '@playwright/test';
 // environment, or a deliberate future decision to add a test-only
 // authentication bypass — neither of which this phase is permitted to do.
 //
-// No new seed fixture was added for this spec: the request-link endpoint
+// No new seed fixture was added for this spec: the request-code endpoint
 // returns the exact same generic response whether or not the submitted
-// WhatsApp number matches an existing Person (by design — see
+// email matches an existing MemberAccount (by design — see
 // server/src/routes/memberAuth.ts), so a synthetic, clearly-fake
 // identifier exercises the real boundary being tested without requiring
 // any backing database row.
@@ -49,6 +53,7 @@ test.describe('Member magic-link request boundary', () => {
     await expect(page.getByRole('heading', { name: 'Member Sign In' })).toBeVisible();
 
     await page.getByLabel('Email').fill('e2e-member-boundary@test.local');
+    await page.getByRole('button', { name: /Forgot your password/ }).click();
 
     const requestCodeResponsePromise = page.waitForResponse(
       (res) => res.url().includes('/api/member/auth/request-code') && res.request().method() === 'POST',

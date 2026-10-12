@@ -3,16 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { useMemberAuth } from '../../lib/MemberAuthContext';
+import { PasswordInput } from '../PasswordInput';
 
 // Step 2 of signing in: type the 6-digit code from the email, on the same
 // screen where it was asked for. (Tapping the link in the email still works
 // too, but on phones it often opens inside the email app instead of the
 // browser — typing the code avoids that.)
-export function CodeEntry({ email, onChangeEmail }: { email: string; onChangeEmail?: () => void }) {
+//
+// `requirePassword` is only set on the "forgot password / never set one"
+// screen (reached from the sign-in page, never from signing up) — the code
+// still only confirms the email, but this step also sets the account's
+// password in the same request. During sign-up itself the password was
+// already given on the signup form, so this stays false there.
+export function CodeEntry({
+  email,
+  onChangeEmail,
+  requirePassword,
+}: {
+  email: string;
+  onChangeEmail?: () => void;
+  requirePassword?: boolean;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { refresh } = useMemberAuth();
   const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
@@ -25,9 +41,13 @@ export function CodeEntry({ email, onChangeEmail }: { email: string; onChangeEma
       setError(t('memberCode.need_six'));
       return;
     }
+    if (requirePassword && newPassword.length < 8) {
+      setError(t('memberCode.password_too_short'));
+      return;
+    }
     setBusy(true);
     try {
-      await api.post('/api/member/auth/verify-code', { email, code: clean });
+      await api.post('/api/member/auth/verify-code', { email, code: clean, ...(requirePassword ? { newPassword } : {}) });
       await refresh();
       navigate('/member/chats', { replace: true });
     } catch (err) {
@@ -66,6 +86,20 @@ export function CodeEntry({ email, onChangeEmail }: { email: string; onChangeEma
           onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
         />
       </div>
+      {requirePassword && (
+        <div>
+          <label className="label" htmlFor="member-new-password">
+            {t('memberCode.new_password_label')}
+          </label>
+          <PasswordInput
+            id="member-new-password"
+            value={newPassword}
+            onChange={setNewPassword}
+            autoComplete="new-password"
+            minLength={8}
+          />
+        </div>
+      )}
       {error && (
         <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
           {error}
@@ -73,7 +107,7 @@ export function CodeEntry({ email, onChangeEmail }: { email: string; onChangeEma
       )}
       {resent && <p className="text-sm text-green-700">{t('memberCode.resent')}</p>}
       <button type="submit" className="btn-primary w-full" disabled={busy}>
-        {busy ? t('memberCode.checking') : t('memberCode.submit')}
+        {busy ? t('memberCode.checking') : t(requirePassword ? 'memberCode.submit_set_password' : 'memberCode.submit')}
       </button>
       <div className="flex justify-between text-sm">
         <button type="button" className="text-brand-700 underline" onClick={resend}>

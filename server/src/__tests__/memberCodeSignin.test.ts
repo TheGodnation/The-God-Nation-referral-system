@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
+import bcrypt from 'bcryptjs';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
@@ -93,6 +94,52 @@ describe('Sign in with email and a 6-digit code', () => {
     }
     const ok = await second.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', second.csrf).send({ email, code: second.code });
     expect(ok.status).toBe(200);
+  });
+
+  it('sets a password while verifying the code, for a member who signed up before passwords existed', async () => {
+    const { email } = await memberWithAccount();
+    const { agent, csrf, code } = await requestCode(email);
+    const ok = await agent
+      .post('/api/member/auth/verify-code')
+      .set('X-CSRF-Token', csrf)
+      .send({ email, code, newPassword: 'Newpass123' });
+    expect(ok.status).toBe(200);
+
+    // The member can now sign in the ordinary way, with no code at all.
+    const loginAgent = agentWithUniqueIp();
+    const { csrf: loginCsrf } = await bootstrap(loginAgent as any);
+    const login = await loginAgent.post('/api/member/auth/login').set('X-CSRF-Token', loginCsrf).send({ email, password: 'Newpass123' });
+    expect(login.status).toBe(200);
+  });
+
+  it('rejects a too-short newPassword without burning the code, so the member can retry', async () => {
+    const { email } = await memberWithAccount();
+    const { agent, csrf, code } = await requestCode(email);
+    const bad = await agent
+      .post('/api/member/auth/verify-code')
+      .set('X-CSRF-Token', csrf)
+      .send({ email, code, newPassword: 'short' });
+    expect(bad.status).toBe(400);
+    expect(bad.body.code).toBe('INVALID_PASSWORD');
+
+    const ok = await agent
+      .post('/api/member/auth/verify-code')
+      .set('X-CSRF-Token', csrf)
+      .send({ email, code, newPassword: 'Longenough123' });
+    expect(ok.status).toBe(200);
+  });
+
+  it('verifying a code without newPassword still just signs in (post-signup email confirmation), leaving any existing password untouched', async () => {
+    const { email } = await memberWithAccount();
+    await prisma.memberAccount.update({ where: { email }, data: { passwordHash: await bcrypt.hash('Original123', 12) } });
+    const { agent, csrf, code } = await requestCode(email);
+    const ok = await agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', csrf).send({ email, code });
+    expect(ok.status).toBe(200);
+
+    const loginAgent = agentWithUniqueIp();
+    const { csrf: loginCsrf } = await bootstrap(loginAgent as any);
+    const login = await loginAgent.post('/api/member/auth/login').set('X-CSRF-Token', loginCsrf).send({ email, password: 'Original123' });
+    expect(login.status).toBe(200);
   });
 
   it('the old phone + email request also includes a code now', async () => {

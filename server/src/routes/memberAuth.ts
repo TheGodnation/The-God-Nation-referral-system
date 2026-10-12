@@ -1,18 +1,20 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { Prisma, type MemberAccount, type Person } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { hashToken } from '../lib/auth';
 import { createMemberSession, destroyMemberSession, requireMember, MEMBER_SESSION_COOKIE_NAME } from '../lib/memberAuth';
 import { normalizeToE164 } from '../lib/phone';
-import { recordAudit } from '../lib/audit';
+import { recordAudit, isBruteForced, recordLoginAttempt } from '../lib/audit';
 import { requireCsrf } from '../lib/csrf';
 import {
   memberLoginRequestLimiter,
   memberLoginConsumeLimiter,
   memberSignupLimiter,
   memberCompleteProfileLimiter,
+  memberPasswordLoginLimiter,
 } from '../lib/rateLimit';
 import { selectApplicableReferralVisit } from '../lib/attribution';
 import { placePersonInGroup } from '../lib/placement';
@@ -146,15 +148,21 @@ router.post('/request-link', memberLoginRequestLimiter, requireCsrf, asyncHandle
 }));
 
 // ---------------------------------------------------------------------------
-// Public sign-up: step 1 of joining. The visitor gives only their email and
-// phone number; we email them a one-time link. Clicking it signs them in and
-// the app then asks for their name and location (complete-profile below),
-// after which they are placed in a group automatically.
+// Public sign-up: step 1 of joining. The visitor gives their email, phone
+// number and a password; we email them a one-time link/code to confirm the
+// address. Clicking it (or typing the code) signs them in and the app then
+// asks for their name and location (complete-profile below), after which
+// they are placed in a group automatically. From then on they sign back in
+// with the email + password given here (POST /login below) — a code is
+// never sent again just to sign in; see /request-code further down for the
+// one remaining case a code is still emailed after sign-up (forgot/never
+// set a password).
 //
 // The reply is always the same generic message, whatever happened, so this
 // endpoint never reveals whether an email or phone number is already known.
 // Someone who is already a member and signs up again simply gets a sign-in
-// link at the email already on their account.
+// link at the email already on their account (their existing password is
+// never touched by this).
 // ---------------------------------------------------------------------------
 
 const GENERIC_SIGNUP_RESPONSE = {
@@ -164,15 +172,20 @@ const GENERIC_SIGNUP_RESPONSE = {
 const signupSchema = z.object({
   email: z.string().trim().email().max(320),
   whatsapp: z.string().trim().min(1).max(32),
+  password: z.string().min(8, 'Please choose a password with at least 8 characters.').max(100),
   language: z.enum(['en', 'fr']).default('en'),
 });
 
 router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = signupSchema.safeParse(req.body);
   if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === 'password') {
+      return res.status(400).json({ error: issue.message, code: 'INVALID_PASSWORD' });
+    }
     return res.status(400).json({ error: 'Please enter a valid email address and phone number.', code: 'INVALID_INPUT' });
   }
-  const { email, whatsapp, language } = parsed.data;
+  const { email, whatsapp, password, language } = parsed.data;
   const normalizedEmail = email.toLowerCase();
   const normalizedWhatsApp = normalizeToE164(whatsapp);
   if (!normalizedWhatsApp) {
@@ -180,6 +193,11 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
     // number itself isn't a valid phone number.
     return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.', code: 'INVALID_PHONE' });
   }
+  // Hashed once up front; every branch below that actually creates a
+  // MemberAccount uses this. The one branch that doesn't (email already has
+  // an account) must never touch that account's existing password from an
+  // unauthenticated request — see its comment below.
+  const passwordHash = await bcrypt.hash(password, 12);
 
   const [personByPhone, accountByEmail] = await Promise.all([
     prisma.person.findUnique({ where: { whatsappNumber: normalizedWhatsApp }, include: { memberAccount: true } }),
@@ -188,7 +206,11 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
 
   // Case 1: this email already has an account — send the sign-in link to
   // that same inbox (only its owner can use it). Never attach the phone
-  // number from this request to anything.
+  // number OR the password from this request to anything: an anonymous
+  // "signup" submission is not proof of ownership, so it must never change
+  // an existing account's password (that would be a password-reset
+  // bypassing any verification). The account's real owner uses "forgot
+  // password" (request-code + verify-code with newPassword) instead.
   if (accountByEmail) {
     await sendMemberLoginLink(accountByEmail, accountByEmail.person);
     return res.json(GENERIC_SIGNUP_RESPONSE);
@@ -209,7 +231,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
     }
     try {
       const memberAccount = await prisma.memberAccount.create({
-        data: { personId: personByPhone.id, email: normalizedEmail },
+        data: { personId: personByPhone.id, email: normalizedEmail, passwordHash },
       });
       await recordAudit({
         action: 'MEMBER_ACCOUNT_CREATED',
@@ -292,7 +314,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
         data: { type: 'REGISTERED', registrationId: registration.id, visitorId, isTestData },
       });
       const memberAccount = await tx.memberAccount.create({
-        data: { personId: person.id, email: normalizedEmail },
+        data: { personId: person.id, email: normalizedEmail, passwordHash },
       });
       return { memberAccount, person };
     });
@@ -315,10 +337,71 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
 }));
 
 // ---------------------------------------------------------------------------
-// Simple sign-in: email only. POST /api/member/auth/request-code emails a
-// 6-digit code (and a link) to that address if it belongs to a member; the
-// reply is always the same, so it never reveals who is a member. The
-// member then types the code on the same screen: POST verify-code.
+// Sign-in: email + password. The ordinary, repeatable way a Member who has
+// already signed up gets back in — no email, no code, every time. Same
+// generic failure reply whether the email isn't a member, the account has
+// no password yet (signed up before this existed), or the password is
+// simply wrong: never reveals which. A member in that middle case uses
+// "forgot password" (request-code + verify-code with newPassword, below)
+// to set one; the login page always offers that link, not just when this
+// endpoint happens to fail, so offering it is never itself a signal.
+// ---------------------------------------------------------------------------
+
+const memberLoginSchema = z.object({
+  email: z.string().trim().email().max(320),
+  password: z.string().min(1),
+});
+
+const BAD_MEMBER_LOGIN = { error: 'Invalid email or password.', code: 'INVALID_CREDENTIALS' };
+
+router.post('/login', memberPasswordLoginLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = memberLoginSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(BAD_MEMBER_LOGIN);
+  const { password } = parsed.data;
+  const normalizedEmail = parsed.data.email.toLowerCase();
+  // Namespaced so a Member's failed attempts never share a brute-force
+  // bucket with an Admin/Leader User of the same email address.
+  const bruteForceId = `member:${normalizedEmail}`;
+  const ip = req.ip;
+  const userAgent = req.header('user-agent');
+
+  if (await isBruteForced(bruteForceId)) {
+    return res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
+  }
+
+  const account = await prisma.memberAccount.findUnique({
+    where: { email: normalizedEmail },
+    include: { person: true },
+  });
+
+  if (!account || !account.passwordHash || !(await bcrypt.compare(password, account.passwordHash))) {
+    await recordLoginAttempt(bruteForceId, false, ip, userAgent);
+    return res.status(401).json(BAD_MEMBER_LOGIN);
+  }
+
+  await prisma.memberAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
+  await recordLoginAttempt(bruteForceId, true, ip, userAgent);
+  await createMemberSession(account.id, res);
+  await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'password' } });
+
+  res.json({
+    member: {
+      name: account.person.name,
+      email: account.email,
+      preferredLanguage: account.person.preferredLanguage,
+    },
+  });
+}));
+
+// ---------------------------------------------------------------------------
+// Forgot password / never set one: POST /api/member/auth/request-code emails
+// a 6-digit code (and a link) to that address if it belongs to a member; the
+// reply is always the same, so it never reveals who is a member. The member
+// then types the code (and their new password) on the same screen: POST
+// verify-code with newPassword. This is also still how a brand-new sign-up
+// confirms their email right after signing up (verify-code without
+// newPassword, since they already set one above) — the only two places a
+// code is ever sent.
 // ---------------------------------------------------------------------------
 
 const GENERIC_CODE_RESPONSE = {
@@ -343,13 +426,24 @@ router.post('/request-code', memberLoginRequestLimiter, requireCsrf, asyncHandle
 const verifyCodeSchema = z.object({
   email: z.string().trim().email().max(320),
   code: z.string().trim().regex(/^\d{6}$/),
+  // Present only on the "forgot password / never set one" screen — sets
+  // (or replaces) the account's password in the same step as verifying the
+  // code. Absent on the plain post-signup "confirm your email" screen,
+  // where a password was already set at signup.
+  newPassword: z.string().min(8, 'Please choose a password with at least 8 characters.').max(100).optional(),
 });
 
 const BAD_CODE = { error: 'That code is not right or has expired. Check the latest email, or ask for a new code.', code: 'BAD_CODE' };
 
 router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = verifyCodeSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(BAD_CODE);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === 'newPassword') {
+      return res.status(400).json({ error: issue.message, code: 'INVALID_PASSWORD' });
+    }
+    return res.status(400).json(BAD_CODE);
+  }
 
   const account = await prisma.memberAccount.findUnique({
     where: { email: parsed.data.email.toLowerCase() },
@@ -382,9 +476,17 @@ router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler
   });
   if (claim.count !== 1) return res.status(400).json(BAD_CODE);
 
-  await prisma.memberAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
+  const { newPassword } = parsed.data;
+  const newPasswordHash = newPassword ? await bcrypt.hash(newPassword, 12) : undefined;
+  await prisma.memberAccount.update({
+    where: { id: account.id },
+    data: { lastLoginAt: new Date(), ...(newPasswordHash ? { passwordHash: newPasswordHash } : {}) },
+  });
   await createMemberSession(account.id, res);
   await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'code' } });
+  if (newPasswordHash) {
+    await recordAudit({ action: 'MEMBER_PASSWORD_SET', targetType: 'MemberAccount', targetId: account.id });
+  }
 
   res.json({
     member: {

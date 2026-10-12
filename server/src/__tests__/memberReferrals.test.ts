@@ -66,7 +66,7 @@ async function joinThroughLink(ref: string, whatsapp: string, email: string) {
   const agent = agentWithUniqueIp();
   const { csrf } = await bootstrap(agent as any);
   await agent.post('/api/referrals/visit').set('X-CSRF-Token', csrf).send({ ref, lang: 'en' });
-  await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email, whatsapp, language: 'en' });
+  await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email, whatsapp, password: 'Testpass123', language: 'en' });
   const link = spy.mock.calls[spy.mock.calls.length - 1]?.[0]?.link as string | undefined;
   spy.mockRestore();
   if (link) {

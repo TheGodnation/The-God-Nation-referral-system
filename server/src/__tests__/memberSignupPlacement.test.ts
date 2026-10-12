@@ -32,7 +32,7 @@ async function signup(email: string, whatsapp: string, language: 'en' | 'fr' = '
   const spy = vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true });
   const agent = agentWithUniqueIp();
   const { csrf } = await bootstrap(agent as any);
-  const res = await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email, whatsapp, language });
+  const res = await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email, whatsapp, password: 'Testpass123', language });
   const call = spy.mock.calls[0]?.[0];
   spy.mockRestore();
   return { res, agent, csrf, link: call?.link as string | undefined, sentTo: call?.to as string | undefined };
