@@ -11,10 +11,14 @@ export class ApiError extends Error {
   // English-only `error` text — the server doesn't know the visitor's
   // chosen UI language.
   code?: string;
-  constructor(status: number, message: string, code?: string) {
+  // Present on some validation errors (e.g. the member sign-up/complete
+  // -profile endpoints) to name which field was invalid.
+  field?: string | null;
+  constructor(status: number, message: string, code?: string, field?: string | null) {
     super(message);
     this.status = status;
     this.code = code;
+    this.field = field;
   }
 }
 
@@ -82,7 +86,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (!res.ok) {
     const message = (data && (data as any).error) || `Request failed (${res.status})`;
     const code = data && (data as any).code;
-    throw new ApiError(res.status, message, code);
+    const field = data && (data as any).field;
+    throw new ApiError(res.status, message, code, field);
   }
 
   return data as T;

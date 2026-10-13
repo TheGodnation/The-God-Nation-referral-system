@@ -5,13 +5,13 @@ import { HomePage } from './pages/HomePage';
 import { JoinPage } from './pages/JoinPage';
 import { WelcomePage } from './pages/WelcomePage';
 import { RegisterPage } from './pages/RegisterPage';
-import { SuccessPage } from './pages/SuccessPage';
 import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
 import { RequireMember } from './components/RequireMember';
 import { AuthProvider } from './lib/AuthContext';
 import { MemberAuthProvider } from './lib/MemberAuthContext';
 
-// The public referral funnel above (Home -> Join -> Register -> Success) is
+// The public referral funnel above (Home -> Join -> Register, the latter a
+// 3-screen wizard that signs the visitor straight into the member app) is
 // what the vast majority of visitors — people tapping a leader's referral
 // link — actually use, so it stays in the main bundle for zero extra
 // round trips. Everything below is lazy-loaded: Leader and Admin accounts
@@ -92,7 +92,6 @@ export default function App() {
             <Route path="/join" element={<JoinPage />} />
             <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/success" element={<SuccessPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />

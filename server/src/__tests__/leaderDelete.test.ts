@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { createLeader, createAdmin } from './helpers';
+import { createLeader, createAdmin, createRegistrationFixture } from './helpers';
 import { bootstrap } from './testUtils';
 
 const app = createApp();
@@ -12,15 +12,6 @@ async function loginAs(email: string, password: string) {
   const { csrf } = await bootstrap(agent);
   const res = await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password });
   return { agent, csrf, res };
-}
-
-async function register(whatsapp: string, name = 'Test Person') {
-  const agent = request.agent(app);
-  const { csrf } = await bootstrap(agent);
-  return agent
-    .post('/api/registrations')
-    .set('X-CSRF-Token', csrf)
-    .send({ name, whatsapp, language: 'en', pathway: 'TRAINING' });
 }
 
 describe('Acceptance Test — Admin deletes a Leader account', () => {
@@ -58,15 +49,12 @@ describe('Acceptance Test — Admin deletes a Leader account', () => {
 
     // Attribute a real registration to this leader via a referral visit.
     const visitorAgent = request.agent(app);
-    const { csrf: visitCsrf } = await bootstrap(visitorAgent);
+    const { csrf: visitCsrf, visitorId } = await bootstrap(visitorAgent);
     await visitorAgent
       .post('/api/referrals/visit')
       .set('X-CSRF-Token', visitCsrf)
       .send({ ref: referralCode.code, lang: 'en' });
-    const reg = await visitorAgent
-      .post('/api/registrations')
-      .set('X-CSRF-Token', visitCsrf)
-      .send({ name: 'Referred Person', whatsapp: '+237670000099', language: 'en', pathway: 'TRAINING' });
+    const reg = await createRegistrationFixture(visitorId, { name: 'Referred Person', whatsapp: '+237670000099', language: 'en', pathway: 'TRAINING' });
     expect(reg.status).toBe(201);
     const registrationId = reg.body.registrationId;
 

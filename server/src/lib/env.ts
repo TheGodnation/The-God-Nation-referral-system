@@ -18,6 +18,10 @@ export const ATTRIBUTION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 export const LEADER_SETUP_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 export const MEMBER_LOGIN_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
+// Longer than MEMBER_LOGIN_TOKEN_TTL_MS: a first-time visitor filling in the
+// public join flow's 3 screens may take longer to find the emailed code than
+// someone already familiar with the app signing back in.
+export const PENDING_MEMBER_SIGNUP_TTL_MS = 30 * 60 * 1000; // 30 minutes
 // 90 days, renewed while the member keeps using the app (see
 // loadMemberSession), so active members almost never have to sign in again.
 export const MEMBER_SESSION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days

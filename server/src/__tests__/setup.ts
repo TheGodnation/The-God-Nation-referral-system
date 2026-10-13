@@ -35,7 +35,7 @@ beforeEach(async () => {
       "ContentPage", "ContactMessage",
       "CommunityMembership", "Community", "Person",
       "ParticipationEvent", "Answer", "Attempt", "Option", "Question", "Assessment", "MonthlyDevotional",
-      "MemberSession", "MemberLoginToken", "MemberAccount",
+      "MemberSession", "MemberLoginToken", "MemberAccount", "PendingMemberSignup",
       "FollowUpContact", "FollowUpAssignment", "RoleAssignment", "GeographicArea"
     RESTART IDENTITY CASCADE;
   `);

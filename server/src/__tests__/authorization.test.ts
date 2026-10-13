@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { createLeader, createAdmin } from './helpers';
+import { createLeader, createAdmin, createRegistrationFixture } from './helpers';
 import { bootstrap } from './testUtils';
 
 const app = createApp();
@@ -29,12 +29,9 @@ describe('Acceptance Test — authorization', () => {
 
     // A referred registration for Mary only.
     const visitorAgent = request.agent(app);
-    const { csrf } = await bootstrap(visitorAgent);
+    const { csrf, visitorId } = await bootstrap(visitorAgent);
     await visitorAgent.post('/api/referrals/visit').set('X-CSRF-Token', csrf).send({ ref: 'MARY7X2', lang: 'en' });
-    await visitorAgent
-      .post('/api/registrations')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Mary Referral', whatsapp: '+237670000050', language: 'en', pathway: 'TRAINING' });
+    await createRegistrationFixture(visitorId, { name: 'Mary Referral', whatsapp: '+237670000050', language: 'en', pathway: 'TRAINING' });
 
     const { agent: johnAgent } = await loginAs('john@example.com', 'password123');
     const johnDash = await johnAgent.get('/api/leader/dashboard');

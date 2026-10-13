@@ -14,7 +14,6 @@ import { generalApiLimiter } from './lib/rateLimit';
 
 import authRoutes from './routes/auth';
 import referralRoutes from './routes/referrals';
-import registrationRoutes from './routes/registrations';
 import leaderRoutes from './routes/leader';
 import adminRoutes from './routes/admin';
 import publicSettingsRoutes from './routes/publicSettings';
@@ -101,7 +100,6 @@ export function createApp() {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/referrals', referralRoutes);
-  app.use('/api/registrations', registrationRoutes);
   app.use('/api/leader', leaderRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/settings', publicSettingsRoutes);

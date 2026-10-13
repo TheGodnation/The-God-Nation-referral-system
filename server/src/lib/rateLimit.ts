@@ -19,22 +19,6 @@ export const referralVisitLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
-export const registrationLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests. Please slow down.' },
-});
-
-export const whatsappRedirectLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests. Please slow down.' },
-});
-
 export const generalApiLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 300,
@@ -118,6 +102,38 @@ export const memberSignupLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again later.' },
+});
+
+// Public join flow (/register) step 1: email+password -> a pending signup
+// row + emailed code. Same enumeration-risk magnitude as memberSignupLimiter.
+export const memberSignupStartLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+// Public join flow step 2: checking the emailed code (non-destructive).
+// Same magnitude as memberLoginConsumeLimiter, the closest existing
+// precedent for a code/token verification surface.
+export const memberSignupCheckCodeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
+});
+
+// Public join flow step 3: finishing sign-up (name+phone+location), which
+// also re-checks the code atomically — same magnitude as
+// memberSignupCheckCodeLimiter.
+export const memberSignupFinishLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
 });
 
 // Member finishing their sign-up details form.

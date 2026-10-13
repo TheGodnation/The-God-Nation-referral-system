@@ -62,7 +62,6 @@ interface Overview {
   totalVisits: number;
   uniqueVisitors: number;
   registrations: number;
-  whatsappClicks: number;
   activeLeaders: number;
   conversionRate: number;
 }
@@ -76,7 +75,6 @@ interface LeaderRow {
   selfRegistered: boolean;
   referralCode: string | null;
   referredCount: number;
-  whatsappJoinedCount: number;
   createdAt: string;
   // Phase 3D: the Person this Leader's User account has been explicitly
   // linked to (via link-person below). null until an Admin links it.
@@ -123,7 +121,6 @@ function OverviewTab({ includeTestData }: { includeTestData: boolean }) {
         [t('admin.overview.total_visits'), data.totalVisits],
         [t('admin.overview.unique_visitors'), data.uniqueVisitors],
         [t('admin.overview.registrations'), data.registrations],
-        [t('admin.overview.whatsapp_clicks'), data.whatsappClicks],
         [t('admin.overview.active_leaders'), data.activeLeaders],
         [t('admin.overview.conversion'), `${data.conversionRate}%`],
       ].map(([label, value]) => (
@@ -411,7 +408,6 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
               <th className="py-2 pr-4">{t('admin.leaders.table_email')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_code')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_referred')}</th>
-              <th className="py-2 pr-4">{t('admin.leaders.table_joined')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_linked_person')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_status')}</th>
               <th className="py-2 pr-4">{t('admin.leaders.table_source')}</th>
@@ -444,7 +440,6 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
                 <td className="py-2 pr-4">{l.email}</td>
                 <td className="py-2 pr-4">{l.referralCode ?? '—'}</td>
                 <td className="py-2 pr-4 font-medium text-brand-900">{l.referredCount}</td>
-                <td className="py-2 pr-4 font-medium text-brand-900">{l.whatsappJoinedCount}</td>
                 <td className="py-2 pr-4">
                   {l.personName ?? <span className="text-slate-400">{t('admin.leaders.not_linked')}</span>}
                 </td>
@@ -466,64 +461,6 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-// Admin-triggered only — never automatic. Always shows the recipient count
-// first and requires an explicit confirmation before anything is sent.
-function WhatsAppReminders({ includeTestData }: { includeTestData: boolean }) {
-  const { t } = useTranslation();
-  const [count, setCount] = useState<number | null>(null);
-  const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<{ attempted: number; sent: number; failed: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  function loadCount() {
-    api
-      .get<{ count: number }>(`/api/admin/whatsapp-reminders/count?includeTestData=${includeTestData}`)
-      .then((res) => setCount(res.count))
-      .catch(() => setCount(null));
-  }
-
-  useEffect(loadCount, [includeTestData]);
-
-  async function sendReminders() {
-    if (count === null) return;
-    if (!window.confirm(t('admin.registrations.reminders_confirm', { count }))) {
-      return;
-    }
-    setError(null);
-    setResult(null);
-    setSending(true);
-    try {
-      const res = await api.post<{ attempted: number; sent: number; failed: number }>(
-        `/api/admin/whatsapp-reminders/send?includeTestData=${includeTestData}`,
-      );
-      setResult(res);
-      loadCount();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('admin.registrations.reminders_failed'));
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return (
-    <div className="card mb-4 space-y-2">
-      <h2 className="font-semibold text-brand-900">{t('admin.registrations.reminders_title')}</h2>
-      <p className="text-sm text-slate-600">
-        {count === null ? t('admin.loading') : t('admin.registrations.reminders_count', { count })}
-      </p>
-      <button className="btn-primary" onClick={sendReminders} disabled={sending || !count}>
-        {sending ? t('admin.registrations.reminders_sending') : t('admin.registrations.reminders_send')}
-      </button>
-      {result && (
-        <p className="text-sm text-green-700">
-          {t('admin.registrations.reminders_result', { sent: result.sent, attempted: result.attempted })}
-        </p>
-      )}
-      {error && <p className="text-sm text-red-700">{error}</p>}
     </div>
   );
 }
@@ -566,7 +503,6 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
 
   return (
     <div>
-      <WhatsAppReminders includeTestData={includeTestData} />
       <div className="card overflow-x-auto">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold text-brand-900">{t('admin.registrations.title')}</h2>
@@ -633,10 +569,6 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
 }
 
 interface SettingsData {
-  whatsappUrlEn: string | null;
-  whatsappUrlFr: string | null;
-  whatsappUrlDiscoverEn: string | null;
-  whatsappUrlDiscoverFr: string | null;
   supportWhatsappUrl: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
@@ -651,10 +583,6 @@ interface SettingsData {
 }
 
 const EMPTY_SETTINGS: SettingsData = {
-  whatsappUrlEn: '',
-  whatsappUrlFr: '',
-  whatsappUrlDiscoverEn: '',
-  whatsappUrlDiscoverFr: '',
   supportWhatsappUrl: '',
   facebookUrl: '',
   instagramUrl: '',
@@ -704,10 +632,6 @@ function SettingsTab() {
     setSaved(false);
     try {
       const res = await api.patch<SettingsData>('/api/admin/settings', {
-        whatsappUrlEn: settings.whatsappUrlEn,
-        whatsappUrlFr: settings.whatsappUrlFr,
-        whatsappUrlDiscoverEn: settings.whatsappUrlDiscoverEn,
-        whatsappUrlDiscoverFr: settings.whatsappUrlDiscoverFr,
         supportWhatsappUrl: settings.supportWhatsappUrl || undefined,
         facebookUrl: settings.facebookUrl || undefined,
         instagramUrl: settings.instagramUrl || undefined,
@@ -731,38 +655,6 @@ function SettingsTab() {
 
   return (
     <form onSubmit={save} className="max-w-lg space-y-6">
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-brand-900">{t('admin.settings.training_heading')}</h2>
-        <div>
-          <label className="label">{t('admin.settings.english_url')}</label>
-          <input className="input" value={field('whatsappUrlEn') ?? ''} onChange={(e) => setField('whatsappUrlEn', e.target.value)} required />
-        </div>
-        <div>
-          <label className="label">{t('admin.settings.french_url')}</label>
-          <input className="input" value={field('whatsappUrlFr') ?? ''} onChange={(e) => setField('whatsappUrlFr', e.target.value)} required />
-        </div>
-      </div>
-
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-brand-900">{t('admin.settings.discover_heading')}</h2>
-        <div>
-          <label className="label">{t('admin.settings.english_url')}</label>
-          <input
-            className="input"
-            value={field('whatsappUrlDiscoverEn') ?? ''}
-            onChange={(e) => setField('whatsappUrlDiscoverEn', e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="label">{t('admin.settings.french_url')}</label>
-          <input
-            className="input"
-            value={field('whatsappUrlDiscoverFr') ?? ''}
-            onChange={(e) => setField('whatsappUrlDiscoverFr', e.target.value)}
-          />
-        </div>
-      </div>
-
       <div className="card space-y-4">
         <h2 className="font-semibold text-brand-900">{t('admin.settings.support_heading')}</h2>
         <div>
@@ -933,16 +825,8 @@ const CONTENT_SECTIONS: {
     fields: [{ key: 'registrationPageText', multiline: true }],
   },
   {
-    section: 'success',
-    fields: [{ key: 'successPageText', multiline: true }],
-  },
-  {
     section: 'emails',
     fields: [
-      { key: 'emailRegistrationConfirmationSubject' },
-      { key: 'emailRegistrationConfirmationBody', multiline: true },
-      { key: 'emailWhatsappReminderSubject' },
-      { key: 'emailWhatsappReminderBody', multiline: true },
       { key: 'emailLeaderInvitationSubject', bilingual: false },
       { key: 'emailLeaderInvitationBody', multiline: true, bilingual: false },
       { key: 'emailPasswordResetSubject', bilingual: false },

@@ -10,7 +10,7 @@ import { recordAudit } from '../lib/audit';
 import { requireCsrf } from '../lib/csrf';
 import { adminSensitiveLimiter } from '../lib/rateLimit';
 import { EmailService } from '../lib/email';
-import { APP_URL, CLIENT_URL, LEADER_SETUP_TOKEN_TTL_MS } from '../lib/env';
+import { CLIENT_URL, LEADER_SETUP_TOKEN_TTL_MS } from '../lib/env';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
@@ -49,7 +49,7 @@ function includeTestData(req: any): boolean {
 router.get('/dashboard', asyncHandler(async (req, res) => {
   const testFilter = includeTestData(req) ? {} : { isTestData: false };
 
-  const [totalVisits, uniqueVisitorRows, registrations, whatsappClicks, activeLeaders] =
+  const [totalVisits, uniqueVisitorRows, registrations, activeLeaders] =
     await Promise.all([
       prisma.referralVisit.count({ where: testFilter }),
       prisma.referralVisit.findMany({
@@ -58,7 +58,6 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
         distinct: ['visitorId'],
       }),
       prisma.registration.count({ where: testFilter }),
-      prisma.event.count({ where: { type: 'WHATSAPP_CLICKED', ...testFilter } }),
       prisma.user.count({ where: { role: 'LEADER', active: true, ...(includeTestData(req) ? {} : { isTestData: false }) } }),
     ]);
 
@@ -69,13 +68,11 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     totalVisits,
     uniqueVisitors,
     registrations,
-    whatsappClicks,
     activeLeaders,
     conversionRate: Math.round(conversionRate * 100) / 100,
     funnel: {
       visit: totalVisits,
       registration: registrations,
-      whatsappClick: whatsappClicks,
     },
   });
 }));
@@ -148,11 +145,10 @@ router.get('/analytics', asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 
 // For each of the given Leaders: how many registrations are attributed to
-// them (referred), and how many of those have actually clicked through to
-// WhatsApp (joined). Three bulk queries regardless of how many Leaders are
-// on the page — no N+1 per-Leader querying.
+// them (referred). One bulk query regardless of how many Leaders are on the
+// page — no N+1 per-Leader querying.
 async function computeLeaderReferralCounts(leaderIds: string[], includeTestData: boolean) {
-  const counts = new Map<string, { referred: number; joined: number }>();
+  const counts = new Map<string, { referred: number }>();
   if (leaderIds.length === 0) return counts;
 
   const relationships = await prisma.referralRelationship.findMany({
@@ -160,23 +156,12 @@ async function computeLeaderReferralCounts(leaderIds: string[], includeTestData:
       leaderId: { in: leaderIds },
       ...(includeTestData ? {} : { registration: { isTestData: false } }),
     },
-    select: { leaderId: true, registrationId: true },
+    select: { leaderId: true },
   });
 
-  const registrationIds = relationships.map((r) => r.registrationId);
-  const joinedEvents = registrationIds.length
-    ? await prisma.event.findMany({
-        where: { type: 'WHATSAPP_CLICKED', registrationId: { in: registrationIds } },
-        select: { registrationId: true },
-        distinct: ['registrationId'],
-      })
-    : [];
-  const joinedSet = new Set(joinedEvents.map((e) => e.registrationId));
-
   for (const r of relationships) {
-    const entry = counts.get(r.leaderId) ?? { referred: 0, joined: 0 };
+    const entry = counts.get(r.leaderId) ?? { referred: 0 };
     entry.referred += 1;
-    if (joinedSet.has(r.registrationId)) entry.joined += 1;
     counts.set(r.leaderId, entry);
   }
   return counts;
@@ -212,7 +197,6 @@ router.get('/leaders', asyncHandler(async (req, res) => {
     selfRegistered: l.selfRegistered,
     referralCode: l.referralCodes[0]?.code ?? null,
     referredCount: counts.get(l.id)?.referred ?? 0,
-    whatsappJoinedCount: counts.get(l.id)?.joined ?? 0,
     createdAt: l.createdAt,
     // Phase 3D: whether this Leader's User account is linked to a Person —
     // required before they can perform any scoped-leadership/follow-up
@@ -736,7 +720,6 @@ const CONTENT_BASE_KEYS = [
   'footer',
   'contactInfo',
   'registrationPageText',
-  'successPageText',
   // The /welcome page — a separate first-contact entry point for outreach
   // (e.g. a Leader's evangelism message), distinct from the homepage's
   // hero/pathway copy above.
@@ -747,12 +730,6 @@ const CONTENT_BASE_KEYS = [
   'welcomeSupporting',
   'welcomeCta',
   'welcomeSupportNote',
-  // Visitor-facing email text — bilingual like everything else above, since
-  // registrants and reminder recipients read in either language.
-  'emailRegistrationConfirmationSubject',
-  'emailRegistrationConfirmationBody',
-  'emailWhatsappReminderSubject',
-  'emailWhatsappReminderBody',
   // The message a Leader shares (WhatsApp/Telegram/native share) to invite
   // people to register — bilingual, picked by the Leader's own UI language
   // (not the recipient's, which the app has no way to know ahead of time).
@@ -790,10 +767,6 @@ const contentSchema = z
   .partial();
 
 function settingsResponse(settings: {
-  whatsappUrlEn: string | null;
-  whatsappUrlFr: string | null;
-  whatsappUrlDiscoverEn: string | null;
-  whatsappUrlDiscoverFr: string | null;
   supportWhatsappUrl: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
@@ -807,10 +780,6 @@ function settingsResponse(settings: {
   content: unknown;
 } | null) {
   return {
-    whatsappUrlEn: settings?.whatsappUrlEn ?? null,
-    whatsappUrlFr: settings?.whatsappUrlFr ?? null,
-    whatsappUrlDiscoverEn: settings?.whatsappUrlDiscoverEn ?? null,
-    whatsappUrlDiscoverFr: settings?.whatsappUrlDiscoverFr ?? null,
     supportWhatsappUrl: settings?.supportWhatsappUrl ?? null,
     facebookUrl: settings?.facebookUrl ?? null,
     instagramUrl: settings?.instagramUrl ?? null,
@@ -831,10 +800,6 @@ router.get('/settings', asyncHandler(async (_req, res) => {
 }));
 
 const settingsSchema = z.object({
-  whatsappUrlEn: z.string().url().optional().nullable(),
-  whatsappUrlFr: z.string().url().optional().nullable(),
-  whatsappUrlDiscoverEn: z.string().url().optional().nullable(),
-  whatsappUrlDiscoverFr: z.string().url().optional().nullable(),
   supportWhatsappUrl: z.string().url().optional().nullable(),
   facebookUrl: z.string().url().optional().nullable(),
   instagramUrl: z.string().url().optional().nullable(),
@@ -885,10 +850,6 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
   };
 
   const scalarFields = {
-    ...(d.whatsappUrlEn !== undefined ? { whatsappUrlEn: d.whatsappUrlEn } : {}),
-    ...(d.whatsappUrlFr !== undefined ? { whatsappUrlFr: d.whatsappUrlFr } : {}),
-    ...(d.whatsappUrlDiscoverEn !== undefined ? { whatsappUrlDiscoverEn: d.whatsappUrlDiscoverEn } : {}),
-    ...(d.whatsappUrlDiscoverFr !== undefined ? { whatsappUrlDiscoverFr: d.whatsappUrlDiscoverFr } : {}),
     ...(d.supportWhatsappUrl !== undefined ? { supportWhatsappUrl: d.supportWhatsappUrl } : {}),
     ...(d.facebookUrl !== undefined ? { facebookUrl: d.facebookUrl } : {}),
     ...(d.instagramUrl !== undefined ? { instagramUrl: d.instagramUrl } : {}),
@@ -917,58 +878,6 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
   });
 
   res.json(settingsResponse(settings));
-}));
-
-// ---------------------------------------------------------------------------
-// WhatsApp join reminders
-// ---------------------------------------------------------------------------
-
-// A registrant qualifies for a reminder when: they left an email address,
-// they haven't already clicked the WhatsApp join link (no WHATSAPP_CLICKED
-// event recorded against their registration), and — unless the Admin has
-// "include test data" on — they aren't test data.
-function reminderWhere(withTestData: boolean): Prisma.RegistrationWhereInput {
-  return {
-    email: { not: null },
-    ...(withTestData ? {} : { isTestData: false }),
-    events: { none: { type: 'WHATSAPP_CLICKED' } },
-  };
-}
-
-// GET /api/admin/whatsapp-reminders/count — lets the Admin see exactly how
-// many people are about to be emailed before committing to send anything.
-router.get('/whatsapp-reminders/count', asyncHandler(async (req, res) => {
-  const count = await prisma.registration.count({ where: reminderWhere(includeTestData(req)) });
-  res.json({ count });
-}));
-
-// POST /api/admin/whatsapp-reminders/send — Admin-triggered only, never
-// automatic. Sends the same reminder to everyone currently qualifying.
-router.post('/whatsapp-reminders/send', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
-  const registrations = await prisma.registration.findMany({
-    where: reminderWhere(includeTestData(req)),
-    select: { id: true, name: true, email: true, language: true },
-  });
-
-  let sent = 0;
-  let failed = 0;
-  for (const r of registrations) {
-    // r.email is guaranteed non-null by reminderWhere's `email: { not: null }`.
-    const link = `${APP_URL}/api/registrations/${r.id}/whatsapp`;
-    const result = await EmailService.sendWhatsAppReminder({ to: r.email!, name: r.name, language: r.language, link });
-    if (result.ok) sent++;
-    else failed++;
-  }
-
-  await recordAudit({
-    actorId: req.user!.id,
-    actorEmail: req.user!.email,
-    action: 'WHATSAPP_REMINDER_BULK_SENT',
-    targetType: 'Registration',
-    metadata: { attempted: registrations.length, sent, failed },
-  });
-
-  res.json({ attempted: registrations.length, sent, failed });
 }));
 
 // ---------------------------------------------------------------------------

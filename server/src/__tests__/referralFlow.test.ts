@@ -2,14 +2,13 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { createLeader, setWhatsAppSettings } from './helpers';
+import { createLeader, createRegistrationFixture, recordWhatsappClick } from './helpers';
 import { bootstrap } from './testUtils';
 
 const app = createApp();
 
 describe('Acceptance Test 1 — Mary basic flow', () => {
   it('runs the full referral -> registration -> whatsapp -> dashboard flow', async () => {
-    await setWhatsAppSettings('https://wa.example/en-community', 'https://wa.example/fr-community');
     const { user: mary, referralCode } = await createLeader('Mary Ngu', 'mary.ngu@example.com', 'MARY7X2');
     expect(referralCode.code).toBe('MARY7X2');
 
@@ -34,10 +33,7 @@ describe('Acceptance Test 1 — Mary basic flow', () => {
     expect(visits[0].referralCodeId).toBe(referralCode.id);
 
     // Registration
-    const regRes = await agent
-      .post('/api/registrations')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Visitor One', whatsapp: '+237670000001', language: 'en', pathway: 'TRAINING' });
+    const regRes = await createRegistrationFixture(visitorCookie, { name: 'Visitor One', whatsapp: '+237670000001', language: 'en', pathway: 'TRAINING' });
 
     expect(regRes.status).toBe(201);
     const registrationId = regRes.body.registrationId;
@@ -56,10 +52,9 @@ describe('Acceptance Test 1 — Mary basic flow', () => {
     expect(relationship).toBeTruthy();
     expect(relationship!.leaderId).toBe(mary.id);
 
-    // WhatsApp redirect — authorized (matching visitor cookie already in agent jar).
-    const waRes = await agent.get(`/api/registrations/${registrationId}/whatsapp`);
-    expect(waRes.status).toBe(302);
-    expect(waRes.headers.location).toBe('https://wa.example/en-community');
+    // WhatsApp click (historical signal still consumed by the Leader
+    // dashboard's own "joined" status — see leaderReferralWhatsappStatus.test.ts).
+    await recordWhatsappClick(registrationId, visitorCookie);
 
     const events = await prisma.event.findMany({ where: { registrationId } });
     const clickEvent = events.find((e) => e.type === 'WHATSAPP_CLICKED');
@@ -107,6 +102,5 @@ describe('Acceptance Test 1 — Mary basic flow', () => {
     const adminDash = await adminAgent.get('/api/admin/dashboard?includeTestData=true');
     expect(adminDash.status).toBe(200);
     expect(adminDash.body.registrations).toBeGreaterThanOrEqual(1);
-    expect(adminDash.body.whatsappClicks).toBeGreaterThanOrEqual(1);
   });
 });

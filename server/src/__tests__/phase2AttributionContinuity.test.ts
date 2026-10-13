@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { createLeader, setWhatsAppSettings } from './helpers';
+import { createLeader, createRegistrationFixture } from './helpers';
 import { bootstrap } from './testUtils';
 
 const app = createApp();
@@ -13,7 +13,6 @@ const app = createApp();
 // cookie, the ReferralVisit record, or the eventual ReferralRelationship.
 describe('Phase 2 — referral attribution survives browsing public content pages', () => {
   it('keeps the original referral attribution intact after visiting Phase 2 pages and the Contact form', async () => {
-    await setWhatsAppSettings('https://wa.example/en-community', 'https://wa.example/fr-community');
     const { user: leader, referralCode } = await createLeader('Mary Referral', 'mary-phase2@example.com', 'MARY7X2');
 
     const agent = request.agent(app);
@@ -54,10 +53,7 @@ describe('Phase 2 — referral attribution survives browsing public content page
     expect(visitorCookieAfterBrowsing).toBeUndefined();
 
     // 3. Visitor eventually registers.
-    const reg = await agent
-      .post('/api/registrations')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Continuity Visitor', whatsapp: '+237670000099', language: 'en', pathway: 'TRAINING' });
+    const reg = await createRegistrationFixture(visitorId, { name: 'Continuity Visitor', whatsapp: '+237670000099', language: 'en', pathway: 'TRAINING' });
     expect(reg.status).toBe(201);
     const registrationId = reg.body.registrationId;
 
@@ -70,12 +66,6 @@ describe('Phase 2 — referral attribution survives browsing public content page
     const registration = await prisma.registration.findUnique({ where: { id: registrationId } });
     expect(registration!.visitorId).toBe(visitorId);
 
-    // Existing WhatsApp redirect security chain still works for this
-    // visitor/registration pair after browsing Phase 2 pages in between.
-    const waRes = await agent.get(`/api/registrations/${registrationId}/whatsapp`);
-    expect(waRes.status).toBe(302);
-    expect(waRes.headers.location).toBe('https://wa.example/en-community');
-
     // Only one ReferralVisit was ever created — Phase 2 browsing did not
     // create a competing visit or attribution identity.
     const visits = await prisma.referralVisit.findMany({ where: { visitorId } });
@@ -83,7 +73,6 @@ describe('Phase 2 — referral attribution survives browsing public content page
   });
 
   it('does not interfere with attribution when the visitor also submits the Contact form while browsing', async () => {
-    await setWhatsAppSettings('https://wa.example/en-community', 'https://wa.example/fr-community');
     const { user: leader, referralCode } = await createLeader('Paul Referral', 'paul-phase2@example.com', 'PAUL9Z1');
 
     const agent = request.agent(app);
@@ -97,10 +86,7 @@ describe('Phase 2 — referral attribution survives browsing public content page
       .send({ name: 'Curious Visitor', email: 'curious@example.com', message: 'Question before registering.', language: 'en' });
     expect(contact.status).toBe(201);
 
-    const reg = await agent
-      .post('/api/registrations')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Curious Visitor', whatsapp: '+237670000098', language: 'en', pathway: 'TRAINING' });
+    const reg = await createRegistrationFixture(visitorId, { name: 'Curious Visitor', whatsapp: '+237670000098', language: 'en', pathway: 'TRAINING' });
     expect(reg.status).toBe(201);
 
     const relationship = await prisma.referralRelationship.findUnique({

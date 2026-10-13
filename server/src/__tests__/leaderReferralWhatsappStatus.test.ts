@@ -1,38 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
-import { createLeader, setWhatsAppSettings } from './helpers';
+import { createLeader, createRegistrationFixture, recordWhatsappClick } from './helpers';
 import { bootstrap } from './testUtils';
 
 const app = createApp();
 
 async function referAndRegister(referralCode: string, whatsapp: string, name: string) {
   const agent = request.agent(app);
-  const { csrf } = await bootstrap(agent);
+  const { csrf, visitorId } = await bootstrap(agent);
   await agent
     .post('/api/referrals/visit')
     .set('X-CSRF-Token', csrf)
     .send({ ref: referralCode, lang: 'en' });
-  const res = await agent
-    .post('/api/registrations')
-    .set('X-CSRF-Token', csrf)
-    .send({ name, whatsapp, language: 'en', pathway: 'TRAINING' });
+  const res = await createRegistrationFixture(visitorId, { name, whatsapp, language: 'en', pathway: 'TRAINING' });
   return { agent, registrationId: res.body.registrationId as string };
 }
 
 describe('Acceptance Test — Leader referrals show WhatsApp join status', () => {
   it('marks only registrations that actually clicked through to WhatsApp', async () => {
-    await setWhatsAppSettings('https://wa.example/en-community', 'https://wa.example/fr-community');
     await createLeader('Mary Ngu', 'mary-wa-status@example.com', 'MARYWA1');
 
-    const { agent: joinedAgent, registrationId: joinedId } = await referAndRegister(
-      'MARYWA1',
-      '+237670005001',
-      'Joined Person',
-    );
-    // Same agent/cookie that registered clicks through — records WHATSAPP_CLICKED.
-    const clickRes = await joinedAgent.get(`/api/registrations/${joinedId}/whatsapp`);
-    expect(clickRes.status).toBe(302);
+    const { registrationId: joinedId } = await referAndRegister('MARYWA1', '+237670005001', 'Joined Person');
+    await recordWhatsappClick(joinedId);
 
     await referAndRegister('MARYWA1', '+237670005002', 'Not Yet Person');
 

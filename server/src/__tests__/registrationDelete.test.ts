@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { createLeader, createAdmin } from './helpers';
+import { createLeader, createAdmin, createRegistrationFixture } from './helpers';
 import { bootstrap } from './testUtils';
 
 const app = createApp();
@@ -16,11 +16,8 @@ async function loginAs(email: string, password: string) {
 
 async function register(whatsapp: string, name = 'Test Person') {
   const agent = request.agent(app);
-  const { csrf } = await bootstrap(agent);
-  return agent
-    .post('/api/registrations')
-    .set('X-CSRF-Token', csrf)
-    .send({ name, whatsapp, language: 'en', pathway: 'TRAINING' });
+  const { visitorId } = await bootstrap(agent);
+  return createRegistrationFixture(visitorId, { name, whatsapp, language: 'en', pathway: 'TRAINING' });
 }
 
 describe('Acceptance Test — admin deletes a registration to free its WhatsApp number', () => {

@@ -13,6 +13,9 @@ import {
   memberLoginRequestLimiter,
   memberLoginConsumeLimiter,
   memberSignupLimiter,
+  memberSignupStartLimiter,
+  memberSignupCheckCodeLimiter,
+  memberSignupFinishLimiter,
   memberCompleteProfileLimiter,
   memberPasswordLoginLimiter,
 } from '../lib/rateLimit';
@@ -20,7 +23,7 @@ import { selectApplicableReferralVisit } from '../lib/attribution';
 import { placePersonInGroup } from '../lib/placement';
 import { profilePhotoPath, coverPhotoPath } from '../lib/profilePhoto';
 import { EmailService } from '../lib/email';
-import { CLIENT_URL, MEMBER_LOGIN_TOKEN_TTL_MS } from '../lib/env';
+import { CLIENT_URL, MEMBER_LOGIN_TOKEN_TTL_MS, PENDING_MEMBER_SIGNUP_TTL_MS } from '../lib/env';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
@@ -72,6 +75,11 @@ function hashCode(tokenId: string, code: string): string {
 }
 
 const MAX_CODE_ATTEMPTS = 5;
+
+// Shared by /complete-profile and the public join flow's /signup/finish
+// below — both save the same Cameroon-vs-rest-of-world location shape.
+const CAMEROON = 'cameroon';
+const detailText = z.string().trim().max(100);
 
 const requestLinkSchema = z.object({
   whatsapp: z.string().trim().min(1).max(32),
@@ -334,6 +342,285 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
   }
 
   return res.json(GENERIC_SIGNUP_RESPONSE);
+}));
+
+// ---------------------------------------------------------------------------
+// Public join flow (/register): the 3-screen path visitors reach from a
+// Leader/Member referral link or the homepage's Training/Discover&Grow CTA.
+// Screen 1 (start) collects only email + password + pathway + language and
+// saves nothing but a PendingMemberSignup row while a 6-digit code is
+// emailed. Screen 2 (check-code) verifies that code without consuming it,
+// for fast feedback. Screen 3 (finish) collects name + phone + location —
+// submitting it is the one moment a real Person + MemberAccount +
+// Registration (+ referral attribution + community placement) are created,
+// atomically, and the visitor is signed in. Re-POSTing start with the same
+// email simply replaces the pending row with a fresh code (used for both
+// "start over" and "resend code").
+// ---------------------------------------------------------------------------
+
+const signupStartSchema = z.object({
+  email: z.string().trim().email().max(320),
+  password: z.string().min(8, 'Please choose a password with at least 8 characters.').max(100),
+  pathway: z.enum(['TRAINING', 'DISCOVER_GROW']),
+  language: z.enum(['en', 'fr']).default('en'),
+});
+
+const EMAIL_ALREADY_REGISTERED = {
+  error: 'This email already has an account. Please sign in instead.',
+  code: 'EMAIL_ALREADY_REGISTERED',
+};
+
+router.post('/signup/start', memberSignupStartLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = signupStartSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === 'password') {
+      return res.status(400).json({ error: issue.message, code: 'INVALID_PASSWORD' });
+    }
+    return res.status(400).json({ error: 'Please enter a valid email address.', code: 'INVALID_INPUT' });
+  }
+  const { password, pathway, language } = parsed.data;
+  const normalizedEmail = parsed.data.email.toLowerCase();
+
+  // Unlike the old /signup above, this is a brand-new public join flow with
+  // no identity-linking history to protect — telling a visitor their email
+  // already has an account (so they should sign in instead) is ordinary,
+  // expected product UX, not an enumeration risk worth hiding.
+  const accountByEmail = await prisma.memberAccount.findUnique({ where: { email: normalizedEmail } });
+  if (accountByEmail) {
+    return res.status(409).json(EMAIL_ALREADY_REGISTERED);
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const visitorId = req.visitorId!;
+  const existing = await prisma.pendingMemberSignup.findUnique({ where: { email: normalizedEmail } });
+  const id = existing?.id ?? crypto.randomUUID();
+  const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
+  const codeHash = hashCode(id, code);
+  const expiresAt = new Date(Date.now() + PENDING_MEMBER_SIGNUP_TTL_MS);
+
+  await prisma.pendingMemberSignup.upsert({
+    where: { email: normalizedEmail },
+    create: { id, email: normalizedEmail, passwordHash, pathway, language, visitorId, codeHash, expiresAt },
+    update: { passwordHash, pathway, language, visitorId, codeHash, codeAttempts: 0, expiresAt },
+  });
+
+  await EmailService.sendMemberSignupCode({ to: normalizedEmail, language, code });
+  await recordAudit({ action: 'MEMBER_SIGNUP_STARTED', targetType: 'PendingMemberSignup', targetId: id });
+
+  return res.json({ message: "We've sent a 6-digit code to your email. Enter it to continue." });
+}));
+
+const BAD_SIGNUP_CODE = {
+  error: 'That code is not right or has expired. Check the latest email, or ask for a new code.',
+  code: 'BAD_CODE',
+};
+
+// Records a wrong try against the pending row (locking it after
+// MAX_CODE_ATTEMPTS, exactly like MemberLoginToken above) and returns
+// whether the given code was actually correct.
+async function checkPendingSignupCode(pending: { id: string; codeHash: string; codeAttempts: number }, code: string): Promise<boolean> {
+  if (hashCode(pending.id, code) === pending.codeHash) return true;
+  const attempts = pending.codeAttempts + 1;
+  await prisma.pendingMemberSignup.update({
+    where: { id: pending.id },
+    data: { codeAttempts: attempts, ...(attempts >= MAX_CODE_ATTEMPTS ? { expiresAt: new Date() } : {}) },
+  });
+  return false;
+}
+
+const checkCodeSchema = z.object({
+  email: z.string().trim().email().max(320),
+  code: z.string().trim().regex(/^\d{6}$/),
+});
+
+router.post('/signup/check-code', memberSignupCheckCodeLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = checkCodeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(BAD_SIGNUP_CODE);
+  const normalizedEmail = parsed.data.email.toLowerCase();
+
+  const pending = await prisma.pendingMemberSignup.findUnique({ where: { email: normalizedEmail } });
+  if (!pending || pending.expiresAt < new Date()) return res.status(400).json(BAD_SIGNUP_CODE);
+
+  if (!(await checkPendingSignupCode(pending, parsed.data.code))) {
+    return res.status(400).json(BAD_SIGNUP_CODE);
+  }
+
+  return res.json({ valid: true });
+}));
+
+const signupFinishSchema = z
+  .object({
+    email: z.string().trim().email().max(320),
+    code: z.string().trim().regex(/^\d{6}$/),
+    name: z.string().trim().min(1).max(200),
+    whatsapp: z.string().trim().min(1).max(32),
+    country: z.string().trim().min(1).max(100),
+    region: detailText.optional(),
+    division: detailText.optional(),
+    subdivision: detailText.optional(),
+    quarter: detailText.optional(),
+    city: detailText.optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.country.toLowerCase() === CAMEROON) {
+      for (const key of ['region', 'division', 'subdivision', 'quarter'] as const) {
+        if (!d[key]) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `Please enter your ${key}.` });
+      }
+    } else if (!d.city) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['city'], message: 'Please enter your city or town.' });
+    }
+  });
+
+router.post('/signup/finish', memberSignupFinishLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = signupFinishSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return res.status(400).json({ error: issue?.message ?? 'Please check your details.', field: issue?.path?.[0] ?? null });
+  }
+  const d = parsed.data;
+  const normalizedEmail = d.email.toLowerCase();
+  const normalizedWhatsApp = normalizeToE164(d.whatsapp);
+  if (!normalizedWhatsApp) {
+    return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.', code: 'INVALID_PHONE' });
+  }
+
+  const pending = await prisma.pendingMemberSignup.findUnique({ where: { email: normalizedEmail } });
+  if (!pending || pending.expiresAt < new Date()) {
+    return res.status(400).json({ error: 'Your code has expired. Please start again.', code: 'BAD_CODE' });
+  }
+  if (!(await checkPendingSignupCode(pending, d.code))) {
+    return res.status(400).json(BAD_SIGNUP_CODE);
+  }
+
+  const inCameroon = d.country.toLowerCase() === CAMEROON;
+  const locationData = {
+    locationCountry: d.country,
+    locationRegion: inCameroon ? d.region! : null,
+    locationDivision: inCameroon ? d.division! : null,
+    locationSubdivision: inCameroon ? d.subdivision! : null,
+    locationQuarter: inCameroon ? d.quarter! : null,
+    locationCity: inCameroon ? d.division! : d.city!,
+    locationArea: inCameroon ? d.quarter! : null,
+  };
+
+  // Someone who already joined only through the old WhatsApp-redirect form
+  // (Person, no MemberAccount) and is now finishing the real join flow with
+  // the same phone number: reuse that Person rather than erroring, same
+  // "Case 2" precedent as the old /signup above. A phone number that
+  // already has a MemberAccount, though, is a genuine duplicate attempt.
+  const existingPersonByPhone = await prisma.person.findUnique({
+    where: { whatsappNumber: normalizedWhatsApp },
+    include: { memberAccount: true },
+  });
+  if (existingPersonByPhone?.memberAccount) {
+    return res.status(409).json({
+      error: 'This phone number already belongs to an existing account. Please sign in instead.',
+      code: 'PHONE_ALREADY_REGISTERED',
+    });
+  }
+
+  const selectedVisit = await selectApplicableReferralVisit(pending.visitorId);
+  const isTestData = selectedVisit?.isTestData ?? false;
+  const referralCode = selectedVisit?.referralCode ?? null;
+
+  let memberAccount: MemberAccount;
+  let person: Person;
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const txPerson = existingPersonByPhone
+        ? await tx.person.update({
+            where: { id: existingPersonByPhone.id },
+            data: { name: d.name, email: normalizedEmail, preferredLanguage: pending.language, profileCompletedAt: new Date(), ...locationData },
+          })
+        : await tx.person.create({
+            data: {
+              name: d.name,
+              whatsappNumber: normalizedWhatsApp,
+              email: normalizedEmail,
+              preferredLanguage: pending.language,
+              isTestData,
+              profileCompletedAt: new Date(),
+              ...locationData,
+            },
+          });
+
+      const registration = await tx.registration.create({
+        data: {
+          visitorId: pending.visitorId,
+          normalizedWhatsApp,
+          name: d.name,
+          email: normalizedEmail,
+          language: pending.language,
+          pathway: pending.pathway,
+          utmSource: selectedVisit?.utmSource ?? null,
+          utmMedium: selectedVisit?.utmMedium ?? null,
+          utmCampaign: selectedVisit?.utmCampaign ?? null,
+          landingPage: selectedVisit?.landingPage ?? null,
+          isTestData,
+          personId: txPerson.id,
+          referredByPersonId: referralCode?.personId ?? null,
+        },
+      });
+
+      if (referralCode?.leaderId) {
+        await tx.referralRelationship.create({
+          data: { leaderId: referralCode.leaderId, registrationId: registration.id, referralCodeId: referralCode.id },
+        });
+      } else if (referralCode?.personId) {
+        await tx.friendship.create({
+          data: { requesterPersonId: referralCode.personId, addresseePersonId: txPerson.id, status: 'ACCEPTED', respondedAt: new Date() },
+        });
+      }
+
+      await tx.event.create({
+        data: { type: 'REGISTERED', registrationId: registration.id, visitorId: pending.visitorId, isTestData },
+      });
+
+      const txMemberAccount = await tx.memberAccount.create({
+        data: { personId: txPerson.id, email: normalizedEmail, passwordHash: pending.passwordHash },
+      });
+
+      await tx.pendingMemberSignup.delete({ where: { id: pending.id } });
+
+      return { memberAccount: txMemberAccount, person: txPerson };
+    });
+    memberAccount = result.memberAccount;
+    person = result.person;
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({
+        error: 'That email or phone number is already in use. Please sign in instead.',
+        code: 'DUPLICATE',
+      });
+    }
+    throw err;
+  }
+
+  const communityId = await placePersonInGroup(person.id, { country: person.locationCountry, region: person.locationRegion });
+  const community = communityId
+    ? await prisma.community.findUnique({ where: { id: communityId }, select: { id: true, name: true } })
+    : null;
+
+  await recordAudit({
+    action: 'MEMBER_ACCOUNT_CREATED',
+    targetType: 'MemberAccount',
+    targetId: memberAccount.id,
+    metadata: { personId: person.id, via: 'signup-finish' },
+  });
+  await recordAudit({
+    action: 'MEMBER_PROFILE_COMPLETED',
+    targetType: 'Person',
+    targetId: person.id,
+    metadata: { placedInCommunityId: communityId },
+  });
+
+  await createMemberSession(memberAccount.id, res);
+
+  res.json({
+    member: { name: person.name, email: memberAccount.email, preferredLanguage: person.preferredLanguage },
+    community,
+  });
 }));
 
 // ---------------------------------------------------------------------------
@@ -605,10 +892,6 @@ router.get('/me', (req, res) => {
 // Calling it again later just updates the details; it never moves someone
 // who already has a group.
 // ---------------------------------------------------------------------------
-
-const CAMEROON = 'cameroon';
-
-const detailText = z.string().trim().max(100);
 
 const completeProfileSchema = z
   .object({

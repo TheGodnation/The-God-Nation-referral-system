@@ -3,18 +3,15 @@ import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { backfillPersonsFromRegistrations } from '../lib/personBackfill';
-import { createLeader, createAdmin } from './helpers';
+import { createLeader, createAdmin, createRegistrationFixture } from './helpers';
 import { bootstrap } from './testUtils';
 
 const app = createApp();
 
 async function register(whatsapp: string, name = 'Test Person', email?: string) {
   const agent = request.agent(app);
-  const { csrf } = await bootstrap(agent);
-  return agent
-    .post('/api/registrations')
-    .set('X-CSRF-Token', csrf)
-    .send({ name, whatsapp, language: 'en', pathway: 'TRAINING', email });
+  const { visitorId } = await bootstrap(agent);
+  return createRegistrationFixture(visitorId, { name, whatsapp, language: 'en', pathway: 'TRAINING', email });
 }
 
 describe('Phase 3A — Person identity linking', () => {
@@ -140,10 +137,7 @@ describe('Phase 3A — Person identity linking', () => {
       .send({ ref: 'REFLNK1', lang: 'en' });
     expect(visit.status).toBe(201);
 
-    const reg = await agent
-      .post('/api/registrations')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Attributed Person', whatsapp: '+237670001006', language: 'en', pathway: 'TRAINING' });
+    const reg = await createRegistrationFixture(visitorId, { name: 'Attributed Person', whatsapp: '+237670001006', language: 'en', pathway: 'TRAINING' });
     expect(reg.status).toBe(201);
 
     const relationship = await prisma.referralRelationship.findUnique({

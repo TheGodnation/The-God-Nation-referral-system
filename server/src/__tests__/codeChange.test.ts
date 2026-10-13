@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { createLeader, createAdmin } from './helpers';
+import { createLeader, createAdmin, createRegistrationFixture } from './helpers';
 import { bootstrap } from './testUtils';
 
 const app = createApp();
@@ -14,15 +14,12 @@ describe('Acceptance Test — referral code change', () => {
 
     // Historical visit + registration under the OLD code.
     const visitorAgent = request.agent(app);
-    const { csrf: visitorCsrf } = await bootstrap(visitorAgent);
+    const { csrf: visitorCsrf, visitorId } = await bootstrap(visitorAgent);
     await visitorAgent
       .post('/api/referrals/visit')
       .set('X-CSRF-Token', visitorCsrf)
       .send({ ref: 'MARY7X2', lang: 'en' });
-    const regRes = await visitorAgent
-      .post('/api/registrations')
-      .set('X-CSRF-Token', visitorCsrf)
-      .send({ name: 'Historical', whatsapp: '+237670000030', language: 'en', pathway: 'TRAINING' });
+    const regRes = await createRegistrationFixture(visitorId, { name: 'Historical', whatsapp: '+237670000030', language: 'en', pathway: 'TRAINING' });
     const registrationId = regRes.body.registrationId;
 
     // Admin changes Mary's referral code.

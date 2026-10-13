@@ -167,25 +167,4 @@ describe('My Referrals — joining through a Member\'s link', () => {
     const row = res.body.items.find((i: any) => i.visitorId); // just needs to not have thrown
     expect(row).toBeTruthy();
   });
-
-  it('the old pre-membership registration form is unaffected by a Member\'s code (no crash, no attribution)', async () => {
-    const referrer = await member('Referrer Four');
-    const linksRes = await referrer.agent.get('/api/member/referrals/links');
-    const code = linksRes.body.referralCode as string;
-
-    const visitor = agentWithUniqueIp();
-    const { csrf } = await bootstrap(visitor as any);
-    await visitor.post('/api/referrals/visit').set('X-CSRF-Token', csrf).send({ ref: code, lang: 'en' });
-
-    const res = await visitor
-      .post('/api/registrations')
-      .set('X-CSRF-Token', csrf)
-      .send({ name: 'Old Form Joiner', whatsapp: '+237670200003', language: 'en', pathway: 'TRAINING' });
-    expect(res.status).toBe(201);
-
-    const registration = await prisma.registration.findUnique({ where: { id: res.body.registrationId } });
-    expect(registration?.referredByPersonId).toBeNull();
-    const relationship = await prisma.referralRelationship.findUnique({ where: { registrationId: registration!.id } });
-    expect(relationship).toBeNull();
-  });
 });

@@ -54,20 +54,6 @@ async function send(to: string, subject: string, html: string, text: string): Pr
 // ---------------------------------------------------------------------------
 
 const DEFAULTS = {
-  registrationConfirmationSubjectEn: 'Your registration is confirmed',
-  registrationConfirmationSubjectFr: 'Votre inscription est confirmée',
-  registrationConfirmationBodyEn:
-    'Hi {{name}},\n\nThank you for registering with The God Nation. Join our WhatsApp Community here: {{link}}',
-  registrationConfirmationBodyFr:
-    'Bonjour {{name}},\n\nMerci pour votre inscription auprès de The God Nation. Rejoignez notre Communauté WhatsApp ici : {{link}}',
-
-  whatsappReminderSubjectEn: "Don't forget to join our WhatsApp community!",
-  whatsappReminderSubjectFr: 'N’oubliez pas de rejoindre notre communauté WhatsApp !',
-  whatsappReminderBodyEn:
-    "Hi {{name}},\n\nWe noticed you haven't joined our WhatsApp community yet. Tap here to join now: {{link}}",
-  whatsappReminderBodyFr:
-    'Bonjour {{name}},\n\nNous avons remarqué que vous n’avez pas encore rejoint notre communauté WhatsApp. Cliquez ici pour la rejoindre maintenant : {{link}}',
-
   leaderInvitationSubject: 'You are invited to lead on The God Nation',
   leaderInvitationBody:
     "Hi {{name}},\n\nYou've been added as a Leader on The God Nation Referral System. Set your password to activate your account and get your referral link:\n{{setupUrl}}\n\nThis link expires in 7 days and can only be used once.\n\n— The God Nation Media & Leadership Academy",
@@ -93,6 +79,15 @@ const DEFAULTS = {
     'Hi {{name}},\n\nYour sign-in code is: {{code}}\n\nType it in the app where you asked for it. Or tap this link to sign in:\n{{link}}\n\nThe code and the link expire in 15 minutes and work only once. If you did not ask for this, you can safely ignore this email.',
   memberLoginCodeBodyFr:
     'Bonjour {{name}},\n\nVotre code de connexion est : {{code}}\n\nTapez-le dans l’application, là où vous l’avez demandé. Ou cliquez sur ce lien pour vous connecter :\n{{link}}\n\nLe code et le lien expirent dans 15 minutes et ne fonctionnent qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
+
+  // Public join flow (PendingMemberSignup) — no account exists yet, so
+  // unlike memberLoginCode there is no sign-in link to offer, only the code.
+  memberSignupCodeSubjectEn: '{{code}} is your God Nation code',
+  memberSignupCodeSubjectFr: '{{code}} est votre code God Nation',
+  memberSignupCodeBodyEn:
+    'Hi,\n\nYour code to finish joining The God Nation is: {{code}}\n\nType it in the app where you asked for it. It expires in 30 minutes and works only once. If you did not ask for this, you can safely ignore this email.',
+  memberSignupCodeBodyFr:
+    'Bonjour,\n\nVotre code pour terminer votre inscription à The God Nation est : {{code}}\n\nTapez-le dans l’application, là où vous l’avez demandé. Il expire dans 30 minutes et ne fonctionne qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
 };
 
 async function getEmailContent(): Promise<Record<string, string>> {
@@ -132,49 +127,6 @@ export const EmailService = {
     const bodyTemplate = content.emailLeaderInvitationBody || DEFAULTS.leaderInvitationBody;
     const htmlVars = { name: escapeHtml(params.name), setupUrl: linkHtml(params.setupUrl) };
     const textVars = { name: params.name, setupUrl: params.setupUrl };
-    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
-  },
-
-  /** Section 36: optional registration confirmation — includes the WhatsApp
-   * join link directly, so joining no longer depends on the visitor
-   * returning to the confirmation page. */
-  async sendRegistrationConfirmation(params: {
-    to: string;
-    name: string;
-    language: 'en' | 'fr';
-    link: string;
-  }): Promise<SendResult> {
-    const content = await getEmailContent();
-    const isFr = params.language === 'fr';
-    const subject = isFr
-      ? content.emailRegistrationConfirmationSubjectFr || DEFAULTS.registrationConfirmationSubjectFr
-      : content.emailRegistrationConfirmationSubjectEn || DEFAULTS.registrationConfirmationSubjectEn;
-    const bodyTemplate = isFr
-      ? content.emailRegistrationConfirmationBodyFr || DEFAULTS.registrationConfirmationBodyFr
-      : content.emailRegistrationConfirmationBodyEn || DEFAULTS.registrationConfirmationBodyEn;
-    const htmlVars = { name: escapeHtml(params.name), link: linkHtml(params.link) };
-    const textVars = { name: params.name, link: params.link };
-    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
-  },
-
-  /** Admin-triggered reminder for registrants who haven't clicked the
-   * WhatsApp join link yet (see /api/admin/whatsapp-reminders). */
-  async sendWhatsAppReminder(params: {
-    to: string;
-    name: string;
-    language: 'en' | 'fr';
-    link: string;
-  }): Promise<SendResult> {
-    const content = await getEmailContent();
-    const isFr = params.language === 'fr';
-    const subject = isFr
-      ? content.emailWhatsappReminderSubjectFr || DEFAULTS.whatsappReminderSubjectFr
-      : content.emailWhatsappReminderSubjectEn || DEFAULTS.whatsappReminderSubjectEn;
-    const bodyTemplate = isFr
-      ? content.emailWhatsappReminderBodyFr || DEFAULTS.whatsappReminderBodyFr
-      : content.emailWhatsappReminderBodyEn || DEFAULTS.whatsappReminderBodyEn;
-    const htmlVars = { name: escapeHtml(params.name), link: linkHtml(params.link) };
-    const textVars = { name: params.name, link: params.link };
     return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
   },
 
@@ -236,6 +188,18 @@ export const EmailService = {
         : DEFAULTS.memberLoginLinkBodyEn;
     const htmlVars = { name: escapeHtml(params.name), link: linkHtml(params.link), code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code ?? '')}</strong>` };
     const textVars = { name: params.name, link: params.link, code: params.code ?? '' };
+    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
+  },
+
+  /** Public join flow (PendingMemberSignup): screen 1's emailed code. No
+   * account/Person exists yet, so (unlike sendMemberLoginLink) this never
+   * has a name to greet or a link to offer — only the code. */
+  async sendMemberSignupCode(params: { to: string; language: 'en' | 'fr'; code: string }): Promise<SendResult> {
+    const isFr = params.language === 'fr';
+    const subject = (isFr ? DEFAULTS.memberSignupCodeSubjectFr : DEFAULTS.memberSignupCodeSubjectEn).replace('{{code}}', params.code);
+    const bodyTemplate = isFr ? DEFAULTS.memberSignupCodeBodyFr : DEFAULTS.memberSignupCodeBodyEn;
+    const htmlVars = { code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code)}</strong>` };
+    const textVars = { code: params.code };
     return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
   },
 };

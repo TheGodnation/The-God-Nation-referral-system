@@ -465,18 +465,12 @@ model Event {
 // Settings / Audit
 // ---------------------------------------------------------------------------
 
-// Single settings row. whatsappUrlEn/Fr (pre-existing) are the TRAINING
-// pathway destinations; whatsappUrlDiscoverEn/Fr are the new DISCOVER_GROW
-// destinations. `content` holds the simple, admin-editable website copy
-// (homepage/pathway/success/registration text) as a flat JSON object of
-// known keys — deliberately not a full CMS; missing keys fall back to
-// built-in defaults on the client.
+// Single settings row. `content` holds the simple, admin-editable website
+// copy (homepage/pathway/registration text) as a flat JSON object of known
+// keys — deliberately not a full CMS; missing keys fall back to built-in
+// defaults on the client.
 model Settings {
   id                      String        @id @default("singleton")
-  whatsappUrlEn           String?
-  whatsappUrlFr           String?
-  whatsappUrlDiscoverEn   String?
-  whatsappUrlDiscoverFr   String?
   supportWhatsappUrl      String?
   facebookUrl             String?
   instagramUrl            String?
@@ -1047,6 +1041,27 @@ model MemberSession {
 
   @@index([memberAccountId])
   @@index([expiresAt])
+}
+
+// Holds screen 1 (email + password + pathway + language) and screen 2 (the
+// emailed 6-digit code) of the public join flow at /register until screen 3
+// (name + phone + location) is submitted — see POST
+// /api/member/auth/signup/{start,check-code,finish} in memberAuth.ts.
+// Deliberately NOT a Person/MemberAccount/Registration: nothing else is
+// created until finish succeeds, which is also the moment this row is
+// deleted. One row per email (re-starting replaces it with a fresh code).
+model PendingMemberSignup {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  pathway      Pathway
+  language     Language @default(en)
+  visitorId    String
+  codeHash     String
+  codeAttempts Int      @default(0)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------
