@@ -1,0 +1,1106 @@
+import { Router } from 'express';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { z } from 'zod';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+import { requireAuth, requireRole, hashToken } from '../lib/auth';
+import { parsePagination, paginatedResult } from '../lib/pagination';
+import { recordAudit } from '../lib/audit';
+import { requireCsrf } from '../lib/csrf';
+import { adminSensitiveLimiter } from '../lib/rateLimit';
+import { EmailService } from '../lib/email';
+import { CLIENT_URL, LEADER_SETUP_TOKEN_TTL_MS } from '../lib/env';
+import { asyncHandler } from '../lib/asyncHandler';
+import { getOrCreatePersonReferralCode } from '../lib/referralCode';
+import { notifyLeaderDashboardMovedIfNeeded } from '../lib/notifications';
+
+const router = Router();
+
+router.use(requireAuth, requireRole('ADMIN'));
+
+async function issueLeaderSetupInvitation(leaderId: string, name: string, email: string) {
+  // Section 32: invalidate any previous unconsumed setup token for this
+  // Leader before issuing a new one, so only the latest link ever works.
+  await prisma.leaderSetupToken.updateMany({
+    where: { leaderId, consumedAt: null },
+    data: { consumedAt: new Date() },
+  });
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + LEADER_SETUP_TOKEN_TTL_MS);
+
+  await prisma.leaderSetupToken.create({
+    data: { leaderId, tokenHash, expiresAt },
+  });
+
+  const setupUrl = `${CLIENT_URL}/leader/setup?token=${rawToken}`;
+  const result = await EmailService.sendLeaderInvitation({ to: email, name, setupUrl });
+  return result.ok;
+}
+
+function includeTestData(req: any): boolean {
+  return req.query.includeTestData === 'true';
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard / analytics
+// ---------------------------------------------------------------------------
+
+router.get('/dashboard', asyncHandler(async (req, res) => {
+  const testFilter = includeTestData(req) ? {} : { isTestData: false };
+
+  const [totalVisits, uniqueVisitorRows, registrations, activeLeaders] =
+    await Promise.all([
+      prisma.referralVisit.count({ where: testFilter }),
+      prisma.referralVisit.findMany({
+        where: testFilter,
+        select: { visitorId: true },
+        distinct: ['visitorId'],
+      }),
+      prisma.registration.count({ where: testFilter }),
+      prisma.user.count({ where: { role: 'LEADER', active: true, ...(includeTestData(req) ? {} : { isTestData: false }) } }),
+    ]);
+
+  const uniqueVisitors = uniqueVisitorRows.length;
+  const conversionRate = uniqueVisitors > 0 ? (registrations / uniqueVisitors) * 100 : 0;
+
+  res.json({
+    totalVisits,
+    uniqueVisitors,
+    registrations,
+    activeLeaders,
+    conversionRate: Math.round(conversionRate * 100) / 100,
+    funnel: {
+      visit: totalVisits,
+      registration: registrations,
+    },
+  });
+}));
+
+const analyticsQuerySchema = z.object({
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  leaderId: z.string().optional(),
+  language: z.enum(['en', 'fr']).optional(),
+  utmSource: z.string().optional(),
+  utmCampaign: z.string().optional(),
+  includeTestData: z.string().optional(),
+});
+
+router.get('/analytics', asyncHandler(async (req, res) => {
+  const q = analyticsQuerySchema.parse(req.query);
+  const testFilter = q.includeTestData === 'true' ? {} : { isTestData: false };
+
+  const dateFilter: Prisma.DateTimeFilter = {};
+  if (q.dateFrom) dateFilter.gte = new Date(q.dateFrom);
+  if (q.dateTo) dateFilter.lte = new Date(q.dateTo);
+  const hasDateFilter = Boolean(q.dateFrom || q.dateTo);
+
+  const visitWhere: Prisma.ReferralVisitWhereInput = {
+    ...testFilter,
+    ...(hasDateFilter ? { timestamp: dateFilter } : {}),
+    ...(q.language ? { language: q.language } : {}),
+    ...(q.utmSource ? { utmSource: q.utmSource } : {}),
+    ...(q.utmCampaign ? { utmCampaign: q.utmCampaign } : {}),
+    ...(q.leaderId ? { referralCode: { leaderId: q.leaderId } } : {}),
+  };
+
+  const regWhere: Prisma.RegistrationWhereInput = {
+    ...testFilter,
+    ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+    ...(q.language ? { language: q.language } : {}),
+    ...(q.utmSource ? { utmSource: q.utmSource } : {}),
+    ...(q.utmCampaign ? { utmCampaign: q.utmCampaign } : {}),
+    ...(q.leaderId ? { relationship: { leaderId: q.leaderId } } : {}),
+  };
+
+  const [totalVisits, referralVisits, nonReferralVisits, uniqueVisitorRows, registrations] =
+    await Promise.all([
+      prisma.referralVisit.count({ where: visitWhere }),
+      prisma.referralVisit.count({ where: { ...visitWhere, referralCodeId: { not: null } } }),
+      prisma.referralVisit.count({ where: { ...visitWhere, referralCodeId: null } }),
+      prisma.referralVisit.findMany({
+        where: visitWhere,
+        select: { visitorId: true },
+        distinct: ['visitorId'],
+      }),
+      prisma.registration.count({ where: regWhere }),
+    ]);
+
+  res.json({
+    totalVisits,
+    referralVisits,
+    nonReferralVisits,
+    uniqueVisitors: uniqueVisitorRows.length,
+    registrations,
+    conversionRate:
+      uniqueVisitorRows.length > 0
+        ? Math.round((registrations / uniqueVisitorRows.length) * 10000) / 100
+        : 0,
+  });
+}));
+
+// ---------------------------------------------------------------------------
+// Leader management
+// ---------------------------------------------------------------------------
+
+// For each of the given Leaders: how many registrations are attributed to
+// them (referred). One bulk query regardless of how many Leaders are on the
+// page — no N+1 per-Leader querying.
+async function computeLeaderReferralCounts(leaderIds: string[], includeTestData: boolean) {
+  const counts = new Map<string, { referred: number }>();
+  if (leaderIds.length === 0) return counts;
+
+  const relationships = await prisma.referralRelationship.findMany({
+    where: {
+      leaderId: { in: leaderIds },
+      ...(includeTestData ? {} : { registration: { isTestData: false } }),
+    },
+    select: { leaderId: true },
+  });
+
+  for (const r of relationships) {
+    const entry = counts.get(r.leaderId) ?? { referred: 0 };
+    entry.referred += 1;
+    counts.set(r.leaderId, entry);
+  }
+  return counts;
+}
+
+router.get('/leaders', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const where: Prisma.UserWhereInput = { role: 'LEADER' };
+  const includeTestData = req.query.includeTestData === 'true';
+
+  const [total, leaders] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      include: { referralCodes: { where: { active: true } }, person: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take,
+    }),
+  ]);
+
+  const counts = await computeLeaderReferralCounts(
+    leaders.map((l) => l.id),
+    includeTestData,
+  );
+
+  const items = leaders.map((l) => ({
+    id: l.id,
+    name: l.name,
+    email: l.email,
+    active: l.active,
+    isTestData: l.isTestData,
+    selfRegistered: l.selfRegistered,
+    referralCode: l.referralCodes[0]?.code ?? null,
+    referredCount: counts.get(l.id)?.referred ?? 0,
+    createdAt: l.createdAt,
+    // Phase 3D: whether this Leader's User account is linked to a Person —
+    // required before they can perform any scoped-leadership/follow-up
+    // action. Never inferred; only set via the explicit link-person action.
+    personId: l.personId,
+    personName: l.person?.name ?? null,
+  }));
+
+  res.json(paginatedResult(items, total, page, pageSize));
+}));
+
+// POST /api/admin/leaders (Create Leader from scratch — a typed-in
+// name/email/referralCode with no prior Membership) is retired. Every
+// Leader going forward must already be an existing, active Member — see
+// POST /leaders/assign below, which attaches Leader attribution to that
+// Member's own already-existing ReferralCode instead of minting a new one.
+
+const assignLeaderSchema = z.object({ personId: z.string().min(1) });
+
+// POST /api/admin/leaders/assign — the only way a new Leader is created
+// going forward. Picks an existing Member (by Person id — no code or email
+// typed in, since they already have both) and creates a Leader User
+// pre-linked to that Person, wired up so:
+//  - the Person's own existing ReferralCode gains leaderId (never a new
+//    code — see schema.prisma's ReferralCode comment: one code, two jobs).
+//  - the new Leader User is active immediately and needs no email setup
+//    token: unlike the old creation flow, nobody ever has to type this
+//    Leader's password in — their Member session silently auto-pairs a
+//    Leader session too (Section 25's auto-pairing), so an unusable random
+//    password is stored exactly like the old flow's placeholder, just never
+//    followed by an invitation email.
+//  - the one-time "your Leadership Dashboard moved into the app" notice
+//    fires immediately (notifyLeaderDashboardMovedIfNeeded).
+router.post('/leaders/assign', requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = assignLeaderSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'personId is required.' });
+  }
+  const { personId } = parsed.data;
+
+  const person = await prisma.person.findUnique({ where: { id: personId }, include: { memberAccount: true } });
+  if (!person) {
+    return res.status(404).json({ error: 'Person not found.' });
+  }
+  if (!person.memberAccount) {
+    return res.status(400).json({ error: 'This person has not joined as a Member yet.' });
+  }
+
+  const existingLinkForPerson = await prisma.user.findUnique({ where: { personId } });
+  if (existingLinkForPerson) {
+    return res.status(409).json({ error: 'This person is already linked to a User account.' });
+  }
+
+  const unusablePasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+
+  let leader;
+  try {
+    leader = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: person.name,
+          email: person.email ?? person.memberAccount!.email,
+          passwordHash: unusablePasswordHash,
+          role: 'LEADER',
+          active: true,
+          isTestData: person.isTestData,
+          mustChangePassword: false,
+          personId,
+        },
+      });
+      const code = await getOrCreatePersonReferralCode(tx, personId, person.name);
+      await tx.referralCode.update({ where: { id: code.id }, data: { leaderId: user.id } });
+      return user;
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ error: 'A user with this email already exists.' });
+    }
+    throw err;
+  }
+
+  await notifyLeaderDashboardMovedIfNeeded(leader);
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'LEADER_ASSIGNED_FROM_MEMBER',
+    targetType: 'User',
+    targetId: leader.id,
+    metadata: { personId, name: person.name },
+  });
+
+  res.status(201).json({ id: leader.id, name: leader.name, email: leader.email, personId });
+}));
+
+// POST /api/admin/leaders/:id/resend-invitation
+// Section 32: Admin recovery when a Leader never received, lost, or let
+// their setup invitation expire. Never sets or reveals a password directly.
+router.post('/leaders/:id/resend-invitation', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const leader = await prisma.user.findUnique({ where: { id } });
+  if (!leader || leader.role !== 'LEADER') {
+    return res.status(404).json({ error: 'Leader not found.' });
+  }
+
+  const invitationSent = await issueLeaderSetupInvitation(leader.id, leader.name, leader.email);
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'LEADER_INVITATION_RESENT',
+    targetType: 'User',
+    targetId: leader.id,
+    metadata: { email: leader.email, invitationSent },
+  });
+
+  res.json({ invitationSent });
+}));
+
+const patchLeaderSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  email: z.string().trim().email().optional(),
+  active: z.boolean().optional(),
+  referralCode: z
+    .string()
+    .trim()
+    .min(3)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/)
+    .optional(),
+});
+
+router.patch('/leaders/:id', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = patchLeaderSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  }
+  const { name, active, referralCode } = parsed.data;
+  const email = parsed.data.email?.toLowerCase();
+
+  const leader = await prisma.user.findUnique({ where: { id } });
+  if (!leader || leader.role !== 'LEADER') {
+    return res.status(404).json({ error: 'Leader not found.' });
+  }
+
+  if (referralCode) {
+    const existing = await prisma.referralCode.findUnique({ where: { code: referralCode } });
+    if (existing && existing.leaderId !== id) {
+      return res.status(409).json({ error: 'This referral code is already assigned.' });
+    }
+  }
+
+  if (email && email !== leader.email) {
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail && existingEmail.id !== id) {
+      return res.status(409).json({ error: 'A user with this email already exists.' });
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (name !== undefined || email !== undefined || active !== undefined) {
+      await tx.user.update({ where: { id }, data: { name, email, active } });
+    }
+
+    if (referralCode) {
+      // Section 7: deactivate the old code (preserving history) and create
+      // a brand-new row for the same Leader. Historical ReferralVisit and
+      // ReferralRelationship rows keep pointing at the old code / Leader ID.
+      const oldCode = await tx.referralCode.findFirst({ where: { leaderId: id, active: true } });
+      if (oldCode && oldCode.code !== referralCode) {
+        await tx.referralCode.update({
+          where: { id: oldCode.id },
+          data: { active: false, deactivatedAt: new Date() },
+        });
+        await tx.referralCode.create({
+          data: { code: referralCode, leaderId: id, isTestData: leader.isTestData },
+        });
+      } else if (!oldCode) {
+        await tx.referralCode.create({
+          data: { code: referralCode, leaderId: id, isTestData: leader.isTestData },
+        });
+      }
+    }
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'LEADER_UPDATED',
+    targetType: 'User',
+    targetId: id,
+    metadata: { name, email, active, referralCode },
+  });
+
+  const updated = await prisma.user.findUnique({
+    where: { id },
+    include: { referralCodes: { where: { active: true } } },
+  });
+
+  res.json({
+    id: updated!.id,
+    name: updated!.name,
+    email: updated!.email,
+    active: updated!.active,
+    referralCode: updated!.referralCodes[0]?.code ?? null,
+  });
+}));
+
+const linkPersonSchema = z.object({ personId: z.string().min(1) });
+
+// PATCH /api/admin/leaders/:id/link-person — Phase 3D. The one, explicit,
+// Admin-only action that establishes User.personId for a Leader — required
+// before that Leader can perform any scoped-leadership/follow-up action.
+// Deliberately a dedicated action, not folded into the general PATCH
+// /leaders/:id above: this is a one-time identity link, never inferred from
+// email/WhatsApp/name/registration/MemberAccount, and never silently
+// changed once set (calling this again with a DIFFERENT Person on an
+// already-linked Leader is rejected — an intentional relink/unlink flow is
+// explicitly out of scope for Phase 3D).
+router.patch('/leaders/:id/link-person', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = linkPersonSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'personId is required.' });
+  }
+  const { personId } = parsed.data;
+
+  const leader = await prisma.user.findUnique({ where: { id } });
+  if (!leader) {
+    return res.status(404).json({ error: 'Leader not found.' });
+  }
+  if (leader.role !== 'LEADER') {
+    // Admins are never required to have a Person — this action exists
+    // specifically to let a Leader exercise scoped-leadership actions.
+    return res.status(400).json({ error: 'Only a Leader account can be linked to a Person.' });
+  }
+
+  const person = await prisma.person.findUnique({ where: { id: personId } });
+  if (!person) {
+    return res.status(400).json({ error: 'Person not found.' });
+  }
+
+  if (leader.personId) {
+    if (leader.personId === personId) {
+      // Idempotent: calling this again with the exact same Person is safe.
+      return res.json({ id: leader.id, personId: leader.personId, personName: person.name });
+    }
+    return res.status(409).json({ error: 'This Leader is already linked to a Person.' });
+  }
+
+  const existingLinkForPerson = await prisma.user.findUnique({ where: { personId } });
+  if (existingLinkForPerson) {
+    return res.status(409).json({ error: 'This Person is already linked to another User.' });
+  }
+
+  let updatedLeader;
+  try {
+    updatedLeader = await prisma.user.update({ where: { id }, data: { personId } });
+  } catch (err) {
+    // The unique constraint on User.personId is the final authority — a
+    // concurrent link request for the same Person races against this, and
+    // the loser lands here with a clean conflict instead of a 500.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ error: 'This Person is already linked to another User.' });
+    }
+    throw err;
+  }
+
+  await notifyLeaderDashboardMovedIfNeeded(updatedLeader);
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'LEADER_PERSON_LINKED',
+    targetType: 'User',
+    targetId: id,
+    metadata: { personId },
+  });
+
+  res.json({ id: leader.id, personId, personName: person.name });
+}));
+
+// DELETE /api/admin/leaders/:id — permanently removes a Leader account.
+// Covers two real cases: a Leader who accidentally self-signed-up twice
+// (one duplicate needs removing), and an unknown/unauthorized person who
+// used a leaked self-signup access phrase and needs to be removed entirely.
+// The schema's own cascade rules do the right thing with one call: Session,
+// ReferralCode, and ReferralRelationship rows (onDelete: Cascade) go with
+// the Leader; any Registration or ReferralVisit rows they were linked to
+// are NOT deleted — they simply lose that link (onDelete: SetNull /
+// relationship row removed), same principle as deleting a Registration
+// above. Deactivating (already available) remains the right choice for a
+// real, active Leader you just want to pause — this is for removing an
+// account that should never have existed as a Leader in the first place.
+router.delete('/leaders/:id', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const leader = await prisma.user.findUnique({
+    where: { id },
+    include: { referralCodes: { where: { active: true } }, referralRelationships: true },
+  });
+  if (!leader || leader.role !== 'LEADER') {
+    return res.status(404).json({ error: 'Leader not found.' });
+  }
+
+  await prisma.user.delete({ where: { id } });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'LEADER_DELETED',
+    targetType: 'User',
+    targetId: id,
+    metadata: {
+      name: leader.name,
+      email: leader.email,
+      referralCode: leader.referralCodes[0]?.code ?? null,
+      referredCount: leader.referralRelationships.length,
+    },
+  });
+
+  res.json({ ok: true });
+}));
+
+// ---------------------------------------------------------------------------
+// Registrations / referrals (read-only, system-wide)
+// ---------------------------------------------------------------------------
+
+const listQuerySchema = z.object({
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  leaderId: z.string().optional(),
+  language: z.enum(['en', 'fr']).optional(),
+  utmSource: z.string().optional(),
+  utmCampaign: z.string().optional(),
+  includeTestData: z.string().optional(),
+});
+
+router.get('/registrations', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const q = listQuerySchema.parse(req.query);
+  const testFilter = q.includeTestData === 'true' ? {} : { isTestData: false };
+
+  const dateFilter: Prisma.DateTimeFilter = {};
+  if (q.dateFrom) dateFilter.gte = new Date(q.dateFrom);
+  if (q.dateTo) dateFilter.lte = new Date(q.dateTo);
+
+  const where: Prisma.RegistrationWhereInput = {
+    ...testFilter,
+    ...(q.dateFrom || q.dateTo ? { createdAt: dateFilter } : {}),
+    ...(q.language ? { language: q.language } : {}),
+    ...(q.utmSource ? { utmSource: q.utmSource } : {}),
+    ...(q.utmCampaign ? { utmCampaign: q.utmCampaign } : {}),
+    ...(q.leaderId ? { relationship: { leaderId: q.leaderId } } : {}),
+  };
+
+  const [total, registrations] = await Promise.all([
+    prisma.registration.count({ where }),
+    prisma.registration.findMany({
+      where,
+      include: { relationship: { include: { leader: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take,
+    }),
+  ]);
+
+  const items = registrations.map((r) => ({
+    id: r.id,
+    name: r.name,
+    whatsapp: r.normalizedWhatsApp,
+    language: r.language,
+    leader: r.relationship?.leader ? { id: r.relationship.leader.id, name: r.relationship.leader.name } : null,
+    utmSource: r.utmSource,
+    utmMedium: r.utmMedium,
+    utmCampaign: r.utmCampaign,
+    createdAt: r.createdAt,
+    isTestData: r.isTestData,
+  }));
+
+  res.json(paginatedResult(items, total, page, pageSize));
+}));
+
+// DELETE /registrations/:id — permanently removes a registration so its
+// WhatsApp number is free to register again. normalizedWhatsApp is a hard
+// unique constraint, so freeing it requires actually deleting the row, not
+// just marking it inactive. Cascades already handle this safely:
+// ReferralRelationship (onDelete: Cascade) goes with it; Event rows
+// (onDelete: SetNull) keep existing for historical visit/click counts,
+// just losing their link to this specific registration; ReferralVisit has
+// no foreign key to Registration at all, so referral-attribution history
+// is entirely unaffected.
+router.delete('/registrations/:id', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const registration = await prisma.registration.findUnique({ where: { id } });
+  if (!registration) {
+    return res.status(404).json({ error: 'Registration not found.' });
+  }
+
+  await prisma.registration.delete({ where: { id } });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'REGISTRATION_DELETED',
+    targetType: 'Registration',
+    targetId: id,
+    metadata: { whatsapp: registration.normalizedWhatsApp, name: registration.name },
+  });
+
+  res.json({ ok: true });
+}));
+
+router.get('/referrals', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const q = listQuerySchema.parse(req.query);
+  const testFilter = q.includeTestData === 'true' ? {} : { isTestData: false };
+
+  const dateFilter: Prisma.DateTimeFilter = {};
+  if (q.dateFrom) dateFilter.gte = new Date(q.dateFrom);
+  if (q.dateTo) dateFilter.lte = new Date(q.dateTo);
+
+  const where: Prisma.ReferralVisitWhereInput = {
+    ...testFilter,
+    ...(q.dateFrom || q.dateTo ? { timestamp: dateFilter } : {}),
+    ...(q.language ? { language: q.language } : {}),
+    ...(q.utmSource ? { utmSource: q.utmSource } : {}),
+    ...(q.utmCampaign ? { utmCampaign: q.utmCampaign } : {}),
+    ...(q.leaderId ? { referralCode: { leaderId: q.leaderId } } : {}),
+  };
+
+  const [total, visits] = await Promise.all([
+    prisma.referralVisit.count({ where }),
+    prisma.referralVisit.findMany({
+      where,
+      include: { referralCode: { include: { leader: true } } },
+      orderBy: { timestamp: 'desc' },
+      skip,
+      take,
+    }),
+  ]);
+
+  const items = visits.map((v) => ({
+    id: v.id,
+    visitorId: v.visitorId,
+    // A visit's code may now belong to a Member instead of a Leader (see
+    // schema.prisma's ReferralCode comment) — those have no `leader`.
+    leader: v.referralCode?.leader ? { id: v.referralCode.leaderId, name: v.referralCode.leader.name } : null,
+    language: v.language,
+    utmSource: v.utmSource,
+    utmMedium: v.utmMedium,
+    utmCampaign: v.utmCampaign,
+    timestamp: v.timestamp,
+    isTestData: v.isTestData,
+  }));
+
+  res.json(paginatedResult(items, total, page, pageSize));
+}));
+
+router.get('/export', asyncHandler(async (req, res) => {
+  const testFilter = includeTestData(req) ? {} : { isTestData: false };
+  const registrations = await prisma.registration.findMany({
+    where: testFilter,
+    include: { relationship: { include: { leader: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 5000,
+  });
+
+  const header = 'id,name,whatsapp,language,leader,utmSource,utmMedium,utmCampaign,createdAt\n';
+  const rows = registrations
+    .map((r) =>
+      [
+        r.id,
+        JSON.stringify(r.name),
+        r.normalizedWhatsApp,
+        r.language,
+        r.relationship?.leader.name ?? '',
+        r.utmSource ?? '',
+        r.utmMedium ?? '',
+        r.utmCampaign ?? '',
+        r.createdAt.toISOString(),
+      ].join(','),
+    )
+    .join('\n');
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'REGISTRATIONS_EXPORTED',
+    targetType: 'Registration',
+    metadata: { rowCount: registrations.length, includeTestData: includeTestData(req) },
+  });
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="registrations.csv"');
+  res.send(header + rows);
+}));
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+// Known, simple, admin-editable website copy keys (section 22). Not a full
+// CMS — a flat set of named strings; anything missing falls back to the
+// client's own built-in default text.
+//
+// Every piece of copy is bilingual: each base name below gets an "En" and
+// an "Fr" key (e.g. homepageTitleEn / homepageTitleFr), so an Admin edit in
+// one language can never silently override what the other language's
+// visitors see — the two are stored, and served, completely independently.
+const CONTENT_BASE_KEYS = [
+  'homepageTitle',
+  'homepageSubtitle',
+  'heroSupport',
+  'heroCta',
+  'trainingTitle',
+  'trainingSupporting',
+  'trainingDescription',
+  'trainingExplanation',
+  'trainingCta',
+  'discoverTitle',
+  'discoverSupporting',
+  'discoverDescription',
+  'discoverCta',
+  'visionTitle',
+  'vision',
+  'howTitle',
+  'how1Title',
+  'how1Body',
+  'how2Title',
+  'how2Body',
+  'how3Title',
+  'how3Body',
+  'connectTitle',
+  'footer',
+  'contactInfo',
+  'registrationPageText',
+  // The /welcome page — a separate first-contact entry point for outreach
+  // (e.g. a Leader's evangelism message), distinct from the homepage's
+  // hero/pathway copy above.
+  'welcomeEyebrow',
+  'welcomeTitle',
+  'welcomeBody',
+  'welcomeBody2',
+  'welcomeSupporting',
+  'welcomeCta',
+  'welcomeSupportNote',
+  // The message a Leader shares (WhatsApp/Telegram/native share) to invite
+  // people to register — bilingual, picked by the Leader's own UI language
+  // (not the recipient's, which the app has no way to know ahead of time).
+  // Rendered client-side in LeaderDashboardPage: `{{link}}` is replaced with
+  // that Leader's own referral link; for Telegram, any line containing
+  // `{{link}}` is dropped instead, since Telegram attaches the link itself.
+  'leaderInviteMessage',
+  // The banner at the top of the member Updates page: a short slogan and
+  // the ministry's Mission, Vision and Purpose (picture: routes/appBranding.ts).
+  'appSlogan',
+  'appMission',
+  'appVision',
+  'appPurpose',
+] as const;
+
+const CONTENT_KEYS = CONTENT_BASE_KEYS.flatMap((k) => [`${k}En`, `${k}Fr`] as const);
+
+// Operational emails (Leader invitation, password reset) go only to
+// Leaders/Admins, who have no stored language preference — one version
+// each, not an En/Fr pair.
+const CONTENT_SINGLE_KEYS = [
+  'emailLeaderInvitationSubject',
+  'emailLeaderInvitationBody',
+  'emailPasswordResetSubject',
+  'emailPasswordResetBody',
+] as const;
+
+const ALL_CONTENT_KEYS = [...CONTENT_KEYS, ...CONTENT_SINGLE_KEYS] as const;
+
+const contentSchema = z
+  .object(Object.fromEntries(ALL_CONTENT_KEYS.map((k) => [k, z.string().max(5000).optional()])) as Record<
+    (typeof ALL_CONTENT_KEYS)[number],
+    z.ZodOptional<z.ZodString>
+  >)
+  .partial();
+
+function settingsResponse(settings: {
+  supportWhatsappUrl: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  tiktokUrl: string | null;
+  youtubeUrl: string | null;
+  whatsappContactUrl: string | null;
+  telegramUrl: string | null;
+  messengerUrl: string | null;
+  leaderSignupPhrase: string | null;
+  contactEmail: string | null;
+  content: unknown;
+  defaultReferrerPersonId: string | null;
+  defaultReferrerPerson?: { id: string; name: string } | null;
+  authorTitle: string | null;
+} | null) {
+  return {
+    supportWhatsappUrl: settings?.supportWhatsappUrl ?? null,
+    facebookUrl: settings?.facebookUrl ?? null,
+    instagramUrl: settings?.instagramUrl ?? null,
+    tiktokUrl: settings?.tiktokUrl ?? null,
+    youtubeUrl: settings?.youtubeUrl ?? null,
+    whatsappContactUrl: settings?.whatsappContactUrl ?? null,
+    telegramUrl: settings?.telegramUrl ?? null,
+    messengerUrl: settings?.messengerUrl ?? null,
+    leaderSignupPhrase: settings?.leaderSignupPhrase ?? null,
+    contactEmail: settings?.contactEmail ?? null,
+    content: (settings?.content as Record<string, string> | null) ?? {},
+    // Section 14/6: the single catch-all Person every unattributed joiner
+    // is auto-friended to. Reassignable/splittable later — just this one
+    // Settings field, never hardcoded (see memberAuth.ts's /signup/finish).
+    defaultReferrerPersonId: settings?.defaultReferrerPersonId ?? null,
+    defaultReferrerPersonName: settings?.defaultReferrerPerson?.name ?? null,
+    authorTitle: settings?.authorTitle ?? null,
+  };
+}
+
+router.get('/settings', asyncHandler(async (_req, res) => {
+  const settings = await prisma.settings.findUnique({
+    where: { id: 'singleton' },
+    include: { defaultReferrerPerson: { select: { id: true, name: true } } },
+  });
+  res.json(settingsResponse(settings));
+}));
+
+const settingsSchema = z.object({
+  supportWhatsappUrl: z.string().url().optional().nullable(),
+  facebookUrl: z.string().url().optional().nullable(),
+  instagramUrl: z.string().url().optional().nullable(),
+  tiktokUrl: z.string().url().optional().nullable(),
+  youtubeUrl: z.string().url().optional().nullable(),
+  whatsappContactUrl: z.string().url().optional().nullable(),
+  telegramUrl: z.string().url().optional().nullable(),
+  messengerUrl: z.string().url().optional().nullable(),
+  // Not a URL — a short shared phrase. Unlike the URL fields above, blank
+  // is a meaningful, submittable value here (it turns Leader self-signup
+  // off), so it's normalized to null rather than dropped.
+  leaderSignupPhrase: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .nullable()
+    // Field omitted entirely -> leave untouched (undefined). Field sent as
+    // '' or null -> normalize to null (explicitly turns signup off).
+    .transform((v) => (v === undefined ? undefined : v ? v : null)),
+  // Public Contact form (Phase 2) recipient. Blank/null disables the form's
+  // email notification (messages are still saved to ContactMessage) — same
+  // blank-is-meaningful pattern as leaderSignupPhrase above.
+  contactEmail: z
+    .string()
+    .trim()
+    .max(320)
+    .optional()
+    .nullable()
+    .transform((v) => (v === undefined ? undefined : v ? v : null))
+    .refine((v) => v === undefined || v === null || z.string().email().safeParse(v).success, {
+      message: 'Please enter a valid email address.',
+    }),
+  // Section 14/6: null clears the catch-all entirely (every unattributed
+  // joiner then simply has no auto-friend at all) — a deliberate, valid
+  // choice, not an error.
+  defaultReferrerPersonId: z.string().trim().min(1).optional().nullable(),
+  // Section 15: shared short title shown alongside the Admin's photo/name
+  // whenever content is posted "as self" (see lib/authorToggle.ts).
+  authorTitle: z.string().trim().max(200).optional().nullable(),
+  content: contentSchema.optional(),
+});
+
+router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = settingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid settings.' });
+  }
+  const d = parsed.data;
+
+  if (d.defaultReferrerPersonId) {
+    const person = await prisma.person.findUnique({ where: { id: d.defaultReferrerPersonId } });
+    if (!person) {
+      return res.status(400).json({ error: 'Person not found.' });
+    }
+  }
+
+  const existing = await prisma.settings.findUnique({ where: { id: 'singleton' } });
+  const mergedContent = {
+    ...((existing?.content as Record<string, string> | null) ?? {}),
+    ...(d.content ?? {}),
+  };
+
+  const scalarFields = {
+    ...(d.supportWhatsappUrl !== undefined ? { supportWhatsappUrl: d.supportWhatsappUrl } : {}),
+    ...(d.facebookUrl !== undefined ? { facebookUrl: d.facebookUrl } : {}),
+    ...(d.instagramUrl !== undefined ? { instagramUrl: d.instagramUrl } : {}),
+    ...(d.tiktokUrl !== undefined ? { tiktokUrl: d.tiktokUrl } : {}),
+    ...(d.youtubeUrl !== undefined ? { youtubeUrl: d.youtubeUrl } : {}),
+    ...(d.whatsappContactUrl !== undefined ? { whatsappContactUrl: d.whatsappContactUrl } : {}),
+    ...(d.telegramUrl !== undefined ? { telegramUrl: d.telegramUrl } : {}),
+    ...(d.messengerUrl !== undefined ? { messengerUrl: d.messengerUrl } : {}),
+    ...(d.leaderSignupPhrase !== undefined ? { leaderSignupPhrase: d.leaderSignupPhrase } : {}),
+    ...(d.contactEmail !== undefined ? { contactEmail: d.contactEmail } : {}),
+    ...(d.defaultReferrerPersonId !== undefined ? { defaultReferrerPersonId: d.defaultReferrerPersonId } : {}),
+    ...(d.authorTitle !== undefined ? { authorTitle: d.authorTitle } : {}),
+  };
+
+  const settings = await prisma.settings.upsert({
+    where: { id: 'singleton' },
+    create: { id: 'singleton', ...scalarFields, content: mergedContent, updatedByUserId: req.user!.id },
+    update: { ...scalarFields, ...(d.content ? { content: mergedContent } : {}), updatedByUserId: req.user!.id },
+    include: { defaultReferrerPerson: { select: { id: true, name: true } } },
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'SETTINGS_UPDATED',
+    targetType: 'Settings',
+    targetId: 'singleton',
+    metadata: { changedKeys: Object.keys(req.body ?? {}) },
+  });
+
+  res.json(settingsResponse(settings));
+}));
+
+// ---------------------------------------------------------------------------
+// Audit log
+// ---------------------------------------------------------------------------
+
+router.get('/audit', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const [total, logs] = await Promise.all([
+    prisma.auditLog.count(),
+    prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, skip, take }),
+  ]);
+  res.json(paginatedResult(logs, total, page, pageSize));
+}));
+
+// ---------------------------------------------------------------------------
+// Public content (Phase 2) — Admin management of ContentPage rows. Public,
+// published-only reads live in routes/contentPages.ts; everything here
+// requires ADMIN (via the router.use gate above) plus CSRF on mutations.
+// ---------------------------------------------------------------------------
+
+const contentPageSchema = z.object({
+  type: z.enum(['PAGE', 'TEACHING', 'ANNOUNCEMENT']),
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug may only contain lowercase letters, numbers, and hyphens.'),
+  titleEn: z.string().trim().min(1).max(300),
+  titleFr: z.string().trim().max(300).optional().nullable(),
+  bodyEn: z.string().trim().min(1).max(50000),
+  bodyFr: z.string().trim().max(50000).optional().nullable(),
+  mediaUrl: z.string().trim().url().max(2000).optional().nullable().or(z.literal('').transform(() => null)),
+  order: z.number().int().optional(),
+});
+
+router.get('/content-pages', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const typeFilter = z.enum(['PAGE', 'TEACHING', 'ANNOUNCEMENT']).optional().safeParse(req.query.type);
+  const where = typeFilter.success && typeFilter.data ? { type: typeFilter.data } : {};
+
+  const [total, pages] = await Promise.all([
+    prisma.contentPage.count({ where }),
+    prisma.contentPage.findMany({ where, orderBy: [{ order: 'asc' }, { createdAt: 'desc' }], skip, take }),
+  ]);
+  res.json(paginatedResult(pages, total, page, pageSize));
+}));
+
+router.post('/content-pages', requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = contentPageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid content page.' });
+  }
+  const d = parsed.data;
+
+  const existing = await prisma.contentPage.findUnique({ where: { slug: d.slug } });
+  if (existing) {
+    return res.status(409).json({ error: 'A page with this slug already exists.' });
+  }
+
+  const created = await prisma.contentPage.create({
+    data: {
+      type: d.type,
+      slug: d.slug,
+      titleEn: d.titleEn,
+      titleFr: d.titleFr ?? null,
+      bodyEn: d.bodyEn,
+      bodyFr: d.bodyFr ?? null,
+      mediaUrl: d.mediaUrl ?? null,
+      order: d.order ?? 0,
+    },
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'CONTENT_PAGE_CREATED',
+    targetType: 'ContentPage',
+    targetId: created.id,
+    metadata: { slug: created.slug, type: created.type },
+  });
+
+  res.status(201).json(created);
+}));
+
+const patchContentPageSchema = contentPageSchema.partial().extend({
+  published: z.boolean().optional(),
+});
+
+router.patch('/content-pages/:id', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = patchContentPageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  }
+  const d = parsed.data;
+
+  const page = await prisma.contentPage.findUnique({ where: { id } });
+  if (!page) {
+    return res.status(404).json({ error: 'Page not found.' });
+  }
+
+  if (d.slug && d.slug !== page.slug) {
+    const existing = await prisma.contentPage.findUnique({ where: { slug: d.slug } });
+    if (existing) {
+      return res.status(409).json({ error: 'A page with this slug already exists.' });
+    }
+  }
+
+  const wasPublished = page.published;
+  const nowPublishing = d.published === true && !wasPublished;
+  const nowUnpublishing = d.published === false && wasPublished;
+
+  const updated = await prisma.contentPage.update({
+    where: { id },
+    data: {
+      ...(d.type !== undefined ? { type: d.type } : {}),
+      ...(d.slug !== undefined ? { slug: d.slug } : {}),
+      ...(d.titleEn !== undefined ? { titleEn: d.titleEn } : {}),
+      ...(d.titleFr !== undefined ? { titleFr: d.titleFr } : {}),
+      ...(d.bodyEn !== undefined ? { bodyEn: d.bodyEn } : {}),
+      ...(d.bodyFr !== undefined ? { bodyFr: d.bodyFr } : {}),
+      ...(d.mediaUrl !== undefined ? { mediaUrl: d.mediaUrl } : {}),
+      ...(d.order !== undefined ? { order: d.order } : {}),
+      ...(d.published !== undefined ? { published: d.published } : {}),
+      ...(nowPublishing ? { publishedAt: new Date() } : {}),
+      ...(nowUnpublishing ? { publishedAt: null } : {}),
+    },
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'CONTENT_PAGE_UPDATED',
+    targetType: 'ContentPage',
+    targetId: id,
+    metadata: { changedKeys: Object.keys(req.body ?? {}) },
+  });
+
+  res.json(updated);
+}));
+
+router.delete('/content-pages/:id', requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const page = await prisma.contentPage.findUnique({ where: { id } });
+  if (!page) {
+    return res.status(404).json({ error: 'Page not found.' });
+  }
+
+  await prisma.contentPage.delete({ where: { id } });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'CONTENT_PAGE_DELETED',
+    targetType: 'ContentPage',
+    targetId: id,
+    metadata: { slug: page.slug },
+  });
+
+  res.status(204).end();
+}));
+
+// ---------------------------------------------------------------------------
+// Contact messages (Phase 2) — read-only for Admin; created by the public
+// POST /api/contact endpoint.
+// ---------------------------------------------------------------------------
+
+router.get('/messages', asyncHandler(async (req, res) => {
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const [total, messages] = await Promise.all([
+    prisma.contactMessage.count(),
+    prisma.contactMessage.findMany({ orderBy: { createdAt: 'desc' }, skip, take }),
+  ]);
+  res.json(paginatedResult(messages, total, page, pageSize));
+}));
+
+export default router;

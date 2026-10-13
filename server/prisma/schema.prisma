@@ -1,0 +1,2516 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  LEADER
+}
+
+enum RegistrationStatus {
+  ACTIVE
+}
+
+enum EventType {
+  VISITED
+  REGISTERED
+  WHATSAPP_CLICKED
+}
+
+enum Language {
+  en
+  fr
+}
+
+enum Pathway {
+  TRAINING
+  DISCOVER_GROW
+}
+
+enum ContentPageType {
+  PAGE
+  TEACHING
+  ANNOUNCEMENT
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DevotionalStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  LOCKED
+}
+
+enum LibraryBookKind {
+  DEVOTIONAL
+  TRAINING
+}
+
+enum TrainingEnrollmentStatus {
+  REQUESTED
+  ACTIVE
+  REVOKED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+}
+
+enum ParticipationEventType {
+  ASSESSMENT_COMPLETED
+}
+
+// Phase 3D: the only supported role type. Deliberately not a role hierarchy
+// or generic permission engine — a single flat capability, scoped to
+// exactly one Community (see RoleAssignment). Geography Retirement Step 5B
+// removed RoleAssignment.geographyId entirely — Community is the only scope.
+enum RoleType {
+  SCOPED_LEADER
+}
+
+enum RoleAssignmentStatus {
+  ACTIVE
+  ENDED
+}
+
+// Deliberately small, closed set — not a generic polymorphic authorization
+// framework. contextId refers to a Community.id (the server validates the
+// referenced row exists — see routes/adminLeadership.ts / leaderFollowUps.ts).
+// Geography Retirement Step 5A removed the GEOGRAPHY value: Follow-Up is now
+// Community-scoped only. GeographicAssignment and RoleAssignment.geographyId
+// still exist (retired in a later step) but no longer have any Follow-Up
+// authorization path that reaches them.
+enum FollowUpContextType {
+  COMMUNITY
+}
+
+enum FollowUpStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum WellbeingStatus {
+  GOOD
+  NEEDS_ATTENTION
+  EMERGENCY
+  UNABLE_TO_REACH
+}
+
+// Phase 2C — kept as its own enum, deliberately never shared with any other
+// status enum in this schema even where states are named identically: same
+// convention as every other status enum in this schema — one dedicated enum
+// per model, never shared across unrelated models.
+enum OrganizationalLeadershipRecommendationStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+// Community Posting Policy — a Community-scoped posting PERMISSION, never a
+// new role or authorization engine. EVERYONE preserves this codebase's
+// existing behavior (any Person with hasConversationAccess may post);
+// LEADERS_ONLY narrows posting to an active SCOPED_LEADER for that EXACT
+// Community (see isCommunityAdministrator in lib/leadership.ts) — reading
+// the conversation is never affected by this value (see
+// lib/communityConversation.ts's canPostCommunityMessage, which is the only
+// place this enum is ever consulted).
+enum CommunityPostingPolicy {
+  EVERYONE
+  LEADERS_ONLY
+}
+
+// Book / Resource Access Grants — kept as its own dedicated enum (never
+// shared with MembershipStatus/RoleAssignmentStatus, despite an identical
+// ACTIVE/REVOKED-shaped lifecycle) — same "one enum per model" convention
+// already established throughout this schema.
+enum ResourceAccessGrantStatus {
+  ACTIVE
+  REVOKED
+}
+
+// In-App Notifications Foundation — exactly the four supported events;
+// deliberately not a generic event-bus enum with room "for later" values.
+// How the system chooses a group for a newly signed-up member.
+// SMALLEST_GROUP: the open (leaf) group in the Headquarters tree with the
+// fewest active members. BY_LOCATION: an open group tagged with the
+// member's country/region first; falls back to SMALLEST_GROUP when no
+// tagged group matches, so nobody is ever left without a group.
+enum PlacementMode {
+  SMALLEST_GROUP
+  BY_LOCATION
+}
+
+// Reactions on Updates posts (one per person per post; changeable).
+enum UpdateReactionType {
+  LIKE
+  LOVE
+  PRAY
+  PRAISE
+  JOY
+  SAD
+}
+
+enum NotificationType {
+  FOLLOW_UP_ASSIGNED
+  PRIVATE_MESSAGE_RECEIVED
+  RESOURCE_GRANTED
+  ROLE_ASSIGNED
+  FRIEND_REQUEST_RECEIVED
+  FRIEND_REQUEST_ACCEPTED
+  // Phase 2 — Prayer requests.
+  PRAYER_REQUEST_COMMENT
+  PRAYER_REQUEST_SUBMITTED_PRIVATELY
+  // Phase 5 — Central Authority broadcasts. Fired once per publish, fanned
+  // out to every Person currently matching the item's own audience rule
+  // (Announcement's Community targets; HeadquartersPost's networkWide-or-
+  // targets) — never a separately stored recipient list, so it always
+  // reflects live membership at the moment of publish. Deliberately NOT
+  // added for UpdatePost (an ordinary Member's own wall post, not a Central
+  // Authority broadcast) — notifying the entire membership on every
+  // member's personal post would be spam, not the "important updates" this
+  // was asked for.
+  ANNOUNCEMENT_PUBLISHED
+  HEADQUARTERS_POST_PUBLISHED
+  // Phase 6 — Geographical Leadership Directory.
+  AREA_LEADERSHIP_ASSIGNED
+  AREA_REPRESENTATION_REQUEST_DECLINED
+  // Unified Leader/Member identity — fires exactly once, the moment a
+  // Person is newly linked to an active Leader User (self-serve bridge or
+  // Admin's "Assign as Leader"), telling them their Leadership tools now
+  // live inside the Member app. See User.personLinkNotifiedAt.
+  LEADER_DASHBOARD_MOVED
+}
+
+// Phase 2 — Prayer requests. The submitter chooses, per request, whether
+// it is shared PUBLIC (same flat, network-wide feed shape as UpdatePost —
+// every signed-in Member/Leader sees it) or PRIVATE (seen only by the
+// submitter, the ACTIVE SCOPED_LEADER(s) of communityId, and Admin — a
+// confidential pastoral-care inbox, not a public feed). Encouragement
+// happens only through comments; there is deliberately no separate
+// "praying for this" reaction/counter.
+enum PrayerRequestVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+// Where a friendship came from — shown publicly on a Person's profile so the
+// community can see "Referred" (joined through this Person's own referral
+// link, whether that link doubled as a Leader's attribution code or not)
+// apart from "Community" (an ordinary friend request). Set once at creation
+// and never changed afterward. Defaults to ORGANIC so every friendship that
+// already existed before this column was introduced reads as a Community
+// friendship — forward-only, matching this codebase's "never backfill"
+// convention: only a friendship created going forward through a referral
+// code is ever tagged REFERRAL.
+enum FriendshipOrigin {
+  ORGANIC
+  REFERRAL
+}
+
+// Who may send this person a friend request.
+enum FriendRequestPolicy {
+  EVERYONE
+  SAME_GROUP
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+}
+
+// ---------------------------------------------------------------------------
+// User / Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id                 String   @id @default(uuid())
+  name               String
+  email              String   @unique
+  passwordHash       String
+  role               Role
+  active             Boolean  @default(true)
+  isTestData         Boolean  @default(false)
+  mustChangePassword Boolean  @default(false)
+  // True for a Leader who created their own account via the public
+  // self-signup link (POST /api/auth/leader-signup), as opposed to one an
+  // Admin created by hand in Admin > Leaders. Admin retains full control
+  // either way — this is purely informational, shown as a badge.
+  selfRegistered     Boolean  @default(false)
+  // Phase 3A: optional link to the person's unified God Nation identity.
+  // Left null for every existing User by the Phase 3A backfill — a User's
+  // email alone is never treated as proof of identity with a Person (see
+  // Person model comment). Phase 3D adds the actual explicit, safe linking
+  // step this comment anticipated (PATCH /api/admin/leaders/:id/link-person)
+  // and makes this column unique: at most one User may ever be linked to a
+  // given Person. An Admin is never required to have one; a Leader must
+  // have one before performing any scoped-leadership/follow-up action.
+  personId           String?  @unique
+  // Set the one time a "your Leadership Dashboard moved" notice is sent to
+  // this account after personId is newly linked to an active LEADER User
+  // (via the self-serve bridge or Admin's Assign-as-Leader action) — never
+  // sent again afterward, and never set for an ADMIN account (which has no
+  // such notice). Null means not yet sent.
+  personLinkNotifiedAt DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  person                                         Person?                                  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  sessions                                       Session[]
+  referralCodes                                  ReferralCode[]
+  referralRelationships                          ReferralRelationship[]
+  setupTokens                                    LeaderSetupToken[]
+  passwordResetTokens                            PasswordResetToken[]
+  roleAssignmentsAssigned                        RoleAssignment[]                         @relation("RoleAssignmentAssignedBy")
+  followUpAssignmentsCreated                     FollowUpAssignment[]                     @relation("FollowUpAssignedBy")
+  followUpAssignmentsClosed                      FollowUpAssignment[]                     @relation("FollowUpClosedBy")
+  followUpContactsLogged                         FollowUpContact[]
+  announcementsCreated                           Announcement[]
+  organizationalLeadershipRecommendationsDecided OrganizationalLeadershipRecommendation[]
+  headquartersPostsCreated                       HeadquartersPost[]
+  privateConversationsInitiated                  PrivateConversation[]
+  privateMessagesSent                            PrivateMessage[]
+  privateConversationReads                       PrivateConversationRead[]
+  privateMessageReactions                        PrivateMessageReaction[]
+  resourceAccessGrantsGiven                      ResourceAccessGrant[]                    @relation("ResourceAccessGrantGrantedBy")
+  resourceAccessGrantsRevoked                    ResourceAccessGrant[]                    @relation("ResourceAccessGrantRevokedBy")
+  notifications                                  Notification[]
+  pushSubscriptions                              PushSubscription[]
+  updatePostsDeleted                             UpdatePost[]                             @relation("UpdatePostDeletedByUser")
+  updateCommentsDeleted                          UpdateComment[]                          @relation("UpdateCommentDeletedByUser")
+  memberReportsResolved                          MemberReport[]                           @relation("MemberReportResolvedByUser")
+  trainingEnrollmentsActivated                   TrainingEnrollment[]                     @relation("TrainingEnrollmentActivatedBy")
+  areaLeadershipAssignmentsAssigned              AreaLeadershipAssignment[]               @relation("AreaLeadershipAssignedBy")
+  areaRepresentationRequestsDecided              AreaRepresentationRequest[]
+  prayerRequestsDeleted                          PrayerRequest[]                          @relation("PrayerRequestDeletedByUser")
+  prayerRequestCommentsDeleted                   PrayerRequestComment[]                   @relation("PrayerRequestCommentDeletedByUser")
+
+  @@index([role])
+}
+
+// Secure one-time invitation token for new Leader onboarding (section 27-29).
+// Only the hash is ever stored; the raw token exists only long enough to be
+// emailed. Expires 7 days after issuance, single-use.
+model LeaderSetupToken {
+  id         String    @id @default(uuid())
+  leaderId   String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  leader User @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+
+  @@index([leaderId])
+}
+
+// Secure one-time password-reset token (section 33). Only the hash is ever
+// stored. Expires 1 hour after issuance, single-use.
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Session {
+  id             String   @id @default(uuid())
+  userId         String
+  tokenHash      String   @unique
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  id         String   @id @default(uuid())
+  identifier String
+  success    Boolean
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+  @@index([ip, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Referral system
+// ---------------------------------------------------------------------------
+
+// A code names exactly one of a Leader (leaderId) or a Member (personId) —
+// enforced in application code only (same lightweight style as other
+// exclusivity rules in this schema), never both and never neither. Visit
+// recording (POST /api/referrals/visit) and the join-link format are
+// identical either way; only what happens when someone actually signs up
+// through it differs — see Registration.referredByPersonId and the
+// Friendship created in memberAuth.ts's signup route for the Member case.
+model ReferralCode {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  leaderId      String?
+  personId      String?   @unique
+  active        Boolean   @default(true)
+  isTestData    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deactivatedAt DateTime?
+
+  leader        User?                  @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  person        Person?                @relation(fields: [personId], references: [id], onDelete: Cascade)
+  visits        ReferralVisit[]
+  relationships ReferralRelationship[]
+
+  @@index([leaderId])
+  @@index([active])
+}
+
+model ReferralVisit {
+  id             String   @id @default(uuid())
+  visitorId      String
+  referralCodeId String?
+  timestamp      DateTime @default(now())
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  landingPage    String?
+  language       Language @default(en)
+  isTestData     Boolean  @default(false)
+
+  referralCode ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+
+  @@index([visitorId, timestamp])
+  @@index([referralCodeId, timestamp])
+  @@index([timestamp])
+  @@index([utmSource])
+  @@index([utmCampaign])
+}
+
+model Registration {
+  id                 String             @id @default(uuid())
+  visitorId          String
+  normalizedWhatsApp String             @unique
+  name               String
+  email              String?
+  language           Language           @default(en)
+  pathway            Pathway            @default(TRAINING)
+  utmSource          String?
+  utmMedium          String?
+  utmCampaign        String?
+  landingPage        String?
+  status             RegistrationStatus @default(ACTIVE)
+  isTestData         Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  // Phase 3A: link to the registrant's unified God Nation identity, keyed
+  // by normalizedWhatsApp (see Person model). Populated automatically for
+  // every new registration and backfilled for existing ones — never
+  // changes any existing registration behavior or fields.
+  personId           String?
+  // Set only when this registration completed through a Member's own
+  // referral link (ReferralCode.personId), scoped to the real in-app
+  // Member signup route (memberAuth.ts) only — forward-only from when
+  // that feature shipped, never backfilled for older registrations.
+  // Distinct from `relationship` (Leader attribution), which is unaffected.
+  referredByPersonId String?
+
+  person           Person?               @relation(fields: [personId], references: [id], onDelete: SetNull)
+  referredByPerson Person?               @relation("RegistrationReferredBy", fields: [referredByPersonId], references: [id], onDelete: SetNull)
+  relationship     ReferralRelationship?
+  events           Event[]
+
+  @@index([visitorId])
+  @@index([createdAt])
+  @@index([language])
+  @@index([personId])
+  @@index([referredByPersonId])
+}
+
+model ReferralRelationship {
+  id             String   @id @default(uuid())
+  leaderId       String
+  registrationId String   @unique
+  referralCodeId String?
+  createdAt      DateTime @default(now())
+
+  leader       User          @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  registration Registration  @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  referralCode ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+
+  @@index([leaderId])
+}
+
+model Event {
+  id             String    @id @default(uuid())
+  type           EventType
+  registrationId String?
+  visitorId      String?
+  timestamp      DateTime  @default(now())
+  isTestData     Boolean   @default(false)
+
+  registration Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+
+  @@index([type, timestamp])
+  @@index([registrationId])
+  @@index([visitorId])
+}
+
+// ---------------------------------------------------------------------------
+// Settings / Audit
+// ---------------------------------------------------------------------------
+
+// Single settings row. `content` holds the simple, admin-editable website
+// copy (homepage/pathway/registration text) as a flat JSON object of known
+// keys — deliberately not a full CMS; missing keys fall back to built-in
+// defaults on the client.
+model Settings {
+  id                      String        @id @default("singleton")
+  supportWhatsappUrl      String?
+  facebookUrl             String?
+  instagramUrl            String?
+  tiktokUrl               String?
+  youtubeUrl              String?
+  whatsappContactUrl      String?
+  telegramUrl             String?
+  messengerUrl            String?
+  // Shared access phrase gating Leader self-signup (POST
+  // /api/auth/leader-signup). Stored in plain text — the Admin needs to be
+  // able to read it back to share it in the WhatsApp group, so it isn't a
+  // password. Null/blank means self-signup is turned off entirely.
+  leaderSignupPhrase      String?
+  content                 Json?
+  // The wide picture at the top of the member Updates page (the ministry's
+  // banner). Its Mission / Vision / Purpose text lives in `content`.
+  appBannerStorageKey     String?
+  appBannerUpdatedAt      DateTime?
+  // Recipient address for the public Contact form (Phase 2). Admin-editable;
+  // never sent to the client. Null/blank means the contact form is disabled.
+  contactEmail            String?
+  // National Headquarters designation — the single Community that is the
+  // root of the organizational Community tree and the operational home of
+  // Central Administration. Exactly one Settings row exists (id:
+  // "singleton"), so this field alone already guarantees "at most one
+  // Headquarters" with no additional uniqueness enforcement needed — unlike
+  // a boolean flag scattered across many Community rows would require.
+  // Nullable: Headquarters is unconfigured until an Admin explicitly
+  // designates one; nothing elsewhere assumes it exists. onDelete SetNull
+  // matches every other optional Community cross-reference in this schema
+  // (MonthlyDevotional.communityId, AnnouncementTarget.communityId).
+  // Server-side validation (adminCommunities.ts) is what actually enforces
+  // "must be a root Community" — this column itself accepts any Community id.
+  headquartersCommunityId String?
+  headquartersCommunity   Community?    @relation("SettingsHeadquarters", fields: [headquartersCommunityId], references: [id], onDelete: SetNull)
+  placementMode           PlacementMode @default(SMALLEST_GROUP)
+  // "Live now" slot on the Updates page: the YouTube video id of the live
+  // (video or audio-only) the central admin is streaming, or null when
+  // nothing is live. Set/cleared from the admin Updates tab.
+  liveYoutubeVideoId      String?
+  liveTitle               String?
+  liveStartedAt           DateTime?
+  // When Admin chooses to post a live session "as themselves" rather than
+  // as the plain institutional "Central Authority" voice, this names their
+  // own bridged Member profile so the Updates page can show their photo and
+  // name alongside it. Null means the plain institutional voice. Cleared
+  // automatically if that Person is ever removed (onDelete SetNull), never
+  // silently falling back to a different Person.
+  liveAuthorPersonId      String?
+  liveAuthorPerson        Person?       @relation("SettingsLiveAuthor", fields: [liveAuthorPersonId], references: [id], onDelete: SetNull)
+  // Shared short title/role shown alongside the author's photo and name
+  // whenever Announcements, HeadquartersPosts, or a Live session are posted
+  // "as themselves" (Announcement.authorPersonId, HeadquartersPost.
+  // authorPersonId, liveAuthorPersonId above) — e.g. "Founder & Lead
+  // Pastor". One shared field, not per-post text: today there is exactly
+  // one Person who ever posts this way (see defaultReferrerPersonId's own
+  // comment on that same "just one for now" convention).
+  authorTitle             String?
+  // The single Person every stray/organic joiner (nobody's real referral at
+  // all) is automatically made a "Referred" friend of, so no one is ever
+  // left without someone responsible for following up with them — see
+  // memberAuth.ts's /signup/finish. One for now (normally Central Admin's
+  // own bridged profile); reassignable, or split across several Persons
+  // later, by simply changing this one field. Null means no fallback is
+  // configured yet (a stray joiner then has no referrer at all, exactly the
+  // pre-existing behavior before this field was introduced).
+  defaultReferrerPersonId String?
+  defaultReferrerPerson   Person?       @relation("SettingsDefaultReferrer", fields: [defaultReferrerPersonId], references: [id], onDelete: SetNull)
+  // Free-will offering instructions shown beside the monthly devotional
+  // (e.g. Mobile Money numbers). Giving is never required.
+  offeringInstructionsEn  String?
+  offeringInstructionsFr  String?
+  // Home page and chat background, Admin-set for everyone (never
+  // per-member). `*WallpaperPreset` names one of the client's own
+  // built-in, zero-download patterns (client/src/lib/wallpaper.ts); a
+  // `*WallpaperStorageKey` upload always takes precedence when set, and
+  // setting one clears the other (see appBranding.ts) — a single
+  // background per surface, never both at once.
+  homeWallpaperPreset     String?
+  homeWallpaperStorageKey String?
+  homeWallpaperUpdatedAt  DateTime?
+  chatWallpaperPreset     String?
+  chatWallpaperStorageKey String?
+  chatWallpaperUpdatedAt  DateTime?
+  updatedAt               DateTime      @updatedAt
+  updatedByUserId         String?
+}
+
+// ---------------------------------------------------------------------------
+// Public content (Phase 2)
+// ---------------------------------------------------------------------------
+
+// Small, generic public content model — deliberately not a CMS. Used for
+// Vision/Mission/Our Story pages, Teachings, Announcements, and expanded
+// Training / Discover & Grow information. Bilingual fields follow the same
+// En/Fr-suffix convention as Settings.content. `mediaUrl` covers embedded
+// video/audio or a link to existing external media without a separate
+// media-management system.
+model ContentPage {
+  id          String          @id @default(uuid())
+  type        ContentPageType @default(PAGE)
+  slug        String          @unique
+  titleEn     String
+  titleFr     String?
+  bodyEn      String
+  bodyFr      String?
+  mediaUrl    String?
+  published   Boolean         @default(false)
+  order       Int             @default(0)
+  publishedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([type, published, order])
+  @@index([published])
+}
+
+// Submissions from the public Contact form (Phase 2). Stored durably even
+// if the notification email fails to send, consistent with the rest of the
+// app's "never lose data on email failure" approach.
+model ContactMessage {
+  id          String    @id @default(uuid())
+  name        String
+  email       String
+  message     String
+  language    Language  @default(en)
+  emailSentAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Unified identity + geographic/online community foundation (Phase 3A)
+// ---------------------------------------------------------------------------
+
+// Represents the human being independently of authentication. The existing
+// Phase 1 `User` (login/account) is unaffected — a Person may or may not
+// ever have a User account. `whatsappNumber` (already-normalized E.164,
+// same convention as Registration.normalizedWhatsApp) is the identity key:
+// it is the one signal Phase 1 already guarantees is unique per person via
+// Registration, so it is what every new Registration links against.
+// Email is intentionally NOT unique and NOT treated as an identity
+// key — matching emails between two records is never sufficient grounds to
+// merge two identities (see the Phase 3A backfill in prisma/seed.ts and
+// lib/person.ts for why).
+//
+// Deferred to a future phase (do not add speculatively now): a normal/
+// primary contact phone number distinct from WhatsApp (confirmed future
+// requirement for local leader offline contact), profile photo, date of
+// birth, address fields, care fields, payment fields, leadership fields,
+// follow-up fields.
+model Person {
+  id                  String              @id @default(uuid())
+  name                String
+  whatsappNumber      String              @unique
+  email               String?
+  preferredLanguage   Language            @default(en)
+  // Mirrors the originating Registration's isTestData flag (when a Person
+  // is created via the registration flow) so the Admin People list can use
+  // the same "include test data" filter as every other list in the app.
+  isTestData          Boolean             @default(false)
+  // Member-provided descriptive location — a Person may set any, all, or
+  // none of these via PATCH /api/member/me/profile. Deliberately plain,
+  // free-text, optional strings with NO relationship to Geography/
+  // GeographicAssignment: they carry no authority, grant no role, and are
+  // never consulted by any authorization check anywhere in this codebase —
+  // Central Authority uses them only for read-only aggregation (see
+  // GET /api/admin/locations) to *inform* a manual decision about where a
+  // future Community might be needed. No index is added: the aggregation
+  // query is an infrequent, Admin-only, human-scale scan, matching this
+  // schema's existing convention of never adding a speculative index ahead
+  // of a demonstrated need (e.g. the unindexed name/whatsapp/email search
+  // already used by GET /api/admin/people).
+  locationCountry     String?
+  locationCity        String?
+  locationArea        String?
+  // Cameroon administrative location (filled during sign-up when the
+  // country is Cameroon). Same "descriptive only, no authority" rule as
+  // the fields above; also used by BY_LOCATION group placement.
+  locationRegion      String?
+  locationDivision    String?
+  locationSubdivision String?
+  locationQuarter     String?
+  // Set when the member finishes the sign-up details form. Null means the
+  // member still has to complete their details before entering the app.
+  profileCompletedAt  DateTime?
+  // Profile picture: the key of the image in object storage (never a public
+  // URL — pictures are served through GET /api/people/:id/photo, which
+  // checks the viewer is signed in). photoUpdatedAt changes on every new
+  // picture so browsers fetch the new one instead of a cached old one.
+  photoStorageKey     String?
+  photoUpdatedAt      DateTime?
+  // The wide "cover" picture at the top of a member's profile wall, and a
+  // short line about themselves. Same viewing rules as photoStorageKey.
+  coverStorageKey     String?
+  coverUpdatedAt      DateTime?
+  bio                 String?
+  // When the person's app last talked to the server — for "online" and
+  // "last seen" (see lib/presence.ts).
+  lastSeenAt          DateTime?
+  friendRequestPolicy FriendRequestPolicy @default(EVERYONE)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  users                                           User[]
+  registrations                                   Registration[]
+  communityMemberships                            CommunityMembership[]
+  attempts                                        Attempt[]
+  participationEvents                             ParticipationEvent[]
+  memberAccount                                   MemberAccount?
+  roleAssignments                                 RoleAssignment[]
+  followingAssignments                            FollowUpAssignment[]                      @relation("FollowUpFollower")
+  followedByAssignments                           FollowUpAssignment[]                      @relation("FollowUpFollowedPerson")
+  messages                                        Message[]
+  deletedMessages                                 Message[]                                 @relation("MessageDeletedBy")
+  hiddenMessages                                  MessageHiddenForPerson[]
+  messageReactions                                MessageReaction[]
+  updateCommentReactions                          UpdateCommentReaction[]
+  uploadedAttachments                             MessageAttachment[]                       @relation("MessageAttachmentUploadedBy")
+  followUpMessages                                FollowUpMessage[]
+  announcementReads                               AnnouncementRead[]
+  communityConversationReads                      CommunityConversationRead[]
+  followUpConversationReads                       FollowUpConversationRead[]
+  leadershipCollaborationMessages                 LeadershipCollaborationMessage[]
+  leadershipCollaborationConversationReads        LeadershipCollaborationConversationRead[]
+  organizationalLeadershipRecommendationsMade     OrganizationalLeadershipRecommendation[]  @relation("OrganizationalLeadershipRecommendationProposer")
+  organizationalLeadershipRecommendationsReceived OrganizationalLeadershipRecommendation[]  @relation("OrganizationalLeadershipRecommendationCandidate")
+  headquartersPostComments                        HeadquartersPostComment[]
+  headquartersPostReactions                       HeadquartersPostReaction[]
+  announcementsAuthored                           Announcement[]                            @relation("AnnouncementAuthor")
+  headquartersPostsAuthored                       HeadquartersPost[]                         @relation("HeadquartersPostAuthor")
+  settingsAsLiveAuthor                            Settings[]                                 @relation("SettingsLiveAuthor")
+  settingsAsDefaultReferrer                       Settings[]                                 @relation("SettingsDefaultReferrer")
+  privateConversationsAsMember                    PrivateConversation[]                     @relation("PrivateConversationMember")
+  privateConversationsInitiated                   PrivateConversation[]                     @relation("PrivateConversationInitiator")
+  privateMessagesSent                             PrivateMessage[]
+  privateConversationReads                        PrivateConversationRead[]
+  privateMessageReactions                         PrivateMessageReaction[]
+  resourceAccessGrants                            ResourceAccessGrant[]
+  notifications                                   Notification[]
+  pushSubscriptions                               PushSubscription[]
+  updatePosts                                     UpdatePost[]                              @relation("UpdatePostAuthor")
+  updatePostsDeleted                              UpdatePost[]                              @relation("UpdatePostDeletedByPerson")
+  updateComments                                  UpdateComment[]                           @relation("UpdateCommentAuthor")
+  updateCommentsDeleted                           UpdateComment[]                           @relation("UpdateCommentDeletedByPerson")
+  updateReactions                                 UpdateReaction[]
+  trainingEnrollment                              TrainingEnrollment?
+  devotionalOfferings                             DevotionalOffering[]
+  friendRequestsSent                              Friendship[]                              @relation("FriendshipRequester")
+  friendRequestsReceived                          Friendship[]                              @relation("FriendshipAddressee")
+  blocksMade                                      PersonBlock[]                             @relation("PersonBlockBlocker")
+  blocksReceived                                  PersonBlock[]                             @relation("PersonBlockBlocked")
+  following                                       Follow[]                                  @relation("FollowFollower")
+  followedBy                                      Follow[]                                  @relation("FollowFollowing")
+  reportsMade                                     MemberReport[]                            @relation("MemberReportReporter")
+  reportsAbout                                    MemberReport[]                            @relation("MemberReportReported")
+  areaLeadershipAssignments                       AreaLeadershipAssignment[]
+  areaRepresentationRequests                      AreaRepresentationRequest[]
+  referralCode                                    ReferralCode?
+  referralsMade                                   Registration[]                            @relation("RegistrationReferredBy")
+  prayerRequests                                  PrayerRequest[]                           @relation("PrayerRequestAuthor")
+  prayerRequestsDeleted                           PrayerRequest[]                           @relation("PrayerRequestDeletedByPerson")
+  prayerRequestComments                           PrayerRequestComment[]                    @relation("PrayerRequestCommentAuthor")
+  prayerRequestCommentsDeleted                    PrayerRequestComment[]                    @relation("PrayerRequestCommentDeletedByPerson")
+
+  @@index([isTestData])
+}
+
+// Represents an online God Nation community — participation, not location.
+// Deliberately not geographically restricted: two members of the same
+// Community may live in different countries (see schema-level docs in the
+// Phase 3A spec). Self-referencing parent/child supports an arbitrarily
+// deep Mother -> Child -> Grandchild hierarchy with no hard-coded depth
+// limit. No leadership/capacity logic yet — that is a later phase.
+model Community {
+  id               String                 @id @default(uuid())
+  parentId         String?
+  name             String
+  active           Boolean                @default(true)
+  // Community Posting Policy — who may create a new local Community
+  // message/post (see lib/communityConversation.ts's canPostCommunityMessage,
+  // the sole consumer of this field). Defaults to EVERYONE so every existing
+  // Community's current posting behavior is unchanged by this column's
+  // introduction. Never consulted for read access, comments, or reactions —
+  // see that function's own comment. Deliberately not applied to
+  // HeadquartersPost (a wholly separate model family with its own
+  // Admin-only authorization).
+  postingPolicy    CommunityPostingPolicy @default(EVERYONE)
+  // Optional location tag used only by BY_LOCATION placement: newcomers
+  // whose country (and region, when set) match go to this group first.
+  placementCountry String?
+  placementRegion  String?
+  // The group's picture and its purpose / vision, shown in the chat list and
+  // on the group info page. Only the admin changes these.
+  photoStorageKey  String?
+  photoUpdatedAt   DateTime?
+  aboutEn          String?
+  aboutFr          String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  parent                                  Community?                               @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children                                Community[]                              @relation("CommunityHierarchy")
+  memberships                             CommunityMembership[]
+  devotionals                             MonthlyDevotional[]
+  roleAssignments                         RoleAssignment[]
+  conversation                            Conversation?
+  announcementTargets                     AnnouncementTarget[]
+  headquartersSettings                    Settings[]                               @relation("SettingsHeadquarters")
+  organizationalLeadershipRecommendations OrganizationalLeadershipRecommendation[]
+  headquartersPostTargets                 HeadquartersPostTarget[]
+  prayerRequests                          PrayerRequest[]
+
+  @@index([parentId])
+  @@index([active])
+}
+
+// Person <-> Community relationship. A given person can have at most one
+// membership row per community (re-joining after leaving reactivates the
+// same row via `status` rather than creating a duplicate), which is what
+// prevents duplicate active memberships in the same community.
+model CommunityMembership {
+  id          String           @id @default(uuid())
+  personId    String
+  communityId String
+  joinedAt    DateTime         @default(now())
+  status      MembershipStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, communityId])
+  @@index([communityId])
+}
+
+// Final Geography Retirement removed the Geography model entirely (it had
+// already lost every organizational/authorization role in Steps 2, 4, 5A,
+// and 5B — GeographyConversation, AnnouncementTarget.geographyId,
+// FollowUpAssignment's GEOGRAPHY context, GeographicAssignment, and
+// RoleAssignment.geographyId). The final organizational model is Central
+// Authority -> Communities -> Members, with no geographic hierarchy of any
+// kind. Person's own descriptive locationCountry/City/Area fields are
+// untouched — they remain purely descriptive and never confer authority.
+
+// ---------------------------------------------------------------------------
+// Monthly Devotional + reusable Assessment foundation (Phase 3B)
+// ---------------------------------------------------------------------------
+
+// A dated devotional, optionally scoped to one online Community (`null` =
+// global, visible to everyone). Follows the same inline bilingual-content
+// convention as ContentPage (Phase 2) — a single `contentEn`/`contentFr`
+// body plus one optional `mediaUrl` — rather than introducing a second,
+// file-based content representation alongside it. No separate
+// "TeachingPeriod" table: the date range lives directly on this row.
+model MonthlyDevotional {
+  id            String           @id @default(uuid())
+  titleEn       String
+  titleFr       String?
+  descriptionEn String?
+  descriptionFr String?
+  contentEn     String
+  contentFr     String?
+  coverImageUrl String?
+  communityId   String?
+  startDate     DateTime
+  endDate       DateTime
+  status        DevotionalStatus @default(DRAFT)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  community   Community?           @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  assessments Assessment[]
+  book        LibraryBook?
+  offerings   DevotionalOffering[]
+
+  @@index([communityId])
+  @@index([status])
+}
+
+// A reusable assessment. `devotionalId` is an explicit, nullable FK
+// (deliberately not a polymorphic owner) — nullable so a future phase can
+// attach an Assessment to something other than a devotional (e.g. a
+// training book exam) without a schema redesign, but Phase 3B itself only
+// ever sets it for a devotional. `passMark` is a percentage (0-100).
+// `maxAttempts` of null means unlimited attempts.
+//
+// Historical-integrity rule: once the first Attempt is created against an
+// Assessment, it transitions PUBLISHED -> LOCKED and its questions/options
+// (text, order, points, correct answers) become permanently uneditable —
+// enforced server-side in routes/adminAssessments.ts, not just in the UI.
+// A content change after that requires a brand-new Assessment; Phase 3B
+// deliberately does not implement assessment versioning/snapshots.
+model Assessment {
+  id           String           @id @default(uuid())
+  devotionalId String?
+  titleEn      String
+  titleFr      String?
+  passMark     Int
+  maxAttempts  Int?
+  status       AssessmentStatus @default(DRAFT)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  // Exam World: a devotional's weekly exam (Week 1, 2, 3...) has a
+  // weekNumber; a leadership-training book's exam has trainingBookId.
+  weekNumber     Int?
+  trainingBookId String? @unique
+
+  devotional   MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
+  trainingBook LibraryBook?       @relation(fields: [trainingBookId], references: [id], onDelete: SetNull)
+  questions    Question[]
+  attempts     Attempt[]
+
+  @@index([devotionalId])
+}
+
+// Belongs directly to one Assessment — deliberately not a reusable
+// question bank in Phase 3B. `points` defaults to 1.
+model Question {
+  id           String   @id @default(uuid())
+  assessmentId String
+  textEn       String
+  textFr       String?
+  order        Int      @default(0)
+  points       Int      @default(1)
+  createdAt    DateTime @default(now())
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  options    Option[]
+  answers    Answer[]
+
+  @@index([assessmentId])
+}
+
+// `isCorrect` is never sent to a client before an Attempt is submitted —
+// enforced by the response-shaping code in routes/adminAssessments.ts, not
+// by the schema. Phase 3B enforces exactly one correct Option per Question
+// (single-answer scoring), not multiple-correct.
+model Option {
+  id         String   @id @default(uuid())
+  questionId String
+  textEn     String
+  textFr     String?
+  isCorrect  Boolean  @default(false)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  Answer[]
+
+  @@index([questionId])
+}
+
+// One attempt by one Person at one Assessment. `attemptNumber` plus the
+// unique constraint below is the final, database-enforced protection
+// against a duplicate/racing attempt number — the API must translate a
+// unique-constraint violation here into a clean error, never a 500.
+// score/maxScore/percentage/passMarkAtAttempt/passed are set exactly once,
+// at submission, and are never recalculated later from the Assessment's
+// current configuration (which may itself be locked by then anyway).
+model Attempt {
+  id                String        @id @default(uuid())
+  personId          String
+  assessmentId      String
+  attemptNumber     Int
+  startedAt         DateTime      @default(now())
+  submittedAt       DateTime?
+  score             Int?
+  maxScore          Int?
+  percentage        Float?
+  passMarkAtAttempt Int?
+  passed            Boolean?
+  status            AttemptStatus @default(IN_PROGRESS)
+
+  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    Answer[]
+
+  @@unique([personId, assessmentId, attemptNumber])
+  @@index([personId])
+  @@index([assessmentId])
+  @@index([personId, assessmentId])
+}
+
+// One selected Option per Question within an Attempt. `wasCorrect` is
+// always computed server-side at submission — never accepted from the
+// client. The (attemptId, questionId) unique constraint prevents duplicate
+// answers for the same question within one attempt.
+model Answer {
+  id               String  @id @default(uuid())
+  attemptId        String
+  questionId       String
+  selectedOptionId String
+  wasCorrect       Boolean
+
+  attempt        Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOption Option   @relation(fields: [selectedOptionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+}
+
+// Minimal activity record — "this Person completed this assessment at this
+// time." Deliberately not a generic activity engine: Phase 3B only ever
+// writes type=ASSESSMENT_COMPLETED, sourceType="ATTEMPT". The unique
+// constraint below is what makes event creation idempotent if a submission
+// request is retried after already succeeding.
+model ParticipationEvent {
+  id         String                 @id @default(uuid())
+  personId   String
+  type       ParticipationEventType
+  sourceType String
+  sourceId   String
+  occurredAt DateTime               @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, type, sourceType, sourceId])
+  @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Member identity + self-service authentication (Phase 3C)
+// ---------------------------------------------------------------------------
+
+// A member-specific authentication identity for exactly one Person — kept
+// entirely separate from the Admin/Leader `User` model. A Person may have a
+// Registration, a User, and a MemberAccount simultaneously; none of these
+// are merged into one another. Creation is opt-in (via the public magic-
+// link request flow) — never automatic/backfilled for existing People.
+// `email` is the delivery/authentication channel, never the identity-
+// matching key: the platform's one identity anchor remains
+// Person.whatsappNumber. Ownership of the email is only established once
+// proven via a successfully consumed MemberLoginToken.
+model MemberAccount {
+  id          String    @id @default(uuid())
+  personId    String    @unique
+  email       String    @unique
+  // Null for any account created before password sign-in existed (and never
+  // backfilled — there is nothing to hash). POST /login refuses such an
+  // account exactly like a wrong password, never revealing the difference;
+  // the member sets one via the same emailed-code flow used for "forgot
+  // password" (POST /verify-code with newPassword), which works whether
+  // this is null or already set.
+  passwordHash String?
+  createdAt   DateTime  @default(now())
+  lastLoginAt DateTime?
+
+  person      Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
+  loginTokens MemberLoginToken[]
+  sessions    MemberSession[]
+}
+
+// Secure one-time magic-login token. Reuses the exact hashing convention
+// already established by LeaderSetupToken/PasswordResetToken (see
+// lib/auth.ts hashToken) — only the hash is ever persisted, the raw token
+// exists only long enough to be emailed. ~15 minute expiry, single-use,
+// consumed atomically (an `updateMany` guarded by `consumedAt: null` at the
+// call site, not a plain read-then-write) so a concurrent replay of the
+// same raw token can never succeed twice.
+model MemberLoginToken {
+  id              String    @id @default(uuid())
+  memberAccountId String
+  tokenHash       String    @unique
+  // 6-digit code sent in the same email (typed in the app instead of
+  // tapping the link). Only its hash is stored; after 5 wrong tries the
+  // token is used up.
+  codeHash        String?
+  codeAttempts    Int       @default(0)
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  memberAccount MemberAccount @relation(fields: [memberAccountId], references: [id], onDelete: Cascade)
+
+  @@index([memberAccountId])
+}
+
+// A session mechanism completely separate from the existing Admin/Leader
+// `Session` model — deliberately not folded into one polymorphic session
+// table. Uses its own cookie name (see lib/memberAuth.ts) and its own
+// middleware, so a MemberSession can never be interpreted as an Admin/
+// Leader session and vice versa; the two never share a table, a cookie
+// name, or a lookup path.
+model MemberSession {
+  id              String   @id @default(uuid())
+  memberAccountId String
+  tokenHash       String   @unique
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  lastActivityAt  DateTime @default(now())
+
+  memberAccount MemberAccount @relation(fields: [memberAccountId], references: [id], onDelete: Cascade)
+
+  @@index([memberAccountId])
+  @@index([expiresAt])
+}
+
+// Holds screen 1 (email + password + pathway + language) and screen 2 (the
+// emailed 6-digit code) of the public join flow at /register until screen 3
+// (name + phone + location) is submitted — see POST
+// /api/member/auth/signup/{start,check-code,finish} in memberAuth.ts.
+// Deliberately NOT a Person/MemberAccount/Registration: nothing else is
+// created until finish succeeds, which is also the moment this row is
+// deleted. One row per email (re-starting replaces it with a fresh code).
+model PendingMemberSignup {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  pathway      Pathway
+  language     Language @default(en)
+  visitorId    String
+  codeHash     String
+  codeAttempts Int      @default(0)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Scoped Leadership + Member Follow-Up (Phase 3D)
+// ---------------------------------------------------------------------------
+
+// Grants a Person the SCOPED_LEADER capability within exactly one Community
+// or exactly one Geography — never both, never neither (enforced by a
+// database CHECK constraint added in the migration, since Prisma's schema
+// DSL has no native support for it). Deliberately flat: no role hierarchy,
+// no inherited/ancestor scope coverage, no additional role types. Never
+// hard-deleted — ending a role sets status=ENDED/endedAt rather than
+// removing the row, preserving the historical record.
+// Geography Retirement Step 5B removed geographyId (and its CHECK
+// constraint/partial unique index/FK/index) entirely — SCOPED_LEADER is
+// Community-scoped only now. communityId stays nullable at the database
+// level rather than gaining a NOT NULL constraint, matching the same
+// safety precedent as AnnouncementTarget (Step 4): the application layer
+// (adminLeadership.ts) requires it for every newly created assignment.
+model RoleAssignment {
+  id               String               @id @default(uuid())
+  personId         String
+  roleType         RoleType
+  communityId      String?
+  assignedByUserId String
+  assignedAt       DateTime             @default(now())
+  status           RoleAssignmentStatus @default(ACTIVE)
+  endedAt          DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  community  Community? @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  assignedBy User       @relation("RoleAssignmentAssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@index([personId])
+  @@index([communityId])
+  @@index([status])
+  @@index([assignedByUserId])
+}
+
+// A follow-up relationship between two Persons: `followerId` (a Person with
+// an active SCOPED_LEADER RoleAssignment) checking in on `followedPersonId`.
+// `contextType`/`contextId` record the Community or Geography that
+// justified the assignment AT CREATION TIME — deliberately small, closed-set
+// "polymorphic" metadata (not a generic polymorphic authorization
+// framework), frozen as historical context. It is never rewritten if the
+// followed Person's membership/assignment later changes; only closing and
+// creating a brand-new assignment changes who follows whom. Never
+// hard-deleted — closing sets status=CLOSED/closedAt/closedByUserId rather
+// than removing the row.
+model FollowUpAssignment {
+  id               String              @id @default(uuid())
+  followerId       String
+  followedPersonId String
+  contextType      FollowUpContextType
+  contextId        String
+  assignedByUserId String
+  assignedAt       DateTime            @default(now())
+  status           FollowUpStatus      @default(ACTIVE)
+  closedAt         DateTime?
+  closedByUserId   String?
+  closeReason      String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  follower       Person                @relation("FollowUpFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followedPerson Person                @relation("FollowUpFollowedPerson", fields: [followedPersonId], references: [id], onDelete: Cascade)
+  assignedBy     User                  @relation("FollowUpAssignedBy", fields: [assignedByUserId], references: [id])
+  closedBy       User?                 @relation("FollowUpClosedBy", fields: [closedByUserId], references: [id])
+  contacts       FollowUpContact[]
+  conversation   FollowUpConversation?
+
+  @@index([followerId])
+  @@index([followedPersonId])
+  @@index([contextType, contextId])
+  @@index([status])
+  @@index([assignedByUserId])
+}
+
+// A single, minimal, append-only contact record. Current wellbeing/last
+// contact/next follow-up are deliberately NOT duplicated onto
+// FollowUpAssignment — they are derived by reading the latest row here.
+model FollowUpContact {
+  id                   String          @id @default(uuid())
+  followUpAssignmentId String
+  contactedAt          DateTime        @default(now())
+  wellbeingStatus      WellbeingStatus
+  note                 String?
+  nextFollowUpDate     DateTime?
+  loggedByUserId       String
+  createdAt            DateTime        @default(now())
+
+  followUpAssignment FollowUpAssignment @relation(fields: [followUpAssignmentId], references: [id], onDelete: Cascade)
+  loggedBy           User               @relation(fields: [loggedByUserId], references: [id])
+
+  @@index([followUpAssignmentId])
+  @@index([contactedAt])
+  @@index([loggedByUserId])
+}
+
+// Phase 2C — an organizational (Community-generation) leadership
+// recommendation: the Community-generation-growth recommendation mechanism.
+//
+// communityId is the ANCHOR Community — "this recommendation concerns the
+// next-generation growth of this existing Community" — never a placeholder
+// for a Community that doesn't exist yet (no future-Community row is ever
+// created by this model or by approving it). Organizational generation is
+// intentionally NOT a column here: it is always derived on read from
+// communityId via lib/tree.ts's getCommunityGeneration, exactly like every
+// other generation-derived value in this schema (Phase 1/2A/2B's own
+// precedent) — a recommendation's displayed generation always reflects the
+// anchor Community's CURRENT position in the Headquarters tree, never a
+// value frozen at creation time.
+//
+// Approving a recommendation changes ONLY this row's own status/decision
+// fields — it never creates a Community, never creates a RoleAssignment,
+// never touches Community.parentId, and never touches Headquarters. Formal
+// Community creation and Leader appointment remain fully separate,
+// Admin-only actions (adminCommunities.ts / adminLeadership.ts), completely
+// unmodified by this model's existence — a "recommend, never appoint"
+// boundary.
+model OrganizationalLeadershipRecommendation {
+  id                 String                                       @id @default(uuid())
+  proposedPersonId   String
+  communityId        String
+  proposedByPersonId String
+  status             OrganizationalLeadershipRecommendationStatus @default(PROPOSED)
+  note               String?
+  createdAt          DateTime                                     @default(now())
+  updatedAt          DateTime                                     @updatedAt
+  decidedAt          DateTime?
+  decidedByUserId    String?
+  decisionNote       String?
+
+  proposedPerson   Person    @relation("OrganizationalLeadershipRecommendationCandidate", fields: [proposedPersonId], references: [id], onDelete: Cascade)
+  proposedByPerson Person    @relation("OrganizationalLeadershipRecommendationProposer", fields: [proposedByPersonId], references: [id], onDelete: Cascade)
+  community        Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  decidedByUser    User?     @relation(fields: [decidedByUserId], references: [id])
+
+  @@index([proposedByPersonId, status])
+  @@index([proposedPersonId, status])
+  @@index([communityId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6 — Geographical Leadership Directory.
+//
+// A past phase ("Geography Retirement") deliberately removed the old
+// Geography model and every authorization path through it, ending with the
+// explicit design decision recorded above RoleAssignment: the organizational
+// model is Community-scoped leadership only, with no geographic hierarchy.
+// This is a NEW, DELIBERATELY SEPARATE concept, not a resurrection of that
+// one: GeographicArea/AreaLeadershipAssignment below are a pure
+// directory/representation layer — "who represents this area, for people to
+// find and contact" — and are NEVER consulted for member placement,
+// Community routing, Follow-Up scope, or any other authorization check in
+// this codebase. A GeographicArea is not a Community, has no
+// CommunityMembership, and granting AreaLeadershipAssignment never creates a
+// RoleAssignment or any Community-scoped capability.
+// ---------------------------------------------------------------------------
+
+// Country -> Region -> Division -> Subdivision -> Quarter, exactly one level
+// at a time (enforced in adminGeographicAreas.ts, not the database — a tree
+// depth rule, like Community's own parent/child tree, belongs to the
+// application, not a CHECK constraint). A country's actual administrative
+// terms vary (not every country calls its second level "Region"), so the
+// same five ranks are reused for every country and the Admin UI/leadership
+// titles are the only place the English labels below are shown.
+enum GeographicLevel {
+  NATIONAL
+  REGION
+  DIVISION
+  SUBDIVISION
+  QUARTER
+}
+
+// Self-referencing tree, exactly the same proven shape as Community's own
+// "CommunityHierarchy" relation — deliberately reusing that pattern rather
+// than inventing a new one. `country` is denormalized onto every row (set
+// once at creation from the NATIONAL ancestor's own name, never edited
+// independently) purely so the directory can filter/group by country in one
+// indexed query instead of walking the tree for every row.
+model GeographicArea {
+  id        String          @id @default(uuid())
+  parentId  String?
+  level     GeographicLevel
+  name      String
+  country   String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  parent                 GeographicArea?             @relation("GeographicAreaHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children               GeographicArea[]            @relation("GeographicAreaHierarchy")
+  leadershipAssignments  AreaLeadershipAssignment[]
+  representationRequests AreaRepresentationRequest[]
+
+  @@index([parentId])
+  @@index([country, level])
+}
+
+enum AreaLeadershipStatus {
+  ACTIVE
+  ENDED
+}
+
+// Mirrors RoleAssignment's own shape and conventions exactly (admin-only
+// creation, soft-ended via status/endedAt, never hard-deleted) — "leader of
+// this exact GeographicArea" is a distinct capability from "leader of this
+// exact Community" (RoleAssignment), not a variant of it, so it gets its own
+// model rather than overloading RoleAssignment with a second scope type.
+model AreaLeadershipAssignment {
+  id               String               @id @default(uuid())
+  personId         String
+  areaId           String
+  assignedByUserId String
+  assignedAt       DateTime             @default(now())
+  status           AreaLeadershipStatus @default(ACTIVE)
+  endedAt          DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  person     Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  area       GeographicArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  assignedBy User           @relation("AreaLeadershipAssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@index([personId])
+  @@index([areaId])
+  @@index([status])
+}
+
+enum AreaRepresentationRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+// "Request to represent a geographical area" — a Member submits a request
+// targeting a real GeographicArea, and an APPROVAL here actually creates an
+// AreaLeadershipAssignment directly (see
+// routes/adminAreaRepresentationRequests.ts) — this is the sole Leadership
+// Directory request mechanism (an earlier, free-text RepresentationRequest
+// model that only ever changed a label, never an actual role, was retired
+// in favor of this one). Submitting a request still never grants anything
+// by itself, only Admin's approval does.
+model AreaRepresentationRequest {
+  id              String                          @id @default(uuid())
+  personId        String
+  areaId          String
+  note            String?
+  status          AreaRepresentationRequestStatus @default(PENDING)
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+  decidedAt       DateTime?
+  decidedByUserId String?
+  decisionNote    String?
+
+  person        Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  area          GeographicArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  decidedByUser User?          @relation(fields: [decidedByUserId], references: [id])
+
+  @@index([personId, status])
+  @@index([areaId, status])
+}
+
+// Phase 3M.1: exactly one persistent, text-only conversation per Community
+// (communityId is unique) — never a per-person or per-leader conversation,
+// and never a generic polymorphic conversation shape. Access is derived
+// live from CommunityMembership/RoleAssignment (see lib/leadership.ts),
+// never stored here — there is deliberately no ConversationParticipant
+// table, since participation would only ever duplicate those two existing
+// sources of truth. Archival is likewise not tracked here: Community.active
+// is the one existing operational flag for a Community, and this phase
+// does not add a second one.
+model Conversation {
+  id          String   @id @default(uuid())
+  communityId String   @unique
+  createdAt   DateTime @default(now())
+
+  community Community                   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  reads     CommunityConversationRead[]
+}
+
+// A single message in a Community's Conversation. senderPersonId is always
+// the authenticated caller's own linked Person (Member via MemberAccount,
+// Leader via User.personId) — never accepted from the request body.
+// Deliberately still no editedAt or any revision history: Phase 3M.8A adds
+// moderation (soft delete) only, never ordinary editing — a sender who made
+// a mistake posts a new correction message, exactly as before.
+//
+// Phase 3M.8A — deletedAt/deletedByPersonId represent SOFT deletion only:
+// the row and its original body are never physically removed, so Central
+// Authority investigative access (a future phase) can still see what was
+// actually said. Ordinary participants must never be served the original
+// body once deletedAt is set — see communityConversations.ts's messages
+// route, which redacts body and returns `deleted: true` instead.
+// deletedByPersonId is nullable and SetNull-on-delete (unlike senderPersonId's
+// Cascade) so a moderator's own Person record can never be removed later in
+// a way that would delete someone else's message as a side effect.
+//
+// Phase 3M.8C — body became optional to support an attachment-only message
+// (image/document/audio/video with no text) — see MessageAttachment below.
+// The API layer (communityConversations.ts) is what actually enforces "never
+// both empty": a message must have a non-empty trimmed body OR at least one
+// attachment. This column's own nullability says nothing about that rule by
+// itself.
+model Message {
+  id                String    @id @default(uuid())
+  conversationId    String
+  senderPersonId    String
+  body              String?
+  createdAt         DateTime  @default(now())
+  deletedAt         DateTime?
+  deletedByPersonId String?
+  // WhatsApp-style "reply": the message this one answers (same conversation).
+  replyToMessageId  String?
+  // Set when the sender corrected the text (within 15 minutes).
+  editedAt          DateTime?
+  // Shown as "↪ Forwarded" (copied from another chat).
+  forwarded         Boolean   @default(false)
+
+  conversation Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Person                   @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+  deletedBy    Person?                  @relation("MessageDeletedBy", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  replyTo      Message?                 @relation("MessageReply", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies      Message[]                @relation("MessageReply")
+  hiddenFor    MessageHiddenForPerson[]
+  attachments  MessageAttachment[]
+  reactions    MessageReaction[]
+
+  @@index([conversationId, createdAt])
+}
+
+// Phase 3M.8C — a Person's own "delete for me" visibility preference for one
+// Community Message. Deliberately NOT a deletion of the Message: this is a
+// per-viewer preference row, exactly parallel in spirit to
+// CommunityConversationRead (also a per-Person, per-conversation-object
+// preference, never consulted for authorization) — never touches
+// Message.deletedAt/deletedByPersonId, never recorded as a
+// COMMUNITY_MESSAGE_DELETED audit event (that action name means "deleted for
+// everyone by a moderator", which this categorically is not), and never
+// visible to or affecting any other Person's view of the same message,
+// including Central Authority oversight (3M.8B), which inspects the actual
+// Community message history and is untouched by any individual's personal
+// hiding. Community-only, like Message itself — no Geography/Follow-Up
+// equivalent exists or is implied by this model.
+// WhatsApp-style reaction on a group chat message: one emoji per person per
+// message (choosing another emoji replaces it, choosing it again removes it).
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  personId  String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  person  Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, personId])
+  @@index([messageId])
+}
+
+model MessageHiddenForPerson {
+  id        String   @id @default(uuid())
+  messageId String
+  personId  String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  person  Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, personId])
+  @@index([personId])
+}
+
+// Phase 3M.8C — metadata for one file attached to a Community Message.
+// Deliberately metadata-only: the actual bytes live in a private Cloudflare
+// R2 bucket, never in this database and never on Render's local disk (see
+// lib/storage.ts) — storageKey is an opaque, server-generated pointer into
+// that bucket, never a client-supplied path, and never a public URL.
+// One Message may have zero or more attachments (plain, non-unique
+// messageId FK) — an attachment-only message (no body) is valid, see
+// Message's own comment above. storageKey is @unique so two attachment rows
+// can never silently alias the same object. Community-only: no
+// Geography/Follow-Up equivalent, and deliberately not a generic/polymorphic
+// "Attachment" table shared across communication surfaces, matching this
+// schema's established one-model-per-surface discipline (see
+// CommunityConversationRead/FollowUpConversationRead for the same precedent
+// applied to read state).
+// Visibility follows the owning Message: an ordinary participant's personal
+// "delete for me" (MessageHiddenForPerson) or a moderator's delete-for-
+// everyone (Message.deletedAt) both hide a message's attachments from
+// ordinary participants via the existing route-level checks — this table
+// itself carries no visibility flag of its own.
+model MessageAttachment {
+  id                 String   @id @default(uuid())
+  messageId          String
+  storageKey         String   @unique
+  originalFilename   String
+  mimeType           String
+  byteSize           Int
+  // Tiny blurred photo preview (data URL, a few KB) for slow networks.
+  thumbDataUrl       String?
+  uploadedByPersonId String
+  createdAt          DateTime @default(now())
+
+  message    Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedBy Person  @relation("MessageAttachmentUploadedBy", fields: [uploadedByPersonId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+// Phase 3M.7 — a Person's last-read position in one Community Conversation.
+// Deliberately a LAST-READ CURSOR, not a per-message flag like
+// AnnouncementRead: Announcements are a bounded, discrete list, but a
+// Conversation is a continuous stream, so tracking "has this Person read
+// THIS message" per message would grow without bound. Unread count is
+// derived as messages newer than lastReadAt (see lib/communityConversation.ts)
+// — never persisted or cached. Never consulted for conversation access
+// (hasConversationAccess is completely unchanged by this model's
+// existence) — this is state about what a Person has seen, not proof of
+// what they may see.
+model CommunityConversationRead {
+  id             String   @id @default(uuid())
+  personId       String
+  conversationId String
+  lastReadAt     DateTime
+
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, conversationId])
+}
+
+// Phase 3M.2: exactly one persistent, text-only conversation per
+// FollowUpAssignment (followUpAssignmentId is unique) — structurally
+// separate from Phase 3M.1's Community Conversation/Message, never a
+// shared/generic conversation shape. Access is derived live from the
+// FollowUpAssignment's own followerId/followedPersonId, never stored here
+// — there is deliberately no separate participant table, for the same
+// reason Conversation has none. Reassignment (which closes the old
+// FollowUpAssignment and creates a new one, see leaderFollowUps.ts /
+// adminLeadership.ts) naturally gives the new assignment its own fresh
+// FollowUpConversation — the old one stays attached to the closed
+// assignment, untouched, forever readable by its original participants.
+model FollowUpConversation {
+  id                   String   @id @default(uuid())
+  followUpAssignmentId String   @unique
+  createdAt            DateTime @default(now())
+
+  followUpAssignment FollowUpAssignment         @relation(fields: [followUpAssignmentId], references: [id], onDelete: Cascade)
+  messages           FollowUpMessage[]
+  reads              FollowUpConversationRead[]
+}
+
+// A single, immutable text message between a FollowUpAssignment's follower
+// and followed Person. senderPersonId is always the authenticated caller's
+// own linked Person — never accepted from the request body. Deliberately
+// no editedAt/deletedAt: messages cannot be edited or deleted once posted.
+// Never exposes or is derived from FollowUpContact — the two remain
+// completely separate, unrelated models.
+model FollowUpMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderPersonId String
+  body           String
+  createdAt      DateTime @default(now())
+
+  conversation FollowUpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Person               @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// Phase 3M.7 — a Person's last-read position in one FollowUpConversation.
+// Same last-read-cursor shape as CommunityConversationRead, kept as its own
+// dedicated model (never a shared/generic read-state table). Reassignment
+// (which always creates a brand-new FollowUpConversation, never reusing the
+// old one — see FollowUpConversation's own comment) means a new follower's
+// conversation naturally starts with zero read rows for anyone; the old
+// follower's read state stays tied to the old, closed conversation's id
+// forever, and can never be transferred or confused with the new one
+// purely because both ids reference the same FollowUpAssignment lineage.
+// Never consulted for conversation access — resolveFollowUpConversationRole
+// is completely unchanged by this model's existence.
+model FollowUpConversationRead {
+  id             String   @id @default(uuid())
+  personId       String
+  conversationId String
+  lastReadAt     DateTime
+
+  person       Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  conversation FollowUpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, conversationId])
+}
+
+// Phase 2B — a two-way GROUP conversation for Leaders who share the same
+// Headquarters-relative organizational generation (see lib/tree.ts's
+// getCommunityGeneration/getCommunityIdsAtGeneration). Structurally a
+// sibling of Conversation/FollowUpConversation, not a shared/generic engine
+// with any of them — its own models, its own table,
+// its own authorization helper (lib/leadershipCollaboration.ts).
+//
+// Keyed by `generation` (a plain integer) rather than a foreign key to a
+// Community or Geography node, because a generation is not itself a row
+// anywhere in this schema — it is a derived distance from the single
+// National Headquarters Community. `generation` is therefore this model's
+// own natural identity (exactly one conversation may ever exist per
+// generation, enforced by @unique below), never a cached copy of any
+// Leader's or Community's own generation — no generation column exists or
+// is added on Person, Community, or RoleAssignment anywhere in this schema.
+// Created lazily (get-or-create on first access, race-safe via upsert) —
+// most generations may never actually need one.
+//
+// No participant table exists here either, for the same reason
+// Conversation/FollowUpConversation have none:
+// eligibility is derived live, on every request, from the caller's own
+// ACTIVE Community-scoped SCOPED_LEADER RoleAssignment(s) — never stored,
+// never cached, and never affected by CommunityMembership, GeographicAssignment,
+// or any Geography relationship whatsoever.
+model LeadershipCollaborationConversation {
+  id         String   @id @default(uuid())
+  generation Int      @unique
+  createdAt  DateTime @default(now())
+
+  messages LeadershipCollaborationMessage[]
+  reads    LeadershipCollaborationConversationRead[]
+}
+
+// A single, immutable text message in a generation's Leadership
+// Collaboration conversation. senderPersonId is always the authenticated
+// caller's own linked Person (req.leaderPersonId, via requireLinkedPerson)
+// — never accepted from the request body, exactly like every other
+// conversation surface's Message model in this schema. Deliberately no
+// editedAt/deletedAt: this phase carries no message editing, deletion, or
+// moderation — a narrower scope than Community Conversation's (which has
+// Phase 3M.8A moderation), matching this phase's own explicit exclusion
+// list. Text-only — no MessageAttachment equivalent, no Phase 3M.8C
+// analog.
+model LeadershipCollaborationMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderPersonId String
+  body           String
+  createdAt      DateTime @default(now())
+
+  conversation LeadershipCollaborationConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Person                              @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// A Person's last-read position in one generation's Leadership
+// Collaboration conversation. Same last-read-cursor shape as
+// CommunityConversationRead/FollowUpConversationRead
+// — kept as its own dedicated model, never a shared/generic read-state
+// table. Never consulted for conversation access — the authorization helper
+// in lib/leadershipCollaboration.ts is completely unchanged by this model's
+// existence.
+model LeadershipCollaborationConversationRead {
+  id             String   @id @default(uuid())
+  personId       String
+  conversationId String
+  lastReadAt     DateTime
+
+  person       Person                              @relation(fields: [personId], references: [id], onDelete: Cascade)
+  conversation LeadershipCollaborationConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, conversationId])
+}
+
+// Phase 3M.3: one-way, Admin-authored organizational communication —
+// structurally unrelated to the public ContentPage "ANNOUNCEMENT" type
+// (that stays public/unauthenticated/untargeted) and to Conversation/
+// FollowUpConversation (those are two-way). Lifecycle is expressed purely
+// through timestamps, no status enum: draft (publishedAt null) -> published
+// (publishedAt set) -> archived (archivedAt set, from either draft or
+// published). Published content/targets are immutable — see
+// adminAnnouncements.ts for the enforcement. Eligibility (who currently
+// qualifies) is always computed live from current CommunityMembership/
+// GeographicAssignment state (see lib/announcements.ts) — no recipient
+// list is ever persisted. Phase 3M.5 adds AnnouncementRead purely to
+// record whether a given Person has opened a given Announcement; it is
+// not a recipient list and never influences eligibility.
+model Announcement {
+  id              String    @id @default(uuid())
+  titleEn         String
+  titleFr         String?
+  bodyEn          String
+  bodyFr          String?
+  createdByUserId String
+  // When set, this Announcement is shown with this Person's photo and name
+  // (always Central Admin's own bridged profile — never an arbitrary
+  // Person) instead of the plain institutional "Central Authority" voice.
+  // Editable only while still a draft, same as every other field here.
+  // Purely a display choice: pinning/prominence/eligibility are completely
+  // unaffected either way. Null means the institutional voice.
+  authorPersonId  String?
+  createdAt       DateTime  @default(now())
+  publishedAt     DateTime?
+  archivedAt      DateTime?
+
+  createdBy  User                 @relation(fields: [createdByUserId], references: [id])
+  authorPerson Person?            @relation("AnnouncementAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
+  targets    AnnouncementTarget[]
+  reads      AnnouncementRead[]
+
+  @@index([publishedAt, archivedAt])
+  @@index([createdAt])
+}
+
+// A Community target is exact (active membership in that exact Community —
+// see lib/announcements.ts). Geography-based targeting was retired in
+// Geography Retirement Step 4; communityId stays nullable at the database
+// level (a prior Geography-only target row simply becomes an inert,
+// non-matching target once its geographyId is gone — never a migration
+// failure on unknown production data), but the application layer
+// (adminAnnouncements.ts) requires it for every newly created target.
+model AnnouncementTarget {
+  id             String   @id @default(uuid())
+  announcementId String
+  communityId    String?
+  createdAt      DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  community    Community?   @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@index([communityId])
+}
+
+// Phase 3M.5 — records that a Person has opened a given Announcement.
+// Deliberately minimal: the absence of a row means unread, and this table
+// is never consulted for eligibility (see lib/announcements.ts, unchanged
+// by this phase) — it only answers "has this Person read this
+// Announcement," nothing about targets, geography, or community. Historical
+// by design: never deleted when eligibility later changes (see
+// lib/announcements.ts's read-state helpers). Not a recipient list — it is
+// only ever queried/written for the requesting Person's own personId.
+model AnnouncementRead {
+  id             String   @id @default(uuid())
+  announcementId String
+  personId       String
+  readAt         DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, announcementId])
+}
+
+// Headquarters Network Posts — a two-way, shared-engagement post authored by
+// Central Authority (Admin only, this phase) from National Headquarters
+// (Settings.headquartersCommunityId), visible across many Communities at
+// once. Deliberately a NEW model family, structurally separate from both
+// Announcement (which stays strictly one-way: no comments, no reactions,
+// never converted into this) and Conversation/Message (whose
+// Conversation.communityId @unique binds each conversation to exactly one
+// Community, so a single post spanning many Communities cannot be
+// represented there). Mirrors Announcement's own "one canonical row, many
+// live-derived eligible readers" shape (see lib/headquartersPosts.ts) —
+// there is deliberately no HeadquartersPostRecipient materialized list.
+//
+// Audience is one of exactly two mutually exclusive modes, enforced at the
+// application layer (lib/headquartersPosts.ts), not by a DB CHECK:
+//   - networkWide: true  -> every Person with an ACTIVE CommunityMembership
+//     in the Headquarters Community itself or any of its descendants (see
+//     getDescendantCommunityIds in lib/tree.ts) qualifies. No
+//     HeadquartersPostTarget rows are used in this mode.
+//   - networkWide: false -> eligibility is exactly the union of ACTIVE
+//     CommunityMembership in one of this post's HeadquartersPostTarget
+//     Communities. EXACT match only — deliberately NOT descendant-aware,
+//     matching AnnouncementTarget's own existing Community-target semantics
+//     (only its Geography targets are descendant-aware) rather than
+//     inventing new descendant-target behavior without an explicit
+//     requirement to do so.
+// Draft -> Published -> Archived lifecycle, expressed purely through
+// publishedAt/archivedAt timestamps, identical in shape to Announcement's
+// own lifecycle: content/audience are only editable while a draft;
+// publishing is immediate; archiving is the only "deletion" path (no
+// hard-delete), from either draft or published state.
+model HeadquartersPost {
+  id              String    @id @default(uuid())
+  titleEn         String
+  titleFr         String?
+  bodyEn          String
+  bodyFr          String?
+  networkWide     Boolean   @default(false)
+  createdByUserId String
+  // Same personal-voice choice as Announcement.authorPersonId above — see
+  // its comment. Draft-only editable; never affects pinning/prominence/
+  // eligibility.
+  authorPersonId  String?
+  createdAt       DateTime  @default(now())
+  publishedAt     DateTime?
+  archivedAt      DateTime?
+
+  createdBy    User                       @relation(fields: [createdByUserId], references: [id])
+  authorPerson Person?                    @relation("HeadquartersPostAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
+  targets      HeadquartersPostTarget[]
+  comments     HeadquartersPostComment[]
+  reactions    HeadquartersPostReaction[]
+  media        HeadquartersPostMedia[]
+
+  @@index([publishedAt, archivedAt])
+  @@index([createdAt])
+}
+
+// A Community explicitly selected as an audience for one HeadquartersPost.
+// Community-only by design — Geography/location/Leader/arbitrary-member
+// targeting is explicitly out of scope for Headquarters Posts in this
+// phase (unlike AnnouncementTarget, which also supports a Geography
+// target). See HeadquartersPost's own comment above for exact-match vs
+// descendant-aware semantics.
+model HeadquartersPostTarget {
+  id                 String   @id @default(uuid())
+  headquartersPostId String
+  communityId        String
+  createdAt          DateTime @default(now())
+
+  post      HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
+  community Community        @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([headquartersPostId])
+  @@index([communityId])
+}
+
+// A comment on one HeadquartersPost — globally shared across every eligible
+// reader of that one canonical post (never per-Community/per-target copies).
+// Eligibility to write one is exactly personCanViewHeadquartersPost (see
+// lib/headquartersPosts.ts), re-checked at write time, never inherited from
+// having viewed the list. Deliberately minimal for this phase: no edit/soft
+// -delete/moderation columns — a participant who made a mistake posts a
+// correction, matching this schema's Message model precedent before its own
+// later moderation phase (3M.8A) was explicitly authorized.
+model HeadquartersPostComment {
+  id                 String   @id @default(uuid())
+  headquartersPostId String
+  authorPersonId     String
+  body               String
+  createdAt          DateTime @default(now())
+
+  post   HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
+  author Person           @relation(fields: [authorPersonId], references: [id], onDelete: Cascade)
+
+  @@index([headquartersPostId, createdAt])
+}
+
+// A Person's reaction to one HeadquartersPost — a single, untyped
+// acknowledgement (present/absent), not a multi-emoji reaction picker:
+// deliberately minimal rather than inventing a speculative reaction-type
+// enum with no requirement behind it. One shared reaction set per canonical
+// post (never per-Community/per-target copies). The (headquartersPostId,
+// personId) unique constraint is the same idempotent-row pattern already
+// established by AnnouncementRead/MessageHiddenForPerson/
+// CommunityConversationRead: toggling on is an upsert-if-absent, toggling
+// off is a delete, and reactionCount is always COUNT(*) over this table,
+// never a cached/denormalized counter.
+model HeadquartersPostReaction {
+  id                 String   @id @default(uuid())
+  headquartersPostId String
+  personId           String
+  createdAt          DateTime @default(now())
+
+  post   HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
+  person Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([headquartersPostId, personId])
+}
+
+enum HeadquartersPostMediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  PDF
+}
+
+// Media Phase 2 — up to MAX_HEADQUARTERS_POST_MEDIA (lib/attachmentPolicy.ts)
+// media attachments per HeadquartersPost, ordered by `position` (append-
+// only: a new upload gets the next position, removing one never
+// renumbers the rest). Reuses the exact storage/security pattern already
+// established by MessageAttachment (see lib/storage.ts,
+// lib/attachmentPolicy.ts): object bytes live only in the existing
+// Cloudflare R2 bucket, never in Postgres; storageKey is server-generated
+// and opaque, namespaced to this exact headquartersPostId (see
+// attachmentPolicy.ts's isStorageKeyForHeadquartersPostMedia); no signed
+// URL is ever persisted — one is minted fresh on every authorized read via
+// lib/storage.ts's createDownloadUrl. mimeType is validated against
+// attachmentPolicy.ts's existing ATTACHMENT_MIME_LIMITS allow-list — no new
+// allow-list or size limit is introduced by this phase. mediaType is the
+// coarse category (derived from mimeType, see mediaKindForMime) the client
+// needs to pick a preview/player without parsing a MIME string itself.
+// Deliberately NOT a generic Media model: this table only ever relates to
+// HeadquartersPost, by design (see the Media Domain Audit Phase 1 followed).
+model HeadquartersPostMedia {
+  id                 String                    @id @default(uuid())
+  headquartersPostId String
+  position           Int                       @default(0)
+  storageKey         String                    @unique
+  originalFilename   String
+  mimeType           String
+  byteSize           Int
+  mediaType          HeadquartersPostMediaType
+  createdAt          DateTime                  @default(now())
+
+  post HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
+
+  @@index([headquartersPostId, position])
+}
+
+// Private Communication / Messaging — a dedicated, minimal, strictly
+// two-sided private conversation between one Member (always a Person,
+// memberPersonId) and the ONE organizational actor who initiated it. Kept
+// entirely separate from Conversation/Message (Community), FollowUpConversation
+// (strictly bound to one FollowUpAssignment, never repurposed here),
+// LeadershipCollaborationConversation, Announcement
+// (one-way), and HeadquartersPost (canonical shared-engagement post) —
+// none of those models are modified or reused for this feature.
+//
+// Fan-out, not group chat: when an Admin targets "all eligible members" or
+// "a selected Community," the result is one INDEPENDENT PrivateConversation
+// PER targeted Person (each with exactly its own 2 sides), never one shared
+// multi-party thread — a genuinely private channel cannot let targeted
+// Persons see each other's replies, so this is not "one row per recipient
+// merely to determine audience" (which Announcement/HeadquartersPost already
+// solve correctly for one-way content); it is the actual privacy boundary
+// for a two-way channel.
+//
+// Initiator identity duality: exactly one of initiatorUserId/
+// initiatorPersonId is ever set (DB CHECK, mirroring RoleAssignment's and
+// AnnouncementTarget's own communityId/geographyId exclusivity pattern) —
+// initiatorUserId when an Admin initiates (Admin is deliberately never
+// required to have a linked Person anywhere in this codebase — see
+// User.personId's own comment and PATCH /api/admin/leaders/:id/link-person,
+// which explicitly refuses to link an Admin), initiatorPersonId when a
+// Leader initiates (Leaders already act via their linked Person on every
+// other messaging surface — Message, FollowUpMessage,
+// LeadershipCollaborationMessage — so this stays consistent with that
+// existing convention rather than inventing a second identity path for
+// Leaders too).
+model PrivateConversation {
+  id                String   @id @default(uuid())
+  memberPersonId    String
+  initiatorUserId   String?
+  initiatorPersonId String?
+  createdAt         DateTime @default(now())
+
+  memberPerson    Person  @relation("PrivateConversationMember", fields: [memberPersonId], references: [id], onDelete: Cascade)
+  initiatorUser   User?   @relation(fields: [initiatorUserId], references: [id], onDelete: Cascade)
+  initiatorPerson Person? @relation("PrivateConversationInitiator", fields: [initiatorPersonId], references: [id], onDelete: Cascade)
+
+  messages PrivateMessage[]
+  reads    PrivateConversationRead[]
+
+  // Postgres treats NULL as distinct for uniqueness purposes, so these two
+  // constraints correctly co-exist: an Admin-initiated row is deduplicated
+  // by (memberPersonId, initiatorUserId); a Leader-initiated row by
+  // (memberPersonId, initiatorPersonId) — get-or-create semantics (see
+  // lib/privateMessaging.ts) mean the same organizational actor never gets
+  // two separate threads with the same Member.
+  @@unique([memberPersonId, initiatorUserId])
+  @@unique([memberPersonId, initiatorPersonId])
+  @@index([memberPersonId])
+}
+
+// A single, immutable text message within one PrivateConversation.
+// senderPersonId/senderUserId carry the exact same identity duality as
+// PrivateConversation's own initiator fields (DB CHECK: exactly one set) —
+// the Member's own messages always use senderPersonId; the organizational
+// side's messages use whichever identity actually initiated that
+// conversation. Deliberately minimal: no editedAt/deletedAt, no
+// attachments, no reactions — matching this phase's explicit scope.
+model PrivateMessage {
+  id               String    @id @default(uuid())
+  conversationId   String
+  senderPersonId   String?
+  senderUserId     String?
+  // Empty ("") for a message that is only a photo / voice note / video.
+  body             String
+  createdAt        DateTime  @default(now())
+  // WhatsApp-style reply: the message this one answers (same conversation).
+  replyToMessageId String?
+  // "Delete for everyone" by the sender (within an hour) — kept, but shown
+  // to both sides as "This message was removed".
+  deletedAt        DateTime?
+  // Set when the sender corrected the text (within 15 minutes).
+  editedAt         DateTime?
+  // Shown as "↪ Forwarded" (copied from another chat).
+  forwarded        Boolean   @default(false)
+
+  conversation PrivateConversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderPerson Person?                    @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+  senderUser   User?                      @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+  replyTo      PrivateMessage?            @relation("PrivateMessageReply", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies      PrivateMessage[]           @relation("PrivateMessageReply")
+  attachments  PrivateMessageAttachment[]
+  reactions    PrivateMessageReaction[]
+
+  @@index([conversationId, createdAt])
+}
+
+// A participant's last-read position in one PrivateConversation — the same
+// last-read-cursor shape as CommunityConversationRead/
+// FollowUpConversationRead, generalized with the
+// same personId/userId duality as this model family's other two tables
+// (exactly one set; DB CHECK). Never consulted for conversation access —
+// see lib/privateMessaging.ts's resolvePrivateConversationRole, which is
+// completely unaffected by this model's existence.
+// A photo, voice note, video or PDF in a private message. Stored in object
+// storage like group chat attachments; viewed through short-lived links.
+model PrivateMessageAttachment {
+  id               String   @id @default(uuid())
+  messageId        String
+  storageKey       String   @unique
+  originalFilename String
+  mimeType         String
+  byteSize         Int
+  // Tiny blurred photo preview (data URL, a few KB) for slow networks.
+  thumbDataUrl     String?
+  createdAt        DateTime @default(now())
+
+  message PrivateMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+// A reaction on a private message — one per participant per message. The
+// reacting side is a Person (member/leader) or a User (admin), like senders.
+model PrivateMessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  personId  String?
+  userId    String?
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message PrivateMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  person  Person?        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  user    User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, personId])
+  @@unique([messageId, userId])
+  @@index([messageId])
+}
+
+model PrivateConversationRead {
+  id             String   @id @default(uuid())
+  personId       String?
+  userId         String?
+  conversationId String
+  lastReadAt     DateTime
+
+  person       Person?             @relation(fields: [personId], references: [id], onDelete: Cascade)
+  user         User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation PrivateConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, conversationId])
+  @@unique([userId, conversationId])
+}
+
+// Book / Resource Access Grants — a minimal resource catalog entry. No
+// existing generic resource/book entity exists anywhere in this schema
+// (confirmed by inspection: MonthlyDevotional is a dated, Community
+// -scoped/global piece of teaching content with its own distinct
+// eligibility rule — see MonthlyDevotional's own comment — never a
+// generic resource, and never modified by this phase). `url` is an
+// optional external link (mirrors MonthlyDevotional.coverImageUrl's own
+// "plain optional URL, no file-storage architecture" precedent) — this
+// phase is access control only, not a hosting platform. `active` is a
+// simple availability toggle (mirrors Community.active), deliberately not
+// a Draft/Published/Archived lifecycle: there is no authoring workflow to
+// gate here, only "currently available or not."
+model Resource {
+  id            String   @id @default(uuid())
+  titleEn       String
+  titleFr       String?
+  descriptionEn String?
+  descriptionFr String?
+  url           String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  grants ResourceAccessGrant[]
+
+  @@index([active])
+}
+
+// An explicit access ENTITLEMENT, never a membership relationship — kept
+// structurally independent of CommunityMembership, Geography, RoleAssignment,
+// PrivateConversation, Announcement, and MonthlyDevotional access (see
+// lib/resourceAccess.ts's hasResourceAccess, the ONLY function this schema
+// expects to ever consult to answer "does this Person have access"). A
+// grant reactivates the SAME row on re-grant after revocation (mirroring
+// CommunityMembership's own reactivate-via-status precedent, not
+// RoleAssignment's multiple-historical-rows-via-partial-index precedent) —
+// deliberately minimal, no separate grant-history table, per this phase's
+// explicit "do not create unnecessary grant-history complexity" instruction.
+model ResourceAccessGrant {
+  id              String                    @id @default(uuid())
+  personId        String
+  resourceId      String
+  status          ResourceAccessGrantStatus @default(ACTIVE)
+  grantedAt       DateTime                  @default(now())
+  grantedByUserId String
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  person        Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  resource      Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  grantedByUser User     @relation("ResourceAccessGrantGrantedBy", fields: [grantedByUserId], references: [id])
+  revokedByUser User?    @relation("ResourceAccessGrantRevokedBy", fields: [revokedByUserId], references: [id])
+
+  @@unique([personId, resourceId])
+  @@index([personId, status])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+}
+
+// In-App Notifications Foundation — a small, reusable persisted notification
+// for an authenticated Person (Member or Leader) or, for the one case where
+// Central Authority genuinely participates as a private-messaging party
+// (see lib/privateMessaging.ts's own comment on why), a User (Admin).
+// recipientPersonId/recipientUserId is the same identity-duality pattern
+// already established by PrivateConversation/PrivateMessage/
+// PrivateConversationRead — exactly one set, never both, never neither
+// (enforced by a database CHECK constraint added in the migration, since
+// Prisma's schema DSL has no native support for it).
+//
+// No message text is ever stored: `type` plus the small `metadata` JSON bag
+// (names only — never a WhatsApp number, email, or note) is all a client
+// needs to render its own localized message via the existing i18n
+// convention, exactly like every other bilingual surface in this app — a
+// pre-rendered English/French string would defeat that. `targetType`/
+// `targetId` is the same generic, non-FK reference pattern already used by
+// AuditLog above, deliberately not a real relation to four different
+// tables: this phase never navigates from a notification to its target, so
+// a live FK (with four more nullable columns and its own exclusivity
+// constraint) would be speculative complexity ahead of any actual need.
+model Notification {
+  id                String           @id @default(uuid())
+  recipientPersonId String?
+  recipientUserId   String?
+  type              NotificationType
+  metadata          Json?
+  targetType        String?
+  targetId          String?
+  readAt            DateTime?
+  createdAt         DateTime         @default(now())
+
+  recipientPerson Person? @relation(fields: [recipientPersonId], references: [id], onDelete: Cascade)
+  recipientUser   User?   @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([recipientPersonId, readAt, createdAt])
+  @@index([recipientUserId, readAt, createdAt])
+}
+
+// Phase 5 — Web Push subscriptions (background/closed-app delivery for the
+// Notification events above, plus the direct group-chat-message push — see
+// lib/push.ts). Same identity-duality shape as Notification: exactly one of
+// personId/userId is set, enforced by the same style of CHECK constraint
+// pattern. One row per browser/device subscription — a Person using the app
+// on two phones has two rows, both receive every push. `endpoint` is
+// globally unique (it already encodes the specific device+browser
+// registration), so re-subscribing the same device just upserts in place.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  personId  String?
+  userId    String?
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  person Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — Prayer requests. See PrayerRequestVisibility's own comment for
+// the PUBLIC/PRIVATE design. Soft-deleted (deletedAt + who deleted) like
+// UpdatePost, by its author, by the exact Community's own Leaders (PRIVATE
+// only), or by Admin.
+// ---------------------------------------------------------------------------
+
+model PrayerRequest {
+  id                String                  @id @default(uuid())
+  authorPersonId    String
+  body              String
+  visibility        PrayerRequestVisibility @default(PUBLIC)
+  // Required for PRIVATE (the Community whose Leaders/Admin may see it);
+  // always null for PUBLIC.
+  communityId       String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  deletedAt         DateTime?
+  deletedByPersonId String?
+  deletedByUserId   String?
+
+  author          Person                 @relation("PrayerRequestAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  community       Community?             @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  deletedByPerson Person?                @relation("PrayerRequestDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?                  @relation("PrayerRequestDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  comments        PrayerRequestComment[]
+
+  @@index([visibility, createdAt])
+  @@index([communityId])
+  @@index([authorPersonId])
+  @@index([deletedAt])
+}
+
+model PrayerRequestComment {
+  id                String    @id @default(uuid())
+  prayerRequestId   String
+  authorPersonId    String
+  body              String
+  createdAt         DateTime  @default(now())
+  deletedAt         DateTime?
+  deletedByPersonId String?
+  deletedByUserId   String?
+
+  prayerRequest   PrayerRequest @relation(fields: [prayerRequestId], references: [id], onDelete: Cascade)
+  author          Person        @relation("PrayerRequestCommentAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  deletedByPerson Person?       @relation("PrayerRequestCommentDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?         @relation("PrayerRequestCommentDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([prayerRequestId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Updates — the community-wide, Facebook-style feed. Every signed-in member
+// sees every member's posts (group chats stay inside their group; this is
+// the one shared space). Members post freely; the author, the central
+// admin, or any leader with an ACTIVE leadership role can delete a post or
+// comment. Deletes are soft (deletedAt + who deleted) so there is always a
+// record of who removed what.
+// ---------------------------------------------------------------------------
+
+model UpdatePost {
+  id                String    @id @default(uuid())
+  authorPersonId    String
+  body              String
+  // YouTube video id (never a raw URL) when the author attached a video.
+  youtubeVideoId    String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+  deletedByPersonId String?
+  deletedByUserId   String?
+
+  author          Person            @relation("UpdatePostAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  deletedByPerson Person?           @relation("UpdatePostDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?             @relation("UpdatePostDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  photos          UpdatePostPhoto[]
+  comments        UpdateComment[]
+  reactions       UpdateReaction[]
+
+  @@index([createdAt])
+  @@index([authorPersonId])
+  @@index([deletedAt])
+}
+
+model UpdatePostPhoto {
+  id         String   @id @default(uuid())
+  postId     String
+  storageKey String
+  mimeType   String
+  byteSize   Int
+  position   Int
+  createdAt  DateTime @default(now())
+
+  post UpdatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model UpdateComment {
+  id                String    @id @default(uuid())
+  postId            String
+  authorPersonId    String
+  body              String
+  createdAt         DateTime  @default(now())
+  deletedAt         DateTime?
+  deletedByPersonId String?
+  deletedByUserId   String?
+  // A reply to another comment on the same post (one level, like Facebook:
+  // replying to a reply attaches to the same top comment).
+  parentCommentId   String?
+
+  post            UpdatePost              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author          Person                  @relation("UpdateCommentAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
+  parent          UpdateComment?          @relation("UpdateCommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         UpdateComment[]         @relation("UpdateCommentReplies")
+  reactions       UpdateCommentReaction[]
+  deletedByPerson Person?                 @relation("UpdateCommentDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
+  deletedByUser   User?                   @relation("UpdateCommentDeletedByUser", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([postId, createdAt])
+}
+
+// A reaction (👍 ❤️ 🙏 🙌 😊 😢) on an Updates comment — one per person per
+// comment, same six types as on posts.
+model UpdateCommentReaction {
+  id        String             @id @default(uuid())
+  commentId String
+  personId  String
+  type      UpdateReactionType
+  createdAt DateTime           @default(now())
+
+  comment UpdateComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  person  Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, personId])
+  @@index([commentId])
+}
+
+model UpdateReaction {
+  id        String             @id @default(uuid())
+  postId    String
+  personId  String
+  type      UpdateReactionType
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  post   UpdatePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  person Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, personId])
+}
+
+// ---------------------------------------------------------------------------
+// Friends, blocking and reports. Friendship is one row per pair (whoever
+// asked first is the requester); a declined request is simply deleted so
+// it can be sent again later. Blocking either way stops friend requests and
+// private messages between the two, and ends any friendship.
+// ---------------------------------------------------------------------------
+
+model Friendship {
+  id                String           @id @default(uuid())
+  requesterPersonId String
+  addresseePersonId String
+  status            FriendshipStatus @default(PENDING)
+  origin            FriendshipOrigin @default(ORGANIC)
+  createdAt         DateTime         @default(now())
+  respondedAt       DateTime?
+
+  requester Person @relation("FriendshipRequester", fields: [requesterPersonId], references: [id], onDelete: Cascade)
+  addressee Person @relation("FriendshipAddressee", fields: [addresseePersonId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterPersonId, addresseePersonId])
+  @@index([addresseePersonId, status])
+  @@index([requesterPersonId, status])
+}
+
+// One-directional following — distinct from Friendship (which is mutual and
+// unlocks messaging). Following someone never requires their acceptance and
+// never affects the messaging-permission rules in lib/social.ts.
+model Follow {
+  id                String   @id @default(uuid())
+  followerPersonId  String
+  followingPersonId String
+  createdAt         DateTime @default(now())
+
+  follower  Person @relation("FollowFollower", fields: [followerPersonId], references: [id], onDelete: Cascade)
+  following Person @relation("FollowFollowing", fields: [followingPersonId], references: [id], onDelete: Cascade)
+
+  @@unique([followerPersonId, followingPersonId])
+  @@index([followingPersonId])
+  @@index([followerPersonId])
+}
+
+model PersonBlock {
+  id              String   @id @default(uuid())
+  blockerPersonId String
+  blockedPersonId String
+  createdAt       DateTime @default(now())
+
+  blocker Person @relation("PersonBlockBlocker", fields: [blockerPersonId], references: [id], onDelete: Cascade)
+  blocked Person @relation("PersonBlockBlocked", fields: [blockedPersonId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerPersonId, blockedPersonId])
+  @@index([blockedPersonId])
+}
+
+// A member reporting another member (their behaviour, a message, a post or
+// a comment). Seen by the central admin, and by leaders of the reported
+// person's groups.
+model MemberReport {
+  id                 String       @id @default(uuid())
+  reporterPersonId   String
+  reportedPersonId   String
+  // What was reported: PERSON, PRIVATE_MESSAGE, UPDATE_POST, UPDATE_COMMENT.
+  targetType         String
+  targetId           String?
+  reason             String
+  status             ReportStatus @default(OPEN)
+  createdAt          DateTime     @default(now())
+  resolvedAt         DateTime?
+  resolvedByUserId   String?
+  resolvedByPersonId String?
+  resolutionNote     String?
+
+  reporter       Person @relation("MemberReportReporter", fields: [reporterPersonId], references: [id], onDelete: Cascade)
+  reported       Person @relation("MemberReportReported", fields: [reportedPersonId], references: [id], onDelete: Cascade)
+  resolvedByUser User?  @relation("MemberReportResolvedByUser", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reportedPersonId])
+}
+
+// ---------------------------------------------------------------------------
+// Exam World library. Books are PDFs read INSIDE the app only (streamed
+// through the server to signed-in members who may read them; never a
+// download link). DEVOTIONAL books belong to one monthly devotional (free
+// for every member who can see that devotional). TRAINING books are the
+// leadership-training eBooks, numbered 1, 2, 3... (trainingOrder): a paid
+// trainee reads Book 1, passes its exam (70%), which opens Book 2, and so
+// on. Once a book is open for someone it stays open for good.
+// ---------------------------------------------------------------------------
+
+model LibraryBook {
+  id            String          @id @default(uuid())
+  kind          LibraryBookKind
+  titleEn       String
+  titleFr       String?
+  descriptionEn String?
+  descriptionFr String?
+  // The PDF in object storage (null until the admin uploads it).
+  storageKey    String?
+  byteSize      Int?
+  trainingOrder Int?            @unique
+  devotionalId  String?         @unique
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  devotional MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
+  exam       Assessment?
+
+  @@index([kind])
+}
+
+// Leadership training access. A member asks to join (REQUESTED); once they
+// have paid (payment happens outside the app for now) the central admin
+// marks them ACTIVE, which opens Book 1.
+model TrainingEnrollment {
+  id                String                   @id @default(uuid())
+  personId          String                   @unique
+  status            TrainingEnrollmentStatus @default(REQUESTED)
+  requestedAt       DateTime?
+  activatedAt       DateTime?
+  activatedByUserId String?
+  note              String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  person      Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  activatedBy User?  @relation("TrainingEnrollmentActivatedBy", fields: [activatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
+
+// A member saying "I have given" a free-will offering for a monthly
+// devotional, with the amount if they choose to say it. Purely a record
+// for the central admin — giving is optional and never gates anything.
+model DevotionalOffering {
+  id           String   @id @default(uuid())
+  personId     String
+  devotionalId String
+  amount       Int?
+  currency     String   @default("XAF")
+  note         String?
+  createdAt    DateTime @default(now())
+
+  person     Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  devotional MonthlyDevotional @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
+
+  @@index([devotionalId, createdAt])
+  @@index([personId])
+}
