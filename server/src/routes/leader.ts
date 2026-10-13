@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -27,9 +28,10 @@ async function getLeaderCodeIds(leaderId: string) {
 // GET /api/leader/dashboard — a Leader sees ONLY their own data.
 router.get('/dashboard', asyncHandler(async (req, res) => {
   const leaderId = req.user!.id;
+  const personId = req.user!.personId;
   const codeIds = await getLeaderCodeIds(leaderId);
 
-  const [totalVisits, uniqueVisitorRows, registrations, whatsappClicks, activeCode] = await Promise.all([
+  const [totalVisits, uniqueVisitorRows, registrations, whatsappClicks, activeCode, memberAccount] = await Promise.all([
     prisma.referralVisit.count({ where: { referralCodeId: { in: codeIds } } }),
     prisma.referralVisit.findMany({
       where: { referralCodeId: { in: codeIds } },
@@ -41,6 +43,12 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
       where: { type: 'WHATSAPP_CLICKED', registration: { relationship: { leaderId } } },
     }),
     prisma.referralCode.findFirst({ where: { leaderId, active: true } }),
+    // Only relevant once linked (see the Leader<->Member bridge below) — an
+    // account linked before Member passwords existed may have none yet,
+    // which the dashboard needs to know so it can offer to set one right
+    // here instead of the Leader getting silently locked out of the phone
+    // app's Member sign-in later.
+    personId ? prisma.memberAccount.findUnique({ where: { personId }, select: { passwordHash: true } }) : null,
   ]);
 
   const uniqueVisitors = uniqueVisitorRows.length;
@@ -57,6 +65,8 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
       whatsappClicks,
       conversionRate: Math.round(conversion * 100) / 100,
     },
+    // null: not linked to a Member profile at all yet.
+    memberProfileHasPassword: personId ? Boolean(memberAccount?.passwordHash) : null,
   });
 }));
 
@@ -99,18 +109,29 @@ router.get('/links', asyncHandler(async (req, res) => {
 // memberSessionIsolation.test.ts for the boundary this must never cross.
 const createMemberProfileSchema = z.object({
   whatsapp: z.string().trim().min(1).max(32),
+  // Sets (or, for a legacy account reused below that has none yet,
+  // backfills) the Member side's own password — without this, the Leader's
+  // very first sign-out would permanently lock them out of the phone app's
+  // Member sign-in, since there would be nothing to check a password
+  // against there (see MemberAccount.passwordHash's schema comment).
+  password: z.string().min(8, 'Please choose a password with at least 8 characters.').max(100),
   language: z.enum(['en', 'fr']).default('en'),
 });
 
 router.post('/me/create-member-profile', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = createMemberProfileSchema.safeParse(req.body);
   if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === 'password') {
+      return res.status(400).json({ error: issue.message });
+    }
     return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.' });
   }
   const normalizedWhatsApp = normalizeToE164(parsed.data.whatsapp);
   if (!normalizedWhatsApp) {
     return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.' });
   }
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
   if (!user) return res.status(404).json({ error: 'Leader not found.' });
@@ -154,7 +175,12 @@ router.post('/me/create-member-profile', leadershipMutationLimiter, requireCsrf,
       }
 
       const memberAccount = existingPersonByPhone?.memberAccount
-        ?? (await tx.memberAccount.create({ data: { personId: person.id, email: normalizedEmail } }));
+        ? (existingPersonByPhone.memberAccount.passwordHash
+            // Already has its own password (e.g. set through ordinary
+            // Member sign-up) — never overwrite it from this flow.
+            ? existingPersonByPhone.memberAccount
+            : await tx.memberAccount.update({ where: { id: existingPersonByPhone.memberAccount.id }, data: { passwordHash } }))
+        : await tx.memberAccount.create({ data: { personId: person.id, email: normalizedEmail, passwordHash } });
 
       await tx.user.update({ where: { id: user.id }, data: { personId: person.id } });
 
@@ -185,6 +211,47 @@ router.post('/me/create-member-profile', leadershipMutationLimiter, requireCsrf,
     }
     throw err;
   }
+}));
+
+// Backfill for a Leader who linked a Member profile before passwords
+// existed on the Member side (see MemberAccount.passwordHash's schema
+// comment) — their dashboard shows this instead of the plain "view
+// profile" link until they set one, closing the exact lockout the create-
+// member-profile endpoint above now prevents for everyone going forward.
+const setMemberPasswordSchema = z.object({
+  password: z.string().min(8, 'Please choose a password with at least 8 characters.').max(100),
+});
+
+router.post('/me/set-member-password', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = setMemberPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Please choose a password with at least 8 characters.' });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+  if (!user?.personId) {
+    return res.status(400).json({ error: 'Link your account to a Member profile first.' });
+  }
+  const memberAccount = await prisma.memberAccount.findUnique({ where: { personId: user.personId } });
+  if (!memberAccount) {
+    return res.status(404).json({ error: 'No Member profile found.' });
+  }
+  if (memberAccount.passwordHash) {
+    return res.status(409).json({ error: 'A password is already set for your Member profile.' });
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  await prisma.memberAccount.update({ where: { id: memberAccount.id }, data: { passwordHash } });
+
+  await recordAudit({
+    actorId: user.id,
+    actorEmail: user.email,
+    action: 'LEADER_MEMBER_PASSWORD_SET',
+    targetType: 'MemberAccount',
+    targetId: memberAccount.id,
+  });
+
+  res.json({ ok: true });
 }));
 
 // GET /api/leader/referrals — paginated list of this Leader's registrations.
