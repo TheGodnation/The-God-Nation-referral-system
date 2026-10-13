@@ -49,13 +49,16 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const res = await api.get<{ member: CurrentMember | null }>('/api/member/auth/me');
+      // GET /api/member/auth/me never 401s — "not signed in" always comes
+      // back as a normal 200 with member: null, handled right here. So
+      // anything reaching the catch below is a transient failure (a
+      // network blip, or a momentary database hiccup surfacing as a 500),
+      // never a real "you are logged out" signal — it must not bounce an
+      // already-signed-in member to the login screen and discard whatever
+      // they were in the middle of doing.
       setMember(res.member);
     } catch {
-      // A transient network blip (very plausible on the very first launch,
-      // e.g. a cold PWA start on a weak signal) must never leave this stuck
-      // in a loading/crashed state — fall back to "not signed in" so
-      // RequireMember can send the member to the login page instead.
-      setMember(null);
+      // Intentionally left as-is: keep whatever `member` we already had.
     } finally {
       setLoading(false);
     }

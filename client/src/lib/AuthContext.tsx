@@ -34,11 +34,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const res = await api.get<{ user: CurrentUser | null }>('/api/auth/me');
+      // GET /api/auth/me never 401s — "not signed in" always comes back as
+      // a normal 200 with user: null, handled right here. So anything that
+      // reaches the catch below is a transient failure (a network blip, or
+      // a momentary database hiccup surfacing as a 500), never a real "you
+      // are logged out" signal — it must not bounce an already-signed-in
+      // Admin/Leader to the login screen and discard whatever they were in
+      // the middle of doing.
       setUser(res.user);
     } catch {
-      // A transient network blip must never leave this stuck in a loading
-      // state — fall back to "not signed in" so the login redirect kicks in.
-      setUser(null);
+      // Intentionally left as-is: keep whatever `user` we already had.
     } finally {
       setLoading(false);
     }
