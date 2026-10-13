@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
+import { Avatar } from './Avatar';
+
+interface AnnouncementAuthor {
+  personId: string;
+  name: string;
+  photoUrl: string | null;
+  title: string | null;
+}
 
 interface AnnouncementRow {
   id: string;
@@ -10,6 +18,8 @@ interface AnnouncementRow {
   bodyFr: string | null;
   publishedAt: string;
   isRead: boolean;
+  // Section 15: null means the plain institutional "Central Authority" voice.
+  author: AnnouncementAuthor | null;
 }
 
 // Phase 3M.3 — shared authenticated recipient view for Central Authority
@@ -104,6 +114,15 @@ export function Announcements() {
         {detailError && <p className="text-sm text-red-700">{detailError}</p>}
         {detail && (
           <>
+            {detail.author && (
+              <div className="mb-3 flex items-center gap-2">
+                <Avatar name={detail.author.name} photoUrl={detail.author.photoUrl} size={36} />
+                <div>
+                  <p className="text-sm font-medium text-brand-900">{detail.author.name}</p>
+                  {detail.author.title && <p className="text-xs text-slate-500">{detail.author.title}</p>}
+                </div>
+              </div>
+            )}
             <h2 className="mb-1 font-semibold text-brand-900">{isFr ? detail.titleFr || detail.titleEn : detail.titleEn}</h2>
             <p className="mb-3 text-xs text-slate-400">{new Date(detail.publishedAt).toLocaleDateString()}</p>
             <p className="whitespace-pre-wrap text-sm text-slate-700">{isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn}</p>

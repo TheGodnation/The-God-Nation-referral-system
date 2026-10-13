@@ -62,6 +62,7 @@ const MemberCompleteProfilePage = lazy(() =>
 const MemberPeoplePage = lazy(() => import('./pages/MemberPeoplePage').then((m) => ({ default: m.MemberPeoplePage })));
 const MemberPersonPage = lazy(() => import('./pages/MemberPersonPage').then((m) => ({ default: m.MemberPersonPage })));
 const MemberLeadershipPage = lazy(() => import('./pages/MemberLeadershipPage').then((m) => ({ default: m.MemberLeadershipPage })));
+const MyLeadershipDashboardPage = lazy(() => import('./pages/MyLeadershipDashboardPage').then((m) => ({ default: m.MyLeadershipDashboardPage })));
 const MemberReferralsPage = lazy(() => import('./pages/MemberReferralsPage').then((m) => ({ default: m.MemberReferralsPage })));
 const MemberPrayerPage = lazy(() => import('./pages/MemberPrayerPage').then((m) => ({ default: m.MemberPrayerPage })));
 const MemberChatsPage = lazy(() => import('./pages/MemberChatsPage').then((m) => ({ default: m.MemberChatsPage })));
@@ -208,6 +209,14 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberLeadershipPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/leadership-dashboard"
+              element={
+                <RequireMember>
+                  <MyLeadershipDashboardPage />
                 </RequireMember>
               }
             />

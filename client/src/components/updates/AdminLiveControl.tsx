@@ -10,6 +10,7 @@ export function AdminLiveControl() {
   const [live, setLive] = useState<LiveInfo | null>(null);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
+  const [postAsSelf, setPostAsSelf] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,10 +30,15 @@ export function AdminLiveControl() {
     }
     setBusy(true);
     try {
-      const res = await api.put<{ live: LiveInfo }>('/api/updates/live', { youtubeUrl: url.trim(), title: title.trim() || undefined });
+      const res = await api.put<{ live: LiveInfo }>('/api/updates/live', {
+        youtubeUrl: url.trim(),
+        title: title.trim() || undefined,
+        postAsSelf,
+      });
       setLive(res.live);
       setUrl('');
       setTitle('');
+      setPostAsSelf(false);
     } catch (err) {
       setError(err instanceof ApiError && err.code === 'INVALID_YOUTUBE' ? t('updates.invalid_youtube') : t('updates.admin_live_failed'));
     } finally {
@@ -84,6 +90,10 @@ export function AdminLiveControl() {
             maxLength={200}
             onChange={(e) => setTitle(e.target.value)}
           />
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={postAsSelf} onChange={(e) => setPostAsSelf(e.target.checked)} />
+            {t('updates.admin_live_post_as_self')}
+          </label>
           <button type="submit" className="btn-primary" disabled={busy}>
             {t('updates.admin_live_start')}
           </button>

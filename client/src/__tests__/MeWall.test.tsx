@@ -53,7 +53,7 @@ function baseRoutes(extra: Record<string, (body: any) => { status?: number; body
   return {
     'GET /api/member/auth/me': () => ({ body: ME }),
     'GET /api/member/me/community-memberships': () => ({ body: { items: [{ communityId: 'g1', communityName: 'Buea Group', status: 'ACTIVE' }] } }),
-    'GET /api/member/friends': () => ({ body: { items: [{}, {}] } }),
+    'GET /api/member/people/me1': () => ({ body: { referredCount: 3, communityCount: 2 } }),
     'GET /api/updates': () => ({ body: EMPTY_FEED }),
     ...extra,
   };
@@ -79,7 +79,7 @@ describe('Me wall', () => {
     expect(await screen.findByRole('heading', { name: 'Grace Ngwa' })).toBeInTheDocument();
     expect(screen.getByAltText("Grace Ngwa's cover picture")).toHaveAttribute('src', '/api/people/me1/cover?v=1');
     expect(screen.getByText('Serving God in Buea')).toBeInTheDocument();
-    expect(await screen.findByText('Buea Group · 2 friends')).toBeInTheDocument();
+    expect(await screen.findByText('Buea Group · 3 referred · 2 community')).toBeInTheDocument();
     expect(screen.queryByText(/Molyko/)).not.toBeInTheDocument();
     expect(screen.queryByText(/grace@example.com/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Edit profile/ })).toHaveAttribute('href', '/member/me/edit');

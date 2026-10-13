@@ -5,7 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { WallHeader } from '../components/wall/WallHeader';
 import { PhotoGrid, WallTabs } from '../components/wall/PhotoGrid';
-import { FriendButton, FollowButton, type FriendStatus } from '../components/people/PersonCard';
+import { FriendButton, FollowButton, PersonCard, type FriendStatus, type PersonCardData } from '../components/people/PersonCard';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
@@ -24,6 +24,12 @@ interface Profile {
   sameGroup: boolean;
   friendStatus: FriendStatus;
   requestId: string | null;
+  // Section 3/32: two community-visible buckets — everyone who joined
+  // through this Person's own referral code (Leader attribution and Member
+  // auto-friend combined), and everyone else (ordinary friend-request
+  // friendships). friendCount is kept too, as their sum.
+  referredCount: number;
+  communityCount: number;
   friendCount: number;
   followerCount: number;
   followingCount: number;
@@ -40,6 +46,8 @@ export function MemberPersonPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [tab, setTab] = useState<'posts' | 'photos'>('posts');
+  const [bucket, setBucket] = useState<'referred' | 'community' | null>(null);
+  const [bucketItems, setBucketItems] = useState<PersonCardData[] | null>(null);
 
   const navigate = useNavigate();
   const [messageResult, setMessageResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -96,6 +104,20 @@ export function MemberPersonPage() {
     load();
   }
 
+  function toggleBucket(which: 'referred' | 'community') {
+    if (bucket === which) {
+      setBucket(null);
+      setBucketItems(null);
+      return;
+    }
+    setBucket(which);
+    setBucketItems(null);
+    api
+      .get<{ items: PersonCardData[] }>(`/api/member/people/${personId}/${which}`)
+      .then((res) => setBucketItems(res.items))
+      .catch(() => setBucketItems([]));
+  }
+
   const isMe = member?.personId === personId;
 
   return (
@@ -120,7 +142,6 @@ export function MemberPersonPage() {
               subtitle={[
                 profile.isLeader ? t('people.leader_badge') : null,
                 profile.area,
-                t('people.friend_count', { count: profile.friendCount }),
                 t('people.follower_count', { count: profile.followerCount }),
                 t('people.following_count', { count: profile.followingCount }),
               ]
@@ -142,6 +163,40 @@ export function MemberPersonPage() {
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* Section 3/32: visible to every member — "how they are
+                  succeeding" in referring people, same framing for
+                  everyone, not just this Person themselves. */}
+              <div className="flex gap-4 text-sm">
+                <button type="button" className="text-left" onClick={() => toggleBucket('referred')}>
+                  <span className="block text-lg font-bold text-brand-900">{profile.referredCount}</span>
+                  <span className={bucket === 'referred' ? 'font-medium text-brand-700 underline' : 'text-slate-500 underline'}>
+                    {t('people.referred_count_label')}
+                  </span>
+                </button>
+                <button type="button" className="text-left" onClick={() => toggleBucket('community')}>
+                  <span className="block text-lg font-bold text-brand-900">{profile.communityCount}</span>
+                  <span className={bucket === 'community' ? 'font-medium text-brand-700 underline' : 'text-slate-500 underline'}>
+                    {t('people.community_count_label')}
+                  </span>
+                </button>
+              </div>
+
+              {bucket && (
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-2">
+                  {bucketItems === null ? (
+                    <p className="p-2 text-sm text-slate-400">{t('people.loading')}</p>
+                  ) : bucketItems.length === 0 ? (
+                    <p className="p-2 text-sm text-slate-500">{t('people.no_results')}</p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100">
+                      {bucketItems.map((p) => (
+                        <PersonCard key={p.personId} person={p} />
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )}
 
               {!isMe && (

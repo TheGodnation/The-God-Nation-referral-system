@@ -9,6 +9,7 @@ import { announcementMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { validateTargetReferences, resolveAnnouncementAudiencePersonIds } from '../lib/announcements';
 import { notifyAnnouncementPublished } from '../lib/notifications';
+import { resolveAuthorPersonId, AuthorToggleError } from '../lib/authorToggle';
 
 const router = Router();
 
@@ -37,6 +38,7 @@ function toAdminResponse(a: {
   publishedAt: Date | null;
   archivedAt: Date | null;
   createdBy: { id: string; email: string };
+  authorPersonId: string | null;
   targets: {
     id: string;
     communityId: string | null;
@@ -53,6 +55,10 @@ function toAdminResponse(a: {
     publishedAt: a.publishedAt,
     archivedAt: a.archivedAt,
     createdBy: a.createdBy,
+    // Section 15: whether this post is set to show the Admin's own photo/
+    // name/title ("post as self") or the plain institutional "Central
+    // Authority" voice (null). Never affects targets/eligibility/pinning.
+    postAsSelf: a.authorPersonId !== null,
     targets: a.targets.map((t) => ({
       id: t.id,
       communityId: t.communityId,
@@ -96,6 +102,7 @@ const createSchema = z.object({
   bodyEn: z.string().trim().min(1).max(10000),
   bodyFr: z.string().trim().min(1).max(10000).optional().nullable(),
   targets: z.array(targetSchema).max(50).optional(),
+  postAsSelf: z.boolean().optional(),
 });
 
 // POST /api/admin/announcements — always created as a draft (publishedAt
@@ -114,6 +121,14 @@ router.post('/', announcementMutationLimiter, requireCsrf, asyncHandler(async (r
     if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community.' });
   }
 
+  let authorPersonId: string | null;
+  try {
+    authorPersonId = resolveAuthorPersonId(req.user!.personId, d.postAsSelf);
+  } catch (err) {
+    if (err instanceof AuthorToggleError) return res.status(400).json({ error: err.message });
+    throw err;
+  }
+
   const created = await prisma.announcement.create({
     data: {
       titleEn: d.titleEn,
@@ -121,6 +136,7 @@ router.post('/', announcementMutationLimiter, requireCsrf, asyncHandler(async (r
       bodyEn: d.bodyEn,
       bodyFr: d.bodyFr ?? null,
       createdByUserId: req.user!.id,
+      authorPersonId,
       targets: d.targets && d.targets.length > 0
         ? { create: d.targets.map((t) => ({ communityId: t.communityId })) }
         : undefined,
@@ -146,6 +162,7 @@ const patchSchema = z.object({
   bodyEn: z.string().trim().min(1).max(10000).optional(),
   bodyFr: z.string().trim().min(1).max(10000).optional().nullable(),
   targets: z.array(targetSchema).max(50).optional(),
+  postAsSelf: z.boolean().optional(),
 });
 
 // PATCH /api/admin/announcements/:id — draft only. Once published or
@@ -170,6 +187,16 @@ router.patch('/:id', announcementMutationLimiter, requireCsrf, asyncHandler(asyn
     if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community.' });
   }
 
+  let authorPersonId: string | null | undefined;
+  if (d.postAsSelf !== undefined) {
+    try {
+      authorPersonId = resolveAuthorPersonId(req.user!.personId, d.postAsSelf);
+    } catch (err) {
+      if (err instanceof AuthorToggleError) return res.status(400).json({ error: err.message });
+      throw err;
+    }
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     if (d.targets !== undefined) {
       await tx.announcementTarget.deleteMany({ where: { announcementId: id } });
@@ -186,6 +213,7 @@ router.patch('/:id', announcementMutationLimiter, requireCsrf, asyncHandler(asyn
         ...(d.titleFr !== undefined ? { titleFr: d.titleFr } : {}),
         ...(d.bodyEn !== undefined ? { bodyEn: d.bodyEn } : {}),
         ...(d.bodyFr !== undefined ? { bodyFr: d.bodyFr } : {}),
+        ...(authorPersonId !== undefined ? { authorPersonId } : {}),
       },
       include: targetInclude,
     });

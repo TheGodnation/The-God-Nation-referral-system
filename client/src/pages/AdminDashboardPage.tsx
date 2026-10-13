@@ -136,13 +136,16 @@ function OverviewTab({ includeTestData }: { includeTestData: boolean }) {
 function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<LeaderRow[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ email: string; invitationSent: boolean } | null>(null);
+  const [created, setCreated] = useState<{ name: string } | null>(null);
   const [resendStatus, setResendStatus] = useState<Record<string, string>>({});
+
+  // Section 7: "Create Leader from scratch" is retired — every Leader going
+  // forward must already be an existing, active Member. assigningVisible
+  // toggles the SearchPicker that replaces the old typed-in name/email/code
+  // form (see POST /api/admin/leaders/assign).
+  const [assigningVisible, setAssigningVisible] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   // Editing an existing Leader's name/email/referral code (section: Admin
   // recovery when one of these was entered wrong at creation time — email
@@ -167,23 +170,17 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
 
   useEffect(load, [includeTestData]);
 
-  async function createLeader(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
+  async function assignLeader(person: any) {
+    setAssignError(null);
     try {
-      const res = await api.post<{ email: string; invitationSent: boolean }>('/api/admin/leaders', {
-        name,
-        email,
-        referralCode: code,
+      await api.post<{ id: string; name: string; email: string; personId: string }>('/api/admin/leaders/assign', {
+        personId: person.id,
       });
-      setCreated(res);
-      setName('');
-      setEmail('');
-      setCode('');
-      setShowForm(false);
+      setCreated({ name: person.name });
+      setAssigningVisible(false);
       load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('admin.leaders.create_failed'));
+      setAssignError(err instanceof ApiError ? err.message : t('admin.leaders.assign_failed'));
     }
   }
 
@@ -193,7 +190,7 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
   }
 
   function startEdit(leader: LeaderRow) {
-    setShowForm(false);
+    setAssigningVisible(false);
     setEditingId(leader.id);
     setEditName(leader.name);
     setEditEmail(leader.email);
@@ -261,7 +258,7 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
   }
 
   function startLinkPerson(leader: LeaderRow) {
-    setShowForm(false);
+    setAssigningVisible(false);
     setEditingId(null);
     setLinkError(null);
     setLinkingId(leader.id);
@@ -283,54 +280,43 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-semibold text-brand-900">{t('admin.leaders.title')}</h2>
-        <button className="btn-primary px-4 py-2" onClick={() => setShowForm((v) => !v)}>
-          {t('admin.leaders.new_leader')}
+        <button
+          className="btn-primary px-4 py-2"
+          onClick={() => {
+            setEditingId(null);
+            setLinkingId(null);
+            setAssignError(null);
+            setAssigningVisible((v) => !v);
+          }}
+        >
+          {t('admin.leaders.assign_leader')}
         </button>
       </div>
 
       {created && (
         <div className="card mb-4 border-green-200 bg-green-50">
-          <p className="text-sm text-green-800">
-            {created.invitationSent
-              ? t('admin.leaders.created_with_email', { email: created.email })
-              : t('admin.leaders.created_email_failed', { email: created.email })}
-          </p>
+          <p className="text-sm text-green-800">{t('admin.leaders.assigned_success', { name: created.name })}</p>
         </div>
       )}
 
-      {/* Always visible (not gated on showForm) so a delete failure — which
-          can happen while the create form is closed — is actually seen. */}
-      {error && !showForm && <p className="mb-4 text-sm text-red-700">{error}</p>}
+      {/* Always visible (not gated on assigningVisible) so a delete failure
+          — which can happen while this panel is closed — is actually seen. */}
+      {error && !assigningVisible && <p className="mb-4 text-sm text-red-700">{error}</p>}
 
-      {showForm && (
-        <form onSubmit={createLeader} className="card mb-4 space-y-3">
-          <input
-            className="input"
-            placeholder={t('admin.leaders.name_placeholder') ?? ''}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
+      {assigningVisible && (
+        <div className="card mb-4 space-y-3">
+          <h3 className="font-semibold text-brand-900">{t('admin.leaders.assign_title')}</h3>
+          <p className="text-sm text-slate-500">{t('admin.leaders.assign_help')}</p>
+          <SearchPicker
+            placeholder={t('admin.leaders.assign_search_placeholder') ?? ''}
+            searchPath="/api/admin/people?search="
+            renderLabel={(p) => `${p.name} (${p.whatsappNumber})`}
+            actionLabel={t('admin.leaders.assign_action')}
+            searchButtonLabel={t('admin.people.search_button')}
+            onPick={assignLeader}
           />
-          <input
-            className="input"
-            type="email"
-            placeholder={t('admin.leaders.email_placeholder') ?? ''}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            className="input"
-            placeholder={t('admin.leaders.code_placeholder') ?? ''}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-          />
-          {error && <p className="text-sm text-red-700">{error}</p>}
-          <button className="btn-primary" type="submit">
-            {t('admin.leaders.create_leader')}
-          </button>
-        </form>
+          {assignError && <p className="text-sm text-red-700">{assignError}</p>}
+        </div>
       )}
 
       {editingId && (
@@ -579,6 +565,12 @@ interface SettingsData {
   messengerUrl: string | null;
   leaderSignupPhrase: string | null;
   contactEmail: string | null;
+  // Section 14/15: the single catch-all Person every unattributed joiner is
+  // auto-friended to, and the shared title shown alongside a "post as self"
+  // Announcement/HeadquartersPost/Live session.
+  defaultReferrerPersonId: string | null;
+  defaultReferrerPersonName: string | null;
+  authorTitle: string | null;
   content: Record<string, string>;
 }
 
@@ -593,8 +585,90 @@ const EMPTY_SETTINGS: SettingsData = {
   messengerUrl: '',
   leaderSignupPhrase: '',
   contactEmail: '',
+  defaultReferrerPersonId: null,
+  defaultReferrerPersonName: null,
+  authorTitle: '',
   content: {},
 };
+
+// Section 13/14: the Admin <-> Member identity bridge — the exact same
+// self-serve mechanism as Leader's (see LeaderDashboardPage's
+// MemberProfileBridge), just under /api/admin. Gains the Admin a Person,
+// MemberAccount, friends list, and personal referral code — "the same
+// functionalities as every other person", never the Leadership Dashboard
+// toolset. This bridged Person is also the one typically set as the
+// catch-all above.
+function AdminMemberBridgeCard() {
+  const { t } = useTranslation();
+  const { user, refresh } = useAuth();
+  const [showForm, setShowForm] = useState(false);
+  const [whatsapp, setWhatsapp] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (user?.personId) {
+    return (
+      <div className="card flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-600">{t('admin.settings.bridge_linked')}</p>
+        <a href="/member/me" className="btn-secondary">
+          {t('admin.settings.bridge_view_profile')}
+        </a>
+      </div>
+    );
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (password.length < 8) {
+      setError(t('admin.settings.bridge_password_hint'));
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.post('/api/admin/me/create-member-profile', { whatsapp, password });
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('admin.settings.bridge_failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card space-y-2">
+      <h2 className="font-semibold text-brand-900">{t('admin.settings.bridge_title')}</h2>
+      <p className="text-sm text-slate-500">{t('admin.settings.bridge_help')}</p>
+      {!showForm ? (
+        <button type="button" className="btn-primary" onClick={() => setShowForm(true)}>
+          {t('admin.settings.bridge_cta')}
+        </button>
+      ) : (
+        <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className="label" htmlFor="admin-bridge-whatsapp">{t('admin.settings.bridge_whatsapp_label')}</label>
+            <input
+              id="admin-bridge-whatsapp"
+              className="input"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+              placeholder="+237 6XX XXX XXX"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="admin-bridge-password">{t('admin.settings.bridge_password_label')}</label>
+            <PasswordInput id="admin-bridge-password" value={password} onChange={setPassword} autoComplete="new-password" minLength={8} />
+          </div>
+          <button type="submit" className="btn-primary" disabled={busy}>
+            {t('admin.settings.bridge_submit')}
+          </button>
+        </form>
+      )}
+      {error && <p className="text-sm text-red-700">{error}</p>}
+    </div>
+  );
+}
 
 function SettingsTab() {
   const { t } = useTranslation();
@@ -603,6 +677,20 @@ function SettingsTab() {
   const [error, setError] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const signupLink = `${window.location.origin}/leader-signup`;
+
+  // Section 14: the catch-all Person is a standalone action (saved
+  // immediately on pick/clear), independent of the main form's Save button.
+  const [catchAllError, setCatchAllError] = useState<string | null>(null);
+
+  async function setCatchAllPerson(person: { id: string; name: string } | null) {
+    setCatchAllError(null);
+    try {
+      const res = await api.patch<SettingsData>('/api/admin/settings', { defaultReferrerPersonId: person?.id ?? null });
+      setSettings(res);
+    } catch (err) {
+      setCatchAllError(err instanceof ApiError ? err.message : t('admin.settings.catch_all_failed'));
+    }
+  }
 
   async function copySignupLink() {
     try {
@@ -645,6 +733,7 @@ function SettingsTab() {
         // off — so it's always sent, never swapped for `undefined`.
         leaderSignupPhrase: settings.leaderSignupPhrase ?? '',
         contactEmail: settings.contactEmail ?? '',
+        authorTitle: settings.authorTitle || undefined,
       });
       setSettings(res);
       setSaved(true);
@@ -705,6 +794,44 @@ function SettingsTab() {
           </div>
         </div>
       </div>
+
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">{t('admin.settings.central_authority_heading')}</h2>
+        <p className="text-sm text-slate-500">{t('admin.settings.central_authority_help')}</p>
+        <div>
+          <label className="label">{t('admin.settings.author_title_label')}</label>
+          <input
+            className="input"
+            value={field('authorTitle') ?? ''}
+            onChange={(e) => setField('authorTitle', e.target.value)}
+            placeholder={t('admin.settings.author_title_placeholder') ?? ''}
+          />
+          <p className="mt-1 text-xs text-slate-400">{t('admin.settings.author_title_hint')}</p>
+        </div>
+        <div>
+          <label className="label">{t('admin.settings.catch_all_label')}</label>
+          <p className="mb-2 text-xs text-slate-400">{t('admin.settings.catch_all_hint')}</p>
+          <p className="mb-2 text-sm text-slate-700">
+            {settings.defaultReferrerPersonName ?? <span className="text-slate-400">{t('admin.settings.catch_all_none')}</span>}
+            {settings.defaultReferrerPersonId && (
+              <button type="button" className="ml-3 text-xs text-red-700 hover:underline" onClick={() => setCatchAllPerson(null)}>
+                {t('admin.settings.catch_all_clear')}
+              </button>
+            )}
+          </p>
+          <SearchPicker
+            placeholder={t('admin.leaders.assign_search_placeholder') ?? ''}
+            searchPath="/api/admin/people?search="
+            renderLabel={(p) => `${p.name} (${p.whatsappNumber})`}
+            actionLabel={t('admin.settings.catch_all_set')}
+            searchButtonLabel={t('admin.people.search_button')}
+            onPick={(p) => setCatchAllPerson({ id: p.id, name: p.name })}
+          />
+          {catchAllError && <p className="mt-1 text-sm text-red-700">{catchAllError}</p>}
+        </div>
+      </div>
+
+      <AdminMemberBridgeCard />
 
       <div className="card space-y-4">
         <h2 className="font-semibold text-brand-900">{t('admin.settings.social_heading')}</h2>

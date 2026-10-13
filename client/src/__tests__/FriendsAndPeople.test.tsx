@@ -110,6 +110,8 @@ describe('Person profile page', () => {
     sameGroup: false,
     friendStatus: 'FRIENDS',
     requestId: 'f1',
+    referredCount: 1,
+    communityCount: 2,
     friendCount: 3,
     followerCount: 0,
     followingCount: 0,
@@ -126,7 +128,11 @@ describe('Person profile page', () => {
     });
     renderAt('/member/people/p9');
     expect(await screen.findByRole('heading', { name: 'Paul Profile' })).toBeInTheDocument();
-    expect(screen.getByText('Douala V, Littoral · 3 friends · 0 followers · 0 following')).toBeInTheDocument();
+    expect(screen.getByText('Douala V, Littoral · 0 followers · 0 following')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('Referred')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('Community')).toBeInTheDocument();
 
     // "Message" opens the WhatsApp-style private chat screen.
     fireEvent.click(screen.getByRole('button', { name: /Message/ }));

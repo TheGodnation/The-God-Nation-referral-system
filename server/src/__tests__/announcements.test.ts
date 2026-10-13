@@ -601,9 +601,11 @@ describe('Phase 3M.3 — recipient response privacy', () => {
     const res = await memberAgent.get(`/api/me/announcements/${created.body.id}`);
     expect(res.status).toBe(200);
     // Phase 3M.5 adds `isRead` as an intentional, safe recipient-facing
-    // field (own read state) — still never a target/organizational detail.
+    // field (own read state); the unified identity build adds `author`
+    // (null unless posted "as self" — Section 15) — still never a target/
+    // organizational detail.
     expect(Object.keys(res.body).sort()).toEqual(
-      ['bodyEn', 'bodyFr', 'id', 'isRead', 'publishedAt', 'titleEn', 'titleFr'].sort(),
+      ['author', 'bodyEn', 'bodyFr', 'id', 'isRead', 'publishedAt', 'titleEn', 'titleFr'].sort(),
     );
     expect(res.body).not.toHaveProperty('targets');
     expect(res.body).not.toHaveProperty('createdByUserId');

@@ -4,12 +4,20 @@ import { api, ApiError } from '../lib/api';
 import { formatBytes } from '../lib/attachmentLimits';
 import { HeadquartersFeedCard } from './HeadquartersFeedCard';
 import { VoiceInputButton } from './VoiceInputButton';
+import { Avatar } from './Avatar';
 
 interface HeadquartersPostMediaInfo {
   id: string;
   mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
   originalFilename: string;
   byteSize: number;
+}
+
+interface HeadquartersPostAuthor {
+  personId: string;
+  name: string;
+  photoUrl: string | null;
+  title: string | null;
 }
 
 interface HeadquartersPostRow {
@@ -24,6 +32,8 @@ interface HeadquartersPostRow {
   reactionCount: number;
   viewerHasReacted: boolean;
   media: HeadquartersPostMediaInfo[];
+  // Section 15: null means the plain institutional "Central Authority" voice.
+  author: HeadquartersPostAuthor | null;
 }
 
 interface CommentRow {
@@ -250,6 +260,15 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
             <p className="mb-1 text-xs font-medium text-brand-700">
               {t(detail.networkWide ? 'headquartersPosts.source_network_wide' : 'headquartersPosts.source_targeted')}
             </p>
+            {detail.author && (
+              <div className="mb-3 flex items-center gap-2">
+                <Avatar name={detail.author.name} photoUrl={detail.author.photoUrl} size={36} />
+                <div>
+                  <p className="text-sm font-medium text-brand-900">{detail.author.name}</p>
+                  {detail.author.title && <p className="text-xs text-slate-500">{detail.author.title}</p>}
+                </div>
+              </div>
+            )}
             <h2 className="mb-1 font-semibold text-brand-900">{isFr ? detail.titleFr || detail.titleEn : detail.titleEn}</h2>
             <p className="mb-3 text-xs text-slate-400">{new Date(detail.publishedAt).toLocaleDateString()}</p>
             <p className="whitespace-pre-wrap text-sm text-slate-700">{isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn}</p>

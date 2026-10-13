@@ -200,6 +200,29 @@ describe('Phase 3D — Leader User to Person linking', () => {
     expect(linkedCount).toBe(1);
   });
 
+  it('fires the one-time "Leadership Dashboard moved" notice the moment the link is first made', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-link12@test.local');
+    const { user: leader } = await createLeader('Leader Twelve', 'leader-link12@test.local', 'LINK012');
+    const person = await makePerson('+237671000012');
+
+    await agent.patch(`/api/admin/leaders/${leader.id}/link-person`).set('X-CSRF-Token', csrf).send({ personId: person.id });
+
+    const notification = await prisma.notification.findFirst({
+      where: { recipientPersonId: person.id, type: 'LEADER_DASHBOARD_MOVED' },
+    });
+    expect(notification).not.toBeNull();
+
+    const updatedLeader = await prisma.user.findUnique({ where: { id: leader.id } });
+    expect(updatedLeader?.personLinkNotifiedAt).not.toBeNull();
+
+    // Idempotent: the repeated (same-Person) call above never fires a second notice.
+    const count = await prisma.notification.count({ where: { recipientPersonId: person.id, type: 'LEADER_DASHBOARD_MOVED' } });
+    const repeat = await agent.patch(`/api/admin/leaders/${leader.id}/link-person`).set('X-CSRF-Token', csrf).send({ personId: person.id });
+    expect(repeat.status).toBe(200);
+    const countAfter = await prisma.notification.count({ where: { recipientPersonId: person.id, type: 'LEADER_DASHBOARD_MOVED' } });
+    expect(countAfter).toBe(count);
+  });
+
   it('lets an Admin without a Person perform the link action', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-link11@test.local');
     const adminUser = await prisma.user.findUnique({ where: { email: 'admin-link11@test.local' } });

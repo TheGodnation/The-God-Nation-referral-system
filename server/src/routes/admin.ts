@@ -12,6 +12,8 @@ import { adminSensitiveLimiter } from '../lib/rateLimit';
 import { EmailService } from '../lib/email';
 import { CLIENT_URL, LEADER_SETUP_TOKEN_TTL_MS } from '../lib/env';
 import { asyncHandler } from '../lib/asyncHandler';
+import { getOrCreatePersonReferralCode } from '../lib/referralCode';
+import { notifyLeaderDashboardMovedIfNeeded } from '../lib/notifications';
 
 const router = Router();
 
@@ -208,75 +210,88 @@ router.get('/leaders', asyncHandler(async (req, res) => {
   res.json(paginatedResult(items, total, page, pageSize));
 }));
 
-const createLeaderSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  email: z.string().email(),
-  referralCode: z
-    .string()
-    .trim()
-    .min(3)
-    .max(64)
-    .regex(/^[A-Za-z0-9_-]+$/, 'Referral code may only contain letters, numbers, - and _'),
-  isTestData: z.boolean().optional(),
-});
+// POST /api/admin/leaders (Create Leader from scratch — a typed-in
+// name/email/referralCode with no prior Membership) is retired. Every
+// Leader going forward must already be an existing, active Member — see
+// POST /leaders/assign below, which attaches Leader attribution to that
+// Member's own already-existing ReferralCode instead of minting a new one.
 
-router.post('/leaders', requireCsrf, asyncHandler(async (req, res) => {
-  const parsed = createLeaderSchema.safeParse(req.body);
+const assignLeaderSchema = z.object({ personId: z.string().min(1) });
+
+// POST /api/admin/leaders/assign — the only way a new Leader is created
+// going forward. Picks an existing Member (by Person id — no code or email
+// typed in, since they already have both) and creates a Leader User
+// pre-linked to that Person, wired up so:
+//  - the Person's own existing ReferralCode gains leaderId (never a new
+//    code — see schema.prisma's ReferralCode comment: one code, two jobs).
+//  - the new Leader User is active immediately and needs no email setup
+//    token: unlike the old creation flow, nobody ever has to type this
+//    Leader's password in — their Member session silently auto-pairs a
+//    Leader session too (Section 25's auto-pairing), so an unusable random
+//    password is stored exactly like the old flow's placeholder, just never
+//    followed by an invitation email.
+//  - the one-time "your Leadership Dashboard moved into the app" notice
+//    fires immediately (notifyLeaderDashboardMovedIfNeeded).
+router.post('/leaders/assign', requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = assignLeaderSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+    return res.status(400).json({ error: 'personId is required.' });
   }
-  const { name, email, referralCode, isTestData } = parsed.data;
+  const { personId } = parsed.data;
 
-  const existingCode = await prisma.referralCode.findUnique({ where: { code: referralCode } });
-  if (existingCode) {
-    return res.status(409).json({ error: 'This referral code is already assigned.' });
+  const person = await prisma.person.findUnique({ where: { id: personId }, include: { memberAccount: true } });
+  if (!person) {
+    return res.status(404).json({ error: 'Person not found.' });
   }
-
-  const existingEmail = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-  if (existingEmail) {
-    return res.status(409).json({ error: 'A user with this email already exists.' });
+  if (!person.memberAccount) {
+    return res.status(400).json({ error: 'This person has not joined as a Member yet.' });
   }
 
-  // Section 27/31: new Leaders are onboarded via a secure emailed setup
-  // link, never a temporary password. The account still needs *some*
-  // passwordHash (schema-required, never null) so a random, never-revealed
-  // value is stored — it cannot be used to log in until setup is completed.
+  const existingLinkForPerson = await prisma.user.findUnique({ where: { personId } });
+  if (existingLinkForPerson) {
+    return res.status(409).json({ error: 'This person is already linked to a User account.' });
+  }
+
   const unusablePasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
 
-  const leader = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        passwordHash: unusablePasswordHash,
-        role: 'LEADER',
-        isTestData: Boolean(isTestData),
-        mustChangePassword: false,
-      },
+  let leader;
+  try {
+    leader = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: person.name,
+          email: person.email ?? person.memberAccount!.email,
+          passwordHash: unusablePasswordHash,
+          role: 'LEADER',
+          active: true,
+          isTestData: person.isTestData,
+          mustChangePassword: false,
+          personId,
+        },
+      });
+      const code = await getOrCreatePersonReferralCode(tx, personId, person.name);
+      await tx.referralCode.update({ where: { id: code.id }, data: { leaderId: user.id } });
+      return user;
     });
-    await tx.referralCode.create({
-      data: { code: referralCode, leaderId: user.id, isTestData: Boolean(isTestData) },
-    });
-    return user;
-  });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ error: 'A user with this email already exists.' });
+    }
+    throw err;
+  }
 
-  const invitationSent = await issueLeaderSetupInvitation(leader.id, leader.name, leader.email);
+  await notifyLeaderDashboardMovedIfNeeded(leader);
 
   await recordAudit({
     actorId: req.user!.id,
     actorEmail: req.user!.email,
-    action: 'LEADER_CREATED',
+    action: 'LEADER_ASSIGNED_FROM_MEMBER',
     targetType: 'User',
     targetId: leader.id,
-    metadata: { name, email, referralCode, invitationSent },
+    metadata: { personId, name: person.name },
   });
 
-  res.status(201).json({
-    id: leader.id,
-    name: leader.name,
-    email: leader.email,
-    invitationSent,
-  });
+  res.status(201).json({ id: leader.id, name: leader.name, email: leader.email, personId });
 }));
 
 // POST /api/admin/leaders/:id/resend-invitation
@@ -440,8 +455,9 @@ router.patch('/leaders/:id/link-person', requireCsrf, asyncHandler(async (req, r
     return res.status(409).json({ error: 'This Person is already linked to another User.' });
   }
 
+  let updatedLeader;
   try {
-    await prisma.user.update({ where: { id }, data: { personId } });
+    updatedLeader = await prisma.user.update({ where: { id }, data: { personId } });
   } catch (err) {
     // The unique constraint on User.personId is the final authority — a
     // concurrent link request for the same Person races against this, and
@@ -451,6 +467,8 @@ router.patch('/leaders/:id/link-person', requireCsrf, asyncHandler(async (req, r
     }
     throw err;
   }
+
+  await notifyLeaderDashboardMovedIfNeeded(updatedLeader);
 
   await recordAudit({
     actorId: req.user!.id,
@@ -778,6 +796,9 @@ function settingsResponse(settings: {
   leaderSignupPhrase: string | null;
   contactEmail: string | null;
   content: unknown;
+  defaultReferrerPersonId: string | null;
+  defaultReferrerPerson?: { id: string; name: string } | null;
+  authorTitle: string | null;
 } | null) {
   return {
     supportWhatsappUrl: settings?.supportWhatsappUrl ?? null,
@@ -791,11 +812,20 @@ function settingsResponse(settings: {
     leaderSignupPhrase: settings?.leaderSignupPhrase ?? null,
     contactEmail: settings?.contactEmail ?? null,
     content: (settings?.content as Record<string, string> | null) ?? {},
+    // Section 14/6: the single catch-all Person every unattributed joiner
+    // is auto-friended to. Reassignable/splittable later — just this one
+    // Settings field, never hardcoded (see memberAuth.ts's /signup/finish).
+    defaultReferrerPersonId: settings?.defaultReferrerPersonId ?? null,
+    defaultReferrerPersonName: settings?.defaultReferrerPerson?.name ?? null,
+    authorTitle: settings?.authorTitle ?? null,
   };
 }
 
 router.get('/settings', asyncHandler(async (_req, res) => {
-  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' } });
+  const settings = await prisma.settings.findUnique({
+    where: { id: 'singleton' },
+    include: { defaultReferrerPerson: { select: { id: true, name: true } } },
+  });
   res.json(settingsResponse(settings));
 }));
 
@@ -833,6 +863,13 @@ const settingsSchema = z.object({
     .refine((v) => v === undefined || v === null || z.string().email().safeParse(v).success, {
       message: 'Please enter a valid email address.',
     }),
+  // Section 14/6: null clears the catch-all entirely (every unattributed
+  // joiner then simply has no auto-friend at all) — a deliberate, valid
+  // choice, not an error.
+  defaultReferrerPersonId: z.string().trim().min(1).optional().nullable(),
+  // Section 15: shared short title shown alongside the Admin's photo/name
+  // whenever content is posted "as self" (see lib/authorToggle.ts).
+  authorTitle: z.string().trim().max(200).optional().nullable(),
   content: contentSchema.optional(),
 });
 
@@ -842,6 +879,13 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid settings.' });
   }
   const d = parsed.data;
+
+  if (d.defaultReferrerPersonId) {
+    const person = await prisma.person.findUnique({ where: { id: d.defaultReferrerPersonId } });
+    if (!person) {
+      return res.status(400).json({ error: 'Person not found.' });
+    }
+  }
 
   const existing = await prisma.settings.findUnique({ where: { id: 'singleton' } });
   const mergedContent = {
@@ -860,12 +904,15 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
     ...(d.messengerUrl !== undefined ? { messengerUrl: d.messengerUrl } : {}),
     ...(d.leaderSignupPhrase !== undefined ? { leaderSignupPhrase: d.leaderSignupPhrase } : {}),
     ...(d.contactEmail !== undefined ? { contactEmail: d.contactEmail } : {}),
+    ...(d.defaultReferrerPersonId !== undefined ? { defaultReferrerPersonId: d.defaultReferrerPersonId } : {}),
+    ...(d.authorTitle !== undefined ? { authorTitle: d.authorTitle } : {}),
   };
 
   const settings = await prisma.settings.upsert({
     where: { id: 'singleton' },
     create: { id: 'singleton', ...scalarFields, content: mergedContent, updatedByUserId: req.user!.id },
     update: { ...scalarFields, ...(d.content ? { content: mergedContent } : {}), updatedByUserId: req.user!.id },
+    include: { defaultReferrerPerson: { select: { id: true, name: true } } },
   });
 
   await recordAudit({

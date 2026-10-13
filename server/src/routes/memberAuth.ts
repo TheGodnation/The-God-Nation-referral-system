@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { Prisma, type MemberAccount, type Person } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { hashToken } from '../lib/auth';
+import { hashToken, autoPairLeaderSession } from '../lib/auth';
 import { createMemberSession, destroyMemberSession, requireMember, MEMBER_SESSION_COOKIE_NAME } from '../lib/memberAuth';
 import { normalizeToE164 } from '../lib/phone';
 import { recordAudit, isBruteForced, recordLoginAttempt } from '../lib/audit';
@@ -21,6 +21,7 @@ import {
 } from '../lib/rateLimit';
 import { selectApplicableReferralVisit } from '../lib/attribution';
 import { placePersonInGroup } from '../lib/placement';
+import { getOrCreatePersonReferralCode } from '../lib/referralCode';
 import { profilePhotoPath, coverPhotoPath } from '../lib/profilePhoto';
 import { EmailService } from '../lib/email';
 import { CLIENT_URL, MEMBER_LOGIN_TOKEN_TTL_MS, PENDING_MEMBER_SIGNUP_TTL_MS } from '../lib/env';
@@ -241,6 +242,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
       const memberAccount = await prisma.memberAccount.create({
         data: { personId: personByPhone.id, email: normalizedEmail, passwordHash },
       });
+      await getOrCreatePersonReferralCode(prisma, personByPhone.id, personByPhone.name);
       await recordAudit({
         action: 'MEMBER_ACCOUNT_CREATED',
         targetType: 'MemberAccount',
@@ -261,10 +263,19 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
   const visitorId = req.visitorId!;
   const selectedVisit = await selectApplicableReferralVisit(visitorId);
   const isTestData = selectedVisit?.isTestData ?? false;
-  // A ReferralCode names exactly one of a Leader (leaderId) or a Member
-  // (personId) — see schema.prisma comment. Only ever one of the two
-  // branches below runs for a given code.
+  // A ReferralCode may carry Leader attribution (leaderId), Member-owned
+  // auto-friending (personId), or — once a Member has been assigned as
+  // Leader — both at once on the very same code (see schema.prisma's
+  // ReferralCode comment). The two branches below are independent, not
+  // mutually exclusive.
   const referralCode = selectedVisit?.referralCode ?? null;
+  // No referral code at all (a direct/organic join): fall back to the
+  // single designated catch-all Person so nobody is ever truly
+  // unattributed (Settings.defaultReferrerPersonId).
+  const catchAllPersonId = referralCode
+    ? null
+    : (await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { defaultReferrerPersonId: true } }))
+        ?.defaultReferrerPersonId ?? null;
   // Placeholder until the member gives their real name on the details form.
   const placeholderName = normalizedEmail;
 
@@ -293,7 +304,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
           landingPage: selectedVisit?.landingPage ?? null,
           isTestData,
           personId: person.id,
-          referredByPersonId: referralCode?.personId ?? null,
+          referredByPersonId: referralCode?.personId ?? catchAllPersonId,
         },
       });
       if (referralCode?.leaderId) {
@@ -304,17 +315,21 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
             referralCodeId: referralCode.id,
           },
         });
-      } else if (referralCode?.personId) {
-        // Joined through a Member's own link: auto-friend, forward-only
-        // from here — never retroactive, and never for the old Leader
-        // landing-page/WhatsApp-redirect funnel (registrations.ts), only
-        // this real in-app Member signup.
+      }
+      // Joined through a Member-owned (or now dual-purpose Leader+Member)
+      // link, or via the catch-all: auto-friend, forward-only from here —
+      // never retroactive, and never for the old Leader landing-page/
+      // WhatsApp-redirect funnel (registrations.ts, now removed), only this
+      // real in-app Member signup.
+      const autoFriendPersonId = referralCode?.personId ?? catchAllPersonId;
+      if (autoFriendPersonId) {
         await tx.friendship.create({
           data: {
-            requesterPersonId: referralCode.personId,
+            requesterPersonId: autoFriendPersonId,
             addresseePersonId: person.id,
             status: 'ACCEPTED',
             respondedAt: new Date(),
+            origin: 'REFERRAL',
           },
         });
       }
@@ -324,6 +339,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
       const memberAccount = await tx.memberAccount.create({
         data: { personId: person.id, email: normalizedEmail, passwordHash },
       });
+      await getOrCreatePersonReferralCode(tx, person.id, placeholderName);
       return { memberAccount, person };
     });
 
@@ -522,7 +538,14 @@ router.post('/signup/finish', memberSignupFinishLimiter, requireCsrf, asyncHandl
 
   const selectedVisit = await selectApplicableReferralVisit(pending.visitorId);
   const isTestData = selectedVisit?.isTestData ?? false;
+  // See the identical comment in /signup above: leaderId and personId
+  // attribution are independent, and a missing referralCode falls back to
+  // the single catch-all Person so nobody is ever truly unattributed.
   const referralCode = selectedVisit?.referralCode ?? null;
+  const catchAllPersonId = referralCode
+    ? null
+    : (await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { defaultReferrerPersonId: true } }))
+        ?.defaultReferrerPersonId ?? null;
 
   let memberAccount: MemberAccount;
   let person: Person;
@@ -559,7 +582,7 @@ router.post('/signup/finish', memberSignupFinishLimiter, requireCsrf, asyncHandl
           landingPage: selectedVisit?.landingPage ?? null,
           isTestData,
           personId: txPerson.id,
-          referredByPersonId: referralCode?.personId ?? null,
+          referredByPersonId: referralCode?.personId ?? catchAllPersonId,
         },
       });
 
@@ -567,9 +590,17 @@ router.post('/signup/finish', memberSignupFinishLimiter, requireCsrf, asyncHandl
         await tx.referralRelationship.create({
           data: { leaderId: referralCode.leaderId, registrationId: registration.id, referralCodeId: referralCode.id },
         });
-      } else if (referralCode?.personId) {
+      }
+      const autoFriendPersonId = referralCode?.personId ?? catchAllPersonId;
+      if (autoFriendPersonId) {
         await tx.friendship.create({
-          data: { requesterPersonId: referralCode.personId, addresseePersonId: txPerson.id, status: 'ACCEPTED', respondedAt: new Date() },
+          data: {
+            requesterPersonId: autoFriendPersonId,
+            addresseePersonId: txPerson.id,
+            status: 'ACCEPTED',
+            respondedAt: new Date(),
+            origin: 'REFERRAL',
+          },
         });
       }
 
@@ -580,6 +611,8 @@ router.post('/signup/finish', memberSignupFinishLimiter, requireCsrf, asyncHandl
       const txMemberAccount = await tx.memberAccount.create({
         data: { personId: txPerson.id, email: normalizedEmail, passwordHash: pending.passwordHash },
       });
+
+      await getOrCreatePersonReferralCode(tx, txPerson.id, d.name);
 
       await tx.pendingMemberSignup.delete({ where: { id: pending.id } });
 
@@ -616,6 +649,7 @@ router.post('/signup/finish', memberSignupFinishLimiter, requireCsrf, asyncHandl
   });
 
   await createMemberSession(memberAccount.id, res);
+  await autoPairLeaderSession(person.id, res);
 
   res.json({
     member: { name: person.name, email: memberAccount.email, preferredLanguage: person.preferredLanguage },
@@ -669,6 +703,7 @@ router.post('/login', memberPasswordLoginLimiter, requireCsrf, asyncHandler(asyn
   await prisma.memberAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
   await recordLoginAttempt(bruteForceId, true, ip, userAgent);
   await createMemberSession(account.id, res);
+  await autoPairLeaderSession(account.personId, res);
   await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'password' } });
 
   res.json({
@@ -770,6 +805,7 @@ router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler
     data: { lastLoginAt: new Date(), ...(newPasswordHash ? { passwordHash: newPasswordHash } : {}) },
   });
   await createMemberSession(account.id, res);
+  await autoPairLeaderSession(account.personId, res);
   await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'code' } });
   if (newPasswordHash) {
     await recordAudit({ action: 'MEMBER_PASSWORD_SET', targetType: 'MemberAccount', targetId: account.id });
@@ -821,6 +857,7 @@ router.post('/consume', memberLoginConsumeLimiter, requireCsrf, asyncHandler(asy
 
   await prisma.memberAccount.update({ where: { id: memberAccount.id }, data: { lastLoginAt: new Date() } });
   await createMemberSession(memberAccount.id, res);
+  await autoPairLeaderSession(memberAccount.personId, res);
 
   await recordAudit({
     action: 'MEMBER_LOGIN_SUCCESS',

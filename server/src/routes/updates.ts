@@ -29,6 +29,7 @@ import {
   type UpdatesViewer,
 } from '../lib/updates';
 import { getBlockedIds, getFriendIds } from '../lib/social';
+import { resolveAuthorPersonId, AuthorToggleError, getAuthorDisplay } from '../lib/authorToggle';
 
 // ---------------------------------------------------------------------------
 // /api/updates — the community-wide Updates feed (see UpdatePost schema).
@@ -74,15 +75,17 @@ function deletedByFields(viewer: UpdatesViewer) {
 router.get('/live', requireViewer, asyncHandler(async (_req, res) => {
   const s = await prisma.settings.findUnique({
     where: { id: 'singleton' },
-    select: { liveYoutubeVideoId: true, liveTitle: true, liveStartedAt: true },
+    select: { liveYoutubeVideoId: true, liveTitle: true, liveStartedAt: true, liveAuthorPersonId: true },
   });
   if (!s?.liveYoutubeVideoId) return res.json({ live: null });
-  res.json({ live: { youtubeVideoId: s.liveYoutubeVideoId, title: s.liveTitle, startedAt: s.liveStartedAt } });
+  const author = await getAuthorDisplay(s.liveAuthorPersonId);
+  res.json({ live: { youtubeVideoId: s.liveYoutubeVideoId, title: s.liveTitle, startedAt: s.liveStartedAt, author } });
 }));
 
 const liveSchema = z.object({
   youtubeUrl: z.string().trim().min(1).max(500),
   title: z.string().trim().max(200).optional(),
+  postAsSelf: z.boolean().optional(),
 });
 
 // PUT /api/updates/live — central admin only: show a YouTube live (video
@@ -93,7 +96,15 @@ router.put('/live', requireAuth, requireRole('ADMIN'), communityMutationLimiter,
   const videoId = parseYoutubeVideoId(parsed.data.youtubeUrl);
   if (!videoId) return res.status(400).json({ error: 'That does not look like a YouTube link.', code: 'INVALID_YOUTUBE' });
 
-  const data = { liveYoutubeVideoId: videoId, liveTitle: parsed.data.title || null, liveStartedAt: new Date() };
+  let liveAuthorPersonId: string | null;
+  try {
+    liveAuthorPersonId = resolveAuthorPersonId(req.user!.personId, parsed.data.postAsSelf);
+  } catch (err) {
+    if (err instanceof AuthorToggleError) return res.status(400).json({ error: err.message });
+    throw err;
+  }
+
+  const data = { liveYoutubeVideoId: videoId, liveTitle: parsed.data.title || null, liveStartedAt: new Date(), liveAuthorPersonId };
   await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', ...data }, update: data });
   await recordAudit({
     actorId: req.user!.id,
@@ -103,11 +114,12 @@ router.put('/live', requireAuth, requireRole('ADMIN'), communityMutationLimiter,
     targetId: 'singleton',
     metadata: { youtubeVideoId: videoId },
   });
-  res.json({ live: { youtubeVideoId: videoId, title: data.liveTitle, startedAt: data.liveStartedAt } });
+  const author = await getAuthorDisplay(liveAuthorPersonId);
+  res.json({ live: { youtubeVideoId: videoId, title: data.liveTitle, startedAt: data.liveStartedAt, author } });
 }));
 
 router.delete('/live', requireAuth, requireRole('ADMIN'), communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
-  const data = { liveYoutubeVideoId: null, liveTitle: null, liveStartedAt: null };
+  const data = { liveYoutubeVideoId: null, liveTitle: null, liveStartedAt: null, liveAuthorPersonId: null };
   await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', ...data }, update: data });
   await recordAudit({
     actorId: req.user!.id,

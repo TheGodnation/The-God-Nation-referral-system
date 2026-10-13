@@ -12,6 +12,7 @@ import {
   markAnnouncementRead,
   getReadAnnouncementIds,
 } from '../lib/announcements';
+import { getAuthorDisplay, getAuthorDisplaysByIds, type AuthorDisplay } from '../lib/authorToggle';
 
 declare global {
   namespace Express {
@@ -69,6 +70,7 @@ function toRecipientResponse(
     publishedAt: Date | null;
   },
   isRead: boolean,
+  author: AuthorDisplay | null,
 ) {
   return {
     id: a.id,
@@ -78,6 +80,9 @@ function toRecipientResponse(
     bodyFr: a.bodyFr,
     publishedAt: a.publishedAt,
     isRead,
+    // Section 15: null means the plain institutional "Central Authority"
+    // voice — the client's existing default rendering is unchanged.
+    author,
   };
 }
 
@@ -98,7 +103,9 @@ router.get('/', asyncHandler(async (req, res) => {
   const readIds = await getReadAnnouncementIds(personId, eligible.map((a) => a.id));
   const unreadCount = eligible.length - readIds.size;
 
-  const pageItems = eligible.slice(skip, skip + take).map((a) => toRecipientResponse(a, readIds.has(a.id)));
+  const pageSlice = eligible.slice(skip, skip + take);
+  const authors = await getAuthorDisplaysByIds(pageSlice.map((a) => a.authorPersonId));
+  const pageItems = pageSlice.map((a) => toRecipientResponse(a, readIds.has(a.id), authors.get(a.authorPersonId ?? '') ?? null));
 
   res.json({ ...paginatedResult(pageItems, eligible.length, page, pageSize), unreadCount });
 }));
@@ -125,7 +132,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const isRead = await isAnnouncementRead(personId, id);
-  res.json(toRecipientResponse(announcement, isRead));
+  const author = await getAuthorDisplay(announcement.authorPersonId);
+  res.json(toRecipientResponse(announcement, isRead, author));
 }));
 
 // POST /api/me/announcements/:id/read — marks the announcement read for the

@@ -31,13 +31,16 @@ interface HeadquartersPostRow {
   publishedAt: string | null;
   archivedAt: string | null;
   createdBy: { id: string; email: string };
+  // Section 15: whether this post shows the Admin's own photo/name/title
+  // ("post as self") or the plain institutional "Central Authority" voice.
+  postAsSelf: boolean;
   targets: HeadquartersPostTargetRow[];
   commentCount: number;
   reactionCount: number;
   media: HeadquartersPostMediaRow[];
 }
 
-const EMPTY_FORM = { titleEn: '', titleFr: '', bodyEn: '', bodyFr: '' };
+const EMPTY_FORM = { titleEn: '', titleFr: '', bodyEn: '', bodyFr: '', postAsSelf: false };
 
 function postStatus(row: HeadquartersPostRow): 'draft' | 'published' | 'archived' {
   if (row.archivedAt) return 'archived';
@@ -121,7 +124,7 @@ export function HeadquartersPostsTab() {
   }
 
   function startEdit(row: HeadquartersPostRow) {
-    setForm({ titleEn: row.titleEn, titleFr: row.titleFr ?? '', bodyEn: row.bodyEn, bodyFr: row.bodyFr ?? '' });
+    setForm({ titleEn: row.titleEn, titleFr: row.titleFr ?? '', bodyEn: row.bodyEn, bodyFr: row.bodyFr ?? '', postAsSelf: row.postAsSelf });
     setNetworkWide(row.networkWide);
     setFormTargets(row.targets.map((tgt) => ({ id: tgt.communityId, name: tgt.communityName })));
     setFormError(null);
@@ -231,6 +234,7 @@ export function HeadquartersPostsTab() {
       titleFr: form.titleFr.trim() || null,
       bodyEn: form.bodyEn.trim(),
       bodyFr: form.bodyFr.trim() || null,
+      postAsSelf: form.postAsSelf,
     };
     try {
       if (editingId) {
@@ -374,6 +378,15 @@ export function HeadquartersPostsTab() {
             </div>
           </div>
 
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.postAsSelf}
+              onChange={(e) => setForm((v) => ({ ...v, postAsSelf: e.target.checked }))}
+            />
+            {t('admin.headquartersPosts.post_as_self')}
+          </label>
+
           <div>
             <label className="label">{t('admin.headquartersPosts.audience_label')}</label>
             <div className="mb-2 flex gap-4 text-sm">
@@ -511,6 +524,7 @@ export function HeadquartersPostsTab() {
               <th className="py-2 pr-4">{t('admin.headquartersPosts.table_published')}</th>
               <th className="py-2 pr-4">{t('admin.headquartersPosts.table_audience')}</th>
               <th className="py-2 pr-4">{t('admin.headquartersPosts.table_engagement')}</th>
+              <th className="py-2 pr-4">{t('admin.headquartersPosts.table_author')}</th>
               <th className="py-2 pr-4">{t('admin.headquartersPosts.table_actions')}</th>
             </tr>
           </thead>
@@ -534,6 +548,9 @@ export function HeadquartersPostsTab() {
                   </td>
                   <td className="py-2 pr-4">
                     {t('admin.headquartersPosts.engagement_summary', { comments: row.commentCount, reactions: row.reactionCount })}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {row.postAsSelf ? t('admin.headquartersPosts.author_self') : t('admin.headquartersPosts.author_central')}
                   </td>
                   <td className="py-2 pr-4">
                     <div className="flex flex-col gap-1">
@@ -567,7 +584,7 @@ export function HeadquartersPostsTab() {
             })}
             {items.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-4 text-center text-slate-400">
+                <td colSpan={8} className="py-4 text-center text-slate-400">
                   {t('admin.headquartersPosts.no_posts')}
                 </td>
               </tr>

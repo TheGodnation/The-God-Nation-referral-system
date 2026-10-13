@@ -190,6 +190,11 @@ enum NotificationType {
   // Phase 6 — Geographical Leadership Directory.
   AREA_LEADERSHIP_ASSIGNED
   AREA_REPRESENTATION_REQUEST_DECLINED
+  // Unified Leader/Member identity — fires exactly once, the moment a
+  // Person is newly linked to an active Leader User (self-serve bridge or
+  // Admin's "Assign as Leader"), telling them their Leadership tools now
+  // live inside the Member app. See User.personLinkNotifiedAt.
+  LEADER_DASHBOARD_MOVED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -207,6 +212,20 @@ enum PrayerRequestVisibility {
 enum FriendshipStatus {
   PENDING
   ACCEPTED
+}
+
+// Where a friendship came from — shown publicly on a Person's profile so the
+// community can see "Referred" (joined through this Person's own referral
+// link, whether that link doubled as a Leader's attribution code or not)
+// apart from "Community" (an ordinary friend request). Set once at creation
+// and never changed afterward. Defaults to ORGANIC so every friendship that
+// already existed before this column was introduced reads as a Community
+// friendship — forward-only, matching this codebase's "never backfill"
+// convention: only a friendship created going forward through a referral
+// code is ever tagged REFERRAL.
+enum FriendshipOrigin {
+  ORGANIC
+  REFERRAL
 }
 
 // Who may send this person a friend request.
@@ -247,6 +266,12 @@ model User {
   // given Person. An Admin is never required to have one; a Leader must
   // have one before performing any scoped-leadership/follow-up action.
   personId           String?  @unique
+  // Set the one time a "your Leadership Dashboard moved" notice is sent to
+  // this account after personId is newly linked to an active LEADER User
+  // (via the self-serve bridge or Admin's Assign-as-Leader action) — never
+  // sent again afterward, and never set for an ADMIN account (which has no
+  // such notice). Null means not yet sent.
+  personLinkNotifiedAt DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -513,6 +538,32 @@ model Settings {
   liveYoutubeVideoId      String?
   liveTitle               String?
   liveStartedAt           DateTime?
+  // When Admin chooses to post a live session "as themselves" rather than
+  // as the plain institutional "Central Authority" voice, this names their
+  // own bridged Member profile so the Updates page can show their photo and
+  // name alongside it. Null means the plain institutional voice. Cleared
+  // automatically if that Person is ever removed (onDelete SetNull), never
+  // silently falling back to a different Person.
+  liveAuthorPersonId      String?
+  liveAuthorPerson        Person?       @relation("SettingsLiveAuthor", fields: [liveAuthorPersonId], references: [id], onDelete: SetNull)
+  // Shared short title/role shown alongside the author's photo and name
+  // whenever Announcements, HeadquartersPosts, or a Live session are posted
+  // "as themselves" (Announcement.authorPersonId, HeadquartersPost.
+  // authorPersonId, liveAuthorPersonId above) — e.g. "Founder & Lead
+  // Pastor". One shared field, not per-post text: today there is exactly
+  // one Person who ever posts this way (see defaultReferrerPersonId's own
+  // comment on that same "just one for now" convention).
+  authorTitle             String?
+  // The single Person every stray/organic joiner (nobody's real referral at
+  // all) is automatically made a "Referred" friend of, so no one is ever
+  // left without someone responsible for following up with them — see
+  // memberAuth.ts's /signup/finish. One for now (normally Central Admin's
+  // own bridged profile); reassignable, or split across several Persons
+  // later, by simply changing this one field. Null means no fallback is
+  // configured yet (a stray joiner then has no referrer at all, exactly the
+  // pre-existing behavior before this field was introduced).
+  defaultReferrerPersonId String?
+  defaultReferrerPerson   Person?       @relation("SettingsDefaultReferrer", fields: [defaultReferrerPersonId], references: [id], onDelete: SetNull)
   // Free-will offering instructions shown beside the monthly devotional
   // (e.g. Mobile Money numbers). Giving is never required.
   offeringInstructionsEn  String?
@@ -675,6 +726,10 @@ model Person {
   organizationalLeadershipRecommendationsReceived OrganizationalLeadershipRecommendation[]  @relation("OrganizationalLeadershipRecommendationCandidate")
   headquartersPostComments                        HeadquartersPostComment[]
   headquartersPostReactions                       HeadquartersPostReaction[]
+  announcementsAuthored                           Announcement[]                            @relation("AnnouncementAuthor")
+  headquartersPostsAuthored                       HeadquartersPost[]                         @relation("HeadquartersPostAuthor")
+  settingsAsLiveAuthor                            Settings[]                                 @relation("SettingsLiveAuthor")
+  settingsAsDefaultReferrer                       Settings[]                                 @relation("SettingsDefaultReferrer")
   privateConversationsAsMember                    PrivateConversation[]                     @relation("PrivateConversationMember")
   privateConversationsInitiated                   PrivateConversation[]                     @relation("PrivateConversationInitiator")
   privateMessagesSent                             PrivateMessage[]
@@ -1655,13 +1710,21 @@ model Announcement {
   bodyEn          String
   bodyFr          String?
   createdByUserId String
+  // When set, this Announcement is shown with this Person's photo and name
+  // (always Central Admin's own bridged profile — never an arbitrary
+  // Person) instead of the plain institutional "Central Authority" voice.
+  // Editable only while still a draft, same as every other field here.
+  // Purely a display choice: pinning/prominence/eligibility are completely
+  // unaffected either way. Null means the institutional voice.
+  authorPersonId  String?
   createdAt       DateTime  @default(now())
   publishedAt     DateTime?
   archivedAt      DateTime?
 
-  createdBy User                 @relation(fields: [createdByUserId], references: [id])
-  targets   AnnouncementTarget[]
-  reads     AnnouncementRead[]
+  createdBy  User                 @relation(fields: [createdByUserId], references: [id])
+  authorPerson Person?            @relation("AnnouncementAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
+  targets    AnnouncementTarget[]
+  reads      AnnouncementRead[]
 
   @@index([publishedAt, archivedAt])
   @@index([createdAt])
@@ -1745,15 +1808,20 @@ model HeadquartersPost {
   bodyFr          String?
   networkWide     Boolean   @default(false)
   createdByUserId String
+  // Same personal-voice choice as Announcement.authorPersonId above — see
+  // its comment. Draft-only editable; never affects pinning/prominence/
+  // eligibility.
+  authorPersonId  String?
   createdAt       DateTime  @default(now())
   publishedAt     DateTime?
   archivedAt      DateTime?
 
-  createdBy User                       @relation(fields: [createdByUserId], references: [id])
-  targets   HeadquartersPostTarget[]
-  comments  HeadquartersPostComment[]
-  reactions HeadquartersPostReaction[]
-  media     HeadquartersPostMedia[]
+  createdBy    User                       @relation(fields: [createdByUserId], references: [id])
+  authorPerson Person?                    @relation("HeadquartersPostAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
+  targets      HeadquartersPostTarget[]
+  comments     HeadquartersPostComment[]
+  reactions    HeadquartersPostReaction[]
+  media        HeadquartersPostMedia[]
 
   @@index([publishedAt, archivedAt])
   @@index([createdAt])
@@ -2309,6 +2377,7 @@ model Friendship {
   requesterPersonId String
   addresseePersonId String
   status            FriendshipStatus @default(PENDING)
+  origin            FriendshipOrigin @default(ORGANIC)
   createdAt         DateTime         @default(now())
   respondedAt       DateTime?
 

@@ -148,6 +148,6 @@ describe('Live', () => {
     fireEvent.change(screen.getByLabelText('Title (optional)'), { target: { value: 'Evening prayer' } });
     fireEvent.click(screen.getByRole('button', { name: 'Show live to everyone' }));
     expect(await screen.findByRole('button', { name: 'End live' })).toBeInTheDocument();
-    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ', title: 'Evening prayer' });
+    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ', title: 'Evening prayer', postAsSelf: false });
   });
 });

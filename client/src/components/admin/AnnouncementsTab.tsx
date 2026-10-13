@@ -19,12 +19,15 @@ interface AnnouncementRow {
   publishedAt: string | null;
   archivedAt: string | null;
   createdBy: { id: string; email: string };
+  // Section 15: whether this post shows the Admin's own photo/name/title
+  // ("post as self") or the plain institutional "Central Authority" voice.
+  postAsSelf: boolean;
   targets: AnnouncementTargetRow[];
 }
 
 type FormTarget = { id: string; name: string };
 
-const EMPTY_FORM = { titleEn: '', titleFr: '', bodyEn: '', bodyFr: '' };
+const EMPTY_FORM = { titleEn: '', titleFr: '', bodyEn: '', bodyFr: '', postAsSelf: false };
 
 function announcementStatus(row: AnnouncementRow): 'draft' | 'published' | 'archived' {
   if (row.archivedAt) return 'archived';
@@ -97,7 +100,7 @@ export function AnnouncementsTab() {
   }
 
   function startEdit(row: AnnouncementRow) {
-    setForm({ titleEn: row.titleEn, titleFr: row.titleFr ?? '', bodyEn: row.bodyEn, bodyFr: row.bodyFr ?? '' });
+    setForm({ titleEn: row.titleEn, titleFr: row.titleFr ?? '', bodyEn: row.bodyEn, bodyFr: row.bodyFr ?? '', postAsSelf: row.postAsSelf });
     setFormTargets(
       row.targets
         .filter((tgt) => tgt.communityId)
@@ -126,6 +129,7 @@ export function AnnouncementsTab() {
       bodyEn: form.bodyEn.trim(),
       bodyFr: form.bodyFr.trim() || null,
       targets: formTargets.map((f) => ({ communityId: f.id })),
+      postAsSelf: form.postAsSelf,
     };
     try {
       if (editingId) {
@@ -246,6 +250,15 @@ export function AnnouncementsTab() {
             </div>
           </div>
 
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.postAsSelf}
+              onChange={(e) => setForm((v) => ({ ...v, postAsSelf: e.target.checked }))}
+            />
+            {t('admin.announcements.post_as_self')}
+          </label>
+
           <div>
             <label className="label">{t('admin.announcements.targets_label')}</label>
             {formTargets.length > 0 && (
@@ -316,6 +329,7 @@ export function AnnouncementsTab() {
               <th className="py-2 pr-4">{t('admin.announcements.table_created')}</th>
               <th className="py-2 pr-4">{t('admin.announcements.table_published')}</th>
               <th className="py-2 pr-4">{t('admin.announcements.table_targets')}</th>
+              <th className="py-2 pr-4">{t('admin.announcements.table_author')}</th>
               <th className="py-2 pr-4">{t('admin.announcements.table_actions')}</th>
             </tr>
           </thead>
@@ -333,6 +347,9 @@ export function AnnouncementsTab() {
                   <td className="py-2 pr-4">{new Date(row.createdAt).toLocaleDateString()}</td>
                   <td className="py-2 pr-4">{row.publishedAt ? new Date(row.publishedAt).toLocaleDateString() : '—'}</td>
                   <td className="max-w-[240px] py-2 pr-4">{targetSummary(row.targets)}</td>
+                  <td className="py-2 pr-4">
+                    {row.postAsSelf ? t('admin.announcements.author_self') : t('admin.announcements.author_central')}
+                  </td>
                   <td className="py-2 pr-4">
                     <div className="flex flex-col gap-1">
                       {status === 'draft' && (
@@ -365,7 +382,7 @@ export function AnnouncementsTab() {
             })}
             {items.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-4 text-center text-slate-400">
+                <td colSpan={7} className="py-4 text-center text-slate-400">
                   {t('admin.announcements.no_announcements')}
                 </td>
               </tr>

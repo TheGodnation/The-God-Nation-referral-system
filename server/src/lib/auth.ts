@@ -46,6 +46,19 @@ export async function createSession(userId: string, res: Response) {
   return token;
 }
 
+// Unified Leader/Member identity — Section 9: the instant a Member session
+// is established for a Person who is linked to an active Leader User,
+// silently establish a Leader session (sid) alongside it too — one sign-in,
+// never a second password. Deliberately checks role === 'LEADER' only: a
+// Person bridged to an ADMIN User (Section 13) must never gain a sid
+// session this way — Admin always signs in explicitly through its own,
+// permanently separate /login.
+export async function autoPairLeaderSession(personId: string, res: Response) {
+  const linkedUser = await prisma.user.findUnique({ where: { personId } });
+  if (!linkedUser || linkedUser.role !== 'LEADER' || !linkedUser.active) return;
+  await createSession(linkedUser.id, res);
+}
+
 export async function destroySession(token: string) {
   const tokenHash = hashToken(token);
   await prisma.session.deleteMany({ where: { tokenHash } });

@@ -10,6 +10,7 @@ import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { MyResources } from '../components/MyResources';
 import { MyFollowUps } from '../components/member/MyFollowUps';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/AuthContext';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { ProfileImageError, uploadProfileImage } from '../lib/profileImages';
 
@@ -37,6 +38,7 @@ type Tab = 'posts' | 'photos' | 'progress';
 // "My progress" tab: this month's devotional exam scores, leadership
 // training books passed, and the member's group(s).
 function Progress({ groups }: { groups: MembershipRow[] }) {
+  const { user: leaderUser } = useAuth();
   const { t, i18n } = useTranslation();
   const isFr = i18n.language.startsWith('fr');
   const [data, setData] = useState<ExamWorld | null>(null);
@@ -138,6 +140,15 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
           {t('wall.my_referrals_link')}
         </Link>
       </section>
+
+      {leaderUser?.role === 'LEADER' && (
+        <section className="card">
+          <h2 className="mb-2 font-semibold text-brand-900">🧭 {t('wall.my_leadership_dashboard')}</h2>
+          <Link to="/member/leadership-dashboard" className="text-sm font-medium text-brand-700 underline">
+            {t('wall.my_leadership_dashboard_link')}
+          </Link>
+        </section>
+      )}
     </div>
   );
 }
@@ -151,7 +162,8 @@ export function MemberMePage() {
   const { member, refresh, logout } = useMemberAuth();
   const [tab, setTab] = useState<Tab>('posts');
   const [groups, setGroups] = useState<MembershipRow[]>([]);
-  const [friendCount, setFriendCount] = useState<number | null>(null);
+  const [referredCount, setReferredCount] = useState<number | null>(null);
+  const [communityCount, setCommunityCount] = useState<number | null>(null);
   const [busy, setBusy] = useState<'cover' | 'photo' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -160,11 +172,17 @@ export function MemberMePage() {
       .get<{ items: MembershipRow[] }>('/api/member/me/community-memberships')
       .then((r) => setGroups(r.items))
       .catch(() => {});
-    api
-      .get<{ items: unknown[] }>('/api/member/friends')
-      .then((r) => setFriendCount(r.items.length))
-      .catch(() => {});
-  }, []);
+    if (member?.personId) {
+      api
+        .get<{ referredCount: number; communityCount: number }>(`/api/member/people/${member.personId}`)
+        .then((r) => {
+          setReferredCount(r.referredCount);
+          setCommunityCount(r.communityCount);
+        })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [member?.personId]);
 
   async function pick(kind: 'cover' | 'photo', file: File) {
     setError(null);
@@ -191,7 +209,11 @@ export function MemberMePage() {
   if (!member) return null;
 
   const activeGroup = groups.find((g) => g.status === 'ACTIVE');
-  const subtitle = [activeGroup?.communityName, friendCount !== null ? t('people.friend_count', { count: friendCount }) : null]
+  const subtitle = [
+    activeGroup?.communityName,
+    referredCount !== null ? t('people.referred_count', { count: referredCount }) : null,
+    communityCount !== null ? t('people.community_count', { count: communityCount }) : null,
+  ]
     .filter(Boolean)
     .join(' · ');
 

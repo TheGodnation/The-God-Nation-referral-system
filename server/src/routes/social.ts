@@ -18,6 +18,7 @@ import {
   getBlockedIds,
   getFollowerCount,
   getFollowingCount,
+  getFriendBreakdown,
   getFriendIds,
   isBlockedEitherWay,
   isFollowing,
@@ -26,6 +27,7 @@ import {
   shareActiveGroup,
   type FriendStatus,
 } from '../lib/social';
+import { parsePagination, paginatedResult } from '../lib/pagination';
 
 // ---------------------------------------------------------------------------
 // /api/member — friends, people search, blocking, reports, and starting a
@@ -206,9 +208,9 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
   const person = blockedMe ? null : await prisma.person.findFirst({ where: { id: other, ...APP_MEMBER }, select: personSelect });
   if (!person) return res.status(404).json({ error: 'Not found.' });
 
-  const [rel, friendCount, messageAllowed, sameGroup, leaderOf, memberOf, areaAssignments, followerCount, followingCount, viewerFollows] = await Promise.all([
+  const [rel, friendBreakdown, messageAllowed, sameGroup, leaderOf, memberOf, areaAssignments, followerCount, followingCount, viewerFollows] = await Promise.all([
     friendStatusBetween(me, other),
-    getFriendIds(other).then((ids) => ids.length),
+    getFriendBreakdown(other),
     canMessage(me, other),
     shareActiveGroup(me, other),
     prisma.roleAssignment
@@ -246,12 +248,63 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
     sameGroup,
     friendStatus: rel.status,
     requestId: rel.requestId,
-    friendCount,
+    // Section 3: two community-visible buckets, each with its own count —
+    // "Referred" (joined through this Person's own code) and "Community"
+    // (ordinary friend-request-based friendships). friendCount stays as
+    // their sum, for anything still reading the old single total.
+    referredCount: friendBreakdown.referredIds.length,
+    communityCount: friendBreakdown.communityIds.length,
+    friendCount: friendBreakdown.referredIds.length + friendBreakdown.communityIds.length,
     followerCount,
     followingCount,
     isFollowing: viewerFollows,
     canMessage: messageAllowed,
   });
+}));
+
+// GET /api/member/people/:personId/referred — Section 3/32: paginated list
+// of everyone who joined through this Person's own referral code (Leader-
+// attribution and Member-code auto-friends combined into one bucket).
+// Public to any signed-in member, same visibility as the profile card
+// itself — the community is meant to see one another's referral success.
+router.get('/people/:personId/referred', requireMember, asyncHandler(async (req, res) => {
+  const parsed = personIdSchema.safeParse(req.params);
+  if (!parsed.success) return res.status(404).json({ error: 'Not found.' });
+  const other = parsed.data.personId;
+  const person = await prisma.person.findFirst({ where: { id: other, ...APP_MEMBER }, select: { id: true } });
+  if (!person) return res.status(404).json({ error: 'Not found.' });
+
+  const me = req.member!.personId;
+  const rel = await relationshipMaps(me);
+  const { referredIds } = await getFriendBreakdown(other);
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const pageIds = referredIds.slice(skip, skip + take);
+  const people = await prisma.person.findMany({ where: { id: { in: pageIds } }, select: personSelect });
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const items = pageIds.filter((id) => byId.has(id)).map((id) => toCard(byId.get(id)!, rel));
+  res.json(paginatedResult(items, referredIds.length, page, pageSize));
+}));
+
+// GET /api/member/people/:personId/community — the rest of this Person's
+// friends: ordinary friend-request-based friendships (see
+// getFriendBreakdown's own comment for the exact, deliberately asymmetric
+// split rule).
+router.get('/people/:personId/community', requireMember, asyncHandler(async (req, res) => {
+  const parsed = personIdSchema.safeParse(req.params);
+  if (!parsed.success) return res.status(404).json({ error: 'Not found.' });
+  const other = parsed.data.personId;
+  const person = await prisma.person.findFirst({ where: { id: other, ...APP_MEMBER }, select: { id: true } });
+  if (!person) return res.status(404).json({ error: 'Not found.' });
+
+  const me = req.member!.personId;
+  const rel = await relationshipMaps(me);
+  const { communityIds } = await getFriendBreakdown(other);
+  const { page, pageSize, skip, take } = parsePagination(req);
+  const pageIds = communityIds.slice(skip, skip + take);
+  const people = await prisma.person.findMany({ where: { id: { in: pageIds } }, select: personSelect });
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const items = pageIds.filter((id) => byId.has(id)).map((id) => toCard(byId.get(id)!, rel));
+  res.json(paginatedResult(items, communityIds.length, page, pageSize));
 }));
 
 // ----------------------------- Follows -------------------------------------

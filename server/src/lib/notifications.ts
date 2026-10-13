@@ -31,7 +31,8 @@ interface CreateNotificationParams {
     | 'ANNOUNCEMENT_PUBLISHED'
     | 'HEADQUARTERS_POST_PUBLISHED'
     | 'AREA_LEADERSHIP_ASSIGNED'
-    | 'AREA_REPRESENTATION_REQUEST_DECLINED';
+    | 'AREA_REPRESENTATION_REQUEST_DECLINED'
+    | 'LEADER_DASHBOARD_MOVED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -291,6 +292,35 @@ export async function notifyAreaLeadershipAssigned(assignment: { id: string; per
     targetType: 'AreaLeadershipAssignment',
     targetId: assignment.id,
     push: { title: 'New leadership role', body: `You are now the ${assignment.areaTitle} for ${assignment.areaPath}.`, url: '/member/leadership' },
+  });
+}
+
+/** Unified Leader/Member identity — fires exactly once, the moment a Person
+ * is newly linked to an active Leader User, whether by the Leader's own
+ * self-serve bridge (leader.ts's /me/create-member-profile) or Admin's
+ * "Assign as Leader" action (admin.ts's /leaders/assign). Deliberately NEVER
+ * for role=ADMIN — Admin bridging to a Member profile is a separate,
+ * unrelated action with no Leadership Dashboard to announce. Idempotent via
+ * User.personLinkNotifiedAt, so it is safe to call from every linking call
+ * site without each one separately tracking whether it already fired. */
+export async function notifyLeaderDashboardMovedIfNeeded(user: {
+  id: string;
+  role: string;
+  personId: string | null;
+  personLinkNotifiedAt: Date | null;
+}) {
+  if (user.role !== 'LEADER' || !user.personId || user.personLinkNotifiedAt) return;
+  await prisma.user.update({ where: { id: user.id }, data: { personLinkNotifiedAt: new Date() } });
+  await createNotification({
+    recipientPersonId: user.personId,
+    type: 'LEADER_DASHBOARD_MOVED',
+    targetType: 'User',
+    targetId: user.id,
+    push: {
+      title: 'Your Leadership Dashboard moved',
+      body: 'Your Leadership tools now live right inside this app — look for My Leadership Dashboard.',
+      url: '/member/leadership-dashboard',
+    },
   });
 }
 

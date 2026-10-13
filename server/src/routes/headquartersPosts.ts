@@ -16,6 +16,7 @@ import {
   getHeadquartersPostEngagementCounts,
 } from '../lib/headquartersPosts';
 import { createDownloadUrl, isStorageConfigured } from '../lib/storage';
+import { getAuthorDisplay, getAuthorDisplaysByIds, type AuthorDisplay } from '../lib/authorToggle';
 
 declare global {
   namespace Express {
@@ -78,6 +79,7 @@ function toRecipientResponse(
     media?: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[];
   },
   engagement: { commentCount: number; reactionCount: number; viewerHasReacted: boolean },
+  author: AuthorDisplay | null,
 ) {
   return {
     id: p.id,
@@ -91,6 +93,8 @@ function toRecipientResponse(
     reactionCount: engagement.reactionCount,
     viewerHasReacted: engagement.viewerHasReacted,
     media: toMediaResponse(p.media ?? []),
+    // Section 15: null means the plain institutional "Central Authority" voice.
+    author,
   };
 }
 
@@ -105,9 +109,14 @@ router.get('/', asyncHandler(async (req, res) => {
   const eligible = await computeVisibleHeadquartersPostsForPerson(personId);
   const pageSlice = eligible.slice(skip, skip + take);
   const engagement = await getHeadquartersPostEngagementCounts(pageSlice.map((p) => p.id), personId);
+  const authors = await getAuthorDisplaysByIds(pageSlice.map((p) => p.authorPersonId));
 
   const pageItems = pageSlice.map((p) =>
-    toRecipientResponse(p, engagement.get(p.id) ?? { commentCount: 0, reactionCount: 0, viewerHasReacted: false }),
+    toRecipientResponse(
+      p,
+      engagement.get(p.id) ?? { commentCount: 0, reactionCount: 0, viewerHasReacted: false },
+      authors.get(p.authorPersonId ?? '') ?? null,
+    ),
   );
 
   res.json(paginatedResult(pageItems, eligible.length, page, pageSize));
@@ -133,7 +142,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
   }
 
   const engagement = await getHeadquartersPostEngagementCounts([id], personId);
-  res.json(toRecipientResponse(post, engagement.get(id) ?? { commentCount: 0, reactionCount: 0, viewerHasReacted: false }));
+  const author = await getAuthorDisplay(post.authorPersonId);
+  res.json(toRecipientResponse(post, engagement.get(id) ?? { commentCount: 0, reactionCount: 0, viewerHasReacted: false }, author));
 }));
 
 // GET /api/me/headquarters-posts/:id/media/:mediaId/download-url — mints a

@@ -20,6 +20,7 @@ import {
   MAX_HEADQUARTERS_POST_MEDIA,
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, headObject } from '../lib/storage';
+import { resolveAuthorPersonId, AuthorToggleError } from '../lib/authorToggle';
 
 const router = Router();
 
@@ -61,6 +62,7 @@ function toAdminResponse(p: {
   publishedAt: Date | null;
   archivedAt: Date | null;
   createdBy: { id: string; email: string };
+  authorPersonId: string | null;
   targets: { id: string; communityId: string; community: { id: string; name: string } }[];
   _count: { comments: number; reactions: number };
   media: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[];
@@ -76,6 +78,7 @@ function toAdminResponse(p: {
     publishedAt: p.publishedAt,
     archivedAt: p.archivedAt,
     createdBy: p.createdBy,
+    postAsSelf: p.authorPersonId !== null,
     targets: p.targets.map((t) => ({ id: t.id, communityId: t.communityId, communityName: t.community.name })),
     commentCount: p._count.comments,
     reactionCount: p._count.reactions,
@@ -114,6 +117,7 @@ const createSchema = z.object({
   titleFr: z.string().trim().min(1).max(300).optional().nullable(),
   bodyEn: z.string().trim().min(1).max(10000),
   bodyFr: z.string().trim().min(1).max(10000).optional().nullable(),
+  postAsSelf: z.boolean().optional(),
 });
 
 // POST /api/admin/headquarters-posts — always created as a draft
@@ -126,6 +130,14 @@ router.post('/', headquartersPostMutationLimiter, requireCsrf, asyncHandler(asyn
   }
   const d = parsed.data;
 
+  let authorPersonId: string | null;
+  try {
+    authorPersonId = resolveAuthorPersonId(req.user!.personId, d.postAsSelf);
+  } catch (err) {
+    if (err instanceof AuthorToggleError) return res.status(400).json({ error: err.message });
+    throw err;
+  }
+
   const created = await prisma.headquartersPost.create({
     data: {
       titleEn: d.titleEn,
@@ -133,6 +145,7 @@ router.post('/', headquartersPostMutationLimiter, requireCsrf, asyncHandler(asyn
       bodyEn: d.bodyEn,
       bodyFr: d.bodyFr ?? null,
       createdByUserId: req.user!.id,
+      authorPersonId,
     },
     include: targetInclude,
   });
@@ -156,6 +169,7 @@ const patchSchema = z.object({
   bodyFr: z.string().trim().min(1).max(10000).optional().nullable(),
   networkWide: z.boolean().optional(),
   targetCommunityIds: z.array(z.string().min(1)).max(50).optional(),
+  postAsSelf: z.boolean().optional(),
 });
 
 // PATCH /api/admin/headquarters-posts/:id — draft only. Once published or
@@ -184,6 +198,16 @@ router.patch('/:id', headquartersPostMutationLimiter, requireCsrf, asyncHandler(
     if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community.' });
   }
 
+  let authorPersonId: string | null | undefined;
+  if (d.postAsSelf !== undefined) {
+    try {
+      authorPersonId = resolveAuthorPersonId(req.user!.personId, d.postAsSelf);
+    } catch (err) {
+      if (err instanceof AuthorToggleError) return res.status(400).json({ error: err.message });
+      throw err;
+    }
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     if (d.networkWide === true) {
       await tx.headquartersPostTarget.deleteMany({ where: { headquartersPostId: id } });
@@ -207,6 +231,7 @@ router.patch('/:id', headquartersPostMutationLimiter, requireCsrf, asyncHandler(
           : d.targetCommunityIds !== undefined
             ? { networkWide: false }
             : {}),
+        ...(authorPersonId !== undefined ? { authorPersonId } : {}),
       },
       include: targetInclude,
     });

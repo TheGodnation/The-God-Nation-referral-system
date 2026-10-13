@@ -5,7 +5,6 @@ import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
-import { hashToken } from '../lib/auth';
 import * as emailModule from '../lib/email';
 
 const app = createApp();
@@ -22,43 +21,48 @@ async function loginAsAdmin() {
   return { agent, csrf };
 }
 
+// POST /api/admin/leaders (Create Leader from scratch) has been retired —
+// every Leader going forward is an existing Member assigned via Admin's
+// "Assign as Leader" action (see adminAssignLeader.test.ts), which never
+// needs this email-setup-token flow at all (the Leader already has a real
+// Member password, and auto-pairing — Section 25 — signs their Leader
+// session in silently behind it). This suite still exercises the setup-
+// token machinery itself (POST /api/admin/leaders/:id/resend-invitation and
+// POST /api/auth/leader-setup/complete), which remains the recovery path for
+// the pre-existing Leaders created under the old flow before it was
+// retired — so fixtures here create that Leader shape directly, the way the
+// old route used to, instead of through the now-removed endpoint.
+async function createUnlinkedLeader(name: string, email: string) {
+  const unusablePasswordHash = crypto.randomBytes(32).toString('hex');
+  return prisma.user.create({
+    data: { name, email, passwordHash: unusablePasswordHash, role: 'LEADER', mustChangePassword: false },
+  });
+}
+
 describe('New Leader onboarding via secure setup token', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it('creating a Leader never returns a password, and issues a setup email instead', async () => {
+  it('Admin resend-invitation issues a setup email, and the Leader can complete setup and log in', async () => {
     const spy = vi.spyOn(emailModule.EmailService, 'sendLeaderInvitation').mockResolvedValue({ ok: true });
     const { agent, csrf } = await loginAsAdmin();
+    const leader = await createUnlinkedLeader('Setup Leader', 'setupflow@example.com');
 
-    const res = await agent
-      .post('/api/admin/leaders')
+    const resendRes = await agent
+      .post(`/api/admin/leaders/${leader.id}/resend-invitation`)
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'New Leader', email: 'newleader@example.com', referralCode: 'NEWL1234' });
-
-    expect(res.status).toBe(201);
-    expect(res.body.temporaryPassword).toBeUndefined();
-    expect(res.body.invitationSent).toBe(true);
+      .send({});
+    expect(resendRes.status).toBe(200);
+    expect(resendRes.body.invitationSent).toBe(true);
     expect(spy).toHaveBeenCalledTimes(1);
+
     const setupUrl: string = spy.mock.calls[0][0].setupUrl;
     expect(setupUrl).toContain('/leader/setup?token=');
+    const rawToken = new URL(setupUrl).searchParams.get('token')!;
 
     // The raw token appears only in the (mocked) email call — never in the DB.
-    const rawToken = new URL(setupUrl).searchParams.get('token')!;
     const stored = await prisma.leaderSetupToken.findUnique({ where: { tokenHash: sha256(rawToken) } });
     expect(stored).toBeTruthy();
     expect(stored!.consumedAt).toBeNull();
-  });
-
-  it('completes setup, logs the Leader in, and the token cannot be reused', async () => {
-    vi.spyOn(emailModule.EmailService, 'sendLeaderInvitation').mockResolvedValue({ ok: true });
-    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin();
-
-    const createRes = await adminAgent
-      .post('/api/admin/leaders')
-      .set('X-CSRF-Token', adminCsrf)
-      .send({ name: 'Setup Leader', email: 'setupflow@example.com', referralCode: 'SETUP123' });
-
-    const setupUrl: string = (emailModule.EmailService.sendLeaderInvitation as any).mock.calls[0][0].setupUrl;
-    const rawToken = new URL(setupUrl).searchParams.get('token')!;
 
     const leaderAgent = request.agent(app);
     const { csrf: leaderCsrf } = await bootstrap(leaderAgent);
@@ -88,8 +92,6 @@ describe('New Leader onboarding via secure setup token', () => {
       .set('X-CSRF-Token', reuseCsrf)
       .send({ token: rawToken, newPassword: 'AnotherPass123!' });
     expect(reuseRes.status).toBe(400);
-
-    void createRes;
   });
 
   it('rejects an unknown token and an expired token', async () => {
@@ -133,16 +135,17 @@ describe('New Leader onboarding via secure setup token', () => {
   it('Admin resend-invitation invalidates the prior token and issues a new one', async () => {
     const spy = vi.spyOn(emailModule.EmailService, 'sendLeaderInvitation').mockResolvedValue({ ok: true });
     const { agent, csrf } = await loginAsAdmin();
+    const leader = await createUnlinkedLeader('Resend Leader', 'resend@example.com');
 
-    const createRes = await agent
-      .post('/api/admin/leaders')
+    const firstRes = await agent
+      .post(`/api/admin/leaders/${leader.id}/resend-invitation`)
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Resend Leader', email: 'resend@example.com', referralCode: 'RESEND12' });
-    const leaderId = createRes.body.id;
+      .send({});
+    expect(firstRes.status).toBe(200);
     const firstRawToken = new URL(spy.mock.calls[0][0].setupUrl).searchParams.get('token')!;
 
     const resendRes = await agent
-      .post(`/api/admin/leaders/${leaderId}/resend-invitation`)
+      .post(`/api/admin/leaders/${leader.id}/resend-invitation`)
       .set('X-CSRF-Token', csrf)
       .send({});
     expect(resendRes.status).toBe(200);
@@ -172,17 +175,18 @@ describe('New Leader onboarding via secure setup token', () => {
   it('a failed invitation email leaves the Leader recoverable via resend', async () => {
     vi.spyOn(emailModule.EmailService, 'sendLeaderInvitation').mockResolvedValue({ ok: false });
     const { agent, csrf } = await loginAsAdmin();
+    const leader = await createUnlinkedLeader('Bounce Leader', 'bounce@example.com');
 
-    const createRes = await agent
-      .post('/api/admin/leaders')
+    const firstRes = await agent
+      .post(`/api/admin/leaders/${leader.id}/resend-invitation`)
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Bounce Leader', email: 'bounce@example.com', referralCode: 'BOUNCE12' });
-    expect(createRes.status).toBe(201);
-    expect(createRes.body.invitationSent).toBe(false); // send failed, but Leader still exists
+      .send({});
+    expect(firstRes.status).toBe(200);
+    expect(firstRes.body.invitationSent).toBe(false); // send failed, but Leader still exists
 
     vi.spyOn(emailModule.EmailService, 'sendLeaderInvitation').mockResolvedValue({ ok: true });
     const resendRes = await agent
-      .post(`/api/admin/leaders/${createRes.body.id}/resend-invitation`)
+      .post(`/api/admin/leaders/${leader.id}/resend-invitation`)
       .set('X-CSRF-Token', csrf)
       .send({});
     expect(resendRes.status).toBe(200);

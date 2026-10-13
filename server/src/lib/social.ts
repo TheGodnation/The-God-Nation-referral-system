@@ -65,6 +65,34 @@ export async function getFriendIds(personId: string): Promise<string[]> {
   return rows.map((r) => (r.requesterPersonId === personId ? r.addresseePersonId : r.requesterPersonId));
 }
 
+// Every Person's friends, split into the two community-visible buckets
+// (Section 3): "Referred" — everyone who joined through this Person's own
+// referral code, whether that code's attribution came from Leader
+// attribution or Member auto-friending, combined into one bucket — and
+// "Community" — everything else, ordinary friend-request-based
+// friendships. Deliberately asymmetric: the Person who referred ME is just
+// an ordinary Community connection from MY side (I didn't refer them), the
+// same Friendship row counts toward THEIR Referred bucket from theirs. So
+// referredIds(X) is always origin=REFERRAL rows where X is the requester
+// (the referrer) — never the addressee side.
+export async function getFriendBreakdown(personId: string): Promise<{ referredIds: string[]; communityIds: string[] }> {
+  const rows = await prisma.friendship.findMany({
+    where: { status: 'ACCEPTED', OR: [{ requesterPersonId: personId }, { addresseePersonId: personId }] },
+    select: { requesterPersonId: true, addresseePersonId: true, origin: true },
+  });
+  const referredIds: string[] = [];
+  const communityIds: string[] = [];
+  for (const r of rows) {
+    const other = r.requesterPersonId === personId ? r.addresseePersonId : r.requesterPersonId;
+    if (r.origin === 'REFERRAL' && r.requesterPersonId === personId) {
+      referredIds.push(other);
+    } else {
+      communityIds.push(other);
+    }
+  }
+  return { referredIds, communityIds };
+}
+
 /** Everyone `personId` has blocked or been blocked by. */
 export async function getBlockedIds(personId: string): Promise<string[]> {
   const rows = await prisma.personBlock.findMany({

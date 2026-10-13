@@ -1,6 +1,4 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
-import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../lib/auth';
@@ -10,11 +8,12 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { requireLinkedPerson, findActiveScopedRole } from '../lib/leadership';
 import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
 import { findLeaderPeers } from '../lib/leaderPeers';
-import { normalizeToE164 } from '../lib/phone';
 import { recordAudit } from '../lib/audit';
 import { requireCsrf } from '../lib/csrf';
 import { createMemberSession } from '../lib/memberAuth';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
+import { notifyLeaderDashboardMovedIfNeeded } from '../lib/notifications';
+import { bridgeUserToMemberProfile, setBridgedMemberPassword, MemberBridgeError } from '../lib/memberBridge';
 
 const router = Router();
 
@@ -127,65 +126,12 @@ router.post('/me/create-member-profile', leadershipMutationLimiter, requireCsrf,
     }
     return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.' });
   }
-  const normalizedWhatsApp = normalizeToE164(parsed.data.whatsapp);
-  if (!normalizedWhatsApp) {
-    return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.' });
-  }
-  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
   if (!user) return res.status(404).json({ error: 'Leader not found.' });
-  if (user.personId) {
-    return res.status(409).json({ error: 'Your account is already linked to a Member profile.' });
-  }
-
-  const normalizedEmail = user.email.toLowerCase();
-  const existingPersonByPhone = await prisma.person.findUnique({
-    where: { whatsappNumber: normalizedWhatsApp },
-    include: { memberAccount: true },
-  });
-
-  if (existingPersonByPhone?.memberAccount && existingPersonByPhone.memberAccount.email !== normalizedEmail) {
-    // Someone else's member account already owns this WhatsApp number —
-    // never take it over based on an unverified claim.
-    return res.status(409).json({ error: 'This WhatsApp number already belongs to a different member account. Please contact an Admin for help.' });
-  }
-
-  const conflictingAccount = await prisma.memberAccount.findUnique({ where: { email: normalizedEmail } });
-  if (conflictingAccount && conflictingAccount.personId !== existingPersonByPhone?.id) {
-    return res.status(409).json({ error: 'A different member profile already uses your email address. Please contact an Admin for help.' });
-  }
 
   try {
-    const { memberAccount, person } = await prisma.$transaction(async (tx) => {
-      const person = existingPersonByPhone
-        ?? (await tx.person.create({
-          data: {
-            name: user.name,
-            whatsappNumber: normalizedWhatsApp,
-            email: normalizedEmail,
-            preferredLanguage: parsed.data.language,
-            isTestData: user.isTestData,
-          },
-        }));
-
-      const existingLinkForPerson = await tx.user.findUnique({ where: { personId: person.id } });
-      if (existingLinkForPerson) {
-        throw new Error('ALREADY_LINKED_TO_ANOTHER_USER');
-      }
-
-      const memberAccount = existingPersonByPhone?.memberAccount
-        ? (existingPersonByPhone.memberAccount.passwordHash
-            // Already has its own password (e.g. set through ordinary
-            // Member sign-up) — never overwrite it from this flow.
-            ? existingPersonByPhone.memberAccount
-            : await tx.memberAccount.update({ where: { id: existingPersonByPhone.memberAccount.id }, data: { passwordHash } }))
-        : await tx.memberAccount.create({ data: { personId: person.id, email: normalizedEmail, passwordHash } });
-
-      await tx.user.update({ where: { id: user.id }, data: { personId: person.id } });
-
-      return { memberAccount, person };
-    });
+    const { memberAccount, person } = await bridgeUserToMemberProfile(user, parsed.data);
 
     await recordAudit({
       actorId: user.id,
@@ -201,13 +147,17 @@ router.post('/me/create-member-profile', leadershipMutationLimiter, requireCsrf,
     // now too, rather than send a magic-link email to themselves.
     await createMemberSession(memberAccount.id, res);
 
+    await notifyLeaderDashboardMovedIfNeeded({
+      id: user.id,
+      role: user.role,
+      personId: person.id,
+      personLinkNotifiedAt: user.personLinkNotifiedAt,
+    });
+
     res.status(201).json({ personId: person.id, personName: person.name });
   } catch (err) {
-    if (err instanceof Error && err.message === 'ALREADY_LINKED_TO_ANOTHER_USER') {
-      return res.status(409).json({ error: 'This phone number is already linked to a different account. Please contact an Admin for help.' });
-    }
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return res.status(409).json({ error: 'That phone number or email is already in use. Please contact an Admin for help.' });
+    if (err instanceof MemberBridgeError) {
+      return res.status(err.status).json({ error: err.message });
     }
     throw err;
   }
@@ -229,29 +179,26 @@ router.post('/me/set-member-password', leadershipMutationLimiter, requireCsrf, a
   }
 
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
-  if (!user?.personId) {
-    return res.status(400).json({ error: 'Link your account to a Member profile first.' });
-  }
-  const memberAccount = await prisma.memberAccount.findUnique({ where: { personId: user.personId } });
-  if (!memberAccount) {
-    return res.status(404).json({ error: 'No Member profile found.' });
-  }
-  if (memberAccount.passwordHash) {
-    return res.status(409).json({ error: 'A password is already set for your Member profile.' });
-  }
+  if (!user) return res.status(404).json({ error: 'Leader not found.' });
 
-  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
-  await prisma.memberAccount.update({ where: { id: memberAccount.id }, data: { passwordHash } });
+  try {
+    const memberAccount = await setBridgedMemberPassword(user, parsed.data.password);
 
-  await recordAudit({
-    actorId: user.id,
-    actorEmail: user.email,
-    action: 'LEADER_MEMBER_PASSWORD_SET',
-    targetType: 'MemberAccount',
-    targetId: memberAccount.id,
-  });
+    await recordAudit({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'LEADER_MEMBER_PASSWORD_SET',
+      targetType: 'MemberAccount',
+      targetId: memberAccount.id,
+    });
 
-  res.json({ ok: true });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err instanceof MemberBridgeError) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    throw err;
+  }
 }));
 
 // GET /api/leader/referrals — paginated list of this Leader's registrations.

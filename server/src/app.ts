@@ -16,6 +16,7 @@ import authRoutes from './routes/auth';
 import referralRoutes from './routes/referrals';
 import leaderRoutes from './routes/leader';
 import adminRoutes from './routes/admin';
+import adminMemberBridgeRoutes from './routes/adminMemberBridge';
 import publicSettingsRoutes from './routes/publicSettings';
 import contentPagesRoutes from './routes/contentPages';
 import contactRoutes from './routes/contact';
@@ -102,6 +103,7 @@ export function createApp() {
   app.use('/api/referrals', referralRoutes);
   app.use('/api/leader', leaderRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/admin', adminMemberBridgeRoutes);
   app.use('/api/settings', publicSettingsRoutes);
   app.use('/api/content-pages', contentPagesRoutes);
   app.use('/api/contact', contactRoutes);
