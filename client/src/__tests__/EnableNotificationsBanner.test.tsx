@@ -57,11 +57,19 @@ describe('EnableNotificationsBanner', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders nothing once permission has already been granted or denied', () => {
+  it('renders nothing once permission has already been granted', () => {
     mockNotificationGlobal('granted', 'granted');
     mockPushPlumbing();
     const { container } = render(<EnableNotificationsBanner />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('keeps showing a "blocked" message (no button) when permission was already denied at the browser level', () => {
+    mockNotificationGlobal('denied', 'denied');
+    mockPushPlumbing();
+    render(<EnableNotificationsBanner />);
+    expect(screen.getByText(/blocked on this device/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Turn on notifications' })).not.toBeInTheDocument();
   });
 
   it('prompts, subscribes, and hides itself once the member enables notifications', async () => {
@@ -93,7 +101,7 @@ describe('EnableNotificationsBanner', () => {
     expect(await screen.findByText('Could not turn on notifications. Please try again.')).toBeInTheDocument();
   });
 
-  it('hides itself (without subscribing) when the member denies the browser permission prompt', async () => {
+  it('switches to the "blocked" message (no button) when the member denies the browser permission prompt', async () => {
     mockNotificationGlobal('default', 'denied');
     mockPushPlumbing();
 
@@ -103,9 +111,10 @@ describe('EnableNotificationsBanner', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Turn on notifications' })).not.toBeInTheDocument();
     });
+    expect(screen.getByText(/blocked on this device/)).toBeInTheDocument();
   });
 
-  it('can be dismissed, and stays dismissed across remounts', async () => {
+  it('can be dismissed for the current visit, but reappears on the next visit (remount)', async () => {
     mockNotificationGlobal('default', 'granted');
     mockPushPlumbing();
 
@@ -113,7 +122,7 @@ describe('EnableNotificationsBanner', () => {
     fireEvent.click(await screen.findByLabelText('Close'));
     unmount();
 
-    const { container: remounted } = render(<EnableNotificationsBanner />);
-    expect(remounted).toBeEmptyDOMElement();
+    render(<EnableNotificationsBanner />);
+    expect(await screen.findByRole('button', { name: 'Turn on notifications' })).toBeInTheDocument();
   });
 });

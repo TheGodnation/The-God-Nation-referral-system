@@ -1541,6 +1541,7 @@
     "enable_button": "Activer les notifications",
     "enabling": "Activation…",
     "enable_failed": "Impossible d’activer les notifications. Veuillez réessayer.",
+    "blocked_body": "Les notifications sont bloquées sur cet appareil. Pour les recevoir, ouvrez les réglages de votre téléphone ou navigateur pour ce site et autorisez les notifications.",
     "need_help": "Besoin d’aide ?",
     "area_leadership_assigned": "Vous êtes maintenant {{title}} pour {{area}}",
     "area_representation_request_declined": "Votre demande pour représenter {{area}} a été refusée"
