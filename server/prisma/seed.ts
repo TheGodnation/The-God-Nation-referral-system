@@ -37,15 +37,11 @@ async function main() {
   }
 
   // -------------------------------------------------------------------
-  // Default Settings row (WhatsApp URLs left empty until Admin configures)
+  // Default Settings row (left empty until Admin configures it)
   // -------------------------------------------------------------------
   await prisma.settings.upsert({
     where: { id: 'singleton' },
-    create: {
-      id: 'singleton',
-      whatsappUrlEn: process.env.SEED_WHATSAPP_URL_EN || 'https://chat.whatsapp.com/EXAMPLE-EN',
-      whatsappUrlFr: process.env.SEED_WHATSAPP_URL_FR || 'https://chat.whatsapp.com/EXAMPLE-FR',
-    },
+    create: { id: 'singleton' },
     update: {},
   });
 
