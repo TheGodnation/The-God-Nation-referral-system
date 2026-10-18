@@ -95,6 +95,18 @@ export function FollowUpsTab() {
   const [context, setContext] = useState<{ id: string; name: string } | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [bulkContext, setBulkContext] = useState<{ id: string; name: string } | null>(null);
+  const [bulkLeaders, setBulkLeaders] = useState<{ id: string; name: string }[]>([]);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkResult, setBulkResult] = useState<{
+    totalEligible: number;
+    totalAssigned: number;
+    skippedAlreadyFollowed: number;
+    perLeader: { followerId: string; count: number }[];
+  } | null>(null);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -166,6 +178,48 @@ export function FollowUpsTab() {
       load();
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : t('admin.followUps.create_failed'));
+    }
+  }
+
+  function addBulkLeader(item: { id: string; name: string }) {
+    if (bulkLeaders.some((l) => l.id === item.id)) return;
+    setBulkLeaders((prev) => [...prev, item]);
+  }
+
+  function removeBulkLeader(index: number) {
+    setBulkLeaders((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function resetBulkForm() {
+    setBulkContext(null);
+    setBulkLeaders([]);
+    setBulkError(null);
+    setBulkResult(null);
+  }
+
+  async function submitBulkDistribute() {
+    if (!bulkContext || bulkLeaders.length < 2) return;
+    setBulkSubmitting(true);
+    setBulkError(null);
+    setBulkResult(null);
+    try {
+      const res = await api.post<{
+        totalEligible: number;
+        totalAssigned: number;
+        skippedAlreadyFollowed: number;
+        perLeader: { followerId: string; count: number }[];
+      }>('/api/admin/follow-ups/bulk-distribute', {
+        contextType: 'COMMUNITY',
+        contextId: bulkContext.id,
+        followerPersonIds: bulkLeaders.map((l) => l.id),
+      });
+      setBulkResult(res);
+      setPage(1);
+      load();
+    } catch (err) {
+      setBulkError(err instanceof ApiError ? err.message : t('admin.followUps.bulk_failed'));
+    } finally {
+      setBulkSubmitting(false);
     }
   }
 
@@ -366,12 +420,137 @@ export function FollowUpsTab() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold text-brand-900">{t('admin.followUps.title')}</h2>
-        <button className="btn-primary px-4 py-2" onClick={() => setShowForm((v) => !v)}>
-          {t('admin.followUps.new_assignment')}
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="btn-secondary px-4 py-2"
+            onClick={() => {
+              setShowBulkForm((v) => !v);
+              setShowForm(false);
+            }}
+          >
+            {t('admin.followUps.bulk_cta')}
+          </button>
+          <button
+            className="btn-primary px-4 py-2"
+            onClick={() => {
+              setShowForm((v) => !v);
+              setShowBulkForm(false);
+            }}
+          >
+            {t('admin.followUps.new_assignment')}
+          </button>
+        </div>
       </div>
 
       <p className="mb-4 text-sm text-slate-500">{t('admin.followUps.description')}</p>
+
+      {showBulkForm && (
+        <div className="card mb-4 space-y-4">
+          <div>
+            <h3 className="font-semibold text-brand-900">{t('admin.followUps.bulk_title')}</h3>
+            <p className="text-sm text-slate-500">{t('admin.followUps.bulk_help')}</p>
+          </div>
+
+          <div>
+            <label className="label">{t('admin.followUps.bulk_community_label')}</label>
+            {bulkContext ? (
+              <p className="text-sm text-brand-900">
+                {bulkContext.name}{' '}
+                <button
+                  className="ml-2 text-xs text-slate-500 hover:underline"
+                  onClick={() => {
+                    setBulkContext(null);
+                    setBulkResult(null);
+                  }}
+                >
+                  {t('admin.roleAssignments.change')}
+                </button>
+              </p>
+            ) : (
+              <SearchPicker
+                placeholder={t('admin.people.search_community_placeholder') ?? ''}
+                searchPath="/api/admin/communities?search="
+                renderLabel={(c) => c.name}
+                actionLabel={t('admin.roleAssignments.select')}
+                searchButtonLabel={t('admin.people.search_button')}
+                onPick={(c) => {
+                  setBulkContext({ id: c.id, name: c.name });
+                  setBulkResult(null);
+                }}
+              />
+            )}
+          </div>
+
+          <div>
+            <label className="label">{t('admin.followUps.bulk_leaders_label')}</label>
+            {bulkLeaders.length > 0 && (
+              <ul className="mb-2 space-y-1">
+                {bulkLeaders.map((l, i) => (
+                  <li key={l.id} className="flex items-center justify-between text-sm">
+                    <span>{l.name}</span>
+                    <button type="button" className="text-xs text-red-700 hover:underline" onClick={() => removeBulkLeader(i)}>
+                      {t('admin.followUps.bulk_remove_leader')}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {bulkLeaders.length === 0 && <p className="mb-2 text-xs text-slate-400">{t('admin.followUps.bulk_no_leaders')}</p>}
+            <SearchPicker
+              placeholder={t('admin.roleAssignments.search_person_placeholder') ?? ''}
+              searchPath="/api/admin/people?search="
+              renderLabel={(p) => `${p.name} (${p.whatsappNumber})`}
+              actionLabel={t('admin.followUps.bulk_add_leader')}
+              searchButtonLabel={t('admin.people.search_button')}
+              onPick={(p) => addBulkLeader({ id: p.id, name: p.name })}
+            />
+          </div>
+
+          {bulkError && <p className="text-sm text-red-700">{bulkError}</p>}
+
+          {bulkResult && (
+            <div className="rounded-lg bg-brand-50 p-3 text-sm text-brand-900">
+              <p className="font-medium">
+                {t('admin.followUps.bulk_result_summary', {
+                  assigned: bulkResult.totalAssigned,
+                  skipped: bulkResult.skippedAlreadyFollowed,
+                })}
+              </p>
+              <ul className="mt-2 space-y-0.5">
+                {bulkResult.perLeader.map((pl) => {
+                  const name = bulkLeaders.find((l) => l.id === pl.followerId)?.name ?? pl.followerId;
+                  return (
+                    <li key={pl.followerId}>
+                      {t('admin.followUps.bulk_per_leader', { name, count: pl.count })}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!bulkContext || bulkLeaders.length < 2 || bulkSubmitting}
+              onClick={submitBulkDistribute}
+            >
+              {bulkSubmitting ? t('admin.followUps.bulk_submitting') : t('admin.followUps.bulk_submit')}
+            </button>
+            <button
+              type="button"
+              className="text-sm text-slate-500 hover:underline"
+              onClick={() => {
+                resetBulkForm();
+                setShowBulkForm(false);
+              }}
+            >
+              {t('admin.leaders.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mb-4 rounded-lg border border-slate-100 p-3">
         <h3 className="mb-2 font-medium text-brand-900">{t('admin.followUps.attention_title')}</h3>

@@ -284,6 +284,122 @@ router.post('/follow-ups', leadershipMutationLimiter, requireCsrf, asyncHandler(
   res.status(201).json(created);
 }));
 
+const bulkDistributeFollowUpsSchema = z.object({
+  contextType: z.enum(['COMMUNITY']),
+  contextId: z.string().min(1),
+  // At least two Leaders to split between — one Leader is just the ordinary
+  // single-assignment flow above. Capped generously; a real Community's
+  // Leader count is always small in practice.
+  followerPersonIds: z.array(z.string().min(1)).min(2).max(50),
+});
+
+// POST /api/admin/follow-ups/bulk-distribute — splits every currently
+// unfollowed ACTIVE member of a Community roughly evenly across a chosen
+// set of that Community's own Leaders, in one action, instead of Admin (or
+// each Leader) creating a hundred individual follow-ups by hand. Every
+// Leader passed in must hold an ACTIVE, EXACT-match SCOPED_LEADER role for
+// this Community — the same authorization already required of a Leader
+// creating their own follow-up (leaderFollowUps.ts) — so this never
+// silently hands someone's follow-up list to a person with no real
+// standing in that Community. Deliberately touches only people nobody is
+// already actively following: it fills the gap, it never reassigns or
+// duplicates an existing relationship (use reassign for that, one at a
+// time, exactly as before). A Leader never has anyone from the same
+// `followerPersonIds` batch assigned to them — Leaders split the group
+// between themselves, they don't end up following each other.
+router.post('/follow-ups/bulk-distribute', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = bulkDistributeFollowUpsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  }
+  const { contextType, contextId } = parsed.data;
+  const followerPersonIds = Array.from(new Set(parsed.data.followerPersonIds));
+  if (followerPersonIds.length < 2) {
+    return res.status(400).json({ error: 'Choose at least two Leaders to split between.' });
+  }
+
+  const targetExists = await contextTargetExists(contextType, contextId);
+  if (!targetExists) {
+    return res.status(400).json({ error: 'Community not found.' });
+  }
+
+  const roleChecks = await Promise.all(followerPersonIds.map((id) => findActiveScopedRole(id, contextType, contextId)));
+  const unqualified = followerPersonIds.filter((_, i) => !roleChecks[i]);
+  if (unqualified.length > 0) {
+    return res.status(400).json({
+      error: 'One or more selected Leaders do not have an active leadership role for this exact Community.',
+      unqualifiedPersonIds: unqualified,
+    });
+  }
+
+  const followerSet = new Set(followerPersonIds);
+  const [members, alreadyFollowed] = await Promise.all([
+    prisma.communityMembership.findMany({
+      where: { communityId: contextId, status: 'ACTIVE' },
+      include: { person: { select: { id: true, name: true } } },
+      orderBy: { person: { name: 'asc' } },
+    }),
+    prisma.followUpAssignment.findMany({
+      where: { contextType, contextId, status: 'ACTIVE' },
+      select: { followedPersonId: true },
+    }),
+  ]);
+  const alreadyFollowedSet = new Set(alreadyFollowed.map((a) => a.followedPersonId));
+
+  // The pool to split: every active member here, except the Leaders doing
+  // the following themselves, and anyone already actively followed by
+  // anyone (never double-assigned, never silently reassigned).
+  const pool = members.map((m) => m.person).filter((p) => !followerSet.has(p.id) && !alreadyFollowedSet.has(p.id));
+
+  if (pool.length === 0) {
+    return res.json({
+      totalEligible: 0,
+      totalAssigned: 0,
+      skippedAlreadyFollowed: alreadyFollowedSet.size,
+      perLeader: followerPersonIds.map((id) => ({ followerId: id, count: 0 })),
+    });
+  }
+
+  // Round-robin in a stable (alphabetical-by-name) order — splits as evenly
+  // as possible (off by at most one between any two Leaders), and running
+  // it again later only ever affects the newly-unfollowed remainder.
+  const perLeaderCounts = new Map(followerPersonIds.map((id) => [id, 0]));
+  const toCreate = pool.map((person, i) => {
+    const followerId = followerPersonIds[i % followerPersonIds.length];
+    perLeaderCounts.set(followerId, (perLeaderCounts.get(followerId) ?? 0) + 1);
+    return { followerId, followedPersonId: person.id };
+  });
+
+  const created = await prisma.$transaction(
+    toCreate.map((c) =>
+      prisma.followUpAssignment.create({
+        data: { followerId: c.followerId, followedPersonId: c.followedPersonId, contextType, contextId, assignedByUserId: req.user!.id },
+      }),
+    ),
+  );
+
+  for (const assignment of created) {
+    await getOrCreateFollowUpConversation(assignment.id);
+    await notifyFollowUpAssigned(assignment);
+  }
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'FOLLOW_UP_BULK_DISTRIBUTED',
+    targetType: 'Community',
+    targetId: contextId,
+    metadata: { followerPersonIds, totalAssigned: created.length },
+  });
+
+  res.status(201).json({
+    totalEligible: pool.length,
+    totalAssigned: created.length,
+    skippedAlreadyFollowed: alreadyFollowedSet.size,
+    perLeader: followerPersonIds.map((id) => ({ followerId: id, count: perLeaderCounts.get(id) ?? 0 })),
+  });
+}));
+
 const reassignSchema = z.object({ newFollowerId: z.string().min(1), closeReason: z.string().trim().max(1000).optional() });
 
 // POST /api/admin/follow-ups/:id/reassign — atomic: close old, create new,

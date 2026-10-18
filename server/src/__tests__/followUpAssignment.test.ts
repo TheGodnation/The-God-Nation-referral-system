@@ -342,3 +342,140 @@ describe('Phase 3D — FollowUpAssignment visibility', () => {
     expect(adminRes.status).toBe(401);
   });
 });
+
+describe('Admin — bulk-distributing follow-ups across a Community\'s Leaders', () => {
+  it('splits every unfollowed active member roughly evenly across the chosen Leaders', async () => {
+    const community = await makeCommunity('Bulk Community A');
+    const { agent, csrf } = await loginAsAdmin('bulk-admin-1@test.local');
+    const { person: leaderA } = await setupScopedLeader(30, { communityId: community.id });
+    const { person: leaderB } = await setupScopedLeader(31, { communityId: community.id });
+
+    const members = [];
+    for (let i = 0; i < 5; i++) {
+      const p = await makePerson(`+237675100${i}`, `Bulk Member ${i}`);
+      await prisma.communityMembership.create({ data: { personId: p.id, communityId: community.id } });
+      members.push(p);
+    }
+
+    const res = await agent
+      .post('/api/admin/follow-ups/bulk-distribute')
+      .set('X-CSRF-Token', csrf)
+      .send({ contextType: 'COMMUNITY', contextId: community.id, followerPersonIds: [leaderA.id, leaderB.id] });
+
+    expect(res.status).toBe(201);
+    expect(res.body.totalEligible).toBe(5);
+    expect(res.body.totalAssigned).toBe(5);
+    expect(res.body.skippedAlreadyFollowed).toBe(0);
+    const counts = res.body.perLeader.map((p: { count: number }) => p.count).sort();
+    expect(counts).toEqual([2, 3]); // off by at most one
+
+    const created = await prisma.followUpAssignment.findMany({ where: { contextId: community.id, status: 'ACTIVE' } });
+    expect(created.length).toBe(5);
+    expect(new Set(created.map((c) => c.followedPersonId))).toEqual(new Set(members.map((m) => m.id)));
+  });
+
+  it('never assigns a person who already has an active follower, and never assigns a Leader to follow another Leader in the same batch', async () => {
+    const community = await makeCommunity('Bulk Community B');
+    const { agent, csrf } = await loginAsAdmin('bulk-admin-2@test.local');
+    const { agent: leaderAgent, csrf: leaderCsrf, person: leaderA } = await setupScopedLeader(32, { communityId: community.id });
+    const { person: leaderB } = await setupScopedLeader(33, { communityId: community.id });
+
+    const alreadyFollowed = await makePerson('+237675200001', 'Already Followed');
+    await prisma.communityMembership.create({ data: { personId: alreadyFollowed.id, communityId: community.id } });
+    const fresh = await makePerson('+237675200002', 'Fresh Member');
+    await prisma.communityMembership.create({ data: { personId: fresh.id, communityId: community.id } });
+
+    // leaderA already follows `alreadyFollowed` before the bulk run.
+    const pre = await leaderAgent
+      .post('/api/leader/follow-ups')
+      .set('X-CSRF-Token', leaderCsrf)
+      .send({ followedPersonId: alreadyFollowed.id, contextType: 'COMMUNITY', contextId: community.id });
+    expect(pre.status).toBe(201);
+
+    const res = await agent
+      .post('/api/admin/follow-ups/bulk-distribute')
+      .set('X-CSRF-Token', csrf)
+      .send({ contextType: 'COMMUNITY', contextId: community.id, followerPersonIds: [leaderA.id, leaderB.id] });
+
+    expect(res.status).toBe(201);
+    // Only `fresh` was eligible — leaderA/leaderB are excluded as targets,
+    // and `alreadyFollowed` is skipped since someone already follows them.
+    expect(res.body.totalEligible).toBe(1);
+    expect(res.body.totalAssigned).toBe(1);
+    expect(res.body.skippedAlreadyFollowed).toBe(1);
+
+    const newAssignment = await prisma.followUpAssignment.findFirst({ where: { followedPersonId: fresh.id, status: 'ACTIVE' } });
+    expect(newAssignment).toBeTruthy();
+    expect([leaderA.id, leaderB.id]).toContain(newAssignment!.followerId);
+
+    // The pre-existing assignment is untouched.
+    const stillThere = await prisma.followUpAssignment.findUnique({ where: { id: pre.body.id } });
+    expect(stillThere!.status).toBe('ACTIVE');
+    expect(stillThere!.followerId).toBe(leaderA.id);
+  });
+
+  it('rejects a Leader who does not hold an active role for this exact Community', async () => {
+    const community = await makeCommunity('Bulk Community C');
+    const otherCommunity = await makeCommunity('Bulk Community C — other');
+    const { agent, csrf } = await loginAsAdmin('bulk-admin-3@test.local');
+    const { person: leaderInScope } = await setupScopedLeader(34, { communityId: community.id });
+    const { person: leaderOutOfScope } = await setupScopedLeader(35, { communityId: otherCommunity.id });
+
+    const res = await agent
+      .post('/api/admin/follow-ups/bulk-distribute')
+      .set('X-CSRF-Token', csrf)
+      .send({ contextType: 'COMMUNITY', contextId: community.id, followerPersonIds: [leaderInScope.id, leaderOutOfScope.id] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.unqualifiedPersonIds).toEqual([leaderOutOfScope.id]);
+  });
+
+  it('requires at least two Leaders', async () => {
+    const community = await makeCommunity('Bulk Community D');
+    const { agent, csrf } = await loginAsAdmin('bulk-admin-4@test.local');
+    const { person: leaderA } = await setupScopedLeader(36, { communityId: community.id });
+
+    const res = await agent
+      .post('/api/admin/follow-ups/bulk-distribute')
+      .set('X-CSRF-Token', csrf)
+      .send({ contextType: 'COMMUNITY', contextId: community.id, followerPersonIds: [leaderA.id] });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('is admin-only', async () => {
+    const community = await makeCommunity('Bulk Community E');
+    const { agent: leaderAgent, csrf: leaderCsrf, person: leaderA } = await setupScopedLeader(37, { communityId: community.id });
+    const { person: leaderB } = await setupScopedLeader(38, { communityId: community.id });
+
+    const res = await leaderAgent
+      .post('/api/admin/follow-ups/bulk-distribute')
+      .set('X-CSRF-Token', leaderCsrf)
+      .send({ contextType: 'COMMUNITY', contextId: community.id, followerPersonIds: [leaderA.id, leaderB.id] });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('reports zero assigned (never errors) when every member already has a follower', async () => {
+    const community = await makeCommunity('Bulk Community F');
+    const { agent, csrf } = await loginAsAdmin('bulk-admin-5@test.local');
+    const { agent: leaderAgent, csrf: leaderCsrf, person: leaderA } = await setupScopedLeader(39, { communityId: community.id });
+    const { person: leaderB } = await setupScopedLeader(40, { communityId: community.id });
+
+    const onlyMember = await makePerson('+237675300001', 'Only Member');
+    await prisma.communityMembership.create({ data: { personId: onlyMember.id, communityId: community.id } });
+    await leaderAgent
+      .post('/api/leader/follow-ups')
+      .set('X-CSRF-Token', leaderCsrf)
+      .send({ followedPersonId: onlyMember.id, contextType: 'COMMUNITY', contextId: community.id });
+
+    const res = await agent
+      .post('/api/admin/follow-ups/bulk-distribute')
+      .set('X-CSRF-Token', csrf)
+      .send({ contextType: 'COMMUNITY', contextId: community.id, followerPersonIds: [leaderA.id, leaderB.id] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.totalAssigned).toBe(0);
+    expect(res.body.skippedAlreadyFollowed).toBe(1);
+  });
+});

@@ -99,3 +99,78 @@ describe('FollowUpsTab (Admin) — Geography Retirement Step 5A', () => {
     });
   });
 });
+
+describe('FollowUpsTab (Admin) — bulk distribute', () => {
+  it('picks a Community and at least two Leaders, submits, and shows the result summary', async () => {
+    mockFetchByUrl({
+      '/api/admin/follow-ups': { status: 200, body: { items: [], pagination: { totalPages: 1 } } },
+      '/api/admin/communities?search=': { status: 200, body: { items: [{ id: 'community-1', name: 'Youth Ministry' }] } },
+      '/api/admin/people?search=leader1': { status: 200, body: { items: [{ id: 'leader-1', name: 'Leader One', whatsappNumber: '+237600000001' }] } },
+      '/api/admin/people?search=leader2': { status: 200, body: { items: [{ id: 'leader-2', name: 'Leader Two', whatsappNumber: '+237600000002' }] } },
+      '/api/admin/follow-ups/bulk-distribute': {
+        status: 201,
+        body: {
+          totalEligible: 3,
+          totalAssigned: 3,
+          skippedAlreadyFollowed: 1,
+          perLeader: [
+            { followerId: 'leader-1', count: 2 },
+            { followerId: 'leader-2', count: 1 },
+          ],
+        },
+      },
+    });
+
+    render(<FollowUpsTab />);
+    fireEvent.click(await screen.findByText('Bulk Distribute'));
+
+    // Both the Community picker and the Leaders picker are visible at once
+    // here, each with their own "Search" button — the Community one is
+    // first in DOM order. Each selection is targeted via the option it
+    // produces rather than a global combobox count, since this page also
+    // always renders its own unrelated status-filter <select>.
+    fireEvent.change(screen.getByPlaceholderText('Search communities by name'), { target: { value: 'Youth' } });
+    fireEvent.click(screen.getAllByText('Search')[0]);
+    const communityOption = await screen.findByRole('option', { name: 'Youth Ministry' });
+    fireEvent.change(communityOption.closest('select')!, { target: { value: 'community-1' } });
+    fireEvent.click(screen.getByText('Select'));
+
+    const leaderInput = screen.getByPlaceholderText('Search by name or WhatsApp number');
+    fireEvent.change(leaderInput, { target: { value: 'leader1' } });
+    fireEvent.click(screen.getByText('Search'));
+    const leaderOneOption = await screen.findByRole('option', { name: 'Leader One (+237600000001)' });
+    fireEvent.change(leaderOneOption.closest('select')!, { target: { value: 'leader-1' } });
+    fireEvent.click(screen.getByText('+ Add Leader'));
+    await screen.findByText('Leader One');
+
+    fireEvent.change(leaderInput, { target: { value: 'leader2' } });
+    fireEvent.click(screen.getByText('Search'));
+    const leaderTwoOption = await screen.findByRole('option', { name: 'Leader Two (+237600000002)' });
+    fireEvent.change(leaderTwoOption.closest('select')!, { target: { value: 'leader-2' } });
+    fireEvent.click(screen.getByText('+ Add Leader'));
+    await screen.findByText('Leader Two');
+
+    fireEvent.click(screen.getByText('Distribute'));
+
+    await waitFor(() => {
+      const call = calls.find((c) => c.method === 'POST' && c.url === '/api/admin/follow-ups/bulk-distribute');
+      expect(call).toBeTruthy();
+      expect(call!.body).toEqual({ contextType: 'COMMUNITY', contextId: 'community-1', followerPersonIds: ['leader-1', 'leader-2'] });
+    });
+
+    expect(await screen.findByText('3 follow-ups created. 1 people already had a follower and were left unchanged.')).toBeInTheDocument();
+    expect(screen.getByText('Leader One: 2')).toBeInTheDocument();
+    expect(screen.getByText('Leader Two: 1')).toBeInTheDocument();
+  });
+
+  it('disables Distribute until a Community and at least two Leaders are chosen', async () => {
+    mockFetchByUrl({
+      '/api/admin/follow-ups': { status: 200, body: { items: [], pagination: { totalPages: 1 } } },
+    });
+
+    render(<FollowUpsTab />);
+    fireEvent.click(await screen.findByText('Bulk Distribute'));
+
+    expect(screen.getByText('Distribute')).toBeDisabled();
+  });
+});
