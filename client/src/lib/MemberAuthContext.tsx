@@ -48,14 +48,25 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
   async function refresh() {
     setLoading(true);
     try {
-      const res = await api.get<{ member: CurrentMember | null }>('/api/member/auth/me');
+      let res: { member: CurrentMember | null };
+      try {
+        res = await api.get<{ member: CurrentMember | null }>('/api/member/auth/me');
+      } catch {
+        // One immediate retry: the server has an intermittent, momentary
+        // database reconnect blip (recurring "Error in PostgreSQL
+        // connection: Closed" on the server) that clears itself within a
+        // second. Without this, a first page load that happens to land on
+        // that exact instant leaves `member` stuck at null for the whole
+        // visit — nothing else ever calls refresh() again.
+        await new Promise((r) => setTimeout(r, 800));
+        res = await api.get<{ member: CurrentMember | null }>('/api/member/auth/me');
+      }
       // GET /api/member/auth/me never 401s — "not signed in" always comes
       // back as a normal 200 with member: null, handled right here. So
-      // anything reaching the catch below is a transient failure (a
-      // network blip, or a momentary database hiccup surfacing as a 500),
-      // never a real "you are logged out" signal — it must not bounce an
-      // already-signed-in member to the login screen and discard whatever
-      // they were in the middle of doing.
+      // anything reaching the catch below (after the retry above also
+      // failed) is a transient failure, never a real "you are logged out"
+      // signal — it must not bounce an already-signed-in member to the
+      // login screen and discard whatever they were in the middle of doing.
       setMember(res.member);
     } catch {
       // Intentionally left as-is: keep whatever `member` we already had.
