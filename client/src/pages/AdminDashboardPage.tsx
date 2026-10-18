@@ -618,8 +618,15 @@ function AdminMemberBridgeCard() {
     );
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  // A plain async handler on the button's onClick, deliberately not a
+  // <form onSubmit>: this card is rendered inside SettingsTab's own outer
+  // <form> (the "Save Settings" form). A nested <form> is invalid HTML, and
+  // in practice its 'submit' event bubbles up to that OUTER form's onSubmit
+  // too — so clicking "Create" here was also silently triggering a Save
+  // Settings submission, and the one browser-level symptom anyone could see
+  // (the page settling on whatever that outer handler left it on) had
+  // nothing to do with whether this card's own request even completed.
+  async function submit() {
     setError(null);
     if (password.length < 8) {
       setError(t('admin.settings.bridge_password_hint'));
@@ -645,7 +652,7 @@ function AdminMemberBridgeCard() {
           {t('admin.settings.bridge_cta')}
         </button>
       ) : (
-        <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
+        <div className="flex flex-wrap items-end gap-2">
           <div>
             <label className="label" htmlFor="admin-bridge-whatsapp">{t('admin.settings.bridge_whatsapp_label')}</label>
             <input
@@ -660,10 +667,10 @@ function AdminMemberBridgeCard() {
             <label className="label" htmlFor="admin-bridge-password">{t('admin.settings.bridge_password_label')}</label>
             <PasswordInput id="admin-bridge-password" value={password} onChange={setPassword} autoComplete="new-password" minLength={8} />
           </div>
-          <button type="submit" className="btn-primary" disabled={busy}>
+          <button type="button" className="btn-primary" disabled={busy} onClick={() => void submit()}>
             {t('admin.settings.bridge_submit')}
           </button>
-        </form>
+        </div>
       )}
       {error && <p className="text-sm text-red-700">{error}</p>}
     </div>
