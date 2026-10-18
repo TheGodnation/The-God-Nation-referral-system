@@ -1020,7 +1020,10 @@
       "placement_tag_region": "Région",
       "placement_tag_shown": "Localisation : {{place}}",
       "placement_tag_none": "Aucune localisation",
-      "placement_tag_whole_country": "Tout le pays"
+      "placement_tag_whole_country": "Tout le pays",
+      "auto_placement_label": "Recevoir automatiquement les nouveaux inscrits",
+      "auto_placement_help": "Activé : ce groupe fait partie de ceux où les nouveaux inscrits peuvent atterrir automatiquement. Désactivé : il ne reçoit que les membres que vous y ajoutez vous-même — utile pour un sous-groupe « Leaders seulement » ou « Prière » qui ne doit pas absorber chaque nouvel inscrit. Indépendant du fait que ce groupe ait lui-même des sous-groupes.",
+      "table_auto_join": "Adhésion auto"
     },
     "devotionals": {
       "title": "Dévotions",

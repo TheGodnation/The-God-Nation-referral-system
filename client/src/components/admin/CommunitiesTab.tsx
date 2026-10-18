@@ -14,6 +14,11 @@ interface CommunityNode {
   parentId: string | null;
   name: string;
   active: boolean;
+  // Whether this group currently receives automatically-placed newcomers —
+  // Admin-set, independent of whether the group has children (see
+  // server/src/lib/placement.ts). Lets a mother group grow sub-groups
+  // (Leaders only, Prayer, etc.) without losing its own open-group status.
+  autoPlacementEligible: boolean;
   postingPolicy: PostingPolicy;
   // Optional location tag used when new members are placed "by location".
   placementCountry?: string | null;
@@ -44,10 +49,12 @@ export function CommunitiesTab() {
   const [totalPages, setTotalPages] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
+  const [autoPlacementEligible, setAutoPlacementEligible] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editParentId, setEditParentId] = useState<string | null>(null);
   const [editParentName, setEditParentName] = useState('');
+  const [editAutoPlacementEligible, setEditAutoPlacementEligible] = useState(true);
   const [editPlacementCountry, setEditPlacementCountry] = useState('');
   const [editPlacementRegion, setEditPlacementRegion] = useState('');
   const [placementMode, setPlacementMode] = useState<PlacementMode | null>(null);
@@ -146,8 +153,9 @@ export function CommunitiesTab() {
     e.preventDefault();
     setError(null);
     try {
-      await api.post('/api/admin/communities', { name, parentId: parentId ?? undefined });
+      await api.post('/api/admin/communities', { name, parentId: parentId ?? undefined, autoPlacementEligible });
       setName('');
+      setAutoPlacementEligible(true);
       setShowForm(false);
       load();
     } catch (err) {
@@ -161,6 +169,7 @@ export function CommunitiesTab() {
     setEditName(node.name);
     setEditParentId(node.parentId);
     setEditParentName(node.parent?.name ?? '');
+    setEditAutoPlacementEligible(node.autoPlacementEligible);
     setEditPlacementCountry(node.placementCountry ?? '');
     setEditPlacementRegion(node.placementRegion ?? '');
   }
@@ -173,6 +182,7 @@ export function CommunitiesTab() {
       await api.patch(`/api/admin/communities/${editingId}`, {
         name: editName,
         parentId: editParentId,
+        autoPlacementEligible: editAutoPlacementEligible,
         placementCountry: editPlacementCountry,
         placementRegion: editPlacementRegion,
       });
@@ -304,6 +314,18 @@ export function CommunitiesTab() {
             onChange={(e) => setName(e.target.value)}
             required
           />
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={autoPlacementEligible}
+              onChange={(e) => setAutoPlacementEligible(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium text-slate-800">{t('admin.communities.auto_placement_label')}</span>
+              <span className="block text-slate-500">{t('admin.communities.auto_placement_help')}</span>
+            </span>
+          </label>
           {error && <p className="text-sm text-red-700">{error}</p>}
           <button className="btn-primary" type="submit">
             {t('admin.communities.create')}
@@ -343,6 +365,18 @@ export function CommunitiesTab() {
               </button>
             )}
           </div>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={editAutoPlacementEligible}
+              onChange={(e) => setEditAutoPlacementEligible(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium text-slate-800">{t('admin.communities.auto_placement_label')}</span>
+              <span className="block text-slate-500">{t('admin.communities.auto_placement_help')}</span>
+            </span>
+          </label>
           <div>
             <label className="label">{t('admin.communities.placement_tag_label')}</label>
             <p className="mb-2 text-xs text-slate-500">{t('admin.communities.placement_tag_help')}</p>
@@ -403,6 +437,7 @@ export function CommunitiesTab() {
               <th className="py-2 pr-4">{t('admin.communities.table_name')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_generation')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_active')}</th>
+              <th className="py-2 pr-4">{t('admin.communities.table_auto_join')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_posting')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_members')}</th>
               <th className="py-2 pr-4">{t('admin.communities.table_children')}</th>
@@ -456,6 +491,9 @@ export function CommunitiesTab() {
                     {node.active ? t('admin.communities.yes') : t('admin.communities.no')}
                   </td>
                   <td className="py-2 pr-4">
+                    {node.autoPlacementEligible ? t('admin.communities.yes') : t('admin.communities.no')}
+                  </td>
+                  <td className="py-2 pr-4">
                     <p>
                       {node.postingPolicy === 'LEADERS_ONLY'
                         ? t('admin.communities.posting_policy_leaders_only')
@@ -481,14 +519,14 @@ export function CommunitiesTab() {
                 </tr>
                 {detailsId === node.id && (
                   <tr key={`${node.id}-details`} className="border-b border-slate-50">
-                    <td colSpan={7} className="p-3">
+                    <td colSpan={8} className="p-3">
                       <GroupDetailsEditor communityId={node.id} communityName={node.name} />
                     </td>
                   </tr>
                 )}
                 {oversightId === node.id && (
                   <tr key={`${node.id}-oversight`} className="border-b border-slate-50">
-                    <td colSpan={7} className="p-3">
+                    <td colSpan={8} className="p-3">
                       <CentralAuthorityConversationOversight
                         messagesUrl={`/api/admin/communities/${node.id}/conversation/messages`}
                       />
@@ -499,7 +537,7 @@ export function CommunitiesTab() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-4 text-center text-slate-400">
+                <td colSpan={8} className="py-4 text-center text-slate-400">
                   {t('admin.communities.no_communities')}
                 </td>
               </tr>

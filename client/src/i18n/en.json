@@ -1020,7 +1020,10 @@
       "placement_tag_region": "Region",
       "placement_tag_shown": "Location: {{place}}",
       "placement_tag_none": "No location tag",
-      "placement_tag_whole_country": "Whole country"
+      "placement_tag_whole_country": "Whole country",
+      "auto_placement_label": "Automatically receive new joiners",
+      "auto_placement_help": "On: this group is in the pool newcomers can land in automatically. Off: it only gains members you add yourself — useful for a Leaders-only or Prayer sub-group that shouldn't absorb every newcomer. Independent of whether the group has sub-groups of its own.",
+      "table_auto_join": "Auto-join"
     },
     "devotionals": {
       "title": "Devotionals",

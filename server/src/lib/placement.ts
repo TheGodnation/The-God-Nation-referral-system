@@ -4,11 +4,16 @@ import { getDescendantCommunityIds, getHeadquartersCommunityId } from './tree';
 // ---------------------------------------------------------------------------
 // Automatic group placement for newly signed-up members.
 //
-// The Headquarters tree grows 1 -> 2 -> 4 -> 8 ... as Central Authority
-// creates child groups. The groups that receive newcomers are the "open"
-// groups: every ACTIVE group in the Headquarters tree that has no ACTIVE
-// child of its own (the newest generation). While Headquarters has no
-// children yet, Headquarters itself is the only open group.
+// The groups that receive newcomers are the "open" groups: every ACTIVE
+// group in the Headquarters tree with autoPlacementEligible = true. This is
+// an explicit, Admin-set flag on each Community — deliberately NOT derived
+// from tree position (it used to be "has no ACTIVE child of its own," which
+// meant a mother group silently lost newcomers the instant it grew its
+// first sub-group, e.g. a "Leaders only" or "Prayer" group meant only for
+// people already inside it). A group keeps or loses open status purely by
+// Admin's own choice now, independent of how many children it has. While
+// Headquarters has no other eligible group yet, Headquarters itself is the
+// only open group (its own default is true).
 //
 // Two modes (Settings.placementMode):
 //  - SMALLEST_GROUP: the open group with the fewest ACTIVE members.
@@ -37,37 +42,29 @@ function norm(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase();
 }
 
-/** Every ACTIVE group in the Headquarters tree with no ACTIVE child. */
+/** Every ACTIVE, autoPlacementEligible group in the Headquarters tree. */
 async function findOpenGroups(headquartersId: string): Promise<OpenGroup[]> {
   const treeIds = await getDescendantCommunityIds(headquartersId);
   const groups = await prisma.community.findMany({
-    where: { id: { in: treeIds } },
+    where: { id: { in: treeIds }, active: true, autoPlacementEligible: true },
     select: {
       id: true,
-      parentId: true,
-      active: true,
       placementCountry: true,
       placementRegion: true,
       createdAt: true,
     },
   });
 
-  const hasActiveChild = new Set<string>();
-  for (const g of groups) {
-    if (g.active && g.parentId) hasActiveChild.add(g.parentId);
-  }
-
-  const open = groups.filter((g) => g.active && !hasActiveChild.has(g.id));
-  if (open.length === 0) return [];
+  if (groups.length === 0) return [];
 
   const counts = await prisma.communityMembership.groupBy({
     by: ['communityId'],
-    where: { communityId: { in: open.map((g) => g.id) }, status: 'ACTIVE' },
+    where: { communityId: { in: groups.map((g) => g.id) }, status: 'ACTIVE' },
     _count: { _all: true },
   });
   const countById = new Map(counts.map((c) => [c.communityId, c._count._all]));
 
-  return open.map((g) => ({
+  return groups.map((g) => ({
     id: g.id,
     placementCountry: g.placementCountry,
     placementRegion: g.placementRegion,

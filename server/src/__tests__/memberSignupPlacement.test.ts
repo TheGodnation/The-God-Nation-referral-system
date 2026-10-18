@@ -190,16 +190,31 @@ describe('Member sign-up — step 2 (details form) and automatic placement', () 
     expect(ok.status).toBe(200);
   });
 
-  it('places newcomers in the smallest child group once Headquarters has children', async () => {
+  it('places newcomers in the smallest child group once Headquarters has children and is itself turned off', async () => {
     const hq = await makeHeadquarters();
     const a = await prisma.community.create({ data: { name: 'Group A', parentId: hq.id } });
     const b = await prisma.community.create({ data: { name: 'Group B', parentId: hq.id } });
+    // Replicates the classic "grew too big, opened a new branch" workflow:
+    // Admin explicitly turns the new children on and the old parent off.
+    await prisma.community.update({ where: { id: hq.id }, data: { autoPlacementEligible: false } });
     await addMembers(a.id, 3, 'AAA');
     await addMembers(b.id, 1, 'BBB');
 
     const { agent, csrf } = await signupAndSignIn('smallest@example.com', '+237670102005');
     const res = await agent.post('/api/member/auth/complete-profile').set('X-CSRF-Token', csrf).send(CAMEROON_DETAILS);
     expect(res.body.community.id).toBe(b.id);
+  });
+
+  it('keeps placing newcomers in Headquarters even after it grows a sub-group not meant to receive them', async () => {
+    const hq = await makeHeadquarters();
+    // A "Leaders only" sub-group: a real child of Headquarters, but
+    // explicitly excluded from automatic placement — Headquarters itself
+    // keeps its default (true) and must keep receiving newcomers.
+    await prisma.community.create({ data: { name: 'Leaders only', parentId: hq.id, autoPlacementEligible: false } });
+
+    const { agent, csrf } = await signupAndSignIn('stays-in-hq@example.com', '+237670102099');
+    const res = await agent.post('/api/member/auth/complete-profile').set('X-CSRF-Token', csrf).send(CAMEROON_DETAILS);
+    expect(res.body.community.id).toBe(hq.id);
   });
 
   it('never moves a member who already has a group when they update details again', async () => {

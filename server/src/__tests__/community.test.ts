@@ -103,6 +103,25 @@ describe('Phase 3A — Community hierarchy and membership', () => {
     expect(reactivated.body.active).toBe(true);
   });
 
+  it('defaults autoPlacementEligible to true, and can be set at create or patch time', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-community-eligible@test.local');
+
+    const defaulted = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Open by default' });
+    expect(defaulted.body.autoPlacementEligible).toBe(true);
+
+    const subgroup = await agent
+      .post('/api/admin/communities')
+      .set('X-CSRF-Token', csrf)
+      .send({ name: 'Leaders only', parentId: defaulted.body.id, autoPlacementEligible: false });
+    expect(subgroup.body.autoPlacementEligible).toBe(false);
+
+    const toggled = await agent
+      .patch(`/api/admin/communities/${subgroup.body.id}`)
+      .set('X-CSRF-Token', csrf)
+      .send({ autoPlacementEligible: true });
+    expect(toggled.body.autoPlacementEligible).toBe(true);
+  });
+
   it('creates a CommunityMembership, prevents a duplicate active membership, and changes status', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-membership@test.local');
     const community = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Membership Community' });

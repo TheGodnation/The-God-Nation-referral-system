@@ -196,6 +196,126 @@ describe('CommunitiesTab — membership export', () => {
   });
 });
 
+describe('CommunitiesTab — automatic-placement eligibility', () => {
+  it('defaults the create form\'s checkbox to checked, and sends it on create', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: emptyList },
+    });
+
+    render(<CommunitiesTab />);
+    await screen.findByText('No National Headquarters has been designated yet.');
+
+    fireEvent.click(screen.getByText('+ New Community'));
+    const checkbox = screen.getByRole('checkbox', { name: /Automatically receive new joiners/ }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+
+    fireEvent.change(screen.getByPlaceholderText('Community name'), { target: { value: 'Leaders only' } });
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(false);
+
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: emptyList },
+    });
+    fireEvent.click(screen.getByText('Create'));
+
+    await waitFor(() => {
+      const postCall = calls.find((c) => c.method === 'POST' && c.url.includes('/api/admin/communities'));
+      expect(postCall!.body).toEqual({ name: 'Leaders only', autoPlacementEligible: false });
+    });
+  });
+
+  it('shows the current auto-join status in the table, and a mother group keeps it even with a child', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': {
+        status: 200,
+        body: {
+          items: [
+            {
+              id: 'hq-1',
+              name: 'Headquarters',
+              active: true,
+              parentId: null,
+              autoPlacementEligible: true,
+              postingPolicy: 'EVERYONE',
+              generation: null,
+              _count: { children: 1, memberships: 0 },
+            },
+            {
+              id: 'sub-1',
+              name: 'Leaders only',
+              active: true,
+              parentId: 'hq-1',
+              autoPlacementEligible: false,
+              postingPolicy: 'EVERYONE',
+              generation: null,
+              _count: { children: 0, memberships: 0 },
+            },
+          ],
+          pagination: { totalPages: 1 },
+        },
+      },
+    });
+
+    render(<CommunitiesTab />);
+
+    await waitFor(() => expect(screen.getByText('Headquarters')).toBeInTheDocument());
+    expect(screen.getByText('Leaders only')).toBeInTheDocument();
+    // Headquarters stays "Yes" despite now having a child; the sub-group is "No".
+    const yesCells = screen.getAllByText('Yes');
+    const noCells = screen.getAllByText('No');
+    expect(yesCells.length).toBeGreaterThan(0);
+    expect(noCells.length).toBeGreaterThan(0);
+  });
+
+  it('can be toggled from the edit form, and persists the chosen value', async () => {
+    const oneCommunity = {
+      items: [
+        {
+          id: 'c-1',
+          name: 'Prayer group',
+          active: true,
+          parentId: null,
+          autoPlacementEligible: false,
+          postingPolicy: 'EVERYONE',
+          generation: null,
+          _count: { children: 0, memberships: 0 },
+        },
+      ],
+      pagination: { totalPages: 1 },
+    };
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: oneCommunity },
+    });
+
+    render(<CommunitiesTab />);
+    await waitFor(() => expect(screen.getByText('Prayer group')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Edit'));
+    const checkbox = screen.getByRole('checkbox', { name: /Automatically receive new joiners/ }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    fireEvent.click(checkbox);
+
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': {
+        status: 200,
+        body: { items: [{ ...oneCommunity.items[0], autoPlacementEligible: true }], pagination: { totalPages: 1 } },
+      },
+    });
+    fireEvent.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      const patchCall = calls.find((c) => c.method === 'PATCH' && c.url.includes('c-1'));
+      expect(patchCall).toBeTruthy();
+      expect((patchCall!.body as any).autoPlacementEligible).toBe(true);
+    });
+  });
+});
+
 describe('CommunitiesTab — Community Posting Policy', () => {
   const oneEveryoneCommunity = {
     items: [

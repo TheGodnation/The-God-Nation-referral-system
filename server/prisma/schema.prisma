@@ -785,6 +785,16 @@ model Community {
   // HeadquartersPost (a wholly separate model family with its own
   // Admin-only authorization).
   postingPolicy    CommunityPostingPolicy @default(EVERYONE)
+  // Whether this group currently accepts automatically-placed newcomers —
+  // set explicitly by Admin, completely independent of whether the group
+  // has children (see lib/placement.ts's findOpenGroups, the sole
+  // consumer). Replaces the old implicit rule ("only a leaf group is
+  // open"), which made a mother group lose newcomers the instant it grew
+  // its first sub-group. Defaults to true so a freshly created, childless
+  // community behaves as an open group unless Admin explicitly turns this
+  // off when creating a special-purpose sub-group (Leaders only, Prayer,
+  // etc.) that should never receive automatic placements.
+  autoPlacementEligible Boolean             @default(true)
   // Optional location tag used only by BY_LOCATION placement: newcomers
   // whose country (and region, when set) match go to this group first.
   placementCountry String?
