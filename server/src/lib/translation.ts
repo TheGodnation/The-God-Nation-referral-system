@@ -19,7 +19,9 @@ import { getObjectStream } from './storage';
 // translation to produce: whichever of the two a piece of text is NOT.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_MODEL = 'gemini-2.0-flash';
+// gemini-2.0-flash was retired by Google; gemini-3.8-flash is its
+// replacement per Gemini's own 404 response naming it directly.
+const GEMINI_MODEL = 'gemini-3.8-flash';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const REQUEST_TIMEOUT_MS = 20000;
 
