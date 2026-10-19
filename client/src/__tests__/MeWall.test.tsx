@@ -87,6 +87,17 @@ describe('Me wall', () => {
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/api/updates?authorPersonId=me1'))).toBe(true));
   });
 
+  it('tapping the cover picture zooms it full-screen, like Facebook', async () => {
+    mockFetch(baseRoutes());
+    renderAt('/member/me');
+    await screen.findByRole('heading', { name: 'Grace Ngwa' });
+    fireEvent.click(screen.getByRole('button', { name: "Grace Ngwa's cover picture" }));
+    const dialog = await screen.findByRole('dialog', { name: "Grace Ngwa's cover picture" });
+    expect(dialog.querySelector('img')).toHaveAttribute('src', '/api/people/me1/cover?v=1');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('Photos tab shows a grid of posted photos', async () => {
     mockFetch(
       baseRoutes({

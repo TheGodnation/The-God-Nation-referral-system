@@ -297,10 +297,15 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       id: m.id,
       senderName: m.sender.name,
       senderPhotoUrl: profilePhotoPath(m.sender),
+      // Tapping a sender's name/photo opens their profile wall, the same as
+      // everywhere else a name/photo is shown (members list, photo slider,
+      // directory) — all of which already reveal this same personId<->name
+      // mapping, so exposing it here tells a group member nothing they
+      // couldn't already see from who's in the group and what they posted.
+      senderPersonId: m.senderPersonId,
       // Phase 3M.8C — lets the client show its own "delete for me" action
       // only on the caller's own messages, mirroring isCommunityAdministrator
-      // being resolved server-side rather than trusted from the client. Never
-      // exposes senderPersonId itself.
+      // being resolved server-side rather than trusted from the client.
       isOwn: m.senderPersonId === personId,
       body: m.deletedAt ? null : m.body,
       createdAt: m.createdAt,

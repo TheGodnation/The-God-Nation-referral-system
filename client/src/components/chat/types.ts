@@ -25,6 +25,8 @@ export interface ChatMessage {
   id: string;
   senderName: string;
   senderPhotoUrl?: string | null;
+  /** Tapping the sender's photo/name opens /member/people/:id — absent for your own messages. */
+  senderPersonId?: string | null;
   isOwn: boolean;
   body: string | null;
   createdAt: string;

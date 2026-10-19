@@ -13,10 +13,12 @@ interface ReferredPerson {
   joinedAt: string;
 }
 
-// "My Referrals": a Member's own referral link, and everyone who joined
-// the app through it (auto-friended at signup — see memberAuth.ts). Mirrors
-// the Leader dashboard's Invite/Referrals panels, kept lightweight and
-// scoped to just the link and the list.
+// "My Ambassador Dashboard": a Member's own referral link, inviting someone
+// with it, and everyone who joined the app through it (auto-friended at
+// signup — see memberAuth.ts), framed as their "Kingdom Impact". Mirrors the
+// Leader dashboard's Invite/Referrals panels, kept lightweight and scoped to
+// just the link and the list — only the wording here is Ambassador-branded;
+// the Leader dashboard and the underlying role names are untouched.
 export function MemberReferralsPage() {
   const { t, i18n } = useTranslation();
   const [links, setLinks] = useState<{ en: string; fr: string } | null>(null);
@@ -57,12 +59,13 @@ export function MemberReferralsPage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-2xl px-4 py-8">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-1 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-brand-900">{t('myReferrals.title')}</h1>
           <Link to="/member/me" className="text-sm text-brand-700 underline">
             {t('myReferrals.back')}
           </Link>
         </div>
+        <p className="mb-4 text-sm italic text-brand-700">{t('myReferrals.tagline')}</p>
 
         <div className="space-y-6">
           <section className="card space-y-3">
@@ -72,19 +75,9 @@ export function MemberReferralsPage() {
               <>
                 <p className="break-all rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">{primaryLink}</p>
                 <div className="flex flex-wrap gap-2">
-                  {whatsappShareUrl && (
-                    <a href={whatsappShareUrl} target="_blank" rel="noreferrer" className="btn-primary bg-green-600 hover:bg-green-700">
-                      {t('myReferrals.share_whatsapp')}
-                    </a>
-                  )}
                   <button type="button" onClick={copyLink} className="btn-secondary">
                     {t('myReferrals.copy_link')}
                   </button>
-                  {typeof navigator !== 'undefined' && 'share' in navigator && (
-                    <button type="button" onClick={webShare} className="btn-secondary">
-                      {t('myReferrals.share_generic')}
-                    </button>
-                  )}
                 </div>
                 {copied && <p className="text-sm text-green-700">{t('myReferrals.link_copied')}</p>}
               </>
@@ -93,8 +86,28 @@ export function MemberReferralsPage() {
             )}
           </section>
 
+          {primaryLink && (
+            <section className="card space-y-3">
+              <h2 className="font-semibold text-brand-900">{t('myReferrals.invite_title')}</h2>
+              <p className="text-sm text-slate-500">{t('myReferrals.invite_help')}</p>
+              <div className="flex flex-wrap gap-2">
+                {whatsappShareUrl && (
+                  <a href={whatsappShareUrl} target="_blank" rel="noreferrer" className="btn-primary bg-green-600 hover:bg-green-700">
+                    {t('myReferrals.share_whatsapp')}
+                  </a>
+                )}
+                {typeof navigator !== 'undefined' && 'share' in navigator && (
+                  <button type="button" onClick={webShare} className="btn-secondary">
+                    {t('myReferrals.share_generic')}
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
+
           <section className="card space-y-2">
-            <h2 className="font-semibold text-brand-900">{t('myReferrals.list_title')}</h2>
+            <h2 className="font-semibold text-brand-900">{t('myReferrals.impact_title')}</h2>
+            {items && items.length > 0 && <p className="text-sm font-medium text-brand-700">{t('myReferrals.impact_count', { count: items.length })}</p>}
             {items === null ? (
               <p className="text-sm text-slate-400">{t('people.loading')}</p>
             ) : items.length === 0 ? (

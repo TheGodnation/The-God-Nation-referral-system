@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '../Avatar';
+import { PhotoLightbox } from '../PhotoLightbox';
 
 // The top of a profile wall, Facebook-style: a wide cover picture, a big
 // round profile picture overlapping it, the name and a short line about
@@ -33,6 +34,7 @@ export function WallHeader({
   const coverInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
   const [coverFailed, setCoverFailed] = useState(false);
+  const [zoom, setZoom] = useState<'cover' | 'photo' | null>(null);
 
   const showCover = coverUrl && !coverFailed;
 
@@ -40,12 +42,14 @@ export function WallHeader({
     <div className="overflow-hidden rounded-b-2xl bg-white shadow-sm sm:rounded-2xl">
       <div className="relative h-44 w-full bg-gradient-to-br from-brand-700 via-brand-500 to-amber-400 sm:h-56">
         {showCover && (
-          <img
-            src={coverUrl!}
-            alt={t('wall.cover_alt', { name }) ?? ''}
-            className="h-full w-full object-cover"
-            onError={() => setCoverFailed(true)}
-          />
+          <button type="button" onClick={() => setZoom('cover')} aria-label={t('wall.cover_alt', { name }) ?? ''} className="block h-full w-full">
+            <img
+              src={coverUrl!}
+              alt={t('wall.cover_alt', { name }) ?? ''}
+              className="h-full w-full object-cover"
+              onError={() => setCoverFailed(true)}
+            />
+          </button>
         )}
         {editable && (
           <>
@@ -76,9 +80,20 @@ export function WallHeader({
       <div className="px-4 pb-4">
         <div className="-mt-14 flex items-end justify-between gap-3">
           <div className="relative">
-            <span className="block rounded-full bg-white p-1 shadow">
-              <Avatar name={name} photoUrl={photoUrl} size={112} />
-            </span>
+            {photoUrl ? (
+              <button
+                type="button"
+                onClick={() => setZoom('photo')}
+                aria-label={t('wall.profile_photo_alt', { name }) ?? ''}
+                className="block rounded-full bg-white p-1 shadow"
+              >
+                <Avatar name={name} photoUrl={photoUrl} size={112} />
+              </button>
+            ) : (
+              <span className="block rounded-full bg-white p-1 shadow">
+                <Avatar name={name} photoUrl={photoUrl} size={112} />
+              </span>
+            )}
             {editable && (
               <>
                 <button
@@ -112,6 +127,13 @@ export function WallHeader({
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
         {children && <div className="mt-3">{children}</div>}
       </div>
+
+      {zoom === 'cover' && coverUrl && (
+        <PhotoLightbox url={coverUrl} alt={t('wall.cover_alt', { name }) ?? ''} onClose={() => setZoom(null)} />
+      )}
+      {zoom === 'photo' && photoUrl && (
+        <PhotoLightbox url={photoUrl} alt={t('wall.profile_photo_alt', { name }) ?? ''} onClose={() => setZoom(null)} />
+      )}
     </div>
   );
 }

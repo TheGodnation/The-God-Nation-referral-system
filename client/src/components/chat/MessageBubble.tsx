@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { Avatar } from '../Avatar';
 import { formatBytes } from '../../lib/attachmentLimits';
 import { getAttachmentUrl, useAttachmentUrl, useInView } from '../../lib/chatMedia';
@@ -266,7 +267,16 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
   return (
     <div id={`msg-${m.id}`} className={`group relative flex items-end gap-1.5 ${m.isOwn ? 'justify-end' : 'justify-start'}`}>
       {!m.isOwn && !privateChat && (
-        <span className="w-8 shrink-0">{showSender && <Avatar name={m.senderName} photoUrl={m.senderPhotoUrl} size={32} />}</span>
+        <span className="w-8 shrink-0">
+          {showSender &&
+            (m.senderPersonId ? (
+              <Link to={`/member/people/${m.senderPersonId}`} aria-label={m.senderName}>
+                <Avatar name={m.senderName} photoUrl={m.senderPhotoUrl} size={32} />
+              </Link>
+            ) : (
+              <Avatar name={m.senderName} photoUrl={m.senderPhotoUrl} size={32} />
+            ))}
+        </span>
       )}
 
       <span
@@ -295,7 +305,17 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
             m.isOwn ? 'rounded-br-sm bg-[#d9fdd3]' : 'rounded-bl-sm bg-white'
           } ${highlighted ? 'ring-2 ring-amber-400' : ''} ${m.pending ? 'opacity-70' : ''}`}
         >
-          {showSender && !m.isOwn && <p className={`mb-0.5 text-xs font-semibold ${nameColor(m.senderName)}`}>{m.senderName}</p>}
+          {showSender && !m.isOwn && (
+            <p className={`mb-0.5 text-xs font-semibold ${nameColor(m.senderName)}`}>
+              {m.senderPersonId ? (
+                <Link to={`/member/people/${m.senderPersonId}`} className="hover:underline">
+                  {m.senderName}
+                </Link>
+              ) : (
+                m.senderName
+              )}
+            </p>
+          )}
 
           {m.deleted ? (
             <p className="italic text-slate-500">

@@ -39,6 +39,7 @@ const messages = [
     id: 'm1',
     senderName: 'Ada Nkem',
     senderPhotoUrl: null,
+    senderPersonId: 'p-ada',
     isOwn: false,
     body: 'Who is coming on Sunday?',
     createdAt: now,
@@ -110,6 +111,17 @@ describe('WhatsApp-style group chat', () => {
     expect(screen.getByRole('button', { name: 'Play voice message' })).toBeInTheDocument();
     // Empty message box -> microphone button, like WhatsApp.
     expect(screen.getByRole('button', { name: /Tap to record a voice note/ })).toBeInTheDocument();
+  });
+
+  it('tapping a sender\'s name or photo in the chat opens their profile', async () => {
+    mockFetch(baseRoutes());
+    renderChat();
+    await screen.findByText('I am coming');
+    const nameLinks = screen.getAllByRole('link', { name: 'Ada Nkem' });
+    for (const link of nameLinks) expect(link).toHaveAttribute('href', '/member/people/p-ada');
+    // Ben Tabe's message has no senderPersonId in this fixture, so his name
+    // stays plain text, never a broken/empty link.
+    expect(screen.queryByRole('link', { name: 'Ben Tabe' })).not.toBeInTheDocument();
   });
 
   it('tapping my own reaction removes it', async () => {
