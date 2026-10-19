@@ -27,6 +27,8 @@ export function isTranslationConfigured(): boolean {
   return Boolean(GEMINI_API_KEY);
 }
 
+let warnedUnconfigured = false;
+
 // A conservative cutoff for inline audio (base64 adds ~33% to the raw
 // byte size) — comfortably under Gemini's inline-request size limit. A
 // voice note larger than this (attachmentPolicy.ts already caps audio at
@@ -35,7 +37,13 @@ export function isTranslationConfigured(): boolean {
 const MAX_INLINE_AUDIO_BYTES = 15 * 1024 * 1024;
 
 async function callGemini(contents: unknown[], schema: unknown): Promise<any | null> {
-  if (!GEMINI_API_KEY) return null;
+  if (!GEMINI_API_KEY) {
+    if (!warnedUnconfigured) {
+      warnedUnconfigured = true;
+      console.warn('[translation] GEMINI_API_KEY not configured — translation/transcription disabled');
+    }
+    return null;
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -48,12 +56,25 @@ async function callGemini(contents: unknown[], schema: unknown): Promise<any | n
       }),
       signal: controller.signal,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '');
+      console.error('[translation] Gemini responded with a non-OK status', { status: res.status, body: bodyText.slice(0, 500) });
+      return null;
+    }
     const data: any = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (typeof text !== 'string') return null;
-    return JSON.parse(text);
-  } catch {
+    if (typeof text !== 'string') {
+      console.error('[translation] Gemini response had no text part', { data: JSON.stringify(data).slice(0, 500) });
+      return null;
+    }
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      console.error('[translation] could not parse Gemini\'s JSON text', { text: text.slice(0, 500), error: err instanceof Error ? err.message : String(err) });
+      return null;
+    }
+  } catch (err) {
+    console.error('[translation] Gemini call threw', { error: err instanceof Error ? err.message : String(err) });
     return null;
   } finally {
     clearTimeout(timeout);
@@ -84,7 +105,7 @@ export interface TextTranslationResult {
  * configured, the text is empty, or the call fails for any reason.
  */
 export async function translateText(text: string): Promise<TextTranslationResult | null> {
-  if (!GEMINI_API_KEY || !text.trim()) return null;
+  if (!text.trim()) return null;
   const prompt =
     'Detect whether the following message is written in English or French, then translate it into ' +
     'the other of those two languages. Keep the tone, emoji and meaning natural; reply with the ' +
@@ -119,7 +140,6 @@ export interface AudioTranslationResult {
  * audio file over MAX_INLINE_AUDIO_BYTES).
  */
 export async function transcribeAndTranslateAudio(audioBase64: string, mimeType: string): Promise<AudioTranslationResult | null> {
-  if (!GEMINI_API_KEY) return null;
   // Rough check: base64 is ~4/3 the raw size.
   if (audioBase64.length * 0.75 > MAX_INLINE_AUDIO_BYTES) return null;
   const prompt =
@@ -175,10 +195,26 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
  * failure — no transcript, nothing thrown.
  */
 export async function transcribeAndStoreMessageAudio(messageId: string, storageKey: string, mimeType: string): Promise<void> {
-  if (!GEMINI_API_KEY) return;
-  const object = await getObjectStream({ storageKey }).catch(() => null);
+  // Skip the storage download entirely when unconfigured — no point
+  // fetching audio we can't transcribe. callGemini's own warning covers the
+  // text-translation path; this one is separate since a pure voice note has
+  // no body for that path to ever run.
+  if (!GEMINI_API_KEY) {
+    if (!warnedUnconfigured) {
+      warnedUnconfigured = true;
+      console.warn('[translation] GEMINI_API_KEY not configured — translation/transcription disabled');
+    }
+    return;
+  }
+  const object = await getObjectStream({ storageKey }).catch((err) => {
+    console.error('[translation] failed to read voice note from storage', { storageKey, error: err instanceof Error ? err.message : String(err) });
+    return null;
+  });
   if (!object) return;
-  if (object.contentLength && object.contentLength > MAX_INLINE_AUDIO_BYTES) return;
+  if (object.contentLength && object.contentLength > MAX_INLINE_AUDIO_BYTES) {
+    console.warn('[translation] voice note too large to transcribe inline', { storageKey, contentLength: object.contentLength });
+    return;
+  }
   const buffer = await streamToBuffer(object.body).catch(() => null);
   if (!buffer) return;
   const result = await transcribeAndTranslateAudio(buffer.toString('base64'), mimeType);

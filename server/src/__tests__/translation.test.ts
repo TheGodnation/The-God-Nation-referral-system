@@ -73,7 +73,7 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
 
   it('translateText returns null if Gemini responds with a non-OK status', async () => {
     const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({}) })));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 403, json: async () => ({}), text: async () => 'API key not valid' })));
     expect(await translation.translateText('Bonjour')).toBeNull();
   });
 
