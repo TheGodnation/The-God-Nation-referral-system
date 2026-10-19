@@ -113,6 +113,54 @@ describe('WhatsApp-style group chat', () => {
     expect(screen.getByRole('button', { name: /Tap to record a voice note/ })).toBeInTheDocument();
   });
 
+  it('shows a translated message with the original one tap away', async () => {
+    const translatedMessages = messages.map((m) =>
+      m.id === 'm1' ? { ...m, translation: { sourceLanguage: 'fr' as const, translatedBody: 'Who is coming on Sunday? (EN)' } } : m,
+    );
+    mockFetch(
+      baseRoutes({
+        [`GET /api/communities/${G}/conversation/messages`]: () => ({
+          body: { items: translatedMessages, hasMore: false, unreadCount: 0, isAdministrator: false, canPost: true },
+        }),
+      }),
+    );
+    renderChat();
+    expect(await screen.findByText('Who is coming on Sunday? (EN)')).toBeInTheDocument();
+    expect(screen.getByText('Translated from Français')).toBeInTheDocument();
+    // "Who is coming on Sunday?" (untranslated) still appears once, in m2's
+    // reply-quote preview of m1 — that preview always shows the real
+    // original body, never a translation. The main bubble itself must not
+    // also be showing it.
+    expect(screen.getAllByText('Who is coming on Sunday?')).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show original' }));
+    expect(screen.getAllByText('Who is coming on Sunday?')).toHaveLength(2);
+    expect(screen.queryByText('Who is coming on Sunday? (EN)')).not.toBeInTheDocument();
+  });
+
+  it('shows a voice note\'s translated transcript, with the original transcript one tap away', async () => {
+    const transcribedMessages = messages.map((m) =>
+      m.id === 'm3'
+        ? { ...m, transcript: { sourceLanguage: 'fr' as const, text: 'Please pray for the sick', translated: true, original: 'Priez pour les malades' } }
+        : m,
+    );
+    mockFetch(
+      baseRoutes({
+        [`GET /api/communities/${G}/conversation/messages`]: () => ({
+          body: { items: transcribedMessages, hasMore: false, unreadCount: 0, isAdministrator: false, canPost: true },
+        }),
+      }),
+    );
+    renderChat();
+    expect(await screen.findByText('Transcript')).toBeInTheDocument();
+    expect(screen.getByText('Please pray for the sick')).toBeInTheDocument();
+    expect(screen.getByText('Translated from Français')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show original transcript' }));
+    expect(screen.getByText('Priez pour les malades')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show translated transcript' })).toBeInTheDocument();
+  });
+
   it('tapping a sender\'s name or photo in the chat opens their profile', async () => {
     mockFetch(baseRoutes());
     renderChat();

@@ -14,10 +14,22 @@ vi.mock('../lib/storage', () => ({
   headObject: vi.fn(async () => null),
 }));
 
+// Route-wiring only — lib/translation.ts's own logic (Gemini calls,
+// language detection, the DB writes it makes) is covered in its own
+// translation.test.ts; here we only need to know the route calls it with
+// the right arguments. GEMINI_API_KEY isn't set in this test environment,
+// so the real function would no-op anyway (see lib/translation.ts's own
+// "unconfigured" behavior) — mocking makes that explicit and lets the
+// wiring test assert on the call itself, not on a live Gemini round-trip.
+vi.mock('../lib/translation', () => ({
+  translateAndStoreUpdatePost: vi.fn(async () => {}),
+}));
+
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import * as storage from '../lib/storage';
+import * as translationLib from '../lib/translation';
 import { parseYoutubeVideoId } from '../lib/updates';
 import { createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
@@ -259,6 +271,73 @@ describe('Updates feed — deleting (author, admin, assigned leaders)', () => {
       include: { photos: true },
     });
     expect((await a.agent.get(`/api/updates/photos/${p.photos[0].id}`)).status).toBe(404);
+  });
+});
+
+describe('Updates feed — auto-translation', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  // Simulates a translation that already completed in the background (see
+  // lib/translation.ts) — these tests are about the read-side display logic
+  // (updates.ts's own response mapping), not about actually calling Gemini.
+  async function markTranslated(postId: string, detectedLanguage: 'en' | 'fr', translatedBody: string) {
+    await prisma.updatePost.update({ where: { id: postId }, data: { detectedLanguage, translatedBody, translatedAt: new Date() } });
+  }
+
+  it('shows the translation (with the original still available) to a viewer whose language differs from the post', async () => {
+    const author = await loginAsMember('French Poster');
+    const reader = await loginAsMember('English Reader');
+    const { body } = await post(author.agent, author.csrf, { body: 'Que Dieu vous bénisse' });
+    await markTranslated(body.id, 'fr', 'God bless you');
+
+    const feed = await reader.agent.get('/api/updates');
+    expect(feed.body.items[0]).toMatchObject({
+      body: 'Que Dieu vous bénisse',
+      translation: { sourceLanguage: 'fr', translatedBody: 'God bless you' },
+    });
+  });
+
+  it('shows no translation to a viewer reading in the post\'s own language', async () => {
+    const author = await loginAsMember('French Poster 2');
+    const reader = await loginAsMember('French Reader');
+    await prisma.person.update({ where: { id: reader.person.id }, data: { preferredLanguage: 'fr' } });
+    const { body } = await post(author.agent, author.csrf, { body: 'Bonjour à tous' });
+    await markTranslated(body.id, 'fr', 'Hello everyone');
+
+    const feed = await reader.agent.get('/api/updates');
+    expect(feed.body.items[0].translation).toBeNull();
+  });
+
+  it('shows no translation yet when the background translation has not landed', async () => {
+    const author = await loginAsMember('French Poster 3');
+    const reader = await loginAsMember('English Reader 2');
+    const { body } = await post(author.agent, author.csrf, { body: 'Pas encore traduit' });
+
+    const feed = await reader.agent.get('/api/updates');
+    expect(feed.body.items[0].translation).toBeNull();
+  });
+
+  it('calls translateAndStoreUpdatePost with the new post\'s id and body when posting text', async () => {
+    const a = await loginAsMember('Wiring Poster');
+    const created = await post(a.agent, a.csrf, { body: 'Dieu merci' });
+    expect(translationLib.translateAndStoreUpdatePost).toHaveBeenCalledWith(created.body.id, 'Dieu merci');
+  });
+
+  it('never calls translateAndStoreUpdatePost for a photo/video-only post with no text', async () => {
+    const a = await loginAsMember('Wiring Poster 2');
+    await post(a.agent, a.csrf, { body: '', youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ' });
+    expect(translationLib.translateAndStoreUpdatePost).not.toHaveBeenCalled();
+  });
+
+  it('never exposes a translation for a deleted post', async () => {
+    const author = await loginAsMember('French Poster 4');
+    const reader = await loginAsMember('English Reader 3');
+    const { body } = await post(author.agent, author.csrf, { body: 'Supprimé plus tard' });
+    await markTranslated(body.id, 'fr', 'Deleted later');
+    await author.agent.delete(`/api/updates/${body.id}`).set('X-CSRF-Token', author.csrf);
+
+    const feed = await reader.agent.get('/api/updates');
+    expect(feed.body.items).toHaveLength(0);
   });
 });
 

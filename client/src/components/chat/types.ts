@@ -13,6 +13,25 @@ export interface ChatReaction {
   mine: boolean;
 }
 
+/** Present only once a background translation has landed, and only when it
+ * differs from the viewer's own language — see communityConversations.ts's
+ * own translationField(). */
+export interface ChatTranslation {
+  sourceLanguage: 'en' | 'fr';
+  translatedBody: string;
+}
+
+/** A voice note's transcript — shown whenever it's ready, regardless of
+ * language; `translated`/`original` only apply when the spoken language
+ * differs from the viewer's. See communityConversations.ts's own
+ * transcriptField(). */
+export interface ChatTranscript {
+  sourceLanguage: 'en' | 'fr';
+  text: string;
+  translated: boolean;
+  original: string | null;
+}
+
 export interface ChatReplyPreview {
   id: string;
   senderName: string;
@@ -46,6 +65,8 @@ export interface ChatMessage {
   edited?: boolean;
   /** A copy of a message from another chat — "↪ Forwarded". */
   forwarded?: boolean;
+  translation?: ChatTranslation | null;
+  transcript?: ChatTranscript | null;
 }
 
 /** Edit allowed for 15 minutes; delete for everyone for 2 days (like WhatsApp). */

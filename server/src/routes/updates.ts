@@ -30,6 +30,7 @@ import {
 } from '../lib/updates';
 import { getBlockedIds, getFriendIds } from '../lib/social';
 import { resolveAuthorPersonId, AuthorToggleError, getAuthorDisplay } from '../lib/authorToggle';
+import { translateAndStoreUpdatePost } from '../lib/translation';
 
 // ---------------------------------------------------------------------------
 // /api/updates — the community-wide Updates feed (see UpdatePost schema).
@@ -317,6 +318,14 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
       id: p.id,
       author: { personId: p.author.id, name: p.author.name, photoUrl: profilePhotoPath(p.author) },
       body: p.body,
+      // Auto-translation — only surfaced once a background translation has
+      // actually landed, and only when it differs from the viewer's own
+      // language (someone reading in the post's own language never sees
+      // this at all, same as today).
+      translation:
+        p.detectedLanguage && viewer.preferredLanguage && p.detectedLanguage !== viewer.preferredLanguage && p.translatedBody
+          ? { sourceLanguage: p.detectedLanguage, translatedBody: p.translatedBody }
+          : null,
       youtubeVideoId: p.youtubeVideoId,
       createdAt: p.createdAt,
       photos: p.photos.map((ph) => ({ id: ph.id, url: `/api/updates/photos/${ph.id}` })),
@@ -392,6 +401,14 @@ router.post('/', updatePostLimiter, requireCsrf, requireViewer, requirePerson, a
     },
     select: { id: true },
   });
+
+  // Fire-and-forget: never delays or can fail the post response. See
+  // translation.ts's own comment for the "best-effort, degrades silently"
+  // rule this follows.
+  if (d.body.trim()) {
+    void translateAndStoreUpdatePost(post.id, d.body).catch(() => {});
+  }
+
   res.status(201).json({ id: post.id });
 }));
 

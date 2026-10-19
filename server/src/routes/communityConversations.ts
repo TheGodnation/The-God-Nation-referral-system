@@ -40,6 +40,8 @@ import { profilePhotoPath, groupPhotoPath } from '../lib/profilePhoto';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping } from '../lib/presence';
 import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
 import { pushToPersons } from '../lib/push';
+import { translateAndStoreMessage, transcribeAndStoreMessageAudio } from '../lib/translation';
+import type { Language } from '@prisma/client';
 
 // WhatsApp-style quick reactions. A short fixed list keeps it simple and
 // stops anyone storing arbitrary text as a "reaction".
@@ -76,6 +78,43 @@ function replyPreview(r: ReplySource) {
     body: r.deletedAt ? null : r.body,
     deleted: Boolean(r.deletedAt),
     attachmentMimeType: r.deletedAt ? null : r.attachments[0]?.mimeType ?? null,
+  };
+}
+
+type TranslatableMessage = {
+  deletedAt: Date | null;
+  detectedLanguage: Language | null;
+  translatedBody: string | null;
+  transcribedLanguage: Language | null;
+  transcribedBody: string | null;
+  translatedTranscript: string | null;
+};
+
+// Only ever present once a background translation has actually landed, and
+// only when it differs from the viewer's own language — someone reading in
+// the message's own language never sees this, same as a post that needs no
+// translation at all. A moderated/deleted message never exposes it either,
+// same redaction rule as `body` itself.
+function translationField(m: TranslatableMessage, viewerLanguage: Language | null) {
+  if (m.deletedAt || !m.detectedLanguage || !viewerLanguage || m.detectedLanguage === viewerLanguage || !m.translatedBody) {
+    return null;
+  }
+  return { sourceLanguage: m.detectedLanguage, translatedBody: m.translatedBody };
+}
+
+// The transcript is shown whenever it's ready, regardless of language — it
+// has its own value (text you can read without playing the audio) even in
+// the viewer's own language. Only when the spoken language differs from the
+// viewer's is the shown text itself a translation, with the plain transcript
+// one tap away via `original`.
+function transcriptField(m: TranslatableMessage, viewerLanguage: Language | null) {
+  if (m.deletedAt || !m.transcribedLanguage || !m.transcribedBody) return null;
+  const needsTranslation = viewerLanguage && m.transcribedLanguage !== viewerLanguage && m.translatedTranscript;
+  return {
+    sourceLanguage: m.transcribedLanguage,
+    text: needsTranslation ? m.translatedTranscript! : m.transcribedBody,
+    translated: Boolean(needsTranslation),
+    original: needsTranslation ? m.transcribedBody : null,
   };
 }
 
@@ -276,11 +315,13 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
 
   // Ticks on the viewer's own messages, how many are online, and who is
   // typing — the WhatsApp details.
-  const [audience, reads] = await Promise.all([
+  const [audience, reads, viewerPerson] = await Promise.all([
     communityAudience(communityId),
     prisma.communityConversationRead.findMany({ where: { conversationId: conversation.id }, select: { personId: true, lastReadAt: true } }),
+    prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } }),
   ]);
   const readAtByPerson = new Map(reads.map((r) => [r.personId, r.lastReadAt]));
+  const viewerLanguage = viewerPerson?.preferredLanguage ?? null;
   const now = Date.now();
 
   res.json({
@@ -308,6 +349,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       // being resolved server-side rather than trusted from the client.
       isOwn: m.senderPersonId === personId,
       body: m.deletedAt ? null : m.body,
+      translation: translationField(m, viewerLanguage),
+      transcript: transcriptField(m, viewerLanguage),
       createdAt: m.createdAt,
       deleted: Boolean(m.deletedAt),
       // "This message was deleted" (by the sender) vs "removed" by a leader.
@@ -344,6 +387,11 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
               editedAt: true,
               body: true,
               senderPersonId: true,
+              detectedLanguage: true,
+              translatedBody: true,
+              transcribedLanguage: true,
+              transcribedBody: true,
+              translatedTranscript: true,
               reactions: { select: { emoji: true, personId: true } },
             },
           })
@@ -353,6 +401,12 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
           deletedBySender: m.deletedAt ? m.deletedByPersonId === m.senderPersonId : undefined,
           // An edited message's new text (only sent when it was edited).
           ...(m.editedAt && !m.deletedAt ? { edited: true, body: m.body } : {}),
+          // A translation/transcript that landed since the last poll — these
+          // are simply the current cached values, same as the main page's
+          // own mapping; a message not yet translated keeps polling null
+          // until it is.
+          translation: translationField(m, viewerLanguage),
+          transcript: transcriptField(m, viewerLanguage),
           reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, personId),
           status: m.senderPersonId === personId ? groupMessageReceipt(m, audience, readAtByPerson).status : undefined,
         }))
@@ -524,6 +578,20 @@ router.post(
         url: `/member/chats/group/${communityId}`,
       });
     })().catch(() => {});
+
+    // Auto-translation — fire-and-forget, same rule as the push block just
+    // above: never delays or can fail the message-send response. A text
+    // body gets translated; a voice-note attachment gets transcribed (and
+    // its transcript translated) — never both calls for the same message in
+    // practice (a voice note's `body` is empty), but nothing stops it if it
+    // ever is.
+    if (created.body) {
+      void translateAndStoreMessage(created.id, created.body).catch(() => {});
+    }
+    const audioAttachment = attachmentDescriptors.find((a) => a.mimeType.startsWith('audio/'));
+    if (audioAttachment) {
+      void transcribeAndStoreMessageAudio(created.id, audioAttachment.storageKey, audioAttachment.mimeType).catch(() => {});
+    }
 
     res.status(201).json({
       id: created.id,

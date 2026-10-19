@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, NetworkError } from './api';
-import type { ChatMessage, ChatReaction } from '../components/chat/types';
+import type { ChatMessage, ChatReaction, ChatTranslation, ChatTranscript } from '../components/chat/types';
 import type { OutgoingMessage } from '../components/chat/ChatComposer';
 
 // Helpers that keep the chats light on slow / expensive networks:
@@ -18,6 +18,8 @@ export interface RecentChange {
   body?: string | null;
   reactions?: ChatReaction[];
   status?: 'sent' | 'delivered' | 'read';
+  translation?: ChatTranslation | null;
+  transcript?: ChatTranscript | null;
 }
 
 /** Adds newly arrived messages after what we already have (no repeats);
@@ -41,6 +43,8 @@ export function applyRecent(prev: ChatMessage[], recent: RecentChange[] | undefi
       ...m,
       reactions: r.reactions ?? m.reactions,
       status: r.status ?? m.status,
+      translation: r.translation !== undefined ? r.translation : m.translation,
+      transcript: r.transcript !== undefined ? r.transcript : m.transcript,
       ...(r.edited && !m.deleted ? { edited: true, body: r.body ?? m.body } : {}),
       ...(r.deleted && !m.deleted
         ? { deleted: true, deletedBySender: r.deletedBySender, body: null, attachments: [], replyTo: null, reactions: [], edited: false, forwarded: false }
@@ -50,7 +54,9 @@ export function applyRecent(prev: ChatMessage[], recent: RecentChange[] | undefi
       updated.status !== m.status ||
       updated.deleted !== m.deleted ||
       updated.body !== m.body ||
-      JSON.stringify(updated.reactions ?? []) !== JSON.stringify(m.reactions ?? [])
+      JSON.stringify(updated.reactions ?? []) !== JSON.stringify(m.reactions ?? []) ||
+      JSON.stringify(updated.translation ?? null) !== JSON.stringify(m.translation ?? null) ||
+      JSON.stringify(updated.transcript ?? null) !== JSON.stringify(m.transcript ?? null)
     ) {
       changed = true;
       return updated;

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Avatar } from '../Avatar';
+import { TranslationNote } from '../TranslationNote';
 import { formatBytes } from '../../lib/attachmentLimits';
 import { getAttachmentUrl, useAttachmentUrl, useInView } from '../../lib/chatMedia';
 import { useDataSaver } from '../../lib/dataSaver';
@@ -217,7 +218,14 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
   // first), so a long message never pushes the whole chat screen out of
   // view. Collapsed by default; one toggle per bubble.
   const [expanded, setExpanded] = useState(false);
-  const isLongBody = Boolean(m.body) && (m.body!.length > LONG_MESSAGE_CHARS || m.body!.split('\n').length > LONG_MESSAGE_LINES);
+  // Auto-translation — shows the translated text by default, with a
+  // "Translated from X / Show original" toggle (Facebook-style); the
+  // original is never hidden, just one tap away. Long-message truncation
+  // applies to whichever text is actually showing, not always m.body.
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [showOriginalTranscript, setShowOriginalTranscript] = useState(false);
+  const displayBody = m.translation && !showOriginal ? m.translation.translatedBody : m.body;
+  const isLongBody = Boolean(displayBody) && (displayBody!.length > LONG_MESSAGE_CHARS || displayBody!.split('\n').length > LONG_MESSAGE_LINES);
   const touch = useRef<{ x: number; y: number; swiping: boolean; timer: number | null; longPressed: boolean } | null>(null);
 
   const canInteract = !m.deleted && !m.pending;
@@ -337,14 +345,31 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                   <PlayableAttachment mediaBase={mediaBase} messageId={m.id} a={a} senderName={m.senderName} senderPhotoUrl={m.senderPhotoUrl} isOwn={m.isOwn} />
                 </div>
               ))}
+              {m.transcript && (
+                <div className="mb-1 rounded-md bg-slate-900/5 px-2 py-1.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t('translation.transcript_label')}</p>
+                  <p className="whitespace-pre-wrap break-words text-sm text-slate-800">
+                    {showOriginalTranscript && m.transcript.original ? m.transcript.original : m.transcript.text}
+                  </p>
+                  {m.transcript.translated && (
+                    <TranslationNote
+                      sourceLanguage={m.transcript.sourceLanguage}
+                      showingOriginal={showOriginalTranscript}
+                      onToggle={() => setShowOriginalTranscript((v) => !v)}
+                      showOriginalLabel={t('translation.show_original_transcript') ?? undefined}
+                      showTranslationLabel={t('translation.show_translated_transcript') ?? undefined}
+                    />
+                  )}
+                </div>
+              )}
               {documents.map((a) => (
                 <div key={a.id} className="mb-1">
                   <DocumentAttachment mediaBase={mediaBase} messageId={m.id} a={a} />
                 </div>
               ))}
-              {m.body && (
+              {displayBody && (
                 <>
-                  <p className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`}>{m.body}</p>
+                  <p className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`}>{displayBody}</p>
                   {isLongBody && (
                     <button
                       type="button"
@@ -356,6 +381,9 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                     >
                       {expanded ? t('groupChat.read_less') : t('groupChat.read_more')}
                     </button>
+                  )}
+                  {m.translation && (
+                    <TranslationNote sourceLanguage={m.translation.sourceLanguage} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />
                   )}
                 </>
               )}

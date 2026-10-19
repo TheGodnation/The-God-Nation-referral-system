@@ -28,6 +28,18 @@ vi.mock('../lib/storage', () => ({
 }));
 import * as storage from '../lib/storage';
 
+// Route-wiring only — lib/translation.ts's own logic (Gemini calls,
+// language detection, the DB writes it makes) is covered in its own
+// translation.test.ts; here we only need to know the message-send route
+// calls it with the right arguments. GEMINI_API_KEY isn't set in this test
+// environment, so the real functions would no-op anyway — mocking makes
+// that explicit and lets the wiring tests assert on the calls themselves.
+vi.mock('../lib/translation', () => ({
+  translateAndStoreMessage: vi.fn(async () => {}),
+  transcribeAndStoreMessageAudio: vi.fn(async () => {}),
+}));
+import * as translationLib from '../lib/translation';
+
 function communityStorageKey(communityId: string): string {
   return `communities/${communityId}/attachments/${crypto.randomUUID()}`;
 }
@@ -1767,5 +1779,153 @@ describe('Phase 3M.8C — Community Administration — attachments', () => {
       }
       expect(lastStatus).toBe(429);
     });
+  });
+});
+
+describe('Auto-translation — group chat text and voice-note transcripts', () => {
+  async function seedTextMessage(communityId: string, senderId: string, body: string | null) {
+    const conversation = await prisma.conversation.upsert({ where: { communityId }, create: { communityId }, update: {} });
+    return prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: senderId, body } });
+  }
+
+  // Simulates a translation/transcription that already completed in the
+  // background (see lib/translation.ts) — these are about the read-side
+  // display logic in communityConversations.ts, not about calling Gemini.
+  async function markTranslated(messageId: string, detectedLanguage: 'en' | 'fr', translatedBody: string) {
+    await prisma.message.update({ where: { id: messageId }, data: { detectedLanguage, translatedBody, translatedAt: new Date() } });
+  }
+
+  async function markTranscribed(messageId: string, transcribedLanguage: 'en' | 'fr', transcribedBody: string, translatedTranscript: string | null) {
+    await prisma.message.update({
+      where: { id: messageId },
+      data: { transcribedLanguage, transcribedBody, translatedTranscript, transcribedAt: new Date() },
+    });
+  }
+
+  it('shows a translation (with the original still available) to a viewer whose language differs', async () => {
+    const community = await makeCommunity('Translate Community 1');
+    const sender = await loginAsMember('+237698500001', 'tr1@example.com');
+    const reader = await loginAsMember('+237698500002', 'tr2@example.com');
+    await makeMembership(sender.person.id, community.id);
+    await makeMembership(reader.person.id, community.id);
+
+    const message = await seedTextMessage(community.id, sender.person.id, 'Que la paix soit avec vous');
+    await markTranslated(message.id, 'fr', 'Peace be with you');
+
+    const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const item = res.body.items.find((i: any) => i.id === message.id);
+    expect(item.body).toBe('Que la paix soit avec vous');
+    expect(item.translation).toEqual({ sourceLanguage: 'fr', translatedBody: 'Peace be with you' });
+  });
+
+  it('shows no translation to a viewer reading in the message\'s own language', async () => {
+    const community = await makeCommunity('Translate Community 2');
+    const sender = await loginAsMember('+237698500003', 'tr3@example.com');
+    const reader = await loginAsMember('+237698500004', 'tr4@example.com');
+    await prisma.person.update({ where: { id: reader.person.id }, data: { preferredLanguage: 'fr' } });
+    await makeMembership(sender.person.id, community.id);
+    await makeMembership(reader.person.id, community.id);
+
+    const message = await seedTextMessage(community.id, sender.person.id, 'Bonjour');
+    await markTranslated(message.id, 'fr', 'Hello');
+
+    const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const item = res.body.items.find((i: any) => i.id === message.id);
+    expect(item.translation).toBeNull();
+  });
+
+  it('never exposes a translation for a moderator-deleted message', async () => {
+    const community = await makeCommunity('Translate Community 3');
+    const sender = await loginAsMember('+237698500005', 'tr5@example.com');
+    const reader = await loginAsMember('+237698500006', 'tr6@example.com');
+    await makeMembership(sender.person.id, community.id);
+    await makeMembership(reader.person.id, community.id);
+
+    const message = await seedTextMessage(community.id, sender.person.id, 'Message supprimé');
+    await markTranslated(message.id, 'fr', 'Deleted message');
+    await prisma.message.update({ where: { id: message.id }, data: { deletedAt: new Date(), deletedByPersonId: sender.person.id } });
+
+    const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const item = res.body.items.find((i: any) => i.id === message.id);
+    expect(item.body).toBeNull();
+    expect(item.translation).toBeNull();
+  });
+
+  it('shows a voice note\'s transcript even to a viewer sharing the spoken language (untranslated)', async () => {
+    const community = await makeCommunity('Transcript Community 1');
+    const sender = await loginAsMember('+237698500007', 'tc1@example.com');
+    const reader = await loginAsMember('+237698500008', 'tc2@example.com');
+    await makeMembership(sender.person.id, community.id);
+    await makeMembership(reader.person.id, community.id);
+
+    const message = await seedTextMessage(community.id, sender.person.id, null);
+    await markTranscribed(message.id, 'en', 'Please pray for my family', null);
+
+    const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const item = res.body.items.find((i: any) => i.id === message.id);
+    expect(item.transcript).toEqual({ sourceLanguage: 'en', text: 'Please pray for my family', translated: false, original: null });
+  });
+
+  it('shows the translated transcript (with the original transcript one tap away) when the spoken language differs', async () => {
+    const community = await makeCommunity('Transcript Community 2');
+    const sender = await loginAsMember('+237698500009', 'tc3@example.com');
+    const reader = await loginAsMember('+237698500010', 'tc4@example.com');
+    await makeMembership(sender.person.id, community.id);
+    await makeMembership(reader.person.id, community.id);
+
+    const message = await seedTextMessage(community.id, sender.person.id, null);
+    await markTranscribed(message.id, 'fr', 'Priez pour ma famille', 'Pray for my family');
+
+    const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const item = res.body.items.find((i: any) => i.id === message.id);
+    expect(item.transcript).toEqual({
+      sourceLanguage: 'fr',
+      text: 'Pray for my family',
+      translated: true,
+      original: 'Priez pour ma famille',
+    });
+  });
+
+  it('calls translateAndStoreMessage with the new message\'s id and body when sending text', async () => {
+    vi.mocked(translationLib.translateAndStoreMessage).mockClear();
+    const community = await makeCommunity('Translate Wiring Community 1');
+    const { agent, csrf, person } = await loginAsMember('+237698500013', 'tr-wire1@example.com');
+    await makeMembership(person.id, community.id);
+
+    const res = await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ body: 'Soyez bénis' });
+    expect(res.status).toBe(201);
+    expect(translationLib.translateAndStoreMessage).toHaveBeenCalledWith(res.body.id, 'Soyez bénis');
+  });
+
+  it('calls transcribeAndStoreMessageAudio (never translateAndStoreMessage) for a voice-note-only message', async () => {
+    vi.mocked(translationLib.translateAndStoreMessage).mockClear();
+    vi.mocked(translationLib.transcribeAndStoreMessageAudio).mockClear();
+    const community = await makeCommunity('Transcript Wiring Community 1');
+    const { agent, csrf, person } = await loginAsMember('+237698500014', 'tc-wire1@example.com');
+    await makeMembership(person.id, community.id);
+
+    const descriptor = { storageKey: communityStorageKey(community.id), originalFilename: 'voice.webm', mimeType: 'audio/webm', byteSize: 4000 };
+    vi.mocked(storage.headObject).mockResolvedValueOnce({ contentLength: descriptor.byteSize, contentType: descriptor.mimeType });
+
+    const res = await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ attachments: [descriptor] });
+    expect(res.status).toBe(201);
+    expect(translationLib.transcribeAndStoreMessageAudio).toHaveBeenCalledWith(res.body.id, descriptor.storageKey, 'audio/webm');
+    expect(translationLib.translateAndStoreMessage).not.toHaveBeenCalled();
+  });
+
+  it('never exposes a transcript for a moderator-deleted voice note', async () => {
+    const community = await makeCommunity('Transcript Community 3');
+    const sender = await loginAsMember('+237698500011', 'tc5@example.com');
+    const reader = await loginAsMember('+237698500012', 'tc6@example.com');
+    await makeMembership(sender.person.id, community.id);
+    await makeMembership(reader.person.id, community.id);
+
+    const message = await seedTextMessage(community.id, sender.person.id, null);
+    await markTranscribed(message.id, 'en', 'Secret prayer request', null);
+    await prisma.message.update({ where: { id: message.id }, data: { deletedAt: new Date(), deletedByPersonId: sender.person.id } });
+
+    const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages`);
+    const item = res.body.items.find((i: any) => i.id === message.id);
+    expect(item.transcript).toBeNull();
   });
 });

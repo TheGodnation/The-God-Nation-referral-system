@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import type { Request } from 'express';
+import type { Language } from '@prisma/client';
 import { prisma } from './prisma';
 import { resolveActingPersonId } from './leadership';
 
@@ -16,6 +17,9 @@ export interface UpdatesViewer {
   isAdmin: boolean;
   /** Central admin, or any person with an ACTIVE leadership role. */
   canModerate: boolean;
+  /** Null for a viewer with no Person (never happens for auto-translation
+   * purposes below — those checks also require personId). */
+  preferredLanguage: Language | null;
 }
 
 /**
@@ -45,7 +49,11 @@ export async function resolveUpdatesViewer(req: Request): Promise<UpdatesViewer 
     }
   }
 
-  return { personId, userId: req.user?.id ?? null, isAdmin, canModerate };
+  const preferredLanguage = personId
+    ? (await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } }))?.preferredLanguage ?? null
+    : null;
+
+  return { personId, userId: req.user?.id ?? null, isAdmin, canModerate, preferredLanguage };
 }
 
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;

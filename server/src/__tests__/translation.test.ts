@@ -1,0 +1,194 @@
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { Readable } from 'node:stream';
+
+vi.mock('../lib/storage', () => ({
+  getObjectStream: vi.fn(async () => null),
+}));
+
+import { prisma } from '../lib/prisma';
+import * as storage from '../lib/storage';
+
+const ORIGINAL_ENV = { ...process.env };
+
+async function freshTranslationModule(env: Partial<NodeJS.ProcessEnv>) {
+  vi.resetModules();
+  process.env = { ...ORIGINAL_ENV, ...env };
+  return import('../lib/translation');
+}
+
+function mockGeminiResponse(payload: unknown) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] }),
+    })),
+  );
+}
+
+afterEach(() => {
+  process.env = { ...ORIGINAL_ENV };
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+describe('lib/translation — Gemini-backed text translation and voice-note transcription', () => {
+  it('is unconfigured, and every function silently no-ops, with no GEMINI_API_KEY set', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: '' });
+    expect(translation.isTranslationConfigured()).toBe(false);
+
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    expect(await translation.translateText('Bonjour')).toBeNull();
+    expect(await translation.transcribeAndTranslateAudio('abc', 'audio/webm')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('is configured once GEMINI_API_KEY is set', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    expect(translation.isTranslationConfigured()).toBe(true);
+  });
+
+  it('translateText detects the language and returns the translation into the other one', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    mockGeminiResponse({ detectedLanguage: 'fr', translated: 'Good morning' });
+
+    const result = await translation.translateText('Bonjour');
+    expect(result).toEqual({ detectedLanguage: 'fr', translatedBody: 'Good morning' });
+  });
+
+  it('translateText returns null for empty or whitespace-only text, without calling Gemini', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    expect(await translation.translateText('   ')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('translateText returns null if the Gemini call fails (network error)', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network blip'); }));
+    expect(await translation.translateText('Bonjour')).toBeNull();
+  });
+
+  it('translateText returns null if Gemini responds with a non-OK status', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({}) })));
+    expect(await translation.translateText('Bonjour')).toBeNull();
+  });
+
+  it('translateText returns null if the response is malformed (bad language, missing field)', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    mockGeminiResponse({ detectedLanguage: 'es', translated: 'Buenos días' });
+    expect(await translation.translateText('Bonjour')).toBeNull();
+  });
+
+  it('transcribeAndTranslateAudio transcribes and translates in one call, sending the audio inline', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = vi.fn(async (_url: string, init: RequestInit) => {
+      const payload = JSON.parse(init.body as string);
+      expect(payload.contents[0].parts[1].inlineData).toEqual({ mimeType: 'audio/webm', data: 'ZmFrZS1hdWRpbw==' });
+      return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'fr', transcript: 'Priez pour moi', translated: 'Pray for me' }) }] } }] }) };
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const result = await translation.transcribeAndTranslateAudio('ZmFrZS1hdWRpbw==', 'audio/webm');
+    expect(result).toEqual({ detectedLanguage: 'fr', transcript: 'Priez pour moi', translatedTranscript: 'Pray for me' });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('transcribeAndTranslateAudio skips the call entirely for an oversized audio payload', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    // ~25MB of base64 text — comfortably over the 15MB inline cutoff.
+    const huge = 'A'.repeat(25 * 1024 * 1024);
+    expect(await translation.transcribeAndTranslateAudio(huge, 'audio/webm')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('translateAndStoreUpdatePost stores the translation on the post once it resolves', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    mockGeminiResponse({ detectedLanguage: 'fr', translated: 'Praise God' });
+
+    const author = await prisma.person.create({ data: { name: 'Translation Author', whatsappNumber: '+237699300001' } });
+    const post = await prisma.updatePost.create({ data: { authorPersonId: author.id, body: 'Louons Dieu' } });
+
+    await translation.translateAndStoreUpdatePost(post.id, 'Louons Dieu');
+
+    const stored = await prisma.updatePost.findUnique({ where: { id: post.id } });
+    expect(stored?.detectedLanguage).toBe('fr');
+    expect(stored?.translatedBody).toBe('Praise God');
+    expect(stored?.translatedAt).toBeTruthy();
+  });
+
+  it('translateAndStoreUpdatePost leaves the post untouched when the Gemini call fails', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down'); }));
+
+    const author = await prisma.person.create({ data: { name: 'Translation Author 2', whatsappNumber: '+237699300002' } });
+    const post = await prisma.updatePost.create({ data: { authorPersonId: author.id, body: 'Louons Dieu encore' } });
+
+    await expect(translation.translateAndStoreUpdatePost(post.id, 'Louons Dieu encore')).resolves.toBeUndefined();
+
+    const stored = await prisma.updatePost.findUnique({ where: { id: post.id } });
+    expect(stored?.detectedLanguage).toBeNull();
+    expect(stored?.translatedBody).toBeNull();
+  });
+
+  it('translateAndStoreMessage stores the translation on the message once it resolves', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    mockGeminiResponse({ detectedLanguage: 'en', translated: 'Dieu est bon' });
+
+    const sender = await prisma.person.create({ data: { name: 'Translation Sender', whatsappNumber: '+237699300003' } });
+    const community = await prisma.community.create({ data: { name: 'Translation Community' } });
+    const conversation = await prisma.conversation.create({ data: { communityId: community.id } });
+    const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: 'God is good' } });
+
+    await translation.translateAndStoreMessage(message.id, 'God is good');
+
+    const stored = await prisma.message.findUnique({ where: { id: message.id } });
+    expect(stored?.detectedLanguage).toBe('en');
+    expect(stored?.translatedBody).toBe('Dieu est bon');
+  });
+
+  it('transcribeAndStoreMessageAudio downloads the object, transcribes it, and stores the result', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    vi.mocked(storage.getObjectStream).mockResolvedValueOnce({
+      body: Readable.from([Buffer.from('fake-audio-bytes')]),
+      contentLength: 17,
+    });
+    mockGeminiResponse({ detectedLanguage: 'fr', transcript: 'Merci Seigneur', translated: 'Thank you Lord' });
+
+    const sender = await prisma.person.create({ data: { name: 'Transcribe Sender', whatsappNumber: '+237699300004' } });
+    const community = await prisma.community.create({ data: { name: 'Transcribe Community' } });
+    const conversation = await prisma.conversation.create({ data: { communityId: community.id } });
+    const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: null } });
+
+    await translation.transcribeAndStoreMessageAudio(message.id, 'communities/x/attachments/voice', 'audio/webm');
+
+    const stored = await prisma.message.findUnique({ where: { id: message.id } });
+    expect(stored?.transcribedLanguage).toBe('fr');
+    expect(stored?.transcribedBody).toBe('Merci Seigneur');
+    expect(stored?.translatedTranscript).toBe('Thank you Lord');
+    expect(stored?.transcribedAt).toBeTruthy();
+  });
+
+  it('transcribeAndStoreMessageAudio leaves the message untouched when the object is missing from storage', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    vi.mocked(storage.getObjectStream).mockResolvedValueOnce(null);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const sender = await prisma.person.create({ data: { name: 'Transcribe Sender 2', whatsappNumber: '+237699300005' } });
+    const community = await prisma.community.create({ data: { name: 'Transcribe Community 2' } });
+    const conversation = await prisma.conversation.create({ data: { communityId: community.id } });
+    const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: null } });
+
+    await translation.transcribeAndStoreMessageAudio(message.id, 'communities/x/attachments/missing', 'audio/webm');
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    const stored = await prisma.message.findUnique({ where: { id: message.id } });
+    expect(stored?.transcribedLanguage).toBeNull();
+  });
+});

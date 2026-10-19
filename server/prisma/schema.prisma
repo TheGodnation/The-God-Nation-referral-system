@@ -1449,6 +1449,25 @@ model Message {
   // Shown as "↪ Forwarded" (copied from another chat).
   forwarded         Boolean   @default(false)
 
+  // Community-chat auto-translation (lib/translation.ts) — Group chats only,
+  // never PrivateMessage. Populated once, in the background, right after the
+  // message is sent; all null until then (and forever, if translation is not
+  // configured or the Gemini call fails — callers must degrade to showing
+  // just `body`, same as today). The app only ever has two languages, so
+  // there is only ever one translation to produce: whichever of en/fr
+  // `detectedLanguage` is NOT.
+  detectedLanguage  Language?
+  translatedBody    String?
+  translatedAt      DateTime?
+  // Voice-note transcription + translation, same lazy/background/best-effort
+  // rule. transcribedBody is the plain transcript, in whatever language was
+  // spoken (transcribedLanguage); translatedTranscript is that same
+  // transcript translated into the other language.
+  transcribedBody      String?
+  transcribedLanguage  Language?
+  translatedTranscript String?
+  transcribedAt        DateTime?
+
   conversation Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       Person                   @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
   deletedBy    Person?                  @relation("MessageDeletedBy", fields: [deletedByPersonId], references: [id], onDelete: SetNull)
@@ -2294,6 +2313,13 @@ model UpdatePost {
   deletedAt         DateTime?
   deletedByPersonId String?
   deletedByUserId   String?
+
+  // Auto-translation (lib/translation.ts) — same lazy/background/
+  // best-effort rule as Message's own fields: populated once right after
+  // posting, null forever if translation is unavailable or fails.
+  detectedLanguage Language?
+  translatedBody   String?
+  translatedAt     DateTime?
 
   author          Person            @relation("UpdatePostAuthor", fields: [authorPersonId], references: [id], onDelete: Cascade)
   deletedByPerson Person?           @relation("UpdatePostDeletedByPerson", fields: [deletedByPersonId], references: [id], onDelete: SetNull)

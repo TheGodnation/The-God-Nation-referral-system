@@ -1461,6 +1461,14 @@
     "back_home": "Retour à l'accueil",
     "loading": "Chargement…"
   },
+  "translation": {
+    "translated_from": "Traduit depuis : {{language}}",
+    "show_original": "Afficher l'original",
+    "show_translation": "Afficher la traduction",
+    "transcript_label": "Transcription",
+    "show_original_transcript": "Afficher la transcription originale",
+    "show_translated_transcript": "Afficher la transcription traduite"
+  },
   "headquartersPosts": {
     "title": "Publications du Siège National",
     "load_failed": "Échec du chargement des publications du siège national.",

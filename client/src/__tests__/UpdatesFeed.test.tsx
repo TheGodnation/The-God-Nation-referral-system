@@ -64,6 +64,28 @@ describe('UpdatesFeed', () => {
     expect(within(card).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
   });
 
+  it('shows a translated post with the original one tap away', async () => {
+    const translatedPost = { ...POST, body: 'Louons Dieu pour cette semaine !', translation: { sourceLanguage: 'fr' as const, translatedBody: 'Praise God for this week!' } };
+    mockFetch({ 'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, [translatedPost]) }) });
+    render(<UpdatesFeed />);
+
+    expect(await screen.findByText('Praise God for this week!')).toBeInTheDocument();
+    expect(screen.getByText('Translated from Français')).toBeInTheDocument();
+    expect(screen.queryByText('Louons Dieu pour cette semaine !')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show original' }));
+    expect(screen.getByText('Louons Dieu pour cette semaine !')).toBeInTheDocument();
+    expect(screen.queryByText('Praise God for this week!')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show translation' })).toBeInTheDocument();
+  });
+
+  it('shows no translation badge for a post needing none', async () => {
+    mockFetch({ 'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, [{ ...POST, translation: null }]) }) });
+    render(<UpdatesFeed />);
+    await screen.findByText('Praise God for this week!');
+    expect(screen.queryByText(/Translated from/)).not.toBeInTheDocument();
+  });
+
   it('lets a member write a post', async () => {
     let posted: any = null;
     mockFetch({

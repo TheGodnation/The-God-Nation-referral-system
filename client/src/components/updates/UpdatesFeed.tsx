@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Avatar } from '../Avatar';
 import { VoiceInputButton } from '../VoiceInputButton';
+import { TranslationNote } from '../TranslationNote';
 import { YoutubeEmbed } from './YoutubeEmbed';
 import { baseMime, shrinkPhoto } from '../../lib/chatMedia';
 import { useDataSaver } from '../../lib/dataSaver';
@@ -33,6 +34,9 @@ export interface UpdateItem {
   id: string;
   author: Author;
   body: string;
+  /** Present only once a background translation has landed and it differs
+   * from the viewer's own language — see updates.ts's own response mapping. */
+  translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null;
   youtubeVideoId: string | null;
   createdAt: string;
   photos: { id: string; url: string }[];
@@ -664,10 +668,14 @@ function PostCard({
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [viewerAt, setViewerAt] = useState<number | null>(null);
+  // Auto-translation — shows the translated text by default, with a
+  // "Translated from X / Show original" toggle; see TranslationNote.
+  const [showOriginal, setShowOriginal] = useState(false);
 
   const totalReactions = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
   const topEmojis = REACTIONS.filter((r) => (counts[r.type] ?? 0) > 0).map((r) => r.emoji).join('');
-  const isLong = item.body.length > LONG_POST_CHARS || item.body.split('\n').length > 7;
+  const displayBody = item.translation && !showOriginal ? item.translation.translatedBody : item.body;
+  const isLong = displayBody.length > LONG_POST_CHARS || displayBody.split('\n').length > 7;
 
   async function react(type: ReactionType) {
     setPickerOpen(false);
@@ -731,11 +739,14 @@ function PostCard({
 
       {item.body && (
         <div className="px-4 pt-2">
-          <p className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`}>{item.body}</p>
+          <p className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`}>{displayBody}</p>
           {isLong && (
             <button type="button" className="text-sm font-semibold text-slate-500 hover:underline" onClick={() => setExpanded((v) => !v)}>
               {expanded ? t('updates.see_less') : t('updates.see_more')}
             </button>
+          )}
+          {item.translation && (
+            <TranslationNote sourceLanguage={item.translation.sourceLanguage} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />
           )}
         </div>
       )}
