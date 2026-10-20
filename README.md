@@ -74,6 +74,7 @@ Key variables (see `.env.example` for the full list and comments):
 | Variable       | Purpose                                            |
 | -------------- | --------------------------------------------------- |
 | `DATABASE_URL` | PostgreSQL connection string used by Prisma         |
+| `DIRECT_URL`   | Direct (non-pooled) connection for migrations; same as `DATABASE_URL` locally, derived automatically from a Neon pooled URL in production |
 | `NODE_ENV`     | `development` \| `production` \| `test`             |
 | `PORT`         | Port the Express API listens on (default `4000`)    |
 | `APP_URL`      | Public base URL of the API                          |

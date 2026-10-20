@@ -18,8 +18,13 @@ if (!/test/i.test(process.env.DATABASE_URL || '')) {
   );
 }
 
+// Migrations run over DIRECT_URL (schema.prisma's directUrl). Always pin it
+// to the test database checked above, so a DIRECT_URL inherited from the
+// shell can never point this suite's migrations anywhere else.
+process.env.DIRECT_URL = process.env.DATABASE_URL;
+
 beforeAll(() => {
-  execSync('npx prisma migrate deploy --schema=prisma/schema.prisma', {
+  execSync('node scripts/migrate-deploy.cjs --schema=prisma/schema.prisma', {
     cwd: path.resolve(__dirname, '../..'),
     env: process.env,
     stdio: 'inherit',
