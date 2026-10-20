@@ -20,17 +20,18 @@ import { generateStorageKey } from './attachmentPolicy';
 // translation to produce: whichever of the two a piece of text is NOT.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-// gemini-2.0-flash was retired by Google; its own 404 named
-// gemini-3.8-flash as the replacement, but in production every single call
-// to it timed out (hit REQUEST_TIMEOUT_MS on both the original attempt and
-// the 503 retry, every time) — consistent with a preview-tier model
-// defaulting to extended "thinking" on every request. gemini-2.5-flash,
-// confirmed available via the same ListModels lookup that found the real
-// TTS model name, is Google's stable, low-latency production model for
-// exactly this kind of classify-and-translate task, so it's used here with
-// thinking explicitly disabled below (not needed for translation, and the
-// very thing that was likely causing the timeouts).
-const GEMINI_MODEL = 'gemini-2.5-flash';
+// Every dated model name pinned here has been rejected by Gemini within
+// days, each for a different reason: gemini-2.0-flash was retired outright;
+// its named replacement, gemini-3.8-flash, timed out on every single call
+// (consistent with a preview-tier model defaulting to extended "thinking");
+// its replacement, gemini-2.5-flash, then came back 404 "no longer
+// available to new users" — pointing back at gemini-3.8-flash, the one
+// already known to time out. That back-and-forth is exactly what the
+// "-latest" alias exists to avoid: Google repoints it at whichever
+// concrete model is current for this API key, so this never needs a
+// redeploy again for this specific kind of churn. If it ever 404s too,
+// logAvailableModels below logs the real options straight from Gemini.
+const GEMINI_MODEL = 'gemini-flash-latest';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const REQUEST_TIMEOUT_MS = 20000;
 // Gemini occasionally answers 503 "This model is currently experiencing
@@ -116,6 +117,9 @@ async function callGemini(contents: unknown[], schema: unknown): Promise<any | n
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
       console.error('[translation] Gemini responded with a non-OK status', { status: res.status, body: bodyText.slice(0, 500) });
+      if (res.status === 404) {
+        void logAvailableModels();
+      }
       return null;
     }
     const data: any = await res.json();
@@ -213,22 +217,25 @@ export async function transcribeAndTranslateAudio(audioBase64: string, mimeType:
 // Voice-to-voice — speaking the translated transcript back as audio.
 // gemini-3.8-flash-preview-tts (a guess by analogy to the confirmed chat
 // model name above) 404ed; Gemini's own ListModels endpoint (queried via
-// logAvailableTtsModels below) confirmed the real name.
+// logAvailableModels below) confirmed the real name.
 const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 const TTS_VOICE_NAME = 'Kore';
 
-let loggedAvailableTtsModels = false;
+let loggedAvailableModels = false;
 
 /**
  * Calls Gemini's ListModels endpoint and logs every model whose
- * supportedGenerationMethods includes generateContent, so the real TTS
- * model name can be read directly from production logs instead of guessed
- * again. Best-effort and silent on its own failure — this is a diagnostic
- * aid, not something callers depend on.
+ * supportedGenerationMethods includes generateContent, so the real model
+ * name can be read directly from production logs instead of guessed again.
+ * Every model name we've hardcoded here has been rejected by Gemini at
+ * least once in production (the chat model, twice), so this is wired into
+ * every 404 we see from Gemini, not just the TTS one that first needed it.
+ * Best-effort and silent on its own failure — this is a diagnostic aid,
+ * not something callers depend on.
  */
-async function logAvailableTtsModels(): Promise<void> {
-  if (loggedAvailableTtsModels) return;
-  loggedAvailableTtsModels = true;
+async function logAvailableModels(): Promise<void> {
+  if (loggedAvailableModels) return;
+  loggedAvailableModels = true;
   try {
     const res = await fetch(`${GEMINI_BASE_URL}?pageSize=200&key=${GEMINI_API_KEY}`);
     if (!res.ok) {
@@ -240,7 +247,7 @@ async function logAvailableTtsModels(): Promise<void> {
     const generateContentModels = models
       .filter((m) => Array.isArray(m?.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
       .map((m) => m.name);
-    console.error('[translation] Gemini models supporting generateContent (looking for the real TTS model name)', { generateContentModels });
+    console.error('[translation] Gemini models supporting generateContent (looking for a real model name)', { generateContentModels });
   } catch (err) {
     console.error('[translation] ListModels call threw', { error: err instanceof Error ? err.message : String(err) });
   }
@@ -299,7 +306,7 @@ export async function synthesizeSpeech(text: string): Promise<SynthesizedSpeech 
       const bodyText = await res.text().catch(() => '');
       console.error('[translation] Gemini TTS responded with a non-OK status', { status: res.status, body: bodyText.slice(0, 500) });
       if (res.status === 404) {
-        void logAvailableTtsModels();
+        void logAvailableModels();
       }
       return null;
     }

@@ -108,6 +108,25 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
+  it('translateText asks Gemini\'s ListModels endpoint for a real model name when the model itself 404s', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 404, text: async () => 'model not found' })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ models: [{ name: 'models/gemini-flash-latest', supportedGenerationMethods: ['generateContent'] }] }),
+      });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    expect(await translation.translateText('Bonjour')).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const [, [listModelsUrl]] = fetchSpy.mock.calls;
+    expect(listModelsUrl).toContain('/v1beta/models?pageSize=200&key=test-key');
+  });
+
   it('translateText returns null if the response is malformed (bad language, missing field)', async () => {
     const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
     mockGeminiResponse({ detectedLanguage: 'es', translated: 'Buenos días' });
