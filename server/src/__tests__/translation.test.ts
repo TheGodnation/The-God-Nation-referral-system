@@ -3,7 +3,6 @@ import { Readable } from 'node:stream';
 
 vi.mock('../lib/storage', () => ({
   getObjectStream: vi.fn(async () => null),
-  putObject: vi.fn(async () => {}),
 }));
 
 import { prisma } from '../lib/prisma';
@@ -25,11 +24,6 @@ function mockGeminiResponse(payload: unknown) {
       json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] }),
     })),
   );
-}
-
-/** A Gemini TTS-shaped response: raw PCM audio as base64 inlineData. */
-function ttsResponse(pcmBase64: string, mimeType = 'audio/L16;rate=24000') {
-  return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ inlineData: { mimeType, data: pcmBase64 } }] } }] }) };
 }
 
 afterEach(() => {
@@ -240,172 +234,5 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
     expect(fetchSpy).not.toHaveBeenCalled();
     const stored = await prisma.message.findUnique({ where: { id: message.id } });
     expect(stored?.transcribedLanguage).toBeNull();
-  });
-
-  describe('synthesizeSpeech — voice-to-voice', () => {
-    it('wraps Gemini\'s raw PCM audio in a WAV header so it is directly playable', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      const pcm = Buffer.from([1, 2, 3, 4]);
-      vi.stubGlobal('fetch', vi.fn(async () => ttsResponse(pcm.toString('base64'))));
-
-      const result = await translation.synthesizeSpeech('Pray for me');
-      expect(result?.mimeType).toBe('audio/wav');
-      expect(result?.audio.subarray(0, 4).toString('ascii')).toBe('RIFF');
-      expect(result?.audio.subarray(8, 12).toString('ascii')).toBe('WAVE');
-      // The header is 44 bytes; the original PCM bytes follow untouched.
-      expect(result?.audio.subarray(44)).toEqual(pcm);
-    });
-
-    it('passes through an already-containerized response untouched', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      const fakeMp3 = Buffer.from([0xff, 0xfb, 0x90, 0x00]);
-      vi.stubGlobal('fetch', vi.fn(async () => ttsResponse(fakeMp3.toString('base64'), 'audio/mpeg')));
-
-      const result = await translation.synthesizeSpeech('Pray for me');
-      expect(result).toEqual({ audio: fakeMp3, mimeType: 'audio/mpeg' });
-    });
-
-    it('returns null for empty text, without calling Gemini', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      const fetchSpy = vi.fn();
-      vi.stubGlobal('fetch', fetchSpy);
-      expect(await translation.synthesizeSpeech('   ')).toBeNull();
-      expect(fetchSpy).not.toHaveBeenCalled();
-    });
-
-    it('returns null if Gemini TTS responds with a non-OK status', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404, text: async () => 'model not found' })));
-      expect(await translation.synthesizeSpeech('Pray for me')).toBeNull();
-    });
-
-    it('asks Gemini\'s ListModels endpoint for the real TTS model name when the model itself 404s', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      const fetchSpy = vi
-        .fn()
-        .mockResolvedValueOnce({ ok: false, status: 404, text: async () => 'model not found' })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            models: [
-              { name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent'] },
-              { name: 'models/gemini-3.8-flash-tts', supportedGenerationMethods: ['generateContent'] },
-              { name: 'models/embedding-001', supportedGenerationMethods: ['embedContent'] },
-            ],
-          }),
-        });
-      vi.stubGlobal('fetch', fetchSpy);
-
-      expect(await translation.synthesizeSpeech('Pray for me')).toBeNull();
-      // synthesizeSpeech's own call returns before the fire-and-forget
-      // ListModels lookup's promise necessarily settles — give it a tick.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-      const [, [listModelsUrl]] = fetchSpy.mock.calls;
-      expect(listModelsUrl).toContain('/v1beta/models?pageSize=200&key=test-key');
-    });
-
-    it('does not call ListModels for a non-404 failure', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      const fetchSpy = vi.fn(async () => ({ ok: false, status: 500, text: async () => 'server error' }));
-      vi.stubGlobal('fetch', fetchSpy);
-      expect(await translation.synthesizeSpeech('Pray for me')).toBeNull();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it('returns null if the response has no audio data', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'no audio here' }] } }] }) })));
-      expect(await translation.synthesizeSpeech('Pray for me')).toBeNull();
-    });
-  });
-
-  describe('transcribeAndStoreMessageAudio — voice-to-voice follow-up', () => {
-    it('also synthesizes the translated transcript as audio and stores it alongside the transcript', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      vi.mocked(storage.getObjectStream).mockResolvedValueOnce({
-        body: Readable.from([Buffer.from('fake-audio-bytes')]),
-        contentLength: 17,
-      });
-      const pcm = Buffer.from([9, 9, 9, 9]);
-      const fetchSpy = vi
-        .fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'fr', transcript: 'Merci', translated: 'Thank you' }) }] } }] }) })
-        .mockResolvedValueOnce(ttsResponse(pcm.toString('base64')));
-      vi.stubGlobal('fetch', fetchSpy);
-
-      const sender = await prisma.person.create({ data: { name: 'V2V Sender', whatsappNumber: '+237699300010' } });
-      const community = await prisma.community.create({ data: { name: 'V2V Community' } });
-      const conversation = await prisma.conversation.create({ data: { communityId: community.id } });
-      const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: null } });
-
-      await translation.transcribeAndStoreMessageAudio(message.id, community.id, 'communities/x/attachments/voice', 'audio/webm');
-
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-      expect(vi.mocked(storage.putObject)).toHaveBeenCalledTimes(1);
-      const [[putArgs]] = vi.mocked(storage.putObject).mock.calls;
-      expect(putArgs.storageKey).toMatch(new RegExp(`^communities/${community.id}/attachments/[0-9a-f-]{36}$`));
-      expect(putArgs.contentType).toBe('audio/wav');
-
-      const stored = await prisma.message.findUnique({ where: { id: message.id } });
-      expect(stored?.translatedAudioStorageKey).toBe(putArgs.storageKey);
-      expect(stored?.translatedAudioMimeType).toBe('audio/wav');
-      // Spoken in French, so the synthesized audio is the English translation.
-      expect(stored?.translatedAudioLanguage).toBe('en');
-      expect(stored?.translatedAudioAt).toBeTruthy();
-    });
-
-    it('keeps the transcript even when speech synthesis itself fails', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      vi.mocked(storage.getObjectStream).mockResolvedValueOnce({
-        body: Readable.from([Buffer.from('fake-audio-bytes')]),
-        contentLength: 17,
-      });
-      const fetchSpy = vi
-        .fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'fr', transcript: 'Merci', translated: 'Thank you' }) }] } }] }) })
-        .mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'tts down' });
-      vi.stubGlobal('fetch', fetchSpy);
-
-      const sender = await prisma.person.create({ data: { name: 'V2V Sender 2', whatsappNumber: '+237699300011' } });
-      const community = await prisma.community.create({ data: { name: 'V2V Community 2' } });
-      const conversation = await prisma.conversation.create({ data: { communityId: community.id } });
-      const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: null } });
-
-      await translation.transcribeAndStoreMessageAudio(message.id, community.id, 'communities/x/attachments/voice', 'audio/webm');
-
-      expect(vi.mocked(storage.putObject)).not.toHaveBeenCalled();
-      const stored = await prisma.message.findUnique({ where: { id: message.id } });
-      expect(stored?.transcribedBody).toBe('Merci');
-      expect(stored?.translatedAudioStorageKey).toBeNull();
-    });
-
-    it('never records translatedAudio fields when storage write itself fails', async () => {
-      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-      vi.mocked(storage.getObjectStream).mockResolvedValueOnce({
-        body: Readable.from([Buffer.from('fake-audio-bytes')]),
-        contentLength: 17,
-      });
-      vi.mocked(storage.putObject).mockRejectedValueOnce(new Error('R2 unavailable'));
-      const pcm = Buffer.from([9, 9, 9, 9]);
-      const fetchSpy = vi
-        .fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'en', transcript: 'Thanks', translated: 'Merci' }) }] } }] }) })
-        .mockResolvedValueOnce(ttsResponse(pcm.toString('base64')));
-      vi.stubGlobal('fetch', fetchSpy);
-
-      const sender = await prisma.person.create({ data: { name: 'V2V Sender 3', whatsappNumber: '+237699300012' } });
-      const community = await prisma.community.create({ data: { name: 'V2V Community 3' } });
-      const conversation = await prisma.conversation.create({ data: { communityId: community.id } });
-      const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body: null } });
-
-      await translation.transcribeAndStoreMessageAudio(message.id, community.id, 'communities/x/attachments/voice', 'audio/webm');
-
-      const stored = await prisma.message.findUnique({ where: { id: message.id } });
-      expect(stored?.transcribedBody).toBe('Thanks');
-      expect(stored?.translatedAudioStorageKey).toBeNull();
-    });
   });
 });

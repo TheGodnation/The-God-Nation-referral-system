@@ -133,17 +133,6 @@ export async function getObjectStream(params: { storageKey: string }): Promise<{
   }
 }
 
-// A direct server-side write — for bytes the server itself produced (e.g.
-// Gemini's synthesized translated-voice audio), never for anything a
-// browser uploads (that always goes straight to R2 via createUploadUrl's
-// presigned PUT, never through this server).
-export async function putObject(params: { storageKey: string; body: Buffer; contentType: string }): Promise<void> {
-  const { client, bucketName } = requireClient();
-  await client.send(
-    new PutObjectCommand({ Bucket: bucketName, Key: params.storageKey, Body: params.body, ContentType: params.contentType }),
-  );
-}
-
 // Forwarding a photo / voice note: storage copies the file to the new
 // chat's own key, server side (nothing passes through the phone or the app
 // server), so each message keeps its own file and permissions.

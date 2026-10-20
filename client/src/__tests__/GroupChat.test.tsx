@@ -1,15 +1,8 @@
-import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberGroupChatPage } from '../pages/MemberGroupChatPage';
 import { MemberChatsPage } from '../pages/MemberChatsPage';
-
-// jsdom has no real media playback — mock the two methods
-// TranslatedAudioPlayButton (and VoiceNotePlayer) call.
-beforeAll(() => {
-  window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
-  window.HTMLMediaElement.prototype.pause = vi.fn();
-});
 
 const calls: { url: string; method: string; body: any }[] = [];
 
@@ -166,39 +159,6 @@ describe('WhatsApp-style group chat', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show original transcript' }));
     expect(screen.getByText('Priez pour les malades')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Show translated transcript' })).toBeInTheDocument();
-  });
-
-  it('lets a viewer play the voice note\'s synthesized translated audio (voice-to-voice)', async () => {
-    const transcribedMessages = messages.map((m) =>
-      m.id === 'm3'
-        ? {
-            ...m,
-            transcript: {
-              sourceLanguage: 'fr' as const,
-              text: 'Please pray for the sick',
-              translated: true,
-              original: 'Priez pour les malades',
-              translatedAudioAvailable: true,
-            },
-          }
-        : m,
-    );
-    mockFetch(
-      baseRoutes({
-        [`GET /api/communities/${G}/conversation/messages`]: () => ({
-          body: { items: transcribedMessages, hasMore: false, unreadCount: 0, isAdministrator: false, canPost: true },
-        }),
-        [`GET /api/communities/${G}/conversation/messages/m3/translated-audio-url`]: () => ({
-          body: { url: 'https://files.example/translated-voice.wav', expiresAt: new Date(Date.now() + 60_000).toISOString() },
-        }),
-      }),
-    );
-    renderChat();
-    const playButton = await screen.findByRole('button', { name: 'Listen in English' });
-    fireEvent.click(playButton);
-
-    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/messages/m3/translated-audio-url'))).toBe(true));
-    await waitFor(() => expect(window.HTMLMediaElement.prototype.play).toHaveBeenCalled());
   });
 
   it('tapping a sender\'s name or photo in the chat opens their profile', async () => {

@@ -1467,9 +1467,7 @@
     "show_translation": "Afficher la traduction",
     "transcript_label": "Transcription",
     "show_original_transcript": "Afficher la transcription originale",
-    "show_translated_transcript": "Afficher la transcription traduite",
-    "play_translated_audio": "Écouter en {{language}}",
-    "play_translated_audio_failed": "Lecture impossible — réessayez"
+    "show_translated_transcript": "Afficher la transcription traduite"
   },
   "headquartersPosts": {
     "title": "Publications du Siège National",

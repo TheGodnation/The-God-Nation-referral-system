@@ -30,9 +30,6 @@ export interface ChatTranscript {
   text: string;
   translated: boolean;
   original: string | null;
-  /** Voice-to-voice: a synthesized spoken version of `text` is ready to
-   * play, fetched lazily on tap via getTranslatedAudioUrl(). */
-  translatedAudioAvailable: boolean;
 }
 
 export interface ChatReplyPreview {

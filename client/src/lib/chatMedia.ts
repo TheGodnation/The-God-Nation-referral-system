@@ -159,20 +159,6 @@ export async function getAttachmentUrl(mediaBase: string, messageId: string, att
   return res.url;
 }
 
-const translatedAudioUrlCache = new Map<string, { url: string; expires: number }>();
-
-/** Voice-to-voice: a signed link to a voice note's synthesized translated
- * audio. Fetched lazily on tap (never eagerly), unlike the original
- * attachment's own URL above. */
-export async function getTranslatedAudioUrl(mediaBase: string, messageId: string): Promise<string> {
-  const hit = translatedAudioUrlCache.get(messageId);
-  if (hit && hit.expires > Date.now()) return hit.url;
-  const res = await api.get<{ url: string; expiresAt?: string }>(`${mediaBase}/messages/${messageId}/translated-audio-url`);
-  const until = res.expiresAt ? new Date(res.expiresAt).getTime() - 10 * 60 * 1000 : 0;
-  translatedAudioUrlCache.set(messageId, { url: res.url, expires: Math.max(until, Date.now() + 4 * 60 * 1000) });
-  return res.url;
-}
-
 /** True once the element has scrolled into view (always true where the
  * browser can't tell). */
 export function useInView<T extends Element>(): [React.RefObject<T>, boolean] {

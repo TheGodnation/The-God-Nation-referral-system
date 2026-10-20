@@ -1868,7 +1868,6 @@ describe('Auto-translation — group chat text and voice-note transcripts', () =
       text: 'Please pray for my family',
       translated: false,
       original: null,
-      translatedAudioAvailable: false,
     });
   });
 
@@ -1889,7 +1888,6 @@ describe('Auto-translation — group chat text and voice-note transcripts', () =
       text: 'Pray for my family',
       translated: true,
       original: 'Priez pour ma famille',
-      translatedAudioAvailable: false,
     });
   });
 
@@ -1916,7 +1914,7 @@ describe('Auto-translation — group chat text and voice-note transcripts', () =
 
     const res = await agent.post(`/api/communities/${community.id}/conversation/messages`).set('X-CSRF-Token', csrf).send({ attachments: [descriptor] });
     expect(res.status).toBe(201);
-    expect(translationLib.transcribeAndStoreMessageAudio).toHaveBeenCalledWith(res.body.id, community.id, descriptor.storageKey, 'audio/webm');
+    expect(translationLib.transcribeAndStoreMessageAudio).toHaveBeenCalledWith(res.body.id, descriptor.storageKey, 'audio/webm');
     expect(translationLib.translateAndStoreMessage).not.toHaveBeenCalled();
   });
 
@@ -1934,128 +1932,5 @@ describe('Auto-translation — group chat text and voice-note transcripts', () =
     const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages`);
     const item = res.body.items.find((i: any) => i.id === message.id);
     expect(item.transcript).toBeNull();
-  });
-
-  describe('translated voice-note audio (voice-to-voice)', () => {
-    async function seedTranscribedVoiceNote(communityId: string, senderId: string, opts: { translatedAudioStorageKey?: string | null } = {}) {
-      const message = await seedTextMessage(communityId, senderId, null);
-      await markTranscribed(message.id, 'fr', 'Priez pour ma famille', 'Pray for my family');
-      if (opts.translatedAudioStorageKey !== undefined) {
-        await prisma.message.update({
-          where: { id: message.id },
-          data: {
-            translatedAudioStorageKey: opts.translatedAudioStorageKey,
-            translatedAudioMimeType: opts.translatedAudioStorageKey ? 'audio/wav' : null,
-            translatedAudioLanguage: opts.translatedAudioStorageKey ? 'en' : null,
-            translatedAudioAt: opts.translatedAudioStorageKey ? new Date() : null,
-          },
-        });
-      }
-      return message;
-    }
-
-    it('a participant can get a fresh signed URL for the synthesized translated audio', async () => {
-      const community = await makeCommunity('Translated Audio Community 1');
-      const sender = await loginAsMember('+237698500020', 'ta1@example.com');
-      const reader = await loginAsMember('+237698500021', 'ta2@example.com');
-      await makeMembership(sender.person.id, community.id);
-      await makeMembership(reader.person.id, community.id);
-      const message = await seedTranscribedVoiceNote(community.id, sender.person.id, {
-        translatedAudioStorageKey: communityStorageKey(community.id),
-      });
-
-      const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages/${message.id}/translated-audio-url`);
-      expect(res.status).toBe(200);
-      const updated = await prisma.message.findUnique({ where: { id: message.id } });
-      expect(res.body.url).toContain(updated!.translatedAudioStorageKey);
-    });
-
-    it('returns 404 when no translated audio has been synthesized yet', async () => {
-      const community = await makeCommunity('Translated Audio Community 2');
-      const sender = await loginAsMember('+237698500022', 'ta3@example.com');
-      const reader = await loginAsMember('+237698500023', 'ta4@example.com');
-      await makeMembership(sender.person.id, community.id);
-      await makeMembership(reader.person.id, community.id);
-      const message = await seedTranscribedVoiceNote(community.id, sender.person.id);
-
-      const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages/${message.id}/translated-audio-url`);
-      expect(res.status).toBe(404);
-    });
-
-    it('a non-participant is rejected', async () => {
-      const community = await makeCommunity('Translated Audio Community 3');
-      const sender = await loginAsMember('+237698500024', 'ta5@example.com');
-      await makeMembership(sender.person.id, community.id);
-      const message = await seedTranscribedVoiceNote(community.id, sender.person.id, {
-        translatedAudioStorageKey: communityStorageKey(community.id),
-      });
-      const { agent: outsiderAgent } = await loginAsMember('+237698500025', 'ta6@example.com');
-
-      const res = await outsiderAgent.get(`/api/communities/${community.id}/conversation/messages/${message.id}/translated-audio-url`);
-      expect(res.status).toBe(403);
-    });
-
-    it('a moderator-deleted message\'s translated audio is not downloadable', async () => {
-      const community = await makeCommunity('Translated Audio Community 4');
-      const sender = await loginAsMember('+237698500026', 'ta7@example.com');
-      const { agent: leaderAgent, csrf: leaderCsrf } = await setupCommunityLeader(403, community.id);
-      await makeMembership(sender.person.id, community.id);
-      const message = await seedTranscribedVoiceNote(community.id, sender.person.id, {
-        translatedAudioStorageKey: communityStorageKey(community.id),
-      });
-
-      await leaderAgent.delete(`/api/communities/${community.id}/conversation/messages/${message.id}`).set('X-CSRF-Token', leaderCsrf);
-
-      const res = await sender.agent.get(`/api/communities/${community.id}/conversation/messages/${message.id}/translated-audio-url`);
-      expect(res.status).toBe(404);
-    });
-
-    it('a personally-hidden message\'s translated audio is unavailable only to the Person who hid it', async () => {
-      const community = await makeCommunity('Translated Audio Community 5');
-      const sender = await loginAsMember('+237698500027', 'ta8@example.com');
-      const reader = await loginAsMember('+237698500028', 'ta9@example.com');
-      await makeMembership(sender.person.id, community.id);
-      await makeMembership(reader.person.id, community.id);
-      const message = await seedTranscribedVoiceNote(community.id, sender.person.id, {
-        translatedAudioStorageKey: communityStorageKey(community.id),
-      });
-
-      await sender.agent.post(`/api/communities/${community.id}/conversation/messages/${message.id}/hide`).set('X-CSRF-Token', sender.csrf);
-
-      const hiddenRes = await sender.agent.get(`/api/communities/${community.id}/conversation/messages/${message.id}/translated-audio-url`);
-      expect(hiddenRes.status).toBe(404);
-
-      const otherRes = await reader.agent.get(`/api/communities/${community.id}/conversation/messages/${message.id}/translated-audio-url`);
-      expect(otherRes.status).toBe(200);
-    });
-
-    it('an unrelated message id for a different community is rejected (IDOR)', async () => {
-      const communityA = await makeCommunity('Translated Audio Community 6A');
-      const communityB = await makeCommunity('Translated Audio Community 6B');
-      const senderB = await loginAsMember('+237698500029', 'ta10@example.com');
-      await makeMembership(senderB.person.id, communityB.id);
-      const messageInB = await seedTranscribedVoiceNote(communityB.id, senderB.person.id, {
-        translatedAudioStorageKey: communityStorageKey(communityB.id),
-      });
-
-      const reader = await loginAsMember('+237698500030', 'ta11@example.com');
-      await makeMembership(reader.person.id, communityA.id);
-
-      const res = await reader.agent.get(`/api/communities/${communityA.id}/conversation/messages/${messageInB.id}/translated-audio-url`);
-      expect(res.status).toBe(404);
-    });
-
-    it('returns 503 when storage is not configured', async () => {
-      const community = await makeCommunity('Translated Audio Community 7');
-      const sender = await loginAsMember('+237698500031', 'ta12@example.com');
-      await makeMembership(sender.person.id, community.id);
-      const message = await seedTranscribedVoiceNote(community.id, sender.person.id, {
-        translatedAudioStorageKey: communityStorageKey(community.id),
-      });
-      vi.mocked(storage.isStorageConfigured).mockReturnValueOnce(false);
-
-      const res = await sender.agent.get(`/api/communities/${community.id}/conversation/messages/${message.id}/translated-audio-url`);
-      expect(res.status).toBe(503);
-    });
   });
 });

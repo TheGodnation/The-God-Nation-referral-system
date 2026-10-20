@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Avatar } from '../Avatar';
 import { TranslationNote } from '../TranslationNote';
 import { formatBytes } from '../../lib/attachmentLimits';
-import { getAttachmentUrl, getTranslatedAudioUrl, useAttachmentUrl, useInView } from '../../lib/chatMedia';
+import { getAttachmentUrl, useAttachmentUrl, useInView } from '../../lib/chatMedia';
 import { useDataSaver } from '../../lib/dataSaver';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import { mediaKind, type ChatAttachment, type ChatMessage, type ChatReplyPreview } from './types';
@@ -171,54 +171,6 @@ function DocumentAttachment({ mediaBase, messageId, a }: { mediaBase: string; me
         <span className="block truncate font-medium text-slate-800">{a.originalFilename}</span>
         <span className="text-xs text-slate-500">{formatBytes(a.byteSize)}</span>
       </span>
-    </button>
-  );
-}
-
-const LANGUAGE_KEY = { en: 'common.language_en', fr: 'common.language_fr' } as const;
-
-/** Voice-to-voice: fetches and plays the synthesized translated audio on
- * tap (never eagerly) — a second tap pauses it. */
-function TranslatedAudioPlayButton({ mediaBase, messageId, language }: { mediaBase: string; messageId: string; language: 'en' | 'fr' }) {
-  const { t } = useTranslation();
-  const [state, setState] = useState<'idle' | 'loading' | 'playing' | 'failed'>('idle');
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  async function toggle() {
-    if (state === 'loading') return;
-    if (state === 'playing') {
-      audioRef.current?.pause();
-      setState('idle');
-      return;
-    }
-    setState('loading');
-    try {
-      const url = await getTranslatedAudioUrl(mediaBase, messageId);
-      const audio = new Audio(url);
-      audio.onended = () => setState('idle');
-      audio.onerror = () => setState('failed');
-      audioRef.current = audio;
-      await audio.play();
-      setState('playing');
-    } catch {
-      setState('failed');
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        void toggle();
-      }}
-      disabled={state === 'loading'}
-      className="mt-1 flex items-center gap-1 rounded-full bg-emerald-700/10 px-2 py-1 text-xs font-semibold text-emerald-700"
-    >
-      <span aria-hidden>{state === 'loading' ? '…' : state === 'playing' ? '⏸' : '🔊'}</span>
-      {state === 'failed'
-        ? t('translation.play_translated_audio_failed')
-        : t('translation.play_translated_audio', { language: t(LANGUAGE_KEY[language]) })}
     </button>
   );
 }
@@ -406,13 +358,6 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                       onToggle={() => setShowOriginalTranscript((v) => !v)}
                       showOriginalLabel={t('translation.show_original_transcript') ?? undefined}
                       showTranslationLabel={t('translation.show_translated_transcript') ?? undefined}
-                    />
-                  )}
-                  {m.transcript.translatedAudioAvailable && (
-                    <TranslatedAudioPlayButton
-                      mediaBase={mediaBase}
-                      messageId={m.id}
-                      language={m.transcript.sourceLanguage === 'en' ? 'fr' : 'en'}
                     />
                   )}
                 </div>

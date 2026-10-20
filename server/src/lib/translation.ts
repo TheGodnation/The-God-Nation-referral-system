@@ -1,7 +1,6 @@
 import type { Language } from '@prisma/client';
 import { prisma } from './prisma';
-import { getObjectStream, putObject } from './storage';
-import { generateStorageKey } from './attachmentPolicy';
+import { getObjectStream } from './storage';
 
 // Auto-translation (Gemini) — text translation on Updates posts and
 // Community group-chat messages, and voice-note transcription+translation in
@@ -20,18 +19,14 @@ import { generateStorageKey } from './attachmentPolicy';
 // translation to produce: whichever of the two a piece of text is NOT.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-// Every dated model name pinned here has been rejected by Gemini within
-// days, each for a different reason: gemini-2.0-flash was retired outright;
-// its named replacement, gemini-3.8-flash, timed out on every single call
-// (consistent with a preview-tier model defaulting to extended "thinking");
-// its replacement, gemini-2.5-flash, then came back 404 "no longer
-// available to new users" — pointing back at gemini-3.8-flash, the one
-// already known to time out. That back-and-forth is exactly what the
-// "-latest" alias exists to avoid: Google repoints it at whichever
-// concrete model is current for this API key, so this never needs a
-// redeploy again for this specific kind of churn. If it ever 404s too,
-// logAvailableModels below logs the real options straight from Gemini.
-const GEMINI_MODEL = 'gemini-flash-latest';
+// A "-latest" alias rather than a dated model name: Google retires and
+// restricts dated names often (gemini-2.0-flash and gemini-2.5-flash both
+// 404ed here), and repoints the alias at whichever model is current. Lite
+// rather than full Flash because this key is on Gemini's free tier, where
+// full Flash allows only 20 requests a day ("limit: 20" in its 429) and
+// Flash-Lite allows far more. If it ever 404s, logAvailableModels below
+// logs the real options straight from Gemini.
+const GEMINI_MODEL = 'gemini-flash-lite-latest';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const REQUEST_TIMEOUT_MS = 20000;
 // Gemini occasionally answers 503 "This model is currently experiencing
@@ -108,11 +103,7 @@ async function callGemini(contents: unknown[], schema: unknown): Promise<any | n
   try {
     const res = await postGeminiJson(`${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
       contents,
-      // thinkingBudget: 0 — this is a classify-and-translate call with a
-      // fixed response shape, not a reasoning task; extended thinking only
-      // adds latency here (and was very likely why gemini-3.8-flash was
-      // timing out above).
-      generationConfig: { responseMimeType: 'application/json', responseSchema: schema, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: { responseMimeType: 'application/json', responseSchema: schema },
     });
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
@@ -214,24 +205,13 @@ export async function transcribeAndTranslateAudio(audioBase64: string, mimeType:
   return { detectedLanguage: result.detectedLanguage, transcript: result.transcript, translatedTranscript: result.translated };
 }
 
-// Voice-to-voice — speaking the translated transcript back as audio.
-// gemini-3.8-flash-preview-tts (a guess by analogy to the confirmed chat
-// model name above) 404ed; Gemini's own ListModels endpoint (queried via
-// logAvailableModels below) confirmed the real name.
-const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
-const TTS_VOICE_NAME = 'Kore';
-
 let loggedAvailableModels = false;
 
 /**
  * Calls Gemini's ListModels endpoint and logs every model whose
- * supportedGenerationMethods includes generateContent, so the real model
- * name can be read directly from production logs instead of guessed again.
- * Every model name we've hardcoded here has been rejected by Gemini at
- * least once in production (the chat model, twice), so this is wired into
- * every 404 we see from Gemini, not just the TTS one that first needed it.
- * Best-effort and silent on its own failure — this is a diagnostic aid,
- * not something callers depend on.
+ * supportedGenerationMethods includes generateContent, so when Gemini 404s
+ * on GEMINI_MODEL the real options can be read straight from production
+ * logs instead of guessed. Best-effort and silent on its own failure.
  */
 async function logAvailableModels(): Promise<void> {
   if (loggedAvailableModels) return;
@@ -250,85 +230,6 @@ async function logAvailableModels(): Promise<void> {
     console.error('[translation] Gemini models supporting generateContent (looking for a real model name)', { generateContentModels });
   } catch (err) {
     console.error('[translation] ListModels call threw', { error: err instanceof Error ? err.message : String(err) });
-  }
-}
-
-function wavHeader(pcmLength: number, sampleRate: number, channels = 1, bitsPerSample = 16): Buffer {
-  const byteRate = sampleRate * channels * (bitsPerSample / 8);
-  const blockAlign = channels * (bitsPerSample / 8);
-  const header = Buffer.alloc(44);
-  header.write('RIFF', 0);
-  header.writeUInt32LE(36 + pcmLength, 4);
-  header.write('WAVE', 8);
-  header.write('fmt ', 12);
-  header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20); // PCM
-  header.writeUInt16LE(channels, 22);
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(byteRate, 28);
-  header.writeUInt16LE(blockAlign, 32);
-  header.writeUInt16LE(bitsPerSample, 34);
-  header.write('data', 36);
-  header.writeUInt32LE(pcmLength, 40);
-  return header;
-}
-
-export interface SynthesizedSpeech {
-  audio: Buffer;
-  mimeType: string;
-}
-
-/**
- * Synthesizes `text` as spoken audio via Gemini's native TTS. Gemini
- * returns raw PCM with no container (mimeType like "audio/L16;rate=24000"),
- * which a plain <audio>/voice-note player can't play — this wraps it in a
- * minimal WAV header so it's directly playable. Returns null on any
- * failure, same degrade rule as everything else here.
- */
-export async function synthesizeSpeech(text: string): Promise<SynthesizedSpeech | null> {
-  if (!text.trim()) return null;
-  if (!GEMINI_API_KEY) {
-    if (!warnedUnconfigured) {
-      warnedUnconfigured = true;
-      console.warn('[translation] GEMINI_API_KEY not configured — translation/transcription disabled');
-    }
-    return null;
-  }
-  try {
-    const res = await postGeminiJson(`${GEMINI_BASE_URL}/${GEMINI_TTS_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-      contents: [{ role: 'user', parts: [{ text }] }],
-      generationConfig: {
-        responseModalities: ['AUDIO'],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE_NAME } } },
-      },
-    });
-    if (!res.ok) {
-      const bodyText = await res.text().catch(() => '');
-      console.error('[translation] Gemini TTS responded with a non-OK status', { status: res.status, body: bodyText.slice(0, 500) });
-      if (res.status === 404) {
-        void logAvailableModels();
-      }
-      return null;
-    }
-    const data: any = await res.json();
-    const part = data?.candidates?.[0]?.content?.parts?.[0];
-    const base64 = part?.inlineData?.data;
-    const mimeType: string | undefined = part?.inlineData?.mimeType;
-    if (typeof base64 !== 'string') {
-      console.error('[translation] Gemini TTS response had no audio data', { data: JSON.stringify(data).slice(0, 500) });
-      return null;
-    }
-    const pcm = Buffer.from(base64, 'base64');
-    if (mimeType && !mimeType.startsWith('audio/L16') && !mimeType.startsWith('audio/pcm')) {
-      // Already containerized (wav/mp3/etc) — pass through untouched.
-      return { audio: pcm, mimeType };
-    }
-    const rateMatch = mimeType?.match(/rate=(\d+)/);
-    const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
-    return { audio: Buffer.concat([wavHeader(pcm.length, sampleRate), pcm]), mimeType: 'audio/wav' };
-  } catch (err) {
-    console.error('[translation] Gemini TTS call threw', { error: err instanceof Error ? err.message : String(err) });
-    return null;
   }
 }
 
@@ -371,7 +272,7 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
  * the result. A storage read failure degrades the same as a Gemini
  * failure — no transcript, nothing thrown.
  */
-export async function transcribeAndStoreMessageAudio(messageId: string, communityId: string, storageKey: string, mimeType: string): Promise<void> {
+export async function transcribeAndStoreMessageAudio(messageId: string, storageKey: string, mimeType: string): Promise<void> {
   // Skip the storage download entirely when unconfigured — no point
   // fetching audio we can't transcribe. callGemini's own warning covers the
   // text-translation path; this one is separate since a pure voice note has
@@ -404,34 +305,6 @@ export async function transcribeAndStoreMessageAudio(messageId: string, communit
         transcribedBody: result.transcript,
         translatedTranscript: result.translatedTranscript,
         transcribedAt: new Date(),
-      },
-    })
-    .catch(() => {});
-
-  // Voice-to-voice: speak the translated transcript back as audio and
-  // store it alongside. A failure here never touches the transcript/
-  // translation already saved above — those remain visible as text either
-  // way.
-  const speech = await synthesizeSpeech(result.translatedTranscript);
-  if (!speech) return;
-  const audioStorageKey = generateStorageKey(communityId);
-  const stored = await putObject({ storageKey: audioStorageKey, body: speech.audio, contentType: speech.mimeType })
-    .then(() => true)
-    .catch((err) => {
-      console.error('[translation] failed to store synthesized voice audio', { error: err instanceof Error ? err.message : String(err) });
-      return false;
-    });
-  if (!stored) return;
-  await prisma.message
-    .update({
-      where: { id: messageId },
-      data: {
-        translatedAudioStorageKey: audioStorageKey,
-        translatedAudioMimeType: speech.mimeType,
-        // The synthesized audio is always in the language the translated
-        // transcript is written in — the "other" one from what was spoken.
-        translatedAudioLanguage: result.detectedLanguage === 'en' ? 'fr' : 'en',
-        translatedAudioAt: new Date(),
       },
     })
     .catch(() => {});
