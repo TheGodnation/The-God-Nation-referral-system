@@ -55,7 +55,7 @@ afterEach(() => {
 describe('ChatComposer — voice notes', () => {
   it('tapping the mic starts recording immediately (no holding) and shows Cancel + Send', async () => {
     const onSend = vi.fn().mockResolvedValue(true);
-    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} />);
+    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} onPickMedia={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Tap to record a voice note' }));
 
@@ -66,7 +66,7 @@ describe('ChatComposer — voice notes', () => {
 
   it('tapping Send stops recording and sends the voice note as an attachment', async () => {
     const onSend = vi.fn().mockResolvedValue(true);
-    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} />);
+    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} onPickMedia={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Tap to record a voice note' }));
     await screen.findByRole('button', { name: 'Send voice note' });
@@ -83,7 +83,7 @@ describe('ChatComposer — voice notes', () => {
 
   it('tapping Cancel discards the recording without sending', async () => {
     const onSend = vi.fn().mockResolvedValue(true);
-    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} />);
+    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} onPickMedia={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Tap to record a voice note' }));
     await screen.findByRole('button', { name: 'Cancel' });
@@ -94,7 +94,7 @@ describe('ChatComposer — voice notes', () => {
   });
 
   it('allows a message up to WhatsApp\'s own character limit, not a shorter cap', () => {
-    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={vi.fn()} />);
+    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={vi.fn()} onPickMedia={vi.fn()} />);
     expect(screen.getByLabelText('Message')).toHaveAttribute('maxlength', '65536');
   });
 });

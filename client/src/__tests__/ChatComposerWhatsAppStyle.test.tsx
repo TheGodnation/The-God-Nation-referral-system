@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 function renderComposer(onSend = vi.fn().mockResolvedValue(true)) {
-  render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} />);
+  render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} onPickMedia={vi.fn()} />);
   return onSend;
 }
 

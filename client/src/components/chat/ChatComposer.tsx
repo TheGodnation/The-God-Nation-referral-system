@@ -7,8 +7,6 @@ import {
   extensionFor,
   formatDuration,
   pickRecorderMime,
-  shrinkPhoto,
-  makeThumb,
   uploadChatFile,
   type UploadedAttachment,
   type UploadProblem,
@@ -25,15 +23,6 @@ export interface OutgoingMessage {
   replyToMessageId?: string;
 }
 
-interface TrayItem {
-  localId: string;
-  name: string;
-  kind: 'photo' | 'video' | 'document';
-  previewUrl: string | null;
-  status: 'uploading' | 'ready' | 'error';
-  uploaded?: UploadedAttachment;
-}
-
 // The emoji list is only downloaded the first time someone opens the panel.
 const EmojiPanel = lazy(() => import('./EmojiPanel'));
 
@@ -43,18 +32,6 @@ const LIVE_BARS = 40;
 const MIN_VOICE_MS = 700;
 // WhatsApp's own per-message character limit — the server enforces the same.
 const MAX_CHAT_BODY = 65536;
-
-function objectUrl(b: Blob): string | null {
-  return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(b) : null;
-}
-
-function revoke(url: string | null) {
-  if (url && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
-}
-
-function newId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
 
 // The WhatsApp-style bar at the bottom of a chat: the smiley opens an emoji
 // panel in the keyboard's place, then the message box, the paperclip
@@ -67,6 +44,7 @@ export function ChatComposer({
   replyTo,
   onCancelReply,
   onSend,
+  onPickMedia,
   onTyping,
 }: {
   /** Where to ask for an upload link (group or private chat). */
@@ -74,6 +52,9 @@ export function ChatComposer({
   replyTo: ChatMessage | null;
   onCancelReply: () => void;
   onSend: (msg: OutgoingMessage) => Promise<boolean>;
+  /** Picked photos/videos/documents: the chat shows them straight away as a
+   * message with a progress circle and sends them (see useMediaUploads). */
+  onPickMedia: (files: File[]) => void;
   /** Tells the others "typing…" (sent at most every few seconds). */
   onTyping?: (typing: boolean) => void;
 }) {
@@ -94,7 +75,6 @@ export function ChatComposer({
       onTyping(true);
     }
   }
-  const [tray, setTray] = useState<TrayItem[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   // Where the caret was in the message box, so an emoji picked while the
@@ -227,50 +207,13 @@ export function ChatComposer({
   }
 
   // ---------- Attachments ----------
-  async function addFiles(list: FileList | null) {
+  function addFiles(list: FileList | null) {
     setMenuOpen(false);
     setError(null);
     if (!list || list.length === 0) return;
-    const room = MAX_ATTACHMENTS_PER_MESSAGE - tray.length;
-    const files = Array.from(list).slice(0, Math.max(0, room));
+    const files = Array.from(list).slice(0, MAX_ATTACHMENTS_PER_MESSAGE);
     if (files.length < list.length) setError(t('groupChat.max_files', { count: MAX_ATTACHMENTS_PER_MESSAGE }));
-    for (const file of files) {
-      const type = baseMime(file.type);
-      const kind: TrayItem['kind'] = type.startsWith('image/') ? 'photo' : type.startsWith('video/') ? 'video' : 'document';
-      const item: TrayItem = {
-        localId: newId(),
-        name: file.name,
-        kind,
-        previewUrl: kind === 'document' ? null : objectUrl(file),
-        status: 'uploading',
-      };
-      setTray((prev) => [...prev, item]);
-      void (async () => {
-        try {
-          let blob: Blob = file;
-          let name = file.name || `file.${extensionFor(type)}`;
-          let thumb: string | undefined;
-          if (kind === 'photo') {
-            blob = await shrinkPhoto(file);
-            if (blob !== file) name = name.replace(/\.[^.]+$/, '') + '.jpg';
-            thumb = await makeThumb(blob);
-          }
-          const uploaded = { ...(await uploadChatFile(uploadPath, blob, name)), ...(thumb ? { thumb } : {}) };
-          setTray((prev) => prev.map((x) => (x.localId === item.localId ? { ...x, status: 'ready', uploaded } : x)));
-        } catch (err) {
-          setTray((prev) => prev.map((x) => (x.localId === item.localId ? { ...x, status: 'error' } : x)));
-          setError(problemText(err instanceof ChatUploadError ? err.reason : 'failed'));
-        }
-      })();
-    }
-  }
-
-  function removeFromTray(localId: string) {
-    setTray((prev) => {
-      const gone = prev.find((x) => x.localId === localId);
-      if (gone) revoke(gone.previewUrl);
-      return prev.filter((x) => x.localId !== localId);
-    });
+    onPickMedia(files);
   }
 
   function onVideoRecorded(blob: Blob) {
@@ -280,24 +223,21 @@ export function ChatComposer({
     const dt = typeof DataTransfer !== 'undefined' ? new DataTransfer() : null;
     if (dt) {
       dt.items.add(file);
-      void addFiles(dt.files);
+      addFiles(dt.files);
     } else {
-      void addFiles({ 0: file, length: 1, item: () => file } as unknown as FileList);
+      addFiles({ 0: file, length: 1, item: () => file } as unknown as FileList);
     }
   }
 
   // ---------- Sending ----------
-  const uploading = tray.some((x) => x.status === 'uploading');
-  const ready = tray.filter((x) => x.status === 'ready' && x.uploaded).map((x) => x.uploaded!);
-  const hasContent = text.trim().length > 0 || ready.length > 0;
+  const hasContent = text.trim().length > 0;
 
   async function send() {
-    if (!hasContent || uploading || busy) return;
+    if (!hasContent || busy) return;
     setBusy(true);
     setError(null);
     const ok = await onSend({
       body: text.trim() || undefined,
-      attachments: ready.length ? ready : undefined,
       replyToMessageId: replyTo?.id,
     });
     setBusy(false);
@@ -305,8 +245,6 @@ export function ChatComposer({
       signalTyping('');
       setText('');
       cursorRef.current = null;
-      tray.forEach((x) => revoke(x.previewUrl));
-      setTray([]);
       if (textRef.current) textRef.current.style.height = 'auto';
     }
   }
@@ -482,38 +420,6 @@ export function ChatComposer({
         </div>
       )}
 
-      {tray.length > 0 && (
-        <div className="mb-2 flex gap-2 overflow-x-auto">
-          {tray.map((x) => (
-            <div key={x.localId} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-300">
-              {x.kind === 'photo' && x.previewUrl ? (
-                <img src={x.previewUrl} alt={x.name} className="h-full w-full object-cover" />
-              ) : x.kind === 'video' && x.previewUrl ? (
-                <video src={x.previewUrl} muted playsInline className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center p-1 text-center text-[10px] text-slate-700">
-                  <span className="text-2xl">📄</span>
-                  <span className="line-clamp-2">{x.name}</span>
-                </div>
-              )}
-              {x.status !== 'ready' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-semibold text-white">
-                  {x.status === 'uploading' ? t('groupChat.uploading') : '⚠️'}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => removeFromTray(x.localId)}
-                aria-label={t('groupChat.remove_attachment', { name: x.name }) ?? ''}
-                className="absolute right-0.5 top-0.5 rounded-full bg-black/60 px-1.5 text-xs text-white"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
       {menuOpen && (
         <div className="mb-2 grid grid-cols-4 gap-2 rounded-xl bg-white p-3 text-center text-xs text-slate-700 shadow">
           <button type="button" onClick={() => galleryRef.current?.click()} className="flex flex-col items-center gap-1">
@@ -542,9 +448,9 @@ export function ChatComposer({
         </div>
       )}
 
-      <input ref={galleryRef} type="file" accept="image/*,video/*" multiple className="hidden" data-testid="chat-gallery-input" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
-      <input ref={docRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
+      <input ref={galleryRef} type="file" accept="image/*,video/*" multiple className="hidden" data-testid="chat-gallery-input" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+      <input ref={docRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
 
       {recording ? (
         <div className="rounded-2xl bg-white px-4 pb-3 pt-3 shadow-sm">
@@ -668,11 +574,11 @@ export function ChatComposer({
             <VoiceInputButton onResult={onVoiceInputResult} className="shrink-0 p-2.5 text-lg" />
           </div>
 
-          {hasContent || uploading ? (
+          {hasContent ? (
             <button
               type="button"
               onClick={() => void send()}
-              disabled={uploading || busy}
+              disabled={busy}
               aria-label={t('groupChat.send') ?? ''}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white disabled:bg-emerald-300"
             >

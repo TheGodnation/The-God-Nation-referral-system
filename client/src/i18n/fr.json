@@ -2068,7 +2068,11 @@
     "emoji_group_travel": "Voyages et lieux",
     "emoji_group_objects": "Objets",
     "emoji_group_symbols": "Symboles",
-    "emoji_group_flags": "Drapeaux"
+    "emoji_group_flags": "Drapeaux",
+    "upload_retry": "Réessayer",
+    "upload_cancel": "Arrêter l’envoi",
+    "upload_remove": "Retirer",
+    "upload_progress": "Envoi… {{percent}} %"
   },
   "voiceInput": {
     "start": "Parler pour écrire",

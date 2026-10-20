@@ -47,8 +47,39 @@ export function extensionFor(mime: string): string {
   return map[mime] ?? 'bin';
 }
 
-/** authorizePath: the chat's "ask for an upload link" address (group or private chat). */
-export async function uploadChatFile(authorizePath: string, file: Blob, filename: string): Promise<UploadedAttachment> {
+/** Thrown when someone cancels an upload (the ✕ on a photo being sent). */
+export class UploadCancelled extends Error {
+  constructor() {
+    super('cancelled');
+  }
+}
+
+// Sends the file with XMLHttpRequest, the one browser tool that reports how
+// much has gone up so far (fetch can't), for the progress circle.
+function putWithProgress(url: string, body: Blob, mimeType: string, onProgress: (fraction: number) => void, signal?: AbortSignal) {
+  return new Promise<boolean>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Content-Type', mimeType);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
+    xhr.onerror = () => resolve(false);
+    xhr.onabort = () => reject(new UploadCancelled());
+    signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(body);
+  });
+}
+
+/** authorizePath: the chat's "ask for an upload link" address (group or private chat).
+ * With `onProgress`, reports 0–1 as the file goes up; `signal` cancels it. */
+export async function uploadChatFile(
+  authorizePath: string,
+  file: Blob,
+  filename: string,
+  opts: { onProgress?: (fraction: number) => void; signal?: AbortSignal } = {},
+): Promise<UploadedAttachment> {
   const mimeType = baseMime(file.type);
   if (!isAllowedAttachmentMime(mimeType)) throw new ChatUploadError('type');
   if (file.size > (maxBytesForMime(mimeType) ?? 0)) throw new ChatUploadError('size');
@@ -69,8 +100,17 @@ export async function uploadChatFile(authorizePath: string, file: Blob, filename
     throw new ChatUploadError('failed');
   }
 
-  const put = await fetch(auth.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType }, body }).catch(() => null);
-  if (!put || !put.ok) throw new ChatUploadError('failed');
+  if (opts.signal?.aborted) throw new UploadCancelled();
+  if (opts.onProgress && typeof XMLHttpRequest !== 'undefined') {
+    const ok = await putWithProgress(auth.uploadUrl, body, mimeType, opts.onProgress, opts.signal);
+    if (!ok) throw new ChatUploadError('failed');
+  } else {
+    const put = await fetch(auth.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType }, body, signal: opts.signal }).catch(() => {
+      if (opts.signal?.aborted) throw new UploadCancelled();
+      return null;
+    });
+    if (!put || !put.ok) throw new ChatUploadError('failed');
+  }
   return { storageKey: auth.storageKey, originalFilename: filename, mimeType, byteSize: body.size };
 }
 

@@ -8,6 +8,8 @@ import { MessageBubble } from '../components/chat/MessageBubble';
 import { resolveWallpaperStyle } from '../lib/wallpaper';
 import { usePublicSettings } from '../lib/usePublicSettings';
 import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatComposer';
+import { UploadingBubble } from '../components/chat/UploadingBubble';
+import { useMediaUploads } from '../lib/useMediaUploads';
 import { REACTIONS, canEditMessage, canUnsendMessage, type ChatMessage, type ChatReaction } from '../components/chat/types';
 import { ChatSearch, EditSheet, ForwardSheet, findAndJump } from '../components/chat/ChatActions';
 
@@ -212,6 +214,10 @@ export function MemberGroupChatPage() {
   const poke = useAdaptivePoll(() => fetchLatest(false), POLL_MS, loaded && !notAllowed);
   pokeRef.current = poke;
 
+  // Photos/videos/documents show in the chat at once with a progress
+  // circle (UploadingBubble) and are posted when every file is up.
+  const media = useMediaUploads(`/api/communities/${communityId}/attachments/authorize`, postMedia);
+
   // Keep the view at the bottom for new messages, and in place when older
   // messages are added above.
   useLayoutEffect(() => {
@@ -223,7 +229,7 @@ export function MemberGroupChatPage() {
     } else if (stickToBottom.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, media.jobs.length]);
 
   function onScroll() {
     const el = scrollRef.current;
@@ -333,6 +339,23 @@ export function MemberGroupChatPage() {
       }
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setReplyTo(reply);
+      if (err instanceof ApiError && err.status === 503) showToast(t('groupChat.storage_off'));
+      else if (err instanceof ApiError && err.status === 403) showToast(t('groupChat.only_leaders'));
+      else showToast(t('groupChat.send_failed'));
+      return false;
+    }
+  }
+
+  // Posts photos/videos/documents once they are uploaded. Their bubble is
+  // already showing, so no extra "sending…" copy is added here.
+  async function postMedia(out: OutgoingMessage): Promise<boolean> {
+    try {
+      await api.post(`/api/communities/${communityId}/conversation/messages`, out);
+      stickToBottom.current = true;
+      await fetchLatest(false);
+      poke();
+      return true;
+    } catch (err) {
       if (err instanceof ApiError && err.status === 503) showToast(t('groupChat.storage_off'));
       else if (err instanceof ApiError && err.status === 403) showToast(t('groupChat.only_leaders'));
       else showToast(t('groupChat.send_failed'));
@@ -516,6 +539,13 @@ export function MemberGroupChatPage() {
             );
           })}
         </div>
+        {media.jobs.length > 0 && (
+          <div className="mt-1 space-y-1">
+            {media.jobs.map((job) => (
+              <UploadingBubble key={job.id} job={job} onCancel={() => media.cancel(job.id)} onRetry={() => media.retry(job.id)} />
+            ))}
+          </div>
+        )}
       </div>
 
       {toast && (
@@ -531,6 +561,11 @@ export function MemberGroupChatPage() {
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(null)}
             onSend={send}
+            onPickMedia={(files) => {
+              stickToBottom.current = true;
+              media.start(files, replyTo?.id);
+              setReplyTo(null);
+            }}
             onTyping={(typing) => void api.post(`/api/communities/${communityId}/conversation/typing`, { typing }).catch(() => {})}
           />
         ) : (
