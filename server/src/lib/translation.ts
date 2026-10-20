@@ -1,6 +1,7 @@
 import type { Language } from '@prisma/client';
 import { prisma } from './prisma';
-import { getObjectStream } from './storage';
+import { getObjectStream, putObject } from './storage';
+import { generateStorageKey } from './attachmentPolicy';
 
 // Auto-translation (Gemini) — text translation on Updates posts and
 // Community group-chat messages, and voice-note transcription+translation in
@@ -157,6 +158,99 @@ export async function transcribeAndTranslateAudio(audioBase64: string, mimeType:
   return { detectedLanguage: result.detectedLanguage, transcript: result.transcript, translatedTranscript: result.translated };
 }
 
+// Voice-to-voice — speaking the translated transcript back as audio.
+// gemini-3.8-flash-preview-tts is the TTS-capable sibling of the chat
+// model above; if Google has since renamed it the way gemini-2.0-flash was
+// retired, the error logged below will name the exact replacement, same as
+// last time.
+const GEMINI_TTS_MODEL = 'gemini-3.8-flash-preview-tts';
+const TTS_VOICE_NAME = 'Kore';
+
+function wavHeader(pcmLength: number, sampleRate: number, channels = 1, bitsPerSample = 16): Buffer {
+  const byteRate = sampleRate * channels * (bitsPerSample / 8);
+  const blockAlign = channels * (bitsPerSample / 8);
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcmLength, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcmLength, 40);
+  return header;
+}
+
+export interface SynthesizedSpeech {
+  audio: Buffer;
+  mimeType: string;
+}
+
+/**
+ * Synthesizes `text` as spoken audio via Gemini's native TTS. Gemini
+ * returns raw PCM with no container (mimeType like "audio/L16;rate=24000"),
+ * which a plain <audio>/voice-note player can't play — this wraps it in a
+ * minimal WAV header so it's directly playable. Returns null on any
+ * failure, same degrade rule as everything else here.
+ */
+export async function synthesizeSpeech(text: string): Promise<SynthesizedSpeech | null> {
+  if (!text.trim()) return null;
+  if (!GEMINI_API_KEY) {
+    if (!warnedUnconfigured) {
+      warnedUnconfigured = true;
+      console.warn('[translation] GEMINI_API_KEY not configured — translation/transcription disabled');
+    }
+    return null;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${GEMINI_BASE_URL}/${GEMINI_TTS_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE_NAME } } },
+        },
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '');
+      console.error('[translation] Gemini TTS responded with a non-OK status', { status: res.status, body: bodyText.slice(0, 500) });
+      return null;
+    }
+    const data: any = await res.json();
+    const part = data?.candidates?.[0]?.content?.parts?.[0];
+    const base64 = part?.inlineData?.data;
+    const mimeType: string | undefined = part?.inlineData?.mimeType;
+    if (typeof base64 !== 'string') {
+      console.error('[translation] Gemini TTS response had no audio data', { data: JSON.stringify(data).slice(0, 500) });
+      return null;
+    }
+    const pcm = Buffer.from(base64, 'base64');
+    if (mimeType && !mimeType.startsWith('audio/L16') && !mimeType.startsWith('audio/pcm')) {
+      // Already containerized (wav/mp3/etc) — pass through untouched.
+      return { audio: pcm, mimeType };
+    }
+    const rateMatch = mimeType?.match(/rate=(\d+)/);
+    const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+    return { audio: Buffer.concat([wavHeader(pcm.length, sampleRate), pcm]), mimeType: 'audio/wav' };
+  } catch (err) {
+    console.error('[translation] Gemini TTS call threw', { error: err instanceof Error ? err.message : String(err) });
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /** Fire-and-forget from the Updates post-creation route — see its own call site. */
 export async function translateAndStoreUpdatePost(postId: string, body: string): Promise<void> {
   const result = await translateText(body);
@@ -196,7 +290,7 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
  * the result. A storage read failure degrades the same as a Gemini
  * failure — no transcript, nothing thrown.
  */
-export async function transcribeAndStoreMessageAudio(messageId: string, storageKey: string, mimeType: string): Promise<void> {
+export async function transcribeAndStoreMessageAudio(messageId: string, communityId: string, storageKey: string, mimeType: string): Promise<void> {
   // Skip the storage download entirely when unconfigured — no point
   // fetching audio we can't transcribe. callGemini's own warning covers the
   // text-translation path; this one is separate since a pure voice note has
@@ -229,6 +323,34 @@ export async function transcribeAndStoreMessageAudio(messageId: string, storageK
         transcribedBody: result.transcript,
         translatedTranscript: result.translatedTranscript,
         transcribedAt: new Date(),
+      },
+    })
+    .catch(() => {});
+
+  // Voice-to-voice: speak the translated transcript back as audio and
+  // store it alongside. A failure here never touches the transcript/
+  // translation already saved above — those remain visible as text either
+  // way.
+  const speech = await synthesizeSpeech(result.translatedTranscript);
+  if (!speech) return;
+  const audioStorageKey = generateStorageKey(communityId);
+  const stored = await putObject({ storageKey: audioStorageKey, body: speech.audio, contentType: speech.mimeType })
+    .then(() => true)
+    .catch((err) => {
+      console.error('[translation] failed to store synthesized voice audio', { error: err instanceof Error ? err.message : String(err) });
+      return false;
+    });
+  if (!stored) return;
+  await prisma.message
+    .update({
+      where: { id: messageId },
+      data: {
+        translatedAudioStorageKey: audioStorageKey,
+        translatedAudioMimeType: speech.mimeType,
+        // The synthesized audio is always in the language the translated
+        // transcript is written in — the "other" one from what was spoken.
+        translatedAudioLanguage: result.detectedLanguage === 'en' ? 'fr' : 'en',
+        translatedAudioAt: new Date(),
       },
     })
     .catch(() => {});

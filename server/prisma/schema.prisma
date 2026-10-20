@@ -1467,6 +1467,15 @@ model Message {
   transcribedLanguage  Language?
   translatedTranscript String?
   transcribedAt        DateTime?
+  // Voice-to-voice: translatedTranscript synthesized back into speech, in
+  // whatever language it's written (always the "other" one from
+  // transcribedLanguage). A server-written object (never a client upload),
+  // namespaced the same as MessageAttachment.storageKey; opaque to clients,
+  // who only ever reach it through the dedicated download-url route below.
+  translatedAudioStorageKey String?
+  translatedAudioMimeType   String?
+  translatedAudioLanguage   Language?
+  translatedAudioAt         DateTime?
 
   conversation Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       Person                   @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)

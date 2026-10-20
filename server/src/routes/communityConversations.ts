@@ -88,6 +88,7 @@ type TranslatableMessage = {
   transcribedLanguage: Language | null;
   transcribedBody: string | null;
   translatedTranscript: string | null;
+  translatedAudioStorageKey: string | null;
 };
 
 // Only ever present once a background translation has actually landed, and
@@ -115,6 +116,10 @@ function transcriptField(m: TranslatableMessage, viewerLanguage: Language | null
     text: needsTranslation ? m.translatedTranscript! : m.transcribedBody,
     translated: Boolean(needsTranslation),
     original: needsTranslation ? m.transcribedBody : null,
+    // Only worth telling the client about when it's actually needed — the
+    // viewer's own language never gets an "listen in your language" button
+    // for something already spoken in it.
+    translatedAudioAvailable: Boolean(needsTranslation && m.translatedAudioStorageKey),
   };
 }
 
@@ -392,6 +397,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
               transcribedLanguage: true,
               transcribedBody: true,
               translatedTranscript: true,
+              translatedAudioStorageKey: true,
               reactions: { select: { emoji: true, personId: true } },
             },
           })
@@ -590,7 +596,7 @@ router.post(
     }
     const audioAttachment = attachmentDescriptors.find((a) => a.mimeType.startsWith('audio/'));
     if (audioAttachment) {
-      void transcribeAndStoreMessageAudio(created.id, audioAttachment.storageKey, audioAttachment.mimeType).catch(() => {});
+      void transcribeAndStoreMessageAudio(created.id, communityId, audioAttachment.storageKey, audioAttachment.mimeType).catch(() => {});
     }
 
     res.status(201).json({
@@ -1032,6 +1038,50 @@ router.get(
     }
 
     const { url, expiresAt } = await createDownloadUrl({ storageKey: attachment.storageKey });
+    res.json({ url, expiresAt });
+  }),
+);
+
+// GET /api/communities/:communityId/conversation/messages/:messageId/translated-audio-url
+// — voice-to-voice: the synthesized audio of a voice note's translated
+// transcript. Same authorization/redaction rules as the attachment
+// download-url route above (access, not-deleted, not personally-hidden),
+// since this is exactly as sensitive as the original voice note. Minted
+// fresh on every call, never persisted.
+router.get(
+  '/:communityId/conversation/messages/:messageId/translated-audio-url',
+  attachmentDownloadLimiter,
+  asyncHandler(async (req, res) => {
+    const { communityId, messageId } = req.params;
+
+    if (!(await contextTargetExists('COMMUNITY', communityId))) {
+      return res.status(404).json({ error: 'Community not found.' });
+    }
+
+    const personId = req.conversationActorPersonId!;
+    if (!(await hasConversationAccess(personId, communityId))) {
+      return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    }
+
+    const conversation = await getOrCreateConversation(communityId);
+
+    const message = await prisma.message.findUnique({ where: { id: messageId } });
+    if (!message || message.conversationId !== conversation.id || message.deletedAt || !message.translatedAudioStorageKey) {
+      return res.status(404).json({ error: 'Translated audio not found.' });
+    }
+
+    const hidden = await prisma.messageHiddenForPerson.findUnique({
+      where: { messageId_personId: { messageId, personId } },
+    });
+    if (hidden) {
+      return res.status(404).json({ error: 'Translated audio not found.' });
+    }
+
+    if (!isStorageConfigured()) {
+      return res.status(503).json({ error: 'Attachments are not available right now.' });
+    }
+
+    const { url, expiresAt } = await createDownloadUrl({ storageKey: message.translatedAudioStorageKey });
     res.json({ url, expiresAt });
   }),
 );

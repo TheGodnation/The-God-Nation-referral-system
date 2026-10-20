@@ -1467,7 +1467,9 @@
     "show_translation": "Show translation",
     "transcript_label": "Transcript",
     "show_original_transcript": "Show original transcript",
-    "show_translated_transcript": "Show translated transcript"
+    "show_translated_transcript": "Show translated transcript",
+    "play_translated_audio": "Listen in {{language}}",
+    "play_translated_audio_failed": "Could not play — try again"
   },
   "headquartersPosts": {
     "title": "Headquarters Network Posts",
