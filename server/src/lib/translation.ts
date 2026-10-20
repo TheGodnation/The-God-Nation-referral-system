@@ -25,6 +25,12 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = 'gemini-3.8-flash';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const REQUEST_TIMEOUT_MS = 20000;
+// Gemini occasionally answers 503 "This model is currently experiencing
+// high demand" — a transient capacity issue on Google's side, not a bug
+// here. One short-delay retry absorbs that without ever doubling the
+// user-visible latency on an outright failure.
+const RETRY_DELAY_MS = 1500;
+const MAX_ATTEMPTS = 2;
 
 export function isTranslationConfigured(): boolean {
   return Boolean(GEMINI_API_KEY);
@@ -39,6 +45,49 @@ let warnedUnconfigured = false;
 // any other failure here.
 const MAX_INLINE_AUDIO_BYTES = 15 * 1024 * 1024;
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * POSTs JSON to Gemini with a per-attempt timeout, retrying once (after a
+ * short delay) on a 503 "high demand" response or a thrown network/timeout
+ * error. Returns whatever the final attempt produced — callers still handle
+ * a non-OK response or a thrown error exactly as before, retry or not.
+ */
+async function postGeminiJson(url: string, body: unknown): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (res.status === 503 && attempt < MAX_ATTEMPTS) {
+        console.warn('[translation] Gemini reported high demand (503) — retrying once', { attempt });
+        await sleep(RETRY_DELAY_MS);
+        continue;
+      }
+      return res;
+    } catch (err) {
+      lastError = err;
+      if (attempt < MAX_ATTEMPTS) {
+        console.warn('[translation] Gemini call failed — retrying once', { attempt, error: err instanceof Error ? err.message : String(err) });
+        await sleep(RETRY_DELAY_MS);
+        continue;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastError;
+}
+
 async function callGemini(contents: unknown[], schema: unknown): Promise<any | null> {
   if (!GEMINI_API_KEY) {
     if (!warnedUnconfigured) {
@@ -47,17 +96,10 @@ async function callGemini(contents: unknown[], schema: unknown): Promise<any | n
     }
     return null;
   }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(`${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        generationConfig: { responseMimeType: 'application/json', responseSchema: schema },
-      }),
-      signal: controller.signal,
+    const res = await postGeminiJson(`${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+      contents,
+      generationConfig: { responseMimeType: 'application/json', responseSchema: schema },
     });
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
@@ -79,8 +121,6 @@ async function callGemini(contents: unknown[], schema: unknown): Promise<any | n
   } catch (err) {
     console.error('[translation] Gemini call threw', { error: err instanceof Error ? err.message : String(err) });
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -159,12 +199,10 @@ export async function transcribeAndTranslateAudio(audioBase64: string, mimeType:
 }
 
 // Voice-to-voice — speaking the translated transcript back as audio.
-// gemini-3.8-flash-preview-tts was a guess by analogy to the confirmed chat
-// model name above, and Google's 404 for it (unlike the chat model's own
-// retirement notice) doesn't name a replacement — so logAvailableTtsModels
-// below asks Gemini's own ListModels endpoint instead, once, the first time
-// this 404 is seen.
-const GEMINI_TTS_MODEL = 'gemini-3.8-flash-preview-tts';
+// gemini-3.8-flash-preview-tts (a guess by analogy to the confirmed chat
+// model name above) 404ed; Gemini's own ListModels endpoint (queried via
+// logAvailableTtsModels below) confirmed the real name.
+const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 const TTS_VOICE_NAME = 'Kore';
 
 let loggedAvailableTtsModels = false;
@@ -237,20 +275,13 @@ export async function synthesizeSpeech(text: string): Promise<SynthesizedSpeech 
     }
     return null;
   }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(`${GEMINI_BASE_URL}/${GEMINI_TTS_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text }] }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE_NAME } } },
-        },
-      }),
-      signal: controller.signal,
+    const res = await postGeminiJson(`${GEMINI_BASE_URL}/${GEMINI_TTS_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+      contents: [{ role: 'user', parts: [{ text }] }],
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE_NAME } } },
+      },
     });
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
@@ -279,8 +310,6 @@ export async function synthesizeSpeech(text: string): Promise<SynthesizedSpeech 
   } catch (err) {
     console.error('[translation] Gemini TTS call threw', { error: err instanceof Error ? err.message : String(err) });
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 

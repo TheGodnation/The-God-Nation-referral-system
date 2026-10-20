@@ -83,6 +83,31 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
     expect(await translation.translateText('Bonjour')).toBeNull();
   });
 
+  it('translateText retries once on a 503 "high demand" response, and succeeds if the retry does', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => 'high demand' })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'fr', translated: 'Good morning' }) }] } }] }),
+      });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const result = await translation.translateText('Bonjour');
+    expect(result).toEqual({ detectedLanguage: 'fr', translatedBody: 'Good morning' });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('translateText gives up (returns null) after a second 503 in a row', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = vi.fn(async () => ({ ok: false, status: 503, text: async () => 'high demand' }));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    expect(await translation.translateText('Bonjour')).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
   it('translateText returns null if the response is malformed (bad language, missing field)', async () => {
     const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
     mockGeminiResponse({ detectedLanguage: 'es', translated: 'Buenos días' });
