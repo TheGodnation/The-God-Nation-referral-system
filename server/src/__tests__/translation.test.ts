@@ -235,6 +235,42 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
       expect(await translation.synthesizeSpeech('Pray for me')).toBeNull();
     });
 
+    it('asks Gemini\'s ListModels endpoint for the real TTS model name when the model itself 404s', async () => {
+      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+      const fetchSpy = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 404, text: async () => 'model not found' })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            models: [
+              { name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent'] },
+              { name: 'models/gemini-3.8-flash-tts', supportedGenerationMethods: ['generateContent'] },
+              { name: 'models/embedding-001', supportedGenerationMethods: ['embedContent'] },
+            ],
+          }),
+        });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      expect(await translation.synthesizeSpeech('Pray for me')).toBeNull();
+      // synthesizeSpeech's own call returns before the fire-and-forget
+      // ListModels lookup's promise necessarily settles — give it a tick.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      const [, [listModelsUrl]] = fetchSpy.mock.calls;
+      expect(listModelsUrl).toContain('/v1beta/models?pageSize=200&key=test-key');
+    });
+
+    it('does not call ListModels for a non-404 failure', async () => {
+      const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+      const fetchSpy = vi.fn(async () => ({ ok: false, status: 500, text: async () => 'server error' }));
+      vi.stubGlobal('fetch', fetchSpy);
+      expect(await translation.synthesizeSpeech('Pray for me')).toBeNull();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('returns null if the response has no audio data', async () => {
       const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
       vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'no audio here' }] } }] }) })));

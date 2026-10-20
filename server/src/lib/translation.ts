@@ -159,12 +159,42 @@ export async function transcribeAndTranslateAudio(audioBase64: string, mimeType:
 }
 
 // Voice-to-voice — speaking the translated transcript back as audio.
-// gemini-3.8-flash-preview-tts is the TTS-capable sibling of the chat
-// model above; if Google has since renamed it the way gemini-2.0-flash was
-// retired, the error logged below will name the exact replacement, same as
-// last time.
+// gemini-3.8-flash-preview-tts was a guess by analogy to the confirmed chat
+// model name above, and Google's 404 for it (unlike the chat model's own
+// retirement notice) doesn't name a replacement — so logAvailableTtsModels
+// below asks Gemini's own ListModels endpoint instead, once, the first time
+// this 404 is seen.
 const GEMINI_TTS_MODEL = 'gemini-3.8-flash-preview-tts';
 const TTS_VOICE_NAME = 'Kore';
+
+let loggedAvailableTtsModels = false;
+
+/**
+ * Calls Gemini's ListModels endpoint and logs every model whose
+ * supportedGenerationMethods includes generateContent, so the real TTS
+ * model name can be read directly from production logs instead of guessed
+ * again. Best-effort and silent on its own failure — this is a diagnostic
+ * aid, not something callers depend on.
+ */
+async function logAvailableTtsModels(): Promise<void> {
+  if (loggedAvailableTtsModels) return;
+  loggedAvailableTtsModels = true;
+  try {
+    const res = await fetch(`${GEMINI_BASE_URL}?pageSize=200&key=${GEMINI_API_KEY}`);
+    if (!res.ok) {
+      console.error('[translation] ListModels responded with a non-OK status', { status: res.status });
+      return;
+    }
+    const data: any = await res.json();
+    const models: any[] = Array.isArray(data?.models) ? data.models : [];
+    const generateContentModels = models
+      .filter((m) => Array.isArray(m?.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+      .map((m) => m.name);
+    console.error('[translation] Gemini models supporting generateContent (looking for the real TTS model name)', { generateContentModels });
+  } catch (err) {
+    console.error('[translation] ListModels call threw', { error: err instanceof Error ? err.message : String(err) });
+  }
+}
 
 function wavHeader(pcmLength: number, sampleRate: number, channels = 1, bitsPerSample = 16): Buffer {
   const byteRate = sampleRate * channels * (bitsPerSample / 8);
@@ -225,6 +255,9 @@ export async function synthesizeSpeech(text: string): Promise<SynthesizedSpeech 
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
       console.error('[translation] Gemini TTS responded with a non-OK status', { status: res.status, body: bodyText.slice(0, 500) });
+      if (res.status === 404) {
+        void logAvailableTtsModels();
+      }
       return null;
     }
     const data: any = await res.json();
