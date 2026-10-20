@@ -1453,8 +1453,8 @@ model Message {
   // Community-chat auto-translation (lib/translation.ts) — Group chats only,
   // never PrivateMessage. Populated once, in the background, right after the
   // message is sent; all null until then (and forever, if translation is not
-  // configured or the Gemini call fails — callers must degrade to showing
-  // just `body`, same as today). The app only ever has two languages, so
+  // configured or every attempt fails — see TranslationRetry — callers must
+  // degrade to showing just `body`, same as today). The app only ever has two languages, so
   // there is only ever one translation to produce: whichever of en/fr
   // `detectedLanguage` is NOT.
   detectedLanguage  Language?
@@ -2226,6 +2226,34 @@ model Notification {
 // on two phones has two rows, both receive every push. `endpoint` is
 // globally unique (it already encodes the specific device+browser
 // registration), so re-subscribing the same device just upserts in place.
+enum TranslationRetryKind {
+  MESSAGE_TEXT
+  MESSAGE_AUDIO
+  UPDATE_POST
+}
+
+// A translation (or voice-note transcription) whose first attempt failed,
+// waiting to be tried again (lib/translationRetry.ts). One row per item at
+// most, deleted as soon as an attempt succeeds, the item no longer needs
+// one (deleted, or already translated), or the retries run out — so each
+// item is still translated at most once. `targetId` is a Message or
+// UpdatePost id depending on `kind`, deliberately not a foreign key so one
+// table serves both; a target that no longer exists is simply dropped.
+// `lockedUntil` lets exactly one of several servers claim a due row.
+model TranslationRetry {
+  id            String               @id @default(uuid())
+  kind          TranslationRetryKind
+  targetId      String
+  // Retries already made (the first, failed attempt isn't counted).
+  attempts      Int                  @default(0)
+  nextAttemptAt DateTime
+  lockedUntil   DateTime?
+  createdAt     DateTime             @default(now())
+
+  @@unique([kind, targetId])
+  @@index([nextAttemptAt])
+}
+
 model PushSubscription {
   id        String   @id @default(uuid())
   personId  String?
@@ -2317,7 +2345,8 @@ model UpdatePost {
 
   // Auto-translation (lib/translation.ts) — same lazy/background/
   // best-effort rule as Message's own fields: populated once right after
-  // posting, null forever if translation is unavailable or fails.
+  // posting (or by a later TranslationRetry), null forever if translation is
+  // unavailable or every attempt fails.
   detectedLanguage Language?
   translatedBody   String?
   translatedAt     DateTime?

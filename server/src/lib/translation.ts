@@ -1,4 +1,4 @@
-import type { Language } from '@prisma/client';
+import type { Language, TranslationRetryKind } from '@prisma/client';
 import { prisma } from './prisma';
 import { getObjectStream } from './storage';
 
@@ -28,13 +28,31 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 // logs the real options straight from Gemini.
 const GEMINI_MODEL = 'gemini-flash-lite-latest';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-const REQUEST_TIMEOUT_MS = 20000;
+const TEXT_TIMEOUT_MS = 20000;
+// Transcribing audio takes Gemini far longer than translating a few lines
+// of text; 20s cut longer voice notes off mid-transcription.
+const AUDIO_TIMEOUT_MS = 60000;
 // Gemini occasionally answers 503 "This model is currently experiencing
 // high demand" — a transient capacity issue on Google's side, not a bug
 // here. One short-delay retry absorbs that without ever doubling the
 // user-visible latency on an outright failure.
 const RETRY_DELAY_MS = 1500;
-const MAX_ATTEMPTS = 2;
+const DEFAULT_ATTEMPTS = 2;
+
+export interface GeminiCallOptions {
+  /** Immediate tries for this one call (the later, spaced-out retries in
+   * translationRetry.ts pass 1 — they are already the "try again"). */
+  attempts?: number;
+  timeoutMs?: number;
+}
+
+/** What one try at translating/transcribing an item came to:
+ * - done: stored (or nothing left to do for it);
+ * - retry: failed in a way that may succeed later (timeout, network,
+ *   Gemini overloaded or quota reached) — worth queuing a retry;
+ * - skip: can never succeed (not configured, nothing to translate, file
+ *   missing or too large) — don't queue anything. */
+export type TranslationOutcome = 'done' | 'retry' | 'skip';
 
 export function isTranslationConfigured(): boolean {
   return Boolean(GEMINI_API_KEY);
@@ -59,11 +77,13 @@ function sleep(ms: number): Promise<void> {
  * error. Returns whatever the final attempt produced — callers still handle
  * a non-OK response or a thrown error exactly as before, retry or not.
  */
-async function postGeminiJson(url: string, body: unknown): Promise<Response> {
+async function postGeminiJson(url: string, body: unknown, opts: GeminiCallOptions = {}): Promise<Response> {
+  const maxAttempts = opts.attempts ?? DEFAULT_ATTEMPTS;
+  const timeoutMs = opts.timeoutMs ?? TEXT_TIMEOUT_MS;
   let lastError: unknown;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -71,7 +91,7 @@ async function postGeminiJson(url: string, body: unknown): Promise<Response> {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-      if (res.status === 503 && attempt < MAX_ATTEMPTS) {
+      if (res.status === 503 && attempt < maxAttempts) {
         console.warn('[translation] Gemini reported high demand (503) — retrying once', { attempt });
         await sleep(RETRY_DELAY_MS);
         continue;
@@ -79,7 +99,7 @@ async function postGeminiJson(url: string, body: unknown): Promise<Response> {
       return res;
     } catch (err) {
       lastError = err;
-      if (attempt < MAX_ATTEMPTS) {
+      if (attempt < maxAttempts) {
         console.warn('[translation] Gemini call failed — retrying once', { attempt, error: err instanceof Error ? err.message : String(err) });
         await sleep(RETRY_DELAY_MS);
         continue;
@@ -92,7 +112,7 @@ async function postGeminiJson(url: string, body: unknown): Promise<Response> {
   throw lastError;
 }
 
-async function callGemini(contents: unknown[], schema: unknown): Promise<any | null> {
+async function callGemini(contents: unknown[], schema: unknown, opts: GeminiCallOptions = {}): Promise<any | null> {
   if (!GEMINI_API_KEY) {
     if (!warnedUnconfigured) {
       warnedUnconfigured = true;
@@ -104,7 +124,7 @@ async function callGemini(contents: unknown[], schema: unknown): Promise<any | n
     const res = await postGeminiJson(`${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
       contents,
       generationConfig: { responseMimeType: 'application/json', responseSchema: schema },
-    });
+    }, opts);
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
       console.error('[translation] Gemini responded with a non-OK status', { status: res.status, body: bodyText.slice(0, 500) });
@@ -154,7 +174,7 @@ export interface TextTranslationResult {
  * whichever of the two it is NOT. Returns null if translation is not
  * configured, the text is empty, or the call fails for any reason.
  */
-export async function translateText(text: string): Promise<TextTranslationResult | null> {
+export async function translateText(text: string, opts: GeminiCallOptions = {}): Promise<TextTranslationResult | null> {
   if (!text.trim()) return null;
   const prompt =
     'Detect whether the following message is written in English or French, then translate it into ' +
@@ -162,7 +182,7 @@ export async function translateText(text: string): Promise<TextTranslationResult
     'translation only, no commentary.\n\nMessage:\n"""' +
     text +
     '"""';
-  const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], textSchema);
+  const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], textSchema, opts);
   if (!result || !isLanguage(result.detectedLanguage) || typeof result.translated !== 'string') return null;
   return { detectedLanguage: result.detectedLanguage, translatedBody: result.translated };
 }
@@ -189,7 +209,11 @@ export interface AudioTranslationResult {
  * accepts audio input directly. Returns null on any failure (including an
  * audio file over MAX_INLINE_AUDIO_BYTES).
  */
-export async function transcribeAndTranslateAudio(audioBase64: string, mimeType: string): Promise<AudioTranslationResult | null> {
+export async function transcribeAndTranslateAudio(
+  audioBase64: string,
+  mimeType: string,
+  opts: GeminiCallOptions = {},
+): Promise<AudioTranslationResult | null> {
   // Rough check: base64 is ~4/3 the raw size.
   if (audioBase64.length * 0.75 > MAX_INLINE_AUDIO_BYTES) return null;
   const prompt =
@@ -198,6 +222,7 @@ export async function transcribeAndTranslateAudio(audioBase64: string, mimeType:
   const result = await callGemini(
     [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType, data: audioBase64 } }] }],
     audioSchema,
+    { timeoutMs: AUDIO_TIMEOUT_MS, ...opts },
   );
   if (!result || !isLanguage(result.detectedLanguage) || typeof result.transcript !== 'string' || typeof result.translated !== 'string') {
     return null;
@@ -233,28 +258,56 @@ async function logAvailableModels(): Promise<void> {
   }
 }
 
-/** Fire-and-forget from the Updates post-creation route — see its own call site. */
-export async function translateAndStoreUpdatePost(postId: string, body: string): Promise<void> {
-  const result = await translateText(body);
-  if (!result) return;
-  await prisma.updatePost
-    .update({
-      where: { id: postId },
-      data: { detectedLanguage: result.detectedLanguage, translatedBody: result.translatedBody, translatedAt: new Date() },
+// The first retry is due this long after the first attempt fails; see
+// translationRetry.ts for the rest of the schedule.
+export const FIRST_RETRY_DELAY_MS = 5 * 60 * 1000;
+
+/** Queues an item for a later retry. Idempotent: an item already queued
+ * keeps its place (one row per item, see TranslationRetry). */
+export async function scheduleTranslationRetry(kind: TranslationRetryKind, targetId: string): Promise<void> {
+  await prisma.translationRetry
+    .upsert({
+      where: { kind_targetId: { kind, targetId } },
+      create: { kind, targetId, nextAttemptAt: new Date(Date.now() + FIRST_RETRY_DELAY_MS) },
+      update: {},
     })
-    .catch(() => {});
+    .catch((err) => {
+      console.error('[translation] could not queue a retry', { kind, targetId, error: err instanceof Error ? err.message : String(err) });
+    });
 }
 
-/** Fire-and-forget from the group-chat message-creation route — see its own call site. */
-export async function translateAndStoreMessage(messageId: string, body: string): Promise<void> {
-  const result = await translateText(body);
-  if (!result) return;
-  await prisma.message
-    .update({
+async function storeOutcome(write: Promise<unknown>): Promise<TranslationOutcome> {
+  return write.then(
+    () => 'done' as const,
+    // The item was deleted in the meantime (P2025) — nothing left to do.
+    (err) => (err?.code === 'P2025' ? 'skip' : 'retry'),
+  );
+}
+
+/** One try at translating an Updates post and storing the result. */
+export async function attemptUpdatePostTranslation(postId: string, body: string, opts: GeminiCallOptions = {}): Promise<TranslationOutcome> {
+  if (!isTranslationConfigured() || !body.trim()) return 'skip';
+  const result = await translateText(body, opts);
+  if (!result) return 'retry';
+  return storeOutcome(
+    prisma.updatePost.update({
+      where: { id: postId },
+      data: { detectedLanguage: result.detectedLanguage, translatedBody: result.translatedBody, translatedAt: new Date() },
+    }),
+  );
+}
+
+/** One try at translating a group-chat message and storing the result. */
+export async function attemptMessageTranslation(messageId: string, body: string, opts: GeminiCallOptions = {}): Promise<TranslationOutcome> {
+  if (!isTranslationConfigured() || !body.trim()) return 'skip';
+  const result = await translateText(body, opts);
+  if (!result) return 'retry';
+  return storeOutcome(
+    prisma.message.update({
       where: { id: messageId },
       data: { detectedLanguage: result.detectedLanguage, translatedBody: result.translatedBody, translatedAt: new Date() },
-    })
-    .catch(() => {});
+    }),
+  );
 }
 
 async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
@@ -265,40 +318,43 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-/**
- * Fire-and-forget from the group-chat message-creation route, for a voice
- * note's own attachment. Downloads the object from storage server-side
- * (never exposed to the client), then transcribes+translates and stores
- * the result. A storage read failure degrades the same as a Gemini
- * failure — no transcript, nothing thrown.
- */
-export async function transcribeAndStoreMessageAudio(messageId: string, storageKey: string, mimeType: string): Promise<void> {
+/** One try at transcribing+translating a voice note and storing the
+ * result. Downloads the object from storage server-side (never exposed to
+ * the client). */
+export async function attemptMessageAudioTranscription(
+  messageId: string,
+  storageKey: string,
+  mimeType: string,
+  opts: GeminiCallOptions = {},
+): Promise<TranslationOutcome> {
   // Skip the storage download entirely when unconfigured — no point
   // fetching audio we can't transcribe. callGemini's own warning covers the
   // text-translation path; this one is separate since a pure voice note has
   // no body for that path to ever run.
-  if (!GEMINI_API_KEY) {
+  if (!isTranslationConfigured()) {
     if (!warnedUnconfigured) {
       warnedUnconfigured = true;
       console.warn('[translation] GEMINI_API_KEY not configured — translation/transcription disabled');
     }
-    return;
+    return 'skip';
   }
+  let readFailed = false;
   const object = await getObjectStream({ storageKey }).catch((err) => {
+    readFailed = true;
     console.error('[translation] failed to read voice note from storage', { storageKey, error: err instanceof Error ? err.message : String(err) });
     return null;
   });
-  if (!object) return;
+  if (!object) return readFailed ? 'retry' : 'skip';
   if (object.contentLength && object.contentLength > MAX_INLINE_AUDIO_BYTES) {
     console.warn('[translation] voice note too large to transcribe inline', { storageKey, contentLength: object.contentLength });
-    return;
+    return 'skip';
   }
   const buffer = await streamToBuffer(object.body).catch(() => null);
-  if (!buffer) return;
-  const result = await transcribeAndTranslateAudio(buffer.toString('base64'), mimeType);
-  if (!result) return;
-  await prisma.message
-    .update({
+  if (!buffer) return 'retry';
+  const result = await transcribeAndTranslateAudio(buffer.toString('base64'), mimeType, opts);
+  if (!result) return 'retry';
+  return storeOutcome(
+    prisma.message.update({
       where: { id: messageId },
       data: {
         transcribedLanguage: result.detectedLanguage,
@@ -306,6 +362,23 @@ export async function transcribeAndStoreMessageAudio(messageId: string, storageK
         translatedTranscript: result.translatedTranscript,
         transcribedAt: new Date(),
       },
-    })
-    .catch(() => {});
+    }),
+  );
+}
+
+// Fire-and-forget from the post/message creation routes — see their call
+// sites. A first attempt that fails in a retryable way is queued for later.
+
+export async function translateAndStoreUpdatePost(postId: string, body: string): Promise<void> {
+  if ((await attemptUpdatePostTranslation(postId, body)) === 'retry') await scheduleTranslationRetry('UPDATE_POST', postId);
+}
+
+export async function translateAndStoreMessage(messageId: string, body: string): Promise<void> {
+  if ((await attemptMessageTranslation(messageId, body)) === 'retry') await scheduleTranslationRetry('MESSAGE_TEXT', messageId);
+}
+
+export async function transcribeAndStoreMessageAudio(messageId: string, storageKey: string, mimeType: string): Promise<void> {
+  if ((await attemptMessageAudioTranscription(messageId, storageKey, mimeType)) === 'retry') {
+    await scheduleTranslationRetry('MESSAGE_AUDIO', messageId);
+  }
 }

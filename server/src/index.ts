@@ -3,6 +3,7 @@ dotenv.config();
 
 import { createApp } from './app';
 import { PORT } from './lib/env';
+import { startTranslationRetryLoop } from './lib/translationRetry';
 
 // Last-resort safety net. Every route handler is wrapped in asyncHandler
 // (see lib/asyncHandler.ts) specifically so a failed database call — the
@@ -26,3 +27,5 @@ const app = createApp();
 app.listen(PORT, () => {
   console.log(`The God Nation Referral System API listening on port ${PORT}`);
 });
+
+startTranslationRetryLoop();
