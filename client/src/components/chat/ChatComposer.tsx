@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MAX_ATTACHMENTS_PER_MESSAGE } from '../../lib/attachmentLimits';
 import {
@@ -16,6 +16,7 @@ import {
 import { VideoRecorder } from './VideoRecorder';
 import { ReplyQuote } from './MessageBubble';
 import { VoiceInputButton } from '../VoiceInputButton';
+import { ChatIcon } from './icons';
 import type { ChatMessage } from './types';
 
 export interface OutgoingMessage {
@@ -33,7 +34,12 @@ interface TrayItem {
   uploaded?: UploadedAttachment;
 }
 
+// The emoji list is only downloaded the first time someone opens the panel.
+const EmojiPanel = lazy(() => import('./EmojiPanel'));
+
 const MAX_VOICE_MS = 5 * 60 * 1000;
+// How many bars the live waveform shows while recording (newest on the right).
+const LIVE_BARS = 40;
 const MIN_VOICE_MS = 700;
 // WhatsApp's own per-message character limit — the server enforces the same.
 const MAX_CHAT_BODY = 65536;
@@ -50,9 +56,12 @@ function newId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-// The WhatsApp-style bar at the bottom of a chat: type a message, attach
-// photos/videos/documents, record a video, or tap the microphone to record
-// a voice note (no holding required — tap again, via the Send button, when done).
+// The WhatsApp-style bar at the bottom of a chat: the smiley opens an emoji
+// panel in the keyboard's place, then the message box, the paperclip
+// (photos/videos/documents/video recording) and the camera; the big round
+// button records a voice note, or sends once something is typed. Recording
+// needs no holding: it shows a live waveform with Delete, Pause/Resume and
+// Send.
 export function ChatComposer({
   uploadPath,
   replyTo,
@@ -87,6 +96,10 @@ export function ChatComposer({
   }
   const [tray, setTray] = useState<TrayItem[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  // Where the caret was in the message box, so an emoji picked while the
+  // keyboard is hidden still lands in the right place.
+  const cursorRef = useRef<{ start: number; end: number } | null>(null);
   const [videoOpen, setVideoOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -97,32 +110,42 @@ export function ChatComposer({
   const docRef = useRef<HTMLInputElement>(null);
 
   // Voice note recording
-  const [recording, setRecording] = useState<{ locked: boolean } | null>(null);
+  const [recording, setRecording] = useState<{ locked: boolean; paused: boolean } | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [levels, setLevels] = useState<number[]>([]);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const startedAtRef = useRef(0);
   const lockedRef = useRef(false);
+  // Recorded time leaves out paused stretches: time banked before the last
+  // pause, plus the time since the last start/resume.
+  const bankedMsRef = useRef(0);
+  const resumedAtRef = useRef(0);
+  const pausedRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
 
   useEffect(() => {
     if (replyTo) textRef.current?.focus();
   }, [replyTo]);
 
+  const isRecording = recording !== null;
   useEffect(() => {
-    if (!recording) return;
+    if (!isRecording) return;
     const timer = window.setInterval(() => {
-      const ms = Date.now() - startedAtRef.current;
+      const ms = recordedMs();
       setElapsed(ms);
       if (ms >= MAX_VOICE_MS) finishVoice(true);
-    }, 200);
+      else if (!pausedRef.current) setLevels((prev) => [...prev, micLevel()].slice(-LIVE_BARS));
+    }, 100);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recording]);
+  }, [isRecording]);
 
   useEffect(
     () => () => {
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
+      void audioCtxRef.current?.close().catch(() => {});
     },
     [],
   );
@@ -153,6 +176,55 @@ export function ChatComposer({
   useEffect(() => {
     if (textRef.current) resizeText(textRef.current);
   }, [text]);
+
+  // ---------- Emoji panel ----------
+  function rememberCursor(el: HTMLTextAreaElement) {
+    cursorRef.current = { start: el.selectionStart ?? el.value.length, end: el.selectionEnd ?? el.value.length };
+  }
+
+  function caret() {
+    const c = cursorRef.current;
+    const start = Math.min(c?.start ?? text.length, text.length);
+    return { start, end: Math.max(start, Math.min(c?.end ?? start, text.length)) };
+  }
+
+  function insertEmoji(emoji: string) {
+    const { start, end } = caret();
+    const next = text.slice(0, start) + emoji + text.slice(end);
+    if (next.length > MAX_CHAT_BODY) return;
+    cursorRef.current = { start: start + emoji.length, end: start + emoji.length };
+    setText(next);
+    signalTyping(next);
+  }
+
+  // The panel's delete key: removes the selection, or else one whole emoji
+  // or letter before the caret (an emoji can be several characters long).
+  function deleteBeforeCaret() {
+    const { start, end } = caret();
+    let from = start;
+    if (start === end) {
+      const before = text.slice(0, start);
+      const Segmenter = (Intl as unknown as { Segmenter?: new (l?: string, o?: { granularity: string }) => { segment(s: string): Iterable<{ segment: string }> } }).Segmenter;
+      const parts = Segmenter ? Array.from(new Segmenter(undefined, { granularity: 'grapheme' }).segment(before), (x) => x.segment) : Array.from(before);
+      from = start - (parts[parts.length - 1]?.length ?? 0);
+    }
+    const next = text.slice(0, from) + text.slice(end);
+    cursorRef.current = { start: from, end: from };
+    setText(next);
+    signalTyping(next);
+  }
+
+  function toggleEmoji() {
+    if (emojiOpen) {
+      setEmojiOpen(false);
+      textRef.current?.focus();
+    } else {
+      // Hides the phone keyboard so the panel can take its place.
+      textRef.current?.blur();
+      setMenuOpen(false);
+      setEmojiOpen(true);
+    }
+  }
 
   // ---------- Attachments ----------
   async function addFiles(list: FileList | null) {
@@ -232,6 +304,7 @@ export function ChatComposer({
     if (ok) {
       signalTyping('');
       setText('');
+      cursorRef.current = null;
       tray.forEach((x) => revoke(x.previewUrl));
       setTray([]);
       if (textRef.current) textRef.current.style.height = 'auto';
@@ -267,24 +340,84 @@ export function ChatComposer({
     rec.start(500);
     recorderRef.current = rec;
     streamRef.current = stream;
-    startedAtRef.current = Date.now();
+    bankedMsRef.current = 0;
+    resumedAtRef.current = Date.now();
+    pausedRef.current = false;
     lockedRef.current = false;
+    startLevelMeter(stream);
     setElapsed(0);
-    setRecording({ locked: false });
+    setLevels([]);
+    setEmojiOpen(false);
+    setRecording({ locked: false, paused: false });
     return true;
+  }
+
+  function recordedMs() {
+    return bankedMsRef.current + (pausedRef.current ? 0 : Date.now() - resumedAtRef.current);
+  }
+
+  // Listens to the microphone (without recording anything extra) so the
+  // waveform moves with the voice. Phones without Web Audio get a flat line.
+  function startLevelMeter(stream: MediaStream) {
+    try {
+      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      audioCtxRef.current = ctx;
+      analyserRef.current = analyser;
+    } catch {
+      audioCtxRef.current = null;
+      analyserRef.current = null;
+    }
+  }
+
+  function stopLevelMeter() {
+    void audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+    analyserRef.current = null;
+  }
+
+  function micLevel(): number {
+    const analyser = analyserRef.current;
+    if (!analyser) return 0.12;
+    const data = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (const v of data) sum += ((v - 128) / 128) ** 2;
+    return Math.max(0.12, Math.min(1, Math.sqrt(sum / data.length) * 5));
+  }
+
+  function togglePause() {
+    const rec = recorderRef.current;
+    if (!rec || typeof rec.pause !== 'function') return;
+    if (pausedRef.current) {
+      rec.resume();
+      resumedAtRef.current = Date.now();
+      pausedRef.current = false;
+    } else {
+      rec.pause();
+      bankedMsRef.current += Date.now() - resumedAtRef.current;
+      pausedRef.current = true;
+    }
+    setElapsed(recordedMs());
+    setRecording((r) => (r ? { ...r, paused: pausedRef.current } : r));
   }
 
   function lockVoice() {
     lockedRef.current = true;
-    setRecording((r) => (r ? { locked: true } : r));
+    setRecording((r) => (r ? { ...r, locked: true } : r));
   }
 
   function finishVoice(send: boolean) {
     const rec = recorderRef.current;
     recorderRef.current = null;
     setRecording(null);
+    stopLevelMeter();
     if (!rec) return;
-    const duration = Date.now() - startedAtRef.current;
+    const duration = recordedMs();
     const mime = baseMime(rec.mimeType || 'audio/webm');
     rec.onstop = () => {
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
@@ -413,28 +546,84 @@ export function ChatComposer({
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
       <input ref={docRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
 
-      <div className="flex items-end gap-2">
-        {recording ? (
-          <div className="flex min-h-[44px] flex-1 items-center gap-3 rounded-3xl bg-white px-4 py-2">
-            <button type="button" onClick={() => finishVoice(false)} aria-label={t('groupChat.cancel') ?? ''} className="text-xl">
-              🗑️
-            </button>
-            <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" aria-hidden />
-            <span className="font-mono text-sm text-slate-700" aria-live="polite">
+      {recording ? (
+        <div className="rounded-2xl bg-white px-4 pb-3 pt-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="w-14 shrink-0 font-mono text-xl text-slate-800" aria-live="polite">
               {formatDuration(elapsed)}
             </span>
-            <span className="flex-1 truncate text-right text-sm text-slate-500">{t('groupChat.recording')}</span>
+            <div className="flex h-8 min-w-0 flex-1 items-center justify-end gap-[3px] overflow-hidden" aria-hidden>
+              {Array.from({ length: LIVE_BARS }, (_, i) => {
+                const level = levels[levels.length - LIVE_BARS + i];
+                return (
+                  <span
+                    key={i}
+                    className={`w-[3px] shrink-0 rounded-full ${level === undefined ? 'bg-slate-200' : recording.paused ? 'bg-slate-400' : 'bg-slate-600'}`}
+                    style={{ height: `${Math.round((level ?? 0.12) * 100)}%` }}
+                  />
+                );
+              })}
+            </div>
           </div>
-        ) : (
-          <div className="flex min-h-[44px] min-w-0 flex-1 items-end rounded-3xl bg-white px-2">
+          <p className="mt-1 text-xs text-slate-500">
+            {recording.paused ? t('groupChat.recording_paused') : (
+              <>
+                <span className="mr-1 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500 align-middle" aria-hidden />
+                {t('groupChat.recording')}
+              </>
+            )}
+          </p>
+          <div className="mt-2 flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-label={t('groupChat.attach') ?? ''}
-              aria-expanded={menuOpen}
-              className="shrink-0 p-2 text-xl text-slate-500"
+              onClick={() => finishVoice(false)}
+              aria-label={t('groupChat.cancel') ?? ''}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600"
             >
-              📎
+              <ChatIcon name="trash" />
+            </button>
+            {typeof recorderRef.current?.pause === 'function' ? (
+              <button
+                type="button"
+                onClick={togglePause}
+                className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-slate-100 font-medium text-slate-800"
+              >
+                {recording.paused ? (
+                  <>
+                    <ChatIcon name="mic" className="h-6 w-6 text-red-600" />
+                    {t('groupChat.recording_resume')}
+                  </>
+                ) : (
+                  <>
+                    <ChatIcon name="pause" />
+                    {t('groupChat.recording_pause')}
+                  </>
+                )}
+              </button>
+            ) : (
+              <span className="flex-1" />
+            )}
+            <button
+              type="button"
+              onClick={() => finishVoice(true)}
+              aria-label={t('groupChat.send_voice') ?? ''}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
+            >
+              <ChatIcon name="send" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-end gap-2">
+          <div className="flex min-h-[48px] min-w-0 flex-1 items-end rounded-3xl bg-white px-1">
+            <button
+              type="button"
+              onClick={toggleEmoji}
+              aria-label={t(emojiOpen ? 'groupChat.emoji_close' : 'groupChat.emoji_open') ?? ''}
+              aria-expanded={emojiOpen}
+              className="shrink-0 p-2.5 text-slate-500"
+            >
+              <ChatIcon name={emojiOpen ? 'keyboard' : 'smiley'} />
             </button>
             <textarea
               ref={textRef}
@@ -447,46 +636,68 @@ export function ChatComposer({
                 setText(e.target.value);
                 resizeText(e.target);
                 signalTyping(e.target.value);
+                rememberCursor(e.target);
               }}
+              onSelect={(e) => rememberCursor(e.currentTarget)}
+              onFocus={() => setEmojiOpen(false)}
               onKeyDown={onKeyDown}
-              className="min-w-0 max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-[16px] leading-6 outline-none focus:ring-0"
+              className="min-w-0 max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1 py-3 text-[16px] leading-6 outline-none focus:ring-0"
             />
-            <VoiceInputButton onResult={onVoiceInputResult} className="shrink-0 p-2 text-lg" />
+            <button
+              type="button"
+              onClick={() => {
+                setEmojiOpen(false);
+                setMenuOpen((v) => !v);
+              }}
+              aria-label={t('groupChat.attach') ?? ''}
+              aria-expanded={menuOpen}
+              className="shrink-0 -rotate-45 p-2.5 text-slate-500"
+            >
+              <ChatIcon name="paperclip" />
+            </button>
+            {!text.trim() && (
+              <button
+                type="button"
+                onClick={() => cameraRef.current?.click()}
+                aria-label={t('groupChat.take_photo') ?? ''}
+                className="shrink-0 p-2.5 text-slate-500"
+              >
+                <ChatIcon name="camera" />
+              </button>
+            )}
+            <VoiceInputButton onResult={onVoiceInputResult} className="shrink-0 p-2.5 text-lg" />
           </div>
-        )}
 
-        {recording?.locked ? (
-          <button
-            type="button"
-            onClick={() => finishVoice(true)}
-            aria-label={t('groupChat.send_voice') ?? ''}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-lg text-white"
-          >
-            ➤
-          </button>
-        ) : hasContent || uploading ? (
-          <button
-            type="button"
-            onClick={() => void send()}
-            disabled={uploading || busy}
-            aria-label={t('groupChat.send') ?? ''}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-lg text-white disabled:bg-emerald-300"
-          >
-            ➤
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void startRecording()}
-            disabled={busy}
-            aria-label={t('groupChat.record_voice') ?? ''}
-            title={t('groupChat.record_voice') ?? ''}
-            className="flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-full bg-emerald-600 text-lg text-white disabled:bg-emerald-300"
-          >
-            🎤
-          </button>
-        )}
-      </div>
+          {hasContent || uploading ? (
+            <button
+              type="button"
+              onClick={() => void send()}
+              disabled={uploading || busy}
+              aria-label={t('groupChat.send') ?? ''}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white disabled:bg-emerald-300"
+            >
+              <ChatIcon name="send" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void startRecording()}
+              disabled={busy}
+              aria-label={t('groupChat.record_voice') ?? ''}
+              title={t('groupChat.record_voice') ?? ''}
+              className="flex h-12 w-12 shrink-0 select-none items-center justify-center rounded-full bg-emerald-600 text-white disabled:bg-emerald-300"
+            >
+              <ChatIcon name="mic" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {emojiOpen && !recording && (
+        <Suspense fallback={<div className="mt-2 h-[300px] rounded-t-2xl bg-white" />}>
+          <EmojiPanel onPick={insertEmoji} onBackspace={deleteBeforeCaret} />
+        </Suspense>
+      )}
 
       {videoOpen && <VideoRecorder onDone={onVideoRecorded} onClose={() => setVideoOpen(false)} />}
     </div>
