@@ -117,8 +117,12 @@ describe('"Did you mean …?" for a misspelled email provider', () => {
     expect(suggestEmailFix('a@yaho.com')).toBe('a@yahoo.com');
     expect(suggestEmailFix('a@hotmial.com')).toBe('a@hotmail.com');
     expect(suggestEmailFix(' Ada.N@GMIL.COM ')).toBe('Ada.N@gmail.com');
+    expect(suggestEmailFix('a@gmail')).toBe('a@gmail.com');
+    expect(suggestEmailFix('a@gmial')).toBe('a@gmail.com');
+    expect(suggestEmailFix('a@yahoo')).toBe('a@yahoo.com');
+    expect(suggestEmailFix('a@gmail.com.')).toBe('a@gmail.com');
 
-    for (const ok of ['a@gmail.com', 'a@yahoo.fr', 'a@mail.com', 'a@live.fr', 'a@thegodnationacademy.org', 'a@orange.cm', 'a@gmx.com', 'not-an-email', 'a@']) {
+    for (const ok of ['a@gmail.com', 'a@yahoo.fr', 'a@mail.com', 'a@live.fr', 'a@thegodnationacademy.org', 'a@orange.cm', 'a@gmx.com', 'not-an-email', 'a@', 'a@localhost', 'a@church']) {
       expect(suggestEmailFix(ok)).toBeNull();
     }
   });

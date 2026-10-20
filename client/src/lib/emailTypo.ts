@@ -47,10 +47,20 @@ export function suggestEmailFix(email: string): string | null {
   const at = trimmed.lastIndexOf('@');
   if (at <= 0 || at === trimmed.length - 1) return null;
   const local = trimmed.slice(0, at);
-  const domain = trimmed.slice(at + 1).toLowerCase();
-  if (KNOWN_DOMAINS.includes(domain) || REAL_LOOKALIKES.includes(domain)) return null;
+  const typed = trimmed.slice(at + 1).toLowerCase();
+  const domain = typed.replace(/\.+$/, ''); // "gmail.com." → "gmail.com"
+  if (!domain) return null;
+  if (KNOWN_DOMAINS.includes(domain) || REAL_LOOKALIKES.includes(domain)) return domain === typed ? null : `${local}@${domain}`;
 
   if (KNOWN_TYPOS[domain]) return `${local}@${KNOWN_TYPOS[domain]}`;
+
+  // The ending left off altogether: "name@gmail", "name@yahoo", "name@gmial".
+  if (!domain.includes('.')) {
+    for (const known of KNOWN_DOMAINS) {
+      const name = known.split('.')[0];
+      if (editDistance(domain, name) <= (name.length > 4 ? 2 : 1) && domain[0] === name[0]) return `${local}@${known}`;
+    }
+  }
 
   let best: string | null = null;
   let bestDistance = Infinity;
