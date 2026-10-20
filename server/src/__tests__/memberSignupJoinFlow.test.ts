@@ -112,6 +112,38 @@ describe('Join flow — screen 2 (check-code)', () => {
     expect(res.body.code).toBe('BAD_CODE');
   });
 
+  it('an earlier code still works after asking for another one (the first email arrived late)', async () => {
+    const first = await start('late@example.com');
+    const second = await start('late@example.com');
+    const res = await second.agent.post('/api/member/auth/signup/check-code').set('X-CSRF-Token', second.csrf).send({ email: 'late@example.com', code: first.code });
+    expect(res.status).toBe(200);
+    const newest = await second.agent.post('/api/member/auth/signup/check-code').set('X-CSRF-Token', second.csrf).send({ email: 'late@example.com', code: second.code });
+    expect(newest.status).toBe(200);
+  });
+
+  it('only the 5 most recent codes count', async () => {
+    const sent = [];
+    for (let i = 0; i < 6; i++) sent.push(await start('many@example.com'));
+    const oldest = sent[0].code!;
+    const last = sent[5];
+    if (!sent.slice(1).some((s) => s.code === oldest)) {
+      const r = await last.agent.post('/api/member/auth/signup/check-code').set('X-CSRF-Token', last.csrf).send({ email: 'many@example.com', code: oldest });
+      expect(r.status).toBe(400);
+    }
+    const ok = await last.agent.post('/api/member/auth/signup/check-code').set('X-CSRF-Token', last.csrf).send({ email: 'many@example.com', code: sent[1].code });
+    expect(ok.status).toBe(200);
+  });
+
+  it('a sign-up that expired or was locked starts clean: its old codes never come back', async () => {
+    const first = await start('stale@example.com');
+    await prisma.pendingMemberSignup.update({ where: { email: 'stale@example.com' }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    const second = await start('stale@example.com');
+    if (first.code !== second.code) {
+      const r = await second.agent.post('/api/member/auth/signup/check-code').set('X-CSRF-Token', second.csrf).send({ email: 'stale@example.com', code: first.code });
+      expect(r.status).toBe(400);
+    }
+  });
+
   it('locks the code after 5 wrong tries', async () => {
     const { agent, csrf, code } = await start('check3@example.com');
     const wrong = code === '000000' ? '111111' : '000000';

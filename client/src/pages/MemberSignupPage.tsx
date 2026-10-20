@@ -5,6 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 import { CodeEntry } from '../components/member/CodeEntry';
+import { useEmailTypoCheck } from '../components/EmailTypoHint';
 
 // Step 1 of joining the community: email, phone and a password. The server
 // always gives the same reply (it never says whether someone is already
@@ -20,6 +21,7 @@ export function MemberSignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const emailTypo = useEmailTypoCheck(email, setEmail);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,6 +38,7 @@ export function MemberSignupPage() {
       setError(t('memberSignup.error_password'));
       return;
     }
+    if (!emailTypo.confirmBeforeSubmit()) return;
     setSubmitting(true);
     try {
       const language = i18n.language?.startsWith('fr') ? 'fr' : 'en';
@@ -78,9 +81,11 @@ export function MemberSignupPage() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={emailTypo.onBlur}
                 required
                 autoComplete="email"
               />
+              {emailTypo.hint}
             </div>
             <div>
               <label className="label" htmlFor="signup-phone">

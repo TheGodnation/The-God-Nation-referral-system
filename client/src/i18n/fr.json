@@ -231,9 +231,11 @@
     "code_checking": "Vérification…",
     "code_submit": "Vérifier",
     "code_resend": "Renvoyer le code",
+    "code_resend_wait": "Renvoyer le code dans {{seconds}} s",
     "code_resent": "Un nouveau code a été envoyé.",
     "code_change_email": "Utiliser un autre e-mail",
     "code_spam_hint": "Vous ne le trouvez pas ? Vérifiez vos courriers indésirables.",
+    "code_slow_hint": "Avec une connexion lente, l’e-mail peut prendre quelques minutes. Tout code envoyé dans les 30 dernières minutes fonctionne.",
     "name_label": "Nom complet",
     "name_placeholder": "Votre nom complet",
     "phone_label": "Numéro de téléphone",
@@ -1937,7 +1939,7 @@
     "sent_to": "Nous avons envoyé un code à 6 chiffres à {{email}}. Tapez-le ci-dessous.",
     "label": "Code à 6 chiffres",
     "need_six": "Tapez les 6 chiffres de l’e-mail.",
-    "bad_code": "Ce code n’est pas bon ou a expiré. Regardez le dernier e-mail, ou demandez un nouveau code.",
+    "bad_code": "Ce code n’est pas bon ou a expiré. Vérifiez à nouveau l’e-mail, ou demandez un nouveau code.",
     "failed": "Une erreur s’est produite. Veuillez réessayer.",
     "resent": "Un nouveau code a été envoyé.",
     "checking": "Vérification…",
@@ -1946,8 +1948,15 @@
     "new_password_label": "Nouveau mot de passe",
     "password_too_short": "Veuillez choisir un mot de passe d’au moins 8 caractères.",
     "resend": "Envoyer un nouveau code",
+    "resend_wait": "Nouveau code dans {{seconds}} s",
     "change_email": "Utiliser un autre e-mail",
-    "spam_hint": "Pas dans votre boîte ? Regardez dans Spam ou Promotions. Le code est valable 15 minutes."
+    "spam_hint": "Pas dans votre boîte ? Regardez dans Spam ou Promotions. Le code est valable 15 minutes.",
+    "slow_hint": "Avec une connexion lente, l’e-mail peut prendre quelques minutes. Tout code envoyé dans les 15 dernières minutes fonctionne."
+  },
+  "emailTypo": {
+    "did_you_mean": "Vouliez-vous dire {{email}} ?",
+    "use_fix": "Oui, corriger",
+    "keep": "Non, garder le mien"
   },
   "installApp": {
     "title": "Installez l’application God Nation",

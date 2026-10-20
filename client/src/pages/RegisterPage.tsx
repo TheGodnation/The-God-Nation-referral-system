@@ -6,6 +6,8 @@ import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 import { usePublicSettings } from '../lib/usePublicSettings';
 import { useMemberAuth } from '../lib/MemberAuthContext';
+import { useResendCooldown } from '../lib/useResendCooldown';
+import { useEmailTypoCheck } from '../components/EmailTypoHint';
 import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../lib/locations';
 
 type Pathway = 'TRAINING' | 'DISCOVER_GROW';
@@ -41,6 +43,8 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [emailRegistered, setEmailRegistered] = useState(false);
   const [resent, setResent] = useState(false);
+  const cooldown = useResendCooldown(undefined, false);
+  const emailTypo = useEmailTypoCheck(email, setEmail);
 
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
@@ -62,9 +66,12 @@ export function RegisterPage() {
     e.preventDefault();
     setError(null);
     setEmailRegistered(false);
+    if (!emailTypo.confirmBeforeSubmit()) return;
     setSubmitting(true);
     try {
       await api.post('/api/member/auth/signup/start', { email: email.trim(), password, pathway, language });
+      setResent(false);
+      cooldown.start();
       setStep('code');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'EMAIL_ALREADY_REGISTERED') {
@@ -100,8 +107,10 @@ export function RegisterPage() {
   }
 
   async function onResend() {
+    if (cooldown.remaining > 0) return;
     setError(null);
     setResent(false);
+    cooldown.start();
     try {
       await api.post('/api/member/auth/signup/start', { email: email.trim(), password, pathway, language });
       setResent(true);
@@ -181,9 +190,11 @@ export function RegisterPage() {
                 placeholder={t('register.email_placeholder') ?? ''}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={emailTypo.onBlur}
                 required
                 autoComplete="email"
               />
+              {emailTypo.hint}
             </div>
             <div>
               <label className="label" htmlFor="register-password">
@@ -241,8 +252,13 @@ export function RegisterPage() {
               {submitting ? t('register.code_checking') : t('register.code_submit')}
             </button>
             <div className="flex justify-between text-sm">
-              <button type="button" className="text-brand-700 underline" onClick={onResend}>
-                {t('register.code_resend')}
+              <button
+                type="button"
+                className="text-brand-700 underline disabled:text-slate-400 disabled:no-underline"
+                onClick={onResend}
+                disabled={cooldown.remaining > 0}
+              >
+                {cooldown.remaining > 0 ? t('register.code_resend_wait', { seconds: cooldown.remaining }) : t('register.code_resend')}
               </button>
               <button
                 type="button"
@@ -257,6 +273,7 @@ export function RegisterPage() {
               </button>
             </div>
             <p className="text-xs text-slate-500">{t('register.code_spam_hint')}</p>
+            <p className="text-xs text-slate-500">{t('register.code_slow_hint')}</p>
           </form>
         )}
 

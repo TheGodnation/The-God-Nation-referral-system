@@ -84,15 +84,53 @@ describe('Sign in with email and a 6-digit code', () => {
     expect(late.status).toBe(400);
   });
 
-  it('only the newest code counts', async () => {
+  it('an earlier code still works after asking for another one (the first email arrived late)', async () => {
     const { email } = await memberWithAccount();
     const first = await requestCode(email);
     const second = await requestCode(email);
-    if (first.code !== second.code) {
-      const old = await second.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', second.csrf).send({ email, code: first.code });
-      expect(old.status).toBe(400);
+    const ok = await second.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', second.csrf).send({ email, code: first.code });
+    expect(ok.status).toBe(200);
+  });
+
+  it('once signed in, the other codes stop working', async () => {
+    const { email } = await memberWithAccount();
+    const first = await requestCode(email);
+    const second = await requestCode(email);
+    expect(
+      (await second.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', second.csrf).send({ email, code: first.code })).status,
+    ).toBe(200);
+    if (second.code !== first.code) {
+      const other = await first.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', first.csrf).send({ email, code: second.code });
+      expect(other.status).toBe(400);
     }
-    const ok = await second.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', second.csrf).send({ email, code: second.code });
+  });
+
+  it('a wrong try counts against every code still in play, so asking again buys no extra guesses', async () => {
+    const { email } = await memberWithAccount();
+    const first = await requestCode(email);
+    const second = await requestCode(email);
+    const wrong = [first.code, second.code].includes('000000') ? ([first.code, second.code].includes('111111') ? '222222' : '111111') : '000000';
+    for (let i = 0; i < 5; i++) {
+      await second.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', second.csrf).send({ email, code: wrong });
+    }
+    for (const code of [first.code, second.code]) {
+      const r = await second.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', second.csrf).send({ email, code });
+      expect(r.status).toBe(400);
+    }
+  });
+
+  it('only the 5 most recent codes count', async () => {
+    const { email } = await memberWithAccount();
+    const sent = [];
+    for (let i = 0; i < 6; i++) sent.push(await requestCode(email));
+    const oldest = sent[0].code!;
+    const newer = sent.slice(1).map((s) => s.code);
+    const last = sent[5];
+    if (!newer.includes(oldest)) {
+      const r = await last.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', last.csrf).send({ email, code: oldest });
+      expect(r.status).toBe(400);
+    }
+    const ok = await last.agent.post('/api/member/auth/verify-code').set('X-CSRF-Token', last.csrf).send({ email, code: sent[1].code });
     expect(ok.status).toBe(200);
   });
 

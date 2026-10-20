@@ -5,6 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
+import { useEmailTypoCheck } from '../components/EmailTypoHint';
 
 // Public self-signup for Leaders — reached via a single link an Admin
 // shares (along with the access phrase, out of band) in their WhatsApp
@@ -20,6 +21,7 @@ export function LeaderSignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phrase, setPhrase] = useState('');
+  const emailTypo = useEmailTypoCheck(email, setEmail);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ referralCode: string } | null>(null);
@@ -32,6 +34,7 @@ export function LeaderSignupPage() {
       setError(t('leaderSignup.password_too_short'));
       return;
     }
+    if (!emailTypo.confirmBeforeSubmit()) return;
 
     setSubmitting(true);
     try {
@@ -99,9 +102,11 @@ export function LeaderSignupPage() {
               className="input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={emailTypo.onBlur}
               required
               autoComplete="email"
             />
+            {emailTypo.hint}
           </div>
 
           <div>

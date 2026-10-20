@@ -1124,6 +1124,10 @@ model PendingMemberSignup {
   language     Language @default(en)
   visitorId    String
   codeHash     String
+  // Codes sent earlier for this same sign-up that still count (newest
+  // first, capped at MAX_LIVE_CODES - 1 in memberAuth.ts): a slow email
+  // often arrives after the visitor has already asked for another code.
+  previousCodeHashes String[] @default([])
   codeAttempts Int      @default(0)
   expiresAt    DateTime
   createdAt    DateTime @default(now())

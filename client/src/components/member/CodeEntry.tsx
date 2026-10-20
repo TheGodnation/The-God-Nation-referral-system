@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { useMemberAuth } from '../../lib/MemberAuthContext';
+import { useResendCooldown } from '../../lib/useResendCooldown';
 import { PasswordInput } from '../PasswordInput';
 
 // Step 2 of signing in: type the 6-digit code from the email, on the same
@@ -32,6 +33,8 @@ export function CodeEntry({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
+  // A code was sent just before this screen appeared, so the wait starts now.
+  const cooldown = useResendCooldown();
 
   async function verify(e: React.FormEvent) {
     e.preventDefault();
@@ -58,8 +61,10 @@ export function CodeEntry({
   }
 
   async function resend() {
+    if (cooldown.remaining > 0) return;
     setError(null);
     setResent(false);
+    cooldown.start();
     try {
       await api.post('/api/member/auth/request-code', { email });
       setResent(true);
@@ -110,8 +115,13 @@ export function CodeEntry({
         {busy ? t('memberCode.checking') : t(requirePassword ? 'memberCode.submit_set_password' : 'memberCode.submit')}
       </button>
       <div className="flex justify-between text-sm">
-        <button type="button" className="text-brand-700 underline" onClick={resend}>
-          {t('memberCode.resend')}
+        <button
+          type="button"
+          className="text-brand-700 underline disabled:text-slate-400 disabled:no-underline"
+          onClick={resend}
+          disabled={cooldown.remaining > 0}
+        >
+          {cooldown.remaining > 0 ? t('memberCode.resend_wait', { seconds: cooldown.remaining }) : t('memberCode.resend')}
         </button>
         {onChangeEmail && (
           <button type="button" className="text-slate-500 underline" onClick={onChangeEmail}>
@@ -120,6 +130,7 @@ export function CodeEntry({
         )}
       </div>
       <p className="text-xs text-slate-500">{t('memberCode.spam_hint')}</p>
+      <p className="text-xs text-slate-500">{t('memberCode.slow_hint')}</p>
     </form>
   );
 }

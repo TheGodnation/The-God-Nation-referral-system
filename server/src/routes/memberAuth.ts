@@ -76,6 +76,10 @@ function hashCode(tokenId: string, code: string): string {
 }
 
 const MAX_CODE_ATTEMPTS = 5;
+// How many recently sent codes stay usable at once (sign-in and sign-up):
+// enough to cover a few "resend" taps while an email is slow to arrive,
+// while keeping the odds of a lucky guess tiny.
+const MAX_LIVE_CODES = 5;
 
 // Shared by /complete-profile and the public join flow's /signup/finish
 // below — both save the same Cameroon-vs-rest-of-world location shape.
@@ -414,11 +418,17 @@ router.post('/signup/start', memberSignupStartLimiter, requireCsrf, asyncHandler
   const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
   const codeHash = hashCode(id, code);
   const expiresAt = new Date(Date.now() + PENDING_MEMBER_SIGNUP_TTL_MS);
+  // A resend keeps the earlier codes of a still-live sign-up usable. An
+  // expired or locked one (too many wrong tries) starts clean.
+  const previousCodeHashes =
+    existing && existing.expiresAt > new Date()
+      ? [existing.codeHash, ...existing.previousCodeHashes].slice(0, MAX_LIVE_CODES - 1)
+      : [];
 
   await prisma.pendingMemberSignup.upsert({
     where: { email: normalizedEmail },
     create: { id, email: normalizedEmail, passwordHash, pathway, language, visitorId, codeHash, expiresAt },
-    update: { passwordHash, pathway, language, visitorId, codeHash, codeAttempts: 0, expiresAt },
+    update: { passwordHash, pathway, language, visitorId, codeHash, previousCodeHashes, codeAttempts: 0, expiresAt },
   });
 
   await EmailService.sendMemberSignupCode({ to: normalizedEmail, language, code });
@@ -435,8 +445,12 @@ const BAD_SIGNUP_CODE = {
 // Records a wrong try against the pending row (locking it after
 // MAX_CODE_ATTEMPTS, exactly like MemberLoginToken above) and returns
 // whether the given code was actually correct.
-async function checkPendingSignupCode(pending: { id: string; codeHash: string; codeAttempts: number }, code: string): Promise<boolean> {
-  if (hashCode(pending.id, code) === pending.codeHash) return true;
+async function checkPendingSignupCode(
+  pending: { id: string; codeHash: string; previousCodeHashes: string[]; codeAttempts: number },
+  code: string,
+): Promise<boolean> {
+  const hash = hashCode(pending.id, code);
+  if (hash === pending.codeHash || pending.previousCodeHashes.includes(hash)) return true;
   const attempts = pending.codeAttempts + 1;
   await prisma.pendingMemberSignup.update({
     where: { id: pending.id },
@@ -773,21 +787,35 @@ router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler
   });
   if (!account) return res.status(400).json(BAD_CODE);
 
-  // Only the newest still-valid code counts.
-  const token = await prisma.memberLoginToken.findFirst({
+  // Any of the recent still-valid codes counts, not just the newest: on a
+  // slow connection the first email often lands after the member has
+  // already asked for another, and the code they then type is that first
+  // one.
+  const tokens = await prisma.memberLoginToken.findMany({
     where: { memberAccountId: account.id, consumedAt: null, expiresAt: { gt: new Date() }, codeHash: { not: null } },
     orderBy: { createdAt: 'desc' },
+    take: MAX_LIVE_CODES,
   });
-  if (!token) return res.status(400).json(BAD_CODE);
+  if (tokens.length === 0) return res.status(400).json(BAD_CODE);
 
-  if (hashCode(token.id, parsed.data.code) !== token.codeHash) {
-    const attempts = token.codeAttempts + 1;
-    await prisma.memberLoginToken.update({
-      where: { id: token.id },
-      // Too many wrong tries: the code (and its link) stop working.
-      data: { codeAttempts: attempts, ...(attempts >= MAX_CODE_ATTEMPTS ? { consumedAt: new Date() } : {}) },
+  const token = tokens.find((t) => hashCode(t.id, parsed.data.code) === t.codeHash);
+  if (!token) {
+    // A wrong try counts against every code still in play, so asking for
+    // more codes never buys extra guesses at the older ones.
+    for (const t of tokens) {
+      const attempts = t.codeAttempts + 1;
+      await prisma.memberLoginToken.update({
+        where: { id: t.id },
+        // Too many wrong tries: the code (and its link) stop working.
+        data: { codeAttempts: attempts, ...(attempts >= MAX_CODE_ATTEMPTS ? { consumedAt: new Date() } : {}) },
+      });
+    }
+    await recordAudit({
+      action: 'MEMBER_LOGIN_CODE_WRONG',
+      targetType: 'MemberAccount',
+      targetId: account.id,
+      metadata: { attempts: tokens[0].codeAttempts + 1 },
     });
-    await recordAudit({ action: 'MEMBER_LOGIN_CODE_WRONG', targetType: 'MemberAccount', targetId: account.id, metadata: { attempts } });
     return res.status(400).json(BAD_CODE);
   }
 
@@ -797,6 +825,12 @@ router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler
     data: { consumedAt: new Date() },
   });
   if (claim.count !== 1) return res.status(400).json(BAD_CODE);
+  // Signed in — the member's other outstanding codes (and their links) are
+  // no longer needed.
+  await prisma.memberLoginToken.updateMany({
+    where: { memberAccountId: account.id, consumedAt: null },
+    data: { consumedAt: new Date() },
+  });
 
   const { newPassword } = parsed.data;
   const newPasswordHash = newPassword ? await bcrypt.hash(newPassword, 12) : undefined;

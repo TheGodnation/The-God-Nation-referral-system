@@ -6,6 +6,7 @@ import { PasswordInput } from '../components/PasswordInput';
 import { CodeEntry } from '../components/member/CodeEntry';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
+import { useEmailTypoCheck } from '../components/EmailTypoHint';
 
 // Member sign-in: email + password, the ordinary way back in once someone
 // has already signed up. "Forgot password, or never set one?" switches to
@@ -23,6 +24,7 @@ export function MemberLoginPage() {
   const [codeEmail, setCodeEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const emailTypo = useEmailTypoCheck(email, setEmail);
 
   async function onSubmitPassword(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +34,7 @@ export function MemberLoginPage() {
       setError(t('memberLogin.error_email'));
       return;
     }
+    if (!emailTypo.confirmBeforeSubmit()) return;
     setSubmitting(true);
     try {
       await api.post('/api/member/auth/login', { email: clean, password });
@@ -52,6 +55,7 @@ export function MemberLoginPage() {
       setError(t('memberLogin.error_email'));
       return;
     }
+    if (!emailTypo.confirmBeforeSubmit()) return;
     setSubmitting(true);
     try {
       await api.post('/api/member/auth/request-code', { email: clean });
@@ -87,9 +91,11 @@ export function MemberLoginPage() {
                 placeholder={t('memberLogin.email_placeholder') ?? ''}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={emailTypo.onBlur}
                 required
                 autoComplete="email"
               />
+              {emailTypo.hint}
             </div>
 
             {mode === 'password' && (
