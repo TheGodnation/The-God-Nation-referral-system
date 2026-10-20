@@ -11,8 +11,11 @@ export interface UploadedAttachment {
   originalFilename: string;
   mimeType: string;
   byteSize: number;
-  /** Tiny blurred preview of a photo (a few KB) for slow networks. */
+  /** Tiny blurred preview of a photo (a few KB) for slow networks — for a
+   * PDF, the top of its first page (see pdfPreview.ts). */
   thumb?: string;
+  /** A PDF's number of pages. */
+  pageCount?: number;
 }
 
 export type UploadProblem = 'type' | 'size' | 'storage' | 'failed';

@@ -1553,8 +1553,11 @@ model MessageAttachment {
   originalFilename   String
   mimeType           String
   byteSize           Int
-  // Tiny blurred photo preview (data URL, a few KB) for slow networks.
+  // Tiny blurred photo preview (data URL, a few KB) for slow networks —
+  // for a PDF, the top of its first page.
   thumbDataUrl       String?
+  // A PDF's number of pages ("71 pages • 3.5 MB • PDF"), read by the sender's phone.
+  pageCount          Int?
   uploadedByPersonId String
   createdAt          DateTime @default(now())
 
@@ -2070,8 +2073,11 @@ model PrivateMessageAttachment {
   originalFilename String
   mimeType         String
   byteSize         Int
-  // Tiny blurred photo preview (data URL, a few KB) for slow networks.
+  // Tiny blurred photo preview (data URL, a few KB) for slow networks —
+  // for a PDF, the top of its first page.
   thumbDataUrl     String?
+  // A PDF's number of pages, read by the sender's phone.
+  pageCount        Int?
   createdAt        DateTime @default(now())
 
   message PrivateMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)

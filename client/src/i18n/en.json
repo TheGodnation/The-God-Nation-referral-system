@@ -2078,7 +2078,14 @@
     "preview_caption": "Add a caption…",
     "preview_add_more": "Add more",
     "preview_remove": "Remove {{name}}",
-    "preview_show": "Show {{name}}"
+    "preview_show": "Show {{name}}",
+    "doc_pages_one": "{{count}} page",
+    "doc_pages_other": "{{count}} pages",
+    "doc_download": "Download",
+    "doc_opening": "Opening… {{percent}}%",
+    "doc_cannot_show": "This document can’t be shown here.",
+    "doc_open_phone": "Open it on the phone",
+    "doc_back": "Back to the chat"
   },
   "voiceInput": {
     "start": "Speak to type",

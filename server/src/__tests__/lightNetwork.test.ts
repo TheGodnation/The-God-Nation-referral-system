@@ -125,6 +125,27 @@ describe('Group chat: only new messages', () => {
     const list = await ada.agent.get(`${base}/messages`);
     expect(list.body.items[0].attachments[0].thumb).toBe(THUMB);
   });
+
+  it('keeps a PDF\'s first-page preview and page count ("71 pages • 3.5 MB • PDF")', async () => {
+    const g = await prisma.community.create({ data: { name: 'PDF Group' } });
+    const ada = await member('Ada', g.id);
+    const base = `/api/communities/${g.id}/conversation`;
+    const key = `communities/${g.id}/attachments/${crypto.randomUUID()}`;
+    vi.mocked(storage.headObject).mockResolvedValue({ contentLength: 3_500_000, contentType: 'application/pdf' } as any);
+    // A first-page preview is bigger than a photo's 48px blur, but still small.
+    const pagePreview = 'data:image/jpeg;base64,' + 'A'.repeat(12000);
+    const descriptor = { storageKey: key, originalFilename: 'Informations.pdf', mimeType: 'application/pdf', byteSize: 3_500_000, thumb: pagePreview };
+
+    const tooMany = await ada.agent.post(`${base}/messages`).set('X-CSRF-Token', ada.csrf).send({ attachments: [{ ...descriptor, pageCount: 0 }] });
+    expect(tooMany.status).toBe(400);
+
+    const ok = await ada.agent.post(`${base}/messages`).set('X-CSRF-Token', ada.csrf).send({ attachments: [{ ...descriptor, pageCount: 71 }] });
+    expect(ok.status).toBe(201);
+    vi.mocked(storage.headObject).mockResolvedValue(null);
+
+    const list = await ada.agent.get(`${base}/messages`);
+    expect(list.body.items[0].attachments[0]).toMatchObject({ pageCount: 71, thumb: pagePreview });
+  });
 });
 
 describe('Private chat: only new messages', () => {

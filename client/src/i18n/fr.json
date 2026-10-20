@@ -2078,7 +2078,14 @@
     "preview_caption": "Ajouter une légende…",
     "preview_add_more": "Ajouter",
     "preview_remove": "Retirer {{name}}",
-    "preview_show": "Voir {{name}}"
+    "preview_show": "Voir {{name}}",
+    "doc_pages_one": "{{count}} page",
+    "doc_pages_other": "{{count}} pages",
+    "doc_download": "Télécharger",
+    "doc_opening": "Ouverture… {{percent}} %",
+    "doc_cannot_show": "Ce document ne peut pas être affiché ici.",
+    "doc_open_phone": "L’ouvrir sur le téléphone",
+    "doc_back": "Retour à la discussion"
   },
   "voiceInput": {
     "start": "Parler pour écrire",

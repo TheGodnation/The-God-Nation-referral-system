@@ -3,8 +3,11 @@ export interface ChatAttachment {
   originalFilename: string;
   mimeType: string;
   byteSize: number;
-  /** Tiny blurred preview (data URL) shown before the photo downloads. */
+  /** Tiny blurred preview (data URL) shown before the photo downloads — for
+   * a PDF, the top of its first page. */
   thumb?: string;
+  /** A PDF's number of pages ("71 pages • 3.5 MB • PDF"). */
+  pageCount?: number;
 }
 
 export interface ChatReaction {

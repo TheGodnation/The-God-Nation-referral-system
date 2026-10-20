@@ -10,6 +10,7 @@ import {
   type UploadedAttachment,
   type UploadProblem,
 } from './chatMedia';
+import { isPdf, readPdf } from './pdfPreview';
 import type { OutgoingMessage } from '../components/chat/ChatComposer';
 
 // Photos, videos and documents sent the WhatsApp way: once Send is tapped
@@ -21,7 +22,14 @@ export interface MediaPreview {
   name: string;
   kind: 'photo' | 'video' | 'document';
   previewUrl: string | null;
+  byteSize: number;
+  /** PDFs: the top of page 1 and the page count, once read. */
+  thumb?: string;
+  pageCount?: number;
 }
+
+// How long a PDF's preview may hold up the message once its upload is done.
+const PDF_PREVIEW_GRACE_MS = 5000;
 
 export interface MediaSendJob {
   id: string;
@@ -72,6 +80,10 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
   }
 
+  function setItem(id: string, index: number, patch: Partial<MediaPreview>) {
+    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, items: j.items.map((it, k) => (k === index ? { ...it, ...patch } : it)) } : j)));
+  }
+
   function finish(id: string) {
     work.current.delete(id);
     setJobs((prev) => {
@@ -94,6 +106,11 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
           if (blob !== file) name = name.replace(/\.[^.]+$/, '') + '.jpg';
           thumb = await makeThumb(blob);
         }
+        // A PDF's first page is read while it uploads.
+        const pdf = isPdf(type) ? readPdf(file) : null;
+        void pdf?.then((info) => {
+          if (info) setItem(id, i, { thumb: info.thumb, pageCount: info.pageCount });
+        });
         const up = await uploadChatFile(uploadPath, blob, name, {
           signal: w.controller.signal,
           onProgress: (f) => {
@@ -103,6 +120,10 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
         });
         fractions[i] = 1;
         report();
+        if (pdf) {
+          const info = await Promise.race([pdf, new Promise<null>((r) => window.setTimeout(() => r(null), PDF_PREVIEW_GRACE_MS))]);
+          if (info) return { ...up, pageCount: info.pageCount, ...(info.thumb ? { thumb: info.thumb } : {}) };
+        }
         return thumb ? { ...up, thumb } : up;
       }),
     );
@@ -135,7 +156,7 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
     const id = `upload-${Date.now()}-${counter}`;
     const items = files.map((f) => {
       const kind = kindOf(f);
-      return { name: f.name, kind, previewUrl: kind === 'document' ? null : objectUrl(f) };
+      return { name: f.name, kind, byteSize: f.size, previewUrl: kind === 'document' ? null : objectUrl(f) };
     });
     work.current.set(id, { files, caption, replyToMessageId, controller: new AbortController() });
     setJobs((prev) => [...prev, { id, items, caption, progress: 0, status: 'uploading' }]);

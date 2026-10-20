@@ -23,6 +23,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ORIGINAL_FILENAME_LENGTH,
   MAX_THUMB_DATA_URL_LENGTH,
+  MAX_PDF_PAGE_COUNT,
   THUMB_DATA_URL_PATTERN,
 } from '../lib/attachmentPolicy';
 import { profilePhotoPath } from '../lib/profilePhoto';
@@ -296,7 +297,7 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
     orderBy: afterCursor ? [{ createdAt: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
     include: {
-      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true } },
+      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } },
       replyTo: {
         select: { id: true, body: true, deletedAt: true, senderPersonId: true, senderUserId: true, attachments: { select: { mimeType: true }, take: 1 } },
       },
@@ -338,6 +339,7 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
             mimeType: a.mimeType,
             byteSize: a.byteSize,
             thumb: a.thumbDataUrl ?? undefined,
+            pageCount: a.pageCount ?? undefined,
           })),
       replyTo:
         m.replyTo && !m.deletedAt
@@ -394,6 +396,7 @@ const attachmentDescriptorSchema = z.object({
   mimeType: z.string().min(1),
   byteSize: z.number().int().positive(),
   thumb: z.string().max(MAX_THUMB_DATA_URL_LENGTH).regex(THUMB_DATA_URL_PATTERN).optional(),
+  pageCount: z.number().int().min(1).max(MAX_PDF_PAGE_COUNT).optional(),
 });
 
 // Text, attachments (photos, voice notes, videos, PDFs), or both — never
@@ -483,6 +486,7 @@ router.post(
                 mimeType: a.mimeType,
                 byteSize: a.byteSize,
                 thumbDataUrl: a.thumb ?? null,
+                pageCount: a.pageCount ?? null,
               })),
             }
           : undefined,

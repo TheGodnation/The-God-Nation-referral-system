@@ -36,8 +36,10 @@ export const MAX_ORIGINAL_FILENAME_LENGTH = 200;
 
 // Tiny photo previews (about 48px, a few KB) kept right in the database so a
 // chat can show something instantly on a slow network, before (or instead
-// of) downloading the real photo. Only small base64 JPEGs are accepted.
-export const MAX_THUMB_DATA_URL_LENGTH = 8000;
+// of) downloading the real photo — and, for a PDF, a small picture of the top
+// of its first page (up to about 12 KB). Only small base64 JPEGs are accepted.
+export const MAX_THUMB_DATA_URL_LENGTH = 16000;
+export const MAX_PDF_PAGE_COUNT = 100000;
 export const THUMB_DATA_URL_PATTERN = /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/;
 
 export function isAllowedAttachmentMime(mimeType: string): boolean {

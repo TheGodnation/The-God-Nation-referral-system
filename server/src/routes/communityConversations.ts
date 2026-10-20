@@ -33,6 +33,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ORIGINAL_FILENAME_LENGTH,
   MAX_THUMB_DATA_URL_LENGTH,
+  MAX_PDF_PAGE_COUNT,
   THUMB_DATA_URL_PATTERN,
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
@@ -293,7 +294,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     },
     include: {
       sender: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } },
-      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true } },
+      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } },
       replyTo: replyToInclude,
       reactions: { select: { emoji: true, personId: true } },
     },
@@ -365,6 +366,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
             mimeType: a.mimeType,
             byteSize: a.byteSize,
             thumb: a.thumbDataUrl ?? undefined,
+            pageCount: a.pageCount ?? undefined,
           })),
       replyTo: m.deletedAt ? null : replyPreview(m.replyTo),
       reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, personId),
@@ -429,6 +431,7 @@ const attachmentDescriptorSchema = z.object({
   // A tiny blurred preview of a photo (a few KB), shown before the real
   // photo downloads — see lib/attachmentPolicy.ts THUMB_DATA_URL_PATTERN.
   thumb: z.string().max(MAX_THUMB_DATA_URL_LENGTH).regex(THUMB_DATA_URL_PATTERN).optional(),
+  pageCount: z.number().int().min(1).max(MAX_PDF_PAGE_COUNT).optional(),
 });
 
 // Phase 3M.8C: body is now optional (an attachment-only message is valid),
@@ -544,6 +547,7 @@ router.post(
                 mimeType: a.mimeType,
                 byteSize: a.byteSize,
                 thumbDataUrl: a.thumb ?? null,
+                pageCount: a.pageCount ?? null,
                 uploadedByPersonId: personId,
               })),
             }

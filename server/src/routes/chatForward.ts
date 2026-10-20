@@ -27,10 +27,10 @@ const forwardSchema = z.object({
 
 type SourceMessage = {
   body: string | null;
-  attachments: { storageKey: string; originalFilename: string; mimeType: string; byteSize: number; thumbDataUrl: string | null }[];
+  attachments: { storageKey: string; originalFilename: string; mimeType: string; byteSize: number; thumbDataUrl: string | null; pageCount: number | null }[];
 };
 
-const attachmentSelect = { storageKey: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true } as const;
+const attachmentSelect = { storageKey: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } as const;
 
 async function otherPersonOf(actor: PrivateMessagingActor, c: { memberPersonId: string; initiatorPersonId: string | null }) {
   if (actor.type !== 'PERSON') return null;
@@ -129,6 +129,7 @@ router.post(
                     mimeType: a.mimeType,
                     byteSize: a.byteSize,
                     thumbDataUrl: a.thumbDataUrl,
+                    pageCount: a.pageCount,
                     uploadedByPersonId: target.personId,
                   })),
                 }
@@ -151,6 +152,7 @@ router.post(
                     mimeType: a.mimeType,
                     byteSize: a.byteSize,
                     thumbDataUrl: a.thumbDataUrl,
+                    pageCount: a.pageCount,
                   })),
                 }
               : undefined,

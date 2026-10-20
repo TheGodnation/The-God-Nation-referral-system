@@ -471,7 +471,7 @@ export function ChatComposer({
 
       <input ref={galleryRef} type="file" accept="image/*,video/*" multiple className="hidden" data-testid="chat-gallery-input" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
-      <input ref={docRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+      <input ref={docRef} type="file" accept="application/pdf" className="hidden" data-testid="chat-document-input" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
 
       {recording ? (
         <div className="rounded-2xl bg-white px-4 pb-3 pt-3 shadow-sm">

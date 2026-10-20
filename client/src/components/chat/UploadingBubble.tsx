@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { MediaSendJob } from '../../lib/useMediaUploads';
+import { DocumentCard } from './DocumentCard';
 
 // Your own photo/video/document message while it is still going up — shown
 // in the chat straight away, like WhatsApp, with a progress circle you can
@@ -96,16 +97,20 @@ export function UploadingBubble({ job, onCancel, onRetry }: { job: MediaSendJob;
         )}
 
         {documents.map((item, i) => (
-          <div key={i} className="mb-1 flex items-center gap-2 rounded-md bg-slate-900/5 p-2">
-            <span className="text-2xl" aria-hidden>
-              📄
-            </span>
-            <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{item.name}</span>
-            {visuals.length === 0 && i === 0 && (
-              <div className="scale-75">
-                <ProgressRing job={job} onCancel={onCancel} onRetry={onRetry} label={label} />
-              </div>
-            )}
+          <div key={i} className="mb-1">
+            <DocumentCard
+              name={item.name}
+              byteSize={item.byteSize}
+              pageCount={item.pageCount}
+              thumb={item.thumb}
+              side={
+                visuals.length === 0 && i === 0 ? (
+                  <span className="-m-2 block shrink-0 scale-75">
+                    <ProgressRing job={job} onCancel={onCancel} onRetry={onRetry} label={label} />
+                  </span>
+                ) : undefined
+              }
+            />
           </div>
         ))}
 

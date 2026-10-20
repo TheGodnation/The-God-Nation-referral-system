@@ -1,12 +1,44 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { baseMime } from '../../lib/chatMedia';
+import { formatBytes } from '../../lib/attachmentLimits';
+import { isPdf, readPdf, type PdfInfo } from '../../lib/pdfPreview';
 import { ChatIcon } from './icons';
 
 // The WhatsApp-style screen between picking photos and sending them: the
 // chosen photo large, a strip of everything picked (tap to look, ✕ to drop
 // one, + to add more), and a caption box with Send. Nothing is uploaded
 // until Send is tapped.
+// A picked PDF: its first page, once read (📄 until then, or if it can't be).
+function DocumentPreview({ file }: { file: File }) {
+  const { t } = useTranslation();
+  const [info, setInfo] = useState<PdfInfo | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setInfo(null);
+    if (isPdf(file.type)) void readPdf(file).then((i) => alive && setInfo(i));
+    return () => {
+      alive = false;
+    };
+  }, [file]);
+  const meta = [info ? t('groupChat.doc_pages', { count: info.pageCount }) : null, formatBytes(file.size), 'PDF'].filter(Boolean).join(' • ');
+  return (
+    <div className="flex max-h-full flex-col items-center gap-3 text-center">
+      {info?.pageImage ? (
+        <img src={info.pageImage} alt={file.name} className="min-h-0 max-w-full flex-1 object-contain shadow-lg" />
+      ) : (
+        <span className="rounded-2xl bg-white/10 px-10 py-10 text-6xl" aria-hidden>
+          📄
+        </span>
+      )}
+      <div>
+        <p className="max-w-[18rem] break-words text-sm font-medium">{file.name}</p>
+        <p className="text-xs text-white/60">{meta}</p>
+      </div>
+    </div>
+  );
+}
+
 function kindOf(file: File): 'photo' | 'video' | 'document' {
   const type = baseMime(file.type);
   return type.startsWith('image/') ? 'photo' : type.startsWith('video/') ? 'video' : 'document';
@@ -70,12 +102,7 @@ export function MediaPreview({
           ) : currentKind === 'video' && currentUrl ? (
             <video src={currentUrl} controls playsInline className="max-h-full max-w-full" />
           ) : (
-            <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/10 px-8 py-10 text-center">
-              <span className="text-6xl" aria-hidden>
-                📄
-              </span>
-              <span className="max-w-[16rem] break-words text-sm">{current.name}</span>
-            </div>
+            <DocumentPreview file={current} />
           ))}
       </div>
 
