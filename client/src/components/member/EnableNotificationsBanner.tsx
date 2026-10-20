@@ -1,32 +1,53 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { enablePushNotifications, currentPushPermission } from '../../lib/push';
+import { enablePushNotifications, checkPushOnThisDevice, type PushDeviceStatus } from '../../lib/push';
 
-// "Turn on notifications": the actual delivery half of removing the mute
-// option — a Notification row in the database does nothing for a member
-// who has closed the app, only a real Push subscription does. Everyone who
-// hasn't actually turned it on is meant to keep seeing this, visit after
-// visit — closing with ✕ only hides it for the current visit (nothing is
-// persisted), so it comes back next time. It only stops for good once
-// permission is 'granted'. If the browser's own permission dialog has
-// already been blocked, we can't re-show that native dialog (no site can —
-// it's a browser security rule), so instead we keep the banner up and tell
-// the member to undo the block in their own device/browser settings.
-export function EnableNotificationsBanner() {
+const DISMISS_KEY = 'notifyBannerDismissed';
+
+function readDismissed(): boolean {
+  try {
+    return sessionStorage.getItem(DISMISS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+// "Turn on notifications", shown at the top of the main member pages (never
+// inside an open chat, where it would cover messages or the typing box). It
+// keeps coming back until this device really receives notifications —
+// checked against the actual push subscription, not just whether "Allow" was
+// once tapped. ✕ hides it for the rest of this visit (sessionStorage, so it
+// stays closed while moving between pages, and returns on the next visit).
+// Where notifications can't be turned on here (iPhone outside the Home
+// Screen app, or a browser without Push), it says what to do instead of
+// silently hiding. A browser-level block can't be undone by any site, so
+// that case points the member to their device settings.
+export function EnableNotificationsBanner({ className = 'mb-4' }: { className?: string }) {
   const { t } = useTranslation();
-  const [dismissed, setDismissed] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
+  const [dismissed, setDismissed] = useState(readDismissed);
+  const [status, setStatus] = useState<PushDeviceStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setPermission(currentPushPermission());
+    let cancelled = false;
+    void checkPushOnThisDevice().then((s) => {
+      if (!cancelled) setStatus(s);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (dismissed || permission === 'granted' || permission === 'unsupported') return null;
+  if (dismissed || status === null || status === 'subscribed') return null;
 
   function close() {
     setDismissed(true);
+    try {
+      sessionStorage.setItem(DISMISS_KEY, '1');
+    } catch {
+      /* private mode */
+    }
   }
 
   async function enable() {
@@ -35,39 +56,44 @@ export function EnableNotificationsBanner() {
     const result = await enablePushNotifications();
     setBusy(false);
     if (result.ok) {
-      setPermission('granted');
+      setStatus('subscribed');
     } else if (result.reason === 'denied') {
-      setPermission('denied');
+      setStatus('denied');
     } else {
       setFailed(true);
     }
   }
 
-  const blocked = permission === 'denied';
+  const message =
+    status === 'denied'
+      ? t('notifications.blocked_body')
+      : status === 'ios_needs_home_screen'
+        ? t('notifications.ios_home_screen_body')
+        : status === 'ios_too_old'
+          ? t('notifications.ios_too_old_body')
+          : status === 'unsupported'
+            ? t('notifications.unsupported_body')
+            : t('notifications.enable_body');
 
   return (
-    <div className="mb-4 flex items-start gap-3 rounded-xl bg-brand-50 p-3 text-sm text-brand-900">
-      <span className="text-2xl" aria-hidden="true">🔔</span>
-      <div className="flex-1">
-        <p className="font-semibold">{t('notifications.enable_title')}</p>
-        {blocked ? (
-          <p className="text-brand-800">{t('notifications.blocked_body')}</p>
-        ) : (
-          <>
-            <p className="text-brand-800">{t('notifications.enable_body')}</p>
-            {failed && <p className="mt-1 text-xs text-red-700">{t('notifications.enable_failed')}</p>}
-            <div className="mt-2 flex items-center gap-3">
-              <button type="button" disabled={busy} className="btn-primary px-3 py-1.5 text-sm disabled:opacity-60" onClick={() => void enable()}>
-                {busy ? t('notifications.enabling') : t('notifications.enable_button')}
-              </button>
-              <a href="/notifications-guide/" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand-700 underline">
-                {t('notifications.need_help')}
-              </a>
-            </div>
-          </>
-        )}
+    <div className={`${className} flex items-start gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900`}>
+      <span className="text-lg leading-6" aria-hidden="true">🔔</span>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold leading-6">{t('notifications.enable_title')}</p>
+        <p className="text-xs text-brand-800">{message}</p>
+        {failed && <p className="mt-1 text-xs text-red-700">{t('notifications.enable_failed')}</p>}
+        <div className="mt-1.5 flex items-center gap-3">
+          {status === 'not_subscribed' && (
+            <button type="button" disabled={busy} className="btn-primary px-3 py-1 text-xs disabled:opacity-60" onClick={() => void enable()}>
+              {busy ? t('notifications.enabling') : t('notifications.enable_button')}
+            </button>
+          )}
+          <a href="/notifications-guide/" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand-700 underline">
+            {t('notifications.need_help')}
+          </a>
+        </div>
       </div>
-      <button type="button" aria-label={t('installApp.close') ?? ''} className="text-brand-700" onClick={close}>
+      <button type="button" aria-label={t('notifications.dismiss') ?? ''} className="px-1 leading-6 text-brand-700" onClick={close}>
         ✕
       </button>
     </div>

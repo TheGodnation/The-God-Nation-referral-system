@@ -81,7 +81,64 @@ export async function disablePushNotifications(): Promise<void> {
   }
 }
 
-export function currentPushPermission(): NotificationPermission | 'unsupported' {
-  if (!pushSupported()) return 'unsupported';
-  return Notification.permission;
+export function isIos(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  // iPadOS reports itself as a Mac; a touch screen gives it away.
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+export function isStandalone(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true)
+  );
+}
+
+export type PushDeviceStatus =
+  | 'subscribed'
+  | 'not_subscribed'
+  | 'denied'
+  // iPhone in a Safari tab: Apple only allows web notifications from the
+  // Home Screen app, so the step is "add to Home Screen", not "allow".
+  | 'ios_needs_home_screen'
+  // iPhone Home Screen app on an iOS too old for web notifications (<16.4).
+  | 'ios_too_old'
+  // Any other browser without Push — usually an app's built-in browser
+  // (e.g. opening a link from inside another app).
+  | 'unsupported';
+
+let confirmedWithServer = false;
+
+/** Whether this device will actually receive notifications. "Allowed" alone
+ * isn't enough: permission can be granted while no push subscription exists
+ * (the subscribe step failed, or the browser dropped it). When this device
+ * is subscribed, it also re-sends the subscription to the server once per
+ * visit — an idempotent upsert — so a subscription the server lost or never
+ * got is repaired without the member doing anything. */
+export async function checkPushOnThisDevice(): Promise<PushDeviceStatus> {
+  if (!pushSupported()) {
+    if (isIos()) return isStandalone() ? 'ios_too_old' : 'ios_needs_home_screen';
+    return 'unsupported';
+  }
+  if (Notification.permission === 'denied') return 'denied';
+  if (Notification.permission !== 'granted') return 'not_subscribed';
+  try {
+    // getRegistration, not .ready: .ready never settles if the service
+    // worker failed to register, which would leave the caller waiting forever.
+    const registration = await navigator.serviceWorker.getRegistration();
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return 'not_subscribed';
+    if (!confirmedWithServer) {
+      confirmedWithServer = true;
+      const json = subscription.toJSON();
+      void api
+        .post('/api/notifications/push/subscribe', { endpoint: json.endpoint, keys: json.keys, userAgent: navigator.userAgent })
+        .catch(() => {
+          confirmedWithServer = false;
+        });
+    }
+    return 'subscribed';
+  } catch {
+    return 'not_subscribed';
+  }
 }

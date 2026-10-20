@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
+import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { MemberPhotoSlider } from '../components/member/MemberPhotoSlider';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { LiveBanner } from '../components/updates/LiveBanner';
@@ -28,6 +29,9 @@ export function MemberUpdatesPage() {
             <NotificationBell />
           </div>
           <div className="mt-2 space-y-2 sm:mt-4 sm:space-y-4">
+            <div className="px-4 empty:hidden sm:px-0">
+              <EnableNotificationsBanner className="" />
+            </div>
             <MemberPhotoSlider />
             <div className="px-4 empty:hidden sm:px-0">
               <LiveBanner />

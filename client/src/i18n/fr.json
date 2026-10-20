@@ -1567,6 +1567,10 @@
     "enable_failed": "Impossible d’activer les notifications. Veuillez réessayer.",
     "blocked_body": "Les notifications sont bloquées sur cet appareil. Pour les recevoir, ouvrez les réglages de votre téléphone ou navigateur pour ce site et autorisez les notifications.",
     "need_help": "Besoin d’aide ?",
+    "ios_home_screen_body": "Sur iPhone, les notifications ne fonctionnent que depuis l’application sur votre écran d’accueil. Dans Safari, touchez le bouton Partager, puis « Sur l’écran d’accueil ». Ouvrez l’application depuis cette icône et activez-y les notifications.",
+    "ios_too_old_body": "Votre iPhone doit avoir iOS 16.4 ou plus récent pour recevoir les notifications. Mettez-le à jour dans Réglages → Général → Mise à jour logicielle.",
+    "unsupported_body": "Ce navigateur ne peut pas recevoir de notifications. Ouvrez thegodnationacademy.org dans Chrome pour les activer.",
+    "dismiss": "Masquer pour l’instant",
     "area_leadership_assigned": "Vous êtes maintenant {{title}} pour {{area}}",
     "area_representation_request_declined": "Votre demande pour représenter {{area}} a été refusée"
   },

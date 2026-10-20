@@ -22,6 +22,9 @@ const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:support@thegodnationa
 const configured = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
 if (configured) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  console.log('[push] VAPID keys configured — push notifications enabled');
+} else {
+  console.warn('[push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY not configured — push notifications disabled');
 }
 
 export function isPushConfigured(): boolean {

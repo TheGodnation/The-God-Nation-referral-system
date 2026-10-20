@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
+import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { WallHeader } from '../components/wall/WallHeader';
 import { PhotoGrid, WallTabs } from '../components/wall/PhotoGrid';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
@@ -253,6 +254,10 @@ export function MemberMePage() {
             </p>
           )}
         </WallHeader>
+
+        <div className="mt-3 px-4 empty:hidden sm:px-0">
+          <EnableNotificationsBanner className="" />
+        </div>
 
         <div className="mt-3">
           <WallTabs<Tab>
