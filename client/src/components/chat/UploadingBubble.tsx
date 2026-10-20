@@ -109,6 +109,8 @@ export function UploadingBubble({ job, onCancel, onRetry }: { job: MediaSendJob;
           </div>
         ))}
 
+        {job.caption && <p className="max-w-[14rem] whitespace-pre-wrap break-words px-1 pt-1 text-[15px] text-slate-900">{job.caption}</p>}
+
         {failed ? (
           <div className="flex items-center justify-between gap-3 px-1 pt-1">
             <p role="alert" className="max-w-[11rem] text-xs font-medium text-red-700">

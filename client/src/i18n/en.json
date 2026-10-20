@@ -2072,7 +2072,13 @@
     "upload_retry": "Try again",
     "upload_cancel": "Stop sending",
     "upload_remove": "Remove",
-    "upload_progress": "Sending… {{percent}}%"
+    "upload_progress": "Sending… {{percent}}%",
+    "preview_title": "Send photos",
+    "preview_close": "Close",
+    "preview_caption": "Add a caption…",
+    "preview_add_more": "Add more",
+    "preview_remove": "Remove {{name}}",
+    "preview_show": "Show {{name}}"
   },
   "voiceInput": {
     "start": "Speak to type",

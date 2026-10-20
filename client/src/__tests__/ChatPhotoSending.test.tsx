@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberGroupChatPage } from '../pages/MemberGroupChatPage';
 
@@ -103,15 +103,28 @@ function renderChat() {
   );
 }
 
-async function pickPhoto() {
+function pick(...names: string[]) {
+  const files = names.map((n) => new File(['x'], n, { type: 'image/png' }));
+  fireEvent.change(screen.getByTestId('chat-gallery-input'), { target: { files } });
+}
+
+async function openChat() {
   mockFetch();
   renderChat();
   await screen.findByRole('button', { name: 'Emojis' });
-  const file = new File(['x'], 'church.png', { type: 'image/png' });
-  fireEvent.change(screen.getByTestId('chat-gallery-input'), { target: { files: [file] } });
+}
+
+async function pickPhoto(caption?: string) {
+  await openChat();
+  pick('church.png');
+  const preview = screen.getByRole('dialog', { name: 'Send photos' });
+  if (caption) fireEvent.change(within(preview).getByLabelText('Add a caption…'), { target: { value: caption } });
+  fireEvent.click(within(preview).getByRole('button', { name: 'Send' }));
   await screen.findByTestId('uploading-bubble');
   await waitFor(() => expect(FakeXhr.all).toHaveLength(1));
 }
+
+const postedMessage = () => calls.find((c) => c.method === 'POST' && c.url.endsWith('/conversation/messages'));
 
 describe('Sending a photo in the chat', () => {
   it('shows it in the chat at once with its progress, then posts it once uploaded', async () => {
@@ -146,5 +159,54 @@ describe('Sending a photo in the chat', () => {
     await act(async () => FakeXhr.all[1].finish(200));
     await waitFor(() => expect(screen.queryByTestId('uploading-bubble')).not.toBeInTheDocument());
     expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/conversation/messages'))).toHaveLength(1);
+  });
+
+  it('sends the caption with the photo, and shows it under the photo while it goes up', async () => {
+    await pickPhoto('Sunday service 🙏');
+    expect(screen.getByTestId('uploading-bubble')).toHaveTextContent('Sunday service 🙏');
+    await act(async () => FakeXhr.all[0].finish(200));
+    await waitFor(() => expect(postedMessage()?.body.body).toBe('Sunday service 🙏'));
+  });
+});
+
+describe('The preview screen before sending', () => {
+  it('nothing is uploaded until Send, and closing it sends nothing', async () => {
+    await openChat();
+    pick('church.png');
+    expect(screen.getByRole('dialog', { name: 'Send photos' })).toBeInTheDocument();
+    expect(FakeXhr.all).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('uploading-bubble')).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url.includes('/attachments/authorize'))).toBe(false);
+  });
+
+  it('can add more photos, drop one, and sends the rest together in one message', async () => {
+    await openChat();
+    pick('a.png', 'b.png');
+    const preview = screen.getByRole('dialog', { name: 'Send photos' });
+    expect(within(preview).getByText('1 / 2')).toBeInTheDocument();
+    fireEvent.click(within(preview).getByRole('button', { name: 'Add more' }));
+    pick('c.png');
+    expect(within(preview).getByText('1 / 3')).toBeInTheDocument();
+
+    fireEvent.click(within(preview).getByRole('button', { name: 'Show b.png' }));
+    fireEvent.click(within(preview).getByRole('button', { name: 'Remove b.png' }));
+    expect(within(preview).queryByRole('button', { name: 'Show b.png' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(preview).getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(FakeXhr.all).toHaveLength(2));
+    await act(async () => FakeXhr.all.forEach((x) => x.finish(200)));
+    await waitFor(() => expect(postedMessage()?.body.attachments.map((a: any) => a.originalFilename)).toEqual(['a.png', 'c.png']));
+  });
+
+  it('what was already typed in the bar becomes the caption', async () => {
+    await openChat();
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Look at this' } });
+    pick('church.png');
+    const preview = screen.getByRole('dialog', { name: 'Send photos' });
+    expect(within(preview).getByLabelText('Add a caption…')).toHaveValue('Look at this');
+    fireEvent.click(within(preview).getByRole('button', { name: 'Send' }));
+    expect(screen.getByLabelText('Message')).toHaveValue('');
   });
 });

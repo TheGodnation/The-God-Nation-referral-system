@@ -12,6 +12,7 @@ import {
   type UploadProblem,
 } from '../../lib/chatMedia';
 import { VideoRecorder } from './VideoRecorder';
+import { MediaPreview } from './MediaPreview';
 import { ReplyQuote } from './MessageBubble';
 import { VoiceInputButton } from '../VoiceInputButton';
 import { ChatIcon } from './icons';
@@ -52,9 +53,10 @@ export function ChatComposer({
   replyTo: ChatMessage | null;
   onCancelReply: () => void;
   onSend: (msg: OutgoingMessage) => Promise<boolean>;
-  /** Picked photos/videos/documents: the chat shows them straight away as a
-   * message with a progress circle and sends them (see useMediaUploads). */
-  onPickMedia: (files: File[]) => void;
+  /** Photos/videos/documents sent from the preview screen, with their
+   * caption: the chat shows them straight away as a message with a progress
+   * circle and sends them (see useMediaUploads). */
+  onPickMedia: (files: File[], caption?: string) => void;
   /** Tells the others "typing…" (sent at most every few seconds). */
   onTyping?: (typing: boolean) => void;
 }) {
@@ -86,6 +88,9 @@ export function ChatComposer({
 
   const textRef = useRef<HTMLTextAreaElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  // Picked files wait on the WhatsApp-style preview screen (caption, add
+  // more, remove) until Send.
+  const [preview, setPreview] = useState<File[] | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
 
@@ -211,9 +216,25 @@ export function ChatComposer({
     setMenuOpen(false);
     setError(null);
     if (!list || list.length === 0) return;
-    const files = Array.from(list).slice(0, MAX_ATTACHMENTS_PER_MESSAGE);
-    if (files.length < list.length) setError(t('groupChat.max_files', { count: MAX_ATTACHMENTS_PER_MESSAGE }));
-    onPickMedia(files);
+    const picked = Array.from(list);
+    const already = preview ?? [];
+    const files = [...already, ...picked].slice(0, MAX_ATTACHMENTS_PER_MESSAGE);
+    if (files.length < already.length + picked.length) setError(t('groupChat.max_files', { count: MAX_ATTACHMENTS_PER_MESSAGE }));
+    setEmojiOpen(false);
+    textRef.current?.blur();
+    setPreview(files);
+  }
+
+  function sendPreview(caption: string) {
+    if (!preview?.length) return;
+    onPickMedia(preview, caption || undefined);
+    setPreview(null);
+    // What was typed in the bar became the caption.
+    if (text) {
+      setText('');
+      signalTyping('');
+      cursorRef.current = null;
+    }
   }
 
   function onVideoRecorded(blob: Blob) {
@@ -606,6 +627,19 @@ export function ChatComposer({
       )}
 
       {videoOpen && <VideoRecorder onDone={onVideoRecorded} onClose={() => setVideoOpen(false)} />}
+
+      {preview && preview.length > 0 && (
+        <MediaPreview
+          files={preview}
+          initialCaption={text}
+          maxCaption={MAX_CHAT_BODY}
+          canAddMore={preview.length < MAX_ATTACHMENTS_PER_MESSAGE}
+          onAddMore={() => galleryRef.current?.click()}
+          onRemove={(i) => setPreview((prev) => (prev && prev.length > 1 ? prev.filter((_, j) => j !== i) : null))}
+          onClose={() => setPreview(null)}
+          onSend={sendPreview}
+        />
+      )}
     </div>
   );
 }

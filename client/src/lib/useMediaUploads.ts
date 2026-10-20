@@ -12,8 +12,8 @@ import {
 } from './chatMedia';
 import type { OutgoingMessage } from '../components/chat/ChatComposer';
 
-// Photos, videos and documents sent the WhatsApp way: as soon as they are
-// picked they show in the chat as your own message with a progress circle,
+// Photos, videos and documents sent the WhatsApp way: once Send is tapped
+// on the preview screen they show in the chat as your own message with a progress circle,
 // upload in the background, and are posted once every file is up. The ✕
 // stops one; a failed one can be tried again without uploading what
 // already went up.
@@ -30,10 +30,12 @@ export interface MediaSendJob {
   progress: number;
   status: 'uploading' | 'sending' | 'failed';
   problem?: UploadProblem;
+  caption?: string;
 }
 
 interface JobWork {
   files: File[];
+  caption?: string;
   replyToMessageId?: string;
   controller: AbortController;
   uploaded?: UploadedAttachment[];
@@ -116,7 +118,7 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
       if (!w.uploaded) w.uploaded = await uploadAll(id, w);
       if (signal.aborted) return;
       update(id, { status: 'sending', progress: 1 });
-      const ok = await postRef.current({ attachments: w.uploaded, replyToMessageId: w.replyToMessageId });
+      const ok = await postRef.current({ body: w.caption, attachments: w.uploaded, replyToMessageId: w.replyToMessageId });
       if (!work.current.has(id)) return;
       if (ok) finish(id);
       else update(id, { status: 'failed', problem: 'failed' });
@@ -127,7 +129,7 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
     }
   }
 
-  function start(files: File[], replyToMessageId?: string) {
+  function start(files: File[], replyToMessageId?: string, caption?: string) {
     if (files.length === 0) return;
     counter += 1;
     const id = `upload-${Date.now()}-${counter}`;
@@ -135,8 +137,8 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
       const kind = kindOf(f);
       return { name: f.name, kind, previewUrl: kind === 'document' ? null : objectUrl(f) };
     });
-    work.current.set(id, { files, replyToMessageId, controller: new AbortController() });
-    setJobs((prev) => [...prev, { id, items, progress: 0, status: 'uploading' }]);
+    work.current.set(id, { files, caption, replyToMessageId, controller: new AbortController() });
+    setJobs((prev) => [...prev, { id, items, caption, progress: 0, status: 'uploading' }]);
     void run(id);
   }
 

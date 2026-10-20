@@ -2072,7 +2072,13 @@
     "upload_retry": "Réessayer",
     "upload_cancel": "Arrêter l’envoi",
     "upload_remove": "Retirer",
-    "upload_progress": "Envoi… {{percent}} %"
+    "upload_progress": "Envoi… {{percent}} %",
+    "preview_title": "Envoyer des photos",
+    "preview_close": "Fermer",
+    "preview_caption": "Ajouter une légende…",
+    "preview_add_more": "Ajouter",
+    "preview_remove": "Retirer {{name}}",
+    "preview_show": "Voir {{name}}"
   },
   "voiceInput": {
     "start": "Parler pour écrire",

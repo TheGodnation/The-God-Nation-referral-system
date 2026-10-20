@@ -561,9 +561,9 @@ export function MemberGroupChatPage() {
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(null)}
             onSend={send}
-            onPickMedia={(files) => {
+            onPickMedia={(files, caption) => {
               stickToBottom.current = true;
-              media.start(files, replyTo?.id);
+              media.start(files, replyTo?.id, caption);
               setReplyTo(null);
             }}
             onTyping={(typing) => void api.post(`/api/communities/${communityId}/conversation/typing`, { typing }).catch(() => {})}

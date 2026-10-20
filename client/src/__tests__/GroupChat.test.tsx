@@ -231,6 +231,7 @@ describe('WhatsApp-style group chat', () => {
     await screen.findByText('I am coming');
     const file = new File(['x'], 'pic.png', { type: 'image/png' });
     fireEvent.change(screen.getByTestId('chat-gallery-input'), { target: { files: [file] } });
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Send photos' })).getByRole('button', { name: 'Send' }));
     expect(await screen.findByRole('alert')).toHaveTextContent("Photos, voice notes and videos can't be sent yet");
   });
 });
