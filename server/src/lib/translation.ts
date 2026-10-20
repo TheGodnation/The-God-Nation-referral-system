@@ -20,9 +20,17 @@ import { generateStorageKey } from './attachmentPolicy';
 // translation to produce: whichever of the two a piece of text is NOT.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-// gemini-2.0-flash was retired by Google; gemini-3.8-flash is its
-// replacement per Gemini's own 404 response naming it directly.
-const GEMINI_MODEL = 'gemini-3.8-flash';
+// gemini-2.0-flash was retired by Google; its own 404 named
+// gemini-3.8-flash as the replacement, but in production every single call
+// to it timed out (hit REQUEST_TIMEOUT_MS on both the original attempt and
+// the 503 retry, every time) — consistent with a preview-tier model
+// defaulting to extended "thinking" on every request. gemini-2.5-flash,
+// confirmed available via the same ListModels lookup that found the real
+// TTS model name, is Google's stable, low-latency production model for
+// exactly this kind of classify-and-translate task, so it's used here with
+// thinking explicitly disabled below (not needed for translation, and the
+// very thing that was likely causing the timeouts).
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const REQUEST_TIMEOUT_MS = 20000;
 // Gemini occasionally answers 503 "This model is currently experiencing
@@ -99,7 +107,11 @@ async function callGemini(contents: unknown[], schema: unknown): Promise<any | n
   try {
     const res = await postGeminiJson(`${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
       contents,
-      generationConfig: { responseMimeType: 'application/json', responseSchema: schema },
+      // thinkingBudget: 0 — this is a classify-and-translate call with a
+      // fixed response shape, not a reasoning task; extended thinking only
+      // adds latency here (and was very likely why gemini-3.8-flash was
+      // timing out above).
+      generationConfig: { responseMimeType: 'application/json', responseSchema: schema, thinkingConfig: { thinkingBudget: 0 } },
     });
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
