@@ -180,7 +180,20 @@
     "practice_note": "This was a practice try. Your first try is your score.",
     "right_answers": "The right answers",
     "your_answer": "your answer",
-    "closed": "This exam is closed."
+    "closed": "This exam is closed.",
+    "training_one_try": "One try only. If you score below 70%, you must ask for a retake, and you will get a different set of questions.",
+    "training_rules_title": "Before you start",
+    "training_rules": "You can take this exam once. Answer carefully: there is no time limit, and your answers are kept if the connection drops. If you score below 70%, you will need to ask the central admin for a retake, and you will receive a different set of questions, not the same ones.",
+    "training_start_confirm": "I understand, start the exam",
+    "training_not_yet": "Not yet",
+    "training_request_retake": "Ask for a retake",
+    "training_retake_granted": "Your retake is granted. You will get a new set of questions.",
+    "training_block_PASSED": "✓ You passed this book’s exam. The next book can open.",
+    "training_block_NO_QUESTIONS": "The questions for this exam are not ready yet. Please check again soon.",
+    "training_block_NEEDS_RETAKE": "You did not reach 70% this time. Read the book again, then ask for a retake. You will get a different set of questions.",
+    "training_block_RETAKE_REQUESTED": "Your retake request was sent. You will be told as soon as it is granted.",
+    "training_block_RETAKE_DECLINED": "Your last retake request was not granted. You may ask again.",
+    "training_block_NO_NEW_QUESTIONS": "Your retake is granted. Your new questions are being prepared; please check again soon."
   },
   "welcome": {
     "eyebrow": "A MESSAGE FOR YOU",
@@ -1140,7 +1153,14 @@
       "table_percentage": "Percentage",
       "table_result": "Result",
       "table_submitted": "Submitted",
-      "no_assessments": "No assessments yet."
+      "no_assessments": "No assessments yet.",
+      "set_label": "Question set",
+      "set_option": "Set {{number}} ({{count}} of {{of}} questions)",
+      "set_new": "New set: Set {{number}}",
+      "set_heading": "Set {{number}}",
+      "set_count": "{{count}} of {{of}} questions",
+      "set_used": "Already given to someone — can no longer change",
+      "sets_explained": "Each try uses one whole set of {{count}} questions. The first try gets a random set; a retake always gets a set the person has never had. Write at least 3 sets, and add a new set whenever retakes are waiting for new questions."
     },
     "account": {
       "email_heading": "Login Email",
@@ -1574,7 +1594,9 @@
     "unsupported_body": "This browser can't receive notifications. Open thegodnationacademy.org in Chrome to turn them on.",
     "dismiss": "Hide for now",
     "area_leadership_assigned": "You are now the {{title}} for {{area}}",
-    "area_representation_request_declined": "Your request to represent {{area}} was declined"
+    "area_representation_request_declined": "Your request to represent {{area}} was declined",
+    "exam_retake_granted": "Your retake for the Book {{number}} exam is granted. You will get new questions.",
+    "exam_retake_declined": "Your retake request for the Book {{number}} exam was not granted for now."
   },
   "memberHome": {
     "title": "Home",
@@ -1869,11 +1891,14 @@
     "book": "Book {{number}}",
     "exam": "Exam",
     "passed_with": "Passed with {{score}}%",
-    "best_score": "Best: {{score}}% (need {{passMark}}%)"
+    "best_score": "Best: {{score}}% (need {{passMark}}%)",
+    "exam_retake_needed": "Not passed yet — ask for a retake on the exam page",
+    "exam_retake_requested": "Retake requested",
+    "exam_retake_granted": "Retake granted"
   },
   "reader": {
     "back": "Back",
-    "take_exam": "Take the exam",
+    "take_exam": "Take the exam (one try)",
     "loading": "Opening the book…",
     "not_available": "This book is not open for you yet.",
     "failed": "The book could not be opened. Check your connection and try again.",
@@ -1933,7 +1958,16 @@
     "confirm_revoke": "Remove this person’s access to the training books?",
     "status_requested": "Asked to join",
     "status_active": "Paid · active",
-    "status_revoked": "Access removed"
+    "status_revoked": "Access removed",
+    "set_short": "Set {{number}}: {{count}}",
+    "retakes_heading": "Retake requests",
+    "retakes_help": "Members who did not reach 70% on a book’s exam and ask to try again. A granted retake gives them a set of questions they have never had.",
+    "retakes_none": "No retake requests right now.",
+    "retake_tries_one": "{{count}} try so far, last score {{score}}%",
+    "retake_tries_other": "{{count}} tries so far, last score {{score}}%",
+    "retake_no_sets": "No unused set of questions left for this person: add a new set on the Assessments tab before or after granting.",
+    "retake_grant": "Grant retake",
+    "retake_decline": "Decline"
   },
   "memberCode": {
     "sent_to": "We sent a 6-digit code to {{email}}. Type it below.",

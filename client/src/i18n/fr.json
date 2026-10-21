@@ -180,7 +180,20 @@
     "practice_note": "C’était un essai d’entraînement. Votre premier essai est votre note.",
     "right_answers": "Les bonnes réponses",
     "your_answer": "votre réponse",
-    "closed": "Cet examen est fermé."
+    "closed": "Cet examen est fermé.",
+    "training_one_try": "Un seul essai. Si vous obtenez moins de 70 %, vous devez demander une reprise, et vous recevrez une autre série de questions.",
+    "training_rules_title": "Avant de commencer",
+    "training_rules": "Vous pouvez passer cet examen une seule fois. Répondez avec soin : il n’y a pas de limite de temps, et vos réponses sont gardées si la connexion coupe. Si vous obtenez moins de 70 %, vous devrez demander une reprise à l’administration centrale, et vous recevrez une autre série de questions, pas les mêmes.",
+    "training_start_confirm": "J’ai compris, commencer l’examen",
+    "training_not_yet": "Pas encore",
+    "training_request_retake": "Demander une reprise",
+    "training_retake_granted": "Votre reprise est accordée. Vous recevrez une nouvelle série de questions.",
+    "training_block_PASSED": "✓ Vous avez réussi l’examen de ce livre. Le livre suivant peut s’ouvrir.",
+    "training_block_NO_QUESTIONS": "Les questions de cet examen ne sont pas encore prêtes. Revenez bientôt.",
+    "training_block_NEEDS_RETAKE": "Vous n’avez pas atteint 70 % cette fois. Relisez le livre, puis demandez une reprise. Vous recevrez une autre série de questions.",
+    "training_block_RETAKE_REQUESTED": "Votre demande de reprise a été envoyée. Vous serez prévenu dès qu’elle sera accordée.",
+    "training_block_RETAKE_DECLINED": "Votre dernière demande de reprise n’a pas été accordée. Vous pouvez demander à nouveau.",
+    "training_block_NO_NEW_QUESTIONS": "Votre reprise est accordée. Vos nouvelles questions sont en préparation ; revenez bientôt."
   },
   "welcome": {
     "eyebrow": "UN MESSAGE POUR VOUS",
@@ -1140,7 +1153,14 @@
       "table_percentage": "Pourcentage",
       "table_result": "Résultat",
       "table_submitted": "Soumis le",
-      "no_assessments": "Aucune évaluation pour le moment."
+      "no_assessments": "Aucune évaluation pour le moment.",
+      "set_label": "Série de questions",
+      "set_option": "Série {{number}} ({{count}} sur {{of}} questions)",
+      "set_new": "Nouvelle série : série {{number}}",
+      "set_heading": "Série {{number}}",
+      "set_count": "{{count}} sur {{of}} questions",
+      "set_used": "Déjà donnée à quelqu’un — ne peut plus changer",
+      "sets_explained": "Chaque essai utilise une série complète de {{count}} questions. Le premier essai reçoit une série au hasard ; une reprise reçoit toujours une série que la personne n’a jamais eue. Écrivez au moins 3 séries, et ajoutez-en une nouvelle quand des reprises attendent de nouvelles questions."
     },
     "account": {
       "email_heading": "E-mail de connexion",
@@ -1574,7 +1594,9 @@
     "unsupported_body": "Ce navigateur ne peut pas recevoir de notifications. Ouvrez thegodnationacademy.org dans Chrome pour les activer.",
     "dismiss": "Masquer pour l’instant",
     "area_leadership_assigned": "Vous êtes maintenant {{title}} pour {{area}}",
-    "area_representation_request_declined": "Votre demande pour représenter {{area}} a été refusée"
+    "area_representation_request_declined": "Votre demande pour représenter {{area}} a été refusée",
+    "exam_retake_granted": "Votre reprise de l’examen du livre {{number}} est accordée. Vous recevrez de nouvelles questions.",
+    "exam_retake_declined": "Votre demande de reprise de l’examen du livre {{number}} n’a pas été accordée pour le moment."
   },
   "memberHome": {
     "title": "Accueil",
@@ -1869,11 +1891,14 @@
     "book": "Livre {{number}}",
     "exam": "Examen",
     "passed_with": "Réussi avec {{score}} %",
-    "best_score": "Meilleur : {{score}} % (il faut {{passMark}} %)"
+    "best_score": "Meilleur : {{score}} % (il faut {{passMark}} %)",
+    "exam_retake_needed": "Pas encore réussi — demandez une reprise sur la page de l’examen",
+    "exam_retake_requested": "Reprise demandée",
+    "exam_retake_granted": "Reprise accordée"
   },
   "reader": {
     "back": "Retour",
-    "take_exam": "Passer l’examen",
+    "take_exam": "Passer l’examen (un seul essai)",
     "loading": "Ouverture du livre…",
     "not_available": "Ce livre n’est pas encore ouvert pour vous.",
     "failed": "Le livre n’a pas pu s’ouvrir. Vérifiez votre connexion et réessayez.",
@@ -1933,7 +1958,16 @@
     "confirm_revoke": "Retirer l’accès de cette personne aux livres de la formation ?",
     "status_requested": "Demande reçue",
     "status_active": "Payé · actif",
-    "status_revoked": "Accès retiré"
+    "status_revoked": "Accès retiré",
+    "set_short": "Série {{number}} : {{count}}",
+    "retakes_heading": "Demandes de reprise",
+    "retakes_help": "Les membres qui n’ont pas atteint 70 % à l’examen d’un livre et demandent à réessayer. Une reprise accordée leur donne une série de questions qu’ils n’ont jamais eue.",
+    "retakes_none": "Aucune demande de reprise pour le moment.",
+    "retake_tries_one": "{{count}} essai jusqu’ici, dernier score {{score}} %",
+    "retake_tries_other": "{{count}} essais jusqu’ici, dernier score {{score}} %",
+    "retake_no_sets": "Plus aucune série inutilisée pour cette personne : ajoutez une nouvelle série dans l’onglet Évaluations avant ou après avoir accordé.",
+    "retake_grant": "Accorder la reprise",
+    "retake_decline": "Refuser"
   },
   "memberCode": {
     "sent_to": "Nous avons envoyé un code à 6 chiffres à {{email}}. Tapez-le ci-dessous.",

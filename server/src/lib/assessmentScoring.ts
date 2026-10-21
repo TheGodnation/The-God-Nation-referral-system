@@ -101,8 +101,9 @@ export async function submitAttempt(attemptId: string, answers: SubmittedAnswer[
       const assessment = await tx.assessment.findUnique({ where: { id: attempt.assessmentId } });
       if (!assessment) throw new AssessmentSubmissionError(404, 'Assessment not found.');
 
+      // A training book try is scored on its own question set only.
       const questions = await tx.question.findMany({
-        where: { assessmentId: assessment.id },
+        where: { assessmentId: assessment.id, ...(attempt.setNumber !== null ? { setNumber: attempt.setNumber } : {}) },
         include: { options: true },
       });
       const questionMap = new Map(questions.map((q) => [q.id, q]));

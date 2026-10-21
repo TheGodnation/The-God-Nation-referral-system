@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireMember } from '../lib/memberAuth';
@@ -8,6 +9,7 @@ import { createAttempt, submitAttempt, AssessmentSubmissionError } from '../lib/
 import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
 import { recordAudit } from '../lib/audit';
 import { examAccess } from '../lib/examWorld';
+import { shuffleOptionsFor, startTrainingAttempt, trainingExamState, TrainingExamError } from '../lib/trainingExam';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
@@ -80,6 +82,9 @@ router.get('/assessments/:id', asyncHandler(async (req, res) => {
     // Weekly devotional exams: only the first try counts.
     firstTryCounts: assessment.weekNumber !== null,
     open: assessment.access.canStart,
+    // Leadership book exams: one try; a retake is asked for and granted
+    // by the central admin, with new questions (lib/trainingExam.ts).
+    training: assessment.trainingBookId ? await trainingExamState(req.member!.personId, assessment.id) : null,
   });
 }));
 
@@ -110,6 +115,19 @@ router.post(
     if (!assessment) return res.status(404).json({ error: 'Assessment not found.' });
     if (!assessment.access.canStart) {
       return res.status(409).json({ error: 'This exam is closed.', code: 'EXAM_CLOSED' });
+    }
+
+    if (assessment.trainingBookId) {
+      try {
+        const { attempt, resumed } = await startTrainingAttempt(personId, assessment.id);
+        return res.status(resumed ? 200 : 201).json(attempt);
+      } catch (err) {
+        if (err instanceof TrainingExamError) return res.status(err.status).json({ error: err.message, code: err.code });
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          return res.status(409).json({ error: 'This exam was already started. Please try again.', code: 'RACE' });
+        }
+        throw err;
+      }
     }
 
     // Section 17: resume an existing in-progress attempt instead of
@@ -153,25 +171,38 @@ router.get('/attempts/:id/questions', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Attempt not found.' });
   }
 
-  const questions = await prisma.question.findMany({
-    where: { assessmentId: attempt.assessmentId },
+  // A training book try: only its own set, in its own shuffled order,
+  // with the answer choices shuffled too.
+  const inSet = attempt.setNumber !== null;
+  const found = await prisma.question.findMany({
+    where: { assessmentId: attempt.assessmentId, ...(inSet ? { setNumber: attempt.setNumber! } : {}) },
     orderBy: { order: 'asc' },
     include: { options: { orderBy: { order: 'asc' } } },
   });
+  const position = new Map(attempt.questionOrder.map((id, i) => [id, i]));
+  const questions = inSet
+    ? [...found]
+        .sort((a, b) => (position.get(a.id) ?? 1e9) - (position.get(b.id) ?? 1e9))
+        .map((q) => ({ ...q, options: shuffleOptionsFor(attempt.id, q.id, q.options) }))
+    : found;
 
   if (attempt.status === 'IN_PROGRESS') {
     return res.json({
       status: attempt.status,
-      questions: questions.map((q) => ({
+      questions: questions.map((q, i) => ({
         id: q.id,
         textEn: q.textEn,
         textFr: q.textFr,
-        order: q.order,
+        order: inSet ? i : q.order,
         points: q.points,
-        options: q.options.map((o) => ({ id: o.id, textEn: o.textEn, textFr: o.textFr, order: o.order })),
+        options: q.options.map((o, k) => ({ id: o.id, textEn: o.textEn, textFr: o.textFr, order: inSet ? k : o.order })),
       })),
     });
   }
+
+  // Leadership book exams never show the correct answers afterwards: a
+  // retake uses new questions, and answers must not travel to others.
+  if (inSet) return res.json({ status: attempt.status, answersHidden: true, questions: [] });
 
   const answers = await prisma.answer.findMany({ where: { attemptId: attempt.id } });
   const answerByQuestion = new Map(answers.map((a) => [a.questionId, a]));
@@ -196,6 +227,33 @@ const submitSchema = z.object({
     .array(z.object({ questionId: z.string().min(1), selectedOptionId: z.string().min(1) }))
     .max(500),
 });
+
+// POST /api/member/assessments/:id/retake-request — after failing a
+// leadership book's exam: ask the central admin for another try (with a
+// new set of questions). One open request at a time.
+router.post(
+  '/assessments/:id/retake-request',
+  memberAssessmentLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const personId = req.member!.personId;
+    const assessment = await getEligibleAssessmentForMember(personId, req.params.id);
+    if (!assessment || !assessment.trainingBookId) return res.status(404).json({ error: 'Assessment not found.' });
+    const state = await trainingExamState(personId, assessment.id);
+    if (state.block === 'RETAKE_REQUESTED') return res.json({ training: state });
+    if (state.block !== 'NEEDS_RETAKE' && state.block !== 'RETAKE_DECLINED') {
+      return res.status(409).json({ error: 'A retake cannot be requested now.', code: state.block ?? 'CAN_START' });
+    }
+    const last = await prisma.attempt.findFirst({
+      where: { personId, assessmentId: assessment.id, status: 'SUBMITTED' },
+      orderBy: { attemptNumber: 'desc' },
+      select: { id: true },
+    });
+    await prisma.examRetakeRequest.create({ data: { personId, assessmentId: assessment.id, afterAttemptId: last!.id } });
+    await recordAudit({ action: 'EXAM_RETAKE_REQUESTED', targetType: 'Assessment', targetId: assessment.id, metadata: { personId } });
+    res.status(201).json({ training: await trainingExamState(personId, assessment.id) });
+  }),
+);
 
 // POST /api/member/attempts/:id/submit — own attempt only. The same
 // server-authoritative scoring library used by the Admin path (Phase 3B)

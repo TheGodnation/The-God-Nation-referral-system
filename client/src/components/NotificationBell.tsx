@@ -14,7 +14,9 @@ type NotificationType =
   | 'ANNOUNCEMENT_PUBLISHED'
   | 'HEADQUARTERS_POST_PUBLISHED'
   | 'AREA_LEADERSHIP_ASSIGNED'
-  | 'AREA_REPRESENTATION_REQUEST_DECLINED';
+  | 'AREA_REPRESENTATION_REQUEST_DECLINED'
+  | 'EXAM_RETAKE_GRANTED'
+  | 'EXAM_RETAKE_DECLINED';
 
 interface NotificationRow {
   id: string;
@@ -125,6 +127,10 @@ export function NotificationBell() {
         return t('notifications.area_leadership_assigned', { title: metadata.areaTitle ?? '', area: metadata.areaPath ?? '' });
       case 'AREA_REPRESENTATION_REQUEST_DECLINED':
         return t('notifications.area_representation_request_declined', { area: metadata.areaPath ?? '' });
+      case 'EXAM_RETAKE_GRANTED':
+        return t('notifications.exam_retake_granted', { number: metadata.bookNumber ?? '' });
+      case 'EXAM_RETAKE_DECLINED':
+        return t('notifications.exam_retake_declined', { number: metadata.bookNumber ?? '' });
       default:
         return '';
     }

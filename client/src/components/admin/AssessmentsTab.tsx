@@ -28,12 +28,20 @@ interface QuestionDetail {
   textFr: string | null;
   order: number;
   points: number;
+  setNumber: number;
   options: OptionDetail[];
 }
 
 interface AssessmentDetail extends AssessmentRow {
   questions: QuestionDetail[];
+  // Leadership book exams: several question sets; a set already given to
+  // someone can't change (server: lib/trainingExam.ts).
+  trainingBookId: string | null;
+  usedSets: number[];
 }
+
+// A leadership book exam's set holds this many questions.
+const QUESTIONS_PER_SET = 20;
 
 const EMPTY_CREATE_FORM = { titleEn: '', titleFr: '', passMark: 50, maxAttempts: '' };
 
@@ -46,17 +54,31 @@ function StatusBadge({ status }: { status: string }) {
 // ---------------------------------------------------------------------------
 // Question/option editor — only rendered when the assessment is not LOCKED.
 // ---------------------------------------------------------------------------
-function QuestionEditor({ assessmentId, onChanged }: { assessmentId: string; onChanged: () => void }) {
+function QuestionEditor({
+  assessmentId,
+  onChanged,
+  sets,
+}: {
+  assessmentId: string;
+  onChanged: () => void;
+  /** Leadership book exams only: each set's question count, and whether it was already given. */
+  sets?: { setNumber: number; count: number; used: boolean }[];
+}) {
   const { t } = useTranslation();
   const [questionText, setQuestionText] = useState('');
   const [points, setPoints] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const openSets = (sets ?? []).filter((x) => !x.used);
+  const newSet = Math.max(0, ...(sets ?? []).map((x) => x.setNumber)) + 1;
+  const suggested = openSets.find((x) => x.count < QUESTIONS_PER_SET)?.setNumber ?? newSet;
+  const [setChoice, setSetChoice] = useState<number | null>(null);
+  const setNumber = setChoice ?? suggested;
 
   async function addQuestion(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await api.post(`/api/admin/assessments/${assessmentId}/questions`, { textEn: questionText, points });
+      await api.post(`/api/admin/assessments/${assessmentId}/questions`, { textEn: questionText, points, ...(sets ? { setNumber } : {}) });
       setQuestionText('');
       setPoints(1);
       onChanged();
@@ -75,6 +97,21 @@ function QuestionEditor({ assessmentId, onChanged }: { assessmentId: string; onC
         onChange={(e) => setQuestionText(e.target.value)}
         required
       />
+      {sets && (
+        <div>
+          <label className="label" htmlFor="question-set">
+            {t('admin.assessments.set_label')}
+          </label>
+          <select id="question-set" className="input" value={setNumber} onChange={(e) => setSetChoice(parseInt(e.target.value, 10))}>
+            {openSets.map((x) => (
+              <option key={x.setNumber} value={x.setNumber}>
+                {t('admin.assessments.set_option', { number: x.setNumber, count: x.count, of: QUESTIONS_PER_SET })}
+              </option>
+            ))}
+            <option value={newSet}>{t('admin.assessments.set_new', { number: newSet })}</option>
+          </select>
+        </div>
+      )}
       <div>
         <label className="label">{t('admin.assessments.points_label')}</label>
         <input
@@ -379,7 +416,15 @@ function AssessmentManager({ assessmentId, onBack }: { assessmentId: string; onB
   }
 
   if (!assessment) return null;
-  const locked = assessment.status === 'LOCKED';
+  const isBookExam = Boolean(assessment.trainingBookId);
+  // A book exam stays editable: only sets already given to someone are fixed.
+  const locked = !isBookExam && assessment.status === 'LOCKED';
+  const setNumbers = Array.from(new Set(assessment.questions.map((q) => q.setNumber))).sort((a, b) => a - b);
+  const sets = setNumbers.map((n) => ({
+    setNumber: n,
+    count: assessment.questions.filter((q) => q.setNumber === n).length,
+    used: (assessment.usedSets ?? []).includes(n),
+  }));
 
   return (
     <div>
@@ -405,12 +450,29 @@ function AssessmentManager({ assessmentId, onBack }: { assessmentId: string; onB
         {error && <p className="text-sm text-red-700">{error}</p>}
       </div>
 
-      {!locked && <QuestionEditor assessmentId={assessmentId} onChanged={load} />}
+      {isBookExam && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t('admin.assessments.sets_explained', { count: QUESTIONS_PER_SET })}</p>}
+
+      {!locked && <QuestionEditor key={sets.length} assessmentId={assessmentId} onChanged={load} sets={isBookExam ? sets : undefined} />}
 
       <div className="mb-4">
-        {assessment.questions.map((q) => (
-          <QuestionCard key={q.id} question={q} locked={locked} onChanged={load} />
-        ))}
+        {isBookExam
+          ? sets.map((x) => (
+              <section key={x.setNumber} className="mb-4">
+                <h3 className="mb-2 flex flex-wrap items-baseline gap-2 font-semibold text-brand-900">
+                  {t('admin.assessments.set_heading', { number: x.setNumber })}
+                  <span className={`text-xs font-medium ${x.count === QUESTIONS_PER_SET ? 'text-green-700' : 'text-amber-700'}`}>
+                    {t('admin.assessments.set_count', { count: x.count, of: QUESTIONS_PER_SET })}
+                  </span>
+                  {x.used && <span className="text-xs font-medium text-red-700">{t('admin.assessments.set_used')}</span>}
+                </h3>
+                {assessment.questions
+                  .filter((q) => q.setNumber === x.setNumber)
+                  .map((q) => (
+                    <QuestionCard key={q.id} question={q} locked={x.used} onChanged={load} />
+                  ))}
+              </section>
+            ))
+          : assessment.questions.map((q) => <QuestionCard key={q.id} question={q} locked={locked} onChanged={load} />)}
         {assessment.questions.length === 0 && (
           <p className="text-sm text-slate-400">{t('admin.assessments.no_questions')}</p>
         )}

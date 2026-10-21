@@ -6,6 +6,7 @@ import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
+import { examSetNumbers, isSetUsed } from '../lib/trainingExam';
 
 const router = Router();
 
@@ -16,9 +17,25 @@ router.use(requireAuth, requireRole('ADMIN'));
 // questions/options may change — text, order, points, or correct answers.
 // This helper is the single place that enforces it for every mutation
 // below, so a new edit endpoint can never accidentally bypass it.
-async function requireUnlockedAssessment(assessmentId: string) {
+//
+// Leadership book exams lock per question set instead: a set someone has
+// already been given can't change, but new sets can always be added (each
+// retake needs a set the person has never had) — see lib/trainingExam.ts.
+async function requireUnlockedAssessment(assessmentId: string, setNumbers: number[] = [1]) {
   const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId } });
   if (!assessment) return { assessment: null, error: 'Assessment not found.' as const, status: 404 };
+  if (assessment.trainingBookId) {
+    for (const setNumber of setNumbers) {
+      if (await isSetUsed(assessmentId, setNumber)) {
+        return {
+          assessment,
+          error: `Set ${setNumber} has already been given to someone, so its questions can no longer change. Add a new set instead.` as const,
+          status: 409,
+        };
+      }
+    }
+    return { assessment, error: null, status: 200 };
+  }
   if (assessment.status === 'LOCKED') {
     return {
       assessment,
@@ -73,7 +90,12 @@ router.get('/:id', asyncHandler(async (req, res) => {
     },
   });
   if (!assessment) return res.status(404).json({ error: 'Assessment not found.' });
-  res.json(assessment);
+  // Leadership book exams: which question sets have already been given
+  // (those can't change any more).
+  const usedSets = assessment.trainingBookId
+    ? (await prisma.attempt.findMany({ where: { assessmentId: assessment.id, setNumber: { not: null } }, select: { setNumber: true }, distinct: ['setNumber'] })).map((a) => a.setNumber!)
+    : [];
+  res.json({ ...assessment, usedSets });
 }));
 
 const createSchema = z.object({
@@ -134,7 +156,9 @@ router.patch('/:id', requireCsrf, asyncHandler(async (req, res) => {
   }
   const d = parsed.data;
 
-  const { assessment, error, status } = await requireUnlockedAssessment(id);
+  // The exam's own settings (pass mark, status) stay fixed once anyone
+  // has been given any of its question sets.
+  const { assessment, error, status } = await requireUnlockedAssessment(id, await examSetNumbers(id));
   if (error) return res.status(status).json({ error });
 
   const updated = await prisma.assessment.update({
@@ -195,6 +219,7 @@ const questionSchema = z.object({
   textFr: z.string().trim().max(2000).optional().nullable(),
   order: z.number().int().min(0).optional(),
   points: z.number().int().min(1).optional(),
+  setNumber: z.number().int().min(1).max(50).optional(),
 });
 
 router.post('/:assessmentId/questions', requireCsrf, asyncHandler(async (req, res) => {
@@ -204,10 +229,10 @@ router.post('/:assessmentId/questions', requireCsrf, asyncHandler(async (req, re
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid question.' });
   }
 
-  const { error, status } = await requireUnlockedAssessment(assessmentId);
+  const d = parsed.data;
+  const { assessment, error, status } = await requireUnlockedAssessment(assessmentId, [d.setNumber ?? 1]);
   if (error) return res.status(status).json({ error });
 
-  const d = parsed.data;
   const created = await prisma.question.create({
     data: {
       assessmentId,
@@ -215,6 +240,8 @@ router.post('/:assessmentId/questions', requireCsrf, asyncHandler(async (req, re
       textFr: d.textFr ?? null,
       order: d.order ?? 0,
       points: d.points ?? 1,
+      // Only leadership book exams use several sets.
+      setNumber: assessment!.trainingBookId ? (d.setNumber ?? 1) : 1,
     },
   });
 
@@ -242,13 +269,17 @@ router.patch('/questions/:id', requireCsrf, asyncHandler(async (req, res) => {
   const question = await prisma.question.findUnique({ where: { id } });
   if (!question) return res.status(404).json({ error: 'Question not found.' });
 
-  const { error, status } = await requireUnlockedAssessment(question.assessmentId);
+  const d = parsed.data;
+  const { assessment, error, status } = await requireUnlockedAssessment(question.assessmentId, [
+    question.setNumber,
+    ...(d.setNumber !== undefined ? [d.setNumber] : []),
+  ]);
   if (error) return res.status(status).json({ error });
 
-  const d = parsed.data;
   const updated = await prisma.question.update({
     where: { id },
     data: {
+      ...(d.setNumber !== undefined && assessment!.trainingBookId ? { setNumber: d.setNumber } : {}),
       ...(d.textEn !== undefined ? { textEn: d.textEn } : {}),
       ...(d.textFr !== undefined ? { textFr: d.textFr } : {}),
       ...(d.order !== undefined ? { order: d.order } : {}),
@@ -273,7 +304,7 @@ router.delete('/questions/:id', requireCsrf, asyncHandler(async (req, res) => {
   const question = await prisma.question.findUnique({ where: { id } });
   if (!question) return res.status(404).json({ error: 'Question not found.' });
 
-  const { error, status } = await requireUnlockedAssessment(question.assessmentId);
+  const { error, status } = await requireUnlockedAssessment(question.assessmentId, [question.setNumber]);
   if (error) return res.status(status).json({ error });
 
   await prisma.question.delete({ where: { id } });
@@ -314,7 +345,7 @@ router.post('/questions/:questionId/options', requireCsrf, asyncHandler(async (r
   const question = await prisma.question.findUnique({ where: { id: questionId } });
   if (!question) return res.status(404).json({ error: 'Question not found.' });
 
-  const { error, status } = await requireUnlockedAssessment(question.assessmentId);
+  const { error, status } = await requireUnlockedAssessment(question.assessmentId, [question.setNumber]);
   if (error) return res.status(status).json({ error });
 
   const d = parsed.data;
@@ -357,7 +388,7 @@ router.patch('/options/:id', requireCsrf, asyncHandler(async (req, res) => {
   const option = await prisma.option.findUnique({ where: { id }, include: { question: true } });
   if (!option) return res.status(404).json({ error: 'Option not found.' });
 
-  const { error, status } = await requireUnlockedAssessment(option.question.assessmentId);
+  const { error, status } = await requireUnlockedAssessment(option.question.assessmentId, [option.question.setNumber]);
   if (error) return res.status(status).json({ error });
 
   const d = parsed.data;
@@ -396,7 +427,7 @@ router.delete('/options/:id', requireCsrf, asyncHandler(async (req, res) => {
   const option = await prisma.option.findUnique({ where: { id }, include: { question: true } });
   if (!option) return res.status(404).json({ error: 'Option not found.' });
 
-  const { error, status } = await requireUnlockedAssessment(option.question.assessmentId);
+  const { error, status } = await requireUnlockedAssessment(option.question.assessmentId, [option.question.setNumber]);
   if (error) return res.status(status).json({ error });
 
   await prisma.option.delete({ where: { id } });

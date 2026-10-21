@@ -32,7 +32,9 @@ interface CreateNotificationParams {
     | 'HEADQUARTERS_POST_PUBLISHED'
     | 'AREA_LEADERSHIP_ASSIGNED'
     | 'AREA_REPRESENTATION_REQUEST_DECLINED'
-    | 'LEADER_DASHBOARD_MOVED';
+    | 'LEADER_DASHBOARD_MOVED'
+    | 'EXAM_RETAKE_GRANTED'
+    | 'EXAM_RETAKE_DECLINED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -99,6 +101,25 @@ export async function notifyRoleAssigned(roleAssignment: { id: string; personId:
     targetType: 'RoleAssignment',
     targetId: roleAssignment.id,
     push: { title: 'New leadership role', body: `You've been made a Leader of ${community?.name ?? 'a Community'}.`, url: '/member/me' },
+  });
+}
+
+/** The central admin granted (or declined) a retake of a leadership book's exam. */
+export async function notifyExamRetakeDecision(request: { id: string; personId: string; assessmentId: string }, granted: boolean) {
+  const exam = await prisma.assessment.findUnique({
+    where: { id: request.assessmentId },
+    select: { trainingBook: { select: { trainingOrder: true, titleEn: true, titleFr: true } } },
+  });
+  const book = exam?.trainingBook;
+  await createNotification({
+    recipientPersonId: request.personId,
+    type: granted ? 'EXAM_RETAKE_GRANTED' : 'EXAM_RETAKE_DECLINED',
+    metadata: { bookNumber: book?.trainingOrder ?? null, bookTitleEn: book?.titleEn ?? '', bookTitleFr: book?.titleFr ?? book?.titleEn ?? '' },
+    targetType: 'Assessment',
+    targetId: request.assessmentId,
+    push: granted
+      ? { title: 'Retake granted', body: `You can now retake the exam for Book ${book?.trainingOrder ?? ''}, with new questions.`, url: `/member/assessments/${request.assessmentId}` }
+      : { title: 'Retake request', body: `Your retake request for Book ${book?.trainingOrder ?? ''} was not granted for now.`, url: '/member/learn' },
   });
 }
 

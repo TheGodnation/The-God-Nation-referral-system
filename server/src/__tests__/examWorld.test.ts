@@ -78,6 +78,26 @@ async function giveExamOneQuestion(assessmentId: string) {
   return { questionId: q.id, right: right.id, wrong: wrong.id };
 }
 
+/** A leadership book exam with one question in each of `sets` sets (option "Right" correct). */
+async function giveBookExamSets(assessmentId: string, sets: number[]) {
+  for (const setNumber of sets) {
+    const q = await prisma.question.create({ data: { assessmentId, textEn: `Set ${setNumber} question`, order: 0, points: 1, setNumber } });
+    await prisma.option.create({ data: { questionId: q.id, textEn: 'Right', isCorrect: true, order: 0 } });
+    await prisma.option.create({ data: { questionId: q.id, textEn: 'Wrong', isCorrect: false, order: 1 } });
+  }
+  await prisma.assessment.update({ where: { id: assessmentId }, data: { status: 'PUBLISHED' } });
+}
+
+/** Starts (or resumes) a try, answers every question it shows with "Right" or "Wrong", and submits. */
+async function takeBookExam(m: { agent: Agent; csrf: string }, assessmentId: string, answer: 'Right' | 'Wrong') {
+  const start = await post(m, `/api/member/assessments/${assessmentId}/attempts`);
+  if (![200, 201].includes(start.status)) return { start, submit: null, shown: [] as string[] };
+  const qs = await m.agent.get(`/api/member/attempts/${start.body.id}/questions`);
+  const answers = qs.body.questions.map((q: any) => ({ questionId: q.id, selectedOptionId: q.options.find((o: any) => o.textEn === answer).id }));
+  const submit = await post(m, `/api/member/attempts/${start.body.id}/submit`, { answers });
+  return { start, submit, shown: qs.body.questions.map((q: any) => q.textEn) as string[] };
+}
+
 async function takeExam(m: { agent: Agent; csrf: string }, assessmentId: string, questionId: string, optionId: string) {
   const start = await post(m, `/api/member/assessments/${assessmentId}/attempts`);
   expect([200, 201]).toContain(start.status);
@@ -128,24 +148,138 @@ describe('Leadership training: paid access and books in order', () => {
     const a = await admin();
     const b1 = await trainingBook(a, 1);
     const b2 = await trainingBook(a, 2);
-    const q1 = await giveExamOneQuestion(b1.examId);
+    await giveBookExamSets(b1.examId, [1, 2]);
     const m = await member('Climber');
     await post(a, '/api/admin/library/trainees', { personId: m.id });
 
     expect((await m.agent.get(`/api/member/library/books/${b2.bookId}`)).status).toBe(404);
     expect((await post(m, `/api/member/assessments/${b2.examId}/attempts`)).status).toBe(404);
 
-    const fail = await takeExam(m, b1.examId, q1.questionId, q1.wrong);
-    expect(fail.submit.body.passed).toBe(false);
+    const fail = await takeBookExam(m, b1.examId, 'Wrong');
+    expect(fail.submit!.body.passed).toBe(false);
     let world = await m.agent.get('/api/member/exam-world');
     expect(world.body.training.books[1].unlocked).toBe(false);
 
-    const pass = await takeExam(m, b1.examId, q1.questionId, q1.right);
-    expect(pass.submit.body.passed).toBe(true);
+    const request = await post(m, `/api/member/assessments/${b1.examId}/retake-request`);
+    const retakes = await a.agent.get('/api/admin/library/retakes');
+    await post(a, `/api/admin/library/retakes/${retakes.body.items.find((r: any) => r.person.id === m.id).id}`, { decision: 'GRANT' });
+    expect(request.status).toBe(201);
+
+    const pass = await takeBookExam(m, b1.examId, 'Right');
+    expect(pass.submit!.body.passed).toBe(true);
     world = await m.agent.get('/api/member/exam-world');
     expect(world.body.training.books.map((b: any) => b.unlocked)).toEqual([true, true]);
     expect(world.body.training.books[0].exam).toMatchObject({ passed: true, bestPercentage: 100 });
     expect((await m.agent.get(`/api/member/library/books/${b2.bookId}`)).status).toBe(200);
+  });
+});
+
+describe('Leadership book exams: one try, retakes with new questions', () => {
+  async function setup(sets: number[]) {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1);
+    await giveBookExamSets(b1.examId, sets);
+    const m = await member('Student');
+    await post(a, '/api/admin/library/trainees', { personId: m.id });
+    return { a, m, examId: b1.examId };
+  }
+  const retakeId = async (a: { agent: Agent }, personId: string) =>
+    (await a.agent.get('/api/admin/library/retakes')).body.items.find((r: any) => r.person.id === personId)?.id as string;
+
+  it('gives one whole set on the first try, the same one when the try is reopened', async () => {
+    const { m, examId } = await setup([1, 2, 3]);
+    const first = await post(m, `/api/member/assessments/${examId}/attempts`);
+    expect(first.status).toBe(201);
+    expect([1, 2, 3]).toContain(first.body.setNumber);
+    const qs = await m.agent.get(`/api/member/attempts/${first.body.id}/questions`);
+    expect(qs.body.questions.map((q: any) => q.textEn)).toEqual([`Set ${first.body.setNumber} question`]);
+    expect(qs.body.questions[0].options[0]).not.toHaveProperty('isCorrect');
+
+    const again = await post(m, `/api/member/assessments/${examId}/attempts`);
+    expect(again.status).toBe(200);
+    expect(again.body.id).toBe(first.body.id);
+  });
+
+  it('after a failed try: no answers shown, no second try until the admin grants a retake, then a new set', async () => {
+    const { a, m, examId } = await setup([1, 2]);
+    const first = await takeBookExam(m, examId, 'Wrong');
+    expect(first.submit!.body).toMatchObject({ passed: false, percentage: 0 });
+
+    const review = await m.agent.get(`/api/member/attempts/${first.start.body.id}/questions`);
+    expect(review.body).toMatchObject({ answersHidden: true, questions: [] });
+
+    let detail = await m.agent.get(`/api/member/assessments/${examId}`);
+    expect(detail.body.training).toMatchObject({ canStart: false, block: 'NEEDS_RETAKE', submittedTries: 1 });
+    expect((await post(m, `/api/member/assessments/${examId}/attempts`)).body.code).toBe('NEEDS_RETAKE');
+
+    expect((await post(m, `/api/member/assessments/${examId}/retake-request`)).status).toBe(201);
+    detail = await m.agent.get(`/api/member/assessments/${examId}`);
+    expect(detail.body.training.block).toBe('RETAKE_REQUESTED');
+
+    const list = await a.agent.get('/api/admin/library/retakes');
+    const item = list.body.items.find((r: any) => r.person.id === m.id);
+    expect(item).toMatchObject({ bookNumber: 1, tries: 1, lastPercentage: 0, unusedSets: 1 });
+    expect((await post(a, `/api/admin/library/retakes/${item.id}`, { decision: 'GRANT' })).body.status).toBe('GRANTED');
+    expect(await prisma.notification.findFirst({ where: { recipientPersonId: m.id, type: 'EXAM_RETAKE_GRANTED' } })).not.toBeNull();
+
+    const second = await takeBookExam(m, examId, 'Right');
+    expect(second.start.body.setNumber).not.toBe(first.start.body.setNumber);
+    expect(second.submit!.body.passed).toBe(true);
+    detail = await m.agent.get(`/api/member/assessments/${examId}`);
+    expect(detail.body.training).toMatchObject({ passed: true, block: 'PASSED', canStart: false });
+    expect((await post(m, `/api/member/assessments/${examId}/retake-request`)).status).toBe(409);
+  });
+
+  it('a granted retake is used by one try only; a declined one can be asked for again', async () => {
+    const { a, m, examId } = await setup([1, 2, 3]);
+    await takeBookExam(m, examId, 'Wrong');
+    await post(m, `/api/member/assessments/${examId}/retake-request`);
+    await post(a, `/api/admin/library/retakes/${await retakeId(a, m.id)}`, { decision: 'GRANT' });
+    await takeBookExam(m, examId, 'Wrong');
+    expect((await post(m, `/api/member/assessments/${examId}/attempts`)).body.code).toBe('NEEDS_RETAKE');
+
+    await post(m, `/api/member/assessments/${examId}/retake-request`);
+    await post(a, `/api/admin/library/retakes/${await retakeId(a, m.id)}`, { decision: 'DECLINE' });
+    expect((await m.agent.get(`/api/member/assessments/${examId}`)).body.training.block).toBe('RETAKE_DECLINED');
+    expect((await post(m, `/api/member/assessments/${examId}/retake-request`)).status).toBe(201);
+  });
+
+  it('waits for new questions when every set has been used, and the admin can add a new set', async () => {
+    const { a, m, examId } = await setup([1]);
+    await takeBookExam(m, examId, 'Wrong');
+    await post(m, `/api/member/assessments/${examId}/retake-request`);
+    const id = await retakeId(a, m.id);
+    expect((await a.agent.get('/api/admin/library/retakes')).body.items.find((r: any) => r.id === id).unusedSets).toBe(0);
+    await post(a, `/api/admin/library/retakes/${id}`, { decision: 'GRANT' });
+    expect((await m.agent.get(`/api/member/assessments/${examId}`)).body.training.block).toBe('NO_NEW_QUESTIONS');
+
+    // Set 1 has been given, so it can't change; a new set can be written.
+    const used = await prisma.question.findFirst({ where: { assessmentId: examId, setNumber: 1 } });
+    expect((await a.agent.patch(`/api/admin/assessments/questions/${used!.id}`).set('X-CSRF-Token', a.csrf).send({ textEn: 'Changed' })).status).toBe(409);
+    const added = await post(a, `/api/admin/assessments/${examId}/questions`, { textEn: 'Set 2 question', setNumber: 2 });
+    expect(added.status).toBe(201);
+    await post(a, `/api/admin/assessments/questions/${added.body.id}/options`, { textEn: 'Right', isCorrect: true });
+    await post(a, `/api/admin/assessments/questions/${added.body.id}/options`, { textEn: 'Wrong' });
+
+    const retake = await takeBookExam(m, examId, 'Right');
+    expect(retake.start.body.setNumber).toBe(2);
+    expect(retake.shown).toEqual(['Set 2 question']);
+    expect(retake.submit!.body).toMatchObject({ passed: true, maxScore: 1 });
+  });
+
+  it('counts only the questions of the try’s own set', async () => {
+    const { m, examId } = await setup([1, 2]);
+    const r = await takeBookExam(m, examId, 'Right');
+    expect(r.submit!.body).toMatchObject({ score: 1, maxScore: 1, percentage: 100 });
+  });
+
+  it('shows on the Learn page whether the exam can be taken and what it is waiting for', async () => {
+    const { m, examId } = await setup([1, 2]);
+    let world = await m.agent.get('/api/member/exam-world');
+    expect(world.body.training.books[0].exam).toMatchObject({ id: examId, canStart: true, tries: 0, block: null });
+    await takeBookExam(m, examId, 'Wrong');
+    world = await m.agent.get('/api/member/exam-world');
+    expect(world.body.training.books[0].exam).toMatchObject({ canStart: false, tries: 1, block: 'NEEDS_RETAKE' });
   });
 });
 

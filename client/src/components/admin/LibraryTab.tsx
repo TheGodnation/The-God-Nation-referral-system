@@ -12,7 +12,26 @@ interface BookRow {
   devotional: { id: string; titleEn: string } | null;
   hasFile: boolean;
   byteSize: number | null;
-  exam: { id: string; titleEn: string; status: string; passMark: number; questionCount: number } | null;
+  exam: {
+    id: string;
+    titleEn: string;
+    status: string;
+    passMark: number;
+    questionCount: number;
+    sets?: { setNumber: number; questions: number }[];
+  } | null;
+}
+
+interface RetakeRow {
+  id: string;
+  requestedAt: string;
+  person: { id: string; name: string; whatsappNumber: string };
+  assessmentId: string;
+  bookNumber: number | null;
+  bookTitleEn: string;
+  tries: number;
+  lastPercentage: number | null;
+  unusedSets: number;
 }
 
 interface DevotionalRow {
@@ -145,6 +164,7 @@ export function LibraryTab() {
   const [books, setBooks] = useState<BookRow[]>([]);
   const [devotionals, setDevotionals] = useState<DevotionalRow[]>([]);
   const [trainees, setTrainees] = useState<TraineeRow[]>([]);
+  const [retakes, setRetakes] = useState<RetakeRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [openOfferings, setOpenOfferings] = useState<string | null>(null);
 
@@ -158,11 +178,13 @@ export function LibraryTab() {
       api.get<{ items: BookRow[] }>('/api/admin/library/books'),
       api.get<{ items: DevotionalRow[] }>('/api/admin/library/devotionals'),
       api.get<{ items: TraineeRow[] }>('/api/admin/library/trainees'),
+      api.get<{ items: RetakeRow[] }>('/api/admin/library/retakes'),
     ])
-      .then(([b, d, tr]) => {
+      .then(([b, d, tr, rt]) => {
         setBooks(b.items);
         setDevotionals(d.items);
         setTrainees(tr.items);
+        setRetakes(rt.items);
       })
       .catch(() => setError(t('library.load_failed')));
   }
@@ -260,7 +282,14 @@ export function LibraryTab() {
               </span>
               <span className="flex flex-wrap items-center gap-3">
                 <PdfUpload bookId={b.id} hasFile={b.hasFile} onDone={load} />
-                {b.exam && <span className="text-xs text-slate-600">{examLabel(b.exam)} · {t('library.pass_mark', { mark: b.exam.passMark })}</span>}
+                {b.exam && (
+                  <span className="text-xs text-slate-600">
+                    {examLabel(b.exam)} · {t('library.pass_mark', { mark: b.exam.passMark })}
+                    {b.exam.sets && b.exam.sets.length > 0 && (
+                      <> · {b.exam.sets.map((x) => t('library.set_short', { number: x.setNumber, count: x.questions })).join(', ')}</>
+                    )}
+                  </span>
+                )}
               </span>
             </li>
           ))}
@@ -273,6 +302,39 @@ export function LibraryTab() {
           </button>
         </form>
         <p className="text-xs text-slate-500">{t('library.questions_hint')}</p>
+      </section>
+
+      <section className="card space-y-3">
+        <h3 className="font-semibold text-brand-900">
+          {t('library.retakes_heading')} {retakes.length > 0 && <span className="ml-1 rounded-full bg-amber-100 px-2 text-sm text-amber-800">{retakes.length}</span>}
+        </h3>
+        <p className="text-sm text-slate-600">{t('library.retakes_help')}</p>
+        {retakes.length === 0 ? (
+          <p className="text-sm text-slate-400">{t('library.retakes_none')}</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {retakes.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span className="min-w-0">
+                  <span className="font-semibold">{r.person.name}</span> <span className="text-slate-500">{r.person.whatsappNumber}</span>
+                  <span className="block text-xs text-slate-600">
+                    {t('library.book', { number: r.bookNumber ?? '' })}: {r.bookTitleEn} ·{' '}
+                    {t('library.retake_tries', { count: r.tries, score: Math.round(r.lastPercentage ?? 0) })}
+                  </span>
+                  {r.unusedSets === 0 && <span className="block text-xs font-medium text-red-700">{t('library.retake_no_sets')}</span>}
+                </span>
+                <span className="flex gap-2">
+                  <button type="button" className="btn-primary px-3 py-1 text-xs" onClick={() => act(() => api.post(`/api/admin/library/retakes/${r.id}`, { decision: 'GRANT' }))}>
+                    {t('library.retake_grant')}
+                  </button>
+                  <button type="button" className="text-xs text-slate-500 underline" onClick={() => act(() => api.post(`/api/admin/library/retakes/${r.id}`, { decision: 'DECLINE' }))}>
+                    {t('library.retake_decline')}
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="card space-y-3">

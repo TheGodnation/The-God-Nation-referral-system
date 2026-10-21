@@ -40,7 +40,15 @@ interface TrainingBook {
   descriptionFr: string | null;
   unlocked: boolean;
   canRead: boolean;
-  exam: { id: string; passMark: number; bestPercentage: number | null; passed: boolean } | null;
+  exam: {
+    id: string;
+    passMark: number;
+    bestPercentage: number | null;
+    passed: boolean;
+    tries?: number;
+    canStart?: boolean;
+    block?: 'PASSED' | 'NO_QUESTIONS' | 'NEEDS_RETAKE' | 'RETAKE_REQUESTED' | 'RETAKE_DECLINED' | 'NO_NEW_QUESTIONS' | null;
+  } | null;
 }
 
 interface ExamWorld {
@@ -230,6 +238,13 @@ export function MemberLearnPage() {
                         {b.exam?.passed && <span className="text-green-700">✓ {t('learn.passed_with', { score: Math.round(b.exam.bestPercentage ?? 0) })}</span>}
                         {b.exam && !b.exam.passed && b.exam.bestPercentage !== null && (
                           <span className="text-red-700">{t('learn.best_score', { score: Math.round(b.exam.bestPercentage), passMark: b.exam.passMark })}</span>
+                        )}
+                        {b.exam && (b.exam.block === 'NEEDS_RETAKE' || b.exam.block === 'RETAKE_DECLINED') && (
+                          <span className="text-amber-800">{t('learn.exam_retake_needed')}</span>
+                        )}
+                        {b.exam?.block === 'RETAKE_REQUESTED' && <span className="text-amber-800">{t('learn.exam_retake_requested')}</span>}
+                        {b.exam && !b.exam.passed && (b.exam.tries ?? 0) > 0 && b.exam.canStart && (
+                          <span className="text-green-700">{t('learn.exam_retake_granted')}</span>
                         )}
                       </span>
                       {b.unlocked && (

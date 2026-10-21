@@ -8,6 +8,7 @@ import { recordAudit } from '../lib/audit';
 import { socialMutationLimiter } from '../lib/rateLimit';
 import { getObjectStream, isStorageConfigured } from '../lib/storage';
 import { canReadBook, canSeeDevotional, examAccess, getTrainingBooksFor } from '../lib/examWorld';
+import { trainingExamState } from '../lib/trainingExam';
 
 // ---------------------------------------------------------------------------
 // /api/member — Exam World for members: the summary page (this month's
@@ -60,6 +61,16 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
   const now = Date.now();
   const DAY = 24 * 60 * 60 * 1000;
 
+  // Each open book's exam: can it be taken now, or what is it waiting for
+  // (a retake request, the admin, new questions)?
+  const examStates = new Map(
+    await Promise.all(
+      books
+        .filter((b) => b.unlocked && b.exam?.published)
+        .map(async (b) => [b.exam!.id, await trainingExamState(personId, b.exam!.id)] as const),
+    ),
+  );
+
   res.json({
     offering: { instructionsEn: settings?.offeringInstructionsEn ?? null, instructionsFr: settings?.offeringInstructionsFr ?? null },
     devotionals: devotionals.map((d) => ({
@@ -99,7 +110,18 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
         descriptionFr: b.descriptionFr,
         unlocked: b.unlocked,
         canRead: b.unlocked && b.hasFile,
-        exam: b.exam && b.exam.published ? { id: b.exam.id, passMark: b.exam.passMark, bestPercentage: b.exam.bestPercentage, passed: b.exam.passed } : null,
+        exam:
+          b.exam && b.exam.published
+            ? {
+                id: b.exam.id,
+                passMark: b.exam.passMark,
+                bestPercentage: b.exam.bestPercentage,
+                passed: b.exam.passed,
+                tries: examStates.get(b.exam.id)?.submittedTries ?? 0,
+                canStart: examStates.get(b.exam.id)?.canStart ?? false,
+                block: examStates.get(b.exam.id)?.block ?? null,
+              }
+            : null,
       })),
     },
   });

@@ -14,6 +14,39 @@ interface AssessmentInfo {
   // weekly exam closes when its devotional ends.
   firstTryCounts?: boolean;
   open?: boolean;
+  // Leadership book exams: one try; a retake must be asked for, and gets
+  // a different set of questions (server: lib/trainingExam.ts).
+  training?: TrainingState | null;
+}
+
+type TrainingBlock = 'PASSED' | 'NO_QUESTIONS' | 'NEEDS_RETAKE' | 'RETAKE_REQUESTED' | 'RETAKE_DECLINED' | 'NO_NEW_QUESTIONS';
+
+interface TrainingState {
+  inProgressAttemptId: string | null;
+  submittedTries: number;
+  passed: boolean;
+  retakeGranted: boolean;
+  canStart: boolean;
+  block: TrainingBlock | null;
+}
+
+// Answers chosen so far are kept on the phone, so closing the app or
+// losing the connection mid-exam doesn't lose them.
+const savedKey = (attemptId: string) => `exam-answers:${attemptId}`;
+function readSaved(attemptId: string): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(savedKey(attemptId)) || '{}') as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+function writeSaved(attemptId: string, value: Record<string, string> | null) {
+  try {
+    if (value) localStorage.setItem(savedKey(attemptId), JSON.stringify(value));
+    else localStorage.removeItem(savedKey(attemptId));
+  } catch {
+    /* not saved — the exam still works */
+  }
 }
 
 interface ReviewQuestion {
@@ -62,6 +95,8 @@ export function MemberAssessmentPage() {
   const [starting, setStarting] = useState(false);
   const [lastResult, setLastResult] = useState<AttemptSummary | null>(null);
   const [review, setReview] = useState<ReviewQuestion[] | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
   function load() {
     if (!id) return;
@@ -88,8 +123,30 @@ export function MemberAssessmentPage() {
   const submittedCount = attempts.filter((a) => a.status === 'SUBMITTED').length;
   const limitReached = !hasInProgressAttempt && assessment?.maxAttempts != null && submittedCount >= assessment.maxAttempts;
 
+  const training = assessment?.training ?? null;
+
+  async function requestRetake() {
+    if (!id) return;
+    setError(null);
+    setRequesting(true);
+    try {
+      await api.post(`/api/member/assessments/${id}/retake-request`);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('memberAssessment.submit_failed'));
+    } finally {
+      setRequesting(false);
+    }
+  }
+
   async function startAttempt() {
     if (!id) return;
+    // A leadership book exam first explains the one-try rule.
+    if (training && !training.inProgressAttemptId && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    setConfirming(false);
     setError(null);
     setStarting(true);
     try {
@@ -99,7 +156,7 @@ export function MemberAssessmentPage() {
       setReview(null);
       const q = await api.get<{ questions: TakingQuestion[] }>(`/api/member/attempts/${attempt.id}/questions`);
       setQuestions(q.questions);
-      setSelections({});
+      setSelections(readSaved(attempt.id));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('memberAssessment.start_failed'));
     } finally {
@@ -115,15 +172,19 @@ export function MemberAssessmentPage() {
       const answers = Object.entries(selections).map(([questionId, selectedOptionId]) => ({ questionId, selectedOptionId }));
       const submittedId = activeAttemptId;
       const result = await api.post<AttemptSummary>(`/api/member/attempts/${submittedId}/submit`, { answers });
+      writeSaved(submittedId, null);
       setLastResult(result);
       setActiveAttemptId(null);
       setQuestions([]);
       load();
-      // Show the right answers so the member can correct themselves.
-      api
-        .get<{ questions: ReviewQuestion[] }>(`/api/member/attempts/${submittedId}/questions`)
-        .then((r) => setReview(r.questions))
-        .catch(() => setReview(null));
+      // Show the right answers so the member can correct themselves —
+      // except on leadership book exams, which never show them.
+      if (!training) {
+        api
+          .get<{ questions: ReviewQuestion[] }>(`/api/member/attempts/${submittedId}/questions`)
+          .then((r) => setReview(r.questions))
+          .catch(() => setReview(null));
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('memberAssessment.submit_failed'));
     } finally {
@@ -168,6 +229,7 @@ export function MemberAssessmentPage() {
         {assessment.firstTryCounts && (
           <p className="mt-1 text-xs text-slate-500">{t('memberAssessment.first_try_counts')}</p>
         )}
+        {training && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t('memberAssessment.training_one_try')}</p>}
 
         {lastResult && (
           <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm">
@@ -230,7 +292,13 @@ export function MemberAssessmentPage() {
                             type="radio"
                             name={q.id}
                             checked={selections[q.id] === o.id}
-                            onChange={() => setSelections((s) => ({ ...s, [q.id]: o.id }))}
+                            onChange={() =>
+                              setSelections((s) => {
+                                const next = { ...s, [q.id]: o.id };
+                                if (activeAttemptId) writeSaved(activeAttemptId, next);
+                                return next;
+                              })
+                            }
                           />
                           {oText}
                         </label>
@@ -250,18 +318,45 @@ export function MemberAssessmentPage() {
         {!activeAttemptId && (
           <div className="mt-4">
             {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
-            {limitReached ? (
+            {training && confirming ? (
+              <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <p className="font-semibold">{t('memberAssessment.training_rules_title')}</p>
+                <p>{t('memberAssessment.training_rules')}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn-primary" onClick={startAttempt} disabled={starting}>
+                    {starting ? t('memberAssessment.starting') : t('memberAssessment.training_start_confirm')}
+                  </button>
+                  <button className="btn-secondary" onClick={() => setConfirming(false)}>
+                    {t('memberAssessment.training_not_yet')}
+                  </button>
+                </div>
+              </div>
+            ) : training && training.block ? (
+              <div className="space-y-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <p className={training.block === 'PASSED' ? 'font-semibold text-green-700' : ''}>{t(`memberAssessment.training_block_${training.block}`)}</p>
+                {(training.block === 'NEEDS_RETAKE' || training.block === 'RETAKE_DECLINED') && (
+                  <button className="btn-primary" onClick={requestRetake} disabled={requesting}>
+                    {t('memberAssessment.training_request_retake')}
+                  </button>
+                )}
+              </div>
+            ) : limitReached ? (
               <p className="text-sm text-slate-500">{t('memberAssessment.limit_reached')}</p>
             ) : assessment.open === false && !hasInProgressAttempt ? (
               <p className="text-sm text-slate-500">{t('memberAssessment.closed')}</p>
             ) : (
-              <button className="btn-primary w-full" onClick={startAttempt} disabled={starting}>
-                {starting
-                  ? t('memberAssessment.starting')
-                  : hasInProgressAttempt
-                    ? t('memberAssessment.continue')
-                    : t('memberAssessment.start')}
-              </button>
+              <>
+                {training?.retakeGranted && !hasInProgressAttempt && (
+                  <p className="mb-2 text-sm font-medium text-green-700">{t('memberAssessment.training_retake_granted')}</p>
+                )}
+                <button className="btn-primary w-full" onClick={startAttempt} disabled={starting}>
+                  {starting
+                    ? t('memberAssessment.starting')
+                    : hasInProgressAttempt
+                      ? t('memberAssessment.continue')
+                      : t('memberAssessment.start')}
+                </button>
+              </>
             )}
           </div>
         )}

@@ -10,6 +10,8 @@ import { recordAudit } from '../lib/audit';
 import { attachmentUploadAuthorizeLimiter, communityMutationLimiter } from '../lib/rateLimit';
 import { createUploadUrl, headObject, isStorageConfigured } from '../lib/storage';
 import { TRAINING_PASS_MARK } from '../lib/examWorld';
+import { examSetNumbers } from '../lib/trainingExam';
+import { notifyExamRetakeDecision } from '../lib/notifications';
 
 // ---------------------------------------------------------------------------
 // /api/admin/library — central admin side of Exam World:
@@ -42,6 +44,11 @@ router.get('/books', asyncHandler(async (_req, res) => {
       exam: { select: { id: true, titleEn: true, status: true, passMark: true, _count: { select: { questions: true } } } },
     },
   });
+  // Leadership book exams: how many questions each set has (20 per set).
+  const examIds = books.map((b) => b.exam?.id).filter((id): id is string => Boolean(id));
+  const setCounts = examIds.length
+    ? await prisma.question.groupBy({ by: ['assessmentId', 'setNumber'], where: { assessmentId: { in: examIds } }, _count: { _all: true } })
+    : [];
   res.json({
     items: books.map((b) => ({
       id: b.id,
@@ -54,7 +61,19 @@ router.get('/books', asyncHandler(async (_req, res) => {
       devotional: b.devotional,
       hasFile: Boolean(b.storageKey),
       byteSize: b.byteSize,
-      exam: b.exam ? { id: b.exam.id, titleEn: b.exam.titleEn, status: b.exam.status, passMark: b.exam.passMark, questionCount: b.exam._count.questions } : null,
+      exam: b.exam
+        ? {
+            id: b.exam.id,
+            titleEn: b.exam.titleEn,
+            status: b.exam.status,
+            passMark: b.exam.passMark,
+            questionCount: b.exam._count.questions,
+            sets: setCounts
+              .filter((c) => c.assessmentId === b.exam!.id)
+              .map((c) => ({ setNumber: c.setNumber, questions: c._count._all }))
+              .sort((x, y) => x.setNumber - y.setNumber),
+          }
+        : null,
     })),
   });
 }));
@@ -244,6 +263,72 @@ router.get('/devotionals', asyncHandler(async (_req, res) => {
 }));
 
 // ----------------------------- Trainees -------------------------------------
+
+// ----------------------------- Exam retakes --------------------------------
+// A member who failed a leadership book's exam asks for another try; only
+// the central admin grants it. The list shows how many unused question
+// sets are left for that person, so the admin knows when a new set must
+// be written first.
+
+router.get('/retakes', asyncHandler(async (req, res) => {
+  const status = req.query.status === 'GRANTED' || req.query.status === 'DECLINED' ? req.query.status : 'REQUESTED';
+  const rows = await prisma.examRetakeRequest.findMany({
+    where: { status },
+    orderBy: { requestedAt: status === 'REQUESTED' ? 'asc' : 'desc' },
+    take: 200,
+    include: {
+      person: { select: { id: true, name: true, whatsappNumber: true } },
+      assessment: { select: { id: true, trainingBook: { select: { trainingOrder: true, titleEn: true } } } },
+    },
+  });
+  const items = await Promise.all(
+    rows.map(async (r) => {
+      const [sets, attempts] = await Promise.all([
+        examSetNumbers(r.assessmentId),
+        prisma.attempt.findMany({
+          where: { personId: r.personId, assessmentId: r.assessmentId },
+          select: { setNumber: true, status: true, percentage: true },
+          orderBy: { attemptNumber: 'asc' },
+        }),
+      ]);
+      const used = new Set(attempts.map((a) => a.setNumber));
+      const submitted = attempts.filter((a) => a.status === 'SUBMITTED');
+      return {
+        id: r.id,
+        status: r.status,
+        requestedAt: r.requestedAt,
+        decidedAt: r.decidedAt,
+        used: Boolean(r.usedByAttemptId),
+        person: r.person,
+        assessmentId: r.assessmentId,
+        bookNumber: r.assessment.trainingBook?.trainingOrder ?? null,
+        bookTitleEn: r.assessment.trainingBook?.titleEn ?? '',
+        tries: submitted.length,
+        lastPercentage: submitted[submitted.length - 1]?.percentage ?? null,
+        unusedSets: sets.filter((s) => !used.has(s)).length,
+      };
+    }),
+  );
+  res.json({ items });
+}));
+
+const retakeDecisionSchema = z.object({ decision: z.enum(['GRANT', 'DECLINE']) });
+
+router.post('/retakes/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = retakeDecisionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Choose grant or decline.' });
+  const granted = parsed.data.decision === 'GRANT';
+  const changed = await prisma.examRetakeRequest.updateMany({
+    where: { id: req.params.id, status: 'REQUESTED' },
+    data: { status: granted ? 'GRANTED' : 'DECLINED', decidedAt: new Date(), decidedByUserId: req.user!.id },
+  });
+  const request = await prisma.examRetakeRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return res.status(404).json({ error: 'Request not found.' });
+  if (changed.count === 0) return res.status(409).json({ error: 'This request was already answered.', status: request.status });
+  await audit(req, granted ? 'EXAM_RETAKE_GRANTED' : 'EXAM_RETAKE_DECLINED', 'ExamRetakeRequest', request.id, { personId: request.personId });
+  await notifyExamRetakeDecision(request, granted).catch(() => {});
+  res.json({ id: request.id, status: request.status });
+}));
 
 router.get('/trainees', asyncHandler(async (req, res) => {
   const status = z.enum(['REQUESTED', 'ACTIVE', 'REVOKED']).safeParse(req.query.status);

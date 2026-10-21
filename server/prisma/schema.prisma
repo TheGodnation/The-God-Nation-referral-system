@@ -196,6 +196,10 @@ enum NotificationType {
   // Admin's "Assign as Leader"), telling them their Leadership tools now
   // live inside the Member app. See User.personLinkNotifiedAt.
   LEADER_DASHBOARD_MOVED
+  // Leadership training: the central admin granted or declined a request
+  // to retake a book's exam (a retake uses a new set of questions).
+  EXAM_RETAKE_GRANTED
+  EXAM_RETAKE_DECLINED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -301,6 +305,7 @@ model User {
   updateCommentsDeleted                          UpdateComment[]                          @relation("UpdateCommentDeletedByUser")
   memberReportsResolved                          MemberReport[]                           @relation("MemberReportResolvedByUser")
   trainingEnrollmentsActivated                   TrainingEnrollment[]                     @relation("TrainingEnrollmentActivatedBy")
+  examRetakesDecided                             ExamRetakeRequest[]                      @relation("ExamRetakeDecidedBy")
   areaLeadershipAssignmentsAssigned              AreaLeadershipAssignment[]               @relation("AreaLeadershipAssignedBy")
   areaRepresentationRequestsDecided              AreaRepresentationRequest[]
   prayerRequestsDeleted                          PrayerRequest[]                          @relation("PrayerRequestDeletedByUser")
@@ -706,6 +711,7 @@ model Person {
   registrations                                   Registration[]
   communityMemberships                            CommunityMembership[]
   attempts                                        Attempt[]
+  examRetakeRequests                              ExamRetakeRequest[]
   participationEvents                             ParticipationEvent[]
   memberAccount                                   MemberAccount?
   roleAssignments                                 RoleAssignment[]
@@ -920,8 +926,9 @@ model Assessment {
 
   devotional   MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
   trainingBook LibraryBook?       @relation(fields: [trainingBookId], references: [id], onDelete: SetNull)
-  questions    Question[]
-  attempts     Attempt[]
+  questions      Question[]
+  attempts       Attempt[]
+  retakeRequests ExamRetakeRequest[]
 
   @@index([devotionalId])
 }
@@ -935,6 +942,11 @@ model Question {
   textFr       String?
   order        Int      @default(0)
   points       Int      @default(1)
+  // Leadership-training book exams hold several sets of questions (Set 1,
+  // 2, 3...): each try uses one whole set, a retake always a set this
+  // person has never had (see lib/trainingExam.ts). Other exams only ever
+  // use set 1.
+  setNumber    Int      @default(1)
   createdAt    DateTime @default(now())
 
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
@@ -942,6 +954,7 @@ model Question {
   answers    Answer[]
 
   @@index([assessmentId])
+  @@index([assessmentId, setNumber])
 }
 
 // `isCorrect` is never sent to a client before an Attempt is submitted —
@@ -983,14 +996,51 @@ model Attempt {
   passMarkAtAttempt Int?
   passed            Boolean?
   status            AttemptStatus @default(IN_PROGRESS)
+  // Training book exams only: the question set this try uses, and its
+  // questions in the shuffled order this person sees. Null/empty = all of
+  // the exam's questions in their written order (every other exam).
+  setNumber         Int?
+  questionOrder     String[]      @default([])
 
-  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
-  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  person     Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   answers    Answer[]
+  retakeUsed ExamRetakeRequest? @relation("ExamRetakeUsedBy")
 
   @@unique([personId, assessmentId, attemptNumber])
   @@index([personId])
   @@index([assessmentId])
+  @@index([personId, assessmentId])
+}
+
+// A member asking to retake a leadership book's exam after failing it.
+// Only the central admin grants it; a granted retake is used up by the
+// next attempt it starts (usedByAttemptId), which gets a question set the
+// person has never seen.
+enum ExamRetakeStatus {
+  REQUESTED
+  GRANTED
+  DECLINED
+}
+
+model ExamRetakeRequest {
+  id              String           @id @default(uuid())
+  personId        String
+  assessmentId    String
+  // The failed try this request follows.
+  afterAttemptId  String
+  status          ExamRetakeStatus @default(REQUESTED)
+  requestedAt     DateTime         @default(now())
+  decidedAt       DateTime?
+  decidedByUserId String?
+  usedByAttemptId String?          @unique
+
+  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  decidedBy  User?      @relation("ExamRetakeDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  usedBy     Attempt?   @relation("ExamRetakeUsedBy", fields: [usedByAttemptId], references: [id], onDelete: SetNull)
+
+  @@index([status, requestedAt])
   @@index([personId, assessmentId])
 }
 
