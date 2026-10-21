@@ -721,9 +721,10 @@ model Person {
   // For a month the account is hidden and signed out everywhere; signing
   // in again cancels the deletion. Null = not asked (or came back).
   deletionRequestedAt DateTime?
-  // Set only on the empty placeholder that replaces a deleted account in
-  // other people's chats (its messages show "This message was deleted").
-  // Such a row has no account, no details and is never listed anywhere.
+  // Set only on the placeholder that replaces a deleted account in other
+  // people's chats: it keeps only the name, shown on its messages (all
+  // "This message was deleted"). No account, no other details, never
+  // listed anywhere.
   erasedAt            DateTime?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt

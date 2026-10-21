@@ -16,15 +16,16 @@ import { deleteObject, isStorageConfigured } from './storage';
 // 3. After the month, only the central admin approves the deletion
 //    (Admin → Account deletions). Then everything goes: profile, photos,
 //    groups, friends, posts, exam results, sign-in. Messages in other
-//    people's chats stay as ordinary "This message was deleted" bubbles —
-//    never saying the account was deleted — and book payments / offerings
+//    people's chats stay as ordinary "This message was deleted" bubbles
+//    under the person's real name — never saying the account was deleted
+//    (as the ministry asked) — and book payments / offerings
 //    keep their amount and date without the name.
 // ---------------------------------------------------------------------------
 
 export const DELETION_WAIT_DAYS = 30;
 const DAY = 24 * 60 * 60 * 1000;
 
-/** The name shown on a deleted account's old (deleted) chat messages. */
+/** The name a closed leader account is left with (the person's own name stays only on their old chat messages). */
 export const PLACEHOLDER_NAME = 'Member';
 
 export class AccountDeletionError extends Error {
@@ -130,8 +131,8 @@ export async function cancelAccountDeletion(personId: string, by: 'MEMBER' | 'AD
 /**
  * The final deletion, approved by the central admin after the month.
  *
- * The person's chats are first moved to a new, empty placeholder (name
- * "Member", no details, `erasedAt` set) with every message marked deleted
+ * The person's chats are first moved to a new, empty placeholder (only
+ * their name, so chats look as before; no other details; `erasedAt` set) with every message marked deleted
  * and emptied, so other people's chats keep their shape and simply show
  * "This message was deleted". Then the person is deleted, which removes
  * everything else tied to them (see the Person relations in schema.prisma);
@@ -146,7 +147,7 @@ export async function completeAccountDeletion(requestId: string, adminUserId: st
 
   const person = await prisma.person.findUnique({
     where: { id: personId },
-    select: { preferredLanguage: true, photoStorageKey: true, coverStorageKey: true, users: { select: { id: true, role: true } } },
+    select: { name: true, preferredLanguage: true, photoStorageKey: true, coverStorageKey: true, users: { select: { id: true, role: true } } },
   });
   if (!person) throw new AccountDeletionError('NOT_FOUND');
   if (person.users.some((u) => u.role === 'ADMIN')) throw new AccountDeletionError('ADMIN_ACCOUNT');
@@ -169,7 +170,7 @@ export async function completeAccountDeletion(requestId: string, adminUserId: st
   const placeholderId = crypto.randomUUID();
   await prisma.$transaction(async (tx) => {
     await tx.person.create({
-      data: { id: placeholderId, name: PLACEHOLDER_NAME, whatsappNumber: `deleted:${placeholderId}`, preferredLanguage: person.preferredLanguage, erasedAt: now },
+      data: { id: placeholderId, name: person.name, whatsappNumber: `deleted:${placeholderId}`, preferredLanguage: person.preferredLanguage, erasedAt: now },
     });
     // Group chats: their messages stay, emptied and shown as deleted.
     await tx.messageAttachment.deleteMany({ where: { message: { senderPersonId: personId } } });

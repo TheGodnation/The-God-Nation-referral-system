@@ -194,6 +194,8 @@ describe('The final deletion, after the month', () => {
     expect(items).toHaveLength(3);
     const hers = items.filter((m) => m.body !== 'Amen');
     expect(hers.every((m) => m.deleted && m.deletedBySender && m.body === null && m.attachments.length === 0)).toBe(true);
+    // Still under her real name, as before.
+    expect(hers.every((m) => m.senderName === mary.person.name)).toBe(true);
     expect(JSON.stringify(msgs.body)).not.toContain('My secret testimony');
     expect(JSON.stringify(msgs.body)).not.toMatch(/deleted account|Deleted account/i);
     const stored = await prisma.message.findMany({ where: { conversationId: conversation.id, senderPersonId: { not: other.person.id } } });
