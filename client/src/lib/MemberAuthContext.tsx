@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api } from './api';
+import { api, NetworkError } from './api';
+import { deleteAllFor } from './offlineStore';
 
 export interface CurrentMember {
   name: string;
@@ -29,6 +30,37 @@ interface MemberAuthContextValue {
   loading: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
+}
+
+// The member signed in last on this phone (a few details only), for opening
+// the app without internet. Cleared when they sign out or the server says
+// nobody is signed in.
+const LAST_MEMBER = 'member:last';
+
+function remember(member: CurrentMember | null) {
+  try {
+    if (member?.personId) {
+      const { name, email, preferredLanguage, personId, profileComplete, photoUrl } = member;
+      localStorage.setItem(LAST_MEMBER, JSON.stringify({ name, email, preferredLanguage, personId, profileComplete, photoUrl }));
+    } else {
+      localStorage.removeItem(LAST_MEMBER);
+    }
+  } catch {
+    // Storage unavailable: the app simply needs the internet to open.
+  }
+}
+
+function remembered(): CurrentMember | null {
+  try {
+    const raw = localStorage.getItem(LAST_MEMBER);
+    if (!raw) return null;
+    const m = JSON.parse(raw);
+    return m && typeof m.personId === 'string'
+      ? { locationCountry: null, locationCity: null, locationArea: null, ...m }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 // Phase 3C: entirely separate from AuthContext (Admin/Leader) — its own
@@ -68,8 +100,13 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
       // signal — it must not bounce an already-signed-in member to the
       // login screen and discard whatever they were in the middle of doing.
       setMember(res.member);
-    } catch {
+      remember(res.member);
+    } catch (err) {
       // Intentionally left as-is: keep whatever `member` we already had.
+      // With no internet at all (the app opened offline), use the member
+      // who was signed in last time on this phone, so their downloaded
+      // books still open; the server checks again once it is reachable.
+      if (err instanceof NetworkError) setMember((current) => current ?? remembered());
     } finally {
       setLoading(false);
     }
@@ -77,7 +114,11 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     await api.post('/api/member/auth/logout');
+    const personId = member?.personId;
     setMember(null);
+    remember(null);
+    // Books and documents downloaded for this member leave the phone with them.
+    if (personId) void deleteAllFor(personId);
   }
 
   useEffect(() => {

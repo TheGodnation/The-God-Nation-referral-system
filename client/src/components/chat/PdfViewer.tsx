@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { loadPdfJs } from '../../lib/loadPdfJs';
+import { blobBytes, saveFile } from '../../lib/offlineStore';
 
 // Opens a PDF from a chat right inside the app, page after page, like
 // WhatsApp's viewer — phones often can't show a PDF link themselves and just
 // download it. Pages are drawn only when they come near the screen and are
 // let go again when far away, so a 70-page PDF doesn't fill the phone's
 // memory. If the PDF can't be opened here, a button opens it the phone's own
-// way instead.
-function PdfPage({ pdf, number, width, aspect }: { pdf: any; number: number; width: number; aspect: number }) {
+// way instead. Once viewed, a chat PDF is kept on the phone (`keep`), like
+// WhatsApp's downloaded documents, and opens from there next time (`data`),
+// even without internet.
+export function PdfPage({ pdf, number, width, aspect }: { pdf: any; number: number; width: number; aspect: number }) {
   const { t } = useTranslation();
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -57,8 +60,30 @@ function PdfPage({ pdf, number, width, aspect }: { pdf: any; number: number; wid
   );
 }
 
-export function PdfViewer({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+const MAX_KEEP_BYTES = 50 * 1024 * 1024;
+
+export function PdfViewer({
+  url: remoteUrl,
+  data,
+  name,
+  keep,
+  onClose,
+}: {
+  url?: string;
+  data?: Blob;
+  name: string;
+  keep?: { key: string; ownerId: string; meta: Record<string, unknown> };
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
+  const [localUrl, setLocalUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    const u = URL.createObjectURL(data);
+    setLocalUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [data]);
+  const url = remoteUrl ?? localUrl ?? '';
   const [pdf, setPdf] = useState<any>(null);
   const [aspect, setAspect] = useState(1.414);
   const [percent, setPercent] = useState(0);
@@ -73,7 +98,7 @@ export function PdfViewer({ url, name, onClose }: { url: string; name: string; o
     (async () => {
       try {
         const pdfjs = await loadPdfJs();
-        task = pdfjs.getDocument({ url });
+        task = pdfjs.getDocument(data ? { data: new Uint8Array(await blobBytes(data)) } : { url: remoteUrl });
         task.onProgress = (p: { loaded: number; total: number }) => {
           if (alive && p.total) setPercent(Math.min(99, Math.round((p.loaded / p.total) * 100)));
         };
@@ -84,6 +109,13 @@ export function PdfViewer({ url, name, onClose }: { url: string; name: string; o
         if (!alive) return;
         setAspect(vp.height / vp.width);
         setPdf(doc);
+        if (!data && keep) {
+          // Keep it on the phone for next time.
+          const bytes: Uint8Array<ArrayBuffer> = await doc.getData();
+          if (bytes.byteLength <= MAX_KEEP_BYTES) {
+            void saveFile({ key: keep.key, ownerId: keep.ownerId, kind: 'DOC', title: name, meta: keep.meta, blob: new Blob([bytes], { type: 'application/pdf' }) });
+          }
+        }
       } catch {
         if (alive) setFailed(true);
       }
@@ -93,7 +125,8 @@ export function PdfViewer({ url, name, onClose }: { url: string; name: string; o
       task?.destroy?.();
       doc?.destroy?.();
     };
-  }, [url]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteUrl, data]);
 
   useEffect(() => {
     const measure = () => setWidth(Math.min((listRef.current?.clientWidth ?? 360) - 16, 900));
@@ -112,9 +145,11 @@ export function PdfViewer({ url, name, onClose }: { url: string; name: string; o
           <p className="truncate font-semibold text-slate-900">{name}</p>
           {pdf && <p className="text-xs text-slate-500">{t('groupChat.doc_pages', { count: pdf.numPages })}</p>}
         </div>
-        <a href={url} target="_blank" rel="noopener" className="rounded-full px-3 py-2 text-sm font-medium text-emerald-700">
-          {t('groupChat.doc_download')}
-        </a>
+        {url && (
+          <a href={url} target="_blank" rel="noopener" download={data ? name : undefined} className="rounded-full px-3 py-2 text-sm font-medium text-emerald-700">
+            {t('groupChat.doc_download')}
+          </a>
+        )}
       </header>
       <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto py-2">
         {failed ? (

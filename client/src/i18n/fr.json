@@ -1889,7 +1889,7 @@
     "offering_confirm": "Confirmer",
     "offering_bad_amount": "Écrivez le montant en chiffres seulement, ou laissez vide.",
     "training_heading": "Formation des responsables",
-    "training_intro": "La formation des responsables comprend {{count}} livres. Lisez chaque livre ici dans l’application, réussissez son examen avec 70 % ou plus, et le livre suivant s’ouvre.",
+    "training_intro": "La formation au leadership compte {{count}} livres. Chaque livre est téléchargé dans l'application, prêt à être lu à tout moment. Réussissez son examen avec 70 % ou plus, et le livre suivant s'ouvre.",
     "training_request": "Je veux rejoindre la formation",
     "training_requested": "Votre demande a été reçue. Votre livre s’ouvrira dès que votre paiement sera confirmé.",
     "book": "Livre {{number}}",
@@ -1917,7 +1917,14 @@
     "not_available": "Ce livre n’est pas encore ouvert pour vous.",
     "failed": "Le livre n’a pas pu s’ouvrir. Vérifiez votre connexion et réessayez.",
     "page": "Page {{number}}",
-    "end": "Fin du livre · {{count}} pages"
+    "end": "Fin du livre · {{count}} pages",
+    "page_of": "Page {{page}} sur {{count}}",
+    "offline_copy": "Pas d'internet — lecture de la copie téléchargée sur ce téléphone.",
+    "downloaded": "Téléchargé. Ce livre s'ouvre maintenant sur ce téléphone même sans internet.",
+    "resumed": "Ouvert là où vous vous êtes arrêté : page {{page}}",
+    "from_start": "Aller au début",
+    "downloading": "Téléchargement du livre… {{percent}} %",
+    "offline_missing": "Pas d'internet, et ce livre n'est pas encore téléchargé sur ce téléphone. Ouvrez-le une fois avec internet et il sera gardé pour vous."
   },
   "examResults": {
     "title": "Monde des examens : mes membres",
@@ -2357,12 +2364,12 @@
     "name": "École de leadership de God's Nation",
     "title": "École de leadership de God's Nation",
     "back_to_learn": "Apprendre",
-    "intro": "{{count}} livres pour grandir comme leader dans God's Nation. Lisez chaque livre ici dans l'application, réussissez son examen, et le livre suivant s'ouvre.",
+    "intro": "{{count}} livres pour grandir comme leader dans God's Nation. Chaque livre est téléchargé dans l'application et gardé pour vous, prêt à être lu à tout moment. Réussissez son examen, et le livre suivant s'ouvre.",
     "teaser": "{{count}} livres pour grandir comme leader. Le livre 1 s'ouvre dès que vous commencez.",
     "progress": "{{passed}} livres réussis sur {{total}}",
     "open": "Ouvrir l'école",
     "how_heading": "Comment ça marche",
-    "step_read": "Lisez le livre ici dans l'application.",
+    "step_read": "Votre livre est téléchargé dans l'application et bien gardé, prêt à être lu à tout moment.",
     "step_exam": "Passez son examen : un seul essai, 70 % pour réussir.",
     "step_pay": "Payez {{price}} FCFA pour le livre. Le livre suivant s'ouvre alors.",
     "continue": "Continuer",
@@ -2383,6 +2390,27 @@
     "book_coming": "Le livre sera bientôt ici.",
     "chapters_heading": "Ce que ce livre enseigne",
     "chapters_soon": "Les résumés des chapitres seront bientôt ajoutés.",
-    "summary_soon": "Le résumé de ce chapitre sera bientôt ajouté."
+    "summary_soon": "Le résumé de ce chapitre sera bientôt ajouté.",
+    "offline_saved": "Pas d'internet — affichage de ce qui a été gardé sur ce téléphone. Vos livres téléchargés s'ouvrent toujours.",
+    "continue_reading": "Continuer la lecture · page {{page}}",
+    "downloaded": "Téléchargé sur ce téléphone — s'ouvre même sans internet",
+    "downloads_first_time": "Téléchargé dans l'application la première fois que vous l'ouvrez, puis il s'ouvre même sans internet."
+  },
+  "downloads": {
+    "title": "Téléchargements",
+    "back": "Moi",
+    "intro": "Livres et documents gardés sur ce téléphone. Ils s'ouvrent même sans internet. Se déconnecter les supprime.",
+    "using": "{{size}} utilisés sur ce téléphone",
+    "app_total": "l'application au total : {{size}}",
+    "books": "Livres de leadership",
+    "no_books": "Aucun livre téléchargé. Un livre est téléchargé la première fois que vous l'ouvrez.",
+    "documents": "Documents des discussions",
+    "no_documents": "Aucun document. Un PDF d'une discussion est gardé après que vous l'avez ouvert.",
+    "open": "Ouvrir",
+    "delete": "Supprimer",
+    "confirm_delete": "Supprimer cette copie de ce téléphone ? Vous pourrez la télécharger à nouveau avec internet.",
+    "delete_all": "Supprimer tous les téléchargements de ce téléphone",
+    "confirm_delete_all": "Supprimer tous les livres et documents de ce téléphone ? Vous pourrez les télécharger à nouveau avec internet.",
+    "me_link": "Livres et documents gardés sur ce téléphone"
   }
 }

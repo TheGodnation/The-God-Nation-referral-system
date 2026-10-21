@@ -6,7 +6,8 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { BookCover } from '../components/learn/BookCover';
 import { SCHOOL_BOOK_COUNT, SchoolSummary, TrainingStatusCard, currentBook, useTr } from '../components/learn/schoolBits';
-import { api } from '../lib/api';
+import { cachedGet } from '../lib/cachedGet';
+import { useMemberAuth } from '../lib/MemberAuthContext';
 
 // God's Nation Leadership School: the 15 leadership books as covers, in
 // order, each showing whether it is passed, open or still closed. Tapping a
@@ -17,11 +18,15 @@ export function MemberSchoolPage() {
   const tr = useTr();
   const [data, setData] = useState<SchoolSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+  const { member } = useMemberAuth();
 
   function load() {
-    api
-      .get<SchoolSummary>('/api/member/school')
-      .then(setData)
+    cachedGet<SchoolSummary>('/api/member/school', `school:${member?.personId ?? ''}`)
+      .then((r) => {
+        setData(r.data);
+        setFromCache(r.fromCache);
+      })
       .catch(() => setError(t('learn.load_failed')));
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -40,7 +45,12 @@ export function MemberSchoolPage() {
           <Link to="/member/learn" className="text-sm text-brand-700 hover:underline">
             ← {t('school.back_to_learn')}
           </Link>
-          <NotificationBell />
+          <span className="flex items-center gap-3">
+            <Link to="/member/downloads" className="text-sm text-brand-700 hover:underline">
+              📥 {t('downloads.title')}
+            </Link>
+            <NotificationBell />
+          </span>
         </div>
 
         <div className="mb-5 rounded-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-brand-950 p-5 text-white shadow">
@@ -50,6 +60,7 @@ export function MemberSchoolPage() {
           {data?.enrollment === 'ACTIVE' && <p className="mt-3 text-sm font-semibold">{t('school.progress', { passed, total })}</p>}
         </div>
 
+        {fromCache && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">📶 {t('school.offline_saved')}</p>}
         {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
         {!data && !error && <p className="text-center text-slate-400">{t('learn.loading')}</p>}
 

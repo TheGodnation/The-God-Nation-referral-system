@@ -8,6 +8,8 @@ import { getAttachmentUrl, useAttachmentUrl, useInView } from '../../lib/chatMed
 import { isPdf } from '../../lib/pdfPreview';
 import { DocumentCard } from './DocumentCard';
 import { PdfViewer } from './PdfViewer';
+import { useMemberAuth } from '../../lib/MemberAuthContext';
+import { docKey, getFile } from '../../lib/offlineStore';
 import { useDataSaver } from '../../lib/dataSaver';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import { mediaKind, type ChatAttachment, type ChatMessage, type ChatReplyPreview } from './types';
@@ -159,12 +161,18 @@ function PlayableAttachment({
 }
 
 function DocumentAttachment({ mediaBase, messageId, a }: { mediaBase: string; messageId: string; a: ChatAttachment }) {
-  const [viewUrl, setViewUrl] = useState<string | null>(null);
+  const { member } = useMemberAuth();
+  const ownerId = member?.personId;
+  const [view, setView] = useState<{ url?: string; data?: Blob } | null>(null);
   async function open() {
+    const pdf = isPdf(a.mimeType);
+    // Kept on this phone from an earlier view: opens at once, even offline.
+    const saved = pdf && ownerId ? await getFile(docKey(ownerId, a.id)) : null;
+    if (saved) return setView({ data: saved.blob });
     try {
       const url = await getAttachmentUrl(mediaBase, messageId, a.id);
       // PDFs open inside the app (see PdfViewer); anything else the usual way.
-      if (isPdf(a.mimeType)) setViewUrl(url);
+      if (pdf) setView({ url });
       else window.open(url, '_blank', 'noopener');
     } catch {
       /* the bubble stays as it is */
@@ -175,8 +183,14 @@ function DocumentAttachment({ mediaBase, messageId, a }: { mediaBase: string; me
       <button type="button" onClick={open} className="block w-full text-left">
         <DocumentCard name={a.originalFilename} byteSize={a.byteSize} pageCount={a.pageCount} thumb={a.thumb} />
       </button>
-      {viewUrl && (
-        <PdfViewer url={viewUrl} name={a.originalFilename} onClose={() => setViewUrl(null)} />
+      {view && (
+        <PdfViewer
+          url={view.url}
+          data={view.data}
+          name={a.originalFilename}
+          keep={ownerId ? { key: docKey(ownerId, a.id), ownerId, meta: { mediaBase, messageId, attachmentId: a.id, byteSize: a.byteSize } } : undefined}
+          onClose={() => setView(null)}
+        />
       )}
     </>
   );

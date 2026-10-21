@@ -1889,7 +1889,7 @@
     "offering_confirm": "Confirm",
     "offering_bad_amount": "Write the amount in numbers only, or leave it empty.",
     "training_heading": "Leadership training",
-    "training_intro": "Leadership training has {{count}} books. Read each book here in the app, pass its exam with 70% or more, and the next book opens.",
+    "training_intro": "Leadership training has {{count}} books. Each book is downloaded into the app, ready for you to read anytime. Pass its exam with 70% or more, and the next book opens.",
     "training_request": "I want to join leadership training",
     "training_requested": "Your request was received. Your book will open as soon as your payment is confirmed.",
     "book": "Book {{number}}",
@@ -1917,7 +1917,14 @@
     "not_available": "This book is not open for you yet.",
     "failed": "The book could not be opened. Check your connection and try again.",
     "page": "Page {{number}}",
-    "end": "End of the book · {{count}} pages"
+    "end": "End of the book · {{count}} pages",
+    "page_of": "Page {{page}} of {{count}}",
+    "offline_copy": "No internet — reading the copy downloaded on this phone.",
+    "downloaded": "Downloaded. This book now opens on this phone even without internet.",
+    "resumed": "Opened where you stopped: page {{page}}",
+    "from_start": "Go to the start",
+    "downloading": "Downloading the book… {{percent}}%",
+    "offline_missing": "No internet, and this book is not downloaded on this phone yet. Open it once with internet and it will be kept for you."
   },
   "examResults": {
     "title": "Exam World: my members",
@@ -2357,12 +2364,12 @@
     "name": "God's Nation Leadership School",
     "title": "God's Nation Leadership School",
     "back_to_learn": "Learn",
-    "intro": "{{count}} books to grow as a leader in God's Nation. Read each book here in the app, pass its exam, and the next book opens.",
+    "intro": "{{count}} books to grow as a leader in God's Nation. Each book is downloaded into the app and kept for you, ready to read anytime. Pass its exam, and the next book opens.",
     "teaser": "{{count}} books to grow as a leader. Book 1 opens as soon as you begin.",
     "progress": "{{passed}} of {{total}} books passed",
     "open": "Open the school",
     "how_heading": "How it works",
-    "step_read": "Read the book here in the app.",
+    "step_read": "Your book is downloaded into the app and kept safe, ready for you to read anytime.",
     "step_exam": "Take its exam: one try, 70% to pass.",
     "step_pay": "Pay {{price}} FCFA for the book. The next book then opens.",
     "continue": "Continue",
@@ -2383,6 +2390,27 @@
     "book_coming": "The book will be here soon.",
     "chapters_heading": "What this book teaches",
     "chapters_soon": "The chapter summaries will be added soon.",
-    "summary_soon": "The summary of this chapter will be added soon."
+    "summary_soon": "The summary of this chapter will be added soon.",
+    "offline_saved": "No internet — showing what was saved on this phone. Your downloaded books still open.",
+    "continue_reading": "Continue reading · page {{page}}",
+    "downloaded": "Downloaded on this phone — opens even without internet",
+    "downloads_first_time": "Downloaded into the app the first time you open it, then it opens even without internet."
+  },
+  "downloads": {
+    "title": "Downloads",
+    "back": "Me",
+    "intro": "Books and documents kept on this phone. They open even without internet. Signing out removes them.",
+    "using": "Using {{size}} on this phone",
+    "app_total": "the app in total: {{size}}",
+    "books": "Leadership books",
+    "no_books": "No book downloaded yet. A book is downloaded the first time you open it.",
+    "documents": "Documents from chats",
+    "no_documents": "No document yet. A PDF from a chat is kept after you open it.",
+    "open": "Open",
+    "delete": "Delete",
+    "confirm_delete": "Delete this copy from this phone? You can download it again with internet.",
+    "delete_all": "Delete all downloads from this phone",
+    "confirm_delete_all": "Delete all books and documents from this phone? You can download them again with internet.",
+    "me_link": "Books and documents kept on this phone"
   }
 }

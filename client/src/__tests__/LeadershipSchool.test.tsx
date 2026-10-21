@@ -146,10 +146,12 @@ describe("A book's page", () => {
   it('an open book still to pay shows the exam with its one-try label and the pay button', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: ME }),
-      'GET /api/member/school/books/b2': () => ({ body: { ...SUMMARY, book: BOOKS[1], chapters: [] } }),
+      'GET /api/member/school/books/b2': () => ({ body: { ...SUMMARY, book: { ...BOOKS[1], lastPage: 34 }, chapters: [] } }),
     });
     renderAt('/member/school/b2');
     expect(await screen.findByText('How small faithfulness grows.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '📖 Continue reading · page 34' })).toHaveAttribute('href', '/member/read/b2');
+    expect(screen.getByText(/Downloaded into the app the first time you open it/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Take the exam (one try)' })).toHaveAttribute('href', '/member/assessments/e2');
     expect(screen.getByRole('button', { name: /Pay 1\s100 FCFA/ })).toBeInTheDocument();
     expect(screen.getByText('The chapter summaries will be added soon.')).toBeInTheDocument();

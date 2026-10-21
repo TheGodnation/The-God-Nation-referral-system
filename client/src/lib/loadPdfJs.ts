@@ -4,6 +4,8 @@
 
 const VERSION = '3.11.174';
 const BASE = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${VERSION}`;
+/** PDF.js's worker script (kept on the phone for offline reading, see public/sw.js). */
+export const PDFJS_WORKER_URL = `${BASE}/pdf.worker.min.js`;
 
 let loading: Promise<any> | null = null;
 
@@ -17,7 +19,7 @@ export function loadPdfJs(): Promise<any> {
     script.async = true;
     script.onload = () => {
       if (!w.pdfjsLib) return reject(new Error('PDF.js missing'));
-      w.pdfjsLib.GlobalWorkerOptions.workerSrc = `${BASE}/pdf.worker.min.js`;
+      w.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
       resolve(w.pdfjsLib);
     };
     script.onerror = () => {

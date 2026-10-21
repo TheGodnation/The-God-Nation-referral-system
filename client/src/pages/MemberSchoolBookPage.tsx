@@ -7,7 +7,10 @@ import { MemberNav } from '../components/member/MemberNav';
 import { BookCover } from '../components/learn/BookCover';
 import { PayBookPanel } from '../components/learn/TrainingPayments';
 import { BookStatusLines, SchoolBook, SchoolSummary, TrainingStatusCard, useTr } from '../components/learn/schoolBits';
-import { api, ApiError } from '../lib/api';
+import { ApiError } from '../lib/api';
+import { cachedGet } from '../lib/cachedGet';
+import { useMemberAuth } from '../lib/MemberAuthContext';
+import { bookKey, getInfo } from '../lib/offlineStore';
 
 interface Chapter {
   id: string;
@@ -29,15 +32,20 @@ export function MemberSchoolBookPage() {
   const { bookId = '' } = useParams();
   const [data, setData] = useState<BookPage | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'notFound' | 'failed'>('loading');
+  const [fromCache, setFromCache] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+  const { member } = useMemberAuth();
+  const ownerId = member?.personId ?? '';
 
   function load() {
-    api
-      .get<BookPage>(`/api/member/school/books/${bookId}`)
-      .then((d) => {
-        setData(d);
+    cachedGet<BookPage>(`/api/member/school/books/${bookId}`, `school-book:${ownerId}:${bookId}`)
+      .then((r) => {
+        setData(r.data);
+        setFromCache(r.fromCache);
         setStatus('ready');
       })
       .catch((err) => setStatus(err instanceof ApiError && err.status === 404 ? 'notFound' : 'failed'));
+    if (ownerId) getInfo(bookKey(ownerId, bookId)).then((i) => setDownloaded(Boolean(i)));
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [bookId]);
@@ -55,6 +63,7 @@ export function MemberSchoolBookPage() {
           </Link>
           <NotificationBell />
         </div>
+        {fromCache && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">📶 {t('school.offline_saved')}</p>}
         {status === 'loading' && <p className="text-center text-slate-400">{t('learn.loading')}</p>}
         {status === 'notFound' && <p className="card text-center text-slate-600">{t('school.not_found')}</p>}
         {status === 'failed' && <p className="text-sm text-red-700">{t('learn.load_failed')}</p>}
@@ -90,7 +99,7 @@ export function MemberSchoolBookPage() {
                 <div className="flex flex-wrap gap-2">
                   {b.canRead ? (
                     <Link to={`/member/read/${b.id}`} className="btn-primary">
-                      📖 {t('school.read_book')}
+                      📖 {b.lastPage && b.lastPage > 1 ? t('school.continue_reading', { page: b.lastPage }) : t('school.read_book')}
                     </Link>
                   ) : (
                     <p className="text-sm text-slate-600">{t('school.book_coming')}</p>
@@ -101,7 +110,8 @@ export function MemberSchoolBookPage() {
                     </Link>
                   )}
                 </div>
-                {!b.payment && (
+                {b.canRead && <p className="text-xs text-slate-500">{downloaded ? `✓ ${t('school.downloaded')}` : t('school.downloads_first_time')}</p>}
+                {!b.payment && !fromCache && (
                   <PayBookPanel
                     bookId={b.id}
                     bookNumber={b.trainingOrder}

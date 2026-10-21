@@ -5,7 +5,7 @@ import { requireMember } from '../lib/memberAuth';
 import { requireCsrf } from '../lib/csrf';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
-import { socialMutationLimiter } from '../lib/rateLimit';
+import { readingProgressLimiter, socialMutationLimiter } from '../lib/rateLimit';
 import { getObjectStream, isStorageConfigured } from '../lib/storage';
 import crypto from 'crypto';
 import { canReadBook, canSeeDevotional, examAccess, getTrainingBooksFor, MAX_GRACE_BOOKS } from '../lib/examWorld';
@@ -103,7 +103,7 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
  * Shown on the Leadership School page, and in short on the Learn page.
  */
 async function trainingSummary(personId: string) {
-  const [settings, enrollment, books, chapterCounts, graceRequest] = await Promise.all([
+  const [settings, enrollment, books, chapterCounts, graceRequest, reading] = await Promise.all([
     prisma.settings.findUnique({
       where: { id: 'singleton' },
       select: { trainingBookPrice: true, trainingPaymentInstructionsEn: true, trainingPaymentInstructionsFr: true },
@@ -112,7 +112,9 @@ async function trainingSummary(personId: string) {
     getTrainingBooksFor(personId),
     prisma.bookChapter.groupBy({ by: ['bookId'], _count: { _all: true } }),
     prisma.trainingGraceRequest.findFirst({ where: { personId }, orderBy: { requestedAt: 'desc' }, select: { status: true, books: true } }),
+    prisma.readingProgress.findMany({ where: { personId }, select: { bookId: true, page: true } }),
   ]);
+  const lastPageOf = new Map(reading.map((r) => [r.bookId, r.page]));
   const price = settings?.trainingBookPrice ?? 1100;
   const owedBooks = books.filter((b) => b.unlocked && b.payment !== 'PAID').length;
   const chaptersOf = new Map(chapterCounts.map((c) => [c.bookId, c._count._all]));
@@ -149,6 +151,8 @@ async function trainingSummary(personId: string) {
       coverUrl: coverUrl(b),
       pageCount: b.pageCount,
       chapterCount: chaptersOf.get(b.id) ?? 0,
+      // Where they stopped reading (null = not started).
+      lastPage: b.unlocked ? (lastPageOf.get(b.id) ?? null) : null,
       unlocked: b.unlocked,
       canRead: b.unlocked && b.hasFile,
       payment: b.payment,
@@ -335,14 +339,20 @@ router.post('/devotionals/:id/offering', socialMutationLimiter, requireCsrf, req
 
 // ----------------------------- Reading books --------------------------------
 
-// GET /api/member/library/books/:id — what the reader needs: title, and the
-// reader's own name and phone for the watermark printed across every page.
+// GET /api/member/library/books/:id — what the reader needs: title, the
+// reader's own name and phone for the watermark printed across every page,
+// where they stopped reading, and which version of the PDF this is (the
+// phone keeps a downloaded copy and fetches it again when it changes).
 router.get('/library/books/:id', requireMember, asyncHandler(async (req, res) => {
   const personId = req.member!.personId;
   if (!(await canReadBook(personId, req.params.id))) return res.status(404).json({ error: 'Book not found.' });
-  const [book, person] = await Promise.all([
-    prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { id: true, kind: true, titleEn: true, titleFr: true, trainingOrder: true, exam: { select: { id: true, status: true } } } }),
+  const [book, person, progress] = await Promise.all([
+    prisma.libraryBook.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, kind: true, titleEn: true, titleFr: true, trainingOrder: true, storageKey: true, byteSize: true, pageCount: true, exam: { select: { id: true, status: true } } },
+    }),
     prisma.person.findUnique({ where: { id: personId }, select: { name: true, whatsappNumber: true } }),
+    prisma.readingProgress.findUnique({ where: { personId_bookId: { personId, bookId: req.params.id } }, select: { page: true, updatedAt: true } }),
   ]);
   const examId = book!.exam && book!.exam.status !== 'DRAFT' && (await examAccess(personId, book!.exam.id)).canView ? book!.exam.id : null;
   res.json({
@@ -353,7 +363,41 @@ router.get('/library/books/:id', requireMember, asyncHandler(async (req, res) =>
     trainingOrder: book!.trainingOrder,
     examId,
     watermark: `${person?.name ?? ''} · ${person?.whatsappNumber ?? ''}`,
+    fileVersion: crypto.createHash('sha256').update(book!.storageKey ?? '').digest('hex').slice(0, 16),
+    byteSize: book!.byteSize,
+    pageCount: book!.pageCount,
+    progress: progress ? { page: progress.page, at: progress.updatedAt } : null,
   });
+}));
+
+const progressSchema = z.object({
+  page: z.number().int().min(1).max(10000),
+  pageCount: z.number().int().min(1).max(10000).optional(),
+  // When the phone saved it (it may have been offline); defaults to now.
+  at: z.string().datetime().optional(),
+});
+
+// PUT /api/member/library/books/:id/progress — the reader's bookmark. A
+// save that is older than the one already kept (sent late from another
+// phone that was offline) is ignored.
+router.put('/library/books/:id/progress', readingProgressLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
+  const parsed = progressSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid page.', code: 'INVALID' });
+  const personId = req.member!.personId;
+  if (!(await canReadBook(personId, req.params.id))) return res.status(404).json({ error: 'Book not found.' });
+  const now = new Date();
+  const sent = parsed.data.at ? new Date(parsed.data.at) : now;
+  const at = sent > now ? now : sent;
+  const key = { personId_bookId: { personId, bookId: req.params.id } };
+  const existing = await prisma.readingProgress.findUnique({ where: key, select: { updatedAt: true, page: true } });
+  if (existing && existing.updatedAt > at) return res.json({ page: existing.page, at: existing.updatedAt, kept: true });
+  const saved = await prisma.readingProgress.upsert({
+    where: key,
+    create: { personId, bookId: req.params.id, page: parsed.data.page, pageCount: parsed.data.pageCount ?? null, updatedAt: at },
+    update: { page: parsed.data.page, pageCount: parsed.data.pageCount ?? undefined, updatedAt: at },
+    select: { page: true, updatedAt: true },
+  });
+  res.json({ page: saved.page, at: saved.updatedAt });
 }));
 
 // GET /api/member/library/books/:id/cover — any leadership book's cover

@@ -657,3 +657,43 @@ describe('Leadership School: covers, pages and chapter summaries', () => {
     expect((await post(m, `/api/admin/library/books/${b1.bookId}/chapters`, { titleEn: 'Mine' })).status).toBe(401);
   });
 });
+
+describe('Reading bookmark and downloaded copies', () => {
+  it('keeps where the reader stopped; a late save from an offline phone never goes backwards', async () => {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1);
+    const b2 = await trainingBook(a, 2);
+    const m = await member('Bookmark Reader');
+    await post(m, '/api/member/training/request');
+
+    let info = await m.agent.get(`/api/member/library/books/${b1.bookId}`);
+    expect(info.body.progress).toBeNull();
+    expect(info.body.fileVersion).toMatch(/^[0-9a-f]{16}$/);
+
+    const put = (bookId: string, body: Record<string, unknown>) => m.agent.put(`/api/member/library/books/${bookId}/progress`).set('X-CSRF-Token', m.csrf).send(body);
+    expect((await put(b1.bookId, { page: 12, pageCount: 40 })).body.page).toBe(12);
+    // Saved earlier on another phone without internet, sent only now: kept as it was.
+    const late = await put(b1.bookId, { page: 3, at: new Date(Date.now() - 3600_000).toISOString() });
+    expect(late.body).toMatchObject({ page: 12, kept: true });
+    expect((await put(b1.bookId, { page: 0 })).status).toBe(400);
+
+    info = await m.agent.get(`/api/member/library/books/${b1.bookId}`);
+    expect(info.body.progress.page).toBe(12);
+    const school = await m.agent.get('/api/member/school');
+    expect(school.body.books[0].lastPage).toBe(12);
+    // A book that isn't open for them: no bookmark.
+    expect((await put(b2.bookId, { page: 2 })).status).toBe(404);
+    expect(school.body.books[1].lastPage).toBeNull();
+  });
+
+  it('gives a new file version when the admin replaces the PDF, so phones download it again', async () => {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1);
+    const m = await member('Version Reader');
+    await post(m, '/api/member/training/request');
+    const v1 = (await m.agent.get(`/api/member/library/books/${b1.bookId}`)).body.fileVersion;
+    await prisma.libraryBook.update({ where: { id: b1.bookId }, data: { storageKey: `library/${b1.bookId}/y.pdf` } });
+    const v2 = (await m.agent.get(`/api/member/library/books/${b1.bookId}`)).body.fileVersion;
+    expect(v2).not.toBe(v1);
+  });
+});

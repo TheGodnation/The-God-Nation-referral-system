@@ -528,6 +528,17 @@ export const socialMutationLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
+// Reading bookmarks: the reader saves the page every so often while
+// someone reads (and when they leave), so it gets its own, roomier budget
+// instead of using up the one for posts and messages.
+export const readingProgressLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
 export const memberReportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,

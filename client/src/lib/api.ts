@@ -51,7 +51,7 @@ export function lastServerContact() {
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, options?: { keepalive?: boolean }): Promise<T> {
   const headers: Record<string, string> = {};
   let payload: string | undefined;
 
@@ -72,6 +72,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       headers,
       body: payload,
       credentials: 'include',
+      // keepalive: still sent if the page is closing (e.g. the reader's bookmark).
+      ...(options?.keepalive ? { keepalive: true } : {}),
     });
   } catch {
     reportReachable(false);
@@ -96,7 +98,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
-  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body ?? {}),
+  put: <T>(path: string, body?: unknown, options?: { keepalive?: boolean }) => request<T>('PUT', path, body ?? {}, options),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body ?? {}),
   delete: <T>(path: string, body?: unknown) => request<T>('DELETE', path, body),
 };

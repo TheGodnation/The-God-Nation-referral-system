@@ -767,6 +767,7 @@ model Person {
   devotionalOfferings                             DevotionalOffering[]
   bookPayments                                    BookPayment[]
   trainingBookOpens                               TrainingBookOpen[]
+  readingProgress                                 ReadingProgress[]
   trainingGraceRequests                           TrainingGraceRequest[]
   friendRequestsSent                              Friendship[]                              @relation("FriendshipRequester")
   friendRequestsReceived                          Friendship[]                              @relation("FriendshipAddressee")
@@ -2621,6 +2622,7 @@ model LibraryBook {
   exam       Assessment?
   payments   BookPayment[]
   opens      TrainingBookOpen[]
+  reading    ReadingProgress[]
   cover      LibraryBookCover?
   chapters   BookChapter[]
 
@@ -2644,6 +2646,23 @@ model LibraryBookCover {
 enum BookCoverSource {
   AUTO
   MANUAL
+}
+
+// Where a member stopped reading a book (their bookmark), so the reader
+// opens at that page next time, on any phone. Saved from the phone as they
+// read; a save made offline is sent later and only wins if it is newer.
+model ReadingProgress {
+  id        String   @id @default(uuid())
+  personId  String
+  bookId    String
+  page      Int
+  pageCount Int?
+  updatedAt DateTime
+
+  person Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  book   LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, bookId])
 }
 
 // "What you will learn": a book's chapters with a short summary each,

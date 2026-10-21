@@ -17,6 +17,8 @@ export interface SchoolBook {
   coverUrl?: string | null;
   pageCount?: number | null;
   chapterCount?: number;
+  /** Where they stopped reading (null = not started). */
+  lastPage?: number | null;
   unlocked: boolean;
   canRead: boolean;
   payment?: 'PAID' | 'CLAIMED' | 'PENDING' | null;

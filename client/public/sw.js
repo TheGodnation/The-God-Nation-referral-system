@@ -1,5 +1,17 @@
 // Minimal PWA service worker for The God Nation Referral System.
 //
+// v4: opening the app WITHOUT INTERNET, so downloaded leadership books and
+// chat documents can be read offline. Page loads still go to the network
+// first, exactly as before, and the network's answer is what the phone
+// gets whenever there is one. Only when the network fetch itself fails (no
+// internet at all) does the app's own start page come from this phone's
+// copy — a copy saved from an earlier normal visit, rebuilt as a plain
+// 200 text/html response (never a redirected or opaque one, the kind
+// that crashed the installed app in v2). No copy yet → the browser's usual
+// offline page, same as before. PDF.js (the book reader's PDF engine,
+// loaded from cdnjs at a fixed version) is also kept, so books can be drawn
+// offline.
+//
 // v3: deliberately does as little as possible. An earlier version tried to
 // intercept and handle navigation (page-load) requests itself — offline
 // fallback, cached-shell fallback, etc. On at least one real Android/Chrome
@@ -28,6 +40,11 @@
 // still revalidates) keeps the guide showing what's actually live.
 
 const CACHE_VERSION = 'god-nation-v5';
+// The app's start page for offline launches, kept apart from the asset
+// cache (and never deleted by a cache-version bump of the assets).
+const SHELL_CACHE = 'god-nation-shell-v1';
+const SHELL_KEY = '/__offline-shell';
+const PDFJS_PREFIX = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -39,7 +56,7 @@ self.addEventListener('activate', (event) => {
       try {
         const keys = await caches.keys();
         await Promise.all(
-          keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key)),
+          keys.filter((key) => key !== CACHE_VERSION && key !== SHELL_CACHE).map((key) => caches.delete(key)),
         );
       } catch {
         // Non-fatal — worst case an old cache lingers until it's cleaned up
@@ -54,7 +71,6 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
 
   if (request.method !== 'GET') return;
-  if (request.mode === 'navigate') return; // never intercept page loads
 
   let url;
   try {
@@ -62,6 +78,20 @@ self.addEventListener('fetch', (event) => {
   } catch {
     return;
   }
+
+  if (request.mode === 'navigate') {
+    if (url.origin !== self.location.origin) return;
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/leader-guide/') || url.pathname.startsWith('/notifications-guide/')) return;
+    event.respondWith(networkFirstPage(request));
+    return;
+  }
+
+  // PDF.js from cdnjs: a fixed version, so a kept copy never goes stale.
+  if (request.url.startsWith(PDFJS_PREFIX)) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
   if (url.pathname.startsWith('/leader-guide/')) return;
@@ -92,6 +122,56 @@ self.addEventListener('fetch', (event) => {
     })(),
   );
 });
+
+// Page loads: the network's answer whenever there is one (and a clean copy
+// of a good start page is kept); this phone's copy only when the network
+// can't be reached at all.
+async function networkFirstPage(request) {
+  let response;
+  try {
+    response = await fetch(request);
+  } catch (networkError) {
+    try {
+      const cache = await caches.open(SHELL_CACHE);
+      const shell = await cache.match(SHELL_KEY);
+      if (shell) return shell;
+    } catch {
+      // No cache available — behave as if there were no service worker.
+    }
+    throw networkError;
+  }
+  try {
+    const type = response.headers.get('content-type') || '';
+    if (response.ok && response.status === 200 && !response.redirected && response.type === 'basic' && type.includes('text/html')) {
+      const body = await response.clone().text();
+      const copy = new Response(body, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      const cache = await caches.open(SHELL_CACHE);
+      await cache.put(SHELL_KEY, copy);
+    }
+  } catch {
+    // Keeping the copy is optional; the page itself is unaffected.
+  }
+  return response;
+}
+
+async function cacheFirst(request) {
+  try {
+    const cache = await caches.open(CACHE_VERSION);
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    const response = await fetch(request);
+    if (response.ok || response.type === 'opaque') {
+      try {
+        await cache.put(request, response.clone());
+      } catch {
+        // Not cacheable — fine.
+      }
+    }
+    return response;
+  } catch {
+    return fetch(request);
+  }
+}
 
 // Phase 5 — Web Push: background/closed-app notification delivery. Kept to
 // the same "never throw, degrade gracefully" discipline as the rest of this
