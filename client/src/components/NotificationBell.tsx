@@ -16,7 +16,11 @@ type NotificationType =
   | 'AREA_LEADERSHIP_ASSIGNED'
   | 'AREA_REPRESENTATION_REQUEST_DECLINED'
   | 'EXAM_RETAKE_GRANTED'
-  | 'EXAM_RETAKE_DECLINED';
+  | 'EXAM_RETAKE_DECLINED'
+  | 'BOOK_PAYMENT_CONFIRMED'
+  | 'BOOK_PAYMENT_REJECTED'
+  | 'TRAINING_GRACE_GRANTED'
+  | 'TRAINING_GRACE_DECLINED';
 
 interface NotificationRow {
   id: string;
@@ -131,6 +135,14 @@ export function NotificationBell() {
         return t('notifications.exam_retake_granted', { number: metadata.bookNumber ?? '' });
       case 'EXAM_RETAKE_DECLINED':
         return t('notifications.exam_retake_declined', { number: metadata.bookNumber ?? '' });
+      case 'BOOK_PAYMENT_CONFIRMED':
+        return t('notifications.book_payment_confirmed', { number: metadata.bookNumber ?? '' });
+      case 'BOOK_PAYMENT_REJECTED':
+        return t('notifications.book_payment_rejected', { number: metadata.bookNumber ?? '' });
+      case 'TRAINING_GRACE_GRANTED':
+        return t('notifications.training_grace_granted', { count: Number(metadata.books ?? 0) });
+      case 'TRAINING_GRACE_DECLINED':
+        return t('notifications.training_grace_declined');
       default:
         return '';
     }

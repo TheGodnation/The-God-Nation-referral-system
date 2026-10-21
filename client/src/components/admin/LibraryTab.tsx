@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
+import { PaymentsAndGrace, TrainingPaymentSettings } from './TrainingPaymentsAdmin';
 
 interface BookRow {
   id: string;
@@ -53,6 +54,8 @@ interface TraineeRow {
   requestedAt: string | null;
   activatedAt: string | null;
   note: string | null;
+  graceBooks?: number;
+  owedBooks?: number;
 }
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
@@ -337,6 +340,9 @@ export function LibraryTab() {
         )}
       </section>
 
+      <TrainingPaymentSettings />
+      <PaymentsAndGrace books={trainingBooks} onChanged={load} />
+
       <section className="card space-y-3">
         <h3 className="font-semibold text-brand-900">{t('library.trainees_heading')}</h3>
         <p className="text-sm text-slate-600">{t('library.trainees_help')}</p>
@@ -356,11 +362,31 @@ export function LibraryTab() {
                 <span className={`ml-2 rounded px-2 py-0.5 text-xs ${tr.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : tr.status === 'REQUESTED' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
                   {t(`library.status_${tr.status.toLowerCase()}`)}
                 </span>
+                {tr.status === 'ACTIVE' && (
+                  <span className="block text-xs text-slate-600">
+                    {t('library.trainee_owed', { count: tr.owedBooks ?? 0 })}
+                    {(tr.graceBooks ?? 0) > 0 && ` · ${t('library.trainee_grace', { count: tr.graceBooks })}`}
+                  </span>
+                )}
               </span>
               {tr.status === 'ACTIVE' ? (
-                <button type="button" className="text-xs text-slate-500 underline" onClick={() => window.confirm(t('library.confirm_revoke') ?? '') && act(() => api.post(`/api/admin/library/trainees/${tr.personId}/revoke`))}>
-                  {t('library.revoke')}
-                </button>
+                <span className="flex items-center gap-3">
+                  <select
+                    className="input w-auto py-1 text-xs"
+                    aria-label={t('library.grace_set', { name: tr.name }) ?? ''}
+                    value={tr.graceBooks ?? 0}
+                    onChange={(e) => act(() => api.post(`/api/admin/library/trainees/${tr.personId}/grace`, { books: parseInt(e.target.value, 10) }))}
+                  >
+                    {[0, 1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>
+                        {n === 0 ? t('library.grace_none_option') : t('library.grace_option', { count: n })}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" className="text-xs text-slate-500 underline" onClick={() => window.confirm(t('library.confirm_revoke') ?? '') && act(() => api.post(`/api/admin/library/trainees/${tr.personId}/revoke`))}>
+                    {t('library.revoke')}
+                  </button>
+                </span>
               ) : (
                 <button type="button" className="btn-primary px-3 py-1 text-xs" onClick={() => act(() => api.post('/api/admin/library/trainees', { personId: tr.personId }))}>
                   {t('library.mark_paid')}

@@ -8,12 +8,17 @@ import { prisma } from './prisma';
 // published and until the devotional's end date; only the FIRST submitted
 // try is the official score (later tries are practice).
 //
-// Leadership training: only for an ACTIVE (paid) trainee. Book 1 is open;
-// each next book opens once the previous book's exam has been passed
-// (70% by default) on any try. Once open, always open.
+// Leadership training: "Begin my training" makes the member an ACTIVE
+// trainee and opens Book 1 on trust. Each next book opens once the
+// previous book's exam is passed (70%) AND the books opened so far are paid
+// (1,100 FCFA each) — or, with "study now, pay later" grace granted by the
+// central admin, while fewer than `graceBooks` (at most 5) are still owed,
+// so no one ever owes more than 5 books. Once open, always open
+// (TrainingBookOpen), unless the training itself is stopped.
 // ---------------------------------------------------------------------------
 
 export const TRAINING_PASS_MARK = 70;
+export const MAX_GRACE_BOOKS = 5;
 
 /** Communities whose devotionals this person may see. */
 async function memberCommunityIds(personId: string): Promise<string[]> {
@@ -41,19 +46,38 @@ export interface TrainingBookState {
   descriptionFr: string | null;
   hasFile: boolean;
   unlocked: boolean;
+  /** Payment for this book: confirmed, or waiting (claimed / automatic in progress). */
+  payment: 'PAID' | 'CLAIMED' | 'PENDING' | null;
+  /** Why a closed book is closed: the previous exam, or payment still owed. */
+  lockedBecause: 'NOT_STARTED' | 'PREVIOUS_EXAM' | 'PAYMENT' | null;
   exam: { id: string; published: boolean; passMark: number; bestPercentage: number | null; passed: boolean } | null;
 }
 
 /** All training books in order, with which ones are open for this person. */
 export async function getTrainingBooksFor(personId: string): Promise<TrainingBookState[]> {
-  const [active, books] = await Promise.all([
-    isActiveTrainee(personId),
+  const [enrollment, books, opens, payments] = await Promise.all([
+    prisma.trainingEnrollment.findUnique({ where: { personId }, select: { status: true, graceBooks: true } }),
     prisma.libraryBook.findMany({
       where: { kind: 'TRAINING', trainingOrder: { not: null } },
       orderBy: { trainingOrder: 'asc' },
       include: { exam: { select: { id: true, status: true, passMark: true } } },
     }),
+    prisma.trainingBookOpen.findMany({ where: { personId }, select: { bookId: true } }),
+    prisma.bookPayment.findMany({
+      where: { personId, status: { in: ['CONFIRMED', 'CLAIMED', 'PENDING'] } },
+      select: { bookId: true, status: true },
+    }),
   ]);
+  const active = enrollment?.status === 'ACTIVE';
+  const owedAllowed = Math.max(1, Math.min(MAX_GRACE_BOOKS, enrollment?.graceBooks ?? 0));
+  const openedBefore = new Set(opens.map((o) => o.bookId));
+  const paymentOf = (bookId: string): TrainingBookState['payment'] => {
+    const mine = payments.filter((p) => p.bookId === bookId);
+    if (mine.some((p) => p.status === 'CONFIRMED')) return 'PAID';
+    if (mine.some((p) => p.status === 'CLAIMED')) return 'CLAIMED';
+    if (mine.some((p) => p.status === 'PENDING')) return 'PENDING';
+    return null;
+  };
 
   const examIds = books.map((b) => b.exam?.id).filter((id): id is string => Boolean(id));
   const attempts = examIds.length
@@ -63,13 +87,28 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
       })
     : [];
 
-  let previousPassed = true; // Book 1 has no previous book.
-  return books.map((b) => {
+  let previousOpen = true; // Book 1 has no previous book.
+  let previousPassed = true;
+  let owed = 0; // opened books not paid yet
+  const newlyOpened: string[] = [];
+  const result = books.map((b, i) => {
     const mine = attempts.filter((a) => a.assessmentId === b.exam?.id);
     const best = mine.reduce<number | null>((max, a) => (a.percentage !== null && (max === null || a.percentage > max) ? a.percentage : max), null);
     const passed = mine.some((a) => a.passed === true);
-    const unlocked = active && previousPassed;
-    previousPassed = previousPassed && passed;
+    const payment = paymentOf(b.id);
+    const byRule = i === 0 || (previousOpen && previousPassed && owed < owedAllowed);
+    const unlocked = active && (openedBefore.has(b.id) || byRule);
+    if (unlocked && !openedBefore.has(b.id)) newlyOpened.push(b.id);
+    const lockedBecause: TrainingBookState['lockedBecause'] = unlocked
+      ? null
+      : !active
+        ? 'NOT_STARTED'
+        : !(previousOpen && previousPassed)
+          ? 'PREVIOUS_EXAM'
+          : 'PAYMENT';
+    if (unlocked && payment !== 'PAID') owed += 1;
+    previousOpen = unlocked;
+    previousPassed = passed;
     return {
       id: b.id,
       trainingOrder: b.trainingOrder!,
@@ -79,11 +118,17 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
       descriptionFr: b.descriptionFr,
       hasFile: Boolean(b.storageKey),
       unlocked,
+      payment,
+      lockedBecause,
       exam: b.exam
         ? { id: b.exam.id, published: b.exam.status !== 'DRAFT', passMark: b.exam.passMark, bestPercentage: best, passed }
         : null,
     };
   });
+  if (newlyOpened.length) {
+    await prisma.trainingBookOpen.createMany({ data: newlyOpened.map((bookId) => ({ personId, bookId })), skipDuplicates: true });
+  }
+  return result;
 }
 
 /** Whether this person may open (read) this book in the app. */

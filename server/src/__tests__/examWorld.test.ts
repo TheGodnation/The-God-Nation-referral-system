@@ -124,24 +124,24 @@ describe('Leadership training: paid access and books in order', () => {
     expect((await post(a, '/api/admin/library/books', { kind: 'TRAINING', titleEn: 'Dup', trainingOrder: 1 })).body.code).toBe('DUPLICATE');
   });
 
-  it('keeps every book closed until the admin marks the member as paid', async () => {
+  it('"Begin my training" opens Book 1 at once, on trust; a training the admin stopped stays stopped', async () => {
     const a = await admin();
     const b1 = await trainingBook(a, 1);
     const m = await member('Trainee');
 
     let world = await m.agent.get('/api/member/exam-world');
     expect(world.body.training.enrollment).toBe('NONE');
-    expect(world.body.training.books[0].unlocked).toBe(false);
+    expect(world.body.training.books[0]).toMatchObject({ unlocked: false, lockedBecause: 'NOT_STARTED' });
     expect((await m.agent.get(`/api/member/library/books/${b1.bookId}/content`)).status).toBe(404);
 
-    expect((await post(m, '/api/member/training/request')).body.enrollment).toBe('REQUESTED');
-    const requests = await a.agent.get('/api/admin/library/trainees?status=REQUESTED');
-    expect(requests.body.items.map((r: any) => r.name)).toEqual(['Trainee']);
-
-    await post(a, '/api/admin/library/trainees', { personId: m.id, note: 'Paid by MoMo' });
+    expect((await post(m, '/api/member/training/request')).body.enrollment).toBe('ACTIVE');
     world = await m.agent.get('/api/member/exam-world');
-    expect(world.body.training.enrollment).toBe('ACTIVE');
-    expect(world.body.training.books[0]).toMatchObject({ unlocked: true, canRead: true });
+    expect(world.body.training).toMatchObject({ enrollment: 'ACTIVE', price: 1100, owed: { books: 1, amount: 1100 }, automaticPayments: false });
+    expect(world.body.training.books[0]).toMatchObject({ unlocked: true, canRead: true, payment: null });
+
+    await post(a, `/api/admin/library/trainees/${m.id}/revoke`);
+    expect((await post(m, '/api/member/training/request')).body.enrollment).toBe('REVOKED');
+    expect((await m.agent.get(`/api/member/library/books/${b1.bookId}/content`)).status).toBe(404);
   });
 
   it('opens Book 2 only after Book 1 is passed with 70%, and keeps it open', async () => {
@@ -167,10 +167,145 @@ describe('Leadership training: paid access and books in order', () => {
 
     const pass = await takeBookExam(m, b1.examId, 'Right');
     expect(pass.submit!.body.passed).toBe(true);
+    // Passed, but Book 1 still has to be paid before Book 2 opens.
+    world = await m.agent.get('/api/member/exam-world');
+    expect(world.body.training.books[1]).toMatchObject({ unlocked: false, lockedBecause: 'PAYMENT' });
+    await post(a, '/api/admin/library/payments', { personId: m.id, bookId: b1.bookId, reference: 'CASH' });
     world = await m.agent.get('/api/member/exam-world');
     expect(world.body.training.books.map((b: any) => b.unlocked)).toEqual([true, true]);
     expect(world.body.training.books[0].exam).toMatchObject({ passed: true, bestPercentage: 100 });
     expect((await m.agent.get(`/api/member/library/books/${b2.bookId}`)).status).toBe(200);
+  });
+});
+
+describe('Paying for leadership books', () => {
+  async function setup(bookCount: number) {
+    const a = await admin();
+    const books = [];
+    for (let i = 1; i <= bookCount; i++) {
+      const b = await trainingBook(a, i);
+      await giveBookExamSets(b.examId, [1]);
+      books.push(b);
+    }
+    const m = await member('Payer');
+    await post(m, '/api/member/training/request');
+    return { a, m, books };
+  }
+  const world = async (m: { agent: Agent }) => (await m.agent.get('/api/member/exam-world')).body.training;
+
+  it('"I have paid" with the transaction ID waits for the admin; confirming opens the next book', async () => {
+    const { a, m, books } = await setup(2);
+    await takeBookExam(m, books[0].examId, 'Right');
+    expect((await world(m)).books[1].lockedBecause).toBe('PAYMENT');
+
+    expect((await post(m, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'x' })).body.code).toBe('INVALID');
+    const claim = await post(m, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'MP241021.1234.A56789', payerPhone: '+237 670 000 001' });
+    expect(claim.status).toBe(201);
+    expect((await post(m, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'again123' })).body.code).toBe('WAITING');
+    expect((await post(m, `/api/member/training/books/${books[1].bookId}/payments`, { reference: 'notyet123' })).status).toBe(404);
+    expect((await world(m)).books[0].payment).toBe('CLAIMED');
+
+    const list = await a.agent.get('/api/admin/library/payments');
+    expect(list.body.items).toEqual([expect.objectContaining({ bookNumber: 1, amount: 1100, reference: 'MP241021.1234.A56789', status: 'CLAIMED' })]);
+    expect((await post(a, `/api/admin/library/payments/${claim.body.id}`, { decision: 'CONFIRM' })).body.status).toBe('CONFIRMED');
+    expect((await post(a, `/api/admin/library/payments/${claim.body.id}`, { decision: 'REJECT' })).status).toBe(409);
+    expect(await prisma.notification.findFirst({ where: { recipientPersonId: m.id, type: 'BOOK_PAYMENT_CONFIRMED' } })).not.toBeNull();
+
+    const w = await world(m);
+    expect(w.books.map((b: any) => [b.unlocked, b.payment])).toEqual([[true, 'PAID'], [true, null]]);
+    expect(w.owed).toEqual({ books: 1, amount: 1100 });
+    const summary = await a.agent.get('/api/admin/library/payments/summary');
+    expect(summary.body).toMatchObject({ confirmed: { count: 1, amount: 1100 }, thisMonth: { count: 1, amount: 1100 }, waiting: 0 });
+  });
+
+  it('a rejected payment can be sent again', async () => {
+    const { a, m, books } = await setup(1);
+    const claim = await post(m, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'WRONG-ID-1' });
+    await post(a, `/api/admin/library/payments/${claim.body.id}`, { decision: 'REJECT', note: 'Not found on our phone' });
+    expect(await prisma.notification.findFirst({ where: { recipientPersonId: m.id, type: 'BOOK_PAYMENT_REJECTED' } })).not.toBeNull();
+    expect((await world(m)).books[0].payment).toBeNull();
+    expect((await post(m, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'RIGHT-ID-2' })).status).toBe(201);
+  });
+
+  it('grace: up to the granted number of books owed at once, never more; books stay open when grace ends', async () => {
+    const { a, m, books } = await setup(4);
+    expect((await post(m, '/api/member/training/grace', { books: 6 })).status).toBe(400);
+    expect((await post(m, '/api/member/training/grace', { books: 2 })).status).toBe(201);
+    const pending = await a.agent.get('/api/admin/library/grace');
+    expect(pending.body.items).toEqual([expect.objectContaining({ books: 2, currentGraceBooks: 0 })]);
+    await post(a, `/api/admin/library/grace/${pending.body.items[0].id}`, { decision: 'GRANT' });
+    expect(await prisma.notification.findFirst({ where: { recipientPersonId: m.id, type: 'TRAINING_GRACE_GRANTED' } })).not.toBeNull();
+
+    await takeBookExam(m, books[0].examId, 'Right');
+    let w = await world(m);
+    expect(w.books.map((b: any) => b.unlocked)).toEqual([true, true, false, false]);
+    expect(w.owed).toEqual({ books: 2, amount: 2200 });
+
+    await takeBookExam(m, books[1].examId, 'Right');
+    w = await world(m);
+    expect(w.books[2]).toMatchObject({ unlocked: false, lockedBecause: 'PAYMENT' });
+
+    // Paying one owed book lets the next one open.
+    await post(a, '/api/admin/library/payments', { personId: m.id, bookId: books[0].bookId });
+    w = await world(m);
+    expect(w.books.map((b: any) => b.unlocked)).toEqual([true, true, true, false]);
+
+    // Ending the grace keeps what's open, but nothing more opens unpaid.
+    await post(a, `/api/admin/library/trainees/${m.id}/grace`, { books: 0 });
+    await takeBookExam(m, books[2].examId, 'Right');
+    w = await world(m);
+    expect(w.books.map((b: any) => b.unlocked)).toEqual([true, true, true, false]);
+    expect(w.owed.books).toBe(2);
+  });
+
+  it('a payment the admin records (cash) settles a waiting claim', async () => {
+    const { a, m, books } = await setup(1);
+    await post(m, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'CLAIM-123' });
+    expect((await post(a, '/api/admin/library/payments', { personId: m.id, bookId: books[0].bookId, note: 'Paid cash at church' })).status).toBe(201);
+    expect((await post(a, '/api/admin/library/payments', { personId: m.id, bookId: books[0].bookId })).body.code).toBe('ALREADY_PAID');
+    expect((await a.agent.get('/api/admin/library/payments')).body.items).toEqual([]);
+    expect((await world(m)).books[0].payment).toBe('PAID');
+  });
+
+  it('keeps the amount and date of payments when the person is deleted, without the name', async () => {
+    const { a, m, books } = await setup(1);
+    await post(a, '/api/admin/library/payments', { personId: m.id, bookId: books[0].bookId });
+    await prisma.person.delete({ where: { id: m.id } });
+    const kept = await prisma.bookPayment.findMany();
+    expect(kept).toEqual([expect.objectContaining({ personId: null, amount: 1100, bookNumber: 1, status: 'CONFIRMED' })]);
+  });
+
+  it('automatic Mobile Money: off until a payment company is connected; then its notification confirms the payment once', async () => {
+    const { m, books } = await setup(2);
+    expect((await post(m, `/api/member/training/books/${books[0].bookId}/pay-now`, { phone: '+237670000001' })).body.code).toBe('AUTOMATIC_OFF');
+
+    const { registerPaymentProvider } = await import('../lib/payments');
+    const requested: any[] = [];
+    registerPaymentProvider({
+      name: 'testpay',
+      requestPayment: async (r) => {
+        requested.push(r);
+        return { providerRef: `tp-${requested.length}` };
+      },
+      readNotification: async (req) => (req.body?.secret === 'ok' ? { providerRef: req.body.ref, status: req.body.status } : null),
+    });
+    process.env.PAYMENT_PROVIDER = 'testpay';
+    try {
+      expect((await world(m)).automaticPayments).toBe(true);
+      const started = await post(m, `/api/member/training/books/${books[0].bookId}/pay-now`, { phone: '+237 670 000 001' });
+      expect(started.body.status).toBe('PENDING');
+      expect(requested[0]).toMatchObject({ amount: 1100, currency: 'XAF', phone: '+237670000001' });
+      expect((await world(m)).books[0].payment).toBe('PENDING');
+
+      const hook = request(app);
+      expect((await hook.post('/api/payments/webhook').send({ secret: 'bad', ref: 'tp-1', status: 'CONFIRMED' })).status).toBe(400);
+      expect((await hook.post('/api/payments/webhook').send({ secret: 'ok', ref: 'tp-1', status: 'CONFIRMED' })).status).toBe(200);
+      expect((await hook.post('/api/payments/webhook').send({ secret: 'ok', ref: 'tp-1', status: 'FAILED' })).status).toBe(200);
+      expect((await world(m)).books[0].payment).toBe('PAID');
+      expect(await prisma.notification.count({ where: { recipientPersonId: m.id, type: 'BOOK_PAYMENT_CONFIRMED' } })).toBe(1);
+    } finally {
+      delete process.env.PAYMENT_PROVIDER;
+    }
   });
 });
 

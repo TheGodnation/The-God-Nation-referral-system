@@ -104,14 +104,15 @@ describe('Exam World (Learn page)', () => {
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ amount: 2000 });
   });
 
-  it('lets a non-trainee ask to join leadership training', async () => {
+  it('lets a non-trainee begin leadership training, explaining the price first', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: ME }),
-      'GET /api/member/exam-world': () => ({ body: { ...WORLD, training: { enrollment: 'NONE', books: [] } } }),
-      'POST /api/member/training/request': () => ({ status: 201, body: { enrollment: 'REQUESTED' } }),
+      'GET /api/member/exam-world': () => ({ body: { ...WORLD, training: { enrollment: 'NONE', books: [], price: 1100 } } }),
+      'POST /api/member/training/request': () => ({ status: 201, body: { enrollment: 'ACTIVE' } }),
     });
     renderLearn();
-    fireEvent.click(await screen.findByRole('button', { name: 'I want to join leadership training' }));
+    expect(await screen.findByText(/Each book costs 1\s100 FCFA, paid before the next book opens/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Begin my training' }));
     await waitFor(() => expect(calls.some((c) => c.url === '/api/member/training/request')).toBe(true));
   });
 });

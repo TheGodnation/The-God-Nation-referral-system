@@ -9,9 +9,10 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { attachmentUploadAuthorizeLimiter, communityMutationLimiter } from '../lib/rateLimit';
 import { createUploadUrl, headObject, isStorageConfigured } from '../lib/storage';
-import { TRAINING_PASS_MARK } from '../lib/examWorld';
+import { MAX_GRACE_BOOKS, TRAINING_PASS_MARK, getTrainingBooksFor } from '../lib/examWorld';
 import { examSetNumbers } from '../lib/trainingExam';
-import { notifyExamRetakeDecision } from '../lib/notifications';
+import { notifyBookPaymentDecision, notifyExamRetakeDecision, notifyTrainingGraceDecision } from '../lib/notifications';
+import { activePaymentProvider } from '../lib/payments';
 
 // ---------------------------------------------------------------------------
 // /api/admin/library — central admin side of Exam World:
@@ -338,6 +339,14 @@ router.get('/trainees', asyncHandler(async (req, res) => {
     take: 500,
     include: { person: { select: { id: true, name: true, whatsappNumber: true } } },
   });
+  // Books opened and not yet paid, per trainee.
+  const personIds = rows.map((r) => r.personId);
+  const [opens, paid] = await Promise.all([
+    prisma.trainingBookOpen.findMany({ where: { personId: { in: personIds } }, select: { personId: true, bookId: true } }),
+    prisma.bookPayment.findMany({ where: { personId: { in: personIds }, status: 'CONFIRMED' }, select: { personId: true, bookId: true } }),
+  ]);
+  const paidKeys = new Set(paid.map((p) => `${p.personId}:${p.bookId}`));
+  const owedOf = (personId: string) => opens.filter((o) => o.personId === personId && !paidKeys.has(`${o.personId}:${o.bookId}`)).length;
   res.json({
     items: rows.map((r) => ({
       personId: r.person.id,
@@ -347,13 +356,16 @@ router.get('/trainees', asyncHandler(async (req, res) => {
       requestedAt: r.requestedAt,
       activatedAt: r.activatedAt,
       note: r.note,
+      graceBooks: r.graceBooks,
+      owedBooks: owedOf(r.personId),
     })),
   });
 }));
 
 const activateSchema = z.object({ personId: z.string().min(1), note: z.string().trim().max(300).optional() });
 
-// POST /api/admin/library/trainees — mark someone as paid: opens Book 1.
+// POST /api/admin/library/trainees — start (or restart) someone's training
+// for them: opens Book 1. Members normally start it themselves.
 router.post('/trainees', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = activateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request.' });
@@ -370,6 +382,212 @@ router.post('/trainees/:personId/revoke', communityMutationLimiter, requireCsrf,
   if (updated.count === 0) return res.status(404).json({ error: 'Not found.' });
   await audit(req, 'TRAINING_REVOKED', 'Person', req.params.personId);
   res.json({ status: 'REVOKED' });
+}));
+
+// ----------------------------- Book payments --------------------------------
+// 1,100 FCFA a book (Settings.trainingBookPrice). Manual payments are
+// "I have paid" claims with a Mobile Money transaction ID, confirmed or
+// rejected here; the admin can also record a payment received another way.
+// Confirming a payment can open the trainee's next book (lib/examWorld.ts).
+
+const trainingSettingsSchema = z.object({
+  price: z.number().int().min(0).max(1_000_000),
+  instructionsEn: z.string().trim().max(2000).optional(),
+  instructionsFr: z.string().trim().max(2000).optional(),
+});
+
+router.get('/training-settings', asyncHandler(async (_req, res) => {
+  const s = await prisma.settings.findUnique({
+    where: { id: 'singleton' },
+    select: { trainingBookPrice: true, trainingPaymentInstructionsEn: true, trainingPaymentInstructionsFr: true },
+  });
+  res.json({
+    price: s?.trainingBookPrice ?? 1100,
+    instructionsEn: s?.trainingPaymentInstructionsEn ?? '',
+    instructionsFr: s?.trainingPaymentInstructionsFr ?? '',
+    maxGraceBooks: MAX_GRACE_BOOKS,
+    automaticProvider: activePaymentProvider()?.name ?? null,
+  });
+}));
+
+router.put('/training-settings', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = trainingSettingsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Please enter the price in FCFA (numbers only).' });
+  const data = {
+    trainingBookPrice: parsed.data.price,
+    trainingPaymentInstructionsEn: parsed.data.instructionsEn || null,
+    trainingPaymentInstructionsFr: parsed.data.instructionsFr || null,
+  };
+  await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', ...data }, update: data });
+  await audit(req, 'TRAINING_SETTINGS_UPDATED', 'Settings', 'singleton', { price: parsed.data.price });
+  res.json({ ok: true });
+}));
+
+const paymentStatusSchema = z.enum(['CLAIMED', 'PENDING', 'CONFIRMED', 'REJECTED', 'FAILED']);
+
+router.get('/payments', asyncHandler(async (req, res) => {
+  const status = paymentStatusSchema.safeParse(req.query.status);
+  const rows = await prisma.bookPayment.findMany({
+    where: { status: status.success ? status.data : 'CLAIMED' },
+    orderBy: { createdAt: status.success && status.data !== 'CLAIMED' ? 'desc' : 'asc' },
+    take: 300,
+    include: { person: { select: { id: true, name: true, whatsappNumber: true } } },
+  });
+  res.json({
+    items: rows.map((p) => ({
+      id: p.id,
+      person: p.person,
+      bookNumber: p.bookNumber,
+      amount: p.amount,
+      method: p.method,
+      status: p.status,
+      reference: p.reference,
+      payerPhone: p.payerPhone,
+      note: p.note,
+      createdAt: p.createdAt,
+      decidedAt: p.decidedAt,
+    })),
+  });
+}));
+
+router.get('/payments/summary', asyncHandler(async (_req, res) => {
+  const startOfMonth = new Date();
+  startOfMonth.setUTCDate(1);
+  startOfMonth.setUTCHours(0, 0, 0, 0);
+  const [all, month, waiting] = await Promise.all([
+    prisma.bookPayment.aggregate({ where: { status: 'CONFIRMED' }, _sum: { amount: true }, _count: { _all: true } }),
+    prisma.bookPayment.aggregate({ where: { status: 'CONFIRMED', decidedAt: { gte: startOfMonth } }, _sum: { amount: true }, _count: { _all: true } }),
+    prisma.bookPayment.count({ where: { status: 'CLAIMED' } }),
+  ]);
+  res.json({
+    confirmed: { count: all._count._all, amount: all._sum.amount ?? 0 },
+    thisMonth: { count: month._count._all, amount: month._sum.amount ?? 0 },
+    waiting,
+  });
+}));
+
+const paymentDecisionSchema = z.object({ decision: z.enum(['CONFIRM', 'REJECT']), note: z.string().trim().max(300).optional() });
+
+router.post('/payments/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = paymentDecisionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Choose confirm or reject.' });
+  const confirmed = parsed.data.decision === 'CONFIRM';
+  const existing = await prisma.bookPayment.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: 'Payment not found.' });
+  if (confirmed && existing.personId && existing.bookId) {
+    const already = await prisma.bookPayment.findFirst({ where: { personId: existing.personId, bookId: existing.bookId, status: 'CONFIRMED' } });
+    if (already) return res.status(409).json({ error: 'This book is already paid.', code: 'ALREADY_PAID' });
+  }
+  const changed = await prisma.bookPayment.updateMany({
+    where: { id: existing.id, status: { in: ['CLAIMED', 'PENDING'] } },
+    data: { status: confirmed ? 'CONFIRMED' : 'REJECTED', decidedAt: new Date(), decidedByUserId: req.user!.id, note: parsed.data.note || existing.note },
+  });
+  if (changed.count === 0) return res.status(409).json({ error: 'This payment was already decided.', status: existing.status });
+  await audit(req, confirmed ? 'BOOK_PAYMENT_CONFIRMED' : 'BOOK_PAYMENT_REJECTED', 'BookPayment', existing.id, { personId: existing.personId, bookNumber: existing.bookNumber });
+  await notifyBookPaymentDecision(existing, confirmed).catch(() => {});
+  if (confirmed && existing.personId) await getTrainingBooksFor(existing.personId); // records any book this opens
+  res.json({ id: existing.id, status: confirmed ? 'CONFIRMED' : 'REJECTED' });
+}));
+
+const recordPaymentSchema = z.object({
+  personId: z.string().min(1),
+  bookId: z.string().min(1),
+  reference: z.string().trim().max(60).optional(),
+  note: z.string().trim().max(300).optional(),
+});
+
+// POST /api/admin/library/payments — record a payment received another way
+// (cash, a transfer seen on the ministry's phone...): confirmed at once.
+router.post('/payments', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = recordPaymentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Choose the person and the book.' });
+  const { personId, bookId } = parsed.data;
+  const [person, book, settings, already] = await Promise.all([
+    prisma.person.findUnique({ where: { id: personId }, select: { id: true } }),
+    prisma.libraryBook.findUnique({ where: { id: bookId }, select: { id: true, kind: true, trainingOrder: true } }),
+    prisma.settings.findUnique({ where: { id: 'singleton' }, select: { trainingBookPrice: true } }),
+    prisma.bookPayment.findFirst({ where: { personId, bookId, status: 'CONFIRMED' } }),
+  ]);
+  if (!person || !book || book.kind !== 'TRAINING') return res.status(404).json({ error: 'Person or book not found.' });
+  if (already) return res.status(409).json({ error: 'This book is already paid.', code: 'ALREADY_PAID' });
+  // A waiting claim for the same book is settled by this payment.
+  await prisma.bookPayment.updateMany({
+    where: { personId, bookId, status: 'CLAIMED' },
+    data: { status: 'REJECTED', decidedAt: new Date(), decidedByUserId: req.user!.id, note: 'Replaced by a payment recorded by the admin.' },
+  });
+  const payment = await prisma.bookPayment.create({
+    data: {
+      personId,
+      bookId,
+      bookNumber: book.trainingOrder,
+      amount: settings?.trainingBookPrice ?? 1100,
+      method: 'MANUAL',
+      status: 'CONFIRMED',
+      reference: parsed.data.reference || null,
+      note: parsed.data.note || null,
+      decidedAt: new Date(),
+      decidedByUserId: req.user!.id,
+    },
+  });
+  await audit(req, 'BOOK_PAYMENT_RECORDED', 'BookPayment', payment.id, { personId, bookNumber: book.trainingOrder });
+  await notifyBookPaymentDecision(payment, true).catch(() => {});
+  await getTrainingBooksFor(personId);
+  res.status(201).json({ id: payment.id, status: payment.status });
+}));
+
+// ----------------------------- Grace ("study now, pay later") ----------------
+
+router.get('/grace', asyncHandler(async (req, res) => {
+  const status = z.enum(['REQUESTED', 'GRANTED', 'DECLINED']).safeParse(req.query.status);
+  const rows = await prisma.trainingGraceRequest.findMany({
+    where: { status: status.success ? status.data : 'REQUESTED' },
+    orderBy: { requestedAt: 'asc' },
+    take: 300,
+    include: { person: { select: { id: true, name: true, whatsappNumber: true, trainingEnrollment: { select: { graceBooks: true } } } } },
+  });
+  res.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      person: { id: r.person.id, name: r.person.name, whatsappNumber: r.person.whatsappNumber },
+      books: r.books,
+      currentGraceBooks: r.person.trainingEnrollment?.graceBooks ?? 0,
+      status: r.status,
+      requestedAt: r.requestedAt,
+    })),
+  });
+}));
+
+const graceDecisionSchema = z.object({ decision: z.enum(['GRANT', 'DECLINE']), books: z.number().int().min(1).max(MAX_GRACE_BOOKS).optional() });
+
+router.post('/grace/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = graceDecisionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: `Choose grant (1 to ${MAX_GRACE_BOOKS} books) or decline.` });
+  const request = await prisma.trainingGraceRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return res.status(404).json({ error: 'Request not found.' });
+  const granted = parsed.data.decision === 'GRANT';
+  const books = granted ? (parsed.data.books ?? request.books) : null;
+  const changed = await prisma.trainingGraceRequest.updateMany({
+    where: { id: request.id, status: 'REQUESTED' },
+    data: { status: granted ? 'GRANTED' : 'DECLINED', grantedBooks: books, decidedAt: new Date(), decidedByUserId: req.user!.id },
+  });
+  if (changed.count === 0) return res.status(409).json({ error: 'This request was already answered.', status: request.status });
+  if (granted) await prisma.trainingEnrollment.updateMany({ where: { personId: request.personId }, data: { graceBooks: books! } });
+  await audit(req, granted ? 'TRAINING_GRACE_GRANTED' : 'TRAINING_GRACE_DECLINED', 'TrainingGraceRequest', request.id, { personId: request.personId, books });
+  await notifyTrainingGraceDecision({ id: request.id, personId: request.personId, grantedBooks: books }, granted).catch(() => {});
+  if (granted) await getTrainingBooksFor(request.personId);
+  res.json({ id: request.id, status: granted ? 'GRANTED' : 'DECLINED', books });
+}));
+
+// POST /api/admin/library/trainees/:personId/grace — change (or end, with 0)
+// how many books this trainee may owe at once. Books already open stay open.
+router.post('/trainees/:personId/grace', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = z.object({ books: z.number().int().min(0).max(MAX_GRACE_BOOKS) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: `Choose 0 to ${MAX_GRACE_BOOKS} books.` });
+  const updated = await prisma.trainingEnrollment.updateMany({ where: { personId: req.params.personId }, data: { graceBooks: parsed.data.books } });
+  if (updated.count === 0) return res.status(404).json({ error: 'Not found.' });
+  await audit(req, 'TRAINING_GRACE_SET', 'Person', req.params.personId, { books: parsed.data.books });
+  if (parsed.data.books > 0) await getTrainingBooksFor(req.params.personId);
+  res.json({ graceBooks: parsed.data.books });
 }));
 
 // ----------------------------- Offerings ------------------------------------

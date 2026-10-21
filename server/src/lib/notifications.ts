@@ -34,7 +34,11 @@ interface CreateNotificationParams {
     | 'AREA_REPRESENTATION_REQUEST_DECLINED'
     | 'LEADER_DASHBOARD_MOVED'
     | 'EXAM_RETAKE_GRANTED'
-    | 'EXAM_RETAKE_DECLINED';
+    | 'EXAM_RETAKE_DECLINED'
+    | 'BOOK_PAYMENT_CONFIRMED'
+    | 'BOOK_PAYMENT_REJECTED'
+    | 'TRAINING_GRACE_GRANTED'
+    | 'TRAINING_GRACE_DECLINED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -120,6 +124,35 @@ export async function notifyExamRetakeDecision(request: { id: string; personId: 
     push: granted
       ? { title: 'Retake granted', body: `You can now retake the exam for Book ${book?.trainingOrder ?? ''}, with new questions.`, url: `/member/assessments/${request.assessmentId}` }
       : { title: 'Retake request', body: `Your retake request for Book ${book?.trainingOrder ?? ''} was not granted for now.`, url: '/member/learn' },
+  });
+}
+
+/** A leadership book payment was confirmed (manually by the admin, or by the payment company) or rejected. */
+export async function notifyBookPaymentDecision(payment: { id: string; personId: string | null; bookNumber: number | null; amount: number }, confirmed: boolean) {
+  if (!payment.personId) return;
+  await createNotification({
+    recipientPersonId: payment.personId,
+    type: confirmed ? 'BOOK_PAYMENT_CONFIRMED' : 'BOOK_PAYMENT_REJECTED',
+    metadata: { bookNumber: payment.bookNumber, amount: payment.amount },
+    targetType: 'BookPayment',
+    targetId: payment.id,
+    push: confirmed
+      ? { title: 'Payment confirmed', body: `Your payment for Book ${payment.bookNumber ?? ''} is confirmed. Thank you!`, url: '/member/learn' }
+      : { title: 'Payment not confirmed', body: `Your payment for Book ${payment.bookNumber ?? ''} could not be confirmed. Please check the transaction ID.`, url: '/member/learn' },
+  });
+}
+
+/** The central admin granted (or declined) "study now, pay later" grace. */
+export async function notifyTrainingGraceDecision(request: { id: string; personId: string; grantedBooks: number | null }, granted: boolean) {
+  await createNotification({
+    recipientPersonId: request.personId,
+    type: granted ? 'TRAINING_GRACE_GRANTED' : 'TRAINING_GRACE_DECLINED',
+    metadata: { books: request.grantedBooks },
+    targetType: 'TrainingGraceRequest',
+    targetId: request.id,
+    push: granted
+      ? { title: 'Grace granted', body: `You may now study up to ${request.grantedBooks ?? ''} books before paying.`, url: '/member/learn' }
+      : { title: 'Grace request', body: 'Your request to study now and pay later was not granted for now.', url: '/member/learn' },
   });
 }
 

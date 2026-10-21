@@ -200,6 +200,12 @@ enum NotificationType {
   // to retake a book's exam (a retake uses a new set of questions).
   EXAM_RETAKE_GRANTED
   EXAM_RETAKE_DECLINED
+  // Leadership training payments (1,100 FCFA a book) and "study now, pay
+  // later" grace, both decided by the central admin.
+  BOOK_PAYMENT_CONFIRMED
+  BOOK_PAYMENT_REJECTED
+  TRAINING_GRACE_GRANTED
+  TRAINING_GRACE_DECLINED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -306,6 +312,8 @@ model User {
   memberReportsResolved                          MemberReport[]                           @relation("MemberReportResolvedByUser")
   trainingEnrollmentsActivated                   TrainingEnrollment[]                     @relation("TrainingEnrollmentActivatedBy")
   examRetakesDecided                             ExamRetakeRequest[]                      @relation("ExamRetakeDecidedBy")
+  bookPaymentsDecided                            BookPayment[]                            @relation("BookPaymentDecidedBy")
+  trainingGraceDecided                           TrainingGraceRequest[]                   @relation("TrainingGraceDecidedBy")
   areaLeadershipAssignmentsAssigned              AreaLeadershipAssignment[]               @relation("AreaLeadershipAssignedBy")
   areaRepresentationRequestsDecided              AreaRepresentationRequest[]
   prayerRequestsDeleted                          PrayerRequest[]                          @relation("PrayerRequestDeletedByUser")
@@ -574,6 +582,11 @@ model Settings {
   // (e.g. Mobile Money numbers). Giving is never required.
   offeringInstructionsEn  String?
   offeringInstructionsFr  String?
+  // Leadership training: the price of each book (FCFA), and how to pay it
+  // by Mobile Money (numbers, account name), shown to trainees.
+  trainingBookPrice              Int     @default(1100)
+  trainingPaymentInstructionsEn  String?
+  trainingPaymentInstructionsFr  String?
   // Home page and chat background, Admin-set for everyone (never
   // per-member). `*WallpaperPreset` names one of the client's own
   // built-in, zero-download patterns (client/src/lib/wallpaper.ts); a
@@ -752,6 +765,9 @@ model Person {
   updateReactions                                 UpdateReaction[]
   trainingEnrollment                              TrainingEnrollment?
   devotionalOfferings                             DevotionalOffering[]
+  bookPayments                                    BookPayment[]
+  trainingBookOpens                               TrainingBookOpen[]
+  trainingGraceRequests                           TrainingGraceRequest[]
   friendRequestsSent                              Friendship[]                              @relation("FriendshipRequester")
   friendRequestsReceived                          Friendship[]                              @relation("FriendshipAddressee")
   blocksMade                                      PersonBlock[]                             @relation("PersonBlockBlocker")
@@ -2598,6 +2614,8 @@ model LibraryBook {
 
   devotional MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
   exam       Assessment?
+  payments   BookPayment[]
+  opens      TrainingBookOpen[]
 
   @@index([kind])
 }
@@ -2613,6 +2631,9 @@ model TrainingEnrollment {
   activatedAt       DateTime?
   activatedByUserId String?
   note              String?
+  // "Study now, pay later": how many books may be owed at once (0 = none;
+  // at most 5), set when the central admin grants a grace request.
+  graceBooks        Int                      @default(0)
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 
@@ -2620,6 +2641,92 @@ model TrainingEnrollment {
   activatedBy User?  @relation("TrainingEnrollmentActivatedBy", fields: [activatedByUserId], references: [id], onDelete: SetNull)
 
   @@index([status])
+}
+
+// A leadership book that has opened for a person. Once open, always open
+// (even if grace is later reduced); also what "owed" is counted from.
+model TrainingBookOpen {
+  id       String   @id @default(uuid())
+  personId String
+  bookId   String
+  openedAt DateTime @default(now())
+
+  person Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  book   LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, bookId])
+}
+
+// Paying for a leadership book (1,100 FCFA). MANUAL: the member pays by
+// Mobile Money, then says so with the transaction ID (CLAIMED) and the
+// central admin confirms or rejects it. AUTOMATIC: a payment company takes
+// the payment in the app (PENDING until its notification arrives) — ready,
+// but off until a company is connected (lib/payments.ts). Records are kept
+// for the accounts when an account is deleted: personId is cleared, the
+// amount and date stay.
+enum BookPaymentMethod {
+  MANUAL
+  AUTOMATIC
+}
+
+enum BookPaymentStatus {
+  CLAIMED
+  PENDING
+  CONFIRMED
+  REJECTED
+  FAILED
+}
+
+model BookPayment {
+  id              String            @id @default(uuid())
+  personId        String?
+  bookId          String?
+  // Kept even if the book is later removed.
+  bookNumber      Int?
+  amount          Int
+  method          BookPaymentMethod
+  status          BookPaymentStatus
+  // Mobile Money transaction ID typed by the member, and the number used.
+  reference       String?
+  payerPhone      String?
+  provider        String?
+  providerRef     String?           @unique
+  note            String?
+  createdAt       DateTime          @default(now())
+  decidedAt       DateTime?
+  decidedByUserId String?
+
+  person    Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
+  book      LibraryBook? @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  decidedBy User?        @relation("BookPaymentDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([personId, bookId])
+  @@index([status, createdAt])
+}
+
+// "Study now, pay later": a trainee asks to keep reading before paying, for
+// up to 5 books owed at once. Only the central admin grants it.
+enum TrainingGraceStatus {
+  REQUESTED
+  GRANTED
+  DECLINED
+}
+
+model TrainingGraceRequest {
+  id              String              @id @default(uuid())
+  personId        String
+  books           Int
+  status          TrainingGraceStatus @default(REQUESTED)
+  grantedBooks    Int?
+  requestedAt     DateTime            @default(now())
+  decidedAt       DateTime?
+  decidedByUserId String?
+
+  person    Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  decidedBy User?  @relation("TrainingGraceDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, requestedAt])
+  @@index([personId])
 }
 
 // A member saying "I have given" a free-will offering for a monthly

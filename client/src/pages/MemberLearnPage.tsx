@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { GraceBox, PayBookPanel } from '../components/learn/TrainingPayments';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api, ApiError } from '../lib/api';
@@ -40,6 +41,8 @@ interface TrainingBook {
   descriptionFr: string | null;
   unlocked: boolean;
   canRead: boolean;
+  payment?: 'PAID' | 'CLAIMED' | 'PENDING' | null;
+  lockedBecause?: 'NOT_STARTED' | 'PREVIOUS_EXAM' | 'PAYMENT' | null;
   exam: {
     id: string;
     passMark: number;
@@ -54,7 +57,18 @@ interface TrainingBook {
 interface ExamWorld {
   offering: { instructionsEn: string | null; instructionsFr: string | null };
   devotionals: DevotionalRow[];
-  training: { enrollment: 'NONE' | 'REQUESTED' | 'ACTIVE' | 'REVOKED'; books: TrainingBook[] };
+  training: {
+    enrollment: 'NONE' | 'REQUESTED' | 'ACTIVE' | 'REVOKED';
+    books: TrainingBook[];
+    price?: number;
+    owed?: { books: number; amount: number };
+    graceBooks?: number;
+    maxGraceBooks?: number;
+    graceRequest?: { status: 'REQUESTED' | 'GRANTED' | 'DECLINED'; books: number } | null;
+    paymentInstructionsEn?: string | null;
+    paymentInstructionsFr?: string | null;
+    automaticPayments?: boolean;
+  };
 }
 
 function OfferingBox({ devotional, instructions, onGiven }: { devotional: DevotionalRow; instructions: string | null; onGiven: () => void }) {
@@ -217,19 +231,37 @@ export function MemberLearnPage() {
               {data.training.enrollment !== 'ACTIVE' && (
                 <div className="card space-y-2 text-sm">
                   <p className="text-slate-700">{t('learn.training_intro', { count: data.training.books.length || 15 })}</p>
-                  {data.training.enrollment === 'REQUESTED' ? (
-                    <p className="font-medium text-amber-800">{t('learn.training_requested')}</p>
+                  <p className="text-slate-700">{t('learn.training_payment_rule', { price: (data.training.price ?? 1100).toLocaleString('fr-FR') })}</p>
+                  {data.training.enrollment === 'REVOKED' ? (
+                    <p className="font-medium text-amber-800">{t('learn.training_stopped')}</p>
                   ) : (
                     <button type="button" className="btn-primary" disabled={requesting} onClick={requestTraining}>
-                      {t('learn.training_request')}
+                      {t('learn.training_begin')}
                     </button>
                   )}
+                </div>
+              )}
+              {data.training.enrollment === 'ACTIVE' && (
+                <div className="card space-y-2 text-sm">
+                  {(data.training.owed?.books ?? 0) > 0 ? (
+                    <p className="font-medium text-slate-800">
+                      {t('learn.owed', { count: data.training.owed!.books, amount: data.training.owed!.amount.toLocaleString('fr-FR') })}
+                    </p>
+                  ) : (
+                    <p className="font-medium text-green-700">{t('learn.all_paid')}</p>
+                  )}
+                  <GraceBox
+                    graceBooks={data.training.graceBooks ?? 0}
+                    maxGraceBooks={data.training.maxGraceBooks ?? 5}
+                    request={data.training.graceRequest ?? null}
+                    onDone={load}
+                  />
                 </div>
               )}
               {data.training.books.length > 0 && (
                 <ul className="card divide-y divide-slate-100 p-0">
                   {data.training.books.map((b) => (
-                    <li key={b.id} className={`flex items-center justify-between gap-2 px-4 py-3 text-sm ${b.unlocked ? '' : 'opacity-60'}`}>
+                    <li key={b.id} className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm ${b.unlocked ? '' : 'opacity-60'}`}>
                       <span className="min-w-0">
                         <span className="block font-semibold text-slate-800">
                           {b.unlocked ? '' : '🔒 '}
@@ -246,6 +278,16 @@ export function MemberLearnPage() {
                         {b.exam && !b.exam.passed && (b.exam.tries ?? 0) > 0 && b.exam.canStart && (
                           <span className="text-green-700">{t('learn.exam_retake_granted')}</span>
                         )}
+                        {b.unlocked && b.payment === 'PAID' && <span className="block text-green-700">✓ {t('learn.paid')}</span>}
+                        {b.unlocked && (b.payment === 'CLAIMED' || b.payment === 'PENDING') && (
+                          <span className="block text-amber-800">{t('learn.payment_waiting')}</span>
+                        )}
+                        {!b.unlocked && b.lockedBecause === 'PREVIOUS_EXAM' && (
+                          <span className="block text-slate-600">{t('learn.locked_exam', { number: b.trainingOrder - 1 })}</span>
+                        )}
+                        {!b.unlocked && b.lockedBecause === 'PAYMENT' && (
+                          <span className="block text-slate-600">{t('learn.locked_payment', { number: b.trainingOrder - 1 })}</span>
+                        )}
                       </span>
                       {b.unlocked && (
                         <span className="flex shrink-0 gap-2">
@@ -260,6 +302,16 @@ export function MemberLearnPage() {
                             </Link>
                           )}
                         </span>
+                      )}
+                      {b.unlocked && !b.payment && (
+                        <PayBookPanel
+                          bookId={b.id}
+                          bookNumber={b.trainingOrder}
+                          price={data.training.price ?? 1100}
+                          instructions={tr(data.training.paymentInstructionsEn ?? '', data.training.paymentInstructionsFr ?? null) || null}
+                          automatic={Boolean(data.training.automaticPayments)}
+                          onDone={load}
+                        />
                       )}
                     </li>
                   ))}

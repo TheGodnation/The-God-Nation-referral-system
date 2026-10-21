@@ -61,6 +61,7 @@ import adminAreaRepresentationRequestsRoutes from './routes/adminAreaRepresentat
 import adminGeographicAreasRoutes from './routes/adminGeographicAreas';
 import memberReferralsRoutes from './routes/memberReferrals';
 import examWorldRoutes from './routes/examWorld';
+import paymentRoutes from './routes/payments';
 import adminLibraryRoutes from './routes/adminLibrary';
 import leaderExamResultsRoutes from './routes/leaderExamResults';
 import { prisma } from './lib/prisma';
@@ -237,6 +238,8 @@ export function createApp() {
   app.use('/api/member', memberReferralsRoutes);
   // Exam World: member summary/reader, admin library & trainees, leader results.
   app.use('/api/member', examWorldRoutes);
+  // Automatic Mobile Money: the payment company's notifications (lib/payments.ts).
+  app.use('/api/payments', paymentRoutes);
   app.use('/api/admin/library', adminLibraryRoutes);
   app.use('/api/leader', leaderExamResultsRoutes);
 
