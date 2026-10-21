@@ -571,3 +571,89 @@ describe('Leader exam results', () => {
     expect(res.body.items).toEqual([{ personId: m.id, name: 'Group Member', weekly: [100], training: 'NONE', booksPassed: 0 }]);
   });
 });
+
+describe('Leadership School: covers, pages and chapter summaries', () => {
+  // A real 1×1 JPEG and PNG header are enough for the picture checks.
+  const JPEG = `data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]).toString('base64')}`;
+  const PNG = `data:image/png;base64,${Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]).toString('base64')}`;
+
+  it('shows every book with its cover, even before it opens; an automatic cover never replaces the admin\'s own', async () => {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1);
+    const b2 = await trainingBook(a, 2);
+    const m = await member('School Visitor');
+
+    let school = await m.agent.get('/api/member/school');
+    expect(school.status).toBe(200);
+    expect(school.body.books.map((b: any) => b.coverUrl)).toEqual([null, null]);
+
+    const auto = await a.agent.put(`/api/admin/library/books/${b2.bookId}/cover`).set('X-CSRF-Token', a.csrf).send({ image: JPEG, source: 'AUTO' });
+    expect(auto.status).toBe(200);
+    school = await m.agent.get('/api/member/school');
+    const url = school.body.books[1].coverUrl as string;
+    expect(url).toMatch(new RegExp(`^/api/member/library/books/${b2.bookId}/cover\\?v=[0-9a-f]+$`));
+    // Book 2 is still closed for this member, but its cover shows.
+    expect(school.body.books[1].unlocked).toBe(false);
+    const pic = await m.agent.get(url);
+    expect(pic.status).toBe(200);
+    expect(pic.headers['content-type']).toBe('image/jpeg');
+    expect(pic.headers['cache-control']).toContain('immutable');
+
+    await a.agent.put(`/api/admin/library/books/${b2.bookId}/cover`).set('X-CSRF-Token', a.csrf).send({ image: PNG, source: 'MANUAL' });
+    const kept = await a.agent.put(`/api/admin/library/books/${b2.bookId}/cover`).set('X-CSRF-Token', a.csrf).send({ image: JPEG, source: 'AUTO' });
+    expect(kept.body.kept).toBe(true);
+    school = await m.agent.get('/api/member/school');
+    expect(school.body.books[1].coverUrl).not.toBe(url);
+    expect((await m.agent.get(school.body.books[1].coverUrl)).headers['content-type']).toBe('image/png');
+
+    // Not a picture, or a picture pretending to be another kind: refused.
+    const fake = `data:image/png;base64,${Buffer.from('<svg onload=alert(1)>').toString('base64')}`;
+    expect((await a.agent.put(`/api/admin/library/books/${b1.bookId}/cover`).set('X-CSRF-Token', a.csrf).send({ image: fake, source: 'MANUAL' })).body.code).toBe('INVALID_COVER');
+    expect((await a.agent.put(`/api/admin/library/books/${b1.bookId}/cover`).set('X-CSRF-Token', a.csrf).send({ image: JPEG.replace('jpeg', 'png'), source: 'MANUAL' })).body.code).toBe('INVALID_COVER');
+
+    expect((await a.agent.delete(`/api/admin/library/books/${b2.bookId}/cover`).set('X-CSRF-Token', a.csrf)).status).toBe(200);
+    expect((await m.agent.get('/api/member/school')).body.books[1].coverUrl).toBeNull();
+    // Members only.
+    expect((await request(app).get(url)).status).toBe(401);
+  });
+
+  it('keeps the page count read when the PDF is uploaded', async () => {
+    const a = await admin();
+    const created = await post(a, '/api/admin/library/books', { kind: 'TRAINING', titleEn: 'Counted', trainingOrder: 1 });
+    const auth = await post(a, `/api/admin/library/books/${created.body.id}/file/authorize`, { mimeType: 'application/pdf', byteSize: 1000 });
+    vi.mocked(storage.headObject).mockResolvedValueOnce({ contentLength: 1000, contentType: 'application/pdf' });
+    expect((await post(a, `/api/admin/library/books/${created.body.id}/file`, { storageKey: auth.body.storageKey, byteSize: 1000, pageCount: 84 })).status).toBe(200);
+    const list = await a.agent.get('/api/admin/library/books');
+    expect(list.body.items.find((b: any) => b.id === created.body.id)).toMatchObject({ pageCount: 84, chapterCount: 0, coverUrl: null });
+    const m = await member('Counter');
+    expect((await m.agent.get('/api/member/school')).body.books[0].pageCount).toBe(84);
+  });
+
+  it('chapters with summaries: written by the admin, in order, shown on the book page', async () => {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1);
+    const c1 = await post(a, `/api/admin/library/books/${b1.bookId}/chapters`, { titleEn: 'Called to serve', summaryEn: 'A leader first serves.', summaryFr: 'Un leader sert d’abord.' });
+    const c2 = await post(a, `/api/admin/library/books/${b1.bookId}/chapters`, { titleEn: 'Faithful in little' });
+    expect([c1.status, c2.status]).toEqual([201, 201]);
+    expect([c1.body.order, c2.body.order]).toEqual([1, 2]);
+    expect((await post(a, `/api/admin/library/books/${b1.bookId}/chapters`, { titleEn: '' })).status).toBe(400);
+
+    expect((await post(a, `/api/admin/library/chapters/${c2.body.id}/move`, { direction: 'UP' })).status).toBe(200);
+    const patched = await a.agent.patch(`/api/admin/library/chapters/${c2.body.id}`).set('X-CSRF-Token', a.csrf).send({ summaryEn: 'Small things first.' });
+    expect(patched.body.summaryEn).toBe('Small things first.');
+
+    const m = await member('Reader of summaries');
+    const page = await m.agent.get(`/api/member/school/books/${b1.bookId}`);
+    expect(page.status).toBe(200);
+    expect(page.body.book).toMatchObject({ id: b1.bookId, chapterCount: 2, unlocked: false });
+    expect(page.body.chapters.map((c: any) => c.titleEn)).toEqual(['Faithful in little', 'Called to serve']);
+    expect(page.body.chapters[1]).toMatchObject({ summaryEn: 'A leader first serves.', summaryFr: 'Un leader sert d’abord.' });
+    expect((await m.agent.get('/api/member/school')).body.books[0].chapterCount).toBe(2);
+
+    expect((await a.agent.delete(`/api/admin/library/chapters/${c1.body.id}`).set('X-CSRF-Token', a.csrf)).status).toBe(200);
+    expect((await m.agent.get(`/api/member/school/books/${b1.bookId}`)).body.chapters).toHaveLength(1);
+    expect((await m.agent.get('/api/member/school/books/00000000-0000-0000-0000-000000000000')).status).toBe(404);
+    // Members cannot write chapters.
+    expect((await post(m, `/api/admin/library/books/${b1.bookId}/chapters`, { titleEn: 'Mine' })).status).toBe(401);
+  });
+});

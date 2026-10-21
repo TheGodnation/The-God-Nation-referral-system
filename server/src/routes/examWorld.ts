@@ -11,12 +11,13 @@ import crypto from 'crypto';
 import { canReadBook, canSeeDevotional, examAccess, getTrainingBooksFor, MAX_GRACE_BOOKS } from '../lib/examWorld';
 import { activePaymentProvider } from '../lib/payments';
 import { trainingExamState } from '../lib/trainingExam';
+import { coverUrl, sendCover } from '../lib/bookCovers';
 
 // ---------------------------------------------------------------------------
 // /api/member — Exam World for members: the summary page (this month's
 // devotional with its weekly exams, and leadership training books), asking
-// to join leadership training, free-will offerings, and reading books
-// inside the app.
+// to join leadership training, the Leadership School (books, covers,
+// chapter summaries), free-will offerings, and reading books inside the app.
 // ---------------------------------------------------------------------------
 
 const router = Router();
@@ -49,13 +50,9 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
       })
     : [];
 
-  const [settings, enrollment, books, myOfferings] = await Promise.all([
-    prisma.settings.findUnique({
-      where: { id: 'singleton' },
-      select: { offeringInstructionsEn: true, offeringInstructionsFr: true, trainingBookPrice: true, trainingPaymentInstructionsEn: true, trainingPaymentInstructionsFr: true },
-    }),
-    prisma.trainingEnrollment.findUnique({ where: { personId }, select: { status: true, graceBooks: true } }),
-    getTrainingBooksFor(personId),
+  const [settings, training, myOfferings] = await Promise.all([
+    prisma.settings.findUnique({ where: { id: 'singleton' }, select: { offeringInstructionsEn: true, offeringInstructionsFr: true } }),
+    trainingSummary(personId),
     prisma.devotionalOffering.findMany({
       where: { personId, devotionalId: { in: devotionals.map((d) => d.id) } },
       select: { devotionalId: true },
@@ -65,19 +62,6 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
 
   const now = Date.now();
   const DAY = 24 * 60 * 60 * 1000;
-  const price = settings?.trainingBookPrice ?? 1100;
-  const owedBooks = books.filter((b) => b.unlocked && b.payment !== 'PAID').length;
-  const graceRequest = await prisma.trainingGraceRequest.findFirst({ where: { personId }, orderBy: { requestedAt: 'desc' }, select: { status: true, books: true } });
-
-  // Each open book's exam: can it be taken now, or what is it waiting for
-  // (a retake request, the admin, new questions)?
-  const examStates = new Map(
-    await Promise.all(
-      books
-        .filter((b) => b.unlocked && b.exam?.published)
-        .map(async (b) => [b.exam!.id, await trainingExamState(personId, b.exam!.id)] as const),
-    ),
-  );
 
   res.json({
     offering: { instructionsEn: settings?.offeringInstructionsEn ?? null, instructionsFr: settings?.offeringInstructionsFr ?? null },
@@ -107,44 +91,102 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
         };
       }),
     })),
-    training: {
-      enrollment: enrollment?.status ?? 'NONE',
-      // Payment: 1,100 FCFA a book, paid before the next book opens —
-      // unless "study now, pay later" grace allows up to 5 owed.
-      price,
-      owed: { books: owedBooks, amount: owedBooks * price },
-      graceBooks: enrollment?.graceBooks ?? 0,
-      maxGraceBooks: MAX_GRACE_BOOKS,
-      graceRequest: graceRequest ?? null,
-      paymentInstructionsEn: settings?.trainingPaymentInstructionsEn ?? null,
-      paymentInstructionsFr: settings?.trainingPaymentInstructionsFr ?? null,
-      automaticPayments: activePaymentProvider() !== null,
-      books: books.map((b) => ({
-        id: b.id,
-        trainingOrder: b.trainingOrder,
-        titleEn: b.titleEn,
-        titleFr: b.titleFr,
-        descriptionEn: b.descriptionEn,
-        descriptionFr: b.descriptionFr,
-        unlocked: b.unlocked,
-        canRead: b.unlocked && b.hasFile,
-        payment: b.payment,
-        lockedBecause: b.lockedBecause,
-        exam:
-          b.exam && b.exam.published
-            ? {
-                id: b.exam.id,
-                passMark: b.exam.passMark,
-                bestPercentage: b.exam.bestPercentage,
-                passed: b.exam.passed,
-                tries: examStates.get(b.exam.id)?.submittedTries ?? 0,
-                canStart: examStates.get(b.exam.id)?.canStart ?? false,
-                block: examStates.get(b.exam.id)?.block ?? null,
-              }
-            : null,
-      })),
-    },
+    training,
   });
+}));
+
+// ----------------------------- Leadership School ----------------------------
+
+/**
+ * The member's leadership training: where they are, what they owe, and
+ * every book in order (cover, pages, open or why not, payment, exam).
+ * Shown on the Leadership School page, and in short on the Learn page.
+ */
+async function trainingSummary(personId: string) {
+  const [settings, enrollment, books, chapterCounts, graceRequest] = await Promise.all([
+    prisma.settings.findUnique({
+      where: { id: 'singleton' },
+      select: { trainingBookPrice: true, trainingPaymentInstructionsEn: true, trainingPaymentInstructionsFr: true },
+    }),
+    prisma.trainingEnrollment.findUnique({ where: { personId }, select: { status: true, graceBooks: true } }),
+    getTrainingBooksFor(personId),
+    prisma.bookChapter.groupBy({ by: ['bookId'], _count: { _all: true } }),
+    prisma.trainingGraceRequest.findFirst({ where: { personId }, orderBy: { requestedAt: 'desc' }, select: { status: true, books: true } }),
+  ]);
+  const price = settings?.trainingBookPrice ?? 1100;
+  const owedBooks = books.filter((b) => b.unlocked && b.payment !== 'PAID').length;
+  const chaptersOf = new Map(chapterCounts.map((c) => [c.bookId, c._count._all]));
+
+  // Each open book's exam: can it be taken now, or what is it waiting for
+  // (a retake request, the admin, new questions)?
+  const examStates = new Map(
+    await Promise.all(
+      books
+        .filter((b) => b.unlocked && b.exam?.published)
+        .map(async (b) => [b.exam!.id, await trainingExamState(personId, b.exam!.id)] as const),
+    ),
+  );
+
+  return {
+    enrollment: enrollment?.status ?? 'NONE',
+    // Payment: 1,100 FCFA a book, paid before the next book opens —
+    // unless "study now, pay later" grace allows up to 5 owed.
+    price,
+    owed: { books: owedBooks, amount: owedBooks * price },
+    graceBooks: enrollment?.graceBooks ?? 0,
+    maxGraceBooks: MAX_GRACE_BOOKS,
+    graceRequest: graceRequest ?? null,
+    paymentInstructionsEn: settings?.trainingPaymentInstructionsEn ?? null,
+    paymentInstructionsFr: settings?.trainingPaymentInstructionsFr ?? null,
+    automaticPayments: activePaymentProvider() !== null,
+    books: books.map((b) => ({
+      id: b.id,
+      trainingOrder: b.trainingOrder,
+      titleEn: b.titleEn,
+      titleFr: b.titleFr,
+      descriptionEn: b.descriptionEn,
+      descriptionFr: b.descriptionFr,
+      coverUrl: coverUrl(b),
+      pageCount: b.pageCount,
+      chapterCount: chaptersOf.get(b.id) ?? 0,
+      unlocked: b.unlocked,
+      canRead: b.unlocked && b.hasFile,
+      payment: b.payment,
+      lockedBecause: b.lockedBecause,
+      exam:
+        b.exam && b.exam.published
+          ? {
+              id: b.exam.id,
+              passMark: b.exam.passMark,
+              bestPercentage: b.exam.bestPercentage,
+              passed: b.exam.passed,
+              tries: examStates.get(b.exam.id)?.submittedTries ?? 0,
+              canStart: examStates.get(b.exam.id)?.canStart ?? false,
+              block: examStates.get(b.exam.id)?.block ?? null,
+            }
+          : null,
+    })),
+  };
+}
+
+// GET /api/member/school — the Leadership School page.
+router.get('/school', requireMember, asyncHandler(async (req, res) => {
+  res.json(await trainingSummary(req.member!.personId));
+}));
+
+// GET /api/member/school/books/:id — one book's page: everything above,
+// plus its chapters with their summaries (shown before the book opens too,
+// so members see what each book teaches).
+router.get('/school/books/:id', requireMember, asyncHandler(async (req, res) => {
+  const summary = await trainingSummary(req.member!.personId);
+  const book = summary.books.find((b) => b.id === req.params.id);
+  if (!book) return res.status(404).json({ error: 'Book not found.' });
+  const chapters = await prisma.bookChapter.findMany({
+    where: { bookId: book.id },
+    orderBy: { order: 'asc' },
+    select: { id: true, order: true, titleEn: true, titleFr: true, summaryEn: true, summaryFr: true },
+  });
+  res.json({ ...summary, book, chapters });
 }));
 
 // POST /api/member/training/request — "Begin my training": starts at once
@@ -312,6 +354,18 @@ router.get('/library/books/:id', requireMember, asyncHandler(async (req, res) =>
     examId,
     watermark: `${person?.name ?? ''} · ${person?.whatsappNumber ?? ''}`,
   });
+}));
+
+// GET /api/member/library/books/:id/cover — any leadership book's cover
+// (the school shows all of them, also before they open), or a devotional
+// book's cover for those who can see that devotional.
+router.get('/library/books/:id/cover', requireMember, asyncHandler(async (req, res) => {
+  const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, include: { devotional: true } });
+  if (!book) return res.status(404).json({ error: 'Book not found.' });
+  if (book.kind === 'DEVOTIONAL' && !(book.devotional && (await canSeeDevotional(req.member!.personId, book.devotional)))) {
+    return res.status(404).json({ error: 'Book not found.' });
+  }
+  await sendCover(res, book.id, typeof req.query.v === 'string');
 }));
 
 // GET /api/member/library/books/:id/content — the PDF bytes, streamed by

@@ -2607,6 +2607,11 @@ model LibraryBook {
   // The PDF in object storage (null until the admin uploads it).
   storageKey    String?
   byteSize      Int?
+  // Pages in the PDF, read in the admin's browser when it is uploaded.
+  pageCount     Int?
+  // Changes whenever the cover changes, so phones fetch the new picture
+  // (the cover link carries it; null = no cover yet, a drawn one is shown).
+  coverVersion  String?
   trainingOrder Int?            @unique
   devotionalId  String?         @unique
   createdAt     DateTime        @default(now())
@@ -2616,13 +2621,54 @@ model LibraryBook {
   exam       Assessment?
   payments   BookPayment[]
   opens      TrainingBookOpen[]
+  cover      LibraryBookCover?
+  chapters   BookChapter[]
 
   @@index([kind])
 }
 
-// Leadership training access. A member asks to join (REQUESTED); once they
-// have paid (payment happens outside the app for now) the central admin
-// marks them ACTIVE, which opens Book 1.
+// A book's cover picture (JPEG/PNG/WebP, small). Kept in its own table so
+// listing books never loads the pictures. AUTO covers are drawn from page 1
+// of the PDF when it is uploaded; a MANUAL cover chosen by the admin is
+// never replaced by an automatic one.
+model LibraryBookCover {
+  bookId    String          @id
+  mimeType  String
+  data      Bytes
+  source    BookCoverSource
+  updatedAt DateTime        @updatedAt
+
+  book LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+enum BookCoverSource {
+  AUTO
+  MANUAL
+}
+
+// "What you will learn": a book's chapters with a short summary each,
+// shown on the book's page in the Leadership School (also before the book
+// opens). Written by the central admin.
+model BookChapter {
+  id        String   @id @default(uuid())
+  bookId    String
+  order     Int
+  titleEn   String
+  titleFr   String?
+  summaryEn String?
+  summaryFr String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  book LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId, order])
+}
+
+// Leadership training access. "Begin my training" makes the member ACTIVE
+// at once, which opens Book 1 on trust (see lib/examWorld.ts for how the
+// next books open). REQUESTED is from before; REVOKED = stopped by the
+// central admin.
 model TrainingEnrollment {
   id                String                   @id @default(uuid())
   personId          String                   @unique

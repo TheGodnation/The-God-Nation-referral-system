@@ -13,11 +13,13 @@ import { MAX_GRACE_BOOKS, TRAINING_PASS_MARK, getTrainingBooksFor } from '../lib
 import { examSetNumbers } from '../lib/trainingExam';
 import { notifyBookPaymentDecision, notifyExamRetakeDecision, notifyTrainingGraceDecision } from '../lib/notifications';
 import { activePaymentProvider } from '../lib/payments';
+import { coverUrl, newCoverVersion, readCoverDataUrl, sendCover } from '../lib/bookCovers';
 
 // ---------------------------------------------------------------------------
 // /api/admin/library — central admin side of Exam World:
 //  - books: leadership-training eBooks (1, 2, 3...) and the monthly
-//    devotional's book; upload each PDF (read in the app only)
+//    devotional's book; upload each PDF (read in the app only), its cover,
+//    and its chapters with a short summary each (Leadership School)
 //  - weekly exams for a devotional (Week 1, 2, 3...)
 //  - trainees: requests, and marking someone as paid (opens Book 1)
 //  - free-will offerings: the giving instructions and who gave
@@ -43,6 +45,8 @@ router.get('/books', asyncHandler(async (_req, res) => {
     include: {
       devotional: { select: { id: true, titleEn: true, startDate: true } },
       exam: { select: { id: true, titleEn: true, status: true, passMark: true, _count: { select: { questions: true } } } },
+      cover: { select: { source: true } },
+      _count: { select: { chapters: true } },
     },
   });
   // Leadership book exams: how many questions each set has (20 per set).
@@ -62,6 +66,10 @@ router.get('/books', asyncHandler(async (_req, res) => {
       devotional: b.devotional,
       hasFile: Boolean(b.storageKey),
       byteSize: b.byteSize,
+      pageCount: b.pageCount,
+      coverUrl: coverUrl(b, '/api/admin/library/books'),
+      coverSource: b.cover?.source ?? null,
+      chapterCount: b._count.chapters,
       exam: b.exam
         ? {
             id: b.exam.id,
@@ -189,7 +197,12 @@ router.post('/books/:id/file/authorize', attachmentUploadAuthorizeLimiter, requi
   res.json({ storageKey, uploadUrl: url, expiresAt, maxBytes: MAX_BOOK_BYTES });
 }));
 
-const fileFinalizeSchema = z.object({ storageKey: z.string().min(1), byteSize: z.number().int().positive() });
+const fileFinalizeSchema = z.object({
+  storageKey: z.string().min(1),
+  byteSize: z.number().int().positive(),
+  // Read from the PDF in the admin's browser; left out when it couldn't be.
+  pageCount: z.number().int().min(1).max(10000).optional(),
+});
 
 // Upload step 2: check the PDF really landed, then attach it to the book.
 router.post('/books/:id/file', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -205,9 +218,142 @@ router.post('/books/:id/file', communityMutationLimiter, requireCsrf, asyncHandl
   }
   await prisma.libraryBook.update({
     where: { id: req.params.id },
-    data: { storageKey: parsed.data.storageKey, byteSize: parsed.data.byteSize },
+    data: { storageKey: parsed.data.storageKey, byteSize: parsed.data.byteSize, pageCount: parsed.data.pageCount ?? null },
   });
   await audit(req, 'LIBRARY_BOOK_FILE_UPLOADED', 'LibraryBook', req.params.id, { byteSize: parsed.data.byteSize });
+  res.json({ ok: true });
+}));
+
+// ----------------------------- Covers ---------------------------------------
+
+const coverSchema = z.object({
+  image: z.string().max(450_000),
+  // AUTO: drawn from page 1 of the PDF just uploaded. MANUAL: chosen by the admin.
+  source: z.enum(['AUTO', 'MANUAL']),
+});
+
+// PUT /api/admin/library/books/:id/cover — an automatic cover never
+// replaces one the admin chose.
+router.put('/books/:id/cover', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = coverSchema.safeParse(req.body);
+  const picture = parsed.success ? readCoverDataUrl(parsed.data.image) : null;
+  if (!parsed.success || !picture) return res.status(400).json({ error: 'Please choose a JPEG, PNG or WebP picture.', code: 'INVALID_COVER' });
+  const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { id: true, cover: { select: { source: true } } } });
+  if (!book) return res.status(404).json({ error: 'Book not found.' });
+  if (parsed.data.source === 'AUTO' && book.cover?.source === 'MANUAL') return res.json({ kept: true });
+  const coverVersion = newCoverVersion();
+  await prisma.$transaction([
+    prisma.libraryBookCover.upsert({
+      where: { bookId: book.id },
+      create: { bookId: book.id, mimeType: picture.mimeType, data: picture.data, source: parsed.data.source },
+      update: { mimeType: picture.mimeType, data: picture.data, source: parsed.data.source },
+    }),
+    prisma.libraryBook.update({ where: { id: book.id }, data: { coverVersion } }),
+  ]);
+  await audit(req, 'LIBRARY_BOOK_COVER_SET', 'LibraryBook', book.id, { source: parsed.data.source, bytes: picture.data.length });
+  res.json({ coverUrl: coverUrl({ id: book.id, coverVersion }, '/api/admin/library/books') });
+}));
+
+// DELETE /api/admin/library/books/:id/cover — back to the drawn cover.
+router.delete('/books/:id/cover', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!book) return res.status(404).json({ error: 'Book not found.' });
+  await prisma.$transaction([
+    prisma.libraryBookCover.deleteMany({ where: { bookId: book.id } }),
+    prisma.libraryBook.update({ where: { id: book.id }, data: { coverVersion: null } }),
+  ]);
+  await audit(req, 'LIBRARY_BOOK_COVER_REMOVED', 'LibraryBook', book.id);
+  res.json({ ok: true });
+}));
+
+router.get('/books/:id/cover', asyncHandler(async (req, res) => {
+  await sendCover(res, req.params.id, typeof req.query.v === 'string');
+}));
+
+// ----------------------------- Chapters -------------------------------------
+
+const chapterSchema = z.object({
+  titleEn: z.string().trim().min(1).max(200),
+  titleFr: z.string().trim().max(200).optional(),
+  summaryEn: z.string().trim().max(3000).optional(),
+  summaryFr: z.string().trim().max(3000).optional(),
+});
+
+const chapterView = { id: true, order: true, titleEn: true, titleFr: true, summaryEn: true, summaryFr: true } as const;
+
+router.get('/books/:id/chapters', asyncHandler(async (req, res) => {
+  const items = await prisma.bookChapter.findMany({ where: { bookId: req.params.id }, orderBy: { order: 'asc' }, select: chapterView });
+  res.json({ items });
+}));
+
+// POST /api/admin/library/books/:id/chapters — adds the next chapter.
+router.post('/books/:id/chapters', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = chapterSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Please give the chapter a title.', code: 'INVALID' });
+  const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!book) return res.status(404).json({ error: 'Book not found.' });
+  const last = await prisma.bookChapter.aggregate({ where: { bookId: book.id }, _max: { order: true } });
+  const d = parsed.data;
+  const chapter = await prisma.bookChapter.create({
+    data: {
+      bookId: book.id,
+      order: (last._max.order ?? 0) + 1,
+      titleEn: d.titleEn,
+      titleFr: d.titleFr || null,
+      summaryEn: d.summaryEn || null,
+      summaryFr: d.summaryFr || null,
+    },
+    select: chapterView,
+  });
+  await audit(req, 'BOOK_CHAPTER_CREATED', 'BookChapter', chapter.id, { bookId: book.id });
+  res.status(201).json(chapter);
+}));
+
+router.patch('/chapters/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = chapterSchema.partial().safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid chapter.', code: 'INVALID' });
+  const exists = await prisma.bookChapter.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!exists) return res.status(404).json({ error: 'Chapter not found.' });
+  const d = parsed.data;
+  const chapter = await prisma.bookChapter.update({
+    where: { id: req.params.id },
+    data: {
+      ...(d.titleEn !== undefined ? { titleEn: d.titleEn } : {}),
+      ...(d.titleFr !== undefined ? { titleFr: d.titleFr || null } : {}),
+      ...(d.summaryEn !== undefined ? { summaryEn: d.summaryEn || null } : {}),
+      ...(d.summaryFr !== undefined ? { summaryFr: d.summaryFr || null } : {}),
+    },
+    select: chapterView,
+  });
+  await audit(req, 'BOOK_CHAPTER_UPDATED', 'BookChapter', chapter.id);
+  res.json(chapter);
+}));
+
+// POST /api/admin/library/chapters/:id/move — { direction: 'UP' | 'DOWN' }
+// swaps it with the chapter before / after it.
+router.post('/chapters/:id/move', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = z.object({ direction: z.enum(['UP', 'DOWN']) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid move.', code: 'INVALID' });
+  const chapter = await prisma.bookChapter.findUnique({ where: { id: req.params.id } });
+  if (!chapter) return res.status(404).json({ error: 'Chapter not found.' });
+  const up = parsed.data.direction === 'UP';
+  const neighbour = await prisma.bookChapter.findFirst({
+    where: { bookId: chapter.bookId, order: up ? { lt: chapter.order } : { gt: chapter.order } },
+    orderBy: { order: up ? 'desc' : 'asc' },
+  });
+  if (neighbour) {
+    await prisma.$transaction([
+      prisma.bookChapter.update({ where: { id: chapter.id }, data: { order: neighbour.order } }),
+      prisma.bookChapter.update({ where: { id: neighbour.id }, data: { order: chapter.order } }),
+    ]);
+  }
+  res.json({ ok: true });
+}));
+
+router.delete('/chapters/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const deleted = await prisma.bookChapter.deleteMany({ where: { id: req.params.id } });
+  if (deleted.count === 0) return res.status(404).json({ error: 'Chapter not found.' });
+  await audit(req, 'BOOK_CHAPTER_DELETED', 'BookChapter', req.params.id);
   res.json({ ok: true });
 }));
 

@@ -71,6 +71,8 @@ const MemberGroupInfoPage = lazy(() => import('./pages/MemberGroupInfoPage').the
 const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').then((m) => ({ default: m.MemberGroupChatPage })));
 const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
 const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
+const MemberSchoolPage = lazy(() => import('./pages/MemberSchoolPage').then((m) => ({ default: m.MemberSchoolPage })));
+const MemberSchoolBookPage = lazy(() => import('./pages/MemberSchoolBookPage').then((m) => ({ default: m.MemberSchoolBookPage })));
 const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
 const MemberMePage = lazy(() => import('./pages/MemberMePage').then((m) => ({ default: m.MemberMePage })));
 const MemberEditProfilePage = lazy(() => import('./pages/MemberEditProfilePage').then((m) => ({ default: m.MemberEditProfilePage })));
@@ -241,6 +243,22 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberLearnPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/school"
+              element={
+                <RequireMember>
+                  <MemberSchoolPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/school/:bookId"
+              element={
+                <RequireMember>
+                  <MemberSchoolBookPage />
                 </RequireMember>
               }
             />

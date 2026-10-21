@@ -88,7 +88,7 @@ export function MemberReaderPage() {
 .reader-page canvas{display:block;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 @media print{body{display:none!important}}`}</style>
       <header className="sticky top-0 z-10 flex items-center justify-between gap-3 bg-white px-4 py-3 shadow-sm">
-        <Link to="/member/learn" className="text-sm text-brand-700 hover:underline">
+        <Link to={book?.kind === 'TRAINING' ? `/member/school/${book.id}` : '/member/learn'} className="text-sm text-brand-700 hover:underline">
           ← {t('reader.back')}
         </Link>
         <h1 className="truncate text-sm font-semibold text-brand-900">{title}</h1>

@@ -3,16 +3,24 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { PaymentsAndGrace, TrainingPaymentSettings } from './TrainingPaymentsAdmin';
+import { BookDetailsAdmin } from './BookDetailsAdmin';
+import { readPdfCover } from '../../lib/bookCover';
 
 interface BookRow {
   id: string;
   kind: 'DEVOTIONAL' | 'TRAINING';
   titleEn: string;
   titleFr: string | null;
+  descriptionEn?: string | null;
+  descriptionFr?: string | null;
   trainingOrder: number | null;
   devotional: { id: string; titleEn: string } | null;
   hasFile: boolean;
   byteSize: number | null;
+  pageCount?: number | null;
+  coverUrl?: string | null;
+  coverSource?: 'AUTO' | 'MANUAL' | null;
+  chapterCount?: number;
   exam: {
     id: string;
     titleEn: string;
@@ -60,7 +68,11 @@ interface TraineeRow {
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
-/** "Upload PDF" button: authorize → send straight to storage → confirm. */
+/**
+ * "Upload PDF" button: authorize → send straight to storage → confirm.
+ * Meanwhile this browser reads the PDF's page count and draws page 1 as
+ * the book's cover (kept unless the admin chose a cover picture).
+ */
 function PdfUpload({ bookId, hasFile, onDone }: { bookId: string; hasFile: boolean; onDone: () => void }) {
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
@@ -74,13 +86,16 @@ function PdfUpload({ bookId, hasFile, onDone }: { bookId: string; hasFile: boole
     if (file.size > MAX_PDF_BYTES) return setError(t('library.pdf_too_large'));
     setBusy(true);
     try {
+      const reading = readPdfCover(file);
       const auth = await api.post<{ storageKey: string; uploadUrl: string }>(`/api/admin/library/books/${bookId}/file/authorize`, {
         mimeType: 'application/pdf',
         byteSize: file.size,
       });
       const put = await fetch(auth.uploadUrl, { method: 'PUT', headers: { 'Content-Type': 'application/pdf' }, body: file });
       if (!put.ok) throw new Error('upload');
-      await api.post(`/api/admin/library/books/${bookId}/file`, { storageKey: auth.storageKey, byteSize: file.size });
+      const info = await reading;
+      await api.post(`/api/admin/library/books/${bookId}/file`, { storageKey: auth.storageKey, byteSize: file.size, pageCount: info?.pageCount });
+      if (info?.cover) await api.put(`/api/admin/library/books/${bookId}/cover`, { image: info.cover, source: 'AUTO' }).catch(() => {});
       onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('library.upload_failed'));
@@ -170,6 +185,7 @@ export function LibraryTab() {
   const [retakes, setRetakes] = useState<RetakeRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [openOfferings, setOpenOfferings] = useState<string | null>(null);
+  const [openDetails, setOpenDetails] = useState<string | null>(null);
 
   const trainingBooks = books.filter((b) => b.kind === 'TRAINING');
   const nextOrder = trainingBooks.reduce((max, b) => Math.max(max, b.trainingOrder ?? 0), 0) + 1;
@@ -280,8 +296,18 @@ export function LibraryTab() {
         <ul className="divide-y divide-slate-100">
           {trainingBooks.map((b) => (
             <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-              <span className="font-semibold text-slate-800">
-                {t('library.book', { number: b.trainingOrder })}: {b.titleEn}
+              <span className="min-w-0">
+                <span className="block font-semibold text-slate-800">
+                  {t('library.book', { number: b.trainingOrder })}: {b.titleEn}
+                </span>
+                <span className="block text-xs text-slate-500">
+                  {[b.pageCount ? t('school.pages', { count: b.pageCount }) : null, t('school.chapters', { count: b.chapterCount ?? 0 }), b.coverUrl ? t('library.has_cover') : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+                <button type="button" className="text-xs text-brand-700 underline" onClick={() => setOpenDetails(openDetails === b.id ? null : b.id)}>
+                  {openDetails === b.id ? t('library.details_close') : t('library.details_open')}
+                </button>
               </span>
               <span className="flex flex-wrap items-center gap-3">
                 <PdfUpload bookId={b.id} hasFile={b.hasFile} onDone={load} />
@@ -294,6 +320,7 @@ export function LibraryTab() {
                   </span>
                 )}
               </span>
+              {openDetails === b.id && <BookDetailsAdmin book={b} onChanged={load} />}
             </li>
           ))}
         </ul>

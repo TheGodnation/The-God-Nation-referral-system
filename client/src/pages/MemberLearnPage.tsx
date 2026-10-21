@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
-import { GraceBox, PayBookPanel } from '../components/learn/TrainingPayments';
+import { BookCover } from '../components/learn/BookCover';
+import { SCHOOL_BOOK_COUNT, SchoolSummary } from '../components/learn/schoolBits';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api, ApiError } from '../lib/api';
@@ -32,43 +33,10 @@ interface DevotionalRow {
   exams: WeeklyExam[];
 }
 
-interface TrainingBook {
-  id: string;
-  trainingOrder: number;
-  titleEn: string;
-  titleFr: string | null;
-  descriptionEn: string | null;
-  descriptionFr: string | null;
-  unlocked: boolean;
-  canRead: boolean;
-  payment?: 'PAID' | 'CLAIMED' | 'PENDING' | null;
-  lockedBecause?: 'NOT_STARTED' | 'PREVIOUS_EXAM' | 'PAYMENT' | null;
-  exam: {
-    id: string;
-    passMark: number;
-    bestPercentage: number | null;
-    passed: boolean;
-    tries?: number;
-    canStart?: boolean;
-    block?: 'PASSED' | 'NO_QUESTIONS' | 'NEEDS_RETAKE' | 'RETAKE_REQUESTED' | 'RETAKE_DECLINED' | 'NO_NEW_QUESTIONS' | null;
-  } | null;
-}
-
 interface ExamWorld {
   offering: { instructionsEn: string | null; instructionsFr: string | null };
   devotionals: DevotionalRow[];
-  training: {
-    enrollment: 'NONE' | 'REQUESTED' | 'ACTIVE' | 'REVOKED';
-    books: TrainingBook[];
-    price?: number;
-    owed?: { books: number; amount: number };
-    graceBooks?: number;
-    maxGraceBooks?: number;
-    graceRequest?: { status: 'REQUESTED' | 'GRANTED' | 'DECLINED'; books: number } | null;
-    paymentInstructionsEn?: string | null;
-    paymentInstructionsFr?: string | null;
-    automaticPayments?: boolean;
-  };
+  training: SchoolSummary;
 }
 
 function OfferingBox({ devotional, instructions, onGiven }: { devotional: DevotionalRow; instructions: string | null; onGiven: () => void }) {
@@ -131,13 +99,13 @@ function OfferingBox({ devotional, instructions, onGiven }: { devotional: Devoti
 
 // "Learn" for members: Exam World. This month's devotional (read it in the
 // app, free-will offering, Week 1-4 exams with the first-try score), and
-// leadership training (15 books opened one after another).
+// the way into the Leadership School (15 books opened one after another,
+// see MemberSchoolPage).
 export function MemberLearnPage() {
   const { t, i18n } = useTranslation();
   const isFr = i18n.language.startsWith('fr');
   const [data, setData] = useState<ExamWorld | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [requesting, setRequesting] = useState(false);
 
   function load() {
     api
@@ -147,18 +115,6 @@ export function MemberLearnPage() {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
-
-  async function requestTraining() {
-    setRequesting(true);
-    try {
-      await api.post('/api/member/training/request');
-      load();
-    } catch {
-      setError(t('learn.failed'));
-    } finally {
-      setRequesting(false);
-    }
-  }
 
   const tr = (en: string, fr: string | null) => (isFr ? fr || en : en);
   const instructions = data ? (isFr ? data.offering.instructionsFr || data.offering.instructionsEn : data.offering.instructionsEn) : null;
@@ -228,95 +184,24 @@ export function MemberLearnPage() {
 
             <section className="space-y-3">
               <h2 className="text-lg font-semibold text-brand-900">🎓 {t('learn.training_heading')}</h2>
-              {data.training.enrollment !== 'ACTIVE' && (
-                <div className="card space-y-2 text-sm">
-                  <p className="text-slate-700">{t('learn.training_intro', { count: data.training.books.length || 15 })}</p>
-                  <p className="text-slate-700">{t('learn.training_payment_rule', { price: (data.training.price ?? 1100).toLocaleString('fr-FR') })}</p>
-                  {data.training.enrollment === 'REVOKED' ? (
-                    <p className="font-medium text-amber-800">{t('learn.training_stopped')}</p>
-                  ) : (
-                    <button type="button" className="btn-primary" disabled={requesting} onClick={requestTraining}>
-                      {t('learn.training_begin')}
-                    </button>
-                  )}
-                </div>
-              )}
-              {data.training.enrollment === 'ACTIVE' && (
-                <div className="card space-y-2 text-sm">
-                  {(data.training.owed?.books ?? 0) > 0 ? (
-                    <p className="font-medium text-slate-800">
-                      {t('learn.owed', { count: data.training.owed!.books, amount: data.training.owed!.amount.toLocaleString('fr-FR') })}
-                    </p>
-                  ) : (
-                    <p className="font-medium text-green-700">{t('learn.all_paid')}</p>
-                  )}
-                  <GraceBox
-                    graceBooks={data.training.graceBooks ?? 0}
-                    maxGraceBooks={data.training.maxGraceBooks ?? 5}
-                    request={data.training.graceRequest ?? null}
-                    onDone={load}
-                  />
-                </div>
-              )}
-              {data.training.books.length > 0 && (
-                <ul className="card divide-y divide-slate-100 p-0">
-                  {data.training.books.map((b) => (
-                    <li key={b.id} className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm ${b.unlocked ? '' : 'opacity-60'}`}>
-                      <span className="min-w-0">
-                        <span className="block font-semibold text-slate-800">
-                          {b.unlocked ? '' : '🔒 '}
-                          {t('learn.book', { number: b.trainingOrder })}: {tr(b.titleEn, b.titleFr)}
-                        </span>
-                        {b.exam?.passed && <span className="text-green-700">✓ {t('learn.passed_with', { score: Math.round(b.exam.bestPercentage ?? 0) })}</span>}
-                        {b.exam && !b.exam.passed && b.exam.bestPercentage !== null && (
-                          <span className="text-red-700">{t('learn.best_score', { score: Math.round(b.exam.bestPercentage), passMark: b.exam.passMark })}</span>
-                        )}
-                        {b.exam && (b.exam.block === 'NEEDS_RETAKE' || b.exam.block === 'RETAKE_DECLINED') && (
-                          <span className="text-amber-800">{t('learn.exam_retake_needed')}</span>
-                        )}
-                        {b.exam?.block === 'RETAKE_REQUESTED' && <span className="text-amber-800">{t('learn.exam_retake_requested')}</span>}
-                        {b.exam && !b.exam.passed && (b.exam.tries ?? 0) > 0 && b.exam.canStart && (
-                          <span className="text-green-700">{t('learn.exam_retake_granted')}</span>
-                        )}
-                        {b.unlocked && b.payment === 'PAID' && <span className="block text-green-700">✓ {t('learn.paid')}</span>}
-                        {b.unlocked && (b.payment === 'CLAIMED' || b.payment === 'PENDING') && (
-                          <span className="block text-amber-800">{t('learn.payment_waiting')}</span>
-                        )}
-                        {!b.unlocked && b.lockedBecause === 'PREVIOUS_EXAM' && (
-                          <span className="block text-slate-600">{t('learn.locked_exam', { number: b.trainingOrder - 1 })}</span>
-                        )}
-                        {!b.unlocked && b.lockedBecause === 'PAYMENT' && (
-                          <span className="block text-slate-600">{t('learn.locked_payment', { number: b.trainingOrder - 1 })}</span>
-                        )}
-                      </span>
-                      {b.unlocked && (
-                        <span className="flex shrink-0 gap-2">
-                          {b.canRead && (
-                            <Link to={`/member/read/${b.id}`} className="btn-secondary px-3 py-1.5">
-                              {t('learn.read')}
-                            </Link>
-                          )}
-                          {b.exam && (
-                            <Link to={`/member/assessments/${b.exam.id}`} className="btn-primary px-3 py-1.5">
-                              {t('learn.exam')}
-                            </Link>
-                          )}
-                        </span>
-                      )}
-                      {b.unlocked && !b.payment && (
-                        <PayBookPanel
-                          bookId={b.id}
-                          bookNumber={b.trainingOrder}
-                          price={data.training.price ?? 1100}
-                          instructions={tr(data.training.paymentInstructionsEn ?? '', data.training.paymentInstructionsFr ?? null) || null}
-                          automatic={Boolean(data.training.automaticPayments)}
-                          onDone={load}
-                        />
-                      )}
-                    </li>
+              <Link to="/member/school" className="card block space-y-3 hover:bg-brand-50">
+                <span className="flex gap-2" aria-hidden="true">
+                  {data.training.books.slice(0, 5).map((b) => (
+                    <span key={b.id} className="w-12">
+                      <BookCover compact number={b.trainingOrder} title={tr(b.titleEn, b.titleFr)} coverUrl={b.coverUrl ?? null} />
+                    </span>
                   ))}
-                </ul>
-              )}
+                </span>
+                <span className="block font-semibold text-brand-900">{t('school.title')}</span>
+                <span className="block text-sm text-slate-700">
+                  {data.training.enrollment === 'ACTIVE'
+                    ? t('school.progress', { passed: data.training.books.filter((b) => b.exam?.passed).length, total: Math.max(SCHOOL_BOOK_COUNT, data.training.books.length) })
+                    : data.training.enrollment === 'REVOKED'
+                      ? t('learn.training_stopped')
+                      : t('school.teaser', { count: Math.max(SCHOOL_BOOK_COUNT, data.training.books.length) })}
+                </span>
+                <span className="btn-primary inline-block">{t('school.open')}</span>
+              </Link>
             </section>
           </div>
         )}
