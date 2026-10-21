@@ -4,6 +4,7 @@ import { useMemberAuth } from '../lib/MemberAuthContext';
 import { PresencePing } from './member/PresencePing';
 import { ConnectionBar } from './member/ConnectionBar';
 import { OfflinePrefetch } from './member/OfflinePrefetch';
+import { WelcomeBackBanner } from './member/WelcomeBackBanner';
 
 // Phase 3C equivalent of ProtectedRoute/RequireAuth, but for the entirely
 // separate member session — never checks or interacts with the Admin/
@@ -30,6 +31,7 @@ export function RequireMember({ children }: { children: ReactNode }) {
       <PresencePing />
       <ConnectionBar />
       <OfflinePrefetch />
+      <WelcomeBackBanner />
     </>
   );
 }

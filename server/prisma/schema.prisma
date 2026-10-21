@@ -717,10 +717,19 @@ model Person {
   // "last seen" (see lib/presence.ts).
   lastSeenAt          DateTime?
   friendRequestPolicy FriendRequestPolicy @default(EVERYONE)
+  // "Delete my account" (lib/accountDeletion.ts): set when the member asks.
+  // For a month the account is hidden and signed out everywhere; signing
+  // in again cancels the deletion. Null = not asked (or came back).
+  deletionRequestedAt DateTime?
+  // Set only on the empty placeholder that replaces a deleted account in
+  // other people's chats (its messages show "This message was deleted").
+  // Such a row has no account, no details and is never listed anywhere.
+  erasedAt            DateTime?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
   users                                           User[]
+  deletionRequests                                AccountDeletionRequest[]
   registrations                                   Registration[]
   communityMemberships                            CommunityMembership[]
   attempts                                        Attempt[]
@@ -2799,16 +2808,74 @@ model TrainingGraceRequest {
 // for the central admin — giving is optional and never gates anything.
 model DevotionalOffering {
   id           String   @id @default(uuid())
-  personId     String
+  // Null once the giver deleted their account: the record (amount, date)
+  // is kept for the ministry's accounts, without the name.
+  personId     String?
   devotionalId String
   amount       Int?
   currency     String   @default("XAF")
   note         String?
   createdAt    DateTime @default(now())
 
-  person     Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  person     Person?           @relation(fields: [personId], references: [id], onDelete: SetNull)
   devotional MonthlyDevotional @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
 
   @@index([devotionalId, createdAt])
   @@index([personId])
+}
+
+enum AccountDeletionStatus {
+  PENDING
+  CANCELLED
+  COMPLETED
+}
+
+enum AccountDeletionSource {
+  APP
+  WEB
+}
+
+// A member's "Delete my account". The account is hidden at once and kept
+// for a month (readyAt); signing in before it is deleted cancels the
+// request (or the central admin keeps it). After the month only the
+// central admin approves the deletion. Leader roles the member held are
+// handed back to the central admin when they ask (`returned`, so they can
+// be given back if the member returns). The name, email and phone are
+// copied here only while the request is open, and cleared once it is done.
+model AccountDeletionRequest {
+  id              String                @id @default(uuid())
+  personId        String?
+  status          AccountDeletionStatus @default(PENDING)
+  source          AccountDeletionSource @default(APP)
+  personName      String?
+  email           String?
+  whatsappNumber  String?
+  requestedAt     DateTime              @default(now())
+  readyAt         DateTime
+  cancelledAt     DateTime?
+  // MEMBER (signed in again) or ADMIN (kept by the central admin).
+  cancelledBy     String?
+  completedAt     DateTime?
+  decidedByUserId String?
+  returned        Json?
+
+  person Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@index([status, readyAt])
+  @@index([personId])
+}
+
+// The 6-digit code emailed from the public "Delete your account" web page
+// (the page Google Play requires), proving the request comes from the
+// account's owner. Only its hash is kept; 5 wrong tries use it up.
+model AccountDeletionCode {
+  id        String    @id @default(uuid())
+  email     String
+  codeHash  String
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
 }

@@ -209,6 +209,11 @@ export function MemberEditProfilePage() {
           </button>
         </form>
         <DataSaverSetting />
+        <div className="mt-8 border-t border-slate-200 pt-4">
+          <Link to="/member/delete-account" className="text-sm font-medium text-red-700 underline">
+            {t('accountDeletion.title')}
+          </Link>
+        </div>
       </section>
     </PageShell>
   );

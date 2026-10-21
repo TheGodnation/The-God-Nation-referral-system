@@ -88,6 +88,19 @@ const DEFAULTS = {
     'Hi,\n\nYour code to finish joining The God Nation is: {{code}}\n\nType it in the app where you asked for it. It expires in 30 minutes and works only once. If you did not ask for this, you can safely ignore this email.',
   memberSignupCodeBodyFr:
     'Bonjour,\n\nVotre code pour terminer votre inscription à The God Nation est : {{code}}\n\nTapez-le dans l’application, là où vous l’avez demandé. Il expire dans 30 minutes et ne fonctionne qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
+
+  accountDeletionCodeSubjectEn: '{{code}} is your code to delete your God Nation account',
+  accountDeletionCodeSubjectFr: '{{code}} est votre code pour supprimer votre compte God Nation',
+  accountDeletionCodeBodyEn:
+    'Hi {{name}},\n\nSomeone asked to delete your The God Nation account on our website. If it was you, type this code on the page: {{code}}\n\nIt expires in 30 minutes. If you did not ask for this, ignore this email: nothing will change.',
+  accountDeletionCodeBodyFr:
+    'Bonjour {{name}},\n\nQuelqu’un a demandé la suppression de votre compte The God Nation sur notre site. Si c’est vous, tapez ce code sur la page : {{code}}\n\nIl expire dans 30 minutes. Si vous n’avez rien demandé, ignorez cet e-mail : rien ne changera.',
+  accountDeletionScheduledSubjectEn: 'Your God Nation account will be deleted',
+  accountDeletionScheduledSubjectFr: 'Votre compte God Nation va être supprimé',
+  accountDeletionScheduledBodyEn:
+    'Hi {{name}},\n\nAs you asked, your The God Nation account is now hidden and will be deleted after {{date}}, once the central admin approves it. Everything will then be lost: your profile, photos, messages, groups, friends and exam results.\n\nChanged your mind? Simply sign in to the app before then and your account comes back as it was.\n\n— The God Nation Media & Leadership Academy',
+  accountDeletionScheduledBodyFr:
+    'Bonjour {{name}},\n\nComme vous l’avez demandé, votre compte The God Nation est maintenant caché et sera supprimé après le {{date}}, une fois approuvé par l’administrateur central. Tout sera alors perdu : votre profil, vos photos, vos messages, vos groupes, vos amis et vos résultats d’examens.\n\nVous avez changé d’avis ? Connectez-vous simplement à l’application avant cette date et votre compte revient comme avant.\n\n— The God Nation Media & Leadership Academy',
 };
 
 async function getEmailContent(): Promise<Record<string, string>> {
@@ -194,6 +207,24 @@ export const EmailService = {
   /** Public join flow (PendingMemberSignup): screen 1's emailed code. No
    * account/Person exists yet, so (unlike sendMemberLoginLink) this never
    * has a name to greet or a link to offer — only the code. */
+  /** The public "Delete your account" web page's 6-digit code. */
+  async sendAccountDeletionCode(params: { to: string; name: string; language: 'en' | 'fr'; code: string }): Promise<SendResult> {
+    const isFr = params.language === 'fr';
+    const subject = (isFr ? DEFAULTS.accountDeletionCodeSubjectFr : DEFAULTS.accountDeletionCodeSubjectEn).replace('{{code}}', params.code);
+    const bodyTemplate = isFr ? DEFAULTS.accountDeletionCodeBodyFr : DEFAULTS.accountDeletionCodeBodyEn;
+    const htmlVars = { name: escapeHtml(params.name), code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code)}</strong>` };
+    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, { name: params.name, code: params.code }));
+  },
+
+  /** "Your account will be deleted after <date> — sign in before then to keep it." */
+  async sendAccountDeletionScheduled(params: { to: string; name: string; language: 'en' | 'fr'; readyAt: Date }): Promise<SendResult> {
+    const isFr = params.language === 'fr';
+    const date = params.readyAt.toLocaleDateString(isFr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Douala' });
+    const subject = isFr ? DEFAULTS.accountDeletionScheduledSubjectFr : DEFAULTS.accountDeletionScheduledSubjectEn;
+    const bodyTemplate = isFr ? DEFAULTS.accountDeletionScheduledBodyFr : DEFAULTS.accountDeletionScheduledBodyEn;
+    return send(params.to, subject, renderHtml(bodyTemplate, { name: escapeHtml(params.name), date: escapeHtml(date) }), renderText(bodyTemplate, { name: params.name, date }));
+  },
+
   async sendMemberSignupCode(params: { to: string; language: 'en' | 'fr'; code: string }): Promise<SendResult> {
     const isFr = params.language === 'fr';
     const subject = (isFr ? DEFAULTS.memberSignupCodeSubjectFr : DEFAULTS.memberSignupCodeSubjectEn).replace('{{code}}', params.code);

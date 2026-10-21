@@ -539,6 +539,16 @@ export const readingProgressLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
+// "Delete my account" in the app and on the public web page (and its
+// emailed code): rare, so kept tight.
+export const accountDeletionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
 export const memberReportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,

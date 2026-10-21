@@ -57,7 +57,9 @@ const personSelect = {
 type PersonRow = Prisma.PersonGetPayload<{ select: typeof personSelect }>;
 
 /** Only people who actually use the app (have a member account). */
-const APP_MEMBER: Prisma.PersonWhereInput = { memberAccount: { isNot: null } };
+// People who use the app — not someone whose account is waiting to be
+// deleted (hidden for that month, see lib/accountDeletion.ts).
+const APP_MEMBER: Prisma.PersonWhereInput = { memberAccount: { isNot: null }, deletionRequestedAt: null };
 
 const personIdSchema = z.object({ personId: z.string().uuid() });
 
@@ -279,7 +281,7 @@ router.get('/people/:personId/referred', requireMember, asyncHandler(async (req,
   const { referredIds } = await getFriendBreakdown(other);
   const { page, pageSize, skip, take } = parsePagination(req);
   const pageIds = referredIds.slice(skip, skip + take);
-  const people = await prisma.person.findMany({ where: { id: { in: pageIds } }, select: personSelect });
+  const people = await prisma.person.findMany({ where: { id: { in: pageIds }, deletionRequestedAt: null }, select: personSelect });
   const byId = new Map(people.map((p) => [p.id, p]));
   const items = pageIds.filter((id) => byId.has(id)).map((id) => toCard(byId.get(id)!, rel));
   res.json(paginatedResult(items, referredIds.length, page, pageSize));
@@ -301,7 +303,7 @@ router.get('/people/:personId/community', requireMember, asyncHandler(async (req
   const { communityIds } = await getFriendBreakdown(other);
   const { page, pageSize, skip, take } = parsePagination(req);
   const pageIds = communityIds.slice(skip, skip + take);
-  const people = await prisma.person.findMany({ where: { id: { in: pageIds } }, select: personSelect });
+  const people = await prisma.person.findMany({ where: { id: { in: pageIds }, deletionRequestedAt: null }, select: personSelect });
   const byId = new Map(people.map((p) => [p.id, p]));
   const items = pageIds.filter((id) => byId.has(id)).map((id) => toCard(byId.get(id)!, rel));
   res.json(paginatedResult(items, communityIds.length, page, pageSize));
@@ -340,7 +342,7 @@ router.get('/friends', requireMember, asyncHandler(async (req, res) => {
   const me = req.member!.personId;
   const ids = await getFriendIds(me);
   const rel = await relationshipMaps(me);
-  const people = await prisma.person.findMany({ where: { id: { in: ids } }, select: personSelect, orderBy: { name: 'asc' } });
+  const people = await prisma.person.findMany({ where: { id: { in: ids }, deletionRequestedAt: null }, select: personSelect, orderBy: { name: 'asc' } });
   res.json({ items: people.map((p) => toCard(p, rel)) });
 }));
 

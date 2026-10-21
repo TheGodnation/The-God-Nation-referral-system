@@ -1,3 +1,4 @@
+import { memberRouter as accountDeletionMemberRoutes, publicRouter as accountDeletionPublicRoutes, adminRouter as accountDeletionAdminRoutes } from './routes/accountDeletion';
 import express from 'express';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -121,6 +122,9 @@ export function createApp() {
   // adminPeopleRoutes above.
   app.use('/api/admin', adminAttemptsRoutes);
   app.use('/api/member/auth', memberAuthRoutes);
+  app.use('/api/member/account', accountDeletionMemberRoutes);
+  app.use('/api/account-deletion', accountDeletionPublicRoutes);
+  app.use('/api/admin/account-deletions', accountDeletionAdminRoutes);
   app.use('/api/member', memberAssessmentsRoutes);
   // Phase 3D: adminLeadershipRoutes defines '/role-assignments' and
   // '/follow-ups', so it mounts at the '/api/admin' root, same pattern as

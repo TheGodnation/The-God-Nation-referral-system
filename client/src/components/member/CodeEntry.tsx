@@ -1,3 +1,4 @@
+import { noteSignIn } from '../../lib/accountDeletion';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -50,7 +51,7 @@ export function CodeEntry({
     }
     setBusy(true);
     try {
-      await api.post('/api/member/auth/verify-code', { email, code: clean, ...(requirePassword ? { newPassword } : {}) });
+      noteSignIn(await api.post('/api/member/auth/verify-code', { email, code: clean, ...(requirePassword ? { newPassword } : {}) }));
       await refresh();
       navigate('/member/chats', { replace: true });
     } catch (err) {

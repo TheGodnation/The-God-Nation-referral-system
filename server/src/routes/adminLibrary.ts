@@ -768,7 +768,7 @@ router.get('/devotionals/:id/offerings', asyncHandler(async (req, res) => {
   res.json({
     total,
     count: rows.length,
-    items: rows.map((r) => ({ id: r.id, name: r.person.name, amount: r.amount, currency: r.currency, note: r.note, createdAt: r.createdAt })),
+    items: rows.map((r) => ({ id: r.id, name: r.person?.name ?? null, amount: r.amount, currency: r.currency, note: r.note, createdAt: r.createdAt })),
   });
 }));
 

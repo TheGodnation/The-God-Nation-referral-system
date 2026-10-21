@@ -71,6 +71,8 @@ const MemberGroupInfoPage = lazy(() => import('./pages/MemberGroupInfoPage').the
 const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').then((m) => ({ default: m.MemberGroupChatPage })));
 const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
 const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
+const DeleteAccountPage = lazy(() => import('./pages/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })));
+const MemberDeleteAccountPage = lazy(() => import('./pages/MemberDeleteAccountPage').then((m) => ({ default: m.MemberDeleteAccountPage })));
 const MemberDownloadsPage = lazy(() => import('./pages/MemberDownloadsPage').then((m) => ({ default: m.MemberDownloadsPage })));
 const MemberSchoolPage = lazy(() => import('./pages/MemberSchoolPage').then((m) => ({ default: m.MemberSchoolPage })));
 const MemberSchoolBookPage = lazy(() => import('./pages/MemberSchoolBookPage').then((m) => ({ default: m.MemberSchoolBookPage })));
@@ -105,6 +107,7 @@ export default function App() {
             <Route path="/teachings" element={<TeachingsPage />} />
             <Route path="/announcements" element={<AnnouncementsPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/delete-account" element={<DeleteAccountPage />} />
             <Route path="/member/login" element={<MemberLoginPage />} />
             <Route path="/member/login/confirm" element={<MemberLoginConfirmPage />} />
             <Route path="/member/join" element={<MemberSignupPage />} />
@@ -260,6 +263,14 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberSchoolBookPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/delete-account"
+              element={
+                <RequireMember>
+                  <MemberDeleteAccountPage />
                 </RequireMember>
               }
             />

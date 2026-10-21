@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, CopyObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Phase 3M.8C — the ONLY file in this codebase that knows Cloudflare R2 is
@@ -145,4 +145,10 @@ export async function copyObject(params: { sourceKey: string; destKey: string })
       CopySource: `${bucketName}/${params.sourceKey.split('/').map(encodeURIComponent).join('/')}`,
     }),
   );
+}
+
+// Removing a file for good (a deleted account's photos and chat files).
+export async function deleteObject(params: { storageKey: string }): Promise<void> {
+  const { client, bucketName } = requireClient();
+  await client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: params.storageKey }));
 }

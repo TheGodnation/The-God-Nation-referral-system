@@ -157,7 +157,7 @@ function OfferingSettings() {
 
 function Offerings({ devotionalId }: { devotionalId: string }) {
   const { t } = useTranslation();
-  const [data, setData] = useState<{ total: number; count: number; items: { id: string; name: string; amount: number | null; createdAt: string }[] } | null>(null);
+  const [data, setData] = useState<{ total: number; count: number; items: { id: string; name: string | null; amount: number | null; createdAt: string }[] } | null>(null);
   useEffect(() => {
     api.get<typeof data>(`/api/admin/library/devotionals/${devotionalId}/offerings`).then(setData).catch(() => {});
   }, [devotionalId]);
@@ -168,7 +168,7 @@ function Offerings({ devotionalId }: { devotionalId: string }) {
       <ul className="mt-1 space-y-0.5">
         {data.items.map((o) => (
           <li key={o.id}>
-            {o.name}: {o.amount !== null ? `${o.amount.toLocaleString()} XAF` : t('library.amount_not_given')} · {new Date(o.createdAt).toLocaleDateString()}
+            {o.name ?? '—'}: {o.amount !== null ? `${o.amount.toLocaleString()} XAF` : t('library.amount_not_given')} · {new Date(o.createdAt).toLocaleDateString()}
           </li>
         ))}
       </ul>

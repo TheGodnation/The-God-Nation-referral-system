@@ -1,3 +1,4 @@
+import { AccountDeletionsTab } from '../components/admin/AccountDeletionsTab';
 import { AdminOnlineNow } from '../components/admin/AdminOnlineNow';
 import { AdminBannerPicture } from '../components/admin/AdminBannerPicture';
 import { AdminWallpaperPicker } from '../components/admin/AdminWallpaperPicker';
@@ -50,6 +51,7 @@ type Tab =
   | 'prayerRequests'
   | 'updates'
   | 'memberReports'
+  | 'accountDeletions'
   | 'library'
   | 'privateMessages'
   | 'resources'
@@ -1710,6 +1712,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'memberReports'} onClick={() => setTab('memberReports')}>
               {t('admin.tabs.memberReports')}
             </TabButton>
+            <TabButton active={tab === 'accountDeletions'} onClick={() => setTab('accountDeletions')}>
+              {t('admin.tabs.accountDeletions')}
+            </TabButton>
             <TabButton active={tab === 'privateMessages'} onClick={() => setTab('privateMessages')}>
               {t('admin.tabs.privateMessages')}
             </TabButton>
@@ -1770,6 +1775,7 @@ export function AdminDashboardPage() {
         )}
         {tab === 'privateMessages' && <PrivateMessagesTab />}
         {tab === 'memberReports' && <ReportsList basePath="/api/admin/member-reports" />}
+        {tab === 'accountDeletions' && <AccountDeletionsTab />}
         {tab === 'resources' && <ResourcesTab />}
         {tab === 'locations' && <LocationsTab includeTestData={includeTestData} />}
         {tab === 'memberMap' && <MemberMapTab includeTestData={includeTestData} />}

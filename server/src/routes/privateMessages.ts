@@ -432,6 +432,14 @@ router.post(
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid message.' });
     }
 
+    // The other side no longer has an account: the chat stays, but can't be
+    // answered (it shows only "This message was deleted" bubbles).
+    const counterpartId = actor.type === 'PERSON' && conversation.memberPersonId === actor.personId ? conversation.initiatorPersonId : conversation.memberPersonId;
+    if (counterpartId) {
+      const counterpart = await prisma.person.findUnique({ where: { id: counterpartId }, select: { erasedAt: true } });
+      if (counterpart?.erasedAt) return res.status(403).json({ error: 'You can’t reply to this conversation.', code: 'UNAVAILABLE' });
+    }
+
     // Between two people, a block (either way) stops replies too.
     if (actor.type === 'PERSON') {
       const otherPersonId =

@@ -33,6 +33,8 @@ router.get('/people', asyncHandler(async (req, res) => {
 
   const where: Prisma.PersonWhereInput = {
     ...testFilter,
+    // The empty placeholders left in chats by deleted accounts are nobody.
+    erasedAt: null,
     ...(q.search
       ? {
           OR: [

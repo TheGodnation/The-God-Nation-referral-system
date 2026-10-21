@@ -1,3 +1,4 @@
+import { noteSignIn } from '../lib/accountDeletion';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +30,8 @@ export function MemberLoginConfirmPage() {
     }
     api
       .post('/api/member/auth/consume', { token })
-      .then(async () => {
+      .then(async (res) => {
+        noteSignIn(res);
         await refresh();
         setStatus('success');
         setTimeout(() => navigate('/member/chats'), 1000);

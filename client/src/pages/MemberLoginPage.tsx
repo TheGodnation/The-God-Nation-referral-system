@@ -1,3 +1,4 @@
+import { noteSignIn } from '../lib/accountDeletion';
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -37,7 +38,7 @@ export function MemberLoginPage() {
     if (!emailTypo.confirmBeforeSubmit()) return;
     setSubmitting(true);
     try {
-      await api.post('/api/member/auth/login', { email: clean, password });
+      noteSignIn(await api.post('/api/member/auth/login', { email: clean, password }));
       await refresh();
       navigate('/member/chats', { replace: true });
     } catch (err) {

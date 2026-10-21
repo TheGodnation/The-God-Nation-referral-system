@@ -1,3 +1,4 @@
+import { cancelAccountDeletion } from '../lib/accountDeletion';
 import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
@@ -69,6 +70,16 @@ async function sendMemberLoginLink(memberAccount: MemberAccount, person: Person)
     targetType: 'MemberAccount',
     targetId: memberAccount.id,
   });
+}
+
+/**
+ * Signing in while "Delete my account" is waiting (the month, or until the
+ * central admin decides) cancels it: the account comes back as it was.
+ * Done before the leader session is paired, so a returned leader account
+ * is active again first.
+ */
+async function comeBack(person: { id: string; deletionRequestedAt: Date | null }): Promise<boolean> {
+  return person.deletionRequestedAt ? cancelAccountDeletion(person.id, 'MEMBER') : false;
 }
 
 function hashCode(tokenId: string, code: string): string {
@@ -717,6 +728,7 @@ router.post('/login', memberPasswordLoginLimiter, requireCsrf, asyncHandler(asyn
   await prisma.memberAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
   await recordLoginAttempt(bruteForceId, true, ip, userAgent);
   await createMemberSession(account.id, res);
+  const deletionCancelled = await comeBack(account.person);
   await autoPairLeaderSession(account.personId, res);
   await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'password' } });
 
@@ -726,6 +738,7 @@ router.post('/login', memberPasswordLoginLimiter, requireCsrf, asyncHandler(asyn
       email: account.email,
       preferredLanguage: account.person.preferredLanguage,
     },
+    ...(deletionCancelled ? { deletionCancelled: true } : {}),
   });
 }));
 
@@ -839,6 +852,7 @@ router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler
     data: { lastLoginAt: new Date(), ...(newPasswordHash ? { passwordHash: newPasswordHash } : {}) },
   });
   await createMemberSession(account.id, res);
+  const deletionCancelled = await comeBack(account.person);
   await autoPairLeaderSession(account.personId, res);
   await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'code' } });
   if (newPasswordHash) {
@@ -851,6 +865,7 @@ router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler
       email: account.email,
       preferredLanguage: account.person.preferredLanguage,
     },
+    ...(deletionCancelled ? { deletionCancelled: true } : {}),
   });
 }));
 
@@ -891,6 +906,7 @@ router.post('/consume', memberLoginConsumeLimiter, requireCsrf, asyncHandler(asy
 
   await prisma.memberAccount.update({ where: { id: memberAccount.id }, data: { lastLoginAt: new Date() } });
   await createMemberSession(memberAccount.id, res);
+  const deletionCancelled = await comeBack(memberAccount.person);
   await autoPairLeaderSession(memberAccount.personId, res);
 
   await recordAudit({
@@ -905,6 +921,7 @@ router.post('/consume', memberLoginConsumeLimiter, requireCsrf, asyncHandler(asy
       email: memberAccount.email,
       preferredLanguage: memberAccount.person.preferredLanguage,
     },
+    ...(deletionCancelled ? { deletionCancelled: true } : {}),
   });
 }));
 
