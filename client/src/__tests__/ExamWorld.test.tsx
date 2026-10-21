@@ -84,7 +84,7 @@ describe('Exam World (Learn page)', () => {
     expect(within(devotional).getByText('80%')).toBeInTheDocument();
     expect(within(devotional).getByRole('link', { name: 'Take exam' })).toHaveAttribute('href', '/member/assessments/w2');
 
-    const school = screen.getByRole('link', { name: /God's Nation Leadership School/ });
+    const school = screen.getByRole('link', { name: /The God Nation Leadership School/ });
     expect(school).toHaveAttribute('href', '/member/school');
     expect(within(school).getByText('1 of 15 books passed')).toBeInTheDocument();
   });

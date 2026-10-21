@@ -2361,10 +2361,10 @@
     "grace_declined": "Your last request to study now and pay later was not granted."
   },
   "school": {
-    "name": "God's Nation Leadership School",
-    "title": "God's Nation Leadership School",
+    "name": "The God Nation Leadership School",
+    "title": "The God Nation Leadership School",
     "back_to_learn": "Learn",
-    "intro": "{{count}} books to grow as a leader in God's Nation. Each book is downloaded into the app and kept for you, ready to read anytime. Pass its exam, and the next book opens.",
+    "intro": "{{count}} books to grow as a leader in The God Nation. Each book is downloaded into the app and kept for you, ready to read anytime. Pass its exam, and the next book opens.",
     "teaser": "{{count}} books to grow as a leader. Book 1 opens as soon as you begin.",
     "progress": "{{passed}} of {{total}} books passed",
     "open": "Open the school",

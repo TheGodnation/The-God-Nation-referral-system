@@ -5,7 +5,7 @@ import { MemberSchoolPage } from '../pages/MemberSchoolPage';
 import { MemberSchoolBookPage } from '../pages/MemberSchoolBookPage';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 
-// God's Nation Leadership School: the 15 books as covers with their
+// The God Nation Leadership School: the 15 books as covers with their
 // status, and each book's page with what it teaches chapter by chapter.
 const calls: { url: string; method: string; body: any }[] = [];
 
@@ -71,7 +71,7 @@ describe('Leadership School page', () => {
   it('shows all 15 books as covers with their status, and where to continue', async () => {
     mockFetch({ 'GET /api/member/auth/me': () => ({ body: ME }), 'GET /api/member/school': () => ({ body: SUMMARY }) });
     renderAt('/member/school');
-    expect(await screen.findByRole('heading', { name: "God's Nation Leadership School" })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: "The God Nation Leadership School" })).toBeInTheDocument();
     expect(screen.getByText('1 of 15 books passed')).toBeInTheDocument();
     expect(screen.getByText(/Take its exam: one try, 70% to pass/)).toBeInTheDocument();
     expect(screen.getByText(/Pay 1\s100 FCFA for the book/)).toBeInTheDocument();

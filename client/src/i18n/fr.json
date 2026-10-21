@@ -2361,10 +2361,10 @@
     "grace_declined": "Votre dernière demande d’étudier maintenant et payer plus tard n’a pas été accordée."
   },
   "school": {
-    "name": "École de leadership de God's Nation",
-    "title": "École de leadership de God's Nation",
+    "name": "École de leadership de The God Nation",
+    "title": "École de leadership de The God Nation",
     "back_to_learn": "Apprendre",
-    "intro": "{{count}} livres pour grandir comme leader dans God's Nation. Chaque livre est téléchargé dans l'application et gardé pour vous, prêt à être lu à tout moment. Réussissez son examen, et le livre suivant s'ouvre.",
+    "intro": "{{count}} livres pour grandir comme leader dans The God Nation. Chaque livre est téléchargé dans l'application et gardé pour vous, prêt à être lu à tout moment. Réussissez son examen, et le livre suivant s'ouvre.",
     "teaser": "{{count}} livres pour grandir comme leader. Le livre 1 s'ouvre dès que vous commencez.",
     "progress": "{{passed}} livres réussis sur {{total}}",
     "open": "Ouvrir l'école",

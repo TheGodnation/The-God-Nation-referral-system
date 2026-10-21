@@ -9,7 +9,7 @@ import { SCHOOL_BOOK_COUNT, SchoolSummary, TrainingStatusCard, currentBook, useT
 import { cachedGet } from '../lib/cachedGet';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 
-// God's Nation Leadership School: the 15 leadership books as covers, in
+// The God Nation Leadership School: the 15 leadership books as covers, in
 // order, each showing whether it is passed, open or still closed. Tapping a
 // book opens its page (chapter summaries, Read, Exam, payment). Numbers the
 // admin hasn't added yet show as "Coming soon".

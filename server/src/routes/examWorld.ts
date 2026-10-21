@@ -278,7 +278,7 @@ router.post('/training/books/:id/pay-now', socialMutationLimiter, requireCsrf, r
       amount,
       currency: 'XAF',
       phone: parsed.data.phone.replace(/\s/g, ''),
-      description: `God Nation Leadership School — Book ${found.book.trainingOrder}`,
+      description: `The God Nation Leadership School — Book ${found.book.trainingOrder}`,
     });
   } catch (err) {
     console.error('[payments] request failed', { provider: provider.name, error: err instanceof Error ? err.message : String(err) });
