@@ -509,7 +509,8 @@
       "memberMap": "Carte des membres",
       "geographicAreas": "Zones géographiques",
       "areaRepresentationRequests": "Demandes de zone",
-      "accountDeletions": "Suppressions de compte"
+      "accountDeletions": "Suppressions de compte",
+      "signInTrouble": "Problèmes de connexion"
     },
     "overview": {
       "total_visits": "Visites totales",
@@ -1439,6 +1440,33 @@
       "approve": "Approuver",
       "decline": "Refuser",
       "no_requests": "Aucune demande de représentation trouvée."
+    },
+    "signInTrouble": {
+      "title": "Personnes qui n'ont pas pu entrer",
+      "intro": "Toutes les personnes qui ont essayé de se connecter (page des responsables ou application) ou commencé leur inscription et qui sont toujours bloquées — elles ne sont pas entrées depuis. Utilisez « L'aider à se connecter », corrigez un e-mail mal écrit ou écrivez-leur.",
+      "period": "Période :",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours",
+      "count_one": "{{count}} personne",
+      "count_other": "{{count}} personnes",
+      "copy_all": "Copier tous les e-mails",
+      "copied": "Copié ✓",
+      "loading": "Chargement…",
+      "failed": "La liste n'a pas pu être chargée. Veuillez réessayer.",
+      "none": "Personne n'est bloqué sur cette période. 🎉",
+      "kind": {
+        "LEADER_SIGN_IN": "Connexion page responsables",
+        "MEMBER_SIGN_IN": "Connexion application",
+        "UNFINISHED_SIGNUP": "Inscription non terminée"
+      },
+      "last_tried": "Dernier essai : {{when}}",
+      "tries_one": "{{count}} essai erroné",
+      "tries_other": "{{count}} essais erronés",
+      "typo": "⚠ Cet e-mail semble mal écrit — vouliez-vous dire {{fix}} ?",
+      "no_account": "Aucun compte n'utilise cet e-mail — la personne l'a peut-être mal tapé ou en a utilisé un autre.",
+      "unfinished_hint": "Un code à 6 chiffres lui a été envoyé mais n'a jamais été saisi (souvent l'e-mail est arrivé dans les spams, ou l'adresse est fausse).",
+      "whatsapp": "WhatsApp",
+      "email": "Envoyer un e-mail"
     }
   },
   "communityConversation": {

@@ -509,7 +509,8 @@
       "memberMap": "Member map",
       "geographicAreas": "Geographic Areas",
       "areaRepresentationRequests": "Area Requests",
-      "accountDeletions": "Account deletions"
+      "accountDeletions": "Account deletions",
+      "signInTrouble": "Sign-in trouble"
     },
     "overview": {
       "total_visits": "Total Visits",
@@ -1439,6 +1440,33 @@
       "approve": "Approve",
       "decline": "Decline",
       "no_requests": "No representation requests found."
+    },
+    "signInTrouble": {
+      "title": "People who couldn't get in",
+      "intro": "Everyone who tried to sign in (leader page or app) or started joining and is still stuck — they have not got in since. Use “Help them sign in”, fix a misspelled email, or write to them.",
+      "period": "Look back:",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "count_one": "{{count}} person",
+      "count_other": "{{count}} people",
+      "copy_all": "Copy all emails",
+      "copied": "Copied ✓",
+      "loading": "Loading…",
+      "failed": "The list could not be loaded. Please try again.",
+      "none": "Nobody is stuck in this period. 🎉",
+      "kind": {
+        "LEADER_SIGN_IN": "Leader page sign-in",
+        "MEMBER_SIGN_IN": "App sign-in",
+        "UNFINISHED_SIGNUP": "Joining not finished"
+      },
+      "last_tried": "Last try: {{when}}",
+      "tries_one": "{{count}} wrong try",
+      "tries_other": "{{count}} wrong tries",
+      "typo": "⚠ This email looks misspelled — did they mean {{fix}}?",
+      "no_account": "No account uses this email — they may have typed it wrong, or used a different one.",
+      "unfinished_hint": "They were sent a 6-digit code but never entered it (often the email went to Spam, or the address is wrong).",
+      "whatsapp": "WhatsApp",
+      "email": "Send an email"
     }
   },
   "communityConversation": {
