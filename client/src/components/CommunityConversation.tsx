@@ -1,3 +1,5 @@
+import { LengthNote } from './LengthNote';
+import { MAX_MESSAGE_CHARS, isTooLong } from '../lib/textLimits';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
@@ -346,12 +348,12 @@ export function CommunityConversation({ communityId, communityName }: { communit
             <textarea
               className="input"
               rows={2}
-              maxLength={2000}
               placeholder={t('communityConversation.composer_placeholder') ?? ''}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               disabled={sending}
             />
+            <LengthNote value={body} max={MAX_MESSAGE_CHARS} />
 
             {pendingAttachments.length > 0 && (
               <div className="flex flex-wrap gap-2">
@@ -390,7 +392,7 @@ export function CommunityConversation({ communityId, communityName }: { communit
             <button
               type="button"
               className="btn-primary"
-              disabled={sending || uploading || (!body.trim() && pendingAttachments.length === 0)}
+              disabled={sending || uploading || (!body.trim() && pendingAttachments.length === 0) || isTooLong(body, MAX_MESSAGE_CHARS)}
               onClick={send}
             >
               {sending ? t('communityConversation.sending') : t('communityConversation.send')}

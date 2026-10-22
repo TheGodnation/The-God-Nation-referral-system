@@ -810,7 +810,7 @@ describe('CommunityConversation — Community Posting Policy composer UX', () =>
     render(<CommunityConversation communityId="c1" communityName="My Community" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Posting in this community is currently limited to Community Leaders.')).toBeInTheDocument();
+      expect(screen.getByText('Posting in this assembly is currently limited to its leaders.')).toBeInTheDocument();
     });
     expect(screen.queryByPlaceholderText('Write a message…')).not.toBeInTheDocument();
     expect(screen.queryByText('Send')).not.toBeInTheDocument();

@@ -1,3 +1,5 @@
+import { LengthNote } from '../LengthNote';
+import { MAX_MESSAGE_CHARS, isTooLong } from '../../lib/textLimits';
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MAX_ATTACHMENTS_PER_MESSAGE } from '../../lib/attachmentLimits';
@@ -32,7 +34,6 @@ const MAX_VOICE_MS = 5 * 60 * 1000;
 const LIVE_BARS = 40;
 const MIN_VOICE_MS = 700;
 // WhatsApp's own per-message character limit — the server enforces the same.
-const MAX_CHAT_BODY = 65536;
 
 // The WhatsApp-style bar at the bottom of a chat: the smiley opens an emoji
 // panel in the keyboard's place, then the message box, the paperclip
@@ -176,7 +177,7 @@ export function ChatComposer({
   function insertEmoji(emoji: string) {
     const { start, end } = caret();
     const next = text.slice(0, start) + emoji + text.slice(end);
-    if (next.length > MAX_CHAT_BODY) return;
+    if (next.length > MAX_MESSAGE_CHARS) return;
     cursorRef.current = { start: start + emoji.length, end: start + emoji.length };
     setText(next);
     signalTyping(next);
@@ -254,7 +255,7 @@ export function ChatComposer({
   const hasContent = text.trim().length > 0;
 
   async function send() {
-    if (!hasContent || busy) return;
+    if (!hasContent || busy || isTooLong(text, MAX_MESSAGE_CHARS)) return;
     setBusy(true);
     setError(null);
     const ok = await onSend({
@@ -541,6 +542,7 @@ export function ChatComposer({
           </div>
         </div>
       ) : (
+        <>
         <div className="flex items-end gap-2">
           <div className="flex min-h-[48px] min-w-0 flex-1 items-end rounded-3xl bg-white px-1">
             <button
@@ -555,7 +557,6 @@ export function ChatComposer({
             <textarea
               ref={textRef}
               rows={1}
-              maxLength={MAX_CHAT_BODY}
               value={text}
               aria-label={t('groupChat.type_message') ?? ''}
               placeholder={t('groupChat.type_message') ?? ''}
@@ -599,7 +600,7 @@ export function ChatComposer({
             <button
               type="button"
               onClick={() => void send()}
-              disabled={busy}
+              disabled={busy || isTooLong(text, MAX_MESSAGE_CHARS)}
               aria-label={t('groupChat.send') ?? ''}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white disabled:bg-emerald-300"
             >
@@ -618,6 +619,8 @@ export function ChatComposer({
             </button>
           )}
         </div>
+        <LengthNote value={text} max={MAX_MESSAGE_CHARS} className="px-3 pt-1" />
+        </>
       )}
 
       {emojiOpen && !recording && (
@@ -632,7 +635,7 @@ export function ChatComposer({
         <MediaPreview
           files={preview}
           initialCaption={text}
-          maxCaption={MAX_CHAT_BODY}
+          maxCaption={MAX_MESSAGE_CHARS}
           canAddMore={preview.length < MAX_ATTACHMENTS_PER_MESSAGE}
           onAddMore={() => galleryRef.current?.click()}
           onRemove={(i) => setPreview((prev) => (prev && prev.length > 1 ? prev.filter((_, j) => j !== i) : null))}

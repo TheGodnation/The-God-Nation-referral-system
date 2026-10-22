@@ -1,3 +1,4 @@
+import { MAX_POST_CHARS } from '../lib/textLimits';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -99,8 +100,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
 const createSchema = z.object({
   titleEn: z.string().trim().min(1).max(300),
   titleFr: z.string().trim().min(1).max(300).optional().nullable(),
-  bodyEn: z.string().trim().min(1).max(10000),
-  bodyFr: z.string().trim().min(1).max(10000).optional().nullable(),
+  bodyEn: z.string().trim().min(1).max(MAX_POST_CHARS),
+  bodyFr: z.string().trim().min(1).max(MAX_POST_CHARS).optional().nullable(),
   targets: z.array(targetSchema).max(50).optional(),
   postAsSelf: z.boolean().optional(),
 });
@@ -159,8 +160,8 @@ router.post('/', announcementMutationLimiter, requireCsrf, asyncHandler(async (r
 const patchSchema = z.object({
   titleEn: z.string().trim().min(1).max(300).optional(),
   titleFr: z.string().trim().min(1).max(300).optional().nullable(),
-  bodyEn: z.string().trim().min(1).max(10000).optional(),
-  bodyFr: z.string().trim().min(1).max(10000).optional().nullable(),
+  bodyEn: z.string().trim().min(1).max(MAX_POST_CHARS).optional(),
+  bodyFr: z.string().trim().min(1).max(MAX_POST_CHARS).optional().nullable(),
   targets: z.array(targetSchema).max(50).optional(),
   postAsSelf: z.boolean().optional(),
 });

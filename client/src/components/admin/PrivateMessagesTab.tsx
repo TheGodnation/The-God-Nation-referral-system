@@ -1,3 +1,5 @@
+import { LengthNote } from '../LengthNote';
+import { MAX_MESSAGE_CHARS, isTooLong } from '../../lib/textLimits';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -136,12 +138,13 @@ export function PrivateMessagesTab() {
 
         <div>
           <label className="label">{t('admin.privateMessages.body_label')}</label>
-          <textarea className="input" rows={4} maxLength={2000} value={body} onChange={(e) => setBody(e.target.value)} />
+          <textarea className="input" rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
+          <LengthNote value={body} max={MAX_MESSAGE_CHARS} />
         </div>
 
         {sendError && <p className="text-sm text-red-700">{sendError}</p>}
         {sentMessage && <p className="text-sm text-green-700">{sentMessage}</p>}
-        <button className="btn-primary" disabled={sending || !canSend} onClick={send}>
+        <button className="btn-primary" disabled={sending || !canSend || isTooLong(body, MAX_MESSAGE_CHARS)} onClick={send}>
           {sending ? t('admin.privateMessages.sending') : t('admin.privateMessages.send')}
         </button>
       </div>

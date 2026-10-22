@@ -38,7 +38,7 @@ describe('StartPrivateMessage (Leader compose action)', () => {
     render(<StartPrivateMessage />);
 
     await waitFor(() => {
-      expect(screen.getByText('You do not currently lead any Community.')).toBeInTheDocument();
+      expect(screen.getByText('You do not currently lead any assembly.')).toBeInTheDocument();
     });
   });
 

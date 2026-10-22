@@ -1,3 +1,4 @@
+import { MAX_COMMENT_CHARS, MAX_POST_CHARS } from './textLimits';
 import type { Request } from 'express';
 import { prisma } from './prisma';
 import { resolveActingPersonId, isCommunityAdministrator, personBelongsToContext } from './leadership';
@@ -79,6 +80,6 @@ export async function authorBelongsToCommunity(personId: string, communityId: st
   return personBelongsToContext(personId, 'COMMUNITY', communityId);
 }
 
-export const MAX_PRAYER_REQUEST_BODY = 2000;
-export const MAX_PRAYER_REQUEST_COMMENT_BODY = 1000;
+export const MAX_PRAYER_REQUEST_BODY = MAX_POST_CHARS;
+export const MAX_PRAYER_REQUEST_COMMENT_BODY = MAX_COMMENT_CHARS;
 export const PRAYER_REQUESTS_PAGE_SIZE = 20;

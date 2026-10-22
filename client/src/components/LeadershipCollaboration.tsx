@@ -1,3 +1,5 @@
+import { LengthNote } from './LengthNote';
+import { MAX_MESSAGE_CHARS, isTooLong } from '../lib/textLimits';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
@@ -141,14 +143,14 @@ export function LeadershipCollaboration({ generation }: { generation: number }) 
             <textarea
               className="input"
               rows={2}
-              maxLength={2000}
               placeholder={t('leadershipCollaboration.composer_placeholder') ?? ''}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               disabled={sending}
             />
+            <LengthNote value={body} max={MAX_MESSAGE_CHARS} />
             {sendError && <p className="text-sm text-red-700">{sendError}</p>}
-            <button type="button" className="btn-primary" disabled={sending || !body.trim()} onClick={send}>
+            <button type="button" className="btn-primary" disabled={sending || !body.trim() || isTooLong(body, MAX_MESSAGE_CHARS)} onClick={send}>
               {sending ? t('leadershipCollaboration.sending') : t('leadershipCollaboration.send')}
             </button>
           </div>

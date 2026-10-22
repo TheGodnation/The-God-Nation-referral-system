@@ -1,3 +1,4 @@
+import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -561,7 +562,7 @@ router.patch('/me/social-settings', socialMutationLimiter, requireCsrf, requireM
 
 const startMessageSchema = z.object({
   personId: z.string().uuid(),
-  body: z.string().trim().min(1).max(2000),
+  body: z.string().trim().min(1).max(MAX_MESSAGE_CHARS),
 });
 
 // POST /api/member/messages/start — first message to another member.

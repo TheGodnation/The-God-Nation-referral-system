@@ -1,3 +1,5 @@
+import { LengthNote } from '../LengthNote';
+import { MAX_MESSAGE_CHARS, isTooLong } from '../../lib/textLimits';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -38,18 +40,18 @@ export function EditSheet({ message, onCancel, onSave }: { message: ChatMessage;
         id="edit-message"
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        maxLength={2000}
         rows={4}
         autoFocus
         className="w-full rounded-lg border border-slate-300 p-2 text-[15px]"
       />
+      <LengthNote value={body} max={MAX_MESSAGE_CHARS} />
       <div className="mt-3 flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="rounded-full px-4 py-2 text-sm text-slate-600">
           {t('chatActions.cancel')}
         </button>
         <button
           type="button"
-          disabled={saving || !trimmed || trimmed === (message.body ?? '').trim()}
+          disabled={saving || !trimmed || trimmed === (message.body ?? '').trim() || isTooLong(trimmed, MAX_MESSAGE_CHARS)}
           onClick={async () => {
             setSaving(true);
             try {

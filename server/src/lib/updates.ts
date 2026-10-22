@@ -1,3 +1,4 @@
+import { MAX_COMMENT_CHARS, MAX_POST_CHARS } from './textLimits';
 import crypto from 'crypto';
 import type { Request } from 'express';
 import type { Language } from '@prisma/client';
@@ -101,7 +102,7 @@ export function isStorageKeyForUpdatePhoto(storageKey: string, personId: string)
 }
 
 export const MAX_PHOTOS_PER_UPDATE = 4;
-export const MAX_UPDATE_BODY = 3000;
-export const MAX_COMMENT_BODY = 1000;
+export const MAX_UPDATE_BODY = MAX_POST_CHARS;
+export const MAX_COMMENT_BODY = MAX_COMMENT_CHARS;
 export const UPDATES_PAGE_SIZE = 20;
 export const REACTION_TYPES = ['LIKE', 'LOVE', 'PRAY', 'PRAISE', 'JOY', 'SAD'] as const;

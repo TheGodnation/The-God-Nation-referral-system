@@ -1,3 +1,4 @@
+import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
@@ -443,7 +444,7 @@ const attachmentDescriptorSchema = z.object({
 const sendMessageSchema = z
   .object({
     // WhatsApp's own per-message character limit — the client enforces the same.
-    body: z.string().trim().max(65536).optional(),
+    body: z.string().trim().max(MAX_MESSAGE_CHARS).optional(),
     attachments: z.array(attachmentDescriptorSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
     replyToMessageId: z.string().min(1).optional(),
   })

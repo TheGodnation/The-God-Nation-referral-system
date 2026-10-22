@@ -93,8 +93,16 @@ describe('ChatComposer — voice notes', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('allows a message up to WhatsApp\'s own character limit, not a shorter cap', () => {
+  it('never cuts a long message: up to WhatsApp\'s 65,536 characters it sends, past that it says how much is too much', () => {
     render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={vi.fn()} onPickMedia={vi.fn()} />);
-    expect(screen.getByLabelText('Message')).toHaveAttribute('maxlength', '65536');
+    const box = screen.getByLabelText('Message');
+    expect(box).not.toHaveAttribute('maxlength');
+    fireEvent.change(box, { target: { value: 'a'.repeat(5000) } });
+    expect((box as HTMLTextAreaElement).value).toHaveLength(5000);
+    expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled();
+    fireEvent.change(box, { target: { value: 'a'.repeat(65536 + 10) } });
+    expect((box as HTMLTextAreaElement).value).toHaveLength(65546);
+    expect(screen.getByRole('alert')).toHaveTextContent('10 characters too long');
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
 });

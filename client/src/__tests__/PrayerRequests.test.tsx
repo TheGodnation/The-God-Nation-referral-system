@@ -159,7 +159,7 @@ describe('PrayerRequests — composing', () => {
     fireEvent.click(screen.getByLabelText('Private'));
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
 
-    expect(await screen.findByText('You do not belong to a Community yet. Please share this publicly, or ask an Admin.')).toBeInTheDocument();
+    expect(await screen.findByText('You do not belong to an assembly yet. Please share this publicly, or ask an Admin.')).toBeInTheDocument();
   });
 });
 

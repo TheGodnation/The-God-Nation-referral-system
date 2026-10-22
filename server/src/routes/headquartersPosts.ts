@@ -1,3 +1,4 @@
+import { MAX_COMMENT_CHARS } from '../lib/textLimits';
 import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
@@ -248,7 +249,7 @@ router.get('/:id/comments', asyncHandler(async (req, res) => {
 }));
 
 const createCommentSchema = z.object({
-  body: z.string().trim().min(1).max(2000),
+  body: z.string().trim().min(1).max(MAX_COMMENT_CHARS),
 });
 
 // POST /api/me/headquarters-posts/:id/comments — authorPersonId is always

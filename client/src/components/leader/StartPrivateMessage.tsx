@@ -1,3 +1,5 @@
+import { LengthNote } from '../LengthNote';
+import { MAX_MESSAGE_CHARS, isTooLong } from '../../lib/textLimits';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -134,10 +136,11 @@ export function StartPrivateMessage() {
         <>
           <p className="text-sm text-slate-600">{recipient.name}</p>
           <label className="label">{t('leaderPrivateMessages.body_label')}</label>
-          <textarea className="input" rows={3} maxLength={2000} value={body} onChange={(e) => setBody(e.target.value)} />
+          <textarea className="input" rows={3} value={body} onChange={(e) => setBody(e.target.value)} />
+          <LengthNote value={body} max={MAX_MESSAGE_CHARS} />
           {sendError && <p className="text-sm text-red-700">{sendError}</p>}
           {sentMessage && <p className="text-sm text-green-700">{sentMessage}</p>}
-          <button className="btn-primary" disabled={sending || !body.trim()} onClick={send}>
+          <button className="btn-primary" disabled={sending || !body.trim() || isTooLong(body, MAX_MESSAGE_CHARS)} onClick={send}>
             {sending ? t('leaderPrivateMessages.sending') : t('leaderPrivateMessages.send')}
           </button>
         </>
@@ -149,13 +152,13 @@ export function StartPrivateMessage() {
         <textarea
           className="input"
           rows={3}
-          maxLength={2000}
           aria-label={t('leaderPrivateMessages.all_title') ?? ''}
           value={allBody}
           onChange={(e) => setAllBody(e.target.value)}
         />
+        <LengthNote value={allBody} max={MAX_MESSAGE_CHARS} />
         {allResult && <p className={`text-sm ${allResult.ok ? 'text-green-700' : 'text-red-700'}`}>{allResult.text}</p>}
-        <button className="btn-primary" disabled={allSending || !allBody.trim()} onClick={sendToAll}>
+        <button className="btn-primary" disabled={allSending || !allBody.trim() || isTooLong(allBody, MAX_MESSAGE_CHARS)} onClick={sendToAll}>
           {allSending ? t('leaderPrivateMessages.sending') : t('leaderPrivateMessages.all_send')}
         </button>
       </div>

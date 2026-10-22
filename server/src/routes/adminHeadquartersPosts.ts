@@ -1,3 +1,4 @@
+import { MAX_POST_CHARS } from '../lib/textLimits';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -115,8 +116,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
 const createSchema = z.object({
   titleEn: z.string().trim().min(1).max(300),
   titleFr: z.string().trim().min(1).max(300).optional().nullable(),
-  bodyEn: z.string().trim().min(1).max(10000),
-  bodyFr: z.string().trim().min(1).max(10000).optional().nullable(),
+  bodyEn: z.string().trim().min(1).max(MAX_POST_CHARS),
+  bodyFr: z.string().trim().min(1).max(MAX_POST_CHARS).optional().nullable(),
   postAsSelf: z.boolean().optional(),
 });
 
@@ -165,8 +166,8 @@ router.post('/', headquartersPostMutationLimiter, requireCsrf, asyncHandler(asyn
 const patchSchema = z.object({
   titleEn: z.string().trim().min(1).max(300).optional(),
   titleFr: z.string().trim().min(1).max(300).optional().nullable(),
-  bodyEn: z.string().trim().min(1).max(10000).optional(),
-  bodyFr: z.string().trim().min(1).max(10000).optional().nullable(),
+  bodyEn: z.string().trim().min(1).max(MAX_POST_CHARS).optional(),
+  bodyFr: z.string().trim().min(1).max(MAX_POST_CHARS).optional().nullable(),
   networkWide: z.boolean().optional(),
   targetCommunityIds: z.array(z.string().min(1)).max(50).optional(),
   postAsSelf: z.boolean().optional(),

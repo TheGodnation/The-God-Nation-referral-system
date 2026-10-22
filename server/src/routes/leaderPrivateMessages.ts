@@ -1,3 +1,4 @@
+import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -25,7 +26,7 @@ const createSchema = z
   .object({
     personIds: z.array(z.string().min(1)).min(1).max(MAX_SELECTED_MEMBERS).optional(),
     allMyMembers: z.literal(true).optional(),
-    body: z.string().trim().min(1).max(2000),
+    body: z.string().trim().min(1).max(MAX_MESSAGE_CHARS),
   })
   .refine((d) => Boolean(d.allMyMembers) !== Boolean(d.personIds), {
     message: 'Choose members, or send to all your members.',

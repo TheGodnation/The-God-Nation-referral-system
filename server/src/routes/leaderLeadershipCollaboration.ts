@@ -1,3 +1,4 @@
+import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -126,7 +127,7 @@ router.get('/leadership-collaboration/:generation/messages', asyncHandler(async 
 }));
 
 const sendMessageSchema = z.object({
-  body: z.string().trim().min(1).max(2000),
+  body: z.string().trim().min(1).max(MAX_MESSAGE_CHARS),
 });
 
 // POST /api/leader/leadership-collaboration/:generation/messages —

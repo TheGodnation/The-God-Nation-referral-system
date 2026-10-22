@@ -1,3 +1,5 @@
+import { LengthNote } from './LengthNote';
+import { MAX_MESSAGE_CHARS, isTooLong } from '../lib/textLimits';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
@@ -180,14 +182,14 @@ export function PrivateMessages({ alwaysShow = false }: { alwaysShow?: boolean }
               <textarea
                 className="input"
                 rows={2}
-                maxLength={2000}
                 placeholder={t('privateMessages.composer_placeholder') ?? ''}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 disabled={sending}
               />
+              <LengthNote value={body} max={MAX_MESSAGE_CHARS} />
               {sendError && <p className="text-sm text-red-700">{sendError}</p>}
-              <button className="btn-primary" disabled={sending || !body.trim()} onClick={send}>
+              <button className="btn-primary" disabled={sending || !body.trim() || isTooLong(body, MAX_MESSAGE_CHARS)} onClick={send}>
                 {sending ? t('privateMessages.sending') : t('privateMessages.send')}
               </button>
             </div>

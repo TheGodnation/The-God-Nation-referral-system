@@ -1,3 +1,5 @@
+import { LengthNote } from './LengthNote';
+import { MAX_COMMENT_CHARS, MAX_POST_CHARS, isTooLong } from '../lib/textLimits';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
@@ -88,9 +90,9 @@ function Composer({ onPosted }: { onPosted: () => void }) {
         aria-label={t('prayerRequests.compose_label') ?? ''}
         placeholder={t('prayerRequests.compose_placeholder') ?? ''}
         value={body}
-        maxLength={2000}
         onChange={(e) => setBody(e.target.value)}
       />
+      <LengthNote value={body} max={MAX_POST_CHARS} />
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm">
           <label className="flex items-center gap-1">
@@ -103,7 +105,7 @@ function Composer({ onPosted }: { onPosted: () => void }) {
           </label>
           <VoiceInputButton onResult={(transcript) => setBody((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript))} />
         </div>
-        <button type="submit" className="btn-primary px-5 py-1.5" disabled={posting || !body.trim()}>
+        <button type="submit" className="btn-primary px-5 py-1.5" disabled={posting || !body.trim() || isTooLong(body, MAX_POST_CHARS)}>
           {posting ? t('prayerRequests.posting') : t('prayerRequests.post')}
         </button>
       </div>
@@ -145,14 +147,14 @@ function CommentForm({ requestId, onSent }: { requestId: string; onSent: () => v
           aria-label={t('prayerRequests.comment_label') ?? ''}
           placeholder={t('prayerRequests.comment_placeholder') ?? ''}
           value={draft}
-          maxLength={1000}
           onChange={(e) => setDraft(e.target.value)}
         />
         <VoiceInputButton onResult={(transcript) => setDraft((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript))} />
-        <button type="submit" className="btn-primary rounded-full px-4" disabled={sending || !draft.trim()}>
+        <button type="submit" className="btn-primary rounded-full px-4" disabled={sending || !draft.trim() || isTooLong(draft, MAX_COMMENT_CHARS)}>
           {t('prayerRequests.send')}
         </button>
       </div>
+      <LengthNote value={draft} max={MAX_COMMENT_CHARS} className="pl-4" />
       {error && <p className="text-sm text-red-700">{error}</p>}
     </form>
   );

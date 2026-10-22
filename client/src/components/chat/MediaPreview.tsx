@@ -1,3 +1,4 @@
+import { LengthNote } from '../LengthNote';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { baseMime } from '../../lib/chatMedia';
@@ -154,13 +155,13 @@ export function MediaPreview({
         className="flex items-end gap-2 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1"
         onSubmit={(e) => {
           e.preventDefault();
+          if (caption.trim().length > maxCaption) return;
           onSend(caption.trim());
         }}
       >
         <textarea
           rows={1}
           value={caption}
-          maxLength={maxCaption}
           onChange={(e) => {
             setCaption(e.target.value);
             e.target.style.height = 'auto';
@@ -173,11 +174,13 @@ export function MediaPreview({
         <button
           type="submit"
           aria-label={t('groupChat.send') ?? ''}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
+          disabled={caption.trim().length > maxCaption}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white disabled:opacity-50"
         >
           <ChatIcon name="send" />
         </button>
       </form>
+      <LengthNote value={caption} max={maxCaption} className="bg-black px-4 pb-2 text-white" />
     </div>
   );
 }

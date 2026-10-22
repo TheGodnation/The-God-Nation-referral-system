@@ -1,3 +1,4 @@
+import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -162,7 +163,7 @@ router.get('/:followUpAssignmentId/conversation/messages', asyncHandler(async (r
 }));
 
 const sendMessageSchema = z.object({
-  body: z.string().trim().min(1).max(2000),
+  body: z.string().trim().min(1).max(MAX_MESSAGE_CHARS),
 });
 
 // POST /api/follow-ups/:followUpAssignmentId/conversation/messages —

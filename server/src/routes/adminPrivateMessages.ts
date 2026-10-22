@@ -1,3 +1,4 @@
+import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -28,7 +29,7 @@ const createSchema = z
     scope: z.enum(['ALL_ELIGIBLE', 'SELECTED_MEMBERS', 'SELECTED_COMMUNITY', 'ALL_LEADERS']),
     personIds: z.array(z.string().min(1)).max(MAX_SELECTED_MEMBERS).optional(),
     communityId: z.string().min(1).optional(),
-    body: z.string().trim().min(1).max(2000),
+    body: z.string().trim().min(1).max(MAX_MESSAGE_CHARS),
   })
   .refine((d) => d.scope !== 'SELECTED_MEMBERS' || (d.personIds && d.personIds.length > 0), {
     message: 'At least one personId is required for the SELECTED_MEMBERS scope.',

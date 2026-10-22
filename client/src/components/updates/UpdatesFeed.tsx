@@ -1,3 +1,5 @@
+import { LengthNote } from '../LengthNote';
+import { MAX_COMMENT_CHARS, MAX_POST_CHARS, isTooLong } from '../../lib/textLimits';
 import { ReactionsSheet, type ReactorList } from '../ReactionsSheet';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -169,6 +171,7 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
       setError(t('updates.empty_post'));
       return;
     }
+    if (isTooLong(body, MAX_POST_CHARS)) return;
     setPosting(true);
     try {
       const photos = [];
@@ -207,13 +210,13 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
         aria-label={t('updates.compose_label') ?? ''}
         placeholder={t('updates.compose_placeholder') ?? ''}
         value={body}
-        maxLength={3000}
         onChange={(e) => {
           setBody(e.target.value);
           e.target.style.height = 'auto';
           e.target.style.height = `${Math.min(e.target.scrollHeight, 320)}px`;
         }}
       />
+      <LengthNote value={body} max={MAX_POST_CHARS} />
       {files.length > 0 && (
         <ul className="grid grid-cols-4 gap-2">
           {files.map((f) => (
@@ -264,7 +267,7 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
             className="rounded-lg p-2 text-lg hover:bg-slate-100"
           />
         </div>
-        <button type="submit" className="btn-primary px-5 py-1.5" disabled={posting || preparing}>
+        <button type="submit" className="btn-primary px-5 py-1.5" disabled={posting || preparing || isTooLong(body, MAX_POST_CHARS)}>
           {posting ? t('updates.posting') : t('updates.post')}
         </button>
       </div>
@@ -405,7 +408,7 @@ function CommentForm({
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft.trim()) return;
+    if (!draft.trim() || isTooLong(draft, MAX_COMMENT_CHARS)) return;
     setSending(true);
     setError(null);
     try {
@@ -435,15 +438,15 @@ function CommentForm({
           aria-label={(parent ? t('updates.reply_label', { name: parent.name }) : t('updates.comment_label')) ?? ''}
           placeholder={(parent ? t('updates.reply_placeholder') : t('updates.comment_placeholder')) ?? ''}
           value={draft}
-          maxLength={1000}
           autoFocus={autoFocus}
           onChange={(e) => setDraft(e.target.value)}
         />
         <VoiceInputButton onResult={(transcript) => setDraft((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript))} />
-        <button type="submit" className="btn-primary rounded-full px-4" disabled={sending || !draft.trim()}>
+        <button type="submit" className="btn-primary rounded-full px-4" disabled={sending || !draft.trim() || isTooLong(draft, MAX_COMMENT_CHARS)}>
           {t('updates.send')}
         </button>
       </div>
+      <LengthNote value={draft} max={MAX_COMMENT_CHARS} className="pl-4" />
       {error && <p className="text-sm text-red-700">{error}</p>}
     </form>
   );
