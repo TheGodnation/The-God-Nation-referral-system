@@ -379,6 +379,12 @@ router.post('/reset-password', passwordResetRedeemLimiter, requireCsrf, asyncHan
 
   const resetToken = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
   if (!resetToken || resetToken.consumedAt || resetToken.expiresAt < new Date()) {
+    console.info('[reset-password] refused', JSON.stringify({
+      ref: tokenHash.slice(0, 10),
+      tokenLength: token.length,
+      reason: !resetToken ? 'not_found' : resetToken.consumedAt ? 'already_used' : 'expired',
+      ...(resetToken ? { userId: resetToken.userId, createdAt: resetToken.createdAt.toISOString(), consumedAt: resetToken.consumedAt?.toISOString() ?? null } : {}),
+    }));
     return res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.' });
   }
 
@@ -398,8 +404,10 @@ router.post('/reset-password', passwordResetRedeemLimiter, requireCsrf, asyncHan
   });
 
   if (!user) {
+    console.info('[reset-password] refused', JSON.stringify({ ref: tokenHash.slice(0, 10), reason: 'used_at_the_same_moment' }));
     return res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.' });
   }
+  console.info('[reset-password] done', JSON.stringify({ ref: tokenHash.slice(0, 10), userId: user.id }));
 
   // Section 33: invalidate every existing session for the account.
   await destroyAllSessionsForUser(user.id);

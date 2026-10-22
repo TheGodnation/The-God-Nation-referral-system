@@ -982,7 +982,14 @@ async function liveHelpLink(rawToken: unknown) {
     where: { tokenHash: hashToken(rawToken) },
     include: { memberAccount: { include: { person: true } } },
   });
-  if (!link || link.usedAt || link.expiresAt <= new Date()) return null;
+  if (!link || link.usedAt || link.expiresAt <= new Date()) {
+    console.info('[password-help] refused', JSON.stringify({
+      ref: hashToken(rawToken).slice(0, 10),
+      tokenLength: rawToken.length,
+      reason: !link ? 'not_found' : link.usedAt ? 'already_used' : 'expired',
+    }));
+    return null;
+  }
   // The central admin's profile never signs in without the emailed code.
   if (await isCentralAdminPerson(link.memberAccount.personId)) return null;
   return link;
