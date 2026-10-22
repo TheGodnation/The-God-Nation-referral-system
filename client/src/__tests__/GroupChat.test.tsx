@@ -172,14 +172,29 @@ describe('WhatsApp-style group chat', () => {
     expect(screen.queryByRole('link', { name: 'Ben Tabe' })).not.toBeInTheDocument();
   });
 
-  it('tapping my own reaction removes it', async () => {
+  it('tapping the reactions shows who reacted; tapping "You" removes mine', async () => {
     mockFetch(
       baseRoutes({
+        [`GET /api/communities/${G}/conversation/messages/m1/reactions`]: () => ({
+          body: {
+            total: 2,
+            items: [
+              { personId: 'me', name: 'Me', photoUrl: null, reaction: '🙏', isMe: true },
+              { personId: 'p2', name: 'Grace Mbah', photoUrl: null, reaction: '🙏', isMe: false },
+            ],
+            reactions: [{ emoji: '🙏', count: 2, mine: true }],
+          },
+        }),
         [`DELETE /api/communities/${G}/conversation/messages/m1/reaction`]: () => ({ body: { reactions: [{ emoji: '🙏', count: 1, mine: false }] } }),
       }),
     );
     renderChat();
     fireEvent.click(await screen.findByRole('button', { name: '🙏 2' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Reactions' });
+    expect(await within(sheet).findByText('Grace Mbah')).toBeInTheDocument();
+    expect(within(sheet).getByRole('tab', { name: 'All 2' })).toBeInTheDocument();
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
+    fireEvent.click(within(sheet).getByRole('button', { name: /You.*Tap to remove/ }));
     expect(await screen.findByRole('button', { name: '🙏 1' })).toHaveAttribute('aria-pressed', 'false');
     expect(calls.some((c) => c.method === 'DELETE' && c.url.endsWith('/m1/reaction'))).toBe(true);
   });

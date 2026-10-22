@@ -1,3 +1,4 @@
+import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -620,6 +621,19 @@ async function loadMessageInConversation(req: Request, res: Response) {
   }
   return message;
 }
+
+// GET .../conversations/:id/messages/:messageId/reactions — who reacted, and with what.
+router.get('/conversations/:id/messages/:messageId/reactions', asyncHandler(async (req, res) => {
+  const message = await loadMessageInConversation(req, res);
+  if (!message) return;
+  const actor = req.privateMessagingActor!;
+  const rows = await prisma.privateMessageReaction.findMany({ where: { messageId: message.id }, select: { personId: true, userId: true, emoji: true, createdAt: true } });
+  const list = await reactorList(
+    rows.map((r) => ({ personId: r.personId, userId: r.userId, reaction: r.emoji, createdAt: r.createdAt })),
+    actor.type === 'PERSON' ? { personId: actor.personId } : { userId: actor.userId },
+  );
+  res.json({ ...list, reactions: summarizeReactions(rows, actor) });
+}));
 
 async function reactionsFor(messageId: string, actor: PrivateMessagingActor) {
   const rows = await prisma.privateMessageReaction.findMany({ where: { messageId }, select: { emoji: true, personId: true, userId: true } });

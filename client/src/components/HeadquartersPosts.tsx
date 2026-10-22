@@ -1,3 +1,4 @@
+import { ReactionsSheet, type ReactorList } from './ReactionsSheet';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
@@ -73,6 +74,7 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
   const [commentDraft, setCommentDraft] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [reacting, setReacting] = useState(false);
+  const [showWho, setShowWho] = useState(false);
 
   // Media Phase 2 — a fresh, short-lived signed URL is fetched for each of
   // the post's (up to MAX_HEADQUARTERS_POST_MEDIA) media items once per
@@ -315,7 +317,21 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
               >
                 {t(detail.viewerHasReacted ? 'headquartersPosts.reacted_button' : 'headquartersPosts.react_button')}
               </button>
-              <span className="text-xs text-slate-400">{t('headquartersPosts.reaction_count', { count: detail.reactionCount })}</span>
+              {detail.reactionCount > 0 ? (
+                <button type="button" className="text-xs text-slate-500 underline" onClick={() => setShowWho(true)}>
+                  {t('headquartersPosts.reaction_count', { count: detail.reactionCount })}
+                </button>
+              ) : (
+                <span className="text-xs text-slate-400">{t('headquartersPosts.reaction_count', { count: detail.reactionCount })}</span>
+              )}
+              {showWho && (
+                <ReactionsSheet
+                  load={() => api.get<ReactorList>(`/api/me/headquarters-posts/${detail.id}/reactions`)}
+                  emojiOf={() => '👍'}
+                  onRemoveMine={detail.viewerHasReacted ? () => void toggleReaction() : undefined}
+                  onClose={() => setShowWho(false)}
+                />
+              )}
             </div>
 
             <div className="mt-4 border-t border-slate-100 pt-3">

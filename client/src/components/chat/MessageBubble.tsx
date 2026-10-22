@@ -221,6 +221,8 @@ interface BubbleProps {
   onReact: (m: ChatMessage, emoji: string) => void;
   onJumpTo: (messageId: string) => void;
   onOpenPhoto: (url: string) => void;
+  /** Tapping the reactions under a message: who reacted (see ReactionsSheet). */
+  onShowReactions?: (m: ChatMessage) => void;
   /** One-to-one chats (like WhatsApp) show no sender photos or names. */
   privateChat?: boolean;
 }
@@ -230,7 +232,7 @@ const LONG_PRESS_MS = 450;
 
 // One chat bubble. Swipe it right to reply, press and hold (or right-click)
 // for reactions and options — the same gestures as WhatsApp.
-export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto, privateChat = false }: BubbleProps) {
+export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto, onShowReactions, privateChat = false }: BubbleProps) {
   const showSender = showSenderProp && !privateChat;
   const { t } = useTranslation();
   const [dx, setDx] = useState(0);
@@ -435,7 +437,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
               <button
                 key={r.emoji}
                 type="button"
-                onClick={() => onReact(m, r.emoji)}
+                onClick={() => (onShowReactions ? onShowReactions(m) : onReact(m, r.emoji))}
                 aria-pressed={r.mine}
                 aria-label={t('groupChat.reaction_label', { emoji: r.emoji, count: r.count }) ?? ''}
                 className={`rounded-full border px-1.5 text-xs shadow-sm ${r.mine ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}

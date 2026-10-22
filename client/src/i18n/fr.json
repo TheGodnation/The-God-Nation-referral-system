@@ -2470,5 +2470,17 @@
     "admin_came_back": "Un membre est revenu (reconnecté) le {{date}}",
     "admin_load_failed": "Chargement impossible. Veuillez réessayer.",
     "admin_failed": "Une erreur est survenue. Veuillez réessayer."
+  },
+  "reactions": {
+    "title": "Réactions",
+    "close": "Fermer",
+    "all": "Toutes {{count}}",
+    "loading": "Chargement…",
+    "failed": "Chargement impossible. Veuillez réessayer.",
+    "none": "Pas encore de réaction.",
+    "you": "Vous",
+    "tap_to_remove": "Touchez pour retirer",
+    "who_reacted_one": "{{count}} réaction — voir qui",
+    "who_reacted_other": "{{count}} réactions — voir qui"
   }
 }

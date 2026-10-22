@@ -1,3 +1,4 @@
+import { ReactionsSheet, type ReactorList } from '../components/ReactionsSheet';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -111,6 +112,8 @@ export function MemberGroupChatPage() {
   const [canPost, setCanPost] = useState(true);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [menuFor, setMenuFor] = useState<ChatMessage | null>(null);
+  // Who reacted to a message (tapping its reactions).
+  const [reactionsFor, setReactionsFor] = useState<ChatMessage | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -534,6 +537,7 @@ export function MemberGroupChatPage() {
                   onReact={react}
                   onJumpTo={jumpTo}
                   onOpenPhoto={setPhotoUrl}
+                  onShowReactions={setReactionsFor}
                 />
               </div>
             );
@@ -722,6 +726,21 @@ export function MemberGroupChatPage() {
         </div>
       )}
 
+      {reactionsFor && (
+        <ReactionsSheet
+          load={() => api.get<ReactorList & { reactions: ChatReaction[] }>(`${`/api/communities/${communityId}/conversation`}/messages/${reactionsFor.id}/reactions`)}
+          onLoaded={(l) => {
+            const m = reactionsFor;
+            // The latest counts, with everyone's reactions.
+            if (Array.isArray(l.reactions)) setReactions(m.id, l.reactions as ChatReaction[]);
+          }}
+          onRemoveMine={() => {
+            const mine = (reactionsFor.reactions ?? []).find((r) => r.mine);
+            if (mine) void react(reactionsFor, mine.emoji);
+          }}
+          onClose={() => setReactionsFor(null)}
+        />
+      )}
       {photoUrl && (
         <div role="dialog" aria-label={t('groupChat.photo') ?? ''} className="fixed inset-0 z-50 flex flex-col bg-black">
           <div className="flex justify-end p-3">

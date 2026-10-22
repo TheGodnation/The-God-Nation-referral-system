@@ -1,3 +1,4 @@
+import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -311,6 +312,16 @@ router.post(
     res.json({ id, viewerHasReacted: true, reactionCount });
   }),
 );
+
+// GET /api/me/headquarters-posts/:id/reactions — who liked it.
+router.get('/:id/reactions', asyncHandler(async (req, res) => {
+  const personId = req.headquartersPostRecipientPersonId!;
+  if (!(await personCanViewHeadquartersPost(personId, req.params.id))) {
+    return res.status(404).json({ error: 'Headquarters post not found.' });
+  }
+  const rows = await prisma.headquartersPostReaction.findMany({ where: { headquartersPostId: req.params.id }, select: { personId: true, createdAt: true } });
+  res.json(await reactorList(rows.map((r) => ({ personId: r.personId, reaction: 'LIKE', createdAt: r.createdAt })), { personId }));
+}));
 
 // DELETE /api/me/headquarters-posts/:id/reaction — idempotent toggle-off.
 router.delete(

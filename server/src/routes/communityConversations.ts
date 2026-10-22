@@ -1,3 +1,4 @@
+import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -380,7 +381,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
           await prisma.message.findMany({
             where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } } },
             orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-            take: 30,
+            // The latest 60: reactions, ticks, edits and deletions on them refresh by themselves.
+            take: 60,
             select: {
               id: true,
               createdAt: true,
@@ -813,6 +815,15 @@ async function reactionsFor(messageId: string, personId: string) {
   const rows = await prisma.messageReaction.findMany({ where: { messageId }, select: { emoji: true, personId: true } });
   return summarizeReactions(rows, personId);
 }
+
+// GET .../conversation/messages/:messageId/reactions — who reacted, and with what.
+router.get('/:communityId/conversation/messages/:messageId/reactions', asyncHandler(async (req, res) => {
+  const target = await loadReactableMessage(req, res);
+  if (!target) return;
+  const rows = await prisma.messageReaction.findMany({ where: { messageId: target.messageId }, select: { personId: true, emoji: true, createdAt: true } });
+  const list = await reactorList(rows.map((r) => ({ personId: r.personId, reaction: r.emoji, createdAt: r.createdAt })), { personId: target.personId });
+  res.json({ ...list, reactions: summarizeReactions(rows, target.personId) });
+}));
 
 router.put(
   '/:communityId/conversation/messages/:messageId/reaction',

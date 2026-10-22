@@ -1,3 +1,4 @@
+import { ReactionsSheet, type ReactorList } from '../ReactionsSheet';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +24,8 @@ export const REACTIONS = [
   { type: 'SAD', emoji: '😢' },
 ] as const;
 type ReactionType = (typeof REACTIONS)[number]['type'];
+const EMOJI_OF = (r: string) => REACTIONS.find((x) => x.type === r)?.emoji ?? r;
+const REFRESH_REACTIONS_MS = 30000;
 
 interface Author {
   personId: string;
@@ -308,6 +311,7 @@ function CommentBubble({
 }) {
   const { t, i18n } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [showWho, setShowWho] = useState(false);
   const counts = c.reactionCounts ?? {};
   const total = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
   const emojis = REACTIONS.filter((r) => (counts[r.type] ?? 0) > 0).map((r) => r.emoji).join('');
@@ -334,9 +338,22 @@ function CommentBubble({
           <span className="block text-sm font-semibold text-slate-900">{c.author.name}</span>
           <p className="whitespace-pre-wrap break-words text-sm text-slate-800">{c.body}</p>
           {total > 0 && (
-            <span className="absolute -bottom-3 right-1 rounded-full border border-slate-200 bg-white px-1.5 text-xs shadow-sm">
+            <button
+              type="button"
+              className="absolute -bottom-3 right-1 rounded-full border border-slate-200 bg-white px-1.5 text-xs shadow-sm"
+              aria-label={t('reactions.who_reacted', { count: total }) ?? ''}
+              onClick={() => setShowWho(true)}
+            >
               {`${emojis} ${total}`}
-            </span>
+            </button>
+          )}
+          {showWho && (
+            <ReactionsSheet
+              load={() => api.get<ReactorList>(`/api/updates/comments/${c.id}/reactions`)}
+              emojiOf={EMOJI_OF}
+              onRemoveMine={c.myReaction ? () => void react(c.myReaction!) : undefined}
+              onClose={() => setShowWho(false)}
+            />
           )}
         </div>
         <div className="relative mt-1 flex items-center gap-3 pl-2 text-xs font-semibold text-slate-500">
@@ -662,6 +679,12 @@ function PostCard({
   const { t, i18n } = useTranslation();
   const [myReaction, setMyReaction] = useState<ReactionType | null>(item.myReaction);
   const [counts, setCounts] = useState(item.reactionCounts);
+  // The feed refreshes everyone's reactions now and then (see UpdatesFeed).
+  useEffect(() => {
+    setCounts(item.reactionCounts);
+    setMyReaction(item.myReaction);
+  }, [item.reactionCounts, item.myReaction]);
+  const [showWho, setShowWho] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(item.commentCount);
@@ -690,8 +713,13 @@ function PostCard({
     setCounts(adjusted);
     setMyReaction(next);
     try {
-      if (next) await api.put(`/api/updates/${item.id}/reaction`, { type: next });
-      else await api.delete(`/api/updates/${item.id}/reaction`);
+      type Fresh = { reactionCounts?: UpdateItem['reactionCounts']; myReaction?: ReactionType | null };
+      const res = next ? await api.put<Fresh>(`/api/updates/${item.id}/reaction`, { type: next }) : await api.delete<Fresh>(`/api/updates/${item.id}/reaction`);
+      // Everyone's reactions, including those that came in meanwhile.
+      if (res?.reactionCounts) {
+        setCounts(res.reactionCounts);
+        setMyReaction(res.myReaction ?? null);
+      }
     } catch {
       setCounts(counts);
       setMyReaction(previous);
@@ -716,6 +744,14 @@ function PostCard({
       className={wall ? 'bg-white shadow-sm sm:rounded-xl' : 'card overflow-hidden p-0 sm:p-0'}
       aria-label={t('updates.post_by', { name: item.author.name }) ?? ''}
     >
+      {showWho && (
+        <ReactionsSheet
+          load={() => api.get<ReactorList>(`/api/updates/${item.id}/reactions`)}
+          emojiOf={EMOJI_OF}
+          onRemoveMine={myReaction ? () => void react(myReaction) : undefined}
+          onClose={() => setShowWho(false)}
+        />
+      )}
       <header className="flex items-center gap-3 px-4 pt-3">
         <Avatar name={item.author.name} photoUrl={item.author.photoUrl} size={42} />
         <div className="min-w-0 flex-1">
@@ -765,7 +801,13 @@ function PostCard({
 
       {(totalReactions > 0 || commentCount > 0) && (
         <div className="flex items-center justify-between px-4 pt-2 text-sm text-slate-500">
-          <span>{totalReactions > 0 ? `${topEmojis} ${totalReactions}` : ''}</span>
+          {totalReactions > 0 ? (
+            <button type="button" className="hover:underline" aria-label={t('reactions.who_reacted', { count: totalReactions }) ?? ''} onClick={() => setShowWho(true)}>
+              {`${topEmojis} ${totalReactions}`}
+            </button>
+          ) : (
+            <span />
+          )}
           {commentCount > 0 ? (
             <button type="button" className="hover:underline" onClick={() => setShowComments(true)}>
               {t('updates.comment_count', { count: commentCount })}
@@ -867,6 +909,36 @@ export function UpdatesFeed({
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [authorPersonId, friendsOnly]);
+
+  // Everyone's reactions add up without reloading: every 30 seconds while
+  // the page is on screen, the latest counts for the posts already shown.
+  useEffect(() => {
+    const timer = window.setInterval(async () => {
+      const current = dataRef.current;
+      if (!current || current.items.length === 0 || document.visibilityState !== 'visible') return;
+      const ids = current.items.slice(0, 40).map((i) => i.id);
+      try {
+        const res = await api.get<{ items: Record<string, { reactionCounts: UpdateItem['reactionCounts']; myReaction: ReactionType | null }> }>(
+          `/api/updates/reaction-counts?ids=${ids.join(',')}`,
+        );
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                items: prev.items.map((i) => {
+                  const fresh = res.items[i.id];
+                  if (!fresh || (JSON.stringify(fresh.reactionCounts) === JSON.stringify(i.reactionCounts) && fresh.myReaction === i.myReaction)) return i;
+                  return { ...i, reactionCounts: fresh.reactionCounts, myReaction: fresh.myReaction };
+                }),
+              }
+            : prev,
+        );
+      } catch {
+        // Next time.
+      }
+    }, REFRESH_REACTIONS_MS);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function loadMore() {
     const current = dataRef.current;

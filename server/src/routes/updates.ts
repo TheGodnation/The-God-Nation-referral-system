@@ -1,3 +1,4 @@
+import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -229,6 +230,14 @@ async function commentReactionSummary(commentId: string, personId: string) {
   return { reactionCounts, myReaction: rows.find((r) => r.personId === personId)?.type ?? null };
 }
 
+// GET /api/updates/comments/:commentId/reactions — who reacted, and with what.
+router.get('/comments/:commentId/reactions', requireViewer, asyncHandler(async (req, res) => {
+  if (!(await visibleComment(req.params.commentId))) return res.status(404).json({ error: 'Comment not found.' });
+  const rows = await prisma.updateCommentReaction.findMany({ where: { commentId: req.params.commentId }, select: { personId: true, type: true, createdAt: true } });
+  const list = await reactorList(rows.map((r) => ({ personId: r.personId, reaction: r.type, createdAt: r.createdAt })), { personId: req.updatesViewer!.personId });
+  res.json(list);
+}));
+
 router.put('/comments/:commentId/reaction', updateReactionLimiter, requireCsrf, requireViewer, requirePerson, asyncHandler(async (req, res) => {
   const parsed = reactionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid reaction.' });
@@ -259,6 +268,30 @@ const listQuerySchema = z.object({
   // A smaller page — e.g. limit=1 for the light "any new posts?" check.
   limit: z.coerce.number().int().min(1).max(UPDATES_PAGE_SIZE).optional(),
 });
+
+const countsQuerySchema = z.object({ ids: z.string().max(40 * 40) });
+
+/** Each post's reaction counts by type, and the viewer's own reaction. */
+async function postReactionCounts(ids: string[], personId: string | null) {
+  const [groups, mine] = await Promise.all([
+    prisma.updateReaction.groupBy({ by: ['postId', 'type'], where: { postId: { in: ids } }, _count: { _all: true } }),
+    personId ? prisma.updateReaction.findMany({ where: { postId: { in: ids }, personId }, select: { postId: true, type: true } }) : [],
+  ]);
+  const items: Record<string, { reactionCounts: Record<string, number>; myReaction: string | null }> = {};
+  for (const id of ids) items[id] = { reactionCounts: {}, myReaction: null };
+  for (const g of groups) items[g.postId].reactionCounts[g.type] = g._count._all;
+  for (const m of mine) items[m.postId].myReaction = m.type;
+  return items;
+}
+
+// GET /api/updates/reaction-counts?ids=a,b,c — the latest counts for posts
+// already on screen, so other people's reactions add up without reloading.
+router.get('/reaction-counts', requireViewer, asyncHandler(async (req, res) => {
+  const parsed = countsQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request.' });
+  const ids = [...new Set(parsed.data.ids.split(',').filter((id) => /^[0-9a-f-]{36}$/i.test(id)))].slice(0, 40);
+  res.json({ items: ids.length ? await postReactionCounts(ids, req.updatesViewer!.personId) : {} });
+}));
 
 router.get('/', requireViewer, asyncHandler(async (req, res) => {
   const viewer = req.updatesViewer!;
@@ -449,12 +482,21 @@ router.put('/:id/reaction', updateReactionLimiter, requireCsrf, requireViewer, r
     create: { postId: req.params.id, personId, type: parsed.data.type },
     update: { type: parsed.data.type },
   });
-  res.json({ myReaction: parsed.data.type });
+  // Everyone's reactions, so the count includes the others' too.
+  res.json((await postReactionCounts([req.params.id], personId))[req.params.id]);
 }));
 
 router.delete('/:id/reaction', updateReactionLimiter, requireCsrf, requireViewer, requirePerson, asyncHandler(async (req, res) => {
   await prisma.updateReaction.deleteMany({ where: { postId: req.params.id, personId: req.updatesViewer!.personId! } });
-  res.json({ myReaction: null });
+  res.json((await postReactionCounts([req.params.id], req.updatesViewer!.personId))[req.params.id]);
+}));
+
+// GET /api/updates/:id/reactions — who reacted, and with what.
+router.get('/:id/reactions', requireViewer, asyncHandler(async (req, res) => {
+  if (!(await visiblePost(req.params.id))) return res.status(404).json({ error: 'Post not found.' });
+  const rows = await prisma.updateReaction.findMany({ where: { postId: req.params.id }, select: { personId: true, type: true, createdAt: true } });
+  const list = await reactorList(rows.map((r) => ({ personId: r.personId, reaction: r.type, createdAt: r.createdAt })), { personId: req.updatesViewer!.personId });
+  res.json(list);
 }));
 
 // ----------------------------- Comments (by post) --------------------------

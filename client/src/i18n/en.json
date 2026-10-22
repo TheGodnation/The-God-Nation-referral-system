@@ -2470,5 +2470,17 @@
     "admin_came_back": "A member came back (signed in) on {{date}}",
     "admin_load_failed": "Could not load. Please try again.",
     "admin_failed": "Something went wrong. Please try again."
+  },
+  "reactions": {
+    "title": "Reactions",
+    "close": "Close",
+    "all": "All {{count}}",
+    "loading": "Loading…",
+    "failed": "Could not load. Please try again.",
+    "none": "No reactions yet.",
+    "you": "You",
+    "tap_to_remove": "Tap to remove",
+    "who_reacted_one": "{{count}} reaction — see who",
+    "who_reacted_other": "{{count}} reactions — see who"
   }
 }

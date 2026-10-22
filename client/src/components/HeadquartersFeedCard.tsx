@@ -1,3 +1,4 @@
+import { ReactionsSheet, type ReactorList } from './ReactionsSheet';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
@@ -132,6 +133,7 @@ export function HeadquartersFeedCard({
   const title = isFr ? item.titleFr || item.titleEn : item.titleEn;
   const body = expanded && detail ? (isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn) : isFr ? item.bodyFr || item.bodyEn : item.bodyEn;
   const [busy, setBusy] = useState(false);
+  const [showWho, setShowWho] = useState(false);
   const date = new Date(item.publishedAt).toLocaleDateString(isFr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
   async function toggleLike() {
@@ -242,7 +244,22 @@ export function HeadquartersFeedCard({
 
       {(item.reactionCount > 0 || item.commentCount > 0) && (
         <div className="flex justify-between px-4 pt-2 text-sm text-slate-500">
-          <span>{item.reactionCount > 0 ? `👍 ${item.reactionCount}` : ''}</span>
+          {item.reactionCount > 0 ? (
+            <button type="button" className="hover:underline" aria-label={t('reactions.who_reacted', { count: item.reactionCount }) ?? ''} onClick={() => setShowWho(true)}>
+              👍 {item.reactionCount}
+            </button>
+          ) : (
+            <span />
+          )}
+          {showWho && (
+            <ReactionsSheet
+              load={() => api.get<ReactorList>(`/api/me/headquarters-posts/${item.id}/reactions`)}
+              emojiOf={() => '👍'}
+              onLoaded={(l) => l.total !== item.reactionCount && onReactionChange(l.items.some((r) => r.isMe), l.total)}
+              onRemoveMine={item.viewerHasReacted ? () => void toggleLike() : undefined}
+              onClose={() => setShowWho(false)}
+            />
+          )}
           <span>{item.commentCount > 0 ? t('headquartersPosts.comment_count', { count: item.commentCount }) : ''}</span>
         </div>
       )}
