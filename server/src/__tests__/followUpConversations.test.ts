@@ -466,7 +466,7 @@ describe('Phase 3M.2 — Follow-Up Conversation — message integrity', () => {
     expect(res.status).toBe(400);
   });
 
-  it('a message over 2000 characters is rejected', async () => {
+  it('a message over 65,536 characters (WhatsApp’s limit) is rejected', async () => {
     const { agent, csrf, person: leaderPerson, user } = await setupLeader(28);
     const followed = await makePerson('+237696600005');
     const assignment = await makeAssignment(leaderPerson.id, followed.id, user.id);
@@ -474,7 +474,7 @@ describe('Phase 3M.2 — Follow-Up Conversation — message integrity', () => {
     const res = await agent
       .post(`/api/follow-ups/${assignment.id}/conversation/messages`)
       .set('X-CSRF-Token', csrf)
-      .send({ body: 'x'.repeat(2001) });
+      .send({ body: 'x'.repeat(65537) });
     expect(res.status).toBe(400);
   });
 

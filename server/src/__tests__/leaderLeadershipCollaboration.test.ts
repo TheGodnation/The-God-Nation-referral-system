@@ -358,7 +358,7 @@ describe('Phase 2B — messaging security', () => {
     expect(res.status).toBe(400);
   });
 
-  it('a message over 2000 characters is rejected, never silently truncated', async () => {
+  it('a message over 65,536 characters (WhatsApp’s limit) is rejected, never silently truncated', async () => {
     const hq = await makeCommunity('Collab Msg HQ F');
     await setHeadquarters(hq.id);
     const a = await makeCommunity('Collab Msg HQ F - A', hq.id);
@@ -367,14 +367,14 @@ describe('Phase 2B — messaging security', () => {
     const res = await agent
       .post('/api/leader/leadership-collaboration/1/messages')
       .set('X-CSRF-Token', csrf)
-      .send({ body: 'x'.repeat(2001) });
+      .send({ body: 'x'.repeat(65537) });
     expect(res.status).toBe(400);
     // generation is a shared, global key (unlike a fresh Community/Geography
     // uuid per test), so a Generation 1 conversation row may already exist
     // from an earlier test in this file — the property under test is that
     // THIS oversized message was never persisted, not that no conversation
     // row exists at all.
-    const oversized = await prisma.leadershipCollaborationMessage.findFirst({ where: { body: 'x'.repeat(2001) } });
+    const oversized = await prisma.leadershipCollaborationMessage.findFirst({ where: { body: 'x'.repeat(65537) } });
     expect(oversized).toBeNull();
   });
 
