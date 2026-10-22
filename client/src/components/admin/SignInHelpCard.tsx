@@ -55,12 +55,14 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
   const [making, setMaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [opened, setOpened] = useState(false);
 
   async function make() {
     if (making) return;
     setMaking(true);
     setError(null);
     setCopied(false);
+    setOpened(false);
     try {
       setLink(await api.post<HelpLink>(endpoint, {}));
     } catch (err) {
@@ -103,6 +105,9 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
       <p className="text-xs text-slate-500">{t('admin.people.signInHelp.hint')}</p>
       {link ? (
         <div className="space-y-2 rounded-lg bg-brand-50 p-3">
+          <p role="status" className="text-sm font-semibold text-brand-900">
+            {opened ? t('admin.people.signInHelp.whatsapp_opened') : t('admin.people.signInHelp.step_send')}
+          </p>
           <p className="break-all text-sm text-slate-700" data-testid="sign-in-help-url">{link.url}</p>
           <p className="text-xs text-slate-500">{t('admin.people.signInHelp.expires', { until })}</p>
           {link.kind === 'LEADER' && link.email && (
@@ -110,7 +115,7 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
           )}
           {!digits && <p className="text-xs text-slate-500">{t('admin.people.signInHelp.no_number')}</p>}
           <div className="flex flex-wrap gap-2">
-            <a className="btn-primary px-3 py-1.5" href={whatsappHref} target="_blank" rel="noreferrer">
+            <a className="btn-primary px-3 py-1.5" href={whatsappHref} target="_blank" rel="noreferrer" onClick={() => setOpened(true)}>
               {t('admin.people.signInHelp.send_whatsapp')}
             </a>
             <button type="button" className="btn-secondary px-3 py-1.5" onClick={copy}>

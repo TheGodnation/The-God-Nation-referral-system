@@ -568,7 +568,8 @@
       "help_sign_in": "Help them sign in",
       "help_title": "Help {{name}} sign in",
       "close": "Close",
-      "email_typo": "⚠ Looks misspelled — did they mean {{fix}}? Fix it with Edit."
+      "email_typo": "⚠ Looks misspelled — did they mean {{fix}}? Fix it with Edit.",
+      "deactivate_confirm": "Turn off {{name}}’s leader account? They will no longer be able to sign in as a leader. You can turn it back on with Activate."
     },
     "roleAssignments": {
       "title": "Role Assignments",
@@ -1004,7 +1005,9 @@
         "whatsapp_message": "Hello {{name}}, here is your private link to choose a new password for The God Nation app. It works only once, until {{until}}. Please don't share it with anyone:\n{{url}}",
         "whatsapp_message_leader": "Hello {{name}}, here is your private link to choose a new password for your The God Nation leader account ({{email}}). It works only once, until {{until}}. Please don't share it with anyone:\n{{url}}",
         "leader_signs_in": "They then sign in on the leader page with {{email}} and their new password.",
-        "no_number": "We don't have their WhatsApp number: WhatsApp will ask you whom to send it to."
+        "no_number": "We don't have their WhatsApp number: WhatsApp will ask you whom to send it to.",
+        "step_send": "The link is ready. Now tap “Send on WhatsApp” — nothing is sent to them until you do.",
+        "whatsapp_opened": "WhatsApp was opened. Press send there; once they have the message, they can use the link."
       },
       "delete": {
         "title": "Delete Person",

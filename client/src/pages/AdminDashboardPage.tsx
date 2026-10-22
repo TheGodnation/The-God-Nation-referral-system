@@ -191,6 +191,8 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
   }
 
   async function toggleActive(leader: LeaderRow) {
+    // Turning a leader off stops them signing in — never on a stray tap.
+    if (leader.active && !window.confirm(t('admin.leaders.deactivate_confirm', { name: leader.name }))) return;
     await api.patch(`/api/admin/leaders/${leader.id}`, { active: !leader.active });
     load();
   }
@@ -363,12 +365,21 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
       )}
 
       {helping && (
-        <div className="card mb-4 space-y-3">
-          <h3 className="font-semibold text-brand-900">{t('admin.leaders.help_title', { name: helping.name })}</h3>
-          <SignInHelpPanel key={helping.id} endpoint={`/api/admin/leaders/${helping.id}/sign-in-help`} />
-          <button type="button" className="text-sm text-slate-500 hover:underline" onClick={() => setHelping(null)}>
-            {t('admin.leaders.close')}
-          </button>
+        // A window over the list (not a box added above it), so it is always
+        // in view and the list never moves under the admin's finger.
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('admin.leaders.help_title', { name: helping.name }) ?? ''}
+            className="max-h-[90vh] w-full max-w-md space-y-3 overflow-y-auto rounded-t-2xl bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:rounded-2xl"
+          >
+            <h3 className="font-semibold text-brand-900">{t('admin.leaders.help_title', { name: helping.name })}</h3>
+            <SignInHelpPanel key={helping.id} endpoint={`/api/admin/leaders/${helping.id}/sign-in-help`} />
+            <button type="button" className="btn-secondary w-full" onClick={() => setHelping(null)}>
+              {t('admin.leaders.close')}
+            </button>
+          </div>
         </div>
       )}
 
@@ -432,10 +443,7 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
                   {l.active && (
                     <button
                       className="text-brand-700 hover:underline"
-                      onClick={() => {
-                        setHelping(l);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
+                      onClick={() => setHelping(l)}
                     >
                       {t('admin.leaders.help_sign_in')}
                     </button>

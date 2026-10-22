@@ -568,7 +568,8 @@
       "help_sign_in": "L'aider à se connecter",
       "help_title": "Aider {{name}} à se connecter",
       "close": "Fermer",
-      "email_typo": "⚠ Semble mal écrit — vouliez-vous dire {{fix}} ? Corrigez avec Modifier."
+      "email_typo": "⚠ Semble mal écrit — vouliez-vous dire {{fix}} ? Corrigez avec Modifier.",
+      "deactivate_confirm": "Désactiver le compte responsable de {{name}} ? La personne ne pourra plus se connecter comme responsable. Vous pourrez le réactiver avec Activer."
     },
     "roleAssignments": {
       "title": "Attributions de rôles",
@@ -1004,7 +1005,9 @@
         "whatsapp_message": "Bonjour {{name}}, voici votre lien personnel pour choisir un nouveau mot de passe dans l'application The God Nation. Il ne marche qu'une seule fois, jusqu'au {{until}}. Ne le partagez avec personne :\n{{url}}",
         "whatsapp_message_leader": "Bonjour {{name}}, voici votre lien personnel pour choisir un nouveau mot de passe pour votre compte responsable The God Nation ({{email}}). Il ne marche qu'une seule fois, jusqu'au {{until}}. Ne le partagez avec personne :\n{{url}}",
         "leader_signs_in": "Ensuite, la personne se connecte sur la page des responsables avec {{email}} et son nouveau mot de passe.",
-        "no_number": "Nous n'avons pas son numéro WhatsApp : WhatsApp vous demandera à qui l'envoyer."
+        "no_number": "Nous n'avons pas son numéro WhatsApp : WhatsApp vous demandera à qui l'envoyer.",
+        "step_send": "Le lien est prêt. Touchez maintenant « Envoyer sur WhatsApp » — rien ne lui est envoyé tant que vous ne l'avez pas fait.",
+        "whatsapp_opened": "WhatsApp s'est ouvert. Appuyez sur envoyer là-bas ; dès que la personne reçoit le message, elle peut utiliser le lien."
       },
       "delete": {
         "title": "Supprimer la personne",
