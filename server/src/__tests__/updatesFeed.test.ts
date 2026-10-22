@@ -308,6 +308,19 @@ describe('Updates feed — auto-translation', () => {
     expect(feed.body.items[0].translation).toBeNull();
   });
 
+  it('follows the language the app is shown in right now, not only the profile', async () => {
+    const author = await loginAsMember('French Poster 4');
+    const reader = await loginAsMember('French Profile, English App');
+    await prisma.person.update({ where: { id: reader.person.id }, data: { preferredLanguage: 'fr' } });
+    const { body } = await post(author.agent, author.csrf, { body: 'Gloire à Dieu' });
+    await markTranslated(body.id, 'fr', 'Glory to God');
+
+    const inEnglish = await reader.agent.get('/api/updates').set('X-App-Language', 'en');
+    expect(inEnglish.body.items[0].translation).toEqual({ sourceLanguage: 'fr', translatedBody: 'Glory to God' });
+    const inFrench = await reader.agent.get('/api/updates').set('X-App-Language', 'fr');
+    expect(inFrench.body.items[0].translation).toBeNull();
+  });
+
   it('shows no translation yet when the background translation has not landed', async () => {
     const author = await loginAsMember('French Poster 3');
     const reader = await loginAsMember('English Reader 2');

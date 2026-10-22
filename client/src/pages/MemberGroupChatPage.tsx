@@ -97,7 +97,7 @@ function ChatTip() {
 // reply, hold for reactions, photos/videos/voice notes inline. New messages
 // are checked every few seconds while the screen is open.
 export function MemberGroupChatPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { chatWallpaper } = usePublicSettings();
   const { communityId = '' } = useParams();
   const [groupName, setGroupName] = useState<string>('');
@@ -212,6 +212,15 @@ export function MemberGroupChatPage() {
     stickToBottom.current = true;
     void fetchLatest(true);
   }, [fetchLatest]);
+
+  // Switching the app's language: reload so messages come back translated
+  // into the new one.
+  const shownLanguage = useRef(i18n.language);
+  useEffect(() => {
+    if (shownLanguage.current === i18n.language) return;
+    shownLanguage.current = i18n.language;
+    void fetchLatest(true);
+  }, [i18n.language, fetchLatest]);
 
   // Checks every few seconds while the chat is busy, up to every 30 s when quiet.
   const poke = useAdaptivePoll(() => fetchLatest(false), POLL_MS, loaded && !notAllowed);

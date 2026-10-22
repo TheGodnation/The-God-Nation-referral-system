@@ -1818,6 +1818,21 @@ describe('Auto-translation — group chat text and voice-note transcripts', () =
     expect(item.translation).toEqual({ sourceLanguage: 'fr', translatedBody: 'Peace be with you' });
   });
 
+  it('follows the language the app is shown in right now (X-App-Language)', async () => {
+    const community = await makeCommunity('Translate Community App Language');
+    const sender = await loginAsMember('+237698500091', 'tr91@example.com');
+    const reader = await loginAsMember('+237698500092', 'tr92@example.com');
+    await prisma.person.update({ where: { id: reader.person.id }, data: { preferredLanguage: 'fr' } });
+    await makeMembership(sender.person.id, community.id);
+    await makeMembership(reader.person.id, community.id);
+
+    const message = await seedTextMessage(community.id, sender.person.id, 'Bonsoir');
+    await markTranslated(message.id, 'fr', 'Good evening');
+
+    const res = await reader.agent.get(`/api/communities/${community.id}/conversation/messages`).set('X-App-Language', 'en');
+    expect(res.body.items.find((i: any) => i.id === message.id).translation).toEqual({ sourceLanguage: 'fr', translatedBody: 'Good evening' });
+  });
+
   it('shows no translation to a viewer reading in the message\'s own language', async () => {
     const community = await makeCommunity('Translate Community 2');
     const sender = await loginAsMember('+237698500003', 'tr3@example.com');

@@ -33,6 +33,13 @@ afterEach(() => {
 });
 
 describe('lib/translation — Gemini-backed text translation and voice-note transcription', () => {
+  it('gives long texts more time to translate (a long French post was cut off at 20s)', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'k' });
+    expect(translation.textTimeoutMs('Bonjour')).toBe(31000);
+    expect(translation.textTimeoutMs('x'.repeat(6000))).toBe(90000);
+    expect(translation.textTimeoutMs('x'.repeat(65536))).toBe(180000);
+  });
+
   it('is unconfigured, and every function silently no-ops, with no GEMINI_API_KEY set', async () => {
     const translation = await freshTranslationModule({ GEMINI_API_KEY: '' });
     expect(translation.isTranslationConfigured()).toBe(false);

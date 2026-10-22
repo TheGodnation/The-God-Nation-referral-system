@@ -893,7 +893,7 @@ export function UpdatesFeed({
   /** Facebook-style wall look: edge-to-edge white posts on a grey page. */
   wall?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [data, setData] = useState<FeedResponse | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -919,8 +919,9 @@ export function UpdatesFeed({
       .then(setData)
       .catch(() => setError(t('updates.load_failed')));
   }
+  // Also again when the app's language is switched: translations follow it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(load, [authorPersonId, friendsOnly]);
+  useEffect(load, [authorPersonId, friendsOnly, i18n.language]);
 
   // Everyone's reactions add up without reloading: every 30 seconds while
   // the page is on screen, the latest counts for the posts already shown.

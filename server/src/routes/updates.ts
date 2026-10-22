@@ -1,3 +1,4 @@
+import { appLanguage } from '../lib/appLanguage';
 import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
 import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
@@ -296,6 +297,7 @@ router.get('/reaction-counts', requireViewer, asyncHandler(async (req, res) => {
 
 router.get('/', requireViewer, asyncHandler(async (req, res) => {
   const viewer = req.updatesViewer!;
+  const viewerLanguage = appLanguage(req, viewer.preferredLanguage);
   const q = listQuerySchema.safeParse(req.query);
   if (!q.success) return res.status(400).json({ error: 'Invalid request.' });
 
@@ -358,7 +360,7 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
       // language (someone reading in the post's own language never sees
       // this at all, same as today).
       translation:
-        p.detectedLanguage && viewer.preferredLanguage && p.detectedLanguage !== viewer.preferredLanguage && p.translatedBody
+        p.detectedLanguage && viewerLanguage && p.detectedLanguage !== viewerLanguage && p.translatedBody
           ? { sourceLanguage: p.detectedLanguage, translatedBody: p.translatedBody }
           : null,
       youtubeVideoId: p.youtubeVideoId,

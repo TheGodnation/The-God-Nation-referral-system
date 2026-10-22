@@ -1,4 +1,5 @@
 import { readCookie } from './cookies';
+import i18n from '../i18n';
 
 // In dev, Vite proxies /api to the server. In production, both are served
 // from the same origin (or CLIENT set to talk to the API's own origin).
@@ -59,6 +60,10 @@ async function request<T>(method: string, path: string, body?: unknown, options?
     headers['Content-Type'] = 'application/json';
     payload = JSON.stringify(body);
   }
+
+  // The language the app is shown in right now, so posts and messages come
+  // back translated into it (see server lib/appLanguage.ts).
+  headers['X-App-Language'] = i18n.language?.startsWith('fr') ? 'fr' : 'en';
 
   if (MUTATING.has(method)) {
     const csrf = readCookie('csrf_token');

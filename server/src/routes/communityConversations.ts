@@ -1,3 +1,4 @@
+import { appLanguage } from '../lib/appLanguage';
 import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { reactorList } from '../lib/reactionList';
@@ -326,7 +327,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     centralAdminAmong(page.map((m) => m.senderPersonId)),
   ]);
   const readAtByPerson = new Map(reads.map((r) => [r.personId, r.lastReadAt]));
-  const viewerLanguage = viewerPerson?.preferredLanguage ?? null;
+  const viewerLanguage = appLanguage(req, viewerPerson?.preferredLanguage);
   const now = Date.now();
 
   res.json({

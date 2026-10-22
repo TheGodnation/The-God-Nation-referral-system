@@ -28,7 +28,15 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 // logs the real options straight from Gemini.
 const GEMINI_MODEL = 'gemini-flash-lite-latest';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-const TEXT_TIMEOUT_MS = 20000;
+const TEXT_TIMEOUT_MS = 30000;
+// Translating a long post (texts can now be up to 65,536 characters) takes
+// Gemini much longer than a few lines: 20s cut longer French posts off, so
+// nothing was translated. Allow more time the longer the text, up to 3 min.
+// It all runs in the background, so nobody waits on it.
+const MAX_TEXT_TIMEOUT_MS = 180000;
+export function textTimeoutMs(text: string): number {
+  return Math.min(MAX_TEXT_TIMEOUT_MS, TEXT_TIMEOUT_MS + Math.ceil(text.length / 100) * 1000);
+}
 // Transcribing audio takes Gemini far longer than translating a few lines
 // of text; 20s cut longer voice notes off mid-transcription.
 const AUDIO_TIMEOUT_MS = 60000;
@@ -182,7 +190,7 @@ export async function translateText(text: string, opts: GeminiCallOptions = {}):
     'translation only, no commentary.\n\nMessage:\n"""' +
     text +
     '"""';
-  const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], textSchema, opts);
+  const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], textSchema, { timeoutMs: textTimeoutMs(text), ...opts });
   if (!result || !isLanguage(result.detectedLanguage) || typeof result.translated !== 'string') return null;
   return { detectedLanguage: result.detectedLanguage, translatedBody: result.translated };
 }
