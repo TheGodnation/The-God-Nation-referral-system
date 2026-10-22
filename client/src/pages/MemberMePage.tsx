@@ -178,7 +178,8 @@ export function MemberMePage() {
   useEffect(() => {
     api
       .get<{ items: MembershipRow[] }>('/api/member/me/community-memberships')
-      .then((r) => setGroups(r.items))
+      // Only the assemblies they belong to (not the ones the National Coordinator opens as such).
+      .then((r) => setGroups(r.items.filter((g) => !(g as { asCoordinator?: boolean }).asCoordinator)))
       .catch(() => {});
     if (member?.personId) {
       api

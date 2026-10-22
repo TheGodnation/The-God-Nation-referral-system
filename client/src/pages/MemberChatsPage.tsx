@@ -16,6 +16,8 @@ interface MembershipRow {
   communityId: string;
   communityName: string;
   status: 'ACTIVE' | 'INACTIVE';
+  /** Opened by the National Coordinator without being a member there. */
+  asCoordinator?: boolean;
 }
 
 interface GroupMeta {
@@ -106,7 +108,8 @@ export function MemberChatsPage() {
       .catch(() => setMemberships([]));
   }, []);
 
-  const active = memberships?.filter((m) => m.status === 'ACTIVE') ?? [];
+  const active = memberships?.filter((m) => m.status === 'ACTIVE' && !m.asCoordinator) ?? [];
+  const coordinatorOnly = memberships?.filter((m) => m.asCoordinator) ?? [];
 
   return (
     <PageShell minimal>
@@ -128,6 +131,16 @@ export function MemberChatsPage() {
               ))}
             </ul>
           </section>
+          {coordinatorOnly.length > 0 && (
+            <section className="card p-0">
+              <h2 className="px-4 pt-3 text-sm font-semibold uppercase tracking-wide text-amber-800">★ {t('groupChat.all_assemblies')}</h2>
+              <ul className="divide-y divide-slate-100">
+                {coordinatorOnly.map((m) => (
+                  <GroupRow key={m.communityId} m={m} />
+                ))}
+              </ul>
+            </section>
+          )}
           <PrivateChatList />
           <Announcements />
         </div>

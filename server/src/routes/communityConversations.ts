@@ -1,3 +1,4 @@
+import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
@@ -318,10 +319,11 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
 
   // Ticks on the viewer's own messages, how many are online, and who is
   // typing — the WhatsApp details.
-  const [audience, reads, viewerPerson] = await Promise.all([
+  const [audience, reads, viewerPerson, coordinators] = await Promise.all([
     communityAudience(communityId),
     prisma.communityConversationRead.findMany({ where: { conversationId: conversation.id }, select: { personId: true, lastReadAt: true } }),
     prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } }),
+    centralAdminAmong(page.map((m) => m.senderPersonId)),
   ]);
   const readAtByPerson = new Map(reads.map((r) => [r.personId, r.lastReadAt]));
   const viewerLanguage = viewerPerson?.preferredLanguage ?? null;
@@ -340,6 +342,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     items: page.map((m) => ({
       id: m.id,
       senderName: m.sender.name,
+      // "National Coordinator" next to the central admin's name.
+      senderBadge: badgeOf(coordinators, m.senderPersonId),
       senderPhotoUrl: profilePhotoPath(m.sender),
       // Tapping a sender's name/photo opens their profile wall, the same as
       // everywhere else a name/photo is shown (members list, photo slider,

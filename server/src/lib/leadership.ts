@@ -1,3 +1,4 @@
+import { isCentralAdminPerson } from './centralAdmin';
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from './prisma';
 import type { FollowUpContextType } from '@prisma/client';
@@ -96,7 +97,9 @@ export async function personBelongsToContext(
  * multiple Persons from holding it simultaneously.
  */
 export async function isCommunityAdministrator(personId: string, communityId: string): Promise<boolean> {
-  return Boolean(await findActiveScopedRole(personId, 'COMMUNITY', communityId));
+  if (await findActiveScopedRole(personId, 'COMMUNITY', communityId)) return true;
+  // The central admin's own member profile leads every assembly too.
+  return isCentralAdminPerson(personId);
 }
 
 /**

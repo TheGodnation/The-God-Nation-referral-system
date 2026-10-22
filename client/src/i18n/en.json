@@ -72,7 +72,8 @@
     "submit_code": "Send me a code",
     "error_email": "Please enter a valid email address.",
     "forgot_password_link": "Forgot your password, or never set one?",
-    "back_to_password_link": "Back to password sign-in"
+    "back_to_password_link": "Back to password sign-in",
+    "device_code_note": "For your safety, this account needs one more step on a new phone: we sent a 6-digit code to {{email}}. Type it below. You will not be asked again on this phone."
   },
   "memberSignup": {
     "title": "Join the community",
@@ -2200,7 +2201,8 @@
     "doc_opening": "Opening… {{percent}}%",
     "doc_cannot_show": "This document can’t be shown here.",
     "doc_open_phone": "Open it on the phone",
-    "doc_back": "Back to the chat"
+    "doc_back": "Back to the chat",
+    "all_assemblies": "All assemblies — as National Coordinator"
   },
   "voiceInput": {
     "start": "Speak to type",
@@ -2488,5 +2490,8 @@
     "too_long_other": "{{over}} characters too long (the limit is {{max}}) — please shorten it a little.",
     "left_one": "{{left}} character left",
     "left_other": "{{left}} characters left"
+  },
+  "badges": {
+    "national_coordinator": "National Coordinator"
   }
 }

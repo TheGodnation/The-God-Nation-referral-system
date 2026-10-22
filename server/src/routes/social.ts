@@ -1,3 +1,4 @@
+import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
@@ -244,6 +245,7 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
     coverUrl: coverPhotoPath(person),
     bio: person.bio,
     area: publicAreaLabel(person),
+    badge: (await isCentralAdminPerson(person.id)) ? 'NATIONAL_COORDINATOR' : null,
     isLeader: leaderOf.length > 0,
     leaderOf,
     memberOf,

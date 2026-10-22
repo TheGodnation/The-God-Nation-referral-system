@@ -1,5 +1,6 @@
+import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { cancelAccountDeletion } from '../lib/accountDeletion';
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { Prisma, type MemberAccount, type Person } from '@prisma/client';
@@ -69,6 +70,37 @@ async function sendMemberLoginLink(memberAccount: MemberAccount, person: Person)
     action: 'MEMBER_LOGIN_LINK_REQUESTED',
     targetType: 'MemberAccount',
     targetId: memberAccount.id,
+  });
+}
+
+// ----------------------------- Trusted phones --------------------------------
+// The central admin's own member profile carries the admin's powers (see
+// lib/centralAdmin.ts), so on a phone it has not used before, the password
+// alone is not enough: the code emailed to it is needed too. Once that
+// code (or the emailed link) is confirmed, the phone keeps a cookie and the
+// password alone works there again.
+const TRUSTED_DEVICE_COOKIE = 'mtd';
+const TRUSTED_DEVICE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+
+async function isTrustedDevice(req: Request, memberAccountId: string): Promise<boolean> {
+  const raw = req.cookies?.[TRUSTED_DEVICE_COOKIE];
+  if (typeof raw !== 'string' || raw.length < 20) return false;
+  const device = await prisma.trustedMemberDevice.findUnique({ where: { tokenHash: hashToken(raw) } });
+  if (!device || device.memberAccountId !== memberAccountId) return false;
+  await prisma.trustedMemberDevice.update({ where: { id: device.id }, data: { lastUsedAt: new Date() } });
+  return true;
+}
+
+async function trustThisDevice(memberAccountId: string, personId: string, res: Response) {
+  if (!(await isCentralAdminPerson(personId))) return;
+  const raw = crypto.randomBytes(32).toString('hex');
+  await prisma.trustedMemberDevice.create({ data: { memberAccountId, tokenHash: hashToken(raw) } });
+  res.cookie(TRUSTED_DEVICE_COOKIE, raw, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: TRUSTED_DEVICE_MAX_AGE_MS,
+    path: '/',
   });
 }
 
@@ -725,6 +757,14 @@ router.post('/login', memberPasswordLoginLimiter, requireCsrf, asyncHandler(asyn
     return res.status(401).json(BAD_MEMBER_LOGIN);
   }
 
+  // The central admin's own profile on a new phone: the emailed code too.
+  if ((await isCentralAdminPerson(account.personId)) && !(await isTrustedDevice(req, account.id))) {
+    await recordLoginAttempt(bruteForceId, true, ip, userAgent);
+    await sendMemberLoginLink(account, account.person);
+    await recordAudit({ action: 'MEMBER_LOGIN_CODE_REQUIRED', targetType: 'MemberAccount', targetId: account.id });
+    return res.json({ codeRequired: true });
+  }
+
   await prisma.memberAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
   await recordLoginAttempt(bruteForceId, true, ip, userAgent);
   await createMemberSession(account.id, res);
@@ -852,6 +892,7 @@ router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler
     data: { lastLoginAt: new Date(), ...(newPasswordHash ? { passwordHash: newPasswordHash } : {}) },
   });
   await createMemberSession(account.id, res);
+  await trustThisDevice(account.id, account.personId, res);
   const deletionCancelled = await comeBack(account.person);
   await autoPairLeaderSession(account.personId, res);
   await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'code' } });
@@ -906,6 +947,7 @@ router.post('/consume', memberLoginConsumeLimiter, requireCsrf, asyncHandler(asy
 
   await prisma.memberAccount.update({ where: { id: memberAccount.id }, data: { lastLoginAt: new Date() } });
   await createMemberSession(memberAccount.id, res);
+  await trustThisDevice(memberAccount.id, memberAccount.personId, res);
   const deletionCancelled = await comeBack(memberAccount.person);
   await autoPairLeaderSession(memberAccount.personId, res);
 

@@ -1,3 +1,4 @@
+import { CoordinatorBadge } from './CoordinatorBadge';
 import { LengthNote } from './LengthNote';
 import { MAX_COMMENT_CHARS, MAX_POST_CHARS, isTooLong } from '../lib/textLimits';
 import { useEffect, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ interface Author {
   personId: string;
   name: string;
   photoUrl: string | null;
+  badge?: string | null;
 }
 
 interface PrayerRequestItem {
@@ -195,7 +197,10 @@ function Comments({ requestId, canComment, onCountChange }: { requestId: string;
           <Avatar name={c.author.name} photoUrl={c.author.photoUrl} size={28} />
           <div className="min-w-0 flex-1">
             <div className="inline-block max-w-full rounded-2xl bg-slate-100 px-3 py-2">
-              <span className="block text-sm font-semibold text-slate-900">{c.author.name}</span>
+              <span className="block text-sm font-semibold text-slate-900">
+                {c.author.name}
+                <CoordinatorBadge badge={c.author.badge} />
+              </span>
               <p className="whitespace-pre-wrap break-words text-sm text-slate-800">{c.body}</p>
             </div>
             {c.canDelete && (
@@ -234,7 +239,10 @@ function RequestCard({ item, canComment, onDeleted }: { item: PrayerRequestItem;
       <header className="flex items-center gap-3">
         <Avatar name={item.author.name} photoUrl={item.author.photoUrl} size={40} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-slate-900">{item.author.name}</p>
+          <p className="truncate font-semibold text-slate-900">
+            {item.author.name}
+            <CoordinatorBadge badge={item.author.badge} />
+          </p>
           <p className="text-xs text-slate-500">
             {formatWhen(item.createdAt, i18n.language)}
             {item.visibility === 'PRIVATE' && (

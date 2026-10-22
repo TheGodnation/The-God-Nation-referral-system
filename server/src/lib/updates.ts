@@ -1,3 +1,4 @@
+import { isCentralAdminPerson } from './centralAdmin';
 import { MAX_COMMENT_CHARS, MAX_POST_CHARS } from './textLimits';
 import crypto from 'crypto';
 import type { Request } from 'express';
@@ -39,7 +40,7 @@ export async function resolveUpdatesViewer(req: Request): Promise<UpdatesViewer 
   const leaderPersonId = req.user?.role === 'LEADER' ? await resolveActingPersonId(req.user.id) : null;
   const personId = req.member?.personId ?? leaderPersonId ?? null;
 
-  let canModerate = isAdmin;
+  let canModerate = isAdmin || (await isCentralAdminPerson(req.member?.personId));
   if (!canModerate) {
     const candidates = [req.member?.personId, leaderPersonId].filter((id): id is string => Boolean(id));
     if (candidates.length > 0) {

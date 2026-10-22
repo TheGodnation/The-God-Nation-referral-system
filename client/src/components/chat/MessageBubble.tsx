@@ -1,3 +1,4 @@
+import { CoordinatorBadge } from '../CoordinatorBadge';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -345,6 +346,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
               ) : (
                 m.senderName
               )}
+              <CoordinatorBadge badge={m.senderBadge} />
             </p>
           )}
 

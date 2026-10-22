@@ -19,7 +19,7 @@ export function MemberLoginPage() {
   const navigate = useNavigate();
   const { refresh } = useMemberAuth();
 
-  const [mode, setMode] = useState<'password' | 'code-request' | 'code-entry'>('password');
+  const [mode, setMode] = useState<'password' | 'code-request' | 'code-entry' | 'device-code'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [codeEmail, setCodeEmail] = useState('');
@@ -38,7 +38,14 @@ export function MemberLoginPage() {
     if (!emailTypo.confirmBeforeSubmit()) return;
     setSubmitting(true);
     try {
-      noteSignIn(await api.post('/api/member/auth/login', { email: clean, password }));
+      const res = await api.post<{ codeRequired?: boolean }>('/api/member/auth/login', { email: clean, password });
+      // A protected profile on a new phone: the code emailed to it too.
+      if (res?.codeRequired) {
+        setCodeEmail(clean);
+        setMode('device-code');
+        return;
+      }
+      noteSignIn(res);
       await refresh();
       navigate('/member/chats', { replace: true });
     } catch (err) {
@@ -77,7 +84,14 @@ export function MemberLoginPage() {
           {t(mode === 'password' ? 'memberLogin.subtitle_password' : 'memberLogin.subtitle_code')}
         </p>
 
-        {mode === 'code-entry' ? (
+        {mode === 'device-code' ? (
+          <div className="mt-6 space-y-3">
+            <p role="status" className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              🔐 {t('memberLogin.device_code_note', { email: codeEmail })}
+            </p>
+            <CodeEntry email={codeEmail} onChangeEmail={() => setMode('password')} />
+          </div>
+        ) : mode === 'code-entry' ? (
           <CodeEntry email={codeEmail} onChangeEmail={() => setMode('password')} requirePassword />
         ) : (
           <form onSubmit={mode === 'password' ? onSubmitPassword : onRequestCode} className="mt-6 space-y-5" noValidate>

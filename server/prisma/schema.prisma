@@ -1136,9 +1136,27 @@ model MemberAccount {
   createdAt   DateTime  @default(now())
   lastLoginAt DateTime?
 
-  person      Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
-  loginTokens MemberLoginToken[]
-  sessions    MemberSession[]
+  person         Person                @relation(fields: [personId], references: [id], onDelete: Cascade)
+  loginTokens    MemberLoginToken[]
+  sessions       MemberSession[]
+  trustedDevices TrustedMemberDevice[]
+}
+
+// A phone (browser) where the central admin's own member profile already
+// confirmed the code emailed to it: there, the password alone signs in
+// again. Anywhere else that profile needs the emailed code too (see
+// memberAuth.ts and lib/centralAdmin.ts). Only the hash of the phone's
+// cookie is kept.
+model TrustedMemberDevice {
+  id              String   @id @default(uuid())
+  memberAccountId String
+  tokenHash       String   @unique
+  createdAt       DateTime @default(now())
+  lastUsedAt      DateTime @default(now())
+
+  memberAccount MemberAccount @relation(fields: [memberAccountId], references: [id], onDelete: Cascade)
+
+  @@index([memberAccountId])
 }
 
 // Secure one-time magic-login token. Reuses the exact hashing convention

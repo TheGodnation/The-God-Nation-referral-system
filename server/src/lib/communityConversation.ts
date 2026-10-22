@@ -1,3 +1,4 @@
+import { isCentralAdminPerson } from './centralAdmin';
 import { prisma } from './prisma';
 import { findActiveScopedRole, personBelongsToContext, isCommunityAdministrator } from './leadership';
 
@@ -13,11 +14,13 @@ import { findActiveScopedRole, personBelongsToContext, isCommunityAdministrator 
  * checks are re-evaluated on every call — never cached.
  */
 export async function hasConversationAccess(personId: string, communityId: string): Promise<boolean> {
-  const [isMember, leaderRole] = await Promise.all([
+  const [isMember, leaderRole, centralAdmin] = await Promise.all([
     personBelongsToContext(personId, 'COMMUNITY', communityId),
     findActiveScopedRole(personId, 'COMMUNITY', communityId),
+    // The central admin's own member profile opens every assembly.
+    isCentralAdminPerson(personId),
   ]);
-  return isMember || Boolean(leaderRole);
+  return isMember || Boolean(leaderRole) || centralAdmin;
 }
 
 /**

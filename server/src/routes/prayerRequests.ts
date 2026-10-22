@@ -1,3 +1,4 @@
+import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -102,12 +103,13 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
   });
   const hasMore = rows.length > pageSize;
   const page = rows.slice(0, pageSize);
+  const coordinators = await centralAdminAmong(page.map((r) => r.author.id));
 
   res.json({
     viewer: { canPost: viewer.personId !== null, personId: viewer.personId },
     items: page.map((r) => ({
       id: r.id,
-      author: { personId: r.author.id, name: r.author.name, photoUrl: profilePhotoPath(r.author) },
+      author: { personId: r.author.id, name: r.author.name, photoUrl: profilePhotoPath(r.author), badge: badgeOf(coordinators, r.author.id) },
       body: r.body,
       visibility: r.visibility,
       community: r.community ? { id: r.community.id, name: r.community.name } : null,
@@ -212,10 +214,11 @@ router.get('/:id/comments', requireViewer, asyncHandler(async (req, res) => {
     take: 200,
     include: { author: { select: authorSelect } },
   });
+  const coordinators = await centralAdminAmong(comments.map((c) => c.author.id));
   res.json({
     items: comments.map((c) => ({
       id: c.id,
-      author: { personId: c.author.id, name: c.author.name, photoUrl: profilePhotoPath(c.author) },
+      author: { personId: c.author.id, name: c.author.name, photoUrl: profilePhotoPath(c.author), badge: badgeOf(coordinators, c.author.id) },
       body: c.body,
       createdAt: c.createdAt,
       canDelete: viewer.isAdmin || canModerate || (viewer.personId !== null && c.author.id === viewer.personId),

@@ -1,3 +1,4 @@
+import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
 import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type { Prisma } from '@prisma/client';
@@ -344,12 +345,13 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
     countsByPost.set(g.postId, counts);
   }
   const mine = new Map(myReactions.map((r) => [r.postId, r.type]));
+  const coordinators = await centralAdminAmong(page.map((p) => p.author.id));
 
   res.json({
     viewer: { canPost: viewer.personId !== null, canModerate: viewer.canModerate, personId: viewer.personId },
     items: page.map((p) => ({
       id: p.id,
-      author: { personId: p.author.id, name: p.author.name, photoUrl: profilePhotoPath(p.author) },
+      author: { personId: p.author.id, name: p.author.name, photoUrl: profilePhotoPath(p.author), badge: badgeOf(coordinators, p.author.id) },
       body: p.body,
       // Auto-translation — only surfaced once a background translation has
       // actually landed, and only when it differs from the viewer's own
@@ -513,6 +515,7 @@ router.get('/:id/comments', requireViewer, asyncHandler(async (req, res) => {
       reactions: { select: { type: true, personId: true } },
     },
   });
+  const coordinators = await centralAdminAmong(comments.map((c) => c.author.id));
   res.json({
     items: comments.map((c) => {
       const reactionCounts: Record<string, number> = {};
@@ -521,7 +524,7 @@ router.get('/:id/comments', requireViewer, asyncHandler(async (req, res) => {
         id: c.id,
         // Replies point at their top comment; the screen shows them under it.
         parentCommentId: c.parentCommentId,
-        author: { personId: c.author.id, name: c.author.name, photoUrl: profilePhotoPath(c.author) },
+        author: { personId: c.author.id, name: c.author.name, photoUrl: profilePhotoPath(c.author), badge: badgeOf(coordinators, c.author.id) },
         body: c.body,
         createdAt: c.createdAt,
         reactionCounts,

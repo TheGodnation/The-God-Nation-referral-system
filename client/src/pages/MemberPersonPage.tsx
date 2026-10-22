@@ -1,3 +1,4 @@
+import { CoordinatorBadge } from '../components/CoordinatorBadge';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +18,7 @@ interface Profile {
   coverUrl?: string | null;
   bio?: string | null;
   area: string | null;
+  badge?: string | null;
   isLeader: boolean;
   leaderOf: string[];
   memberOf: string[];
@@ -149,6 +151,11 @@ export function MemberPersonPage() {
                 .join(' · ')}
             >
             <div className="space-y-4">
+              {profile.badge && (
+                <p className="text-center">
+                  <CoordinatorBadge badge={profile.badge} className="px-3 py-1 text-xs" />
+                </p>
+              )}
               {profile.leaderOf.length > 0 && (
                 <p className="text-sm font-medium text-brand-700">{t('people.leader_of', { groups: profile.leaderOf.join(', ') })}</p>
               )}

@@ -72,7 +72,8 @@
     "submit_code": "Envoyez-moi un code",
     "error_email": "Veuillez entrer une adresse e-mail valide.",
     "forgot_password_link": "Mot de passe oublié, ou jamais défini ?",
-    "back_to_password_link": "Retour à la connexion par mot de passe"
+    "back_to_password_link": "Retour à la connexion par mot de passe",
+    "device_code_note": "Pour votre sécurité, ce compte demande une étape de plus sur un nouveau téléphone : nous avons envoyé un code à 6 chiffres à {{email}}. Tapez-le ci-dessous. Il ne vous sera plus demandé sur ce téléphone."
   },
   "memberSignup": {
     "title": "Rejoindre la communauté",
@@ -2200,7 +2201,8 @@
     "doc_opening": "Ouverture… {{percent}} %",
     "doc_cannot_show": "Ce document ne peut pas être affiché ici.",
     "doc_open_phone": "L’ouvrir sur le téléphone",
-    "doc_back": "Retour à la discussion"
+    "doc_back": "Retour à la discussion",
+    "all_assemblies": "Toutes les assemblées — comme Coordinateur national"
   },
   "voiceInput": {
     "start": "Parler pour écrire",
@@ -2488,5 +2490,8 @@
     "too_long_other": "{{over}} caractères de trop (la limite est {{max}}) — raccourcissez un peu, s’il vous plaît.",
     "left_one": "{{left}} caractère restant",
     "left_other": "{{left}} caractères restants"
+  },
+  "badges": {
+    "national_coordinator": "Coordinateur national"
   }
 }

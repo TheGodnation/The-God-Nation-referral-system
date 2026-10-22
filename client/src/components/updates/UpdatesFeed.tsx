@@ -1,3 +1,4 @@
+import { CoordinatorBadge } from '../CoordinatorBadge';
 import { LengthNote } from '../LengthNote';
 import { MAX_COMMENT_CHARS, MAX_POST_CHARS, isTooLong } from '../../lib/textLimits';
 import { ReactionsSheet, type ReactorList } from '../ReactionsSheet';
@@ -33,6 +34,7 @@ interface Author {
   personId: string;
   name: string;
   photoUrl: string | null;
+  badge?: string | null;
 }
 
 export interface UpdateItem {
@@ -338,7 +340,10 @@ function CommentBubble({
       <Avatar name={c.author.name} photoUrl={c.author.photoUrl} size={small ? 24 : 32} />
       <div className="min-w-0 flex-1">
         <div className="relative inline-block max-w-full rounded-2xl bg-slate-100 px-3 py-2">
-          <span className="block text-sm font-semibold text-slate-900">{c.author.name}</span>
+          <span className="block text-sm font-semibold text-slate-900">
+            {c.author.name}
+            <CoordinatorBadge badge={c.author.badge} />
+          </span>
           <p className="whitespace-pre-wrap break-words text-sm text-slate-800">{c.body}</p>
           {total > 0 && (
             <button
@@ -761,9 +766,13 @@ function PostCard({
           {linkAuthors ? (
             <Link to={`/member/people/${item.author.personId}`} className="block truncate font-semibold text-slate-900 hover:underline">
               {item.author.name}
+              <CoordinatorBadge badge={item.author.badge} />
             </Link>
           ) : (
-            <p className="truncate font-semibold text-slate-900">{item.author.name}</p>
+            <p className="truncate font-semibold text-slate-900">
+              {item.author.name}
+              <CoordinatorBadge badge={item.author.badge} />
+            </p>
           )}
           <p className="text-xs text-slate-500" title={formatWhen(item.createdAt, i18n.language)}>
             {relativeWhen(item.createdAt, t, i18n.language)} · 🌍

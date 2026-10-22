@@ -1,3 +1,4 @@
+import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -303,21 +304,34 @@ router.get('/me/training-progress', asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.get('/me/community-memberships', asyncHandler(async (req, res) => {
+  const personId = req.member!.personId;
   const memberships = await prisma.communityMembership.findMany({
-    where: { personId: req.member!.personId },
+    where: { personId },
     include: { community: { select: { id: true, name: true } } },
     orderBy: { joinedAt: 'desc' },
   });
+  // The central admin's own member profile also sees every other active
+  // assembly in its chats ("asCoordinator": not a member there).
+  const others = (await isCentralAdminPerson(personId))
+    ? await prisma.community.findMany({
+        where: { active: true, id: { notIn: memberships.map((m) => m.communityId) } },
+        select: { id: true, name: true, createdAt: true },
+        orderBy: { name: 'asc' },
+      })
+    : [];
   res.json({
-    items: memberships.map((m) => ({
-      // Phase 3M.1: communityId is additive — needed so the client can
-      // address this Community's conversation. Every existing field is
-      // unchanged.
-      communityId: m.community.id,
-      communityName: m.community.name,
-      status: m.status,
-      joinedAt: m.joinedAt,
-    })),
+    items: [
+      ...memberships.map((m) => ({
+        // Phase 3M.1: communityId is additive — needed so the client can
+        // address this Community's conversation. Every existing field is
+        // unchanged.
+        communityId: m.community.id,
+        communityName: m.community.name,
+        status: m.status,
+        joinedAt: m.joinedAt,
+      })),
+      ...others.map((c) => ({ communityId: c.id, communityName: c.name, status: 'ACTIVE' as const, joinedAt: c.createdAt, asCoordinator: true })),
+    ],
   });
 }));
 

@@ -1,3 +1,4 @@
+import { isCentralAdminPerson } from './centralAdmin';
 import { MAX_COMMENT_CHARS, MAX_POST_CHARS } from './textLimits';
 import type { Request } from 'express';
 import { prisma } from './prisma';
@@ -24,7 +25,8 @@ export interface PrayerRequestViewer {
 
 export async function resolvePrayerRequestViewer(req: Request): Promise<PrayerRequestViewer | null> {
   if (!req.member && !req.user) return null;
-  const isAdmin = req.user?.role === 'ADMIN';
+  // The central admin's own member profile has the admin's view too.
+  const isAdmin = req.user?.role === 'ADMIN' || (await isCentralAdminPerson(req.member?.personId));
   const leaderPersonId = req.user?.role === 'LEADER' ? await resolveActingPersonId(req.user.id) : null;
   const personId = req.member?.personId ?? leaderPersonId ?? null;
   return { personId, userId: req.user?.id ?? null, isAdmin };
