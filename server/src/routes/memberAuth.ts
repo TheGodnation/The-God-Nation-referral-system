@@ -1025,6 +1025,8 @@ router.post('/password-help', memberPasswordHelpLimiter, requireCsrf, asyncHandl
   await prisma.$transaction([
     prisma.memberAccount.update({ where: { id: account.id }, data: { passwordHash, lastLoginAt: new Date() } }),
     prisma.memberSession.deleteMany({ where: { memberAccountId: account.id } }),
+    // Any other help link sent to them stops working now.
+    prisma.memberPasswordHelpLink.updateMany({ where: { memberAccountId: account.id, usedAt: null }, data: { usedAt: new Date() } }),
     // Codes still waiting in their mailbox are no longer needed.
     prisma.memberLoginToken.updateMany({ where: { memberAccountId: account.id, consumedAt: null }, data: { consumedAt: new Date() } }),
   ]);

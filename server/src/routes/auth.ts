@@ -385,12 +385,21 @@ router.post('/reset-password', passwordResetRedeemLimiter, requireCsrf, asyncHan
   const passwordHash = await bcrypt.hash(newPassword, 12);
 
   const user = await prisma.$transaction(async (tx) => {
-    await tx.passwordResetToken.update({ where: { id: resetToken.id }, data: { consumedAt: new Date() } });
+    // Single use, even if the same link is submitted twice at once.
+    const claim = await tx.passwordResetToken.updateMany({ where: { id: resetToken.id, consumedAt: null }, data: { consumedAt: new Date() } });
+    if (claim.count !== 1) return null;
+    // The new password is set: any other link still out there (several
+    // "Help them sign in" links, or a "forgot password" email) stops working.
+    await tx.passwordResetToken.updateMany({ where: { userId: resetToken.userId, consumedAt: null }, data: { consumedAt: new Date() } });
     return tx.user.update({
       where: { id: resetToken.userId },
       data: { passwordHash, mustChangePassword: false },
     });
   });
+
+  if (!user) {
+    return res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.' });
+  }
 
   // Section 33: invalidate every existing session for the account.
   await destroyAllSessionsForUser(user.id);

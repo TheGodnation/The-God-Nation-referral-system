@@ -85,16 +85,24 @@ describe('Help them sign in', () => {
     expect(audit).not.toBeNull();
   });
 
-  it('a new link replaces the earlier one, and an expired link no longer works', async () => {
+  it('an earlier link still works after a new one is made; once one is used, the others stop; expired links never work', async () => {
     const { agent, csrf } = await loginAsAdmin();
     const { person } = await member();
     const first = await agent.post(`/api/admin/people/${person.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
     const second = await agent.post(`/api/admin/people/${person.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
-    expect((await request(app).get(`/api/member/auth/password-help?token=${tokenOf(first.body.url)}`)).status).toBe(400);
+    const third = await agent.post(`/api/admin/people/${person.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
+    expect((await request(app).get(`/api/member/auth/password-help?token=${tokenOf(first.body.url)}`)).status).toBe(200);
     expect((await request(app).get(`/api/member/auth/password-help?token=${tokenOf(second.body.url)}`)).status).toBe(200);
 
-    await prisma.memberPasswordHelpLink.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
+    const memberAgent = request.agent(app);
+    const { csrf: mcsrf } = await bootstrap(memberAgent);
+    expect((await memberAgent.post('/api/member/auth/password-help').set('X-CSRF-Token', mcsrf).send({ token: tokenOf(first.body.url), newPassword: 'FirstLink123' })).status).toBe(200);
     expect((await request(app).get(`/api/member/auth/password-help?token=${tokenOf(second.body.url)}`)).status).toBe(400);
+
+    const fourth = await agent.post(`/api/admin/people/${person.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
+    await prisma.memberPasswordHelpLink.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
+    expect((await request(app).get(`/api/member/auth/password-help?token=${tokenOf(fourth.body.url)}`)).status).toBe(400);
+    expect(third.status).toBe(200);
   });
 
   it('for a leader with no member sign-in, gives the leader page’s own new-password link', async () => {
@@ -147,9 +155,11 @@ describe('Help them sign in', () => {
     expect((await leaderAgent.post('/api/auth/reset-password').set('X-CSRF-Token', lcsrf).send({ token: tokenOf(made.body.url), newPassword: 'UnlinkedNew1' })).status).toBe(200);
     expect((await leaderAgent.post('/api/auth/login').set('X-CSRF-Token', lcsrf).send({ email: 'unlinked@test.local', password: 'UnlinkedNew1' })).status).toBe(200);
 
-    // A new link stops the earlier one.
+    // Two links out: the earlier one still works; then the other stops.
     const first = await agent.post(`/api/admin/leaders/${user.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
-    await agent.post(`/api/admin/leaders/${user.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
+    const second = await agent.post(`/api/admin/leaders/${user.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
+    expect((await leaderAgent.post('/api/auth/reset-password').set('X-CSRF-Token', lcsrf).send({ token: tokenOf(first.body.url), newPassword: 'FirstLink123' })).status).toBe(200);
+    expect((await leaderAgent.post('/api/auth/reset-password').set('X-CSRF-Token', lcsrf).send({ token: tokenOf(second.body.url), newPassword: 'Whatever123' })).status).toBe(400);
     expect((await leaderAgent.post('/api/auth/reset-password').set('X-CSRF-Token', lcsrf).send({ token: tokenOf(first.body.url), newPassword: 'Whatever123' })).status).toBe(400);
   });
 

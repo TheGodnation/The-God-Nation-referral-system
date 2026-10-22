@@ -999,7 +999,7 @@
         "copy": "Copy the link",
         "copied": "Copied ✓",
         "new_link": "Make a new link",
-        "only_once": "Making a new link stops the earlier one from working.",
+        "only_once": "Each link works once. Making another link doesn't stop one you already sent; as soon as they use one, the others stop working.",
         "central_admin": "This is your own profile. It signs in with the code sent to your email, so no link can be made for it.",
         "no_account": "This person has no sign-in account yet, so there is nothing to sign in to.",
         "failed": "The link could not be made. Please try again.",

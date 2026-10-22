@@ -999,7 +999,7 @@
         "copy": "Copier le lien",
         "copied": "Copié ✓",
         "new_link": "Créer un nouveau lien",
-        "only_once": "Créer un nouveau lien désactive le précédent.",
+        "only_once": "Chaque lien ne marche qu'une fois. Créer un autre lien n'arrête pas celui déjà envoyé ; dès que la personne en utilise un, les autres ne marchent plus.",
         "central_admin": "C'est votre propre profil. Il se connecte avec le code envoyé à votre e-mail ; aucun lien ne peut donc être créé pour lui.",
         "no_account": "Cette personne n'a pas encore de compte de connexion.",
         "failed": "Le lien n'a pas pu être créé. Veuillez réessayer.",
