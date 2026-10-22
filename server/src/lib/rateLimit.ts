@@ -156,6 +156,16 @@ export const memberLoginConsumeLimiter = rateLimit({
   message: { error: 'Too many attempts. Please try again later.' },
 });
 
+// "Help them sign in" links (sent by the central admin): checking a link and
+// choosing the new password. Same magnitude as the other link surfaces.
+export const memberPasswordHelpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
+});
+
 // Member email+password sign-in. Same magnitude as the Admin/Leader
 // loginLimiter (routes/auth.ts) — this is the account-takeover-risk
 // surface now that a Member can have a persistent password, on top of the

@@ -1140,6 +1140,27 @@ model MemberAccount {
   loginTokens    MemberLoginToken[]
   sessions       MemberSession[]
   trustedDevices TrustedMemberDevice[]
+  passwordHelp   MemberPasswordHelpLink[]
+}
+
+// "Help them sign in": a private link the central admin makes for a member
+// or leader who forgot their password and can't get the emailed code
+// (Admin → People). The admin checks it's really them, sends the link on
+// WhatsApp, and the person chooses their own new password with it — the
+// admin never sees or sets the password. Works once, for 24 hours; only
+// the link's hash is kept. Never made for the central admin's own profile.
+model MemberPasswordHelpLink {
+  id              String    @id @default(uuid())
+  memberAccountId String
+  tokenHash       String    @unique
+  createdByUserId String?
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  memberAccount MemberAccount @relation(fields: [memberAccountId], references: [id], onDelete: Cascade)
+
+  @@index([memberAccountId])
 }
 
 // A phone (browser) where the central admin's own member profile already

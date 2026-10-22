@@ -979,7 +979,25 @@
         "save": "Mettre à jour l'e-mail de connexion",
         "saving": "Enregistrement…",
         "success": "E-mail de connexion mis à jour.",
-        "failed": "Échec de la mise à jour de l'e-mail de connexion."
+        "failed": "Échec de la mise à jour de l'e-mail de connexion.",
+        "typo": "Cet e-mail semble mal écrit ({{email}}) — les codes risquent de ne jamais arriver. Vouliez-vous dire {{fix}} ?",
+        "use_fix": "Utiliser {{fix}}"
+      },
+      "signInHelp": {
+        "title": "L'aider à se connecter",
+        "hint": "Pour une personne qui a oublié son mot de passe et ne reçoit pas les codes par e-mail. Vous obtenez un lien personnel à lui envoyer sur WhatsApp. Il ne marche qu'une fois, pendant 24 heures, et c'est elle qui choisit son nouveau mot de passe — vous ne le voyez jamais.",
+        "make": "Créer un lien de connexion",
+        "making": "Création du lien…",
+        "expires": "Valable jusqu'au {{until}}.",
+        "send_whatsapp": "Envoyer sur WhatsApp",
+        "copy": "Copier le lien",
+        "copied": "Copié ✓",
+        "new_link": "Créer un nouveau lien",
+        "only_once": "Créer un nouveau lien désactive le précédent.",
+        "central_admin": "C'est votre propre profil. Il se connecte avec le code envoyé à votre e-mail ; aucun lien ne peut donc être créé pour lui.",
+        "no_account": "Cette personne n'a pas encore de compte de connexion.",
+        "failed": "Le lien n'a pas pu être créé. Veuillez réessayer.",
+        "whatsapp_message": "Bonjour {{name}}, voici votre lien personnel pour choisir un nouveau mot de passe dans l'application The God Nation. Il ne marche qu'une seule fois, jusqu'au {{until}}. Ne le partagez avec personne :\n{{url}}"
       },
       "delete": {
         "title": "Supprimer la personne",
@@ -2493,5 +2511,21 @@
   },
   "badges": {
     "national_coordinator": "Coordinateur national"
+  },
+  "passwordHelp": {
+    "title": "Choisir un nouveau mot de passe",
+    "checking": "Vérification de votre lien…",
+    "intro": "Bonjour {{name}}. Choisissez un nouveau mot de passe pour votre compte ({{email}}). Désormais, vous vous connecterez avec cet e-mail et ce mot de passe.",
+    "new_password": "Nouveau mot de passe",
+    "rule": "Au moins 8 caractères.",
+    "again": "Retapez le nouveau mot de passe",
+    "save": "Enregistrer et se connecter",
+    "saving": "Enregistrement…",
+    "too_short": "Le mot de passe doit contenir au moins 8 caractères.",
+    "not_same": "Les deux mots de passe ne sont pas identiques.",
+    "failed": "Votre nouveau mot de passe n'a pas pu être enregistré. Veuillez réessayer.",
+    "bad_link": "Ce lien a expiré ou a déjà été utilisé. Demandez-en un nouveau à l'administrateur central.",
+    "go_sign_in": "Aller à la connexion",
+    "done": "Votre nouveau mot de passe est enregistré. Vous êtes connecté. La prochaine fois, connectez-vous avec {{email}} et ce mot de passe."
   }
 }

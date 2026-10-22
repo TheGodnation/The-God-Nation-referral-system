@@ -2,6 +2,8 @@ import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
+import { SignInHelpCard } from './SignInHelpCard';
+import { suggestEmailFix } from '../../lib/emailTypo';
 
 // Member Reassignment — the server's fixed set of machine-readable move
 // error codes (see POST .../community-memberships/move in adminPeople.ts),
@@ -452,6 +454,20 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
           {detail.memberAccount ? (
             <form onSubmit={saveSignInEmail} className="space-y-2">
               <p className="text-xs text-slate-500">{t('admin.people.signInEmail.hint')}</p>
+              {(() => {
+                // A misspelled address (…@gmil.com) means the codes never arrive.
+                const fix = suggestEmailFix(detail.memberAccount.email);
+                return fix ? (
+                  <div role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    <p>{t('admin.people.signInEmail.typo', { email: detail.memberAccount.email, fix })}</p>
+                    {signInEmail !== fix && (
+                      <button type="button" className="mt-1 font-medium text-brand-700 underline" onClick={() => setSignInEmail(fix)}>
+                        {t('admin.people.signInEmail.use_fix', { fix })}
+                      </button>
+                    )}
+                  </div>
+                ) : null;
+              })()}
               <input
                 className="input"
                 type="email"
@@ -469,6 +485,8 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
             <p className="text-sm text-slate-400">{t('admin.people.signInEmail.no_account')}</p>
           )}
         </div>
+
+        <SignInHelpCard key={detail.id} person={detail} />
 
         {progress && (
           <div className="card mt-4 space-y-3">

@@ -71,6 +71,7 @@ const MemberGroupInfoPage = lazy(() => import('./pages/MemberGroupInfoPage').the
 const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').then((m) => ({ default: m.MemberGroupChatPage })));
 const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
 const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
+const MemberPasswordHelpPage = lazy(() => import('./pages/MemberPasswordHelpPage').then((m) => ({ default: m.MemberPasswordHelpPage })));
 const DeleteAccountPage = lazy(() => import('./pages/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })));
 const MemberDeleteAccountPage = lazy(() => import('./pages/MemberDeleteAccountPage').then((m) => ({ default: m.MemberDeleteAccountPage })));
 const MemberDownloadsPage = lazy(() => import('./pages/MemberDownloadsPage').then((m) => ({ default: m.MemberDownloadsPage })));
@@ -110,6 +111,7 @@ export default function App() {
             <Route path="/delete-account" element={<DeleteAccountPage />} />
             <Route path="/member/login" element={<MemberLoginPage />} />
             <Route path="/member/login/confirm" element={<MemberLoginConfirmPage />} />
+            <Route path="/member/password-help" element={<MemberPasswordHelpPage />} />
             <Route path="/member/join" element={<MemberSignupPage />} />
             <Route
               path="/member/complete-profile"

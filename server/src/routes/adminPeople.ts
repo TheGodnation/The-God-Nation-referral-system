@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { requireAuth, requireRole } from '../lib/auth';
+import { requireAuth, requireRole, hashToken } from '../lib/auth';
+import { CLIENT_URL } from '../lib/env';
+import { adminSensitiveLimiter } from '../lib/rateLimit';
 import { requireCsrf } from '../lib/csrf';
 import { normalizeToE164 } from '../lib/phone';
 import { parsePagination, paginatedResult } from '../lib/pagination';
@@ -253,6 +256,70 @@ router.patch('/people/:id/sign-in-email', requireCsrf, asyncHandler(async (req, 
   });
 
   res.json({ id: updated.id, email: updated.email });
+}));
+
+// POST /api/admin/people/:id/sign-in-help — "Help them sign in". For a
+// member or leader who forgot their password and can't get the emailed
+// codes (wrong address, mailbox full, no data for email...): a private link
+// the central admin sends them on WhatsApp. It works once, for 24 hours, and
+// lets them choose a new password themselves — the admin never sees or sets
+// it. A new link replaces any earlier one. Never for the central admin's own
+// profile, whose sign-in stays protected by the emailed code.
+const SIGN_IN_HELP_HOURS = 24;
+
+router.post('/people/:id/sign-in-help', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const person = await prisma.person.findUnique({
+    where: { id: req.params.id },
+    include: {
+      memberAccount: { select: { id: true } },
+      users: { select: { id: true, role: true, active: true } },
+    },
+  });
+  if (!person || person.erasedAt) return res.status(404).json({ error: 'Person not found.' });
+  if (person.users.some((u) => u.role === 'ADMIN')) {
+    return res.status(409).json({ error: 'This is the central admin’s own profile; it signs in with the emailed code.', code: 'CENTRAL_ADMIN' });
+  }
+
+  const raw = crypto.randomBytes(32).toString('hex');
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SIGN_IN_HELP_HOURS * 60 * 60 * 1000);
+  let url: string;
+  let kind: 'MEMBER' | 'LEADER';
+
+  if (person.memberAccount) {
+    kind = 'MEMBER';
+    await prisma.$transaction([
+      prisma.memberPasswordHelpLink.updateMany({ where: { memberAccountId: person.memberAccount.id, usedAt: null }, data: { usedAt: now } }),
+      prisma.memberPasswordHelpLink.create({
+        data: { memberAccountId: person.memberAccount.id, tokenHash: hashToken(raw), createdByUserId: req.user!.id, expiresAt },
+      }),
+    ]);
+    url = `${CLIENT_URL}/member/password-help?token=${raw}`;
+  } else {
+    // No member sign-in yet, only a leader account: the leader page's own
+    // "choose a new password" link.
+    const leader = person.users.find((u) => u.role === 'LEADER' && u.active);
+    if (!leader) {
+      return res.status(404).json({ error: 'This person has no sign-in account yet.', code: 'NO_ACCOUNT' });
+    }
+    kind = 'LEADER';
+    await prisma.$transaction([
+      prisma.passwordResetToken.updateMany({ where: { userId: leader.id, consumedAt: null }, data: { consumedAt: now } }),
+      prisma.passwordResetToken.create({ data: { userId: leader.id, tokenHash: hashToken(raw), expiresAt } }),
+    ]);
+    url = `${CLIENT_URL}/reset-password?token=${raw}`;
+  }
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'SIGN_IN_HELP_LINK_CREATED',
+    targetType: 'Person',
+    targetId: person.id,
+    metadata: { kind, expiresAt: expiresAt.toISOString() },
+  });
+
+  res.json({ url, expiresAt, kind, name: person.name, whatsappNumber: person.whatsappNumber });
 }));
 
 // DELETE /api/admin/people/:id — permanently removes a Person and

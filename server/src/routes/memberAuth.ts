@@ -20,6 +20,7 @@ import {
   memberSignupFinishLimiter,
   memberCompleteProfileLimiter,
   memberPasswordLoginLimiter,
+  memberPasswordHelpLimiter,
 } from '../lib/rateLimit';
 import { selectApplicableReferralVisit } from '../lib/attribution';
 import { placePersonInGroup } from '../lib/placement';
@@ -962,6 +963,81 @@ router.post('/consume', memberLoginConsumeLimiter, requireCsrf, asyncHandler(asy
       name: memberAccount.person.name,
       email: memberAccount.email,
       preferredLanguage: memberAccount.person.preferredLanguage,
+    },
+    ...(deletionCancelled ? { deletionCancelled: true } : {}),
+  });
+}));
+
+// ---------------------------------------------------------------------------
+// "Help them sign in" — the private link the central admin sends on WhatsApp
+// (Admin → People; see adminPeople.ts). It works once, for 24 hours: the
+// member chooses a new password and is signed in.
+// ---------------------------------------------------------------------------
+
+const BAD_HELP_LINK = { error: 'This link has expired or was already used. Ask the central admin for a new one.', code: 'BAD_LINK' };
+
+async function liveHelpLink(rawToken: unknown) {
+  if (typeof rawToken !== 'string' || rawToken.length < 20 || rawToken.length > 200) return null;
+  const link = await prisma.memberPasswordHelpLink.findUnique({
+    where: { tokenHash: hashToken(rawToken) },
+    include: { memberAccount: { include: { person: true } } },
+  });
+  if (!link || link.usedAt || link.expiresAt <= new Date()) return null;
+  // The central admin's profile never signs in without the emailed code.
+  if (await isCentralAdminPerson(link.memberAccount.personId)) return null;
+  return link;
+}
+
+// GET /api/member/auth/password-help?token= — whose link this is (first name
+// shown on the page, so they know it is for them).
+router.get('/password-help', memberPasswordHelpLimiter, asyncHandler(async (req, res) => {
+  const link = await liveHelpLink(req.query.token);
+  if (!link) return res.status(400).json(BAD_HELP_LINK);
+  res.json({ name: link.memberAccount.person.name, email: link.memberAccount.email, expiresAt: link.expiresAt });
+}));
+
+const passwordHelpSchema = z.object({
+  token: z.string().min(20).max(200),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters long.').max(200),
+});
+
+// POST /api/member/auth/password-help — the new password; signs them in and
+// signs out every other phone that was still signed in to the account.
+router.post('/password-help', memberPasswordHelpLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = passwordHelpSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === 'newPassword') return res.status(400).json({ error: issue.message, code: 'INVALID_PASSWORD' });
+    return res.status(400).json(BAD_HELP_LINK);
+  }
+  const link = await liveHelpLink(parsed.data.token);
+  if (!link) return res.status(400).json(BAD_HELP_LINK);
+  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 12);
+
+  // Atomic, single-use claim (as with the emailed sign-in link).
+  const claim = await prisma.memberPasswordHelpLink.updateMany({
+    where: { id: link.id, usedAt: null, expiresAt: { gt: new Date() } },
+    data: { usedAt: new Date() },
+  });
+  if (claim.count !== 1) return res.status(400).json(BAD_HELP_LINK);
+
+  const account = link.memberAccount;
+  await prisma.$transaction([
+    prisma.memberAccount.update({ where: { id: account.id }, data: { passwordHash, lastLoginAt: new Date() } }),
+    prisma.memberSession.deleteMany({ where: { memberAccountId: account.id } }),
+    // Codes still waiting in their mailbox are no longer needed.
+    prisma.memberLoginToken.updateMany({ where: { memberAccountId: account.id, consumedAt: null }, data: { consumedAt: new Date() } }),
+  ]);
+  await createMemberSession(account.id, res);
+  const deletionCancelled = await comeBack(account.person);
+  await autoPairLeaderSession(account.personId, res);
+  await recordAudit({ action: 'MEMBER_PASSWORD_SET', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'admin_help_link' } });
+
+  res.json({
+    member: {
+      name: account.person.name,
+      email: account.email,
+      preferredLanguage: account.person.preferredLanguage,
     },
     ...(deletionCancelled ? { deletionCancelled: true } : {}),
   });
