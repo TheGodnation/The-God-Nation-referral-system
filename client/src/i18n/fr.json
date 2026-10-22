@@ -564,7 +564,11 @@
       "save_failed": "Échec de l'enregistrement.",
       "delete": "Supprimer",
       "delete_confirm": "Supprimer {{name}} ? Son compte et son code de parrainage seront définitivement supprimés — action irréversible. Cette personne a parrainé {{count}} personnes — ces inscriptions resteront, mais ne seront plus liées à aucun leader.",
-      "delete_failed": "Échec de la suppression du Leader."
+      "delete_failed": "Échec de la suppression du Leader.",
+      "help_sign_in": "L'aider à se connecter",
+      "help_title": "Aider {{name}} à se connecter",
+      "close": "Fermer",
+      "email_typo": "⚠ Semble mal écrit — vouliez-vous dire {{fix}} ? Corrigez avec Modifier."
     },
     "roleAssignments": {
       "title": "Attributions de rôles",
@@ -997,7 +1001,10 @@
         "central_admin": "C'est votre propre profil. Il se connecte avec le code envoyé à votre e-mail ; aucun lien ne peut donc être créé pour lui.",
         "no_account": "Cette personne n'a pas encore de compte de connexion.",
         "failed": "Le lien n'a pas pu être créé. Veuillez réessayer.",
-        "whatsapp_message": "Bonjour {{name}}, voici votre lien personnel pour choisir un nouveau mot de passe dans l'application The God Nation. Il ne marche qu'une seule fois, jusqu'au {{until}}. Ne le partagez avec personne :\n{{url}}"
+        "whatsapp_message": "Bonjour {{name}}, voici votre lien personnel pour choisir un nouveau mot de passe dans l'application The God Nation. Il ne marche qu'une seule fois, jusqu'au {{until}}. Ne le partagez avec personne :\n{{url}}",
+        "whatsapp_message_leader": "Bonjour {{name}}, voici votre lien personnel pour choisir un nouveau mot de passe pour votre compte responsable The God Nation ({{email}}). Il ne marche qu'une seule fois, jusqu'au {{until}}. Ne le partagez avec personne :\n{{url}}",
+        "leader_signs_in": "Ensuite, la personne se connecte sur la page des responsables avec {{email}} et son nouveau mot de passe.",
+        "no_number": "Nous n'avons pas son numéro WhatsApp : WhatsApp vous demandera à qui l'envoyer."
       },
       "delete": {
         "title": "Supprimer la personne",

@@ -27,6 +27,8 @@ import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { PrivateMessagesTab } from '../components/admin/PrivateMessagesTab';
 import { ResourcesTab } from '../components/admin/ResourcesTab';
 import { SearchPicker } from '../components/admin/SearchPicker';
+import { SignInHelpPanel } from '../components/admin/SignInHelpCard';
+import { suggestEmailFix } from '../lib/emailTypo';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
@@ -135,12 +137,14 @@ function OverviewTab({ includeTestData }: { includeTestData: boolean }) {
   );
 }
 
-function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
+export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<LeaderRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ name: string } | null>(null);
   const [resendStatus, setResendStatus] = useState<Record<string, string>>({});
+  // "Help them sign in" — also for leaders not linked to anyone in People.
+  const [helping, setHelping] = useState<LeaderRow | null>(null);
 
   // Section 7: "Create Leader from scratch" is retired — every Leader going
   // forward must already be an existing, active Member. assigningVisible
@@ -358,6 +362,16 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
         </form>
       )}
 
+      {helping && (
+        <div className="card mb-4 space-y-3">
+          <h3 className="font-semibold text-brand-900">{t('admin.leaders.help_title', { name: helping.name })}</h3>
+          <SignInHelpPanel key={helping.id} endpoint={`/api/admin/leaders/${helping.id}/sign-in-help`} />
+          <button type="button" className="text-sm text-slate-500 hover:underline" onClick={() => setHelping(null)}>
+            {t('admin.leaders.close')}
+          </button>
+        </div>
+      )}
+
       {linkingId && (
         <div className="card mb-4 space-y-3">
           <h3 className="font-semibold text-brand-900">{t('admin.leaders.link_person_title')}</h3>
@@ -415,6 +429,17 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
                   <button className="text-brand-700 hover:underline" onClick={() => resendInvitation(l)}>
                     {resendStatus[l.id] ?? t('admin.leaders.resend_invitation')}
                   </button>
+                  {l.active && (
+                    <button
+                      className="text-brand-700 hover:underline"
+                      onClick={() => {
+                        setHelping(l);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      {t('admin.leaders.help_sign_in')}
+                    </button>
+                  )}
                   <button className="text-red-700 hover:underline" onClick={() => deleteLeader(l)}>
                     {t('admin.leaders.delete')}
                   </button>
@@ -425,7 +450,14 @@ function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
                   )}
                 </td>
                 <td className="py-2 pr-4">{l.name}</td>
-                <td className="py-2 pr-4">{l.email}</td>
+                <td className="py-2 pr-4">
+                  {l.email}
+                  {suggestEmailFix(l.email) && (
+                    <span className="block text-xs text-amber-700">
+                      {t('admin.leaders.email_typo', { fix: suggestEmailFix(l.email) })}
+                    </span>
+                  )}
+                </td>
                 <td className="py-2 pr-4">{l.referralCode ?? '—'}</td>
                 <td className="py-2 pr-4 font-medium text-brand-900">{l.referredCount}</td>
                 <td className="py-2 pr-4">

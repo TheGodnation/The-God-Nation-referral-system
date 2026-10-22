@@ -564,7 +564,11 @@
       "save_failed": "Failed to save changes.",
       "delete": "Delete",
       "delete_confirm": "Delete {{name}}? This permanently removes their account and referral code and cannot be undone. They have referred {{count}} people — those registrations will stay, but will no longer be linked to any leader.",
-      "delete_failed": "Failed to delete leader."
+      "delete_failed": "Failed to delete leader.",
+      "help_sign_in": "Help them sign in",
+      "help_title": "Help {{name}} sign in",
+      "close": "Close",
+      "email_typo": "⚠ Looks misspelled — did they mean {{fix}}? Fix it with Edit."
     },
     "roleAssignments": {
       "title": "Role Assignments",
@@ -997,7 +1001,10 @@
         "central_admin": "This is your own profile. It signs in with the code sent to your email, so no link can be made for it.",
         "no_account": "This person has no sign-in account yet, so there is nothing to sign in to.",
         "failed": "The link could not be made. Please try again.",
-        "whatsapp_message": "Hello {{name}}, here is your private link to choose a new password for The God Nation app. It works only once, until {{until}}. Please don't share it with anyone:\n{{url}}"
+        "whatsapp_message": "Hello {{name}}, here is your private link to choose a new password for The God Nation app. It works only once, until {{until}}. Please don't share it with anyone:\n{{url}}",
+        "whatsapp_message_leader": "Hello {{name}}, here is your private link to choose a new password for your The God Nation leader account ({{email}}). It works only once, until {{until}}. Please don't share it with anyone:\n{{url}}",
+        "leader_signs_in": "They then sign in on the leader page with {{email}} and their new password.",
+        "no_number": "We don't have their WhatsApp number: WhatsApp will ask you whom to send it to."
       },
       "delete": {
         "title": "Delete Person",

@@ -132,6 +132,45 @@ describe('Help them sign in', () => {
     expect(none.body.code).toBe('NO_ACCOUNT');
   });
 
+  it('from the Leaders list: a leader not linked to anyone in People gets the leader page’s link', async () => {
+    const { agent, csrf } = await loginAsAdmin();
+    const { user } = await createLeader('Unlinked Leader', 'unlinked@test.local', 'UNLINK1');
+
+    const made = await agent.post(`/api/admin/leaders/${user.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
+    expect(made.status).toBe(200);
+    expect(made.body.kind).toBe('LEADER');
+    expect(made.body.whatsappNumber).toBeNull();
+    expect(made.body.email).toBe('unlinked@test.local');
+
+    const leaderAgent = request.agent(app);
+    const { csrf: lcsrf } = await bootstrap(leaderAgent);
+    expect((await leaderAgent.post('/api/auth/reset-password').set('X-CSRF-Token', lcsrf).send({ token: tokenOf(made.body.url), newPassword: 'UnlinkedNew1' })).status).toBe(200);
+    expect((await leaderAgent.post('/api/auth/login').set('X-CSRF-Token', lcsrf).send({ email: 'unlinked@test.local', password: 'UnlinkedNew1' })).status).toBe(200);
+
+    // A new link stops the earlier one.
+    const first = await agent.post(`/api/admin/leaders/${user.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
+    await agent.post(`/api/admin/leaders/${user.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
+    expect((await leaderAgent.post('/api/auth/reset-password').set('X-CSRF-Token', lcsrf).send({ token: tokenOf(first.body.url), newPassword: 'Whatever123' })).status).toBe(400);
+  });
+
+  it('from the Leaders list: a leader with a member profile gets the app’s link; a turned-off leader gets none', async () => {
+    const { agent, csrf } = await loginAsAdmin();
+    const { person } = await member();
+    const { user } = await createLeader('Linked Leader', 'linked@test.local', 'LINKED1');
+    await prisma.user.update({ where: { id: user.id }, data: { personId: person.id } });
+
+    const made = await agent.post(`/api/admin/leaders/${user.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
+    expect(made.status).toBe(200);
+    expect(made.body.kind).toBe('MEMBER');
+    expect(made.body.whatsappNumber).toBe(person.whatsappNumber);
+    expect((await request(app).get(`/api/member/auth/password-help?token=${tokenOf(made.body.url)}`)).status).toBe(200);
+
+    await prisma.user.update({ where: { id: user.id }, data: { active: false } });
+    const off = await agent.post(`/api/admin/leaders/${user.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
+    expect(off.status).toBe(409);
+    expect(off.body.code).toBe('INACTIVE');
+  });
+
   it('only the central admin can make a link', async () => {
     const { person } = await member();
     const agent = request.agent(app);

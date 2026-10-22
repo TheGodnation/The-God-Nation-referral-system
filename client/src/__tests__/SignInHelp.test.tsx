@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { PeopleTab } from '../components/admin/PeopleTab';
+import { LeadersTab } from '../pages/AdminDashboardPage';
 import { MemberPasswordHelpPage } from '../pages/MemberPasswordHelpPage';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 
@@ -57,7 +58,7 @@ async function openPerson(d: ReturnType<typeof detail>) {
     'GET /api/admin/people/p1': () => ({ body: d }),
     'GET /api/admin/people': () => ({ body: LIST }),
     'POST /api/admin/people/p1/sign-in-help': () => ({
-      body: { url: 'https://thegodnationacademy.org/member/password-help?token=abc123', expiresAt: '2026-10-23T12:00:00.000Z', kind: 'MEMBER', name: 'Prince N', whatsappNumber: '+237 670 000 111' },
+      body: { url: 'https://thegodnationacademy.org/member/password-help?token=abc123', expiresAt: '2026-10-23T12:00:00.000Z', kind: 'MEMBER', name: 'Prince N', whatsappNumber: '+237 670 000 111', language: 'fr' },
     }),
   });
   render(<PeopleTab includeTestData={false} />);
@@ -90,6 +91,32 @@ describe('Help them sign in — admin', () => {
     await openPerson(detail({ users: [{ id: 'u1', name: 'Admin', email: 'a@x.com', role: 'ADMIN' }] }));
     expect(await screen.findByText(/This is your own profile/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Make a sign-in link' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Help them sign in — Leaders list', () => {
+  const LEADER = { id: 'u9', name: 'Pastor Paul', email: 'paul@gmial.com', active: true, isTestData: false, selfRegistered: false, referralCode: 'PAUL1', referredCount: 3, createdAt: '2026-01-01T00:00:00Z', personId: null, personName: null };
+
+  it('helps a leader who is not in People, with the email they sign in with', async () => {
+    mockFetch({
+      'GET /api/admin/leaders': () => ({ body: { items: [LEADER], pagination: { totalPages: 1 } } }),
+      'POST /api/admin/leaders/u9/sign-in-help': () => ({
+        body: { url: 'https://thegodnationacademy.org/reset-password?token=lead1', expiresAt: '2026-10-23T12:00:00.000Z', kind: 'LEADER', name: 'Pastor Paul', whatsappNumber: null, language: null, email: 'paul@gmial.com' },
+      }),
+    });
+    render(<LeadersTab includeTestData={false} />);
+    expect(await screen.findByText(/did they mean paul@gmail\.com/)).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Help them sign in' }));
+    expect(screen.getByText('Help Pastor Paul sign in')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Make a sign-in link' }));
+    expect(await screen.findByTestId('sign-in-help-url')).toHaveTextContent('/reset-password?token=lead1');
+    expect(screen.getByText(/sign in on the leader page with paul@gmial\.com/)).toBeInTheDocument();
+    expect(screen.getByText(/WhatsApp will ask you whom to send it to/)).toBeInTheDocument();
+
+    const href = screen.getByRole('link', { name: 'Send on WhatsApp' }).getAttribute('href')!;
+    expect(href.startsWith('https://wa.me/?text=')).toBe(true);
+    expect(decodeURIComponent(href.split('text=')[1])).toContain('leader account (paul@gmial.com)');
   });
 });
 

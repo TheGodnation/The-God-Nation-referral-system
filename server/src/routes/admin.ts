@@ -14,6 +14,7 @@ import { CLIENT_URL, LEADER_SETUP_TOKEN_TTL_MS } from '../lib/env';
 import { asyncHandler } from '../lib/asyncHandler';
 import { getOrCreatePersonReferralCode } from '../lib/referralCode';
 import { notifyLeaderDashboardMovedIfNeeded } from '../lib/notifications';
+import { leaderSignInHelpLink, memberSignInHelpLink } from '../lib/signInHelp';
 
 const router = Router();
 
@@ -316,6 +317,45 @@ router.post('/leaders/:id/resend-invitation', adminSensitiveLimiter, requireCsrf
   });
 
   res.json({ invitationSent });
+}));
+
+// POST /api/admin/leaders/:id/sign-in-help — "Help them sign in" from the
+// Leaders list (see lib/signInHelp.ts), also for a leader who is not linked
+// to anyone in People. A leader linked to a member profile gets the app's
+// link (they sign in to the app, and their leader account comes with it);
+// otherwise the leader page's own new-password link.
+router.post('/leaders/:id/sign-in-help', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const leader = await prisma.user.findUnique({
+    where: { id: req.params.id },
+    include: { person: { select: { id: true, name: true, whatsappNumber: true, preferredLanguage: true, memberAccount: { select: { id: true } } } } },
+  });
+  if (!leader || leader.role !== 'LEADER') return res.status(404).json({ error: 'Leader not found.' });
+  if (!leader.active) {
+    return res.status(409).json({ error: 'This leader account is turned off. Activate it first.', code: 'INACTIVE' });
+  }
+
+  const link = leader.person?.memberAccount
+    ? await memberSignInHelpLink(leader.person.memberAccount.id, req.user!.id)
+    : await leaderSignInHelpLink(leader.id);
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'SIGN_IN_HELP_LINK_CREATED',
+    targetType: 'User',
+    targetId: leader.id,
+    metadata: { kind: link.kind, expiresAt: link.expiresAt.toISOString() },
+  });
+
+  res.json({
+    ...link,
+    name: leader.person?.name ?? leader.name,
+    // Unknown for a leader not linked to anyone in People: WhatsApp then
+    // asks the admin whom to send it to.
+    whatsappNumber: leader.person?.whatsappNumber ?? null,
+    language: leader.person?.preferredLanguage ?? null,
+    email: leader.email,
+  });
 }));
 
 const patchLeaderSchema = z.object({
