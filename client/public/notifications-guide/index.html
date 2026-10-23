@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<title>Install &amp; Notifications Guide — The God Nation</title>
+<style>
+  :root {
+    --navy-950: #0a1740;
+    --navy-900: #0f2260;
+    --navy-800: #122a78;
+    --navy-700: #16349a;
+    --gold-500: #e0b027;
+    --gold-400: #f2c94c;
+    --bg: #faf8f3;
+    --surface: #ffffff;
+    --surface-2: #f3f1ea;
+    --ink: #1c2333;
+    --ink-soft: #4a5170;
+    --ink-faint: #7a8099;
+    --line: #e6e2d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1020; --surface: #121834; --surface-2: #171e3e;
+      --ink: #eef0fa; --ink-soft: #b6bde0; --ink-faint: #7f87ad; --line: #262f57;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1020; --surface: #121834; --surface-2: #171e3e;
+    --ink: #eef0fa; --ink-soft: #b6bde0; --ink-faint: #7f87ad; --line: #262f57;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    margin: 0; padding-inline: 20px; padding-block: 0 64px; line-height: 1.55;
+  }
+  [hidden] { display: none !important; }
+  h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif; color: var(--navy-900); text-wrap: balance; margin: 0; }
+  :root[data-theme="dark"] h1, :root[data-theme="dark"] h2, :root[data-theme="dark"] h3 { color: #f4f0e4; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) h1, :root:not([data-theme="light"]) h2, :root:not([data-theme="light"]) h3 { color: #f4f0e4; }
+  }
+  a { color: var(--navy-700); }
+  .wrap { max-width: 720px; margin-inline: auto; }
+  header.top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); margin-inline: -20px; padding: 12px 20px; }
+  .top-row { max-width: 720px; margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand img { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+  .brand span { font-family: Georgia, 'Times New Roman', serif; font-weight: 600; font-size: 0.95rem; color: var(--navy-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  :root[data-theme="dark"] .brand span { color: #f4f0e4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand span { color: #f4f0e4; } }
+  .lang-toggle { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; flex-shrink: 0; }
+  .lang-toggle button { font: inherit; font-weight: 600; font-size: 0.8rem; border: none; background: transparent; color: var(--ink-soft); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+  .lang-toggle button[aria-pressed="true"] { background: var(--navy-900); color: #fdf9ef; }
+  .hero { padding-block: 28px 8px; }
+  .eyebrow { font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-500); margin-bottom: 10px; display: block; }
+  .hero h1 { font-size: clamp(1.6rem, 5vw, 2.2rem); line-height: 1.12; }
+  .hero p { color: var(--ink-soft); font-size: 1.02rem; max-width: 60ch; margin-top: 12px; }
+  .platform { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .platform-head { display: flex; gap: 12px; align-items: center; }
+  .platform-head .emoji { font-size: 1.8rem; }
+  .platform h2 { font-size: 1.3rem; }
+  .steps { margin-top: 16px; display: grid; gap: 12px; }
+  .step-row { display: flex; gap: 12px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .step-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; background: var(--navy-900); color: #fdf9ef; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+  .step-row p { margin: 0; color: var(--ink); font-size: 0.96rem; }
+  .step-row b { color: var(--navy-900); }
+  :root[data-theme="dark"] .step-row b { color: var(--gold-400); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .step-row b { color: var(--gold-400); } }
+  .callout { margin-top: 14px; background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--gold-500); border-radius: 12px; padding: 14px 16px; font-size: 0.92rem; color: var(--ink-soft); }
+  .callout b { color: var(--ink); }
+  .callout.warn { border-left-color: #c0392b; }
+  code.phrase { background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <div class="brand">
+      <img src="/leader-guide/img/logo.png" alt="">
+      <span class="en">The God Nation</span>
+      <span class="fr" hidden>The God Nation</span>
+    </div>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en" aria-pressed="true" onclick="setLang('en')">EN</button>
+      <button type="button" class="lang-btn" data-lang="fr" aria-pressed="false" onclick="setLang('fr')">FR</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero">
+    <span class="eyebrow en">Quick guide</span>
+    <span class="eyebrow fr" hidden>Guide rapide</span>
+    <h1 class="en">Install the app &amp; turn on notifications</h1>
+    <h1 class="fr" hidden>Installer l’application et activer les notifications</h1>
+    <p class="en">Two separate things, two separate sets of steps below: installing the app on your phone, and turning on notifications so you never miss a message, announcement, or update. Pick your phone below.</p>
+    <p class="fr" hidden>Deux choses distinctes, deux séries d’étapes ci-dessous : installer l’application sur votre téléphone, et activer les notifications pour ne jamais manquer un message, une annonce ou une mise à jour. Choisissez votre téléphone ci-dessous.</p>
+  </section>
+
+  <section class="platform">
+    <div class="platform-head">
+      <span class="emoji">🤖</span>
+      <h2 class="en">Android</h2>
+      <h2 class="fr" hidden>Android</h2>
+    </div>
+    <div class="steps">
+      <div class="step-row">
+        <span class="step-num">1</span>
+        <p class="en">Open the God Nation site in <b>Chrome</b>.</p>
+        <p class="fr" hidden>Ouvrez le site God Nation dans <b>Chrome</b>.</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">2</span>
+        <p class="en">You'll usually see an <b>"Install the God Nation app"</b> banner right on the Chats screen — tap <b>Install</b>. If you don't see it, tap the <b>⋮</b> menu (top right) and choose <b>"Install app"</b> (or "Add to Home screen").</p>
+        <p class="fr" hidden>Vous verrez généralement une bannière <b>« Installer l’application God Nation »</b> directement sur l’écran Discussions — appuyez sur <b>Installer</b>. Si vous ne la voyez pas, appuyez sur le menu <b>⋮</b> (en haut à droite) et choisissez <b>« Installer l’application »</b> (ou « Ajouter à l’écran d’accueil »).</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">3</span>
+        <p class="en">Confirm. The God Nation icon appears on your Home screen and opens full-screen, like any other app.</p>
+        <p class="fr" hidden>Confirmez. L’icône God Nation apparaît sur votre écran d’accueil et s’ouvre en plein écran, comme toute autre application.</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">4</span>
+        <p class="en">To turn on notifications: open the app and tap <b>"Turn on notifications"</b> in the strip at the top of <b>Chats</b>, <b>Home</b> or <b>Me</b>, then <b>Allow</b> on the browser's own permission prompt.</p>
+        <p class="fr" hidden>Pour activer les notifications : ouvrez l’application et appuyez sur <b>« Activer les notifications »</b> dans le bandeau en haut de <b>Discussions</b>, <b>Accueil</b> ou <b>Moi</b>, puis <b>Autoriser</b> sur la demande d’autorisation du navigateur.</p>
+      </div>
+    </div>
+    <div class="callout">
+      <b class="en">Works even when closed.</b><span class="en"> On Android, once allowed, notifications arrive even if the app and Chrome are both fully closed — as long as your phone has a network connection.</span>
+      <b class="fr" hidden>Fonctionne même fermée.</b><span class="fr" hidden> Sur Android, une fois autorisées, les notifications arrivent même si l’application et Chrome sont tous deux complètement fermés — à condition que votre téléphone ait une connexion réseau.</span>
+    </div>
+    <div class="callout">
+      <b class="en">Can't install? A shortcut works too.</b><span class="en"> On Android, notifications come through <b>Chrome</b>, not through the installed app. A Home screen shortcut, or simply the site open in a normal Chrome tab, receives notifications just the same — once you've tapped "Turn on notifications" and Allow on that phone.</span>
+      <b class="fr" hidden>Impossible d’installer ? Un raccourci fonctionne aussi.</b><span class="fr" hidden> Sur Android, les notifications passent par <b>Chrome</b>, pas par l’application installée. Un raccourci sur l’écran d’accueil, ou simplement le site ouvert dans un onglet Chrome normal, reçoit les notifications de la même façon — une fois que vous avez appuyé sur « Activer les notifications » puis Autoriser sur ce téléphone.</span>
+    </div>
+    <div class="callout warn">
+      <b class="en">Not from inside WhatsApp or Facebook.</b><span class="en"> If you opened the link from inside WhatsApp or Facebook, it opens in their built-in browser, which can't receive notifications. Tap the <b>⋮</b> menu and choose <b>"Open in Chrome"</b>, then turn notifications on there. If your shortcut opens in another browser (Samsung Internet, Opera…), allow notifications in that browser instead.</span>
+      <b class="fr" hidden>Pas depuis WhatsApp ou Facebook.</b><span class="fr" hidden> Si vous avez ouvert le lien depuis WhatsApp ou Facebook, il s’ouvre dans leur navigateur intégré, qui ne peut pas recevoir de notifications. Appuyez sur le menu <b>⋮</b> et choisissez <b>« Ouvrir dans Chrome »</b>, puis activez les notifications là. Si votre raccourci s’ouvre dans un autre navigateur (Samsung Internet, Opera…), autorisez les notifications dans ce navigateur.</span>
+    </div>
+    <div class="callout">
+      <b class="en">Notifications late or missing? Check the battery saver.</b><span class="en"> Some phones — often Tecno, Infinix, itel, Xiaomi, Oppo and Huawei — stop Chrome in the background to save battery, which delays or blocks notifications. Open your phone's <b>Settings → Apps → Chrome → Battery</b> and choose <b>"Unrestricted"</b> (or turn on "Allow background activity"). The exact names differ a little from phone to phone. Also check <b>Settings → Apps → Chrome → Notifications</b> is on.</span>
+      <b class="fr" hidden>Notifications en retard ou absentes ? Vérifiez l’économiseur de batterie.</b><span class="fr" hidden> Certains téléphones — souvent Tecno, Infinix, itel, Xiaomi, Oppo et Huawei — arrêtent Chrome en arrière-plan pour économiser la batterie, ce qui retarde ou bloque les notifications. Ouvrez <b>Paramètres → Applications → Chrome → Batterie</b> et choisissez <b>« Non restreint »</b> (ou activez « Autoriser l’activité en arrière-plan »). Les noms exacts varient un peu selon le téléphone. Vérifiez aussi que <b>Paramètres → Applications → Chrome → Notifications</b> est activé.</span>
+    </div>
+  </section>
+
+  <section class="platform">
+    <div class="platform-head">
+      <span class="emoji">🍎</span>
+      <h2 class="en">iPhone</h2>
+      <h2 class="fr" hidden>iPhone</h2>
+    </div>
+    <div class="callout warn">
+      <b class="en">Must be Safari.</b><span class="en"> Apple only allows installing and notifying from Safari — Chrome or other browsers on iPhone cannot do either, even though they work fine for regular browsing.</span>
+      <b class="fr" hidden>Doit être Safari.</b><span class="fr" hidden> Apple n’autorise l’installation et les notifications que depuis Safari — Chrome ou d’autres navigateurs sur iPhone ne peuvent faire ni l’un ni l’autre, même s’ils fonctionnent bien pour la navigation normale.</span>
+    </div>
+    <div class="steps">
+      <div class="step-row">
+        <span class="step-num">1</span>
+        <p class="en">Open the God Nation site in <b>Safari</b>.</p>
+        <p class="fr" hidden>Ouvrez le site God Nation dans <b>Safari</b>.</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">2</span>
+        <p class="en">Tap the <b>Share</b> icon (square with an arrow pointing up) in Safari's toolbar.</p>
+        <p class="fr" hidden>Appuyez sur l’icône <b>Partager</b> (carré avec une flèche vers le haut) dans la barre d’outils de Safari.</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">3</span>
+        <p class="en">Scroll down and tap <b>"Add to Home Screen"</b>, then tap <b>Add</b> (top right).</p>
+        <p class="fr" hidden>Faites défiler et appuyez sur <b>« Sur l’écran d’accueil »</b>, puis appuyez sur <b>Ajouter</b> (en haut à droite).</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">4</span>
+        <p class="en">Open the God Nation icon <b>from your Home Screen</b> (not from Safari) — it opens full-screen like a real app.</p>
+        <p class="fr" hidden>Ouvrez l’icône God Nation <b>depuis votre écran d’accueil</b> (pas depuis Safari) — elle s’ouvre en plein écran comme une vraie application.</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">5</span>
+        <p class="en"><b>Log in again</b> if it asks you to. The iPhone keeps the Home Screen app separate from Safari, so being logged in in Safari doesn't carry over.</p>
+        <p class="fr" hidden><b>Reconnectez-vous</b> si l’application vous le demande. L’iPhone garde l’application de l’écran d’accueil séparée de Safari : être connecté dans Safari ne suffit pas.</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">6</span>
+        <p class="en">From that installed app icon, tap <b>"Turn on notifications"</b> in the strip at the top of <b>Chats</b>, <b>Home</b> or <b>Me</b>, then <b>Allow</b>.</p>
+        <p class="fr" hidden>Depuis cette icône installée, appuyez sur <b>« Activer les notifications »</b> dans le bandeau en haut de <b>Discussions</b>, <b>Accueil</b> ou <b>Moi</b>, puis <b>Autoriser</b>.</p>
+      </div>
+    </div>
+    <div class="callout warn">
+      <b class="en">iOS 16.4 or later required.</b><span class="en"> Notifications only work from the installed Home Screen icon — never from a Safari tab, even after allowing permission there — and only on iOS 16.4+. On an older iPhone, installing still gives you the full-screen app experience, just without notifications; there's no workaround for that on Apple's side.</span>
+      <b class="fr" hidden>iOS 16.4 ou version ultérieure requis.</b><span class="fr" hidden> Les notifications ne fonctionnent que depuis l’icône installée sur l’écran d’accueil — jamais depuis un onglet Safari, même après y avoir autorisé la permission — et uniquement sur iOS 16.4 ou plus récent. Sur un iPhone plus ancien, l’installation donne quand même l’expérience plein écran, mais sans notifications ; il n’y a pas de solution de contournement côté Apple.</span>
+    </div>
+  </section>
+
+  <section class="platform">
+    <div class="platform-head">
+      <span class="emoji">💻</span>
+      <h2 class="en">Desktop (Windows / Mac / Linux)</h2>
+      <h2 class="fr" hidden>Ordinateur (Windows / Mac / Linux)</h2>
+    </div>
+    <div class="steps">
+      <div class="step-row">
+        <span class="step-num">1</span>
+        <p class="en">Open the God Nation site in <b>Chrome</b> or <b>Edge</b>.</p>
+        <p class="fr" hidden>Ouvrez le site God Nation dans <b>Chrome</b> ou <b>Edge</b>.</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">2</span>
+        <p class="en">Click the install icon in the address bar (usually a small ⊕ or monitor icon), or use the same "Install the God Nation app" banner on the Chats screen.</p>
+        <p class="fr" hidden>Cliquez sur l’icône d’installation dans la barre d’adresse (généralement une petite icône ⊕ ou un écran), ou utilisez la même bannière « Installer l’application God Nation » sur l’écran Discussions.</p>
+      </div>
+      <div class="step-row">
+        <span class="step-num">3</span>
+        <p class="en">Notifications turn on the same way as on a phone: tap "Turn on notifications" in the strip at the top of Chats, Home or Me.</p>
+        <p class="fr" hidden>Les notifications s’activent de la même façon que sur téléphone : appuyez sur « Activer les notifications » dans le bandeau en haut de Discussions, Accueil ou Moi.</p>
+      </div>
+    </div>
+    <div class="callout">
+      <span class="en">Safari on Mac does not support installing this kind of app or notifications — use Chrome or Edge instead.</span>
+      <span class="fr" hidden>Safari sur Mac ne prend pas en charge l’installation de ce type d’application ni les notifications — utilisez plutôt Chrome ou Edge.</span>
+    </div>
+  </section>
+</div>
+
+<script>
+  function setLang(lang) {
+    document.querySelectorAll('.en').forEach(function (el) { el.hidden = lang !== 'en'; });
+    document.querySelectorAll('.fr').forEach(function (el) { el.hidden = lang !== 'fr'; });
+    document.querySelectorAll('.lang-btn').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+    });
+    document.documentElement.lang = lang;
+    try { localStorage.setItem('notificationsGuideLang', lang); } catch (e) {}
+  }
+  (function init() {
+    var saved = 'en';
+    try { saved = localStorage.getItem('notificationsGuideLang') || 'en'; } catch (e) {}
+    setLang(saved);
+  })();
+</script>
+</body>
+</html>

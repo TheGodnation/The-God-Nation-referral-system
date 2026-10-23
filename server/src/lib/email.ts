@@ -1,0 +1,236 @@
+import { Resend } from 'resend';
+import { prisma } from './prisma';
+
+// Section 35: Resend is configured purely through a server-side env var,
+// exactly like DATABASE_URL — never exposed to the client, never hardcoded.
+// EMAIL_FROM must be a sender the Resend account can actually send from; we
+// never invent one. Without a verified custom domain, Resend only allows
+// sending from its own sandbox address (onboarding@resend.dev), which is
+// itself a real, Resend-provided sender — not something we made up — but it
+// only reliably delivers to the Resend account's own verified address until
+// a custom domain is added.
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const FROM_ADDRESS = process.env.EMAIL_FROM || 'The God Nation <onboarding@resend.dev>';
+
+function escapeHtml(input: string): string {
+  return input.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+interface SendResult {
+  ok: boolean;
+  skipped?: boolean;
+  id?: string;
+}
+
+async function send(to: string, subject: string, html: string, text: string): Promise<SendResult> {
+  if (!resend) {
+    // Never block the caller (registration, leader creation, etc.) just
+    // because email isn't configured — log and move on.
+    console.warn('[email] RESEND_API_KEY not configured — email not sent', { to, subject });
+    return { ok: false, skipped: true };
+  }
+  try {
+    const result = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html, text });
+    if (result.error) {
+      console.error('[email] Resend rejected the send', { to, subject, error: result.error.message });
+      return { ok: false };
+    }
+    return { ok: true, id: result.data?.id };
+  } catch (err) {
+    console.error('[email] send threw', { to, subject, error: err instanceof Error ? err.message : String(err) });
+    return { ok: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Admin-editable email text (Admin Settings > Content > Emails). Every
+// template below has a built-in default; an Admin only needs to touch this
+// if they want different wording. `{{placeholders}}` inside a template are
+// substituted with real values at send time — HTML output escapes the
+// Admin's own text (so a stray "<" or "&" they typed never breaks the
+// email) and then drops in the placeholder value, which for a link is
+// already a safe, server-generated URL rendered as a clickable anchor.
+// ---------------------------------------------------------------------------
+
+const DEFAULTS = {
+  leaderInvitationSubject: 'You are invited to lead on The God Nation',
+  leaderInvitationBody:
+    "Hi {{name}},\n\nYou've been added as a Leader on The God Nation Referral System. Set your password to activate your account and get your referral link:\n{{setupUrl}}\n\nThis link expires in 7 days and can only be used once.\n\n— The God Nation Media & Leadership Academy",
+
+  passwordResetSubject: 'Reset your password',
+  passwordResetBody:
+    'We received a request to reset your password.\n{{resetUrl}}\n\nThis link expires in 1 hour and can only be used once. If you did not request this, you can safely ignore this email.',
+
+  contactNotificationSubject: 'New contact form message',
+  contactNotificationBody: 'New message from {{name}} ({{email}}), language: {{language}}.\n\n{{message}}',
+
+  memberLoginLinkSubjectEn: 'Your sign-in link',
+  memberLoginLinkSubjectFr: 'Votre lien de connexion',
+  memberLoginLinkBodyEn:
+    'Hi {{name}},\n\nTap the link below to sign in:\n{{link}}\n\nThis link expires in 15 minutes and can only be used once. If you did not request this, you can safely ignore this email.',
+  memberLoginLinkBodyFr:
+    'Bonjour {{name}},\n\nCliquez sur le lien ci-dessous pour vous connecter :\n{{link}}\n\nCe lien expire dans 15 minutes et ne peut être utilisé qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail en toute sécurité.',
+  // With a 6-digit code: typing the code in the app avoids the "link opens
+  // in the email app's own browser" problem on phones.
+  memberLoginCodeSubjectEn: '{{code}} is your God Nation sign-in code',
+  memberLoginCodeSubjectFr: '{{code}} est votre code de connexion God Nation',
+  memberLoginCodeBodyEn:
+    'Hi {{name}},\n\nYour sign-in code is: {{code}}\n\nType it in the app where you asked for it. Or tap this link to sign in:\n{{link}}\n\nThe code and the link expire in 15 minutes and work only once. If you did not ask for this, you can safely ignore this email.',
+  memberLoginCodeBodyFr:
+    'Bonjour {{name}},\n\nVotre code de connexion est : {{code}}\n\nTapez-le dans l’application, là où vous l’avez demandé. Ou cliquez sur ce lien pour vous connecter :\n{{link}}\n\nLe code et le lien expirent dans 15 minutes et ne fonctionnent qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
+
+  // Public join flow (PendingMemberSignup) — no account exists yet, so
+  // unlike memberLoginCode there is no sign-in link to offer, only the code.
+  memberSignupCodeSubjectEn: '{{code}} is your God Nation code',
+  memberSignupCodeSubjectFr: '{{code}} est votre code God Nation',
+  memberSignupCodeBodyEn:
+    'Hi,\n\nYour code to finish joining The God Nation is: {{code}}\n\nType it in the app where you asked for it. It expires in 30 minutes and works only once. If you did not ask for this, you can safely ignore this email.',
+  memberSignupCodeBodyFr:
+    'Bonjour,\n\nVotre code pour terminer votre inscription à The God Nation est : {{code}}\n\nTapez-le dans l’application, là où vous l’avez demandé. Il expire dans 30 minutes et ne fonctionne qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
+
+  accountDeletionCodeSubjectEn: '{{code}} is your code to delete your God Nation account',
+  accountDeletionCodeSubjectFr: '{{code}} est votre code pour supprimer votre compte God Nation',
+  accountDeletionCodeBodyEn:
+    'Hi {{name}},\n\nSomeone asked to delete your The God Nation account on our website. If it was you, type this code on the page: {{code}}\n\nIt expires in 30 minutes. If you did not ask for this, ignore this email: nothing will change.',
+  accountDeletionCodeBodyFr:
+    'Bonjour {{name}},\n\nQuelqu’un a demandé la suppression de votre compte The God Nation sur notre site. Si c’est vous, tapez ce code sur la page : {{code}}\n\nIl expire dans 30 minutes. Si vous n’avez rien demandé, ignorez cet e-mail : rien ne changera.',
+  accountDeletionScheduledSubjectEn: 'Your God Nation account will be deleted',
+  accountDeletionScheduledSubjectFr: 'Votre compte God Nation va être supprimé',
+  accountDeletionScheduledBodyEn:
+    'Hi {{name}},\n\nAs you asked, your The God Nation account is now hidden and will be deleted after {{date}}, once the central admin approves it. Everything will then be lost: your profile, photos, messages, groups, friends and exam results.\n\nChanged your mind? Simply sign in to the app before then and your account comes back as it was.\n\n— The God Nation Media & Leadership Academy',
+  accountDeletionScheduledBodyFr:
+    'Bonjour {{name}},\n\nComme vous l’avez demandé, votre compte The God Nation est maintenant caché et sera supprimé après le {{date}}, une fois approuvé par l’administrateur central. Tout sera alors perdu : votre profil, vos photos, vos messages, vos groupes, vos amis et vos résultats d’examens.\n\nVous avez changé d’avis ? Connectez-vous simplement à l’application avant cette date et votre compte revient comme avant.\n\n— The God Nation Media & Leadership Academy',
+};
+
+async function getEmailContent(): Promise<Record<string, string>> {
+  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' } });
+  return (settings?.content as Record<string, string> | null) ?? {};
+}
+
+/** Admin-authored template text, escaped for HTML, then `{{name}}`-style
+ * placeholders swapped in. Placeholder values are pre-rendered, already-safe
+ * HTML (e.g. an `<a href>` for a link) and are inserted after escaping, so
+ * they render as intended rather than as literal text. */
+function renderHtml(template: string, vars: Record<string, string>): string {
+  let html = escapeHtml(template).replace(/\n/g, '<br/>');
+  for (const [key, value] of Object.entries(vars)) {
+    html = html.split(`{{${key}}}`).join(value);
+  }
+  return `<p>${html}</p>`;
+}
+
+function renderText(template: string, vars: Record<string, string>): string {
+  let text = template;
+  for (const [key, value] of Object.entries(vars)) {
+    text = text.split(`{{${key}}}`).join(value);
+  }
+  return text;
+}
+
+function linkHtml(url: string): string {
+  return `<a href="${url}">${url}</a>`;
+}
+
+export const EmailService = {
+  /** Section 37: new Leader onboarding — a one-time setup link, never a password. */
+  async sendLeaderInvitation(params: { to: string; name: string; setupUrl: string }): Promise<SendResult> {
+    const content = await getEmailContent();
+    const subject = content.emailLeaderInvitationSubject || DEFAULTS.leaderInvitationSubject;
+    const bodyTemplate = content.emailLeaderInvitationBody || DEFAULTS.leaderInvitationBody;
+    const htmlVars = { name: escapeHtml(params.name), setupUrl: linkHtml(params.setupUrl) };
+    const textVars = { name: params.name, setupUrl: params.setupUrl };
+    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
+  },
+
+  /** Section 33/38: password reset. */
+  async sendPasswordReset(params: { to: string; resetUrl: string }): Promise<SendResult> {
+    const content = await getEmailContent();
+    const subject = content.emailPasswordResetSubject || DEFAULTS.passwordResetSubject;
+    const bodyTemplate = content.emailPasswordResetBody || DEFAULTS.passwordResetBody;
+    const htmlVars = { resetUrl: linkHtml(params.resetUrl) };
+    const textVars = { resetUrl: params.resetUrl };
+    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
+  },
+
+  /** Phase 2: forwards a public Contact form submission to the Admin's
+   * configured recipient (Settings.contactEmail). Internal notification
+   * only — not visitor-facing, so it isn't Admin-editable like the other
+   * templates above. */
+  async sendContactMessage(params: {
+    to: string;
+    name: string;
+    email: string;
+    message: string;
+    language: 'en' | 'fr';
+  }): Promise<SendResult> {
+    const subject = DEFAULTS.contactNotificationSubject;
+    const htmlVars = {
+      name: escapeHtml(params.name),
+      email: escapeHtml(params.email),
+      language: params.language,
+      message: escapeHtml(params.message),
+    };
+    const textVars = { name: params.name, email: params.email, language: params.language, message: params.message };
+    return send(
+      params.to,
+      subject,
+      renderHtml(DEFAULTS.contactNotificationBody, htmlVars),
+      renderText(DEFAULTS.contactNotificationBody, textVars),
+    );
+  },
+
+  /** Phase 3C: member magic-link sign-in. Not Admin-editable (unlike the
+   * visitor-facing templates above) — a transactional security email,
+   * following the same non-editable pattern as sendPasswordReset, just
+   * bilingual since a Person's preferred language is already known. */
+  async sendMemberLoginLink(params: { to: string; name: string; language: 'en' | 'fr'; link: string; code?: string }): Promise<SendResult> {
+    const isFr = params.language === 'fr';
+    const withCode = Boolean(params.code);
+    const subject = withCode
+      ? (isFr ? DEFAULTS.memberLoginCodeSubjectFr : DEFAULTS.memberLoginCodeSubjectEn).replace('{{code}}', params.code!)
+      : isFr
+        ? DEFAULTS.memberLoginLinkSubjectFr
+        : DEFAULTS.memberLoginLinkSubjectEn;
+    const bodyTemplate = withCode
+      ? isFr
+        ? DEFAULTS.memberLoginCodeBodyFr
+        : DEFAULTS.memberLoginCodeBodyEn
+      : isFr
+        ? DEFAULTS.memberLoginLinkBodyFr
+        : DEFAULTS.memberLoginLinkBodyEn;
+    const htmlVars = { name: escapeHtml(params.name), link: linkHtml(params.link), code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code ?? '')}</strong>` };
+    const textVars = { name: params.name, link: params.link, code: params.code ?? '' };
+    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
+  },
+
+  /** Public join flow (PendingMemberSignup): screen 1's emailed code. No
+   * account/Person exists yet, so (unlike sendMemberLoginLink) this never
+   * has a name to greet or a link to offer — only the code. */
+  /** The public "Delete your account" web page's 6-digit code. */
+  async sendAccountDeletionCode(params: { to: string; name: string; language: 'en' | 'fr'; code: string }): Promise<SendResult> {
+    const isFr = params.language === 'fr';
+    const subject = (isFr ? DEFAULTS.accountDeletionCodeSubjectFr : DEFAULTS.accountDeletionCodeSubjectEn).replace('{{code}}', params.code);
+    const bodyTemplate = isFr ? DEFAULTS.accountDeletionCodeBodyFr : DEFAULTS.accountDeletionCodeBodyEn;
+    const htmlVars = { name: escapeHtml(params.name), code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code)}</strong>` };
+    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, { name: params.name, code: params.code }));
+  },
+
+  /** "Your account will be deleted after <date> — sign in before then to keep it." */
+  async sendAccountDeletionScheduled(params: { to: string; name: string; language: 'en' | 'fr'; readyAt: Date }): Promise<SendResult> {
+    const isFr = params.language === 'fr';
+    const date = params.readyAt.toLocaleDateString(isFr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Douala' });
+    const subject = isFr ? DEFAULTS.accountDeletionScheduledSubjectFr : DEFAULTS.accountDeletionScheduledSubjectEn;
+    const bodyTemplate = isFr ? DEFAULTS.accountDeletionScheduledBodyFr : DEFAULTS.accountDeletionScheduledBodyEn;
+    return send(params.to, subject, renderHtml(bodyTemplate, { name: escapeHtml(params.name), date: escapeHtml(date) }), renderText(bodyTemplate, { name: params.name, date }));
+  },
+
+  async sendMemberSignupCode(params: { to: string; language: 'en' | 'fr'; code: string }): Promise<SendResult> {
+    const isFr = params.language === 'fr';
+    const subject = (isFr ? DEFAULTS.memberSignupCodeSubjectFr : DEFAULTS.memberSignupCodeSubjectEn).replace('{{code}}', params.code);
+    const bodyTemplate = isFr ? DEFAULTS.memberSignupCodeBodyFr : DEFAULTS.memberSignupCodeBodyEn;
+    const htmlVars = { code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code)}</strong>` };
+    const textVars = { code: params.code };
+    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
+  },
+};

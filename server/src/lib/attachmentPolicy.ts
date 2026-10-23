@@ -1,0 +1,213 @@
+import crypto from 'crypto';
+
+// Phase 3M.8C — Community message attachments: MIME allow-list and
+// per-category size ceilings, chosen conservatively for Cameroon mobile
+// networks and this application's modest (Render free/starter) hosting —
+// see the Phase 3M.8C architecture report for the provider-constraint
+// findings behind these exact numbers (no Render/R2 hard limit dictates
+// them; these are the deliberately conservative values chosen given the
+// absence of one). Server validation here is authoritative; any client-side
+// check is UX only. Deliberately a short, explicit allow-list — no
+// executables, scripts, HTML, or SVG (XSS risk via inline scripts/onload
+// handlers in SVG markup), and no generic "application/*" catch-all.
+export const ATTACHMENT_MIME_LIMITS: Record<string, number> = {
+  'image/jpeg': 8 * 1024 * 1024,
+  'image/png': 8 * 1024 * 1024,
+  'image/webp': 8 * 1024 * 1024,
+  'application/pdf': 15 * 1024 * 1024,
+  'audio/mpeg': 20 * 1024 * 1024,
+  'audio/ogg': 20 * 1024 * 1024,
+  'audio/mp4': 20 * 1024 * 1024,
+  // Voice notes recorded in the browser (Chrome/Android record WebM).
+  'audio/webm': 20 * 1024 * 1024,
+  'video/mp4': 60 * 1024 * 1024,
+  'video/webm': 60 * 1024 * 1024,
+  // Videos picked from an iPhone gallery.
+  'video/quicktime': 60 * 1024 * 1024,
+};
+
+// Kept small and fixed — this is a chat message, not a bulk file-sharing
+// tool. Enforced at message-creation time (the only point that actually
+// counts attachments per message); the upload-authorization route issues
+// one storage key per call and does not itself track a running count.
+export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
+
+export const MAX_ORIGINAL_FILENAME_LENGTH = 200;
+
+// Tiny photo previews (about 48px, a few KB) kept right in the database so a
+// chat can show something instantly on a slow network, before (or instead
+// of) downloading the real photo — and, for a PDF, a small picture of the top
+// of its first page (up to about 12 KB). Only small base64 JPEGs are accepted.
+export const MAX_THUMB_DATA_URL_LENGTH = 16000;
+export const MAX_PDF_PAGE_COUNT = 100000;
+export const THUMB_DATA_URL_PATTERN = /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/;
+
+export function isAllowedAttachmentMime(mimeType: string): boolean {
+  return Object.prototype.hasOwnProperty.call(ATTACHMENT_MIME_LIMITS, mimeType);
+}
+
+export function maxBytesForMime(mimeType: string): number | undefined {
+  return ATTACHMENT_MIME_LIMITS[mimeType];
+}
+
+// A display-only filename — never used to construct a storage path (the
+// storage key is always server-generated, see below). Rejects empty,
+// oversized, and path-traversal-shaped names; otherwise permissive, since
+// this is never interpreted as a path or executed.
+export function isValidOriginalFilename(filename: string): boolean {
+  const trimmed = filename.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_ORIGINAL_FILENAME_LENGTH) return false;
+  if (trimmed.includes('/') || trimmed.includes('\\') || trimmed.includes('\0')) return false;
+  return true;
+}
+
+// Server-generated, opaque, and namespaced to the exact Community it was
+// authorized for — this is what makes "arbitrary storage key rejected" and
+// "attachment cannot be attached to another Community message" enforceable
+// without a separate persisted "pending upload" table: a storage key that
+// doesn't match this exact shape for the communityId in the request can
+// never have been issued by authorizeAttachmentUpload for that Community,
+// so message creation's own validateStorageKeyForCommunity check (below)
+// rejects it outright, before any R2 call is ever made.
+const STORAGE_KEY_PATTERN =
+  /^communities\/([0-9a-f-]{36})\/attachments\/([0-9a-f-]{36})$/;
+
+export function generateStorageKey(communityId: string): string {
+  return `communities/${communityId}/attachments/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForCommunity(storageKey: string, communityId: string): boolean {
+  const match = STORAGE_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === communityId;
+}
+
+// Media Phase 1 (HeadquartersPost media) — reuses every MIME/size rule and
+// filename check above as-is (no new allow-list, no new limits). Only the
+// storage-key namespace and the mime-to-coarse-category mapping are new,
+// mirroring the exact generateStorageKey/isStorageKeyForCommunity pattern
+// above for a HeadquartersPost instead of a Community.
+const HEADQUARTERS_POST_MEDIA_KEY_PATTERN =
+  /^headquarters-posts\/([0-9a-f-]{36})\/media\/([0-9a-f-]{36})$/;
+
+export function generateHeadquartersPostMediaStorageKey(headquartersPostId: string): string {
+  return `headquarters-posts/${headquartersPostId}/media/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForHeadquartersPostMedia(storageKey: string, headquartersPostId: string): boolean {
+  const match = HEADQUARTERS_POST_MEDIA_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === headquartersPostId;
+}
+
+// Media Phase 2 — a HeadquartersPost may now carry several media items
+// (a gallery), capped the same way group chat caps attachments per
+// message (MAX_ATTACHMENTS_PER_MESSAGE above) — a fixed small number
+// rather than an unbounded gallery, kept light for slow networks.
+export const MAX_HEADQUARTERS_POST_MEDIA = 5;
+
+export type HeadquartersPostMediaKind = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'PDF';
+
+// Only ever called after isAllowedAttachmentMime(mimeType) has already
+// passed, so every mime currently in ATTACHMENT_MIME_LIMITS resolves to
+// exactly one of the four kinds below — null is unreachable in practice,
+// kept only so a future addition to the allow-list can't silently fall
+// through to an invalid mediaType.
+export function mediaKindForMime(mimeType: string): HeadquartersPostMediaKind | null {
+  if (mimeType.startsWith('image/')) return 'IMAGE';
+  if (mimeType.startsWith('video/')) return 'VIDEO';
+  if (mimeType.startsWith('audio/')) return 'AUDIO';
+  if (mimeType === 'application/pdf') return 'PDF';
+  return null;
+}
+
+// Private message attachments — same types and sizes as group chat
+// attachments, namespaced to the exact private conversation.
+const PRIVATE_ATTACHMENT_KEY_PATTERN = /^private-conversations\/([0-9a-f-]{36})\/attachments\/([0-9a-f-]{36})$/;
+
+export function generatePrivateAttachmentStorageKey(conversationId: string): string {
+  return `private-conversations/${conversationId}/attachments/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForPrivateConversation(storageKey: string, conversationId: string): boolean {
+  const match = PRIVATE_ATTACHMENT_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === conversationId;
+}
+
+// The Updates banner and group pictures (admin uploads; same image rules as
+// profile pictures).
+const APP_BANNER_KEY_PATTERN = /^settings\/app-banner\/([0-9a-f-]{36})$/;
+const GROUP_PHOTO_KEY_PATTERN = /^communities\/([0-9a-f-]{36})\/photo\/([0-9a-f-]{36})$/;
+
+export function generateAppBannerStorageKey(): string {
+  return `settings/app-banner/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForAppBanner(storageKey: string): boolean {
+  return APP_BANNER_KEY_PATTERN.test(storageKey);
+}
+
+export function generateGroupPhotoStorageKey(communityId: string): string {
+  return `communities/${communityId}/photo/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForGroupPhoto(storageKey: string, communityId: string): boolean {
+  const match = GROUP_PHOTO_KEY_PATTERN.exec(storageKey);
+  return Boolean(match) && match![1] === communityId;
+}
+
+// Home/chat wallpaper (Admin-uploaded custom image; same image rules as
+// profile pictures) — one of two targets, never a third.
+export type WallpaperTarget = 'home' | 'chat';
+const WALLPAPER_KEY_PATTERN = /^settings\/wallpaper\/(home|chat)\/([0-9a-f-]{36})$/;
+
+export function generateWallpaperStorageKey(target: WallpaperTarget): string {
+  return `settings/wallpaper/${target}/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForWallpaper(storageKey: string, target: WallpaperTarget): boolean {
+  const match = WALLPAPER_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === target;
+}
+
+// Profile pictures — images only, smaller ceiling than chat images (a
+// profile picture is shown small and often, so it should load fast on
+// mobile data). Keys are namespaced to the Person they belong to, same
+// pattern as the two namespaces above.
+export const PROFILE_PHOTO_MIME_LIMITS: Record<string, number> = {
+  'image/jpeg': 5 * 1024 * 1024,
+  'image/png': 5 * 1024 * 1024,
+  'image/webp': 5 * 1024 * 1024,
+};
+
+export function isAllowedProfilePhotoMime(mimeType: string): boolean {
+  return Object.prototype.hasOwnProperty.call(PROFILE_PHOTO_MIME_LIMITS, mimeType);
+}
+
+const PROFILE_PHOTO_KEY_PATTERN = /^people\/([0-9a-f-]{36})\/photo\/([0-9a-f-]{36})$/;
+
+export function generateProfilePhotoStorageKey(personId: string): string {
+  return `people/${personId}/photo/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForProfilePhoto(storageKey: string, personId: string): boolean {
+  const match = PROFILE_PHOTO_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === personId;
+}
+
+// Cover (wall) pictures: same image types and size limit as profile
+// pictures, their own key namespace.
+const COVER_PHOTO_KEY_PATTERN = /^people\/([0-9a-f-]{36})\/cover\/([0-9a-f-]{36})$/;
+
+export function generateCoverPhotoStorageKey(personId: string): string {
+  return `people/${personId}/cover/${crypto.randomUUID()}`;
+}
+
+export function isStorageKeyForCoverPhoto(storageKey: string, personId: string): boolean {
+  const match = COVER_PHOTO_KEY_PATTERN.exec(storageKey);
+  if (!match) return false;
+  return match[1] === personId;
+}
