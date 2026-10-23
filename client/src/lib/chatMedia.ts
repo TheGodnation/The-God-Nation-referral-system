@@ -131,21 +131,73 @@ export async function shrinkPhoto(file: File, maxSide = MAX_PHOTO_SIDE): Promise
   const allowed = isAllowedAttachmentMime(type);
   if (allowed && file.size <= SHRINK_ABOVE_BYTES && maxSide >= MAX_PHOTO_SIDE) return file;
   if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return file;
+  let bitmap: ImageBitmap | null = null;
+  const canvas = document.createElement('canvas');
   try {
-    const bitmap = await createImageBitmap(file);
+    // Phones ran out of memory here ("low memory"): a camera photo opened at
+    // full size takes 50–400 MB. So the photo is opened straight at the small
+    // size when the browser can, and everything is let go of right after.
+    const size = await imageSize(file);
+    if (size && allowed && file.size <= SHRINK_ABOVE_BYTES && Math.max(size.width, size.height) <= maxSide) return file;
+    bitmap = size ? await openSmall(file, size, maxSide) : null;
+    if (!bitmap) bitmap = await createImageBitmap(file);
     if (allowed && file.size <= SHRINK_ABOVE_BYTES && Math.max(bitmap.width, bitmap.height) <= maxSide) return file;
     const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     const ctx = canvas.getContext('2d');
     if (!ctx) return file;
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    bitmap = null;
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.78));
     if (!blob) return file;
     return allowed && blob.size >= file.size ? file : blob;
   } catch {
     return file;
+  } finally {
+    bitmap?.close();
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
+
+/** A photo's width and height (as shown, after turning), read without
+ * opening the whole picture. */
+function imageSize(file: Blob): Promise<{ width: number; height: number } | null> {
+  if (typeof Image === 'undefined' || typeof URL.createObjectURL !== 'function') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    const done = (size: { width: number; height: number } | null) => {
+      URL.revokeObjectURL(url);
+      img.src = '';
+      resolve(size);
+    };
+    img.onload = () => done(img.naturalWidth && img.naturalHeight ? { width: img.naturalWidth, height: img.naturalHeight } : null);
+    img.onerror = () => done(null);
+    img.src = url;
+  });
+}
+
+/** Opens the photo directly at (about) its final size, which takes a small
+ * part of the memory. Null when the browser can't, or when the photo came
+ * out the wrong way round (then it is opened normally). */
+async function openSmall(file: Blob, size: { width: number; height: number }, maxSide: number): Promise<ImageBitmap | null> {
+  const scale = Math.min(1, maxSide / Math.max(size.width, size.height));
+  if (scale >= 1) return null;
+  try {
+    const bitmap = await createImageBitmap(file, {
+      resizeWidth: Math.max(1, Math.round(size.width * scale)),
+      resizeHeight: Math.max(1, Math.round(size.height * scale)),
+      resizeQuality: 'high',
+    });
+    const sameShape = Math.abs(bitmap.width / bitmap.height - size.width / size.height) < 0.02;
+    if (sameShape) return bitmap;
+    bitmap.close();
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -162,6 +214,7 @@ export async function makeThumb(file: Blob): Promise<string | undefined> {
     const ctx = canvas.getContext('2d');
     if (!ctx) return undefined;
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
     const url = canvas.toDataURL('image/jpeg', 0.5);
     return url.startsWith('data:image/jpeg;base64,') && url.length < 8000 ? url : undefined;
   } catch {
