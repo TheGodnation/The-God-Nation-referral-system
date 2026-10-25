@@ -14,6 +14,8 @@ interface AssessmentInfo {
   // weekly exam closes when its devotional ends.
   firstTryCounts?: boolean;
   open?: boolean;
+  // A teaching's quiz: back goes to the teaching (and its results list).
+  teaching?: { id: string; title: string } | null;
   // Leadership book exams: one try; a retake must be asked for, and gets
   // a different set of questions (server: lib/trainingExam.ts).
   training?: TrainingState | null;
@@ -218,9 +220,15 @@ export function MemberAssessmentPage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-lg px-4 py-8">
-        <Link to="/member/learn" className="text-sm text-brand-700 hover:underline">
-          {t('memberAssessment.back_to_learn')}
-        </Link>
+        {assessment.teaching ? (
+          <Link to={`/member/teachings/${assessment.teaching.id}`} className="text-sm text-brand-700 hover:underline">
+            ← {t('teaching.back_to_teaching')}
+          </Link>
+        ) : (
+          <Link to="/member/learn" className="text-sm text-brand-700 hover:underline">
+            {t('memberAssessment.back_to_learn')}
+          </Link>
+        )}
         <h1 className="mt-2 text-2xl font-bold text-brand-900">{title}</h1>
         <p className="mt-1 text-sm text-slate-500">
           {t('memberAssessment.pass_mark', { passMark: assessment.passMark })}

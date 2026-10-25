@@ -13,6 +13,7 @@ import { useMemberAuth } from '../../lib/MemberAuthContext';
 import { docKey, getFile } from '../../lib/offlineStore';
 import { useDataSaver } from '../../lib/dataSaver';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
+import { TeachingCard } from '../teaching/TeachingCard';
 import { mediaKind, type ChatAttachment, type ChatMessage, type ChatReplyPreview } from './types';
 
 const NAME_COLORS = ['text-rose-700', 'text-emerald-700', 'text-violet-700', 'text-amber-700', 'text-sky-700', 'text-fuchsia-700', 'text-teal-700', 'text-orange-700'];
@@ -291,9 +292,11 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
     setDx(0);
   }
 
-  const photos = m.attachments.filter((a) => mediaKind(a.mimeType) === 'photo');
-  const playables = m.attachments.filter((a) => ['video', 'voice'].includes(mediaKind(a.mimeType) ?? ''));
-  const documents = m.attachments.filter((a) => mediaKind(a.mimeType) === 'document');
+  // A teaching is shown as a card; its file is played on the teaching's own page.
+  const shown = m.teaching ? [] : m.attachments;
+  const photos = shown.filter((a) => mediaKind(a.mimeType) === 'photo');
+  const playables = shown.filter((a) => ['video', 'voice'].includes(mediaKind(a.mimeType) ?? ''));
+  const documents = shown.filter((a) => mediaKind(a.mimeType) === 'document');
   const reactions = m.reactions ?? [];
 
   return (
@@ -357,6 +360,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
           ) : (
             <>
               {m.forwarded && <p className="mb-0.5 text-xs italic text-slate-500">↪ {t('chatActions.forwarded')}</p>}
+              {m.teaching && <TeachingCard teaching={m.teaching} />}
               {m.replyTo && <ReplyQuote reply={m.replyTo} own={m.isOwn} onClick={() => onJumpTo(m.replyTo!.id)} />}
               {photos.length > 0 && (
                 <div className={`mb-1 grid gap-1 ${photos.length > 1 ? 'grid-cols-2' : ''}`}>
@@ -392,7 +396,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                   <DocumentAttachment mediaBase={mediaBase} messageId={m.id} a={a} />
                 </div>
               ))}
-              {displayBody && (
+              {displayBody && !m.teaching && (
                 <>
                   <p className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`}>{displayBody}</p>
                   {isLongBody && (

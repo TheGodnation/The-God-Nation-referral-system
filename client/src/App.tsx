@@ -71,6 +71,8 @@ const MemberGroupInfoPage = lazy(() => import('./pages/MemberGroupInfoPage').the
 const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').then((m) => ({ default: m.MemberGroupChatPage })));
 const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
 const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
+const MemberTeachingPage = lazy(() => import('./pages/MemberTeachingPage').then((m) => ({ default: m.MemberTeachingPage })));
+const MemberTeachingComposePage = lazy(() => import('./pages/MemberTeachingComposePage').then((m) => ({ default: m.MemberTeachingComposePage })));
 const MemberPasswordHelpPage = lazy(() => import('./pages/MemberPasswordHelpPage').then((m) => ({ default: m.MemberPasswordHelpPage })));
 const DeleteAccountPage = lazy(() => import('./pages/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })));
 const MemberDeleteAccountPage = lazy(() => import('./pages/MemberDeleteAccountPage').then((m) => ({ default: m.MemberDeleteAccountPage })));
@@ -169,6 +171,22 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberGroupInfoPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/chats/group/:communityId/teaching/new"
+              element={
+                <RequireMember>
+                  <MemberTeachingComposePage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/teachings/:id"
+              element={
+                <RequireMember>
+                  <MemberTeachingPage />
                 </RequireMember>
               }
             />

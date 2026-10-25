@@ -48,6 +48,7 @@ export function ChatComposer({
   onSend,
   onPickMedia,
   onTyping,
+  onNewTeaching,
 }: {
   /** Where to ask for an upload link (group or private chat). */
   uploadPath: string;
@@ -58,6 +59,8 @@ export function ChatComposer({
    * caption: the chat shows them straight away as a message with a progress
    * circle and sends them (see useMediaUploads). */
   onPickMedia: (files: File[], caption?: string) => void;
+  /** Only for the central admin in an assembly: opens the "new teaching" screen. */
+  onNewTeaching?: () => void;
   /** Tells the others "typing…" (sent at most every few seconds). */
   onTyping?: (typing: boolean) => void;
 }) {
@@ -467,6 +470,12 @@ export function ChatComposer({
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500 text-2xl">📄</span>
             {t('groupChat.document')}
           </button>
+          {onNewTeaching && (
+            <button type="button" onClick={onNewTeaching} className="flex flex-col items-center gap-1" data-testid="chat-new-teaching">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-2xl">📖</span>
+              {t('teaching.menu')}
+            </button>
+          )}
         </div>
       )}
 

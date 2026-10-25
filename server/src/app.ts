@@ -23,6 +23,7 @@ import contentPagesRoutes from './routes/contentPages';
 import contactRoutes from './routes/contact';
 import adminPeopleRoutes from './routes/adminPeople';
 import adminSignInTroubleRoutes from './routes/adminSignInTrouble';
+import teachingsRoutes from './routes/teachings';
 import adminCommunitiesRoutes from './routes/adminCommunities';
 import adminDevotionalsRoutes from './routes/adminDevotionals';
 import adminAssessmentsRoutes from './routes/adminAssessments';
@@ -127,6 +128,7 @@ export function createApp() {
   app.use('/api/account-deletion', accountDeletionPublicRoutes);
   app.use('/api/admin/account-deletions', accountDeletionAdminRoutes);
   app.use('/api/admin/sign-in-trouble', adminSignInTroubleRoutes);
+  app.use('/api/teachings', teachingsRoutes);
   app.use('/api/member', memberAssessmentsRoutes);
   // Phase 3D: adminLeadershipRoutes defines '/role-assignments' and
   // '/follow-ups', so it mounts at the '/api/admin' root, same pattern as

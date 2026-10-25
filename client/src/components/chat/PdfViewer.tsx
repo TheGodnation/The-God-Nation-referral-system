@@ -68,12 +68,15 @@ export function PdfViewer({
   name,
   keep,
   onClose,
+  onReachedEnd,
 }: {
   url?: string;
   data?: Blob;
   name: string;
   keep?: { key: string; ownerId: string; meta: Record<string, unknown> };
   onClose: () => void;
+  /** Called once when the reader has scrolled to the last page (a teaching's PDF counts as read then). */
+  onReachedEnd?: () => void;
 }) {
   const { t } = useTranslation();
   const [localUrl, setLocalUrl] = useState<string | null>(null);
@@ -128,6 +131,24 @@ export function PdfViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteUrl, data]);
 
+  const endRef = useRef<HTMLDivElement>(null);
+  const reportedEnd = useRef(false);
+  useEffect(() => {
+    const el = endRef.current;
+    if (!pdf || !el || !onReachedEnd || typeof IntersectionObserver === 'undefined') return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (!reportedEnd.current && entries.some((e) => e.isIntersecting)) {
+          reportedEnd.current = true;
+          onReachedEnd();
+        }
+      },
+      { root: listRef.current, threshold: 0.1 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [pdf, onReachedEnd]);
+
   useEffect(() => {
     const measure = () => setWidth(Math.min((listRef.current?.clientWidth ?? 360) - 16, 900));
     measure();
@@ -164,7 +185,10 @@ export function PdfViewer({
             {t('groupChat.doc_opening', { percent })}
           </p>
         ) : (
-          Array.from({ length: pdf.numPages }, (_, i) => <PdfPage key={i} pdf={pdf} number={i + 1} width={width} aspect={aspect} />)
+          <>
+            {Array.from({ length: pdf.numPages }, (_, i) => <PdfPage key={i} pdf={pdf} number={i + 1} width={width} aspect={aspect} />)}
+            <div ref={endRef} data-testid="pdf-end" className="h-2" />
+          </>
         )}
       </div>
     </div>

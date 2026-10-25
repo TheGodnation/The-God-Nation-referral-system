@@ -795,6 +795,8 @@ model Person {
   prayerRequestsDeleted                           PrayerRequest[]                           @relation("PrayerRequestDeletedByPerson")
   prayerRequestComments                           PrayerRequestComment[]                    @relation("PrayerRequestCommentAuthor")
   prayerRequestCommentsDeleted                    PrayerRequestComment[]                    @relation("PrayerRequestCommentDeletedByPerson")
+  teachingsAuthored                               Teaching[]                                @relation("TeachingAuthor")
+  teachingProgress                                TeachingProgress[]
 
   @@index([isTestData])
 }
@@ -853,6 +855,7 @@ model Community {
   organizationalLeadershipRecommendations OrganizationalLeadershipRecommendation[]
   headquartersPostTargets                 HeadquartersPostTarget[]
   prayerRequests                          PrayerRequest[]
+  teachings                               Teaching[]
 
   @@index([parentId])
   @@index([active])
@@ -956,6 +959,7 @@ model Assessment {
   questions      Question[]
   attempts       Attempt[]
   retakeRequests ExamRetakeRequest[]
+  teaching       Teaching?
 
   @@index([devotionalId])
 }
@@ -1597,6 +1601,7 @@ model Message {
   hiddenFor    MessageHiddenForPerson[]
   attachments  MessageAttachment[]
   reactions    MessageReaction[]
+  teaching     Teaching?
 
   @@index([conversationId, createdAt])
 }
@@ -2918,4 +2923,61 @@ model AccountDeletionCode {
   createdAt DateTime  @default(now())
 
   @@index([email])
+}
+
+// ---------------------------------------------------------------------------
+// Teachings (posted in an assembly by the central admin / National
+// Coordinator profile). A teaching is a message in the assembly's chat
+// (`messageId` — its audio/video/PDF is that message's attachment) plus
+// written text, and an Assessment (the quiz, `assessmentId`) that opens for a
+// member only once the system has seen them read the text to the end and
+// listen to / watch / read the file (TeachingProgress.completedAt).
+// Everyone in the assembly sees who finished and each person's score.
+// ---------------------------------------------------------------------------
+model Teaching {
+  id             String    @id @default(uuid())
+  communityId    String
+  messageId      String    @unique
+  assessmentId   String    @unique
+  authorPersonId String?
+  title          String
+  // The written teaching (optional when there is audio/video/PDF).
+  text           String?
+  // What the attached file is: AUDIO, VIDEO or PDF (null: text only).
+  mediaKind      String?
+  // The quiz can be started until then (results stay visible afterwards).
+  closesAt       DateTime
+  lastRemindedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  community  Community          @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  message    Message            @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  author     Person?            @relation("TeachingAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
+  progress   TeachingProgress[]
+
+  @@index([communityId, createdAt])
+}
+
+// One row per member per teaching: what the system has seen them do.
+// completedAt is the system's approval ("has read / listened"): set only when
+// every part of the teaching has been seen through, and it opens the quiz.
+model TeachingProgress {
+  id            String    @id @default(uuid())
+  teachingId    String
+  personId      String
+  openedAt      DateTime  @default(now())
+  // Scrolled to the end of the written text (and stayed long enough).
+  textReadAt    DateTime?
+  // Share of the audio/video really played (0..1), or 1 once the PDF's last page was reached.
+  mediaFraction Float     @default(0)
+  mediaDoneAt   DateTime?
+  completedAt   DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  teaching Teaching @relation(fields: [teachingId], references: [id], onDelete: Cascade)
+  person   Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([teachingId, personId])
+  @@index([personId])
 }

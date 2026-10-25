@@ -65,7 +65,9 @@ router.get('/assessments/:id', asyncHandler(async (req, res) => {
   const assessment = await getEligibleAssessmentForMember(req.member!.personId, req.params.id);
   if (!assessment) return res.status(404).json({ error: 'Assessment not found.' });
 
+  const teaching = await prisma.teaching.findUnique({ where: { assessmentId: assessment.id }, select: { id: true, title: true } });
   res.json({
+    teaching,
     id: assessment.id,
     titleEn: assessment.titleEn,
     titleFr: assessment.titleFr,

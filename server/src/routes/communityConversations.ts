@@ -1,5 +1,6 @@
 import { appLanguage } from '../lib/appLanguage';
-import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
+import { cardStatesFor } from '../lib/teachings';
+import { badgeOf, centralAdminAmong, isCentralAdminPerson } from '../lib/centralAdmin';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
@@ -208,6 +209,8 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
     createdAt: conversation.createdAt,
     unreadCount,
     isAdministrator,
+    // Only the central admin's profile can post a teaching in an assembly.
+    canPostTeaching: await isCentralAdminPerson(personId),
     // For the WhatsApp-style chat list and chat header.
     name: community?.name ?? null,
     photoUrl: community ? groupPhotoPath(community) : null,
@@ -301,6 +304,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } },
       replyTo: replyToInclude,
       reactions: { select: { emoji: true, personId: true } },
+      teaching: { select: { id: true, title: true, assessmentId: true, mediaKind: true, closesAt: true, text: true } },
     },
     orderBy: afterCursor ? [{ createdAt: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
@@ -328,6 +332,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   ]);
   const readAtByPerson = new Map(reads.map((r) => [r.personId, r.lastReadAt]));
   const viewerLanguage = appLanguage(req, viewerPerson?.preferredLanguage);
+  // Teachings in this page: the card shows where the viewer is with each.
+  const cardStates = await cardStatesFor(personId, page.flatMap((m) => (m.teaching ? [m.teaching] : [])));
   const now = Date.now();
 
   res.json({
@@ -357,6 +363,18 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       // being resolved server-side rather than trusted from the client.
       isOwn: m.senderPersonId === personId,
       body: m.deletedAt ? null : m.body,
+      teaching:
+        m.deletedAt || !m.teaching
+          ? null
+          : {
+              id: m.teaching.id,
+              title: m.teaching.title,
+              mediaKind: m.teaching.mediaKind,
+              hasText: Boolean(m.teaching.text),
+              closesAt: m.teaching.closesAt,
+              myState: cardStates.get(m.teaching.id)?.state ?? 'NEW',
+              myPercentage: cardStates.get(m.teaching.id)?.percentage ?? null,
+            },
       translation: translationField(m, viewerLanguage),
       transcript: transcriptField(m, viewerLanguage),
       createdAt: m.createdAt,

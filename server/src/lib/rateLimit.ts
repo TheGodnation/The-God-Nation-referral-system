@@ -591,3 +591,30 @@ export const chatForwardLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
 });
+
+// Teachings: the app reports progress (text read, audio/video played) every
+// few seconds while someone listens; drafting questions calls the AI (costly);
+// posting a teaching is a rare central-admin action.
+export const teachingProgressLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
+export const teachingDraftLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again in a few minutes.' },
+});
+
+export const teachingPostLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});

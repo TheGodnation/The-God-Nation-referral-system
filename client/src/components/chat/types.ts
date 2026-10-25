@@ -43,6 +43,18 @@ export interface ChatReplyPreview {
   attachmentMimeType: string | null;
 }
 
+/** A teaching posted in an assembly (shown as a card): see TeachingCard. */
+export interface ChatTeaching {
+  id: string;
+  title: string;
+  mediaKind: 'AUDIO' | 'VIDEO' | 'PDF' | null;
+  hasText: boolean;
+  closesAt: string;
+  /** Where the viewer is: not opened, started, finished (quiz open), passed, failed. */
+  myState: 'NEW' | 'STARTED' | 'FINISHED' | 'PASSED' | 'FAILED';
+  myPercentage: number | null;
+}
+
 export interface ChatMessage {
   id: string;
   senderName: string;
@@ -72,6 +84,7 @@ export interface ChatMessage {
   forwarded?: boolean;
   translation?: ChatTranslation | null;
   transcript?: ChatTranscript | null;
+  teaching?: ChatTeaching | null;
 }
 
 /** Edit allowed for 15 minutes; delete for everyone for 2 days (like WhatsApp). */

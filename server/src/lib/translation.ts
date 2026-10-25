@@ -120,7 +120,7 @@ async function postGeminiJson(url: string, body: unknown, opts: GeminiCallOption
   throw lastError;
 }
 
-async function callGemini(contents: unknown[], schema: unknown, opts: GeminiCallOptions = {}): Promise<any | null> {
+export async function callGemini(contents: unknown[], schema: unknown, opts: GeminiCallOptions = {}): Promise<any | null> {
   if (!GEMINI_API_KEY) {
     if (!warnedUnconfigured) {
       warnedUnconfigured = true;

@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { hasConversationAccess } from './communityConversation';
 
 // ---------------------------------------------------------------------------
 // Exam World rules (see LibraryBook / TrainingEnrollment schema comments).
@@ -161,6 +162,23 @@ export async function examAccess(
     const books = await getTrainingBooksFor(personId);
     const book = books.find((b) => b.id === assessment.trainingBookId);
     return book?.unlocked ? { canView: true, canStart: true, closedReason: null } : none;
+  }
+
+  // A teaching's quiz: anyone in the assembly may see it; it can be started
+  // only once the system has approved the member as having read / listened
+  // (TeachingProgress.completedAt), and until the teaching closes.
+  const teaching = await prisma.teaching.findUnique({
+    where: { assessmentId },
+    select: { id: true, communityId: true, closesAt: true, message: { select: { deletedAt: true } } },
+  });
+  if (teaching) {
+    if (teaching.message.deletedAt || !(await hasConversationAccess(personId, teaching.communityId))) return none;
+    const progress = await prisma.teachingProgress.findUnique({
+      where: { teachingId_personId: { teachingId: teaching.id, personId } },
+      select: { completedAt: true },
+    });
+    const closed = teaching.closesAt.getTime() < Date.now();
+    return { canView: true, canStart: Boolean(progress?.completedAt) && !closed, closedReason: closed ? 'CLOSED' : null };
   }
 
   if (assessment.devotional) {

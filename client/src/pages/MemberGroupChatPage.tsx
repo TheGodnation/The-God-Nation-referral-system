@@ -1,6 +1,6 @@
 import { ReactionsSheet, type ReactorList } from '../components/ReactionsSheet';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, NetworkError } from '../lib/api';
 import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
@@ -109,6 +109,9 @@ export function MemberGroupChatPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [isAdministrator, setIsAdministrator] = useState(false);
+  // Only the central admin's profile can post a teaching here.
+  const [canPostTeaching, setCanPostTeaching] = useState(false);
+  const navigate = useNavigate();
   const [canPost, setCanPost] = useState(true);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [menuFor, setMenuFor] = useState<ChatMessage | null>(null);
@@ -136,8 +139,9 @@ export function MemberGroupChatPage() {
       .catch(() => {});
     // The group's picture and proper name (set by the admin).
     api
-      .get<{ name?: string | null; photoUrl?: string | null }>(`/api/communities/${communityId}/conversation`)
+      .get<{ name?: string | null; photoUrl?: string | null; canPostTeaching?: boolean }>(`/api/communities/${communityId}/conversation`)
       .then((r) => {
+        setCanPostTeaching(Boolean(r.canPostTeaching));
         if (r.name) setGroupName(r.name);
         setGroupPhoto(r.photoUrl ?? null);
       })
@@ -580,6 +584,7 @@ export function MemberGroupChatPage() {
               setReplyTo(null);
             }}
             onTyping={(typing) => void api.post(`/api/communities/${communityId}/conversation/typing`, { typing }).catch(() => {})}
+            onNewTeaching={canPostTeaching ? () => navigate(`/member/chats/group/${communityId}/teaching/new`) : undefined}
           />
         ) : (
           <p className="bg-[#f0f2f5] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 text-center text-sm text-slate-600">{t('groupChat.only_leaders')}</p>
