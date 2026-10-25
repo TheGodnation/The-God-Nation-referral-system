@@ -1,0 +1,82 @@
+name: Database backup
+
+# Every night: a full encrypted copy of the production database goes to a
+# private Cloudflare R2 bucket, and is then restored into a throw-away
+# database to prove it works. See docs/BACKUPS.md (what to set up, how to
+# restore). Until the secrets below are added, this run only shows a
+# warning and does nothing.
+
+on:
+  schedule:
+    - cron: '37 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      scratch:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: scratch
+          POSTGRES_DB: scratch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
+    steps:
+      - name: Are backups set up?
+        id: configured
+        run: |
+          missing=""
+          for v in BACKUP_DATABASE_URL BACKUP_PASSPHRASE R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY BACKUP_BUCKET; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning title=Backups are NOT set up yet::Add these secrets in GitHub (Settings > Secrets and variables > Actions):$missing"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.ready == 'true'
+
+      - name: Install the newest PostgreSQL tools
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client
+          pg_dump --version
+
+      - name: Back up the database
+        if: steps.configured.outputs.ready == 'true'
+        env:
+          BACKUP_LAST_KEY_FILE: ${{ runner.temp }}/last-backup-key
+        run: ./server/scripts/backup/backup-db.sh
+
+      - name: Prove the backup can be restored
+        if: steps.configured.outputs.ready == 'true'
+        env:
+          LIVE_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: ./server/scripts/backup/verify-restore.sh "$(cat "$RUNNER_TEMP/last-backup-key")" "postgresql://postgres:scratch@localhost:5432/scratch"
