@@ -24,6 +24,7 @@ import contactRoutes from './routes/contact';
 import adminPeopleRoutes from './routes/adminPeople';
 import adminSignInTroubleRoutes from './routes/adminSignInTrouble';
 import teachingsRoutes from './routes/teachings';
+import communityManageRoutes from './routes/communityManage';
 import adminCommunitiesRoutes from './routes/adminCommunities';
 import adminDevotionalsRoutes from './routes/adminDevotionals';
 import adminAssessmentsRoutes from './routes/adminAssessments';
@@ -145,6 +146,7 @@ export function createApp() {
   // internally (see communityConversations.ts) rather than duplicating
   // routes per role.
   app.use('/api/communities', communityConversationsRoutes);
+  app.use('/api/communities', communityManageRoutes);
   // Phase 3M.2: one shared resource family for a FollowUpAssignment's
   // conversation, reachable by its follower (Leader) or followed Person
   // (Member, only if they have a MemberAccount) — structurally separate

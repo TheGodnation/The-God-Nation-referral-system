@@ -3,12 +3,15 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { Avatar } from '../components/Avatar';
+import { ManageAssembly } from '../components/assembly/ManageAssembly';
 
 interface GroupMeta {
   name?: string | null;
   photoUrl?: string | null;
   aboutEn?: string | null;
   aboutFr?: string | null;
+  /** The central admin's profile: can add people and make sub-assemblies here. */
+  canManage?: boolean;
 }
 
 interface MemberRow {
@@ -68,15 +71,20 @@ export function MemberGroupInfoPage() {
   const [showAll, setShowAll] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
 
+  function loadMembers() {
+    api
+      .get<{ members: MemberRow[] }>(`/api/communities/${communityId}/conversation/members`)
+      .then((r) => setMembers(r.members))
+      .catch(() => setMembers([]));
+  }
+
   useEffect(() => {
     api
       .get<GroupMeta>(`/api/communities/${communityId}/conversation`)
       .then(setMeta)
       .catch(() => setFailed(true));
-    api
-      .get<{ members: MemberRow[] }>(`/api/communities/${communityId}/conversation/members`)
-      .then((r) => setMembers(r.members))
-      .catch(() => setMembers([]));
+    loadMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communityId]);
 
   const isFr = i18n.language.startsWith('fr');
@@ -116,6 +124,8 @@ export function MemberGroupInfoPage() {
               💬 {t('groupInfo.open_chat')}
             </Link>
           </section>
+
+          {meta?.canManage && <ManageAssembly key={communityId} communityId={communityId} communityName={name} onMembersChanged={loadMembers} />}
 
           {about && (
             <section className="bg-white px-4 py-4 shadow-sm sm:rounded-xl">

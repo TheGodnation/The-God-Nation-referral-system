@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { CommunitiesTab } from '../components/admin/CommunitiesTab';
 import i18n from '../i18n';
 
@@ -197,7 +197,7 @@ describe('CommunitiesTab — membership export', () => {
 });
 
 describe('CommunitiesTab — automatic-placement eligibility', () => {
-  it('defaults the create form\'s checkbox to checked, and sends it on create', async () => {
+  it('a new assembly is private by default (nobody is placed in it automatically); choosing Open sends it', async () => {
     mockFetchByUrl({
       '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
       '/api/admin/communities?&page=': { status: 200, body: emptyList },
@@ -207,12 +207,15 @@ describe('CommunitiesTab — automatic-placement eligibility', () => {
     await screen.findByText('No National Headquarters has been designated yet.');
 
     fireEvent.click(screen.getByText('+ New Community'));
-    const checkbox = screen.getByRole('checkbox', { name: /Automatically receive new joiners/ }) as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
+    const privateChoice = screen.getByRole('radio', { name: /Private/ }) as HTMLInputElement;
+    const openChoice = screen.getByRole('radio', { name: /Open/ }) as HTMLInputElement;
+    expect(privateChoice.checked).toBe(true);
+    expect(openChoice.checked).toBe(false);
+    expect(screen.getByTestId('new-parent')).toHaveTextContent('at the top level');
 
-    fireEvent.change(screen.getByPlaceholderText('Community name'), { target: { value: 'Leaders only' } });
-    fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(false);
+    fireEvent.change(screen.getByPlaceholderText('Community name'), { target: { value: 'Welcome group' } });
+    fireEvent.click(openChoice);
+    expect(openChoice.checked).toBe(true);
 
     mockFetchByUrl({
       '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
@@ -222,8 +225,52 @@ describe('CommunitiesTab — automatic-placement eligibility', () => {
 
     await waitFor(() => {
       const postCall = calls.find((c) => c.method === 'POST' && c.url.includes('/api/admin/communities'));
-      expect(postCall!.body).toEqual({ name: 'Leaders only', autoPlacementEligible: false });
+      expect(postCall!.body).toEqual({ name: 'Welcome group', autoPlacementEligible: true });
     });
+  });
+
+  it('shows where it will be created (inside the open assembly), private by default, and creates it there', async () => {
+    const hq = { id: 'hq1', parentId: null, name: 'HQ', active: true, autoPlacementEligible: true, postingPolicy: 'EVERYONE', placementCountry: null, placementRegion: null, _count: { memberships: 0, children: 0 } };
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?parentId=hq1': { status: 200, body: emptyList },
+      '/api/admin/communities?&page=': { status: 200, body: { items: [hq], pagination: { totalPages: 1 } } },
+    });
+    render(<CommunitiesTab />);
+    fireEvent.click(await screen.findByText('Open'));
+    await waitFor(() => expect(calls.some((c) => c.url.includes('parentId=hq1'))).toBe(true));
+
+    fireEvent.click(screen.getByText('+ New Community'));
+    expect(screen.getByTestId('new-parent')).toHaveTextContent('HQ');
+    fireEvent.change(screen.getByPlaceholderText('Community name'), { target: { value: 'HQ Leaders' } });
+    fireEvent.click(screen.getByText('Create'));
+    await waitFor(() => {
+      const postCall = calls.find((c) => c.method === 'POST' && c.url.includes('/api/admin/communities'));
+      expect(postCall!.body).toEqual({ name: 'HQ Leaders', parentId: 'hq1', autoPlacementEligible: false });
+    });
+  });
+
+  it('adds people to an assembly from its row', async () => {
+    const sub = { id: 'sub1', parentId: null, name: 'Prayer Team', active: true, autoPlacementEligible: false, postingPolicy: 'EVERYONE', placementCountry: null, placementRegion: null, _count: { memberships: 0, children: 0 } };
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities?&page=': { status: 200, body: { items: [sub], pagination: { totalPages: 1 } } },
+      '/api/admin/people?search=': { status: 200, body: { items: [{ id: 'p1', name: 'Grace Doe', whatsappNumber: '+237600000000' }] } },
+      '/api/admin/people/p1/community-memberships': { status: 201, body: { id: 'm1' } },
+    });
+    render(<CommunitiesTab />);
+    fireEvent.click(await screen.findByText('Add people'));
+    expect(screen.getByTestId('add-people-panel')).toHaveTextContent('Add people to Prayer Team');
+
+    fireEvent.change(screen.getByPlaceholderText(/Search by name, WhatsApp, or email/), { target: { value: 'Grace' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    const option = await screen.findByRole('option', { name: /Grace Doe/ });
+    fireEvent.change(option.closest('select')!, { target: { value: 'p1' } });
+    fireEvent.click(within(screen.getByTestId('add-people-panel')).getByRole('button', { name: 'Add' }));
+
+    expect(await screen.findByText('Added Grace Doe to Prayer Team.')).toBeInTheDocument();
+    const post = calls.find((c) => c.method === 'POST' && c.url === '/api/admin/people/p1/community-memberships');
+    expect(post?.body).toEqual({ communityId: 'sub1' });
   });
 
   it('shows the current auto-join status in the table, and a mother group keeps it even with a child', async () => {

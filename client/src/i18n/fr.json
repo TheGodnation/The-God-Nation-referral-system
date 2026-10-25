@@ -1082,7 +1082,18 @@
       "placement_tag_whole_country": "Tout le pays",
       "auto_placement_label": "Recevoir automatiquement les nouveaux inscrits",
       "auto_placement_help": "Activé : ce groupe fait partie de ceux où les nouveaux inscrits peuvent atterrir automatiquement. Désactivé : il ne reçoit que les membres que vous y ajoutez vous-même — utile pour un sous-groupe « Leaders seulement » ou « Prière » qui ne doit pas absorber chaque nouvel inscrit. Indépendant du fait que ce groupe ait lui-même des sous-groupes.",
-      "table_auto_join": "Adhésion auto"
+      "table_auto_join": "Adhésion auto",
+      "new_inside": "Créer à l'intérieur de",
+      "new_top_level": "Rien — au premier niveau",
+      "new_make_top_level": "La mettre plutôt au premier niveau",
+      "new_who_joins": "Qui la rejoint ?",
+      "new_private": "Privée — seulement les personnes que j'ajoute",
+      "new_private_help": "Personne n'y est placé automatiquement. À utiliser pour une sous-assemblée, par exemple les responsables ou une équipe de prière.",
+      "new_open": "Ouverte — les nouveaux membres y sont placés automatiquement",
+      "add_people": "Ajouter des personnes",
+      "add_people_title": "Ajouter des personnes à {{name}}",
+      "add_people_help": "Cherchez par nom, numéro WhatsApp ou e-mail, puis touchez Ajouter. Elles la voient tout de suite dans leurs discussions.",
+      "add_people_added": "{{name}} a été ajouté à {{assembly}}."
     },
     "devotionals": {
       "title": "Dévotions",
@@ -2667,5 +2678,30 @@
     "need_questions": "Ajoutez au moins une question, avec une bonne réponse chacune, pour publier.",
     "quiz_info_one": "{{count}} question · note de passage {{mark}} % · un seul essai",
     "quiz_info_other": "{{count}} questions · note de passage {{mark}} % · un seul essai"
+  },
+  "manageAssembly": {
+    "title": "Gérer cette assemblée",
+    "add_people": "Ajouter des personnes",
+    "new_sub": "Nouvelle sous-assemblée",
+    "add_title": "Ajouter des personnes à {{name}}",
+    "add_help": "Cherchez par nom, numéro WhatsApp ou e-mail. Si elle est privée, seules les personnes que vous ajoutez peuvent l'ouvrir.",
+    "search": "Chercher une personne…",
+    "add": "Ajouter",
+    "added": "Ajouté",
+    "already_in": "Déjà dedans",
+    "nobody_found": "Personne trouvé.",
+    "add_failed": "Impossible d'ajouter cette personne. Veuillez réessayer.",
+    "done": "Terminé",
+    "new_title": "Nouvelle sous-assemblée",
+    "new_help": "Une assemblée privée à l'intérieur de {{name}}. Personne n'y est placé automatiquement — c'est vous qui ajoutez les personnes.",
+    "new_name": "Nom de la sous-assemblée",
+    "new_about": "À quoi sert-elle ? (facultatif)",
+    "create": "Créer",
+    "creating": "Création…",
+    "cancel": "Annuler",
+    "create_failed": "Impossible de la créer. Veuillez réessayer.",
+    "created": "{{name}} est prête",
+    "created_help": "Elle est vide et privée. Ouvrez-la, puis touchez « Ajouter des personnes ».",
+    "open_new": "L'ouvrir"
   }
 }

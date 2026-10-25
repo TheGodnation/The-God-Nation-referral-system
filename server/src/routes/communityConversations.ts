@@ -27,6 +27,7 @@ import {
   getOrCreateConversation,
   markCommunityConversationRead,
   getCommunityConversationUnreadCount,
+  historyCutoffFor,
   hideMessageForPerson,
 } from '../lib/communityConversation';
 import {
@@ -190,15 +191,16 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
   }
 
   const conversation = await getOrCreateConversation(communityId);
+  const cutoff = await historyCutoffFor(personId, communityId, conversation.id);
   const [unreadCount, isAdministrator, community, last] = await Promise.all([
-    getCommunityConversationUnreadCount(personId, conversation.id),
+    getCommunityConversationUnreadCount(personId, conversation.id, communityId),
     isCommunityAdministrator(personId, communityId),
     prisma.community.findUnique({
       where: { id: communityId },
       select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true, aboutEn: true, aboutFr: true },
     }),
     prisma.message.findFirst({
-      where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } } },
+      where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } }, ...(cutoff ? { createdAt: { gte: cutoff } } : {}) },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: { sender: { select: { name: true } }, attachments: { select: { mimeType: true }, take: 1 } },
     }),
@@ -211,6 +213,8 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
     isAdministrator,
     // Only the central admin's profile can post a teaching in an assembly.
     canPostTeaching: await isCentralAdminPerson(personId),
+    // The same profile can also add people and make sub-assemblies (communityManage.ts).
+    canManage: await isCentralAdminPerson(personId),
     // For the WhatsApp-style chat list and chat header.
     name: community?.name ?? null,
     photoUrl: community ? groupPhotoPath(community) : null,
@@ -266,6 +270,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   const limit = Math.min(parsed.data.limit ?? DEFAULT_MESSAGE_PAGE_SIZE, MAX_MESSAGE_PAGE_SIZE);
 
   const conversation = await getOrCreateConversation(communityId);
+  // A newcomer sees only the last 10 earlier messages and what came since.
+  const cutoff = await historyCutoffFor(personId, communityId, conversation.id);
 
   let cursor: { createdAt: Date; id: string } | null = null;
   if (parsed.data.before) {
@@ -292,6 +298,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       // are completely unaffected, since this filters on personId, not on
       // the shared Message row itself.
       NOT: { hiddenFor: { some: { personId } } },
+      ...(cutoff ? { AND: [{ createdAt: { gte: cutoff } }] } : {}),
       ...(cursor
         ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
         : {}),
@@ -314,7 +321,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   // More new messages than one page: the app simply reloads the latest page.
   const newerOverflow = afterCursor ? rows.length > limit : undefined;
   const page = afterCursor ? rows.slice(0, limit) : rows.slice(0, limit).reverse();
-  const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
+  const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id, communityId);
   const isAdministrator = await isCommunityAdministrator(personId, communityId);
   // Community Posting Policy — a read-only hint so the client can hide/
   // disable its composer without a failed round-trip; never itself an
@@ -403,7 +410,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     recent: afterCursor
       ? (
           await prisma.message.findMany({
-            where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } } },
+            where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } }, ...(cutoff ? { createdAt: { gte: cutoff } } : {}) },
             orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             // The latest 60: reactions, ticks, edits and deletions on them refresh by themselves.
             take: 60,
@@ -733,7 +740,7 @@ router.post(
     }
 
     await markCommunityConversationRead(personId, conversation.id, message.createdAt);
-    const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id);
+    const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id, communityId);
 
     res.json({ unreadCount });
   }),
@@ -1174,12 +1181,14 @@ router.get('/:communityId/conversation/search', chatSearchLimiter, asyncHandler(
   const parsed = searchQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: 'Type at least 2 letters.' });
   const conversation = await getOrCreateConversation(communityId);
+  const cutoff = await historyCutoffFor(personId, communityId, conversation.id);
   const rows = await prisma.message.findMany({
     where: {
       conversationId: conversation.id,
       deletedAt: null,
       body: { contains: parsed.data.q, mode: 'insensitive' },
       NOT: { hiddenFor: { some: { personId } } },
+      ...(cutoff ? { createdAt: { gte: cutoff } } : {}),
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: 30,

@@ -510,6 +510,11 @@ model Event {
 // defaults on the client.
 model Settings {
   id                      String        @id @default("singleton")
+  // Members who joined an assembly after this moment see only the last 10
+  // messages from before they joined, plus everything since (see
+  // lib/communityConversation.ts historyCutoffFor). Set to the moment the rule
+  // was introduced, so current members keep their full history.
+  newMemberHistoryFrom    DateTime      @default(now())
   supportWhatsappUrl      String?
   facebookUrl             String?
   instagramUrl            String?

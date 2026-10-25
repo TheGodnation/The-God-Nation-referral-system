@@ -102,17 +102,50 @@ export async function markCommunityConversationRead(personId: string, conversati
  * message is never counted as "unread" for themselves). No cursor row at
  * all means everything (other than the Person's own messages) is unread.
  */
-export async function getCommunityConversationUnreadCount(personId: string, conversationId: string): Promise<number> {
-  const read = await prisma.communityConversationRead.findUnique({
-    where: { personId_conversationId: { personId, conversationId } },
-  });
+export async function getCommunityConversationUnreadCount(personId: string, conversationId: string, communityId: string): Promise<number> {
+  const [read, cutoff] = await Promise.all([
+    prisma.communityConversationRead.findUnique({ where: { personId_conversationId: { personId, conversationId } } }),
+    historyCutoffFor(personId, communityId, conversationId),
+  ]);
   return prisma.message.count({
     where: {
       conversationId,
       senderPersonId: { not: personId },
-      ...(read ? { createdAt: { gt: read.lastReadAt } } : {}),
+      AND: [...(read ? [{ createdAt: { gt: read.lastReadAt } }] : []), ...(cutoff ? [{ createdAt: { gte: cutoff } }] : [])],
     },
   });
+}
+
+/** How many earlier messages a newcomer to an assembly sees. */
+export const NEW_MEMBER_HISTORY_MESSAGES = 10;
+
+/**
+ * "Last 10 messages for newcomers": someone who joins an assembly sees the
+ * 10 latest messages from before they joined, plus everything since — not
+ * years of history, but not an empty chat either (the unread badge then shows
+ * there are messages waiting). Returns the createdAt from which messages are
+ * shown, or null when everything is shown:
+ *  - the central admin and the assembly's leaders always see everything;
+ *  - members who joined before the rule was introduced
+ *    (Settings.newMemberHistoryFrom) keep their full history;
+ *  - when fewer than 10 earlier messages exist, everything is shown.
+ */
+export async function historyCutoffFor(personId: string, communityId: string, conversationId: string): Promise<Date | null> {
+  if (await isCommunityAdministrator(personId, communityId)) return null;
+  const [membership, settings] = await Promise.all([
+    prisma.communityMembership.findUnique({ where: { personId_communityId: { personId, communityId } }, select: { joinedAt: true } }),
+    prisma.settings.findUnique({ where: { id: 'singleton' }, select: { newMemberHistoryFrom: true } }),
+  ]);
+  if (!membership) return null;
+  if (settings && membership.joinedAt < settings.newMemberHistoryFrom) return null;
+  const tenth = await prisma.message.findMany({
+    where: { conversationId, createdAt: { lt: membership.joinedAt }, deletedAt: null },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    skip: NEW_MEMBER_HISTORY_MESSAGES - 1,
+    take: 1,
+    select: { createdAt: true },
+  });
+  return tenth[0]?.createdAt ?? null;
 }
 
 /**

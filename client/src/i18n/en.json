@@ -1082,7 +1082,18 @@
       "placement_tag_whole_country": "Whole country",
       "auto_placement_label": "Automatically receive new joiners",
       "auto_placement_help": "On: this group is in the pool newcomers can land in automatically. Off: it only gains members you add yourself — useful for a Leaders-only or Prayer sub-group that shouldn't absorb every newcomer. Independent of whether the group has sub-groups of its own.",
-      "table_auto_join": "Auto-join"
+      "table_auto_join": "Auto-join",
+      "new_inside": "Create it inside",
+      "new_top_level": "Nothing — at the top level",
+      "new_make_top_level": "Put it at the top level instead",
+      "new_who_joins": "Who joins it?",
+      "new_private": "Private — only the people I add",
+      "new_private_help": "Nobody is placed here automatically. Use this for a sub-assembly such as leaders or a prayer team.",
+      "new_open": "Open — new members are placed here automatically",
+      "add_people": "Add people",
+      "add_people_title": "Add people to {{name}}",
+      "add_people_help": "Search by name, WhatsApp number or email, then tap Add. They see it in their chats straight away.",
+      "add_people_added": "Added {{name}} to {{assembly}}."
     },
     "devotionals": {
       "title": "Devotionals",
@@ -2667,5 +2678,30 @@
     "need_questions": "Add at least one question, with one right answer each, to post.",
     "quiz_info_one": "{{count}} question · pass mark {{mark}}% · one try",
     "quiz_info_other": "{{count}} questions · pass mark {{mark}}% · one try"
+  },
+  "manageAssembly": {
+    "title": "Manage this assembly",
+    "add_people": "Add people",
+    "new_sub": "New sub-assembly",
+    "add_title": "Add people to {{name}}",
+    "add_help": "Search by name, WhatsApp number or email. Only the people you add can open it, if it is private.",
+    "search": "Search for a person…",
+    "add": "Add",
+    "added": "Added",
+    "already_in": "Already in",
+    "nobody_found": "Nobody found.",
+    "add_failed": "Could not add this person. Please try again.",
+    "done": "Done",
+    "new_title": "New sub-assembly",
+    "new_help": "A private assembly inside {{name}}. Nobody is placed in it automatically — you add the people.",
+    "new_name": "Name of the sub-assembly",
+    "new_about": "What is it for? (optional)",
+    "create": "Create",
+    "creating": "Creating…",
+    "cancel": "Cancel",
+    "create_failed": "Could not create it. Please try again.",
+    "created": "{{name}} is ready",
+    "created_help": "It is empty and private. Open it, then tap “Add people”.",
+    "open_new": "Open it"
   }
 }

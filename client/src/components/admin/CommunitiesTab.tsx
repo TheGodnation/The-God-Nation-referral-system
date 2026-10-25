@@ -49,7 +49,15 @@ export function CommunitiesTab() {
   const [totalPages, setTotalPages] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
-  const [autoPlacementEligible, setAutoPlacementEligible] = useState(true);
+  // Private by default: putting people in an assembly automatically is the exception.
+  const [autoPlacementEligible, setAutoPlacementEligible] = useState(false);
+  // Where the new assembly goes: inside the one currently open (the default),
+  // or another one picked here, or the top level.
+  const [newParent, setNewParent] = useState<{ id: string; name: string } | null>(null);
+  // "Add people" panel for one assembly.
+  const [addingFor, setAddingFor] = useState<{ id: string; name: string } | null>(null);
+  const [addedNote, setAddedNote] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editParentId, setEditParentId] = useState<string | null>(null);
@@ -142,6 +150,7 @@ export function CommunitiesTab() {
     setPage(1);
     setShowForm(false);
     setEditingId(null);
+    setAddingFor(null);
   }
 
   function jumpTo(index: number) {
@@ -153,13 +162,32 @@ export function CommunitiesTab() {
     e.preventDefault();
     setError(null);
     try {
-      await api.post('/api/admin/communities', { name, parentId: parentId ?? undefined, autoPlacementEligible });
+      await api.post('/api/admin/communities', { name, parentId: newParent?.id ?? undefined, autoPlacementEligible });
       setName('');
-      setAutoPlacementEligible(true);
+      setAutoPlacementEligible(false);
       setShowForm(false);
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('admin.communities.create_failed'));
+    }
+  }
+
+  function toggleNewForm() {
+    setEditingId(null);
+    setAddingFor(null);
+    setNewParent(breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1] : null);
+    setShowForm((v) => !v);
+  }
+
+  async function addPerson(person: { id: string; name: string }) {
+    if (!addingFor) return;
+    setAddError(null);
+    setAddedNote(null);
+    try {
+      await api.post(`/api/admin/people/${person.id}/community-memberships`, { communityId: addingFor.id });
+      setAddedNote(t('admin.communities.add_people_added', { name: person.name, assembly: addingFor.name }));
+    } catch (err) {
+      setAddError(err instanceof ApiError ? err.message : t('admin.people.membership_failed'));
     }
   }
 
@@ -296,7 +324,7 @@ export function CommunitiesTab() {
           <a className="text-sm text-brand-700 hover:underline" href="/api/admin/communities/export">
             {t('admin.communities.export_memberships_csv')}
           </a>
-          <button className="btn-primary px-4 py-2" onClick={() => { setEditingId(null); setShowForm((v) => !v); }}>
+          <button className="btn-primary px-4 py-2" onClick={toggleNewForm}>
             {t('admin.communities.new_community')}
           </button>
         </div>
@@ -314,23 +342,67 @@ export function CommunitiesTab() {
             onChange={(e) => setName(e.target.value)}
             required
           />
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={autoPlacementEligible}
-              onChange={(e) => setAutoPlacementEligible(e.target.checked)}
+          <div>
+            <label className="label">{t('admin.communities.new_inside')}</label>
+            <p className="mb-2 text-sm font-medium text-slate-800" data-testid="new-parent">
+              {newParent ? newParent.name : t('admin.communities.new_top_level')}
+            </p>
+            <SearchPicker
+              placeholder={t('admin.communities.search_parent_placeholder') ?? ''}
+              searchPath="/api/admin/communities?search="
+              renderLabel={(c) => c.name}
+              actionLabel={t('admin.communities.select')}
+              searchButtonLabel={t('admin.people.search_button')}
+              onPick={(c) => setNewParent({ id: c.id, name: c.name })}
             />
-            <span>
-              <span className="font-medium text-slate-800">{t('admin.communities.auto_placement_label')}</span>
-              <span className="block text-slate-500">{t('admin.communities.auto_placement_help')}</span>
-            </span>
-          </label>
+            {newParent && (
+              <button type="button" className="mt-2 text-sm text-brand-700 hover:underline" onClick={() => setNewParent(null)}>
+                {t('admin.communities.new_make_top_level')}
+              </button>
+            )}
+          </div>
+          <fieldset className="space-y-2 text-sm">
+            <legend className="label">{t('admin.communities.new_who_joins')}</legend>
+            <label className="flex items-start gap-2">
+              <input type="radio" name="new-who-joins" className="mt-1" checked={!autoPlacementEligible} onChange={() => setAutoPlacementEligible(false)} />
+              <span>
+                <span className="font-medium text-slate-800">{t('admin.communities.new_private')}</span>
+                <span className="block text-slate-500">{t('admin.communities.new_private_help')}</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input type="radio" name="new-who-joins" className="mt-1" checked={autoPlacementEligible} onChange={() => setAutoPlacementEligible(true)} />
+              <span>
+                <span className="font-medium text-slate-800">{t('admin.communities.new_open')}</span>
+                <span className="block text-slate-500">{t('admin.communities.auto_placement_help')}</span>
+              </span>
+            </label>
+          </fieldset>
           {error && <p className="text-sm text-red-700">{error}</p>}
           <button className="btn-primary" type="submit">
             {t('admin.communities.create')}
           </button>
         </form>
+      )}
+
+      {addingFor && (
+        <div className="card mb-4 space-y-3" data-testid="add-people-panel">
+          <h3 className="font-semibold text-brand-900">{t('admin.communities.add_people_title', { name: addingFor.name })}</h3>
+          <p className="text-sm text-slate-500">{t('admin.communities.add_people_help')}</p>
+          <SearchPicker
+            placeholder={t('admin.people.search_placeholder') ?? ''}
+            searchPath="/api/admin/people?search="
+            renderLabel={(p) => `${p.name} (${p.whatsappNumber})`}
+            actionLabel={t('admin.people.add')}
+            searchButtonLabel={t('admin.people.search_button')}
+            onPick={addPerson}
+          />
+          {addedNote && <p className="text-sm font-medium text-green-700">{addedNote}</p>}
+          {addError && <p className="text-sm text-red-700">{addError}</p>}
+          <button type="button" className="text-sm text-slate-500 hover:underline" onClick={() => setAddingFor(null)}>
+            {t('admin.leaders.close')}
+          </button>
+        </div>
       )}
 
       {editingId && (
@@ -453,6 +525,18 @@ export function CommunitiesTab() {
                     </button>
                     <button className="text-brand-700 hover:underline" onClick={() => startEdit(node)}>
                       {t('admin.communities.edit')}
+                    </button>
+                    <button
+                      className="text-brand-700 hover:underline"
+                      onClick={() => {
+                        setShowForm(false);
+                        setEditingId(null);
+                        setAddedNote(null);
+                        setAddError(null);
+                        setAddingFor({ id: node.id, name: node.name });
+                      }}
+                    >
+                      {t('admin.communities.add_people')}
                     </button>
                     <button className="text-brand-700 hover:underline" onClick={() => toggleActive(node)}>
                       {node.active ? t('admin.communities.deactivate') : t('admin.communities.activate')}
