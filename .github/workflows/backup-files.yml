@@ -25,7 +25,7 @@ jobs:
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
+      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET || 'godnation-backups' }}
       MEDIA_BUCKET: ${{ secrets.MEDIA_BUCKET }}
       MEDIA_ACCESS_KEY_ID: ${{ secrets.MEDIA_ACCESS_KEY_ID }}
       MEDIA_SECRET_ACCESS_KEY: ${{ secrets.MEDIA_SECRET_ACCESS_KEY }}

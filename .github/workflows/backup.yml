@@ -41,7 +41,7 @@ jobs:
       R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
+      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET || 'godnation-backups' }}
     steps:
       - name: Are backups set up?
         id: configured

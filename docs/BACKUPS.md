@@ -70,7 +70,7 @@ New repository secret**. Add these six (name exactly as written):
 | `R2_ACCOUNT_ID` | the Cloudflare Account ID |
 | `R2_ACCESS_KEY_ID` | from the API token |
 | `R2_SECRET_ACCESS_KEY` | from the API token |
-| `BACKUP_BUCKET` | `godnation-backups` |
+| `BACKUP_BUCKET` | `godnation-backups` (optional: used by default if not added) |
 
 ### 5. Try it now
 
