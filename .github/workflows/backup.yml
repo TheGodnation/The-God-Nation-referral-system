@@ -73,8 +73,11 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install -y postgresql-client
-          pg_dump --version
+          sudo apt-get install -y postgresql-client-18
+          # The runner already has an older pg_dump first on its path, and
+          # pg_dump refuses a database newer than itself: put version 18 first.
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/18/bin/pg_dump --version
 
       - name: Back up the database
         if: steps.configured.outputs.ready == 'true'
