@@ -44,6 +44,10 @@ echo "Decrypting…"
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$WORK/backup.enc" -out "$WORK/dump" -pass env:BACKUP_PASSPHRASE \
   || { echo "ERROR: could not decrypt — wrong BACKUP_PASSPHRASE, or the file is damaged." >&2; exit 1; }
 
+# A wrong passphrase occasionally gets past decryption as junk: catch it here.
+pg_restore --list "$WORK/dump" > /dev/null 2>&1 \
+  || { echo "ERROR: could not decrypt — wrong BACKUP_PASSPHRASE, or the file is damaged." >&2; exit 1; }
+
 echo "Restoring…"
 pg_restore --no-owner --no-privileges --clean --if-exists --exit-on-error --dbname="$TARGET" "$WORK/dump"
 echo "Restore done."

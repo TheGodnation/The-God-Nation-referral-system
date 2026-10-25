@@ -68,8 +68,9 @@ echo "${KEY}" > "${BACKUP_LAST_KEY_FILE:-/dev/null}"
 echo "Removing backups that are old enough to go…"
 aws s3api list-objects-v2 --bucket "$BACKUP_BUCKET" --prefix db/ --endpoint-url "$R2" --query 'Contents[].Key' --output text | tr '\t' '\n' \
   | node "$HERE/retention.cjs" > "$WORK/delete.txt" || true
-if [ -s "$WORK/delete.txt" ]; then
+if grep -q . "$WORK/delete.txt"; then
   while IFS= read -r old; do
+    [ -n "$old" ] || continue
     echo "  deleting $old"
     aws s3 rm "s3://${BACKUP_BUCKET}/${old}" --endpoint-url "$R2" --only-show-errors
   done < "$WORK/delete.txt"

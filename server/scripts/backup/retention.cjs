@@ -49,5 +49,6 @@ module.exports = { pickToDelete, takenAt };
 
 if (require.main === module) {
   const input = require('fs').readFileSync(0, 'utf8').split(/\s+/).filter(Boolean);
-  process.stdout.write(pickToDelete(input).join('\n') + (input.length ? '\n' : ''));
+  const doomed = pickToDelete(input);
+  process.stdout.write(doomed.length ? doomed.join('\n') + '\n' : '');
 }
