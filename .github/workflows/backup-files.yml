@@ -1,0 +1,59 @@
+name: Files backup
+
+# Every Sunday: a copy of the app's photos, voice notes, videos and PDFs goes
+# from the media bucket to the private backup bucket. It only adds files, it
+# never deletes — so a file deleted by mistake can still be found. See
+# docs/BACKUPS.md. Until the secrets are added, this only shows a warning.
+
+on:
+  schedule:
+    - cron: '17 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: files-backup
+  cancel-in-progress: false
+
+jobs:
+  files:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
+      MEDIA_BUCKET: ${{ secrets.MEDIA_BUCKET }}
+      MEDIA_ACCESS_KEY_ID: ${{ secrets.MEDIA_ACCESS_KEY_ID }}
+      MEDIA_SECRET_ACCESS_KEY: ${{ secrets.MEDIA_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Is the files backup set up?
+        id: configured
+        run: |
+          missing=""
+          for v in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY BACKUP_BUCKET MEDIA_BUCKET MEDIA_ACCESS_KEY_ID MEDIA_SECRET_ACCESS_KEY; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning title=Files backup is NOT set up yet::Add these secrets in GitHub (Settings > Secrets and variables > Actions):$missing"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.ready == 'true'
+
+      - name: Install rclone
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y rclone
+          rclone version | head -1
+
+      - name: Copy the files
+        if: steps.configured.outputs.ready == 'true'
+        run: ./server/scripts/backup/backup-files.sh

@@ -108,10 +108,34 @@ passphrase and the new database address.
 ## Files (photos, voice notes, videos, PDFs)
 
 These are in Cloudflare R2, which keeps several copies inside Cloudflare, but
-R2 has no "undo": a deleted file is gone. Backing them up (a weekly copy to a
-second bucket that never deletes) is the next step if you want it.
+R2 has no "undo": a deleted file is gone. So every Sunday the "Files backup"
+job (`.github/workflows/backup-files.yml`) copies them into the same private
+backup bucket, under `files/`. It **only adds**: a file deleted from the app
+stays in the backup. It then checks every file is there with the same size.
+
+Extra setup (after the database backup works), once:
+
+1. Cloudflare → R2 → **Manage R2 API Tokens → Create API token**:
+   permission **Object Read only**, applied to the **photos bucket only**
+   (the one the app uses — its name is `R2_BUCKET_NAME` in Render). Copy the
+   Access Key ID and Secret.
+2. GitHub → Settings → Secrets and variables → Actions → add three secrets:
+
+   | Name | Value |
+   |---|---|
+   | `MEDIA_BUCKET` | the photos bucket's name |
+   | `MEDIA_ACCESS_KEY_ID` | from the read-only token |
+   | `MEDIA_SECRET_ACCESS_KEY` | from the read-only token |
+
+3. GitHub → Actions → **Files backup** → **Run workflow** to try it. The first
+   run copies everything, so it can take a while; later runs only copy what is new.
+
+The backup grows over time because nothing is ever removed from it. Cloudflare
+charges a small amount per GB beyond the free 10 GB.
 
 ## Cost
 
-Practically nothing: each backup is a few megabytes, and about 45 are kept (far
-below R2's free 10 GB); the job runs a few minutes a night on GitHub.
+The database: practically nothing — each backup is a few megabytes and about 45
+are kept (far below R2's free 10 GB). The files copy grows with your photos and
+videos (R2 charges a small amount per GB above the free 10 GB). The jobs run a
+few minutes on GitHub.
