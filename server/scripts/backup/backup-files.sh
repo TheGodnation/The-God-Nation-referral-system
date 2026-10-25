@@ -32,7 +32,7 @@ echo "Files in the media bucket:"
 rclone size "$SRC"
 
 echo "Copying new files (nothing is ever deleted from the backup)…"
-rclone copy "$SRC" "$DST" --transfers 8 --checkers 16 --retries 3 --stats-one-line --stats 30s -v
+rclone copy "$SRC" "$DST" --transfers 8 --checkers 16 --retries 3 --stats-one-line --stats 30s
 
 echo "Checking every file is in the backup with the same size…"
 rclone check "$SRC" "$DST" --one-way --size-only --checkers 16

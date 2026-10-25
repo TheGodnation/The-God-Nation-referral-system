@@ -50,6 +50,13 @@ jobs:
           for v in BACKUP_DATABASE_URL BACKUP_PASSPHRASE R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY BACKUP_BUCKET; do
             [ -n "${!v}" ] || missing="$missing $v"
           done
+          # The job log of a public repository is public: hide the parts of the
+          # database address that are not already hidden as secrets.
+          rest="${BACKUP_DATABASE_URL#*://}"; userinfo="${rest%%@*}"; hostpart="${rest#*@}"
+          host="${hostpart%%[:/?]*}"; dbname="${hostpart#*/}"; dbname="${dbname%%\?*}"
+          for piece in "${userinfo%%:*}" "${userinfo#*:}" "$host" "${host/-pooler/}" "$dbname"; do
+            [ "${#piece}" -gt 3 ] && echo "::add-mask::$piece"
+          done
           if [ -n "$missing" ]; then
             echo "::warning title=Backups are NOT set up yet::Add these secrets in GitHub (Settings > Secrets and variables > Actions):$missing"
             echo "ready=false" >> "$GITHUB_OUTPUT"
