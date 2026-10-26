@@ -19,6 +19,7 @@ import { ReplyQuote } from './MessageBubble';
 import { VoiceInputButton } from '../VoiceInputButton';
 import { ChatIcon } from './icons';
 import type { ChatMessage } from './types';
+import { loadDraft, saveDraft } from '../../lib/drafts';
 
 export interface OutgoingMessage {
   body?: string;
@@ -49,6 +50,7 @@ export function ChatComposer({
   onPickMedia,
   onTyping,
   onNewTeaching,
+  draftKey,
 }: {
   /** Where to ask for an upload link (group or private chat). */
   uploadPath: string;
@@ -63,9 +65,36 @@ export function ChatComposer({
   onNewTeaching?: () => void;
   /** Tells the others "typing…" (sent at most every few seconds). */
   onTyping?: (typing: boolean) => void;
+  /** Where to keep what is typed but not sent yet (see lib/drafts). The
+   * parent keys the composer by this, so each chat has its own box. */
+  draftKey?: string;
 }) {
   const { t } = useTranslation();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(() => loadDraft(draftKey));
+  const latestText = useRef(text);
+  latestText.current = text;
+
+  // Keep the draft as it is typed, and again whenever the page is left or
+  // hidden (switching apps), so nothing typed is lost.
+  useEffect(() => {
+    if (!draftKey) return;
+    const timer = window.setTimeout(() => saveDraft(draftKey, text), 300);
+    return () => window.clearTimeout(timer);
+  }, [draftKey, text]);
+  useEffect(() => {
+    if (!draftKey) return;
+    const flush = () => saveDraft(draftKey, latestText.current);
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      flush();
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onHide);
+    };
+  }, [draftKey]);
   const lastTypingSent = useRef(0);
 
   function signalTyping(value: string) {

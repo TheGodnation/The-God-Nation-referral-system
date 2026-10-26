@@ -14,6 +14,7 @@ import { UploadingBubble } from '../components/chat/UploadingBubble';
 import { useMediaUploads } from '../lib/useMediaUploads';
 import { REACTIONS, canEditMessage, canUnsendMessage, type ChatAttachment, type ChatMessage, type ChatReaction } from '../components/chat/types';
 import { ChatSearch, EditSheet, ForwardSheet, findAndJump } from '../components/chat/ChatActions';
+import { draftKeyFor } from '../lib/drafts';
 
 interface PrivateRow {
   id: string;
@@ -69,6 +70,7 @@ export function MemberPrivateChatPage() {
   const { chatWallpaper } = usePublicSettings();
   const { conversationId = '' } = useParams();
   const base = `/api/private-messages/conversations/${conversationId}`;
+  const draftKey = draftKeyFor(member?.personId, `private:${conversationId}`);
 
   const [other, setOther] = useState<Pick<PrivateResponse, 'otherPartyType' | 'otherPartyName' | 'otherPartyPersonId' | 'otherPartyPhotoUrl'> | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -535,6 +537,8 @@ export function MemberPrivateChatPage() {
 
       {!notFound && (
         <ChatComposer
+          key={draftKey}
+          draftKey={draftKey}
           uploadPath={`${base}/attachments/authorize`}
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
@@ -626,6 +630,7 @@ export function MemberPrivateChatPage() {
       {forwarding && (
         <ForwardSheet
           source={{ kind: 'private', chatId: conversationId, messageId: forwarding.id }}
+          isOwn={forwarding.isOwn}
           onClose={() => setForwarding(null)}
           onDone={(count) => {
             setForwarding(null);

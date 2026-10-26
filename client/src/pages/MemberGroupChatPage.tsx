@@ -13,6 +13,8 @@ import { UploadingBubble } from '../components/chat/UploadingBubble';
 import { useMediaUploads } from '../lib/useMediaUploads';
 import { REACTIONS, canEditMessage, canUnsendMessage, type ChatMessage, type ChatReaction } from '../components/chat/types';
 import { ChatSearch, EditSheet, ForwardSheet, findAndJump } from '../components/chat/ChatActions';
+import { useMemberAuth } from '../lib/MemberAuthContext';
+import { draftKeyFor } from '../lib/drafts';
 
 interface MessagesResponse {
   items: ChatMessage[];
@@ -100,6 +102,8 @@ export function MemberGroupChatPage() {
   const { t, i18n } = useTranslation();
   const { chatWallpaper } = usePublicSettings();
   const { communityId = '' } = useParams();
+  const { member } = useMemberAuth();
+  const draftKey = draftKeyFor(member?.personId, `group:${communityId}`);
   const [groupName, setGroupName] = useState<string>('');
   const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -574,6 +578,8 @@ export function MemberGroupChatPage() {
       {!notAllowed &&
         (canPost ? (
           <ChatComposer
+            key={draftKey}
+            draftKey={draftKey}
             uploadPath={`/api/communities/${communityId}/attachments/authorize`}
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(null)}
@@ -685,6 +691,7 @@ export function MemberGroupChatPage() {
       {forwarding && (
         <ForwardSheet
           source={{ kind: 'group', chatId: communityId, messageId: forwarding.id }}
+          isOwn={forwarding.isOwn}
           onClose={() => setForwarding(null)}
           onDone={(count) => {
             setForwarding(null);

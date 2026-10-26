@@ -88,10 +88,13 @@ const MAX_TARGETS = 5;
 /** ↪️ Forward — choose up to 5 chats (groups and private chats). */
 export function ForwardSheet({
   source,
+  isOwn,
   onClose,
   onDone,
 }: {
   source: { kind: 'group' | 'private'; chatId: string; messageId: string };
+  /** Whether the person forwarding wrote the message themselves. */
+  isOwn: boolean;
   onClose: () => void;
   onDone: (count: number) => void;
 }) {
@@ -101,9 +104,17 @@ export function ForwardSheet({
   const [filter, setFilter] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Only the central admin may send a copy without the "Forwarded" label;
+  // the server decides, this just shows the switch to them.
+  const [canHideLabel, setCanHideLabel] = useState(false);
+  const [markForwarded, setMarkForwarded] = useState(true);
 
   useEffect(() => {
     let alive = true;
+    api
+      .get<{ canHideLabel: boolean }>('/api/chat/forward/options')
+      .then((o) => alive && setCanHideLabel(Boolean(o.canHideLabel)))
+      .catch(() => undefined);
     Promise.all([
       api
         .get<{ items: { communityId: string; communityName: string; status?: string }[] }>('/api/member/me/community-memberships')
@@ -144,7 +155,7 @@ export function ForwardSheet({
         const [kind, ...rest] = k.split(':');
         return { kind, chatId: rest.join(':') };
       });
-      await api.post('/api/chat/forward', { source, targets });
+      await api.post('/api/chat/forward', { source, targets, ...(canHideLabel && !isOwn ? { markForwarded } : {}) });
       onDone(targets.length);
     } catch (err) {
       setError(err instanceof ApiError && err.status === 503 ? t('groupChat.storage_off') : t('chatActions.forward_failed'));
@@ -157,6 +168,13 @@ export function ForwardSheet({
     <Sheet label={t('chatActions.forward_title')} onClose={onClose}>
       <h2 className="mb-1 font-semibold text-slate-900">↪️ {t('chatActions.forward_title')}</h2>
       <p className="mb-2 text-xs text-slate-500">{t('chatActions.forward_hint', { max: MAX_TARGETS })}</p>
+      {canHideLabel && isOwn && <p className="mb-2 text-xs text-slate-500">{t('chatActions.forward_own_note')}</p>}
+      {canHideLabel && !isOwn && (
+        <label className="mb-2 flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" checked={markForwarded} onChange={(e) => setMarkForwarded(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+          {t('chatActions.forward_mark')}
+        </label>
+      )}
       <input
         type="search"
         value={filter}

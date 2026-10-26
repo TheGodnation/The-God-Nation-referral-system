@@ -5,6 +5,7 @@ import { api } from '../../lib/api';
 import { Avatar } from '../Avatar';
 import { mediaKind } from './types';
 import { Ticks } from './MessageBubble';
+import { DraftPreview, useChatDraft } from './DraftTag';
 
 interface ConversationRow {
   id: string;
@@ -26,6 +27,12 @@ export function chatListTime(iso: string, language: string): string {
   if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   if (d.toDateString() === yesterday.toDateString()) return language.startsWith('fr') ? 'Hier' : 'Yesterday';
   return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+/** The last message, or the red "Draft: …" when there is unsent text for this chat. */
+function PrivatePreview({ chatId, fallback }: { chatId: string; fallback: React.ReactNode }) {
+  const draft = useChatDraft(`private:${chatId}`);
+  return <>{draft ? <DraftPreview draft={draft} /> : fallback}</>;
 }
 
 // Private chats as WhatsApp-style rows: photo, name, the last message and
@@ -99,12 +106,16 @@ export function PrivateChatList() {
                   </span>
                   <span className="flex items-center justify-between gap-2">
                     <span className={`truncate text-sm ${c.unreadCount > 0 ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
-                      {c.lastMessage?.isOwn && c.lastMessage.status && (
+                      <PrivatePreview chatId={c.id} fallback={
                         <>
-                          <Ticks status={c.lastMessage.status} />{' '}
+                          {c.lastMessage?.isOwn && c.lastMessage.status && (
+                            <>
+                              <Ticks status={c.lastMessage.status} />{' '}
+                            </>
+                          )}
+                          {preview(c)}
                         </>
-                      )}
-                      {preview(c)}
+                      } />
                     </span>
                     {c.unreadCount > 0 && (
                       <span

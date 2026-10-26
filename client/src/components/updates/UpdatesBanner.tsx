@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePublicSettings } from '../../lib/usePublicSettings';
 import { useDataSaver } from '../../lib/dataSaver';
+import { Linkified } from '../../lib/linkify';
 
 function MvpBox({ icon, title, text }: { icon: string; title: string; text: string }) {
   const { t } = useTranslation();
@@ -12,7 +13,7 @@ function MvpBox({ icon, title, text }: { icon: string; title: string; text: stri
       <p className="text-sm font-bold text-brand-900">
         {icon} {title}
       </p>
-      <p className={`mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 ${long && !open ? 'line-clamp-3' : ''}`}>{text}</p>
+      <p className={`mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 ${long && !open ? 'line-clamp-3' : ''}`}><Linkified text={text} /></p>
       {long && (
         <button type="button" onClick={() => setOpen((v) => !v)} className="mt-1 text-xs font-semibold text-brand-700">
           {open ? t('updates.see_less') : t('updates.see_more')}

@@ -12,20 +12,30 @@ import { generateStorageKey, generatePrivateAttachmentStorageKey } from '../lib/
 import { isStorageConfigured, copyObject } from '../lib/storage';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
 import { MAX_FORWARD_TARGETS } from '../lib/chatActions';
+import { isCentralAdminPerson } from '../lib/centralAdmin';
 
 // POST /api/chat/forward — WhatsApp "Forward": send a copy of one message
 // (its text and its photos / voice notes / files) to up to 5 chats you can
 // write in. The copies are marked "↪ Forwarded". Every source and target is
 // checked with the same rules as reading and sending normally; photos are
 // copied inside storage to each chat's own place.
+//
+// Only the central admin can send a copy without the "Forwarded" label: always
+// for their own messages, and on request for someone else's. Everyone else's
+// copies always carry the label, so words are never passed off as the
+// forwarder's own.
 
 const chatRef = z.object({ kind: z.enum(['group', 'private']), chatId: z.string().min(1) });
 const forwardSchema = z.object({
   source: chatRef.extend({ messageId: z.string().min(1) }),
   targets: z.array(chatRef).min(1).max(MAX_FORWARD_TARGETS),
+  // Honoured for the central admin only; defaults to showing the label.
+  markForwarded: z.boolean().optional(),
 });
 
 type SourceMessage = {
+  /** Whether the person forwarding wrote the message themselves. */
+  isOwn: boolean;
   body: string | null;
   attachments: { storageKey: string; originalFilename: string; mimeType: string; byteSize: number; thumbDataUrl: string | null; pageCount: number | null }[];
 };
@@ -48,16 +58,33 @@ async function loadSource(actor: PrivateMessagingActor, source: z.infer<typeof f
       include: { attachments: { select: attachmentSelect }, hiddenFor: { where: { personId: actor.personId }, select: { id: true } } },
     });
     if (!m || m.conversationId !== conversation.id || m.deletedAt || m.hiddenFor.length > 0) return null;
-    return { body: m.body, attachments: m.attachments };
+    return { isOwn: m.senderPersonId === actor.personId, body: m.body, attachments: m.attachments };
   }
   const conversation = await prisma.privateConversation.findUnique({ where: { id: source.chatId } });
   if (!conversation || !resolvePrivateConversationRole(actor, conversation)) return null;
   const m = await prisma.privateMessage.findUnique({ where: { id: source.messageId }, include: { attachments: { select: attachmentSelect } } });
   if (!m || m.conversationId !== conversation.id || m.deletedAt) return null;
-  return { body: m.body || null, attachments: m.attachments };
+  const isOwn = actor.type === 'PERSON' ? m.senderPersonId === actor.personId : m.senderUserId === actor.userId;
+  return { isOwn, body: m.body || null, attachments: m.attachments };
+}
+
+/** The admin's own account, or the member profile that belongs to it. */
+async function isCentralAdminActor(actor: PrivateMessagingActor): Promise<boolean> {
+  return actor.type === 'USER' ? true : isCentralAdminPerson(actor.personId);
 }
 
 const router = Router();
+
+// Whether this person may send a forward without the "Forwarded" label (the
+// forward screen shows its switch only to them).
+router.get(
+  '/forward/options',
+  asyncHandler(async (req, res) => {
+    const actor = await resolvePrivateMessagingActor(req);
+    if (!actor) return res.status(401).json({ error: 'Authentication required.' });
+    res.json({ canHideLabel: await isCentralAdminActor(actor) });
+  }),
+);
 
 router.post(
   '/forward',
@@ -77,6 +104,8 @@ router.post(
 
     const message = await loadSource(actor, source);
     if (!message) return res.status(404).json({ error: 'Message not found.' });
+    const hideLabel = (await isCentralAdminActor(actor)) && (message.isOwn || parsed.data.markForwarded === false);
+    const forwarded = !hideLabel;
     if (message.attachments.length > 0 && !isStorageConfigured()) {
       return res.status(503).json({ error: 'Attachments are not available right now.' });
     }
@@ -120,7 +149,7 @@ router.post(
             conversationId: target.conversationId,
             senderPersonId: target.personId,
             body: message.body,
-            forwarded: true,
+            forwarded,
             attachments: copies.length
               ? {
                   create: copies.map((a) => ({
@@ -142,7 +171,7 @@ router.post(
           data: {
             conversationId: target.conversation.id,
             body: message.body ?? '',
-            forwarded: true,
+            forwarded,
             ...(actor.type === 'PERSON' ? { senderPersonId: actor.personId } : { senderUserId: actor.userId }),
             attachments: copies.length
               ? {

@@ -240,6 +240,56 @@ describe('Forward', () => {
     expect(inPrivate).toMatchObject({ body: 'Sunday flyer', forwarded: true, isOwn: false });
   });
 
+  describe('the "Forwarded" label', () => {
+    async function setup() {
+      const g1 = await prisma.community.create({ data: { name: 'Sub assembly' } });
+      const g2 = await prisma.community.create({ data: { name: 'Headquarters' } });
+      const boss = await member('Boss', g1.id);
+      await prisma.communityMembership.create({ data: { personId: boss.person.id, communityId: g2.id, status: 'ACTIVE' } });
+      await prisma.user.create({
+        data: { name: 'Central Admin', email: `fwd-admin-${n}@test.local`, passwordHash: 'x', role: 'ADMIN', personId: boss.person.id },
+      });
+      const ada = await member('Ada', g1.id);
+      await prisma.communityMembership.create({ data: { personId: ada.person.id, communityId: g2.id, status: 'ACTIVE' } });
+      const send = async (who: typeof boss, body: string) =>
+        (await who.agent.post(`${g(g1.id)}/messages`).set('X-CSRF-Token', who.csrf).send({ body })).body.id as string;
+      const forward = (who: typeof boss, messageId: string, extra: object = {}) =>
+        who.agent
+          .post('/api/chat/forward')
+          .set('X-CSRF-Token', who.csrf)
+          .send({ source: { kind: 'group', chatId: g1.id, messageId }, targets: [{ kind: 'group', chatId: g2.id }], ...extra });
+      return { g2, boss, ada, send, forward };
+    }
+
+    it('sends the central admin\'s own message without the label', async () => {
+      const { g2, boss, send, forward } = await setup();
+      const res = await forward(boss, await send(boss, 'My own words'));
+      expect(res.status).toBe(201);
+      expect((await listFor(boss, g2.id)).at(-1)).toMatchObject({ body: 'My own words', forwarded: false });
+    });
+
+    it('keeps the label on someone else\'s message unless the central admin switches it off', async () => {
+      const { g2, boss, ada, send, forward } = await setup();
+      const hers = await send(ada, 'Ada wrote this');
+      await forward(boss, hers);
+      expect((await listFor(boss, g2.id)).at(-1)).toMatchObject({ body: 'Ada wrote this', forwarded: true });
+      await forward(boss, hers, { markForwarded: false });
+      expect((await listFor(boss, g2.id)).at(-1)).toMatchObject({ body: 'Ada wrote this', forwarded: false });
+    });
+
+    it('always keeps the label for everyone else, even if they ask to hide it', async () => {
+      const { g2, boss, ada, send, forward } = await setup();
+      await forward(ada, await send(ada, 'Ada again'), { markForwarded: false });
+      expect((await listFor(boss, g2.id)).at(-1)).toMatchObject({ body: 'Ada again', forwarded: true });
+    });
+
+    it('tells the forward screen who may hide the label', async () => {
+      const { boss, ada } = await setup();
+      expect((await boss.agent.get('/api/chat/forward/options')).body).toEqual({ canHideLabel: true });
+      expect((await ada.agent.get('/api/chat/forward/options')).body).toEqual({ canHideLabel: false });
+    });
+  });
+
   it('refuses chats you cannot write in and messages you cannot see', async () => {
     const g1 = await prisma.community.create({ data: { name: 'Mine' } });
     const g2 = await prisma.community.create({ data: { name: 'Not mine' } });

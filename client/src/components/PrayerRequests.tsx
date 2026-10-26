@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
 import { Avatar } from './Avatar';
 import { VoiceInputButton } from './VoiceInputButton';
+import { Linkified } from '../lib/linkify';
 
 // Phase 2 — Prayer requests. A Member/Leader shares a request either
 // PUBLIC (same flat, everyone-sees-it feed shape as Updates) or PRIVATE
@@ -201,7 +202,7 @@ function Comments({ requestId, canComment, onCountChange }: { requestId: string;
                 {c.author.name}
                 <CoordinatorBadge badge={c.author.badge} />
               </span>
-              <p className="whitespace-pre-wrap break-words text-sm text-slate-800">{c.body}</p>
+              <p className="whitespace-pre-wrap break-words text-sm text-slate-800"><Linkified text={c.body} /></p>
             </div>
             {c.canDelete && (
               <button type="button" className="ml-2 mt-1 text-xs font-semibold text-red-700 hover:underline" onClick={() => void remove(c.id)}>
@@ -256,7 +257,7 @@ function RequestCard({ item, canComment, onDeleted }: { item: PrayerRequestItem;
           </button>
         )}
       </header>
-      <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900">{item.body}</p>
+      <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900"><Linkified text={item.body} /></p>
       <button type="button" className="text-sm font-semibold text-slate-500 hover:underline" onClick={() => setShowComments((v) => !v)}>
         🙏 {t('prayerRequests.comment_count', { count: commentCount })}
       </button>

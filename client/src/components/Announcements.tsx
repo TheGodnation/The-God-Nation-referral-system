@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { Avatar } from './Avatar';
+import { Linkified } from '../lib/linkify';
 
 interface AnnouncementAuthor {
   personId: string;
@@ -125,7 +126,7 @@ export function Announcements() {
             )}
             <h2 className="mb-1 font-semibold text-brand-900">{isFr ? detail.titleFr || detail.titleEn : detail.titleEn}</h2>
             <p className="mb-3 text-xs text-slate-400">{new Date(detail.publishedAt).toLocaleDateString()}</p>
-            <p className="whitespace-pre-wrap text-sm text-slate-700">{isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn}</p>
+            <p className="whitespace-pre-wrap text-sm text-slate-700"><Linkified text={isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn} /></p>
           </>
         )}
       </div>

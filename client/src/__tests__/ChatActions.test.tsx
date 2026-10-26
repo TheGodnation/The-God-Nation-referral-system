@@ -151,6 +151,49 @@ describe('Forward', () => {
   });
 });
 
+describe('Forward without the "Forwarded" label (central admin only)', () => {
+  const pickLimbe = async () => {
+    renderChat();
+    await screen.findByText('See the flyer');
+    return screen;
+  };
+
+  it('shows the switch for the central admin on someone else\'s message and sends the choice', async () => {
+    mockFetch(routes({
+      'GET /api/chat/forward/options': () => ({ body: { canHideLabel: true } }),
+      'POST /api/chat/forward': () => ({ status: 201, body: { sent: [{}] } }),
+    }));
+    await pickLimbe();
+    openMenu('See the flyer');
+    fireEvent.click(screen.getByRole('button', { name: /Forward/ }));
+    const mark = await screen.findByRole('checkbox', { name: /Show .Forwarded. on this message/ });
+    expect(mark).toBeChecked();
+    fireEvent.click(mark);
+    fireEvent.click(screen.getByRole('checkbox', { name: /Limbe Group/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send to 1 chat' }));
+    await screen.findByText('Forwarded to 1 chat');
+    expect(calls.find((c) => c.url === '/api/chat/forward')?.body.markForwarded).toBe(false);
+  });
+
+  it('shows no switch to anyone else', async () => {
+    mockFetch(routes({ 'GET /api/chat/forward/options': () => ({ body: { canHideLabel: false } }) }));
+    await pickLimbe();
+    openMenu('See the flyer');
+    fireEvent.click(screen.getByRole('button', { name: /Forward/ }));
+    await screen.findByRole('checkbox', { name: /Limbe Group/ });
+    expect(screen.queryByRole('checkbox', { name: /Show .Forwarded. on this message/ })).toBeNull();
+  });
+
+  it('tells the central admin their own message goes without the label', async () => {
+    mockFetch(routes({ 'GET /api/chat/forward/options': () => ({ body: { canHideLabel: true } }) }));
+    await pickLimbe();
+    openMenu('Meeting at 6');
+    fireEvent.click(screen.getByRole('button', { name: /Forward/ }));
+    expect(await screen.findByText(/Your own message is sent without/)).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /Show .Forwarded. on this message/ })).toBeNull();
+  });
+});
+
 describe('Search in a chat', () => {
   it('finds a message and jumps to it', async () => {
     mockFetch(

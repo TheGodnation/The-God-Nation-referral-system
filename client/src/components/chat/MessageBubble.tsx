@@ -15,6 +15,7 @@ import { useDataSaver } from '../../lib/dataSaver';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import { TeachingCard } from '../teaching/TeachingCard';
 import { mediaKind, type ChatAttachment, type ChatMessage, type ChatReplyPreview } from './types';
+import { Linkified } from '../../lib/linkify';
 
 const NAME_COLORS = ['text-rose-700', 'text-emerald-700', 'text-violet-700', 'text-amber-700', 'text-sky-700', 'text-fuchsia-700', 'text-teal-700', 'text-orange-700'];
 
@@ -398,7 +399,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
               ))}
               {displayBody && !m.teaching && (
                 <>
-                  <p className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`}>{displayBody}</p>
+                  <p className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`}><Linkified text={displayBody} /></p>
                   {isLongBody && (
                     <button
                       type="button"

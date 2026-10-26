@@ -12,6 +12,7 @@ import { TranslationNote } from '../TranslationNote';
 import { YoutubeEmbed } from './YoutubeEmbed';
 import { baseMime, shrinkPhoto } from '../../lib/chatMedia';
 import { useDataSaver } from '../../lib/dataSaver';
+import { Linkified } from '../../lib/linkify';
 
 // The community-wide Updates feed, Facebook-style. Used on the member
 // Updates page (with the "write a post" box), on a person's profile
@@ -344,7 +345,7 @@ function CommentBubble({
             {c.author.name}
             <CoordinatorBadge badge={c.author.badge} />
           </span>
-          <p className="whitespace-pre-wrap break-words text-sm text-slate-800">{c.body}</p>
+          <p className="whitespace-pre-wrap break-words text-sm text-slate-800"><Linkified text={c.body} /></p>
           {total > 0 && (
             <button
               type="button"
@@ -787,7 +788,7 @@ function PostCard({
 
       {item.body && (
         <div className="px-4 pt-2">
-          <p className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`}>{displayBody}</p>
+          <p className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`}><Linkified text={displayBody} /></p>
           {isLong && (
             <button type="button" className="text-sm font-semibold text-slate-500 hover:underline" onClick={() => setExpanded((v) => !v)}>
               {expanded ? t('updates.see_less') : t('updates.see_more')}

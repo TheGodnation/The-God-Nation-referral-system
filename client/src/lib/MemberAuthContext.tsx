@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, NetworkError } from './api';
 import { deleteAllFor } from './offlineStore';
+import { clearAllDrafts, pruneDrafts } from './drafts';
 
 export interface CurrentMember {
   name: string;
@@ -119,9 +120,12 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
     remember(null);
     // Books and documents downloaded for this member leave the phone with them.
     if (personId) void deleteAllFor(personId);
+    // Unsent drafts leave the phone too, so the next person never sees them.
+    clearAllDrafts();
   }
 
   useEffect(() => {
+    pruneDrafts();
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

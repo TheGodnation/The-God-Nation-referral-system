@@ -11,6 +11,7 @@ import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatLis
 import { mediaKind } from '../components/chat/types';
 import { Announcements } from '../components/Announcements';
 import { api } from '../lib/api';
+import { DraftPreview, useChatDraft } from '../components/chat/DraftTag';
 
 interface MembershipRow {
   communityId: string;
@@ -47,6 +48,7 @@ function GroupRow({ m }: { m: MembershipRow }) {
       .catch(() => {});
   }, [m.communityId]);
   const unread = meta?.unreadCount ?? 0;
+  const draft = useChatDraft(`group:${m.communityId}`);
   const last = meta?.lastMessage;
   const deletedText = last?.deletedBySender ? (last.isOwn ? t('chatActions.you_deleted') : t('chatActions.deleted')) : t('groupChat.removed');
   const kind = mediaKind(last?.attachmentMimeType);
@@ -77,7 +79,7 @@ function GroupRow({ m }: { m: MembershipRow }) {
             )}
           </span>
           <span className="flex items-center justify-between gap-2">
-            <span className={`truncate text-sm ${unread > 0 ? 'font-medium text-slate-800' : 'text-slate-500'}`}>{preview}</span>
+            <span className={`truncate text-sm ${unread > 0 ? 'font-medium text-slate-800' : 'text-slate-500'}`}>{draft ? <DraftPreview draft={draft} /> : preview}</span>
             <span className="flex shrink-0 items-center gap-1">
               {unread > 0 && (
                 <span

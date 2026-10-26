@@ -6,6 +6,7 @@ import { useInView } from '../lib/chatMedia';
 import { useDataSaver } from '../lib/dataSaver';
 import { formatBytes } from '../lib/attachmentLimits';
 import { VoiceInputButton } from './VoiceInputButton';
+import { Linkified } from '../lib/linkify';
 
 export interface HeadquartersFeedMedia {
   id: string;
@@ -184,7 +185,7 @@ export function HeadquartersFeedCard({
         <h3 className="text-lg font-bold leading-snug text-brand-900">{title}</h3>
         {body && (
           <p className={`mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-800 ${expanded ? '' : 'line-clamp-4'}`}>
-            {body}
+            <Linkified text={body} />
           </p>
         )}
         <button type="button" onClick={expanded ? onCollapse : onOpen} className="mt-1 text-sm font-semibold text-brand-700 hover:underline">
@@ -293,7 +294,7 @@ export function HeadquartersFeedCard({
             {comments.map((c) => (
               <li key={c.id} className="border-b border-slate-50 pb-2 text-sm">
                 <p className="text-xs font-medium text-brand-700">{c.authorName}</p>
-                <p className="whitespace-pre-wrap text-slate-700">{c.body}</p>
+                <p className="whitespace-pre-wrap text-slate-700"><Linkified text={c.body} /></p>
               </li>
             ))}
           </ul>
