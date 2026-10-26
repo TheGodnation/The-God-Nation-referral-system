@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { ChatComposer } from '../components/chat/ChatComposer';
 import { FormattedTextarea } from '../components/FormattedTextarea';
@@ -21,31 +21,55 @@ function select(el: HTMLTextAreaElement, start: number, end: number) {
 }
 
 describe('formatting in the message box', () => {
-  it('has the buttons hidden until Aa is tapped', () => {
+  it('has no formatting bar until words are selected, and no "Aa" button', () => {
     composer();
     expect(screen.queryByRole('toolbar')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Formatting' }));
-    expect(screen.getByRole('toolbar', { name: 'Text formatting' })).toBeInTheDocument();
-    for (const name of ['Bold', 'Italic', 'Strikethrough', 'Bullet list', 'Numbered list', 'Quote']) {
-      expect(screen.getByRole('button', { name })).toBeInTheDocument();
-    }
-    expect(screen.queryByRole('button', { name: 'Heading' })).toBeNull(); // headings are for posts only
+    expect(screen.queryByRole('button', { name: 'Formatting' })).toBeNull();
+    fireEvent.change(box(), { target: { value: 'Praise the Lord today' } });
+    expect(screen.queryByRole('toolbar')).toBeNull();
   });
 
-  it('opens by itself when words are selected, and makes them bold', async () => {
+  it('shows Bold, Italic and Strikethrough when words are selected, and makes them bold', async () => {
     composer();
     fireEvent.change(box(), { target: { value: 'Praise the Lord today' } });
     select(box(), 6, 15);
-    expect(await screen.findByRole('toolbar')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Bold' }));
+    const bar = await screen.findByTestId('selection-format-bar');
+    for (const name of ['Bold', 'Italic', 'Strikethrough', 'More']) {
+      expect(within(bar).getByRole('button', { name })).toBeInTheDocument();
+    }
+    fireEvent.click(within(bar).getByRole('button', { name: 'Bold' }));
     await waitFor(() => expect(box().value).toBe('Praise *the Lord* today'));
+    // The words stay selected: tapping Bold again takes it off.
+    await waitFor(() => expect([box().selectionStart, box().selectionEnd]).toEqual([8, 16]));
+    fireEvent.click(screen.getByRole('button', { name: 'Bold' }));
+    await waitFor(() => expect(box().value).toBe('Praise the Lord today'));
   });
 
-  it('makes a bullet list of the line being written', async () => {
+  it('italic and strikethrough work the same way', async () => {
     composer();
-    fireEvent.click(screen.getByRole('button', { name: 'Formatting' }));
+    fireEvent.change(box(), { target: { value: 'one two' } });
+    select(box(), 0, 3);
+    fireEvent.click(await screen.findByRole('button', { name: 'Italic' }));
+    await waitFor(() => expect(box().value).toBe('_one_ two'));
+  });
+
+  it('the bar goes away when the selection is cleared', async () => {
+    composer();
+    fireEvent.change(box(), { target: { value: 'Praise the Lord' } });
+    select(box(), 0, 6);
+    expect(await screen.findByTestId('selection-format-bar')).toBeInTheDocument();
+    select(box(), 3, 3);
+    await waitFor(() => expect(screen.queryByTestId('selection-format-bar')).toBeNull());
+  });
+
+  it('"More" has bullets, numbers and quote for the selected lines', async () => {
+    composer();
     fireEvent.change(box(), { target: { value: 'first' } });
-    select(box(), 5, 5);
+    select(box(), 0, 5);
+    fireEvent.click(await screen.findByRole('button', { name: 'More' }));
+    expect(screen.getByRole('button', { name: 'Numbered list' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Heading' })).toBeNull(); // headings are for posts only
     fireEvent.click(screen.getByRole('button', { name: 'Bullet list' }));
     await waitFor(() => expect(box().value).toBe('- first'));
   });

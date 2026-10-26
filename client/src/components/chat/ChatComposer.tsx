@@ -20,7 +20,7 @@ import { VoiceInputButton } from '../VoiceInputButton';
 import { ChatIcon } from './icons';
 import type { ChatMessage } from './types';
 import { loadDraft, saveDraft } from '../../lib/drafts';
-import { FormatBar } from '../FormatBar';
+import { SelectionFormatBar } from '../FormatBar';
 import { LiveFormatTextarea } from '../LiveFormatTextarea';
 
 export interface OutgoingMessage {
@@ -114,8 +114,9 @@ export function ChatComposer({
   }
   const [menuOpen, setMenuOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
-  // The bold / italic / list buttons: opened with the "Aa" button, or by selecting words.
-  const [formatOpen, setFormatOpen] = useState(false);
+  // The Bold / Italic / Strikethrough bar: shown while words are selected in the box.
+  const [hasSelection, setHasSelection] = useState(false);
+  const barPressedAt = useRef(0);
   // Where the caret was in the message box, so an emoji picked while the
   // keyboard is hidden still lands in the right place.
   const cursorRef = useRef<{ start: number; end: number } | null>(null);
@@ -585,16 +586,22 @@ export function ChatComposer({
         </div>
       ) : (
         <>
-        {formatOpen && (
-          <FormatBar
-            textareaRef={textRef}
-            value={text}
-            onChange={(next) => {
-              setText(next);
-              signalTyping(next);
-            }}
-            className="mb-2"
-          />
+        {hasSelection && (
+          <div
+            className="mb-2 flex"
+            onPointerDownCapture={() => (barPressedAt.current = Date.now())}
+            onTouchStartCapture={() => (barPressedAt.current = Date.now())}
+            onMouseDownCapture={() => (barPressedAt.current = Date.now())}
+          >
+            <SelectionFormatBar
+              textareaRef={textRef}
+              value={text}
+              onChange={(next) => {
+                setText(next);
+                signalTyping(next);
+              }}
+            />
+          </div>
         )}
         <div className="flex items-end gap-2">
           <div className="flex min-h-[48px] min-w-0 flex-1 items-end rounded-3xl bg-white px-1">
@@ -606,16 +613,6 @@ export function ChatComposer({
               className="shrink-0 p-2.5 text-slate-500"
             >
               <ChatIcon name={emojiOpen ? 'keyboard' : 'smiley'} />
-            </button>
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setFormatOpen((v) => !v)}
-              aria-label={t(formatOpen ? 'format.hide' : 'format.show') ?? ''}
-              aria-pressed={formatOpen}
-              className={`shrink-0 px-1.5 py-2.5 text-sm font-semibold ${formatOpen ? 'text-emerald-700' : 'text-slate-500'}`}
-            >
-              Aa
             </button>
             <LiveFormatTextarea
               ref={textRef}
@@ -632,7 +629,19 @@ export function ChatComposer({
               }}
               onSelect={(e) => {
                 rememberCursor(e.currentTarget);
-                if (e.currentTarget.selectionEnd !== e.currentTarget.selectionStart) setFormatOpen(true);
+                setHasSelection(e.currentTarget.selectionEnd !== e.currentTarget.selectionStart);
+              }}
+              onKeyUp={(e) => setHasSelection(e.currentTarget.selectionEnd !== e.currentTarget.selectionStart)}
+              onTouchEnd={(e) => {
+                // A long-press selects words; the phone settles the selection a moment later.
+                const el = e.currentTarget;
+                window.setTimeout(() => setHasSelection(el.selectionEnd !== el.selectionStart), 120);
+              }}
+              onBlur={() => {
+                // Tapping the bar itself blurs the box on some phones: keep the bar then.
+                window.setTimeout(() => {
+                  if (Date.now() - barPressedAt.current > 700) setHasSelection(false);
+                }, 250);
               }}
               onFocus={() => setEmojiOpen(false)}
               onKeyDown={onKeyDown}
