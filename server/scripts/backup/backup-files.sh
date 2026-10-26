@@ -28,12 +28,24 @@ export RCLONE_CONFIG_BACKUP_TYPE=s3 RCLONE_CONFIG_BACKUP_PROVIDER=Cloudflare RCL
 SRC="MEDIA:${MEDIA_BUCKET}"
 DST="BACKUP:${BACKUP_BUCKET}/files"
 
-echo "Files in the media bucket:"
-rclone size "$SRC"
+# The job log of a public repository is public: rclone's own output lists file
+# paths (which carry member ids), so it is kept in a private temp file and only
+# the outcome is printed.
+LOG="$(mktemp)"
+trap 'rm -f "$LOG"' EXIT
 
 echo "Copying new files (nothing is ever deleted from the backup)…"
-rclone copy "$SRC" "$DST" --transfers 8 --checkers 16 --retries 3 --stats-one-line --stats 30s
+# --disable Copy: stream through this machine; Cloudflare refuses a direct
+# bucket-to-bucket copy between two different keys (HTTP 501).
+if ! rclone copy "$SRC" "$DST" --disable Copy --transfers 8 --checkers 16 --retries 3 --log-level ERROR 2> "$LOG"; then
+  echo "ERROR: copying failed. Reasons seen (file paths hidden):" >&2
+  grep -o 'status code: [0-9]*\|NotImplemented\|AccessDenied\|NoSuchBucket\|InvalidAccessKeyId\|SignatureDoesNotMatch' "$LOG" | sort | uniq -c >&2 || true
+  exit 1
+fi
 
 echo "Checking every file is in the backup with the same size…"
-rclone check "$SRC" "$DST" --one-way --size-only --checkers 16
+if ! rclone check "$SRC" "$DST" --one-way --size-only --checkers 16 --log-level ERROR 2> "$LOG"; then
+  echo "ERROR: some files are missing from the backup or differ in size (paths hidden)." >&2
+  exit 1
+fi
 echo "Files backup done."
