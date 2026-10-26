@@ -188,7 +188,7 @@ describe('Geographic Areas — Admin leadership assignments', () => {
     const assigned = await send(adminAgent, csrf, 'post', '/api/admin/area-leadership-assignments', { personId: leader.id, areaId: path.region.id });
 
     const before = await leader.agent.get(`/api/member/leadership-directory/areas?country=Cameroon&level=REGION`);
-    expect(before.body.items.find((i: any) => i.id === path.region.id).leaders).toEqual([{ personId: leader.id, name: 'Area Leader Three', photoUrl: null }]);
+    expect(before.body.items.find((i: any) => i.id === path.region.id).leaders).toEqual([{ personId: leader.id, name: 'Area Leader Three', photoUrl: null, title: 'Regional Leader' }]);
 
     const ended = await send(adminAgent, csrf, 'patch', `/api/admin/area-leadership-assignments/${assigned.body.id}/end`);
     expect(ended.status).toBe(200);
@@ -362,5 +362,108 @@ describe('Area Representation Requests — Admin review', () => {
     await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email: 'leader-geo-req@test.local', password: 'password123' });
     const res = await send(agent, csrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/approve`);
     expect(res.status).toBe(403);
+  });
+});
+
+describe('Leadership Directory — position titles, National Team, places not on the list', () => {
+  it('shows the position the admin named, else the usual title for the level', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-title@test.local');
+    const path = await buildCameroonPath(adminAgent, adminCsrf);
+    const a = await member('Titled Leader');
+    const b = await member('Untitled Leader');
+    await send(adminAgent, adminCsrf, 'post', '/api/admin/area-leadership-assignments', { personId: a.id, areaId: path.region.id, title: 'Regional Coordinator' });
+    const second = await send(adminAgent, adminCsrf, 'post', '/api/admin/area-leadership-assignments', { personId: b.id, areaId: path.region.id });
+    expect(second.status).toBe(201);
+
+    const viewer = await member('Directory Viewer');
+    const dir = await viewer.agent.get('/api/member/leadership-directory/areas?country=Cameroon&level=REGION');
+    const leaders = dir.body.items[0].leaders;
+    expect(leaders.find((l: any) => l.name === 'Titled Leader').title).toBe('Regional Coordinator');
+    expect(leaders.find((l: any) => l.name === 'Untitled Leader').title).toBe('Regional Leader');
+
+    // The title can be changed later, and emptied to go back to the usual one.
+    const assignment = await prisma.areaLeadershipAssignment.findFirstOrThrow({ where: { personId: a.id } });
+    expect((await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-leadership-assignments/${assignment.id}`, { title: '' })).status).toBe(200);
+    const again = await viewer.agent.get('/api/member/leadership-directory/areas?country=Cameroon&level=REGION');
+    expect(again.body.items[0].leaders.find((l: any) => l.name === 'Titled Leader').title).toBe('Regional Leader');
+  });
+
+  it('lists the National Team with the titles the admin gave, in order, to members only', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-national@test.local');
+    const first = await member('Team One');
+    const second = await member('Team Two');
+    const noTitle = await send(adminAgent, adminCsrf, 'post', '/api/admin/national-team', { personId: first.id, title: '' });
+    expect(noTitle.status).toBe(400);
+    const one = await send(adminAgent, adminCsrf, 'post', '/api/admin/national-team', { personId: first.id, title: 'National Coordinator', sortOrder: 2 });
+    expect(one.status).toBe(201);
+    await send(adminAgent, adminCsrf, 'post', '/api/admin/national-team', { personId: second.id, title: 'Director of Training', sortOrder: 1 });
+    expect((await send(adminAgent, adminCsrf, 'post', '/api/admin/national-team', { personId: first.id, title: 'Again' })).status).toBe(409);
+
+    const viewer = await member('Team Viewer');
+    const list = await viewer.agent.get('/api/member/leadership-directory/national-team');
+    expect(list.body.items.map((i: any) => [i.name, i.title])).toEqual([
+      ['Team Two', 'Director of Training'],
+      ['Team One', 'National Coordinator'],
+    ]);
+
+    await send(adminAgent, adminCsrf, 'patch', `/api/admin/national-team/${one.body.id}`, { title: 'Chief Coordinator' });
+    expect((await viewer.agent.get('/api/member/leadership-directory/national-team')).body.items[1].title).toBe('Chief Coordinator');
+    await send(adminAgent, adminCsrf, 'delete', `/api/admin/national-team/${one.body.id}`);
+    expect((await viewer.agent.get('/api/member/leadership-directory/national-team')).body.items).toHaveLength(1);
+
+    // A member cannot change the National Team.
+    expect((await send(viewer.agent, viewer.csrf, 'post', '/api/admin/national-team', { personId: viewer.id, title: 'Me' })).status).toBeGreaterThanOrEqual(401);
+    const anon = agentWithUniqueIp();
+    expect((await anon.get('/api/member/leadership-directory/national-team')).status).toBe(401);
+  });
+
+  it('takes a request for a place that is not on the list, then needs the admin to choose the area', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-typed@test.local');
+    const path = await buildCameroonPath(adminAgent, adminCsrf);
+    const m = await member('Typed Place Requester');
+
+    // Needs either a place from the list or at least the region typed in.
+    expect((await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { note: 'hello' })).status).toBe(400);
+    expect((await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.quarter.id, typedRegion: 'Littoral' })).status).toBe(400);
+
+    const created = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', {
+      typedCountry: 'Cameroon',
+      typedRegion: 'South West',
+      typedDivision: 'Fako',
+      typedSubdivision: 'Buea',
+      typedQuarter: 'Mile 17',
+      note: 'I lead a cell group there.',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ areaId: null, typedRegion: 'South West', typedQuarter: 'Mile 17', status: 'PENDING' });
+
+    const mine = await m.agent.get('/api/member/area-representation-requests/mine');
+    expect(mine.body.items[0]).toMatchObject({ area: null, typedRegion: 'South West', typedDivision: 'Fako' });
+
+    // The admin sees the typed place in the list of requests.
+    const list = await adminAgent.get('/api/admin/area-representation-requests?status=PENDING');
+    expect(list.body.items.find((r: any) => r.id === created.body.id)).toMatchObject({ area: null, typedSubdivision: 'Buea' });
+
+    // Approving without choosing an area is refused, and says why.
+    const refused = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/approve`);
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toMatch(/not on the list yet.*Mile 17/);
+
+    // Choosing an area (and naming the position) approves it.
+    const approved = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/approve`, { areaId: path.quarter.id, title: 'Quarter Coordinator' });
+    expect(approved.status).toBe(200);
+    expect(approved.body).toMatchObject({ status: 'APPROVED', areaId: path.quarter.id });
+    const assignment = await prisma.areaLeadershipAssignment.findUniqueOrThrow({ where: { id: approved.body.areaLeadershipAssignmentId } });
+    expect(assignment).toMatchObject({ personId: m.id, areaId: path.quarter.id, title: 'Quarter Coordinator' });
+  });
+
+  it('declining a typed-in place works and tells the member which place', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-typed-decline@test.local');
+    const m = await member('Typed Decline Requester');
+    const created = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { typedRegion: 'Adamawa', typedDivision: 'Vina' });
+    const declined = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/decline`, { decisionNote: 'Not yet.' });
+    expect(declined.status).toBe(200);
+    expect(declined.body.status).toBe('DECLINED');
+    expect(await prisma.areaLeadershipAssignment.count({ where: { personId: m.id } })).toBe(0);
   });
 });

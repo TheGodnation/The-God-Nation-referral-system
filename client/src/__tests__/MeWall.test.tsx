@@ -5,6 +5,16 @@ import { MemberAuthProvider } from '../lib/MemberAuthContext';
 import { MemberMePage } from '../pages/MemberMePage';
 import { MemberEditProfilePage } from '../pages/MemberEditProfilePage';
 
+// The crop screen needs a real image to work on, so here it is replaced by a
+// button that confirms the crop straight away (the screen has its own tests).
+vi.mock('../components/ImageCropper', () => ({
+  ImageCropper: ({ file, onDone }: { file: File; onDone: (f: File) => void }) => (
+    <button type="button" onClick={() => onDone(file)}>
+      Confirm crop
+    </button>
+  ),
+}));
+
 const calls: { url: string; method: string; body: any }[] = [];
 
 function mockFetch(routes: Record<string, (body: any) => { status?: number; body: unknown }>) {
@@ -146,6 +156,7 @@ describe('Me wall', () => {
     await screen.findByRole('heading', { name: 'Grace Ngwa' });
     const file = new File(['x'], 'cover.jpg', { type: 'image/jpeg' });
     fireEvent.change(screen.getByTestId('cover-input'), { target: { files: [file] } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm crop' }));
     expect(await screen.findByRole('alert')).toHaveTextContent("Pictures can't be uploaded yet");
   });
 });

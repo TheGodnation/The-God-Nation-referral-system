@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
+import { NationalTeamAdmin } from './NationalTeamAdmin';
 
 type GeographicLevel = 'NATIONAL' | 'REGION' | 'DIVISION' | 'SUBDIVISION' | 'QUARTER';
 
@@ -13,7 +14,7 @@ interface AreaNode {
   country: string;
   title?: string;
   _count?: { children: number };
-  leadershipAssignments: { id: string; person: { id: string; name: string } }[];
+  leadershipAssignments: { id: string; title: string | null; person: { id: string; name: string } }[];
 }
 
 const LEVEL_LABEL_KEY: Record<GeographicLevel, string> = {
@@ -46,6 +47,8 @@ export function GeographicAreasTab() {
 
   const [assigningAreaId, setAssigningAreaId] = useState<string | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
+  // An optional position name for the person being assigned (e.g. "Regional Coordinator").
+  const [assignTitle, setAssignTitle] = useState('');
 
   const parent = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1] : null;
 
@@ -111,11 +114,23 @@ export function GeographicAreasTab() {
   async function assignLeader(areaId: string, person: { id: string; name: string }) {
     setAssignError(null);
     try {
-      await api.post('/api/admin/area-leadership-assignments', { personId: person.id, areaId });
+      await api.post('/api/admin/area-leadership-assignments', { personId: person.id, areaId, title: assignTitle.trim() || undefined });
       setAssigningAreaId(null);
+      setAssignTitle('');
       load();
     } catch (err) {
       setAssignError(err instanceof ApiError ? err.message : t('admin.geographicAreas.assign_failed'));
+    }
+  }
+
+  async function retitleAssignment(la: { id: string; title: string | null }) {
+    const next = window.prompt(t('admin.geographicAreas.title_prompt') ?? '', la.title ?? '');
+    if (next === null) return;
+    try {
+      await api.patch(`/api/admin/area-leadership-assignments/${la.id}`, { title: next.trim() });
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('admin.geographicAreas.assign_failed'));
     }
   }
 
@@ -138,6 +153,8 @@ export function GeographicAreasTab() {
         </button>
       </div>
       <p className="mb-4 text-sm text-slate-500">{t('admin.geographicAreas.description')}</p>
+
+      {!parent && <NationalTeamAdmin />}
 
       <nav className="mb-3 flex flex-wrap items-center gap-1 text-sm text-slate-500">
         <button className={!parent ? 'font-semibold text-brand-900' : 'hover:underline'} onClick={() => setBreadcrumb([])}>
@@ -206,7 +223,13 @@ export function GeographicAreasTab() {
                     <ul className="space-y-1">
                       {a.leadershipAssignments.map((la) => (
                         <li key={la.id} className="flex items-center gap-2">
-                          <span>{la.person.name}</span>
+                          <span>
+                            {la.person.name}
+                            {la.title && <span className="text-slate-500"> — {la.title}</span>}
+                          </span>
+                          <button className="text-xs text-brand-700 hover:underline" onClick={() => retitleAssignment(la)}>
+                            {t('admin.geographicAreas.change_position')}
+                          </button>
                           <button className="text-xs text-red-700 hover:underline" onClick={() => endAssignment(la.id)}>
                             {t('admin.geographicAreas.end')}
                           </button>
@@ -219,6 +242,14 @@ export function GeographicAreasTab() {
                   {assigningAreaId === a.id && (
                     <div className="mt-2">
                       {assignError && <p className="mb-1 text-xs text-red-700">{assignError}</p>}
+                      <input
+                        className="input mb-2"
+                        maxLength={80}
+                        aria-label={t('admin.geographicAreas.position_label') ?? ''}
+                        placeholder={t('admin.geographicAreas.position_placeholder') ?? ''}
+                        value={assignTitle}
+                        onChange={(e) => setAssignTitle(e.target.value)}
+                      />
                       <SearchPicker
                         placeholder={t('admin.roleAssignments.search_person_placeholder') ?? ''}
                         searchPath="/api/admin/people?search="

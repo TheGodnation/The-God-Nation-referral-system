@@ -6,6 +6,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { MemberPhotoSlider } from '../components/member/MemberPhotoSlider';
+import { HomeAboutTabs } from '../components/member/HomeAboutTabs';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { LiveBanner } from '../components/updates/LiveBanner';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
@@ -29,6 +30,7 @@ export function MemberUpdatesPage() {
             <NotificationBell />
           </div>
           <div className="mt-2 space-y-2 sm:mt-4 sm:space-y-4">
+            <HomeAboutTabs active="home" />
             <div className="px-4 empty:hidden sm:px-0">
               <EnableNotificationsBanner className="" />
             </div>

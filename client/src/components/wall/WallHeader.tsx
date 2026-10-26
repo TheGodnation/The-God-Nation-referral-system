@@ -40,7 +40,7 @@ export function WallHeader({
 
   return (
     <div className="overflow-hidden rounded-b-2xl bg-white shadow-sm sm:rounded-2xl">
-      <div className="relative h-44 w-full bg-gradient-to-br from-brand-700 via-brand-500 to-amber-400 sm:h-56">
+      <div className="relative aspect-[1640/624] w-full bg-gradient-to-br from-brand-700 via-brand-500 to-amber-400">
         {showCover && (
           <button type="button" onClick={() => setZoom('cover')} aria-label={t('wall.cover_alt', { name }) ?? ''} className="block h-full w-full">
             <img

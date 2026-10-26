@@ -14,6 +14,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { ProfileImageError, uploadProfileImage } from '../lib/profileImages';
+import { ImageCropper } from '../components/ImageCropper';
 
 interface ExamWorld {
   devotionals: {
@@ -174,6 +175,8 @@ export function MemberMePage() {
   const [communityCount, setCommunityCount] = useState<number | null>(null);
   const [busy, setBusy] = useState<'cover' | 'photo' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A picture just chosen, waiting for the member to frame it before it is uploaded.
+  const [cropFor, setCropFor] = useState<{ kind: 'cover' | 'photo'; file: File } | null>(null);
 
   useEffect(() => {
     api
@@ -197,7 +200,7 @@ export function MemberMePage() {
     setError(null);
     setBusy(kind);
     try {
-      await uploadProfileImage(kind, file);
+      await uploadProfileImage(kind, file, { cropped: true });
       await refresh();
     } catch (err) {
       const reason = err instanceof ProfileImageError ? err.reason : 'failed';
@@ -237,8 +240,8 @@ export function MemberMePage() {
           subtitle={subtitle}
           editable
           busy={busy}
-          onPickCover={(f) => void pick('cover', f)}
-          onPickPhoto={(f) => void pick('photo', f)}
+          onPickCover={(f) => setCropFor({ kind: 'cover', file: f })}
+          onPickPhoto={(f) => setCropFor({ kind: 'photo', file: f })}
         >
           {!member.bio && (
             <Link to="/member/me/edit" className="mb-2 block text-sm text-brand-700 underline">
@@ -262,6 +265,19 @@ export function MemberMePage() {
             </p>
           )}
         </WallHeader>
+
+        {cropFor && (
+          <ImageCropper
+            file={cropFor.file}
+            kind={cropFor.kind}
+            onCancel={() => setCropFor(null)}
+            onDone={(cropped) => {
+              const { kind } = cropFor;
+              setCropFor(null);
+              void pick(kind, cropped);
+            }}
+          />
+        )}
 
         <div className="mt-3 px-4 empty:hidden sm:px-0">
           <EnableNotificationsBanner className="" />

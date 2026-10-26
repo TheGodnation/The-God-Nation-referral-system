@@ -7,6 +7,7 @@ import { DataSaverSetting } from '../components/member/DataSaverSetting';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { ProfileImageError, removeProfileImage, uploadProfileImage } from '../lib/profileImages';
+import { ImageCropper } from '../components/ImageCropper';
 
 const BIO_MAX = 160;
 
@@ -25,6 +26,8 @@ export function MemberEditProfilePage() {
   const [locationArea, setLocationArea] = useState('');
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // A picture just chosen, waiting for the member to frame it before it is uploaded.
+  const [cropFor, setCropFor] = useState<{ kind: 'photo' | 'cover'; file: File } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,7 +60,7 @@ export function MemberEditProfilePage() {
     setError(null);
     setBusy(kind);
     try {
-      await uploadProfileImage(kind, file);
+      await uploadProfileImage(kind, file, { cropped: true });
       await refresh();
     } catch (err) {
       setError(problem(err));
@@ -109,6 +112,18 @@ export function MemberEditProfilePage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-lg px-4 py-6">
+        {cropFor && (
+          <ImageCropper
+            file={cropFor.file}
+            kind={cropFor.kind}
+            onCancel={() => setCropFor(null)}
+            onDone={(cropped) => {
+              const { kind } = cropFor;
+              setCropFor(null);
+              void changeImage(kind, cropped);
+            }}
+          />
+        )}
         <div className="mb-5 flex items-center gap-3">
           <Link to="/member/me" aria-label={t('wall.back') ?? ''} className="text-2xl leading-none text-slate-600">
             ←
@@ -122,7 +137,7 @@ export function MemberEditProfilePage() {
             <div className="flex flex-wrap gap-2">
               <label className="btn-secondary cursor-pointer px-3 py-1.5 text-sm">
                 {busy === 'photo' ? t('wall.uploading') : member.photoUrl ? t('wall.change_photo') : t('wall.add_photo')}
-                <input type="file" accept="image/*" className="hidden" disabled={busy !== null} onChange={(e) => { void changeImage('photo', e.target.files?.[0]); e.target.value = ''; }} />
+                <input type="file" accept="image/*" className="hidden" disabled={busy !== null} onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFor({ kind: 'photo', file: f }); e.target.value = ''; }} />
               </label>
               {member.photoUrl && (
                 <button type="button" className="text-sm text-slate-500 underline" disabled={busy !== null} onClick={() => void removeImage('photo')}>
@@ -138,7 +153,7 @@ export function MemberEditProfilePage() {
             <div className="flex flex-wrap gap-2">
               <label className="btn-secondary cursor-pointer px-3 py-1.5 text-sm">
                 {busy === 'cover' ? t('wall.uploading') : member.coverUrl ? t('wall.change_cover') : t('wall.add_cover')}
-                <input type="file" accept="image/*" className="hidden" disabled={busy !== null} onChange={(e) => { void changeImage('cover', e.target.files?.[0]); e.target.value = ''; }} />
+                <input type="file" accept="image/*" className="hidden" disabled={busy !== null} onChange={(e) => { const f = e.target.files?.[0]; if (f) setCropFor({ kind: 'cover', file: f }); e.target.value = ''; }} />
               </label>
               {member.coverUrl && (
                 <button type="button" className="text-sm text-slate-500 underline" disabled={busy !== null} onClick={() => void removeImage('cover')}>

@@ -48,21 +48,42 @@ router.get('/area-representation-requests', asyncHandler(async (req, res) => {
   res.json(paginatedResult(items, total, page, pageSize));
 }));
 
-const decisionSchema = z.object({ decisionNote: z.string().trim().max(500).optional() });
+const decisionSchema = z.object({
+  decisionNote: z.string().trim().max(500).optional(),
+  // When the member typed a place that was not on the list, the admin adds the
+  // place first and approves with it chosen here.
+  areaId: z.string().min(1).optional(),
+  // Optional position name for this person (empty = the usual title for the level).
+  title: z.string().trim().max(80).optional(),
+});
+
+/** The place a member typed in, as one line ("Bepanda, Douala V, Wouri, Littoral"). */
+function typedPlaceText(r: { typedQuarter: string | null; typedSubdivision: string | null; typedDivision: string | null; typedRegion: string | null; typedCountry: string | null }) {
+  return [r.typedQuarter, r.typedSubdivision, r.typedDivision, r.typedRegion, r.typedCountry].filter(Boolean).join(', ');
+}
 
 router.patch('/area-representation-requests/:id/approve', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const parsed = decisionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request.' });
 
-  const existing = await prisma.areaRepresentationRequest.findUnique({ where: { id }, include: { area: true } });
+  const existing = await prisma.areaRepresentationRequest.findUnique({ where: { id } });
   if (!existing) return res.status(404).json({ error: 'Representation request not found.' });
   if (existing.status !== 'PENDING') return res.status(409).json({ error: 'This request has already been decided.' });
+
+  // A request for a place on the list carries its area; one for a typed-in
+  // place needs the admin to pick (or first add) the area.
+  const areaId = parsed.data.areaId ?? existing.areaId;
+  if (!areaId) {
+    return res.status(400).json({ error: `This place is not on the list yet (${typedPlaceText(existing)}). Add it under Geographic areas, then approve with that area chosen.` });
+  }
+  const area = await prisma.geographicArea.findUnique({ where: { id: areaId } });
+  if (!area) return res.status(400).json({ error: 'Area not found.' });
 
   let assignment;
   try {
     assignment = await prisma.areaLeadershipAssignment.create({
-      data: { personId: existing.personId, areaId: existing.areaId, assignedByUserId: req.user!.id },
+      data: { personId: existing.personId, areaId, title: parsed.data.title || null, assignedByUserId: req.user!.id },
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -73,7 +94,7 @@ router.patch('/area-representation-requests/:id/approve', leadershipMutationLimi
 
   const result = await prisma.areaRepresentationRequest.updateMany({
     where: { id, status: 'PENDING' },
-    data: { status: 'APPROVED', decidedAt: new Date(), decidedByUserId: req.user!.id, decisionNote: parsed.data.decisionNote ?? null },
+    data: { status: 'APPROVED', areaId, decidedAt: new Date(), decidedByUserId: req.user!.id, decisionNote: parsed.data.decisionNote ?? null },
   });
   if (result.count === 0) return res.status(409).json({ error: 'This request has already been decided.' });
 
@@ -83,15 +104,15 @@ router.patch('/area-representation-requests/:id/approve', leadershipMutationLimi
     action: 'AREA_REPRESENTATION_REQUEST_APPROVED',
     targetType: 'AreaRepresentationRequest',
     targetId: id,
-    metadata: { personId: existing.personId, areaId: existing.areaId, areaLeadershipAssignmentId: assignment.id },
+    metadata: { personId: existing.personId, areaId, areaLeadershipAssignmentId: assignment.id },
   });
 
-  const ancestors = await getAreaAncestors(existing.areaId);
+  const ancestors = await getAreaAncestors(areaId);
   await notifyAreaLeadershipAssigned({
     id: assignment.id,
     personId: existing.personId,
-    areaTitle: titleForLevel(existing.area.level),
-    areaPath: formatAreaPath(existing.area, ancestors),
+    areaTitle: parsed.data.title || titleForLevel(area.level),
+    areaPath: formatAreaPath(area, ancestors),
   });
 
   const updated = await prisma.areaRepresentationRequest.findUnique({ where: { id }, include: includePersonAndArea });
@@ -114,8 +135,8 @@ router.patch('/area-representation-requests/:id/decline', leadershipMutationLimi
 
   await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'AREA_REPRESENTATION_REQUEST_DECLINED', targetType: 'AreaRepresentationRequest', targetId: id });
 
-  const ancestors = await getAreaAncestors(existing.areaId);
-  await notifyAreaRepresentationRequestDeclined({ id, personId: existing.personId, areaPath: formatAreaPath(existing.area, ancestors) });
+  const areaPath = existing.area ? formatAreaPath(existing.area, await getAreaAncestors(existing.area.id)) : typedPlaceText(existing);
+  await notifyAreaRepresentationRequestDeclined({ id, personId: existing.personId, areaPath });
 
   const updated = await prisma.areaRepresentationRequest.findUnique({ where: { id }, include: includePersonAndArea });
   res.json(updated);

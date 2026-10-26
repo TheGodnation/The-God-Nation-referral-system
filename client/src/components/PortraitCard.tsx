@@ -60,7 +60,7 @@ export function PortraitCard({
       )}
       <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-2 pb-1.5 pt-6 text-left">
         <span className="block truncate text-xs font-semibold text-white">{name}</span>
-        {caption && <span className="block truncate text-[11px] text-white/80">{caption}</span>}
+        {caption && <span className="line-clamp-2 block text-[11px] leading-tight text-white/80">{caption}</span>}
       </span>
     </>
   );

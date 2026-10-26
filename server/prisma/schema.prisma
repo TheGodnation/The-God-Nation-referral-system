@@ -315,6 +315,7 @@ model User {
   bookPaymentsDecided                            BookPayment[]                            @relation("BookPaymentDecidedBy")
   trainingGraceDecided                           TrainingGraceRequest[]                   @relation("TrainingGraceDecidedBy")
   areaLeadershipAssignmentsAssigned              AreaLeadershipAssignment[]               @relation("AreaLeadershipAssignedBy")
+  nationalTeamAssigned                           NationalTeamMember[]                     @relation("NationalTeamAssignedBy")
   areaRepresentationRequestsDecided              AreaRepresentationRequest[]
   prayerRequestsDeleted                          PrayerRequest[]                          @relation("PrayerRequestDeletedByUser")
   prayerRequestCommentsDeleted                   PrayerRequestComment[]                   @relation("PrayerRequestCommentDeletedByUser")
@@ -793,6 +794,7 @@ model Person {
   reportsMade                                     MemberReport[]                            @relation("MemberReportReporter")
   reportsAbout                                    MemberReport[]                            @relation("MemberReportReported")
   areaLeadershipAssignments                       AreaLeadershipAssignment[]
+  nationalTeamMember                              NationalTeamMember?                      @relation("PersonNationalTeam")
   areaRepresentationRequests                      AreaRepresentationRequest[]
   referralCode                                    ReferralCode?
   referralsMade                                   Registration[]                            @relation("RegistrationReferredBy")
@@ -1476,6 +1478,9 @@ model AreaLeadershipAssignment {
   assignedAt       DateTime             @default(now())
   status           AreaLeadershipStatus @default(ACTIVE)
   endedAt          DateTime?
+  // A position name the admin chose for this person (e.g. "Regional
+  // Coordinator"); empty means the usual title for the area's level.
+  title            String?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
@@ -1505,7 +1510,15 @@ enum AreaRepresentationRequestStatus {
 model AreaRepresentationRequest {
   id              String                          @id @default(uuid())
   personId        String
-  areaId          String
+  // Either a place already on the list (areaId) or, when the member's place
+  // is not listed yet, the place they typed in (the typed* fields). The
+  // admin adds the place and approves with it, or declines.
+  areaId          String?
+  typedCountry     String?
+  typedRegion      String?
+  typedDivision    String?
+  typedSubdivision String?
+  typedQuarter     String?
   note            String?
   status          AreaRepresentationRequestStatus @default(PENDING)
   createdAt       DateTime                        @default(now())
@@ -1515,11 +1528,29 @@ model AreaRepresentationRequest {
   decisionNote    String?
 
   person        Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
-  area          GeographicArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  area          GeographicArea? @relation(fields: [areaId], references: [id], onDelete: Cascade)
   decidedByUser User?          @relation(fields: [decidedByUserId], references: [id])
 
   @@index([personId, status])
   @@index([areaId, status])
+}
+
+// People the central admin lists at the top of the Leadership Directory as
+// "The National Team", each with a position title the admin chooses. They
+// need no area: this is for the leaders of the whole work.
+model NationalTeamMember {
+  id               String   @id @default(uuid())
+  personId         String   @unique
+  title            String
+  sortOrder        Int      @default(0)
+  assignedByUserId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  person     Person @relation("PersonNationalTeam", fields: [personId], references: [id], onDelete: Cascade)
+  assignedBy User   @relation("NationalTeamAssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@index([sortOrder])
 }
 
 // Phase 3M.1: exactly one persistent, text-only conversation per Community

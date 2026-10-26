@@ -6,6 +6,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { PersonCard, type PersonCardData } from '../components/people/PersonCard';
 import { api } from '../lib/api';
+import { OurLeadersCard } from '../components/member/OurLeadersCard';
 
 function Section({ title, items, empty }: { title: string; items: PersonCardData[] | null; empty?: string }) {
   const { t } = useTranslation();
@@ -81,9 +82,7 @@ export function MemberPeoplePage() {
         </div>
 
         <div className="space-y-6">
-          <Link to="/member/leadership" className="block text-sm font-medium text-brand-700 underline">
-            {t('people.leadership_directory_link')}
-          </Link>
+          <OurLeadersCard />
 
           <Section title={t('people.requests')} items={incoming} />
 

@@ -200,12 +200,15 @@ router.get('/area-leadership-assignments', asyncHandler(async (req, res) => {
 const createAssignmentSchema = z.object({
   personId: z.string().min(1),
   areaId: z.string().min(1),
+  // Optional position name, e.g. "Regional Coordinator"; empty keeps the usual title for the level.
+  title: z.string().trim().max(80).optional(),
 });
 
 router.post('/area-leadership-assignments', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = createAssignmentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid assignment.' });
   const { personId, areaId } = parsed.data;
+  const title = parsed.data.title || null;
 
   const person = await prisma.person.findUnique({ where: { id: personId } });
   if (!person) return res.status(400).json({ error: 'Person not found.' });
@@ -215,7 +218,7 @@ router.post('/area-leadership-assignments', leadershipMutationLimiter, requireCs
   let created;
   try {
     created = await prisma.areaLeadershipAssignment.create({
-      data: { personId, areaId, assignedByUserId: req.user!.id },
+      data: { personId, areaId, title, assignedByUserId: req.user!.id },
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -239,6 +242,17 @@ router.post('/area-leadership-assignments', leadershipMutationLimiter, requireCs
   res.status(201).json(created);
 }));
 
+// Rename the position of someone who already leads an area (empty = the usual title for the level).
+router.patch('/area-leadership-assignments/:id', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = z.object({ title: z.string().trim().max(80) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid title.' });
+  const found = await prisma.areaLeadershipAssignment.findUnique({ where: { id: req.params.id } });
+  if (!found) return res.status(404).json({ error: 'Assignment not found.' });
+  const updated = await prisma.areaLeadershipAssignment.update({ where: { id: found.id }, data: { title: parsed.data.title || null } });
+  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'AREA_LEADERSHIP_ASSIGNMENT_RETITLED', targetType: 'AreaLeadershipAssignment', targetId: found.id, metadata: { title: updated.title } });
+  res.json(updated);
+}));
+
 router.patch('/area-leadership-assignments/:id/end', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const assignment = await prisma.areaLeadershipAssignment.findUnique({ where: { id } });
@@ -248,6 +262,60 @@ router.patch('/area-leadership-assignments/:id/end', leadershipMutationLimiter, 
   const updated = await prisma.areaLeadershipAssignment.update({ where: { id }, data: { status: 'ENDED', endedAt: new Date() } });
   await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'AREA_LEADERSHIP_ASSIGNMENT_ENDED', targetType: 'AreaLeadershipAssignment', targetId: id });
   res.json(updated);
+}));
+
+// ---------------------------------------------------------------------------
+// The National Team — people shown at the top of the Leadership Directory
+// with a position title the admin chooses. No area needed.
+// ---------------------------------------------------------------------------
+
+const nationalTeamSchema = z.object({
+  personId: z.string().min(1),
+  title: z.string().trim().min(1, 'Give this person a title.').max(80),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+});
+
+router.get('/national-team', asyncHandler(async (_req, res) => {
+  const items = await prisma.nationalTeamMember.findMany({
+    include: { person: { select: { id: true, name: true, whatsappNumber: true } } },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+  res.json({ items });
+}));
+
+router.post('/national-team', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = nationalTeamSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  const person = await prisma.person.findUnique({ where: { id: parsed.data.personId } });
+  if (!person) return res.status(400).json({ error: 'Person not found.' });
+  try {
+    const created = await prisma.nationalTeamMember.create({
+      data: { personId: person.id, title: parsed.data.title, sortOrder: parsed.data.sortOrder ?? 0, assignedByUserId: req.user!.id },
+    });
+    await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'NATIONAL_TEAM_MEMBER_ADDED', targetType: 'NationalTeamMember', targetId: created.id, metadata: { personId: person.id, title: created.title } });
+    res.status(201).json(created);
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return res.status(409).json({ error: 'This person is already on the National Team.' });
+    throw err;
+  }
+}));
+
+router.patch('/national-team/:id', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = nationalTeamSchema.pick({ title: true, sortOrder: true }).partial().safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  const found = await prisma.nationalTeamMember.findUnique({ where: { id: req.params.id } });
+  if (!found) return res.status(404).json({ error: 'Not found.' });
+  const updated = await prisma.nationalTeamMember.update({ where: { id: found.id }, data: parsed.data });
+  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'NATIONAL_TEAM_MEMBER_UPDATED', targetType: 'NationalTeamMember', targetId: found.id, metadata: parsed.data });
+  res.json(updated);
+}));
+
+router.delete('/national-team/:id', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const found = await prisma.nationalTeamMember.findUnique({ where: { id: req.params.id } });
+  if (!found) return res.status(404).json({ error: 'Not found.' });
+  await prisma.nationalTeamMember.delete({ where: { id: found.id } });
+  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'NATIONAL_TEAM_MEMBER_REMOVED', targetType: 'NationalTeamMember', targetId: found.id, metadata: { personId: found.personId } });
+  res.json({ ok: true });
 }));
 
 export default router;

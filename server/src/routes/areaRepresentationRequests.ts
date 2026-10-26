@@ -111,6 +111,8 @@ router.get('/leadership-directory/areas', requireMember, asyncHandler(async (req
           personId: la.person.id,
           name: la.person.name,
           photoUrl: profilePhotoPath(la.person),
+          // The position the admin named for this person, else the usual title for the level.
+          title: la.title || titleForLevel(a.level),
         })),
       };
     }),
@@ -118,10 +120,32 @@ router.get('/leadership-directory/areas', requireMember, asyncHandler(async (req
   res.json({ items });
 }));
 
-const createSchema = z.object({
-  areaId: z.string().min(1),
-  note: z.string().trim().max(500).optional(),
-});
+// GET /api/member/leadership-directory/national-team — the people shown at
+// the top of the directory, each with the title the admin gave them.
+router.get('/leadership-directory/national-team', requireMember, asyncHandler(async (_req, res) => {
+  const rows = await prisma.nationalTeamMember.findMany({
+    include: { person: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } } },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+  res.json({
+    items: rows.map((r) => ({ personId: r.person.id, name: r.person.name, photoUrl: profilePhotoPath(r.person), title: r.title })),
+  });
+}));
+
+// Either a place from the list (areaId), or — when the member's place is not
+// listed — the place typed in. At least the region is needed in that case.
+const typedPlace = z.string().trim().max(120).optional();
+const createSchema = z
+  .object({
+    areaId: z.string().min(1).optional(),
+    typedCountry: typedPlace,
+    typedRegion: typedPlace,
+    typedDivision: typedPlace,
+    typedSubdivision: typedPlace,
+    typedQuarter: typedPlace,
+    note: z.string().trim().max(500).optional(),
+  })
+  .refine((v) => Boolean(v.areaId) !== Boolean(v.typedRegion), { message: 'Choose your place from the list, or type your region.' });
 
 // GET /api/member/area-representation-requests/mine — the signed-in
 // member's own request history, newest first.
@@ -143,15 +167,26 @@ router.post('/area-representation-requests', socialMutationLimiter, requireCsrf,
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
 
-  const area = await prisma.geographicArea.findUnique({ where: { id: parsed.data.areaId } });
-  if (!area) return res.status(400).json({ error: 'Area not found.' });
+  if (parsed.data.areaId) {
+    const area = await prisma.geographicArea.findUnique({ where: { id: parsed.data.areaId } });
+    if (!area) return res.status(400).json({ error: 'Area not found.' });
+  }
 
   const me = req.member!.personId;
   const existingPending = await prisma.areaRepresentationRequest.findFirst({ where: { personId: me, status: 'PENDING' } });
   if (existingPending) return res.status(409).json({ error: 'You already have a pending request.' });
 
   const created = await prisma.areaRepresentationRequest.create({
-    data: { personId: me, areaId: parsed.data.areaId, note: parsed.data.note || null },
+    data: {
+      personId: me,
+      areaId: parsed.data.areaId ?? null,
+      typedCountry: parsed.data.areaId ? null : parsed.data.typedCountry || null,
+      typedRegion: parsed.data.areaId ? null : parsed.data.typedRegion || null,
+      typedDivision: parsed.data.areaId ? null : parsed.data.typedDivision || null,
+      typedSubdivision: parsed.data.areaId ? null : parsed.data.typedSubdivision || null,
+      typedQuarter: parsed.data.areaId ? null : parsed.data.typedQuarter || null,
+      note: parsed.data.note || null,
+    },
   });
   res.status(201).json(created);
 }));
