@@ -2076,10 +2076,9 @@ model HeadquartersPostComment {
   @@index([headquartersPostId, createdAt])
 }
 
-// A Person's reaction to one HeadquartersPost — a single, untyped
-// acknowledgement (present/absent), not a multi-emoji reaction picker:
-// deliberately minimal rather than inventing a speculative reaction-type
-// enum with no requirement behind it. One shared reaction set per canonical
+// A Person's reaction to one HeadquartersPost — one of the same six
+// reactions as member posts (UpdateReactionType; rows from before reaction
+// types existed are LIKE). One shared reaction set per canonical
 // post (never per-Community/per-target copies). The (headquartersPostId,
 // personId) unique constraint is the same idempotent-row pattern already
 // established by AnnouncementRead/MessageHiddenForPerson/
@@ -2087,10 +2086,12 @@ model HeadquartersPostComment {
 // off is a delete, and reactionCount is always COUNT(*) over this table,
 // never a cached/denormalized counter.
 model HeadquartersPostReaction {
-  id                 String   @id @default(uuid())
+  id                 String             @id @default(uuid())
   headquartersPostId String
   personId           String
-  createdAt          DateTime @default(now())
+  // Same six reactions as member posts (LIKE is what every older row means).
+  type               UpdateReactionType @default(LIKE)
+  createdAt          DateTime           @default(now())
 
   post   HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
   person Person           @relation(fields: [personId], references: [id], onDelete: Cascade)

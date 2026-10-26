@@ -59,16 +59,22 @@ describe('Headquarters posts in the Updates feed', () => {
     expect(within(card).getByText('2 comments')).toBeInTheDocument();
   });
 
-  it('Like works straight from the card', async () => {
+  it('offers the same six reactions as every other post, and sends the one picked', async () => {
     mockFetch({
       'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [] }] } }),
-      'POST /api/me/headquarters-posts/hq1/reaction': () => ({ body: { viewerHasReacted: true, reactionCount: 5 } }),
+      'POST /api/me/headquarters-posts/hq1/reaction': () => ({
+        body: { viewerHasReacted: true, reactionCount: 5, reactionCounts: { LIKE: 3, PRAY: 2 }, myReaction: 'PRAY' },
+      }),
     });
     render(<HeadquartersPosts variant="feed" />);
-    const like = await screen.findByRole('button', { name: /Like/ });
-    fireEvent.click(like);
-    expect(await screen.findByText('👍 5')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Like/ })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(await screen.findByRole('button', { name: /Like/ }));
+    const menu = within(screen.getByRole('menu'));
+    expect(menu.getAllByRole('menuitem')).toHaveLength(6);
+    fireEvent.click(menu.getByRole('menuitem', { name: 'Praying' }));
+    expect(await screen.findByText('👍🙏 5')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Praying/ })).toHaveAttribute('aria-pressed', 'true');
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/reaction'));
+    expect(post).toBeTruthy();
   });
 
   it('Read more expands the full post with its comments right there in the card, Facebook-style — no "Back" page', async () => {

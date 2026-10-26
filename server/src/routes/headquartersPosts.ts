@@ -16,7 +16,10 @@ import {
   computeVisibleHeadquartersPostsForPerson,
   personCanViewHeadquartersPost,
   getHeadquartersPostEngagementCounts,
+  NO_ENGAGEMENT,
+  type HeadquartersEngagement,
 } from '../lib/headquartersPosts';
+import { REACTION_TYPES } from '../lib/updates';
 import { createDownloadUrl, isStorageConfigured } from '../lib/storage';
 import { getAuthorDisplay, getAuthorDisplaysByIds, type AuthorDisplay } from '../lib/authorToggle';
 
@@ -80,7 +83,7 @@ function toRecipientResponse(
     networkWide: boolean;
     media?: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[];
   },
-  engagement: { commentCount: number; reactionCount: number; viewerHasReacted: boolean },
+  engagement: HeadquartersEngagement,
   author: AuthorDisplay | null,
 ) {
   return {
@@ -94,6 +97,8 @@ function toRecipientResponse(
     commentCount: engagement.commentCount,
     reactionCount: engagement.reactionCount,
     viewerHasReacted: engagement.viewerHasReacted,
+    reactionCounts: engagement.reactionCounts,
+    myReaction: engagement.myReaction,
     media: toMediaResponse(p.media ?? []),
     // Section 15: null means the plain institutional "Central Authority" voice.
     author,
@@ -116,7 +121,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const pageItems = pageSlice.map((p) =>
     toRecipientResponse(
       p,
-      engagement.get(p.id) ?? { commentCount: 0, reactionCount: 0, viewerHasReacted: false },
+      engagement.get(p.id) ?? NO_ENGAGEMENT,
       authors.get(p.authorPersonId ?? '') ?? null,
     ),
   );
@@ -145,7 +150,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
   const engagement = await getHeadquartersPostEngagementCounts([id], personId);
   const author = await getAuthorDisplay(post.authorPersonId);
-  res.json(toRecipientResponse(post, engagement.get(id) ?? { commentCount: 0, reactionCount: 0, viewerHasReacted: false }, author));
+  res.json(toRecipientResponse(post, engagement.get(id) ?? NO_ENGAGEMENT, author));
 }));
 
 // GET /api/me/headquarters-posts/:id/media/:mediaId/download-url — mints a
@@ -287,6 +292,16 @@ router.post(
   }),
 );
 
+const reactionBodySchema = z.object({ type: z.enum(REACTION_TYPES).optional() });
+
+/** Everyone's reactions on one post: total, counts by type, and the viewer's own. */
+async function reactionSummary(headquartersPostId: string, personId: string) {
+  const rows = await prisma.headquartersPostReaction.findMany({ where: { headquartersPostId }, select: { personId: true, type: true } });
+  const reactionCounts: Record<string, number> = {};
+  for (const r of rows) reactionCounts[r.type] = (reactionCounts[r.type] ?? 0) + 1;
+  return { reactionCount: rows.length, reactionCounts, myReaction: rows.find((r) => r.personId === personId)?.type ?? null };
+}
+
 // POST /api/me/headquarters-posts/:id/reaction — idempotent toggle-on
 // (upsert on the (headquartersPostId, personId) unique constraint). One
 // shared reaction set per canonical post — never per-Community copies.
@@ -303,14 +318,18 @@ router.post(
       return res.status(404).json({ error: 'Headquarters post not found.' });
     }
 
+    // An optional { type } picks one of the six reactions; none means LIKE.
+    // Choosing again changes it (one reaction per person).
+    const parsed = reactionBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({ error: 'Invalid reaction.' });
+    const type = parsed.data.type ?? 'LIKE';
     await prisma.headquartersPostReaction.upsert({
       where: { headquartersPostId_personId: { headquartersPostId: id, personId } },
-      create: { headquartersPostId: id, personId },
-      update: {},
+      create: { headquartersPostId: id, personId, type },
+      update: { type },
     });
 
-    const reactionCount = await prisma.headquartersPostReaction.count({ where: { headquartersPostId: id } });
-    res.json({ id, viewerHasReacted: true, reactionCount });
+    res.json({ id, viewerHasReacted: true, ...(await reactionSummary(id, personId)) });
   }),
 );
 
@@ -320,8 +339,8 @@ router.get('/:id/reactions', asyncHandler(async (req, res) => {
   if (!(await personCanViewHeadquartersPost(personId, req.params.id))) {
     return res.status(404).json({ error: 'Headquarters post not found.' });
   }
-  const rows = await prisma.headquartersPostReaction.findMany({ where: { headquartersPostId: req.params.id }, select: { personId: true, createdAt: true } });
-  res.json(await reactorList(rows.map((r) => ({ personId: r.personId, reaction: 'LIKE', createdAt: r.createdAt })), { personId }));
+  const rows = await prisma.headquartersPostReaction.findMany({ where: { headquartersPostId: req.params.id }, select: { personId: true, type: true, createdAt: true } });
+  res.json(await reactorList(rows.map((r) => ({ personId: r.personId, reaction: r.type, createdAt: r.createdAt })), { personId }));
 }));
 
 // DELETE /api/me/headquarters-posts/:id/reaction — idempotent toggle-off.
@@ -340,8 +359,7 @@ router.delete(
 
     await prisma.headquartersPostReaction.deleteMany({ where: { headquartersPostId: id, personId } });
 
-    const reactionCount = await prisma.headquartersPostReaction.count({ where: { headquartersPostId: id } });
-    res.json({ id, viewerHasReacted: false, reactionCount });
+    res.json({ id, viewerHasReacted: false, ...(await reactionSummary(id, personId)) });
   }),
 );
 

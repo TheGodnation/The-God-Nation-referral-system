@@ -7,6 +7,7 @@ import { useDataSaver } from '../lib/dataSaver';
 import { formatBytes } from '../lib/attachmentLimits';
 import { VoiceInputButton } from './VoiceInputButton';
 import { RichText } from '../lib/richText';
+import { REACTIONS } from './updates/UpdatesFeed';
 
 export interface HeadquartersFeedMedia {
   id: string;
@@ -26,7 +27,17 @@ export interface HeadquartersFeedItem {
   commentCount: number;
   reactionCount: number;
   viewerHasReacted: boolean;
+  /** Counts by reaction type (LIKE, LOVE, PRAY…) and the viewer's own. */
+  reactionCounts?: Record<string, number>;
+  myReaction?: string | null;
   media: HeadquartersFeedMedia[];
+}
+
+export interface HeadquartersReactionResult {
+  viewerHasReacted: boolean;
+  reactionCount: number;
+  reactionCounts?: Record<string, number>;
+  myReaction?: string | null;
 }
 
 export interface HeadquartersFeedComment {
@@ -127,7 +138,7 @@ export function HeadquartersFeedCard({
   onLoadEarlierComments: () => void;
   onCommentDraftChange: (value: string) => void;
   onSubmitComment: () => void;
-  onReactionChange: (viewerHasReacted: boolean, reactionCount: number) => void;
+  onReactionChange: (result: HeadquartersReactionResult) => void;
 }) {
   const { t, i18n } = useTranslation();
   const isFr = i18n.language.startsWith('fr');
@@ -137,13 +148,21 @@ export function HeadquartersFeedCard({
   const [showWho, setShowWho] = useState(false);
   const date = new Date(item.publishedAt).toLocaleDateString(isFr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  async function toggleLike() {
+  const firstMedia = item.media[0] ?? null;
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const counts = item.reactionCounts ?? (item.reactionCount > 0 ? { LIKE: item.reactionCount } : {});
+  const mine = REACTIONS.find((r) => r.type === (item.myReaction ?? (item.viewerHasReacted ? 'LIKE' : null)));
+  const topEmojis = REACTIONS.filter((r) => (counts[r.type] ?? 0) > 0).map((r) => r.emoji).join('') || '👍';
+
+  // Picking the reaction you already have takes it back; another one changes it.
+  async function react(type: string) {
+    setPickerOpen(false);
     setBusy(true);
     try {
-      const res = item.viewerHasReacted
-        ? await api.delete<{ viewerHasReacted: boolean; reactionCount: number }>(`/api/me/headquarters-posts/${item.id}/reaction`)
-        : await api.post<{ viewerHasReacted: boolean; reactionCount: number }>(`/api/me/headquarters-posts/${item.id}/reaction`);
-      onReactionChange(res.viewerHasReacted, res.reactionCount);
+      const res = mine?.type === type
+        ? await api.delete<HeadquartersReactionResult>(`/api/me/headquarters-posts/${item.id}/reaction`)
+        : await api.post<HeadquartersReactionResult>(`/api/me/headquarters-posts/${item.id}/reaction`, { type });
+      onReactionChange(res);
     } catch {
       /* the card stays as it was */
     } finally {
@@ -151,7 +170,6 @@ export function HeadquartersFeedCard({
     }
   }
 
-  const firstMedia = item.media[0] ?? null;
   const mediaLabel =
     firstMedia?.mediaType === 'VIDEO'
       ? `▶ ${t('headquartersPosts.video_tap')}`
@@ -184,7 +202,7 @@ export function HeadquartersFeedCard({
       <div className="px-4 pt-3">
         <h3 className="text-lg font-bold leading-snug text-brand-900">{title}</h3>
         {body && (
-          <RichText className={`mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-800 ${expanded ? '' : 'line-clamp-4'}`} text={body} headings />
+          <RichText className={`mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-800 ${expanded ? '' : firstMedia?.mediaType === 'IMAGE' ? 'line-clamp-2' : 'line-clamp-3'}`} text={body} headings />
         )}
         <button type="button" onClick={expanded ? onCollapse : onOpen} className="mt-1 text-sm font-semibold text-brand-700 hover:underline">
           {t(expanded ? 'headquartersPosts.read_less' : 'headquartersPosts.read_more')}
@@ -245,7 +263,7 @@ export function HeadquartersFeedCard({
         <div className="flex justify-between px-4 pt-2 text-sm text-slate-500">
           {item.reactionCount > 0 ? (
             <button type="button" className="hover:underline" aria-label={t('reactions.who_reacted', { count: item.reactionCount }) ?? ''} onClick={() => setShowWho(true)}>
-              👍 {item.reactionCount}
+              {`${topEmojis} ${item.reactionCount}`}
             </button>
           ) : (
             <span />
@@ -253,9 +271,15 @@ export function HeadquartersFeedCard({
           {showWho && (
             <ReactionsSheet
               load={() => api.get<ReactorList>(`/api/me/headquarters-posts/${item.id}/reactions`)}
-              emojiOf={() => '👍'}
-              onLoaded={(l) => l.total !== item.reactionCount && onReactionChange(l.items.some((r) => r.isMe), l.total)}
-              onRemoveMine={item.viewerHasReacted ? () => void toggleLike() : undefined}
+              emojiOf={(r) => REACTIONS.find((x) => x.type === r)?.emoji ?? r}
+              onLoaded={(l) => {
+                if (l.total === item.reactionCount) return;
+                const reactionCounts: Record<string, number> = {};
+                for (const r of l.items) reactionCounts[r.reaction] = (reactionCounts[r.reaction] ?? 0) + 1;
+                const me = l.items.find((r) => r.isMe);
+                onReactionChange({ viewerHasReacted: !!me, reactionCount: l.total, reactionCounts, myReaction: me?.reaction ?? null });
+              }}
+              onRemoveMine={mine ? () => void react(mine.type) : undefined}
               onClose={() => setShowWho(false)}
             />
           )}
@@ -263,19 +287,36 @@ export function HeadquartersFeedCard({
         </div>
       )}
 
-      <div className="mx-4 mt-2 flex border-t border-slate-200 py-1">
+      <div className="relative mx-4 mt-2 flex border-t border-slate-200 py-1">
         <button
           type="button"
-          onClick={toggleLike}
+          onClick={() => setPickerOpen((v) => !v)}
           disabled={busy}
-          aria-pressed={item.viewerHasReacted}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold hover:bg-slate-100 ${item.viewerHasReacted ? 'text-brand-700' : 'text-slate-600'}`}
+          aria-expanded={pickerOpen}
+          aria-pressed={!!mine}
+          className={`flex-1 rounded-lg py-2 text-sm font-semibold hover:bg-slate-100 ${mine ? 'text-brand-700' : 'text-slate-600'}`}
         >
-          👍 {t('headquartersPosts.like')}
+          {mine ? `${mine.emoji} ${t(`updates.reaction_${mine.type.toLowerCase()}`)}` : `👍 ${t('headquartersPosts.like')}`}
         </button>
         <button type="button" onClick={expanded ? undefined : onOpen} className="flex-1 rounded-lg py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">
           💬 {t('headquartersPosts.comment')}
         </button>
+        {pickerOpen && (
+          <div role="menu" className="absolute bottom-full left-0 z-10 mb-1 flex gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-lg">
+            {REACTIONS.map((r) => (
+              <button
+                key={r.type}
+                type="button"
+                role="menuitem"
+                className={`rounded-full px-1.5 text-2xl transition-transform hover:scale-125 ${mine?.type === r.type ? 'bg-brand-100' : ''}`}
+                aria-label={t(`updates.reaction_${r.type.toLowerCase()}`) ?? ''}
+                onClick={() => void react(r.type)}
+              >
+                {r.emoji}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {expanded && (

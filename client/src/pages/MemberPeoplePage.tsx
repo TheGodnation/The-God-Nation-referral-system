@@ -75,19 +75,19 @@ export function MemberPeoplePage() {
 
   return (
     <PageShell minimal>
-      <section className="mx-auto max-w-2xl px-4 py-8">
-        <div className="mb-4 flex items-center justify-between">
+      <section className="mx-auto max-w-2xl px-4 py-3">
+        <div className="mb-2 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-brand-900">{t('people.title')}</h1>
           <NotificationBell />
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-3">
           <OurLeadersCard />
-          <Link to="/member/prayer" className="card flex items-center gap-3 no-underline">
+          <Link to="/member/prayer" className="card flex items-center gap-3 py-2.5 no-underline">
             <span aria-hidden className="text-2xl">🙏</span>
             <span className="min-w-0 flex-1">
               <span className="block font-semibold text-brand-900">{t('prayerRequests.title')}</span>
-              <span className="block text-sm text-slate-600">{t('wall.prayer_link')}</span>
+              <span className="block truncate text-sm text-slate-600">{t('wall.prayer_link')}</span>
             </span>
             <span aria-hidden className="text-brand-700">›</span>
           </Link>

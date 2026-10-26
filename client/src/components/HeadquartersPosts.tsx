@@ -216,6 +216,9 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
   const isFr = i18n.language.startsWith('fr');
 
   if (variant === 'feed') {
+    // A placeholder the size of a post while it loads, so what sits below
+    // (Everyone / Friends) stays put instead of jumping down when it arrives.
+    if (loading) return <div aria-hidden className="h-64 animate-pulse bg-white shadow-sm sm:rounded-xl" />;
     if (error) return <p className="px-4 text-sm text-red-700 sm:px-0">{error}</p>;
     return (
       <section className="space-y-2 sm:space-y-4" aria-label={t('headquartersPosts.title') ?? ''}>
@@ -241,8 +244,10 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
             onLoadEarlierComments={() => comments[0] && loadComments(i.id, comments[0].id)}
             onCommentDraftChange={setCommentDraft}
             onSubmitComment={submitComment}
-            onReactionChange={(viewerHasReacted, reactionCount) =>
-              setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, viewerHasReacted, reactionCount } : x)))
+            onReactionChange={(r) =>
+              setItems((prev) =>
+                prev.map((x) => (x.id === i.id ? { ...x, viewerHasReacted: r.viewerHasReacted, reactionCount: r.reactionCount, reactionCounts: r.reactionCounts, myReaction: r.myReaction } : x)),
+              )
             }
           />
         ))}

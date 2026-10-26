@@ -156,6 +156,17 @@ export async function validateCommunityTargetReferences(communityIds: string[]):
   return count === new Set(communityIds).size;
 }
 
+export interface HeadquartersEngagement {
+  commentCount: number;
+  reactionCount: number;
+  viewerHasReacted: boolean;
+  /** Counts by reaction type (LIKE, LOVE, PRAY…), and the viewer's own. */
+  reactionCounts: Record<string, number>;
+  myReaction: string | null;
+}
+
+export const NO_ENGAGEMENT: HeadquartersEngagement = { commentCount: 0, reactionCount: 0, viewerHasReacted: false, reactionCounts: {}, myReaction: null };
+
 /**
  * Batch engagement counts (comment count, reaction count, and whether
  * personId has reacted) for a set of HeadquartersPost ids — one query per
@@ -164,8 +175,8 @@ export async function validateCommunityTargetReferences(communityIds: string[]):
 export async function getHeadquartersPostEngagementCounts(
   headquartersPostIds: string[],
   personId: string,
-): Promise<Map<string, { commentCount: number; reactionCount: number; viewerHasReacted: boolean }>> {
-  const result = new Map<string, { commentCount: number; reactionCount: number; viewerHasReacted: boolean }>();
+): Promise<Map<string, HeadquartersEngagement>> {
+  const result = new Map<string, HeadquartersEngagement>();
   if (headquartersPostIds.length === 0) return result;
 
   const [commentGroups, reactionGroups, viewerReactions] = await Promise.all([
@@ -175,25 +186,32 @@ export async function getHeadquartersPostEngagementCounts(
       _count: { _all: true },
     }),
     prisma.headquartersPostReaction.groupBy({
-      by: ['headquartersPostId'],
+      by: ['headquartersPostId', 'type'],
       where: { headquartersPostId: { in: headquartersPostIds } },
       _count: { _all: true },
     }),
     prisma.headquartersPostReaction.findMany({
       where: { headquartersPostId: { in: headquartersPostIds }, personId },
-      select: { headquartersPostId: true },
+      select: { headquartersPostId: true, type: true },
     }),
   ]);
 
   const commentCounts = new Map(commentGroups.map((g) => [g.headquartersPostId, g._count._all]));
-  const reactionCounts = new Map(reactionGroups.map((g) => [g.headquartersPostId, g._count._all]));
-  const viewerReacted = new Set(viewerReactions.map((r) => r.headquartersPostId));
+  const byPost = new Map<string, Record<string, number>>();
+  for (const g of reactionGroups) {
+    const row = byPost.get(g.headquartersPostId) ?? {};
+    row[g.type] = g._count._all;
+    byPost.set(g.headquartersPostId, row);
+  }
+  const mine = new Map(viewerReactions.map((r) => [r.headquartersPostId, r.type as string]));
 
   for (const id of headquartersPostIds) {
     result.set(id, {
       commentCount: commentCounts.get(id) ?? 0,
-      reactionCount: reactionCounts.get(id) ?? 0,
-      viewerHasReacted: viewerReacted.has(id),
+      reactionCount: Object.values(byPost.get(id) ?? {}).reduce((a, b) => a + b, 0),
+      viewerHasReacted: mine.has(id),
+      reactionCounts: byPost.get(id) ?? {},
+      myReaction: mine.get(id) ?? null,
     });
   }
   return result;

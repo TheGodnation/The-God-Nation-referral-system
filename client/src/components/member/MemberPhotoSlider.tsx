@@ -28,11 +28,24 @@ export function MemberPhotoSlider() {
       .catch(() => setItems([]));
   }, []);
 
-  if (items === null || items.length === 0) return null;
+  // While loading: grey cards where the pictures will be, so the page below doesn't jump.
+  if (items === null) {
+    return (
+      <div aria-hidden className="bg-white py-2 sm:rounded-xl sm:shadow-sm">
+        <div className="h-5" />
+        <div className="flex gap-3 overflow-hidden px-4 pb-1 pt-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="aspect-[4/5] w-28 shrink-0 animate-pulse rounded-xl bg-slate-100" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (items.length === 0) return null;
 
   return (
-    <div className="bg-white py-3 sm:rounded-xl sm:shadow-sm">
-      <h2 className="px-4 pb-2 text-sm font-semibold text-slate-500">{t('memberHome.member_slider_title')}</h2>
+    <div className="bg-white py-2 sm:rounded-xl sm:shadow-sm">
+      <h2 className="px-4 pb-1.5 text-sm font-semibold text-slate-500">{t('memberHome.member_slider_title')}</h2>
       <div className="flex gap-3 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {items.map((m) => (
           <PortraitCard key={m.personId} name={m.name} photoUrl={m.photoUrl} onClick={() => navigate(`/member/people/${m.personId}`)} />

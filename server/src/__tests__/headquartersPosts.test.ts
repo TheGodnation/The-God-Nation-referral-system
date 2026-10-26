@@ -628,7 +628,7 @@ describe('Headquarters Network Posts — recipient response privacy', () => {
     const res = await memberAgent.get(`/api/me/headquarters-posts/${id}`);
     expect(res.status).toBe(200);
     expect(Object.keys(res.body).sort()).toEqual(
-      ['author', 'bodyEn', 'bodyFr', 'commentCount', 'id', 'media', 'networkWide', 'publishedAt', 'reactionCount', 'titleEn', 'titleFr', 'viewerHasReacted'].sort(),
+      ['author', 'bodyEn', 'bodyFr', 'commentCount', 'id', 'media', 'myReaction', 'networkWide', 'publishedAt', 'reactionCount', 'reactionCounts', 'titleEn', 'titleFr', 'viewerHasReacted'].sort(),
     );
     expect(res.body).not.toHaveProperty('targets');
     expect(res.body).not.toHaveProperty('createdByUserId');
@@ -843,6 +843,32 @@ describe('Headquarters Network Posts — reactions (shared engagement)', () => {
 
     const second = await memberAgent.post(`/api/me/headquarters-posts/${id}/reaction`).set('X-CSRF-Token', memberCsrf);
     expect(second.body.reactionCount).toBe(1);
+  });
+
+  it('a Member can choose any of the six reactions, change it, and the counts split by type', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(148);
+    const community = await makeCommunity('Reaction Community Types');
+    const m1 = await loginAsMember('+237696900128', 'hqp-member128@example.com');
+    const m2 = await loginAsMember('+237696900129', 'hqp-member129@example.com');
+    await joinCommunity(m1.person.id, community.id);
+    await joinCommunity(m2.person.id, community.id);
+    const id = await publishTargeted(adminAgent, csrf, 'Reaction Post Types', [community.id]);
+
+    const love = await m1.agent.post(`/api/me/headquarters-posts/${id}/reaction`).set('X-CSRF-Token', m1.csrf).send({ type: 'LOVE' });
+    expect(love.body.myReaction).toBe('LOVE');
+    await m2.agent.post(`/api/me/headquarters-posts/${id}/reaction`).set('X-CSRF-Token', m2.csrf).send({ type: 'PRAY' });
+    const changed = await m1.agent.post(`/api/me/headquarters-posts/${id}/reaction`).set('X-CSRF-Token', m1.csrf).send({ type: 'PRAISE' });
+    expect(changed.body.reactionCount).toBe(2);
+    expect(changed.body.reactionCounts).toEqual({ PRAISE: 1, PRAY: 1 });
+
+    const view = await m2.agent.get(`/api/me/headquarters-posts/${id}`);
+    expect(view.body.myReaction).toBe('PRAY');
+    expect(view.body.reactionCounts).toEqual({ PRAISE: 1, PRAY: 1 });
+    const who = await m2.agent.get(`/api/me/headquarters-posts/${id}/reactions`);
+    expect(who.body.items.map((r: { reaction: string }) => r.reaction).sort()).toEqual(['PRAISE', 'PRAY']);
+
+    const bad = await m1.agent.post(`/api/me/headquarters-posts/${id}/reaction`).set('X-CSRF-Token', m1.csrf).send({ type: 'ANGRY' });
+    expect(bad.status).toBe(400);
   });
 
   it('a Member can remove their reaction (idempotent toggle-off)', async () => {

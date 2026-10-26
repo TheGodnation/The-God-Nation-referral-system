@@ -24,11 +24,11 @@ export function OurLeadersCard() {
   }, []);
 
   return (
-    <Link to="/member/leadership" className="card flex items-center gap-3 no-underline">
+    <Link to="/member/leadership" className="card flex items-center gap-3 py-2.5 no-underline">
       <span aria-hidden className="text-2xl">🧭</span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-brand-900">{t('leadershipDirectory.title')}</span>
-        <span className="block text-sm text-slate-600">{t('people.our_leaders_help')}</span>
+        <span className="block truncate text-sm text-slate-600">{t('people.our_leaders_help')}</span>
       </span>
       {faces.length > 0 && (
         <span className="flex -space-x-2" aria-hidden>
