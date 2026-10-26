@@ -31,49 +31,35 @@ const renderAbout = () =>
   );
 
 describe('About the God Nation', () => {
-  it('tells who we are, our calling and how to take part, and shows the ministry wording until the admin sets their own', async () => {
+  it('shows the academy\'s own text in four sections', async () => {
     mockFetch({ content: {} });
     renderAbout();
-    expect(await screen.findByText('Who we are')).toBeInTheDocument();
-    expect(screen.getByText(/exists to assemble the church and train Christians/)).toBeInTheDocument();
-    expect(screen.getByText(/carry the Gospel of the Kingdom through modern media into every nation/)).toBeInTheDocument();
-    expect(screen.getByText('A digital and spiritual home too')).toBeInTheDocument();
-    expect(screen.getByText(/hear the Word of God and be blessed, pray and be prayed for/)).toBeInTheDocument();
-    expect(await screen.findByText('To leverage modern media to make the Gospel of the Kingdom accessible in every nation.')).toBeInTheDocument();
-    expect(screen.getByText('To develop and deploy leaders who multiply disciples through scalable digital systems.')).toBeInTheDocument();
-    expect(screen.getByText('To advance the Gospel of the Kingdom to every nation on earth.')).toBeInTheDocument();
-    expect(screen.getByText(/Habakkuk 2:14/)).toBeInTheDocument();
-    expect(screen.getByText('Learners')).toBeInTheDocument();
-    expect(screen.getByText('Multipliers')).toBeInTheDocument();
-    expect(screen.getByText(/is not a denomination/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Represent The God Nation in your area' })).toHaveAttribute('href', '/member/leadership');
+    expect(await screen.findByRole('heading', { name: 'Who we are' })).toBeInTheDocument();
+    expect(screen.getByText(/exists to bring together citizens of the Kingdom of God/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Our calling' })).toBeInTheDocument();
+    expect(screen.getByText(/many years of personal encounters with Christ/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Our vision in action' })).toBeInTheDocument();
+    expect(screen.getByText(/modern media provides an unprecedented opportunity/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Our mission' })).toBeInTheDocument();
+    expect(screen.getByText(/From Cameroon to Africa and the ends of the earth/)).toBeInTheDocument();
   });
 
-  it('leads with assembling and training the church, and speaks of the digital and spiritual home second', async () => {
+  it('does not depend on the admin\'s Vision, Mission or Purpose settings', async () => {
+    mockFetch({ content: { appVisionEn: 'A nation for God.', appMissionEn: 'To train leaders.' } });
+    renderAbout();
+    expect(await screen.findByRole('heading', { name: 'Who we are' })).toBeInTheDocument();
+    expect(screen.queryByText('A nation for God.')).toBeNull();
+    expect(screen.queryByText('To train leaders.')).toBeNull();
+  });
+
+  it('is blue like the Home page, with links to take part and to represent your area', async () => {
     mockFetch({ content: {} });
     const { container } = renderAbout();
-    const who = await screen.findByText('Who we are');
-    const home = screen.getByText('A digital and spiritual home too');
-    // "Who we are" comes before the home card in the page.
-    expect(who.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText('Assembling the church. Training leaders. Carrying the Gospel through modern media.')).toBeInTheDocument();
-    // The ordered steps open with training, not with the home.
-    const items = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
-    expect(items.findIndex((x) => x.startsWith('Be equipped.'))).toBeLessThan(items.findIndex((x) => x.startsWith('Discover Christ.')));
-    // Blue like the Home page: the header has no orange.
+    await screen.findByRole('heading', { name: 'Who we are' });
     const header = container.querySelector('header.rounded-xl');
     expect(header?.className).toMatch(/from-brand-900/);
-    expect(header?.className).not.toMatch(/amber|orange|gold/);
-  });
-
-  it('uses the Vision, Mission and Purpose the admin saved, instead of the defaults', async () => {
-    mockFetch({ content: { appVisionEn: 'A nation for God.', appMissionEn: 'To train leaders.', appPurposeEn: 'To serve.', appSloganEn: 'Raising kingdom leaders' } });
-    renderAbout();
-    expect(await screen.findByText('A nation for God.')).toBeInTheDocument();
-    expect(screen.getByText('To train leaders.')).toBeInTheDocument();
-    expect(screen.getByText('To serve.')).toBeInTheDocument();
-    expect(screen.getByText('Raising kingdom leaders')).toBeInTheDocument();
-    expect(screen.queryByText('To leverage modern media to make the Gospel of the Kingdom accessible in every nation.')).toBeNull();
+    expect(header?.className).not.toMatch(/amber|orange/);
+    expect(screen.getByRole('link', { name: 'Represent The God Nation in your area' })).toHaveAttribute('href', '/member/leadership');
   });
 
   it('has Home and About tabs, and the Home tab goes back to the Home page', async () => {

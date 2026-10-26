@@ -19,7 +19,9 @@ function mockFetch() {
               ? { viewer: { canPost: true, canModerate: false, personId: 'p1' }, items: [], nextBefore: null }
               : path === '/api/member/people/strip'
                 ? { items: [] }
-                : { items: [], total: 0, unreadCount: 0 };
+                : path === '/api/member/friends/requests'
+                  ? { incoming: [] }
+                  : { items: [], total: 0, unreadCount: 0 };
       return Promise.resolve({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => body });
     }),
   );
