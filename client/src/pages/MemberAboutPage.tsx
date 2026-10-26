@@ -37,7 +37,7 @@ export function MemberAboutPage() {
     <PageShell minimal>
       <div className="min-h-full" style={resolveWallpaperStyle(homeWallpaper?.preset ?? null, homeWallpaper?.imageUrl ?? null)}>
         <section className="mx-auto max-w-2xl space-y-3 pb-6 sm:px-4">
-          <div className="flex items-center justify-between bg-white px-4 py-3 sm:mt-4 sm:rounded-xl sm:shadow-sm">
+          <div className="flex items-center justify-between border-t-4 border-gold-400 bg-white px-4 py-3 sm:mt-4 sm:rounded-xl sm:shadow-sm">
             <h1 className="text-2xl font-bold text-brand-900">{t('memberHome.title')}</h1>
             <NotificationBell />
           </div>
@@ -121,6 +121,9 @@ export function MemberAboutPage() {
                 </li>
                 <li>
                   <Link to="/member/referrals" className="font-medium text-brand-700 underline">{t('aboutGodNation.join_invite')}</Link>
+                </li>
+                <li>
+                  <Link to="/member/prayer" className="font-medium text-brand-700 underline">{t('aboutGodNation.join_pray')}</Link>
                 </li>
                 <li>
                   <Link to="/member/leadership" className="font-medium text-brand-700 underline">{t('aboutGodNation.join_leaders')}</Link>

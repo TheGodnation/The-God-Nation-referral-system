@@ -83,6 +83,14 @@ export function MemberPeoplePage() {
 
         <div className="space-y-6">
           <OurLeadersCard />
+          <Link to="/member/prayer" className="card flex items-center gap-3 no-underline">
+            <span aria-hidden className="text-2xl">🙏</span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-brand-900">{t('prayerRequests.title')}</span>
+              <span className="block text-sm text-slate-600">{t('wall.prayer_link')}</span>
+            </span>
+            <span aria-hidden className="text-brand-700">›</span>
+          </Link>
 
           <Section title={t('people.requests')} items={incoming} />
 

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
@@ -25,7 +24,7 @@ export function MemberUpdatesPage() {
     <PageShell minimal>
       <div className="min-h-full" style={resolveWallpaperStyle(homeWallpaper?.preset ?? null, homeWallpaper?.imageUrl ?? null)}>
         <section className="mx-auto max-w-2xl pb-6 sm:px-4">
-          <div className="flex items-center justify-between bg-white px-4 py-3 sm:mt-4 sm:rounded-xl sm:shadow-sm">
+          <div className="flex items-center justify-between border-t-4 border-gold-400 bg-white px-4 py-3 sm:mt-4 sm:rounded-xl sm:shadow-sm">
             <h1 className="text-2xl font-bold text-brand-900">{t('memberHome.title')}</h1>
             <NotificationBell />
           </div>
@@ -37,12 +36,6 @@ export function MemberUpdatesPage() {
             <MemberPhotoSlider />
             <div className="px-4 empty:hidden sm:px-0">
               <LiveBanner />
-            </div>
-            <div className="px-4 sm:px-0">
-              <Link to="/member/prayer" className="card flex items-center justify-between text-sm font-semibold text-brand-700">
-                🙏 {t('prayerRequests.title')}
-                <span aria-hidden>›</span>
-              </Link>
             </div>
             <HeadquartersPosts variant="feed" />
             <div className="flex gap-2 px-4 sm:px-0" role="tablist" aria-label={t('updates.view_label') ?? ''}>
