@@ -97,11 +97,14 @@ export function SelectionFormatBar({
   textareaRef,
   value,
   onChange,
+  headings = false,
   className = '',
 }: {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   value: string;
   onChange: (next: string) => void;
+  /** Whether "Heading" is offered under "More" (posts, not chat). */
+  headings?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -138,6 +141,11 @@ export function SelectionFormatBar({
           <button type="button" {...keepFocus} onClick={lines('quote')} aria-label={t('format.quote') ?? ''} className={item}>
             ❝
           </button>
+          {headings && (
+            <button type="button" {...keepFocus} onClick={lines('heading')} aria-label={t('format.heading') ?? ''} className={`${item} font-bold`}>
+              H
+            </button>
+          )}
         </>
       )}
     </div>

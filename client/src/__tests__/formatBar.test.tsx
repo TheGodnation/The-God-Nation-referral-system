@@ -88,12 +88,40 @@ describe('formatting in posts', () => {
     const [v, setV] = useState('');
     return <FormattedTextarea aria-label="Post" headings value={v} onValueChange={setV} />;
   }
-  it('offers headings and applies them to the line', async () => {
+  it('shows a hint, and no bar, until words are selected', () => {
+    render(<Post />);
+    expect(screen.queryByTestId('selection-format-bar')).toBeNull();
+    expect(screen.getByText('Select words to make them bold, italic or crossed out.')).toBeInTheDocument();
+  });
+
+  it('shows the Bold bar over the post when words are selected, and makes them bold', async () => {
+    render(<Post />);
+    const ta = screen.getByLabelText('Post') as HTMLTextAreaElement;
+    fireEvent.change(ta, { target: { value: 'Blessed are the peacemakers' } });
+    select(ta, 12, 15);
+    const bar = await screen.findByTestId('selection-format-bar');
+    fireEvent.click(within(bar).getByRole('button', { name: 'Bold' }));
+    await waitFor(() => expect(ta.value).toBe('Blessed are *the* peacemakers'));
+    expect(screen.queryByText('Select words to make them bold, italic or crossed out.')).toBeNull();
+  });
+
+  it('offers headings under "More" and applies them to the line', async () => {
     render(<Post />);
     const ta = screen.getByLabelText('Post') as HTMLTextAreaElement;
     fireEvent.change(ta, { target: { value: 'Big news' } });
-    select(ta, 0, 0);
+    select(ta, 0, 8);
+    fireEvent.click(await screen.findByRole('button', { name: 'More' }));
     fireEvent.click(screen.getByRole('button', { name: 'Heading' }));
     await waitFor(() => expect(ta.value).toBe('# Big news'));
+  });
+
+  it('the bar goes away when the selection is cleared', async () => {
+    render(<Post />);
+    const ta = screen.getByLabelText('Post') as HTMLTextAreaElement;
+    fireEvent.change(ta, { target: { value: 'Praise the Lord' } });
+    select(ta, 0, 6);
+    expect(await screen.findByTestId('selection-format-bar')).toBeInTheDocument();
+    select(ta, 3, 3);
+    await waitFor(() => expect(screen.queryByTestId('selection-format-bar')).toBeNull());
   });
 });
