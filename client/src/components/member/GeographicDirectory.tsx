@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { PortraitCard } from '../PortraitCard';
@@ -47,6 +47,8 @@ const LEVELS: GeographicLevel[] = ['NATIONAL', 'REGION', 'DIVISION', 'SUBDIVISIO
 export function GeographicDirectory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // "Request to represent your area" on the People page lands here, with the form open.
+  const openForm = useLocation().hash === '#represent';
 
   const [countries, setCountries] = useState<CountryRow[] | null>(null);
   const [country, setCountry] = useState<string>('');
@@ -82,8 +84,6 @@ export function GeographicDirectory() {
       .catch(() => setLoadError(true));
   }, [country]);
 
-  if (countries !== null && countries.length === 0 && team.length === 0) return null;
-
   const root = countries?.find((c) => c.country === country);
   const shown = (areas ?? []).filter((a) => !level || a.level === level);
   const represented = shown.filter((a) => a.leaders.length > 0);
@@ -94,13 +94,19 @@ export function GeographicDirectory() {
     <div className="space-y-4">
       <p className="text-sm text-slate-600">{t('leadershipDirectory.intro')}</p>
 
-      {root && (
+      {/* Always there, even before any place or leader has been set up: then the member types their place. */}
+      {(root || countries !== null) && (
         <RepresentRequestForm
           country={country}
-          rootId={root.id}
+          rootId={root?.id ?? ''}
           fixedArea={fixedArea}
           onClearFixedArea={() => setFixedArea(null)}
+          startOpen={openForm}
         />
+      )}
+
+      {countries !== null && countries.length === 0 && team.length === 0 && (
+        <p className="card text-sm text-slate-600">{t('leadershipDirectory.nobody_yet')}</p>
       )}
 
       {team.length > 0 && (
@@ -121,6 +127,7 @@ export function GeographicDirectory() {
         </section>
       )}
 
+      {countries !== null && countries.length > 0 && (
       <section className="card space-y-4">
         <div>
           <h2 className="font-semibold text-brand-900">{t('leadershipDirectory.geo_title')}</h2>
@@ -212,6 +219,7 @@ export function GeographicDirectory() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

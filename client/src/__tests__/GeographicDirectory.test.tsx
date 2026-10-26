@@ -54,14 +54,37 @@ const REGION_OPTIONS = { items: [{ id: 'r1', name: 'Littoral', level: 'REGION' }
 const DIVISION_OPTIONS = { items: [{ id: 'd1', name: 'Wouri', level: 'DIVISION' }] };
 
 describe('GeographicDirectory (Member)', () => {
-  it('renders nothing when no country and no national team have been set up yet', async () => {
+  it('with no places or leaders set up yet, the member can still ask to represent their area (typing their place)', async () => {
     mockFetchByUrl({
       '/geographic-areas/countries': { status: 200, body: { items: [] } },
       '/area-representation-requests/mine': { status: 200, body: { items: [] } },
       '/leadership-directory/national-team': { status: 200, body: { items: [] } },
+      'POST /area-representation-requests': { status: 201, body: { id: 'r1' } },
     });
-    const { container } = renderWithRoutes();
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    renderWithRoutes();
+    expect(await screen.findByText('Represent The God Nation in your area')).toBeInTheDocument();
+    expect(screen.getByText(/No leaders have been appointed yet/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Request to represent my area' }));
+    // There is no list to pick from, so the place is typed, with the country.
+    const send = screen.getByRole('button', { name: 'Submit request' });
+    expect(send).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Country/), { target: { value: 'Cameroon' } });
+    fireEvent.change(screen.getByLabelText(/Region/), { target: { value: 'Littoral' } });
+    fireEvent.change(screen.getByLabelText(/Quarter/), { target: { value: 'Bepanda' } });
+    fireEvent.click(send);
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ typedCountry: 'Cameroon', typedRegion: 'Littoral', typedQuarter: 'Bepanda' }));
+  });
+
+  it('opens the request form at once when arriving from the People page button', async () => {
+    mockFetchByUrl(BASE_ROUTES as never);
+    render(
+      <MemoryRouter initialEntries={['/member/leadership#represent']}>
+        <Routes>
+          <Route path="/member/leadership" element={<GeographicDirectory />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('button', { name: 'Submit request' })).toBeInTheDocument();
   });
 
   it('shows a leader as a face card with name, position and place, plus the full path, no profile click needed', async () => {

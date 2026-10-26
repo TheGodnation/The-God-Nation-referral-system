@@ -467,3 +467,36 @@ describe('Leadership Directory — position titles, National Team, places not on
     expect(await prisma.areaLeadershipAssignment.count({ where: { personId: m.id } })).toBe(0);
   });
 });
+
+describe('Leadership Directory — a member whose request is approved becomes visible', () => {
+  it('shows the new representative in the directory and among the faces on the People page card', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-faces@test.local');
+    const path = await buildCameroonPath(adminAgent, adminCsrf);
+    const viewer = await member('Faces Viewer');
+    // Nobody is appointed yet: no faces.
+    expect((await viewer.agent.get('/api/member/leadership-directory/faces')).body).toEqual({ items: [], total: 0 });
+
+    const rep = await member('New Representative');
+    const sent = await send(rep.agent, rep.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.region.id });
+    expect(sent.status).toBe(201);
+    // Asking changes nothing by itself.
+    expect((await viewer.agent.get('/api/member/leadership-directory/faces')).body.total).toBe(0);
+
+    const approved = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${sent.body.id}/approve`, { title: 'Regional Coordinator' });
+    expect(approved.status).toBe(200);
+
+    const dir = await viewer.agent.get('/api/member/leadership-directory/areas?country=Cameroon&level=REGION');
+    expect(dir.body.items[0].leaders).toEqual([expect.objectContaining({ name: 'New Representative', title: 'Regional Coordinator' })]);
+    const faces = await viewer.agent.get('/api/member/leadership-directory/faces');
+    expect(faces.body.items.map((f: any) => f.name)).toEqual(['New Representative']);
+
+    // The National Team comes first, and nobody appears twice.
+    await send(adminAgent, adminCsrf, 'post', '/api/admin/national-team', { personId: rep.id, title: 'National Coordinator', sortOrder: 5 });
+    const other = await member('Team Member');
+    await send(adminAgent, adminCsrf, 'post', '/api/admin/national-team', { personId: other.id, title: 'Director', sortOrder: 0 });
+    const both = await viewer.agent.get('/api/member/leadership-directory/faces');
+    expect(both.body.items.map((f: any) => f.name)).toEqual(['Team Member', 'New Representative']);
+    const anon = request.agent(app);
+    expect((await anon.get('/api/member/leadership-directory/faces')).status).toBe(401);
+  });
+});

@@ -1788,7 +1788,9 @@
     "sent_body": "Your request has been sent. The central authority will review it and contact you.",
     "team_title": "The National Team",
     "country": "Country",
-    "represent_this": "Represent this place"
+    "represent_this": "Represent this place",
+    "nobody_yet": "No leaders have been appointed yet. You can be the first: send your request above and the central authority will contact you.",
+    "field_country": "Country"
   },
   "myReferrals": {
     "title": "My Ambassador Dashboard",
@@ -2008,7 +2010,9 @@
     "report_send": "Send report",
     "report_need_reason": "Please say briefly what happened.",
     "report_sent": "Thank you. Your report was sent to the leaders.",
-    "posts_title": "Posts"
+    "posts_title": "Posts",
+    "our_leaders_none": "Leaders will appear here as they are appointed.",
+    "represent_button": "Request to represent your area"
   },
   "reports": {
     "title": "Member reports",

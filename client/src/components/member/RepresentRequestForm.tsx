@@ -39,6 +39,7 @@ export function RepresentRequestForm({
   fixedArea,
   onClearFixedArea,
   onChanged,
+  startOpen = false,
 }: {
   country: string;
   /** The country's own area (the top of the lists). */
@@ -47,12 +48,17 @@ export function RepresentRequestForm({
   fixedArea?: { id: string; label: string } | null;
   onClearFixedArea?: () => void;
   onChanged?: () => void;
+  /** Opens the form at once (the "Request to represent your area" button on the People page). */
+  startOpen?: boolean;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  // With no places set up yet (no list to pick from) the member types their place.
+  const noList = !rootId;
+  const [open, setOpen] = useState(startOpen);
   const [options, setOptions] = useState<AreaOption[][]>([]);
   const [picked, setPicked] = useState<string[]>([]);
-  const [notListed, setNotListed] = useState(false);
+  const [notListed, setNotListed] = useState(noList);
+  const [typedCountry, setTypedCountry] = useState(country);
   const [typed, setTyped] = useState({ region: '', division: '', subdivision: '', quarter: '' });
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +107,7 @@ export function RepresentRequestForm({
 
   const pending = myRequests?.find((r) => r.status === 'PENDING') ?? null;
   const areaId = fixedArea?.id ?? (picked.length > 0 ? picked[picked.length - 1] : '');
-  const canSend = notListed ? typed.region.trim().length > 0 : Boolean(areaId);
+  const canSend = notListed ? typed.region.trim().length > 0 && (!noList || typedCountry.trim().length > 0) : Boolean(areaId);
 
   async function submit() {
     setError(null);
@@ -110,7 +116,7 @@ export function RepresentRequestForm({
       await api.post('/api/member/area-representation-requests', {
         ...(notListed
           ? {
-              typedCountry: country,
+              typedCountry: noList ? typedCountry.trim() : country,
               typedRegion: typed.region.trim(),
               typedDivision: typed.division.trim() || undefined,
               typedSubdivision: typed.subdivision.trim() || undefined,
@@ -149,7 +155,7 @@ export function RepresentRequestForm({
   const stepLabel = (i: number) => t(`leadershipDirectory.pick_${STEPS[i].toLowerCase()}`);
 
   return (
-    <section className="card space-y-3" aria-labelledby="represent-title">
+    <section id="represent" className="card space-y-3" aria-labelledby="represent-title">
       <div>
         <h2 id="represent-title" className="font-semibold text-brand-900">
           {t('leadershipDirectory.represent_title')}
@@ -188,6 +194,14 @@ export function RepresentRequestForm({
           ) : notListed ? (
             <div className="space-y-2">
               <p className="text-sm text-slate-600">{t('leadershipDirectory.typed_help')}</p>
+              {noList && (
+                <div>
+                  <label className="label" htmlFor="typed-country">
+                    {t('leadershipDirectory.field_country')} *
+                  </label>
+                  <input id="typed-country" className="input" maxLength={120} value={typedCountry} onChange={(e) => setTypedCountry(e.target.value)} />
+                </div>
+              )}
               {(['region', 'division', 'subdivision', 'quarter'] as const).map((k) => (
                 <div key={k}>
                   <label className="label" htmlFor={`typed-${k}`}>
@@ -228,7 +242,7 @@ export function RepresentRequestForm({
             </div>
           )}
 
-          {!fixedArea && (
+          {!fixedArea && !noList && (
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" className="h-4 w-4 accent-emerald-600" checked={notListed} onChange={(e) => setNotListed(e.target.checked)} />
               {t('leadershipDirectory.not_listed')}

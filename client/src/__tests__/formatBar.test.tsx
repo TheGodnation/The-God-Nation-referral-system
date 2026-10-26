@@ -125,3 +125,15 @@ describe('formatting in posts', () => {
     await waitFor(() => expect(screen.queryByTestId('selection-format-bar')).toBeNull());
   });
 });
+
+describe('formatting in the edit window', () => {
+  it('shows the Bold bar when words are selected, like the message box', async () => {
+    const { EditSheet } = await import('../components/chat/ChatActions');
+    render(<EditSheet message={{ id: 'm1', body: 'Praise the Lord' } as never} onCancel={vi.fn()} onSave={vi.fn()} />);
+    const ta = screen.getByLabelText('Edit message', { selector: 'textarea' }) as HTMLTextAreaElement;
+    expect(screen.queryByTestId('selection-format-bar')).toBeNull();
+    select(ta, 7, 10);
+    fireEvent.click(within(await screen.findByTestId('selection-format-bar')).getByRole('button', { name: 'Bold' }));
+    await waitFor(() => expect(ta.value).toBe('Praise *the* Lord'));
+  });
+});

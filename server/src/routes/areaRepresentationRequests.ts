@@ -132,6 +132,25 @@ router.get('/leadership-directory/national-team', requireMember, asyncHandler(as
   });
 }));
 
+// GET /api/member/leadership-directory/faces — a few faces for the "Our
+// Leaders" card on the People page: the National Team first, then people
+// appointed to represent a place (including those whose request was approved).
+router.get('/leadership-directory/faces', requireMember, asyncHandler(async (_req, res) => {
+  const personSelect = { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } as const;
+  const [team, assignments] = await Promise.all([
+    prisma.nationalTeamMember.findMany({ include: { person: { select: personSelect } }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }], take: 6 }),
+    prisma.areaLeadershipAssignment.findMany({ where: { status: 'ACTIVE' }, include: { person: { select: personSelect } }, orderBy: { createdAt: 'asc' }, take: 20 }),
+  ]);
+  const seen = new Set<string>();
+  const items: { personId: string; name: string; photoUrl: string | null }[] = [];
+  for (const p of [...team.map((t) => t.person), ...assignments.map((a) => a.person)]) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    items.push({ personId: p.id, name: p.name, photoUrl: profilePhotoPath(p) });
+  }
+  res.json({ items: items.slice(0, 6), total: items.length });
+}));
+
 // Either a place from the list (areaId), or — when the member's place is not
 // listed — the place typed in. At least the region is needed in that case.
 const typedPlace = z.string().trim().max(120).optional();

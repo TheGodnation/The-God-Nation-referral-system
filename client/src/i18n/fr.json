@@ -1788,7 +1788,9 @@
     "sent_body": "Votre demande a été envoyée. L’autorité centrale l’examinera et vous contactera.",
     "team_title": "L’équipe nationale",
     "country": "Pays",
-    "represent_this": "Représenter ce lieu"
+    "represent_this": "Représenter ce lieu",
+    "nobody_yet": "Aucun responsable n'a encore été nommé. Vous pouvez être le premier : envoyez votre demande ci-dessus et l'autorité centrale vous contactera.",
+    "field_country": "Pays"
   },
   "myReferrals": {
     "title": "Mon tableau d'ambassadeur",
@@ -2008,7 +2010,9 @@
     "report_send": "Envoyer le signalement",
     "report_need_reason": "Veuillez dire brièvement ce qui s’est passé.",
     "report_sent": "Merci. Votre signalement a été envoyé aux responsables.",
-    "posts_title": "Publications"
+    "posts_title": "Publications",
+    "our_leaders_none": "Les responsables apparaîtront ici dès leur nomination.",
+    "represent_button": "Demander à représenter votre zone"
   },
   "reports": {
     "title": "Signalements de membres",

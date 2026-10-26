@@ -5,8 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Avatar } from '../Avatar';
 import type { ChatMessage } from './types';
-import { FormatBar } from '../FormatBar';
-import { LiveFormatTextarea } from '../LiveFormatTextarea';
+import { FormattedTextarea } from '../FormattedTextarea';
 
 // WhatsApp actions shared by the group and private chat screens:
 // edit a message, forward it, and search inside the chat.
@@ -30,7 +29,6 @@ function Sheet({ label, onClose, children }: { label: string; onClose: () => voi
 export function EditSheet({ message, onCancel, onSave }: { message: ChatMessage; onCancel: () => void; onSave: (body: string) => Promise<void> }) {
   const { t } = useTranslation();
   const [body, setBody] = useState(message.body ?? '');
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [saving, setSaving] = useState(false);
   const trimmed = body.trim();
   return (
@@ -39,12 +37,10 @@ export function EditSheet({ message, onCancel, onSave }: { message: ChatMessage;
       <label className="sr-only" htmlFor="edit-message">
         {t('chatActions.edit_title')}
       </label>
-      <FormatBar textareaRef={bodyRef} value={body} onChange={setBody} className="mb-2" />
-      <LiveFormatTextarea
+      <FormattedTextarea
         id="edit-message"
-        ref={bodyRef}
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onValueChange={setBody}
         rows={4}
         autoFocus
         className="w-full rounded-lg border border-slate-300 p-2 text-[15px]"
