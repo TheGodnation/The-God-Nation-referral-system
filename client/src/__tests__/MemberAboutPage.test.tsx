@@ -35,7 +35,9 @@ describe('About the God Nation', () => {
     mockFetch({ content: {} });
     renderAbout();
     expect(await screen.findByText('Who we are')).toBeInTheDocument();
-    expect(screen.getByText(/mobilize and train the church to penetrate modern media/)).toBeInTheDocument();
+    expect(screen.getByText(/exists to assemble the church and train Christians/)).toBeInTheDocument();
+    expect(screen.getByText(/carry the Gospel of the Kingdom through modern media into every nation/)).toBeInTheDocument();
+    expect(screen.getByText('A digital and spiritual home too')).toBeInTheDocument();
     expect(screen.getByText(/hear the Word of God and be blessed, pray and be prayed for/)).toBeInTheDocument();
     expect(await screen.findByText('To leverage modern media to make the Gospel of the Kingdom accessible in every nation.')).toBeInTheDocument();
     expect(screen.getByText('To develop and deploy leaders who multiply disciples through scalable digital systems.')).toBeInTheDocument();
@@ -45,6 +47,23 @@ describe('About the God Nation', () => {
     expect(screen.getByText('Multipliers')).toBeInTheDocument();
     expect(screen.getByText(/is not a denomination/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Represent The God Nation in your area' })).toHaveAttribute('href', '/member/leadership');
+  });
+
+  it('leads with assembling and training the church, and speaks of the digital and spiritual home second', async () => {
+    mockFetch({ content: {} });
+    const { container } = renderAbout();
+    const who = await screen.findByText('Who we are');
+    const home = screen.getByText('A digital and spiritual home too');
+    // "Who we are" comes before the home card in the page.
+    expect(who.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText('Assembling the church. Training leaders. Carrying the Gospel through modern media.')).toBeInTheDocument();
+    // The ordered steps open with training, not with the home.
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
+    expect(items.findIndex((x) => x.startsWith('Be equipped.'))).toBeLessThan(items.findIndex((x) => x.startsWith('Discover Christ.')));
+    // Blue like the Home page: the header has no orange.
+    const header = container.querySelector('header.rounded-xl');
+    expect(header?.className).toMatch(/from-brand-900/);
+    expect(header?.className).not.toMatch(/amber|orange|gold/);
   });
 
   it('uses the Vision, Mission and Purpose the admin saved, instead of the defaults', async () => {

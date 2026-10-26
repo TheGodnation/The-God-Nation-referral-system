@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
+import { otherFees } from '../../lib/bookPrice';
 
 // Paying for leadership books (1,200 FCFA each, before the next book opens)
 // and "study now, pay later" grace. Manual Mobile Money is the normal way:
@@ -72,6 +73,7 @@ export function PayBookPanel({
   return (
     <div className="mt-2 w-full space-y-3 rounded-lg border border-brand-100 bg-brand-50 p-3 text-sm" data-testid={`pay-book-${bookNumber}`}>
       <p className="font-semibold text-brand-900">{t('payments.title', { number: bookNumber, price: fcfa(price) })}</p>
+      {otherFees(price) > 0 && <p className="text-xs text-slate-500">{t('payments.fees_note', { fees: fcfa(otherFees(price)) })}</p>}
       {instructions ? <p className="whitespace-pre-wrap text-slate-700">{instructions}</p> : <p className="text-slate-600">{t('payments.no_instructions')}</p>}
       {startedAutomatic && <p className="font-medium text-green-700">{t('payments.approve_on_phone')}</p>}
       <form onSubmit={claim} className="space-y-2" noValidate>

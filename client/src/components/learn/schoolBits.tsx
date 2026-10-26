@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { GraceBox } from './TrainingPayments';
+import { otherFees } from '../../lib/bookPrice';
 
 // Shared by the Leadership School page, each book's page and the Learn page.
 
@@ -103,6 +104,7 @@ export function TrainingStatusCard({ summary, onChanged }: { summary: SchoolSumm
     return (
       <div className="card space-y-2 text-sm">
         <p className="text-slate-700">{t('learn.training_payment_rule', { price: (summary.price ?? 1200).toLocaleString('fr-FR') })}</p>
+        {otherFees(summary.price ?? 1200) > 0 && <p className="text-xs text-slate-500">{t('payments.fees_note', { fees: `${otherFees(summary.price ?? 1200).toLocaleString('fr-FR')} FCFA` })}</p>}
         {summary.enrollment === 'REVOKED' ? (
           <p className="font-medium text-amber-800">{t('learn.training_stopped')}</p>
         ) : (
