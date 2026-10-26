@@ -2812,7 +2812,8 @@
     "quote": "Quote",
     "heading": "Heading",
     "show": "Formatting",
-    "hide": "Hide formatting"
+    "hide": "Hide formatting",
+    "hint": "Select your words, then tap B to make them bold (I italic, S crossed out)."
   },
   "aboutGodNation": {
     "tab": "About the God Nation",

@@ -12,12 +12,15 @@ export function FormatBar({
   value,
   onChange,
   headings = false,
+  hint = false,
   className = '',
 }: {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   value: string;
   onChange: (next: string) => void;
   headings?: boolean;
+  /** A short line telling how to use the buttons (select words, then tap). */
+  hint?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation();
@@ -50,7 +53,8 @@ export function FormatBar({
   ];
 
   return (
-    <div role="toolbar" aria-label={t('format.toolbar') ?? ''} className={`flex flex-wrap items-center gap-1 ${className}`}>
+    <div className={className}>
+    <div role="toolbar" aria-label={t('format.toolbar') ?? ''} className="flex flex-wrap items-center gap-1">
       {buttons.map((b) => (
         <button
           key={b.key}
@@ -65,6 +69,8 @@ export function FormatBar({
           {b.face}
         </button>
       ))}
+    </div>
+    {hint && <p className="mt-1 text-xs text-slate-500">{t('format.hint')}</p>}
     </div>
   );
 }

@@ -2812,7 +2812,8 @@
     "quote": "Citation",
     "heading": "Titre",
     "show": "Mise en forme",
-    "hide": "Masquer la mise en forme"
+    "hide": "Masquer la mise en forme",
+    "hint": "Sélectionnez vos mots, puis touchez B pour les mettre en gras (I italique, S barré)."
   },
   "aboutGodNation": {
     "tab": "À propos de The God Nation",

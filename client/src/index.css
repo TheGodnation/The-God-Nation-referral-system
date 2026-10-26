@@ -37,3 +37,40 @@ body {
     @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm;
   }
 }
+
+/* Writing boxes that show bold / italic as you type (components/LiveFormatTextarea.tsx). */
+.live-format textarea {
+  scrollbar-width: none;
+}
+.live-format textarea::-webkit-scrollbar,
+.live-format .lf-mirror::-webkit-scrollbar {
+  display: none;
+}
+.live-format .lf-mirror {
+  scrollbar-width: none;
+  color: #0f172a;
+}
+.live-format textarea::placeholder {
+  color: #94a3b8;
+  -webkit-text-fill-color: #94a3b8;
+}
+.lf-mark {
+  color: #94a3b8;
+}
+.lf-b {
+  -webkit-text-stroke: 0.65px currentColor;
+}
+.lf-h {
+  -webkit-text-stroke: 0.9px currentColor;
+  color: #122a78;
+}
+.lf-s {
+  text-decoration: line-through;
+}
+.lf-i {
+  display: inline-block;
+  transform: skewX(-11deg);
+}
+.lf-quote {
+  color: #475569;
+}

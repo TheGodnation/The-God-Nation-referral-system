@@ -6,6 +6,7 @@ import { api, ApiError } from '../../lib/api';
 import { Avatar } from '../Avatar';
 import type { ChatMessage } from './types';
 import { FormatBar } from '../FormatBar';
+import { LiveFormatTextarea } from '../LiveFormatTextarea';
 
 // WhatsApp actions shared by the group and private chat screens:
 // edit a message, forward it, and search inside the chat.
@@ -39,7 +40,7 @@ export function EditSheet({ message, onCancel, onSave }: { message: ChatMessage;
         {t('chatActions.edit_title')}
       </label>
       <FormatBar textareaRef={bodyRef} value={body} onChange={setBody} className="mb-2" />
-      <textarea
+      <LiveFormatTextarea
         id="edit-message"
         ref={bodyRef}
         value={body}

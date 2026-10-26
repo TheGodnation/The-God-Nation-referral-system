@@ -1,5 +1,6 @@
 import { useRef, type RefObject, type TextareaHTMLAttributes } from 'react';
 import { FormatBar } from './FormatBar';
+import { LiveFormatTextarea } from './LiveFormatTextarea';
 
 /** A writing box with the formatting buttons above it (bold, italic, lists…), for posts and updates. */
 export function FormattedTextarea({
@@ -19,8 +20,8 @@ export function FormattedTextarea({
   const ref = textareaRef ?? own;
   return (
     <div>
-      <FormatBar textareaRef={ref} value={value} onChange={onValueChange} headings={headings} className="mb-1.5" />
-      <textarea ref={ref} value={value} onChange={(e) => onValueChange(e.target.value)} {...rest} />
+      <FormatBar textareaRef={ref} value={value} onChange={onValueChange} headings={headings} hint className="mb-1.5" />
+      <LiveFormatTextarea ref={ref} value={value} onChange={(e) => onValueChange(e.target.value)} {...rest} />
     </div>
   );
 }

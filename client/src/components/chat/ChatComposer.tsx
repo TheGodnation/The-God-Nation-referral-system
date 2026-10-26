@@ -21,6 +21,7 @@ import { ChatIcon } from './icons';
 import type { ChatMessage } from './types';
 import { loadDraft, saveDraft } from '../../lib/drafts';
 import { FormatBar } from '../FormatBar';
+import { LiveFormatTextarea } from '../LiveFormatTextarea';
 
 export interface OutgoingMessage {
   body?: string;
@@ -616,8 +617,9 @@ export function ChatComposer({
             >
               Aa
             </button>
-            <textarea
+            <LiveFormatTextarea
               ref={textRef}
+              wrapperClassName="min-w-0 flex-1"
               rows={1}
               value={text}
               aria-label={t('groupChat.type_message') ?? ''}
@@ -634,7 +636,7 @@ export function ChatComposer({
               }}
               onFocus={() => setEmojiOpen(false)}
               onKeyDown={onKeyDown}
-              className="min-w-0 max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1 py-3 text-[16px] leading-6 outline-none focus:ring-0"
+              className="block w-full max-h-[120px] resize-none border-0 bg-transparent px-1 py-3 text-[16px] leading-6 outline-none focus:ring-0"
             />
             <button
               type="button"
