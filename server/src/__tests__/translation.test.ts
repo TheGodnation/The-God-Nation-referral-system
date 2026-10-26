@@ -64,6 +64,21 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
     expect(result).toEqual({ detectedLanguage: 'fr', translatedBody: 'Good morning' });
   });
 
+  it('translateText asks Gemini to keep the formatting symbols and web addresses', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'fr', translated: '*Good* morning' }) }] } }] }),
+    }));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await translation.translateText('*Bon* matin');
+    const sent = JSON.parse((fetchSpy.mock.calls[0] as unknown as [string, { body: string }])[1].body).contents[0].parts[0].text as string;
+    expect(sent).toMatch(/\*bold\*, _italic_, ~strikethrough~/);
+    expect(sent).toMatch(/never translate or change web addresses/);
+    expect(sent).toContain('*Bon* matin');
+  });
+
   it('translateText returns null for empty or whitespace-only text, without calling Gemini', async () => {
     const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
     const fetchSpy = vi.fn();

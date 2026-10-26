@@ -6,7 +6,7 @@ import { formatBytes } from '../lib/attachmentLimits';
 import { HeadquartersFeedCard } from './HeadquartersFeedCard';
 import { VoiceInputButton } from './VoiceInputButton';
 import { Avatar } from './Avatar';
-import { Linkified } from '../lib/linkify';
+import { RichText } from '../lib/richText';
 
 interface HeadquartersPostMediaInfo {
   id: string;
@@ -274,7 +274,7 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
             )}
             <h2 className="mb-1 font-semibold text-brand-900">{isFr ? detail.titleFr || detail.titleEn : detail.titleEn}</h2>
             <p className="mb-3 text-xs text-slate-400">{new Date(detail.publishedAt).toLocaleDateString()}</p>
-            <p className="whitespace-pre-wrap text-sm text-slate-700"><Linkified text={isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn} /></p>
+            <RichText className="whitespace-pre-wrap text-sm text-slate-700" text={isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn} headings />
 
             {detail.media.length > 0 && (
               <div className="mt-4 space-y-3">
@@ -355,7 +355,7 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
                 {comments.map((c) => (
                   <li key={c.id} className="border-b border-slate-50 pb-2 text-sm">
                     <p className="text-xs font-medium text-brand-700">{c.authorName}</p>
-                    <p className="whitespace-pre-wrap text-slate-700"><Linkified text={c.body} /></p>
+                    <RichText className="whitespace-pre-wrap text-slate-700" text={c.body} />
                   </li>
                 ))}
               </ul>

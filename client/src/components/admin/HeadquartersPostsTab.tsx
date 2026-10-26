@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { isAllowedAttachmentMime, maxBytesForMime, formatBytes, MAX_HEADQUARTERS_POST_MEDIA } from '../../lib/attachmentLimits';
+import { FormattedTextarea } from '../FormattedTextarea';
 
 interface HeadquartersPostTargetRow {
   id: string;
@@ -355,12 +356,13 @@ export function HeadquartersPostsTab() {
               <label className="label" htmlFor="hqpost-body-en">
                 {t('admin.headquartersPosts.body_en_label')}
               </label>
-              <textarea
+              <FormattedTextarea
                 id="hqpost-body-en"
                 className="input"
                 rows={5}
+                headings
                 value={form.bodyEn}
-                onChange={(e) => setForm((v) => ({ ...v, bodyEn: e.target.value }))}
+                onValueChange={(next) => setForm((v) => ({ ...v, bodyEn: next }))}
                 required
               />
             </div>
@@ -368,12 +370,13 @@ export function HeadquartersPostsTab() {
               <label className="label" htmlFor="hqpost-body-fr">
                 {t('admin.headquartersPosts.body_fr_label')}
               </label>
-              <textarea
+              <FormattedTextarea
                 id="hqpost-body-fr"
                 className="input"
                 rows={5}
+                headings
                 value={form.bodyFr}
-                onChange={(e) => setForm((v) => ({ ...v, bodyFr: e.target.value }))}
+                onValueChange={(next) => setForm((v) => ({ ...v, bodyFr: next }))}
               />
             </div>
           </div>

@@ -33,6 +33,15 @@ export function splitLinks(text: string): LinkPart[] {
   return parts;
 }
 
+/** One tappable link (used by the text formatter too). */
+export function LinkAnchor({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="break-all text-sky-700 underline">
+      {children}
+    </a>
+  );
+}
+
 /** The text with its web addresses turned into links. */
 export function Linkified({ text }: { text: string | null | undefined }): ReactNode {
   if (!text) return null;

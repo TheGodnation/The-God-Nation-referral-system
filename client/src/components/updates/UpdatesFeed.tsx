@@ -12,7 +12,8 @@ import { TranslationNote } from '../TranslationNote';
 import { YoutubeEmbed } from './YoutubeEmbed';
 import { baseMime, shrinkPhoto } from '../../lib/chatMedia';
 import { useDataSaver } from '../../lib/dataSaver';
-import { Linkified } from '../../lib/linkify';
+import { RichText } from '../../lib/richText';
+import { FormattedTextarea } from '../FormattedTextarea';
 
 // The community-wide Updates feed, Facebook-style. Used on the member
 // Updates page (with the "write a post" box), on a person's profile
@@ -206,17 +207,21 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
 
   return (
     <form onSubmit={submit} className={`space-y-3 bg-white p-4 shadow-sm ${wall ? 'sm:rounded-xl' : 'rounded-xl border border-slate-100'}`}>
-      <textarea
-        ref={textRef}
+      <FormattedTextarea
+        textareaRef={textRef}
         className="w-full resize-none rounded-2xl border-0 bg-slate-100 px-4 py-3 text-[16px] outline-none focus:ring-2 focus:ring-brand-200"
         rows={2}
+        headings
         aria-label={t('updates.compose_label') ?? ''}
         placeholder={t('updates.compose_placeholder') ?? ''}
         value={body}
-        onChange={(e) => {
-          setBody(e.target.value);
-          e.target.style.height = 'auto';
-          e.target.style.height = `${Math.min(e.target.scrollHeight, 320)}px`;
+        onValueChange={(next) => {
+          setBody(next);
+          const el = textRef.current;
+          if (el) {
+            el.style.height = 'auto';
+            el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
+          }
         }}
       />
       <LengthNote value={body} max={MAX_POST_CHARS} />
@@ -345,7 +350,7 @@ function CommentBubble({
             {c.author.name}
             <CoordinatorBadge badge={c.author.badge} />
           </span>
-          <p className="whitespace-pre-wrap break-words text-sm text-slate-800"><Linkified text={c.body} /></p>
+          <RichText className="whitespace-pre-wrap break-words text-sm text-slate-800" text={c.body} />
           {total > 0 && (
             <button
               type="button"
@@ -788,7 +793,7 @@ function PostCard({
 
       {item.body && (
         <div className="px-4 pt-2">
-          <p className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`}><Linkified text={displayBody} /></p>
+          <RichText className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings />
           {isLong && (
             <button type="button" className="text-sm font-semibold text-slate-500 hover:underline" onClick={() => setExpanded((v) => !v)}>
               {expanded ? t('updates.see_less') : t('updates.see_more')}

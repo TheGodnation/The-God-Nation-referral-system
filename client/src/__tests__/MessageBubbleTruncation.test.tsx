@@ -40,16 +40,18 @@ describe('MessageBubble — long message truncation', () => {
 
   it('clamps a long message and offers "Read more", which reveals the full text and preserves it exactly (formatting, emoji, links)', () => {
     const longBody = `Here is the full plan for Sunday 🙏\nhttps://example.com/plan\n${'Word '.repeat(80)}`;
-    render(<MessageBubble m={baseMessage({ body: longBody })} {...bubbleHandlers} />);
+    const { container } = render(<MessageBubble m={baseMessage({ body: longBody })} {...bubbleHandlers} />);
 
-    const paragraph = screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === longBody);
-    expect(paragraph.className).toContain('line-clamp-6');
+    // The message text sits in one block that carries the clamp.
+    const text = () => screen.getByText((_, el) => el?.getAttribute('data-testid') === null && el.textContent === longBody && el.tagName === 'DIV' && el.className.includes('text-slate-900'));
+    expect(text().className).toContain('line-clamp-6');
+    expect(container.querySelector('a')).toHaveAttribute('href', 'https://example.com/plan');
 
     const readMore = screen.getByRole('button', { name: 'Read more' });
     fireEvent.click(readMore);
 
-    expect(paragraph.className).not.toContain('line-clamp-6');
-    expect(paragraph.textContent).toBe(longBody);
+    expect(text().className).not.toContain('line-clamp-6');
+    expect(text().textContent).toBe(longBody);
     expect(screen.getByRole('button', { name: 'Read less' })).toBeInTheDocument();
   });
 
@@ -60,8 +62,8 @@ describe('MessageBubble — long message truncation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Read more' }));
     fireEvent.click(screen.getByRole('button', { name: 'Read less' }));
 
-    const paragraph = screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === longBody);
-    expect(paragraph.className).toContain('line-clamp-6');
+    const text = screen.getByText((_, el) => el?.tagName === 'DIV' && el.textContent === longBody && el.className.includes('text-slate-900'));
+    expect(text.className).toContain('line-clamp-6');
   });
 
   it('a message with many short lines (over 7) is also treated as long, even under the character threshold', () => {

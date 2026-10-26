@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { plainPreview } from '../../lib/richText';
 import { useMemberAuth } from '../../lib/MemberAuthContext';
 import { draftKeyFor, loadDraft } from '../../lib/drafts';
 
@@ -12,7 +13,7 @@ export function DraftPreview({ draft }: { draft: string }) {
   const { t } = useTranslation();
   return (
     <>
-      <span className="font-medium text-red-600">{t('groupChat.draft')}:</span> {draft}
+      <span className="font-medium text-red-600">{t('groupChat.draft')}:</span> {plainPreview(draft)}
     </>
   );
 }

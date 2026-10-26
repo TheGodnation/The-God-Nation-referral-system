@@ -12,6 +12,7 @@ import { mediaKind } from '../components/chat/types';
 import { Announcements } from '../components/Announcements';
 import { api } from '../lib/api';
 import { DraftPreview, useChatDraft } from '../components/chat/DraftTag';
+import { plainPreview } from '../lib/richText';
 
 interface MembershipRow {
   communityId: string;
@@ -64,7 +65,7 @@ function GroupRow({ m }: { m: MembershipRow }) {
             : '';
   const preview = !last
     ? t('groupChat.tap_to_open')
-    : `${last.isOwn ? t('groupChat.you') : last.senderName.split(' ')[0]}: ${last.deleted ? `🚫 ${deletedText}` : last.body || media}`;
+    : `${last.isOwn ? t('groupChat.you') : last.senderName.split(' ')[0]}: ${last.deleted ? `🚫 ${deletedText}` : plainPreview(last.body) || media}`;
   return (
     <li>
       <Link to={`/member/chats/group/${m.communityId}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">

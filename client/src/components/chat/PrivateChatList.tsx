@@ -6,6 +6,7 @@ import { Avatar } from '../Avatar';
 import { mediaKind } from './types';
 import { Ticks } from './MessageBubble';
 import { DraftPreview, useChatDraft } from './DraftTag';
+import { plainPreview } from '../../lib/richText';
 
 interface ConversationRow {
   id: string;
@@ -77,7 +78,7 @@ export function PrivateChatList() {
             : kind === 'document'
               ? `📄 ${t('groupChat.document_label')}`
               : '';
-    const text = m.deleted ? `🚫 ${m.isOwn ? t('chatActions.you_deleted') : t('chatActions.deleted')}` : m.body || media;
+    const text = m.deleted ? `🚫 ${m.isOwn ? t('chatActions.you_deleted') : t('chatActions.deleted')}` : plainPreview(m.body) || media;
     return m.isOwn ? `${t('groupChat.you')}: ${text}` : text;
   }
 

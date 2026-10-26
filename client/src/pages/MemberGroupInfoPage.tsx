@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { Avatar } from '../components/Avatar';
 import { ManageAssembly } from '../components/assembly/ManageAssembly';
-import { Linkified } from '../lib/linkify';
+import { RichText } from '../lib/richText';
 
 interface GroupMeta {
   name?: string | null;
@@ -131,7 +131,7 @@ export function MemberGroupInfoPage() {
           {about && (
             <section className="bg-white px-4 py-4 shadow-sm sm:rounded-xl">
               <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-brand-700">🎯 {t('groupInfo.about')}</h3>
-              <p className={`whitespace-pre-wrap text-[15px] leading-relaxed text-slate-800 ${about.length > 280 && !aboutOpen ? 'line-clamp-6' : ''}`}><Linkified text={about} /></p>
+              <RichText className={`whitespace-pre-wrap text-[15px] leading-relaxed text-slate-800 ${about.length > 280 && !aboutOpen ? 'line-clamp-6' : ''}`} text={about} />
               {about.length > 280 && (
                 <button type="button" onClick={() => setAboutOpen((v) => !v)} className="mt-1 text-sm font-semibold text-brand-700">
                   {aboutOpen ? t('updates.see_less') : t('updates.see_more')}

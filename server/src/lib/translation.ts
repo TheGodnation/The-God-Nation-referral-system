@@ -186,8 +186,10 @@ export async function translateText(text: string, opts: GeminiCallOptions = {}):
   if (!text.trim()) return null;
   const prompt =
     'Detect whether the following message is written in English or French, then translate it into ' +
-    'the other of those two languages. Keep the tone, emoji and meaning natural; reply with the ' +
-    'translation only, no commentary.\n\nMessage:\n"""' +
+    'the other of those two languages. Keep the tone, emoji and meaning natural. The message may use ' +
+    'formatting symbols: *bold*, _italic_, ~strikethrough~, and lines starting with "- ", "1. ", "> " or ' +
+    '"# ". Keep every symbol exactly where it belongs around the translated words, keep line breaks, ' +
+    'and never translate or change web addresses. Reply with the translation only, no commentary.\n\nMessage:\n"""' +
     text +
     '"""';
   const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], textSchema, { timeoutMs: textTimeoutMs(text), ...opts });

@@ -7,6 +7,7 @@ import { api, ApiError } from '../lib/api';
 import { ChatUploadError, uploadChatFile } from '../lib/chatMedia';
 import { formatBytes } from '../lib/attachmentLimits';
 import { MAX_MESSAGE_CHARS, isTooLong } from '../lib/textLimits';
+import { FormattedTextarea } from '../components/FormattedTextarea';
 
 // The central admin's screen for a new teaching: title, text, an audio /
 // video / PDF, the quiz questions (written by hand or drafted by the AI and
@@ -162,7 +163,7 @@ export function MemberTeachingComposePage() {
           <label className="label" htmlFor="teaching-text">
             {t('teaching.field_text')}
           </label>
-          <textarea id="teaching-text" className="input min-h-[10rem]" value={text} onChange={(e) => setText(e.target.value)} />
+          <FormattedTextarea id="teaching-text" className="input min-h-[10rem]" headings value={text} onValueChange={setText} />
           <LengthNote value={text} max={MAX_MESSAGE_CHARS} />
         </div>
 

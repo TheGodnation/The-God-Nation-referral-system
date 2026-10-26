@@ -2706,5 +2706,17 @@
     "created": "{{name}} is ready",
     "created_help": "It is empty and private. Open it, then tap “Add people”.",
     "open_new": "Open it"
+  },
+  "format": {
+    "toolbar": "Text formatting",
+    "bold": "Bold",
+    "italic": "Italic",
+    "strike": "Strikethrough",
+    "bullets": "Bullet list",
+    "numbers": "Numbered list",
+    "quote": "Quote",
+    "heading": "Heading",
+    "show": "Formatting",
+    "hide": "Hide formatting"
   }
 }

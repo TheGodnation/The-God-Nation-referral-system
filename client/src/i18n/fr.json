@@ -2706,5 +2706,17 @@
     "created": "{{name}} est prête",
     "created_help": "Elle est vide et privée. Ouvrez-la, puis touchez « Ajouter des personnes ».",
     "open_new": "L'ouvrir"
+  },
+  "format": {
+    "toolbar": "Mise en forme du texte",
+    "bold": "Gras",
+    "italic": "Italique",
+    "strike": "Barré",
+    "bullets": "Liste à puces",
+    "numbers": "Liste numérotée",
+    "quote": "Citation",
+    "heading": "Titre",
+    "show": "Mise en forme",
+    "hide": "Masquer la mise en forme"
   }
 }

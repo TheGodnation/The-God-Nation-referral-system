@@ -20,6 +20,7 @@ import { VoiceInputButton } from '../VoiceInputButton';
 import { ChatIcon } from './icons';
 import type { ChatMessage } from './types';
 import { loadDraft, saveDraft } from '../../lib/drafts';
+import { FormatBar } from '../FormatBar';
 
 export interface OutgoingMessage {
   body?: string;
@@ -112,6 +113,8 @@ export function ChatComposer({
   }
   const [menuOpen, setMenuOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // The bold / italic / list buttons: opened with the "Aa" button, or by selecting words.
+  const [formatOpen, setFormatOpen] = useState(false);
   // Where the caret was in the message box, so an emoji picked while the
   // keyboard is hidden still lands in the right place.
   const cursorRef = useRef<{ start: number; end: number } | null>(null);
@@ -581,6 +584,17 @@ export function ChatComposer({
         </div>
       ) : (
         <>
+        {formatOpen && (
+          <FormatBar
+            textareaRef={textRef}
+            value={text}
+            onChange={(next) => {
+              setText(next);
+              signalTyping(next);
+            }}
+            className="mb-2"
+          />
+        )}
         <div className="flex items-end gap-2">
           <div className="flex min-h-[48px] min-w-0 flex-1 items-end rounded-3xl bg-white px-1">
             <button
@@ -591,6 +605,16 @@ export function ChatComposer({
               className="shrink-0 p-2.5 text-slate-500"
             >
               <ChatIcon name={emojiOpen ? 'keyboard' : 'smiley'} />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setFormatOpen((v) => !v)}
+              aria-label={t(formatOpen ? 'format.hide' : 'format.show') ?? ''}
+              aria-pressed={formatOpen}
+              className={`shrink-0 px-1.5 py-2.5 text-sm font-semibold ${formatOpen ? 'text-emerald-700' : 'text-slate-500'}`}
+            >
+              Aa
             </button>
             <textarea
               ref={textRef}
@@ -604,7 +628,10 @@ export function ChatComposer({
                 signalTyping(e.target.value);
                 rememberCursor(e.target);
               }}
-              onSelect={(e) => rememberCursor(e.currentTarget)}
+              onSelect={(e) => {
+                rememberCursor(e.currentTarget);
+                if (e.currentTarget.selectionEnd !== e.currentTarget.selectionStart) setFormatOpen(true);
+              }}
               onFocus={() => setEmojiOpen(false)}
               onKeyDown={onKeyDown}
               className="min-w-0 max-h-[120px] flex-1 resize-none border-0 bg-transparent px-1 py-3 text-[16px] leading-6 outline-none focus:ring-0"

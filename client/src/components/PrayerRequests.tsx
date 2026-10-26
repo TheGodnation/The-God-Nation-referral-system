@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
 import { Avatar } from './Avatar';
 import { VoiceInputButton } from './VoiceInputButton';
-import { Linkified } from '../lib/linkify';
+import { RichText } from '../lib/richText';
+import { FormattedTextarea } from './FormattedTextarea';
 
 // Phase 2 — Prayer requests. A Member/Leader shares a request either
 // PUBLIC (same flat, everyone-sees-it feed shape as Updates) or PRIVATE
@@ -87,13 +88,14 @@ function Composer({ onPosted }: { onPosted: () => void }) {
 
   return (
     <form onSubmit={submit} className="card space-y-3">
-      <textarea
+      <FormattedTextarea
         className="w-full resize-none rounded-2xl border-0 bg-slate-100 px-4 py-3 text-[16px] outline-none focus:ring-2 focus:ring-brand-200"
         rows={3}
+        headings
         aria-label={t('prayerRequests.compose_label') ?? ''}
         placeholder={t('prayerRequests.compose_placeholder') ?? ''}
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onValueChange={setBody}
       />
       <LengthNote value={body} max={MAX_POST_CHARS} />
       <div className="flex items-center justify-between gap-2">
@@ -202,7 +204,7 @@ function Comments({ requestId, canComment, onCountChange }: { requestId: string;
                 {c.author.name}
                 <CoordinatorBadge badge={c.author.badge} />
               </span>
-              <p className="whitespace-pre-wrap break-words text-sm text-slate-800"><Linkified text={c.body} /></p>
+              <RichText className="whitespace-pre-wrap break-words text-sm text-slate-800" text={c.body} />
             </div>
             {c.canDelete && (
               <button type="button" className="ml-2 mt-1 text-xs font-semibold text-red-700 hover:underline" onClick={() => void remove(c.id)}>
@@ -257,7 +259,7 @@ function RequestCard({ item, canComment, onDeleted }: { item: PrayerRequestItem;
           </button>
         )}
       </header>
-      <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900"><Linkified text={item.body} /></p>
+      <RichText className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900" text={item.body} headings />
       <button type="button" className="text-sm font-semibold text-slate-500 hover:underline" onClick={() => setShowComments((v) => !v)}>
         🙏 {t('prayerRequests.comment_count', { count: commentCount })}
       </button>

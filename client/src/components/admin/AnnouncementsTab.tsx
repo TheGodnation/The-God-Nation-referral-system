@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
+import { FormattedTextarea } from '../FormattedTextarea';
 
 interface AnnouncementTargetRow {
   id: string;
@@ -227,12 +228,13 @@ export function AnnouncementsTab() {
               <label className="label" htmlFor="announcement-body-en">
                 {t('admin.announcements.body_en_label')}
               </label>
-              <textarea
+              <FormattedTextarea
                 id="announcement-body-en"
                 className="input"
                 rows={5}
+                headings
                 value={form.bodyEn}
-                onChange={(e) => setForm((v) => ({ ...v, bodyEn: e.target.value }))}
+                onValueChange={(next) => setForm((v) => ({ ...v, bodyEn: next }))}
                 required
               />
             </div>
@@ -240,12 +242,13 @@ export function AnnouncementsTab() {
               <label className="label" htmlFor="announcement-body-fr">
                 {t('admin.announcements.body_fr_label')}
               </label>
-              <textarea
+              <FormattedTextarea
                 id="announcement-body-fr"
                 className="input"
                 rows={5}
+                headings
                 value={form.bodyFr}
-                onChange={(e) => setForm((v) => ({ ...v, bodyFr: e.target.value }))}
+                onValueChange={(next) => setForm((v) => ({ ...v, bodyFr: next }))}
               />
             </div>
           </div>

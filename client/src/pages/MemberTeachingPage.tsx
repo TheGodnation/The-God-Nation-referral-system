@@ -7,7 +7,7 @@ import { TeachingResults } from '../components/teaching/TeachingResults';
 import { api } from '../lib/api';
 import { getAttachmentUrl } from '../lib/chatMedia';
 import { useMemberAuth } from '../lib/MemberAuthContext';
-import { Linkified } from '../lib/linkify';
+import { RichText } from '../lib/richText';
 
 // A teaching, as a member sees it: the text and/or audio / video / PDF, then
 // the quiz that opens only after the system has seen them finish (read to
@@ -272,9 +272,7 @@ export function MemberTeachingPage() {
 
         {hasText && (
           <article className="rounded-xl bg-white p-4 shadow-sm">
-            <p className="whitespace-pre-wrap break-words text-[17px] leading-relaxed text-slate-900" data-testid="teaching-text">
-              <Linkified text={teaching.text} />
-            </p>
+            <RichText className="whitespace-pre-wrap break-words text-[17px] leading-relaxed text-slate-900" data-testid="teaching-text" text={teaching.text} headings />
             <div ref={endRef} className="mt-4 h-1" data-testid="teaching-end" />
             {me.textRead ? (
               <p className="mt-2 text-sm font-medium text-green-700">✓ {t('teaching.text_counted')}</p>
