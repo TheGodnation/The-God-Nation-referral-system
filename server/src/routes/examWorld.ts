@@ -8,7 +8,7 @@ import { recordAudit } from '../lib/audit';
 import { readingProgressLimiter, socialMutationLimiter } from '../lib/rateLimit';
 import { getObjectStream, isStorageConfigured } from '../lib/storage';
 import crypto from 'crypto';
-import { openUnpaidBook } from '../lib/bookPayments';
+import { createClaimBatch, openUnpaidBook } from '../lib/bookPayments';
 import { canReadBook, canSeeDevotional, examAccess, getTrainingBooksFor, MAX_GRACE_BOOKS } from '../lib/examWorld';
 import { activePaymentProvider } from '../lib/payments';
 import { trainingExamState } from '../lib/trainingExam';
@@ -136,6 +136,8 @@ async function trainingSummary(personId: string) {
     // unless "study now, pay later" grace allows up to 5 owed.
     price,
     owed: { books: owedBooks, amount: owedBooks * price },
+    // Books that can still be paid for (open or not yet), for "pay for several books".
+    payableCount: enrollment?.status === 'ACTIVE' ? books.filter((b) => b.payment === null).length : 0,
     graceBooks: enrollment?.graceBooks ?? 0,
     maxGraceBooks: MAX_GRACE_BOOKS,
     graceRequest: graceRequest ?? null,
@@ -250,6 +252,38 @@ router.post('/training/books/:id/payments', socialMutationLimiter, requireCsrf, 
   });
   await recordAudit({ action: 'BOOK_PAYMENT_CLAIMED', targetType: 'BookPayment', targetId: payment.id, metadata: { personId, bookNumber: found.book.trainingOrder } });
   res.status(201).json(payment);
+}));
+
+const claimManySchema = z.object({
+  count: z.number().int().min(1).max(100),
+  reference: z.string().trim().min(3).max(60),
+  payerPhone: z.string().trim().max(30).optional(),
+});
+
+// POST /api/member/training/payments — "I have paid" for several books at
+// once (the next unpaid ones in order, open or not yet — paying ahead is
+// allowed) with one Mobile Money transaction ID. The central admin confirms
+// them together; each book earns the inviter's share.
+router.post('/training/payments', socialMutationLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
+  const parsed = claimManySchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Please choose how many books and type the Mobile Money transaction ID.', code: 'INVALID' });
+  const personId = req.member!.personId;
+  const reused = await prisma.bookPayment.findFirst({
+    where: { reference: { equals: parsed.data.reference, mode: 'insensitive' }, status: { in: ['CLAIMED', 'PENDING', 'CONFIRMED'] } },
+    select: { id: true },
+  });
+  if (reused) return res.status(409).json({ error: 'This transaction ID has already been used for a payment. Please check it and type the ID from your own payment message.', code: 'DUPLICATE_REFERENCE' });
+  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { trainingBookPrice: true } });
+  const batch = await createClaimBatch({
+    personId,
+    count: parsed.data.count,
+    amountEach: settings?.trainingBookPrice ?? 1200,
+    reference: parsed.data.reference,
+    payerPhone: parsed.data.payerPhone,
+  });
+  if (!batch) return res.status(409).json({ error: 'You cannot pay for that many books. Please choose fewer.', code: 'TOO_MANY' });
+  await recordAudit({ action: 'BOOK_PAYMENT_CLAIMED', targetType: 'BookPayment', targetId: batch.rows[0].id, metadata: { personId, count: parsed.data.count } });
+  res.status(201).json({ id: batch.rows[0].id, status: 'CLAIMED', count: batch.rows.length });
 }));
 
 const payNowSchema = z.object({ phone: z.string().trim().regex(/^\+?[0-9 ]{8,20}$/) });

@@ -247,3 +247,96 @@ describe('Payment agents: the central admin', () => {
     expect((await buyer.agent.get('/api/admin/payment-agents')).status).toBeGreaterThanOrEqual(401);
   });
 });
+
+describe('Paying for several books at once', () => {
+  /** A member who has begun the training, with `n` books in the school. */
+  async function trainee(n: number) {
+    const a = await admin();
+    const books = [];
+    for (let i = 1; i <= n; i++) books.push(await book(i));
+    const buyer = await member('Many Buyer');
+    expect((await send(buyer, 'post', '/api/member/training/request')).status).toBe(201);
+    return { a, books, buyer };
+  }
+  const world = async (m: Who) => (await m.agent.get('/api/member/exam-world')).body.training;
+
+  it('pays for the next books in order with one transaction ID; the admin confirms them together; each book earns the inviter 500', async () => {
+    const { a, books, buyer } = await trainee(4);
+    const grace = await member('Many Referrer');
+    await prisma.friendship.create({ data: { requesterPersonId: grace.id, addresseePersonId: buyer.id, status: 'ACCEPTED', origin: 'REFERRAL', respondedAt: new Date() } });
+    expect((await world(buyer)).payableCount).toBe(4);
+
+    const claim = await send(buyer, 'post', '/api/member/training/payments', { count: 3, reference: 'MANY-BOOKS-001', payerPhone: '+237 670 000 001' });
+    expect(claim.status).toBe(201);
+    expect(claim.body.count).toBe(3);
+    const rows = await prisma.bookPayment.findMany({ where: { personId: buyer.id }, orderBy: { bookNumber: 'asc' } });
+    expect(rows.map((r) => [r.bookNumber, r.amount, r.status, r.reference])).toEqual([[1, 1200, 'CLAIMED', 'MANY-BOOKS-001'], [2, 1200, 'CLAIMED', 'MANY-BOOKS-001'], [3, 1200, 'CLAIMED', 'MANY-BOOKS-001']]);
+    expect(new Set(rows.map((r) => r.batchId)).size).toBe(1);
+    expect((await world(buyer)).payableCount).toBe(1);
+
+    // One line for the admin: books 1–3, 3,600 FCFA.
+    const list = await a.agent.get('/api/admin/library/payments');
+    expect(list.body.items).toEqual([expect.objectContaining({ bookNumbers: [1, 2, 3], bookCount: 3, amount: 3600, reference: 'MANY-BOOKS-001' })]);
+
+    expect((await send(a, 'post', `/api/admin/library/payments/${list.body.items[0].id}`, { decision: 'CONFIRM' })).body.status).toBe('CONFIRMED');
+    const w = await world(buyer);
+    // Books 2 and 3 are paid ahead, even though they are not open yet.
+    expect(w.books.map((b: any) => [b.trainingOrder, b.payment])).toEqual([[1, 'PAID'], [2, 'PAID'], [3, 'PAID'], [4, null]]);
+    expect(w.books[1].unlocked).toBe(false);
+    expect(await prisma.referralEarning.count({ where: { referrerPersonId: grace.id } })).toBe(3);
+    const notes = await prisma.notification.findMany({ where: { recipientPersonId: buyer.id, type: 'BOOK_PAYMENT_CONFIRMED' } });
+    expect(notes).toHaveLength(1);
+    expect((notes[0].metadata as any).count).toBe(3);
+    void books;
+  });
+
+  it('can pay for every remaining book at once, but not for more than there are; the same ID cannot be reused', async () => {
+    const { buyer } = await trainee(3);
+    expect((await send(buyer, 'post', '/api/member/training/payments', { count: 4, reference: 'TOO-MANY-001' })).body.code).toBe('TOO_MANY');
+    expect((await send(buyer, 'post', '/api/member/training/payments', { count: 0, reference: 'ZERO-BOOKS-1' })).status).toBe(400);
+    expect((await send(buyer, 'post', '/api/member/training/payments', { count: 3, reference: 'ALL-BOOKS-001' })).status).toBe(201);
+    expect((await send(buyer, 'post', '/api/member/training/payments', { count: 1, reference: 'all-books-001' })).body.code).toBe('DUPLICATE_REFERENCE');
+    // Nothing left to pay for while the claim waits.
+    expect((await send(buyer, 'post', '/api/member/training/payments', { count: 1, reference: 'NOTHING-LEFT-1' })).body.code).toBe('TOO_MANY');
+  });
+
+  it('after some books are paid, the next payment covers the next unpaid ones (study now, pay later)', async () => {
+    const { a, books, buyer } = await trainee(5);
+    // Book 1 paid already.
+    await send(a, 'post', '/api/admin/library/payments', { personId: buyer.id, bookId: books[0].id });
+    const claim = await send(buyer, 'post', '/api/member/training/payments', { count: 2, reference: 'NEXT-TWO-0001' });
+    expect(claim.status).toBe(201);
+    const rows = await prisma.bookPayment.findMany({ where: { personId: buyer.id, status: 'CLAIMED' }, orderBy: { bookNumber: 'asc' } });
+    expect(rows.map((r) => r.bookNumber)).toEqual([2, 3]);
+  });
+
+  it('a rejected batch is rejected as a whole, and can be sent again', async () => {
+    const { a, buyer } = await trainee(3);
+    const claim = await send(buyer, 'post', '/api/member/training/payments', { count: 2, reference: 'REJECT-ME-0001' });
+    expect((await send(a, 'post', `/api/admin/library/payments/${claim.body.id}`, { decision: 'REJECT' })).body.status).toBe('REJECTED');
+    expect(await prisma.bookPayment.count({ where: { personId: buyer.id, status: 'REJECTED' } })).toBe(2);
+    expect((await send(buyer, 'post', '/api/member/training/payments', { count: 2, reference: 'REJECT-ME-0002' })).status).toBe(201);
+  });
+
+  it('through an agent: the order is for several books, the agent confirms them all', async () => {
+    const { a, buyer } = await trainee(4);
+    const agentWho = await member('Batch Agent');
+    const agentId = (await send(a, 'post', '/api/admin/payment-agents', { personId: agentWho.id })).body.id as string;
+    const opened = await send(buyer, 'post', '/api/member/pay/orders', { agentId, count: 3 });
+    expect(opened.status).toBe(201);
+    const view = await buyer.agent.get(`/api/member/pay/orders/${opened.body.id}`);
+    expect(view.body).toMatchObject({ amount: 3600, bookCount: 3, bookNumber: 1 });
+    expect((await send(buyer, 'post', '/api/member/pay/orders', { agentId, count: 9 })).body.code).toBe('TOO_MANY');
+
+    expect((await send(buyer, 'post', `/api/member/pay/orders/${opened.body.id}/paid`, { reference: 'AGENT-MANY-001' })).status).toBe(201);
+    expect(await prisma.bookPayment.count({ where: { orderId: opened.body.id, status: 'CLAIMED' } })).toBe(3);
+    // The same agent cannot be asked for something else while this one is waiting.
+    expect((await send(buyer, 'post', '/api/member/pay/orders', { agentId, count: 1 })).body.code).toBe('WAITING');
+
+    expect((await send(agentWho, 'post', `/api/member/pay/orders/${opened.body.id}/decide`, { decision: 'CONFIRM' })).body.status).toBe('CONFIRMED');
+    expect((await prisma.paymentOrder.findUniqueOrThrow({ where: { id: opened.body.id } })).status).toBe('CONFIRMED');
+    const w = await world(buyer);
+    expect(w.books.map((b: any) => b.payment)).toEqual(['PAID', 'PAID', 'PAID', null]);
+    expect((await agentWho.agent.get('/api/member/pay/desk')).body.confirmedToday).toBe(1);
+  });
+});

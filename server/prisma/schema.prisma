@@ -2876,6 +2876,9 @@ model BookPayment {
   // (agents are members, so decidedByUserId stays empty for them).
   orderId           String?
   decidedByPersonId String?
+  // Several books paid with one payment share a batchId (one row per book,
+  // each at the book price, so every book earns the inviter's share).
+  batchId           String?
 
   person    Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
   book      LibraryBook? @relation(fields: [bookId], references: [id], onDelete: SetNull)
@@ -2886,6 +2889,7 @@ model BookPayment {
   @@index([personId, bookId])
   @@index([status, createdAt])
   @@index([orderId])
+  @@index([batchId])
 }
 
 enum EarningStatus {
@@ -3153,6 +3157,8 @@ model PaymentOrder {
   bookId        String?
   bookNumber    Int?
   amount        Int
+  // How many books this order pays for (the next unpaid ones, in order).
+  bookCount     Int                @default(1)
   status        PaymentOrderStatus @default(OPEN)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt

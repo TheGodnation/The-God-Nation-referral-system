@@ -14,6 +14,7 @@ interface DeskOrder {
   status: 'OPEN' | 'CLAIMED' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
   amount: number;
   bookNumber: number | null;
+  bookCount: number;
   buyerName: string;
   buyerPhotoUrl: string | null;
   buyerOnline: boolean;
@@ -41,7 +42,7 @@ function Row({ o }: { o: DeskOrder }) {
             <span className="truncate">{o.buyerName}</span>
           </span>
           <span className="block truncate text-sm text-slate-500">
-            {t('payAgents.book_line', { number: o.bookNumber ?? '' })} · {fcfa(o.amount)}
+            {o.bookCount > 1 ? t('payAgents.books_line', { count: o.bookCount }) : t('payAgents.book_line', { number: o.bookNumber ?? '' })} · {fcfa(o.amount)}
           </span>
         </span>
         <span className={`shrink-0 text-xs font-semibold ${o.status === 'CLAIMED' ? 'text-amber-700' : o.status === 'CONFIRMED' ? 'text-green-700' : 'text-slate-500'}`}>

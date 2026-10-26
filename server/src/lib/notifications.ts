@@ -133,17 +133,17 @@ export async function notifyExamRetakeDecision(request: { id: string; personId: 
 }
 
 /** A leadership book payment was confirmed (manually by the admin, or by the payment company) or rejected. */
-export async function notifyBookPaymentDecision(payment: { id: string; personId: string | null; bookNumber: number | null; amount: number }, confirmed: boolean) {
+export async function notifyBookPaymentDecision(payment: { id: string; personId: string | null; bookNumber: number | null; amount: number }, confirmed: boolean, count = 1) {
   if (!payment.personId) return;
   await createNotification({
     recipientPersonId: payment.personId,
     type: confirmed ? 'BOOK_PAYMENT_CONFIRMED' : 'BOOK_PAYMENT_REJECTED',
-    metadata: { bookNumber: payment.bookNumber, amount: payment.amount },
+    metadata: { bookNumber: payment.bookNumber, amount: payment.amount, count },
     targetType: 'BookPayment',
     targetId: payment.id,
     push: confirmed
-      ? { title: 'Payment confirmed', body: `Your payment for Book ${payment.bookNumber ?? ''} is confirmed. Thank you!`, url: '/member/learn' }
-      : { title: 'Payment not confirmed', body: `Your payment for Book ${payment.bookNumber ?? ''} could not be confirmed. Please check the transaction ID.`, url: '/member/learn' },
+      ? { title: 'Payment confirmed', body: count > 1 ? `Your payment for ${count} books is confirmed. Thank you!` : `Your payment for Book ${payment.bookNumber ?? ''} is confirmed. Thank you!`, url: '/member/learn' }
+      : { title: 'Payment not confirmed', body: count > 1 ? 'Your payment for several books could not be confirmed. Please check the transaction ID.' : `Your payment for Book ${payment.bookNumber ?? ''} could not be confirmed. Please check the transaction ID.`, url: '/member/learn' },
   });
 }
 
@@ -424,14 +424,14 @@ export async function notifyAreaRepresentationRequestDeclined(request: { id: str
 }
 
 /** A member opened a payment order with this payment agent. */
-export async function notifyPaymentOrderNew(order: { id: string; bookNumber: number | null }, agentPersonId: string, buyerName: string) {
+export async function notifyPaymentOrderNew(order: { id: string; bookNumber: number | null }, agentPersonId: string, buyerName: string, count = 1) {
   await createNotification({
     recipientPersonId: agentPersonId,
     type: 'PAYMENT_ORDER_NEW',
-    metadata: { name: buyerName, bookNumber: order.bookNumber },
+    metadata: { name: buyerName, bookNumber: order.bookNumber, count },
     targetType: 'PaymentOrder',
     targetId: order.id,
-    push: { title: 'New payment order', body: `${buyerName} wants to pay for Book ${order.bookNumber ?? ''}.`, url: `/member/payment-orders/${order.id}` },
+    push: { title: 'New payment order', body: count > 1 ? `${buyerName} wants to pay for ${count} books.` : `${buyerName} wants to pay for Book ${order.bookNumber ?? ''}.`, url: `/member/payment-orders/${order.id}` },
   });
 }
 

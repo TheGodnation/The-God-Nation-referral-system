@@ -581,20 +581,42 @@ router.get('/payments', asyncHandler(async (req, res) => {
     take: 300,
     include: { person: { select: { id: true, name: true, whatsappNumber: true } } },
   });
+  // A payment for several books is one line: the lowest book's row stands for the batch.
+  const batchSize = new Map<string, { count: number; amount: number; numbers: number[] }>();
+  for (const p of rows) {
+    if (!p.batchId) continue;
+    const b = batchSize.get(p.batchId) ?? { count: 0, amount: 0, numbers: [] };
+    b.count += 1;
+    b.amount += p.amount;
+    if (p.bookNumber !== null) b.numbers.push(p.bookNumber);
+    batchSize.set(p.batchId, b);
+  }
+  const seen = new Set<string>();
+  const lines = rows.filter((p) => {
+    if (!p.batchId) return true;
+    if (seen.has(p.batchId)) return false;
+    seen.add(p.batchId);
+    return true;
+  });
   res.json({
-    items: rows.map((p) => ({
-      id: p.id,
-      person: p.person,
-      bookNumber: p.bookNumber,
-      amount: p.amount,
-      method: p.method,
-      status: p.status,
-      reference: p.reference,
-      payerPhone: p.payerPhone,
-      note: p.note,
-      createdAt: p.createdAt,
-      decidedAt: p.decidedAt,
-    })),
+    items: lines.map((p) => {
+      const batch = p.batchId ? batchSize.get(p.batchId) : undefined;
+      return {
+        id: p.id,
+        person: p.person,
+        bookNumber: p.bookNumber,
+        bookNumbers: batch ? batch.numbers.sort((x, y) => x - y) : p.bookNumber !== null ? [p.bookNumber] : [],
+        bookCount: batch?.count ?? 1,
+        amount: batch?.amount ?? p.amount,
+        method: p.method,
+        status: p.status,
+        reference: p.reference,
+        payerPhone: p.payerPhone,
+        note: p.note,
+        createdAt: p.createdAt,
+        decidedAt: p.decidedAt,
+      };
+    }),
   });
 }));
 

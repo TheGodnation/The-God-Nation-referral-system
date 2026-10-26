@@ -109,6 +109,7 @@ router.get('/payment-orders', asyncHandler(async (req, res) => {
       status: o.status,
       amount: o.amount,
       bookNumber: o.bookNumber,
+      bookCount: o.bookCount,
       buyerName: o.buyer.name,
       agentName: o.agent.person.name,
       reference: o.payments[0]?.reference ?? null,

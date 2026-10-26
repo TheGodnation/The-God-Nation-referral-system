@@ -27,6 +27,7 @@ interface OrderRow {
   status: string;
   amount: number;
   bookNumber: number | null;
+  bookCount?: number;
   buyerName: string;
   agentName: string;
   reference: string | null;
@@ -157,7 +158,7 @@ export function PaymentAgentsAdmin() {
           {orders.map((o) => (
             <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span>
-                <strong>{o.buyerName}</strong> → {o.agentName} · {t('payAgents.book_line', { number: o.bookNumber ?? '' })} · {o.amount.toLocaleString('fr-FR')} FCFA
+                <strong>{o.buyerName}</strong> → {o.agentName} · {(o.bookCount ?? 1) > 1 ? t('payAgents.books_line', { count: o.bookCount }) : t('payAgents.book_line', { number: o.bookNumber ?? '' })} · {o.amount.toLocaleString('fr-FR')} FCFA
                 {o.reference ? ` · ${o.reference}` : ''}
                 {o.proofs > 0 ? ` · 📷${o.proofs}` : ''}
               </span>

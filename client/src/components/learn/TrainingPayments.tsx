@@ -111,6 +111,111 @@ export function PayBookPanel({
   );
 }
 
+// Pay for several books at once — all that are owed ("study now, pay later"),
+// or ahead: the next unpaid books in order, open or not yet.
+export function PayManyPanel({
+  price,
+  owedBooks,
+  payable,
+  instructions,
+  onDone,
+}: {
+  price: number;
+  owedBooks: number;
+  payable: number;
+  instructions: string | null;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(Math.min(Math.max(owedBooks, 1), payable));
+  const [reference, setReference] = useState('');
+  const [phone, setPhone] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (payable < 1) return null;
+  if (!open) {
+    return (
+      <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => setOpen(true)}>
+        {t('payMany.open')}
+      </button>
+    );
+  }
+
+  async function claim(e: React.FormEvent) {
+    e.preventDefault();
+    if (reference.trim().length < 3) return setError(t('payments.need_reference'));
+    setError(null);
+    setBusy(true);
+    try {
+      await api.post('/api/member/training/payments', { count, reference: reference.trim(), payerPhone: phone.trim() || undefined });
+      setOpen(false);
+      onDone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('payments.failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-brand-100 bg-brand-50 p-3" data-testid="pay-many">
+      <p className="font-semibold text-brand-900">{t('payMany.title')}</p>
+      <label className="label" htmlFor="pay-many-count">
+        {t('payMany.how_many')}
+      </label>
+      <select id="pay-many-count" className="input" value={count} onChange={(e) => setCount(parseInt(e.target.value, 10))}>
+        {Array.from({ length: payable }, (_, i) => i + 1).map((n) => (
+          <option key={n} value={n}>
+            {t('payMany.books', { count: n })}
+          </option>
+        ))}
+      </select>
+      <div className="flex flex-wrap gap-2 text-xs">
+        {owedBooks > 0 && owedBooks <= payable && (
+          <button type="button" className="rounded-full bg-white px-3 py-1 font-semibold text-brand-700 shadow-sm" onClick={() => setCount(owedBooks)}>
+            {t('payMany.what_i_owe', { count: owedBooks })}
+          </button>
+        )}
+        <button type="button" className="rounded-full bg-white px-3 py-1 font-semibold text-brand-700 shadow-sm" onClick={() => setCount(payable)}>
+          {t('payMany.all_remaining', { count: payable })}
+        </button>
+      </div>
+      <p className="text-base font-bold text-brand-900" data-testid="pay-many-total">
+        {t('payMany.total', { count, amount: fcfa(count * price) })}
+      </p>
+      <p className="text-xs text-slate-500">{t('payMany.ahead_note')}</p>
+      <AgentPicker count={count} />
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('payAgents.or_yourself')}</p>
+      {instructions ? <p className="whitespace-pre-wrap text-slate-700">{instructions}</p> : <p className="text-slate-600">{t('payments.no_instructions')}</p>}
+      <form onSubmit={claim} className="space-y-2" noValidate>
+        <label className="label" htmlFor="pay-many-ref">
+          {t('payments.reference_label')}
+        </label>
+        <input id="pay-many-ref" className="input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="MP241021.1234.A56789" />
+        <label className="label" htmlFor="pay-many-phone">
+          {t('payments.phone_label')}
+        </label>
+        <input id="pay-many-phone" className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+237 6XX XXX XXX" />
+        {error && (
+          <p role="alert" className="text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <button type="submit" className="btn-primary" disabled={busy}>
+            {t('payments.i_have_paid')}
+          </button>
+          <button type="button" className="text-slate-500 underline" onClick={() => setOpen(false)}>
+            {t('payments.cancel')}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export function GraceBox({
   graceBooks,
   maxGraceBooks,

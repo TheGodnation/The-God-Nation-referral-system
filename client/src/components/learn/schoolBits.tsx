@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
-import { GraceBox } from './TrainingPayments';
+import { GraceBox, PayManyPanel } from './TrainingPayments';
 import { otherFees } from '../../lib/bookPrice';
 
 // Shared by the Leadership School page, each book's page and the Learn page.
@@ -40,6 +40,7 @@ export interface SchoolSummary {
   books: SchoolBook[];
   price?: number;
   owed?: { books: number; amount: number };
+  payableCount?: number;
   graceBooks?: number;
   maxGraceBooks?: number;
   graceRequest?: { status: 'REQUESTED' | 'GRANTED' | 'DECLINED'; books: number } | null;
@@ -84,6 +85,7 @@ export function BookStatusLines({ book: b }: { book: SchoolBook }) {
 /** Begin my training / what is owed and grace / training paused. */
 export function TrainingStatusCard({ summary, onChanged }: { summary: SchoolSummary; onChanged: () => void }) {
   const { t } = useTranslation();
+  const tr = useTr();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -122,6 +124,15 @@ export function TrainingStatusCard({ summary, onChanged }: { summary: SchoolSumm
         <p className="font-medium text-slate-800">{t('learn.owed', { count: summary.owed!.books, amount: summary.owed!.amount.toLocaleString('fr-FR') })}</p>
       ) : (
         <p className="font-medium text-green-700">{t('learn.all_paid')}</p>
+      )}
+      {(summary.payableCount ?? 0) > 0 && (
+        <PayManyPanel
+          price={summary.price ?? 1200}
+          owedBooks={summary.owed?.books ?? 0}
+          payable={summary.payableCount ?? 0}
+          instructions={tr(summary.paymentInstructionsEn ?? '', summary.paymentInstructionsFr) || null}
+          onDone={onChanged}
+        />
       )}
       <GraceBox graceBooks={summary.graceBooks ?? 0} maxGraceBooks={summary.maxGraceBooks ?? 5} request={summary.graceRequest ?? null} onDone={onChanged} />
     </div>

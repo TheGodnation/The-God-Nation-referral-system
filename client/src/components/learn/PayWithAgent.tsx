@@ -24,14 +24,14 @@ interface AgentsResponse {
   activeOrder: { id: string; status: 'OPEN' | 'CLAIMED'; agentId: string } | null;
 }
 
-function useAgents(bookId: string, enabled: boolean) {
+function useAgents(bookId: string | undefined, enabled: boolean) {
   const [data, setData] = useState<AgentsResponse | null>(null);
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
     const load = () =>
       api
-        .get<AgentsResponse>(`/api/member/pay/agents?bookId=${encodeURIComponent(bookId)}`)
+        .get<AgentsResponse>(bookId ? `/api/member/pay/agents?bookId=${encodeURIComponent(bookId)}` : '/api/member/pay/agents')
         .then((r) => alive && setData(r))
         .catch(() => alive && setData({ items: [], activeOrder: null }));
     void load();
@@ -56,7 +56,8 @@ export function PresenceDot({ online }: { online: boolean }) {
   );
 }
 
-export function AgentPicker({ bookId }: { bookId: string }) {
+// bookId: pay for that one book. count (no bookId): pay for the next `count` unpaid books.
+export function AgentPicker({ bookId, count }: { bookId?: string; count?: number }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const data = useAgents(bookId, true);
@@ -69,7 +70,7 @@ export function AgentPicker({ bookId }: { bookId: string }) {
     setError(null);
     setBusyId(agentId);
     try {
-      const res = await api.post<{ id: string }>('/api/member/pay/orders', { agentId, bookId });
+      const res = await api.post<{ id: string }>('/api/member/pay/orders', { agentId, ...(bookId ? { bookId } : {}), ...(count ? { count } : {}) });
       navigate(`/member/payment-orders/${res.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('payAgents.failed'));

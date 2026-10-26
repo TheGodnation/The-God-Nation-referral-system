@@ -6,6 +6,7 @@ import { MemberPaymentOrderPage } from '../pages/MemberPaymentOrderPage';
 import { MemberPaymentDeskPage } from '../pages/MemberPaymentDeskPage';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { PaymentAgentsAdmin } from '../components/admin/PaymentAgentsAdmin';
+import { PayManyPanel } from '../components/learn/TrainingPayments';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 
 // Paying for a book through a payment agent: choosing an agent who is online,
@@ -273,5 +274,66 @@ describe('Payment agents in the admin', () => {
     expect(await screen.findByText(/Ben Buyer/)).toBeInTheDocument();
     fireEvent.click(within(card).getByRole('button', { name: 'Switch off' }));
     await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ active: false }));
+  });
+});
+
+describe('Paying for several books', () => {
+  it('chooses how many books, shows the total, and sends one transaction ID for all of them', async () => {
+    mockFetch({
+      'GET /api/member/pay/agents': () => ({ body: { items: [], activeOrder: null } }),
+      'POST /api/member/training/payments': () => ({ status: 201, body: { id: 'p1', status: 'CLAIMED', count: 5 } }),
+    });
+    const done = vi.fn();
+    render(
+      <MemoryRouter>
+        <PayManyPanel price={1200} owedBooks={5} payable={15} instructions="Pay to MTN 670 000 000." onDone={done} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Pay for several books' }));
+    const panel = screen.getByTestId('pay-many');
+    // What is owed is already chosen: 5 books = 6,000 FCFA.
+    expect(within(panel).getByTestId('pay-many-total')).toHaveTextContent('5 books · 6 000 FCFA');
+    fireEvent.click(within(panel).getByRole('button', { name: 'All 15 remaining' }));
+    expect(within(panel).getByTestId('pay-many-total')).toHaveTextContent('15 books · 18 000 FCFA');
+    fireEvent.change(within(panel).getByLabelText('How many books do you want to pay for?'), { target: { value: '7' } });
+    expect(within(panel).getByTestId('pay-many-total')).toHaveTextContent('7 books · 8 400 FCFA');
+    expect(within(panel).getByText('Pay to MTN 670 000 000.')).toBeInTheDocument();
+
+    fireEvent.click(within(panel).getByRole('button', { name: 'I have paid' }));
+    expect(within(panel).getByRole('alert')).toHaveTextContent('Please type the transaction ID');
+    fireEvent.change(within(panel).getByLabelText('Mobile Money transaction ID'), { target: { value: 'MP241028.7777.A77777' } });
+    fireEvent.click(within(panel).getByRole('button', { name: 'I have paid' }));
+    await waitFor(() => expect(done).toHaveBeenCalled());
+    expect(calls.find((c) => c.method === 'POST' && c.url === '/api/member/training/payments')?.body).toEqual({ count: 7, reference: 'MP241028.7777.A77777' });
+  });
+
+  it('offers agents for the chosen number of books', async () => {
+    mockFetch({
+      'GET /api/member/pay/agents': () => ({ body: { items: [{ id: 'a1', name: 'Aggie Agent', label: null, photoUrl: null, online: true, lastSeenAt: null, busy: false }], activeOrder: null } }),
+      'POST /api/member/pay/orders': () => ({ status: 201, body: { id: 'o1' } }),
+    });
+    render(
+      <MemoryRouter initialEntries={['/x']}>
+        <Routes>
+          <Route path="/x" element={<PayManyPanel price={1200} owedBooks={0} payable={4} instructions={null} onDone={() => {}} />} />
+          <Route path="/member/payment-orders/:id" element={<div>The order chat</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Pay for several books' }));
+    fireEvent.change(screen.getByLabelText('How many books do you want to pay for?'), { target: { value: '3' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Pay through them' }));
+    expect(await screen.findByText('The order chat')).toBeInTheDocument();
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ agentId: 'a1', count: 3 });
+  });
+
+  it('shows nothing when there is no book left to pay for', () => {
+    mockFetch({});
+    const { container } = render(
+      <MemoryRouter>
+        <PayManyPanel price={1200} owedBooks={0} payable={0} instructions={null} onDone={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });

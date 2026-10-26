@@ -1728,7 +1728,10 @@
     "referral_payout_paid": "Votre paiement de {{amount}} FCFA a été envoyé à votre numéro Mobile Money.",
     "referral_payout_rejected": "Votre demande de paiement n’a pas pu être payée. Vos gains sont revenus dans votre solde.",
     "payment_order_new": "{{name}} veut payer le livre {{number}}. Ouvrez votre guichet de paiement.",
-    "payment_order_message": "{{name}} vous a écrit au sujet d'un paiement de livre."
+    "payment_order_message": "{{name}} vous a écrit au sujet d'un paiement de livre.",
+    "book_payment_confirmed_many": "Votre paiement pour {{count}} livres est confirmé. Merci !",
+    "book_payment_rejected_many": "Votre paiement pour {{count}} livres n'a pas pu être confirmé. Vérifiez l'ID de transaction.",
+    "payment_order_new_many": "{{name}} veut payer {{count}} livres. Ouvrez votre guichet de paiement."
   },
   "memberHome": {
     "title": "Accueil",
@@ -1806,7 +1809,7 @@
     "empty": "Aucune publication pour le moment. Soyez le premier à partager !",
     "load_more": "Voir les publications plus anciennes",
     "compose_label": "Écrire une publication",
-    "compose_placeholder": "Partagez une nouvelle, un témoignage ou un sujet de prière…",
+    "compose_placeholder": "Partagez une parole inspirante pour fortifier les frères et la communauté…",
     "add_photos": "Photos",
     "add_video": "Vidéo YouTube",
     "youtube_label": "Lien YouTube",
@@ -2199,7 +2202,8 @@
     "chapter_delete": "Supprimer",
     "chapter_up": "Monter",
     "chapter_down": "Descendre",
-    "chapter_confirm_delete": "Supprimer ce chapitre et son résumé ?"
+    "chapter_confirm_delete": "Supprimer ce chapitre et son résumé ?",
+    "books_many": "Livres {{numbers}} ({{count}} livres)"
   },
   "memberCode": {
     "sent_to": "Nous avons envoyé un code à 6 chiffres à {{email}}. Tapez-le ci-dessous.",
@@ -2946,6 +2950,19 @@
     "admin_close": "Fermer",
     "admin_chat": "Discussion",
     "admin_show_screenshot": "Voir la capture",
-    "desk_card_waiting": "{{count}} commandes en attente"
+    "desk_card_waiting": "{{count}} commandes en attente",
+    "books_line": "{{count}} livres"
+  },
+  "payMany": {
+    "open": "Payer plusieurs livres",
+    "title": "Payer plusieurs livres",
+    "how_many": "Pour combien de livres voulez-vous payer ?",
+    "books_one": "{{count}} livre",
+    "books_other": "{{count}} livres",
+    "books": "{{count}} livres",
+    "what_i_owe": "Les {{count}} que je dois",
+    "all_remaining": "Les {{count}} restants",
+    "total": "{{count}} livres · {{amount}}",
+    "ahead_note": "Les livres sont payés dans l'ordre, en commençant par le premier pas encore payé. Vous pouvez payer d'avance des livres qui ne sont pas encore ouverts."
   }
 }

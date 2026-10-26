@@ -141,11 +141,17 @@ export function NotificationBell() {
       case 'EXAM_RETAKE_DECLINED':
         return t('notifications.exam_retake_declined', { number: metadata.bookNumber ?? '' });
       case 'BOOK_PAYMENT_CONFIRMED':
-        return t('notifications.book_payment_confirmed', { number: metadata.bookNumber ?? '' });
+        return Number(metadata.count ?? 1) > 1
+          ? t('notifications.book_payment_confirmed_many', { count: Number(metadata.count) })
+          : t('notifications.book_payment_confirmed', { number: metadata.bookNumber ?? '' });
       case 'BOOK_PAYMENT_REJECTED':
-        return t('notifications.book_payment_rejected', { number: metadata.bookNumber ?? '' });
+        return Number(metadata.count ?? 1) > 1
+          ? t('notifications.book_payment_rejected_many', { count: Number(metadata.count) })
+          : t('notifications.book_payment_rejected', { number: metadata.bookNumber ?? '' });
       case 'PAYMENT_ORDER_NEW':
-        return t('notifications.payment_order_new', { name: metadata.name ?? '', number: metadata.bookNumber ?? '' });
+        return Number(metadata.count ?? 1) > 1
+          ? t('notifications.payment_order_new_many', { name: metadata.name ?? '', count: Number(metadata.count) })
+          : t('notifications.payment_order_new', { name: metadata.name ?? '', number: metadata.bookNumber ?? '' });
       case 'PAYMENT_ORDER_MESSAGE':
         return t('notifications.payment_order_message', { name: metadata.name ?? '' });
       case 'TRAINING_GRACE_GRANTED':

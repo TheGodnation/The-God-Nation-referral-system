@@ -29,6 +29,7 @@ interface Order {
   status: 'OPEN' | 'CLAIMED' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
   amount: number;
   bookNumber: number | null;
+  bookCount: number;
   bookTitleEn: string | null;
   bookTitleFr: string | null;
   counterpart: { name: string; photoUrl: string | null; online: boolean; lastSeenAt: string | null; label: string | null };
@@ -202,8 +203,8 @@ export function MemberPaymentOrderPage() {
 
         <div className="card mb-3 flex items-center justify-between gap-3 py-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-brand-900">{t('payAgents.book_line', { number: order.bookNumber ?? '' })}</p>
-            {bookTitle && <p className="truncate text-xs text-slate-500">{bookTitle}</p>}
+            <p className="text-sm font-semibold text-brand-900">{(order.bookCount > 1 ? t('payAgents.books_line', { count: order.bookCount }) : t('payAgents.book_line', { number: order.bookNumber ?? '' }))}</p>
+            {order.bookCount === 1 && bookTitle && <p className="truncate text-xs text-slate-500">{bookTitle}</p>}
           </div>
           <div className="text-right">
             <p className="font-bold text-brand-900">{fcfa(order.amount)}</p>

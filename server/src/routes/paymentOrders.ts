@@ -16,7 +16,7 @@ import {
   MAX_PROOF_BYTES,
   PROOF_MIME_TYPES,
 } from '../lib/attachmentPolicy';
-import { decideBookPayment, openUnpaidBook } from '../lib/bookPayments';
+import { createClaimBatch, decideBookPayment, openUnpaidBook, payableBooks } from '../lib/bookPayments';
 import { notifyPaymentOrderMessage, notifyPaymentOrderNew } from '../lib/notifications';
 import { MAX_COMMENT_CHARS } from '../lib/textLimits';
 import { agentConfirmedToday, orderThread, STALE_ORDER_MS } from '../lib/paymentOrders';
@@ -71,36 +71,47 @@ router.get('/pay/agents', requireMember, asyncHandler(async (req, res) => {
     })),
   );
   items.sort((x, y) => Number(y.online && !y.busy) - Number(x.online && !x.busy) || Number(x.busy) - Number(y.busy) || x.name.localeCompare(y.name));
-  const active = bookId
-    ? await prisma.paymentOrder.findFirst({
-        where: { buyerPersonId: personId, bookId, status: { in: ['OPEN', 'CLAIMED'] } },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, status: true, agentId: true },
-      })
-    : null;
+  const active = await prisma.paymentOrder.findFirst({
+    where: { buyerPersonId: personId, ...(bookId ? { bookId } : {}), status: { in: ['OPEN', 'CLAIMED'] } },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, status: true, agentId: true },
+  });
   res.json({ items, activeOrder: active });
 }));
 
-const startSchema = z.object({ agentId: z.string().min(1), bookId: z.string().min(1) });
+// bookId: pay for that one book; count (no bookId, or more than one): pay for
+// the next `count` unpaid books in order, including ones not open yet.
+const startSchema = z.object({ agentId: z.string().min(1), bookId: z.string().min(1).optional(), count: z.number().int().min(1).max(100).optional() });
 
 router.post('/pay/orders', socialMutationLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
   const parsed = startSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Choose an agent and a book.' });
+  if (!parsed.success) return res.status(400).json({ error: 'Choose an agent and how many books.' });
   const personId = req.member!.personId;
+  const count = parsed.data.count ?? 1;
   const agent = await prisma.paymentAgent.findUnique({ where: { id: parsed.data.agentId }, include: { person: { select: { id: true, name: true } } } });
   if (!agent || !agent.active || agent.personId === personId) return res.status(404).json({ error: 'This agent is not available.' });
   if ((await agentConfirmedToday(agent.id)) >= agent.dailyLimit) return res.status(409).json({ error: 'This agent is busy for today. Please choose another one.', code: 'BUSY' });
 
-  // One waiting claim at a time; an order still being talked about moves to the new agent.
-  const claimed = await prisma.paymentOrder.findFirst({ where: { buyerPersonId: personId, bookId: parsed.data.bookId, status: 'CLAIMED' } });
-  if (claimed) return res.status(409).json({ error: 'Your payment for this book is waiting to be confirmed.', code: 'WAITING', orderId: claimed.id });
-  const found = await openUnpaidBook(personId, parsed.data.bookId);
-  if (found.error === 404) return res.status(404).json({ error: 'Book not found.' });
-  if (found.error) return res.status(409).json({ error: 'This book is already paid or waiting for confirmation.', code: found.error });
+  // One thing to pay at a time: a claim waiting to be confirmed comes first.
+  const claimed = await prisma.paymentOrder.findFirst({ where: { buyerPersonId: personId, status: 'CLAIMED' } });
+  if (claimed) return res.status(409).json({ error: 'Your payment is waiting to be confirmed.', code: 'WAITING', orderId: claimed.id });
 
-  const same = await prisma.paymentOrder.findFirst({ where: { buyerPersonId: personId, bookId: found.book.id, agentId: agent.id, status: 'OPEN' } });
+  let first: { id: string; trainingOrder: number };
+  if (count === 1 && parsed.data.bookId) {
+    const found = await openUnpaidBook(personId, parsed.data.bookId);
+    if (found.error === 404) return res.status(404).json({ error: 'Book not found.' });
+    if (found.error) return res.status(409).json({ error: 'This book is already paid or waiting for confirmation.', code: found.error });
+    first = { id: found.book.id, trainingOrder: found.book.trainingOrder };
+  } else {
+    const payable = await payableBooks(personId);
+    if (payable.length === 0) return res.status(409).json({ error: 'There is no book to pay for.', code: 'NOTHING_TO_PAY' });
+    if (count > payable.length) return res.status(409).json({ error: `You can pay for at most ${payable.length} more book${payable.length === 1 ? '' : 's'}.`, code: 'TOO_MANY' });
+    first = payable[0];
+  }
+
+  const same = await prisma.paymentOrder.findFirst({ where: { buyerPersonId: personId, bookId: first.id, bookCount: count, agentId: agent.id, status: 'OPEN' } });
   if (same) return res.json({ id: same.id });
-  await prisma.paymentOrder.updateMany({ where: { buyerPersonId: personId, bookId: found.book.id, status: 'OPEN' }, data: { status: 'CANCELLED', decidedAt: new Date() } });
+  await prisma.paymentOrder.updateMany({ where: { buyerPersonId: personId, status: 'OPEN' }, data: { status: 'CANCELLED', decidedAt: new Date() } });
 
   const settings = await prisma.settings.findUnique({
     where: { id: 'singleton' },
@@ -115,16 +126,17 @@ router.post('/pay/orders', socialMutationLimiter, requireCsrf, requireMember, as
     data: {
       buyerPersonId: personId,
       agentId: agent.id,
-      bookId: found.book.id,
-      bookNumber: found.book.trainingOrder,
-      amount: settings?.trainingBookPrice ?? 1200,
+      bookId: first.id,
+      bookNumber: first.trainingOrder,
+      bookCount: count,
+      amount: (settings?.trainingBookPrice ?? 1200) * count,
       // The agent's first message is the payment instructions, so the member can pay at once.
       messages: instructions ? { create: { senderPersonId: agent.personId, body: instructions, auto: true } } : undefined,
     },
     select: { id: true, bookNumber: true },
   });
-  await recordAudit({ action: 'PAYMENT_ORDER_OPENED', targetType: 'PaymentOrder', targetId: order.id, metadata: { personId, agentId: agent.id } });
-  await notifyPaymentOrderNew(order, agent.personId, buyer?.name ?? 'A member').catch(() => {});
+  await recordAudit({ action: 'PAYMENT_ORDER_OPENED', targetType: 'PaymentOrder', targetId: order.id, metadata: { personId, agentId: agent.id, count } });
+  await notifyPaymentOrderNew(order, agent.personId, buyer?.name ?? 'A member', count).catch(() => {});
   res.status(201).json({ id: order.id });
 }));
 
@@ -160,6 +172,7 @@ router.get('/pay/orders/:id', requireMember, asyncHandler(async (req, res) => {
     status: order.status,
     amount: order.amount,
     bookNumber: order.bookNumber,
+    bookCount: order.bookCount,
     bookTitleEn: order.book?.titleEn ?? null,
     bookTitleFr: order.book?.titleFr ?? null,
     createdAt: order.createdAt,
@@ -252,34 +265,34 @@ router.post('/pay/orders/:id/paid', socialMutationLimiter, requireCsrf, requireM
   const parsed = paidSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Please type the Mobile Money transaction ID.', code: 'INVALID' });
   if (!order.bookId) return res.status(409).json({ error: 'Book not found.' });
-  const found = await openUnpaidBook(personId, order.bookId);
-  if (found.error === 404) return res.status(404).json({ error: 'Book not found.' });
-  if (found.error) return res.status(409).json({ error: 'This book is already paid or waiting for confirmation.', code: found.error });
   const reused = await prisma.bookPayment.findFirst({
     where: { reference: { equals: parsed.data.reference, mode: 'insensitive' }, status: { in: ['CLAIMED', 'PENDING', 'CONFIRMED'] } },
     select: { id: true },
   });
   if (reused) return res.status(409).json({ error: 'This transaction ID has already been used for a payment. Please check it and type the ID from your own payment message.', code: 'DUPLICATE_REFERENCE' });
 
-  const payment = await prisma.bookPayment.create({
-    data: {
-      personId,
-      bookId: order.bookId,
-      bookNumber: order.bookNumber,
-      amount: order.amount,
-      method: 'MANUAL',
-      status: 'CLAIMED',
-      reference: parsed.data.reference,
-      payerPhone: parsed.data.payerPhone || null,
-      orderId: order.id,
-    },
-    select: { id: true },
-  });
+  const priceEach = Math.round(order.amount / order.bookCount);
+  let paymentId: string;
+  if (order.bookCount === 1) {
+    const found = await openUnpaidBook(personId, order.bookId);
+    if (found.error === 404) return res.status(404).json({ error: 'Book not found.' });
+    if (found.error) return res.status(409).json({ error: 'This book is already paid or waiting for confirmation.', code: found.error });
+    const payment = await prisma.bookPayment.create({
+      data: { personId, bookId: order.bookId, bookNumber: order.bookNumber, amount: order.amount, method: 'MANUAL', status: 'CLAIMED', reference: parsed.data.reference, payerPhone: parsed.data.payerPhone || null, orderId: order.id },
+      select: { id: true },
+    });
+    paymentId = payment.id;
+  } else {
+    const batch = await createClaimBatch({ personId, count: order.bookCount, amountEach: priceEach, reference: parsed.data.reference, payerPhone: parsed.data.payerPhone, orderId: order.id });
+    if (!batch) return res.status(409).json({ error: 'Some of these books are already paid. Please cancel and start a new order.', code: 'TOO_MANY' });
+    paymentId = batch.rows[0].id;
+  }
+  const payment = { id: paymentId };
   await prisma.paymentOrder.update({ where: { id: order.id }, data: { status: 'CLAIMED' } });
   await prisma.paymentOrderMessage.create({
     data: { orderId: order.id, senderPersonId: personId, body: `✅ I have paid. Transaction ID: ${parsed.data.reference}`, auto: true },
   });
-  await recordAudit({ action: 'BOOK_PAYMENT_CLAIMED', targetType: 'BookPayment', targetId: payment.id, metadata: { personId, bookNumber: order.bookNumber, orderId: order.id } });
+  await recordAudit({ action: 'BOOK_PAYMENT_CLAIMED', targetType: 'BookPayment', targetId: payment.id, metadata: { personId, bookNumber: order.bookNumber, count: order.bookCount, orderId: order.id } });
   await notifyPaymentOrderMessage(order, order.agent.personId, order.buyer.name).catch(() => {});
   res.status(201).json({ id: payment.id, status: 'CLAIMED' });
 }));
@@ -351,6 +364,7 @@ router.get('/pay/desk', requireMember, asyncHandler(async (req, res) => {
     status: o.status,
     amount: o.amount,
     bookNumber: o.bookNumber,
+    bookCount: o.bookCount,
     buyerName: o.buyer.name,
     buyerPhotoUrl: photoOf(o.buyer),
     buyerOnline: isOnline(o.buyer.lastSeenAt),

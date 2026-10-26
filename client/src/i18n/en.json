@@ -1728,7 +1728,10 @@
     "referral_payout_paid": "Your payout of {{amount}} FCFA has been sent to your Mobile Money number.",
     "referral_payout_rejected": "Your payout request could not be paid. Your earnings are back in your balance.",
     "payment_order_new": "{{name}} wants to pay for Book {{number}}. Open your payment desk.",
-    "payment_order_message": "{{name}} wrote to you about a book payment."
+    "payment_order_message": "{{name}} wrote to you about a book payment.",
+    "book_payment_confirmed_many": "Your payment for {{count}} books is confirmed. Thank you!",
+    "book_payment_rejected_many": "Your payment for {{count}} books could not be confirmed. Please check the transaction ID.",
+    "payment_order_new_many": "{{name}} wants to pay for {{count}} books. Open your payment desk."
   },
   "memberHome": {
     "title": "Home",
@@ -1806,7 +1809,7 @@
     "empty": "No updates yet. Be the first to share!",
     "load_more": "See older posts",
     "compose_label": "Write a post",
-    "compose_placeholder": "Share an update, a testimony or a prayer point…",
+    "compose_placeholder": "Share an inspiring word to strengthen the brethren and the community…",
     "add_photos": "Photos",
     "add_video": "YouTube video",
     "youtube_label": "YouTube link",
@@ -2199,7 +2202,8 @@
     "chapter_delete": "Delete",
     "chapter_up": "Move up",
     "chapter_down": "Move down",
-    "chapter_confirm_delete": "Delete this chapter and its summary?"
+    "chapter_confirm_delete": "Delete this chapter and its summary?",
+    "books_many": "Books {{numbers}} ({{count}} books)"
   },
   "memberCode": {
     "sent_to": "We sent a 6-digit code to {{email}}. Type it below.",
@@ -2946,6 +2950,19 @@
     "admin_close": "Close",
     "admin_chat": "Chat",
     "admin_show_screenshot": "Show the screenshot",
-    "desk_card_waiting": "{{count}} orders waiting"
+    "desk_card_waiting": "{{count}} orders waiting",
+    "books_line": "{{count}} books"
+  },
+  "payMany": {
+    "open": "Pay for several books",
+    "title": "Pay for several books",
+    "how_many": "How many books do you want to pay for?",
+    "books_one": "{{count}} book",
+    "books_other": "{{count}} books",
+    "books": "{{count}} books",
+    "what_i_owe": "The {{count}} I owe",
+    "all_remaining": "All {{count}} remaining",
+    "total": "{{count}} books · {{amount}}",
+    "ahead_note": "The books are paid in order, starting with the first one not yet paid. You can pay ahead for books that are not open yet."
   }
 }
