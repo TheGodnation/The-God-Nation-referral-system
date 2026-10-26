@@ -58,8 +58,9 @@ jobs:
             [ "${#piece}" -gt 3 ] && echo "::add-mask::$piece"
           done
           if [ -n "$missing" ]; then
-            echo "::warning title=Backups are NOT set up yet::Add these secrets in GitHub (Settings > Secrets and variables > Actions):$missing"
+            echo "::error title=Backups are NOT set up yet::Add these secrets in GitHub (Settings > Secrets and variables > Actions):$missing"
             echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 1
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
