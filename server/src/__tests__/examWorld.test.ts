@@ -136,7 +136,7 @@ describe('Leadership training: paid access and books in order', () => {
 
     expect((await post(m, '/api/member/training/request')).body.enrollment).toBe('ACTIVE');
     world = await m.agent.get('/api/member/exam-world');
-    expect(world.body.training).toMatchObject({ enrollment: 'ACTIVE', price: 1100, owed: { books: 1, amount: 1100 }, automaticPayments: false });
+    expect(world.body.training).toMatchObject({ enrollment: 'ACTIVE', price: 1200, owed: { books: 1, amount: 1200 }, automaticPayments: false });
     expect(world.body.training.books[0]).toMatchObject({ unlocked: true, canRead: true, payment: null });
 
     await post(a, `/api/admin/library/trainees/${m.id}/revoke`);
@@ -206,16 +206,16 @@ describe('Paying for leadership books', () => {
     expect((await world(m)).books[0].payment).toBe('CLAIMED');
 
     const list = await a.agent.get('/api/admin/library/payments');
-    expect(list.body.items).toEqual([expect.objectContaining({ bookNumber: 1, amount: 1100, reference: 'MP241021.1234.A56789', status: 'CLAIMED' })]);
+    expect(list.body.items).toEqual([expect.objectContaining({ bookNumber: 1, amount: 1200, reference: 'MP241021.1234.A56789', status: 'CLAIMED' })]);
     expect((await post(a, `/api/admin/library/payments/${claim.body.id}`, { decision: 'CONFIRM' })).body.status).toBe('CONFIRMED');
     expect((await post(a, `/api/admin/library/payments/${claim.body.id}`, { decision: 'REJECT' })).status).toBe(409);
     expect(await prisma.notification.findFirst({ where: { recipientPersonId: m.id, type: 'BOOK_PAYMENT_CONFIRMED' } })).not.toBeNull();
 
     const w = await world(m);
     expect(w.books.map((b: any) => [b.unlocked, b.payment])).toEqual([[true, 'PAID'], [true, null]]);
-    expect(w.owed).toEqual({ books: 1, amount: 1100 });
+    expect(w.owed).toEqual({ books: 1, amount: 1200 });
     const summary = await a.agent.get('/api/admin/library/payments/summary');
-    expect(summary.body).toMatchObject({ confirmed: { count: 1, amount: 1100 }, thisMonth: { count: 1, amount: 1100 }, waiting: 0 });
+    expect(summary.body).toMatchObject({ confirmed: { count: 1, amount: 1200 }, thisMonth: { count: 1, amount: 1200 }, waiting: 0 });
   });
 
   it('a rejected payment can be sent again', async () => {
@@ -272,7 +272,7 @@ describe('Paying for leadership books', () => {
     await post(a, '/api/admin/library/payments', { personId: m.id, bookId: books[0].bookId });
     await prisma.person.delete({ where: { id: m.id } });
     const kept = await prisma.bookPayment.findMany();
-    expect(kept).toEqual([expect.objectContaining({ personId: null, amount: 1100, bookNumber: 1, status: 'CONFIRMED' })]);
+    expect(kept).toEqual([expect.objectContaining({ personId: null, amount: 1200, bookNumber: 1, status: 'CONFIRMED' })]);
   });
 
   it('automatic Mobile Money: off until a payment company is connected; then its notification confirms the payment once', async () => {
@@ -294,7 +294,7 @@ describe('Paying for leadership books', () => {
       expect((await world(m)).automaticPayments).toBe(true);
       const started = await post(m, `/api/member/training/books/${books[0].bookId}/pay-now`, { phone: '+237 670 000 001' });
       expect(started.body.status).toBe('PENDING');
-      expect(requested[0]).toMatchObject({ amount: 1100, currency: 'XAF', phone: '+237670000001' });
+      expect(requested[0]).toMatchObject({ amount: 1200, currency: 'XAF', phone: '+237670000001' });
       expect((await world(m)).books[0].payment).toBe('PENDING');
 
       const hook = request(app);

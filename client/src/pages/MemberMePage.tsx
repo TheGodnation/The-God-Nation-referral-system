@@ -144,6 +144,13 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
       </section>
 
       <section className="card">
+        <h2 className="mb-2 font-semibold text-brand-900">💰 {t('earnings.link_title')}</h2>
+        <Link to="/member/earnings" className="text-sm font-medium text-brand-700 underline">
+          {t('earnings.link_help')}
+        </Link>
+      </section>
+
+      <section className="card">
         <h2 className="mb-2 font-semibold text-brand-900">📥 {t('downloads.title')}</h2>
         <Link to="/member/downloads" className="text-sm font-medium text-brand-700 underline">
           {t('downloads.me_link')}

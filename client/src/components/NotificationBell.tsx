@@ -20,7 +20,10 @@ type NotificationType =
   | 'BOOK_PAYMENT_CONFIRMED'
   | 'BOOK_PAYMENT_REJECTED'
   | 'TRAINING_GRACE_GRANTED'
-  | 'TRAINING_GRACE_DECLINED';
+  | 'TRAINING_GRACE_DECLINED'
+  | 'REFERRAL_EARNING'
+  | 'REFERRAL_PAYOUT_PAID'
+  | 'REFERRAL_PAYOUT_REJECTED';
 
 interface NotificationRow {
   id: string;
@@ -143,6 +146,12 @@ export function NotificationBell() {
         return t('notifications.training_grace_granted', { count: Number(metadata.books ?? 0) });
       case 'TRAINING_GRACE_DECLINED':
         return t('notifications.training_grace_declined');
+      case 'REFERRAL_EARNING':
+        return t('notifications.referral_earning', { amount: Number(metadata.amount ?? 0).toLocaleString('fr-FR') });
+      case 'REFERRAL_PAYOUT_PAID':
+        return t('notifications.referral_payout_paid', { amount: Number(metadata.amount ?? 0).toLocaleString('fr-FR') });
+      case 'REFERRAL_PAYOUT_REJECTED':
+        return t('notifications.referral_payout_rejected');
       default:
         return '';
     }

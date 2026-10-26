@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 
-// Central admin: leadership book payments (1,100 FCFA a book) and
+// Central admin: leadership book payments (1,200 FCFA a book) and
 // "study now, pay later" grace. Manual Mobile Money payments arrive as
 // "I have paid" claims with a transaction ID; confirming one can open the
 // trainee's next book.
@@ -37,7 +37,7 @@ interface Summary {
 
 export function TrainingPaymentSettings() {
   const { t } = useTranslation();
-  const [price, setPrice] = useState('1100');
+  const [price, setPrice] = useState('1200');
   const [en, setEn] = useState('');
   const [fr, setFr] = useState('');
   const [provider, setProvider] = useState<string | null>(null);

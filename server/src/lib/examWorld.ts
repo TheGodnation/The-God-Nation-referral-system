@@ -12,7 +12,7 @@ import { hasConversationAccess } from './communityConversation';
 // Leadership training: "Begin my training" makes the member an ACTIVE
 // trainee and opens Book 1 on trust. Each next book opens once the
 // previous book's exam is passed (70%) AND the books opened so far are paid
-// (1,100 FCFA each) — or, with "study now, pay later" grace granted by the
+// (1,200 FCFA each) — or, with "study now, pay later" grace granted by the
 // central admin, while fewer than `graceBooks` (at most 5) are still owed,
 // so no one ever owes more than 5 books. Once open, always open
 // (TrainingBookOpen), unless the training itself is stopped.

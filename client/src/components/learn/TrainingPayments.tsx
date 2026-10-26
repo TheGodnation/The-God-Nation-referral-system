@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 
-// Paying for leadership books (1,100 FCFA each, before the next book opens)
+// Paying for leadership books (1,200 FCFA each, before the next book opens)
 // and "study now, pay later" grace. Manual Mobile Money is the normal way:
 // pay to the ministry's number, then send the transaction ID for the
 // central admin to confirm. "Pay now" appears only once a payment company

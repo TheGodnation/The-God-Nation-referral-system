@@ -63,6 +63,8 @@ import { adminMemberReportsRouter, leaderMemberReportsRouter } from './routes/me
 import areaRepresentationRequestsRoutes from './routes/areaRepresentationRequests';
 import adminAreaRepresentationRequestsRoutes from './routes/adminAreaRepresentationRequests';
 import adminGeographicAreasRoutes from './routes/adminGeographicAreas';
+import memberEarningsRoutes from './routes/memberEarnings';
+import adminPayoutsRoutes from './routes/adminPayouts';
 import memberReferralsRoutes from './routes/memberReferrals';
 import examWorldRoutes from './routes/examWorld';
 import paymentRoutes from './routes/payments';
@@ -246,6 +248,9 @@ export function createApp() {
   app.use('/api/member', areaRepresentationRequestsRoutes);
   // A Member's own referral link and "My Referrals" page.
   app.use('/api/member', memberReferralsRoutes);
+  // What a member earns from the books bought by people they invited, and payouts.
+  app.use('/api/member', memberEarningsRoutes);
+  app.use('/api/admin', adminPayoutsRoutes);
   // Exam World: member summary/reader, admin library & trainees, leader results.
   app.use('/api/member', examWorldRoutes);
   // Automatic Mobile Money: the payment company's notifications (lib/payments.ts).

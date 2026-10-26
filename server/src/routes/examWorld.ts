@@ -115,7 +115,7 @@ async function trainingSummary(personId: string) {
     prisma.readingProgress.findMany({ where: { personId }, select: { bookId: true, page: true } }),
   ]);
   const lastPageOf = new Map(reading.map((r) => [r.bookId, r.page]));
-  const price = settings?.trainingBookPrice ?? 1100;
+  const price = settings?.trainingBookPrice ?? 1200;
   const owedBooks = books.filter((b) => b.unlocked && b.payment !== 'PAID').length;
   const chaptersOf = new Map(chapterCounts.map((c) => [c.bookId, c._count._all]));
 
@@ -131,7 +131,7 @@ async function trainingSummary(personId: string) {
 
   return {
     enrollment: enrollment?.status ?? 'NONE',
-    // Payment: 1,100 FCFA a book, paid before the next book opens —
+    // Payment: 1,200 FCFA a book, paid before the next book opens —
     // unless "study now, pay later" grace allows up to 5 owed.
     price,
     owed: { books: owedBooks, amount: owedBooks * price },
@@ -241,7 +241,7 @@ router.post('/training/books/:id/payments', socialMutationLimiter, requireCsrf, 
       personId,
       bookId: found.book.id,
       bookNumber: found.book.trainingOrder,
-      amount: settings?.trainingBookPrice ?? 1100,
+      amount: settings?.trainingBookPrice ?? 1200,
       method: 'MANUAL',
       status: 'CLAIMED',
       reference: parsed.data.reference,
@@ -269,7 +269,7 @@ router.post('/training/books/:id/pay-now', socialMutationLimiter, requireCsrf, r
   if (found.error === 404) return res.status(404).json({ error: 'Book not found.' });
   if (found.error) return res.status(409).json({ error: 'This book is already paid or waiting for confirmation.', code: found.error });
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { trainingBookPrice: true } });
-  const amount = settings?.trainingBookPrice ?? 1100;
+  const amount = settings?.trainingBookPrice ?? 1200;
   const reference = `book-${crypto.randomUUID()}`;
   let started;
   try {

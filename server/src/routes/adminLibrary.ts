@@ -14,6 +14,7 @@ import { examSetNumbers } from '../lib/trainingExam';
 import { notifyBookPaymentDecision, notifyExamRetakeDecision, notifyTrainingGraceDecision } from '../lib/notifications';
 import { activePaymentProvider } from '../lib/payments';
 import { coverUrl, newCoverVersion, readCoverDataUrl, sendCover } from '../lib/bookCovers';
+import { creditReferralEarning } from '../lib/referralEarnings';
 
 // ---------------------------------------------------------------------------
 // /api/admin/library — central admin side of Exam World:
@@ -531,7 +532,7 @@ router.post('/trainees/:personId/revoke', communityMutationLimiter, requireCsrf,
 }));
 
 // ----------------------------- Book payments --------------------------------
-// 1,100 FCFA a book (Settings.trainingBookPrice). Manual payments are
+// 1,200 FCFA a book (Settings.trainingBookPrice). Manual payments are
 // "I have paid" claims with a Mobile Money transaction ID, confirmed or
 // rejected here; the admin can also record a payment received another way.
 // Confirming a payment can open the trainee's next book (lib/examWorld.ts).
@@ -548,7 +549,7 @@ router.get('/training-settings', asyncHandler(async (_req, res) => {
     select: { trainingBookPrice: true, trainingPaymentInstructionsEn: true, trainingPaymentInstructionsFr: true },
   });
   res.json({
-    price: s?.trainingBookPrice ?? 1100,
+    price: s?.trainingBookPrice ?? 1200,
     instructionsEn: s?.trainingPaymentInstructionsEn ?? '',
     instructionsFr: s?.trainingPaymentInstructionsFr ?? '',
     maxGraceBooks: MAX_GRACE_BOOKS,
@@ -631,6 +632,7 @@ router.post('/payments/:id', communityMutationLimiter, requireCsrf, asyncHandler
   if (changed.count === 0) return res.status(409).json({ error: 'This payment was already decided.', status: existing.status });
   await audit(req, confirmed ? 'BOOK_PAYMENT_CONFIRMED' : 'BOOK_PAYMENT_REJECTED', 'BookPayment', existing.id, { personId: existing.personId, bookNumber: existing.bookNumber });
   await notifyBookPaymentDecision(existing, confirmed).catch(() => {});
+  if (confirmed) await creditReferralEarning({ ...existing, status: 'CONFIRMED' });
   if (confirmed && existing.personId) await getTrainingBooksFor(existing.personId); // records any book this opens
   res.json({ id: existing.id, status: confirmed ? 'CONFIRMED' : 'REJECTED' });
 }));
@@ -666,7 +668,7 @@ router.post('/payments', communityMutationLimiter, requireCsrf, asyncHandler(asy
       personId,
       bookId,
       bookNumber: book.trainingOrder,
-      amount: settings?.trainingBookPrice ?? 1100,
+      amount: settings?.trainingBookPrice ?? 1200,
       method: 'MANUAL',
       status: 'CONFIRMED',
       reference: parsed.data.reference || null,
@@ -677,6 +679,7 @@ router.post('/payments', communityMutationLimiter, requireCsrf, asyncHandler(asy
   });
   await audit(req, 'BOOK_PAYMENT_RECORDED', 'BookPayment', payment.id, { personId, bookNumber: book.trainingOrder });
   await notifyBookPaymentDecision(payment, true).catch(() => {});
+  await creditReferralEarning(payment);
   await getTrainingBooksFor(personId);
   res.status(201).json({ id: payment.id, status: payment.status });
 }));

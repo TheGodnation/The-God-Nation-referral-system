@@ -4,6 +4,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { activePaymentProvider } from '../lib/payments';
 import { notifyBookPaymentDecision } from '../lib/notifications';
+import { creditReferralEarning } from '../lib/referralEarnings';
 
 // POST /api/payments/webhook — the payment company tells us an automatic
 // Mobile Money payment succeeded or failed (see lib/payments.ts). Nobody
@@ -26,7 +27,10 @@ router.post('/webhook', asyncHandler(async (req, res) => {
   });
   if (changed.count === 1) {
     await recordAudit({ action: `BOOK_PAYMENT_${notification.status}`, targetType: 'BookPayment', targetId: payment.id, metadata: { provider: provider.name } });
-    if (notification.status === 'CONFIRMED') await notifyBookPaymentDecision(payment, true).catch(() => {});
+    if (notification.status === 'CONFIRMED') {
+      await notifyBookPaymentDecision(payment, true).catch(() => {});
+      await creditReferralEarning({ ...payment, status: 'CONFIRMED' });
+    }
   }
   res.json({ ok: true });
 }));

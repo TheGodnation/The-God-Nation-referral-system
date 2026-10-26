@@ -115,7 +115,7 @@ export function MemberSchoolBookPage() {
                   <PayBookPanel
                     bookId={b.id}
                     bookNumber={b.trainingOrder}
-                    price={data.price ?? 1100}
+                    price={data.price ?? 1200}
                     instructions={tr(data.paymentInstructionsEn ?? '', data.paymentInstructionsFr) || null}
                     automatic={Boolean(data.automaticPayments)}
                     onDone={load}

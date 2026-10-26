@@ -206,6 +206,11 @@ enum NotificationType {
   BOOK_PAYMENT_REJECTED
   TRAINING_GRACE_GRANTED
   TRAINING_GRACE_DECLINED
+  // Referral earnings: someone you invited paid for a book; a payout request
+  // was paid or could not be paid.
+  REFERRAL_EARNING
+  REFERRAL_PAYOUT_PAID
+  REFERRAL_PAYOUT_REJECTED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -316,6 +321,7 @@ model User {
   trainingGraceDecided                           TrainingGraceRequest[]                   @relation("TrainingGraceDecidedBy")
   areaLeadershipAssignmentsAssigned              AreaLeadershipAssignment[]               @relation("AreaLeadershipAssignedBy")
   nationalTeamAssigned                           NationalTeamMember[]                     @relation("NationalTeamAssignedBy")
+  referralPayoutsDecided                         ReferralPayout[]                         @relation("PayoutDecidedBy")
   areaRepresentationRequestsDecided              AreaRepresentationRequest[]
   prayerRequestsDeleted                          PrayerRequest[]                          @relation("PrayerRequestDeletedByUser")
   prayerRequestCommentsDeleted                   PrayerRequestComment[]                   @relation("PrayerRequestCommentDeletedByUser")
@@ -590,7 +596,13 @@ model Settings {
   offeringInstructionsFr  String?
   // Leadership training: the price of each book (FCFA), and how to pay it
   // by Mobile Money (numbers, account name), shown to trainees.
-  trainingBookPrice              Int     @default(1100)
+  trainingBookPrice              Int     @default(1200)
+  // What a referrer earns when someone they invited pays for a book, how many
+  // days it waits before counting, and the balance from which a payout can be
+  // requested (all in FCFA / days; changed by the central admin).
+  referralCommission             Int     @default(500)
+  commissionHoldDays             Int     @default(3)
+  payoutMinimum                  Int     @default(5000)
   trainingPaymentInstructionsEn  String?
   trainingPaymentInstructionsFr  String?
   // Home page and chat background, Admin-set for everyone (never
@@ -795,6 +807,9 @@ model Person {
   reportsAbout                                    MemberReport[]                            @relation("MemberReportReported")
   areaLeadershipAssignments                       AreaLeadershipAssignment[]
   nationalTeamMember                              NationalTeamMember?                      @relation("PersonNationalTeam")
+  referralEarningsEarned                          ReferralEarning[]                        @relation("ReferrerEarnings")
+  referralEarningsFromPurchases                   ReferralEarning[]                        @relation("BuyerEarnings")
+  referralPayouts                                 ReferralPayout[]                         @relation("PersonPayouts")
   areaRepresentationRequests                      AreaRepresentationRequest[]
   referralCode                                    ReferralCode?
   referralsMade                                   Registration[]                            @relation("RegistrationReferredBy")
@@ -2854,9 +2869,73 @@ model BookPayment {
   person    Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
   book      LibraryBook? @relation(fields: [bookId], references: [id], onDelete: SetNull)
   decidedBy User?        @relation("BookPaymentDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  referralEarning ReferralEarning?
 
   @@index([personId, bookId])
   @@index([status, createdAt])
+}
+
+enum EarningStatus {
+  ACTIVE
+  REVERSED
+}
+
+enum PayoutStatus {
+  REQUESTED
+  PAID
+  REJECTED
+  CANCELLED
+}
+
+// What a person earns when someone they invited (a REFERRAL friendship, see
+// Friendship.origin) pays for a leadership book. One row per confirmed book
+// payment (bookPaymentId is unique, so crediting twice is impossible). It
+// waits until availableAt, then counts toward the person's balance; a payout
+// request takes all of the available rows (payoutId).
+model ReferralEarning {
+  id               String        @id @default(uuid())
+  referrerPersonId String
+  buyerPersonId    String?
+  bookPaymentId    String        @unique
+  bookNumber       Int?
+  amount           Int
+  status           EarningStatus @default(ACTIVE)
+  availableAt      DateTime
+  payoutId         String?
+  createdAt        DateTime      @default(now())
+  reversedAt       DateTime?
+
+  referrer    Person          @relation("ReferrerEarnings", fields: [referrerPersonId], references: [id], onDelete: Cascade)
+  buyer       Person?         @relation("BuyerEarnings", fields: [buyerPersonId], references: [id], onDelete: SetNull)
+  bookPayment BookPayment     @relation(fields: [bookPaymentId], references: [id], onDelete: Cascade)
+  payout      ReferralPayout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+
+  @@index([referrerPersonId, status])
+  @@index([payoutId])
+}
+
+// A request to be paid out the available earnings, to a Mobile Money number.
+// The central admin sends the money and records it as paid (or rejects it,
+// which puts the earnings back in the person's balance).
+model ReferralPayout {
+  id              String       @id @default(uuid())
+  personId        String
+  amount          Int
+  phone           String
+  payeeName       String
+  status          PayoutStatus @default(REQUESTED)
+  requestedAt     DateTime     @default(now())
+  decidedAt       DateTime?
+  decidedByUserId String?
+  reference       String?
+  note            String?
+
+  person    Person            @relation("PersonPayouts", fields: [personId], references: [id], onDelete: Cascade)
+  decidedBy User?             @relation("PayoutDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  earnings  ReferralEarning[]
+
+  @@index([personId, status])
+  @@index([status, requestedAt])
 }
 
 // "Study now, pay later": a trainee asks to keep reading before paying, for

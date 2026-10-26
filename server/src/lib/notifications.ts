@@ -38,7 +38,10 @@ interface CreateNotificationParams {
     | 'BOOK_PAYMENT_CONFIRMED'
     | 'BOOK_PAYMENT_REJECTED'
     | 'TRAINING_GRACE_GRANTED'
-    | 'TRAINING_GRACE_DECLINED';
+    | 'TRAINING_GRACE_DECLINED'
+    | 'REFERRAL_EARNING'
+    | 'REFERRAL_PAYOUT_PAID'
+    | 'REFERRAL_PAYOUT_REJECTED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -139,6 +142,32 @@ export async function notifyBookPaymentDecision(payment: { id: string; personId:
     push: confirmed
       ? { title: 'Payment confirmed', body: `Your payment for Book ${payment.bookNumber ?? ''} is confirmed. Thank you!`, url: '/member/learn' }
       : { title: 'Payment not confirmed', body: `Your payment for Book ${payment.bookNumber ?? ''} could not be confirmed. Please check the transaction ID.`, url: '/member/learn' },
+  });
+}
+
+/** Someone you invited paid for a book: you earned your share. */
+export async function notifyReferralEarning(earning: { id: string; referrerPersonId: string; amount: number; bookNumber: number | null }) {
+  await createNotification({
+    recipientPersonId: earning.referrerPersonId,
+    type: 'REFERRAL_EARNING',
+    metadata: { amount: earning.amount, bookNumber: earning.bookNumber },
+    targetType: 'ReferralEarning',
+    targetId: earning.id,
+    push: { title: 'You earned ' + earning.amount + ' FCFA', body: 'Someone you invited paid for a leadership book.', url: '/member/earnings' },
+  });
+}
+
+/** Your payout request was paid, or could not be paid. */
+export async function notifyReferralPayout(payout: { id: string; personId: string; amount: number }, paid: boolean) {
+  await createNotification({
+    recipientPersonId: payout.personId,
+    type: paid ? 'REFERRAL_PAYOUT_PAID' : 'REFERRAL_PAYOUT_REJECTED',
+    metadata: { amount: payout.amount },
+    targetType: 'ReferralPayout',
+    targetId: payout.id,
+    push: paid
+      ? { title: 'Payout sent', body: payout.amount + ' FCFA has been sent to your Mobile Money number.', url: '/member/earnings' }
+      : { title: 'Payout not sent', body: 'We could not send your payout request. Your earnings are back in your balance.', url: '/member/earnings' },
   });
 }
 

@@ -67,7 +67,7 @@ export function MemberSchoolPage() {
         {data && (
           <div className="space-y-5">
             <ol className="grid gap-2 text-sm sm:grid-cols-3" aria-label={t('school.how_heading') ?? ''}>
-              {[t('school.step_read'), t('school.step_exam'), t('school.step_pay', { price: (data.price ?? 1100).toLocaleString('fr-FR') })].map((text, i) => (
+              {[t('school.step_read'), t('school.step_exam'), t('school.step_pay', { price: (data.price ?? 1200).toLocaleString('fr-FR') })].map((text, i) => (
                 <li key={i} className="flex gap-2 rounded-lg bg-white p-3 shadow-sm">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-800">{i + 1}</span>
                   <span className="text-slate-700">{text}</span>

@@ -102,7 +102,7 @@ export function TrainingStatusCard({ summary, onChanged }: { summary: SchoolSumm
   if (summary.enrollment !== 'ACTIVE') {
     return (
       <div className="card space-y-2 text-sm">
-        <p className="text-slate-700">{t('learn.training_payment_rule', { price: (summary.price ?? 1100).toLocaleString('fr-FR') })}</p>
+        <p className="text-slate-700">{t('learn.training_payment_rule', { price: (summary.price ?? 1200).toLocaleString('fr-FR') })}</p>
         {summary.enrollment === 'REVOKED' ? (
           <p className="font-medium text-amber-800">{t('learn.training_stopped')}</p>
         ) : (
