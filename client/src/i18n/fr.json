@@ -2885,8 +2885,8 @@
     "link_help": "Voyez ce que vous avez gagné grâce aux livres achetés par les personnes que vous avez invitées."
   },
   "payAgents": {
-    "title": "Payer par une personne",
-    "how": "Choisissez quelqu'un de notre équipe qui est en ligne. Cette personne vous dira comment payer et confirmera quand l'argent est arrivé au ministère.",
+    "title": "Payer par un représentant en ligne",
+    "how": "Choisissez l'un de nos représentants en ligne. Il vous dira comment payer et confirmera quand l'argent est arrivé au ministère.",
     "choose": "Payer par cette personne",
     "online": "en ligne",
     "offline": "hors ligne",
@@ -2903,8 +2903,8 @@
     "status_confirmed": "Confirmé",
     "status_cancelled": "Annulé",
     "status_expired": "Expiré",
-    "not_found_banner": "L'agent n'a pas trouvé votre paiement. Vérifiez l'ID de transaction et envoyez-le à nouveau.",
-    "agent_checking": "Merci ! L'agent vérifie que l'argent est bien arrivé. Vous serez prévenu dès la confirmation.",
+    "not_found_banner": "Le représentant n'a pas trouvé votre paiement. Vérifiez l'ID de transaction et envoyez-le à nouveau.",
+    "agent_checking": "Merci ! Le représentant vérifie que l'argent est bien arrivé. Vous serez prévenu dès la confirmation.",
     "confirmed_buyer": "Paiement confirmé. Votre livre est ouvert. Merci !",
     "confirmed_agent": "Vous avez confirmé ce paiement.",
     "open_school": "Ouvrir mes livres",
@@ -2933,16 +2933,16 @@
     "desk_card_waiting_one": "{{count}} commande en attente",
     "desk_card_waiting_other": "{{count}} commandes en attente",
     "desk_card_none": "Personne n'attend. Gardez l'application ouverte pour montrer que vous êtes en ligne.",
-    "not_agent": "Vous n'êtes pas agent de paiement.",
-    "admin_title": "Agents de paiement",
-    "admin_help": "Votre propre personnel qui reçoit les paiements des livres sur le compte du ministère et les confirme. Les membres choisissent un agent en ligne. Vous pouvez aussi confirmer vous-même n'importe quel paiement dans la liste ci-dessous.",
-    "admin_add": "Nommer agent",
-    "admin_none": "Pas encore d'agent. Cherchez un membre à nommer.",
+    "not_agent": "Vous n'êtes pas représentant en ligne.",
+    "admin_title": "Représentants en ligne",
+    "admin_help": "Votre propre personnel qui reçoit les paiements des livres sur le compte du ministère et les confirme. Les membres choisissent un représentant en ligne. Vous pouvez aussi confirmer vous-même n'importe quel paiement dans la liste ci-dessous.",
+    "admin_add": "Nommer représentant",
+    "admin_none": "Pas encore de représentant. Cherchez un membre à nommer.",
     "admin_switch_off": "Désactiver",
     "admin_switch_on": "Activer",
     "admin_stats": "Confirmés aujourd'hui : {{today}} · au total : {{total}} · en attente : {{waiting}}",
     "admin_label": "Nom montré aux membres, ex. Bureau de Douala",
-    "admin_limit": "Maximum de livres que cet agent peut confirmer par jour",
+    "admin_limit": "Maximum de livres que ce représentant peut confirmer par jour",
     "admin_instructions": "Comment payer (envoyé automatiquement au membre). Vide = les instructions de paiement ci-dessus.",
     "admin_orders": "Commandes de paiement",
     "admin_no_orders": "Aucune commande pour le moment.",
@@ -2963,6 +2963,7 @@
     "what_i_owe": "Les {{count}} que je dois",
     "all_remaining": "Les {{count}} restants",
     "total": "{{count}} livres · {{amount}}",
-    "ahead_note": "Les livres sont payés dans l'ordre, en commençant par le premier pas encore payé. Vous pouvez payer d'avance des livres qui ne sont pas encore ouverts."
+    "ahead_note": "Les livres sont payés dans l'ordre, en commençant par le premier pas encore payé. Vous pouvez payer d'avance des livres qui ne sont pas encore ouverts.",
+    "hint": "Vous pouvez payer 2, 3 livres ou plus en même temps — même à l'avance."
   }
 }

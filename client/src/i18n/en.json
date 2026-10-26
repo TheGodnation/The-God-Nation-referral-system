@@ -2885,8 +2885,8 @@
     "link_help": "See what you earned from the books bought by people you invited."
   },
   "payAgents": {
-    "title": "Pay through a person",
-    "how": "Choose someone from our team who is online. They will tell you how to pay, and confirm when the money has reached the ministry.",
+    "title": "Pay through an online representative",
+    "how": "Choose one of our online representatives. They will tell you how to pay, and confirm when the money has reached the ministry.",
     "choose": "Pay through them",
     "online": "online",
     "offline": "offline",
@@ -2903,8 +2903,8 @@
     "status_confirmed": "Confirmed",
     "status_cancelled": "Cancelled",
     "status_expired": "Expired",
-    "not_found_banner": "The agent could not find your payment. Please check the transaction ID and send it again.",
-    "agent_checking": "Thank you! The agent is checking that the money arrived. You will be told as soon as it is confirmed.",
+    "not_found_banner": "The representative could not find your payment. Please check the transaction ID and send it again.",
+    "agent_checking": "Thank you! The representative is checking that the money arrived. You will be told as soon as it is confirmed.",
     "confirmed_buyer": "Payment confirmed. Your book is open. Thank you!",
     "confirmed_agent": "You confirmed this payment.",
     "open_school": "Open my books",
@@ -2933,16 +2933,16 @@
     "desk_card_waiting_one": "{{count}} order waiting",
     "desk_card_waiting_other": "{{count}} orders waiting",
     "desk_card_none": "No one waiting. Keep the app open to show you are online.",
-    "not_agent": "You are not a payment agent.",
-    "admin_title": "Payment agents",
-    "admin_help": "Your own staff who receive book payments in the ministry's account and confirm them. Members choose an agent who is online. You can also confirm any payment yourself in the list below.",
-    "admin_add": "Make agent",
-    "admin_none": "No agents yet. Search for a member to appoint.",
+    "not_agent": "You are not an online representative.",
+    "admin_title": "Online representatives",
+    "admin_help": "Your own staff who receive book payments in the ministry's account and confirm them. Members choose a representative who is online. You can also confirm any payment yourself in the list below.",
+    "admin_add": "Make representative",
+    "admin_none": "No representatives yet. Search for a member to appoint.",
     "admin_switch_off": "Switch off",
     "admin_switch_on": "Switch on",
     "admin_stats": "Confirmed today: {{today}} · in total: {{total}} · waiting: {{waiting}}",
     "admin_label": "Name shown to members, e.g. Douala office",
-    "admin_limit": "Most books this agent may confirm in a day",
+    "admin_limit": "Most books this representative may confirm in a day",
     "admin_instructions": "How to pay (sent to the member automatically). Empty = the payment instructions above.",
     "admin_orders": "Payment orders",
     "admin_no_orders": "No orders yet.",
@@ -2963,6 +2963,7 @@
     "what_i_owe": "The {{count}} I owe",
     "all_remaining": "All {{count}} remaining",
     "total": "{{count}} books · {{amount}}",
-    "ahead_note": "The books are paid in order, starting with the first one not yet paid. You can pay ahead for books that are not open yet."
+    "ahead_note": "The books are paid in order, starting with the first one not yet paid. You can pay ahead for books that are not open yet.",
+    "hint": "You can pay for 2, 3 or more books at the same time — even ahead of time."
   }
 }

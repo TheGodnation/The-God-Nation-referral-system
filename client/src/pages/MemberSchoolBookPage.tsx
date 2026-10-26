@@ -5,7 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { BookCover } from '../components/learn/BookCover';
-import { PayBookPanel } from '../components/learn/TrainingPayments';
+import { PayBookPanel, PayManyPanel } from '../components/learn/TrainingPayments';
 import { WaitingOrderLink } from '../components/learn/PayWithAgent';
 import { BookStatusLines, SchoolBook, SchoolSummary, TrainingStatusCard, useTr } from '../components/learn/schoolBits';
 import { ApiError } from '../lib/api';
@@ -113,6 +113,15 @@ export function MemberSchoolBookPage() {
                 </div>
                 {b.canRead && <p className="text-xs text-slate-500">{downloaded ? `✓ ${t('school.downloaded')}` : t('school.downloads_first_time')}</p>}
                 {b.payment === 'CLAIMED' && !fromCache && <WaitingOrderLink bookId={b.id} />}
+                {!b.payment && !fromCache && (data.payableCount ?? 0) > 1 && (
+                  <PayManyPanel
+                    price={data.price ?? 1200}
+                    owedBooks={data.owed?.books ?? 0}
+                    payable={data.payableCount ?? 0}
+                    instructions={tr(data.paymentInstructionsEn ?? '', data.paymentInstructionsFr) || null}
+                    onDone={load}
+                  />
+                )}
                 {!b.payment && !fromCache && (
                   <PayBookPanel
                     bookId={b.id}

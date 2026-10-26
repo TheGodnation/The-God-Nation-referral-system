@@ -74,7 +74,7 @@ router.patch('/payment-agents/:id', leadershipMutationLimiter, requireCsrf, asyn
   if (!parsed.success) return res.status(400).json({ error: 'Check the details.' });
   const d = parsed.data;
   const exists = await prisma.paymentAgent.findUnique({ where: { id: req.params.id }, select: { id: true } });
-  if (!exists) return res.status(404).json({ error: 'Agent not found.' });
+  if (!exists) return res.status(404).json({ error: 'Representative not found.' });
   await prisma.paymentAgent.update({
     where: { id: req.params.id },
     data: {

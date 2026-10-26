@@ -85,12 +85,12 @@ const startSchema = z.object({ agentId: z.string().min(1), bookId: z.string().mi
 
 router.post('/pay/orders', socialMutationLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
   const parsed = startSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Choose an agent and how many books.' });
+  if (!parsed.success) return res.status(400).json({ error: 'Choose an online representative and how many books.' });
   const personId = req.member!.personId;
   const count = parsed.data.count ?? 1;
   const agent = await prisma.paymentAgent.findUnique({ where: { id: parsed.data.agentId }, include: { person: { select: { id: true, name: true } } } });
-  if (!agent || !agent.active || agent.personId === personId) return res.status(404).json({ error: 'This agent is not available.' });
-  if ((await agentConfirmedToday(agent.id)) >= agent.dailyLimit) return res.status(409).json({ error: 'This agent is busy for today. Please choose another one.', code: 'BUSY' });
+  if (!agent || !agent.active || agent.personId === personId) return res.status(404).json({ error: 'This representative is not available.' });
+  if ((await agentConfirmedToday(agent.id)) >= agent.dailyLimit) return res.status(409).json({ error: 'This representative is busy for today. Please choose another one.', code: 'BUSY' });
 
   // One thing to pay at a time: a claim waiting to be confirmed comes first.
   const claimed = await prisma.paymentOrder.findFirst({ where: { buyerPersonId: personId, status: 'CLAIMED' } });
@@ -314,7 +314,7 @@ router.post('/pay/orders/:id/decide', socialMutationLimiter, requireCsrf, requir
   const loaded = await loadOrder(req, res);
   if (!loaded) return;
   const { order, role, personId } = loaded;
-  if (role !== 'AGENT' || !order.agent.active) return res.status(403).json({ error: 'Only the payment agent can decide this.' });
+  if (role !== 'AGENT' || !order.agent.active) return res.status(403).json({ error: 'Only the online representative can decide this.' });
   const parsed = decideSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Choose confirm or reject.' });
   if (order.status !== 'CLAIMED') return res.status(409).json({ error: 'There is no payment waiting here.', code: 'CLOSED' });
@@ -350,7 +350,7 @@ router.post('/pay/orders/:id/decide', socialMutationLimiter, requireCsrf, requir
 // The agent's desk: orders waiting, then the latest finished ones.
 router.get('/pay/desk', requireMember, asyncHandler(async (req, res) => {
   const agent = await prisma.paymentAgent.findUnique({ where: { personId: req.member!.personId } });
-  if (!agent || !agent.active) return res.status(403).json({ error: 'You are not a payment agent.' });
+  if (!agent || !agent.active) return res.status(403).json({ error: 'You are not an online representative.' });
   await expireStale();
   const rows = await prisma.paymentOrder.findMany({
     where: { agentId: agent.id },

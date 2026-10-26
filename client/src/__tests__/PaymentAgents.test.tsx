@@ -144,7 +144,7 @@ describe('The payment order chat', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Please type the transaction ID');
     fireEvent.change(screen.getByLabelText('Mobile Money transaction ID'), { target: { value: 'MP241028.1111.A11111' } });
     fireEvent.click(screen.getByRole('button', { name: 'I have paid' }));
-    expect(await screen.findByText(/The agent is checking that the money arrived/)).toBeInTheDocument();
+    expect(await screen.findByText(/The representative is checking that the money arrived/)).toBeInTheDocument();
     expect(calls.find((c) => c.url.endsWith('/paid'))?.body).toEqual({ reference: 'MP241028.1111.A11111' });
     expect(screen.getByTestId('order-status')).toHaveTextContent('Being checked');
   });
@@ -155,7 +155,7 @@ describe('The payment order chat', () => {
       'GET /api/member/pay/orders/o1': () => ({ body: order({ payment: { status: 'REJECTED', reference: 'X', payerPhone: null, note: 'The amount was 1,000.' } }) }),
     });
     renderOrder();
-    expect(await screen.findByRole('status')).toHaveTextContent('The agent could not find your payment');
+    expect(await screen.findByRole('status')).toHaveTextContent('The representative could not find your payment');
     expect(screen.getByRole('status')).toHaveTextContent('The amount was 1,000.');
     expect(screen.getByRole('button', { name: /I have paid/ })).toBeInTheDocument();
   });

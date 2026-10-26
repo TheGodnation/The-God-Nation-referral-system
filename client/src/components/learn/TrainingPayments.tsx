@@ -137,9 +137,12 @@ export function PayManyPanel({
   if (payable < 1) return null;
   if (!open) {
     return (
-      <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => setOpen(true)}>
-        {t('payMany.open')}
-      </button>
+      <div className="space-y-1" data-testid="pay-many-hint">
+        <p className="text-sm text-slate-700">{t('payMany.hint')}</p>
+        <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setOpen(true)}>
+          {t('payMany.open')}
+        </button>
+      </div>
     );
   }
 
