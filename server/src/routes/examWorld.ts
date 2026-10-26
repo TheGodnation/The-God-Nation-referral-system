@@ -235,6 +235,13 @@ router.post('/training/books/:id/payments', socialMutationLimiter, requireCsrf, 
   const found = await openUnpaidBook(personId, req.params.id);
   if (found.error === 404) return res.status(404).json({ error: 'Book not found.' });
   if (found.error) return res.status(409).json({ error: 'This book is already paid or waiting for confirmation.', code: found.error });
+  // One Mobile Money transaction pays for one book: the same transaction ID cannot
+  // be claimed again (a rejected claim does not block its ID, in case it was a mistake).
+  const reused = await prisma.bookPayment.findFirst({
+    where: { reference: { equals: parsed.data.reference, mode: 'insensitive' }, status: { in: ['CLAIMED', 'PENDING', 'CONFIRMED'] } },
+    select: { id: true },
+  });
+  if (reused) return res.status(409).json({ error: 'This transaction ID has already been used for a payment. Please check it and type the ID from your own payment message.', code: 'DUPLICATE_REFERENCE' });
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { trainingBookPrice: true } });
   const payment = await prisma.bookPayment.create({
     data: {

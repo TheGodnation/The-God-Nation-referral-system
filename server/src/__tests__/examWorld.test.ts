@@ -239,7 +239,7 @@ describe('Paying for leadership books', () => {
     await takeBookExam(m, books[0].examId, 'Right');
     let w = await world(m);
     expect(w.books.map((b: any) => b.unlocked)).toEqual([true, true, false, false]);
-    expect(w.owed).toEqual({ books: 2, amount: 2200 });
+    expect(w.owed).toEqual({ books: 2, amount: 2400 });
 
     await takeBookExam(m, books[1].examId, 'Right');
     w = await world(m);
@@ -256,6 +256,23 @@ describe('Paying for leadership books', () => {
     w = await world(m);
     expect(w.books.map((b: any) => b.unlocked)).toEqual([true, true, true, false]);
     expect(w.owed.books).toBe(2);
+  });
+
+  it('refuses a transaction ID that was already used for another payment, but not one that was rejected', async () => {
+    const { a, m, books } = await setup(2);
+    const other = await member('Second Trainee');
+    await post(a, '/api/admin/library/trainees', { personId: other.id });
+
+    const first = await post(m, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'MP241021.9999.Z11111' });
+    expect(first.status).toBe(201);
+    // Someone else typing the same ID (even in other letters) is refused.
+    const copy = await post(other, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'mp241021.9999.z11111' });
+    expect(copy.status).toBe(409);
+    expect(copy.body.code).toBe('DUPLICATE_REFERENCE');
+
+    // If the admin rejects the first claim (a mistake), that ID can be tried again.
+    await post(a, `/api/admin/library/payments/${first.body.id}`, { decision: 'REJECT' });
+    expect((await post(other, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'MP241021.9999.Z11111' })).status).toBe(201);
   });
 
   it('a payment the admin records (cash) settles a waiting claim', async () => {
