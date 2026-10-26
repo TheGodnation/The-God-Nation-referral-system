@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { Avatar } from '../components/Avatar';
@@ -34,6 +34,7 @@ interface Order {
   bookTitleFr: string | null;
   counterpart: { name: string; photoUrl: string | null; online: boolean; lastSeenAt: string | null; label: string | null };
   payment: { status: string; reference: string | null; payerPhone: string | null; note: string | null } | null;
+  noReply?: boolean;
   canClaim: boolean;
   canCancel: boolean;
   canDecide: boolean;
@@ -69,6 +70,7 @@ function ProofImage({ orderId, messageId }: { orderId: string; messageId: string
 export function MemberPaymentOrderPage() {
   const { t, i18n } = useTranslation();
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [missing, setMissing] = useState(false);
   const [text, setText] = useState('');
@@ -222,6 +224,21 @@ export function MemberPaymentOrderPage() {
             {t('payAgents.not_found_banner')}
             {order.payment.note ? ` ${order.payment.note}` : ''}
           </p>
+        )}
+        {buyer && order.noReply && (
+          <div role="status" className="mb-3 space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" data-testid="no-reply">
+            <p>{t('payAgents.no_reply')}</p>
+            {order.status === 'OPEN' && (
+              <button
+                type="button"
+                className="font-semibold underline"
+                disabled={busy}
+                onClick={() => void run(() => api.post(`/api/member/pay/orders/${id}/cancel`)).then((ok) => ok && navigate('/member/school'))}
+              >
+                {t('payAgents.choose_another')}
+              </button>
+            )}
+          </div>
         )}
         {buyer && order.status === 'CLAIMED' && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t('payAgents.agent_checking')}</p>}
         {order.status === 'CONFIRMED' && (

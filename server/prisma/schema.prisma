@@ -212,6 +212,7 @@ enum NotificationType {
   REFERRAL_PAYOUT_PAID
   REFERRAL_PAYOUT_REJECTED
   PAYMENT_ORDER_NEW
+  BOOK_PASSED_PAY
   PAYMENT_ORDER_MESSAGE
 }
 
@@ -3163,6 +3164,8 @@ model PaymentOrder {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   decidedAt     DateTime?
+  // When the representative was last reminded that the member is waiting for a reply.
+  reminderSentAt DateTime?
 
   buyer    Person                @relation("PaymentOrderBuyer", fields: [buyerPersonId], references: [id], onDelete: Cascade)
   agent    PaymentAgent          @relation(fields: [agentId], references: [id], onDelete: Cascade)

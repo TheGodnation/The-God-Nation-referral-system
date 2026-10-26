@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
+import { processPaymentReminders, REPLY_REMINDER_MS } from '../lib/paymentReminders';
 
 // Paying for a book through a payment agent: pick an agent, chat, pay, send the
 // transaction ID, and the agent confirms that the money reached the ministry.
@@ -338,5 +339,44 @@ describe('Paying for several books at once', () => {
     const w = await world(buyer);
     expect(w.books.map((b: any) => b.payment)).toEqual(['PAID', 'PAID', 'PAID', null]);
     expect((await agentWho.agent.get('/api/member/pay/desk')).body.confirmedToday).toBe(1);
+  });
+});
+
+describe('Waiting for a reply: reminders', () => {
+  it('reminds the representative once when the member has waited 5 minutes, and shows the member "no reply yet"', async () => {
+    const { b1, buyer, agentWho, agentId } = await setup();
+    const { body: { id } } = await openOrder(buyer, agentId, b1.id);
+    await send(buyer, 'post', `/api/member/pay/orders/${id}/messages`, { body: 'Hello, are you there?' });
+    // Not yet: the member has only just written.
+    expect(await processPaymentReminders()).toBe(0);
+    expect((await buyer.agent.get(`/api/member/pay/orders/${id}`)).body.noReply).toBe(false);
+
+    const later = Date.now() + REPLY_REMINDER_MS + 1000;
+    expect(await processPaymentReminders(later)).toBe(1);
+    const notes = await prisma.notification.findMany({ where: { recipientPersonId: agentWho.id, type: 'PAYMENT_ORDER_MESSAGE' } });
+    expect(notes.some((n) => (n.metadata as any)?.reminder === true)).toBe(true);
+    // Only once for this unanswered message.
+    expect(await processPaymentReminders(later + 60_000)).toBe(0);
+    // The member's page says nobody has answered once the time has passed (simulated by ageing the message).
+    await prisma.paymentOrderMessage.updateMany({ where: { orderId: id, senderPersonId: buyer.id }, data: { createdAt: new Date(Date.now() - REPLY_REMINDER_MS - 1000) } });
+    expect((await buyer.agent.get(`/api/member/pay/orders/${id}`)).body.noReply).toBe(true);
+
+    // A reply from the representative ends it; a new unanswered message starts a new streak.
+    await send(agentWho, 'post', `/api/member/pay/orders/${id}/messages`, { body: 'Yes, send to 670 000 000' });
+    expect((await buyer.agent.get(`/api/member/pay/orders/${id}`)).body.noReply).toBe(false);
+    expect(await processPaymentReminders(later + 10 * 60_000)).toBe(0);
+    // (the reminders above ran on a simulated clock: put the reminder time back to real time)
+    await prisma.paymentOrder.update({ where: { id }, data: { reminderSentAt: new Date(Date.now() - 1000) } });
+    await send(buyer, 'post', `/api/member/pay/orders/${id}/messages`, { body: 'Sent!' });
+    expect(await processPaymentReminders(Date.now() + REPLY_REMINDER_MS + 2000)).toBe(1);
+  });
+
+  it('does not remind about an order where the representative spoke last, or that is closed', async () => {
+    const { b1, buyer, agentId } = await setup();
+    const { body: { id } } = await openOrder(buyer, agentId, b1.id); // only the representative's instructions so far
+    expect(await processPaymentReminders(Date.now() + 10 * 60_000)).toBe(0);
+    await send(buyer, 'post', `/api/member/pay/orders/${id}/messages`, { body: 'Hi' });
+    await send(buyer, 'post', `/api/member/pay/orders/${id}/cancel`);
+    expect(await processPaymentReminders(Date.now() + 10 * 60_000)).toBe(0);
   });
 });

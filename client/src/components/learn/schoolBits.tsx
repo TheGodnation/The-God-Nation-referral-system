@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { GraceBox, PayManyPanel } from './TrainingPayments';
@@ -136,5 +137,25 @@ export function TrainingStatusCard({ summary, onChanged }: { summary: SchoolSumm
       )}
       <GraceBox graceBooks={summary.graceBooks ?? 0} maxGraceBooks={summary.maxGraceBooks ?? 5} request={summary.graceRequest ?? null} onDone={onChanged} />
     </div>
+  );
+}
+
+/** On the Learn page: when books are waiting to be paid for, a card that says so and points to paying (several at once if they like). */
+export function PayPromptCard({ summary }: { summary: SchoolSummary }) {
+  const { t } = useTranslation();
+  if (summary.enrollment !== 'ACTIVE' || (summary.payableCount ?? 0) < 1) return null;
+  const owed = summary.owed?.books ?? 0;
+  const nextWaits = summary.books.some((b) => b.lockedBecause === 'PAYMENT');
+  if (owed < 1 && !nextWaits) return null;
+  return (
+    <section className="card space-y-2 border-amber-300 bg-amber-50" data-testid="pay-prompt-card">
+      <p className="font-semibold text-amber-900">
+        {owed > 0 ? t('learn.owed', { count: owed, amount: (summary.owed?.amount ?? 0).toLocaleString('fr-FR') }) : t('payPrompt.next_waits')}
+      </p>
+      <p className="text-sm text-amber-900">{t('payMany.hint')}</p>
+      <Link to="/member/school" className="btn-primary inline-block no-underline">
+        {t('payPrompt.button')}
+      </Link>
+    </section>
   );
 }

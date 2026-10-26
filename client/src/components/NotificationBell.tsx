@@ -20,6 +20,7 @@ type NotificationType =
   | 'BOOK_PAYMENT_CONFIRMED'
   | 'BOOK_PAYMENT_REJECTED'
   | 'PAYMENT_ORDER_NEW'
+  | 'BOOK_PASSED_PAY'
   | 'PAYMENT_ORDER_MESSAGE'
   | 'TRAINING_GRACE_GRANTED'
   | 'TRAINING_GRACE_DECLINED'
@@ -153,7 +154,9 @@ export function NotificationBell() {
           ? t('notifications.payment_order_new_many', { name: metadata.name ?? '', count: Number(metadata.count) })
           : t('notifications.payment_order_new', { name: metadata.name ?? '', number: metadata.bookNumber ?? '' });
       case 'PAYMENT_ORDER_MESSAGE':
-        return t('notifications.payment_order_message', { name: metadata.name ?? '' });
+        return metadata.reminder ? t('notifications.payment_order_reminder', { name: metadata.name ?? '' }) : t('notifications.payment_order_message', { name: metadata.name ?? '' });
+      case 'BOOK_PASSED_PAY':
+        return t('notifications.book_passed_pay', { number: metadata.bookNumber ?? '' });
       case 'TRAINING_GRACE_GRANTED':
         return t('notifications.training_grace_granted', { count: Number(metadata.books ?? 0) });
       case 'TRAINING_GRACE_DECLINED':

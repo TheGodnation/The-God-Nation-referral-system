@@ -20,6 +20,7 @@ import { createClaimBatch, decideBookPayment, openUnpaidBook, payableBooks } fro
 import { notifyPaymentOrderMessage, notifyPaymentOrderNew } from '../lib/notifications';
 import { MAX_COMMENT_CHARS } from '../lib/textLimits';
 import { agentConfirmedToday, orderThread, STALE_ORDER_MS } from '../lib/paymentOrders';
+import { REPLY_REMINDER_MS } from '../lib/paymentReminders';
 
 // /api/member/pay — paying for a book through a payment agent, like a P2P
 // trade: the member picks an agent who is online, they chat in a "payment
@@ -179,6 +180,8 @@ router.get('/pay/orders/:id', requireMember, asyncHandler(async (req, res) => {
     counterpart: { name: other.name, photoUrl: photoOf(other), online: isOnline(other.lastSeenAt), lastSeenAt: other.lastSeenAt, label: role === 'BUYER' ? order.agent.label : null },
     // What the agent is checking, or why the last claim was sent back.
     payment: latest && (order.status === 'CLAIMED' || latest.status === 'REJECTED') ? latest : null,
+    // The member wrote (or said they paid) and the representative has not answered for a few minutes.
+    noReply: role === 'BUYER' && isLive(order.status) && messages.length > 0 && messages[messages.length - 1].mine && Date.now() - new Date(messages[messages.length - 1].createdAt).getTime() >= REPLY_REMINDER_MS,
     canClaim: role === 'BUYER' && order.status === 'OPEN',
     canCancel: role === 'BUYER' && order.status === 'OPEN',
     canDecide: role === 'AGENT' && order.status === 'CLAIMED',

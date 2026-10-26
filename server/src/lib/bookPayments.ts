@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { prisma } from './prisma';
 import { getTrainingBooksFor } from './examWorld';
-import { notifyBookPaymentDecision } from './notifications';
+import { notifyBookPassedPay, notifyBookPaymentDecision } from './notifications';
 import { creditReferralEarning } from './referralEarnings';
 
 export type BookPaymentDecision =
@@ -144,4 +144,25 @@ export async function createClaimBatch(opts: {
     ),
   );
   return { rows, books: chosen };
+}
+
+/**
+ * After a submitted exam: when it is a leadership book's exam, this is the
+ * first time it was passed, and the member still has books to pay for (an open
+ * book owed, or the next book closed until payment) — tell them, and mention
+ * paying for several at once. Returns what the result screen should show.
+ */
+export async function bookPassedPrompt(personId: string, assessmentId: string, attemptId: string, passed: boolean) {
+  if (!passed) return null;
+  const book = await prisma.libraryBook.findFirst({ where: { kind: 'TRAINING', exam: { id: assessmentId } }, select: { id: true, trainingOrder: true } });
+  if (!book || book.trainingOrder === null) return null;
+  const earlier = await prisma.attempt.count({ where: { personId, assessmentId, passed: true, status: 'SUBMITTED', id: { not: attemptId } } });
+  if (earlier > 0) return null;
+  const books = await getTrainingBooksFor(personId);
+  const payable = books.filter((b) => b.payment === null).length;
+  const owedOpen = books.some((b) => b.unlocked && b.payment === null);
+  const nextWaitsForPayment = books.some((b) => b.lockedBecause === 'PAYMENT');
+  if (payable === 0 || !(owedOpen || nextWaitsForPayment)) return null;
+  await notifyBookPassedPay(personId, book.trainingOrder).catch(() => {});
+  return { bookNumber: book.trainingOrder, payableCount: payable, nextWaitsForPayment };
 }

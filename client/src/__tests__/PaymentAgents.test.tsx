@@ -7,6 +7,8 @@ import { MemberPaymentDeskPage } from '../pages/MemberPaymentDeskPage';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { PaymentAgentsAdmin } from '../components/admin/PaymentAgentsAdmin';
 import { PayManyPanel } from '../components/learn/TrainingPayments';
+import { PayPromptCard, type SchoolSummary } from '../components/learn/schoolBits';
+import { MemberNav } from '../components/member/MemberNav';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 
 // Paying for a book through a payment agent: choosing an agent who is online,
@@ -335,5 +337,78 @@ describe('Paying for several books', () => {
       </MemoryRouter>,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('Prompts to pay and reminders', () => {
+  const summary = (over: Partial<SchoolSummary>): SchoolSummary => ({
+    enrollment: 'ACTIVE',
+    books: [],
+    price: 1200,
+    owed: { books: 0, amount: 0 },
+    payableCount: 5,
+    ...over,
+  });
+
+  it('the Learn page card says what is owed and points to paying for several books', () => {
+    render(
+      <MemoryRouter>
+        <PayPromptCard summary={summary({ owed: { books: 3, amount: 3600 } })} />
+      </MemoryRouter>,
+    );
+    const card = screen.getByTestId('pay-prompt-card');
+    expect(card).toHaveTextContent('To pay: 3 600 FCFA (3 books)');
+    expect(card).toHaveTextContent('You can pay for 2, 3 or more books at the same time');
+    expect(within(card).getByRole('link', { name: 'Pay for my books' })).toHaveAttribute('href', '/member/school');
+  });
+
+  it('the card says the next book is waiting when it is closed until payment; nothing when nothing is due', () => {
+    const waiting = { id: 'b2', trainingOrder: 2, titleEn: 'B2', titleFr: null, unlocked: false, canRead: false, payment: null, lockedBecause: 'PAYMENT', exam: null } as any;
+    const { unmount } = render(
+      <MemoryRouter>
+        <PayPromptCard summary={summary({ books: [waiting] })} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('pay-prompt-card')).toHaveTextContent('Your next book is waiting for payment.');
+    unmount();
+    const { container } = render(
+      <MemoryRouter>
+        <PayPromptCard summary={summary({ payableCount: 0 })} />
+      </MemoryRouter>,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('shows a badge with the waiting orders on the Chats tab, for representatives only', async () => {
+    mockFetch({ 'GET /api/member/pay/me': () => ({ body: { isAgent: true, waiting: 3 } }) });
+    const { unmount } = render(
+      <MemoryRouter>
+        <MemberNav />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByTestId('chats-badge')).toHaveTextContent('3');
+    unmount();
+    mockFetch({ 'GET /api/member/pay/me': () => ({ body: { isAgent: false, waiting: 0 } }) });
+    render(
+      <MemoryRouter>
+        <MemberNav />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    expect(screen.queryByTestId('chats-badge')).not.toBeInTheDocument();
+  });
+
+  it('tells the member nobody has answered yet and lets them choose another representative', async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: ME }),
+      'GET /api/member/pay/orders/o1': () => ({ body: order({ noReply: true }) }),
+      'POST /api/member/pay/orders/o1/cancel': () => ({ body: { status: 'CANCELLED' } }),
+    });
+    renderOrder();
+    const hint = await screen.findByTestId('no-reply');
+    expect(hint).toHaveTextContent('No reply yet');
+    fireEvent.click(within(hint).getByRole('button', { name: 'Choose another representative' }));
+    expect(await screen.findByText('The school')).toBeInTheDocument();
+    expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/cancel'))).toBe(true);
   });
 });

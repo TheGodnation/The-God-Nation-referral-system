@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { api } from '../../lib/api';
 
 // The member app's bottom bar, like WhatsApp: Chats · Home · Learn ·
 // People · Me. Fixed to the bottom of the screen; the spacer keeps page
@@ -32,8 +34,30 @@ const TABS = [
   },
 ] as const;
 
+// For online representatives only: how many payment orders are waiting, shown
+// as a badge on the Chats tab. Everyone else gets nothing (and no badge).
+function useWaitingPayments() {
+  const [waiting, setWaiting] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      api
+        .get<{ isAgent?: boolean; waiting?: number }>('/api/member/pay/me')
+        .then((r) => alive && setWaiting(r?.isAgent ? (r.waiting ?? 0) : 0))
+        .catch(() => alive && setWaiting(0));
+    void load();
+    const timer = window.setInterval(() => document.visibilityState !== 'hidden' && void load(), 60000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+  return waiting;
+}
+
 export function MemberNav() {
   const { t } = useTranslation();
+  const waitingPayments = useWaitingPayments();
   return (
     <>
       <div aria-hidden="true" className="h-20" />
@@ -53,7 +77,16 @@ export function MemberNav() {
               >
                 {({ isActive }) => (
                   <>
-                    <span className={`flex h-7 w-14 items-center justify-center rounded-full ${isActive ? 'bg-brand-100' : ''}`}>
+                    <span className={`relative flex h-7 w-14 items-center justify-center rounded-full ${isActive ? 'bg-brand-100' : ''}`}>
+                      {tab.key === 'chats' && waitingPayments > 0 && (
+                        <span
+                          className="absolute -right-0.5 -top-1 min-w-[1.1rem] rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-4 text-white"
+                          aria-label={t('payAgents.desk_card_waiting', { count: waitingPayments }) ?? ''}
+                          data-testid="chats-badge"
+                        >
+                          {waitingPayments}
+                        </span>
+                      )}
                       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d={tab.icon} />
                       </svg>

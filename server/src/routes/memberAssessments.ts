@@ -6,6 +6,7 @@ import { prisma } from '../lib/prisma';
 import { requireMember } from '../lib/memberAuth';
 import { requireCsrf } from '../lib/csrf';
 import { memberAssessmentLimiter, memberProfileUpdateLimiter } from '../lib/rateLimit';
+import { bookPassedPrompt } from '../lib/bookPayments';
 import { createAttempt, submitAttempt, AssessmentSubmissionError } from '../lib/assessmentScoring';
 import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
 import { recordAudit } from '../lib/audit';
@@ -279,7 +280,9 @@ router.post(
 
     try {
       const result = await submitAttempt(attempt.id, parsed.data.answers);
-      res.json(result);
+      // After passing a leadership book's exam with books still to pay: a prompt for the result screen.
+      const payPrompt = await bookPassedPrompt(attempt.personId, attempt.assessmentId, attempt.id, Boolean((result as { passed?: boolean | null }).passed)).catch(() => null);
+      res.json(payPrompt ? { ...result, payPrompt } : result);
     } catch (err) {
       if (err instanceof AssessmentSubmissionError) {
         return res.status(err.status).json({ error: err.message });

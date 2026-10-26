@@ -218,6 +218,34 @@ describe('Paying for leadership books', () => {
     expect(summary.body).toMatchObject({ confirmed: { count: 1, amount: 1200 }, thisMonth: { count: 1, amount: 1200 }, waiting: 0 });
   });
 
+  it('passing a book with the next one waiting for payment tells the member (once), and mentions paying for several', async () => {
+    const { m, books } = await setup(2);
+    const first = await takeBookExam(m, books[0].examId, 'Right');
+    expect(first.submit!.body.passed).toBe(true);
+    expect(first.submit!.body.payPrompt).toEqual({ bookNumber: 1, payableCount: 2, nextWaitsForPayment: true });
+    const note = await prisma.notification.findMany({ where: { recipientPersonId: m.id, type: 'BOOK_PASSED_PAY' } });
+    expect(note).toHaveLength(1);
+    expect((note[0].metadata as any).bookNumber).toBe(1);
+  });
+
+  it('no prompt when the exam is failed', async () => {
+    const { m, books } = await setup(2);
+    const failed = await takeBookExam(m, books[0].examId, 'Wrong');
+    expect(failed.submit!.body.passed).toBe(false);
+    expect(failed.submit!.body.payPrompt).toBeUndefined();
+    expect(await prisma.notification.count({ where: { recipientPersonId: m.id, type: 'BOOK_PASSED_PAY' } })).toBe(0);
+  });
+
+  it('no prompt when nothing is left to pay', async () => {
+    const { a, m, books } = await setup(2);
+    // Everything is paid first: passing then says nothing about paying.
+    for (const b of books) await post(a, '/api/admin/library/payments', { personId: m.id, bookId: b.bookId });
+    const passed = await takeBookExam(m, books[0].examId, 'Right');
+    expect(passed.submit!.body.passed).toBe(true);
+    expect(passed.submit!.body.payPrompt).toBeUndefined();
+    expect(await prisma.notification.count({ where: { recipientPersonId: m.id, type: 'BOOK_PASSED_PAY' } })).toBe(0);
+  });
+
   it('a rejected payment can be sent again', async () => {
     const { a, m, books } = await setup(1);
     const claim = await post(m, `/api/member/training/books/${books[0].bookId}/payments`, { reference: 'WRONG-ID-1' });

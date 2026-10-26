@@ -194,7 +194,11 @@
     "training_block_NEEDS_RETAKE": "You did not reach 70% this time. Read the book again, then ask for a retake. You will get a different set of questions.",
     "training_block_RETAKE_REQUESTED": "Your retake request was sent. You will be told as soon as it is granted.",
     "training_block_RETAKE_DECLINED": "Your last retake request was not granted. You may ask again.",
-    "training_block_NO_NEW_QUESTIONS": "Your retake is granted. Your new questions are being prepared; please check again soon."
+    "training_block_NO_NEW_QUESTIONS": "Your retake is granted. Your new questions are being prepared; please check again soon.",
+    "pay_prompt_title": "Well done! You passed Book {{number}}.",
+    "pay_prompt_next": "Your next book opens once you pay.",
+    "pay_prompt_owed": "You still have books to pay for.",
+    "pay_prompt_button": "Pay for my books"
   },
   "welcome": {
     "eyebrow": "A MESSAGE FOR YOU",
@@ -1731,7 +1735,9 @@
     "payment_order_message": "{{name}} wrote to you about a book payment.",
     "book_payment_confirmed_many": "Your payment for {{count}} books is confirmed. Thank you!",
     "book_payment_rejected_many": "Your payment for {{count}} books could not be confirmed. Please check the transaction ID.",
-    "payment_order_new_many": "{{name}} wants to pay for {{count}} books. Open your payment desk."
+    "payment_order_new_many": "{{name}} wants to pay for {{count}} books. Open your payment desk.",
+    "book_passed_pay": "You passed Book {{number}}! Your next book is waiting for payment — you can pay for 2, 3 or more books at once.",
+    "payment_order_reminder": "{{name}} is still waiting for your reply about a book payment."
   },
   "memberHome": {
     "title": "Home",
@@ -2951,7 +2957,9 @@
     "admin_chat": "Chat",
     "admin_show_screenshot": "Show the screenshot",
     "desk_card_waiting": "{{count}} orders waiting",
-    "books_line": "{{count}} books"
+    "books_line": "{{count}} books",
+    "no_reply": "No reply yet. You can wait a little, or choose another online representative.",
+    "choose_another": "Choose another representative"
   },
   "payMany": {
     "open": "Pay for several books",
@@ -2965,5 +2973,9 @@
     "total": "{{count}} books · {{amount}}",
     "ahead_note": "The books are paid in order, starting with the first one not yet paid. You can pay ahead for books that are not open yet.",
     "hint": "You can pay for 2, 3 or more books at the same time — even ahead of time."
+  },
+  "payPrompt": {
+    "next_waits": "Your next book is waiting for payment.",
+    "button": "Pay for my books"
   }
 }

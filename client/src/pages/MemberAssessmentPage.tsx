@@ -69,6 +69,8 @@ interface AttemptSummary {
   percentage: number | null;
   passed: boolean | null;
   submittedAt: string | null;
+  /** Present after passing a leadership book while books are still to be paid for. */
+  payPrompt?: { bookNumber: number; payableCount: number; nextWaitsForPayment: boolean };
 }
 
 interface TakingQuestion {
@@ -254,6 +256,16 @@ export function MemberAssessmentPage() {
             </p>
             {assessment.firstTryCounts && attempts.filter((a) => a.status === 'SUBMITTED').length > 1 && (
               <p className="mt-1 text-xs text-slate-500">{t('memberAssessment.practice_note')}</p>
+            )}
+            {lastResult.payPrompt && (
+              <div className="mt-3 space-y-2 rounded-lg bg-amber-50 px-3 py-3 text-amber-900" data-testid="pay-prompt">
+                <p className="font-semibold">{t('memberAssessment.pay_prompt_title', { number: lastResult.payPrompt.bookNumber })}</p>
+                <p>{t(lastResult.payPrompt.nextWaitsForPayment ? 'memberAssessment.pay_prompt_next' : 'memberAssessment.pay_prompt_owed')}</p>
+                <p className="text-xs">{t('payMany.hint')}</p>
+                <Link to="/member/school" className="btn-primary inline-block">
+                  {t('memberAssessment.pay_prompt_button')}
+                </Link>
+              </div>
             )}
           </div>
         )}

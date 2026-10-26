@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { BookCover } from '../components/learn/BookCover';
-import { SCHOOL_BOOK_COUNT, SchoolSummary } from '../components/learn/schoolBits';
+import { PayPromptCard, SCHOOL_BOOK_COUNT, SchoolSummary } from '../components/learn/schoolBits';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api, ApiError } from '../lib/api';
@@ -182,6 +182,7 @@ export function MemberLearnPage() {
               ))}
             </section>
 
+            <PayPromptCard summary={data.training} />
             <section className="space-y-3">
               <h2 className="text-lg font-semibold text-brand-900">🎓 {t('learn.training_heading')}</h2>
               <Link to="/member/school" className="card block space-y-3 hover:bg-brand-50">

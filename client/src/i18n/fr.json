@@ -194,7 +194,11 @@
     "training_block_NEEDS_RETAKE": "Vous n’avez pas atteint 70 % cette fois. Relisez le livre, puis demandez une reprise. Vous recevrez une autre série de questions.",
     "training_block_RETAKE_REQUESTED": "Votre demande de reprise a été envoyée. Vous serez prévenu dès qu’elle sera accordée.",
     "training_block_RETAKE_DECLINED": "Votre dernière demande de reprise n’a pas été accordée. Vous pouvez demander à nouveau.",
-    "training_block_NO_NEW_QUESTIONS": "Votre reprise est accordée. Vos nouvelles questions sont en préparation ; revenez bientôt."
+    "training_block_NO_NEW_QUESTIONS": "Votre reprise est accordée. Vos nouvelles questions sont en préparation ; revenez bientôt.",
+    "pay_prompt_title": "Bravo ! Vous avez réussi le livre {{number}}.",
+    "pay_prompt_next": "Votre prochain livre s'ouvre dès que vous payez.",
+    "pay_prompt_owed": "Vous avez encore des livres à payer.",
+    "pay_prompt_button": "Payer mes livres"
   },
   "welcome": {
     "eyebrow": "UN MESSAGE POUR VOUS",
@@ -1731,7 +1735,9 @@
     "payment_order_message": "{{name}} vous a écrit au sujet d'un paiement de livre.",
     "book_payment_confirmed_many": "Votre paiement pour {{count}} livres est confirmé. Merci !",
     "book_payment_rejected_many": "Votre paiement pour {{count}} livres n'a pas pu être confirmé. Vérifiez l'ID de transaction.",
-    "payment_order_new_many": "{{name}} veut payer {{count}} livres. Ouvrez votre guichet de paiement."
+    "payment_order_new_many": "{{name}} veut payer {{count}} livres. Ouvrez votre guichet de paiement.",
+    "book_passed_pay": "Vous avez réussi le livre {{number}} ! Votre prochain livre attend le paiement — vous pouvez payer 2, 3 livres ou plus en même temps.",
+    "payment_order_reminder": "{{name}} attend toujours votre réponse au sujet d'un paiement de livre."
   },
   "memberHome": {
     "title": "Accueil",
@@ -2951,7 +2957,9 @@
     "admin_chat": "Discussion",
     "admin_show_screenshot": "Voir la capture",
     "desk_card_waiting": "{{count}} commandes en attente",
-    "books_line": "{{count}} livres"
+    "books_line": "{{count}} livres",
+    "no_reply": "Pas encore de réponse. Vous pouvez patienter un peu, ou choisir un autre représentant en ligne.",
+    "choose_another": "Choisir un autre représentant"
   },
   "payMany": {
     "open": "Payer plusieurs livres",
@@ -2965,5 +2973,9 @@
     "total": "{{count}} livres · {{amount}}",
     "ahead_note": "Les livres sont payés dans l'ordre, en commençant par le premier pas encore payé. Vous pouvez payer d'avance des livres qui ne sont pas encore ouverts.",
     "hint": "Vous pouvez payer 2, 3 livres ou plus en même temps — même à l'avance."
+  },
+  "payPrompt": {
+    "next_waits": "Votre prochain livre attend le paiement.",
+    "button": "Payer mes livres"
   }
 }

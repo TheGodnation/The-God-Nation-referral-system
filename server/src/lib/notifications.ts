@@ -43,6 +43,7 @@ interface CreateNotificationParams {
     | 'REFERRAL_PAYOUT_PAID'
     | 'REFERRAL_PAYOUT_REJECTED'
     | 'PAYMENT_ORDER_NEW'
+    | 'BOOK_PASSED_PAY'
     | 'PAYMENT_ORDER_MESSAGE';
   metadata?: Record<string, unknown>;
   targetType?: string;
@@ -444,5 +445,32 @@ export async function notifyPaymentOrderMessage(order: { id: string }, recipient
     targetType: 'PaymentOrder',
     targetId: order.id,
     push: { title: senderName, body: 'New message about a book payment.', url: `/member/payment-orders/${order.id}` },
+  });
+}
+
+/** Nobody has answered the member for a few minutes: one more nudge for the representative. */
+export async function notifyPaymentOrderReminder(order: { id: string }, agentPersonId: string, buyerName: string) {
+  await createNotification({
+    recipientPersonId: agentPersonId,
+    type: 'PAYMENT_ORDER_MESSAGE',
+    metadata: { name: buyerName, reminder: true },
+    targetType: 'PaymentOrder',
+    targetId: order.id,
+    push: { title: `${buyerName} is waiting`, body: 'A member is still waiting for your reply about a book payment.', url: `/member/payment-orders/${order.id}` },
+  });
+}
+
+/** The member passed a book and still has books to pay for: a nudge to pay (several at once if they like). */
+export async function notifyBookPassedPay(personId: string, passedNumber: number) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'BOOK_PASSED_PAY',
+    metadata: { bookNumber: passedNumber },
+    targetType: 'LibraryBook',
+    push: {
+      title: `You passed Book ${passedNumber}!`,
+      body: 'Your next book is waiting for payment. You can pay for 2, 3 or more books at once.',
+      url: '/member/school',
+    },
   });
 }
