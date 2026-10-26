@@ -19,6 +19,8 @@ type NotificationType =
   | 'EXAM_RETAKE_DECLINED'
   | 'BOOK_PAYMENT_CONFIRMED'
   | 'BOOK_PAYMENT_REJECTED'
+  | 'PAYMENT_ORDER_NEW'
+  | 'PAYMENT_ORDER_MESSAGE'
   | 'TRAINING_GRACE_GRANTED'
   | 'TRAINING_GRACE_DECLINED'
   | 'REFERRAL_EARNING'
@@ -142,6 +144,10 @@ export function NotificationBell() {
         return t('notifications.book_payment_confirmed', { number: metadata.bookNumber ?? '' });
       case 'BOOK_PAYMENT_REJECTED':
         return t('notifications.book_payment_rejected', { number: metadata.bookNumber ?? '' });
+      case 'PAYMENT_ORDER_NEW':
+        return t('notifications.payment_order_new', { name: metadata.name ?? '', number: metadata.bookNumber ?? '' });
+      case 'PAYMENT_ORDER_MESSAGE':
+        return t('notifications.payment_order_message', { name: metadata.name ?? '' });
       case 'TRAINING_GRACE_GRANTED':
         return t('notifications.training_grace_granted', { count: Number(metadata.books ?? 0) });
       case 'TRAINING_GRACE_DECLINED':

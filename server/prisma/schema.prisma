@@ -211,6 +211,8 @@ enum NotificationType {
   REFERRAL_EARNING
   REFERRAL_PAYOUT_PAID
   REFERRAL_PAYOUT_REJECTED
+  PAYMENT_ORDER_NEW
+  PAYMENT_ORDER_MESSAGE
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -794,6 +796,9 @@ model Person {
   trainingEnrollment                              TrainingEnrollment?
   devotionalOfferings                             DevotionalOffering[]
   bookPayments                                    BookPayment[]
+  paymentAgent                                    PaymentAgent?
+  paymentOrdersBought                             PaymentOrder[]                           @relation("PaymentOrderBuyer")
+  paymentOrderMessages                            PaymentOrderMessage[]
   trainingBookOpens                               TrainingBookOpen[]
   readingProgress                                 ReadingProgress[]
   trainingGraceRequests                           TrainingGraceRequest[]
@@ -2727,6 +2732,7 @@ model LibraryBook {
   devotional MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
   exam       Assessment?
   payments   BookPayment[]
+  paymentOrders PaymentOrder[]
   opens      TrainingBookOpen[]
   reading    ReadingProgress[]
   cover      LibraryBookCover?
@@ -2866,14 +2872,20 @@ model BookPayment {
   createdAt       DateTime          @default(now())
   decidedAt       DateTime?
   decidedByUserId String?
+  // Paid through a payment agent: the order, and the agent who decided it
+  // (agents are members, so decidedByUserId stays empty for them).
+  orderId           String?
+  decidedByPersonId String?
 
   person    Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
   book      LibraryBook? @relation(fields: [bookId], references: [id], onDelete: SetNull)
   decidedBy User?        @relation("BookPaymentDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  order     PaymentOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
   referralEarning ReferralEarning?
 
   @@index([personId, bookId])
   @@index([status, createdAt])
+  @@index([orderId])
 }
 
 enum EarningStatus {
@@ -3096,4 +3108,81 @@ model TeachingProgress {
 
   @@unique([teachingId, personId])
   @@index([personId])
+}
+
+
+// ---------------------------------------------------------------------------
+// Payment agents — the ministry's own staff who receive book payments for the
+// ministry (the money arrives in the ministry's account, never theirs) and
+// confirm them. A member picks an agent who is online, chats about how to pay
+// (a "payment order"), pays, sends the transaction ID and a screenshot, and
+// the agent confirms: the book opens and the inviter's share is credited.
+// ---------------------------------------------------------------------------
+
+model PaymentAgent {
+  id           String   @id @default(uuid())
+  personId     String   @unique
+  active       Boolean  @default(true)
+  // Shown beside the name, e.g. "Douala office".
+  label        String?
+  // Most books this agent may confirm in one day (a guard against mistakes).
+  dailyLimit   Int      @default(20)
+  // Sent to the member as the agent's first message; empty = the ministry's
+  // payment instructions from the settings.
+  instructions String?
+  createdAt    DateTime @default(now())
+
+  person Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  orders PaymentOrder[]
+}
+
+enum PaymentOrderStatus {
+  // Chatting / paying: nothing claimed yet (or the last claim was not found).
+  OPEN
+  // The member says they paid; the agent is checking.
+  CLAIMED
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+model PaymentOrder {
+  id            String             @id @default(uuid())
+  buyerPersonId String
+  agentId       String
+  bookId        String?
+  bookNumber    Int?
+  amount        Int
+  status        PaymentOrderStatus @default(OPEN)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  decidedAt     DateTime?
+
+  buyer    Person                @relation("PaymentOrderBuyer", fields: [buyerPersonId], references: [id], onDelete: Cascade)
+  agent    PaymentAgent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  book     LibraryBook?          @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  messages PaymentOrderMessage[]
+  payments BookPayment[]
+
+  @@index([agentId, status, createdAt])
+  @@index([buyerPersonId, bookId, status])
+}
+
+model PaymentOrderMessage {
+  id             String   @id @default(uuid())
+  orderId        String
+  senderPersonId String
+  body           String
+  // The agent's automatic first message (the payment instructions).
+  auto           Boolean  @default(false)
+  // A screenshot of the payment, in private storage.
+  proofStorageKey String? @unique
+  proofMimeType   String?
+  proofByteSize   Int?
+  createdAt      DateTime @default(now())
+
+  order  PaymentOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sender Person       @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
 }

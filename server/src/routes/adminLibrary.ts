@@ -15,6 +15,7 @@ import { notifyBookPaymentDecision, notifyExamRetakeDecision, notifyTrainingGrac
 import { activePaymentProvider } from '../lib/payments';
 import { coverUrl, newCoverVersion, readCoverDataUrl, sendCover } from '../lib/bookCovers';
 import { creditReferralEarning } from '../lib/referralEarnings';
+import { closeOrdersForBook, decideBookPayment } from '../lib/bookPayments';
 
 // ---------------------------------------------------------------------------
 // /api/admin/library — central admin side of Exam World:
@@ -618,23 +619,14 @@ const paymentDecisionSchema = z.object({ decision: z.enum(['CONFIRM', 'REJECT'])
 router.post('/payments/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = paymentDecisionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Choose confirm or reject.' });
-  const confirmed = parsed.data.decision === 'CONFIRM';
-  const existing = await prisma.bookPayment.findUnique({ where: { id: req.params.id } });
-  if (!existing) return res.status(404).json({ error: 'Payment not found.' });
-  if (confirmed && existing.personId && existing.bookId) {
-    const already = await prisma.bookPayment.findFirst({ where: { personId: existing.personId, bookId: existing.bookId, status: 'CONFIRMED' } });
-    if (already) return res.status(409).json({ error: 'This book is already paid.', code: 'ALREADY_PAID' });
+  const result = await decideBookPayment({ paymentId: req.params.id, decision: parsed.data.decision, note: parsed.data.note, byUserId: req.user!.id });
+  if (!result.ok) {
+    if (result.error === 'NOT_FOUND') return res.status(404).json({ error: 'Payment not found.' });
+    if (result.error === 'ALREADY_PAID') return res.status(409).json({ error: 'This book is already paid.', code: 'ALREADY_PAID' });
+    return res.status(409).json({ error: 'This payment was already decided.', status: result.status });
   }
-  const changed = await prisma.bookPayment.updateMany({
-    where: { id: existing.id, status: { in: ['CLAIMED', 'PENDING'] } },
-    data: { status: confirmed ? 'CONFIRMED' : 'REJECTED', decidedAt: new Date(), decidedByUserId: req.user!.id, note: parsed.data.note || existing.note },
-  });
-  if (changed.count === 0) return res.status(409).json({ error: 'This payment was already decided.', status: existing.status });
-  await audit(req, confirmed ? 'BOOK_PAYMENT_CONFIRMED' : 'BOOK_PAYMENT_REJECTED', 'BookPayment', existing.id, { personId: existing.personId, bookNumber: existing.bookNumber });
-  await notifyBookPaymentDecision(existing, confirmed).catch(() => {});
-  if (confirmed) await creditReferralEarning({ ...existing, status: 'CONFIRMED' });
-  if (confirmed && existing.personId) await getTrainingBooksFor(existing.personId); // records any book this opens
-  res.json({ id: existing.id, status: confirmed ? 'CONFIRMED' : 'REJECTED' });
+  await audit(req, result.status === 'CONFIRMED' ? 'BOOK_PAYMENT_CONFIRMED' : 'BOOK_PAYMENT_REJECTED', 'BookPayment', result.payment.id, { personId: result.payment.personId, bookNumber: result.payment.bookNumber });
+  res.json({ id: result.payment.id, status: result.status });
 }));
 
 const recordPaymentSchema = z.object({
@@ -681,6 +673,7 @@ router.post('/payments', communityMutationLimiter, requireCsrf, asyncHandler(asy
   await notifyBookPaymentDecision(payment, true).catch(() => {});
   await creditReferralEarning(payment);
   await getTrainingBooksFor(personId);
+  await closeOrdersForBook(personId, bookId);
   res.status(201).json({ id: payment.id, status: payment.status });
 }));
 

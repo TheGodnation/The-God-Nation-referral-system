@@ -79,6 +79,8 @@ const MemberDeleteAccountPage = lazy(() => import('./pages/MemberDeleteAccountPa
 const MemberDownloadsPage = lazy(() => import('./pages/MemberDownloadsPage').then((m) => ({ default: m.MemberDownloadsPage })));
 const MemberSchoolPage = lazy(() => import('./pages/MemberSchoolPage').then((m) => ({ default: m.MemberSchoolPage })));
 const MemberSchoolBookPage = lazy(() => import('./pages/MemberSchoolBookPage').then((m) => ({ default: m.MemberSchoolBookPage })));
+const MemberPaymentOrderPage = lazy(() => import('./pages/MemberPaymentOrderPage').then((m) => ({ default: m.MemberPaymentOrderPage })));
+const MemberPaymentDeskPage = lazy(() => import('./pages/MemberPaymentDeskPage').then((m) => ({ default: m.MemberPaymentDeskPage })));
 const MemberEarningsPage = lazy(() => import('./pages/MemberEarningsPage').then((m) => ({ default: m.MemberEarningsPage })));
 const MemberAboutPage = lazy(() => import('./pages/MemberAboutPage').then((m) => ({ default: m.MemberAboutPage })));
 const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
@@ -309,6 +311,22 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberReaderPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/payment-orders/:id"
+              element={
+                <RequireMember>
+                  <MemberPaymentOrderPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/payment-desk"
+              element={
+                <RequireMember>
+                  <MemberPaymentDeskPage />
                 </RequireMember>
               }
             />

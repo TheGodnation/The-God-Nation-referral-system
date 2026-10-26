@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { PaymentsAndGrace, TrainingPaymentSettings } from './TrainingPaymentsAdmin';
+import { PaymentAgentsAdmin } from './PaymentAgentsAdmin';
 import { ReferralPayoutsAdmin } from './ReferralPayoutsAdmin';
 import { BookDetailsAdmin } from './BookDetailsAdmin';
 import { readPdfCover } from '../../lib/bookCover';
@@ -369,6 +370,7 @@ export function LibraryTab() {
       </section>
 
       <TrainingPaymentSettings />
+      <PaymentAgentsAdmin />
       <PaymentsAndGrace books={trainingBooks} onChanged={load} />
       <ReferralPayoutsAdmin />
 

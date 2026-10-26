@@ -6,6 +6,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { BookCover } from '../components/learn/BookCover';
 import { PayBookPanel } from '../components/learn/TrainingPayments';
+import { WaitingOrderLink } from '../components/learn/PayWithAgent';
 import { BookStatusLines, SchoolBook, SchoolSummary, TrainingStatusCard, useTr } from '../components/learn/schoolBits';
 import { ApiError } from '../lib/api';
 import { cachedGet } from '../lib/cachedGet';
@@ -111,6 +112,7 @@ export function MemberSchoolBookPage() {
                   )}
                 </div>
                 {b.canRead && <p className="text-xs text-slate-500">{downloaded ? `✓ ${t('school.downloaded')}` : t('school.downloads_first_time')}</p>}
+                {b.payment === 'CLAIMED' && !fromCache && <WaitingOrderLink bookId={b.id} />}
                 {!b.payment && !fromCache && (
                   <PayBookPanel
                     bookId={b.id}

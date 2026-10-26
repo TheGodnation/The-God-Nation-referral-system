@@ -135,6 +135,20 @@ export function isStorageKeyForPrivateConversation(storageKey: string, conversat
   return match[1] === conversationId;
 }
 
+// A screenshot proving a payment, inside one payment order (images only).
+const PAYMENT_PROOF_KEY_PATTERN = /^payment-orders\/([0-9a-f-]{36})\/proof\/([0-9a-f-]{36})$/;
+export const PROOF_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export const MAX_PROOF_BYTES = 8 * 1024 * 1024;
+
+export function generatePaymentProofStorageKey(orderId: string): string {
+  return `payment-orders/${orderId}/proof/${crypto.randomUUID()}`;
+}
+
+export function isPaymentProofKeyForOrder(storageKey: string, orderId: string): boolean {
+  const match = PAYMENT_PROOF_KEY_PATTERN.exec(storageKey);
+  return Boolean(match) && match![1] === orderId;
+}
+
 // The Updates banner and group pictures (admin uploads; same image rules as
 // profile pictures).
 const APP_BANNER_KEY_PATTERN = /^settings\/app-banner\/([0-9a-f-]{36})$/;

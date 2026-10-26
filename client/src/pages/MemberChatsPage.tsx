@@ -7,6 +7,7 @@ import { MemberNav } from '../components/member/MemberNav';
 import { InstallAppBanner } from '../components/member/InstallAppBanner';
 import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { Avatar } from '../components/Avatar';
+import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatList';
 import { mediaKind } from '../components/chat/types';
 import { Announcements } from '../components/Announcements';
@@ -123,6 +124,7 @@ export function MemberChatsPage() {
         </div>
         <InstallAppBanner />
         <EnableNotificationsBanner />
+        <PaymentDeskCard />
         <div className="space-y-6">
           <section className="card p-0">
             <h2 className="px-4 pt-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{t('groupChat.groups')}</h2>

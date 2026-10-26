@@ -8,6 +8,7 @@ import { recordAudit } from '../lib/audit';
 import { readingProgressLimiter, socialMutationLimiter } from '../lib/rateLimit';
 import { getObjectStream, isStorageConfigured } from '../lib/storage';
 import crypto from 'crypto';
+import { openUnpaidBook } from '../lib/bookPayments';
 import { canReadBook, canSeeDevotional, examAccess, getTrainingBooksFor, MAX_GRACE_BOOKS } from '../lib/examWorld';
 import { activePaymentProvider } from '../lib/payments';
 import { trainingExamState } from '../lib/trainingExam';
@@ -211,15 +212,6 @@ router.post('/training/request', socialMutationLimiter, requireCsrf, requireMemb
 }));
 
 // ----------------------------- Paying for books -----------------------------
-
-async function openUnpaidBook(personId: string, bookId: string) {
-  const books = await getTrainingBooksFor(personId);
-  const book = books.find((b) => b.id === bookId);
-  if (!book || !book.unlocked) return { error: 404 as const };
-  if (book.payment === 'PAID') return { error: 'PAID' as const };
-  if (book.payment === 'CLAIMED' || book.payment === 'PENDING') return { error: 'WAITING' as const };
-  return { book };
-}
 
 const claimSchema = z.object({
   reference: z.string().trim().min(3).max(60),

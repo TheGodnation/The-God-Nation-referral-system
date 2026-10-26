@@ -65,6 +65,8 @@ import adminAreaRepresentationRequestsRoutes from './routes/adminAreaRepresentat
 import adminGeographicAreasRoutes from './routes/adminGeographicAreas';
 import memberEarningsRoutes from './routes/memberEarnings';
 import adminPayoutsRoutes from './routes/adminPayouts';
+import paymentOrdersRoutes from './routes/paymentOrders';
+import adminPaymentAgentsRoutes from './routes/adminPaymentAgents';
 import memberReferralsRoutes from './routes/memberReferrals';
 import examWorldRoutes from './routes/examWorld';
 import paymentRoutes from './routes/payments';
@@ -251,6 +253,8 @@ export function createApp() {
   // What a member earns from the books bought by people they invited, and payouts.
   app.use('/api/member', memberEarningsRoutes);
   app.use('/api/admin', adminPayoutsRoutes);
+  app.use('/api/member', paymentOrdersRoutes);
+  app.use('/api/admin', adminPaymentAgentsRoutes);
   // Exam World: member summary/reader, admin library & trainees, leader results.
   app.use('/api/member', examWorldRoutes);
   // Automatic Mobile Money: the payment company's notifications (lib/payments.ts).

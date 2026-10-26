@@ -41,7 +41,9 @@ interface CreateNotificationParams {
     | 'TRAINING_GRACE_DECLINED'
     | 'REFERRAL_EARNING'
     | 'REFERRAL_PAYOUT_PAID'
-    | 'REFERRAL_PAYOUT_REJECTED';
+    | 'REFERRAL_PAYOUT_REJECTED'
+    | 'PAYMENT_ORDER_NEW'
+    | 'PAYMENT_ORDER_MESSAGE';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -418,5 +420,29 @@ export async function notifyAreaRepresentationRequestDeclined(request: { id: str
     targetType: 'AreaRepresentationRequest',
     targetId: request.id,
     push: { title: 'Representation request declined', body: `Your request to represent ${request.areaPath} was declined.`, url: '/member/leadership' },
+  });
+}
+
+/** A member opened a payment order with this payment agent. */
+export async function notifyPaymentOrderNew(order: { id: string; bookNumber: number | null }, agentPersonId: string, buyerName: string) {
+  await createNotification({
+    recipientPersonId: agentPersonId,
+    type: 'PAYMENT_ORDER_NEW',
+    metadata: { name: buyerName, bookNumber: order.bookNumber },
+    targetType: 'PaymentOrder',
+    targetId: order.id,
+    push: { title: 'New payment order', body: `${buyerName} wants to pay for Book ${order.bookNumber ?? ''}.`, url: `/member/payment-orders/${order.id}` },
+  });
+}
+
+/** A new message (or payment claim) in a payment order, for the other side. */
+export async function notifyPaymentOrderMessage(order: { id: string }, recipientPersonId: string, senderName: string) {
+  await createNotification({
+    recipientPersonId,
+    type: 'PAYMENT_ORDER_MESSAGE',
+    metadata: { name: senderName },
+    targetType: 'PaymentOrder',
+    targetId: order.id,
+    push: { title: senderName, body: 'New message about a book payment.', url: `/member/payment-orders/${order.id}` },
   });
 }
