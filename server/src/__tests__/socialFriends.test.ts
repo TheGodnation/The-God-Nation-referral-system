@@ -299,6 +299,29 @@ describe('Home page member slider', () => {
   });
 });
 
+describe('Home strip — everyone, photos first', () => {
+  it('lists members with a photo first, then those without, never me or someone who blocked me', async () => {
+    const me = await member('Strip Me');
+    const noPhoto = await member('Strip No Photo');
+    const photoOld = await member('Strip Photo Old');
+    const photoNew = await member('Strip Photo New');
+    const blocker = await member('Strip Blocker');
+    await prisma.person.update({ where: { id: photoOld.id }, data: { photoStorageKey: 'profile-photos/o.jpg', photoUpdatedAt: new Date('2026-01-01') } });
+    await prisma.person.update({ where: { id: photoNew.id }, data: { photoStorageKey: 'profile-photos/n.jpg', photoUpdatedAt: new Date('2026-06-01') } });
+    await send(blocker, '/api/member/blocks', { personId: me.id });
+
+    const res = await me.agent.get('/api/member/people/strip');
+    const names = res.body.items.map((p: any) => p.name);
+    expect(names.slice(0, 2)).toEqual(['Strip Photo New', 'Strip Photo Old']);
+    expect(names).toContain('Strip No Photo');
+    expect(names.indexOf('Strip No Photo')).toBeGreaterThan(1);
+    expect(names).not.toContain('Strip Me');
+    expect(names).not.toContain('Strip Blocker');
+    expect(res.body.items.find((p: any) => p.name === 'Strip No Photo').photoUrl).toBeNull();
+    expect(noPhoto.id).toBeTruthy();
+  });
+});
+
 describe('Updates feed — Friends view', () => {
   it('shows only friends’ posts (and my own) in the Friends view', async () => {
     const a = await member('Feed Me');

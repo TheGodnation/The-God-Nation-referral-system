@@ -1,27 +1,29 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
-import { Avatar } from '../Avatar';
+import { PortraitCard } from '../PortraitCard';
 
-interface PhotoMember {
+interface StripMember {
   personId: string;
   name: string;
   photoUrl: string | null;
 }
 
-// Home page member slider: a horizontally scrollable row of members who have
-// a profile photo. Tapping one opens their profile. Deliberately a single
-// light request (see GET /api/member/people/with-photo) with no further
-// loading as the member scrolls — this is a discovery strip, not a feed.
+// Home page strip: a horizontally scrollable row of people, everyone alike
+// (members and leaders are not told apart). Those with a profile picture come
+// first as tall picture cards, then the others as cards with their initials;
+// the last card opens the People page. Tapping a card opens that profile.
+// One light request (GET /api/member/people/strip), no further loading while
+// scrolling — this is a discovery strip, not a feed.
 export function MemberPhotoSlider() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [items, setItems] = useState<PhotoMember[] | null>(null);
+  const [items, setItems] = useState<StripMember[] | null>(null);
 
   useEffect(() => {
     api
-      .get<{ items: PhotoMember[] }>('/api/member/people/with-photo')
+      .get<{ items: StripMember[] }>('/api/member/people/strip')
       .then((res) => setItems(res.items))
       .catch(() => setItems([]));
   }, []);
@@ -31,18 +33,17 @@ export function MemberPhotoSlider() {
   return (
     <div className="bg-white py-3 sm:rounded-xl sm:shadow-sm">
       <h2 className="px-4 pb-2 text-sm font-semibold text-slate-500">{t('memberHome.member_slider_title')}</h2>
-      <div className="flex gap-4 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex gap-3 overflow-x-auto px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
         {items.map((m) => (
-          <button
-            key={m.personId}
-            type="button"
-            className="flex w-16 shrink-0 flex-col items-center gap-1"
-            onClick={() => navigate(`/member/people/${m.personId}`)}
-          >
-            <Avatar name={m.name} photoUrl={m.photoUrl} size={56} />
-            <span className="w-full truncate text-center text-xs text-slate-600">{m.name}</span>
-          </button>
+          <PortraitCard key={m.personId} name={m.name} photoUrl={m.photoUrl} onClick={() => navigate(`/member/people/${m.personId}`)} />
         ))}
+        <Link
+          to="/member/people"
+          className="flex aspect-[4/5] w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-xl bg-brand-50 text-center text-sm font-semibold text-brand-700"
+        >
+          <span aria-hidden className="text-2xl">›</span>
+          {t('memberHome.see_everyone')}
+        </Link>
       </div>
     </div>
   );

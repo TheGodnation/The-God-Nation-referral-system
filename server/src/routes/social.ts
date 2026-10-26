@@ -200,6 +200,37 @@ router.get('/people/with-photo', requireMember, asyncHandler(async (req, res) =>
   });
 }));
 
+// GET /api/member/people/strip — the Home page strip: every member alike
+// (leaders and members are not told apart), those with a profile picture
+// first (newest picture first), then the others (newest members first), up to
+// STRIP_SIZE. People without a picture are shown with their initials by the
+// app. Same lightness rules as /people/with-photo.
+const STRIP_SIZE = 40;
+router.get('/people/strip', requireMember, asyncHandler(async (req, res) => {
+  const me = req.member!.personId;
+  const blockedIds = await getBlockedIds(me);
+  const base = { ...APP_MEMBER, id: { notIn: [me, ...blockedIds] } };
+  const select = { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } as const;
+  const withPhoto = await prisma.person.findMany({
+    where: { ...base, photoStorageKey: { not: null } },
+    select,
+    orderBy: { photoUpdatedAt: 'desc' },
+    take: STRIP_SIZE,
+  });
+  const without =
+    withPhoto.length < STRIP_SIZE
+      ? await prisma.person.findMany({
+          where: { ...base, photoStorageKey: null },
+          select,
+          orderBy: { createdAt: 'desc' },
+          take: STRIP_SIZE - withPhoto.length,
+        })
+      : [];
+  res.json({
+    items: [...withPhoto, ...without].map((p) => ({ personId: p.id, name: p.name, photoUrl: profilePhotoPath(p) })),
+  });
+}));
+
 // One person's profile card, as seen by the signed-in member.
 router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => {
   const parsed = personIdSchema.safeParse(req.params);

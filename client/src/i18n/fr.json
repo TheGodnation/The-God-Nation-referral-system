@@ -1673,7 +1673,8 @@
   },
   "memberHome": {
     "title": "Accueil",
-    "member_slider_title": "Découvrir des membres"
+    "member_slider_title": "Découvrir des membres",
+    "see_everyone": "Voir tout le monde"
   },
   "leadershipDirectory": {
     "title": "Annuaire des leaders",

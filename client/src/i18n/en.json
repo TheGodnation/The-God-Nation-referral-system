@@ -1673,7 +1673,8 @@
   },
   "memberHome": {
     "title": "Home",
-    "member_slider_title": "Discover Members"
+    "member_slider_title": "Discover Members",
+    "see_everyone": "See everyone"
   },
   "leadershipDirectory": {
     "title": "Leadership Directory",
