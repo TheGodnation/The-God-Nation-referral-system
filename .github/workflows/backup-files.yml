@@ -27,7 +27,7 @@ jobs:
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET || 'godnation-backups' }}
       MEDIA_BUCKET: ${{ secrets.MEDIA_BUCKET || 'god-nation-media' }}
-      MEDIA_ACCESS_KEY_ID: ${{ secrets.MEDIA_ACCESS_KEY_ID }}
+      MEDIA_ACCESS_KEY_ID: ${{ secrets.MEDIA_ACCESS_KEY_ID || secrets.MEDIA_ACCESS_KEY }}
       MEDIA_SECRET_ACCESS_KEY: ${{ secrets.MEDIA_SECRET_ACCESS_KEY }}
     steps:
       - name: Is the files backup set up?
