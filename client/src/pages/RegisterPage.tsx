@@ -8,11 +8,10 @@ import { usePublicSettings } from '../lib/usePublicSettings';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { useResendCooldown } from '../lib/useResendCooldown';
 import { useEmailTypoCheck } from '../components/EmailTypoHint';
-import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../lib/locations';
+import { EMPTY_LOCATION, LocationFields, locationCountry, locationPayload, type LocationValue } from '../components/member/LocationFields';
 
 type Pathway = 'TRAINING' | 'DISCOVER_GROW';
 type Step = 'start' | 'code' | 'finish';
-const OTHER = '__other__';
 type DetailField = 'name' | 'whatsapp' | 'country' | 'region' | 'division' | 'subdivision' | 'quarter' | 'city';
 
 // The public join flow reached from a Leader/Member referral link or the
@@ -48,18 +47,11 @@ export function RegisterPage() {
 
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-  const [countryChoice, setCountryChoice] = useState<string>(CAMEROON);
-  const [otherCountry, setOtherCountry] = useState('');
-  const [region, setRegion] = useState('');
-  const [division, setDivision] = useState('');
-  const [subdivision, setSubdivision] = useState('');
-  const [quarter, setQuarter] = useState('');
-  const [city, setCity] = useState('');
+  const [place, setPlace] = useState<LocationValue>(EMPTY_LOCATION);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<DetailField, string>>>({});
   const [duplicate, setDuplicate] = useState(false);
 
-  const country = countryChoice === OTHER ? otherCountry.trim() : countryChoice;
-  const inCameroon = country === CAMEROON;
+  const country = locationCountry(place);
   const title = pathway === 'DISCOVER_GROW' ? t('register.title_discover') : t('register.title_training');
 
   async function onStart(e: React.FormEvent) {
@@ -139,10 +131,7 @@ export function RegisterPage() {
         code: code.replace(/\D/g, ''),
         name: name.trim(),
         whatsapp: whatsapp.trim(),
-        country,
-        ...(inCameroon
-          ? { region, division: division.trim(), subdivision: subdivision.trim(), quarter: quarter.trim() }
-          : { city: city.trim() }),
+        ...locationPayload(place),
       });
       await refresh();
       navigate('/member/dashboard', { replace: true });
@@ -314,87 +303,7 @@ export function RegisterPage() {
               <p className="mt-1 text-xs text-slate-500">{t('register.phone_hint')}</p>
             </div>
 
-            <div>
-              <label className="label" htmlFor="register-country">
-                {t('memberCompleteProfile.country_label')}
-              </label>
-              <select
-                id="register-country"
-                className="input"
-                value={countryChoice}
-                onChange={(e) => setCountryChoice(e.target.value)}
-              >
-                {COUNTRIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {optionLabel(c, i18n.language)}
-                  </option>
-                ))}
-                <option value={OTHER}>{t('memberCompleteProfile.other_country')}</option>
-              </select>
-              {countryChoice === OTHER && (
-                <input
-                  aria-label={t('memberCompleteProfile.other_country_label')}
-                  className="input mt-2"
-                  placeholder={t('memberCompleteProfile.other_country_label') ?? ''}
-                  value={otherCountry}
-                  onChange={(e) => setOtherCountry(e.target.value)}
-                />
-              )}
-            </div>
-
-            {inCameroon ? (
-              <>
-                <div>
-                  <label className="label" htmlFor="register-region">
-                    {t('memberCompleteProfile.region_label')}
-                  </label>
-                  <select id="register-region" className="input" value={region} onChange={(e) => setRegion(e.target.value)}>
-                    <option value="">{t('memberCompleteProfile.choose_region')}</option>
-                    {CAMEROON_REGIONS.map((r) => (
-                      <option key={r.value} value={r.value}>
-                        {optionLabel(r, i18n.language)}
-                      </option>
-                    ))}
-                  </select>
-                  {fieldError('region')}
-                </div>
-                <div>
-                  <label className="label" htmlFor="register-division">
-                    {t('memberCompleteProfile.division_label')}
-                  </label>
-                  <input id="register-division" className="input" placeholder="Mfoundi" value={division} onChange={(e) => setDivision(e.target.value)} />
-                  {fieldError('division')}
-                </div>
-                <div>
-                  <label className="label" htmlFor="register-subdivision">
-                    {t('memberCompleteProfile.subdivision_label')}
-                  </label>
-                  <input
-                    id="register-subdivision"
-                    className="input"
-                    placeholder="Yaoundé III"
-                    value={subdivision}
-                    onChange={(e) => setSubdivision(e.target.value)}
-                  />
-                  {fieldError('subdivision')}
-                </div>
-                <div>
-                  <label className="label" htmlFor="register-quarter">
-                    {t('memberCompleteProfile.quarter_label')}
-                  </label>
-                  <input id="register-quarter" className="input" placeholder="Efoulan" value={quarter} onChange={(e) => setQuarter(e.target.value)} />
-                  {fieldError('quarter')}
-                </div>
-              </>
-            ) : (
-              <div>
-                <label className="label" htmlFor="register-city">
-                  {t('memberCompleteProfile.city_label')}
-                </label>
-                <input id="register-city" className="input" value={city} onChange={(e) => setCity(e.target.value)} />
-                {fieldError('city')}
-              </div>
-            )}
+            <LocationFields value={place} onChange={setPlace} idPrefix="register" errors={{ country: fieldErrors.country, region: fieldErrors.region, division: fieldErrors.division, subdivision: fieldErrors.subdivision, quarter: fieldErrors.quarter }} />
 
             {error && (
               <div role="alert" className="space-y-3 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">

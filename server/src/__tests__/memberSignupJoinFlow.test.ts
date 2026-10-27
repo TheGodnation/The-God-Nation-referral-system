@@ -229,7 +229,7 @@ describe('Join flow — screen 3 (finish): name + phone + location', () => {
     expect(res.body.field).toBe('quarter');
   });
 
-  it('requires a city outside Cameroon', async () => {
+  it('requires the region outside Cameroon, and saves all five levels', async () => {
     await makeHeadquarters();
     const email = 'finish4@example.com';
     const { agent, csrf, code } = await start(email);
@@ -238,7 +238,24 @@ describe('Join flow — screen 3 (finish): name + phone + location', () => {
       .set('X-CSRF-Token', csrf)
       .send({ email, code, whatsapp: freshPhone(), name: 'Ada', country: 'Nigeria' });
     expect(missing.status).toBe(400);
-    expect(missing.body.field).toBe('city');
+    expect(missing.body.field).toBe('region');
+
+    const whatsapp = freshPhone();
+    const ok = await agent
+      .post('/api/member/auth/signup/finish')
+      .set('X-CSRF-Token', csrf)
+      .send({ email, code, whatsapp, name: 'Ada', country: 'Nigeria', region: 'Lagos State', division: 'Ikeja', quarter: 'Allen Avenue' });
+    expect(ok.status).toBe(200);
+    expect(await prisma.person.findUnique({ where: { whatsappNumber: whatsapp } })).toMatchObject({
+      locationCountry: 'Nigeria',
+      locationRegion: 'Lagos State',
+      locationDivision: 'Ikeja',
+      locationSubdivision: null,
+      locationQuarter: 'Allen Avenue',
+      // the older columns follow: city = division, area = quarter
+      locationCity: 'Ikeja',
+      locationArea: 'Allen Avenue',
+    });
   });
 
   it('reuses an existing Person from the old WhatsApp-only form by phone number, rather than erroring', async () => {

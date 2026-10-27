@@ -176,18 +176,21 @@ describe('Member sign-up — step 2 (details form) and automatic placement', () 
     expect(res.body.field).toBe('quarter');
   });
 
-  it('requires a city outside Cameroon', async () => {
+  it('requires the region outside Cameroon (a typed city still works for older apps)', async () => {
     await makeHeadquarters();
     const { agent, csrf } = await signupAndSignIn('ng@example.com', '+237670102004');
     const missing = await agent.post('/api/member/auth/complete-profile').set('X-CSRF-Token', csrf).send({ name: 'Ada', country: 'Nigeria' });
     expect(missing.status).toBe(400);
-    expect(missing.body.field).toBe('city');
+    expect(missing.body.field).toBe('region');
 
     const ok = await agent
       .post('/api/member/auth/complete-profile')
       .set('X-CSRF-Token', csrf)
-      .send({ name: 'Ada', country: 'Nigeria', city: 'Lagos' });
+      .send({ name: 'Ada', country: 'Nigeria', region: 'Lagos State' });
     expect(ok.status).toBe(200);
+    // An older app that only sends a city is still accepted.
+    const old = await agent.post('/api/member/auth/complete-profile').set('X-CSRF-Token', csrf).send({ name: 'Ada', country: 'Nigeria', city: 'Lagos' });
+    expect(old.status).toBe(200);
   });
 
   it('places newcomers in the smallest child group once Headquarters has children and is itself turned off', async () => {

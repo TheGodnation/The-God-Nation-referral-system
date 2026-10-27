@@ -544,8 +544,9 @@ const signupFinishSchema = z
       for (const key of ['region', 'division', 'subdivision', 'quarter'] as const) {
         if (!d[key]) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `Please enter your ${key}.` });
       }
-    } else if (!d.city) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['city'], message: 'Please enter your city or town.' });
+    } else if (!d.region && !d.city) {
+      // Anywhere else: the country and the region (state / province); the lower levels are optional.
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['region'], message: 'Please enter your region.' });
     }
   });
 
@@ -573,12 +574,15 @@ router.post('/signup/finish', memberSignupFinishLimiter, requireCsrf, asyncHandl
   const inCameroon = d.country.toLowerCase() === CAMEROON;
   const locationData = {
     locationCountry: d.country,
-    locationRegion: inCameroon ? d.region! : null,
-    locationDivision: inCameroon ? d.division! : null,
-    locationSubdivision: inCameroon ? d.subdivision! : null,
-    locationQuarter: inCameroon ? d.quarter! : null,
-    locationCity: inCameroon ? d.division! : d.city!,
-    locationArea: inCameroon ? d.quarter! : null,
+    // The same five levels for everyone: country, region, division, subdivision, quarter.
+    // The older "city" column holds the division (or the region, or a typed city) and
+    // "area" the quarter, so older screens that only know country/city/area still show something sensible.
+    locationRegion: d.region || null,
+    locationDivision: d.division || null,
+    locationSubdivision: d.subdivision || null,
+    locationQuarter: d.quarter || null,
+    locationCity: inCameroon ? d.division! : d.city || d.division || d.region || null,
+    locationArea: d.quarter || null,
   };
 
   // Someone who already joined only through the old WhatsApp-redirect form
@@ -1127,8 +1131,9 @@ const completeProfileSchema = z
       for (const key of ['region', 'division', 'subdivision', 'quarter'] as const) {
         if (!d[key]) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `Please enter your ${key}.` });
       }
-    } else if (!d.city) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['city'], message: 'Please enter your city or town.' });
+    } else if (!d.region && !d.city) {
+      // Anywhere else: the country and the region (state / province); the lower levels are optional.
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['region'], message: 'Please enter your region.' });
     }
   });
 
@@ -1151,12 +1156,12 @@ router.post('/complete-profile', memberCompleteProfileLimiter, requireCsrf, requ
       // For Cameroon the "city" column holds the division and "area" the
       // quarter, so older screens that only know country/city/area still
       // show something sensible.
-      locationRegion: inCameroon ? d.region! : null,
-      locationDivision: inCameroon ? d.division! : null,
-      locationSubdivision: inCameroon ? d.subdivision! : null,
-      locationQuarter: inCameroon ? d.quarter! : null,
-      locationCity: inCameroon ? d.division! : d.city!,
-      locationArea: inCameroon ? d.quarter! : null,
+      locationRegion: d.region || null,
+      locationDivision: d.division || null,
+      locationSubdivision: d.subdivision || null,
+      locationQuarter: d.quarter || null,
+      locationCity: inCameroon ? d.division! : d.city || d.division || d.region || null,
+      locationArea: d.quarter || null,
       profileCompletedAt: req.member!.profileCompletedAt ?? new Date(),
     },
   });

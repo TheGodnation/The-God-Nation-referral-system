@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { EMPTY_LOCATION, LocationFields, locationCountry, locationFrom, type LocationValue } from '../components/member/LocationFields';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
@@ -21,9 +22,7 @@ export function MemberEditProfilePage() {
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState<'en' | 'fr'>('en');
-  const [locationCountry, setLocationCountry] = useState('');
-  const [locationCity, setLocationCity] = useState('');
-  const [locationArea, setLocationArea] = useState('');
+  const [place, setPlace] = useState<LocationValue>(EMPTY_LOCATION);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   // A picture just chosen, waiting for the member to frame it before it is uploaded.
@@ -35,9 +34,15 @@ export function MemberEditProfilePage() {
     setName(member.name);
     setBio(member.bio ?? '');
     setPreferredLanguage(member.preferredLanguage);
-    setLocationCountry(member.locationCountry ?? '');
-    setLocationCity(member.locationCity ?? '');
-    setLocationArea(member.locationArea ?? '');
+    setPlace(
+      locationFrom({
+        country: member.locationCountry,
+        region: member.locationRegion,
+        division: member.locationDivision ?? member.locationCity,
+        subdivision: member.locationSubdivision,
+        quarter: member.locationQuarter ?? member.locationArea,
+      }),
+    );
     // Only when the member first loads; later refreshes must not wipe typing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [member?.personId]);
@@ -95,9 +100,15 @@ export function MemberEditProfilePage() {
         name: name.trim(),
         bio: bio.trim(),
         preferredLanguage,
-        locationCountry,
-        locationCity,
-        locationArea,
+        // Country, region, division, subdivision, quarter (empty clears). The older
+        // city / area columns follow the division and the quarter.
+        locationCountry: locationCountry(place),
+        locationRegion: place.region.trim(),
+        locationDivision: place.division.trim(),
+        locationSubdivision: place.subdivision.trim(),
+        locationQuarter: place.quarter.trim(),
+        locationCity: place.division.trim() || place.region.trim(),
+        locationArea: place.quarter.trim(),
       });
       await refresh();
       if (i18n.language.startsWith('fr') !== (preferredLanguage === 'fr')) i18n.changeLanguage(preferredLanguage);
@@ -192,27 +203,10 @@ export function MemberEditProfilePage() {
             </select>
           </div>
 
-          <div className="rounded-lg bg-slate-50 p-3">
-            <p className="mb-2 text-sm font-medium text-slate-700">🔒 {t('wall.private_heading')}</p>
-            <p className="mb-3 text-xs text-slate-500">{t('wall.private_hint')}</p>
-            <div className="space-y-3">
-              <div>
-                <label className="label" htmlFor="edit-country">{t('memberDashboard.profile_country_label')}</label>
-                <input id="edit-country" className="input" value={locationCountry} maxLength={100} onChange={(e) => setLocationCountry(e.target.value)} />
-              </div>
-              <div>
-                <label className="label" htmlFor="edit-city">{t('memberDashboard.profile_city_label')}</label>
-                <input id="edit-city" className="input" value={locationCity} maxLength={100} onChange={(e) => setLocationCity(e.target.value)} />
-              </div>
-              <div>
-                <label className="label" htmlFor="edit-area">{t('memberDashboard.profile_area_label')}</label>
-                <input id="edit-area" className="input" value={locationArea} maxLength={100} onChange={(e) => setLocationArea(e.target.value)} />
-              </div>
-              <p className="text-xs text-slate-500">
-                {t('wall.email_label')}: {member.email}
-              </p>
-            </div>
-          </div>
+          <LocationFields value={place} onChange={setPlace} idPrefix="edit" />
+          <p className="text-xs text-slate-500">
+            {t('wall.email_label')}: {member.email}
+          </p>
 
           {error && (
             <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">

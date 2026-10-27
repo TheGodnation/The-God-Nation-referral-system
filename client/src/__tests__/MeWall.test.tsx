@@ -174,7 +174,12 @@ describe('Edit profile', () => {
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Grace N.' } });
     fireEvent.change(bio, { target: { value: 'Praying daily' } });
     expect(screen.getByText('13/160')).toBeInTheDocument();
-    expect(screen.getByText(/Only you and the leaders see these/)).toBeInTheDocument();
+    // No explanation about who can see these details: the places are simply asked.
+    expect(screen.queryByText(/Only you and the leaders see these/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Private details/)).not.toBeInTheDocument();
+    expect((screen.getByLabelText('Country') as HTMLSelectElement).value).toBe('Cameroon');
+    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'South-West' } });
+    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea Town' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
@@ -184,6 +189,10 @@ describe('Edit profile', () => {
         bio: 'Praying daily',
         preferredLanguage: 'en',
         locationCountry: 'Cameroon',
+        locationRegion: 'South-West',
+        locationDivision: 'Buea',
+        locationSubdivision: 'Buea Town',
+        locationQuarter: 'Molyko',
         locationCity: 'Buea',
         locationArea: 'Molyko',
       });

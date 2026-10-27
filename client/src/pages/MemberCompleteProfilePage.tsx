@@ -4,11 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
-import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../lib/locations';
+import { EMPTY_LOCATION, LocationFields, locationCountry, locationPayload, validateLocation, type LocationValue } from '../components/member/LocationFields';
 
-const OTHER = '__other__';
-
-type Field = 'name' | 'country' | 'region' | 'division' | 'subdivision' | 'quarter' | 'city';
+type Field = 'name' | 'country' | 'region' | 'division' | 'subdivision' | 'quarter';
 
 // Step 2 of joining: shown right after the member clicks their emailed
 // link. They give their name and where they live; the server then places
@@ -21,35 +19,19 @@ export function MemberCompleteProfilePage() {
   // A brand-new sign-up has their email as a placeholder name — start empty.
   const initialName = member && member.name !== member.email ? member.name : '';
   const [name, setName] = useState(initialName);
-  const [countryChoice, setCountryChoice] = useState<string>(CAMEROON);
-  const [otherCountry, setOtherCountry] = useState('');
-  const [region, setRegion] = useState('');
-  const [division, setDivision] = useState('');
-  const [subdivision, setSubdivision] = useState('');
-  const [quarter, setQuarter] = useState('');
-  const [city, setCity] = useState('');
+  const [place, setPlace] = useState<LocationValue>(EMPTY_LOCATION);
 
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const country = countryChoice === OTHER ? otherCountry.trim() : countryChoice;
-  const inCameroon = country === CAMEROON;
   const language = i18n.language?.startsWith('fr') ? 'fr' : 'en';
 
   function validate(): Partial<Record<Field, string>> {
     const e: Partial<Record<Field, string>> = {};
     const required = t('memberCompleteProfile.required');
     if (!name.trim()) e.name = required;
-    if (!country) e.country = required;
-    if (inCameroon) {
-      if (!region) e.region = required;
-      if (!division.trim()) e.division = required;
-      if (!subdivision.trim()) e.subdivision = required;
-      if (!quarter.trim()) e.quarter = required;
-    } else if (!city.trim()) {
-      e.city = required;
-    }
+    Object.assign(e, validateLocation(place, required));
     return e;
   }
 
@@ -65,10 +47,7 @@ export function MemberCompleteProfilePage() {
       await api.post('/api/member/auth/complete-profile', {
         name: name.trim(),
         preferredLanguage: language,
-        country,
-        ...(inCameroon
-          ? { region, division: division.trim(), subdivision: subdivision.trim(), quarter: quarter.trim() }
-          : { city: city.trim() }),
+        ...locationPayload(place),
       });
       await refresh();
       navigate('/member/dashboard', { replace: true });
@@ -117,66 +96,7 @@ export function MemberCompleteProfilePage() {
         <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
           {textField('name', t('memberCompleteProfile.name_label'), name, setName)}
 
-          <div>
-            <label className="label" htmlFor="profile-country">
-              {t('memberCompleteProfile.country_label')}
-            </label>
-            <select
-              id="profile-country"
-              className="input"
-              value={countryChoice}
-              onChange={(e) => setCountryChoice(e.target.value)}
-            >
-              {COUNTRIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {optionLabel(c, i18n.language)}
-                </option>
-              ))}
-              <option value={OTHER}>{t('memberCompleteProfile.other_country')}</option>
-            </select>
-            {countryChoice === OTHER && (
-              <input
-                aria-label={t('memberCompleteProfile.other_country_label')}
-                className="input mt-2"
-                placeholder={t('memberCompleteProfile.other_country_label') ?? ''}
-                value={otherCountry}
-                onChange={(e) => setOtherCountry(e.target.value)}
-              />
-            )}
-            {fieldError('country')}
-          </div>
-
-          {inCameroon ? (
-            <>
-              <div>
-                <label className="label" htmlFor="profile-region">
-                  {t('memberCompleteProfile.region_label')}
-                </label>
-                <select
-                  id="profile-region"
-                  className="input"
-                  value={region}
-                  onChange={(e) => {
-                    setRegion(e.target.value);
-                    if (errors.region) setErrors({ ...errors, region: undefined });
-                  }}
-                >
-                  <option value="">{t('memberCompleteProfile.choose_region')}</option>
-                  {CAMEROON_REGIONS.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {optionLabel(r, i18n.language)}
-                    </option>
-                  ))}
-                </select>
-                {fieldError('region')}
-              </div>
-              {textField('division', t('memberCompleteProfile.division_label'), division, setDivision, 'Mfoundi')}
-              {textField('subdivision', t('memberCompleteProfile.subdivision_label'), subdivision, setSubdivision, 'Yaoundé III')}
-              {textField('quarter', t('memberCompleteProfile.quarter_label'), quarter, setQuarter, 'Efoulan')}
-            </>
-          ) : (
-            textField('city', t('memberCompleteProfile.city_label'), city, setCity)
-          )}
+          <LocationFields value={place} onChange={(next) => { setPlace(next); setErrors({ name: errors.name }); }} idPrefix="profile" errors={errors} />
 
           {formError && (
             <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">

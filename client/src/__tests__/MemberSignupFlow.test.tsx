@@ -183,7 +183,7 @@ describe('MemberCompleteProfilePage', () => {
     });
   });
 
-  it('asks only for a city outside Cameroon', async () => {
+  it('asks for the same five levels outside Cameroon, typed in, with only the region required', async () => {
     mockFetchByUrl({
       '/api/member/auth/me': { status: 200, body: { member: NEW_MEMBER } },
       '/api/member/auth/complete-profile': { status: 200, body: { profileComplete: true, community: null } },
@@ -192,13 +192,20 @@ describe('MemberCompleteProfilePage', () => {
     await waitFor(() => expect(screen.getByLabelText('Country')).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText('Country'), { target: { value: 'Nigeria' } });
-    expect(screen.queryByLabelText('Region')).not.toBeInTheDocument();
+    // The region is now written in (no list of Cameroon regions), and the lower levels are there too.
+    expect(screen.getByLabelText('Region').tagName).toBe('INPUT');
+    for (const label of ['Division', 'Subdivision', 'Quarter']) expect(screen.getByLabelText(label)).toBeInTheDocument();
+    expect(screen.queryByLabelText('City or town')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Ada' } });
-    fireEvent.change(screen.getByLabelText('City or town'), { target: { value: 'Lagos' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enter the community' }));
+    expect(await screen.findByText('Please fill this in.')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'Lagos State' } });
+    fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Ikeja' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enter the community' }));
 
     await waitFor(() => expect(screen.getByText('Dashboard')).toBeInTheDocument());
     const post = calls.find((c) => c.url.includes('/api/member/auth/complete-profile'));
-    expect(post?.body).toEqual({ name: 'Ada', preferredLanguage: 'en', country: 'Nigeria', city: 'Lagos' });
+    expect(post?.body).toEqual({ name: 'Ada', preferredLanguage: 'en', country: 'Nigeria', region: 'Lagos State', division: 'Ikeja' });
   });
 });
