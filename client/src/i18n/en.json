@@ -2785,7 +2785,8 @@
     "pending_less": "Show fewer",
     "back_to_teaching_soon": "Taking you back to the teaching, where you can see who has finished…",
     "back_now": "Go now",
-    "stay_here": "Stay to read the correct answers"
+    "stay_here": "Stay to read the correct answers",
+    "pending_note": "These brethren have not finished yet."
   },
   "manageAssembly": {
     "title": "Manage this assembly",

@@ -162,6 +162,8 @@ describe('The teaching page', () => {
     renderPage(detail(), {}, { ...RESULTS, notFinished: [{ personId: 'p-x', name: 'Xavier', photoUrl: null }, { personId: 'p-mary', name: 'Mary', photoUrl: null }] });
     const pending = await screen.findByTestId('teaching-pending');
     expect(pending).toHaveTextContent('Not finished yet: 2');
+    expect(pending).toHaveTextContent('These brethren have not finished yet.');
+    expect(pending).not.toHaveTextContent('encourage one another');
     expect(pending).toHaveTextContent('Xavier');
     expect(pending).toHaveTextContent('Mary (you)');
     expect(pending).toHaveTextContent('You are still pending');

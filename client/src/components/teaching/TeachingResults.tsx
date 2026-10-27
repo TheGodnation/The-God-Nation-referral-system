@@ -137,6 +137,7 @@ export function TeachingResults({
                 <p className="text-sm text-slate-500">{t('teaching.all_finished')}</p>
               ) : (
                 <>
+                  <p className="text-xs text-slate-500">{t('teaching.pending_note')}</p>
                   <ul className="flex flex-wrap gap-2">
                     {data.notFinished.slice(0, showAllPending ? undefined : PENDING_SHOWN).map((m) => {
                       const mine = m.personId === myPersonId;

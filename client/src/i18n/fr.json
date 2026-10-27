@@ -2785,7 +2785,8 @@
     "pending_less": "En voir moins",
     "back_to_teaching_soon": "Retour à l'enseignement, où vous verrez qui a terminé…",
     "back_now": "Y aller maintenant",
-    "stay_here": "Rester pour lire les bonnes réponses"
+    "stay_here": "Rester pour lire les bonnes réponses",
+    "pending_note": "Ces frères et sœurs n'ont pas encore terminé."
   },
   "manageAssembly": {
     "title": "Gérer cette assemblée",
