@@ -125,19 +125,19 @@ export function HomePage() {
       </section>
 
       {/* What you can experience */}
-      <section id="offer" className="scroll-mt-16 bg-brand-950 px-4 py-14 text-white sm:py-20">
+      <section id="offer" className="scroll-mt-16 bg-white px-4 py-14 sm:py-20">
         <div className="mx-auto max-w-6xl">
-          <Label light>{t('homePage.offer_label')}</Label>
-          <h2 className="mt-3 max-w-2xl text-3xl font-extrabold tracking-tight sm:text-4xl">{t('homePage.offer_title')}</h2>
+          <Label>{t('homePage.offer_label')}</Label>
+          <h2 className="mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">{t('homePage.offer_title')}</h2>
           <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {OFFERS.map(({ n, Icon }) => (
-              <li key={n} className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gold-400/60 text-gold-400">
+              <li key={n} className="flex gap-4 rounded-2xl border border-slate-100 bg-brand-50/60 p-5">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-brand-700 shadow-sm">
                   <Icon className="h-5 w-5" />
                 </span>
                 <span>
-                  <span className="block font-semibold">{t(`homePage.offer_${n}_t`)}</span>
-                  <span className="mt-1 block text-sm text-brand-100">{t(`homePage.offer_${n}_b`)}</span>
+                  <span className="block font-semibold text-brand-900">{t(`homePage.offer_${n}_t`)}</span>
+                  <span className="mt-1 block text-sm text-slate-600">{t(`homePage.offer_${n}_b`)}</span>
                 </span>
               </li>
             ))}
@@ -146,7 +146,7 @@ export function HomePage() {
       </section>
 
       {/* Community */}
-      <section id="community" className="scroll-mt-16 bg-white px-4 py-14 sm:py-20">
+      <section id="community" className="scroll-mt-16 border-t border-slate-100 bg-white px-4 py-14 sm:py-20">
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center">
           <div>
             <Label>{t('homePage.community_label')}</Label>
