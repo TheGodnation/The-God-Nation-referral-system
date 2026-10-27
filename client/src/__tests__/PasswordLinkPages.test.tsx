@@ -86,3 +86,26 @@ describe('The admin\'s sign-in link', () => {
     expect(decodeURIComponent(enHref.split('text=')[1])).toMatch(/Hello Prince.*&lang=en/s);
   });
 });
+
+describe('A person with no account yet', () => {
+  it('lets the admin give the email they will sign in with, and opens the account', async () => {
+    const posts: any[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') posts.push(JSON.parse(init.body as string));
+        const body = init?.method === 'POST'
+          ? { url: 'https://thegodnationacademy.org/member/password-help?token=zzz', expiresAt: '2026-10-30T12:00:00.000Z', kind: 'MEMBER', name: 'Brother Paul', whatsappNumber: '237650000000', language: 'en' }
+          : { content: {} };
+        return Promise.resolve({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => body });
+      }),
+    );
+    render(<SignInHelpPanel endpoint="/api/admin/people/p9/sign-in-help" askEmail="" />);
+    const make = screen.getByRole('button', { name: 'Open the account and make a sign-in link' });
+    expect(make).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Email they will sign in with'), { target: { value: 'paul@example.com' } });
+    fireEvent.click(make);
+    expect(await screen.findByTestId('sign-in-help-url')).toHaveTextContent('password-help?token=zzz');
+    expect(posts).toEqual([{ email: 'paul@example.com' }]);
+  });
+});

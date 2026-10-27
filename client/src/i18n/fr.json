@@ -1014,7 +1014,12 @@
         "no_number": "Nous n'avons pas son numéro WhatsApp : WhatsApp vous demandera à qui l'envoyer.",
         "step_send": "Le lien est prêt. Touchez maintenant « Envoyer sur WhatsApp » — rien ne lui est envoyé tant que vous ne l'avez pas fait.",
         "whatsapp_opened": "WhatsApp s'est ouvert. Appuyez sur envoyer là-bas ; dès que la personne reçoit le message, elle peut utiliser le lien.",
-        "language_label": "Langue du message et de la page qu'ils ouvrent :"
+        "language_label": "Langue du message et de la page qu'ils ouvrent :",
+        "new_account_hint": "Cette personne n'a pas encore de compte. Si elle ne peut pas ouvrir son e-mail, vous pouvez ouvrir le compte pour elle ici : indiquez l'e-mail avec lequel elle se connectera, puis envoyez-lui le lien. Elle choisit son propre mot de passe, puis remplit ses informations.",
+        "new_account_email": "E-mail avec lequel elle se connectera",
+        "make_new_account": "Ouvrir le compte et créer un lien de connexion",
+        "email_taken": "Un autre membre se connecte déjà avec cet e-mail.",
+        "email_needed": "Veuillez saisir un e-mail valide pour cette personne."
       },
       "delete": {
         "title": "Supprimer la personne",

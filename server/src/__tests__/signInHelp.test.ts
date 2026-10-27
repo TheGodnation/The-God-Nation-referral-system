@@ -124,7 +124,7 @@ describe('Help them sign in', () => {
     expect(login.status).toBe(200);
   });
 
-  it('never for the central admin’s own profile, nor for someone with no account', async () => {
+  it('never for the central admin’s own profile', async () => {
     const { agent, csrf, admin } = await loginAsAdmin();
     const own = await prisma.person.create({ data: { name: 'The Admin', whatsappNumber: '+237670999002' } });
     await prisma.user.update({ where: { id: admin.id }, data: { personId: own.id } });
@@ -134,10 +134,38 @@ describe('Help them sign in', () => {
     expect(refused.status).toBe(409);
     expect(refused.body.code).toBe('CENTRAL_ADMIN');
 
+  });
+
+  it('opens the account for someone who cannot open their email, then they choose a password and fill in their details', async () => {
+    const { agent, csrf } = await loginAsAdmin();
     const nobody = await prisma.person.create({ data: { name: 'No Account', whatsappNumber: '+237670999003' } });
-    const none = await agent.post(`/api/admin/people/${nobody.id}/sign-in-help`).set('X-CSRF-Token', csrf).send({});
-    expect(none.status).toBe(404);
-    expect(none.body.code).toBe('NO_ACCOUNT');
+    const post = (body: object) => agent.post(`/api/admin/people/${nobody.id}/sign-in-help`).set('X-CSRF-Token', csrf).send(body);
+
+    expect((await post({})).body.code).toBe('EMAIL_NEEDED');
+    expect((await post({ email: 'not-an-email' })).body.code).toBe('EMAIL_NEEDED');
+    await prisma.memberAccount.update({ where: { id: (await member()).account.id }, data: { email: 'taken@example.com' } });
+    const taken = await post({ email: 'Taken@Example.com' });
+    expect(taken.status).toBe(409);
+    expect(taken.body.code).toBe('EMAIL_TAKEN');
+    expect(await prisma.memberAccount.count({ where: { personId: nobody.id } })).toBe(0);
+
+    const made = await post({ email: 'Brother.Paul@Example.com' });
+    expect(made.status).toBe(200);
+    expect(made.body.kind).toBe('MEMBER');
+    const account = await prisma.memberAccount.findUniqueOrThrow({ where: { personId: nobody.id } });
+    expect(account.email).toBe('brother.paul@example.com');
+    expect(account.passwordHash).toBeNull();
+    expect((await prisma.person.findUniqueOrThrow({ where: { id: nobody.id } })).email).toBe('brother.paul@example.com');
+    expect(await prisma.auditLog.count({ where: { action: 'MEMBER_ACCOUNT_CREATED_BY_ADMIN', targetId: account.id } })).toBe(1);
+
+    const token = tokenOf(made.body.url);
+    const memberAgent = request.agent(app);
+    const { csrf: mcsrf } = await bootstrap(memberAgent);
+    const done = await memberAgent.post('/api/member/auth/password-help').set('X-CSRF-Token', mcsrf).send({ token, newPassword: 'BrandNewPass1' });
+    expect(done.status).toBe(200);
+    const me = await memberAgent.get('/api/member/auth/me');
+    expect(me.body.member.email).toBe('brother.paul@example.com');
+    expect(me.body.member.profileComplete).toBe(false); // sent on to fill in their details
   });
 
   it('from the Leaders list: a leader not linked to anyone in People gets the leader page’s link', async () => {

@@ -280,10 +280,32 @@ router.post('/people/:id/sign-in-help', adminSensitiveLimiter, requireCsrf, asyn
     // No member sign-in yet, only a leader account: the leader page's own
     // "choose a new password" link.
     const leader = person.users.find((u) => u.role === 'LEADER' && u.active);
-    if (!leader) {
-      return res.status(404).json({ error: 'This person has no sign-in account yet.', code: 'NO_ACCOUNT' });
+    if (leader) {
+      link = await leaderSignInHelpLink(leader.id);
+    } else {
+      // Not signed up at all (for instance someone who cannot open their
+      // email, so the emailed code never reaches them): the admin, who knows
+      // them, opens the account here. They still choose their own password
+      // with the link, then fill in their details like any new member.
+      const parsedEmail = z.string().trim().toLowerCase().email().max(320).safeParse(req.body?.email ?? person.email);
+      if (!parsedEmail.success) {
+        return res.status(400).json({ error: 'Please enter the email this person will sign in with.', code: 'EMAIL_NEEDED' });
+      }
+      if (await prisma.memberAccount.findUnique({ where: { email: parsedEmail.data }, select: { id: true } })) {
+        return res.status(409).json({ error: 'Another member already signs in with this email.', code: 'EMAIL_TAKEN' });
+      }
+      const account = await prisma.memberAccount.create({ data: { personId: person.id, email: parsedEmail.data } });
+      if (!person.email) await prisma.person.update({ where: { id: person.id }, data: { email: parsedEmail.data } });
+      await recordAudit({
+        actorId: req.user!.id,
+        actorEmail: req.user!.email,
+        action: 'MEMBER_ACCOUNT_CREATED_BY_ADMIN',
+        targetType: 'MemberAccount',
+        targetId: account.id,
+        metadata: { personId: person.id, email: parsedEmail.data },
+      });
+      link = await memberSignInHelpLink(account.id, req.user!.id);
     }
-    link = await leaderSignInHelpLink(leader.id);
   }
 
   await recordAudit({

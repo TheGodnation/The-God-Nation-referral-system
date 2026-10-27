@@ -12,6 +12,7 @@ interface Props {
     id: string;
     name: string;
     preferredLanguage: string;
+    email?: string | null;
     users: { role: string }[];
     memberAccount: { email: string } | null;
   };
@@ -33,29 +34,29 @@ export function SignInHelpCard({ person }: Props) {
   const { t } = useTranslation();
   const isCentralAdmin = person.users.some((u) => u.role === 'ADMIN');
   const hasAccount = Boolean(person.memberAccount) || person.users.some((u) => u.role === 'LEADER');
+  // Not signed up yet (for instance cannot open their email): the admin opens the account here.
 
   return (
     <div className="card mt-4 space-y-3">
       <h2 className="font-semibold text-brand-900">{t('admin.people.signInHelp.title')}</h2>
       {isCentralAdmin ? (
         <p className="text-sm text-slate-400">{t('admin.people.signInHelp.central_admin')}</p>
-      ) : !hasAccount ? (
-        <p className="text-sm text-slate-400">{t('admin.people.signInHelp.no_account')}</p>
       ) : (
-        <SignInHelpPanel endpoint={`/api/admin/people/${person.id}/sign-in-help`} />
+        <SignInHelpPanel endpoint={`/api/admin/people/${person.id}/sign-in-help`} askEmail={hasAccount ? undefined : (person.email ?? '')} />
       )}
     </div>
   );
 }
 
 /** The "make a link → send on WhatsApp / copy" part, shared by People and Leaders. */
-export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
+export function SignInHelpPanel({ endpoint, askEmail }: { endpoint: string; askEmail?: string }) {
   const { t, i18n } = useTranslation();
   const [link, setLink] = useState<HelpLink | null>(null);
   const [making, setMaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [opened, setOpened] = useState(false);
+  const [newEmail, setNewEmail] = useState(askEmail ?? '');
   const [chosenLng, setChosenLng] = useState<'en' | 'fr' | null>(null);
 
   async function make() {
@@ -65,9 +66,12 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
     setCopied(false);
     setOpened(false);
     try {
-      setLink(await api.post<HelpLink>(endpoint, {}));
+      setLink(await api.post<HelpLink>(endpoint, askEmail === undefined ? {} : { email: newEmail }));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('admin.people.signInHelp.failed'));
+      const code = err instanceof ApiError ? err.code : undefined;
+      setError(
+        code === 'EMAIL_TAKEN' ? t('admin.people.signInHelp.email_taken') : code === 'EMAIL_NEEDED' ? t('admin.people.signInHelp.email_needed') : err instanceof ApiError ? err.message : t('admin.people.signInHelp.failed'),
+      );
     } finally {
       setMaking(false);
     }
@@ -145,9 +149,20 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
           <p className="text-xs text-slate-500">{t('admin.people.signInHelp.only_once')}</p>
         </div>
       ) : (
-        <button type="button" className="btn-primary px-3 py-1.5" onClick={make} disabled={making}>
-          {making ? t('admin.people.signInHelp.making') : t('admin.people.signInHelp.make')}
-        </button>
+        <div className="space-y-2">
+          {askEmail !== undefined && (
+            <div className="space-y-1">
+              <p className="text-xs text-slate-500">{t('admin.people.signInHelp.new_account_hint')}</p>
+              <label className="label" htmlFor="new-account-email">
+                {t('admin.people.signInHelp.new_account_email')}
+              </label>
+              <input id="new-account-email" type="email" className="input" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} autoComplete="off" />
+            </div>
+          )}
+          <button type="button" className="btn-primary px-3 py-1.5" onClick={make} disabled={making || (askEmail !== undefined && !newEmail.trim())}>
+            {making ? t('admin.people.signInHelp.making') : askEmail !== undefined ? t('admin.people.signInHelp.make_new_account') : t('admin.people.signInHelp.make')}
+          </button>
+        </div>
       )}
       {error && <p className="text-sm text-red-700">{error}</p>}
     </>

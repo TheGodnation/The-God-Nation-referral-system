@@ -1014,7 +1014,12 @@
         "no_number": "We don't have their WhatsApp number: WhatsApp will ask you whom to send it to.",
         "step_send": "The link is ready. Now tap “Send on WhatsApp” — nothing is sent to them until you do.",
         "whatsapp_opened": "WhatsApp was opened. Press send there; once they have the message, they can use the link.",
-        "language_label": "Language of the message and of the page they open:"
+        "language_label": "Language of the message and of the page they open:",
+        "new_account_hint": "This person has no account yet. If they cannot open their email, you can open the account for them here: give the email they will sign in with, then send them the link. They choose their own password and then fill in their details.",
+        "new_account_email": "Email they will sign in with",
+        "make_new_account": "Open the account and make a sign-in link",
+        "email_taken": "Another member already signs in with this email.",
+        "email_needed": "Please enter a valid email for this person."
       },
       "delete": {
         "title": "Delete Person",
