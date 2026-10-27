@@ -151,7 +151,7 @@ describe("A book's page", () => {
     renderAt('/member/school/b2');
     expect(await screen.findByText('How small faithfulness grows.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '📖 Continue reading · page 34' })).toHaveAttribute('href', '/member/read/b2');
-    expect(screen.getByText(/Downloaded into the app the first time you open it/)).toBeInTheDocument();
+    expect(screen.getByText(/Downloaded in your phone the first time you open it/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Take the exam (one try)' })).toHaveAttribute('href', '/member/assessments/e2');
     expect(screen.getByRole('button', { name: /Pay 1\s100 FCFA/ })).toBeInTheDocument();
     expect(screen.getByText('The chapter summaries will be added soon.')).toBeInTheDocument();

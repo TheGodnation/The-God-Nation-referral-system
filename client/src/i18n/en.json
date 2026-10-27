@@ -2067,7 +2067,7 @@
     "offering_confirm": "Confirm",
     "offering_bad_amount": "Write the amount in numbers only, or leave it empty.",
     "training_heading": "Leadership training",
-    "training_intro": "Leadership training has {{count}} books. Each book is downloaded into the app, ready for you to read anytime. Pass its exam with 70% or more, and the next book opens.",
+    "training_intro": "Leadership training has {{count}} books. Each book is downloaded in your phone and kept ready for you to read anytime. Pass its exam with 70% or more, and the next book opens.",
     "training_request": "I want to join leadership training",
     "training_requested": "Your request was received. Your book will open as soon as your payment is confirmed.",
     "book": "Book {{number}}",
@@ -2518,7 +2518,6 @@
   },
   "payments": {
     "pay_book": "Pay {{price}}",
-    "fees_note": "This includes {{fees}} for other fees.",
     "title": "Pay for Book {{number}}: {{price}}",
     "no_instructions": "Pay by Mobile Money to the ministry’s number given by your leader, then type the transaction ID below.",
     "reference_label": "Mobile Money transaction ID",
@@ -2547,12 +2546,12 @@
     "name": "The God Nation Leadership School",
     "title": "The God Nation Leadership School",
     "back_to_learn": "Learn",
-    "intro": "{{count}} books to grow as a leader in The God Nation. Each book is downloaded into the app and kept for you, ready to read anytime. Pass its exam, and the next book opens.",
+    "intro": "{{count}} books to grow as a leader in The God Nation. Each book is downloaded in your phone and kept ready for you to read anytime. Pass its exam, and the next book opens.",
     "teaser": "{{count}} books to grow as a leader. Book 1 opens as soon as you begin.",
     "progress": "{{passed}} of {{total}} books passed",
     "open": "Open the school",
     "how_heading": "How it works",
-    "step_read": "Your book is downloaded into the app and kept safe, ready for you to read anytime.",
+    "step_read": "Your book is downloaded in your phone and kept ready for you to read anytime.",
     "step_exam": "Take its exam: one try, 70% to pass.",
     "step_pay": "Pay {{price}} FCFA for the book. The next book then opens.",
     "continue": "Continue",
@@ -2577,7 +2576,7 @@
     "offline_saved": "No internet — showing what was saved on this phone. Your downloaded books still open.",
     "continue_reading": "Continue reading · page {{page}}",
     "downloaded": "Downloaded on this phone — opens even without internet",
-    "downloads_first_time": "Downloaded into the app the first time you open it, then it opens even without internet."
+    "downloads_first_time": "Downloaded in your phone the first time you open it, then it opens even without internet."
   },
   "downloads": {
     "title": "Downloads",

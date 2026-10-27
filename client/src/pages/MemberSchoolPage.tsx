@@ -8,7 +8,6 @@ import { BookCover } from '../components/learn/BookCover';
 import { SCHOOL_BOOK_COUNT, SchoolSummary, TrainingStatusCard, currentBook, useTr } from '../components/learn/schoolBits';
 import { cachedGet } from '../lib/cachedGet';
 import { useMemberAuth } from '../lib/MemberAuthContext';
-import { otherFees } from '../lib/bookPrice';
 
 // The God Nation Leadership School: the 15 leadership books as covers, in
 // order, each showing whether it is passed, open or still closed. Tapping a
@@ -75,7 +74,6 @@ export function MemberSchoolPage() {
                 </li>
               ))}
             </ol>
-            {otherFees(data.price ?? 1200) > 0 && <p className="-mt-2 px-1 text-xs text-slate-500">{t('payments.fees_note', { fees: `${otherFees(data.price ?? 1200).toLocaleString('fr-FR')} FCFA` })}</p>}
 
             <TrainingStatusCard summary={data} onChanged={load} />
 

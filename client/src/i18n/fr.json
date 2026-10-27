@@ -2067,7 +2067,7 @@
     "offering_confirm": "Confirmer",
     "offering_bad_amount": "Écrivez le montant en chiffres seulement, ou laissez vide.",
     "training_heading": "Formation des responsables",
-    "training_intro": "La formation au leadership compte {{count}} livres. Chaque livre est téléchargé dans l'application, prêt à être lu à tout moment. Réussissez son examen avec 70 % ou plus, et le livre suivant s'ouvre.",
+    "training_intro": "La formation au leadership compte {{count}} livres. Chaque livre est téléchargé dans votre téléphone et gardé prêt à être lu à tout moment. Réussissez son examen avec 70 % ou plus, et le livre suivant s'ouvre.",
     "training_request": "Je veux rejoindre la formation",
     "training_requested": "Votre demande a été reçue. Votre livre s’ouvrira dès que votre paiement sera confirmé.",
     "book": "Livre {{number}}",
@@ -2518,7 +2518,6 @@
   },
   "payments": {
     "pay_book": "Payer {{price}}",
-    "fees_note": "Cela comprend {{fees}} pour d’autres frais.",
     "title": "Payer le livre {{number}} : {{price}}",
     "no_instructions": "Payez par Mobile Money au numéro du ministère donné par votre responsable, puis tapez l’identifiant de la transaction ci-dessous.",
     "reference_label": "Identifiant de la transaction Mobile Money",
@@ -2547,12 +2546,12 @@
     "name": "École de leadership de The God Nation",
     "title": "École de leadership de The God Nation",
     "back_to_learn": "Apprendre",
-    "intro": "{{count}} livres pour grandir comme leader dans The God Nation. Chaque livre est téléchargé dans l'application et gardé pour vous, prêt à être lu à tout moment. Réussissez son examen, et le livre suivant s'ouvre.",
+    "intro": "{{count}} livres pour grandir comme leader dans The God Nation. Chaque livre est téléchargé dans votre téléphone et gardé prêt à être lu à tout moment. Réussissez son examen, et le livre suivant s'ouvre.",
     "teaser": "{{count}} livres pour grandir comme leader. Le livre 1 s'ouvre dès que vous commencez.",
     "progress": "{{passed}} livres réussis sur {{total}}",
     "open": "Ouvrir l'école",
     "how_heading": "Comment ça marche",
-    "step_read": "Votre livre est téléchargé dans l'application et bien gardé, prêt à être lu à tout moment.",
+    "step_read": "Votre livre est téléchargé dans votre téléphone et gardé prêt à être lu à tout moment.",
     "step_exam": "Passez son examen : un seul essai, 70 % pour réussir.",
     "step_pay": "Payez {{price}} FCFA pour le livre. Le livre suivant s'ouvre alors.",
     "continue": "Continuer",
@@ -2577,7 +2576,7 @@
     "offline_saved": "Pas d'internet — affichage de ce qui a été gardé sur ce téléphone. Vos livres téléchargés s'ouvrent toujours.",
     "continue_reading": "Continuer la lecture · page {{page}}",
     "downloaded": "Téléchargé sur ce téléphone — s'ouvre même sans internet",
-    "downloads_first_time": "Téléchargé dans l'application la première fois que vous l'ouvrez, puis il s'ouvre même sans internet."
+    "downloads_first_time": "Téléchargé dans votre téléphone la première fois que vous l'ouvrez, puis il s'ouvre même sans internet."
   },
   "downloads": {
     "title": "Téléchargements",
