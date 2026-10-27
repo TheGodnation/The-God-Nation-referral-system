@@ -5,8 +5,8 @@ import { MemberEventsPage } from '../pages/MemberEventsPage';
 import { MemberEventPage } from '../pages/MemberEventPage';
 import { EventsCard } from '../components/member/EventsCard';
 
-// The events calendar, one event (I will come / I'm here / the recording) and
-// the leader's code and attendance sheet.
+// The events calendar, one event (I will come / the recording) and the
+// leader's attendance sheet. Members never mark themselves present.
 const calls: { url: string; method: string; body: any }[] = [];
 
 function mockFetch(routes: Record<string, (body: any) => { status?: number; body: unknown }>) {
@@ -40,8 +40,8 @@ const item = (over: Record<string, unknown> = {}) => ({
 });
 
 const detail = (over: Record<string, unknown> = {}) => ({
-  ...item(), description: 'Come and pray', window: { opensAt: soon, closesAt: soon, open: false },
-  mine: { live: null, replayDone: false }, replay: null, canManage: false, ...over,
+  ...item(), description: 'Come and pray',
+  mine: { live: false, replayDone: false }, replay: null, canManage: false, ...over,
 });
 
 const renderEvent = () =>
@@ -105,57 +105,47 @@ describe('One event', () => {
     expect(screen.queryByText('Come and pray')).toBeInTheDocument();
   });
 
-  it('only shows the code box while check-in is open, and explains a wrong code', async () => {
-    mockFetch({
-      'GET /api/events/e1': () => ({ body: detail({ window: { opensAt: soon, closesAt: soon, open: true } }) }),
-      'POST /api/events/e1/check-in': (b) => (b.code === '1234' ? { body: { present: true } } : { status: 400, body: { error: 'x', code: 'WRONG_CODE' } }),
-    });
+  it('has no way for a member to mark themselves present', async () => {
+    mockFetch({ 'GET /api/events/e1': () => ({ body: detail() }) });
     renderEvent();
-    const box = await screen.findByLabelText('4-digit code');
-    fireEvent.change(box, { target: { value: '9999' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Count me present' }));
-    expect(await screen.findByText(/That code is not right/)).toBeInTheDocument();
-    fireEvent.change(box, { target: { value: '1234' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Count me present' }));
-    await waitFor(() => expect(calls.filter((c) => c.url.endsWith('/check-in')).length).toBe(2));
+    await screen.findByRole('button', { name: 'I will come' });
+    expect(screen.queryByLabelText('4-digit code')).toBeNull();
+    expect(screen.queryByText(/Attendance sheet/)).toBeNull();
   });
 
-  it('tells a member the check-in opens later, and offers the recording', async () => {
+  it('offers the recording', async () => {
     mockFetch({
       'GET /api/events/e1': () => ({ body: detail({ replay: { teachingId: 't1', title: 'Sunday message', mediaKind: 'AUDIO' } }) }),
     });
     renderEvent();
-    expect(await screen.findByText(/opens half an hour before/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Sunday message/ })).toHaveAttribute('href', '/member/teachings/t1');
-    expect(screen.queryByTestId('check-in-code')).toBeNull();
+    expect(await screen.findByRole('link', { name: /Sunday message/ })).toHaveAttribute('href', '/member/teachings/t1');
   });
 
   it('shows how I was counted present', async () => {
-    mockFetch({ 'GET /api/events/e1': () => ({ body: detail({ mine: { live: null, replayDone: true } }) }) });
+    mockFetch({ 'GET /api/events/e1': () => ({ body: detail({ mine: { live: false, replayDone: true } }) }) });
     renderEvent();
     expect(await screen.findByText(/counted present by replay/)).toBeInTheDocument();
   });
 
-  it('gives a leader the code and an attendance sheet they can tick', async () => {
+  it('gives a leader an attendance sheet they can tick', async () => {
     let ticked = false;
     mockFetch({
       'GET /api/events/e1/attendance': () => ({
         body: {
           totals: { members: 2, going: 1, present: ticked ? 1 : 0, live: ticked ? 1 : 0, replay: 0 },
           items: [
-            { personId: 'p1', name: 'Marie', photoUrl: null, going: true, live: ticked ? 'LEADER' : null, replay: false, present: ticked },
-            { personId: 'p2', name: 'Paul', photoUrl: null, going: false, live: null, replay: false, present: false },
+            { personId: 'p1', name: 'Marie', photoUrl: null, going: true, live: ticked, replay: false, present: ticked },
+            { personId: 'p2', name: 'Paul', photoUrl: null, going: false, live: false, replay: false, present: false },
           ],
         },
       }),
-      'GET /api/events/e1': () => ({ body: detail({ canManage: true, checkInCode: '4821', presentCount: 0 }) }),
+      'GET /api/events/e1': () => ({ body: detail({ canManage: true, presentCount: 0 }) }),
       'PUT /api/events/e1/attendance/p1': (b) => {
         ticked = b.present;
         return { body: { ok: true } };
       },
     });
     renderEvent();
-    expect((await screen.findByTestId('check-in-code')).textContent).toBe('4821');
     expect(await screen.findByText('Marie')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Mark present: Marie/ }));
     expect(await screen.findByRole('button', { name: /Remove mark: Marie/ })).toBeInTheDocument();
@@ -166,7 +156,7 @@ describe('One event', () => {
     mockFetch({
       'GET /api/events/summary': () => ({ body: { total: 4, items: [{ personId: 'p2', name: 'Paul', photoUrl: null, present: 0 }, { personId: 'p1', name: 'Marie', photoUrl: null, present: 4 }] } }),
       'GET /api/events/e1/attendance': () => ({ body: { totals: { members: 2, going: 0, present: 0, live: 0, replay: 0 }, items: [] } }),
-      'GET /api/events/e1': () => ({ body: detail({ canManage: true, checkInCode: '4821', presentCount: 0 }) }),
+      'GET /api/events/e1': () => ({ body: detail({ canManage: true, presentCount: 0 }) }),
     });
     renderEvent();
     fireEvent.click(await screen.findByRole('button', { name: 'Show who is rarely present' }));

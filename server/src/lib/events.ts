@@ -1,23 +1,9 @@
-import crypto from 'crypto';
 import { prisma } from './prisma';
 import { isCentralAdminPerson } from './centralAdmin';
 import { hasConversationAccess } from './communityConversation';
 import { isCommunityAdministrator } from './leadership';
 
-/** "I'm here" can be used from half an hour before the start until half an hour after the end. */
-export const CHECK_IN_BEFORE_MS = 30 * 60 * 1000;
-export const CHECK_IN_AFTER_MS = 30 * 60 * 1000;
 export const DEFAULT_EVENT_MS = 2 * 60 * 60 * 1000;
-
-export function newCheckInCode(): string {
-  return crypto.randomInt(0, 10000).toString().padStart(4, '0');
-}
-
-export function checkInWindow(event: { startsAt: Date; endsAt: Date }, now = Date.now()) {
-  const opensAt = new Date(event.startsAt.getTime() - CHECK_IN_BEFORE_MS);
-  const closesAt = new Date(event.endsAt.getTime() + CHECK_IN_AFTER_MS);
-  return { opensAt, closesAt, open: now >= opensAt.getTime() && now <= closesAt.getTime() };
-}
 
 /** Who may add, change and mark attendance for events in this assembly: its leaders and the central admin. */
 export const canManageEvents = isCommunityAdministrator;
@@ -46,29 +32,29 @@ export async function creatableCommunities(personId: string) {
 }
 
 /**
- * Who counts as present at each event: ticked by a leader or typed the code
+ * Who counts as present at each event: ticked by a leader
  * ("LIVE"), or — when the event points to a recorded teaching — finished that
  * teaching ("REPLAY"). Live wins when both are true.
  */
 export async function presenceMap(events: { id: string; replayTeachingId: string | null }[], personIds?: string[]) {
   const ids = events.map((e) => e.id);
-  const out = new Map<string, Map<string, { live: 'LEADER' | 'SELF' | null; replay: boolean }>>();
+  const out = new Map<string, Map<string, { live: boolean; replay: boolean }>>();
   for (const id of ids) out.set(id, new Map());
   if (ids.length === 0) return out;
   const personFilter = personIds ? { personId: { in: personIds } } : {};
   const teachingIds = [...new Set(events.map((e) => e.replayTeachingId).filter((t): t is string => Boolean(t)))];
   const [attendances, progress] = await Promise.all([
-    prisma.eventAttendance.findMany({ where: { eventId: { in: ids }, ...personFilter }, select: { eventId: true, personId: true, method: true } }),
+    prisma.eventAttendance.findMany({ where: { eventId: { in: ids }, ...personFilter }, select: { eventId: true, personId: true } }),
     teachingIds.length
       ? prisma.teachingProgress.findMany({ where: { teachingId: { in: teachingIds }, completedAt: { not: null }, ...personFilter }, select: { teachingId: true, personId: true } })
       : Promise.resolve([] as { teachingId: string; personId: string }[]),
   ]);
   const cell = (eventId: string, personId: string) => {
     const m = out.get(eventId)!;
-    if (!m.has(personId)) m.set(personId, { live: null, replay: false });
+    if (!m.has(personId)) m.set(personId, { live: false, replay: false });
     return m.get(personId)!;
   };
-  for (const a of attendances) cell(a.eventId, a.personId).live = a.method;
+  for (const a of attendances) cell(a.eventId, a.personId).live = true;
   const eventsOfTeaching = new Map<string, string[]>();
   for (const e of events) if (e.replayTeachingId) eventsOfTeaching.set(e.replayTeachingId, [...(eventsOfTeaching.get(e.replayTeachingId) ?? []), e.id]);
   for (const p of progress) for (const eventId of eventsOfTeaching.get(p.teachingId) ?? []) cell(eventId, p.personId).replay = true;

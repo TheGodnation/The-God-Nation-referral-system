@@ -18,7 +18,7 @@ import { generateStorageKey } from '../lib/attachmentPolicy';
 import { bootstrap } from './testUtils';
 
 // Events and attendance: a leader adds an event to an assembly, members say
-// "I will come" and "I'm here" (with the code), the leader sees the sheet, and a
+// "I will come", only the leaders tick who was present (and see the sheet), and a
 // recorded teaching attached to the event counts as present by replay.
 const app = createApp();
 const PASSWORD = 'GoodPass123!';
@@ -78,11 +78,6 @@ async function addEvent(who: Who, communityId: string, over: Record<string, unkn
   return send(who, 'post', '/api/events', { communityId, title: 'Sunday service', startsAt: new Date(Date.now() + 5 * HOUR).toISOString(), ...over });
 }
 
-/** Moves an event so that it is happening now (the "I'm here" window is open). */
-async function startNow(eventId: string) {
-  await prisma.assemblyEvent.update({ where: { id: eventId }, data: { startsAt: new Date(Date.now() - 10 * 60_000), endsAt: new Date(Date.now() + 100 * 60_000) } });
-}
-
 afterEach(() => vi.restoreAllMocks());
 
 describe('Adding events', () => {
@@ -119,7 +114,7 @@ describe('Adding events', () => {
     expect((await addEvent(leader, c.id, { onlineUrl: 'javascript:alert(1)' })).status).toBe(400);
   });
 
-  it('only people of the assembly can see its events; the leader sees the code, members do not', async () => {
+  it('only people of the assembly can see its events; members do not see the attendance', async () => {
     const c = await community();
     const leader = await signedIn('Leader', { communityId: c.id, leaderOf: c.id });
     const member = await signedIn('Member', { communityId: c.id });
@@ -128,16 +123,17 @@ describe('Adding events', () => {
     expect((await stranger.agent.get(`/api/events/${made.body.id}`)).status).toBe(404);
     expect((await stranger.agent.get('/api/events')).body.upcoming).toEqual([]);
     const asLeader = await leader.agent.get(`/api/events/${made.body.id}`);
-    expect(asLeader.body.checkInCode).toMatch(/^\d{4}$/);
+    expect(asLeader.body.checkInCode).toBeUndefined();
+    expect(asLeader.body.presentCount).toBe(0);
     expect(asLeader.body.canManage).toBe(true);
     const asMember = await member.agent.get(`/api/events/${made.body.id}`);
-    expect(asMember.body.checkInCode).toBeUndefined();
+    expect(asMember.body.presentCount).toBeUndefined();
     expect(asMember.body.canManage).toBe(false);
     expect((await member.agent.get(`/api/events/${made.body.id}/attendance`)).status).toBe(403);
   });
 });
 
-describe('"I will come" and "I\'m here"', () => {
+describe('"I will come"', () => {
   it('members say they will come (and can change their mind); it is counted', async () => {
     const c = await community();
     const leader = await signedIn('Leader', { communityId: c.id, leaderOf: c.id });
@@ -151,35 +147,7 @@ describe('"I will come" and "I\'m here"', () => {
     expect((await send(a, 'delete', `/api/events/${made.body.id}/rsvp`)).body).toEqual({ going: false, goingCount: 1 });
   });
 
-  it('"I\'m here" works only with the right code, only while the event is open, and only once', async () => {
-    const c = await community();
-    const leader = await signedIn('Leader', { communityId: c.id, leaderOf: c.id });
-    const m = await signedIn('Member', { communityId: c.id });
-    const made = await addEvent(leader, c.id);
-    const code = (await leader.agent.get(`/api/events/${made.body.id}`)).body.checkInCode as string;
-
-    // Too early: opens half an hour before the start.
-    const early = await send(m, 'post', `/api/events/${made.body.id}/check-in`, { code });
-    expect(early.status).toBe(409);
-    expect(early.body.code).toBe('NOT_OPEN_YET');
-
-    await startNow(made.body.id);
-    const wrong = await send(m, 'post', `/api/events/${made.body.id}/check-in`, { code: code === '0000' ? '1111' : '0000' });
-    expect(wrong.status).toBe(400);
-    expect(wrong.body.code).toBe('WRONG_CODE');
-    expect((await send(m, 'post', `/api/events/${made.body.id}/check-in`, { code })).body).toEqual({ present: true });
-    expect((await send(m, 'post', `/api/events/${made.body.id}/check-in`, { code })).status).toBe(200); // again is harmless
-    expect(await prisma.eventAttendance.count({ where: { eventId: made.body.id } })).toBe(1);
-    expect((await m.agent.get(`/api/events/${made.body.id}`)).body.mine).toEqual({ live: 'SELF', replayDone: false });
-
-    // After the event is over it closes.
-    await prisma.assemblyEvent.update({ where: { id: made.body.id }, data: { startsAt: new Date(Date.now() - 5 * HOUR), endsAt: new Date(Date.now() - 3 * HOUR) } });
-    const late = await send(m, 'post', `/api/events/${made.body.id}/check-in`, { code });
-    expect(late.status).toBe(409);
-    expect(late.body.code).toBe('CLOSED');
-  });
-
-  it('a cancelled event takes no more "I will come" or "I\'m here"', async () => {
+  it('a cancelled event takes no more "I will come"', async () => {
     const c = await community();
     const leader = await signedIn('Leader', { communityId: c.id, leaderOf: c.id });
     const m = await signedIn('Member', { communityId: c.id });
@@ -192,27 +160,26 @@ describe('"I will come" and "I\'m here"', () => {
 });
 
 describe('The attendance sheet', () => {
-  it('shows who came (typed the code, or ticked by the leader), who said they would, and lets the leader tick and untick', async () => {
+  it('shows who came (ticked by the leader), who said they would, and lets the leader tick and untick', async () => {
     const c = await community();
     const leader = await signedIn('Leader', { communityId: c.id, leaderOf: c.id });
     const ann = await signedIn('Ann', { communityId: c.id });
     const ben = await signedIn('Ben', { communityId: c.id });
     const cleo = await signedIn('Cleo', { communityId: c.id });
     const made = await addEvent(leader, c.id);
-    await startNow(made.body.id);
-    const code = (await leader.agent.get(`/api/events/${made.body.id}`)).body.checkInCode as string;
     await send(ann, 'put', `/api/events/${made.body.id}/rsvp`);
-    await send(ann, 'post', `/api/events/${made.body.id}/check-in`, { code });
     await send(ben, 'put', `/api/events/${made.body.id}/rsvp`);
-    // Cleo has no phone data: the leader ticks her.
+    // Only the leader ticks: members cannot mark themselves present.
+    expect((await send(ann, 'put', `/api/events/${made.body.id}/attendance/${ann.person.id}`, { present: true })).status).toBe(403);
+    expect((await send(leader, 'put', `/api/events/${made.body.id}/attendance/${ann.person.id}`, { present: true })).body.present).toBe(true);
     expect((await send(leader, 'put', `/api/events/${made.body.id}/attendance/${cleo.person.id}`, { present: true })).body.present).toBe(true);
 
     const sheet = await leader.agent.get(`/api/events/${made.body.id}/attendance`);
     expect(sheet.body.totals).toMatchObject({ members: 4, going: 2, present: 2, live: 2, replay: 0 });
     const by = (name: string) => sheet.body.items.find((i: any) => i.name.startsWith(name));
-    expect(by('Ann')).toMatchObject({ going: true, live: 'SELF', present: true });
-    expect(by('Cleo')).toMatchObject({ going: false, live: 'LEADER', present: true });
-    expect(by('Ben')).toMatchObject({ going: true, live: null, present: false });
+    expect(by('Ann')).toMatchObject({ going: true, live: true, present: true });
+    expect(by('Cleo')).toMatchObject({ going: false, live: true, present: true });
+    expect(by('Ben')).toMatchObject({ going: true, live: false, present: false });
     expect((await leader.agent.get(`/api/events/${made.body.id}`)).body.presentCount).toBe(2);
 
     // A wrong tick can be taken back; members cannot tick anyone.
@@ -243,15 +210,15 @@ describe('The attendance sheet', () => {
     expect(made.status).toBe(201);
 
     // Ben came live; Ann watched the replay (read the whole teaching).
-    await prisma.eventAttendance.create({ data: { eventId: made.body.id, personId: ben.person.id, method: 'LEADER' } });
+    await prisma.eventAttendance.create({ data: { eventId: made.body.id, personId: ben.person.id, markedByPersonId: leader.person.id } });
     await ann.agent.post(`/api/teachings/${teaching.body.id}/progress`).set('X-CSRF-Token', ann.csrf).send({});
     await prisma.teachingProgress.updateMany({ where: { teachingId: teaching.body.id, personId: ann.person.id }, data: { openedAt: new Date(Date.now() - 5 * 60_000) } });
     await ann.agent.post(`/api/teachings/${teaching.body.id}/progress`).set('X-CSRF-Token', ann.csrf).send({ textRead: true });
 
     const sheet = await leader.agent.get(`/api/events/${made.body.id}/attendance`);
     expect(sheet.body.totals).toMatchObject({ present: 2, live: 1, replay: 1 });
-    expect(sheet.body.items.find((i: any) => i.name.startsWith('Ann'))).toMatchObject({ live: null, replay: true, present: true });
-    expect((await ann.agent.get(`/api/events/${made.body.id}`)).body).toMatchObject({ mine: { live: null, replayDone: true }, replay: { teachingId: teaching.body.id, title: 'Sunday message' } });
+    expect(sheet.body.items.find((i: any) => i.name.startsWith('Ann'))).toMatchObject({ live: false, replay: true, present: true });
+    expect((await ann.agent.get(`/api/events/${made.body.id}`)).body).toMatchObject({ mine: { live: false, replayDone: true }, replay: { teachingId: teaching.body.id, title: 'Sunday message' } });
     expect((await ann.agent.get('/api/events')).body.past[0].presence).toBe('REPLAY');
     expect((await ben.agent.get('/api/events')).body.past[0].presence).toBe('LIVE');
   });
@@ -266,8 +233,8 @@ describe('The attendance sheet', () => {
     const e1 = await past('One', 21);
     const e2 = await past('Two', 14);
     const e3 = await past('Three', 7);
-    for (const e of [e1, e2, e3]) await prisma.eventAttendance.create({ data: { eventId: e, personId: ann.person.id, method: 'LEADER' } });
-    await prisma.eventAttendance.create({ data: { eventId: e3, personId: ben.person.id, method: 'SELF' } });
+    for (const e of [e1, e2, e3]) await prisma.eventAttendance.create({ data: { eventId: e, personId: ann.person.id, markedByPersonId: leader.person.id } });
+    await prisma.eventAttendance.create({ data: { eventId: e3, personId: ben.person.id} });
 
     const summary = await leader.agent.get(`/api/events/summary?communityId=${c.id}`);
     expect(summary.body.total).toBe(3);

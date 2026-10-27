@@ -2,8 +2,6 @@
 ALTER TYPE "NotificationType" ADD VALUE 'EVENT_NEW';
 ALTER TYPE "NotificationType" ADD VALUE 'EVENT_REMINDER';
 
-CREATE TYPE "EventAttendanceMethod" AS ENUM ('LEADER', 'SELF');
-
 CREATE TABLE "AssemblyEvent" (
     "id" TEXT NOT NULL,
     "communityId" TEXT NOT NULL,
@@ -13,7 +11,6 @@ CREATE TABLE "AssemblyEvent" (
     "endsAt" TIMESTAMP(3) NOT NULL,
     "location" TEXT,
     "onlineUrl" TEXT,
-    "checkInCode" TEXT NOT NULL,
     "replayTeachingId" TEXT,
     "createdByPersonId" TEXT,
     "cancelledAt" TIMESTAMP(3),
@@ -43,7 +40,6 @@ CREATE TABLE "EventAttendance" (
     "id" TEXT NOT NULL,
     "eventId" TEXT NOT NULL,
     "personId" TEXT NOT NULL,
-    "method" "EventAttendanceMethod" NOT NULL,
     "markedByPersonId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "EventAttendance_pkey" PRIMARY KEY ("id")

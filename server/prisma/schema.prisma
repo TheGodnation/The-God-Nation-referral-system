@@ -3206,18 +3206,10 @@ model PaymentOrderMessage {
 
 // ---------------------------------------------------------------------------
 // Events and attendance. A leader (or the central admin) puts a gathering in
-// an assembly's calendar; members say "I will come", and during the event they
-// type its code ("I'm here") or the leader ticks them on the attendance
-// sheet. An event can point to a recorded teaching (audio, video, text or
+// an assembly's calendar; members say "I will come", and only the leaders tick
+// who was present on the attendance sheet. An event can point to a recorded teaching (audio, video, text or
 // PDF): a member who finishes it counts as present "by replay".
 // ---------------------------------------------------------------------------
-
-enum EventAttendanceMethod {
-  // Ticked on the attendance sheet by a leader.
-  LEADER
-  // The member typed the event's code while it was open.
-  SELF
-}
 
 model AssemblyEvent {
   id                String    @id @default(uuid())
@@ -3228,8 +3220,6 @@ model AssemblyEvent {
   endsAt            DateTime
   location          String?
   onlineUrl         String?
-  // Four digits the leader says or shows; members type it to say "I'm here".
-  checkInCode       String
   // A teaching in the same assembly that counts as attending when finished.
   replayTeachingId  String?
   createdByPersonId String?
@@ -3265,7 +3255,6 @@ model EventAttendance {
   id                String                @id @default(uuid())
   eventId           String
   personId          String
-  method            EventAttendanceMethod
   markedByPersonId  String?
   createdAt         DateTime              @default(now())
 

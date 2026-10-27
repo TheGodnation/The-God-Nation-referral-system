@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
@@ -22,11 +22,9 @@ interface EventDetail {
   cancelled: boolean;
   going: boolean;
   goingCount: number;
-  window: { opensAt: string; closesAt: string; open: boolean };
-  mine: { live: 'LEADER' | 'SELF' | null; replayDone: boolean };
+  mine: { live: boolean; replayDone: boolean };
   replay: { teachingId: string; title: string; mediaKind: string | null } | null;
   canManage: boolean;
-  checkInCode?: string;
   presentCount?: number;
 }
 
@@ -35,7 +33,7 @@ interface SheetRow {
   name: string;
   photoUrl: string | null;
   going: boolean;
-  live: 'LEADER' | 'SELF' | null;
+  live: boolean;
   replay: boolean;
   present: boolean;
 }
@@ -46,56 +44,6 @@ interface Sheet {
 interface Summary {
   total: number;
   items: { personId: string; name: string; photoUrl: string | null; present: number }[];
-}
-
-function CheckIn({ event, onDone }: { event: EventDetail; onDone: () => void }) {
-  const { t } = useTranslation();
-  const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await api.post(`/api/events/${event.id}/check-in`, { code });
-      onDone();
-    } catch (err) {
-      const c = err instanceof ApiError ? err.code : undefined;
-      setError(c && ['NOT_OPEN_YET', 'CLOSED', 'WRONG_CODE', 'CANCELLED', 'NOT_MEMBER'].includes(c) ? t(`events.err_${c}`) : t('events.save_failed'));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="card space-y-2">
-      <h2 className="font-semibold text-brand-900">{t('events.here_title')}</h2>
-      <p className="text-sm text-slate-600">{t('events.here_help')}</p>
-      <div className="flex gap-2">
-        <input
-          inputMode="numeric"
-          pattern="\d{4}"
-          maxLength={4}
-          autoComplete="off"
-          aria-label={t('events.here_code') ?? ''}
-          placeholder="0000"
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-          className="w-28 rounded-lg border border-slate-300 px-3 py-2 text-center text-lg tracking-widest"
-        />
-        <button type="submit" disabled={busy || code.length !== 4} className="btn-primary">
-          {t('events.here_send')}
-        </button>
-      </div>
-      {error && (
-        <p role="alert" className="text-sm text-red-700">
-          {error}
-        </p>
-      )}
-    </form>
-  );
 }
 
 function LeaderPanel({ event, onChanged }: { event: EventDetail; onChanged: () => void }) {
@@ -134,13 +82,6 @@ function LeaderPanel({ event, onChanged }: { event: EventDetail; onChanged: () =
   return (
     <section className="card space-y-3 border-gold-400">
       <h2 className="font-semibold text-brand-900">{t('events.leader_title')}</h2>
-      <div>
-        <p className="text-sm font-medium text-slate-700">{t('events.code_label')}</p>
-        <p className="text-3xl font-bold tracking-[0.3em] text-brand-900" data-testid="check-in-code">
-          {event.checkInCode}
-        </p>
-        <p className="text-xs text-slate-500">{t('events.code_help')}</p>
-      </div>
       {sheet && <p className="text-sm font-semibold text-slate-700">{t('events.present_count', { present: sheet.totals.present, going: sheet.totals.going, members: sheet.totals.members })}</p>}
       <div>
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('events.sheet')}</h3>
@@ -223,7 +164,7 @@ export function MemberEventPage() {
       load();
     } catch (err) {
       const c = err instanceof ApiError ? err.code : undefined;
-      setMessage(c === 'CANCELLED' ? t('events.err_CANCELLED') : t('events.save_failed'));
+      setMessage(c === 'CANCELLED' ? t('events.cancelled_note') : t('events.save_failed'));
     }
   }
 
@@ -321,8 +262,6 @@ export function MemberEventPage() {
                 {message && <span className="text-sm text-slate-600">{message}</span>}
               </div>
             )}
-
-            {!event.cancelled && !event.mine.live && (event.window.open ? <CheckIn event={event} onDone={load} /> : !over && <p className="text-sm text-slate-500">{t('events.not_open')}</p>)}
 
             {event.replay && !event.cancelled && (
               <div className="card space-y-1">

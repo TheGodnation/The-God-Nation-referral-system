@@ -4,27 +4,25 @@ import { prisma } from '../lib/prisma';
 import { requireMember } from '../lib/memberAuth';
 import { requireCsrf } from '../lib/csrf';
 import { asyncHandler } from '../lib/asyncHandler';
-import { eventCheckInLimiter, socialMutationLimiter } from '../lib/rateLimit';
+import { socialMutationLimiter } from '../lib/rateLimit';
 import { recordAudit } from '../lib/audit';
 import { profilePhotoPath } from '../lib/profilePhoto';
 import { notifyEventNew } from '../lib/notifications';
 import {
   canManageEvents,
   canSeeEvents,
-  checkInWindow,
   creatableCommunities,
   DEFAULT_EVENT_MS,
   isPresent,
-  newCheckInCode,
   presenceMap,
   visibleCommunityIds,
 } from '../lib/events';
 
 // /api/events — an assembly's calendar and its attendance sheet. Leaders of
 // the assembly (and the central admin) add events and see who was present;
-// members see the events of their assemblies, say "I will come", and say
-// "I'm here" with the event's code. An event may point to a recorded teaching:
-// a member who finishes it counts as present "by replay".
+// members see the events of their assemblies and say "I will come". Only
+// leaders tick who was present — and see the sheet. An event may point to a
+// recorded teaching: a member who finishes it counts as present "by replay".
 const router = Router();
 router.use(requireMember);
 
@@ -138,7 +136,6 @@ router.post('/', socialMutationLimiter, requireCsrf, asyncHandler(async (req, re
       location: d.location || null,
       onlineUrl: d.onlineUrl || null,
       replayTeachingId: d.replayTeachingId ?? null,
-      checkInCode: newCheckInCode(),
       createdByPersonId: personId,
     },
   });
@@ -196,7 +193,6 @@ router.get('/:id', asyncHandler(async (req, res) => {
     canManage ? presentCountFor(event) : Promise.resolve(null),
   ]);
   const mine = presence.get(event.id)?.get(personId);
-  const win = checkInWindow(event);
   res.json({
     id: event.id,
     communityId: event.communityId,
@@ -210,12 +206,11 @@ router.get('/:id', asyncHandler(async (req, res) => {
     cancelled: Boolean(event.cancelledAt),
     going: Boolean(mineRsvp),
     goingCount,
-    window: win,
-    mine: { live: mine?.live ?? null, replayDone: Boolean(mine?.replay) },
+    mine: { live: Boolean(mine?.live), replayDone: Boolean(mine?.replay) },
     replay: event.replayTeaching ? { teachingId: event.replayTeaching.id, title: event.replayTeaching.title, mediaKind: event.replayTeaching.mediaKind } : null,
     canManage,
-    // Only the leaders see the code and the head count.
-    ...(canManage ? { checkInCode: event.checkInCode, presentCount } : {}),
+    // Only the leaders see the head count.
+    ...(canManage ? { presentCount } : {}),
   });
 }));
 
@@ -286,34 +281,6 @@ router.delete('/:id/rsvp', socialMutationLimiter, requireCsrf, asyncHandler(asyn
   res.json({ going: false, goingCount: await prisma.eventRsvp.count({ where: { eventId: found.event.id } }) });
 }));
 
-// "I'm here": the code the leader gave, while the event is open.
-router.post('/:id/check-in', eventCheckInLimiter, requireCsrf, asyncHandler(async (req, res) => {
-  const found = await loadEvent(req, res);
-  if (!found) return;
-  const { event, personId } = found;
-  if (event.cancelledAt) return res.status(409).json({ error: 'This event was cancelled.', code: 'CANCELLED' });
-  const win = checkInWindow(event);
-  if (!win.open) {
-    return res.status(409).json({
-      error: Date.now() < win.opensAt.getTime() ? 'Saying "I\'m here" opens half an hour before the event.' : 'This event is over.',
-      code: Date.now() < win.opensAt.getTime() ? 'NOT_OPEN_YET' : 'CLOSED',
-      opensAt: win.opensAt,
-    });
-  }
-  const parsed = z.object({ code: z.string().trim().regex(/^\d{4}$/) }).safeParse(req.body);
-  if (!parsed.success || parsed.data.code !== event.checkInCode) return res.status(400).json({ error: 'That code is not right. Ask your leader for the code.', code: 'WRONG_CODE' });
-  // Only the people of the assembly are counted (a leader who is not a member is, too, by being ticked).
-  if (!(await prisma.communityMembership.findFirst({ where: { communityId: event.communityId, personId, status: 'ACTIVE' }, select: { id: true } }))) {
-    return res.status(403).json({ error: 'Only members of this assembly can be counted.', code: 'NOT_MEMBER' });
-  }
-  await prisma.eventAttendance.upsert({
-    where: { eventId_personId: { eventId: event.id, personId } },
-    create: { eventId: event.id, personId, method: 'SELF' },
-    update: {},
-  });
-  res.json({ present: true });
-}));
-
 // The attendance sheet.
 router.get('/:id/attendance', asyncHandler(async (req, res) => {
   const found = await loadEvent(req, res);
@@ -335,7 +302,7 @@ router.get('/:id/attendance', asyncHandler(async (req, res) => {
         name: m.person.name,
         photoUrl: profilePhotoPath(m.person),
         going: going.has(m.person.id),
-        live: c?.live ?? null,
+        live: Boolean(c?.live),
         replay: Boolean(c?.replay),
         present: isPresent(c),
       };
@@ -362,7 +329,7 @@ router.put('/:id/attendance/:personId', socialMutationLimiter, requireCsrf, asyn
   if (parsed.data.present) {
     await prisma.eventAttendance.upsert({
       where: { eventId_personId: { eventId: event.id, personId: person } },
-      create: { eventId: event.id, personId: person, method: 'LEADER', markedByPersonId: found.personId },
+      create: { eventId: event.id, personId: person, markedByPersonId: found.personId },
       update: {},
     });
   } else {
