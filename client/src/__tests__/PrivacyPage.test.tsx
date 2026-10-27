@@ -27,6 +27,7 @@ describe('Privacy policy', () => {
     expect(screen.getByText(/never receives private messages or prayer requests/)).toBeInTheDocument();
     expect(screen.getByText(/We do not sell your information/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Delete my account' })).toHaveAttribute('href', '/delete-account');
+    expect(screen.getByText(/godsnationmediaministry@gmail\.com/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open the contact page' })).toHaveAttribute('href', '/contact');
   });
 
