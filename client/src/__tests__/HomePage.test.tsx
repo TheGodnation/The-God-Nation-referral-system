@@ -1,60 +1,70 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import i18n from '../i18n';
 import { HomePage } from '../pages/HomePage';
 
+// The public front door: who we are, what we do, and how to join — with no
+// trace of who referred the visitor.
 describe('HomePage', () => {
   beforeEach(() => {
-    // The Discover & Grow pathway only appears once an Admin has actually
-    // set its content (see HomePage.tsx) — mock a settings response with
-    // that content filled in, matching real configured production state,
-    // so this test can verify both pathways render together as intended.
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
         headers: { get: () => 'application/json' },
-        json: async () => ({
-          content: {
-            discoverTitleEn: 'DISCOVER & GROW',
-            discoverCtaEn: 'JOIN OUR SPIRITUAL COMMUNITY',
-          },
-        }),
+        json: async () => ({ content: {}, youtubeUrl: 'https://youtube.com/@godnation' }),
       }),
     );
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllGlobals();
+    await act(async () => {
+      await i18n.changeLanguage('en');
+    });
   });
 
-  it('renders the hero and both required pathways, with no referral trace', async () => {
+  const show = () =>
     render(
       <MemoryRouter>
         <HomePage />
       </MemoryRouter>,
     );
 
-    // HomePage shows a brief loading state until the public settings fetch
-    // settles (success or failure) — findByText waits for that instead of
-    // asserting on the very first, pre-fetch render.
-    expect(await screen.findByText('BE EQUIPPED. BE TRANSFORMED. BE SENT.')).toBeInTheDocument();
+  it('introduces the ministry in a few short sections and points everyone to join', async () => {
+    show();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('A Digital Home for Kingdom Citizens');
+    expect(screen.getByText(/exists to bring together citizens of the Kingdom of God/)).toBeInTheDocument();
+    for (const name of ['More than a platform. A movement.', 'Everything you need to grow and make an impact.', 'Learn. Grow. Lead.', 'From Cameroon to Africa, and to the ends of the earth.']) {
+      expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument();
+    }
+    const joins = screen.getAllByRole('link', { name: /Join the Community/ });
+    expect(joins.length).toBeGreaterThanOrEqual(3);
+    for (const a of joins) expect(a).toHaveAttribute('href', '/member/join');
+    for (const a of screen.getAllByRole('link', { name: /Existing Members — Sign In/ })) expect(a).toHaveAttribute('href', '/member/login');
+  });
 
-    // Both pathways, Training first — exact required headings/CTAs.
-    expect(screen.getByText('BE EQUIPPED & SENT')).toBeInTheDocument();
-    expect(screen.getByText('BEGIN YOUR TRAINING JOURNEY')).toBeInTheDocument();
-    expect(screen.getByText('DISCOVER & GROW')).toBeInTheDocument();
-    expect(screen.getByText('JOIN OUR SPIRITUAL COMMUNITY')).toBeInTheDocument();
+  it('has section links in the top bar, and is in French too', async () => {
+    show();
+    expect(screen.getByRole('link', { name: 'Our Vision' })).toHaveAttribute('href', '#vision');
+    expect(screen.getByRole('link', { name: 'Global Mission' })).toHaveAttribute('href', '#mission');
+    fireEvent.click(screen.getByRole('button', { name: 'Français' }));
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('citoyens du Royaume');
+    expect(screen.getAllByRole('link', { name: /Rejoindre la communauté/ }).length).toBeGreaterThanOrEqual(3);
+  });
 
-    // Section 15: never gate on identity.
-    expect(screen.queryByText(/are you born again/i)).not.toBeInTheDocument();
+  it('shows the social links the admin has set', async () => {
+    show();
+    expect(await screen.findByRole('link', { name: 'YouTube' })).toHaveAttribute('href', 'https://youtube.com/@godnation');
+  });
 
-    // Must not expose internal referral commission mechanics publicly.
+  it('never shows referral or commission details', () => {
+    show();
     expect(screen.queryByText(/500 FCFA/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/commission/i)).not.toBeInTheDocument();
-
-    // Section 8: never reveal who referred the visitor.
     expect(screen.queryByText(/invited by/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/referred by/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/are you born again/i)).not.toBeInTheDocument();
   });
 });

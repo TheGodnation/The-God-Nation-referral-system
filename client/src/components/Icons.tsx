@@ -130,3 +130,69 @@ export function YouTubeIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+const base = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+
+export function UsersIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" {...base}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M2.5 20c.4-3.4 3-5.5 6.5-5.5s6.1 2.1 6.5 5.5" />
+      <circle cx="17.5" cy="9" r="2.5" />
+      <path d="M17.5 14.2c2.3.2 3.7 1.8 4 4.3" />
+    </svg>
+  );
+}
+
+export function MediaPlayIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" {...base}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="m10.5 9.5 4 2.5-4 2.5v-5Z" />
+    </svg>
+  );
+}
+
+export function GlobeIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" {...base}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3Z" />
+    </svg>
+  );
+}
+
+export function ChartIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" {...base}>
+      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+    </svg>
+  );
+}
+
+export function DocumentIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" {...base}>
+      <path d="M6 3h8l4 4v14H6V3Z" />
+      <path d="M14 3v4h4M9 12h6M9 16h6" />
+    </svg>
+  );
+}
+
+export function SproutIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" {...base}>
+      <path d="M12 21v-9" />
+      <path d="M12 12c0-4 3-6.5 8-6.5 0 4.2-2.8 6.5-8 6.5Z" />
+      <path d="M12 14.5C12 11 9.5 9 4 9c0 3.7 2.4 5.5 8 5.5Z" />
+    </svg>
+  );
+}
+
+export function CrossIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" {...base}>
+      <path d="M12 2.5v19M6.5 8h11" />
+    </svg>
+  );
+}

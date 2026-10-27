@@ -1,12 +1,20 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { usePublicSettings } from '../lib/usePublicSettings';
 import {
   GraduationCapIcon,
+  OpenBookIcon,
   HeartHandsIcon,
+  UsersIcon,
+  MediaPlayIcon,
+  GlobeIcon,
+  ChartIcon,
+  DocumentIcon,
+  SproutIcon,
+  CrossIcon,
   CompassIcon,
-  FormIcon,
   ChatHeartIcon,
   WhatsAppIcon,
   TelegramIcon,
@@ -17,10 +25,10 @@ import {
   YouTubeIcon,
 } from '../components/Icons';
 
-// One brand-appropriate icon + background color per social platform, so the
-// Connect section reads as a set of recognizable buttons rather than plain
-// text links. Order matches how they're offered in the `socials` list below.
-const SOCIAL_ICONS: Record<string, { Icon: (p: { className?: string }) => JSX.Element; bg: string }> = {
+type IconType = (p: { className?: string }) => JSX.Element;
+
+// One brand-appropriate icon + background color per social platform.
+const SOCIAL_ICONS: Record<string, { Icon: IconType; bg: string }> = {
   WhatsApp: { Icon: WhatsAppIcon, bg: '#25D366' },
   Telegram: { Icon: TelegramIcon, bg: '#26A5E4' },
   Messenger: { Icon: MessengerIcon, bg: '#0084FF' },
@@ -30,34 +38,53 @@ const SOCIAL_ICONS: Record<string, { Icon: (p: { className?: string }) => JSX.El
   YouTube: { Icon: YouTubeIcon, bg: '#FF0000' },
 };
 
-const HOW_ICONS = [CompassIcon, FormIcon, ChatHeartIcon];
+const PILLARS: { key: string; Icon: IconType }[] = [
+  { key: 'pillar_1', Icon: OpenBookIcon },
+  { key: 'pillar_2', Icon: UsersIcon },
+  { key: 'pillar_3', Icon: MediaPlayIcon },
+  { key: 'pillar_4', Icon: GlobeIcon },
+];
 
-// Section 15-17: one official homepage, two legitimate visitor pathways
-// (Training first, then Discover & Grow). Referral attribution is silent —
-// this page never shows who referred the visitor, and both pathways are
-// offered identically regardless of how the visitor arrived.
+const OFFERS: { n: number; Icon: IconType }[] = [
+  { n: 1, Icon: OpenBookIcon },
+  { n: 2, Icon: DocumentIcon },
+  { n: 3, Icon: UsersIcon },
+  { n: 4, Icon: ChatHeartIcon },
+  { n: 5, Icon: ChartIcon },
+  { n: 6, Icon: MediaPlayIcon },
+];
+
+const VALUES: { n: number; Icon: IconType }[] = [
+  { n: 1, Icon: CompassIcon },
+  { n: 2, Icon: SproutIcon },
+  { n: 3, Icon: HeartHandsIcon },
+  { n: 4, Icon: GlobeIcon },
+];
+
+function Label({ children, light = false }: { children: ReactNode; light?: boolean }) {
+  return (
+    <p className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest ${light ? 'text-gold-400' : 'text-brand-600'}`}>
+      <span aria-hidden className={`inline-block h-px w-6 ${light ? 'bg-gold-400' : 'bg-brand-600'}`} />
+      {children}
+    </p>
+  );
+}
+
+function JoinButton({ className = '' }: { className?: string }) {
+  const { t } = useTranslation();
+  return (
+    <Link to="/member/join" className={`inline-flex items-center justify-center rounded-lg bg-gold-500 px-6 py-3 font-bold text-brand-950 shadow-lg shadow-black/10 hover:bg-gold-400 ${className}`}>
+      {t('homePage.join')} <span aria-hidden className="ml-2">→</span>
+    </Link>
+  );
+}
+
+// The public front door ("/"): who we are, what we do, and how to join, in a
+// few short sections. Referral attribution is silent — this page never shows
+// who referred the visitor, and everyone sees the same page.
 export function HomePage() {
-  const { t, i18n } = useTranslation();
-  const {
-    content,
-    facebookUrl,
-    instagramUrl,
-    tiktokUrl,
-    youtubeUrl,
-    whatsappContactUrl,
-    telegramUrl,
-    messengerUrl,
-    loaded,
-  } = usePublicSettings();
-
-  // Every Admin-editable content key is stored as a bilingual pair
-  // (e.g. homepageTitleEn / homepageTitleFr) so an edit in one language can
-  // never silently override what the other language's visitors see. `c()`
-  // reads the pair for the visitor's current language, falling back to the
-  // app's own built-in (fully translated) default text when nothing was
-  // set in Admin for that language.
-  const lang = i18n.language.startsWith('fr') ? 'Fr' : 'En';
-  const c = (key: string): string | undefined => content[`${key}${lang}`] || undefined;
+  const { t } = useTranslation();
+  const { facebookUrl, instagramUrl, tiktokUrl, youtubeUrl, whatsappContactUrl, telegramUrl, messengerUrl } = usePublicSettings();
 
   const socials = [
     { url: whatsappContactUrl, label: 'WhatsApp' },
@@ -69,167 +96,162 @@ export function HomePage() {
     { url: youtubeUrl, label: 'YouTube' },
   ].filter((s) => s.url);
 
-  const howSteps = [
-    { title: c('how1Title') || t('home.how_1_title'), body: c('how1Body') || t('home.how_1_body') },
-    { title: c('how2Title') || t('home.how_2_title'), body: c('how2Body') || t('home.how_2_body') },
-    { title: c('how3Title') || t('home.how_3_title'), body: c('how3Body') || t('home.how_3_body') },
-  ];
-
-  // Wait for the Admin's saved content to actually load before rendering
-  // any content-dependent text. Without this, the page would render the
-  // app's built-in default wording for an instant (since `content` starts
-  // empty), then swap to the real saved text once the fetch resolves — a
-  // visible "flash" from the old/default text to the new one.
-  if (!loaded) {
-    return (
-      <PageShell>
-        <div className="px-4 py-24 text-center text-slate-400">{t('join.loading')}</div>
-      </PageShell>
-    );
-  }
-
   return (
-    <PageShell>
+    <PageShell homeNav>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-brand-950 to-brand-800 px-4 py-16 text-center text-white sm:py-24">
-        {/* Purely decorative — a soft radiant glow behind the hero text, no
-            photo needed. Hidden from assistive tech since it carries no
-            content. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-0 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/3 rounded-full bg-gold-400/20 blur-3xl"
-        />
-        <div className="relative mx-auto max-w-3xl">
-          <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-            {c('homepageTitle') || t('home.hero_title')}
+      <section id="top" className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 px-4 py-16 text-white sm:py-24">
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-[30rem] w-[30rem] rounded-full bg-gold-400/20 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-brand-500/30 blur-3xl" />
+        <CrossIcon className="pointer-events-none absolute right-6 top-1/2 hidden h-72 w-72 -translate-y-1/2 text-gold-400/10 lg:block" />
+        <div className="relative mx-auto max-w-6xl">
+          <p className="text-xs font-bold uppercase tracking-widest text-gold-400">{t('homePage.eyebrow')}</p>
+          <h1 className="mt-4 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
+            {t('homePage.title_a')} <span className="text-gold-400">{t('homePage.title_b')}</span>
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base font-medium text-gold-400 sm:text-lg">
-            {c('homepageSubtitle') || t('home.hero_tagline')}
-          </p>
-          <p className="mx-auto mt-4 max-w-xl text-base text-brand-100">
-            {c('heroSupport') || t('home.hero_support')}
-          </p>
-          <a
-            href="#pathways"
-            className="btn-primary mt-8 inline-flex w-full max-w-sm bg-gold-500 text-brand-950 hover:bg-gold-400 sm:w-auto"
-          >
-            {c('heroCta') || t('home.hero_cta')}
-          </a>
-          {/* The community app: join, or sign back in. */}
-          <div className="mx-auto mt-6 flex max-w-sm flex-col gap-3 sm:max-w-md sm:flex-row sm:justify-center">
-            <Link to="/member/join" className="btn-primary inline-flex flex-1 justify-center bg-white text-brand-900 hover:bg-brand-50">
-              {t('home.member_join')}
+          <p className="mt-5 max-w-xl text-base text-brand-100 sm:text-lg">{t('homePage.support')}</p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <JoinButton />
+            <Link to="/member/login" className="inline-flex items-center justify-center rounded-lg border border-white/60 px-6 py-3 font-semibold text-white hover:bg-white/10">
+              {t('homePage.sign_in')}
             </Link>
-            <Link
-              to="/member/login"
-              className="inline-flex flex-1 items-center justify-center rounded-lg border border-white/60 px-4 py-2.5 font-semibold text-white hover:bg-white/10"
-            >
-              {t('home.member_sign_in')}
+          </div>
+          <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-sm text-brand-100">
+            <li className="flex items-center gap-2">
+              <OpenBookIcon className="h-5 w-5 text-gold-400" /> {t('homePage.chip_faith')}
+            </li>
+            <li className="flex items-center gap-2">
+              <UsersIcon className="h-5 w-5 text-gold-400" /> {t('homePage.chip_lead')}
+            </li>
+            <li className="flex items-center gap-2">
+              <GlobeIcon className="h-5 w-5 text-gold-400" /> {t('homePage.chip_world')}
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      {/* Vision */}
+      <section id="vision" className="scroll-mt-16 bg-white px-4 py-14 sm:py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center">
+          <div>
+            <Label>{t('homePage.vision_label')}</Label>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">{t('homePage.vision_title')}</h2>
+            <p className="mt-4 text-slate-600">{t('homePage.vision_body')}</p>
+          </div>
+          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+            {PILLARS.map(({ key, Icon }) => (
+              <li key={key} className="rounded-2xl border border-slate-100 bg-brand-50/60 p-4 text-center">
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand-700 shadow-sm">
+                  <Icon className="h-6 w-6" />
+                </span>
+                <span className="mt-3 block text-sm font-semibold text-brand-900">{t(`homePage.${key}`)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* What you can experience */}
+      <section id="offer" className="scroll-mt-16 bg-brand-950 px-4 py-14 text-white sm:py-20">
+        <div className="mx-auto max-w-6xl">
+          <Label light>{t('homePage.offer_label')}</Label>
+          <h2 className="mt-3 max-w-2xl text-3xl font-extrabold tracking-tight sm:text-4xl">{t('homePage.offer_title')}</h2>
+          <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {OFFERS.map(({ n, Icon }) => (
+              <li key={n} className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-5">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gold-400/60 text-gold-400">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span>
+                  <span className="block font-semibold">{t(`homePage.offer_${n}_t`)}</span>
+                  <span className="mt-1 block text-sm text-brand-100">{t(`homePage.offer_${n}_b`)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Community */}
+      <section id="community" className="scroll-mt-16 bg-white px-4 py-14 sm:py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center">
+          <div>
+            <Label>{t('homePage.community_label')}</Label>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">{t('homePage.community_title')}</h2>
+            <p className="mt-4 text-slate-600">{t('homePage.community_body')}</p>
+            <JoinButton className="mt-6" />
+          </div>
+          <ul className="grid grid-cols-2 gap-4">
+            {VALUES.map(({ n, Icon }) => (
+              <li key={n} className="rounded-2xl bg-brand-50 p-5">
+                <Icon className="h-7 w-7 text-brand-700" />
+                <span className="mt-3 block font-semibold text-brand-900">{t(`homePage.value_${n}_t`)}</span>
+                <span className="block text-sm text-slate-600">{t(`homePage.value_${n}_b`)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Learn. Grow. Lead. */}
+      <section id="leadership" className="scroll-mt-16 bg-slate-50 px-4 py-14 sm:py-20">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+          <div>
+            <Label>{t('homePage.leadership_label')}</Label>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">{t('homePage.leadership_title')}</h2>
+            <p className="mt-4 text-slate-600">{t('homePage.leadership_body')}</p>
+            <Link to="/member/join" className="mt-5 inline-block font-semibold text-brand-700 hover:underline">
+              {t('homePage.leadership_link')} →
+            </Link>
+          </div>
+          <div className="flex items-center gap-4 rounded-2xl bg-gradient-to-br from-brand-900 to-brand-700 p-6 text-white">
+            <GraduationCapIcon className="h-12 w-12 shrink-0 text-gold-400" />
+            <p className="text-xl font-bold italic leading-snug">{t('homePage.leadership_tag')}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Global mission */}
+      <section id="mission" className="scroll-mt-16 bg-gradient-to-br from-brand-900 to-brand-950 px-4 py-14 text-white sm:py-20">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+          <div>
+            <Label light>{t('homePage.mission_label')}</Label>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">{t('homePage.mission_title')}</h2>
+            <p className="mt-4 text-brand-100">{t('homePage.mission_body')}</p>
+            <Link to="/member/join" className="mt-5 inline-block font-semibold text-gold-400 hover:underline">
+              {t('homePage.mission_link')} →
+            </Link>
+          </div>
+          <div className="flex items-center gap-4 lg:justify-end">
+            <GlobeIcon className="h-16 w-16 shrink-0 text-gold-400/80" />
+            <p className="text-lg font-semibold leading-snug text-gold-400">{t('homePage.mission_tag')}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Final invitation */}
+      <section className="bg-white px-4 py-16 text-center">
+        <div className="mx-auto max-w-2xl">
+          <h2 className="text-2xl font-extrabold tracking-tight text-brand-900 sm:text-3xl">{t('homePage.final_title')}</h2>
+          <p className="mt-3 text-slate-600">{t('homePage.final_body')}</p>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <JoinButton className="w-full max-w-xs" />
+            <Link to="/member/login" className="text-sm font-semibold text-brand-700 hover:underline">
+              {t('homePage.sign_in')}
             </Link>
           </div>
         </div>
       </section>
 
-      <div id="pathways">
-        {/* Training pathway — appears first */}
-        <section className="mx-auto max-w-3xl px-4 py-14 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
-            <GraduationCapIcon className="h-7 w-7" />
-          </div>
-          <h2 className="text-2xl font-bold text-brand-900 sm:text-3xl">
-            {c('trainingTitle') || t('home.training_heading')}
-          </h2>
-          <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-brand-600">
-            {c('trainingSupporting') || t('home.training_supporting')}
-          </p>
-          <p className="mt-4 text-slate-600">{c('trainingDescription') || t('home.training_description')}</p>
-          {c('trainingExplanation') && <p className="mt-3 text-sm text-slate-500">{c('trainingExplanation')}</p>}
-          <Link to="/register?pathway=TRAINING" className="btn-primary mt-6 inline-flex w-full max-w-sm sm:w-auto">
-            {c('trainingCta') || t('home.training_cta')}
-          </Link>
-        </section>
-
-        {/* Discover & Grow pathway — hidden until an Admin actually fills in
-            its title. Unlike other sections, this one has no content yet,
-            so it must not show placeholder/default text as if it were
-            real; presence of a real title is what turns it on. */}
-        {c('discoverTitle') && (
-          <section className="bg-slate-50 px-4 py-14 text-center">
-            <div className="mx-auto max-w-3xl">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gold-500/10 text-gold-500">
-                <HeartHandsIcon className="h-7 w-7" />
-              </div>
-              <h2 className="text-2xl font-bold text-brand-900 sm:text-3xl">{c('discoverTitle')}</h2>
-              <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-brand-600">
-                {c('discoverSupporting') || t('home.discover_supporting')}
-              </p>
-              <p className="mt-4 text-slate-600">{c('discoverDescription') || t('home.discover_description')}</p>
-              <Link
-                to="/register?pathway=DISCOVER_GROW"
-                className="btn-secondary mt-6 inline-flex w-full max-w-sm sm:w-auto"
-              >
-                {c('discoverCta') || t('home.discover_cta')}
-              </Link>
-            </div>
-          </section>
-        )}
-      </div>
-
-      {/* Short vision */}
-      <section className="mx-auto max-w-2xl px-4 py-12 text-center">
-        <h2 className="text-xl font-bold text-brand-900">{c('visionTitle') || t('home.vision_title')}</h2>
-        <p className="mt-3 text-slate-600">{c('vision') || t('home.vision_body')}</p>
-        <Link to="/page/vision" className="mt-3 inline-block text-sm font-medium text-brand-700 hover:underline">
-          {t('home.learn_more_vision')}
-        </Link>
-      </section>
-
-      {/* Very short How It Works */}
-      <section className="bg-slate-50 px-4 py-14">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="text-center text-2xl font-bold text-brand-900">{c('howTitle') || t('home.how_title')}</h2>
-          <div className="mt-8 grid gap-6 sm:grid-cols-3">
-            {howSteps.map((step, i) => {
-              const StepIcon = HOW_ICONS[i];
-              return (
-                <div key={i} className="card text-center">
-                  <div className="relative mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-600 text-white">
-                    <StepIcon className="h-5 w-5" />
-                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gold-500 text-[0.65rem] font-bold text-brand-950">
-                      {i + 1}
-                    </span>
-                  </div>
-                  <h3 className="font-semibold text-brand-900">{step.title}</h3>
-                  <p className="mt-2 text-sm text-slate-600">{step.body}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Social footer */}
       {socials.length > 0 && (
-        <section className="px-4 py-12 text-center">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-            {c('connectTitle') || t('home.connect_title')}
-          </h2>
+        <section className="border-t border-slate-100 px-4 py-10 text-center">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t('homePage.connect')}</h2>
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             {socials.map((s) => {
               const iconInfo = SOCIAL_ICONS[s.label];
               return (
-                <a
-                  key={s.label}
-                  href={s.url!}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 rounded-full border border-slate-200 py-2 pl-2 pr-5 text-sm font-medium text-brand-700 hover:bg-brand-50"
-                >
+                <a key={s.label} href={s.url!} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-full border border-slate-200 py-2 pl-2 pr-5 text-sm font-medium text-brand-700 hover:bg-brand-50">
                   {iconInfo && (
-                    <span
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-white"
-                      style={{ background: iconInfo.bg }}
-                    >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full text-white" style={{ background: iconInfo.bg }}>
                       <iconInfo.Icon className="h-4 w-4" />
                     </span>
                   )}
