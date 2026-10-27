@@ -1013,7 +1013,8 @@
         "leader_signs_in": "Ensuite, la personne se connecte sur la page des responsables avec {{email}} et son nouveau mot de passe.",
         "no_number": "Nous n'avons pas son numéro WhatsApp : WhatsApp vous demandera à qui l'envoyer.",
         "step_send": "Le lien est prêt. Touchez maintenant « Envoyer sur WhatsApp » — rien ne lui est envoyé tant que vous ne l'avez pas fait.",
-        "whatsapp_opened": "WhatsApp s'est ouvert. Appuyez sur envoyer là-bas ; dès que la personne reçoit le message, elle peut utiliser le lien."
+        "whatsapp_opened": "WhatsApp s'est ouvert. Appuyez sur envoyer là-bas ; dès que la personne reçoit le message, elle peut utiliser le lien.",
+        "language_label": "Langue du message et de la page qu'ils ouvrent :"
       },
       "delete": {
         "title": "Supprimer la personne",
@@ -1609,7 +1610,9 @@
     "language_en": "English",
     "language_fr": "Français",
     "back_home": "Retour à l'accueil",
-    "loading": "Chargement…"
+    "loading": "Chargement…",
+    "show_password": "Afficher le mot de passe",
+    "hide_password": "Masquer le mot de passe"
   },
   "translation": {
     "translated_from": "Traduit depuis : {{language}}",
@@ -3063,5 +3066,38 @@
     "summary_hide": "Masquer",
     "loading": "Chargement…",
     "not_found": "Cet événement est introuvable."
+  },
+  "resetPassword": {
+    "title": "Réinitialiser le mot de passe",
+    "new_password": "Nouveau mot de passe",
+    "confirm_password": "Confirmer le nouveau mot de passe",
+    "save": "Réinitialiser le mot de passe",
+    "saving": "Enregistrement…",
+    "done": "Mot de passe réinitialisé. Redirection vers la connexion…",
+    "no_token": "Aucun jeton de réinitialisation dans ce lien.",
+    "request_new": "En demander un nouveau.",
+    "no_token_error": "Il manque le jeton de réinitialisation dans ce lien. Veuillez en demander un nouveau.",
+    "not_same": "Le nouveau mot de passe et sa confirmation ne correspondent pas.",
+    "too_short": "Le mot de passe doit contenir au moins 8 caractères.",
+    "bad_link": "Ce lien de réinitialisation est invalide ou a expiré. Veuillez en demander un nouveau.",
+    "too_many": "Trop d'essais. Veuillez patienter quelques minutes puis réessayer.",
+    "failed": "Une erreur s'est produite. Veuillez réessayer.",
+    "back_to_login": "Retour à la connexion"
+  },
+  "leaderSetup": {
+    "title": "Choisissez votre mot de passe",
+    "welcome": "Bienvenue ! Choisissez un mot de passe pour activer votre compte de responsable.",
+    "no_token": "Aucun jeton de configuration dans ce lien. Utilisez le lien de votre e-mail d'invitation, ou demandez à un administrateur de vous le renvoyer.",
+    "no_token_error": "Il manque le jeton de configuration dans ce lien. Utilisez le lien de votre e-mail d'invitation.",
+    "bad_link": "Ce lien de configuration est invalide ou a expiré. Demandez à un administrateur de vous renvoyer l'invitation.",
+    "saving": "Configuration…",
+    "save": "Activer mon compte"
+  },
+  "forgotPassword": {
+    "title": "Mot de passe oublié",
+    "sent": "Si un compte existe pour cet e-mail, un lien de réinitialisation du mot de passe a été envoyé.",
+    "email": "E-mail",
+    "sending": "Envoi…",
+    "send": "Envoyer le lien de réinitialisation"
   }
 }

@@ -1013,7 +1013,8 @@
         "leader_signs_in": "They then sign in on the leader page with {{email}} and their new password.",
         "no_number": "We don't have their WhatsApp number: WhatsApp will ask you whom to send it to.",
         "step_send": "The link is ready. Now tap “Send on WhatsApp” — nothing is sent to them until you do.",
-        "whatsapp_opened": "WhatsApp was opened. Press send there; once they have the message, they can use the link."
+        "whatsapp_opened": "WhatsApp was opened. Press send there; once they have the message, they can use the link.",
+        "language_label": "Language of the message and of the page they open:"
       },
       "delete": {
         "title": "Delete Person",
@@ -1609,7 +1610,9 @@
     "language_en": "English",
     "language_fr": "Français",
     "back_home": "Back to Home",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "show_password": "Show password",
+    "hide_password": "Hide password"
   },
   "translation": {
     "translated_from": "Translated from {{language}}",
@@ -3063,5 +3066,38 @@
     "summary_hide": "Hide",
     "loading": "Loading…",
     "not_found": "This event was not found."
+  },
+  "resetPassword": {
+    "title": "Reset Password",
+    "new_password": "New Password",
+    "confirm_password": "Confirm New Password",
+    "save": "Reset Password",
+    "saving": "Saving…",
+    "done": "Password reset. Redirecting you to login…",
+    "no_token": "No reset token found in this link.",
+    "request_new": "Request a new one.",
+    "no_token_error": "This reset link is missing its token. Please request a new one.",
+    "not_same": "New password and confirmation do not match.",
+    "too_short": "Password must be at least 8 characters long.",
+    "bad_link": "This reset link is invalid or has expired. Please request a new one.",
+    "too_many": "Too many tries. Please wait a few minutes and try again.",
+    "failed": "Something went wrong. Please try again.",
+    "back_to_login": "Back to login"
+  },
+  "leaderSetup": {
+    "title": "Set Your Password",
+    "welcome": "Welcome! Choose a password to activate your Leader account.",
+    "no_token": "No setup token found in this link. Please use the link from your invitation email, or ask an Admin to resend it.",
+    "no_token_error": "This setup link is missing its token. Please use the link from your invitation email.",
+    "bad_link": "This setup link is invalid or has expired. Please ask an Admin to resend your invitation.",
+    "saving": "Setting up…",
+    "save": "Activate My Account"
+  },
+  "forgotPassword": {
+    "title": "Forgot Password",
+    "sent": "If an account exists for that email, a password reset link has been sent.",
+    "email": "Email",
+    "sending": "Sending…",
+    "send": "Send Reset Link"
   }
 }

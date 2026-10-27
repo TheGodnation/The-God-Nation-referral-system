@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 
 // Section 33: redeem a one-time reset token for a new password.
 export function ResetPasswordPage() {
+  const { t } = useTranslation();
   const [params] = useSearchParams();
   const token = params.get('token') || '';
   const navigate = useNavigate();
@@ -21,15 +23,15 @@ export function ResetPasswordPage() {
     setError(null);
 
     if (!token) {
-      setError('This reset link is missing its token. Please request a new one.');
+      setError(t('resetPassword.no_token_error'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError('New password and confirmation do not match.');
+      setError(t('resetPassword.not_same'));
       return;
     }
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long.');
+      setError(t('resetPassword.too_short'));
       return;
     }
 
@@ -39,7 +41,7 @@ export function ResetPasswordPage() {
       setSuccess(true);
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+      setError(err instanceof ApiError && err.code === 'BAD_LINK' ? t('resetPassword.bad_link') : err instanceof ApiError && err.status === 429 ? t('resetPassword.too_many') : t('resetPassword.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -48,27 +50,26 @@ export function ResetPasswordPage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-sm px-4 py-16">
-        <h1 className="text-2xl font-bold text-brand-900">Reset Password</h1>
+        <h1 className="text-2xl font-bold text-brand-900">{t('resetPassword.title')}</h1>
 
         {success ? (
           <p className="mt-6 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
-            Password reset. Redirecting you to login…
+            {t('resetPassword.done')}
           </p>
         ) : (
           <>
             {!token && (
               <p role="alert" className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                No reset token found in this link.{' '}
+                {t('resetPassword.no_token')}{' '}
                 <Link to="/forgot-password" className="underline">
-                  Request a new one
+                  {t('resetPassword.request_new')}
                 </Link>
-                .
               </p>
             )}
             <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
               <div>
                 <label className="label" htmlFor="newPassword">
-                  New Password
+                  {t('resetPassword.new_password')}
                 </label>
                 <PasswordInput
                   id="newPassword"
@@ -81,7 +82,7 @@ export function ResetPasswordPage() {
               </div>
               <div>
                 <label className="label" htmlFor="confirmPassword">
-                  Confirm New Password
+                  {t('resetPassword.confirm_password')}
                 </label>
                 <PasswordInput
                   id="confirmPassword"
@@ -100,7 +101,7 @@ export function ResetPasswordPage() {
               )}
 
               <button type="submit" className="btn-primary w-full" disabled={submitting || !token}>
-                {submitting ? 'Saving…' : 'Reset Password'}
+                {submitting ? t('resetPassword.saving') : t('resetPassword.save')}
               </button>
             </form>
           </>

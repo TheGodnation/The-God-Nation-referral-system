@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 
 // Section 33: request a reset link. The response is always the same
 // generic message, regardless of whether the account exists.
 export function ForgotPasswordPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -19,7 +21,7 @@ export function ForgotPasswordPage() {
       await api.post('/api/auth/forgot-password', { email });
       setSubmitted(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+      setError(err instanceof ApiError && err.status === 429 ? t('resetPassword.too_many') : t('resetPassword.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -28,17 +30,17 @@ export function ForgotPasswordPage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-sm px-4 py-16">
-        <h1 className="text-2xl font-bold text-brand-900">Forgot Password</h1>
+        <h1 className="text-2xl font-bold text-brand-900">{t('forgotPassword.title')}</h1>
 
         {submitted ? (
           <p className="mt-6 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
-            If an account exists for that email, a password reset link has been sent.
+            {t('forgotPassword.sent')}
           </p>
         ) : (
           <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
             <div>
               <label className="label" htmlFor="email">
-                Email
+                {t('forgotPassword.email')}
               </label>
               <input
                 id="email"
@@ -58,14 +60,14 @@ export function ForgotPasswordPage() {
             )}
 
             <button type="submit" className="btn-primary w-full" disabled={submitting}>
-              {submitting ? 'Sending…' : 'Send Reset Link'}
+              {submitting ? t('forgotPassword.sending') : t('forgotPassword.send')}
             </button>
           </form>
         )}
 
         <p className="mt-6 text-center text-sm text-slate-500">
           <Link to="/login" className="text-brand-700 hover:underline">
-            Back to login
+            {t('resetPassword.back_to_login')}
           </Link>
         </p>
       </section>

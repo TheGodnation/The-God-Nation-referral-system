@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface PasswordInputProps {
   id: string;
@@ -22,6 +23,7 @@ export function PasswordInput({
   minLength,
   placeholder,
 }: PasswordInputProps) {
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
 
   return (
@@ -41,7 +43,7 @@ export function PasswordInput({
         type="button"
         onClick={() => setVisible((v) => !v)}
         className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400 hover:text-slate-600"
-        aria-label={visible ? 'Hide password' : 'Show password'}
+        aria-label={visible ? t('common.hide_password') : t('common.show_password')}
         tabIndex={-1}
       >
         {visible ? (

@@ -56,6 +56,7 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [opened, setOpened] = useState(false);
+  const [chosenLng, setChosenLng] = useState<'en' | 'fr' | null>(null);
 
   async function make() {
     if (making) return;
@@ -73,9 +74,9 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
   }
 
   async function copy() {
-    if (!link) return;
+    if (!link || !shareUrl) return;
     try {
-      await navigator.clipboard.writeText(link.url);
+      await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
     } catch {
       setCopied(false);
@@ -84,7 +85,9 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
 
   // The WhatsApp message is written in the person's own language (the
   // admin's, when it isn't known).
-  const lng = (link?.language ?? i18n.language).startsWith('fr') ? 'fr' : 'en';
+  const lng: 'en' | 'fr' = chosenLng ?? ((link?.language ?? i18n.language).startsWith('fr') ? 'fr' : 'en');
+  // The link opens the page in that same language (?lang=), whatever the phone's own language is.
+  const shareUrl = link ? `${link.url}${link.url.includes('?') ? '&' : '?'}lang=${lng}` : '';
   const until = link
     ? new Date(link.expiresAt).toLocaleString(lng === 'fr' ? 'fr-FR' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
     : '';
@@ -92,7 +95,7 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
     ? t(link.kind === 'LEADER' && link.email ? 'admin.people.signInHelp.whatsapp_message_leader' : 'admin.people.signInHelp.whatsapp_message', {
         lng,
         name: link.name,
-        url: link.url,
+        url: shareUrl,
         until,
         email: link.email,
       })
@@ -108,7 +111,21 @@ export function SignInHelpPanel({ endpoint }: { endpoint: string }) {
           <p role="status" className="text-sm font-semibold text-brand-900">
             {opened ? t('admin.people.signInHelp.whatsapp_opened') : t('admin.people.signInHelp.step_send')}
           </p>
-          <p className="break-all text-sm text-slate-700" data-testid="sign-in-help-url">{link.url}</p>
+          <p className="break-all text-sm text-slate-700" data-testid="sign-in-help-url">{shareUrl}</p>
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <span>{t('admin.people.signInHelp.language_label')}</span>
+            {(['en', 'fr'] as const).map((l) => (
+              <button
+                key={l}
+                type="button"
+                aria-pressed={lng === l}
+                onClick={() => setChosenLng(l)}
+                className={`rounded-md border px-2 py-0.5 font-medium ${lng === l ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
+              >
+                {l === 'en' ? 'English' : 'Français'}
+              </button>
+            ))}
+          </div>
           <p className="text-xs text-slate-500">{t('admin.people.signInHelp.expires', { until })}</p>
           {link.kind === 'LEADER' && link.email && (
             <p className="text-xs text-slate-500">{t('admin.people.signInHelp.leader_signs_in', { email: link.email })}</p>

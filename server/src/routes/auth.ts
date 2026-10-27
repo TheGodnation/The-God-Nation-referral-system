@@ -293,7 +293,7 @@ router.post('/leader-setup/complete', leaderSetupLimiter, requireCsrf, asyncHand
 
   const setupToken = await prisma.leaderSetupToken.findUnique({ where: { tokenHash } });
   if (!setupToken || setupToken.consumedAt || setupToken.expiresAt < new Date()) {
-    return res.status(400).json({ error: 'This setup link is invalid or has expired. Please ask an Admin to resend your invitation.' });
+    return res.status(400).json({ error: 'This setup link is invalid or has expired. Please ask an Admin to resend your invitation.', code: 'BAD_LINK' });
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
@@ -385,7 +385,7 @@ router.post('/reset-password', passwordResetRedeemLimiter, requireCsrf, asyncHan
       reason: !resetToken ? 'not_found' : resetToken.consumedAt ? 'already_used' : 'expired',
       ...(resetToken ? { userId: resetToken.userId, createdAt: resetToken.createdAt.toISOString(), consumedAt: resetToken.consumedAt?.toISOString() ?? null } : {}),
     }));
-    return res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.' });
+    return res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.', code: 'BAD_LINK' });
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
@@ -405,7 +405,7 @@ router.post('/reset-password', passwordResetRedeemLimiter, requireCsrf, asyncHan
 
   if (!user) {
     console.info('[reset-password] refused', JSON.stringify({ ref: tokenHash.slice(0, 10), reason: 'used_at_the_same_moment' }));
-    return res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.' });
+    return res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.', code: 'BAD_LINK' });
   }
   console.info('[reset-password] done', JSON.stringify({ ref: tokenHash.slice(0, 10), userId: user.id }));
 
