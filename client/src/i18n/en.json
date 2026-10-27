@@ -3099,5 +3099,94 @@
     "email": "Email",
     "sending": "Sending…",
     "send": "Send Reset Link"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "nav": "Privacy",
+    "updated": "Last updated: 27 October 2026",
+    "intro": "The God Nation Media & Leadership Academy (\"we\", \"the ministry\") runs The God Nation app and the website thegodnationacademy.org. This page explains in plain words what we collect, why, who can see it, who helps us run the app, and how you can have it deleted.",
+    "sections": [
+      {
+        "h": "1. What we collect",
+        "p": [
+          "What you give us when you sign up and use the app: your name, WhatsApp number, email address, preferred language, and where you live (country, region, division, subdivision, quarter or city).",
+          "What you choose to add: a profile photo, cover photo, short bio, posts, comments, reactions, messages, voice notes, pictures and files you send, prayer requests, and your replies to friend requests.",
+          "Your training: which teachings and books you have opened or finished, bookmarks, quiz and exam results.",
+          "Payments: when you pay for a training book by Mobile Money, we keep the order, the amount, the transaction ID you send, and the screenshot you upload as proof. We never see your Mobile Money PIN, and the payment itself happens outside the app.",
+          "Referrals and earnings: who invited you, who you invited, and any referral earnings and payouts.",
+          "Events: which events you said you would come to, and whether a leader marked you present, or you finished the recording linked to the event.",
+          "Technical information: whether you are online and when you were last seen, the sign-in sessions on your devices, and, if you allow notifications, a code that lets your phone receive alerts from us."
+        ]
+      },
+      {
+        "h": "2. Why we use it",
+        "p": [
+          "To run the community: let you sign in, place you in your assembly, show you your leaders and fellow members, and let you chat, post and pray together.",
+          "To run the training: save your progress, mark quizzes, and confirm book payments.",
+          "To keep the app safe: prevent abuse, handle reports, and keep a record of important actions by leaders and administrators.",
+          "To contact you: send sign-in codes and notices by email, and alerts about messages, events and payments on your phone if you allow them.",
+          "We do not sell your information. We do not show advertisements, and the app does not use advertising or analytics trackers."
+        ]
+      },
+      {
+        "h": "3. Who can see it",
+        "p": [
+          "Other members and leaders can see what you choose to make visible on your profile and in the places you post, such as your name, photo, bio and your assembly.",
+          "The leaders of your assembly, and the central administrators of the ministry, can see your member details so they can care for you and manage the community. Only leaders and administrators can see the attendance sheet of an event.",
+          "Payment representatives, who are people the ministry has appointed, can see an order you open with them: your name, the amount, and the transaction ID and screenshot you send.",
+          "Messages sent in a chat can be seen by the people in that chat. We ask leaders and administrators to use member information only for the work of the ministry."
+        ]
+      },
+      {
+        "h": "4. Who helps us run the app",
+        "p": [
+          "We use trusted services to run the app. They process data for us and may not use it for their own purposes.",
+          "Render hosts the app and its database (in Frankfurt, Germany). Cloudflare R2 stores uploaded files such as photos, voice notes and documents. Resend sends our emails. Your phone's own push service (Google or Apple, depending on your phone) delivers alerts.",
+          "Google Gemini is used to translate between English and French and to help draft quiz questions. It receives the text of posts and group chat messages, the audio of group chat voice notes, and teaching texts. It never receives private messages or prayer requests."
+        ]
+      },
+      {
+        "h": "5. Cookies and storage on your device",
+        "p": [
+          "We use a sign-in cookie so that you stay signed in, a security cookie that protects forms, and your device's local storage to remember choices such as your language and to make some content available offline. We do not use advertising cookies."
+        ]
+      },
+      {
+        "h": "6. How long we keep it",
+        "p": [
+          "We keep your information while your account is open. Sign-in sessions on a device end after a period of inactivity.",
+          "Some records, such as payment amounts and dates, are kept for the ministry's accounts even after an account is deleted, without your name."
+        ]
+      },
+      {
+        "h": "7. Your choices and deleting your account",
+        "p": [
+          "You can change your profile at any time in the app, and you can turn notifications off in your phone's settings.",
+          "You can ask us to delete your account in the app (Me → Edit profile → Delete my account), or on the web page https://thegodnationacademy.org/delete-account. Your account is hidden at once. If you change your mind within 30 days, signing in again cancels the deletion. After that, an administrator approves the deletion and your profile, photos, posts, friends, group membership, exam results and sign-in are removed.",
+          "Messages you sent in other people's chats stay in those chats, shown as \"This message was deleted\".",
+          "You may also ask us what we hold about you, or ask us to correct it, through the contact page."
+        ]
+      },
+      {
+        "h": "8. Children",
+        "p": [
+          "The app is meant for adults and young people who can use it with their parents' or guardians' permission. If you believe a child has joined without permission, contact us and we will remove the account."
+        ]
+      },
+      {
+        "h": "9. Changes to this page",
+        "p": [
+          "If we change how we handle your information, we will update this page and its date. For important changes, we will tell you in the app."
+        ]
+      },
+      {
+        "h": "10. Contact",
+        "p": [
+          "For any question about your privacy, or to ask us to delete your information, please use our contact page."
+        ]
+      }
+    ],
+    "contact_link": "Open the contact page",
+    "delete_link": "Delete my account"
   }
 }

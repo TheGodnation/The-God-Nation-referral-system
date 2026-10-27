@@ -3099,5 +3099,94 @@
     "email": "E-mail",
     "sending": "Envoi…",
     "send": "Envoyer le lien de réinitialisation"
+  },
+  "privacy": {
+    "title": "Politique de confidentialité",
+    "nav": "Confidentialité",
+    "updated": "Dernière mise à jour : 27 octobre 2026",
+    "intro": "The God Nation Media & Leadership Academy (« nous », « le ministère ») gère l'application The God Nation et le site thegodnationacademy.org. Cette page explique en termes simples ce que nous collectons, pourquoi, qui peut le voir, qui nous aide à faire fonctionner l'application et comment vous pouvez faire supprimer vos informations.",
+    "sections": [
+      {
+        "h": "1. Ce que nous collectons",
+        "p": [
+          "Ce que vous nous donnez à l'inscription et en utilisant l'application : votre nom, votre numéro WhatsApp, votre adresse e-mail, votre langue préférée et l'endroit où vous vivez (pays, région, département, arrondissement, quartier ou ville).",
+          "Ce que vous choisissez d'ajouter : une photo de profil, une photo de couverture, une courte biographie, des publications, des commentaires, des réactions, des messages, des notes vocales, des images et des fichiers que vous envoyez, des demandes de prière et vos réponses aux demandes d'amitié.",
+          "Votre formation : les enseignements et les livres que vous avez ouverts ou terminés, vos signets, vos résultats de quiz et d'examens.",
+          "Les paiements : quand vous payez un livre de formation par Mobile Money, nous gardons la commande, le montant, l'identifiant de transaction que vous envoyez et la capture d'écran que vous téléversez comme preuve. Nous ne voyons jamais votre code secret Mobile Money, et le paiement lui-même se fait en dehors de l'application.",
+          "Parrainage et gains : qui vous a invité, qui vous avez invité, ainsi que les gains et les paiements de parrainage.",
+          "Événements : les événements auxquels vous avez dit que vous viendriez, et si un responsable vous a marqué présent ou si vous avez terminé l'enregistrement lié à l'événement.",
+          "Informations techniques : si vous êtes en ligne et votre dernière connexion, les sessions de connexion sur vos appareils et, si vous autorisez les notifications, un code qui permet à votre téléphone de recevoir nos alertes."
+        ]
+      },
+      {
+        "h": "2. Pourquoi nous les utilisons",
+        "p": [
+          "Pour faire fonctionner la communauté : vous permettre de vous connecter, vous placer dans votre assemblée, vous montrer vos responsables et les autres membres, et vous permettre de discuter, de publier et de prier ensemble.",
+          "Pour faire fonctionner la formation : enregistrer votre progression, corriger les quiz et confirmer les paiements de livres.",
+          "Pour protéger l'application : empêcher les abus, traiter les signalements et garder une trace des actions importantes des responsables et des administrateurs.",
+          "Pour vous contacter : envoyer des codes de connexion et des avis par e-mail, et des alertes sur votre téléphone pour les messages, les événements et les paiements si vous les autorisez.",
+          "Nous ne vendons pas vos informations. Nous n'affichons pas de publicité, et l'application n'utilise pas de traceurs publicitaires ni d'analyse d'audience."
+        ]
+      },
+      {
+        "h": "3. Qui peut les voir",
+        "p": [
+          "Les autres membres et responsables peuvent voir ce que vous choisissez de rendre visible sur votre profil et aux endroits où vous publiez, comme votre nom, votre photo, votre biographie et votre assemblée.",
+          "Les responsables de votre assemblée et les administrateurs centraux du ministère peuvent voir les informations de votre compte afin de prendre soin de vous et de gérer la communauté. Seuls les responsables et les administrateurs voient la feuille de présence d'un événement.",
+          "Les représentants de paiement, des personnes nommées par le ministère, peuvent voir une commande que vous ouvrez avec eux : votre nom, le montant, ainsi que l'identifiant de transaction et la capture d'écran que vous envoyez.",
+          "Les messages envoyés dans une conversation peuvent être vus par les personnes de cette conversation. Nous demandons aux responsables et aux administrateurs de n'utiliser les informations des membres que pour le travail du ministère."
+        ]
+      },
+      {
+        "h": "4. Qui nous aide à faire fonctionner l'application",
+        "p": [
+          "Nous utilisons des services de confiance. Ils traitent des données pour nous et n'ont pas le droit de les utiliser pour leurs propres besoins.",
+          "Render héberge l'application et sa base de données (à Francfort, en Allemagne). Cloudflare R2 stocke les fichiers téléversés comme les photos, les notes vocales et les documents. Resend envoie nos e-mails. Le service de notifications de votre téléphone (Google ou Apple, selon votre téléphone) livre les alertes.",
+          "Google Gemini sert à traduire entre l'anglais et le français et à aider à rédiger des questions de quiz. Il reçoit le texte des publications et des messages des discussions de groupe, l'audio des notes vocales de groupe et les textes des enseignements. Il ne reçoit jamais les messages privés ni les demandes de prière."
+        ]
+      },
+      {
+        "h": "5. Cookies et stockage sur votre appareil",
+        "p": [
+          "Nous utilisons un cookie de connexion pour que vous restiez connecté, un cookie de sécurité qui protège les formulaires, et le stockage local de votre appareil pour mémoriser des choix comme votre langue et rendre certains contenus disponibles hors ligne. Nous n'utilisons pas de cookies publicitaires."
+        ]
+      },
+      {
+        "h": "6. Combien de temps nous les gardons",
+        "p": [
+          "Nous gardons vos informations tant que votre compte est ouvert. Les sessions de connexion sur un appareil prennent fin après une période d'inactivité.",
+          "Certains enregistrements, comme les montants et les dates des paiements, sont conservés pour la comptabilité du ministère même après la suppression d'un compte, sans votre nom."
+        ]
+      },
+      {
+        "h": "7. Vos choix et la suppression de votre compte",
+        "p": [
+          "Vous pouvez modifier votre profil à tout moment dans l'application, et désactiver les notifications dans les réglages de votre téléphone.",
+          "Vous pouvez demander la suppression de votre compte dans l'application (Moi → Modifier le profil → Supprimer mon compte), ou sur la page web https://thegodnationacademy.org/delete-account. Votre compte est masqué immédiatement. Si vous changez d'avis dans les 30 jours, vous reconnecter annule la suppression. Passé ce délai, un administrateur approuve la suppression et votre profil, vos photos, vos publications, vos amis, votre appartenance aux groupes, vos résultats d'examens et votre connexion sont supprimés.",
+          "Les messages que vous avez envoyés dans les conversations des autres y restent, affichés comme « Ce message a été supprimé ».",
+          "Vous pouvez aussi nous demander ce que nous détenons à votre sujet, ou nous demander de le corriger, via la page de contact."
+        ]
+      },
+      {
+        "h": "8. Enfants",
+        "p": [
+          "L'application s'adresse aux adultes et aux jeunes qui peuvent l'utiliser avec la permission de leurs parents ou tuteurs. Si vous pensez qu'un enfant s'est inscrit sans permission, contactez-nous et nous supprimerons le compte."
+        ]
+      },
+      {
+        "h": "9. Modifications de cette page",
+        "p": [
+          "Si nous changeons la façon dont nous traitons vos informations, nous mettrons à jour cette page et sa date. Pour les changements importants, nous vous préviendrons dans l'application."
+        ]
+      },
+      {
+        "h": "10. Contact",
+        "p": [
+          "Pour toute question sur votre vie privée, ou pour demander la suppression de vos informations, veuillez utiliser notre page de contact."
+        ]
+      }
+    ],
+    "contact_link": "Ouvrir la page de contact",
+    "delete_link": "Supprimer mon compte"
   }
 }

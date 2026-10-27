@@ -40,6 +40,9 @@ export function PageShell({ children, minimal = false }: { children: ReactNode; 
           <Link to="/contact" className="hover:text-brand-700 hover:underline">
             {t('nav.contact')}
           </Link>
+          <Link to="/privacy" className="hover:text-brand-700 hover:underline">
+            {t('privacy.nav')}
+          </Link>
           <Link to="/member/login" className="hover:text-brand-700 hover:underline">
             {t('nav.memberLogin')}
           </Link>
