@@ -13,11 +13,12 @@ import { Avatar } from '../Avatar';
 export interface TeachingResultsData {
   totals: { members: number; opened: number; finished: number; taken: number; passed: number; averagePercentage: number | null };
   participants: { personId: string; name: string; photoUrl: string | null; finishedAt: string | null; percentage: number | null; passed: boolean | null; takenAt: string | null }[];
-  notFinished?: { personId: string; name: string }[];
+  notFinished?: { personId: string; name: string; photoUrl?: string | null }[];
   passMark: number;
 }
 
 const REFRESH_MS = 20000;
+const PENDING_SHOWN = 12;
 
 export function TeachingResults({
   teachingId,
@@ -39,7 +40,7 @@ export function TeachingResults({
   const [data, setData] = useState<TeachingResultsData | null>(null);
   const [failed, setFailed] = useState(false);
   const [reminder, setReminder] = useState<string | null>(null);
-  const [showNot, setShowNot] = useState(false);
+  const [showAllPending, setShowAllPending] = useState(false);
 
   const load = useCallback(() => {
     api
@@ -124,25 +125,47 @@ export function TeachingResults({
             </ol>
           )}
 
-          {canManage && data.notFinished && (
-            <div className="space-y-2 border-t border-slate-100 pt-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <button type="button" className="text-sm font-medium text-slate-700 underline" onClick={() => setShowNot((v) => !v)}>
-                  {t('teaching.not_finished', { count: data.notFinished.length })}
-                </button>
-                <button type="button" className="btn-secondary px-3 py-1.5" onClick={remind} disabled={data.notFinished.length === 0}>
-                  🔔 {t('teaching.remind')}
-                </button>
-              </div>
-              {reminder && <p className="text-sm text-slate-600">{reminder}</p>}
-              {showNot && (
-                <ul className="columns-2 gap-4 text-sm text-slate-700">
-                  {data.notFinished.map((m) => (
-                    <li key={m.personId} className="truncate">
-                      {m.name}
-                    </li>
-                  ))}
-                </ul>
+          {data.notFinished && (
+            <div className="space-y-2 border-t border-slate-100 pt-3" data-testid="teaching-pending">
+              <h3 className="text-sm font-semibold text-slate-800">{t('teaching.not_finished', { count: data.notFinished.length })}</h3>
+              {data.notFinished.some((m) => m.personId === myPersonId) && (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+                  {t('teaching.you_pending')}
+                </p>
+              )}
+              {data.notFinished.length === 0 ? (
+                <p className="text-sm text-slate-500">{t('teaching.all_finished')}</p>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-500">{t('teaching.pending_note')}</p>
+                  <ul className="flex flex-wrap gap-2">
+                    {data.notFinished.slice(0, showAllPending ? undefined : PENDING_SHOWN).map((m) => {
+                      const mine = m.personId === myPersonId;
+                      return (
+                        <li key={m.personId} className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-3 text-sm ${mine ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+                          <Avatar name={m.name} photoUrl={m.photoUrl} size={24} />
+                          <span className="max-w-[10rem] truncate">
+                            {m.name}
+                            {mine && ` (${t('teaching.you')})`}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {data.notFinished.length > PENDING_SHOWN && (
+                    <button type="button" className="text-sm font-medium text-brand-700 underline" onClick={() => setShowAllPending((v) => !v)}>
+                      {showAllPending ? t('teaching.pending_less') : t('teaching.pending_more', { count: data.notFinished.length - PENDING_SHOWN })}
+                    </button>
+                  )}
+                </>
+              )}
+              {canManage && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" className="btn-secondary px-3 py-1.5" onClick={remind} disabled={data.notFinished.length === 0}>
+                    🔔 {t('teaching.remind')}
+                  </button>
+                  {reminder && <p className="text-sm text-slate-600">{reminder}</p>}
+                </div>
               )}
             </div>
           )}

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
+
+const BACK_AFTER_SECONDS = 8;
 
 interface AssessmentInfo {
   id: string;
@@ -98,6 +100,11 @@ export function MemberAssessmentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [starting, setStarting] = useState(false);
   const [lastResult, setLastResult] = useState<AttemptSummary | null>(null);
+  const navigate = useNavigate();
+  // After a teaching's quiz, the member is taken back to the teaching (where the
+  // list of who has finished is) after a few seconds, unless they choose to stay
+  // and read the correct answers first.
+  const [backIn, setBackIn] = useState<number | null>(null);
   const [review, setReview] = useState<ReviewQuestion[] | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -178,6 +185,7 @@ export function MemberAssessmentPage() {
       const result = await api.post<AttemptSummary>(`/api/member/attempts/${submittedId}/submit`, { answers });
       writeSaved(submittedId, null);
       setLastResult(result);
+      if (assessment?.teaching) setBackIn(BACK_AFTER_SECONDS);
       setActiveAttemptId(null);
       setQuestions([]);
       load();
@@ -195,6 +203,16 @@ export function MemberAssessmentPage() {
       setSubmitting(false);
     }
   }
+
+  useEffect(() => {
+    if (backIn === null || !assessment?.teaching) return;
+    if (backIn <= 0) {
+      navigate(`/member/teachings/${assessment.teaching.id}`);
+      return;
+    }
+    const timer = window.setTimeout(() => setBackIn((n) => (n === null ? null : n - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [backIn, assessment?.teaching, navigate]);
 
   if (notFound) {
     return (
@@ -256,6 +274,17 @@ export function MemberAssessmentPage() {
             </p>
             {assessment.firstTryCounts && attempts.filter((a) => a.status === 'SUBMITTED').length > 1 && (
               <p className="mt-1 text-xs text-slate-500">{t('memberAssessment.practice_note')}</p>
+            )}
+            {assessment.teaching && backIn !== null && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 px-3 py-2 text-sky-900" role="status" data-testid="back-to-teaching">
+                <span>{t('teaching.back_to_teaching_soon')} ({backIn})</span>
+                <Link to={`/member/teachings/${assessment.teaching.id}`} className="font-semibold underline">
+                  {t('teaching.back_now')}
+                </Link>
+                <button type="button" className="underline" onClick={() => setBackIn(null)}>
+                  {t('teaching.stay_here')}
+                </button>
+              </div>
             )}
             {lastResult.payPrompt && (
               <div className="mt-3 space-y-2 rounded-lg bg-amber-50 px-3 py-3 text-amber-900" data-testid="pay-prompt">

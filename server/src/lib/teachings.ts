@@ -139,7 +139,8 @@ export interface TeachingResults {
     takenAt: string | null;
   }[];
   /** For the central admin only: members who have not finished yet. */
-  notFinished?: { personId: string; name: string }[];
+  /** Everyone in the assembly who has not finished yet — shown to all members. */
+  notFinished?: { personId: string; name: string; photoUrl: string | null }[];
 }
 
 /**
@@ -156,7 +157,7 @@ export async function teachingResults(
   const [members, progress, attempts] = await Promise.all([
     prisma.communityMembership.findMany({
       where: { communityId: teaching.communityId, status: 'ACTIVE', ...notAuthor },
-      select: { person: { select: { id: true, name: true } } },
+      select: { person: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } } },
     }),
     prisma.teachingProgress.findMany({
       where: { teachingId: teaching.id, ...notAuthor },
@@ -205,14 +206,13 @@ export async function teachingResults(
     averagePercentage: scores.length ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null,
   };
 
-  const out: TeachingResults = { totals, participants };
-  if (canManage) {
-    const finished = new Set(progress.filter((p) => p.completedAt).map((p) => p.personId));
-    out.notFinished = members
-      .filter((m) => !finished.has(m.person.id))
-      .map((m) => ({ personId: m.person.id, name: m.person.name }))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, MAX_RESULTS_SHOWN);
-  }
+  // Everyone in the assembly sees who is still pending (a gentle nudge for all).
+  const finished = new Set(progress.filter((p) => p.completedAt).map((p) => p.personId));
+  const notFinished = members
+    .filter((m) => !finished.has(m.person.id))
+    .map((m) => ({ personId: m.person.id, name: m.person.name, photoUrl: profilePhotoPath(m.person) }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, MAX_RESULTS_SHOWN);
+  const out: TeachingResults = { totals, participants, notFinished };
   return out;
 }

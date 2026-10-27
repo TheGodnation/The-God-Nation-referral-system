@@ -216,7 +216,8 @@ describe('Reading, listening and the quiz', () => {
       ['Ann', 100, true],
       ['Ben', null, null],
     ]);
-    expect(list.body.notFinished).toBeUndefined();
+    // Everyone in the assembly also sees who is still pending (here: Cleo).
+    expect(list.body.notFinished.map((m: any) => m.name.split(' ')[0])).toEqual(['Cleo']);
 
     // Ben fails his quiz: the list updates for everyone.
     const benResult = await takeQuiz(ben, assessmentId, false);
@@ -225,7 +226,7 @@ describe('Reading, listening and the quiz', () => {
     expect(again.body.totals).toMatchObject({ taken: 2, passed: 1, averagePercentage: 50 });
     expect(again.body.participants[1]).toMatchObject({ percentage: 0, passed: false });
 
-    // The central admin also sees who has not finished.
+    // The central admin sees the same pending list (and alone can send a reminder).
     const full = await admin.agent.get(`/api/teachings/${id}/results`);
     expect(full.body.notFinished.map((m: any) => m.name.split(' ')[0])).toEqual(['Cleo']);
 

@@ -2781,7 +2781,15 @@
     "post_failed": "The teaching could not be posted. Please try again.",
     "need_questions": "Add at least one question, with one right answer each, to post.",
     "quiz_info_one": "{{count}} question · pass mark {{mark}}% · one try",
-    "quiz_info_other": "{{count}} questions · pass mark {{mark}}% · one try"
+    "quiz_info_other": "{{count}} questions · pass mark {{mark}}% · one try",
+    "you_pending": "You are still pending: read the teaching to the end, then take the quiz.",
+    "all_finished": "Everyone has finished. Well done!",
+    "pending_note": "These brethren have not finished yet. Let us encourage one another.",
+    "pending_more": "Show {{count}} more",
+    "pending_less": "Show fewer",
+    "back_to_teaching_soon": "Taking you back to the teaching, where you can see who has finished…",
+    "back_now": "Go now",
+    "stay_here": "Stay to read the correct answers"
   },
   "manageAssembly": {
     "title": "Manage this assembly",

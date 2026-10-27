@@ -158,12 +158,28 @@ describe('The teaching page', () => {
     expect(await screen.findByText('You passed — 80%')).toBeInTheDocument();
   });
 
-  it('gives the central admin the not-finished list and a reminder button', async () => {
+  it('shows every member who is still pending, and tells you if you are one of them', async () => {
+    renderPage(detail(), {}, { ...RESULTS, notFinished: [{ personId: 'p-x', name: 'Xavier', photoUrl: null }, { personId: 'p-mary', name: 'Mary', photoUrl: null }] });
+    const pending = await screen.findByTestId('teaching-pending');
+    expect(pending).toHaveTextContent('Not finished yet: 2');
+    expect(pending).toHaveTextContent('Xavier');
+    expect(pending).toHaveTextContent('Mary (you)');
+    expect(pending).toHaveTextContent('You are still pending');
+    // Only the central admin has the reminder button.
+    expect(screen.queryByRole('button', { name: /Remind them/ })).not.toBeInTheDocument();
+  });
+
+  it('says so when everyone has finished', async () => {
+    renderPage(detail(), {}, { ...RESULTS, notFinished: [] });
+    expect(await screen.findByText('Everyone has finished. Well done!')).toBeInTheDocument();
+  });
+
+  it('gives the central admin the same list and a reminder button', async () => {
     renderPage(detail({ canManage: true }), {
       'POST /api/teachings/t1/remind': () => ({ body: { sent: 2 } }),
     }, { ...RESULTS, notFinished: [{ personId: 'p-x', name: 'Xavier' }, { personId: 'p-y', name: 'Yvonne' }] });
-    fireEvent.click(await screen.findByRole('button', { name: /Not finished yet: 2/ }));
-    expect(screen.getByText('Xavier')).toBeInTheDocument();
+    expect(await screen.findByText('Xavier')).toBeInTheDocument();
+    expect(screen.queryByText(/You are still pending/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Remind them/ }));
     expect(await screen.findByText('Reminder sent to 2 people.')).toBeInTheDocument();
   });
