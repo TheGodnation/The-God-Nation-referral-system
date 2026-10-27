@@ -13,7 +13,6 @@ import {
   ChartIcon,
   DocumentIcon,
   SproutIcon,
-  CrossIcon,
   CompassIcon,
   ChatHeartIcon,
   WhatsAppIcon,
@@ -102,7 +101,10 @@ export function HomePage() {
       <section id="top" className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 px-4 py-16 text-white sm:py-24">
         <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-[30rem] w-[30rem] rounded-full bg-gold-400/20 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-brand-500/30 blur-3xl" />
-        <CrossIcon className="pointer-events-none absolute right-6 top-1/2 hidden h-72 w-72 -translate-y-1/2 text-gold-400/10 lg:block" />
+        {/* Our own logo (never a stand-in). */}
+        <div className="absolute right-10 top-1/2 hidden -translate-y-1/2 overflow-hidden rounded-3xl bg-white p-3 shadow-2xl shadow-black/30 lg:block">
+          <img src="/icons/icon-512.png" alt="The God Nation" className="h-72 w-72 object-contain" />
+        </div>
         <div className="relative mx-auto max-w-6xl">
           <p className="text-xs font-bold uppercase tracking-widest text-gold-400">{t('homePage.eyebrow')}</p>
           <h1 className="mt-4 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">

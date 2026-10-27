@@ -77,7 +77,7 @@ export function PageShell({ children, minimal = false, homeNav = false }: { chil
             {t('nav.memberLogin')}
           </Link>
         </nav>
-        <p>{c('footer') || 'The God Nation Media & Leadership Academy'}</p>
+        <p>{c('footer') || 'The God Nation'}</p>
         {c('contactInfo') && <p className="mt-1">{c('contactInfo')}</p>}
       </footer>
     </div>
