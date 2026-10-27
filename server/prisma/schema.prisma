@@ -213,6 +213,8 @@ enum NotificationType {
   REFERRAL_PAYOUT_REJECTED
   PAYMENT_ORDER_NEW
   BOOK_PASSED_PAY
+  EVENT_NEW
+  EVENT_REMINDER
   PAYMENT_ORDER_MESSAGE
 }
 
@@ -798,6 +800,9 @@ model Person {
   devotionalOfferings                             DevotionalOffering[]
   bookPayments                                    BookPayment[]
   paymentAgent                                    PaymentAgent?
+  eventsCreated                                   AssemblyEvent[]                          @relation("EventCreator")
+  eventRsvps                                      EventRsvp[]
+  eventAttendances                                EventAttendance[]
   paymentOrdersBought                             PaymentOrder[]                           @relation("PaymentOrderBuyer")
   paymentOrderMessages                            PaymentOrderMessage[]
   trainingBookOpens                               TrainingBookOpen[]
@@ -887,6 +892,7 @@ model Community {
 
   @@index([parentId])
   @@index([active])
+  events AssemblyEvent[]
 }
 
 // Person <-> Community relationship. A given person can have at most one
@@ -3090,6 +3096,7 @@ model Teaching {
   progress   TeachingProgress[]
 
   @@index([communityId, createdAt])
+  events AssemblyEvent[] @relation("EventReplay")
 }
 
 // One row per member per teaching: what the system has seen them do.
@@ -3194,4 +3201,77 @@ model PaymentOrderMessage {
   sender Person       @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
 
   @@index([orderId, createdAt])
+}
+
+
+// ---------------------------------------------------------------------------
+// Events and attendance. A leader (or the central admin) puts a gathering in
+// an assembly's calendar; members say "I will come", and during the event they
+// type its code ("I'm here") or the leader ticks them on the attendance
+// sheet. An event can point to a recorded teaching (audio, video, text or
+// PDF): a member who finishes it counts as present "by replay".
+// ---------------------------------------------------------------------------
+
+enum EventAttendanceMethod {
+  // Ticked on the attendance sheet by a leader.
+  LEADER
+  // The member typed the event's code while it was open.
+  SELF
+}
+
+model AssemblyEvent {
+  id                String    @id @default(uuid())
+  communityId       String
+  title             String
+  description       String?
+  startsAt          DateTime
+  endsAt            DateTime
+  location          String?
+  onlineUrl         String?
+  // Four digits the leader says or shows; members type it to say "I'm here".
+  checkInCode       String
+  // A teaching in the same assembly that counts as attending when finished.
+  replayTeachingId  String?
+  createdByPersonId String?
+  cancelledAt       DateTime?
+  // When the "starts soon" reminder was sent (once).
+  reminderSentAt    DateTime?
+  createdAt         DateTime  @default(now())
+
+  community      Community         @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  replayTeaching Teaching?         @relation("EventReplay", fields: [replayTeachingId], references: [id], onDelete: SetNull)
+  createdBy      Person?           @relation("EventCreator", fields: [createdByPersonId], references: [id], onDelete: SetNull)
+  rsvps          EventRsvp[]
+  attendances    EventAttendance[]
+
+  @@index([communityId, startsAt])
+  @@index([startsAt, reminderSentAt])
+}
+
+model EventRsvp {
+  id        String   @id @default(uuid())
+  eventId   String
+  personId  String
+  createdAt DateTime @default(now())
+
+  event  AssemblyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  person Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, personId])
+  @@index([personId])
+}
+
+model EventAttendance {
+  id                String                @id @default(uuid())
+  eventId           String
+  personId          String
+  method            EventAttendanceMethod
+  markedByPersonId  String?
+  createdAt         DateTime              @default(now())
+
+  event  AssemblyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  person Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, personId])
+  @@index([personId])
 }

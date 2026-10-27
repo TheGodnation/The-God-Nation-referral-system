@@ -26,7 +26,9 @@ type NotificationType =
   | 'TRAINING_GRACE_DECLINED'
   | 'REFERRAL_EARNING'
   | 'REFERRAL_PAYOUT_PAID'
-  | 'REFERRAL_PAYOUT_REJECTED';
+  | 'REFERRAL_PAYOUT_REJECTED'
+  | 'EVENT_NEW'
+  | 'EVENT_REMINDER';
 
 interface NotificationRow {
   id: string;
@@ -167,6 +169,11 @@ export function NotificationBell() {
         return t('notifications.referral_payout_paid', { amount: Number(metadata.amount ?? 0).toLocaleString('fr-FR') });
       case 'REFERRAL_PAYOUT_REJECTED':
         return t('notifications.referral_payout_rejected');
+      case 'EVENT_NEW':
+      case 'EVENT_REMINDER': {
+        const when = metadata.startsAt ? new Date(String(metadata.startsAt)).toLocaleString(isFr ? 'fr-FR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+        return t(n.type === 'EVENT_NEW' ? 'notifications.notif_new' : 'notifications.notif_soon', { title: metadata.title ?? '', community: metadata.community ?? '', when });
+      }
       default:
         return '';
     }

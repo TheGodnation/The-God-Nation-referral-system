@@ -44,6 +44,8 @@ interface CreateNotificationParams {
     | 'REFERRAL_PAYOUT_REJECTED'
     | 'PAYMENT_ORDER_NEW'
     | 'BOOK_PASSED_PAY'
+    | 'EVENT_NEW'
+    | 'EVENT_REMINDER'
     | 'PAYMENT_ORDER_MESSAGE';
   metadata?: Record<string, unknown>;
   targetType?: string;
@@ -473,4 +475,34 @@ export async function notifyBookPassedPay(personId: string, passedNumber: number
       url: '/member/school',
     },
   });
+}
+
+/** A leader (or the central admin) added an event to an assembly's calendar. */
+export async function notifyEventNew(event: { id: string; title: string; startsAt: Date; communityName: string }, recipientPersonIds: string[]) {
+  if (recipientPersonIds.length === 0) return;
+  await prisma.notification.createMany({
+    data: recipientPersonIds.map((recipientPersonId) => ({
+      recipientPersonId,
+      type: 'EVENT_NEW' as const,
+      metadata: { title: event.title, community: event.communityName, startsAt: event.startsAt.toISOString() } as any,
+      targetType: 'AssemblyEvent',
+      targetId: event.id,
+    })),
+  });
+  pushToPersons(recipientPersonIds, { title: `📅 ${event.title}`, body: `New event in ${event.communityName}.`, url: `/member/events/${event.id}` }).catch(() => {});
+}
+
+/** The event starts within the hour. */
+export async function notifyEventSoon(event: { id: string; title: string; startsAt: Date; communityName: string }, recipientPersonIds: string[]) {
+  if (recipientPersonIds.length === 0) return;
+  await prisma.notification.createMany({
+    data: recipientPersonIds.map((recipientPersonId) => ({
+      recipientPersonId,
+      type: 'EVENT_REMINDER' as const,
+      metadata: { title: event.title, community: event.communityName, startsAt: event.startsAt.toISOString() } as any,
+      targetType: 'AssemblyEvent',
+      targetId: event.id,
+    })),
+  });
+  pushToPersons(recipientPersonIds, { title: `⏰ ${event.title}`, body: 'Starts in about an hour.', url: `/member/events/${event.id}` }).catch(() => {});
 }

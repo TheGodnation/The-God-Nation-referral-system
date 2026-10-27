@@ -66,6 +66,7 @@ import adminGeographicAreasRoutes from './routes/adminGeographicAreas';
 import memberEarningsRoutes from './routes/memberEarnings';
 import adminPayoutsRoutes from './routes/adminPayouts';
 import paymentOrdersRoutes from './routes/paymentOrders';
+import eventsRoutes from './routes/events';
 import adminPaymentAgentsRoutes from './routes/adminPaymentAgents';
 import memberReferralsRoutes from './routes/memberReferrals';
 import examWorldRoutes from './routes/examWorld';
@@ -254,6 +255,7 @@ export function createApp() {
   app.use('/api/member', memberEarningsRoutes);
   app.use('/api/admin', adminPayoutsRoutes);
   app.use('/api/member', paymentOrdersRoutes);
+  app.use('/api/events', eventsRoutes);
   app.use('/api/admin', adminPaymentAgentsRoutes);
   // Exam World: member summary/reader, admin library & trainees, leader results.
   app.use('/api/member', examWorldRoutes);

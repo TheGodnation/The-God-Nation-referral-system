@@ -82,6 +82,8 @@ const MemberSchoolBookPage = lazy(() => import('./pages/MemberSchoolBookPage').t
 const MemberPaymentOrderPage = lazy(() => import('./pages/MemberPaymentOrderPage').then((m) => ({ default: m.MemberPaymentOrderPage })));
 const MemberPaymentDeskPage = lazy(() => import('./pages/MemberPaymentDeskPage').then((m) => ({ default: m.MemberPaymentDeskPage })));
 const MemberEarningsPage = lazy(() => import('./pages/MemberEarningsPage').then((m) => ({ default: m.MemberEarningsPage })));
+const MemberEventsPage = lazy(() => import('./pages/MemberEventsPage').then((m) => ({ default: m.MemberEventsPage })));
+const MemberEventPage = lazy(() => import('./pages/MemberEventPage').then((m) => ({ default: m.MemberEventPage })));
 const MemberAboutPage = lazy(() => import('./pages/MemberAboutPage').then((m) => ({ default: m.MemberAboutPage })));
 const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
 const MemberMePage = lazy(() => import('./pages/MemberMePage').then((m) => ({ default: m.MemberMePage })));
@@ -335,6 +337,22 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberEarningsPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/events"
+              element={
+                <RequireMember>
+                  <MemberEventsPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/events/:id"
+              element={
+                <RequireMember>
+                  <MemberEventPage />
                 </RequireMember>
               }
             />

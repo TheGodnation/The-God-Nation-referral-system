@@ -538,6 +538,16 @@ export const socialMutationLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
+// Typing an event's 4-digit code ("I'm here"): a handful of tries, so the
+// code cannot be guessed by trying them all.
+export const eventCheckInLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many tries. Please wait a few minutes and check the code with your leader.', code: 'TOO_MANY_TRIES' },
+});
+
 // Reading bookmarks: the reader saves the page every so often while
 // someone reads (and when they leave), so it gets its own, roomier budget
 // instead of using up the one for posts and messages.
