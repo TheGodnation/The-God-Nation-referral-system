@@ -1029,7 +1029,9 @@
         "confirm": "Oui, supprimer",
         "deleting": "Suppression…",
         "failed": "Échec de la suppression de cette personne."
-      }
+      },
+      "number_taken": "Quelqu'un dans Personnes a déjà ce numéro WhatsApp. Supprimer une inscription ou un responsable ne supprime pas la personne. Retrouvez-la : si c'était une erreur, ouvrez-la et appuyez sur « Supprimer cette personne » ; si c'est la bonne personne, gardez-la et utilisez « L'aider à se connecter » pour lui donner accès.",
+      "number_taken_show": "Afficher la personne avec ce numéro"
     },
     "communities": {
       "root": "Racine",

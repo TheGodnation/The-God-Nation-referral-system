@@ -94,6 +94,25 @@ describe('Help them sign in — admin', () => {
   });
 });
 
+describe('Adding a person whose number is already there', () => {
+  it('explains that deleting a registration or leader keeps the person, and shows them', async () => {
+    mockFetch({
+      'POST /api/admin/people': () => ({ status: 409, body: { error: 'A person with this WhatsApp number already exists.', code: 'NUMBER_EXISTS' } }),
+      'GET /api/admin/people': () => ({ body: LIST }),
+    });
+    render(<PeopleTab includeTestData={false} />);
+    fireEvent.click(await screen.findByRole('button', { name: '+ New Person' }));
+    fireEvent.change(screen.getByPlaceholderText('Full name'), { target: { value: 'Prince N' } });
+    fireEvent.change(screen.getByPlaceholderText(/WhatsApp number/), { target: { value: '+237 670 000 111' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Person' }));
+    expect(await screen.findByText(/does not remove the person behind it/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show the person with this number' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'GET' && c.url.includes('search=670000111'))).toBe(true));
+    expect(screen.queryByText(/does not remove the person behind it/)).not.toBeInTheDocument();
+  });
+});
+
 describe('Help them sign in — Leaders list', () => {
   const LEADER = { id: 'u9', name: 'Pastor Paul', email: 'paul@gmial.com', active: true, isTestData: false, selfRegistered: false, referralCode: 'PAUL1', referredCount: 3, createdAt: '2026-01-01T00:00:00Z', personId: null, personName: null };
 

@@ -1029,7 +1029,9 @@
         "confirm": "Yes, Delete",
         "deleting": "Deleting…",
         "failed": "Failed to delete this person."
-      }
+      },
+      "number_taken": "Someone in People already has this WhatsApp number. Deleting a registration or a leader does not remove the person behind it. Find them: if it was a mistake, open them and press \"Delete This Person\"; if it is the right person, keep them and use \"Help them sign in\" to give them access.",
+      "number_taken_show": "Show the person with this number"
     },
     "communities": {
       "root": "Root",

@@ -126,7 +126,7 @@ router.post('/people', requireCsrf, asyncHandler(async (req, res) => {
 
   const existing = await prisma.person.findUnique({ where: { whatsappNumber: normalized } });
   if (existing) {
-    return res.status(409).json({ error: 'A person with this WhatsApp number already exists.' });
+    return res.status(409).json({ error: 'A person with this WhatsApp number already exists.', code: 'NUMBER_EXISTS' });
   }
 
   const created = await prisma.person.create({
@@ -183,7 +183,7 @@ router.patch('/people/:id', requireCsrf, asyncHandler(async (req, res) => {
     }
     if (normalized !== person.whatsappNumber) {
       const existing = await prisma.person.findUnique({ where: { whatsappNumber: normalized } });
-      if (existing) return res.status(409).json({ error: 'A person with this WhatsApp number already exists.' });
+      if (existing) return res.status(409).json({ error: 'A person with this WhatsApp number already exists.', code: 'NUMBER_EXISTS' });
     }
     normalizedWhatsApp = normalized;
   }

@@ -78,6 +78,8 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_PERSON_FORM);
   const [error, setError] = useState<string | null>(null);
+  // The number typed in Add person already belongs to someone (for example only their registration or leader login was deleted).
+  const [takenNumber, setTakenNumber] = useState<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<PersonDetail | null>(null);
@@ -104,8 +106,9 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  function load() {
-    const q = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
+  function load(searchOverride?: string) {
+    const term = (searchOverride ?? search).trim();
+    const q = term ? `&search=${encodeURIComponent(term)}` : '';
     api
       .get<{ items: PersonRow[]; pagination: { totalPages: number } }>(
         `/api/admin/people?page=${page}&pageSize=20&includeTestData=${includeTestData}${q}`,
@@ -116,7 +119,7 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
       });
   }
 
-  useEffect(load, [page, includeTestData]);
+  useEffect(() => load(), [page, includeTestData]);
 
   function loadDetail(id: string) {
     api.get<PersonDetail>(`/api/admin/people/${id}`).then((p) => {
@@ -167,9 +170,21 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
     load();
   }
 
+  function showWhoHasNumber(number: string) {
+    // The stored number has the country code, the typed one may not: search the last 9 digits.
+    const digits = number.replace(/\D/g, '').slice(-9);
+    setSearch(digits);
+    setPage(1);
+    setTakenNumber(null);
+    setError(null);
+    setShowForm(false);
+    load(digits);
+  }
+
   async function createPerson(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setTakenNumber(null);
     try {
       await api.post('/api/admin/people', {
         name: form.name,
@@ -181,6 +196,10 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
       setShowForm(false);
       load();
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'NUMBER_EXISTS') {
+        setTakenNumber(form.whatsappNumber);
+        return;
+      }
       setError(err instanceof ApiError ? err.message : t('admin.people.create_failed'));
     }
   }
@@ -654,6 +673,14 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
             value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
           />
+          {takenNumber && (
+            <div role="alert" className="space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              <p>{t('admin.people.number_taken')}</p>
+              <button type="button" className="btn-secondary px-3 py-1.5" onClick={() => showWhoHasNumber(takenNumber)}>
+                {t('admin.people.number_taken_show')}
+              </button>
+            </div>
+          )}
           {error && <p className="text-sm text-red-700">{error}</p>}
           <button className="btn-primary" type="submit">
             {t('admin.people.create')}
