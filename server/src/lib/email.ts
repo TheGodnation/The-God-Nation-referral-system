@@ -71,14 +71,14 @@ const DEFAULTS = {
     'Hi {{name}},\n\nTap the link below to sign in:\n{{link}}\n\nThis link expires in 15 minutes and can only be used once. If you did not request this, you can safely ignore this email.',
   memberLoginLinkBodyFr:
     'Bonjour {{name}},\n\nCliquez sur le lien ci-dessous pour vous connecter :\n{{link}}\n\nCe lien expire dans 15 minutes et ne peut être utilisé qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail en toute sécurité.',
-  // With a 6-digit code: typing the code in the app avoids the "link opens
-  // in the email app's own browser" problem on phones.
-  memberLoginCodeSubjectEn: '{{code}} is your God Nation sign-in code',
-  memberLoginCodeSubjectFr: '{{code}} est votre code de connexion God Nation',
+  // With a 6-digit code (every member email now): the code is typed in the app,
+  // so nothing opens in the email app's own browser — and no link is sent.
+  memberLoginCodeSubjectEn: '{{code}} is your God Nation code',
+  memberLoginCodeSubjectFr: '{{code}} est votre code God Nation',
   memberLoginCodeBodyEn:
-    'Hi {{name}},\n\nYour sign-in code is: {{code}}\n\nType it in the app where you asked for it. Or tap this link to sign in:\n{{link}}\n\nThe code and the link expire in 15 minutes and work only once. If you did not ask for this, you can safely ignore this email.',
+    'Hi {{name}},\n\nYour code is: {{code}}\n\nType it in the app, on the screen where you asked for it.\n\nThe code expires in 15 minutes and works only once. If you did not ask for this, you can safely ignore this email.',
   memberLoginCodeBodyFr:
-    'Bonjour {{name}},\n\nVotre code de connexion est : {{code}}\n\nTapez-le dans l’application, là où vous l’avez demandé. Ou cliquez sur ce lien pour vous connecter :\n{{link}}\n\nLe code et le lien expirent dans 15 minutes et ne fonctionnent qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
+    'Bonjour {{name}},\n\nVotre code est : {{code}}\n\nTapez-le dans l’application, sur l’écran où vous l’avez demandé.\n\nLe code expire dans 15 minutes et ne fonctionne qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
 
   // Public join flow (PendingMemberSignup) — no account exists yet, so
   // unlike memberLoginCode there is no sign-in link to offer, only the code.
@@ -184,7 +184,7 @@ export const EmailService = {
    * visitor-facing templates above) — a transactional security email,
    * following the same non-editable pattern as sendPasswordReset, just
    * bilingual since a Person's preferred language is already known. */
-  async sendMemberLoginLink(params: { to: string; name: string; language: 'en' | 'fr'; link: string; code?: string }): Promise<SendResult> {
+  async sendMemberLoginLink(params: { to: string; name: string; language: 'en' | 'fr'; link?: string; code?: string }): Promise<SendResult> {
     const isFr = params.language === 'fr';
     const withCode = Boolean(params.code);
     const subject = withCode
@@ -199,8 +199,8 @@ export const EmailService = {
       : isFr
         ? DEFAULTS.memberLoginLinkBodyFr
         : DEFAULTS.memberLoginLinkBodyEn;
-    const htmlVars = { name: escapeHtml(params.name), link: linkHtml(params.link), code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code ?? '')}</strong>` };
-    const textVars = { name: params.name, link: params.link, code: params.code ?? '' };
+    const htmlVars = { name: escapeHtml(params.name), link: linkHtml(params.link ?? ''), code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code ?? '')}</strong>` };
+    const textVars = { name: params.name, link: params.link ?? '', code: params.code ?? '' };
     return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
   },
 
@@ -234,3 +234,8 @@ export const EmailService = {
     return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
   },
 };
+
+/** The wording of the member code email (before the code is filled in) — exported so a test can check it has no link. */
+export function renderMemberCodeEmailForTest(language: 'en' | 'fr'): string {
+  return language === 'fr' ? DEFAULTS.memberLoginCodeBodyFr : DEFAULTS.memberLoginCodeBodyEn;
+}

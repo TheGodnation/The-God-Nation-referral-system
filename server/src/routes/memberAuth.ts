@@ -63,6 +63,9 @@ async function sendMemberLoginLink(memberAccount: MemberAccount, person: Person)
     to: memberAccount.email,
     name: greetingName,
     language: person.preferredLanguage,
+    // The email shows only the code (typed in the app; a link would open in the
+    // browser instead). The link is still made so an older screen that
+    // consumes a token keeps working, but it is never printed in the email.
     link: loginUrl,
     code,
   });

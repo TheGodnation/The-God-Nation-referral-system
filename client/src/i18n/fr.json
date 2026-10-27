@@ -574,7 +574,9 @@
       "help_title": "Aider {{name}} à se connecter",
       "close": "Fermer",
       "email_typo": "⚠ Semble mal écrit — vouliez-vous dire {{fix}} ? Corrigez avec Modifier.",
-      "deactivate_confirm": "Désactiver le compte responsable de {{name}} ? La personne ne pourra plus se connecter comme responsable. Vous pourrez le réactiver avec Activer."
+      "deactivate_confirm": "Désactiver le compte responsable de {{name}} ? La personne ne pourra plus se connecter comme responsable. Vous pourrez le réactiver avec Activer.",
+      "suggested_member": "Un membre avec cet e-mail a rejoint : {{name}} ({{phone}}). Est-ce la même personne ?",
+      "suggested_link": "Oui, les relier"
     },
     "roleAssignments": {
       "title": "Attributions de rôles",

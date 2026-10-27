@@ -191,10 +191,34 @@ router.get('/leaders', asyncHandler(async (req, res) => {
     includeTestData,
   );
 
+  // A leader from the first system who has joined the app as an ordinary member
+  // with the same email: suggest that profile, so the admin links them in one tap
+  // (never linked automatically — an email alone is not proof of who someone is).
+  const unlinked = leaders.filter((l) => !l.personId);
+  const suggestions = new Map<string, { id: string; name: string; whatsappNumber: string }>();
+  if (unlinked.length > 0) {
+    const emails = unlinked.map((l) => l.email.toLowerCase());
+    const people = await prisma.person.findMany({
+      where: {
+        erasedAt: null,
+        memberAccount: { isNot: null },
+        OR: [{ email: { in: emails, mode: 'insensitive' } }, { memberAccount: { email: { in: emails, mode: 'insensitive' } } }],
+      },
+      select: { id: true, name: true, whatsappNumber: true, email: true, memberAccount: { select: { email: true } } },
+    });
+    const taken = new Set((await prisma.user.findMany({ where: { personId: { in: people.map((p) => p.id) } }, select: { personId: true } })).map((u) => u.personId));
+    for (const l of unlinked) {
+      const email = l.email.toLowerCase();
+      const match = people.find((p) => !taken.has(p.id) && (p.email?.toLowerCase() === email || p.memberAccount?.email.toLowerCase() === email));
+      if (match) suggestions.set(l.id, { id: match.id, name: match.name, whatsappNumber: match.whatsappNumber });
+    }
+  }
+
   const items = leaders.map((l) => ({
     id: l.id,
     name: l.name,
     email: l.email,
+    suggestedPerson: suggestions.get(l.id) ?? null,
     active: l.active,
     isTestData: l.isTestData,
     selfRegistered: l.selfRegistered,
@@ -450,6 +474,36 @@ router.patch('/leaders/:id', requireCsrf, asyncHandler(async (req, res) => {
 
 const linkPersonSchema = z.object({ personId: z.string().min(1) });
 
+/**
+ * A leader from the first system has a referral code of their own (leaderId
+ * only), shared with the people they invited; the member profile they just
+ * joined with got a fresh personal code. When the two are linked the leader
+ * keeps the OLD code (every link they ever shared keeps working, and now
+ * credits the person — friends, earnings): it becomes the profile's code and
+ * the empty new one is dropped. If the new code is already in use, it stays
+ * as well, with the leader attached so nothing is lost.
+ */
+async function carryOldCodeOver(tx: Prisma.TransactionClient, leaderId: string, personId: string) {
+  const old = await tx.referralCode.findFirst({ where: { leaderId, personId: null }, orderBy: { createdAt: 'asc' } });
+  const own = await tx.referralCode.findUnique({ where: { personId } });
+  if (!old) {
+    // Nothing to carry: the profile's own code simply gains the leader (as Assign-as-Leader does).
+    if (own && !own.leaderId) await tx.referralCode.update({ where: { id: own.id }, data: { leaderId } });
+    return;
+  }
+  if (!own) {
+    await tx.referralCode.update({ where: { id: old.id }, data: { personId } });
+    return;
+  }
+  const inUse = (await tx.referralRelationship.count({ where: { referralCodeId: own.id } })) + (await tx.referralVisit.count({ where: { referralCodeId: own.id } }));
+  if (inUse === 0) {
+    await tx.referralCode.delete({ where: { id: own.id } });
+    await tx.referralCode.update({ where: { id: old.id }, data: { personId } });
+  } else if (!own.leaderId) {
+    await tx.referralCode.update({ where: { id: own.id }, data: { leaderId } });
+  }
+}
+
 // PATCH /api/admin/leaders/:id/link-person — Phase 3D. The one, explicit,
 // Admin-only action that establishes User.personId for a Leader — required
 // before that Leader can perform any scoped-leadership/follow-up action.
@@ -497,7 +551,11 @@ router.patch('/leaders/:id/link-person', requireCsrf, asyncHandler(async (req, r
 
   let updatedLeader;
   try {
-    updatedLeader = await prisma.user.update({ where: { id }, data: { personId } });
+    updatedLeader = await prisma.$transaction(async (tx) => {
+      const linked = await tx.user.update({ where: { id }, data: { personId } });
+      await carryOldCodeOver(tx, id, personId);
+      return linked;
+    });
   } catch (err) {
     // The unique constraint on User.personId is the final authority — a
     // concurrent link request for the same Person races against this, and

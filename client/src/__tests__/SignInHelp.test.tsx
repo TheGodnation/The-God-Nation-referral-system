@@ -168,3 +168,34 @@ describe('Help them sign in — the member’s page', () => {
     expect(screen.getByRole('link', { name: 'Go to sign in' })).toBeInTheDocument();
   });
 });
+
+describe('A former leader who joined as a member', () => {
+  it('shows the admin the member who joined with the leader\'s email and links them with one tap', async () => {
+    let linked = false;
+    mockFetch({
+      'GET /api/admin/leaders': () => ({
+        body: {
+          items: [
+            {
+              id: 'lead7', name: 'Papa Former', email: 'papa@example.com', active: true, isTestData: false, selfRegistered: false,
+              referralCode: 'OLD123', referredCount: 4, createdAt: '2026-01-01T00:00:00Z',
+              personId: linked ? 'p9' : null, personName: linked ? 'Papa Former' : null,
+              suggestedPerson: linked ? null : { id: 'p9', name: 'Papa Former', whatsappNumber: '+237 670 000 999' },
+            },
+          ],
+          pagination: { totalPages: 1 },
+        },
+      }),
+      'PATCH /api/admin/leaders/lead7/link-person': () => {
+        linked = true;
+        return { body: { id: 'lead7', personId: 'p9', personName: 'Papa Former' } };
+      },
+    });
+    render(<LeadersTab includeTestData={false} />);
+    const note = await screen.findByTestId('suggested-lead7');
+    expect(note).toHaveTextContent('A member with this email has joined: Papa Former (+237 670 000 999)');
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, link them' }));
+    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ personId: 'p9' }));
+    await waitFor(() => expect(screen.queryByTestId('suggested-lead7')).toBeNull());
+  });
+});

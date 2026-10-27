@@ -574,7 +574,9 @@
       "help_title": "Help {{name}} sign in",
       "close": "Close",
       "email_typo": "⚠ Looks misspelled — did they mean {{fix}}? Fix it with Edit.",
-      "deactivate_confirm": "Turn off {{name}}’s leader account? They will no longer be able to sign in as a leader. You can turn it back on with Activate."
+      "deactivate_confirm": "Turn off {{name}}’s leader account? They will no longer be able to sign in as a leader. You can turn it back on with Activate.",
+      "suggested_member": "A member with this email has joined: {{name}} ({{phone}}). Is this the same person?",
+      "suggested_link": "Yes, link them"
     },
     "roleAssignments": {
       "title": "Role Assignments",

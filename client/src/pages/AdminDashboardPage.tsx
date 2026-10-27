@@ -86,6 +86,8 @@ interface LeaderRow {
   // linked to (via link-person below). null until an Admin links it.
   personId: string | null;
   personName: string | null;
+  // A member who joined with this leader's email (a leader from the first system): one tap links them.
+  suggestedPerson?: { id: string; name: string; whatsappNumber: string } | null;
 }
 
 interface RegistrationRow {
@@ -272,6 +274,17 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
     setEditingId(null);
     setLinkError(null);
     setLinkingId(leader.id);
+  }
+
+  async function linkSuggested(leader: LeaderRow) {
+    if (!leader.suggestedPerson) return;
+    setLinkError(null);
+    try {
+      await api.patch(`/api/admin/leaders/${leader.id}/link-person`, { personId: leader.suggestedPerson.id });
+      load();
+    } catch (err) {
+      setLinkError(err instanceof ApiError ? err.message : t('admin.leaders.link_person_failed'));
+    }
   }
 
   async function linkPerson(person: any) {
@@ -472,6 +485,14 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
                 <td className="py-2 pr-4 font-medium text-brand-900">{l.referredCount}</td>
                 <td className="py-2 pr-4">
                   {l.personName ?? <span className="text-slate-400">{t('admin.leaders.not_linked')}</span>}
+                  {!l.personId && l.suggestedPerson && (
+                    <span className="mt-1 block rounded-lg bg-amber-50 p-2 text-xs text-amber-900" data-testid={`suggested-${l.id}`}>
+                      {t('admin.leaders.suggested_member', { name: l.suggestedPerson.name, phone: l.suggestedPerson.whatsappNumber })}{' '}
+                      <button type="button" className="font-semibold underline" onClick={() => void linkSuggested(l)}>
+                        {t('admin.leaders.suggested_link')}
+                      </button>
+                    </span>
+                  )}
                 </td>
                 <td className="py-2 pr-4">
                   {l.active ? t('admin.leaders.status_active') : t('admin.leaders.status_inactive')}
