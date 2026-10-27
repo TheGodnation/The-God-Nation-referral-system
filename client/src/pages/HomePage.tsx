@@ -37,13 +37,6 @@ const SOCIAL_ICONS: Record<string, { Icon: IconType; bg: string }> = {
   YouTube: { Icon: YouTubeIcon, bg: '#FF0000' },
 };
 
-const PILLARS: { key: string; Icon: IconType }[] = [
-  { key: 'pillar_1', Icon: OpenBookIcon },
-  { key: 'pillar_2', Icon: UsersIcon },
-  { key: 'pillar_3', Icon: MediaPlayIcon },
-  { key: 'pillar_4', Icon: GlobeIcon },
-];
-
 const OFFERS: { n: number; Icon: IconType }[] = [
   { n: 1, Icon: OpenBookIcon },
   { n: 2, Icon: DocumentIcon },
@@ -127,27 +120,6 @@ export function HomePage() {
             <li className="flex items-center gap-2">
               <GlobeIcon className="h-5 w-5 text-gold-400" /> {t('homePage.chip_world')}
             </li>
-          </ul>
-        </div>
-      </section>
-
-      {/* Vision */}
-      <section id="vision" className="scroll-mt-16 bg-white px-4 py-14 sm:py-20">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center">
-          <div>
-            <Label>{t('homePage.vision_label')}</Label>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">{t('homePage.vision_title')}</h2>
-            <p className="mt-4 text-slate-600">{t('homePage.vision_body')}</p>
-          </div>
-          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-            {PILLARS.map(({ key, Icon }) => (
-              <li key={key} className="rounded-2xl border border-slate-100 bg-brand-50/60 p-4 text-center">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand-700 shadow-sm">
-                  <Icon className="h-6 w-6" />
-                </span>
-                <span className="mt-3 block text-sm font-semibold text-brand-900">{t(`homePage.${key}`)}</span>
-              </li>
-            ))}
           </ul>
         </div>
       </section>

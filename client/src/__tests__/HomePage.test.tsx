@@ -35,8 +35,8 @@ describe('HomePage', () => {
   it('introduces the ministry in a few short sections and points everyone to join', async () => {
     show();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('A Digital Home for Kingdom Citizens');
-    expect(screen.getByText(/exists to bring together citizens of the Kingdom of God/)).toBeInTheDocument();
-    for (const name of ['More than a platform. A movement.', 'Everything you need to grow and make an impact.', 'Learn. Grow. Lead.', 'From Cameroon to Africa, and to the ends of the earth.']) {
+    expect(screen.queryByText(/More than a platform/)).not.toBeInTheDocument();
+    for (const name of ['Everything you need to grow and make an impact.', 'Learn. Grow. Lead.', 'From Cameroon to Africa, and to the ends of the earth.']) {
       expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument();
     }
     const joins = screen.getAllByRole('link', { name: /Join the Community/ });
@@ -47,7 +47,8 @@ describe('HomePage', () => {
 
   it('has section links in the top bar, and is in French too', async () => {
     show();
-    expect(screen.getByRole('link', { name: 'Our Vision' })).toHaveAttribute('href', '#vision');
+    expect(screen.getByRole('link', { name: 'What We Offer' })).toHaveAttribute('href', '#offer');
+    expect(screen.queryByRole('link', { name: 'Our Vision' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Global Mission' })).toHaveAttribute('href', '#mission');
     fireEvent.click(screen.getByRole('button', { name: 'Français' }));
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('citoyens du Royaume');

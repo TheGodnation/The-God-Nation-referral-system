@@ -8,7 +8,6 @@ import { usePublicSettings } from '../lib/usePublicSettings';
 // two ways in (join, sign in).
 const HOME_LINKS = [
   ['#top', 'home'],
-  ['#vision', 'vision'],
   ['#offer', 'offer'],
   ['#community', 'community'],
   ['#leadership', 'leadership'],
