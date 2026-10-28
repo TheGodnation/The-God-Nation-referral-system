@@ -4,266 +4,349 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="google" content="notranslate">
-<title>Install &amp; Notifications Guide — The God Nation</title>
+<title>Install the app &amp; turn on notifications — The God Nation</title>
 <style>
-  :root {
-    --navy-950: #0a1740;
-    --navy-900: #0f2260;
-    --navy-800: #122a78;
-    --navy-700: #16349a;
-    --gold-500: #e0b027;
-    --gold-400: #f2c94c;
-    --bg: #faf8f3;
-    --surface: #ffffff;
-    --surface-2: #f3f1ea;
-    --ink: #1c2333;
-    --ink-soft: #4a5170;
-    --ink-faint: #7a8099;
-    --line: #e6e2d6;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0b1020; --surface: #121834; --surface-2: #171e3e;
-      --ink: #eef0fa; --ink-soft: #b6bde0; --ink-faint: #7f87ad; --line: #262f57;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #0b1020; --surface: #121834; --surface-2: #171e3e;
-    --ink: #eef0fa; --ink-soft: #b6bde0; --ink-faint: #7f87ad; --line: #262f57;
-  }
+  :root { --navy-900:#0f2260; --navy-700:#16349a; --gold-500:#e0b027; --gold-400:#f2c94c; --bg:#faf8f3; --surface:#fff; --ink:#1c2333; --ink-soft:#4a5170; --line:#e6e2d6; --red:#e53935; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0b1020; --surface:#121834; --ink:#eef0fa; --ink-soft:#b6bde0; --line:#262f57; } }
   * { box-sizing: border-box; }
-  body {
-    background: var(--bg); color: var(--ink);
-    font-family: ui-sans-serif, system-ui, sans-serif;
-    margin: 0; padding-inline: 20px; padding-block: 0 64px; line-height: 1.55;
-  }
+  body { background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 0 16px 64px; line-height: 1.6; font-size: 1.1rem; }
   [hidden] { display: none !important; }
-  h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif; color: var(--navy-900); text-wrap: balance; margin: 0; }
-  :root[data-theme="dark"] h1, :root[data-theme="dark"] h2, :root[data-theme="dark"] h3 { color: #f4f0e4; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) h1, :root:not([data-theme="light"]) h2, :root:not([data-theme="light"]) h3 { color: #f4f0e4; }
-  }
-  a { color: var(--navy-700); }
-  .wrap { max-width: 720px; margin-inline: auto; }
-  header.top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); margin-inline: -20px; padding: 12px 20px; }
-  .top-row { max-width: 720px; margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .brand img { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
-  .brand span { font-family: Georgia, 'Times New Roman', serif; font-weight: 600; font-size: 0.95rem; color: var(--navy-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  :root[data-theme="dark"] .brand span { color: #f4f0e4; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brand span { color: #f4f0e4; } }
-  .lang-toggle { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; flex-shrink: 0; }
-  .lang-toggle button { font: inherit; font-weight: 600; font-size: 0.8rem; border: none; background: transparent; color: var(--ink-soft); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
-  .lang-toggle button[aria-pressed="true"] { background: var(--navy-900); color: #fdf9ef; }
-  .hero { padding-block: 28px 8px; }
-  .eyebrow { font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-500); margin-bottom: 10px; display: block; }
-  .hero h1 { font-size: clamp(1.6rem, 5vw, 2.2rem); line-height: 1.12; }
-  .hero p { color: var(--ink-soft); font-size: 1.02rem; max-width: 60ch; margin-top: 12px; }
-  .platform { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--line); }
-  .platform-head { display: flex; gap: 12px; align-items: center; }
-  .platform-head .emoji { font-size: 1.8rem; }
-  .platform h2 { font-size: 1.3rem; }
-  .steps { margin-top: 16px; display: grid; gap: 12px; }
-  .step-row { display: flex; gap: 12px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
-  .step-num { flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px; background: var(--navy-900); color: #fdf9ef; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
-  .step-row p { margin: 0; color: var(--ink); font-size: 0.96rem; }
-  .step-row b { color: var(--navy-900); }
-  :root[data-theme="dark"] .step-row b { color: var(--gold-400); }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .step-row b { color: var(--gold-400); } }
-  .callout { margin-top: 14px; background: var(--surface-2); border: 1px solid var(--line); border-left: 3px solid var(--gold-500); border-radius: 12px; padding: 14px 16px; font-size: 0.92rem; color: var(--ink-soft); }
-  .callout b { color: var(--ink); }
-  .callout.warn { border-left-color: #c0392b; }
-  code.phrase { background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 0.9em; }
+  h1,h2,h3 { font-family: Georgia,'Times New Roman',serif; color: var(--navy-900); margin: 0; text-wrap: balance; }
+  @media (prefers-color-scheme: dark) { h1,h2,h3 { color:#f4f0e4; } }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  header.top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); margin: 0 -16px; padding: 10px 16px; }
+  .top-row { max-width: 560px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: Georgia,serif; font-weight: 700; color: var(--navy-900); }
+  .brand img { width: 32px; height: 32px; border-radius: 8px; }
+  .lang { display: flex; border: 2px solid var(--line); border-radius: 999px; padding: 3px; }
+  .lang button { font: inherit; font-size: .9rem; font-weight: 700; border: 0; background: transparent; color: var(--ink-soft); padding: 6px 16px; border-radius: 999px; cursor: pointer; }
+  .lang button[aria-pressed="true"] { background: var(--navy-900); color: #fff; }
+  .hero { padding: 28px 0 8px; text-align: center; }
+  .hero h1 { font-size: 1.9rem; line-height: 1.15; }
+  .hero p { color: var(--ink-soft); margin: 12px 0 0; }
+  .pick { display: grid; gap: 12px; margin: 22px 0 6px; }
+  .pick a { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 2px solid var(--navy-900); border-radius: 16px; padding: 16px 18px; text-decoration: none; color: var(--navy-900); font-weight: 800; font-size: 1.25rem; }
+  .pick a small { display: block; font-weight: 500; font-size: .85rem; color: var(--ink-soft); }
+  .pick .em { font-size: 2rem; }
+  @media (prefers-color-scheme: dark) { .pick a { color:#f4f0e4; border-color: var(--gold-400); } }
+  section.os { margin-top: 44px; padding-top: 12px; border-top: 4px solid var(--gold-500); scroll-margin-top: 64px; }
+  section.os > h2 { font-size: 1.6rem; display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
+  h3 { font-size: 1.25rem; margin: 26px 0 12px; padding: 8px 12px; background: var(--navy-900); color: #fff !important; border-radius: 10px; }
+  .steps { display: grid; gap: 22px; }
+  .step { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+  .step-top { display: flex; gap: 12px; align-items: flex-start; }
+  .step-top p { margin: 0; font-size: 1.12rem; }
+  .num { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; background: var(--red); color: #fff; font-weight: 800; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+  .pic-wrap { display: flex; justify-content: center; margin-top: 14px; }
+  .pic { width: 100%; max-width: 230px; height: auto; }
+  .pic.wide { max-width: 420px; }
+  .box { margin-top: 14px; padding: 14px 16px; border-radius: 14px; background: #f3f1ea; border-left: 6px solid var(--gold-500); font-size: 1rem; color: #3a4160; }
+  .box.warn { background: #fdecea; border-left-color: var(--red); color: #5a1d1a; }
+  .box.gold { background: #fff8e1; }
+  .note { margin-top: 12px; } .note .box { margin-top: 0; }
+  .tip { text-align: center; color: var(--ink-soft); font-size: .95rem; margin-top: 10px; }
+  .faq h2 { margin: 44px 0 14px; font-size: 1.5rem; }
+  details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; padding: 0 16px; }
+  summary { cursor: pointer; padding: 14px 0; font-weight: 700; color: var(--navy-900); font-size: 1.05rem; }
+  @media (prefers-color-scheme: dark) { summary { color: #f4f0e4; } .box { color:#1c2333; } }
+  .ans { padding-bottom: 14px; } .ans p { margin: 0; }
+  .help { text-align: center; margin-top: 30px; color: var(--ink-soft); }
+  .back { display: block; text-align: center; margin-top: 14px; font-weight: 700; color: var(--navy-700); }
 </style>
 </head>
 <body>
-<header class="top">
-  <div class="top-row">
-    <div class="brand">
-      <img src="/leader-guide/img/logo.png" alt="">
-      <span class="en">The God Nation</span>
-      <span class="fr" hidden>The God Nation</span>
-    </div>
-    <div class="lang-toggle" role="group" aria-label="Language">
-      <button type="button" class="lang-btn" data-lang="en" aria-pressed="true" onclick="setLang('en')">EN</button>
-      <button type="button" class="lang-btn" data-lang="fr" aria-pressed="false" onclick="setLang('fr')">FR</button>
-    </div>
+<header class="top"><div class="top-row">
+  <div class="brand"><img src="/leader-guide/img/logo.png" alt=""><span>The God Nation</span></div>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" class="lang-btn" data-lang="en" aria-pressed="true" onclick="setLang('en')">EN</button>
+    <button type="button" class="lang-btn" data-lang="fr" aria-pressed="false" onclick="setLang('fr')">FR</button>
   </div>
-</header>
+</div></header>
 
 <div class="wrap">
-  <section class="hero">
-    <span class="eyebrow en">Quick guide</span>
-    <span class="eyebrow fr" hidden>Guide rapide</span>
-    <h1 class="en">Install the app &amp; turn on notifications</h1>
-    <h1 class="fr" hidden>Installer l’application et activer les notifications</h1>
-    <p class="en">Two separate things, two separate sets of steps below: putting the app on your phone, and turning on notifications so you never miss a message, announcement, or update. There are <b>two ways</b> to put it on your phone: <b>Install the app</b> (Method 1), or a <b>Home screen shortcut</b> (Method 2) if installing doesn't work for you. Pick your phone below.</p>
-    <p class="fr" hidden>Deux choses distinctes, deux séries d’étapes ci-dessous : mettre l’application sur votre téléphone, et activer les notifications pour ne jamais manquer un message, une annonce ou une mise à jour. Il y a <b>deux façons</b> de la mettre sur votre téléphone : <b>Installer l’application</b> (Méthode 1), ou un <b>raccourci sur l’écran d’accueil</b> (Méthode 2) si l’installation ne marche pas pour vous. Choisissez votre téléphone ci-dessous.</p>
-  </section>
+<section class="hero">
+  <h1><span class="en">Put the app on your phone</span><span class="fr" hidden>Mettez l’application sur votre téléphone</span></h1>
+  <p><span class="en">It takes 2 minutes. Follow the pictures. <b>Tap where the red circle is.</b></span><span class="fr" hidden>Cela prend 2 minutes. Suivez les images. <b>Appuyez là où se trouve le cercle rouge.</b></span></p>
+  <p><b><span class="en">Which phone do you have? Tap yours:</span><span class="fr" hidden>Quel téléphone avez-vous ? Appuyez sur le vôtre :</span></b></p>
+  <div class="pick">
+    <a href="#android"><span class="em">🤖</span><span>Android<small><span class="en">Tecno, Infinix, itel, Samsung, Xiaomi, Oppo, Huawei…</span><span class="fr" hidden>Tecno, Infinix, itel, Samsung, Xiaomi, Oppo, Huawei…</span></small></span></a>
+    <a href="#iphone"><span class="em">🍎</span><span>iPhone<small><span class="en">Made by Apple</span><span class="fr" hidden>Fabriqué par Apple</span></small></span></a>
+    <a href="#computer"><span class="em">💻</span><span><span class="en">Computer</span><span class="fr" hidden>Ordinateur</span><small>Windows, Mac</small></span></a>
+  </div>
+  <p class="tip"><span class="en">Your phone may show these words in French. Look for the same picture.</span><span class="fr" hidden>Votre téléphone peut afficher ces mots en anglais. Cherchez la même image.</span></p>
+</section>
 
-  <section class="platform">
-    <div class="platform-head">
-      <span class="emoji">🤖</span>
-      <h2 class="en">Android</h2>
-      <h2 class="fr" hidden>Android</h2>
-    </div>
-    <div class="steps">
-      <div class="step-row">
-        <span class="step-num">1</span>
-        <p class="en">Open the God Nation site in <b>Chrome</b>.</p>
-        <p class="fr" hidden>Ouvrez le site God Nation dans <b>Chrome</b>.</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">2</span>
-        <p class="en">You'll usually see an <b>"Install the God Nation app"</b> banner right on the Chats screen — tap <b>Install</b>. If you don't see it, tap the <b>⋮</b> menu (top right) and choose <b>"Install app"</b> (or "Add to Home screen").</p>
-        <p class="fr" hidden>Vous verrez généralement une bannière <b>« Installer l’application God Nation »</b> directement sur l’écran Discussions — appuyez sur <b>Installer</b>. Si vous ne la voyez pas, appuyez sur le menu <b>⋮</b> (en haut à droite) et choisissez <b>« Installer l’application »</b> (ou « Ajouter à l’écran d’accueil »).</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">3</span>
-        <p class="en">Confirm. The God Nation icon appears on your Home screen and opens full-screen, like any other app.</p>
-        <p class="fr" hidden>Confirmez. L’icône God Nation apparaît sur votre écran d’accueil et s’ouvre en plein écran, comme toute autre application.</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">4</span>
-        <p class="en">To turn on notifications: open the app and tap <b>"Turn on notifications"</b> in the strip at the top of <b>Chats</b>, <b>Home</b> or <b>Me</b>, then <b>Allow</b> on the browser's own permission prompt.</p>
-        <p class="fr" hidden>Pour activer les notifications : ouvrez l’application et appuyez sur <b>« Activer les notifications »</b> dans le bandeau en haut de <b>Discussions</b>, <b>Accueil</b> ou <b>Moi</b>, puis <b>Autoriser</b> sur la demande d’autorisation du navigateur.</p>
-      </div>
-    </div>
-    <div class="callout">
-      <b class="en">Works even when closed.</b><span class="en"> On Android, once allowed, notifications arrive even if the app and Chrome are both fully closed — as long as your phone has a network connection.</span>
-      <b class="fr" hidden>Fonctionne même fermée.</b><span class="fr" hidden> Sur Android, une fois autorisées, les notifications arrivent même si l’application et Chrome sont tous deux complètement fermés — à condition que votre téléphone ait une connexion réseau.</span>
-    </div>
-    <div class="callout">
-      <b class="en">Method 2: a Home screen shortcut (if "Install app" does not appear).</b><span class="en"> A shortcut opens the same site from an icon on your Home screen. Notifications come through <b>Chrome</b>, so a shortcut or the site open in a normal Chrome tab receives them just the same.</span>
-      <b class="fr" hidden>Méthode 2 : un raccourci sur l’écran d’accueil (si « Installer l’application » n’apparaît pas).</b><span class="fr" hidden> Un raccourci ouvre le même site depuis une icône sur votre écran d’accueil. Les notifications passent par <b>Chrome</b> : un raccourci, ou le site ouvert dans un onglet Chrome normal, les reçoit de la même façon.</span>
-    </div>
-    <div class="steps">
-      <div class="step-row">
-        <span class="step-num">1</span>
-        <p class="en">Open the God Nation site in <b>Chrome</b>, then tap the <b>⋮</b> menu (top right).</p>
-        <p class="fr" hidden>Ouvrez le site God Nation dans <b>Chrome</b>, puis appuyez sur le menu <b>⋮</b> (en haut à droite).</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">2</span>
-        <p class="en">Tap <b>"Add to Home screen"</b>. If it offers a choice, pick <b>"Create shortcut"</b>.</p>
-        <p class="fr" hidden>Appuyez sur <b>« Ajouter à l’écran d’accueil »</b>. Si un choix est proposé, choisissez <b>« Créer un raccourci »</b>.</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">3</span>
-        <p class="en">Tap <b>Add</b>. If your phone asks, tap <b>Add automatically</b> or press and drag the icon to your Home screen. The God Nation icon now sits with your other apps.</p>
-        <p class="fr" hidden>Appuyez sur <b>Ajouter</b>. Si votre téléphone le demande, appuyez sur <b>Ajouter automatiquement</b> ou maintenez et faites glisser l’icône vers votre écran d’accueil. L’icône God Nation est maintenant avec vos autres applications.</p>
-      </div>
-    </div>
-    <div class="callout warn">
-      <b class="en">Not from inside WhatsApp or Facebook.</b><span class="en"> If you opened the link from inside WhatsApp or Facebook, it opens in their built-in browser, which can't receive notifications. Tap the <b>⋮</b> menu and choose <b>"Open in Chrome"</b>, then turn notifications on there. If your shortcut opens in another browser (Samsung Internet, Opera…), allow notifications in that browser instead.</span>
-      <b class="fr" hidden>Pas depuis WhatsApp ou Facebook.</b><span class="fr" hidden> Si vous avez ouvert le lien depuis WhatsApp ou Facebook, il s’ouvre dans leur navigateur intégré, qui ne peut pas recevoir de notifications. Appuyez sur le menu <b>⋮</b> et choisissez <b>« Ouvrir dans Chrome »</b>, puis activez les notifications là. Si votre raccourci s’ouvre dans un autre navigateur (Samsung Internet, Opera…), autorisez les notifications dans ce navigateur.</span>
-    </div>
-    <div class="callout">
-      <b class="en">Notifications late or missing? Check the battery saver.</b><span class="en"> Some phones — often Tecno, Infinix, itel, Xiaomi, Oppo and Huawei — stop Chrome in the background to save battery, which delays or blocks notifications. Open your phone's <b>Settings → Apps → Chrome → Battery</b> and choose <b>"Unrestricted"</b> (or turn on "Allow background activity"). The exact names differ a little from phone to phone. Also check <b>Settings → Apps → Chrome → Notifications</b> is on.</span>
-      <b class="fr" hidden>Notifications en retard ou absentes ? Vérifiez l’économiseur de batterie.</b><span class="fr" hidden> Certains téléphones — souvent Tecno, Infinix, itel, Xiaomi, Oppo et Huawei — arrêtent Chrome en arrière-plan pour économiser la batterie, ce qui retarde ou bloque les notifications. Ouvrez <b>Paramètres → Applications → Chrome → Batterie</b> et choisissez <b>« Non restreint »</b> (ou activez « Autoriser l’activité en arrière-plan »). Les noms exacts varient un peu selon le téléphone. Vérifiez aussi que <b>Paramètres → Applications → Chrome → Notifications</b> est activé.</span>
-    </div>
-  </section>
+<section class="os" id="android">
+  <h2>🤖 Android</h2>
+  <h3><span class="en">Part 1 — Put the app on your phone</span><span class="fr" hidden>Partie 1 — Mettez l’application sur votre téléphone</span></h3><div class="steps"><div class="step"><div class="step-top"><span class="num">1</span><p><span class="en">Open <b>Chrome</b> (the round red, yellow, green and blue icon). Go to <b>thegodnationacademy.org</b>.</span><span class="fr" hidden>Ouvrez <b>Chrome</b> (l’icône ronde rouge, jaune, verte et bleue). Allez sur <b>thegodnationacademy.org</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Chrome with thegodnationacademy.org in the address bar" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s927506"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s927506)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="40" fill="#eef1f6"/>
+<rect x="10" y="7" width="140" height="26" rx="13" fill="#fff"/>
+<text x="22" y="24" font-size="9.5" fill="#333">🔒 thegodnationacademy.org</text>
+<rect x="156" y="12" width="14" height="14" rx="3" fill="none" stroke="#555" stroke-width="2"/>
+<text x="172" y="27" font-size="22" fill="#444" font-weight="700">⋮</text><rect y="40" width="196" height="120" fill="#0f2260"/>
+<text x="14" y="80" font-size="13" fill="#fff" font-weight="700">A Digital Home for</text>
+<text x="14" y="98" font-size="13" fill="#f2c94c" font-weight="700">Kingdom Citizens</text>
+<rect x="14" y="112" width="120" height="22" rx="6" fill="#e0b027"/>
+<text x="22" y="127" font-size="9" fill="#0a1740" font-weight="700">Join the Community</text><circle cx="80" cy="20" r="26" fill="none" stroke="#e53935" stroke-width="4"/><text x="60" y="68" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">2</span><p><span class="en">Tap the <b>3 dots ⋮</b> at the top right.</span><span class="fr" hidden>Appuyez sur les <b>3 points ⋮</b> en haut à droite.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Chrome three dots menu button at the top right" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s981860"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s981860)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="40" fill="#eef1f6"/>
+<rect x="10" y="7" width="140" height="26" rx="13" fill="#fff"/>
+<text x="22" y="24" font-size="9.5" fill="#333">🔒 thegodnationacademy.org</text>
+<rect x="156" y="12" width="14" height="14" rx="3" fill="none" stroke="#555" stroke-width="2"/>
+<text x="172" y="27" font-size="22" fill="#444" font-weight="700">⋮</text><rect y="40" width="196" height="120" fill="#0f2260"/>
+<text x="14" y="80" font-size="13" fill="#fff" font-weight="700">A Digital Home for</text>
+<text x="14" y="98" font-size="13" fill="#f2c94c" font-weight="700">Kingdom Citizens</text>
+<rect x="14" y="112" width="120" height="22" rx="6" fill="#e0b027"/>
+<text x="22" y="127" font-size="9" fill="#0a1740" font-weight="700">Join the Community</text><circle cx="176" cy="20" r="20" fill="none" stroke="#e53935" stroke-width="4"/><text x="150" y="62" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">3</span><p><span class="en">Tap <b>“Install app”</b>.</span><span class="fr" hidden>Appuyez sur <b>« Installer l’application »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Chrome menu with Install app" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s513882"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s513882)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="40" fill="#eef1f6"/>
+<rect x="10" y="7" width="140" height="26" rx="13" fill="#fff"/>
+<text x="22" y="24" font-size="9.5" fill="#333">🔒 thegodnationacademy.org</text>
+<rect x="156" y="12" width="14" height="14" rx="3" fill="none" stroke="#555" stroke-width="2"/>
+<text x="172" y="27" font-size="22" fill="#444" font-weight="700">⋮</text><rect y="40" width="196" height="120" fill="#0f2260"/>
+<text x="14" y="80" font-size="13" fill="#fff" font-weight="700">A Digital Home for</text>
+<text x="14" y="98" font-size="13" fill="#f2c94c" font-weight="700">Kingdom Citizens</text>
+<rect x="14" y="112" width="120" height="22" rx="6" fill="#e0b027"/>
+<text x="22" y="127" font-size="9" fill="#0a1740" font-weight="700">Join the Community</text><rect x="36" y="40" width="150" height="178" rx="8" fill="#fff" stroke="#cfd4de" stroke-width="1.5"/><text x="48" y="67" font-size="11.5" fill="#222">New tab</text><text x="48" y="101" font-size="11.5" fill="#222">New incognito tab</text><text x="48" y="135" font-size="11.5" fill="#222">History</text><rect x="39" y="148" width="144" height="30" rx="6" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><text x="48" y="169" font-size="11.5" fill="#222">Install app</text><text x="48" y="203" font-size="11.5" fill="#222">Share…</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">4</span><p><span class="en">Tap <b>“Install”</b>.</span><span class="fr" hidden>Appuyez sur <b>« Installer »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Install app confirmation, tap Install" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s373201"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s373201)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="40" fill="#eef1f6"/>
+<rect x="10" y="7" width="140" height="26" rx="13" fill="#fff"/>
+<text x="22" y="24" font-size="9.5" fill="#333">🔒 thegodnationacademy.org</text>
+<rect x="156" y="12" width="14" height="14" rx="3" fill="none" stroke="#555" stroke-width="2"/>
+<text x="172" y="27" font-size="22" fill="#444" font-weight="700">⋮</text><rect y="40" width="196" height="120" fill="#0f2260"/>
+<text x="14" y="80" font-size="13" fill="#fff" font-weight="700">A Digital Home for</text>
+<text x="14" y="98" font-size="13" fill="#f2c94c" font-weight="700">Kingdom Citizens</text>
+<rect x="14" y="112" width="120" height="22" rx="6" fill="#e0b027"/>
+<text x="22" y="127" font-size="9" fill="#0a1740" font-weight="700">Join the Community</text><rect width="196" height="300" fill="#00000055"/><rect x="13" y="70" width="170" height="101" rx="12" fill="#fff"/><text x="25" y="92" font-size="10.5" font-weight="700" fill="#111">Install app?</text><text x="25" y="110" font-size="9.5" fill="#444">The God Nation</text><rect x="25.0" y="141" width="69.0" height="24" rx="7" fill="#e9edf5"/><text x="59.5" y="157" font-size="10" text-anchor="middle" fill="#333" font-weight="700">Cancel</text><rect x="102.0" y="141" width="69.0" height="24" rx="7" fill="#1c42c4"/><text x="136.5" y="157" font-size="10" text-anchor="middle" fill="#fff" font-weight="700">Install</text><circle cx="136.5" cy="153" r="30" fill="none" stroke="#e53935" stroke-width="4"/><text x="130.5" y="199" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">5</span><p><span class="en"><b>Done!</b> Look at your phone screen. The God Nation icon is there. Tap it to open the app.</span><span class="fr" hidden><b>C’est fait !</b> Regardez l’écran de votre téléphone. L’icône God Nation est là. Appuyez dessus pour ouvrir l’application.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Phone home screen with the God Nation icon" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s708626"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s708626)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#3b5bdb"/><rect x="16" y="50" width="34" height="34" rx="9" fill="#3ba55c" opacity=".85"/><rect x="24" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="60" y="50" width="34" height="34" rx="9" fill="#34c759" opacity=".85"/><rect x="68" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="104" y="50" width="34" height="34" rx="9" fill="#555" opacity=".85"/><rect x="112" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="148" y="50" width="34" height="34" rx="9" fill="#f2994a" opacity=".85"/><rect x="156" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="16" y="112" width="34" height="34" rx="9" fill="#3ba55c" opacity=".85"/><rect x="24" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="60" y="112" width="34" height="34" rx="9" fill="#fff"/><circle cx="77" cy="129" r="9" fill="#0f2260"/><text x="71" y="134" font-size="12" fill="#f2c94c" font-weight="700">✝</text><text x="77" y="158" font-size="7.5" fill="#fff" text-anchor="middle" font-weight="700">God Nation</text><rect x="104" y="112" width="34" height="34" rx="9" fill="#555" opacity=".85"/><rect x="112" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="148" y="112" width="34" height="34" rx="9" fill="#f2994a" opacity=".85"/><rect x="156" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><circle cx="77" cy="129" r="28" fill="none" stroke="#e53935" stroke-width="4"/><text x="72" y="190" font-size="26">👆</text></g></g></svg></div></div></div>
+  <div class="box gold"><span class="en"><b>You do not see “Install app” in the menu?</b> Tap <b>“Add to Home screen”</b> instead. Then tap <b>Add</b>. The icon will appear on your screen.</span><span class="fr" hidden><b>Vous ne voyez pas « Installer l’application » dans le menu ?</b> Appuyez plutôt sur <b>« Ajouter à l’écran d’accueil »</b>. Puis appuyez sur <b>Ajouter</b>. L’icône apparaîtra sur votre écran.</span></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Chrome menu with Add to Home screen" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s228013"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s228013)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="40" fill="#eef1f6"/>
+<rect x="10" y="7" width="140" height="26" rx="13" fill="#fff"/>
+<text x="22" y="24" font-size="9.5" fill="#333">🔒 thegodnationacademy.org</text>
+<rect x="156" y="12" width="14" height="14" rx="3" fill="none" stroke="#555" stroke-width="2"/>
+<text x="172" y="27" font-size="22" fill="#444" font-weight="700">⋮</text><rect y="40" width="196" height="120" fill="#0f2260"/>
+<text x="14" y="80" font-size="13" fill="#fff" font-weight="700">A Digital Home for</text>
+<text x="14" y="98" font-size="13" fill="#f2c94c" font-weight="700">Kingdom Citizens</text>
+<rect x="14" y="112" width="120" height="22" rx="6" fill="#e0b027"/>
+<text x="22" y="127" font-size="9" fill="#0a1740" font-weight="700">Join the Community</text><rect x="36" y="40" width="150" height="144" rx="8" fill="#fff" stroke="#cfd4de" stroke-width="1.5"/><text x="48" y="67" font-size="11.5" fill="#222">New tab</text><text x="48" y="101" font-size="11.5" fill="#222">History</text><rect x="39" y="114" width="144" height="30" rx="6" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><text x="48" y="135" font-size="11.5" fill="#222">Add to Home screen</text><text x="48" y="169" font-size="11.5" fill="#222">Share…</text></g></g></svg></div>
+  <h3><span class="en">Part 2 — Turn on notifications</span><span class="fr" hidden>Partie 2 — Activez les notifications</span></h3><div class="steps"><div class="step"><div class="step-top"><span class="num">1</span><p><span class="en">Open the app: tap the <b>God Nation icon</b> on your phone screen.</span><span class="fr" hidden>Ouvrez l’application : appuyez sur l’<b>icône God Nation</b> sur l’écran de votre téléphone.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Open the God Nation icon on the home screen" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s104181"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s104181)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#3b5bdb"/><rect x="16" y="50" width="34" height="34" rx="9" fill="#3ba55c" opacity=".85"/><rect x="24" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="60" y="50" width="34" height="34" rx="9" fill="#34c759" opacity=".85"/><rect x="68" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="104" y="50" width="34" height="34" rx="9" fill="#555" opacity=".85"/><rect x="112" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="148" y="50" width="34" height="34" rx="9" fill="#f2994a" opacity=".85"/><rect x="156" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="16" y="112" width="34" height="34" rx="9" fill="#3ba55c" opacity=".85"/><rect x="24" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="60" y="112" width="34" height="34" rx="9" fill="#fff"/><circle cx="77" cy="129" r="9" fill="#0f2260"/><text x="71" y="134" font-size="12" fill="#f2c94c" font-weight="700">✝</text><text x="77" y="158" font-size="7.5" fill="#fff" text-anchor="middle" font-weight="700">God Nation</text><rect x="104" y="112" width="34" height="34" rx="9" fill="#555" opacity=".85"/><rect x="112" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="148" y="112" width="34" height="34" rx="9" fill="#f2994a" opacity=".85"/><rect x="156" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><circle cx="77" cy="129" r="28" fill="none" stroke="#e53935" stroke-width="4"/><text x="72" y="190" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">2</span><p><span class="en">On the <b>Chats</b> page, find the blue box at the top. Tap <b>“Turn on notifications”</b>.</span><span class="fr" hidden>Sur la page <b>Discussions</b>, trouvez la boîte bleue en haut. Appuyez sur <b>« Activer les notifications »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="The Turn on notifications button in the app" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s970890"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s970890)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="34" fill="#fff"/><text x="12" y="23" font-size="14" font-weight="700" fill="#0f2260">Chats</text>
+<text x="168" y="23" font-size="13">🔔</text><line x1="0" y1="34" x2="196" y2="34" stroke="#e3e7ef"/><rect x="8" y="60" width="180" height="92" rx="10" fill="#eef4ff"/>
+<text x="18" y="82" font-size="14">🔔</text>
+<text x="38" y="82" font-size="11" fill="#0f2260" font-weight="700">Turn on notifications</text>
+<text x="18" y="100" font-size="8.2" fill="#122a78">Be told when you get a message,</text>
+<text x="18" y="111" font-size="8.2" fill="#122a78">an announcement or an update.</text>
+<rect x="18" y="120" width="138" height="22" rx="6" fill="#1c42c4"/>
+<text x="87" y="135" font-size="9.5" fill="#fff" font-weight="700" text-anchor="middle">Turn on notifications</text>
+<text x="170" y="82" font-size="11" fill="#16349a">✕</text><rect x="13" y="115" width="148" height="32" rx="10" fill="none" stroke="#e53935" stroke-width="4"/><text x="120" y="178" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">3</span><p><span class="en">Your phone asks a question. Tap <b>“Allow”</b>.</span><span class="fr" hidden>Votre téléphone pose une question. Appuyez sur <b>« Autoriser »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Allow notifications, Android" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s570729"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s570729)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="34" fill="#fff"/><text x="12" y="23" font-size="14" font-weight="700" fill="#0f2260">Chats</text>
+<text x="168" y="23" font-size="13">🔔</text><line x1="0" y1="34" x2="196" y2="34" stroke="#e3e7ef"/><rect x="8" y="60" width="180" height="92" rx="10" fill="#eef4ff"/>
+<text x="18" y="82" font-size="14">🔔</text>
+<text x="38" y="82" font-size="11" fill="#0f2260" font-weight="700">Turn on notifications</text>
+<text x="18" y="100" font-size="8.2" fill="#122a78">Be told when you get a message,</text>
+<text x="18" y="111" font-size="8.2" fill="#122a78">an announcement or an update.</text>
+<rect x="18" y="120" width="138" height="22" rx="6" fill="#1c42c4"/>
+<text x="87" y="135" font-size="9.5" fill="#fff" font-weight="700" text-anchor="middle">Turn on notifications</text>
+<text x="170" y="82" font-size="11" fill="#16349a">✕</text><rect width="196" height="300" fill="#00000055"/><rect x="13" y="80" width="170" height="101" rx="12" fill="#fff"/><text x="25" y="102" font-size="10.5" font-weight="700" fill="#111">thegodnationacademy.org</text><text x="25" y="120" font-size="9.5" fill="#444">wants to show notifications</text><rect x="25.0" y="151" width="69.0" height="24" rx="7" fill="#e9edf5"/><text x="59.5" y="167" font-size="10" text-anchor="middle" fill="#333" font-weight="700">Block</text><rect x="102.0" y="151" width="69.0" height="24" rx="7" fill="#1c42c4"/><text x="136.5" y="167" font-size="10" text-anchor="middle" fill="#fff" font-weight="700">Allow</text><circle cx="136.5" cy="163" r="30" fill="none" stroke="#e53935" stroke-width="4"/><text x="130.5" y="209" font-size="26">👆</text></g></g></svg></div><div class="note"><div class="box warn"><span class="en"><b>Never tap “Block”.</b> If you tap it by mistake, see “I tapped Block” at the bottom of this page.</span><span class="fr" hidden><b>N’appuyez jamais sur « Bloquer ».</b> Si vous le faites par erreur, voyez « J’ai appuyé sur Bloquer » en bas de cette page.</span></div></div></div><div class="step"><div class="step-top"><span class="num">4</span><p><span class="en"><b>Done!</b> Now your phone will tell you when someone writes to you.</span><span class="fr" hidden><b>C’est fait !</b> Maintenant votre téléphone vous prévient quand quelqu’un vous écrit.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="A notification arriving on a locked phone" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s252192"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s252192)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#1c2333"/>
+<text x="98" y="48" font-size="20" fill="#fff" text-anchor="middle" font-weight="700">10:42</text>
+<rect x="10" y="80" width="176" height="62" rx="14" fill="#fff"/>
+<rect x="20" y="92" width="30" height="30" rx="8" fill="#fff" stroke="#e3e7ef"/><circle cx="35" cy="107" r="9" fill="#0f2260"/>
+<text x="58" y="102" font-size="10.5" font-weight="700" fill="#0f2260">The God Nation</text>
+<text x="58" y="118" font-size="9.5" fill="#444">New message for you</text>
+<text x="58" y="131" font-size="8.5" fill="#888">now</text></g></g></svg></div></div></div>
+</section>
 
-  <section class="platform">
-    <div class="platform-head">
-      <span class="emoji">🍎</span>
-      <h2 class="en">iPhone</h2>
-      <h2 class="fr" hidden>iPhone</h2>
-    </div>
-    <div class="callout warn">
-      <b class="en">Must be Safari.</b><span class="en"> Apple only allows installing and notifying from Safari — Chrome or other browsers on iPhone cannot do either, even though they work fine for regular browsing.</span>
-      <b class="fr" hidden>Doit être Safari.</b><span class="fr" hidden> Apple n’autorise l’installation et les notifications que depuis Safari — Chrome ou d’autres navigateurs sur iPhone ne peuvent faire ni l’un ni l’autre, même s’ils fonctionnent bien pour la navigation normale.</span>
-    </div>
-    <div class="callout">
-      <b class="en">On iPhone there is one way.</b><span class="en"> "Add to Home Screen" (below) puts the app icon on your phone. It works as both the install and the shortcut.</span>
-      <b class="fr" hidden>Sur iPhone, il n’y a qu’une façon.</b><span class="fr" hidden> « Sur l’écran d’accueil » (ci-dessous) place l’icône de l’application sur votre téléphone. Cela sert à la fois d’installation et de raccourci.</span>
-    </div>
-    <div class="steps">
-      <div class="step-row">
-        <span class="step-num">1</span>
-        <p class="en">Open the God Nation site in <b>Safari</b>.</p>
-        <p class="fr" hidden>Ouvrez le site God Nation dans <b>Safari</b>.</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">2</span>
-        <p class="en">Tap the <b>Share</b> icon (square with an arrow pointing up) in Safari's toolbar.</p>
-        <p class="fr" hidden>Appuyez sur l’icône <b>Partager</b> (carré avec une flèche vers le haut) dans la barre d’outils de Safari.</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">3</span>
-        <p class="en">Scroll down and tap <b>"Add to Home Screen"</b>, then tap <b>Add</b> (top right).</p>
-        <p class="fr" hidden>Faites défiler et appuyez sur <b>« Sur l’écran d’accueil »</b>, puis appuyez sur <b>Ajouter</b> (en haut à droite).</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">4</span>
-        <p class="en">Open the God Nation icon <b>from your Home Screen</b> (not from Safari) — it opens full-screen like a real app.</p>
-        <p class="fr" hidden>Ouvrez l’icône God Nation <b>depuis votre écran d’accueil</b> (pas depuis Safari) — elle s’ouvre en plein écran comme une vraie application.</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">5</span>
-        <p class="en"><b>Log in again</b> if it asks you to. The iPhone keeps the Home Screen app separate from Safari, so being logged in in Safari doesn't carry over.</p>
-        <p class="fr" hidden><b>Reconnectez-vous</b> si l’application vous le demande. L’iPhone garde l’application de l’écran d’accueil séparée de Safari : être connecté dans Safari ne suffit pas.</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">6</span>
-        <p class="en">From that installed app icon, tap <b>"Turn on notifications"</b> in the strip at the top of <b>Chats</b>, <b>Home</b> or <b>Me</b>, then <b>Allow</b>.</p>
-        <p class="fr" hidden>Depuis cette icône installée, appuyez sur <b>« Activer les notifications »</b> dans le bandeau en haut de <b>Discussions</b>, <b>Accueil</b> ou <b>Moi</b>, puis <b>Autoriser</b>.</p>
-      </div>
-    </div>
-    <div class="callout warn">
-      <b class="en">iOS 16.4 or later required.</b><span class="en"> Notifications only work from the installed Home Screen icon — never from a Safari tab, even after allowing permission there — and only on iOS 16.4+. On an older iPhone, installing still gives you the full-screen app experience, just without notifications; there's no workaround for that on Apple's side.</span>
-      <b class="fr" hidden>iOS 16.4 ou version ultérieure requis.</b><span class="fr" hidden> Les notifications ne fonctionnent que depuis l’icône installée sur l’écran d’accueil — jamais depuis un onglet Safari, même après y avoir autorisé la permission — et uniquement sur iOS 16.4 ou plus récent. Sur un iPhone plus ancien, l’installation donne quand même l’expérience plein écran, mais sans notifications ; il n’y a pas de solution de contournement côté Apple.</span>
-    </div>
-  </section>
+<section class="os" id="iphone">
+  <h2>🍎 iPhone</h2>
+  <div class="box warn"><span class="en"><b>You must use Safari</b> (the blue compass icon). Chrome cannot do this on an iPhone.</span><span class="fr" hidden><b>Vous devez utiliser Safari</b> (l’icône de boussole bleue). Chrome ne peut pas le faire sur un iPhone.</span></div>
+  <h3><span class="en">Part 1 — Put the app on your phone</span><span class="fr" hidden>Partie 1 — Mettez l’application sur votre téléphone</span></h3><div class="steps"><div class="step"><div class="step-top"><span class="num">1</span><p><span class="en">Open <b>Safari</b> (the blue compass icon). Go to <b>thegodnationacademy.org</b>.</span><span class="fr" hidden>Ouvrez <b>Safari</b> (l’icône de boussole bleue). Allez sur <b>thegodnationacademy.org</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Safari with thegodnationacademy.org" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s258229"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s258229)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="36" fill="#f2f4f8"/><rect x="14" y="8" width="168" height="22" rx="11" fill="#e3e7ef"/><text x="98" y="23" font-size="9.5" fill="#333" text-anchor="middle">🔒 thegodnationacademy.org</text><rect y="36" width="196" height="150" fill="#0f2260"/>
+<text x="14" y="76" font-size="13" fill="#fff" font-weight="700">A Digital Home for</text>
+<text x="14" y="94" font-size="13" fill="#f2c94c" font-weight="700">Kingdom Citizens</text>
+<rect x="14" y="108" width="120" height="22" rx="6" fill="#e0b027"/>
+<text x="22" y="123" font-size="9" fill="#0a1740" font-weight="700">Join the Community</text><rect y="248" width="196" height="52" fill="#f2f4f8"/>
+<text x="22" y="282" font-size="18" fill="#2b6ae0">‹</text><text x="58" y="282" font-size="18" fill="#2b6ae0">›</text>
+<g transform="translate(94,258)"><rect x="3" y="9" width="18" height="17" rx="3" fill="none" stroke="#2b6ae0" stroke-width="2"/><path d="M12 1v14M7 6l5-5 5 5" fill="none" stroke="#2b6ae0" stroke-width="2"/></g>
+<rect x="132" y="262" width="16" height="16" rx="3" fill="none" stroke="#2b6ae0" stroke-width="2"/><rect x="164" y="262" width="16" height="16" rx="3" fill="none" stroke="#2b6ae0" stroke-width="2"/><circle cx="98" cy="20" r="26" fill="none" stroke="#e53935" stroke-width="4"/><text x="78" y="64" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">2</span><p><span class="en">Tap the <b>Share</b> button at the bottom: a square with an arrow going up.</span><span class="fr" hidden>Appuyez sur le bouton <b>Partager</b> en bas : un carré avec une flèche vers le haut.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Safari with the Share button at the bottom" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s701527"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s701527)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="36" fill="#f2f4f8"/><rect x="14" y="8" width="168" height="22" rx="11" fill="#e3e7ef"/><text x="98" y="23" font-size="9.5" fill="#333" text-anchor="middle">🔒 thegodnationacademy.org</text><rect y="36" width="196" height="150" fill="#0f2260"/>
+<text x="14" y="76" font-size="13" fill="#fff" font-weight="700">A Digital Home for</text>
+<text x="14" y="94" font-size="13" fill="#f2c94c" font-weight="700">Kingdom Citizens</text>
+<rect x="14" y="108" width="120" height="22" rx="6" fill="#e0b027"/>
+<text x="22" y="123" font-size="9" fill="#0a1740" font-weight="700">Join the Community</text><rect y="248" width="196" height="52" fill="#f2f4f8"/>
+<text x="22" y="282" font-size="18" fill="#2b6ae0">‹</text><text x="58" y="282" font-size="18" fill="#2b6ae0">›</text>
+<g transform="translate(94,258)"><rect x="3" y="9" width="18" height="17" rx="3" fill="none" stroke="#2b6ae0" stroke-width="2"/><path d="M12 1v14M7 6l5-5 5 5" fill="none" stroke="#2b6ae0" stroke-width="2"/></g>
+<rect x="132" y="262" width="16" height="16" rx="3" fill="none" stroke="#2b6ae0" stroke-width="2"/><rect x="164" y="262" width="16" height="16" rx="3" fill="none" stroke="#2b6ae0" stroke-width="2"/><circle cx="106" cy="272" r="24" fill="none" stroke="#e53935" stroke-width="4"/><text x="96" y="236" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">3</span><p><span class="en">Scroll down. Tap <b>“Add to Home Screen”</b>.</span><span class="fr" hidden>Faites défiler vers le bas. Appuyez sur <b>« Sur l’écran d’accueil »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Share menu with Add to Home Screen" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s927418"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s927418)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#00000044"/><rect x="0" y="86" width="196" height="214" rx="16" fill="#f2f4f8"/><text x="14" y="108" font-size="10" fill="#666">The God Nation</text><rect x="8" y="115" width="180" height="36" rx="8" fill="#fff"/><text x="20" y="138" font-size="11.5" fill="#111">Copy</text><text x="168" y="138" font-size="12" fill="#888">＋</text><rect x="8" y="155" width="180" height="36" rx="8" fill="#fff"/><text x="20" y="178" font-size="11.5" fill="#111">Add to Bookmarks</text><text x="168" y="178" font-size="12" fill="#888">＋</text><rect x="8" y="195" width="180" height="36" rx="8" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><text x="20" y="218" font-size="11.5" fill="#111">Add to Home Screen</text><text x="168" y="218" font-size="12" fill="#888">＋</text><rect x="8" y="235" width="180" height="36" rx="8" fill="#fff"/><text x="20" y="258" font-size="11.5" fill="#111">Print</text><text x="168" y="258" font-size="12" fill="#888">＋</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">4</span><p><span class="en">Tap <b>“Add”</b> at the top right.</span><span class="fr" hidden>Appuyez sur <b>« Ajouter »</b> en haut à droite.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Tap Add, top right" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s767961"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s767961)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#f2f4f8"/>
+<text x="10" y="30" font-size="9.5" fill="#2b6ae0">Cancel</text><text x="98" y="30" font-size="8.5" font-weight="700" text-anchor="middle" fill="#111">Add to Home Screen</text>
+<text x="164" y="30" font-size="10.5" fill="#2b6ae0" font-weight="700">Add</text>
+<rect x="10" y="50" width="176" height="64" rx="12" fill="#fff"/>
+<rect x="20" y="60" width="44" height="44" rx="10" fill="#fff" stroke="#e3e7ef"/><circle cx="42" cy="82" r="13" fill="#0f2260"/>
+<text x="74" y="78" font-size="11" fill="#111">The God Nation</text><text x="74" y="94" font-size="8.5" fill="#888">thegodnationacademy.org</text><circle cx="172" cy="26" r="18" fill="none" stroke="#e53935" stroke-width="4"/><text x="146" y="70" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">5</span><p><span class="en"><b>Done!</b> The God Nation icon is on your screen. From now on, <b>always open the app with this icon</b>, not with Safari.</span><span class="fr" hidden><b>C’est fait !</b> L’icône God Nation est sur votre écran. Désormais, <b>ouvrez toujours l’application avec cette icône</b>, pas avec Safari.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="iPhone home screen with the God Nation icon" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s618005"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s618005)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#5b8def"/><rect x="16" y="50" width="34" height="34" rx="9" fill="#3ba55c" opacity=".85"/><rect x="24" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="60" y="50" width="34" height="34" rx="9" fill="#34c759" opacity=".85"/><rect x="68" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="104" y="50" width="34" height="34" rx="9" fill="#555" opacity=".85"/><rect x="112" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="148" y="50" width="34" height="34" rx="9" fill="#f2994a" opacity=".85"/><rect x="156" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="16" y="112" width="34" height="34" rx="9" fill="#3ba55c" opacity=".85"/><rect x="24" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="60" y="112" width="34" height="34" rx="9" fill="#fff"/><circle cx="77" cy="129" r="9" fill="#0f2260"/><text x="71" y="134" font-size="12" fill="#f2c94c" font-weight="700">✝</text><text x="77" y="158" font-size="7.5" fill="#fff" text-anchor="middle" font-weight="700">God Nation</text><rect x="104" y="112" width="34" height="34" rx="9" fill="#555" opacity=".85"/><rect x="112" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="148" y="112" width="34" height="34" rx="9" fill="#f2994a" opacity=".85"/><rect x="156" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><circle cx="77" cy="129" r="28" fill="none" stroke="#e53935" stroke-width="4"/><text x="72" y="190" font-size="26">👆</text></g></g></svg></div></div></div>
+  <h3><span class="en">Part 2 — Turn on notifications</span><span class="fr" hidden>Partie 2 — Activez les notifications</span></h3><div class="steps"><div class="step"><div class="step-top"><span class="num">1</span><p><span class="en">Open the app: tap the <b>God Nation icon</b> on your phone screen. If it asks you to sign in, sign in again.</span><span class="fr" hidden>Ouvrez l’application : appuyez sur l’<b>icône God Nation</b> sur l’écran de votre téléphone. Si elle vous demande de vous connecter, reconnectez-vous.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Open the God Nation icon on the home screen" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s104181"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s104181)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#5b8def"/><rect x="16" y="50" width="34" height="34" rx="9" fill="#3ba55c" opacity=".85"/><rect x="24" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="60" y="50" width="34" height="34" rx="9" fill="#34c759" opacity=".85"/><rect x="68" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="104" y="50" width="34" height="34" rx="9" fill="#555" opacity=".85"/><rect x="112" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="148" y="50" width="34" height="34" rx="9" fill="#f2994a" opacity=".85"/><rect x="156" y="90" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="16" y="112" width="34" height="34" rx="9" fill="#3ba55c" opacity=".85"/><rect x="24" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="60" y="112" width="34" height="34" rx="9" fill="#fff"/><circle cx="77" cy="129" r="9" fill="#0f2260"/><text x="71" y="134" font-size="12" fill="#f2c94c" font-weight="700">✝</text><text x="77" y="158" font-size="7.5" fill="#fff" text-anchor="middle" font-weight="700">God Nation</text><rect x="104" y="112" width="34" height="34" rx="9" fill="#555" opacity=".85"/><rect x="112" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><rect x="148" y="112" width="34" height="34" rx="9" fill="#f2994a" opacity=".85"/><rect x="156" y="152" width="18" height="4" rx="2" fill="#ffffff88"/><circle cx="77" cy="129" r="28" fill="none" stroke="#e53935" stroke-width="4"/><text x="72" y="190" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">2</span><p><span class="en">On the <b>Chats</b> page, find the blue box at the top. Tap <b>“Turn on notifications”</b>.</span><span class="fr" hidden>Sur la page <b>Discussions</b>, trouvez la boîte bleue en haut. Appuyez sur <b>« Activer les notifications »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="The Turn on notifications button in the app" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s970890"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s970890)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="34" fill="#fff"/><text x="12" y="23" font-size="14" font-weight="700" fill="#0f2260">Chats</text>
+<text x="168" y="23" font-size="13">🔔</text><line x1="0" y1="34" x2="196" y2="34" stroke="#e3e7ef"/><rect x="8" y="60" width="180" height="92" rx="10" fill="#eef4ff"/>
+<text x="18" y="82" font-size="14">🔔</text>
+<text x="38" y="82" font-size="11" fill="#0f2260" font-weight="700">Turn on notifications</text>
+<text x="18" y="100" font-size="8.2" fill="#122a78">Be told when you get a message,</text>
+<text x="18" y="111" font-size="8.2" fill="#122a78">an announcement or an update.</text>
+<rect x="18" y="120" width="138" height="22" rx="6" fill="#1c42c4"/>
+<text x="87" y="135" font-size="9.5" fill="#fff" font-weight="700" text-anchor="middle">Turn on notifications</text>
+<text x="170" y="82" font-size="11" fill="#16349a">✕</text><rect x="13" y="115" width="148" height="32" rx="10" fill="none" stroke="#e53935" stroke-width="4"/><text x="120" y="178" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">3</span><p><span class="en">Your phone asks a question. Tap <b>“Allow”</b>.</span><span class="fr" hidden>Votre téléphone pose une question. Appuyez sur <b>« Autoriser »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Allow notifications, iPhone" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s253372"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s253372)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="34" fill="#fff"/><text x="12" y="23" font-size="14" font-weight="700" fill="#0f2260">Chats</text>
+<text x="168" y="23" font-size="13">🔔</text><line x1="0" y1="34" x2="196" y2="34" stroke="#e3e7ef"/><rect x="8" y="60" width="180" height="92" rx="10" fill="#eef4ff"/>
+<text x="18" y="82" font-size="14">🔔</text>
+<text x="38" y="82" font-size="11" fill="#0f2260" font-weight="700">Turn on notifications</text>
+<text x="18" y="100" font-size="8.2" fill="#122a78">Be told when you get a message,</text>
+<text x="18" y="111" font-size="8.2" fill="#122a78">an announcement or an update.</text>
+<rect x="18" y="120" width="138" height="22" rx="6" fill="#1c42c4"/>
+<text x="87" y="135" font-size="9.5" fill="#fff" font-weight="700" text-anchor="middle">Turn on notifications</text>
+<text x="170" y="82" font-size="11" fill="#16349a">✕</text><rect width="196" height="300" fill="#00000055"/><rect x="10" y="60" width="176" height="114" rx="12" fill="#fff"/><text x="22" y="82" font-size="10.5" font-weight="700" fill="#111">“God Nation” Would Like to Send You Notifications</text><text x="22" y="100" font-size="9.5" fill="#444">Notifications may include</text><text x="22" y="113" font-size="9.5" fill="#444">alerts, sounds and badges.</text><rect x="22.0" y="144" width="72.0" height="24" rx="7" fill="#e9edf5"/><text x="58.0" y="160" font-size="10" text-anchor="middle" fill="#333" font-weight="700">Don’t Allow</text><rect x="102.0" y="144" width="72.0" height="24" rx="7" fill="#1c42c4"/><text x="138.0" y="160" font-size="10" text-anchor="middle" fill="#fff" font-weight="700">Allow</text><circle cx="138.0" cy="156" r="30" fill="none" stroke="#e53935" stroke-width="4"/><text x="132.0" y="202" font-size="26">👆</text></g></g></svg></div><div class="note"><div class="box warn"><span class="en"><b>Never tap “Block”.</b> If you tap it by mistake, see “I tapped Block” at the bottom of this page.</span><span class="fr" hidden><b>N’appuyez jamais sur « Bloquer ».</b> Si vous le faites par erreur, voyez « J’ai appuyé sur Bloquer » en bas de cette page.</span></div></div></div><div class="step"><div class="step-top"><span class="num">4</span><p><span class="en"><b>Done!</b> Now your phone will tell you when someone writes to you.</span><span class="fr" hidden><b>C’est fait !</b> Maintenant votre téléphone vous prévient quand quelqu’un vous écrit.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="A notification arriving on a locked phone" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s252192"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s252192)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#1c2333"/>
+<text x="98" y="48" font-size="20" fill="#fff" text-anchor="middle" font-weight="700">10:42</text>
+<rect x="10" y="80" width="176" height="62" rx="14" fill="#fff"/>
+<rect x="20" y="92" width="30" height="30" rx="8" fill="#fff" stroke="#e3e7ef"/><circle cx="35" cy="107" r="9" fill="#0f2260"/>
+<text x="58" y="102" font-size="10.5" font-weight="700" fill="#0f2260">The God Nation</text>
+<text x="58" y="118" font-size="9.5" fill="#444">New message for you</text>
+<text x="58" y="131" font-size="8.5" fill="#888">now</text></g></g></svg></div></div></div>
+  <div class="box "><span class="en">Notifications on iPhone need <b>iOS 16.4 or newer</b>, and they only work from the <b>icon on your screen</b>, never from Safari.</span><span class="fr" hidden>Les notifications sur iPhone demandent <b>iOS 16.4 ou plus récent</b>, et ne marchent que depuis l’<b>icône de votre écran</b>, jamais depuis Safari.</span></div>
+</section>
 
-  <section class="platform">
-    <div class="platform-head">
-      <span class="emoji">💻</span>
-      <h2 class="en">Desktop (Windows / Mac / Linux)</h2>
-      <h2 class="fr" hidden>Ordinateur (Windows / Mac / Linux)</h2>
-    </div>
-    <div class="steps">
-      <div class="step-row">
-        <span class="step-num">1</span>
-        <p class="en">Open the God Nation site in <b>Chrome</b> or <b>Edge</b>.</p>
-        <p class="fr" hidden>Ouvrez le site God Nation dans <b>Chrome</b> ou <b>Edge</b>.</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">2</span>
-        <p class="en">Click the install icon in the address bar (usually a small ⊕ or monitor icon), or use the same "Install the God Nation app" banner on the Chats screen.</p>
-        <p class="fr" hidden>Cliquez sur l’icône d’installation dans la barre d’adresse (généralement une petite icône ⊕ ou un écran), ou utilisez la même bannière « Installer l’application God Nation » sur l’écran Discussions.</p>
-      </div>
-      <div class="step-row">
-        <span class="step-num">3</span>
-        <p class="en">Notifications turn on the same way as on a phone: tap "Turn on notifications" in the strip at the top of Chats, Home or Me.</p>
-        <p class="fr" hidden>Les notifications s’activent de la même façon que sur téléphone : appuyez sur « Activer les notifications » dans le bandeau en haut de Discussions, Accueil ou Moi.</p>
-      </div>
-    </div>
-    <div class="callout">
-      <b class="en">Method 2 on a computer: a shortcut.</b><span class="en"> In Chrome, click the <b>⋮</b> menu, then <b>Save and share</b> (or <b>Cast, save and share</b>), then <b>Create shortcut</b>. Tick <b>Open as window</b> if you want it to look like an app.</span>
-      <b class="fr" hidden>Méthode 2 sur ordinateur : un raccourci.</b><span class="fr" hidden> Dans Chrome, cliquez sur le menu <b>⋮</b>, puis <b>Enregistrer et partager</b> (ou <b>Caster, enregistrer et partager</b>), puis <b>Créer un raccourci</b>. Cochez <b>Ouvrir dans une fenêtre</b> si vous voulez qu’il ressemble à une application.</span>
-    </div>
-    <div class="callout">
-      <span class="en">Safari on Mac does not support installing this kind of app or notifications — use Chrome or Edge instead.</span>
-      <span class="fr" hidden>Safari sur Mac ne prend pas en charge l’installation de ce type d’application ni les notifications — utilisez plutôt Chrome ou Edge.</span>
-    </div>
-  </section>
+<section class="os" id="computer">
+  <h2>💻 <span class="en">Computer</span><span class="fr" hidden>Ordinateur</span></h2>
+  <h3><span class="en">Install and turn on notifications</span><span class="fr" hidden>Installer et activer les notifications</span></h3><div class="steps"><div class="step"><div class="step-top"><span class="num">1</span><p><span class="en">Open <b>Chrome</b> or <b>Edge</b>. Go to <b>thegodnationacademy.org</b>. At the right end of the address bar, click the small <b>install icon ⊕</b>.</span><span class="fr" hidden>Ouvrez <b>Chrome</b> ou <b>Edge</b>. Allez sur <b>thegodnationacademy.org</b>. À droite de la barre d’adresse, cliquez sur la petite <b>icône d’installation ⊕</b>.</span></p></div><div class="pic-wrap"><svg class="pic wide" viewBox="0 0 420 250" role="img" aria-label="Install icon at the right end of the address bar" xmlns="http://www.w3.org/2000/svg">
+<rect x="6" y="6" width="408" height="238" rx="12" fill="#e9edf5" stroke="#cfd4de" stroke-width="2"/><rect x="6" y="6" width="408" height="38" rx="12" fill="#dde3ee"/>
+<rect x="60" y="14" width="260" height="22" rx="11" fill="#fff"/><text x="76" y="29" font-size="10.5" fill="#333">🔒 thegodnationacademy.org</text>
+<rect x="296" y="17" width="16" height="16" rx="3" fill="none" stroke="#444" stroke-width="2"/><text x="299" y="30" font-size="12" fill="#444">⊕</text><rect x="6" y="44" width="408" height="198" fill="#0f2260"/><text x="24" y="100" font-size="20" fill="#fff" font-weight="700">A Digital Home for</text><text x="24" y="126" font-size="20" fill="#f2c94c" font-weight="700">Kingdom Citizens</text><circle cx="304" cy="25" r="17" fill="none" stroke="#e53935" stroke-width="4"/></svg></div></div><div class="step"><div class="step-top"><span class="num">2</span><p><span class="en">Click <b>“Install”</b>.</span><span class="fr" hidden>Cliquez sur <b>« Installer »</b>.</span></p></div><div class="pic-wrap"><svg class="pic wide" viewBox="0 0 420 250" role="img" aria-label="Click Install" xmlns="http://www.w3.org/2000/svg">
+<rect x="6" y="6" width="408" height="238" rx="12" fill="#e9edf5" stroke="#cfd4de" stroke-width="2"/><rect x="6" y="6" width="408" height="38" rx="12" fill="#dde3ee"/><rect x="60" y="14" width="260" height="22" rx="11" fill="#fff"/>
+<rect x="6" y="44" width="408" height="198" fill="#0f2260"/>
+<rect x="210" y="46" width="190" height="104" rx="10" fill="#fff" stroke="#cfd4de" stroke-width="1.5"/>
+<text x="224" y="72" font-size="12" font-weight="700" fill="#111">Install app?</text><text x="224" y="90" font-size="10.5" fill="#444">The God Nation</text>
+<rect x="228" y="108" width="70" height="26" rx="7" fill="#e9edf5"/><text x="263" y="125" font-size="11" text-anchor="middle" fill="#333" font-weight="700">Cancel</text>
+<rect x="308" y="108" width="80" height="26" rx="7" fill="#1c42c4"/><text x="348" y="125" font-size="11" text-anchor="middle" fill="#fff" font-weight="700">Install</text><rect x="304" y="104" width="88" height="34" rx="9" fill="none" stroke="#e53935" stroke-width="4"/></svg></div></div><div class="step"><div class="step-top"><span class="num">3</span><p><span class="en">Open the app. At the top of <b>Chats</b>, click <b>“Turn on notifications”</b>, then <b>“Allow”</b>.</span><span class="fr" hidden>Ouvrez l’application. En haut de <b>Discussions</b>, cliquez sur <b>« Activer les notifications »</b>, puis sur <b>« Autoriser »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="The Turn on notifications button in the app" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s970890"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s970890)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="34" fill="#fff"/><text x="12" y="23" font-size="14" font-weight="700" fill="#0f2260">Chats</text>
+<text x="168" y="23" font-size="13">🔔</text><line x1="0" y1="34" x2="196" y2="34" stroke="#e3e7ef"/><rect x="8" y="60" width="180" height="92" rx="10" fill="#eef4ff"/>
+<text x="18" y="82" font-size="14">🔔</text>
+<text x="38" y="82" font-size="11" fill="#0f2260" font-weight="700">Turn on notifications</text>
+<text x="18" y="100" font-size="8.2" fill="#122a78">Be told when you get a message,</text>
+<text x="18" y="111" font-size="8.2" fill="#122a78">an announcement or an update.</text>
+<rect x="18" y="120" width="138" height="22" rx="6" fill="#1c42c4"/>
+<text x="87" y="135" font-size="9.5" fill="#fff" font-weight="700" text-anchor="middle">Turn on notifications</text>
+<text x="170" y="82" font-size="11" fill="#16349a">✕</text><rect x="13" y="115" width="148" height="32" rx="10" fill="none" stroke="#e53935" stroke-width="4"/><text x="120" y="178" font-size="26">👆</text></g></g></svg></div></div></div>
+  <div class="box "><span class="en">Safari on a Mac cannot do this. Use <b>Chrome</b> or <b>Edge</b>.</span><span class="fr" hidden>Safari sur Mac ne peut pas le faire. Utilisez <b>Chrome</b> ou <b>Edge</b>.</span></div>
+</section>
+
+<section class="faq">
+  <h2><span class="en">Something is not working?</span><span class="fr" hidden>Quelque chose ne marche pas ?</span></h2>
+  <details><summary><span class="en">I opened the link from WhatsApp or Facebook</span><span class="fr" hidden>J’ai ouvert le lien depuis WhatsApp ou Facebook</span></summary><div class="ans"><p><span class="en">Those apps open links in their own small browser. It cannot install the app or send notifications. Tap the <b>3 dots ⋮</b>, then tap <b>“Open in Chrome”</b> (Android) or <b>“Open in Safari”</b> (iPhone). Then start again from step 1.</span><span class="fr" hidden>Ces applications ouvrent les liens dans leur petit navigateur. Il ne peut ni installer l’application ni envoyer de notifications. Appuyez sur les <b>3 points ⋮</b>, puis sur <b>« Ouvrir dans Chrome »</b> (Android) ou <b>« Ouvrir dans Safari »</b> (iPhone). Puis recommencez à l’étape 1.</span></p><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Open in Chrome from inside WhatsApp" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s106251"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s106251)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="34" fill="#075e54"/><text x="12" y="23" font-size="11" fill="#fff">thegodnationacademy.org</text><text x="172" y="25" font-size="18" fill="#fff" font-weight="700">⋮</text><rect y="34" width="196" height="130" fill="#0f2260"/>
+<text x="14" y="74" font-size="13" fill="#fff" font-weight="700">A Digital Home for</text>
+<text x="14" y="92" font-size="13" fill="#f2c94c" font-weight="700">Kingdom Citizens</text>
+<rect x="14" y="106" width="120" height="22" rx="6" fill="#e0b027"/>
+<text x="22" y="121" font-size="9" fill="#0a1740" font-weight="700">Join the Community</text><rect x="36" y="38" width="150" height="110" rx="8" fill="#fff" stroke="#cfd4de" stroke-width="1.5"/><rect x="39" y="44" width="144" height="30" rx="6" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><text x="48" y="65" font-size="11.5" fill="#222">Open in Chrome</text><text x="48" y="99" font-size="11.5" fill="#222">Share…</text><text x="48" y="133" font-size="11.5" fill="#222">Copy link</text></g></g></svg></div></div></details><details><summary><span class="en">I tapped “Block” by mistake</span><span class="fr" hidden>J’ai appuyé sur « Bloquer » par erreur</span></summary><div class="ans"><p><span class="en"><b>Android:</b> press and hold the God Nation icon, tap <b>ⓘ App info</b>, tap <b>Notifications</b>, and turn them <b>on</b>. <br><b>iPhone:</b> open <b>Settings</b>, tap <b>Notifications</b>, find <b>God Nation</b>, and turn on <b>Allow Notifications</b>.</span><span class="fr" hidden><b>Android :</b> appuyez longuement sur l’icône God Nation, appuyez sur <b>ⓘ Infos sur l’appli</b>, puis <b>Notifications</b>, et <b>activez-les</b>. <br><b>iPhone :</b> ouvrez <b>Réglages</b>, appuyez sur <b>Notifications</b>, trouvez <b>God Nation</b> et activez <b>Autoriser les notifications</b>.</span></p></div></details><details><summary><span class="en">The notifications come late, or do not come</span><span class="fr" hidden>Les notifications arrivent en retard, ou n’arrivent pas</span></summary><div class="ans"><p><span class="en">Your phone’s <b>battery saver</b> may be switching the app off. Open <b>Settings</b>, then <b>Battery</b>, find <b>Chrome</b> (or <b>God Nation</b>) and choose <b>“No restrictions”</b> or <b>“Don’t optimise”</b>. This happens a lot on Tecno, Infinix, itel, Xiaomi, Oppo and Huawei phones. Also check that your phone has data or Wi-Fi.</span><span class="fr" hidden>L’<b>économiseur de batterie</b> de votre téléphone coupe peut-être l’application. Ouvrez <b>Réglages</b>, puis <b>Batterie</b>, trouvez <b>Chrome</b> (ou <b>God Nation</b>) et choisissez <b>« Sans restriction »</b> ou <b>« Ne pas optimiser »</b>. Cela arrive souvent sur les téléphones Tecno, Infinix, itel, Xiaomi, Oppo et Huawei. Vérifiez aussi que votre téléphone a des données ou du Wi-Fi.</span></p></div></details><details><summary><span class="en">I do not see the blue “Turn on notifications” box</span><span class="fr" hidden>Je ne vois pas la boîte bleue « Activer les notifications »</span></summary><div class="ans"><p><span class="en">The box only shows when notifications are <b>not on yet</b>. If you already tapped <b>Allow</b>, you do not need it. If you still do not see it, close the app and open it again from the <b>icon on your screen</b> (not from Chrome or Safari), then look at the top of <b>Chats</b>.</span><span class="fr" hidden>La boîte n’apparaît que si les notifications <b>ne sont pas encore activées</b>. Si vous avez déjà appuyé sur <b>Autoriser</b>, vous n’en avez pas besoin. Si vous ne la voyez toujours pas, fermez l’application et rouvrez-la avec l’<b>icône de votre écran</b> (pas depuis Chrome ou Safari), puis regardez en haut de <b>Discussions</b>.</span></p></div></details><details><summary><span class="en">My iPhone does not show “Add to Home Screen”</span><span class="fr" hidden>Mon iPhone n’affiche pas « Sur l’écran d’accueil »</span></summary><div class="ans"><p><span class="en">Make sure you are in <b>Safari</b>, not Chrome. Notifications need <b>iOS 16.4 or newer</b>: open <b>Settings → General → About</b> to see your version. If it is older, update your iPhone in <b>Settings → General → Software Update</b>.</span><span class="fr" hidden>Vérifiez que vous êtes dans <b>Safari</b>, pas Chrome. Les notifications demandent <b>iOS 16.4 ou plus récent</b> : ouvrez <b>Réglages → Général → Informations</b> pour voir votre version. Si elle est plus ancienne, mettez à jour dans <b>Réglages → Général → Mise à jour logicielle</b>.</span></p></div></details>
+  <p class="help"><span class="en">Still stuck? Ask your leader, or write to <b>contact@thegodnationacademy.org</b>.</span><span class="fr" hidden>Toujours bloqué ? Demandez à votre responsable, ou écrivez à <b>contact@thegodnationacademy.org</b>.</span></p>
+  <a class="back" href="/">← <span class="en">Back to The God Nation</span><span class="fr" hidden>Retour à The God Nation</span></a>
+</section>
 </div>
 
 <script>
   function setLang(lang) {
     document.querySelectorAll('.en').forEach(function (el) { el.hidden = lang !== 'en'; });
     document.querySelectorAll('.fr').forEach(function (el) { el.hidden = lang !== 'fr'; });
-    document.querySelectorAll('.lang-btn').forEach(function (b) {
-      b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
-    });
+    document.querySelectorAll('.lang-btn').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.lang === lang)); });
     document.documentElement.lang = lang;
     try { localStorage.setItem('notificationsGuideLang', lang); } catch (e) {}
   }
-  (function init() {
-    var saved = 'en';
-    try { saved = localStorage.getItem('notificationsGuideLang') || 'en'; } catch (e) {}
-    setLang(saved);
+  (function () {
+    var saved = null;
+    try { saved = new URLSearchParams(location.search).get('lang') || localStorage.getItem('notificationsGuideLang'); } catch (e) {}
+    if (!saved) saved = (navigator.language || 'en').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en';
+    setLang(saved === 'fr' ? 'fr' : 'en');
   })();
 </script>
 </body>
