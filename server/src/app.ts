@@ -57,6 +57,7 @@ import adminResourceAccessRoutes from './routes/adminResourceAccess';
 import notificationsRoutes from './routes/notifications';
 import profilePhotosRoutes from './routes/profilePhotos';
 import updatesRoutes from './routes/updates';
+import shareIntoAppRoutes from './routes/shareIntoApp';
 import prayerRequestsRoutes from './routes/prayerRequests';
 import socialRoutes from './routes/social';
 import { adminMemberReportsRouter, leaderMemberReportsRouter } from './routes/memberReports';
@@ -234,6 +235,13 @@ export function createApp() {
   app.use('/api/chat', chatForwardRoutes);
   // Community-wide Updates feed (posts, photos, comments, reactions, live slot).
   app.use('/api/updates', updatesRoutes);
+  // Share-into-app: forward from WhatsApp/TikTok/Facebook/Instagram into the feed.
+  app.use('/api/share-into-app', shareIntoAppRoutes);
+  // The phone's Share menu sends shared items here. Normally the app's
+  // service worker (client/public/sw.js) catches them first; if it isn't
+  // running yet, this just opens the Share screen (the shared files can't
+  // come along that way, so the screen asks to try again).
+  app.post('/share-target', (_req, res) => res.redirect(303, '/share?missed=1'));
   // Phase 2: Prayer requests (public wall or private-to-leadership), plus comments.
   app.use('/api/prayer-requests', prayerRequestsRoutes);
   // Friends, people search, blocking, reports, member-to-member messages.

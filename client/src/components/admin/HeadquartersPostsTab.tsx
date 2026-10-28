@@ -312,9 +312,15 @@ export function HeadquartersPostsTab() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold text-brand-900">{t('admin.headquartersPosts.title')}</h2>
-        <button className="btn-primary px-4 py-2" onClick={() => (showForm ? setShowForm(false) : startCreate())}>
-          {showForm ? t('admin.headquartersPosts.cancel') : t('admin.headquartersPosts.new_post')}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {/* Share-into-app: paste a TikTok/Facebook/Instagram/YouTube link (or add WhatsApp files) and post it in one step. */}
+          <a href="/share" className="btn-secondary px-4 py-2">
+            🔗 {t('share.title')}
+          </a>
+          <button className="btn-primary px-4 py-2" onClick={() => (showForm ? setShowForm(false) : startCreate())}>
+            {showForm ? t('admin.headquartersPosts.cancel') : t('admin.headquartersPosts.new_post')}
+          </button>
+        </div>
       </div>
 
       <p className="mb-4 text-sm text-slate-500">{t('admin.headquartersPosts.description')}</p>
