@@ -100,6 +100,21 @@ async function takeQuiz(who: Who, assessmentId: string, rightAnswers: boolean) {
 afterEach(() => vi.restoreAllMocks());
 
 describe('Posting a teaching', () => {
+  it('the chat card shows the title in the viewer’s own language once the teaching is translated', async () => {
+    const c = await community();
+    const admin = await signedIn('Coordinator', { admin: true });
+    const member = await signedIn('Member', { communityId: c.id });
+    const made = await postTeaching(admin, c.id);
+    await prisma.teaching.update({ where: { id: made.body.id }, data: { detectedLanguage: 'en', titleTranslated: 'Marcher dans l’amour', textTranslated: 'Aimez-vous', translatedAt: new Date() } });
+
+    const titleFor = async (lang: string) => {
+      const chat = await member.agent.get(`/api/communities/${c.id}/conversation/messages`).set('X-App-Language', lang);
+      return chat.body.items.find((i: any) => i.id === made.body.messageId).teaching.title;
+    };
+    expect(await titleFor('fr')).toBe('Marcher dans l’amour');
+    expect(await titleFor('en')).toBe('Walking in love');
+  });
+
   it('only the central admin can post; it appears in the assembly chat as a card', async () => {
     const c = await community();
     const admin = await signedIn('Coordinator', { admin: true });

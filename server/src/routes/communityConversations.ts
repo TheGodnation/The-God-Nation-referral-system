@@ -311,7 +311,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } },
       replyTo: replyToInclude,
       reactions: { select: { emoji: true, personId: true } },
-      teaching: { select: { id: true, title: true, assessmentId: true, mediaKind: true, closesAt: true, text: true, communityId: true, authorPersonId: true } },
+      teaching: { select: { id: true, title: true, assessmentId: true, mediaKind: true, closesAt: true, text: true, communityId: true, authorPersonId: true, detectedLanguage: true, titleTranslated: true } },
     },
     orderBy: afterCursor ? [{ createdAt: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
@@ -376,7 +376,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
           ? null
           : {
               id: m.teaching.id,
-              title: m.teaching.title,
+              // In the viewer's own language when the teaching was written in the other one.
+              title: m.teaching.titleTranslated && m.teaching.detectedLanguage && m.teaching.detectedLanguage !== viewerLanguage ? m.teaching.titleTranslated : m.teaching.title,
               mediaKind: m.teaching.mediaKind,
               hasText: Boolean(m.teaching.text),
               closesAt: m.teaching.closesAt,

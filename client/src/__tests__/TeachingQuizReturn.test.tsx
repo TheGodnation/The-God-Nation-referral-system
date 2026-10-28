@@ -46,7 +46,7 @@ describe('Back to the teaching after its quiz', () => {
     const note = await screen.findByTestId('back-to-teaching');
     expect(note).toHaveTextContent('Taking you back to the teaching');
     // One second at a time: each tick renders the next number.
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 32; i++) {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1000);
       });
