@@ -2771,7 +2771,7 @@
     "file_storage": "Files cannot be uploaded right now. Please tell the developer.",
     "file_failed": "The upload failed. Please try again.",
     "questions_title": "Quiz questions",
-    "questions_intro": "Let the AI draft about 5 questions from your text or audio, then check, change and confirm them. Or write them yourself.",
+    "questions_intro": "Let the AI propose 8 questions from your text or audio. Keep the ones you want (remove the others, or change them), then post. You can keep all 8 or only 4 or 5. Or write them yourself.",
     "draft_button": "Draft questions with AI",
     "drafting": "Drafting… this can take up to a minute",
     "draft_done": "Questions drafted. Please check each one and mark the right answer.",

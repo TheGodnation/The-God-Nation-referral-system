@@ -2771,7 +2771,7 @@
     "file_storage": "Les fichiers ne peuvent pas être envoyés pour le moment. Prévenez le développeur.",
     "file_failed": "L'envoi a échoué. Veuillez réessayer.",
     "questions_title": "Questions du quiz",
-    "questions_intro": "Laissez l'IA proposer environ 5 questions à partir de votre texte ou audio, puis vérifiez, modifiez et confirmez-les. Ou écrivez-les vous-même.",
+    "questions_intro": "Laissez l'IA proposer 8 questions à partir de votre texte ou audio. Gardez celles que vous voulez (supprimez les autres, ou modifiez-les), puis publiez. Vous pouvez garder les 8 ou seulement 4 ou 5. Ou écrivez-les vous-même.",
     "draft_button": "Proposer des questions avec l'IA",
     "drafting": "Rédaction… cela peut prendre jusqu'à une minute",
     "draft_done": "Questions proposées. Vérifiez chacune et cochez la bonne réponse.",

@@ -284,7 +284,7 @@ describe('Posting a teaching', () => {
     expect(radios[0]).toBeChecked();
 
     const drafted = calls.find((c) => c.url === '/api/teachings/draft-questions');
-    expect(drafted?.body).toMatchObject({ communityId: 'c1', text: 'Love one another.', count: 5 });
+    expect(drafted?.body).toMatchObject({ communityId: 'c1', text: 'Love one another.', count: 8 });
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Post the teaching' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Post the teaching' }));

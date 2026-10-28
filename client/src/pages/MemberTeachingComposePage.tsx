@@ -84,7 +84,7 @@ export function MemberTeachingComposePage() {
       const audio = file?.uploaded && file.uploaded.mimeType.startsWith('audio/') ? file.uploaded : null;
       const res = await api.post<{ questions: { textEn: string; textFr: string; options: { textEn: string; textFr: string }[]; correctIndex: number }[] }>(
         '/api/teachings/draft-questions',
-        { communityId, text: text.trim() || undefined, audioStorageKey: audio?.storageKey, audioMimeType: audio?.mimeType, count: 5 },
+        { communityId, text: text.trim() || undefined, audioStorageKey: audio?.storageKey, audioMimeType: audio?.mimeType, count: 8 },
       );
       setQuestions(
         res.questions.map((q) => ({

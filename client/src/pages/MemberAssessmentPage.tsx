@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 
-const BACK_AFTER_SECONDS = 8;
+const BACK_AFTER_SECONDS = 16;
 
 interface AssessmentInfo {
   id: string;
