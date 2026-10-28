@@ -131,8 +131,8 @@ describe('The teaching page', () => {
   it('shows the steps and a locked quiz, and the live list with scores for everyone', async () => {
     renderPage(detail());
     expect(await screen.findByText('Walking in love')).toBeInTheDocument();
-    expect(screen.getByText('Read the teaching to the end')).toBeInTheDocument();
-    expect(within(screen.getByTestId('teaching-quiz')).getByText(/The quiz opens once you have finished/)).toBeInTheDocument();
+    expect(screen.getByText('Read the teaching slowly, to the end')).toBeInTheDocument();
+    expect(within(screen.getByTestId('teaching-quiz')).getByText(/The quiz opens when you reach the end/)).toBeInTheDocument();
     expect(screen.queryByTestId('teaching-start-quiz')).not.toBeInTheDocument();
 
     expect(await screen.findByTestId('teaching-totals')).toHaveTextContent('12 of 40 members finished');
@@ -180,7 +180,7 @@ describe('The teaching page', () => {
     const start = await screen.findByTestId('teaching-start-quiz', undefined, { timeout: 5000 });
     expect(start).toHaveAttribute('href', '/member/assessments/a1');
     expect(calls.some((c) => c.method === 'POST' && c.body?.textRead === true)).toBe(true);
-    expect(screen.getByText('✓ The system has confirmed you finished the teaching.')).toBeInTheDocument();
+    expect(screen.getByText('✓ You have finished the teaching. The quiz is now open — tap “Start the quiz” below.')).toBeInTheDocument();
   });
 
   it('shows your score when you have taken the quiz', async () => {

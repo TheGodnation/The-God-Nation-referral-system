@@ -247,7 +247,6 @@ export function MemberTeachingPage() {
   const kind = teaching.mediaKind;
   const mediaLabel = kind === 'AUDIO' ? t('teaching.step_listen') : kind === 'VIDEO' ? t('teaching.step_watch') : t('teaching.step_pdf');
   const closes = new Date(teaching.closesAt).toLocaleDateString(i18n.language.startsWith('fr') ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long' });
-  const pct = Math.round((me.mediaFraction ?? 0) * 100);
 
   return (
     <PageShell minimal>
@@ -292,7 +291,7 @@ export function MemberTeachingPage() {
               <p className="mt-2 text-sm font-medium text-green-700">✓ {t('teaching.text_counted')}</p>
             ) : endSeen && waitLeft > 0 ? (
               <p className="mt-2 text-sm text-slate-600" role="status">
-                {t('teaching.text_wait', { seconds: waitLeft })}
+                {t('teaching.text_wait')}
               </p>
             ) : (
               <p className="mt-2 text-sm text-slate-500">{t('teaching.text_scroll')}</p>
@@ -319,7 +318,7 @@ export function MemberTeachingPage() {
                 {me.mediaDone ? (
                   <p className="text-sm font-medium text-green-700">✓ {kind === 'AUDIO' ? t('teaching.audio_counted') : t('teaching.video_counted')}</p>
                 ) : (
-                  <p className="text-xs text-slate-500">{t('teaching.media_note', { percent: pct })}</p>
+                  <p className="text-xs text-slate-500">{t('teaching.media_note')}</p>
                 )}
               </>
             )}
