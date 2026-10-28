@@ -11,10 +11,29 @@ vi.mock('../lib/storage', async () => {
   };
 });
 
+vi.mock('../lib/push', async () => {
+  const actual = await vi.importActual<typeof import('../lib/push')>('../lib/push');
+  return { ...actual, pushToPersons: vi.fn(async () => {}) };
+});
+// Stands in for Gemini: the "translation" is written the way the real one would.
+vi.mock('../lib/translation', async () => {
+  const actual = await vi.importActual<typeof import('../lib/translation')>('../lib/translation');
+  return {
+    ...actual,
+    translateAndStoreTeaching: vi.fn(async (id: string) => {
+      const { prisma } = await import('../lib/prisma');
+      if (process.env.FAKE_TEACHING_TRANSLATION === 'on') {
+        await prisma.teaching.update({ where: { id }, data: { detectedLanguage: 'en', titleTranslated: 'Marcher dans l’amour', textTranslated: 'Aimez-vous', translatedAt: new Date() } });
+      }
+    }),
+  };
+});
+
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { generateStorageKey } from '../lib/attachmentPolicy';
+import { pushToPersons } from '../lib/push';
 import { bootstrap } from './testUtils';
 
 // Teachings: posted in an assembly by the central admin's member profile;
@@ -100,6 +119,34 @@ async function takeQuiz(who: Who, assessmentId: string, rightAnswers: boolean) {
 afterEach(() => vi.restoreAllMocks());
 
 describe('Posting a teaching', () => {
+  it('the notification goes out after the translation, each person in their own language', async () => {
+    process.env.FAKE_TEACHING_TRANSLATION = 'on';
+    try {
+      const c = await community();
+      const admin = await signedIn('Coordinator', { admin: true });
+      const english = await signedIn('Ann', { communityId: c.id });
+      const french = await signedIn('Marie', { communityId: c.id });
+      await prisma.person.update({ where: { id: english.person.id }, data: { preferredLanguage: 'en' } });
+      await prisma.person.update({ where: { id: french.person.id }, data: { preferredLanguage: 'fr' } });
+      vi.mocked(pushToPersons).mockClear();
+
+      const made = await postTeaching(admin, c.id);
+      expect(made.status).toBe(201);
+      await vi.waitFor(() => expect(vi.mocked(pushToPersons).mock.calls.filter(([ids]) => ids.length > 0)).toHaveLength(2));
+
+      const sent = vi.mocked(pushToPersons).mock.calls.map(([ids, payload]) => ({ ids, payload }));
+      const toFrench = sent.find((s) => s.ids.includes(french.person.id))!;
+      const toEnglish = sent.find((s) => s.ids.includes(english.person.id))!;
+      expect(toFrench.ids).toEqual([french.person.id]);
+      expect(toFrench.payload.body).toBe('Marcher dans l’amour');
+      expect(toFrench.payload.title).toContain('Nouvel enseignement');
+      expect(toEnglish.payload.body).toBe('Walking in love');
+      expect(toEnglish.payload.title).toContain('New teaching');
+    } finally {
+      delete process.env.FAKE_TEACHING_TRANSLATION;
+    }
+  });
+
   it('the chat card shows the title in the viewer’s own language once the teaching is translated', async () => {
     const c = await community();
     const admin = await signedIn('Coordinator', { admin: true });
