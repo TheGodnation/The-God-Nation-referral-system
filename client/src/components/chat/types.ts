@@ -53,6 +53,8 @@ export interface ChatTeaching {
   /** Where the viewer is: not opened, started, finished (quiz open), passed, failed. */
   myState: 'NEW' | 'STARTED' | 'FINISHED' | 'PASSED' | 'FAILED';
   myPercentage: number | null;
+  /** How the whole assembly is doing (the author is not counted). */
+  totals?: { members: number; finished: number; taken: number; passed: number } | null;
 }
 
 export interface ChatMessage {

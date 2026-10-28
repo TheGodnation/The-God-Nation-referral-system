@@ -12,6 +12,7 @@ import { PeopleTab } from '../components/admin/PeopleTab';
 import { CommunitiesTab } from '../components/admin/CommunitiesTab';
 import { DevotionalsTab } from '../components/admin/DevotionalsTab';
 import { AssessmentsTab } from '../components/admin/AssessmentsTab';
+import { ExamResults } from '../components/admin/ExamResults';
 import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
 import { GeographicAreasTab } from '../components/admin/GeographicAreasTab';
 import { AreaRepresentationRequestsTab } from '../components/admin/AreaRepresentationRequestsTab';
@@ -46,6 +47,7 @@ type Tab =
   | 'communities'
   | 'devotionals'
   | 'assessments'
+  | 'results'
   | 'roleAssignments'
   | 'geographicAreas'
   | 'areaRepresentationRequests'
@@ -1754,6 +1756,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'assessments'} onClick={() => setTab('assessments')}>
               {t('admin.tabs.assessments')}
             </TabButton>
+            <TabButton active={tab === 'results'} onClick={() => setTab('results')}>
+              {t('admin.tabs.results')}
+            </TabButton>
             <TabButton active={tab === 'roleAssignments'} onClick={() => setTab('roleAssignments')}>
               {t('admin.tabs.roleAssignments')}
             </TabButton>
@@ -1825,6 +1830,13 @@ export function AdminDashboardPage() {
         {tab === 'communities' && <CommunitiesTab />}
         {tab === 'devotionals' && <DevotionalsTab />}
         {tab === 'assessments' && <AssessmentsTab />}
+        {tab === 'results' && (
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold text-brand-900">{t('admin.results.title')}</h2>
+            <p className="text-sm text-slate-600">{t('admin.results.intro')}</p>
+            <ExamResults />
+          </div>
+        )}
         {tab === 'library' && <LibraryTab />}
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
         {tab === 'geographicAreas' && <GeographicAreasTab />}

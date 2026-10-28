@@ -36,6 +36,12 @@ export function TeachingCard({ teaching }: { teaching: ChatTeaching }) {
       <p className="mt-0.5 break-words text-base font-semibold text-slate-900">{teaching.title}</p>
       {parts.length > 0 && <p className="mt-0.5 text-xs text-slate-500">{parts.join(' · ')}</p>}
       <p className={`mt-2 rounded px-2 py-1 text-xs font-medium ${tone}`}>{status}</p>
+      {teaching.totals && teaching.totals.members > 0 && (
+        <p className="mt-1.5 text-xs text-slate-600" data-testid="teaching-card-totals">
+          {t('teaching.card_totals', { finished: teaching.totals.finished, members: teaching.totals.members })}
+          {teaching.totals.taken > 0 && ` · ${t('teaching.card_totals_quiz', { passed: teaching.totals.passed, taken: teaching.totals.taken })}`}
+        </p>
+      )}
       <p className="mt-2 text-sm font-semibold text-emerald-700">{t('teaching.open')} →</p>
     </Link>
   );

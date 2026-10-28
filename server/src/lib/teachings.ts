@@ -127,6 +127,48 @@ export async function cardStatesFor(personId: string, teachings: { id: string; a
   return result;
 }
 
+export interface CardTotals {
+  members: number;
+  finished: number;
+  taken: number;
+  passed: number;
+}
+
+/** The assembly-wide numbers on each teaching's card (the author is never counted; only a person's first try). */
+export async function cardTotalsFor(teachings: { id: string; communityId: string; assessmentId: string; authorPersonId: string | null }[]) {
+  const result = new Map<string, CardTotals>();
+  if (teachings.length === 0) return result;
+  const [progress, attempts, members] = await Promise.all([
+    prisma.teachingProgress.findMany({
+      where: { teachingId: { in: teachings.map((t) => t.id) }, completedAt: { not: null } },
+      select: { teachingId: true, personId: true },
+    }),
+    prisma.attempt.findMany({
+      where: { status: 'SUBMITTED', assessmentId: { in: teachings.map((t) => t.assessmentId) } },
+      orderBy: { attemptNumber: 'asc' },
+      select: { assessmentId: true, personId: true, passed: true },
+    }),
+    Promise.all(
+      teachings.map((t) =>
+        prisma.communityMembership.count({
+          where: { communityId: t.communityId, status: 'ACTIVE', ...(t.authorPersonId ? { personId: { not: t.authorPersonId } } : {}) },
+        }),
+      ),
+    ),
+  ]);
+  for (const t of teachings) {
+    const firstTry = new Map<string, boolean>();
+    for (const a of attempts) if (a.assessmentId === t.assessmentId && a.personId !== t.authorPersonId && !firstTry.has(a.personId)) firstTry.set(a.personId, Boolean(a.passed));
+    result.set(t.id, {
+      members: members[teachings.indexOf(t)],
+      finished: progress.filter((p) => p.teachingId === t.id && p.personId !== t.authorPersonId).length,
+      taken: firstTry.size,
+      passed: [...firstTry.values()].filter(Boolean).length,
+    });
+  }
+  return result;
+}
+
 export interface TeachingResults {
   totals: { members: number; opened: number; finished: number; taken: number; passed: number; averagePercentage: number | null };
   participants: {

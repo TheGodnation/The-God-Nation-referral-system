@@ -13,6 +13,7 @@ import { recordAudit } from '../lib/audit';
 import { examAccess } from '../lib/examWorld';
 import { shuffleOptionsFor, startTrainingAttempt, trainingExamState, TrainingExamError } from '../lib/trainingExam';
 import { asyncHandler } from '../lib/asyncHandler';
+import { listResults } from '../lib/examResults';
 
 const router = Router();
 
@@ -291,6 +292,22 @@ router.post(
     }
   }),
 );
+
+// GET /api/member/me/teaching-results — the member's own teaching quizzes:
+// each one's score and result, newest first (their own data only).
+router.get('/me/teaching-results', asyncHandler(async (req, res) => {
+  const { items } = await listResults({ personId: req.member!.personId, kind: 'TEACHING', includeTestData: true }, 0, 100);
+  res.json({
+    items: items.map((r) => ({
+      attemptId: r.attemptId,
+      title: r.title,
+      assemblyName: r.assemblyName,
+      percentage: r.percentage,
+      passed: r.passed,
+      submittedAt: r.submittedAt,
+    })),
+  });
+}));
 
 // GET /api/member/me/training-progress — Phase 3E. Read-only, derived
 // entirely from existing Attempt data (see lib/trainingProgress.ts); the

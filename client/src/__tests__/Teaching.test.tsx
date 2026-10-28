@@ -114,6 +114,13 @@ describe('The teaching card in the chat', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText('You finished — the quiz is open')).toBeInTheDocument();
+    expect(screen.queryByTestId('teaching-card-totals')).not.toBeInTheDocument();
+    rerender(
+      <MemoryRouter>
+        <TeachingCard teaching={{ ...base, myState: 'NEW', totals: { members: 40, finished: 12, taken: 9, passed: 8 } }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('teaching-card-totals')).toHaveTextContent('12 of 40 finished · 8 of 9 passed the quiz');
   });
 });
 

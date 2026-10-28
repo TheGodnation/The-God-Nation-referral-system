@@ -1,5 +1,5 @@
 import { appLanguage } from '../lib/appLanguage';
-import { cardStatesFor } from '../lib/teachings';
+import { cardStatesFor, cardTotalsFor } from '../lib/teachings';
 import { badgeOf, centralAdminAmong, isCentralAdminPerson } from '../lib/centralAdmin';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { reactorList } from '../lib/reactionList';
@@ -311,7 +311,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } },
       replyTo: replyToInclude,
       reactions: { select: { emoji: true, personId: true } },
-      teaching: { select: { id: true, title: true, assessmentId: true, mediaKind: true, closesAt: true, text: true } },
+      teaching: { select: { id: true, title: true, assessmentId: true, mediaKind: true, closesAt: true, text: true, communityId: true, authorPersonId: true } },
     },
     orderBy: afterCursor ? [{ createdAt: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
@@ -341,6 +341,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   const viewerLanguage = appLanguage(req, viewerPerson?.preferredLanguage);
   // Teachings in this page: the card shows where the viewer is with each.
   const cardStates = await cardStatesFor(personId, page.flatMap((m) => (m.teaching ? [m.teaching] : [])));
+  const cardTotals = await cardTotalsFor(page.flatMap((m) => (m.teaching ? [m.teaching] : [])));
   const now = Date.now();
 
   res.json({
@@ -381,6 +382,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
               closesAt: m.teaching.closesAt,
               myState: cardStates.get(m.teaching.id)?.state ?? 'NEW',
               myPercentage: cardStates.get(m.teaching.id)?.percentage ?? null,
+              totals: cardTotals.get(m.teaching.id) ?? null,
             },
       translation: translationField(m, viewerLanguage),
       transcript: transcriptField(m, viewerLanguage),

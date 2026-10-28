@@ -45,12 +45,17 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
   const isFr = i18n.language.startsWith('fr');
   const [data, setData] = useState<ExamWorld | null>(null);
   const [failed, setFailed] = useState(false);
+  const [teachingQuizzes, setTeachingQuizzes] = useState<{ attemptId: string; title: string; percentage: number | null; passed: boolean | null; submittedAt: string | null }[]>([]);
 
   useEffect(() => {
     api
       .get<ExamWorld>('/api/member/exam-world')
       .then(setData)
       .catch(() => setFailed(true));
+    api
+      .get<{ items: typeof teachingQuizzes }>('/api/member/me/teaching-results')
+      .then((r) => setTeachingQuizzes(r.items))
+      .catch(() => {});
   }, []);
 
   const tr = (en: string, fr: string | null) => (isFr ? fr || en : en);
@@ -85,6 +90,22 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
                 </div>
               </div>
             ))}
+          </section>
+
+          <section className="card space-y-3" data-testid="my-teaching-quizzes">
+            <h2 className="font-semibold text-brand-900">📖 {t('wall.teaching_quizzes')}</h2>
+            {teachingQuizzes.length === 0 ? (
+              <p className="text-sm text-slate-500">{t('wall.no_teaching_quizzes')}</p>
+            ) : (
+              <ul className="space-y-1.5 text-sm">
+                {teachingQuizzes.map((q) => (
+                  <li key={q.attemptId} className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 break-words text-slate-800">{q.title}</span>
+                    <span className={`shrink-0 font-semibold ${q.passed ? 'text-green-700' : 'text-red-700'}`}>{q.percentage === null ? '—' : `${Math.round(q.percentage)}%`}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className="card space-y-3">

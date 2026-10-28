@@ -28,6 +28,7 @@ import communityManageRoutes from './routes/communityManage';
 import adminCommunitiesRoutes from './routes/adminCommunities';
 import adminDevotionalsRoutes from './routes/adminDevotionals';
 import adminAssessmentsRoutes from './routes/adminAssessments';
+import adminResultsRoutes from './routes/adminResults';
 import adminAttemptsRoutes from './routes/adminAttempts';
 import memberAuthRoutes from './routes/memberAuth';
 import memberAssessmentsRoutes from './routes/memberAssessments';
@@ -126,6 +127,7 @@ export function createApp() {
   app.use('/api/admin/communities', adminCommunitiesRoutes);
   app.use('/api/admin/devotionals', adminDevotionalsRoutes);
   app.use('/api/admin/assessments', adminAssessmentsRoutes);
+  app.use('/api/admin/results', adminResultsRoutes);
   // Phase 3B: adminAttemptsRoutes defines '/people/:personId/attempts' and
   // '/attempts/*', so it mounts at the '/api/admin' root, same pattern as
   // adminPeopleRoutes above.

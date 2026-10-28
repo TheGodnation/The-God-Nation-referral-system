@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { SignInHelpCard } from './SignInHelpCard';
+import { ExamResults } from './ExamResults';
 import { suggestEmailFix } from '../../lib/emailTypo';
 
 // Member Reassignment — the server's fixed set of machine-readable move
@@ -506,6 +507,11 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
         </div>
 
         <SignInHelpCard key={detail.id} person={detail} />
+
+        <div className="card mt-4 space-y-3">
+          <h2 className="font-semibold text-brand-900">{t('admin.results.title')}</h2>
+          <ExamResults key={detail.id} personId={detail.id} />
+        </div>
 
         {progress && (
           <div className="card mt-4 space-y-3">

@@ -237,7 +237,8 @@ describe('Reading, listening and the quiz', () => {
 
     // Their card in the chat shows where each one is.
     const chat = await ann.agent.get(`/api/communities/${c.id}/conversation/messages`);
-    expect(chat.body.items.find((i: any) => i.id === made.body.messageId).teaching).toMatchObject({ myState: 'PASSED', myPercentage: 100 });
+    expect(chat.body.items.find((i: any) => i.id === made.body.messageId).teaching).toMatchObject({ myState: 'PASSED', myPercentage: 100, totals: { taken: 2, passed: 1 } });
+    expect(chat.body.items.find((i: any) => i.id === made.body.messageId).teaching.totals.members).toBe(3);
   });
 
   it('closes after the open days: no new quiz, results stay', async () => {
