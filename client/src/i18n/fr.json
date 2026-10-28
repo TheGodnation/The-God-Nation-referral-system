@@ -5,7 +5,8 @@
     "teachings": "Enseignements",
     "announcements": "Annonces",
     "contact": "Contact",
-    "memberLogin": "Espace Membre"
+    "memberLogin": "Espace Membre",
+    "openApp": "Ouvrir l’application"
   },
   "home": {
     "hero_title": "SOYEZ ÉQUIPÉ. SOYEZ TRANSFORMÉ. SOYEZ ENVOYÉ.",
@@ -1619,7 +1620,8 @@
     "back_home": "Retour à l'accueil",
     "loading": "Chargement…",
     "show_password": "Afficher le mot de passe",
-    "hide_password": "Masquer le mot de passe"
+    "hide_password": "Masquer le mot de passe",
+    "opening_app": "Ouverture de votre communauté…"
   },
   "translation": {
     "translated_from": "Traduit depuis : {{language}}",

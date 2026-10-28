@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
 import { usePublicSettings } from '../lib/usePublicSettings';
 import {
   GraduationCapIcon,
@@ -89,6 +90,7 @@ export function HomePage() {
   ].filter((s) => s.url);
 
   return (
+    <ContinueIfSignedIn>
     <PageShell homeNav>
       {/* Hero */}
       <section id="top" className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 px-4 py-16 text-white sm:py-24">
@@ -237,5 +239,6 @@ export function HomePage() {
         </section>
       )}
     </PageShell>
+    </ContinueIfSignedIn>
   );
 }

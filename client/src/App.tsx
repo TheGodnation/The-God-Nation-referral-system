@@ -382,6 +382,7 @@ export default function App() {
                 </RequireMember>
               }
             />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </MemberAuthProvider>

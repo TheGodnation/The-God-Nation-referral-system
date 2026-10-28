@@ -88,7 +88,7 @@ export function EnableNotificationsBanner({ className = 'mb-4' }: { className?: 
               {busy ? t('notifications.enabling') : t('notifications.enable_button')}
             </button>
           )}
-          <a href="/notifications-guide/" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand-700 underline">
+          <a href={status === 'denied' ? '/phone-settings-guide/' : '/notifications-guide/'} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand-700 underline">
             {t('notifications.need_help')}
           </a>
         </div>

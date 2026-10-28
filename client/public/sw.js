@@ -39,6 +39,10 @@
 // these go straight to the network (with normal browser HTTP caching, which
 // still revalidates) keeps the guide showing what's actually live.
 
+// Static guide pages (not part of the app): always straight from the network.
+const GUIDE_PREFIXES = ['/leader-guide/', '/notifications-guide/', '/phone-settings-guide/', '/no-app-guide/'];
+const isGuidePath = (p) => GUIDE_PREFIXES.some((g) => p.startsWith(g));
+
 const CACHE_VERSION = 'god-nation-v5';
 // The app's start page for offline launches, kept apart from the asset
 // cache (and never deleted by a cache-version bump of the assets).
@@ -81,7 +85,7 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     if (url.origin !== self.location.origin) return;
-    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/leader-guide/') || url.pathname.startsWith('/notifications-guide/')) return;
+    if (url.pathname.startsWith('/api/') || isGuidePath(url.pathname)) return;
     event.respondWith(networkFirstPage(request));
     return;
   }
@@ -94,8 +98,7 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
-  if (url.pathname.startsWith('/leader-guide/')) return;
-  if (url.pathname.startsWith('/notifications-guide/')) return;
+  if (isGuidePath(url.pathname)) return;
 
   event.respondWith(
     (async () => {

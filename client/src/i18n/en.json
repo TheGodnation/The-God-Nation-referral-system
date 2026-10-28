@@ -5,7 +5,8 @@
     "teachings": "Teachings",
     "announcements": "Announcements",
     "contact": "Contact",
-    "memberLogin": "Member Login"
+    "memberLogin": "Member Login",
+    "openApp": "Open the app"
   },
   "home": {
     "hero_title": "BE EQUIPPED. BE TRANSFORMED. BE SENT.",
@@ -1619,7 +1620,8 @@
     "back_home": "Back to Home",
     "loading": "Loading…",
     "show_password": "Show password",
-    "hide_password": "Hide password"
+    "hide_password": "Hide password",
+    "opening_app": "Opening your community…"
   },
   "translation": {
     "translated_from": "Translated from {{language}}",

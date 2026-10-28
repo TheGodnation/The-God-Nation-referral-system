@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
+<title>Phone notification settings — The God Nation</title>
+<style>
+  :root { --navy-900:#0f2260; --navy-700:#16349a; --gold-500:#e0b027; --gold-400:#f2c94c; --bg:#faf8f3; --surface:#fff; --ink:#1c2333; --ink-soft:#4a5170; --line:#e6e2d6; --red:#e53935; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0b1020; --surface:#121834; --ink:#eef0fa; --ink-soft:#b6bde0; --line:#262f57; } }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 0 16px 64px; line-height: 1.6; font-size: 1.1rem; }
+  [hidden] { display: none !important; }
+  h1,h2,h3 { font-family: Georgia,'Times New Roman',serif; color: var(--navy-900); margin: 0; text-wrap: balance; }
+  @media (prefers-color-scheme: dark) { h1,h2,h3 { color:#f4f0e4; } }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  header.top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); margin: 0 -16px; padding: 10px 16px; }
+  .top-row { max-width: 560px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: Georgia,serif; font-weight: 700; color: var(--navy-900); }
+  .brand img { width: 32px; height: 32px; border-radius: 8px; }
+  .lang { display: flex; border: 2px solid var(--line); border-radius: 999px; padding: 3px; }
+  .lang button { font: inherit; font-size: .9rem; font-weight: 700; border: 0; background: transparent; color: var(--ink-soft); padding: 6px 16px; border-radius: 999px; cursor: pointer; }
+  .lang button[aria-pressed="true"] { background: var(--navy-900); color: #fff; }
+  .hero { padding: 28px 0 8px; text-align: center; }
+  .hero h1 { font-size: 1.9rem; line-height: 1.15; }
+  .hero p { color: var(--ink-soft); margin: 12px 0 0; }
+  .pick { display: grid; gap: 12px; margin: 22px 0 6px; }
+  .pick a { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 2px solid var(--navy-900); border-radius: 16px; padding: 16px 18px; text-decoration: none; color: var(--navy-900); font-weight: 800; font-size: 1.25rem; }
+  .pick a small { display: block; font-weight: 500; font-size: .85rem; color: var(--ink-soft); }
+  .pick .em { font-size: 2rem; }
+  @media (prefers-color-scheme: dark) { .pick a { color:#f4f0e4; border-color: var(--gold-400); } }
+  section.os { margin-top: 44px; padding-top: 12px; border-top: 4px solid var(--gold-500); scroll-margin-top: 64px; }
+  section.os > h2 { font-size: 1.6rem; display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
+  h3 { font-size: 1.25rem; margin: 26px 0 12px; padding: 8px 12px; background: var(--navy-900); color: #fff !important; border-radius: 10px; }
+  .steps { display: grid; gap: 22px; }
+  .step { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+  .step-top { display: flex; gap: 12px; align-items: flex-start; }
+  .step-top p { margin: 0; font-size: 1.12rem; }
+  .num { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; background: var(--red); color: #fff; font-weight: 800; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+  .pic-wrap { display: flex; justify-content: center; margin-top: 14px; }
+  .pic { width: 100%; max-width: 230px; height: auto; }
+  .pic.wide { max-width: 420px; }
+  .box { margin-top: 14px; padding: 14px 16px; border-radius: 14px; background: #f3f1ea; border-left: 6px solid var(--gold-500); font-size: 1rem; color: #3a4160; }
+  .box.warn { background: #fdecea; border-left-color: var(--red); color: #5a1d1a; }
+  .box.gold { background: #fff8e1; }
+  .note { margin-top: 12px; } .note .box { margin-top: 0; }
+  .tip { text-align: center; color: var(--ink-soft); font-size: .95rem; margin-top: 10px; }
+  .faq h2 { margin: 44px 0 14px; font-size: 1.5rem; }
+  details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; padding: 0 16px; }
+  summary { cursor: pointer; padding: 14px 0; font-weight: 700; color: var(--navy-900); font-size: 1.05rem; }
+  @media (prefers-color-scheme: dark) { summary { color: #f4f0e4; } .box { color:#1c2333; } }
+  .ans { padding-bottom: 14px; } .ans p { margin: 0; }
+  .help { text-align: center; margin-top: 30px; color: var(--ink-soft); }
+  .more { display: grid; gap: 10px; margin-top: 18px; }
+  .more a { display: block; background: #fff8e1; border: 2px solid var(--gold-500); border-radius: 14px; padding: 14px 16px; font-weight: 700; color: #5a4300; text-decoration: none; font-size: 1.02rem; }
+  .back { display: block; text-align: center; margin-top: 14px; font-weight: 700; color: var(--navy-700); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-row">
+  <div class="brand"><img src="/leader-guide/img/logo.png" alt=""><span>The God Nation</span></div>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" class="lang-btn" data-lang="en" aria-pressed="true" onclick="setLang('en')">EN</button>
+    <button type="button" class="lang-btn" data-lang="fr" aria-pressed="false" onclick="setLang('fr')">FR</button>
+  </div>
+</div></header>
+<div class="wrap">
+<section class="hero">
+  <h1><span class="en">Notifications: switch them on in your phone</span><span class="fr" hidden>Notifications : activez-les dans votre téléphone</span></h1>
+  <p><span class="en">Use this if you tapped <b>Allow</b> in the app but still get nothing. Tap your phone below.</span><span class="fr" hidden>Utilisez ceci si vous avez appuyé sur <b>Autoriser</b> dans l’application mais ne recevez rien. Appuyez sur votre téléphone ci-dessous.</span></p>
+</section>
+<div class="pick" style="display:grid;gap:12px;margin:8px 0 6px"><a href="#android" style="display:flex;align-items:center;gap:14px;background:#fff;border:2px solid #0f2260;border-radius:16px;padding:16px 18px;text-decoration:none;color:#0f2260;font-weight:800;font-size:1.25rem"><span style="font-size:2rem">🤖</span>Android</a><a href="#iphone" style="display:flex;align-items:center;gap:14px;background:#fff;border:2px solid #0f2260;border-radius:16px;padding:16px 18px;text-decoration:none;color:#0f2260;font-weight:800;font-size:1.25rem"><span style="font-size:2rem">🍎</span>iPhone</a></div>
+<section class="os" id="android"><h2>🤖 Android</h2>
+  <h3><span class="en">Part 1 — Switch on the app</span><span class="fr" hidden>Partie 1 — Activez l’application</span></h3><div class="steps"><div class="step"><div class="step-top"><span class="num">1</span><p><span class="en">Open your phone’s <b>Settings</b> (the gear icon). Tap <b>“Apps”</b>.</span><span class="fr" hidden>Ouvrez les <b>Réglages</b> de votre téléphone (l’icône d’engrenage). Appuyez sur <b>« Applications »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Settings, tap Apps" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s910578"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s910578)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">Settings</text><circle cx="26" cy="73" r="11" fill="#3b5bdb" opacity=".85"/><text x="46" y="77" font-size="11" fill="#111">Network</text><text x="176" y="77" font-size="12" fill="#999">›</text><rect x="6" y="96" width="184" height="38" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="115" r="11" fill="#2f9e44" opacity=".85"/><text x="46" y="119" font-size="11" fill="#111">Apps</text><text x="176" y="119" font-size="12" fill="#999">›</text><circle cx="26" cy="157" r="11" fill="#f08c00" opacity=".85"/><text x="46" y="161" font-size="11" fill="#111">Battery</text><text x="176" y="161" font-size="12" fill="#999">›</text><circle cx="26" cy="199" r="11" fill="#7048e8" opacity=".85"/><text x="46" y="203" font-size="11" fill="#111">Sound</text><text x="176" y="203" font-size="12" fill="#999">›</text><circle cx="26" cy="241" r="11" fill="#e03131" opacity=".85"/><text x="46" y="245" font-size="11" fill="#111">Notifications</text><text x="176" y="245" font-size="12" fill="#999">›</text><text x="140" y="162" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">2</span><p><span class="en">Find <b>“God Nation”</b> in the list and tap it. (If you do not have the app on your screen, use Part 2 below.)</span><span class="fr" hidden>Trouvez <b>« God Nation »</b> dans la liste et appuyez dessus. (Si vous n’avez pas l’application sur votre écran, utilisez la Partie 2 ci-dessous.)</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Apps, tap God Nation" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s885295"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s885295)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">Apps</text><circle cx="26" cy="73" r="11" fill="#3b5bdb" opacity=".85"/><text x="46" y="77" font-size="11" fill="#111">Camera</text><text x="176" y="77" font-size="12" fill="#999">›</text><circle cx="26" cy="115" r="11" fill="#2f9e44" opacity=".85"/><text x="46" y="119" font-size="11" fill="#111">Chrome</text><text x="176" y="119" font-size="12" fill="#999">›</text><rect x="6" y="138" width="184" height="38" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="157" r="11" fill="#f08c00" opacity=".85"/><text x="46" y="161" font-size="11" fill="#111">God Nation</text><text x="176" y="161" font-size="12" fill="#999">›</text><circle cx="26" cy="199" r="11" fill="#7048e8" opacity=".85"/><text x="46" y="203" font-size="11" fill="#111">Messages</text><text x="176" y="203" font-size="12" fill="#999">›</text><circle cx="26" cy="241" r="11" fill="#e03131" opacity=".85"/><text x="46" y="245" font-size="11" fill="#111">Photos</text><text x="176" y="245" font-size="12" fill="#999">›</text><text x="140" y="204" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">3</span><p><span class="en">Tap <b>“Notifications”</b>.</span><span class="fr" hidden>Appuyez sur <b>« Notifications »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="God Nation info, tap Notifications" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s241732"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s241732)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">God Nation</text><circle cx="26" cy="73" r="11" fill="#3b5bdb" opacity=".85"/><text x="46" y="77" font-size="11" fill="#111">Permissions</text><text x="176" y="77" font-size="12" fill="#999">›</text><rect x="6" y="96" width="184" height="38" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="115" r="11" fill="#2f9e44" opacity=".85"/><text x="46" y="119" font-size="11" fill="#111">Notifications</text><text x="176" y="119" font-size="12" fill="#999">›</text><circle cx="26" cy="157" r="11" fill="#f08c00" opacity=".85"/><text x="46" y="161" font-size="11" fill="#111">Battery</text><text x="176" y="161" font-size="12" fill="#999">›</text><circle cx="26" cy="199" r="11" fill="#7048e8" opacity=".85"/><text x="46" y="203" font-size="11" fill="#111">Storage</text><text x="176" y="203" font-size="12" fill="#999">›</text><text x="140" y="162" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">4</span><p><span class="en">Switch <b>“Show notifications”</b> <b>ON</b> (blue). Also switch on <b>Lock screen</b>.</span><span class="fr" hidden>Activez <b>« Afficher les notifications »</b> (bleu). Activez aussi l’<b>écran de verrouillage</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Turn Show notifications on" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s475608"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s475608)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">Notifications</text><rect x="6" y="48" width="184" height="42" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><text x="16" y="74" font-size="10.5" fill="#111">Show notifications</text><rect x="138" y="60" width="40" height="22" rx="11" fill="#1c42c4"/><circle cx="168" cy="71" r="8" fill="#fff"/><text x="16" y="120" font-size="10.5" fill="#111">Silent</text><rect x="138" y="106" width="40" height="22" rx="11" fill="#bbb"/><circle cx="152" cy="117" r="8" fill="#fff"/><text x="16" y="166" font-size="10.5" fill="#111">Lock screen</text><rect x="138" y="152" width="40" height="22" rx="11" fill="#1c42c4"/><circle cx="168" cy="163" r="8" fill="#fff"/><text x="100" y="118" font-size="26">👆</text></g></g></svg></div></div></div>
+  <h3><span class="en">Part 2 — Switch on the website in Chrome</span><span class="fr" hidden>Partie 2 — Activez le site dans Chrome</span></h3><div class="steps"><div class="step"><div class="step-top"><span class="num">1</span><p><span class="en">Open <b>Chrome</b>. Tap the <b>3 dots ⋮</b>, then tap <b>“Settings”</b>.</span><span class="fr" hidden>Ouvrez <b>Chrome</b>. Appuyez sur les <b>3 points ⋮</b>, puis sur <b>« Paramètres »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Chrome menu, tap Settings" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s310027"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s310027)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="40" fill="#eef1f6"/>
+<rect x="10" y="7" width="140" height="26" rx="13" fill="#fff"/>
+<text x="22" y="24" font-size="9.5" fill="#333">🔒 thegodnationacademy.org</text>
+<rect x="156" y="12" width="14" height="14" rx="3" fill="none" stroke="#555" stroke-width="2"/>
+<text x="172" y="27" font-size="22" fill="#444" font-weight="700">⋮</text><rect x="36" y="40" width="150" height="144" rx="8" fill="#fff" stroke="#cfd4de" stroke-width="1.5"/><text x="48" y="67" font-size="11.5" fill="#222">New tab</text><text x="48" y="101" font-size="11.5" fill="#222">History</text><text x="48" y="135" font-size="11.5" fill="#222">Downloads</text><rect x="39" y="148" width="144" height="30" rx="6" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><text x="48" y="169" font-size="11.5" fill="#222">Settings</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">2</span><p><span class="en">Tap <b>“Site settings”</b>.</span><span class="fr" hidden>Appuyez sur <b>« Paramètres des sites »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Chrome settings, tap Site settings" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s557622"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s557622)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">Settings</text><circle cx="26" cy="73" r="11" fill="#3b5bdb" opacity=".85"/><text x="46" y="77" font-size="11" fill="#111">Passwords</text><text x="176" y="77" font-size="12" fill="#999">›</text><circle cx="26" cy="115" r="11" fill="#2f9e44" opacity=".85"/><text x="46" y="119" font-size="11" fill="#111">Homepage</text><text x="176" y="119" font-size="12" fill="#999">›</text><circle cx="26" cy="157" r="11" fill="#f08c00" opacity=".85"/><text x="46" y="161" font-size="11" fill="#111">Privacy</text><text x="176" y="161" font-size="12" fill="#999">›</text><rect x="6" y="180" width="184" height="38" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="199" r="11" fill="#7048e8" opacity=".85"/><text x="46" y="203" font-size="11" fill="#111">Site settings</text><text x="176" y="203" font-size="12" fill="#999">›</text><circle cx="26" cy="241" r="11" fill="#e03131" opacity=".85"/><text x="46" y="245" font-size="11" fill="#111">Languages</text><text x="176" y="245" font-size="12" fill="#999">›</text><text x="140" y="246" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">3</span><p><span class="en">Tap <b>“Notifications”</b>.</span><span class="fr" hidden>Appuyez sur <b>« Notifications »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Site settings, tap Notifications" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s997516"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s997516)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">Site settings</text><circle cx="26" cy="73" r="11" fill="#3b5bdb" opacity=".85"/><text x="46" y="77" font-size="11" fill="#111">Location</text><text x="176" y="77" font-size="12" fill="#999">›</text><circle cx="26" cy="115" r="11" fill="#2f9e44" opacity=".85"/><text x="46" y="119" font-size="11" fill="#111">Camera</text><text x="176" y="119" font-size="12" fill="#999">›</text><rect x="6" y="138" width="184" height="38" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="157" r="11" fill="#f08c00" opacity=".85"/><text x="46" y="161" font-size="11" fill="#111">Notifications</text><text x="176" y="161" font-size="12" fill="#999">›</text><circle cx="26" cy="199" r="11" fill="#7048e8" opacity=".85"/><text x="46" y="203" font-size="11" fill="#111">Pop-ups</text><text x="176" y="203" font-size="12" fill="#999">›</text><text x="140" y="204" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">4</span><p><span class="en">Find <b>thegodnationacademy.org</b> and make sure notifications are <b>ON</b> (Allow).</span><span class="fr" hidden>Trouvez <b>thegodnationacademy.org</b> et vérifiez que les notifications sont <b>activées</b> (Autoriser).</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Allow notifications for the site" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s683636"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s683636)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">thegodnationacademy.org</text><rect x="6" y="48" width="184" height="42" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><text x="16" y="74" font-size="10.5" fill="#111">Notifications</text><rect x="138" y="60" width="40" height="22" rx="11" fill="#1c42c4"/><circle cx="168" cy="71" r="8" fill="#fff"/><text x="16" y="120" font-size="10.5" fill="#111">Sound</text><rect x="138" y="106" width="40" height="22" rx="11" fill="#1c42c4"/><circle cx="168" cy="117" r="8" fill="#fff"/><text x="100" y="118" font-size="26">👆</text></g></g></svg></div></div></div>
+  <h3><span class="en">Part 3 — Stop the battery saver</span><span class="fr" hidden>Partie 3 — Arrêtez l’économiseur de batterie</span></h3><div class="steps"><div class="step"><div class="step-top"><span class="num">1</span><p><span class="en">Open <b>Settings</b>, then <b>“Battery”</b>. Tap <b>“App battery usage”</b>. <small>(On some phones the words are different: look for “App launch”, “Battery optimisation” or “Power saving”.)</small></span><span class="fr" hidden>Ouvrez les <b>Réglages</b>, puis <b>« Batterie »</b>. Appuyez sur <b>« Utilisation de la batterie par appli »</b>. <small>(Sur certains téléphones les mots changent : cherchez « Lancement des applis », « Optimisation de la batterie » ou « Économie d’énergie ».)</small></span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Battery, tap App battery usage" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s40835"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s40835)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">Battery</text><circle cx="26" cy="73" r="11" fill="#3b5bdb" opacity=".85"/><text x="46" y="77" font-size="11" fill="#111">Battery saver</text><text x="176" y="77" font-size="12" fill="#999">›</text><rect x="6" y="96" width="184" height="38" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="115" r="11" fill="#2f9e44" opacity=".85"/><text x="46" y="119" font-size="11" fill="#111">App battery usage</text><text x="176" y="119" font-size="12" fill="#999">›</text><circle cx="26" cy="157" r="11" fill="#f08c00" opacity=".85"/><text x="46" y="161" font-size="11" fill="#111">Charging</text><text x="176" y="161" font-size="12" fill="#999">›</text><text x="140" y="162" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">2</span><p><span class="en">Choose <b>God Nation</b> (or <b>Chrome</b>) and pick <b>“Unrestricted”</b>. Now the phone will not switch it off to save battery.</span><span class="fr" hidden>Choisissez <b>God Nation</b> (ou <b>Chrome</b>) et sélectionnez <b>« Sans restriction »</b>. Le téléphone ne la coupera plus pour économiser la batterie.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Choose Unrestricted" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s304621"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s304621)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="13" font-weight="700" fill="#111">God Nation</text><circle cx="26" cy="66" r="8" fill="none" stroke="#555" stroke-width="2"/><text x="44" y="70" font-size="11" fill="#111">Optimised</text><circle cx="26" cy="110" r="8" fill="none" stroke="#555" stroke-width="2"/><text x="44" y="114" font-size="11" fill="#111">Restricted</text><rect x="6" y="134" width="184" height="40" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="154" r="8" fill="none" stroke="#555" stroke-width="2"/><circle cx="26" cy="154" r="4" fill="#1c42c4"/><text x="44" y="158" font-size="11" fill="#111">Unrestricted</text><text x="110" y="202" font-size="26">👆</text></g></g></svg></div></div></div>
+  <div class="box "><span class="en"><b>Also check:</b> your volume is up, your phone is not on <b>Do Not Disturb</b>, and you have data or Wi-Fi.</span><span class="fr" hidden><b>Vérifiez aussi :</b> votre volume est monté, votre téléphone n’est pas en <b>Ne pas déranger</b>, et vous avez des données ou du Wi-Fi.</span></div>
+</section>
+<section class="os" id="iphone"><h2>🍎 iPhone</h2>
+  <h3><span class="en">Switch on notifications</span><span class="fr" hidden>Activez les notifications</span></h3><div class="steps"><div class="step"><div class="step-top"><span class="num">1</span><p><span class="en">Open <b>Settings</b> (the gear icon). Tap <b>“Notifications”</b>.</span><span class="fr" hidden>Ouvrez les <b>Réglages</b> (l’icône d’engrenage). Appuyez sur <b>« Notifications »</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Settings, tap Notifications" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s185908"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s185908)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#f2f4f8"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">Settings</text><circle cx="26" cy="73" r="11" fill="#3b5bdb" opacity=".85"/><text x="46" y="77" font-size="11" fill="#111">General</text><text x="176" y="77" font-size="12" fill="#999">›</text><circle cx="26" cy="115" r="11" fill="#2f9e44" opacity=".85"/><text x="46" y="119" font-size="11" fill="#111">Display</text><text x="176" y="119" font-size="12" fill="#999">›</text><rect x="6" y="138" width="184" height="38" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="157" r="11" fill="#f08c00" opacity=".85"/><text x="46" y="161" font-size="11" fill="#111">Notifications</text><text x="176" y="161" font-size="12" fill="#999">›</text><circle cx="26" cy="199" r="11" fill="#7048e8" opacity=".85"/><text x="46" y="203" font-size="11" fill="#111">Sounds</text><text x="176" y="203" font-size="12" fill="#999">›</text><circle cx="26" cy="241" r="11" fill="#e03131" opacity=".85"/><text x="46" y="245" font-size="11" fill="#111">Focus</text><text x="176" y="245" font-size="12" fill="#999">›</text><text x="140" y="204" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">2</span><p><span class="en">Find <b>“God Nation”</b> in the list and tap it. <small>(It only appears after you opened the app from its icon and tapped “Turn on notifications”.)</small></span><span class="fr" hidden>Trouvez <b>« God Nation »</b> dans la liste et appuyez dessus. <small>(Elle n’apparaît qu’après avoir ouvert l’application depuis son icône et appuyé sur « Activer les notifications ».)</small></span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Notifications, tap God Nation" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s805620"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s805620)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#f2f4f8"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">Notifications</text><circle cx="26" cy="73" r="11" fill="#3b5bdb" opacity=".85"/><text x="46" y="77" font-size="11" fill="#111">Camera</text><text x="176" y="77" font-size="12" fill="#999">›</text><circle cx="26" cy="115" r="11" fill="#2f9e44" opacity=".85"/><text x="46" y="119" font-size="11" fill="#111">Messages</text><text x="176" y="119" font-size="12" fill="#999">›</text><rect x="6" y="138" width="184" height="38" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="157" r="11" fill="#f08c00" opacity=".85"/><text x="46" y="161" font-size="11" fill="#111">God Nation</text><text x="176" y="161" font-size="12" fill="#999">›</text><circle cx="26" cy="199" r="11" fill="#7048e8" opacity=".85"/><text x="46" y="203" font-size="11" fill="#111">Photos</text><text x="176" y="203" font-size="12" fill="#999">›</text><circle cx="26" cy="241" r="11" fill="#e03131" opacity=".85"/><text x="46" y="245" font-size="11" fill="#111">Safari</text><text x="176" y="245" font-size="12" fill="#999">›</text><text x="140" y="204" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">3</span><p><span class="en">Switch <b>“Allow Notifications”</b> <b>ON</b> (blue). Also switch on <b>Lock Screen</b> and <b>Banners</b>.</span><span class="fr" hidden>Activez <b>« Autoriser les notifications »</b> (bleu). Activez aussi l’<b>écran de verrouillage</b> et les <b>bannières</b>.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Turn Allow Notifications on" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s823623"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s823623)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#fff"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">God Nation</text><rect x="6" y="48" width="184" height="42" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><text x="16" y="74" font-size="10.5" fill="#111">Allow Notifications</text><rect x="138" y="60" width="40" height="22" rx="11" fill="#1c42c4"/><circle cx="168" cy="71" r="8" fill="#fff"/><text x="16" y="120" font-size="10.5" fill="#111">Lock Screen</text><rect x="138" y="106" width="40" height="22" rx="11" fill="#1c42c4"/><circle cx="168" cy="117" r="8" fill="#fff"/><text x="16" y="166" font-size="10.5" fill="#111">Banners</text><rect x="138" y="152" width="40" height="22" rx="11" fill="#1c42c4"/><circle cx="168" cy="163" r="8" fill="#fff"/><text x="100" y="118" font-size="26">👆</text></g></g></svg></div></div><div class="step"><div class="step-top"><span class="num">4</span><p><span class="en">Make sure <b>Do Not Disturb</b> and other <b>Focus</b> modes are <b>off</b>. They hide all notifications.</span><span class="fr" hidden>Vérifiez que <b>Ne pas déranger</b> et les autres modes de <b>concentration</b> sont <b>désactivés</b>. Ils cachent toutes les notifications.</span></p></div><div class="pic-wrap"><svg class="pic" viewBox="0 0 220 334" role="img" aria-label="Focus: Do Not Disturb off" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="4" width="212" height="326" rx="28" fill="#1c2333"/>
+<rect x="84" y="9" width="52" height="7" rx="3.5" fill="#3a4160"/>
+<defs><clipPath id="s413760"><rect x="12" y="22" width="196" height="300" rx="16"/></clipPath></defs>
+<g clip-path="url(#s413760)"><rect x="12" y="22" width="196" height="300" fill="#fff"/>
+<g transform="translate(12,22)"><rect width="196" height="300" fill="#f2f4f8"/><text x="14" y="30" font-size="14" font-weight="700" fill="#111">Focus</text><text x="14" y="46" font-size="8.5" fill="#777">Make sure none is switched on</text><rect x="6" y="54" width="184" height="38" rx="9" fill="#fff4f3" stroke="#e53935" stroke-width="3"/><circle cx="26" cy="73" r="11" fill="#3b5bdb" opacity=".85"/><text x="46" y="77" font-size="11" fill="#111">Do Not Disturb</text><text x="176" y="77" font-size="12" fill="#999">›</text><circle cx="26" cy="115" r="11" fill="#2f9e44" opacity=".85"/><text x="46" y="119" font-size="11" fill="#111">Sleep</text><text x="176" y="119" font-size="12" fill="#999">›</text><circle cx="26" cy="157" r="11" fill="#f08c00" opacity=".85"/><text x="46" y="161" font-size="11" fill="#111">Work</text><text x="176" y="161" font-size="12" fill="#999">›</text><text x="140" y="120" font-size="26">👆</text></g></g></svg></div></div></div>
+  <div class="box warn"><span class="en"><b>Remember:</b> on iPhone, notifications only work from the <b>God Nation icon on your screen</b>, never from Safari, and need <b>iOS 16.4 or newer</b>.</span><span class="fr" hidden><b>Rappel :</b> sur iPhone, les notifications ne marchent que depuis l’<b>icône God Nation de votre écran</b>, jamais depuis Safari, et demandent <b>iOS 16.4 ou plus récent</b>.</span></div>
+</section>
+<section class="os"><h2>✅ <span class="en">Test it</span><span class="fr" hidden>Testez</span></h2>
+  <div class="step"><p style="margin:0"><span class="en">Close the app. Ask a friend or a leader to write to you in the app. Your phone should show the message. If nothing comes, go through the 3 parts again, one by one.</span><span class="fr" hidden>Fermez l’application. Demandez à un ami ou à un responsable de vous écrire dans l’application. Votre téléphone doit afficher le message. Si rien ne vient, reprenez les 3 parties, une par une.</span></p></div>
+</section>
+
+<section class="faq">
+  <p class="help"><span class="en">Still stuck? Ask your leader, or write to <b>contact@thegodnationacademy.org</b>.</span><span class="fr" hidden>Toujours bloqué ? Demandez à votre responsable, ou écrivez à <b>contact@thegodnationacademy.org</b>.</span></p>
+  <div class="more">
+    <a href="/notifications-guide/"><span class="en">📱 Install the app and turn on notifications</span><span class="fr" hidden>📱 Installer l’application et activer les notifications</span></a>
+    <a href="/no-app-guide/"><span class="en">📌 I cannot install the app</span><span class="fr" hidden>📌 Je ne peux pas installer l’application</span></a>
+    <a href="/phone-settings-guide/"><span class="en">🔔 Phone notification settings</span><span class="fr" hidden>🔔 Réglages de notifications du téléphone</span></a>
+  </div>
+  <a class="back" href="/">← <span class="en">Back to The God Nation</span><span class="fr" hidden>Retour à The God Nation</span></a>
+</section>
+</div>
+<script>
+  function setLang(lang) {
+    document.querySelectorAll('.en').forEach(function (el) { el.hidden = lang !== 'en'; });
+    document.querySelectorAll('.fr').forEach(function (el) { el.hidden = lang !== 'fr'; });
+    document.querySelectorAll('.lang-btn').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.lang === lang)); });
+    document.documentElement.lang = lang;
+    try { localStorage.setItem('notificationsGuideLang', lang); } catch (e) {}
+  }
+  (function () {
+    var saved = null;
+    try { saved = new URLSearchParams(location.search).get('lang') || localStorage.getItem('notificationsGuideLang'); } catch (e) {}
+    if (!saved) saved = (navigator.language || 'en').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en';
+    setLang(saved === 'fr' ? 'fr' : 'en');
+  })();
+</script>
+</body>
+</html>

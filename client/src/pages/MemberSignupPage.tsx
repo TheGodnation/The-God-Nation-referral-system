@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
 import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 import { CodeEntry } from '../components/member/CodeEntry';
@@ -14,6 +15,14 @@ import { useEmailTypoCheck } from '../components/EmailTypoHint';
 // link/code — from then on they sign back in with this password; a code is
 // never sent again just to sign in.
 export function MemberSignupPage() {
+  return (
+    <ContinueIfSignedIn>
+      <MemberSignupPageInner />
+    </ContinueIfSignedIn>
+  );
+}
+
+function MemberSignupPageInner() {
   const { t, i18n } = useTranslation();
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');

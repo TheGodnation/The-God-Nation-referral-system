@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
 import { PasswordInput } from '../components/PasswordInput';
 import { CodeEntry } from '../components/member/CodeEntry';
 import { api, ApiError } from '../lib/api';
@@ -15,6 +16,14 @@ import { useEmailTypoCheck } from '../components/EmailTypoHint';
 // that link, never only when the password attempt fails, so offering it is
 // never itself a sign of anything.
 export function MemberLoginPage() {
+  return (
+    <ContinueIfSignedIn>
+      <MemberLoginPageInner />
+    </ContinueIfSignedIn>
+  );
+}
+
+function MemberLoginPageInner() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { refresh } = useMemberAuth();
