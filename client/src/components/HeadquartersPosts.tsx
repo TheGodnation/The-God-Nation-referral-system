@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
 import { formatBytes } from '../lib/attachmentLimits';
 import { HeadquartersFeedCard } from './HeadquartersFeedCard';
+import { SocialEmbed } from './updates/SocialEmbed';
 import { VoiceInputButton } from './VoiceInputButton';
 import { Avatar } from './Avatar';
 import { RichText } from '../lib/richText';
@@ -36,6 +37,8 @@ interface HeadquartersPostRow {
   media: HeadquartersPostMediaInfo[];
   // Section 15: null means the plain institutional "Central Authority" voice.
   author: HeadquartersPostAuthor | null;
+  voice?: 'CENTRAL_AUTHORITY' | 'COMMUNICATION_DEPARTMENT';
+  embed?: import('./updates/SocialEmbed').SocialEmbedInfo | null;
 }
 
 interface CommentRow {
@@ -280,6 +283,11 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
             <h2 className="mb-1 font-semibold text-brand-900">{isFr ? detail.titleFr || detail.titleEn : detail.titleEn}</h2>
             <p className="mb-3 text-xs text-slate-400">{new Date(detail.publishedAt).toLocaleDateString()}</p>
             <RichText className="whitespace-pre-wrap text-sm text-slate-700" text={isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn} headings />
+            {detail.embed && (
+              <div className="mb-3 mt-2">
+                <SocialEmbed embed={detail.embed} />
+              </div>
+            )}
 
             {detail.media.length > 0 && (
               <div className="mt-4 space-y-3">
@@ -396,7 +404,7 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
       {!error && (
         <ul className="space-y-2">
           {items.map((i) => {
-            const title = isFr ? i.titleFr || i.titleEn : i.titleEn;
+            const title = (isFr ? i.titleFr || i.titleEn : i.titleEn) || i.bodyEn.split('\n')[0]?.slice(0, 80) || t('headquartersPosts.shared_post');
             return (
               <li key={i.id} className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 text-sm">
                 <div>

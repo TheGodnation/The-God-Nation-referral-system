@@ -43,7 +43,7 @@
 const GUIDE_PREFIXES = ['/leader-guide/', '/notifications-guide/', '/phone-settings-guide/', '/no-app-guide/'];
 const isGuidePath = (p) => GUIDE_PREFIXES.some((g) => p.startsWith(g));
 
-const CACHE_VERSION = 'god-nation-v5';
+const CACHE_VERSION = 'god-nation-v6';
 // The app's start page for offline launches, kept apart from the asset
 // cache (and never deleted by a cache-version bump of the assets).
 const SHELL_CACHE = 'god-nation-shell-v1';
@@ -60,7 +60,7 @@ self.addEventListener('activate', (event) => {
       try {
         const keys = await caches.keys();
         await Promise.all(
-          keys.filter((key) => key !== CACHE_VERSION && key !== SHELL_CACHE).map((key) => caches.delete(key)),
+          keys.filter((key) => key !== CACHE_VERSION && key !== SHELL_CACHE && key !== SHARE_CACHE).map((key) => caches.delete(key)),
         );
       } catch {
         // Non-fatal — worst case an old cache lingers until it's cleaned up
@@ -71,8 +71,63 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Share-into-app (v5): when something is shared to this app from the
+// phone's Share menu (WhatsApp, TikTok, Facebook, Instagram…), the phone
+// POSTs it to /share-target. We keep the shared text and files on this
+// phone for a moment, then open the Share screen (/share), which reads them
+// and lets an allowed leader post them. Nothing is uploaded until they tap
+// Post. If anything here fails, the Share screen still opens.
+const SHARE_CACHE = 'god-nation-share-v1';
+const SHARE_META_KEY = '/__share/meta';
+const SHARE_FILE_PREFIX = '/__share/file/';
+
+async function handleShareTarget(request) {
+  try {
+    const form = await request.formData();
+    const cache = await caches.open(SHARE_CACHE);
+    // Clear anything left from an earlier share.
+    const old = await cache.keys();
+    await Promise.all(old.map((k) => cache.delete(k)));
+
+    const files = form.getAll('files').filter((f) => f && typeof f === 'object' && 'size' in f);
+    const fileInfo = [];
+    for (let i = 0; i < files.length && i < 10; i += 1) {
+      const f = files[i];
+      const key = `${SHARE_FILE_PREFIX}${i}`;
+      await cache.put(
+        key,
+        new Response(f, { headers: { 'Content-Type': f.type || 'application/octet-stream', 'Content-Length': String(f.size) } }),
+      );
+      fileInfo.push({ key, name: f.name || `file-${i + 1}`, type: f.type || '', size: f.size });
+    }
+    const meta = {
+      title: String(form.get('title') || ''),
+      text: String(form.get('text') || ''),
+      url: String(form.get('url') || ''),
+      files: fileInfo,
+      at: Date.now(),
+    };
+    await cache.put(SHARE_META_KEY, new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } }));
+    return Response.redirect('/share', 303);
+  } catch {
+    return Response.redirect('/share?missed=1', 303);
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+
+  if (request.method === 'POST') {
+    try {
+      const u = new URL(request.url);
+      if (u.origin === self.location.origin && u.pathname === '/share-target') {
+        event.respondWith(handleShareTarget(request));
+      }
+    } catch {
+      // Not ours — let it go to the network as normal.
+    }
+    return;
+  }
 
   if (request.method !== 'GET') return;
 

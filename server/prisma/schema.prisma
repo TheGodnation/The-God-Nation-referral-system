@@ -693,6 +693,10 @@ model ContactMessage {
 model Person {
   id                  String              @id @default(uuid())
   name                String
+  // Share-into-app: a Leader allowed to forward posts in from WhatsApp,
+  // TikTok, Facebook, Instagram. Off for everyone by default; the Central
+  // Admin can always share and never needs this.
+  canShareIntoApp     Boolean             @default(false)
   whatsappNumber      String              @unique
   email               String?
   preferredLanguage   Language            @default(en)
@@ -2033,6 +2037,15 @@ model HeadquartersPost {
   // its comment. Draft-only editable; never affects pinning/prominence/
   // eligibility.
   authorPersonId  String?
+  // Share-into-app: which official name the post shows (the plain
+  // Headquarters voice, or the God's Nation Communication Department page).
+  // The real person who shared it is still createdByUserId, kept private.
+  voice           HeadquartersPostVoice @default(CENTRAL_AUTHORITY)
+  // A TikTok / Instagram / Facebook / YouTube link shown as a player right
+  // in the feed (see lib/socialEmbed.ts). Only ever a link we parsed and
+  // normalized ourselves; the embed address is rebuilt from it on read.
+  linkUrl         String?
+  linkProvider    SocialLinkProvider?
   createdAt       DateTime  @default(now())
   publishedAt     DateTime?
   archivedAt      DateTime?
@@ -2054,6 +2067,19 @@ model HeadquartersPost {
 // phase (unlike AnnouncementTarget, which also supports a Geography
 // target). See HeadquartersPost's own comment above for exact-match vs
 // descendant-aware semantics.
+enum HeadquartersPostVoice {
+  CENTRAL_AUTHORITY
+  COMMUNICATION_DEPARTMENT
+}
+
+enum SocialLinkProvider {
+  YOUTUBE
+  TIKTOK
+  INSTAGRAM
+  FACEBOOK
+  OTHER
+}
+
 model HeadquartersPostTarget {
   id                 String   @id @default(uuid())
   headquartersPostId String

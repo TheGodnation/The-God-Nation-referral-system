@@ -22,6 +22,7 @@ import {
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, headObject } from '../lib/storage';
 import { resolveAuthorPersonId, AuthorToggleError } from '../lib/authorToggle';
+import { embedFor, type SocialProvider } from '../lib/socialEmbed';
 
 const router = Router();
 
@@ -64,6 +65,9 @@ function toAdminResponse(p: {
   archivedAt: Date | null;
   createdBy: { id: string; email: string };
   authorPersonId: string | null;
+  voice?: string;
+  linkUrl?: string | null;
+  linkProvider?: string | null;
   targets: { id: string; communityId: string; community: { id: string; name: string } }[];
   _count: { comments: number; reactions: number };
   media: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[];
@@ -84,6 +88,8 @@ function toAdminResponse(p: {
     commentCount: p._count.comments,
     reactionCount: p._count.reactions,
     media: toMediaResponse(p.media),
+    voice: p.voice ?? 'CENTRAL_AUTHORITY',
+    embed: embedFor((p.linkProvider ?? null) as SocialProvider | null, p.linkUrl ?? null),
   };
 }
 

@@ -20,6 +20,7 @@ import { MemberAuthProvider } from './lib/MemberAuthContext';
 // visitor on a slow connection never downloads code for pages they'll
 // never see.
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
+const SharePage = lazy(() => import('./pages/SharePage').then((m) => ({ default: m.SharePage })));
 const LeaderDashboardPage = lazy(() =>
   import('./pages/LeaderDashboardPage').then((m) => ({ default: m.LeaderDashboardPage })),
 );
@@ -106,6 +107,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/join" element={<JoinPage />} />
+            {/* Share-into-app: opened from the phone's Share menu (see public/sw.js). */}
+            <Route path="/share" element={<SharePage />} />
             <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/login" element={<LoginPage />} />
