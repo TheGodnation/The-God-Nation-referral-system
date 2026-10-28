@@ -54,7 +54,7 @@ export interface ChatTeaching {
   myState: 'NEW' | 'STARTED' | 'FINISHED' | 'PASSED' | 'FAILED';
   myPercentage: number | null;
   /** How the whole assembly is doing (the author is not counted). */
-  totals?: { members: number; finished: number; taken: number; passed: number } | null;
+  totals?: { members: number; finished: number; taken: number; passed: number; top: { name: string; percentage: number; passed: boolean }[] } | null;
 }
 
 export interface ChatMessage {

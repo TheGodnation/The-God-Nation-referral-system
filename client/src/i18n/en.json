@@ -2832,6 +2832,7 @@
     "pending_more": "Show {{count}} more",
     "pending_less": "Show fewer",
     "card_totals": "{{finished}} of {{members}} finished",
+    "card_more": "…and {{count}} more — open to see everyone",
     "card_totals_quiz": "{{passed}} of {{taken}} passed the quiz",
     "back_to_teaching_soon": "Taking you back to the teaching, where you can see who has finished…",
     "back_now": "Go now",

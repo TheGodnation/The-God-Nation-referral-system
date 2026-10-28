@@ -132,7 +132,11 @@ export interface CardTotals {
   finished: number;
   taken: number;
   passed: number;
+  /** The best first-try scores (highest first), for the card. */
+  top: { name: string; percentage: number; passed: boolean }[];
 }
+
+const CARD_TOP_SHOWN = 5;
 
 /** The assembly-wide numbers on each teaching's card (the author is never counted; only a person's first try). */
 export async function cardTotalsFor(teachings: { id: string; communityId: string; assessmentId: string; authorPersonId: string | null }[]) {
@@ -146,7 +150,7 @@ export async function cardTotalsFor(teachings: { id: string; communityId: string
     prisma.attempt.findMany({
       where: { status: 'SUBMITTED', assessmentId: { in: teachings.map((t) => t.assessmentId) } },
       orderBy: { attemptNumber: 'asc' },
-      select: { assessmentId: true, personId: true, passed: true },
+      select: { assessmentId: true, personId: true, passed: true, percentage: true, person: { select: { name: true } } },
     }),
     Promise.all(
       teachings.map((t) =>
@@ -157,13 +161,18 @@ export async function cardTotalsFor(teachings: { id: string; communityId: string
     ),
   ]);
   for (const t of teachings) {
-    const firstTry = new Map<string, boolean>();
-    for (const a of attempts) if (a.assessmentId === t.assessmentId && a.personId !== t.authorPersonId && !firstTry.has(a.personId)) firstTry.set(a.personId, Boolean(a.passed));
+    const firstTry = new Map<string, (typeof attempts)[number]>();
+    for (const a of attempts) if (a.assessmentId === t.assessmentId && a.personId !== t.authorPersonId && !firstTry.has(a.personId)) firstTry.set(a.personId, a);
     result.set(t.id, {
       members: members[teachings.indexOf(t)],
       finished: progress.filter((p) => p.teachingId === t.id && p.personId !== t.authorPersonId).length,
       taken: firstTry.size,
-      passed: [...firstTry.values()].filter(Boolean).length,
+      passed: [...firstTry.values()].filter((a) => a.passed).length,
+      top: [...firstTry.values()]
+        .filter((a) => a.percentage !== null)
+        .sort((x, y) => y.percentage! - x.percentage! || x.person.name.localeCompare(y.person.name))
+        .slice(0, CARD_TOP_SHOWN)
+        .map((a) => ({ name: a.person.name, percentage: Math.round(a.percentage!), passed: Boolean(a.passed) })),
     });
   }
   return result;

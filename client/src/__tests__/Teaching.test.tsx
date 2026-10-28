@@ -117,10 +117,13 @@ describe('The teaching card in the chat', () => {
     expect(screen.queryByTestId('teaching-card-totals')).not.toBeInTheDocument();
     rerender(
       <MemoryRouter>
-        <TeachingCard teaching={{ ...base, myState: 'NEW', totals: { members: 40, finished: 12, taken: 9, passed: 8 } }} />
+        <TeachingCard teaching={{ ...base, myState: 'NEW', totals: { members: 40, finished: 12, taken: 9, passed: 8, top: [{ name: 'Ann Fon', percentage: 100, passed: true }, { name: 'Mary', percentage: 40, passed: false }] } }} />
       </MemoryRouter>,
     );
     expect(screen.getByTestId('teaching-card-totals')).toHaveTextContent('12 of 40 finished · 8 of 9 passed the quiz');
+    expect(screen.getByTestId('teaching-card-top')).toHaveTextContent('1. Ann Fon100%');
+    expect(screen.getByTestId('teaching-card-top')).toHaveTextContent('2. Mary40%');
+    expect(screen.getByTestId('teaching-card-top')).toHaveTextContent('…and 7 more — open to see everyone');
   });
 });
 

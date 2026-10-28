@@ -42,6 +42,21 @@ export function TeachingCard({ teaching }: { teaching: ChatTeaching }) {
           {teaching.totals.taken > 0 && ` · ${t('teaching.card_totals_quiz', { passed: teaching.totals.passed, taken: teaching.totals.taken })}`}
         </p>
       )}
+      {teaching.totals && teaching.totals.top.length > 0 && (
+        <ol className="mt-1.5 space-y-0.5 text-xs text-slate-700" data-testid="teaching-card-top">
+          {teaching.totals.top.map((p, i) => (
+            <li key={`${p.name}-${i}`} className="flex justify-between gap-3">
+              <span className="min-w-0 truncate">
+                {i + 1}. {p.name}
+              </span>
+              <span className={`shrink-0 font-semibold ${p.passed ? 'text-green-700' : 'text-amber-700'}`}>{p.percentage}%</span>
+            </li>
+          ))}
+          {teaching.totals.taken > teaching.totals.top.length && (
+            <li className="text-slate-500">{t('teaching.card_more', { count: teaching.totals.taken - teaching.totals.top.length })}</li>
+          )}
+        </ol>
+      )}
       <p className="mt-2 text-sm font-semibold text-emerald-700">{t('teaching.open')} →</p>
     </Link>
   );
