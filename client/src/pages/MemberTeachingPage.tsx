@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { TranslationNote } from '../components/TranslationNote';
 import { PdfViewer } from '../components/chat/PdfViewer';
 import { TeachingResults } from '../components/teaching/TeachingResults';
 import { api } from '../lib/api';
@@ -18,6 +19,10 @@ interface TeachingDetail {
   id: string;
   title: string;
   text: string | null;
+  // Auto-translation: the title/text in the language they were NOT written in.
+  detectedLanguage: 'en' | 'fr' | null;
+  titleTranslated: string | null;
+  textTranslated: string | null;
   communityId: string;
   communityName: string;
   messageId: string;
@@ -119,6 +124,7 @@ export function MemberTeachingPage() {
   const openedAt = useRef(Date.now());
   const endRef = useRef<HTMLDivElement>(null);
   const [endSeen, setEndSeen] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
   const sentText = useRef(false);
 
   const post = useCallback(
@@ -233,6 +239,11 @@ export function MemberTeachingPage() {
   }
 
   const hasText = Boolean(teaching.text);
+  // A member reads it in their own language when it was written in the other one.
+  const hasTranslation = Boolean(teaching.detectedLanguage && teaching.titleTranslated && teaching.detectedLanguage !== (i18n.language.startsWith('fr') ? 'fr' : 'en'));
+  const translated = hasTranslation && !showOriginal;
+  const displayTitle = translated ? teaching.titleTranslated! : teaching.title;
+  const displayText = translated && teaching.textTranslated ? teaching.textTranslated : teaching.text;
   const kind = teaching.mediaKind;
   const mediaLabel = kind === 'AUDIO' ? t('teaching.step_listen') : kind === 'VIDEO' ? t('teaching.step_watch') : t('teaching.step_pdf');
   const closes = new Date(teaching.closesAt).toLocaleDateString(i18n.language.startsWith('fr') ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long' });
@@ -247,7 +258,10 @@ export function MemberTeachingPage() {
 
         <header>
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">📖 {t('teaching.label')}</p>
-          <h1 className="mt-1 break-words text-2xl font-bold text-brand-900">{teaching.title}</h1>
+          <h1 className="mt-1 break-words text-2xl font-bold text-brand-900">{displayTitle}</h1>
+          {hasTranslation && (
+            <TranslationNote sourceLanguage={teaching.detectedLanguage!} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />
+          )}
           <p className="mt-1 text-xs text-slate-500">
             {teaching.authorName ? `${teaching.authorName} · ` : ''}
             {t('teaching.quiz_until', { date: closes })}
@@ -272,7 +286,7 @@ export function MemberTeachingPage() {
 
         {hasText && (
           <article className="rounded-xl bg-white p-4 shadow-sm">
-            <RichText className="whitespace-pre-wrap break-words text-[17px] leading-relaxed text-slate-900" data-testid="teaching-text" text={teaching.text} headings />
+            <RichText className="whitespace-pre-wrap break-words text-[17px] leading-relaxed text-slate-900" data-testid="teaching-text" text={displayText} headings />
             <div ref={endRef} className="mt-4 h-1" data-testid="teaching-end" />
             {me.textRead ? (
               <p className="mt-2 text-sm font-medium text-green-700">✓ {t('teaching.text_counted')}</p>

@@ -22,6 +22,7 @@ import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { getObjectStream, headObject, isStorageConfigured } from '../lib/storage';
 import { pushToPersons } from '../lib/push';
 import { recordAudit } from '../lib/audit';
+import { translateAndStoreTeaching } from '../lib/translation';
 import { draftQuizQuestions, isQuizDraftingAvailable } from '../lib/teachingQuiz';
 import {
   DEFAULT_OPEN_DAYS,
@@ -167,6 +168,9 @@ router.post('/', teachingPostLimiter, requireCsrf, asyncHandler(async (req, res)
 
   await recordAudit({ action: 'TEACHING_POSTED', targetType: 'Teaching', targetId: teaching.id, metadata: { communityId: d.communityId, questions: d.questions.length } });
 
+  // English <-> French, in the background; members see it as soon as it lands.
+  void translateAndStoreTeaching(teaching.id).catch(() => {});
+
   // Everyone else in the assembly hears about it, even with the app closed.
   void (async () => {
     const [community, recipients] = await Promise.all([
@@ -298,6 +302,9 @@ router.get('/:id', asyncHandler(async (req, res) => {
     id: teaching.id,
     title: teaching.title,
     text: teaching.text,
+    detectedLanguage: teaching.detectedLanguage,
+    titleTranslated: teaching.titleTranslated,
+    textTranslated: teaching.textTranslated,
     communityId: teaching.communityId,
     communityName: teaching.community.name,
     messageId: teaching.messageId,

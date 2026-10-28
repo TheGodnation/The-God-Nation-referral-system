@@ -2,8 +2,8 @@ import type { Language, TranslationRetryKind } from '@prisma/client';
 import { prisma } from './prisma';
 import { getObjectStream } from './storage';
 
-// Auto-translation (Gemini) — text translation on Updates posts and
-// Community group-chat messages, and voice-note transcription+translation in
+// Auto-translation (Gemini) — text translation on Updates posts, teachings
+// (title, text and quiz) and Community group-chat messages, and voice-note transcription+translation in
 // group chat. Never PrivateMessage, never Prayer Requests — those features
 // never call into this file at all, which is what actually keeps that
 // content from ever being sent to Gemini (not a flag or a check here).
@@ -197,6 +197,73 @@ export async function translateText(text: string, opts: GeminiCallOptions = {}):
   return { detectedLanguage: result.detectedLanguage, translatedBody: result.translated };
 }
 
+const teachingSchema = {
+  type: 'object',
+  properties: {
+    detectedLanguage: { type: 'string', enum: ['en', 'fr'] },
+    title: { type: 'string' },
+    text: { type: 'string' },
+    questions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { text: { type: 'string' }, options: { type: 'array', items: { type: 'string' } } },
+        required: ['text', 'options'],
+      },
+    },
+  },
+  required: ['detectedLanguage', 'title', 'text', 'questions'],
+};
+
+export interface TeachingTranslationInput {
+  title: string;
+  text: string | null;
+  questions: { text: string; options: string[] }[];
+}
+
+export interface TeachingTranslationResult {
+  detectedLanguage: Language;
+  title: string;
+  text: string | null;
+  questions: { text: string; options: string[] }[];
+}
+
+/**
+ * Detects whether a teaching is written in English or French and translates
+ * its title, text and quiz into the other one — a single Gemini call so the
+ * whole teaching costs one request. Returns null on any failure, or when the
+ * answer doesn't line up with what was sent (a wrong count of questions or
+ * answers would put the wrong words on the wrong answer).
+ */
+export async function translateTeaching(input: TeachingTranslationInput, opts: GeminiCallOptions = {}): Promise<TeachingTranslationResult | null> {
+  const payload = JSON.stringify({ title: input.title, text: input.text ?? '', questions: input.questions });
+  const prompt =
+    'Below is a teaching from a church community, as JSON: a title, a written text (may be empty) and quiz ' +
+    'questions each with their answer choices. Detect whether it is written in English or French, then ' +
+    'translate everything into the other of those two languages. Keep the meaning, tone and any Bible ' +
+    'references natural (use the usual book names of the target language). The text may use formatting ' +
+    'symbols: *bold*, _italic_, ~strikethrough~, and lines starting with "- ", "1. ", "> " or "# ". Keep every ' +
+    'symbol exactly where it belongs around the translated words, keep line breaks, and never translate or ' +
+    'change web addresses. Return the same structure: the same number of questions, in the same order, ' +
+    'each with the same number of answer choices in the same order. Empty text stays empty. Reply with ' +
+    'the translation only, no commentary.\n\nTeaching:\n"""' +
+    payload +
+    '"""';
+  const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], teachingSchema, { timeoutMs: textTimeoutMs(payload), ...opts });
+  if (!result || !isLanguage(result.detectedLanguage) || typeof result.title !== 'string' || typeof result.text !== 'string') return null;
+  const questions: unknown = result.questions;
+  if (!Array.isArray(questions) || questions.length !== input.questions.length) return null;
+  const out: { text: string; options: string[] }[] = [];
+  for (let i = 0; i < questions.length; i++) {
+    const q: any = questions[i];
+    if (!q || typeof q.text !== 'string' || !Array.isArray(q.options) || q.options.length !== input.questions[i].options.length) return null;
+    if (!q.options.every((o: unknown) => typeof o === 'string')) return null;
+    out.push({ text: q.text, options: q.options });
+  }
+  if (!result.title.trim()) return null;
+  return { detectedLanguage: result.detectedLanguage, title: result.title, text: input.text?.trim() ? result.text : null, questions: out };
+}
+
 const audioSchema = {
   type: 'object',
   properties: {
@@ -320,6 +387,60 @@ export async function attemptMessageTranslation(messageId: string, body: string,
   );
 }
 
+/**
+ * One try at translating a teaching: its title and text, plus every quiz
+ * question or answer that doesn't have its other-language version yet. The
+ * quiz columns are textEn/textFr: if the teaching is in French, what the
+ * author typed (stored in textEn) moves to textFr and the English goes in
+ * textEn, so members of either language read the quiz in their own.
+ */
+export async function attemptTeachingTranslation(teachingId: string, opts: GeminiCallOptions = {}): Promise<TranslationOutcome> {
+  if (!isTranslationConfigured()) return 'skip';
+  const teaching = await prisma.teaching.findUnique({
+    where: { id: teachingId },
+    include: {
+      assessment: {
+        select: {
+          questions: {
+            orderBy: { order: 'asc' },
+            select: { id: true, textEn: true, textFr: true, options: { orderBy: { order: 'asc' }, select: { id: true, textEn: true, textFr: true } } },
+          },
+        },
+      },
+    },
+  });
+  if (!teaching || teaching.translatedAt) return 'skip';
+  const questions = teaching.assessment.questions;
+  const result = await translateTeaching(
+    { title: teaching.title, text: teaching.text, questions: questions.map((q) => ({ text: q.textEn, options: q.options.map((o) => o.textEn) })) },
+    opts,
+  );
+  if (!result) return 'retry';
+  // Each quiz text is filled once; one the author already wrote in both
+  // languages is left exactly as written.
+  const french = result.detectedLanguage === 'fr';
+  const fill = (written: string, other: string) => (french ? { textEn: other, textFr: written } : { textFr: other });
+  return storeOutcome(
+    prisma.$transaction([
+      prisma.teaching.update({
+        where: { id: teachingId },
+        data: { detectedLanguage: result.detectedLanguage, titleTranslated: result.title, textTranslated: result.text, translatedAt: new Date() },
+      }),
+      // The chat card shows the title as the message's own text.
+      prisma.message.updateMany({
+        where: { id: teaching.messageId, translatedAt: null },
+        data: { detectedLanguage: result.detectedLanguage, translatedBody: result.title, translatedAt: new Date() },
+      }),
+      ...questions.flatMap((q, qi) => [
+        ...(q.textFr === null ? [prisma.question.update({ where: { id: q.id }, data: fill(q.textEn, result.questions[qi].text) })] : []),
+        ...q.options.flatMap((o, oi) =>
+          o.textFr === null ? [prisma.option.update({ where: { id: o.id }, data: fill(o.textEn, result.questions[qi].options[oi]) })] : [],
+        ),
+      ]),
+    ]),
+  );
+}
+
 async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) {
@@ -381,6 +502,10 @@ export async function attemptMessageAudioTranscription(
 
 export async function translateAndStoreUpdatePost(postId: string, body: string): Promise<void> {
   if ((await attemptUpdatePostTranslation(postId, body)) === 'retry') await scheduleTranslationRetry('UPDATE_POST', postId);
+}
+
+export async function translateAndStoreTeaching(teachingId: string): Promise<void> {
+  if ((await attemptTeachingTranslation(teachingId)) === 'retry') await scheduleTranslationRetry('TEACHING', teachingId);
 }
 
 export async function translateAndStoreMessage(messageId: string, body: string): Promise<void> {

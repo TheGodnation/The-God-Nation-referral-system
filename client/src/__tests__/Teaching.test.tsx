@@ -139,6 +139,28 @@ describe('The teaching page', () => {
     expect(calls.some((c) => c.method === 'POST' && c.url === '/api/teachings/t1/progress' && JSON.stringify(c.body) === '{}')).toBe(true);
   });
 
+  it('shows a French member the French translation of an English teaching, with a way back to the original', async () => {
+    const { default: i18n } = await import('../i18n');
+    await i18n.changeLanguage('fr');
+    try {
+      renderPage(detail({ detectedLanguage: 'en', titleTranslated: 'Marcher dans l’amour', textTranslated: 'Aimez-vous les uns les autres.' }));
+      expect(await screen.findByText('Marcher dans l’amour')).toBeInTheDocument();
+      expect(screen.getByTestId('teaching-text')).toHaveTextContent('Aimez-vous les uns les autres.');
+      fireEvent.click(screen.getByRole('button', { name: /original/i }));
+      expect(screen.getByText('Walking in love')).toBeInTheDocument();
+      expect(screen.getByTestId('teaching-text')).toHaveTextContent('Love one another as I have loved you.');
+    } finally {
+      await i18n.changeLanguage('en');
+    }
+  });
+
+  it('shows an English member the original English, with no translation note', async () => {
+    renderPage(detail({ detectedLanguage: 'en', titleTranslated: 'Marcher dans l’amour', textTranslated: 'Aimez-vous les uns les autres.' }));
+    expect(await screen.findByText('Walking in love')).toBeInTheDocument();
+    expect(screen.queryByText('Marcher dans l’amour')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /original/i })).not.toBeInTheDocument();
+  });
+
   it('reports the text as read once the end was reached, then the quiz opens', async () => {
     const done = { textRead: true, mediaFraction: 0, mediaDone: false, completed: true };
     const open = { assessmentId: 'a1', passMark: 70, questionCount: 5, state: 'AVAILABLE', percentage: null, passed: null };

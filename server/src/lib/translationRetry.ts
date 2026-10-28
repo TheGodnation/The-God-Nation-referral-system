@@ -3,6 +3,7 @@ import { prisma } from './prisma';
 import {
   attemptMessageAudioTranscription,
   attemptMessageTranslation,
+  attemptTeachingTranslation,
   attemptUpdatePostTranslation,
   isTranslationConfigured,
   type TranslationOutcome,
@@ -31,6 +32,7 @@ async function runOne(job: TranslationRetry): Promise<TranslationOutcome> {
     if (!post || post.deletedAt || post.translatedAt) return 'skip';
     return attemptUpdatePostTranslation(post.id, post.body, { attempts: 1 });
   }
+  if (job.kind === 'TEACHING') return attemptTeachingTranslation(job.targetId, { attempts: 1 });
   const message = await prisma.message.findUnique({
     where: { id: job.targetId },
     include: { attachments: { select: { storageKey: true, mimeType: true } } },

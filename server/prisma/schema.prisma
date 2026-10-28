@@ -2425,6 +2425,7 @@ enum TranslationRetryKind {
   MESSAGE_TEXT
   MESSAGE_AUDIO
   UPDATE_POST
+  TEACHING
 }
 
 // A translation (or voice-note transcription) whose first attempt failed,
@@ -3088,6 +3089,13 @@ model Teaching {
   closesAt       DateTime
   lastRemindedAt DateTime?
   createdAt      DateTime  @default(now())
+  // Auto-translation (lib/translation.ts): the title and text in whichever
+  // of English/French they were NOT written in. The quiz is translated into
+  // the questions' own textEn/textFr columns.
+  detectedLanguage Language?
+  titleTranslated  String?
+  textTranslated   String?
+  translatedAt     DateTime?
 
   community  Community          @relation(fields: [communityId], references: [id], onDelete: Cascade)
   message    Message            @relation(fields: [messageId], references: [id], onDelete: Cascade)
