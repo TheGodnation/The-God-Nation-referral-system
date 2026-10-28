@@ -22,6 +22,7 @@ import {
 import { REACTION_TYPES } from '../lib/updates';
 import { createDownloadUrl, isStorageConfigured } from '../lib/storage';
 import { getAuthorDisplay, getAuthorDisplaysByIds, type AuthorDisplay } from '../lib/authorToggle';
+import { embedFor, type SocialProvider } from '../lib/socialEmbed';
 
 declare global {
   namespace Express {
@@ -81,6 +82,9 @@ function toRecipientResponse(
     bodyFr: string | null;
     publishedAt: Date | null;
     networkWide: boolean;
+    voice?: string;
+    linkUrl?: string | null;
+    linkProvider?: string | null;
     media?: { id: string; originalFilename: string; mimeType: string; byteSize: number; mediaType: string }[];
   },
   engagement: HeadquartersEngagement,
@@ -102,6 +106,10 @@ function toRecipientResponse(
     media: toMediaResponse(p.media ?? []),
     // Section 15: null means the plain institutional "Central Authority" voice.
     author,
+    // Share-into-app: which official name to show, and a TikTok/Instagram/
+    // Facebook/YouTube player (its address rebuilt here, never stored).
+    voice: p.voice ?? 'CENTRAL_AUTHORITY',
+    embed: embedFor((p.linkProvider ?? null) as SocialProvider | null, p.linkUrl ?? null),
   };
 }
 

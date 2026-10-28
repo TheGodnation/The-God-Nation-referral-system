@@ -8,6 +8,7 @@ import { formatBytes } from '../lib/attachmentLimits';
 import { VoiceInputButton } from './VoiceInputButton';
 import { RichText } from '../lib/richText';
 import { REACTIONS } from './updates/UpdatesFeed';
+import { SocialEmbed, type SocialEmbedInfo } from './updates/SocialEmbed';
 
 export interface HeadquartersFeedMedia {
   id: string;
@@ -31,6 +32,10 @@ export interface HeadquartersFeedItem {
   reactionCounts?: Record<string, number>;
   myReaction?: string | null;
   media: HeadquartersFeedMedia[];
+  /** Which official name it shows (share-into-app). */
+  voice?: 'CENTRAL_AUTHORITY' | 'COMMUNICATION_DEPARTMENT';
+  /** A shared TikTok / Instagram / Facebook / YouTube post to play in the feed. */
+  embed?: SocialEmbedInfo | null;
 }
 
 export interface HeadquartersReactionResult {
@@ -182,13 +187,13 @@ export function HeadquartersFeedCard({
   return (
     <article
       className="overflow-hidden border-t-4 border-amber-400 bg-white shadow-sm sm:rounded-xl"
-      aria-label={t('headquartersPosts.post_label', { title }) ?? ''}
+      aria-label={t('headquartersPosts.post_label', { title: title || t('headquartersPosts.hq_name') }) ?? ''}
     >
       <header className="flex items-center gap-3 px-4 pt-3">
         <img src="/icons/icon-192.png" alt="" className="h-11 w-11 rounded-full border border-slate-200 bg-white object-contain p-0.5" />
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1 truncate font-semibold text-slate-900">
-            {t('headquartersPosts.hq_name')}
+            {item.voice === 'COMMUNICATION_DEPARTMENT' ? t('headquartersPosts.comm_dept_name') : t('headquartersPosts.hq_name')}
             <span className="rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white" aria-label={t('headquartersPosts.official') ?? ''}>
               ✓
             </span>
@@ -200,7 +205,7 @@ export function HeadquartersFeedCard({
       </header>
 
       <div className="px-4 pt-3">
-        <h3 className="text-lg font-bold leading-snug text-brand-900">{title}</h3>
+        {title && <h3 className="text-lg font-bold leading-snug text-brand-900">{title}</h3>}
         {body && (
           <RichText className={`mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-800 ${expanded ? '' : firstMedia?.mediaType === 'IMAGE' ? 'line-clamp-2' : 'line-clamp-3'}`} text={body} headings />
         )}
@@ -208,6 +213,12 @@ export function HeadquartersFeedCard({
           {t(expanded ? 'headquartersPosts.read_less' : 'headquartersPosts.read_more')}
         </button>
       </div>
+
+      {item.embed && (
+        <div className="mt-3 px-4">
+          <SocialEmbed embed={item.embed} />
+        </div>
+      )}
 
       {!expanded && firstMedia?.mediaType === 'IMAGE' && (
         <div className="mt-3">
