@@ -69,6 +69,28 @@ describe('NotificationBell — notification display', () => {
     expect(screen.getByText('You are now a Leader for Youth Ministry')).toBeInTheDocument();
   });
 
+  it('tells a reporter what the reviewers found, with the note', async () => {
+    mockFetchByUrl({
+      '/api/notifications/unread-count': { status: 200, body: { unreadCount: 3 } },
+      '/api/notifications': {
+        status: 200,
+        body: {
+          items: [
+            { id: 'n1', type: 'MEMBER_REPORT_REVIEWED', metadata: { outcome: 'VIOLATION', note: 'We removed it.' }, targetType: 'MemberReport', targetId: 'r1', readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+            { id: 'n2', type: 'MEMBER_REPORT_REVIEWED', metadata: { outcome: 'NO_VIOLATION', note: '' }, targetType: 'MemberReport', targetId: 'r2', readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+            { id: 'n3', type: 'MEMBER_REPORT_REVIEWED', metadata: { outcome: null, note: '' }, targetType: 'MemberReport', targetId: 'r3', readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+          ],
+          pagination: { totalPages: 1 },
+        },
+      },
+    });
+    render(<NotificationBell />);
+    fireEvent.click(await screen.findByLabelText('Notifications'));
+    expect(await screen.findByText('Thank you for your report. We looked at it, and the post did not follow Christian standards. Action was taken. Message: We removed it.')).toBeInTheDocument();
+    expect(screen.getByText('Thank you for your report. We looked at it and did not find that the post breaks Christian standards.')).toBeInTheDocument();
+    expect(screen.getByText('Thank you for your report. It has been looked at.')).toBeInTheDocument();
+  });
+
   it('renders the two Phase 2 prayer request notification types', async () => {
     mockFetchByUrl({
       '/api/notifications/unread-count': { status: 200, body: { unreadCount: 2 } },

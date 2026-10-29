@@ -46,7 +46,8 @@ interface CreateNotificationParams {
     | 'BOOK_PASSED_PAY'
     | 'EVENT_NEW'
     | 'EVENT_REMINDER'
-    | 'PAYMENT_ORDER_MESSAGE';
+    | 'PAYMENT_ORDER_MESSAGE'
+    | 'MEMBER_REPORT_REVIEWED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -505,4 +506,34 @@ export async function notifyEventSoon(event: { id: string; title: string; starts
     })),
   });
   pushToPersons(recipientPersonIds, { title: `⏰ ${event.title}`, body: 'Starts in about an hour.', url: `/member/events/${event.id}` }).catch(() => {});
+}
+
+/** Tells the person who reported something what the reviewer found (and any note). */
+export async function notifyMemberReportReviewed(
+  report: { id: string; reporterPersonId: string; targetType: string },
+  outcome: 'VIOLATION' | 'NO_VIOLATION' | null,
+  note: string | null,
+) {
+  const person = await prisma.person.findUnique({ where: { id: report.reporterPersonId }, select: { preferredLanguage: true } });
+  const fr = person?.preferredLanguage === 'fr';
+  const body =
+    outcome === 'VIOLATION'
+      ? fr
+        ? 'Merci pour votre signalement. Nous l\'avons examiné : cela ne respectait pas les normes chrétiennes. Une mesure a été prise.'
+        : 'Thank you for your report. We looked at it, and it did not follow Christian standards. Action was taken.'
+      : outcome === 'NO_VIOLATION'
+        ? fr
+          ? 'Merci pour votre signalement. Nous l\'avons examiné et n\'avons pas constaté d\'infraction aux normes chrétiennes.'
+          : 'Thank you for your report. We looked at it and did not find that it breaks Christian standards.'
+        : fr
+          ? 'Merci pour votre signalement. Il a été examiné.'
+          : 'Thank you for your report. It has been looked at.';
+  await createNotification({
+    recipientPersonId: report.reporterPersonId,
+    type: 'MEMBER_REPORT_REVIEWED',
+    metadata: { outcome, note: note ?? '', reportTargetType: report.targetType },
+    targetType: 'MemberReport',
+    targetId: report.id,
+    push: { title: fr ? 'À propos de votre signalement' : 'About your report', body: note ? `${body} ${note}` : body, url: '/member/me' },
+  });
 }

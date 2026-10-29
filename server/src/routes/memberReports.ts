@@ -8,6 +8,7 @@ import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { socialMutationLimiter } from '../lib/rateLimit';
 import { getLeaderExactCommunityIds } from '../lib/privateMessaging';
+import { notifyMemberReportReviewed } from '../lib/notifications';
 
 // ---------------------------------------------------------------------------
 // Reviewing member reports (see MemberReport). The central admin sees every
@@ -28,6 +29,7 @@ function toRow(r: {
   createdAt: Date;
   resolvedAt: Date | null;
   resolutionNote: string | null;
+  outcome: string | null;
   reporter: { id: string; name: string };
   reported: { id: string; name: string };
 }) {
@@ -40,6 +42,7 @@ function toRow(r: {
     createdAt: r.createdAt,
     resolvedAt: r.resolvedAt,
     resolutionNote: r.resolutionNote,
+    outcome: r.outcome,
     reporter: { personId: r.reporter.id, name: r.reporter.name },
     reported: { personId: r.reported.id, name: r.reported.name },
   };
@@ -58,7 +61,45 @@ async function withPreviews<T extends { targetType: string; targetId: string | n
 }
 
 const listQuery = z.object({ status: z.enum(['OPEN', 'RESOLVED']).default('OPEN') });
-const resolveSchema = z.object({ note: z.string().trim().max(1000).optional() });
+const resolveSchema = z.object({
+  // The person who reported is told this, and the note.
+  outcome: z.enum(['VIOLATION', 'NO_VIOLATION']).optional(),
+  note: z.string().trim().max(1000).optional(),
+  // With a violation: also take down the reported post / comment.
+  removeContent: z.boolean().optional(),
+});
+
+type Resolver = { userId?: string; personId?: string };
+
+/** Closes a report: records what was found, optionally removes the reported post or comment, and tells the reporter. */
+async function finishReport(
+  report: { id: string; reporterPersonId: string; targetType: string; targetId: string | null },
+  by: Resolver,
+  d: z.infer<typeof resolveSchema>,
+) {
+  await prisma.memberReport.update({
+    where: { id: report.id },
+    data: {
+      status: 'RESOLVED',
+      resolvedAt: new Date(),
+      resolvedByUserId: by.userId ?? null,
+      resolvedByPersonId: by.personId ?? null,
+      resolutionNote: d.note || null,
+      outcome: d.outcome ?? null,
+    },
+  });
+  if (d.outcome === 'VIOLATION' && d.removeContent && report.targetId) {
+    const now = new Date();
+    const who = by.userId ? { deletedByUserId: by.userId, deletedByPersonId: null } : { deletedByPersonId: by.personId ?? null, deletedByUserId: null };
+    if (report.targetType === 'UPDATE_POST') {
+      await prisma.updatePost.updateMany({ where: { id: report.targetId, deletedAt: null }, data: { deletedAt: now, ...who } });
+    } else if (report.targetType === 'UPDATE_COMMENT') {
+      await prisma.updateComment.updateMany({ where: { id: report.targetId, deletedAt: null }, data: { deletedAt: now, ...who } });
+    }
+  }
+  // The reporter always hears back. Best-effort: never fails the review itself.
+  await notifyMemberReportReviewed(report, d.outcome ?? null, d.note || null).catch(() => {});
+}
 
 /** Reported people a leader may review: members of the groups they lead. */
 async function leaderVisiblePersonIds(req: Request): Promise<string[]> {
@@ -94,10 +135,7 @@ adminMemberReportsRouter.post('/:id/resolve', socialMutationLimiter, requireCsrf
   if (!parsed.success) return res.status(400).json({ error: 'Invalid note.' });
   const report = await prisma.memberReport.findUnique({ where: { id: req.params.id } });
   if (!report) return res.status(404).json({ error: 'Report not found.' });
-  await prisma.memberReport.update({
-    where: { id: report.id },
-    data: { status: 'RESOLVED', resolvedAt: new Date(), resolvedByUserId: req.user!.id, resolutionNote: parsed.data.note || null },
-  });
+  await finishReport(report, { userId: req.user!.id }, parsed.data);
   await recordAudit({
     actorId: req.user!.id,
     actorEmail: req.user!.email,
@@ -133,10 +171,7 @@ leaderMemberReportsRouter.post('/:id/resolve', socialMutationLimiter, requireCsr
   const report = await prisma.memberReport.findUnique({ where: { id: req.params.id } });
   const visible = await leaderVisiblePersonIds(req);
   if (!report || !visible.includes(report.reportedPersonId)) return res.status(404).json({ error: 'Report not found.' });
-  await prisma.memberReport.update({
-    where: { id: report.id },
-    data: { status: 'RESOLVED', resolvedAt: new Date(), resolvedByPersonId: req.leaderPersonId!, resolutionNote: parsed.data.note || null },
-  });
+  await finishReport(report, { personId: req.leaderPersonId! }, parsed.data);
   await recordAudit({
     actorId: req.user!.id,
     actorEmail: req.user!.email,

@@ -226,10 +226,35 @@ describe('ReportsList', () => {
     });
     render(<ReportsList basePath="/api/admin/member-reports" />);
     expect(await screen.findByText('“Spam”')).toBeInTheDocument();
+    // A finding must be chosen first: the person who reported is told it.
+    expect(screen.getByRole('button', { name: 'Mark as dealt with' })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText(/does not break Christian standards/));
     fireEvent.change(screen.getByLabelText('Note (optional)'), { target: { value: 'Warned' } });
     fireEvent.click(screen.getByRole('button', { name: 'Mark as dealt with' }));
     expect(await screen.findByText('No open reports.')).toBeInTheDocument();
-    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ note: 'Warned' });
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ note: 'Warned', outcome: 'NO_VIOLATION' });
+  });
+
+  it('shows what a reported post said, and lets the reviewer remove it when it breaks the standards', async () => {
+    mockFetch({
+      'GET /api/admin/member-reports': () => ({
+        body: {
+          items: [
+            { id: 'r2', targetType: 'UPDATE_POST', targetId: 'post-9', targetPreview: 'A very bad post', reason: 'Immoral or indecent', status: 'OPEN', createdAt: '2026-10-05T10:00:00Z', resolvedAt: null, resolutionNote: null, reporter: { personId: 'a', name: 'Ada' }, reported: { personId: 'b', name: 'Bob' } },
+          ],
+        },
+      }),
+      'POST /api/admin/member-reports/r2/resolve': () => ({ body: { ok: true } }),
+    });
+    render(<ReportsList basePath="/api/admin/member-reports" />);
+    expect(await screen.findByTestId('report-target')).toHaveTextContent('What was posted: A very bad post');
+    // The remove option only appears once a violation is chosen.
+    expect(screen.queryByLabelText('Also remove this post from Updates')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/does not follow Christian standards — action was taken/));
+    fireEvent.click(screen.getByLabelText('Also remove this post from Updates'));
+    fireEvent.click(screen.getByRole('button', { name: 'Mark as dealt with' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ outcome: 'VIOLATION', removeContent: true });
   });
 
   it('hides itself for viewers who may not review reports', async () => {

@@ -1763,6 +1763,10 @@
     "all_sent": "Envoyé à {{count}} membres."
   },
   "notifications": {
+    "report_violation": "Merci pour votre signalement. Nous l'avons examiné : la publication ne respectait pas les normes chrétiennes. Une mesure a été prise.",
+    "report_no_violation": "Merci pour votre signalement. Nous l'avons examiné et n'avons pas constaté que la publication enfreint les normes chrétiennes.",
+    "report_reviewed": "Merci pour votre signalement. Il a été examiné.",
+    "report_note": "Message : {{note}}",
     "title": "Notifications",
     "loading": "Chargement…",
     "load_failed": "Échec du chargement des notifications.",
@@ -2099,6 +2103,13 @@
     "represent_button": "Demander à représenter votre zone"
   },
   "reports": {
+    "outcome_title": "Qu'avez-vous constaté ? (la personne qui a signalé en sera informée)",
+    "outcome_VIOLATION": "Cela ne respecte pas les normes chrétiennes — une mesure a été prise",
+    "outcome_NO_VIOLATION": "Cela n'enfreint pas les normes chrétiennes — aucune mesure nécessaire",
+    "outcome_VIOLATION_short": "Constaté : ne respecte pas les normes chrétiennes.",
+    "outcome_NO_VIOLATION_short": "Constaté : n'enfreint pas les normes chrétiennes.",
+    "remove_post": "Retirer aussi cette publication des Nouvelles",
+    "remove_comment": "Retirer aussi ce commentaire",
     "title": "Signalements de membres",
     "open": "Ouverts",
     "resolved": "Traités",

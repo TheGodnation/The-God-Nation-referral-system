@@ -15,7 +15,10 @@ interface ReportRow {
   /** For a reported post or comment: what it said (null once it is removed). */
   targetId?: string | null;
   targetPreview?: string | null;
+  outcome?: 'VIOLATION' | 'NO_VIOLATION' | null;
 }
+
+type Outcome = 'VIOLATION' | 'NO_VIOLATION';
 
 // Member reports for review. Used by the admin (every report, basePath
 // /api/admin/member-reports) and by leaders (reports about members of
@@ -25,6 +28,8 @@ export function ReportsList({ basePath, title }: { basePath: string; title?: str
   const [status, setStatus] = useState<'OPEN' | 'RESOLVED'>('OPEN');
   const [items, setItems] = useState<ReportRow[] | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
+  const [removeIt, setRemoveIt] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   // Hidden for viewers who may not review reports (e.g. a leader account
   // not yet linked to a person).
@@ -46,7 +51,12 @@ export function ReportsList({ basePath, title }: { basePath: string; title?: str
 
   async function resolve(id: string) {
     try {
-      await api.post(`${basePath}/${id}/resolve`, { note: notes[id]?.trim() || undefined });
+      const outcome = outcomes[id];
+      await api.post(`${basePath}/${id}/resolve`, {
+        note: notes[id]?.trim() || undefined,
+        outcome,
+        removeContent: outcome === 'VIOLATION' && removeIt[id] ? true : undefined,
+      });
       load();
     } catch {
       setError(t('reports.resolve_failed'));
@@ -86,20 +96,40 @@ export function ReportsList({ basePath, title }: { basePath: string; title?: str
               </p>
             )}
             {r.status === 'OPEN' ? (
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <input
-                  className="input flex-1"
-                  aria-label={t('reports.note_label') ?? ''}
-                  placeholder={t('reports.note_placeholder') ?? ''}
-                  value={notes[r.id] ?? ''}
-                  onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })}
-                />
-                <button type="button" className="btn-primary" onClick={() => resolve(r.id)}>
-                  {t('reports.mark_resolved')}
-                </button>
+              <div className="mt-2 space-y-2">
+                <fieldset className="space-y-1">
+                  <legend className="text-xs font-semibold text-slate-600">{t('reports.outcome_title')}</legend>
+                  {(['VIOLATION', 'NO_VIOLATION'] as const).map((o) => (
+                    <label key={o} className="flex items-start gap-2 text-slate-800">
+                      <input type="radio" className="mt-1" name={`outcome-${r.id}`} checked={outcomes[r.id] === o} onChange={() => setOutcomes({ ...outcomes, [r.id]: o })} />
+                      {t(`reports.outcome_${o}`)}
+                    </label>
+                  ))}
+                </fieldset>
+                {outcomes[r.id] === 'VIOLATION' && (r.targetType === 'UPDATE_POST' || r.targetType === 'UPDATE_COMMENT') && r.targetPreview && (
+                  <label className="flex items-start gap-2 text-slate-800">
+                    <input type="checkbox" className="mt-1" checked={Boolean(removeIt[r.id])} onChange={(e) => setRemoveIt({ ...removeIt, [r.id]: e.target.checked })} />
+                    {t(r.targetType === 'UPDATE_POST' ? 'reports.remove_post' : 'reports.remove_comment')}
+                  </label>
+                )}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    className="input flex-1"
+                    aria-label={t('reports.note_label') ?? ''}
+                    placeholder={t('reports.note_placeholder') ?? ''}
+                    value={notes[r.id] ?? ''}
+                    onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })}
+                  />
+                  <button type="button" className="btn-primary" disabled={!outcomes[r.id]} onClick={() => resolve(r.id)}>
+                    {t('reports.mark_resolved')}
+                  </button>
+                </div>
               </div>
             ) : (
-              r.resolutionNote && <p className="mt-1 text-slate-500">{t('reports.note', { note: r.resolutionNote })}</p>
+              <>
+                {r.outcome && <p className="mt-1 font-medium text-slate-700">{t(`reports.outcome_${r.outcome}_short`)}</p>}
+                {r.resolutionNote && <p className="mt-1 text-slate-500">{t('reports.note', { note: r.resolutionNote })}</p>}
+              </>
             )}
           </li>
         ))}

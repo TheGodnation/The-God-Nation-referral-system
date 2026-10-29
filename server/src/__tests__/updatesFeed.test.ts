@@ -264,6 +264,52 @@ describe('Updates feed — deleting (admin and assigned leaders only; members re
     expect(after.body.items.find((r: any) => r.id === first.body.id).targetPreview).toBeNull();
   });
 
+  it('tells the person who reported what the reviewer found, and can remove the post in the same step', async () => {
+    const author = await loginAsMember('Feedback Author');
+    const reporter = await loginAsMember('Feedback Reporter');
+    const admin = await loginAsAdmin('feedback-admin@test.local');
+    const mk = async (text: string) => {
+      const { body } = await post(author.agent, author.csrf, { body: text });
+      const r = await reporter.agent.post('/api/member/reports').set('X-CSRF-Token', reporter.csrf).send({ personId: author.person.id, targetType: 'UPDATE_POST', targetId: body.id, reason: 'Immoral or indecent' });
+      return { postId: body.id as string, reportId: r.body.id as string };
+    };
+    const resolve = (id: string, data: Record<string, unknown>) => admin.agent.post(`/api/admin/member-reports/${id}/resolve`).set('X-CSRF-Token', admin.csrf).send(data);
+    const notifications = () => prisma.notification.findMany({ where: { recipientPersonId: reporter.person.id, type: 'MEMBER_REPORT_REVIEWED' }, orderBy: { createdAt: 'asc' } });
+
+    // A violation: the post can come down in the same step, and the reporter is told, with the note.
+    const bad = await mk('a bad post');
+    expect((await resolve(bad.reportId, { outcome: 'VIOLATION', removeContent: true, note: 'We removed it and spoke to the person.' })).status).toBe(200);
+    expect((await prisma.updatePost.findUniqueOrThrow({ where: { id: bad.postId } })).deletedAt).not.toBeNull();
+    expect((await prisma.memberReport.findUniqueOrThrow({ where: { id: bad.reportId } })).outcome).toBe('VIOLATION');
+    let list = await notifications();
+    expect(list).toHaveLength(1);
+    expect(list[0].metadata).toMatchObject({ outcome: 'VIOLATION', note: 'We removed it and spoke to the person.' });
+    expect(list[0].targetId).toBe(bad.reportId);
+
+    // No violation: nothing is removed, and the reporter is told so.
+    const fine = await mk('a fine post');
+    expect((await resolve(fine.reportId, { outcome: 'NO_VIOLATION', removeContent: true })).status).toBe(200);
+    expect((await prisma.updatePost.findUniqueOrThrow({ where: { id: fine.postId } })).deletedAt).toBeNull();
+    list = await notifications();
+    expect(list).toHaveLength(2);
+    expect(list[1].metadata).toMatchObject({ outcome: 'NO_VIOLATION' });
+
+    // Closed without saying what was found: the reporter still hears it was looked at.
+    const plain = await mk('another post');
+    expect((await resolve(plain.reportId, {})).status).toBe(200);
+    list = await notifications();
+    expect(list).toHaveLength(3);
+    expect(list[2].metadata).toMatchObject({ outcome: null });
+
+    // The reporter sees it in their own notifications; nobody else got one.
+    const mine = await reporter.agent.get('/api/notifications');
+    expect(mine.body.items.filter((n: any) => n.type === 'MEMBER_REPORT_REVIEWED')).toHaveLength(3);
+    expect(await prisma.notification.count({ where: { recipientPersonId: author.person.id, type: 'MEMBER_REPORT_REVIEWED' } })).toBe(0);
+    // And the resolved report shows what was found to the reviewer.
+    const resolved = await admin.agent.get('/api/admin/member-reports?status=RESOLVED');
+    expect(resolved.body.items.find((r: any) => r.id === bad.reportId)).toMatchObject({ outcome: 'VIOLATION', resolutionNote: 'We removed it and spoke to the person.' });
+  });
+
   it('lets the central admin remove any post, and records who did it', async () => {
     const a = await loginAsMember('Rule Breaker');
     const { body } = await post(a.agent, a.csrf, { body: 'bad content' });

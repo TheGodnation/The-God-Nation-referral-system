@@ -1763,6 +1763,10 @@
     "all_sent": "Sent to {{count}} members."
   },
   "notifications": {
+    "report_violation": "Thank you for your report. We looked at it, and the post did not follow Christian standards. Action was taken.",
+    "report_no_violation": "Thank you for your report. We looked at it and did not find that the post breaks Christian standards.",
+    "report_reviewed": "Thank you for your report. It has been looked at.",
+    "report_note": "Message: {{note}}",
     "title": "Notifications",
     "loading": "Loading…",
     "load_failed": "Failed to load notifications.",
@@ -2099,6 +2103,13 @@
     "represent_button": "Request to represent your area"
   },
   "reports": {
+    "outcome_title": "What did you find? (the person who reported will be told)",
+    "outcome_VIOLATION": "It does not follow Christian standards — action was taken",
+    "outcome_NO_VIOLATION": "It does not break Christian standards — no action needed",
+    "outcome_VIOLATION_short": "Found: does not follow Christian standards.",
+    "outcome_NO_VIOLATION_short": "Found: does not break Christian standards.",
+    "remove_post": "Also remove this post from Updates",
+    "remove_comment": "Also remove this comment",
     "title": "Member reports",
     "open": "Open",
     "resolved": "Dealt with",

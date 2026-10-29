@@ -216,6 +216,8 @@ enum NotificationType {
   EVENT_NEW
   EVENT_REMINDER
   PAYMENT_ORDER_MESSAGE
+  // The reviewer's answer to a member's report (what was found, and a note).
+  MEMBER_REPORT_REVIEWED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -2721,6 +2723,9 @@ model MemberReport {
   status             ReportStatus @default(OPEN)
   createdAt          DateTime     @default(now())
   resolvedAt         DateTime?
+  // What the reviewer found: VIOLATION (does not follow Christian standards)
+  // or NO_VIOLATION. Null on reports dealt with before this was recorded.
+  outcome            String?
   resolvedByUserId   String?
   resolvedByPersonId String?
   resolutionNote     String?

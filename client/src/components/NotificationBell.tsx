@@ -28,7 +28,8 @@ type NotificationType =
   | 'REFERRAL_PAYOUT_PAID'
   | 'REFERRAL_PAYOUT_REJECTED'
   | 'EVENT_NEW'
-  | 'EVENT_REMINDER';
+  | 'EVENT_REMINDER'
+  | 'MEMBER_REPORT_REVIEWED';
 
 interface NotificationRow {
   id: string;
@@ -159,6 +160,10 @@ export function NotificationBell() {
         return metadata.reminder ? t('notifications.payment_order_reminder', { name: metadata.name ?? '' }) : t('notifications.payment_order_message', { name: metadata.name ?? '' });
       case 'BOOK_PASSED_PAY':
         return t('notifications.book_passed_pay', { number: metadata.bookNumber ?? '' });
+      case 'MEMBER_REPORT_REVIEWED': {
+        const base = t(metadata.outcome === 'VIOLATION' ? 'notifications.report_violation' : metadata.outcome === 'NO_VIOLATION' ? 'notifications.report_no_violation' : 'notifications.report_reviewed');
+        return metadata.note ? `${base} ${t('notifications.report_note', { note: String(metadata.note) })}` : base;
+      }
       case 'TRAINING_GRACE_GRANTED':
         return t('notifications.training_grace_granted', { count: Number(metadata.books ?? 0) });
       case 'TRAINING_GRACE_DECLINED':
