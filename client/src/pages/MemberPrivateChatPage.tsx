@@ -13,7 +13,7 @@ import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatCompo
 import { UploadingBubble } from '../components/chat/UploadingBubble';
 import { useMediaUploads } from '../lib/useMediaUploads';
 import { REACTIONS, canEditMessage, canUnsendMessage, type ChatAttachment, type ChatMessage, type ChatReaction } from '../components/chat/types';
-import { ChatSearch, EditSheet, ForwardSheet, findAndJump } from '../components/chat/ChatActions';
+import { ChatSearch, EditSheet, ForwardSheet, SelectionBar, copyableText, findAndJump } from '../components/chat/ChatActions';
 import { draftKeyFor } from '../lib/drafts';
 
 interface PrivateRow {
@@ -65,7 +65,7 @@ function mergeLatest(prev: ChatMessage[], latest: ChatMessage[]): ChatMessage[] 
 // the top, bubbles, swipe to reply, hold to react, voice notes, photos,
 // videos and documents. New messages show up every few seconds.
 export function MemberPrivateChatPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { member } = useMemberAuth();
   const { chatWallpaper } = usePublicSettings();
   const { conversationId = '' } = useParams();
@@ -89,7 +89,9 @@ export function MemberPrivateChatPage() {
   const [presence, setPresence] = useState<PrivateResponse['otherPartyPresence']>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [editing, setEditing] = useState<ChatMessage | null>(null);
-  const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
+  const [forwarding, setForwarding] = useState<ChatMessage[] | null>(null);
+  // Several messages ticked at once (to copy or forward together), like WhatsApp.
+  const [selected, setSelected] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -386,6 +388,24 @@ export function MemberPrivateChatPage() {
     }
   }
 
+  function toggleSelect(m: ChatMessage) {
+    setSelected((cur) => (cur.includes(m.id) ? cur.filter((x) => x !== m.id) : [...cur, m.id]));
+  }
+
+  // In the order they were written, whatever order they were ticked in.
+  const selectedMessages = messages.filter((m) => selected.includes(m.id) && !m.deleted && !m.pending);
+
+  async function copySelected() {
+    const text = copyableText(selectedMessages, i18n.language.startsWith('fr') ? 'fr-FR' : 'en-GB');
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(t('groupChat.copied'));
+      setSelected([]);
+    } catch {
+      /* clipboard not available */
+    }
+  }
+
   function jumpTo(id: string) {
     const el = document.getElementById(`msg-${id}`);
     if (!el) {
@@ -465,6 +485,16 @@ export function MemberPrivateChatPage() {
         </button>
       </header>
 
+      {selected.length > 0 && (
+        <SelectionBar
+          count={selected.length}
+          canCopy={selectedMessages.some((m) => m.body)}
+          onClose={() => setSelected([])}
+          onCopy={() => void copySelected()}
+          onForward={() => selectedMessages.length > 0 && setForwarding(selectedMessages)}
+        />
+      )}
+
       {searching && <ChatSearch searchPath={`${base}/search`} onPick={openSearchResult} onClose={() => setSearching(false)} />}
 
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto overscroll-contain px-2 py-3" aria-live="polite">
@@ -515,6 +545,9 @@ export function MemberPrivateChatPage() {
                   onJumpTo={jumpTo}
                   onOpenPhoto={setPhotoUrl}
                   onShowReactions={setReactionsFor}
+                  selecting={selected.length > 0}
+                  selected={selected.includes(m.id)}
+                  onToggleSelect={toggleSelect}
                 />
               </div>
             );
@@ -597,7 +630,17 @@ export function MemberPrivateChatPage() {
                 type="button"
                 className="block w-full py-3 text-left"
                 onClick={() => {
-                  setForwarding(menuFor);
+                  setSelected([menuFor.id]);
+                  setMenuFor(null);
+                }}
+              >
+                ☑️ {t('chatActions.select')}
+              </button>
+              <button
+                type="button"
+                className="block w-full py-3 text-left"
+                onClick={() => {
+                  setForwarding([menuFor]);
                   setMenuFor(null);
                 }}
               >
@@ -629,11 +672,12 @@ export function MemberPrivateChatPage() {
 
       {forwarding && (
         <ForwardSheet
-          source={{ kind: 'private', chatId: conversationId, messageId: forwarding.id }}
-          isOwn={forwarding.isOwn}
+          source={{ kind: 'private', chatId: conversationId, messageIds: forwarding.map((m) => m.id) }}
+          isOwn={forwarding.every((m) => m.isOwn)}
           onClose={() => setForwarding(null)}
           onDone={(count) => {
             setForwarding(null);
+            setSelected([]);
             showToast(t('chatActions.forwarded_to', { count }));
             poke();
           }}

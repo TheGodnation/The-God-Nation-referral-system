@@ -2574,6 +2574,12 @@
     "show_all": "Voir les {{count}} membres"
   },
   "chatActions": {
+    "select": "Sélectionner des messages",
+    "selecting": "Messages sélectionnés",
+    "selected_count_one": "{{count}} sélectionné",
+    "selected_count_other": "{{count}} sélectionnés",
+    "cancel_selection": "Annuler la sélection",
+    "select_message": "Message de {{name}}",
     "forwarded": "Transféré",
     "edited": "modifié",
     "deleted": "Ce message a été supprimé",

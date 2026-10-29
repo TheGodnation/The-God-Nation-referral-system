@@ -21,3 +21,5 @@ export const searchQuerySchema = z.object({
 
 // Forwarding: up to 5 chats at once, like WhatsApp.
 export const MAX_FORWARD_TARGETS = 5;
+/** Messages that can be forwarded together (select several, like WhatsApp). */
+export const MAX_FORWARD_MESSAGES = 20;

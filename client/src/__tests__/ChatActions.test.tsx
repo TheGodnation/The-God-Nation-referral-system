@@ -142,12 +142,77 @@ describe('Forward', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send to 2 chats' }));
     expect(await screen.findByText('Forwarded to 2 chats')).toBeInTheDocument();
     expect(calls.find((c) => c.url === '/api/chat/forward')?.body).toEqual({
-      source: { kind: 'group', chatId: G, messageId: 'm1' },
+      source: { kind: 'group', chatId: G, messageId: 'm1', messageIds: ['m1'] },
       targets: [
         { kind: 'group', chatId: 'g2' },
         { kind: 'private', chatId: 'c1' },
       ],
     });
+  });
+});
+
+describe('Selecting several messages (like WhatsApp)', () => {
+  async function startSelecting() {
+    renderChat();
+    await screen.findByText('See the flyer');
+    openMenu('See the flyer');
+    fireEvent.click(screen.getByRole('button', { name: /Select messages/ }));
+  }
+
+  it('shows each selected message ticked, with a count, and lets you tick more by tapping', async () => {
+    mockFetch(routes());
+    await startSelecting();
+    expect(screen.getByTestId('selection-bar')).toHaveTextContent('1 selected');
+    const first = screen.getByRole('checkbox', { name: 'Message from Ada Nkem' });
+    expect(first).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByText('Meeting at 6'));
+    expect(screen.getByTestId('selection-bar')).toHaveTextContent('2 selected');
+    expect(screen.getAllByRole('checkbox', { checked: true })).toHaveLength(2);
+    // Tapping a ticked message unticks it; with none left the selection ends.
+    fireEvent.click(screen.getByText('See the flyer'));
+    fireEvent.click(screen.getByText('Meeting at 6'));
+    expect(screen.queryByTestId('selection-bar')).not.toBeInTheDocument();
+  });
+
+  it('copies the selected messages together, oldest first', async () => {
+    mockFetch(routes());
+    const writeText = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+    await startSelecting();
+    fireEvent.click(screen.getByText('Typo herre'));
+    fireEvent.click(screen.getByText('Meeting at 6'));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    const text = (writeText.mock.calls[0] as unknown as string[])[0];
+    const lines = text.split('\n');
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(/\] Ada Nkem: See the flyer$/);
+    expect(lines[1]).toMatch(/\] Me Myself: Meeting at 6$/);
+    expect(lines[2]).toMatch(/\] Me Myself: Typo herre$/);
+    expect(await screen.findByText('Copied')).toBeInTheDocument();
+    expect(screen.queryByTestId('selection-bar')).not.toBeInTheDocument();
+  });
+
+  it('forwards all the selected messages in one go', async () => {
+    mockFetch(routes({ 'POST /api/chat/forward': () => ({ status: 201, body: { sent: [{}] } }) }));
+    await startSelecting();
+    fireEvent.click(screen.getByText('Meeting at 6'));
+    fireEvent.click(screen.getByRole('button', { name: 'Forward' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Limbe Group/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send to 1 chat' }));
+    expect(await screen.findByText('Forwarded to 1 chat')).toBeInTheDocument();
+    expect(calls.find((c) => c.url === '/api/chat/forward')?.body.source).toEqual({ kind: 'group', chatId: G, messageId: 'm1', messageIds: ['m1', 'm2'] });
+    expect(screen.queryByTestId('selection-bar')).not.toBeInTheDocument();
+  });
+
+  it('cancels with the ✕ and cannot select a deleted message', async () => {
+    mockFetch(routes());
+    await startSelecting();
+    // The deleted message offers no tick box.
+    expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel selection' }));
+    expect(screen.queryByTestId('selection-bar')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 });
 

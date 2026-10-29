@@ -12,7 +12,7 @@ import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatCompo
 import { UploadingBubble } from '../components/chat/UploadingBubble';
 import { useMediaUploads } from '../lib/useMediaUploads';
 import { REACTIONS, canEditMessage, canUnsendMessage, type ChatMessage, type ChatReaction } from '../components/chat/types';
-import { ChatSearch, EditSheet, ForwardSheet, findAndJump } from '../components/chat/ChatActions';
+import { ChatSearch, EditSheet, ForwardSheet, SelectionBar, copyableText, findAndJump } from '../components/chat/ChatActions';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { draftKeyFor } from '../lib/drafts';
 
@@ -128,7 +128,9 @@ export function MemberGroupChatPage() {
   const [typingNames, setTypingNames] = useState<string[]>([]);
   const [info, setInfo] = useState<{ message: ChatMessage; data: MessageInfo | null } | null>(null);
   const [editing, setEditing] = useState<ChatMessage | null>(null);
-  const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
+  const [forwarding, setForwarding] = useState<ChatMessage[] | null>(null);
+  // Several messages ticked at once (to copy or forward together), like WhatsApp.
+  const [selected, setSelected] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -447,6 +449,24 @@ export function MemberGroupChatPage() {
     }
   }
 
+  function toggleSelect(m: ChatMessage) {
+    setSelected((cur) => (cur.includes(m.id) ? cur.filter((x) => x !== m.id) : [...cur, m.id]));
+  }
+
+  // In the order they were written, whatever order they were ticked in.
+  const selectedMessages = messages.filter((m) => selected.includes(m.id) && !m.deleted && !m.pending);
+
+  async function copySelected() {
+    const text = copyableText(selectedMessages, i18n.language.startsWith('fr') ? 'fr-FR' : 'en-GB');
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(t('groupChat.copied'));
+      setSelected([]);
+    } catch {
+      /* clipboard not available */
+    }
+  }
+
   function jumpTo(id: string) {
     const el = document.getElementById(`msg-${id}`);
     if (!el) {
@@ -497,6 +517,16 @@ export function MemberGroupChatPage() {
           🔍
         </button>
       </header>
+
+      {selected.length > 0 && (
+        <SelectionBar
+          count={selected.length}
+          canCopy={selectedMessages.some((m) => m.body)}
+          onClose={() => setSelected([])}
+          onCopy={() => void copySelected()}
+          onForward={() => selectedMessages.length > 0 && setForwarding(selectedMessages)}
+        />
+      )}
 
       {searching && (
         <ChatSearch
@@ -555,6 +585,9 @@ export function MemberGroupChatPage() {
                   onJumpTo={jumpTo}
                   onOpenPhoto={setPhotoUrl}
                   onShowReactions={setReactionsFor}
+                  selecting={selected.length > 0}
+                  selected={selected.includes(m.id)}
+                  onToggleSelect={toggleSelect}
                 />
               </div>
             );
@@ -643,7 +676,17 @@ export function MemberGroupChatPage() {
                 type="button"
                 className="block w-full py-3 text-left"
                 onClick={() => {
-                  setForwarding(menuFor);
+                  setSelected([menuFor.id]);
+                  setMenuFor(null);
+                }}
+              >
+                ☑️ {t('chatActions.select')}
+              </button>
+              <button
+                type="button"
+                className="block w-full py-3 text-left"
+                onClick={() => {
+                  setForwarding([menuFor]);
                   setMenuFor(null);
                 }}
               >
@@ -690,11 +733,12 @@ export function MemberGroupChatPage() {
 
       {forwarding && (
         <ForwardSheet
-          source={{ kind: 'group', chatId: communityId, messageId: forwarding.id }}
-          isOwn={forwarding.isOwn}
+          source={{ kind: 'group', chatId: communityId, messageIds: forwarding.map((m) => m.id) }}
+          isOwn={forwarding.every((m) => m.isOwn)}
           onClose={() => setForwarding(null)}
           onDone={(count) => {
             setForwarding(null);
+            setSelected([]);
             showToast(t('chatActions.forwarded_to', { count }));
             poke();
           }}

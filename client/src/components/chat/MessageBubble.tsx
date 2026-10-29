@@ -228,6 +228,10 @@ interface BubbleProps {
   onShowReactions?: (m: ChatMessage) => void;
   /** One-to-one chats (like WhatsApp) show no sender photos or names. */
   privateChat?: boolean;
+  /** Selecting several messages (to copy or forward): tapping a message ticks it. */
+  selecting?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (m: ChatMessage) => void;
 }
 
 const SWIPE_TRIGGER = 60;
@@ -235,7 +239,7 @@ const LONG_PRESS_MS = 450;
 
 // One chat bubble. Swipe it right to reply, press and hold (or right-click)
 // for reactions and options — the same gestures as WhatsApp.
-export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto, onShowReactions, privateChat = false }: BubbleProps) {
+export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto, onShowReactions, privateChat = false, selecting = false, selected = false, onToggleSelect }: BubbleProps) {
   const showSender = showSenderProp && !privateChat;
   const { t } = useTranslation();
   const [dx, setDx] = useState(0);
@@ -256,8 +260,10 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
 
   const canInteract = !m.deleted && !m.pending;
 
+  const picking = selecting && canInteract;
+
   function onTouchStart(e: React.TouchEvent) {
-    if (!canInteract) return;
+    if (!canInteract || selecting) return;
     const p = e.touches[0];
     const state = { x: p.clientX, y: p.clientY, swiping: false, timer: null as number | null, longPressed: false };
     state.timer = window.setTimeout(() => {
@@ -301,7 +307,33 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
   const reactions = m.reactions ?? [];
 
   return (
-    <div id={`msg-${m.id}`} className={`group relative flex items-end gap-1.5 ${m.isOwn ? 'justify-end' : 'justify-start'}`}>
+    <div
+      id={`msg-${m.id}`}
+      className={`group relative flex items-end gap-1.5 ${m.isOwn ? 'justify-end' : 'justify-start'} ${selecting ? '-mx-2 pl-10 pr-2' : ''} ${selected ? 'bg-emerald-400/30' : ''}`}
+      role={picking ? 'checkbox' : undefined}
+      aria-checked={picking ? selected : undefined}
+      aria-label={picking ? (t('chatActions.select_message', { name: m.senderName }) ?? '') : undefined}
+      // While selecting, a tap anywhere on the message ticks / unticks it (and nothing inside it opens).
+      onClickCapture={
+        picking
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSelect?.(m);
+            }
+          : undefined
+      }
+    >
+      {picking && (
+        <span
+          aria-hidden
+          className={`absolute left-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border-2 text-sm font-bold ${
+            selected ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-400 bg-white/80 text-transparent'
+          }`}
+        >
+          ✓
+        </span>
+      )}
       {!m.isOwn && !privateChat && (
         <span className="w-8 shrink-0">
           {showSender &&
@@ -331,7 +363,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}
         onContextMenu={(e) => {
-          if (!canInteract) return;
+          if (!canInteract || selecting) return;
           e.preventDefault();
           onMenu(m);
         }}

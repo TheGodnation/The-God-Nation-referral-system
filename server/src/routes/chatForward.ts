@@ -11,7 +11,7 @@ import { isBlockedEitherWay } from '../lib/social';
 import { generateStorageKey, generatePrivateAttachmentStorageKey } from '../lib/attachmentPolicy';
 import { isStorageConfigured, copyObject } from '../lib/storage';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
-import { MAX_FORWARD_TARGETS } from '../lib/chatActions';
+import { MAX_FORWARD_MESSAGES, MAX_FORWARD_TARGETS } from '../lib/chatActions';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 
 // POST /api/chat/forward — WhatsApp "Forward": send a copy of one message
@@ -27,7 +27,10 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 
 const chatRef = z.object({ kind: z.enum(['group', 'private']), chatId: z.string().min(1) });
 const forwardSchema = z.object({
-  source: chatRef.extend({ messageId: z.string().min(1) }),
+  // One message (messageId) or several selected together (messageIds, oldest first).
+  source: chatRef
+    .extend({ messageId: z.string().min(1).optional(), messageIds: z.array(z.string().min(1)).min(1).max(MAX_FORWARD_MESSAGES).optional() })
+    .refine((s) => Boolean(s.messageId || s.messageIds), { message: 'Choose a message.' }),
   targets: z.array(chatRef).min(1).max(MAX_FORWARD_TARGETS),
   // Honoured for the central admin only; defaults to showing the label.
   markForwarded: z.boolean().optional(),
@@ -47,7 +50,7 @@ async function otherPersonOf(actor: PrivateMessagingActor, c: { memberPersonId: 
   return c.memberPersonId === actor.personId ? c.initiatorPersonId : c.memberPersonId;
 }
 
-async function loadSource(actor: PrivateMessagingActor, source: z.infer<typeof forwardSchema>['source']): Promise<SourceMessage | null> {
+async function loadSource(actor: PrivateMessagingActor, source: { kind: 'group' | 'private'; chatId: string; messageId: string }): Promise<SourceMessage | null> {
   if (source.kind === 'group') {
     if (actor.type !== 'PERSON') return null;
     if (!(await contextTargetExists('COMMUNITY', source.chatId))) return null;
@@ -102,11 +105,16 @@ router.post(
       (t, i, all) => all.findIndex((o) => o.kind === t.kind && o.chatId === t.chatId) === i,
     );
 
-    const message = await loadSource(actor, source);
-    if (!message) return res.status(404).json({ error: 'Message not found.' });
-    const hideLabel = (await isCentralAdminActor(actor)) && (message.isOwn || parsed.data.markForwarded === false);
-    const forwarded = !hideLabel;
-    if (message.attachments.length > 0 && !isStorageConfigured()) {
+    // Every selected message must be readable by this person; none is sent otherwise.
+    const ids = [...new Set(source.messageIds ?? [source.messageId!])];
+    const loaded: SourceMessage[] = [];
+    for (const id of ids) {
+      const m = await loadSource(actor, { kind: source.kind, chatId: source.chatId, messageId: id });
+      if (!m) return res.status(404).json({ error: 'Message not found.' });
+      loaded.push(m);
+    }
+    const isAdminActor = await isCentralAdminActor(actor);
+    if (loaded.some((m) => m.attachments.length > 0) && !isStorageConfigured()) {
       return res.status(503).json({ error: 'Attachments are not available right now.' });
     }
 
@@ -137,58 +145,62 @@ router.post(
 
     const sent: { kind: 'group' | 'private'; chatId: string; messageId: string }[] = [];
     for (const target of resolved) {
-      const copies = [] as (SourceMessage['attachments'][number] & { newKey: string })[];
-      for (const a of message.attachments) {
-        const newKey = target.kind === 'group' ? generateStorageKey(target.communityId) : generatePrivateAttachmentStorageKey(target.conversation.id);
-        await copyObject({ sourceKey: a.storageKey, destKey: newKey });
-        copies.push({ ...a, newKey });
-      }
-      if (target.kind === 'group') {
-        const created = await prisma.message.create({
-          data: {
-            conversationId: target.conversationId,
-            senderPersonId: target.personId,
-            body: message.body,
-            forwarded,
-            attachments: copies.length
-              ? {
-                  create: copies.map((a) => ({
-                    storageKey: a.newKey,
-                    originalFilename: a.originalFilename,
-                    mimeType: a.mimeType,
-                    byteSize: a.byteSize,
-                    thumbDataUrl: a.thumbDataUrl,
-                    pageCount: a.pageCount,
-                    uploadedByPersonId: target.personId,
-                  })),
-                }
-              : undefined,
-          },
-        });
-        sent.push({ kind: 'group', chatId: target.communityId, messageId: created.id });
-      } else {
-        const created = await prisma.privateMessage.create({
-          data: {
-            conversationId: target.conversation.id,
-            body: message.body ?? '',
-            forwarded,
-            ...(actor.type === 'PERSON' ? { senderPersonId: actor.personId } : { senderUserId: actor.userId }),
-            attachments: copies.length
-              ? {
-                  create: copies.map((a) => ({
-                    storageKey: a.newKey,
-                    originalFilename: a.originalFilename,
-                    mimeType: a.mimeType,
-                    byteSize: a.byteSize,
-                    thumbDataUrl: a.thumbDataUrl,
-                    pageCount: a.pageCount,
-                  })),
-                }
-              : undefined,
-          },
-        });
-        await notifyPrivateMessageReceived(target.conversation, actor);
-        sent.push({ kind: 'private', chatId: target.conversation.id, messageId: created.id });
+      // The selected messages go one after the other, in the order given.
+      for (const message of loaded) {
+        const forwarded = !(isAdminActor && (message.isOwn || parsed.data.markForwarded === false));
+        const copies = [] as (SourceMessage['attachments'][number] & { newKey: string })[];
+        for (const a of message.attachments) {
+          const newKey = target.kind === 'group' ? generateStorageKey(target.communityId) : generatePrivateAttachmentStorageKey(target.conversation.id);
+          await copyObject({ sourceKey: a.storageKey, destKey: newKey });
+          copies.push({ ...a, newKey });
+        }
+        if (target.kind === 'group') {
+          const created = await prisma.message.create({
+            data: {
+              conversationId: target.conversationId,
+              senderPersonId: target.personId,
+              body: message.body,
+              forwarded,
+              attachments: copies.length
+                ? {
+                    create: copies.map((a) => ({
+                      storageKey: a.newKey,
+                      originalFilename: a.originalFilename,
+                      mimeType: a.mimeType,
+                      byteSize: a.byteSize,
+                      thumbDataUrl: a.thumbDataUrl,
+                      pageCount: a.pageCount,
+                      uploadedByPersonId: target.personId,
+                    })),
+                  }
+                : undefined,
+            },
+          });
+          sent.push({ kind: 'group', chatId: target.communityId, messageId: created.id });
+        } else {
+          const created = await prisma.privateMessage.create({
+            data: {
+              conversationId: target.conversation.id,
+              body: message.body ?? '',
+              forwarded,
+              ...(actor.type === 'PERSON' ? { senderPersonId: actor.personId } : { senderUserId: actor.userId }),
+              attachments: copies.length
+                ? {
+                    create: copies.map((a) => ({
+                      storageKey: a.newKey,
+                      originalFilename: a.originalFilename,
+                      mimeType: a.mimeType,
+                      byteSize: a.byteSize,
+                      thumbDataUrl: a.thumbDataUrl,
+                      pageCount: a.pageCount,
+                    })),
+                  }
+                : undefined,
+            },
+          });
+          await notifyPrivateMessageReceived(target.conversation, actor);
+          sent.push({ kind: 'private', chatId: target.conversation.id, messageId: created.id });
+        }
       }
     }
 

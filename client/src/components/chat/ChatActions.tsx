@@ -70,6 +70,56 @@ export function EditSheet({ message, onCancel, onSave }: { message: ChatMessage;
   );
 }
 
+/** The messages as plain text for pasting (WhatsApp style: "[time, date] Name: words"). */
+export function copyableText(messages: ChatMessage[], locale: string): string {
+  return messages
+    .filter((m) => m.body && !m.deleted)
+    .map((m) => {
+      const d = new Date(m.createdAt);
+      const stamp = `${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}, ${d.toLocaleDateString(locale)}`;
+      return `[${stamp}] ${m.senderName}: ${m.body}`;
+    })
+    .join('\n');
+}
+
+/** The bar that replaces the chat header while messages are being selected. */
+export function SelectionBar({
+  count,
+  canCopy,
+  onClose,
+  onCopy,
+  onForward,
+}: {
+  count: number;
+  canCopy: boolean;
+  onClose: () => void;
+  onCopy: () => void;
+  onForward: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="toolbar"
+      aria-label={t('chatActions.selecting') ?? ''}
+      className="fixed inset-x-0 top-0 z-40 flex items-center gap-2 bg-brand-800 px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-white shadow"
+      data-testid="selection-bar"
+    >
+      <button type="button" onClick={onClose} aria-label={t('chatActions.cancel_selection') ?? ''} className="px-2 text-2xl leading-none">
+        ✕
+      </button>
+      <span className="flex-1 text-lg font-semibold">{t('chatActions.selected_count', { count })}</span>
+      {canCopy && (
+        <button type="button" onClick={onCopy} aria-label={t('groupChat.copy') ?? ''} title={t('groupChat.copy') ?? ''} className="px-3 py-1 text-xl">
+          📋
+        </button>
+      )}
+      <button type="button" onClick={onForward} aria-label={t('chatActions.forward') ?? ''} title={t('chatActions.forward') ?? ''} className="px-3 py-1 text-xl">
+        ↪️
+      </button>
+    </div>
+  );
+}
+
 export interface ChatTarget {
   kind: 'group' | 'private';
   chatId: string;
@@ -93,8 +143,8 @@ export function ForwardSheet({
   onClose,
   onDone,
 }: {
-  source: { kind: 'group' | 'private'; chatId: string; messageId: string };
-  /** Whether the person forwarding wrote the message themselves. */
+  source: { kind: 'group' | 'private'; chatId: string; messageIds: string[] };
+  /** Whether the person forwarding wrote the message (every message, when several) themselves. */
   isOwn: boolean;
   onClose: () => void;
   onDone: (count: number) => void;
@@ -156,7 +206,11 @@ export function ForwardSheet({
         const [kind, ...rest] = k.split(':');
         return { kind, chatId: rest.join(':') };
       });
-      await api.post('/api/chat/forward', { source, targets, ...(canHideLabel && !isOwn ? { markForwarded } : {}) });
+      await api.post('/api/chat/forward', {
+        source: { kind: source.kind, chatId: source.chatId, messageId: source.messageIds[0], messageIds: source.messageIds },
+        targets,
+        ...(canHideLabel && !isOwn ? { markForwarded } : {}),
+      });
       onDone(targets.length);
     } catch (err) {
       setError(err instanceof ApiError && err.status === 503 ? t('groupChat.storage_off') : t('chatActions.forward_failed'));

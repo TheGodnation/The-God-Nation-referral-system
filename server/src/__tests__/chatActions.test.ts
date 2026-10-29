@@ -290,6 +290,50 @@ describe('Forward', () => {
     });
   });
 
+  it('forwards several selected messages together, in order, each marked forwarded', async () => {
+    const g1 = await prisma.community.create({ data: { name: 'Multi From' } });
+    const g2 = await prisma.community.create({ data: { name: 'Multi To' } });
+    const ada = await member('Ada', g1.id);
+    await prisma.communityMembership.create({ data: { personId: ada.person.id, communityId: g2.id, status: 'ACTIVE' } });
+    const ben = await member('Ben', g1.id);
+    const one = await say(ben, g1.id, 'First thing');
+    const two = await say(ada, g1.id, 'Second thing');
+    const three = await say(ben, g1.id, 'Third thing');
+
+    const res = await ada.agent
+      .post('/api/chat/forward')
+      .set('X-CSRF-Token', ada.csrf)
+      .send({ source: { kind: 'group', chatId: g1.id, messageId: one, messageIds: [one, two, three] }, targets: [{ kind: 'group', chatId: g2.id }] });
+    expect(res.status).toBe(201);
+    expect(res.body.sent).toHaveLength(3);
+    const copies = (await listFor(ada, g2.id)).slice(-3);
+    expect(copies.map((m: any) => m.body)).toEqual(['First thing', 'Second thing', 'Third thing']);
+    expect(copies.every((m: any) => m.forwarded === true)).toBe(true);
+
+    // The same message ticked twice counts once; and one message you cannot read stops the whole forward.
+    const dup = await ada.agent
+      .post('/api/chat/forward')
+      .set('X-CSRF-Token', ada.csrf)
+      .send({ source: { kind: 'group', chatId: g1.id, messageIds: [one, one] }, targets: [{ kind: 'group', chatId: g2.id }] });
+    expect(dup.body.sent).toHaveLength(1);
+    const before = await prisma.message.count({ where: { forwarded: true } });
+    const bad = await ada.agent
+      .post('/api/chat/forward')
+      .set('X-CSRF-Token', ada.csrf)
+      .send({ source: { kind: 'group', chatId: g1.id, messageIds: [one, '00000000-0000-0000-0000-000000000000'] }, targets: [{ kind: 'group', chatId: g2.id }] });
+    expect(bad.status).toBe(404);
+    expect(await prisma.message.count({ where: { forwarded: true } })).toBe(before);
+
+    // No more than 20 at once, and something must be chosen.
+    const tooMany = await ada.agent
+      .post('/api/chat/forward')
+      .set('X-CSRF-Token', ada.csrf)
+      .send({ source: { kind: 'group', chatId: g1.id, messageIds: Array.from({ length: 21 }, () => one) }, targets: [{ kind: 'group', chatId: g2.id }] });
+    expect(tooMany.status).toBe(400);
+    const none = await ada.agent.post('/api/chat/forward').set('X-CSRF-Token', ada.csrf).send({ source: { kind: 'group', chatId: g1.id }, targets: [{ kind: 'group', chatId: g2.id }] });
+    expect(none.status).toBe(400);
+  });
+
   it('refuses chats you cannot write in and messages you cannot see', async () => {
     const g1 = await prisma.community.create({ data: { name: 'Mine' } });
     const g2 = await prisma.community.create({ data: { name: 'Not mine' } });
