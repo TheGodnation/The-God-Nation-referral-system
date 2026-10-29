@@ -17,6 +17,8 @@ export interface AdminBook {
   descriptionFr?: string | null;
   coverUrl?: string | null;
   coverSource?: 'AUTO' | 'MANUAL' | null;
+  coverUrlFr?: string | null;
+  coverSourceFr?: 'AUTO' | 'MANUAL' | null;
   pageCount?: number | null;
   chapterCount?: number;
 }
@@ -43,8 +45,11 @@ function useAct(onError: (message: string) => void) {
   };
 }
 
-function CoverControl({ book, onChanged }: { book: AdminBook; onChanged: () => void }) {
+function CoverControl({ book, language = 'en', onChanged }: { book: AdminBook; language?: 'en' | 'fr'; onChanged: () => void }) {
   const { t } = useTranslation();
+  const french = language === 'fr';
+  const url = (french ? book.coverUrlFr : book.coverUrl) ?? null;
+  const source = french ? book.coverSourceFr : book.coverSource;
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +65,7 @@ function CoverControl({ book, onChanged }: { book: AdminBook; onChanged: () => v
       setError(t('library.cover_bad'));
       return;
     }
-    if (await act(() => api.put(`/api/admin/library/books/${book.id}/cover`, { image, source: 'MANUAL' }))) onChanged();
+    if (await act(() => api.put(`/api/admin/library/books/${book.id}/cover`, { image, source: 'MANUAL', language }))) onChanged();
     setBusy(false);
     if (input.current) input.current.value = '';
   }
@@ -68,25 +73,26 @@ function CoverControl({ book, onChanged }: { book: AdminBook; onChanged: () => v
   return (
     <div className="flex gap-3">
       <div className="w-20 shrink-0">
-        <BookCover number={book.trainingOrder ?? 0} title={book.titleEn} coverUrl={book.coverUrl ?? null} />
+        <BookCover number={book.trainingOrder ?? 0} title={book.titleEn} coverUrl={url} />
       </div>
       <div className="space-y-1 text-sm">
+        <p className="font-medium text-slate-700">{t(`library.cover_title_${language}`)}</p>
         <p className="text-slate-600">
-          {book.coverSource === 'MANUAL' ? t('library.cover_manual') : book.coverSource === 'AUTO' ? t('library.cover_auto') : t('library.cover_none')}
+          {source === 'MANUAL' ? t('library.cover_manual') : source === 'AUTO' ? t('library.cover_auto') : t(french ? 'library.cover_none_fr' : 'library.cover_none')}
         </p>
         <button type="button" className="btn-secondary px-2 py-1 text-xs" disabled={busy} onClick={() => input.current?.click()}>
           {busy ? t('library.uploading') : t('library.cover_choose')}
         </button>
-        {book.coverUrl && (
+        {url && (
           <button
             type="button"
             className="ml-2 text-xs text-slate-500 underline"
-            onClick={async () => (await act(() => api.delete(`/api/admin/library/books/${book.id}/cover`))) && onChanged()}
+            onClick={async () => (await act(() => api.delete(`/api/admin/library/books/${book.id}/cover${french ? '?language=fr' : ''}`))) && onChanged()}
           >
             {t('library.cover_remove')}
           </button>
         )}
-        <input ref={input} type="file" accept="image/*" className="hidden" aria-label={t('library.cover_choose') ?? ''} onChange={(e) => choose(e.target.files?.[0])} />
+        <input ref={input} type="file" accept="image/*" className="hidden" aria-label={french ? `${t('library.cover_choose')} (${t('library.language_fr')})` : (t('library.cover_choose') ?? '')} onChange={(e) => choose(e.target.files?.[0])} />
         {error && <p className="text-xs text-red-700">{error}</p>}
       </div>
     </div>
@@ -270,6 +276,7 @@ export function BookDetailsAdmin({ book, onChanged }: { book: AdminBook; onChang
   return (
     <div className="mt-2 w-full space-y-4 rounded-lg border border-brand-100 p-3">
       <CoverControl book={book} onChanged={onChanged} />
+      <CoverControl book={book} language="fr" onChanged={onChanged} />
       <DetailsForm book={book} onChanged={onChanged} />
       <Chapters bookId={book.id} onChanged={onChanged} />
     </div>

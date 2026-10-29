@@ -16,6 +16,7 @@ export interface SchoolBook {
   descriptionEn: string | null;
   descriptionFr: string | null;
   coverUrl?: string | null;
+  coverUrlFr?: string | null;
   pageCount?: number | null;
   chapterCount?: number;
   /** Where they stopped reading (null = not started). */

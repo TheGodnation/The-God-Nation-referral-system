@@ -80,7 +80,7 @@ export function MemberSchoolPage() {
             {current && (
               <Link to={`/member/school/${current.id}`} className="card flex items-center gap-3 hover:bg-brand-50">
                 <span className="w-12 shrink-0" aria-hidden="true">
-                  <BookCover compact number={current.trainingOrder} title={tr(current.titleEn, current.titleFr)} coverUrl={current.coverUrl ?? null} />
+                  <BookCover compact number={current.trainingOrder} title={tr(current.titleEn, current.titleFr)} coverUrl={current.coverUrl ?? null} coverUrlFr={current.coverUrlFr ?? null} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-xs font-semibold uppercase tracking-wide text-brand-700">{t('school.continue')}</span>
@@ -117,7 +117,7 @@ export function MemberSchoolPage() {
                     <li key={b.id}>
                       <Link to={`/member/school/${b.id}`} className="group block" aria-label={`${t('learn.book', { number })}: ${title} — ${badge.text}`}>
                         <span className={`block ${b.unlocked ? '' : 'grayscale-[60%]'}`}>
-                          <BookCover number={number} title={title} coverUrl={b.coverUrl ?? null} className="transition group-hover:-translate-y-0.5" />
+                          <BookCover number={number} title={title} coverUrl={b.coverUrl ?? null} coverUrlFr={b.coverUrlFr ?? null} className="transition group-hover:-translate-y-0.5" />
                         </span>
                         <span className="mt-1 flex flex-wrap items-center gap-1">
                           <span className="text-xs font-semibold text-brand-800">{t('learn.book', { number })}</span>

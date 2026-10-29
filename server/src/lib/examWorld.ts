@@ -48,6 +48,7 @@ export interface TrainingBookState {
   hasFile: boolean;
   pageCount: number | null;
   coverVersion: string | null;
+  coverFrVersion: string | null;
   unlocked: boolean;
   /** Payment for this book: confirmed, or waiting (claimed / automatic in progress). */
   payment: 'PAID' | 'CLAIMED' | 'PENDING' | null;
@@ -122,6 +123,7 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
       hasFile: Boolean(b.storageKey || b.storageKeyFr),
       pageCount: b.pageCount ?? b.pageCountFr,
       coverVersion: b.coverVersion,
+      coverFrVersion: b.coverFrVersion,
       unlocked,
       payment,
       lockedBecause,

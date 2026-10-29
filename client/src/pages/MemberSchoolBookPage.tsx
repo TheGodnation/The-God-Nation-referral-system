@@ -73,7 +73,7 @@ export function MemberSchoolBookPage() {
           <div className="space-y-5">
             <div className="flex gap-4">
               <div className="w-28 shrink-0 sm:w-36">
-                <BookCover number={b.trainingOrder} title={title} coverUrl={b.coverUrl ?? null} />
+                <BookCover number={b.trainingOrder} title={title} coverUrl={b.coverUrl ?? null} coverUrlFr={b.coverUrlFr ?? null} />
               </div>
               <div className="min-w-0 space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{t('learn.book', { number: b.trainingOrder })}</p>

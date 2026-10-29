@@ -92,7 +92,7 @@ function PdfUpload({
   hasFile: boolean;
   /** Which copy of the book this uploads: the English or the French one. */
   language?: 'en' | 'fr';
-  /** Draw page 1 of this PDF as the book's cover (only the first copy does). */
+  /** Draw page 1 of this PDF as that language's cover (kept unless the admin chose a picture). */
   makeCover?: boolean;
   onDone: () => void;
 }) {
@@ -131,7 +131,7 @@ function PdfUpload({
       }
       const info = await reading;
       await api.post(`/api/admin/library/books/${bookId}/file`, { storageKey: auth.storageKey, byteSize: file.size, pageCount: info?.pageCount, language });
-      if (makeCover && info?.cover) await api.put(`/api/admin/library/books/${bookId}/cover`, { image: info.cover, source: 'AUTO' }).catch(() => {});
+      if (makeCover && info?.cover) await api.put(`/api/admin/library/books/${bookId}/cover`, { image: info.cover, source: 'AUTO', language }).catch(() => {});
       onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('library.upload_failed'));
@@ -294,7 +294,7 @@ export function LibraryTab() {
                   {d.book ? (
                     <span className="flex flex-wrap items-center gap-3">
                       <PdfUpload bookId={d.book.id} hasFile={d.book.hasFile} language="en" onDone={load} />
-                      <PdfUpload bookId={d.book.id} hasFile={Boolean(d.book.hasFileFr)} language="fr" makeCover={!d.book.hasFile} onDone={load} />
+                      <PdfUpload bookId={d.book.id} hasFile={Boolean(d.book.hasFileFr)} language="fr" onDone={load} />
                     </span>
                   ) : (
                     <button
@@ -355,7 +355,7 @@ export function LibraryTab() {
               </span>
               <span className="flex flex-wrap items-center gap-3">
                 <PdfUpload bookId={b.id} hasFile={b.hasFile} language="en" onDone={load} />
-                <PdfUpload bookId={b.id} hasFile={Boolean(b.hasFileFr)} language="fr" makeCover={!b.hasFile} onDone={load} />
+                <PdfUpload bookId={b.id} hasFile={Boolean(b.hasFileFr)} language="fr" onDone={load} />
                 {b.exam && (
                   <span className="text-xs text-slate-600">
                     {examLabel(b.exam)} · {t('library.pass_mark', { mark: b.exam.passMark })}

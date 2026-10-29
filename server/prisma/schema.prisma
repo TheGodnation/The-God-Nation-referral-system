@@ -2767,6 +2767,9 @@ model LibraryBook {
   // Changes whenever the cover changes, so phones fetch the new picture
   // (the cover link carries it; null = no cover yet, a drawn one is shown).
   coverVersion  String?
+  // The same for the French cover (drawn from the French PDF); null = readers
+  // in French see the English cover.
+  coverFrVersion String?
   trainingOrder Int?            @unique
   devotionalId  String?         @unique
   createdAt     DateTime        @default(now())
@@ -2779,6 +2782,7 @@ model LibraryBook {
   opens      TrainingBookOpen[]
   reading    ReadingProgress[]
   cover      LibraryBookCover?
+  coverFr    LibraryBookCoverFr?
   chapters   BookChapter[]
 
   @@index([kind])
@@ -2789,6 +2793,17 @@ model LibraryBook {
 // of the PDF when it is uploaded; a MANUAL cover chosen by the admin is
 // never replaced by an automatic one.
 model LibraryBookCover {
+  bookId    String          @id
+  mimeType  String
+  data      Bytes
+  source    BookCoverSource
+  updatedAt DateTime        @updatedAt
+
+  book LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+// The French cover of a book, when it has one (same rules as LibraryBookCover).
+model LibraryBookCoverFr {
   bookId    String          @id
   mimeType  String
   data      Bytes

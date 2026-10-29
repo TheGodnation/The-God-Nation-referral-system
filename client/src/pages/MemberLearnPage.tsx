@@ -189,7 +189,7 @@ export function MemberLearnPage() {
                 <span className="flex gap-2" aria-hidden="true">
                   {data.training.books.slice(0, 5).map((b) => (
                     <span key={b.id} className="w-12">
-                      <BookCover compact number={b.trainingOrder} title={tr(b.titleEn, b.titleFr)} coverUrl={b.coverUrl ?? null} />
+                      <BookCover compact number={b.trainingOrder} title={tr(b.titleEn, b.titleFr)} coverUrl={b.coverUrl ?? null} coverUrlFr={b.coverUrlFr ?? null} />
                     </span>
                   ))}
                 </span>

@@ -12,7 +12,7 @@ import { createClaimBatch, openUnpaidBook } from '../lib/bookPayments';
 import { canReadBook, canSeeDevotional, examAccess, getTrainingBooksFor, MAX_GRACE_BOOKS } from '../lib/examWorld';
 import { activePaymentProvider } from '../lib/payments';
 import { trainingExamState } from '../lib/trainingExam';
-import { coverUrl, sendCover } from '../lib/bookCovers';
+import { coverFrUrl, coverUrl, sendCover } from '../lib/bookCovers';
 
 // ---------------------------------------------------------------------------
 // /api/member — Exam World for members: the summary page (this month's
@@ -152,6 +152,7 @@ async function trainingSummary(personId: string) {
       descriptionEn: b.descriptionEn,
       descriptionFr: b.descriptionFr,
       coverUrl: coverUrl(b),
+      coverUrlFr: coverFrUrl(b),
       pageCount: b.pageCount,
       chapterCount: chaptersOf.get(b.id) ?? 0,
       // Where they stopped reading (null = not started).
@@ -480,7 +481,7 @@ router.get('/library/books/:id/cover', requireMember, asyncHandler(async (req, r
   if (book.kind === 'DEVOTIONAL' && !(book.devotional && (await canSeeDevotional(req.member!.personId, book.devotional)))) {
     return res.status(404).json({ error: 'Book not found.' });
   }
-  await sendCover(res, book.id, typeof req.query.v === 'string');
+  await sendCover(res, book.id, typeof req.query.v === 'string', req.query.lang);
 }));
 
 // GET /api/member/library/books/:id/content — the PDF bytes, streamed by

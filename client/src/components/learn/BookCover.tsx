@@ -8,26 +8,30 @@ export function BookCover({
   number,
   title,
   coverUrl,
+  coverUrlFr = null,
   compact = false,
   className = '',
 }: {
   number: number;
   title: string;
   coverUrl: string | null;
+  /** The French cover, shown instead when the app is in French. */
+  coverUrlFr?: string | null;
   compact?: boolean;
   className?: string;
 }) {
-  const { t } = useTranslation();
-  const [failed, setFailed] = useState(false);
+  const { t, i18n } = useTranslation();
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const label = t('school.cover_alt', { number, title });
-  if (coverUrl && !failed) {
+  const shown = coverUrlFr && i18n.language?.startsWith('fr') ? coverUrlFr : coverUrl;
+  if (shown && shown !== failedUrl) {
     return (
       <img
-        src={coverUrl}
+        src={shown}
         alt={label}
         loading="lazy"
         decoding="async"
-        onError={() => setFailed(true)}
+        onError={() => setFailedUrl(shown)}
         className={`aspect-[2/3] w-full rounded-md bg-slate-200 object-cover shadow ${className}`}
       />
     );

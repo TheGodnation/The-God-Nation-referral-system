@@ -35,9 +35,15 @@ export function coverUrl(book: { id: string; coverVersion: string | null }, base
   return book.coverVersion ? `${base}/${book.id}/cover?v=${book.coverVersion}` : null;
 }
 
-/** Sends a book's cover picture (404 when it has none). */
-export async function sendCover(res: Response, bookId: string, versioned: boolean) {
-  const cover = await prisma.libraryBookCover.findUnique({ where: { bookId }, select: { mimeType: true, data: true } });
+/** The link for the French cover (null when the book has none: French readers then get the English one). */
+export function coverFrUrl(book: { id: string; coverFrVersion: string | null }, base = '/api/member/library/books'): string | null {
+  return book.coverFrVersion ? `${base}/${book.id}/cover?lang=fr&v=${book.coverFrVersion}` : null;
+}
+
+/** Sends a book's cover picture (404 when it has none). `lang=fr` sends the French cover, else the English one. */
+export async function sendCover(res: Response, bookId: string, versioned: boolean, lang?: unknown) {
+  const select = { mimeType: true, data: true } as const;
+  const cover = lang === 'fr' ? await prisma.libraryBookCoverFr.findUnique({ where: { bookId }, select }) : await prisma.libraryBookCover.findUnique({ where: { bookId }, select });
   if (!cover) return res.status(404).json({ error: 'No cover.' });
   res.setHeader('Content-Type', cover.mimeType);
   res.setHeader('X-Content-Type-Options', 'nosniff');

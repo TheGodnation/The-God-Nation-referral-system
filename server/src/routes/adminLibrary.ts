@@ -13,7 +13,7 @@ import { MAX_GRACE_BOOKS, TRAINING_PASS_MARK, getTrainingBooksFor } from '../lib
 import { examSetNumbers } from '../lib/trainingExam';
 import { notifyBookPaymentDecision, notifyExamRetakeDecision, notifyTrainingGraceDecision } from '../lib/notifications';
 import { activePaymentProvider } from '../lib/payments';
-import { coverUrl, newCoverVersion, readCoverDataUrl, sendCover } from '../lib/bookCovers';
+import { coverFrUrl, coverUrl, newCoverVersion, readCoverDataUrl, sendCover } from '../lib/bookCovers';
 import { creditReferralEarning } from '../lib/referralEarnings';
 import { closeOrdersForBook, decideBookPayment } from '../lib/bookPayments';
 
@@ -48,6 +48,7 @@ router.get('/books', asyncHandler(async (_req, res) => {
       devotional: { select: { id: true, titleEn: true, startDate: true } },
       exam: { select: { id: true, titleEn: true, status: true, passMark: true, _count: { select: { questions: true } } } },
       cover: { select: { source: true } },
+      coverFr: { select: { source: true } },
       _count: { select: { chapters: true } },
     },
   });
@@ -74,6 +75,8 @@ router.get('/books', asyncHandler(async (_req, res) => {
       pageCountFr: b.pageCountFr,
       coverUrl: coverUrl(b, '/api/admin/library/books'),
       coverSource: b.cover?.source ?? null,
+      coverUrlFr: coverFrUrl(b, '/api/admin/library/books'),
+      coverSourceFr: b.coverFr?.source ?? null,
       chapterCount: b._count.chapters,
       exam: b.exam
         ? {
@@ -240,6 +243,8 @@ const coverSchema = z.object({
   image: z.string().max(450_000),
   // AUTO: drawn from page 1 of the PDF just uploaded. MANUAL: chosen by the admin.
   source: z.enum(['AUTO', 'MANUAL']),
+  // Which cover: the English one (default) or the French one.
+  language: z.enum(['en', 'fr']).default('en'),
 });
 
 // PUT /api/admin/library/books/:id/cover — an automatic cover never
@@ -248,36 +253,38 @@ router.put('/books/:id/cover', communityMutationLimiter, requireCsrf, asyncHandl
   const parsed = coverSchema.safeParse(req.body);
   const picture = parsed.success ? readCoverDataUrl(parsed.data.image) : null;
   if (!parsed.success || !picture) return res.status(400).json({ error: 'Please choose a JPEG, PNG or WebP picture.', code: 'INVALID_COVER' });
-  const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { id: true, cover: { select: { source: true } } } });
+  const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { id: true, cover: { select: { source: true } }, coverFr: { select: { source: true } } } });
   if (!book) return res.status(404).json({ error: 'Book not found.' });
-  if (parsed.data.source === 'AUTO' && book.cover?.source === 'MANUAL') return res.json({ kept: true });
+  const french = parsed.data.language === 'fr';
+  if (parsed.data.source === 'AUTO' && (french ? book.coverFr : book.cover)?.source === 'MANUAL') return res.json({ kept: true });
   const coverVersion = newCoverVersion();
+  const row = { mimeType: picture.mimeType, data: picture.data, source: parsed.data.source };
   await prisma.$transaction([
-    prisma.libraryBookCover.upsert({
-      where: { bookId: book.id },
-      create: { bookId: book.id, mimeType: picture.mimeType, data: picture.data, source: parsed.data.source },
-      update: { mimeType: picture.mimeType, data: picture.data, source: parsed.data.source },
-    }),
-    prisma.libraryBook.update({ where: { id: book.id }, data: { coverVersion } }),
+    french
+      ? prisma.libraryBookCoverFr.upsert({ where: { bookId: book.id }, create: { bookId: book.id, ...row }, update: row })
+      : prisma.libraryBookCover.upsert({ where: { bookId: book.id }, create: { bookId: book.id, ...row }, update: row }),
+    prisma.libraryBook.update({ where: { id: book.id }, data: french ? { coverFrVersion: coverVersion } : { coverVersion } }),
   ]);
-  await audit(req, 'LIBRARY_BOOK_COVER_SET', 'LibraryBook', book.id, { source: parsed.data.source, bytes: picture.data.length });
-  res.json({ coverUrl: coverUrl({ id: book.id, coverVersion }, '/api/admin/library/books') });
+  await audit(req, 'LIBRARY_BOOK_COVER_SET', 'LibraryBook', book.id, { source: parsed.data.source, language: parsed.data.language, bytes: picture.data.length });
+  res.json(french ? { coverUrlFr: coverFrUrl({ id: book.id, coverFrVersion: coverVersion }, '/api/admin/library/books') } : { coverUrl: coverUrl({ id: book.id, coverVersion }, '/api/admin/library/books') });
 }));
 
-// DELETE /api/admin/library/books/:id/cover — back to the drawn cover.
+// DELETE /api/admin/library/books/:id/cover — back to the drawn cover
+// (?language=fr: remove only the French cover, French readers then see the English one).
 router.delete('/books/:id/cover', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { id: true } });
   if (!book) return res.status(404).json({ error: 'Book not found.' });
+  const french = req.query.language === 'fr';
   await prisma.$transaction([
-    prisma.libraryBookCover.deleteMany({ where: { bookId: book.id } }),
-    prisma.libraryBook.update({ where: { id: book.id }, data: { coverVersion: null } }),
+    french ? prisma.libraryBookCoverFr.deleteMany({ where: { bookId: book.id } }) : prisma.libraryBookCover.deleteMany({ where: { bookId: book.id } }),
+    prisma.libraryBook.update({ where: { id: book.id }, data: french ? { coverFrVersion: null } : { coverVersion: null } }),
   ]);
-  await audit(req, 'LIBRARY_BOOK_COVER_REMOVED', 'LibraryBook', book.id);
+  await audit(req, 'LIBRARY_BOOK_COVER_REMOVED', 'LibraryBook', book.id, french ? { language: 'fr' } : undefined);
   res.json({ ok: true });
 }));
 
 router.get('/books/:id/cover', asyncHandler(async (req, res) => {
-  await sendCover(res, req.params.id, typeof req.query.v === 'string');
+  await sendCover(res, req.params.id, typeof req.query.v === 'string', req.query.lang);
 }));
 
 // ----------------------------- Chapters -------------------------------------

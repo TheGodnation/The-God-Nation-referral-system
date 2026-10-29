@@ -97,7 +97,7 @@ describe('Leadership book details (admin)', () => {
     expect(screen.getByText(/No cover yet/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Choose a cover picture'), { target: { files: [new File(['x'], 'cover.png', { type: 'image/png' })] } });
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
-    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ image: 'data:image/jpeg;base64,/9j/AAAA', source: 'MANUAL' });
+    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ image: 'data:image/jpeg;base64,/9j/AAAA', source: 'MANUAL', language: 'en' });
   });
 });
 
@@ -170,10 +170,10 @@ describe('Uploading a leadership book PDF (admin)', () => {
     fireEvent.change(input[0], { target: { files: [new File(['%PDF'], 'book.pdf', { type: 'application/pdf' })] } });
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT' && c.url.endsWith('/cover'))).toBe(true));
     expect(calls.find((c) => c.url === '/api/admin/library/books/b1/file')?.body).toEqual({ storageKey: 'library/b1/k.pdf', byteSize: 4, pageCount: 84, language: 'en' });
-    expect(calls.find((c) => c.url.endsWith('/cover'))?.body).toEqual({ image: 'data:image/jpeg;base64,/9j/BBBB', source: 'AUTO' });
+    expect(calls.find((c) => c.url.endsWith('/cover'))?.body).toEqual({ image: 'data:image/jpeg;base64,/9j/BBBB', source: 'AUTO', language: 'en' });
   });
 
-  it('has a separate upload for the French copy; it does not replace the cover the English one made', async () => {
+  it('has a separate upload for the French copy; it makes the French cover, not the English one', async () => {
     fakeStorage([200]);
     mockFetch({
       ...LIBRARY_ROUTES,
@@ -186,8 +186,9 @@ describe('Uploading a leadership book PDF (admin)', () => {
     fireEvent.change(input[0], { target: { files: [new File(['%PDF'], 'livre.pdf', { type: 'application/pdf' })] } });
     await waitFor(() => expect(calls.some((c) => c.url === '/api/admin/library/books/b1/file')).toBe(true));
     expect(calls.find((c) => c.url === '/api/admin/library/books/b1/file')?.body).toEqual({ storageKey: 'library/b1/k.pdf', byteSize: 4, pageCount: 84, language: 'fr' });
-    // The English copy already made the cover.
-    expect(calls.some((c) => c.method === 'PUT' && c.url.endsWith('/cover'))).toBe(false);
+    // The French PDF's page 1 becomes the French cover; the English cover is left alone.
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT' && c.url.endsWith('/cover'))).toBe(true));
+    expect(calls.filter((c) => c.method === 'PUT' && c.url.endsWith('/cover')).map((c) => c.body.language)).toEqual(['fr']);
   });
 
   it('tries again once with a fresh link when the first send drops, then keeps the book', async () => {

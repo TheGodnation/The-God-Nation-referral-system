@@ -708,6 +708,37 @@ describe('Leadership School: covers, pages and chapter summaries', () => {
     expect((await request(app).get(url)).status).toBe(401);
   });
 
+  it('a book can have its own French cover next to the English one', async () => {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1);
+    const m = await member('French Cover Reader');
+    const put = (image: string, source: string, language?: string) =>
+      a.agent.put(`/api/admin/library/books/${b1.bookId}/cover`).set('X-CSRF-Token', a.csrf).send({ image, source, language });
+
+    await put(JPEG, 'AUTO');
+    let book = (await m.agent.get('/api/member/school')).body.books[0];
+    expect(book.coverUrlFr).toBeNull();
+
+    const fr = await put(PNG, 'AUTO', 'fr');
+    expect(fr.body.coverUrlFr).toContain('lang=fr');
+    book = (await m.agent.get('/api/member/school')).body.books[0];
+    expect(book.coverUrlFr).toMatch(new RegExp(`^/api/member/library/books/${b1.bookId}/cover\\?lang=fr&v=[0-9a-f]+$`));
+    expect((await m.agent.get(book.coverUrl)).headers['content-type']).toBe('image/jpeg');
+    expect((await m.agent.get(book.coverUrlFr)).headers['content-type']).toBe('image/png');
+
+    // The admin's own French picture is not replaced by an automatic one, and the English cover is untouched.
+    await put(JPEG, 'MANUAL', 'fr');
+    expect((await put(PNG, 'AUTO', 'fr')).body.kept).toBe(true);
+    const listed = (await a.agent.get('/api/admin/library/books')).body.items.find((x: any) => x.id === b1.bookId);
+    expect(listed).toMatchObject({ coverSource: 'AUTO', coverSourceFr: 'MANUAL' });
+
+    // Removing the French cover leaves the English one.
+    expect((await a.agent.delete(`/api/admin/library/books/${b1.bookId}/cover?language=fr`).set('X-CSRF-Token', a.csrf)).status).toBe(200);
+    book = (await m.agent.get('/api/member/school')).body.books[0];
+    expect(book.coverUrlFr).toBeNull();
+    expect(book.coverUrl).not.toBeNull();
+  });
+
   it('keeps the page count read when the PDF is uploaded', async () => {
     const a = await admin();
     const created = await post(a, '/api/admin/library/books', { kind: 'TRAINING', titleEn: 'Counted', trainingOrder: 1 });
