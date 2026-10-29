@@ -68,6 +68,16 @@ describe('Updates wall', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('shows a single photo whole, at its own shape, like Facebook (never cropped)', async () => {
+    mockFeed([post({ photos: [{ id: 'ph1', url: '/api/updates/photos/ph1' }] })]);
+    render(<UpdatesFeed wall />);
+    const tile = await screen.findByRole('button', { name: 'Open photo' });
+    const img = tile.querySelector('img')!;
+    expect(img.className).toContain('object-contain');
+    expect(img.className).not.toContain('object-cover');
+    expect(tile.className).not.toContain('aspect-');
+  });
+
   it('says so when a photo cannot be shown, instead of a broken picture', async () => {
     mockFeed([post({ photos: [{ id: 'ph1', url: '/api/updates/photos/ph1' }] })]);
     render(<UpdatesFeed wall />);

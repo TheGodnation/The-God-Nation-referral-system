@@ -553,7 +553,7 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
 
 // ---------------------------------------------------------------- Photos
 
-function PhotoTile({ url, onOpen, className }: { url: string; onOpen: () => void; className: string }) {
+function PhotoTile({ url, onOpen, className, whole = false }: { url: string; onOpen: () => void; className: string; /** Show the whole picture at its own shape (a single photo), never cropped. */ whole?: boolean }) {
   const { t } = useTranslation();
   const [state, setState] = useState<'loading' | 'ok' | 'failed'>('loading');
   const saver = useDataSaver();
@@ -572,7 +572,12 @@ function PhotoTile({ url, onOpen, className }: { url: string; onOpen: () => void
     );
   }
   return (
-    <button type="button" onClick={onOpen} className={`relative block overflow-hidden bg-slate-200 ${className}`} aria-label={t('updates.open_photo') ?? ''}>
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`relative block overflow-hidden ${whole ? 'bg-slate-100' : 'bg-slate-200'} ${state === 'loading' && whole ? 'min-h-[12rem]' : ''} ${state === 'failed' && whole ? 'min-h-[8rem]' : ''} ${className}`}
+      aria-label={t('updates.open_photo') ?? ''}
+    >
       {state !== 'failed' && (
         <img
           src={url}
@@ -580,7 +585,7 @@ function PhotoTile({ url, onOpen, className }: { url: string; onOpen: () => void
           loading="lazy"
           onLoad={() => setState('ok')}
           onError={() => setState('failed')}
-          className={`h-full w-full object-cover transition-opacity ${state === 'ok' ? 'opacity-100' : 'opacity-0'}`}
+          className={`w-full transition-opacity ${whole ? 'mx-auto block h-auto max-h-[85vh] object-contain' : 'h-full object-cover'} ${state === 'ok' ? 'opacity-100' : 'opacity-0'}`}
         />
       )}
       {state === 'loading' && <span className="absolute inset-0 animate-pulse bg-slate-200" aria-hidden />}
@@ -598,7 +603,8 @@ function PhotoTile({ url, onOpen, className }: { url: string; onOpen: () => void
  * small, 4 as a square grid. */
 function PhotoLayout({ photos, onOpen }: { photos: { id: string; url: string }[]; onOpen: (index: number) => void }) {
   if (photos.length === 1) {
-    return <PhotoTile url={photos[0].url} onOpen={() => onOpen(0)} className="aspect-[4/3] max-h-[36rem] w-full" />;
+    // Like Facebook: one photo is shown whole, at its own shape — faces are never cropped out.
+    return <PhotoTile url={photos[0].url} onOpen={() => onOpen(0)} className="w-full" whole />;
   }
   if (photos.length === 3) {
     return (

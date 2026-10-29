@@ -74,7 +74,7 @@ function HeadquartersImage({ postId, mediaId, extraCount, onOpen }: { postId: st
     <div ref={ref} className="relative bg-slate-100">
       {url && !failed ? (
         <button type="button" onClick={onOpen} className="block w-full" aria-label={t('headquartersPosts.media_image_alt') ?? ''}>
-          <img src={url} alt={t('headquartersPosts.media_image_alt') ?? ''} className="max-h-[32rem] w-full object-cover" onError={() => setFailed(true)} />
+          <img src={url} alt={t('headquartersPosts.media_image_alt') ?? ''} className="max-h-[32rem] w-full bg-slate-100 object-contain" onError={() => setFailed(true)} />
           {extraCount > 0 && (
             <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-semibold text-white">+{extraCount}</span>
           )}
