@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
+import { QuizSummary } from './QuizSummary';
 
 // Every submitted quiz / exam try: teaching quizzes, leadership book exams,
 // devotional exams. On the Results tab it can be searched by person, kind,
@@ -10,6 +11,7 @@ import { api } from '../../lib/api';
 
 interface ResultRow {
   attemptId: string;
+  assessmentId: string;
   personId: string;
   personName: string;
   whatsappNumber: string;
@@ -31,7 +33,17 @@ interface ResultPage {
 
 const KINDS = ['TEACHING', 'BOOK', 'DEVOTIONAL', 'OTHER'] as const;
 
-export function ExamResults({ personId }: { personId?: string }) {
+export function ExamResults({
+  personId,
+  base = '/api/admin/results',
+  hideWhenEmpty = false,
+}: {
+  personId?: string;
+  /** A leader reads the same list over their own members only. */
+  base?: string;
+  hideWhenEmpty?: boolean;
+}) {
+  const isAdmin = base === '/api/admin/results';
   const { t, i18n } = useTranslation();
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState('');
@@ -43,6 +55,7 @@ export function ExamResults({ personId }: { personId?: string }) {
   const [failed, setFailed] = useState(false);
   const [communities, setCommunities] = useState<{ id: string; name: string }[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
+  const [summaryFor, setSummaryFor] = useState<string | null>(null);
 
   const query = useCallback(
     (extra: Record<string, string> = {}) => {
@@ -62,7 +75,7 @@ export function ExamResults({ personId }: { personId?: string }) {
   const load = useCallback(() => {
     setFailed(false);
     api
-      .get<ResultPage>(`/api/admin/results?${query({ page: String(page), pageSize: '20' })}`)
+      .get<ResultPage>(`${base}?${query({ page: String(page), pageSize: '20' })}`)
       .then((r) => (Array.isArray(r?.items) && r.pagination ? setData(r) : setFailed(true)))
       .catch(() => setFailed(true));
   }, [query, page]);
@@ -70,12 +83,12 @@ export function ExamResults({ personId }: { personId?: string }) {
   useEffect(load, [load]);
 
   useEffect(() => {
-    if (personId) return;
+    if (personId || !isAdmin) return;
     api
       .get<{ items: { id: string; name: string }[] }>('/api/admin/communities?pageSize=100')
       .then((r) => setCommunities(r.items))
       .catch(() => {});
-  }, [personId]);
+  }, [personId, isAdmin]);
 
   const locale = i18n.language.startsWith('fr') ? 'fr-FR' : 'en-GB';
   const kindLabel = (k: ResultRow['kind']) => t(`admin.results.kind_${k}`);
@@ -109,8 +122,11 @@ export function ExamResults({ personId }: { personId?: string }) {
     else setPage(1);
   }
 
+  if (hideWhenEmpty && (failed || (data && data.pagination.total === 0 && !search && !kind && !from && !to))) return null;
+
   return (
     <div className="space-y-3" data-testid="exam-results">
+      {!isAdmin && <h2 className="font-semibold text-brand-900">{t('admin.results.leader_title')}</h2>}
       {!personId && (
         <form onSubmit={applyFilters} className="card grid gap-2 sm:grid-cols-2">
           <input className="input sm:col-span-2" placeholder={t('admin.results.search_placeholder') ?? ''} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={t('admin.results.search_placeholder') ?? ''} />
@@ -122,6 +138,7 @@ export function ExamResults({ personId }: { personId?: string }) {
               </option>
             ))}
           </select>
+          {isAdmin && (
           <select className="input" value={communityId} onChange={(e) => { setCommunityId(e.target.value); setPage(1); }} aria-label={t('admin.results.assembly') ?? ''}>
             <option value="">{t('admin.results.all_assemblies')}</option>
             {communities.map((c) => (
@@ -130,6 +147,7 @@ export function ExamResults({ personId }: { personId?: string }) {
               </option>
             ))}
           </select>
+          )}
           <label className="text-xs text-slate-500">
             {t('admin.results.from')}
             <input type="date" className="input mt-1" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} />
@@ -145,7 +163,7 @@ export function ExamResults({ personId }: { personId?: string }) {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <a className="btn-secondary" href={`/api/admin/results/export?${query()}`} download data-testid="results-download">
+        <a className="btn-secondary" href={`${base}/export?${query()}`} download data-testid="results-download">
           ⬇ {t('admin.results.download')}
         </a>
         {data && data.items.length > 0 && (
@@ -177,14 +195,19 @@ export function ExamResults({ personId }: { personId?: string }) {
               <div className="shrink-0 text-right">
                 <p className={`text-lg font-bold ${r.passed === null ? 'text-slate-700' : r.passed ? 'text-green-700' : 'text-red-700'}`}>{r.percentage === null ? '—' : `${Math.round(r.percentage)}%`}</p>
                 {r.passed !== null && <p className="text-xs text-slate-500">{t(r.passed ? 'admin.results.passed' : 'admin.results.failed')}</p>}
-                <button type="button" className="mt-1 text-xs font-medium text-brand-700 underline" onClick={() => copy(r.attemptId, line(r))}>
+                <button type="button" className="mt-1 block w-full text-xs font-medium text-brand-700 underline" onClick={() => copy(r.attemptId, line(r))}>
                   {copied === r.attemptId ? `✓ ${t('admin.results.copied')}` : t('admin.results.copy')}
+                </button>
+                <button type="button" className="mt-1 block w-full text-xs font-medium text-brand-700 underline" onClick={() => setSummaryFor(r.assessmentId)}>
+                  {t('admin.results.quiz_summary')}
                 </button>
               </div>
             </li>
           ))}
         </ul>
       )}
+
+      {summaryFor && <QuizSummary base={base} assessmentId={summaryFor} detail={isAdmin} onClose={() => setSummaryFor(null)} />}
 
       {data && data.pagination.totalPages > 1 && (
         <div className="flex items-center justify-between text-sm">

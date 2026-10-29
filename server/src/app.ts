@@ -75,6 +75,7 @@ import examWorldRoutes from './routes/examWorld';
 import paymentRoutes from './routes/payments';
 import adminLibraryRoutes from './routes/adminLibrary';
 import leaderExamResultsRoutes from './routes/leaderExamResults';
+import leaderResultsRoutes from './routes/leaderResults';
 import { prisma } from './lib/prisma';
 import { APP_URL } from './lib/env';
 
@@ -273,6 +274,7 @@ export function createApp() {
   app.use('/api/payments', paymentRoutes);
   app.use('/api/admin/library', adminLibraryRoutes);
   app.use('/api/leader', leaderExamResultsRoutes);
+  app.use('/api/leader', leaderResultsRoutes);
 
   // Phase 2: lists only published ContentPage slugs, so unpublished (draft)
   // content is never surfaced to a crawler as an indexable URL.

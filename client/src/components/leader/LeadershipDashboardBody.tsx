@@ -6,6 +6,7 @@ import { PrayerRequests } from '../PrayerRequests';
 import { LeaderUpdates } from '../updates/LeaderUpdates';
 import { ReportsList } from '../ReportsList';
 import { ExamResults } from './ExamResults';
+import { ExamResults as QuizAndExamMarks } from '../admin/ExamResults';
 import { PrivateMessages } from '../PrivateMessages';
 import { MyResources } from '../MyResources';
 import { StartPrivateMessage } from './StartPrivateMessage';
@@ -247,6 +248,10 @@ export function LeadershipDashboardBody() {
       <LeaderUpdates />
 
       <ExamResults />
+
+      <section className="space-y-2" data-testid="leader-quiz-marks">
+        <QuizAndExamMarks base="/api/leader/results" hideWhenEmpty />
+      </section>
 
       <ReportsList basePath="/api/leader/member-reports" />
 

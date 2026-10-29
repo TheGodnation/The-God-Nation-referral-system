@@ -5,7 +5,7 @@ import { adminSensitiveLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
-import { allResults, listResults, resultsCsv, RESULT_KINDS, type ResultFilter } from '../lib/examResults';
+import { allResults, listResults, quizSummary, resultsCsv, RESULT_KINDS, type ResultFilter } from '../lib/examResults';
 
 const router = Router();
 router.use(requireAuth, requireRole('ADMIN'));
@@ -58,6 +58,14 @@ router.get('/export', adminSensitiveLimiter, asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="quiz-and-exam-results.csv"');
   res.send(resultsCsv(rows));
+}));
+
+// GET /api/admin/results/quiz/:assessmentId — one quiz / exam at a glance:
+// who took it, the average, and which questions people got wrong most.
+router.get('/quiz/:assessmentId', asyncHandler(async (req, res) => {
+  const summary = await quizSummary(req.params.assessmentId, { detail: true });
+  if (!summary) return res.status(404).json({ error: 'Quiz not found.' });
+  res.json(summary);
 }));
 
 export default router;

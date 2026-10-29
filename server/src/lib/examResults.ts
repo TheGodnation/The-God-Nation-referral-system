@@ -10,6 +10,8 @@ export const RESULT_KINDS: ResultKind[] = ['TEACHING', 'BOOK', 'DEVOTIONAL', 'OT
 
 export interface ResultFilter {
   personId?: string;
+  /** Only these people (a leader's own members). */
+  personIds?: string[];
   search?: string;
   kind?: ResultKind;
   communityId?: string;
@@ -36,6 +38,7 @@ type AttemptRow = Prisma.AttemptGetPayload<{ include: typeof attemptInclude }>;
 
 export interface ResultRow {
   attemptId: string;
+  assessmentId: string;
   personId: string;
   personName: string;
   whatsappNumber: string;
@@ -52,8 +55,16 @@ export interface ResultRow {
   submittedAt: string | null;
 }
 
-export function toResultRow(a: AttemptRow): ResultRow {
-  const s = a.assessment;
+interface Labelled {
+  titleEn: string;
+  weekNumber: number | null;
+  teaching: { title: string } | null;
+  trainingBook: { titleEn: string } | null;
+  devotional: { titleEn: string } | null;
+}
+
+/** What kind of quiz / exam this is and what to call it. */
+export function examLabel(s: Labelled): { kind: ResultKind; title: string } {
   const kind: ResultKind = s.teaching ? 'TEACHING' : s.trainingBook ? 'BOOK' : s.devotional ? 'DEVOTIONAL' : 'OTHER';
   const title =
     kind === 'TEACHING'
@@ -63,8 +74,15 @@ export function toResultRow(a: AttemptRow): ResultRow {
         : kind === 'DEVOTIONAL'
           ? `${s.devotional!.titleEn}${s.weekNumber ? ` — week ${s.weekNumber}` : ''}`
           : s.titleEn;
+  return { kind, title };
+}
+
+export function toResultRow(a: AttemptRow): ResultRow {
+  const s = a.assessment;
+  const { kind, title } = examLabel(s);
   return {
     attemptId: a.id,
+    assessmentId: a.assessmentId,
     personId: a.personId,
     personName: a.person.name,
     whatsappNumber: a.person.whatsappNumber,
@@ -84,6 +102,7 @@ export function toResultRow(a: AttemptRow): ResultRow {
 export function resultWhere(f: ResultFilter): Prisma.AttemptWhereInput {
   const and: Prisma.AttemptWhereInput[] = [];
   if (f.personId) and.push({ personId: f.personId });
+  if (f.personIds) and.push({ personId: { in: f.personIds } });
   if (f.search) {
     and.push({
       person: {
@@ -159,4 +178,108 @@ export function resultsCsv(rows: ResultRow[]): string {
   );
   // The byte-order mark makes Excel read the accents (é, è…) correctly.
   return '﻿' + [CSV_HEADER.map(csvCell).join(','), ...lines].join('\r\n');
+}
+
+// ---------------------------------------------------------------------------
+// One quiz / exam at a glance: how many took it, how many passed, the average
+// and how well each question was answered (hardest first) — so the teacher
+// sees what people did not understand. Only a person's first try counts.
+// ---------------------------------------------------------------------------
+
+export interface QuizSummary {
+  assessmentId: string;
+  kind: ResultKind;
+  title: string;
+  assemblyName: string | null;
+  passMark: number;
+  taken: number;
+  passed: number;
+  averagePercentage: number | null;
+  lowestPercentage: number | null;
+  highestPercentage: number | null;
+  questions: {
+    questionId: string;
+    textEn: string;
+    textFr: string | null;
+    answered: number;
+    correct: number;
+    correctPercentage: number;
+    /** Admin only: the right answer and the wrong answer chosen most. */
+    correctAnswerEn?: string | null;
+    mostChosenWrongEn?: { text: string; count: number } | null;
+  }[];
+}
+
+export async function quizSummary(assessmentId: string, opts: { personIds?: string[]; detail: boolean }): Promise<QuizSummary | null> {
+  const assessment = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    select: {
+      titleEn: true,
+      weekNumber: true,
+      passMark: true,
+      teaching: { select: { title: true, community: { select: { name: true } } } },
+      trainingBook: { select: { titleEn: true } },
+      devotional: { select: { titleEn: true } },
+      questions: {
+        orderBy: [{ setNumber: 'asc' }, { order: 'asc' }],
+        select: { id: true, textEn: true, textFr: true, options: { select: { id: true, textEn: true, isCorrect: true } } },
+      },
+    },
+  });
+  if (!assessment) return null;
+
+  const attempts = await prisma.attempt.findMany({
+    where: {
+      assessmentId,
+      status: 'SUBMITTED',
+      person: { isTestData: false },
+      ...(opts.personIds ? { personId: { in: opts.personIds } } : {}),
+    },
+    orderBy: { attemptNumber: 'asc' },
+    select: { personId: true, percentage: true, passed: true, answers: { select: { questionId: true, selectedOptionId: true, wasCorrect: true } } },
+  });
+  const firstTry = new Map<string, (typeof attempts)[number]>();
+  for (const a of attempts) if (!firstTry.has(a.personId)) firstTry.set(a.personId, a);
+  const tries = [...firstTry.values()];
+  const scores = tries.map((a) => a.percentage).filter((v): v is number => v !== null);
+
+  const { kind, title } = examLabel(assessment);
+  return {
+    assessmentId,
+    kind,
+    title,
+    assemblyName: assessment.teaching?.community.name ?? null,
+    passMark: assessment.passMark,
+    taken: tries.length,
+    passed: tries.filter((a) => a.passed).length,
+    averagePercentage: scores.length ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null,
+    lowestPercentage: scores.length ? Math.round(Math.min(...scores)) : null,
+    highestPercentage: scores.length ? Math.round(Math.max(...scores)) : null,
+    questions: assessment.questions
+      .map((q) => {
+        const answers = tries.flatMap((a) => a.answers.filter((x) => x.questionId === q.id));
+        const correct = answers.filter((x) => x.wasCorrect).length;
+        const wrongCounts = new Map<string, number>();
+        for (const x of answers) if (!x.wasCorrect) wrongCounts.set(x.selectedOptionId, (wrongCounts.get(x.selectedOptionId) ?? 0) + 1);
+        const worst = [...wrongCounts.entries()].sort((x, y) => y[1] - x[1])[0];
+        const base = {
+          questionId: q.id,
+          textEn: q.textEn,
+          textFr: q.textFr,
+          answered: answers.length,
+          correct,
+          correctPercentage: answers.length ? Math.round((correct / answers.length) * 100) : 0,
+        };
+        return opts.detail
+          ? {
+              ...base,
+              correctAnswerEn: q.options.find((o) => o.isCorrect)?.textEn ?? null,
+              mostChosenWrongEn: worst ? { text: q.options.find((o) => o.id === worst[0])?.textEn ?? '', count: worst[1] } : null,
+            }
+          : base;
+      })
+      .filter((q) => q.answered > 0)
+      // The questions most people got wrong first.
+      .sort((x, y) => x.correctPercentage - y.correctPercentage),
+  };
 }

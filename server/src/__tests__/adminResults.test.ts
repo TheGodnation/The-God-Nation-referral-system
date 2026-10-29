@@ -3,7 +3,7 @@ import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { createAdmin } from './helpers';
+import { createAdmin, createLeader } from './helpers';
 import { bootstrap } from './testUtils';
 
 // The admin Results page: every submitted quiz / exam try in one list
@@ -132,5 +132,119 @@ describe('Admin Results — every quiz and exam try in one place', () => {
     expect(mine.status).toBe(200);
     expect(mine.body.items).toHaveLength(1);
     expect(mine.body.items[0]).toMatchObject({ title: 'Walking in love', percentage: 80, passed: true });
+  });
+});
+
+// A teaching quiz with two questions, taken by two members of an assembly
+// (and one person outside it), so the at-a-glance summary has something to say.
+async function seedQuiz() {
+  const community = await prisma.community.create({ data: { name: `Quiz Assembly ${RUN}${n++}` } });
+  const conv = await prisma.conversation.create({ data: { communityId: community.id } });
+  const author = await person(`Quiz Teacher ${RUN}`);
+  const message = await prisma.message.create({ data: { conversationId: conv.id, senderPersonId: author.id, body: 'Grace' } });
+  const assessment = await prisma.assessment.create({
+    data: {
+      titleEn: 'Teaching quiz: Grace',
+      passMark: 50,
+      status: 'PUBLISHED',
+      questions: {
+        create: [
+          { textEn: 'Who gives grace?', order: 0, options: { create: [{ textEn: 'God', isCorrect: true, order: 0 }, { textEn: 'Nobody', order: 1 }] } },
+          { textEn: 'Is grace earned?', order: 1, options: { create: [{ textEn: 'No', isCorrect: true, order: 0 }, { textEn: 'Yes', order: 1 }] } },
+        ],
+      },
+    },
+    include: { questions: { orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } } },
+  });
+  await prisma.teaching.create({
+    data: { communityId: community.id, messageId: message.id, assessmentId: assessment.id, authorPersonId: author.id, title: 'Grace', text: 'x', closesAt: new Date(Date.now() + 86_400_000) },
+  });
+
+  async function take(personId: string, picks: number[]) {
+    const wasRight = assessment.questions.map((q, i) => q.options[picks[i]].isCorrect);
+    const percentage = (wasRight.filter(Boolean).length / wasRight.length) * 100;
+    const a = await prisma.attempt.create({
+      data: { personId, assessmentId: assessment.id, attemptNumber: 1, status: 'SUBMITTED', submittedAt: new Date(), score: wasRight.filter(Boolean).length, maxScore: 2, percentage, passMarkAtAttempt: 50, passed: percentage >= 50 },
+    });
+    await prisma.answer.createMany({
+      data: assessment.questions.map((q, i) => ({ attemptId: a.id, questionId: q.id, selectedOptionId: q.options[picks[i]].id, wasCorrect: wasRight[i] })),
+    });
+  }
+
+  const marie = await person(`Marie Quiz ${RUN}`);
+  const ann = await person(`Ann Quiz ${RUN}`);
+  const outsider = await person(`Outsider Quiz ${RUN}`);
+  for (const p of [marie, ann]) await prisma.communityMembership.create({ data: { personId: p.id, communityId: community.id, status: 'ACTIVE' } });
+  await take(marie.id, [0, 0]); // both right
+  await take(ann.id, [1, 0]); // first wrong ("Nobody"), second right
+  await take(outsider.id, [1, 1]); // both wrong, not in the assembly
+  return { community, assessment, marie, ann, outsider };
+}
+
+async function leaderAgent(communityId: string) {
+  const email = `results-leader-${RUN}-${n++}@test.local`;
+  const { user } = await createLeader('Results Leader', email, `RL${RUN}${n}`.slice(0, 20));
+  const lp = await person(`Leader Person ${RUN}`);
+  await prisma.user.update({ where: { id: user.id }, data: { personId: lp.id } });
+  await prisma.roleAssignment.create({ data: { personId: lp.id, roleType: 'SCOPED_LEADER', assignedByUserId: user.id, communityId } });
+  await prisma.communityMembership.create({ data: { personId: lp.id, communityId, status: 'ACTIVE' } });
+  const agent = agentWithIp();
+  const { csrf } = await bootstrap(agent as any);
+  await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'password123' });
+  return agent;
+}
+
+describe('Quiz at a glance — what people did not understand', () => {
+  it('shows the admin who took it, the average, and the hardest question first with the answer key', async () => {
+    const { assessment } = await seedQuiz();
+    const a = await admin();
+    const res = await a.get(`/api/admin/results/quiz/${assessment.id}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ kind: 'TEACHING', title: 'Grace', taken: 3, passed: 2, averagePercentage: 50, lowestPercentage: 0, highestPercentage: 100 });
+    // Q1: right for 1 of 3 (33%), Q2: right for 2 of 3 (67%) — the hardest comes first.
+    expect(res.body.questions.map((q: any) => [q.textEn, q.correctPercentage])).toEqual([
+      ['Who gives grace?', 33],
+      ['Is grace earned?', 67],
+    ]);
+    expect(res.body.questions[0]).toMatchObject({ correctAnswerEn: 'God', mostChosenWrongEn: { text: 'Nobody', count: 2 } });
+    expect((await a.get('/api/admin/results/quiz/does-not-exist')).status).toBe(404);
+  });
+});
+
+describe('A leader sees the marks of their own members only', () => {
+  it('lists, downloads and summarises only the leader’s assembly, without phone numbers or the answer key', async () => {
+    const { community, assessment, marie } = await seedQuiz();
+    const leader = await leaderAgent(community.id);
+
+    const list = await leader.get('/api/leader/results');
+    expect(list.status).toBe(200);
+    const names = list.body.items.map((r: any) => r.personName).sort();
+    expect(names).toEqual([`Ann Quiz ${RUN}`, `Marie Quiz ${RUN}`]);
+    expect(list.body.items.every((r: any) => r.whatsappNumber === '')).toBe(true);
+    const byName = await leader.get(`/api/leader/results?search=${encodeURIComponent(`Marie Quiz ${RUN}`)}`);
+    expect(byName.body.items.map((r: any) => r.personId)).toEqual([marie.id]);
+
+    const csv = await leader.get('/api/leader/results/export');
+    expect(csv.status).toBe(200);
+    expect(csv.text).toContain(`Marie Quiz ${RUN}`);
+    expect(csv.text).not.toContain(`Outsider Quiz ${RUN}`);
+    expect(csv.text).not.toContain('+2376580');
+
+    const summary = await leader.get(`/api/leader/results/quiz/${assessment.id}`);
+    expect(summary.status).toBe(200);
+    expect(summary.body.taken).toBe(2);
+    expect(summary.body.questions.map((q: any) => q.correctPercentage)).toEqual([50, 100]);
+    expect(summary.body.questions[0].correctAnswerEn).toBeUndefined();
+    expect(summary.body.questions[0].mostChosenWrongEn).toBeUndefined();
+  });
+
+  it('shows nothing for a quiz none of the leader’s members took, and a stranger gets nothing', async () => {
+    const { assessment } = await seedQuiz();
+    const otherAssembly = await prisma.community.create({ data: { name: `Empty Assembly ${RUN}${n++}` } });
+    const leader = await leaderAgent(otherAssembly.id);
+    expect((await leader.get('/api/leader/results')).body.items).toEqual([]);
+    expect((await leader.get(`/api/leader/results/quiz/${assessment.id}`)).status).toBe(404);
+    const anon = agentWithIp();
+    expect((await anon.get('/api/leader/results')).status).toBe(401);
   });
 });
