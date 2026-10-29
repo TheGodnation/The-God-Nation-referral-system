@@ -74,7 +74,7 @@ export async function destroyAllSessionsForUser(userId: string) {
  * Loads the current session (if any) and attaches req.user. Does not reject
  * unauthenticated requests — use requireAuth for that. Safe to run globally.
  */
-export async function loadSession(req: Request, _res: Response, next: NextFunction) {
+export async function loadSession(req: Request, res: Response, next: NextFunction) {
   try {
     const token = req.cookies?.[SESSION_COOKIE_NAME];
     if (!token || typeof token !== 'string') return next();
@@ -96,10 +96,16 @@ export async function loadSession(req: Request, _res: Response, next: NextFuncti
     };
     req.sessionToken = token;
 
-    // Best-effort activity tracking; ignore failures.
+    // Rolling sign-in, like members: at most once a day, push the expiry a
+    // full 90 days ahead and refresh the cookie. Best-effort; failures ignored.
+    const now = Date.now();
+    const renewDue = session.expiresAt.getTime() - now < SESSION_MAX_AGE_MS - 24 * 60 * 60 * 1000;
     prisma.session
-      .update({ where: { id: session.id }, data: { lastActivityAt: new Date() } })
+      .update({ where: { id: session.id }, data: { lastActivityAt: new Date(), ...(renewDue ? { expiresAt: new Date(now + SESSION_MAX_AGE_MS) } : {}) } })
       .catch(() => {});
+    if (renewDue) {
+      res.cookie(SESSION_COOKIE_NAME, token, { httpOnly: true, secure: isProd, sameSite: 'lax', maxAge: SESSION_MAX_AGE_MS, path: '/' });
+    }
 
     next();
   } catch (err) {
