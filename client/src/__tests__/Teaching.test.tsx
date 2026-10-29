@@ -183,6 +183,24 @@ describe('The teaching page', () => {
     expect(screen.getByText('✓ You have finished the teaching. The quiz is now open — tap “Start the quiz” below.')).toBeInTheDocument();
   });
 
+  it('if the connection drops, says so and opens the quiz as soon as saving works again (tap to retry)', async () => {
+    const done = { textRead: true, mediaFraction: 0, mediaDone: false, completed: true };
+    const open = { assessmentId: 'a1', passMark: 70, questionCount: 5, state: 'AVAILABLE', percentage: null, passed: null };
+    let down = true;
+    renderPage(detail(), {
+      'POST /api/teachings/t1/progress': (b) => {
+        if (b?.textRead) return down ? { status: 503, body: { error: 'down' } } : { body: { me: done, quiz: open } };
+        return { body: { me: detail().me, quiz: detail().quiz } };
+      },
+    });
+    // The first try fails: the member is told, and offered a way to try again.
+    expect(await screen.findByText(/The connection is weak/, undefined, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByTestId('teaching-start-quiz')).not.toBeInTheDocument();
+    down = false;
+    fireEvent.click(screen.getByTestId('teaching-try-again'));
+    expect(await screen.findByTestId('teaching-start-quiz')).toHaveAttribute('href', '/member/assessments/a1');
+  });
+
   it('shows your score when you have taken the quiz', async () => {
     renderPage(
       detail({ quiz: { assessmentId: 'a1', passMark: 70, questionCount: 5, state: 'DONE', percentage: 80, passed: true }, me: { textRead: true, mediaFraction: 0, mediaDone: false, completed: true } }),

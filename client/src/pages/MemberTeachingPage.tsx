@@ -126,6 +126,8 @@ export function MemberTeachingPage() {
   const [endSeen, setEndSeen] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const sentText = useRef(false);
+  // The last try to save the reading failed (no connection, or a restart on the server).
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const post = useCallback(
     (body: { textRead?: boolean; mediaFraction?: number }) =>
@@ -199,13 +201,22 @@ export function MemberTeachingPage() {
     sentText.current = true;
     // A second of slack for clock differences with the server; tried again a
     // few times if the server says it was still a little early.
+    // Keeps trying (every few seconds) for as long as the page stays open, so a
+    // dropped connection or a server restart never leaves the quiz shut.
     const attempt = (n: number) =>
       window.setTimeout(async () => {
         const result = await post({ textRead: true });
-        if (!result?.textRead && n < 4) attempt(n + 1);
+        setSaveFailed(!result);
+        if (!result?.textRead && n < 40) attempt(n + 1);
       }, n === 0 ? 1200 : 3000);
     attempt(0);
   }, [teaching?.text, me?.textRead, endSeen, waitLeft, post]);
+
+  // The "try again" button, if the quiz has still not opened after the end was reached.
+  async function tryAgain() {
+    const result = await post({ textRead: true });
+    setSaveFailed(!result);
+  }
 
   async function openPdf() {
     if (!teaching || !media) return;
@@ -290,9 +301,22 @@ export function MemberTeachingPage() {
             {me.textRead ? (
               <p className="mt-2 text-sm font-medium text-green-700">✓ {t('teaching.text_counted')}</p>
             ) : endSeen && waitLeft > 0 ? (
-              <p className="mt-2 text-sm text-slate-600" role="status">
-                {t('teaching.text_wait')}
-              </p>
+              <div className="mt-2 space-y-1.5" role="status">
+                <p className="text-sm text-slate-600">{t('teaching.text_wait')}</p>
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200" aria-hidden>
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-1000"
+                    style={{ width: `${Math.min(100, Math.max(4, Math.round((1 - waitLeft / Math.max(1, minMs / 1000)) * 100)))}%` }}
+                  />
+                </div>
+              </div>
+            ) : endSeen ? (
+              <div className="mt-2 space-y-1" role="status">
+                <p className="text-sm text-slate-600">{saveFailed ? t('teaching.text_retry') : t('teaching.text_saving')}</p>
+                <button type="button" className="text-sm font-semibold text-emerald-700 underline" onClick={() => void tryAgain()} data-testid="teaching-try-again">
+                  {t('teaching.try_again')}
+                </button>
+              </div>
             ) : (
               <p className="mt-2 text-sm text-slate-500">{t('teaching.text_scroll')}</p>
             )}
