@@ -21,7 +21,7 @@ function hadMemberBefore(): boolean {
   }
 }
 
-export function ContinueIfSignedIn({ children }: { children: ReactNode }) {
+export function ContinueIfSignedIn({ children, sendStaff = true }: { children: ReactNode; /** Leaders / the admin go to their dashboard (not on the member sign-in pages, where they come to open their member profile). */ sendStaff?: boolean }) {
   const { t } = useTranslation();
   const { member, loading } = useMemberAuth();
   const { user, loading: staffLoading } = useAuth();
@@ -33,6 +33,6 @@ export function ContinueIfSignedIn({ children }: { children: ReactNode }) {
     }
     return <>{children}</>;
   }
-  if (user) return <Navigate to={user.role === 'ADMIN' ? '/admin/dashboard' : '/leader/dashboard'} replace />;
+  if (user && sendStaff) return <Navigate to={user.role === 'ADMIN' ? '/admin/dashboard' : '/leader/dashboard'} replace />;
   return <>{children}</>;
 }

@@ -71,6 +71,18 @@ describe('Already signed in', () => {
     expect(await screen.findByText('Admin dashboard')).toBeInTheDocument();
   });
 
+  it('a leader or the admin who opens the member sign-in page is not sent away: they come there to open their member profile', async () => {
+    mockApi({ user: { id: 'u2', name: 'Admin', email: 'a@x.com', role: 'ADMIN' } });
+    app('/member/login');
+    expect(await screen.findByRole('button', { name: /sign in|continue|log in/i })).toBeInTheDocument();
+    expect(screen.queryByText('Admin dashboard')).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+    mockApi({ user: { id: 'u1', name: 'Paul', email: 'p@x.com', role: 'LEADER' } });
+    app('/member/login');
+    expect(await screen.findAllByRole('button', { name: /sign in|continue|log in/i })).not.toHaveLength(0);
+    expect(screen.queryByText('Leader dashboard')).not.toBeInTheDocument();
+  });
+
   it('a visitor who is not signed in sees the home page and the sign-in form as before', async () => {
     mockApi({});
     app('/');

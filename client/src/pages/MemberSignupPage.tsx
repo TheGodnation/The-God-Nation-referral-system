@@ -16,7 +16,7 @@ import { useEmailTypoCheck } from '../components/EmailTypoHint';
 // never sent again just to sign in.
 export function MemberSignupPage() {
   return (
-    <ContinueIfSignedIn>
+    <ContinueIfSignedIn sendStaff={false}>
       <MemberSignupPageInner />
     </ContinueIfSignedIn>
   );

@@ -13,6 +13,7 @@ import { CommunitiesTab } from '../components/admin/CommunitiesTab';
 import { DevotionalsTab } from '../components/admin/DevotionalsTab';
 import { AssessmentsTab } from '../components/admin/AssessmentsTab';
 import { ExamResults } from '../components/admin/ExamResults';
+import { OpenMemberProfileButton } from '../components/OpenMemberProfileButton';
 import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
 import { GeographicAreasTab } from '../components/admin/GeographicAreasTab';
 import { AreaRepresentationRequestsTab } from '../components/admin/AreaRepresentationRequestsTab';
@@ -678,9 +679,9 @@ function AdminMemberBridgeCard() {
     return (
       <div className="card flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-600">{t('admin.settings.bridge_linked')}</p>
-        <a href="/member/me" className="btn-secondary">
+        <OpenMemberProfileButton endpoint="/api/admin/me/open-member-profile" className="btn-secondary">
           {t('admin.settings.bridge_view_profile')}
-        </a>
+        </OpenMemberProfileButton>
       </div>
     );
   }

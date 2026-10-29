@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { OpenMemberProfileButton } from '../components/OpenMemberProfileButton';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { PasswordInput } from '../components/PasswordInput';
@@ -80,9 +80,9 @@ function MemberProfileBridge({
     return (
       <div className="card mt-6 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-600">{t('leader.member_bridge_linked')}</p>
-        <Link to="/member/me" className="btn-secondary">
+        <OpenMemberProfileButton endpoint="/api/leader/me/open-member-profile" className="btn-secondary">
           {t('leader.view_member_profile')}
-        </Link>
+        </OpenMemberProfileButton>
       </div>
     );
   }

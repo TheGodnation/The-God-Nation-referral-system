@@ -55,6 +55,33 @@ describe('Admin <-> Member identity bridge', () => {
     expect(code).not.toBeNull();
   });
 
+  it('opens the admin’s member profile from the dashboard session alone, with no second sign-in', async () => {
+    const first = await loginAsAdmin('admin-open1@test.local');
+    const created = await first.agent.post('/api/admin/me/create-member-profile').set('X-CSRF-Token', first.csrf).send({ whatsapp: '+237670500011', password: 'Testpass123' });
+    expect(created.status).toBe(201);
+
+    // Later: signed in to the dashboard only (a fresh browser session, no member cookie).
+    const agent = request.agent(app);
+    const { csrf } = await bootstrap(agent);
+    await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email: 'admin-open1@test.local', password: 'AdminPass123!' });
+    expect((await agent.get('/api/member/auth/me')).body.member).toBeNull();
+
+    const res = await agent.post('/api/admin/me/open-member-profile').set('X-CSRF-Token', csrf);
+    expect(res.status).toBe(200);
+    expect((await agent.get('/api/member/auth/me')).body.member?.personId).toBe(created.body.personId);
+    // The dashboard session is still there.
+    expect((await agent.get('/api/auth/me')).body.user?.email).toBe('admin-open1@test.local');
+  });
+
+  it('says there is no member profile yet for an admin who has not made one, and needs a sign-in and CSRF', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-open2@test.local');
+    const none = await agent.post('/api/admin/me/open-member-profile').set('X-CSRF-Token', csrf);
+    expect(none.status).toBe(404);
+    expect(none.body.code).toBe('NO_MEMBER_PROFILE');
+    expect((await agent.post('/api/admin/me/open-member-profile')).status).toBe(403);
+    expect((await request.agent(app).post('/api/admin/me/open-member-profile')).status).toBe(401);
+  });
+
   it('is one-time: a second attempt is rejected once already linked', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-bridge2@test.local');
     await agent.post('/api/admin/me/create-member-profile').set('X-CSRF-Token', csrf).send({ whatsapp: '+237670500003', password: 'Testpass123' });

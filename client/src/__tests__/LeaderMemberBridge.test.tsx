@@ -86,7 +86,7 @@ describe('LeaderDashboardPage — Leader <-> Member identity bridge', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => expect(screen.getByText('Your Leader account is linked to your Member profile.')).toBeInTheDocument());
-    expect(screen.getByRole('link', { name: 'View my Member profile' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View my Member profile' })).toBeInTheDocument();
   });
 
   it('shows the linked state directly when the account already has a Member profile with a password', async () => {
@@ -94,14 +94,18 @@ describe('LeaderDashboardPage — Leader <-> Member identity bridge', () => {
       ...AUTH_MOCKS,
       '/api/auth/me': { status: 200, body: { user: { id: 'u1', name: 'Mary Ngu', email: 'mary@example.com', role: 'LEADER', personId: 'p1' } } },
       '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { whatsappClicks: 0, conversionRate: 0 }, memberProfileHasPassword: true } },
+      '/api/leader/me/open-member-profile': { status: 200, body: { ok: true } },
     });
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
     renderDashboard();
 
     expect(await screen.findByText('Your Leader account is linked to your Member profile.')).toBeInTheDocument();
     expect(screen.queryByText('Create your Member profile')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('link', { name: 'View my Member profile' }));
-    await waitFor(() => expect(screen.getByText('Member Me page')).toBeInTheDocument());
+    // Opens the member side from the dashboard session, with no second sign-in.
+    fireEvent.click(screen.getByRole('button', { name: 'View my Member profile' }));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/member/me'));
   });
 
   it('shows an error message when the server rejects the request', async () => {

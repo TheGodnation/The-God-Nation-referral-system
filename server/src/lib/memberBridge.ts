@@ -123,3 +123,14 @@ export async function setBridgedMemberPassword(user: User, newPassword: string) 
   await prisma.memberAccount.update({ where: { id: memberAccount.id }, data: { passwordHash } });
   return memberAccount;
 }
+
+/**
+ * The member profile of a signed-in admin / leader, if they have one. They are
+ * already proven to be this person by their own password sign-in, so moving
+ * them across to the member side needs no second sign-in (the same reasoning
+ * as creating the profile, which signs them straight in).
+ */
+export async function memberAccountOfUser(user: { personId: string | null }) {
+  if (!user.personId) return null;
+  return prisma.memberAccount.findUnique({ where: { personId: user.personId }, select: { id: true } });
+}

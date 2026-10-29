@@ -13,7 +13,7 @@ import { requireCsrf } from '../lib/csrf';
 import { createMemberSession } from '../lib/memberAuth';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { notifyLeaderDashboardMovedIfNeeded } from '../lib/notifications';
-import { bridgeUserToMemberProfile, setBridgedMemberPassword, MemberBridgeError } from '../lib/memberBridge';
+import { bridgeUserToMemberProfile, memberAccountOfUser, setBridgedMemberPassword, MemberBridgeError } from '../lib/memberBridge';
 
 const router = Router();
 
@@ -161,6 +161,15 @@ router.post('/me/create-member-profile', leadershipMutationLimiter, requireCsrf,
     }
     throw err;
   }
+}));
+
+// Opens the leader's own member profile from the leader dashboard, with no
+// second sign-in and without signing out of the dashboard.
+router.post('/me/open-member-profile', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const account = await memberAccountOfUser(req.user!);
+  if (!account) return res.status(404).json({ error: 'No member profile is linked yet.', code: 'NO_MEMBER_PROFILE' });
+  await createMemberSession(account.id, res);
+  res.json({ ok: true });
 }));
 
 // Backfill for a Leader who linked a Member profile before passwords

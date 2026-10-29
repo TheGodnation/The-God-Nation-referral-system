@@ -44,6 +44,27 @@ describe('Leader <-> Member identity bridge', () => {
     void user;
   });
 
+  it('opens the leader’s member profile from the dashboard session alone, with no second sign-in', async () => {
+    await createLeader('Open Leader', 'open-bridge@test.local', 'OPENC001');
+    const first = await loginAsLeader('open-bridge@test.local');
+    const created = await first.agent.post('/api/leader/me/create-member-profile').set('X-CSRF-Token', first.csrf).send({ whatsapp: '+237670300077', password: 'Testpass123' });
+    expect(created.status).toBe(201);
+
+    // A fresh browser session: dashboard sign-in only.
+    const later = await loginAsLeader('open-bridge@test.local');
+    expect((await later.agent.get('/api/member/auth/me')).body.member).toBeNull();
+    const res = await later.agent.post('/api/leader/me/open-member-profile').set('X-CSRF-Token', later.csrf);
+    expect(res.status).toBe(200);
+    expect((await later.agent.get('/api/member/auth/me')).body.member?.personId).toBe(created.body.personId);
+
+    // A leader with no member profile is told so.
+    await createLeader('Plain Leader', 'plain-open@test.local', 'OPENC002');
+    const plain = await loginAsLeader('plain-open@test.local');
+    const none = await plain.agent.post('/api/leader/me/open-member-profile').set('X-CSRF-Token', plain.csrf);
+    expect(none.status).toBe(404);
+    expect(none.body.code).toBe('NO_MEMBER_PROFILE');
+  });
+
   it('rejects an invalid phone number', async () => {
     await createLeader('Bad Phone Leader', 'badphone-bridge@test.local', 'BADPHC1');
     const { agent, csrf } = await loginAsLeader('badphone-bridge@test.local');

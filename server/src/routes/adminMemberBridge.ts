@@ -7,7 +7,7 @@ import { recordAudit } from '../lib/audit';
 import { requireCsrf } from '../lib/csrf';
 import { createMemberSession } from '../lib/memberAuth';
 import { adminSensitiveLimiter } from '../lib/rateLimit';
-import { bridgeUserToMemberProfile, setBridgedMemberPassword, MemberBridgeError } from '../lib/memberBridge';
+import { bridgeUserToMemberProfile, memberAccountOfUser, setBridgedMemberPassword, MemberBridgeError } from '../lib/memberBridge';
 
 const router = Router();
 
@@ -69,6 +69,15 @@ router.post('/me/create-member-profile', adminSensitiveLimiter, requireCsrf, asy
     }
     throw err;
   }
+}));
+
+// Opens the admin's own member profile from the admin dashboard, with no
+// second sign-in and without signing out of the dashboard.
+router.post('/me/open-member-profile', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const account = await memberAccountOfUser(req.user!);
+  if (!account) return res.status(404).json({ error: 'No member profile is linked yet.', code: 'NO_MEMBER_PROFILE' });
+  await createMemberSession(account.id, res);
+  res.json({ ok: true });
 }));
 
 const setMemberPasswordSchema = z.object({
