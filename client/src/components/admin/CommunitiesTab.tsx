@@ -79,6 +79,12 @@ export function CommunitiesTab() {
   const [headquartersLoaded, setHeadquartersLoaded] = useState(false);
   const [designating, setDesignating] = useState(false);
   const [designateError, setDesignateError] = useState<string | null>(null);
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const [replaceName, setReplaceName] = useState('');
+  const [replaceAutoPlacement, setReplaceAutoPlacement] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [replaceError, setReplaceError] = useState<string | null>(null);
+  const [replaceDone, setReplaceDone] = useState<string | null>(null);
 
   const parentId = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].id : null;
 
@@ -112,6 +118,29 @@ export function CommunitiesTab() {
       setPlacementError(err instanceof ApiError ? err.message : t('admin.communities.placement_save_failed'));
     } finally {
       setSavingPlacement(false);
+    }
+  }
+
+  async function replaceHeadquarters(e: React.FormEvent) {
+    e.preventDefault();
+    if (!replaceName.trim() || replacing) return;
+    if (!window.confirm(t('admin.communities.replace_confirm', { name: replaceName.trim(), old: headquarters?.name ?? '' }))) return;
+    setReplacing(true);
+    setReplaceError(null);
+    try {
+      const res = await api.post<{ community: HeadquartersCommunity; previous: HeadquartersCommunity }>('/api/admin/communities/headquarters/replace', {
+        name: replaceName.trim(),
+        autoPlacementEligible: replaceAutoPlacement,
+      });
+      setHeadquarters(res.community);
+      setReplaceDone(t('admin.communities.replace_done', { name: res.community.name, old: res.previous.name }));
+      setReplaceName('');
+      setReplaceOpen(false);
+      load();
+    } catch (err) {
+      setReplaceError(err instanceof ApiError ? err.message : t('admin.communities.replace_failed'));
+    } finally {
+      setReplacing(false);
     }
   }
 
@@ -262,6 +291,36 @@ export function CommunitiesTab() {
             />
             {designating && <p className="text-sm text-slate-400">{t('admin.communities.headquarters_designating')}</p>}
             {designateError && <p className="text-sm text-red-700">{designateError}</p>}
+            {replaceDone && (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800" role="status">
+                {replaceDone}
+              </p>
+            )}
+            {headquarters && !replaceOpen && (
+              <button type="button" className="btn-secondary" onClick={() => { setReplaceOpen(true); setReplaceDone(null); }}>
+                {t('admin.communities.replace_open')}
+              </button>
+            )}
+            {headquarters && replaceOpen && (
+              <form onSubmit={replaceHeadquarters} className="space-y-2 rounded-lg border border-slate-200 p-3" data-testid="replace-hq-form">
+                <p className="text-sm font-medium text-slate-800">{t('admin.communities.replace_title')}</p>
+                <p className="text-xs text-slate-600">{t('admin.communities.replace_explain', { old: headquarters.name })}</p>
+                <input className="input" placeholder={t('admin.communities.replace_name_placeholder') ?? ''} aria-label={t('admin.communities.replace_name_placeholder') ?? ''} value={replaceName} onChange={(e) => setReplaceName(e.target.value)} maxLength={200} />
+                <label className="flex items-start gap-2 text-sm text-slate-700">
+                  <input type="checkbox" className="mt-1" checked={replaceAutoPlacement} onChange={(e) => setReplaceAutoPlacement(e.target.checked)} />
+                  <span>{t('admin.communities.replace_auto_placement')}</span>
+                </label>
+                {replaceError && <p className="text-sm text-red-700">{replaceError}</p>}
+                <div className="flex gap-2">
+                  <button type="submit" className="btn-primary" disabled={!replaceName.trim() || replacing}>
+                    {replacing ? t('admin.communities.replace_working') : t('admin.communities.replace_button')}
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={() => { setReplaceOpen(false); setReplaceError(null); }}>
+                    {t('admin.communities.replace_cancel')}
+                  </button>
+                </div>
+              </form>
+            )}
           </>
         )}
       </div>

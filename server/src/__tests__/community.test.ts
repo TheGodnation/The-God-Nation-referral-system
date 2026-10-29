@@ -287,6 +287,42 @@ describe('National Headquarters designation and derived generation', () => {
     expect(current.body.community.id).toBe(second.body.id);
   });
 
+  it('replaces Headquarters in one step: the new assembly is on top, the old one and its tree move under it, nothing is lost', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-hq-replace@test.local');
+    const oldHq = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Replace Old HQ' });
+    const sub = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Replace Sub', parentId: oldHq.body.id });
+    await agent.put('/api/admin/communities/headquarters').set('X-CSRF-Token', csrf).send({ communityId: oldHq.body.id });
+    const member = await makePerson('+237680100100', 'Replace Member');
+    await prisma.communityMembership.create({ data: { personId: member.id, communityId: oldHq.body.id, status: 'ACTIVE' } });
+
+    const res = await agent.post('/api/admin/communities/headquarters/replace').set('X-CSRF-Token', csrf).send({ name: 'Replace New HQ' });
+    expect(res.status).toBe(201);
+    expect(res.body.previous).toMatchObject({ id: oldHq.body.id, name: 'Replace Old HQ' });
+
+    const created = await prisma.community.findUniqueOrThrow({ where: { id: res.body.community.id } });
+    expect(created.parentId).toBeNull();
+    expect(created.autoPlacementEligible).toBe(false);
+    expect(await prisma.conversation.count({ where: { communityId: created.id } })).toBe(1);
+    expect((await prisma.community.findUniqueOrThrow({ where: { id: oldHq.body.id } })).parentId).toBe(created.id);
+    expect((await prisma.community.findUniqueOrThrow({ where: { id: sub.body.id } })).parentId).toBe(oldHq.body.id);
+    expect((await agent.get('/api/admin/communities/headquarters')).body.community.id).toBe(created.id);
+
+    // The levels shift by one; nobody is moved or removed.
+    expect((await agent.get(`/api/admin/communities/${oldHq.body.id}`)).body.generation).toBe(1);
+    expect((await agent.get(`/api/admin/communities/${sub.body.id}`)).body.generation).toBe(2);
+    expect(await prisma.communityMembership.count({ where: { personId: member.id, communityId: oldHq.body.id, status: 'ACTIVE' } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { action: 'HEADQUARTERS_COMMUNITY_REPLACED', targetId: created.id } })).toBe(1);
+  });
+
+  it('cannot replace Headquarters when none is designated, or without a name', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-hq-replace-bad@test.local');
+    expect((await agent.post('/api/admin/communities/headquarters/replace').set('X-CSRF-Token', csrf).send({})).status).toBe(400);
+    await prisma.settings.updateMany({ data: { headquartersCommunityId: null } });
+    const none = await agent.post('/api/admin/communities/headquarters/replace').set('X-CSRF-Token', csrf).send({ name: 'Nothing To Replace' });
+    expect(none.status).toBe(400);
+    expect(none.body.error).toMatch(/nothing to replace/);
+  });
+
   it('the Community list and detail routes report the correct derived generation at every level', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-hq-generation@test.local');
     const hq = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Generation HQ Community' });

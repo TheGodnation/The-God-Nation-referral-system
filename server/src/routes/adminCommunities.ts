@@ -122,6 +122,53 @@ router.put('/headquarters', communityMutationLimiter, requireCsrf, asyncHandler(
   res.json({ community: { id: community.id, name: community.name } });
 }));
 
+const replaceHeadquartersSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  // Whether the new top assembly itself receives automatically-placed
+  // newcomers (the old Headquarters and everything under it are untouched).
+  autoPlacementEligible: z.boolean().default(false),
+});
+
+// POST /api/admin/communities/headquarters/replace — one step for "a new
+// assembly becomes the Headquarters and the current one goes under it":
+// creates the new top-level assembly, moves the current Headquarters (with
+// everything below it) under the new one, and points the Headquarters
+// designation at the new one — all in one transaction, so the tree is never
+// half-changed. Nobody's membership, chat or history is touched.
+router.post('/headquarters/replace', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = replaceHeadquartersSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'A name is required.' });
+  }
+  const oldId = await getHeadquartersCommunityId();
+  if (!oldId) {
+    return res.status(400).json({ error: 'No National Headquarters has been designated yet, so there is nothing to replace.' });
+  }
+  const old = await prisma.community.findUnique({ where: { id: oldId }, select: { id: true, name: true } });
+  if (!old) return res.status(400).json({ error: 'The current Headquarters could not be found.' });
+
+  const created = await prisma.$transaction(async (tx) => {
+    const community = await tx.community.create({
+      data: { name: parsed.data.name, parentId: null, autoPlacementEligible: parsed.data.autoPlacementEligible },
+    });
+    await tx.conversation.create({ data: { communityId: community.id } });
+    await tx.community.update({ where: { id: old.id }, data: { parentId: community.id } });
+    await tx.settings.update({ where: { id: 'singleton' }, data: { headquartersCommunityId: community.id } });
+    return community;
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'HEADQUARTERS_COMMUNITY_REPLACED',
+    targetType: 'Community',
+    targetId: created.id,
+    metadata: { name: created.name, previousHeadquartersId: old.id, previousHeadquartersName: old.name, autoPlacementEligible: created.autoPlacementEligible },
+  });
+
+  res.status(201).json({ community: { id: created.id, name: created.name }, previous: old });
+}));
+
 // GET/PUT /api/admin/communities/placement-settings — how newly signed-up
 // members are placed into groups (see lib/placement.ts). Registered before
 // /:id so "placement-settings" is never captured as a Community id.

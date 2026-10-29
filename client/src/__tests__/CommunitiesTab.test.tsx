@@ -33,6 +33,43 @@ afterEach(() => {
 
 const emptyList = { items: [], pagination: { totalPages: 1 } };
 
+describe('CommunitiesTab — replace the Headquarters in one click', () => {
+  it('asks for a name, confirms, creates the new Headquarters and says what happened', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters/replace': { status: 201, body: { community: { id: 'new-1', name: 'World HQ' }, previous: { id: 'hq-1', name: 'National HQ' } } },
+      '/api/admin/communities/headquarters': { status: 200, body: { community: { id: 'hq-1', name: 'National HQ' } } },
+      '/api/admin/communities?&page=': { status: 200, body: emptyList },
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<CommunitiesTab />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Make a new assembly the Headquarters/ }));
+    const form = screen.getByTestId('replace-hq-form');
+    expect(within(form).getByText(/“National HQ” moves under it/)).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: /Create it and make it the Headquarters/ })).toBeDisabled();
+    fireEvent.change(within(form).getByLabelText('Name of the new Headquarters assembly'), { target: { value: 'World HQ' } });
+    fireEvent.click(within(form).getByRole('button', { name: /Create it and make it the Headquarters/ }));
+
+    expect(await screen.findByText(/“World HQ” is now the National Headquarters, and “National HQ” is its sub-assembly/)).toBeInTheDocument();
+    expect(screen.getByText('Current Headquarters: World HQ')).toBeInTheDocument();
+    const post = calls.find((c) => c.method === 'POST' && c.url === '/api/admin/communities/headquarters/replace');
+    expect(post?.body).toEqual({ name: 'World HQ', autoPlacementEligible: false });
+  });
+
+  it('does nothing when the confirmation is declined', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: { id: 'hq-1', name: 'National HQ' } } },
+      '/api/admin/communities?&page=': { status: 200, body: emptyList },
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<CommunitiesTab />);
+    fireEvent.click(await screen.findByRole('button', { name: /Make a new assembly the Headquarters/ }));
+    fireEvent.change(screen.getByLabelText('Name of the new Headquarters assembly'), { target: { value: 'World HQ' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create it and make it the Headquarters/ }));
+    expect(calls.some((c) => c.method === 'POST')).toBe(false);
+  });
+});
+
 describe('CommunitiesTab — National Headquarters designation', () => {
   it('shows "no Headquarters" when none is configured', async () => {
     mockFetchByUrl({
