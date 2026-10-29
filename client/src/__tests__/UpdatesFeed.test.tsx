@@ -119,6 +119,38 @@ describe('UpdatesFeed', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
   });
 
+  it('gives an ordinary member no delete icon, but a way to report someone else’s post', async () => {
+    mockFetch({ 'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }) }) });
+    render(<UpdatesFeed />);
+    await screen.findByText('Praise God for this week!');
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Report this post' })).toBeInTheDocument();
+  });
+
+  it('has no report button on your own post', async () => {
+    mockFetch({ 'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, [{ ...POST, author: { ...POST.author, personId: 'p-me' } }]) }) });
+    render(<UpdatesFeed />);
+    await screen.findByText('Praise God for this week!');
+    expect(screen.queryByRole('button', { name: 'Report this post' })).not.toBeInTheDocument();
+  });
+
+  it('reports a post with a reason and says it was sent', async () => {
+    mockFetch({
+      'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }) }),
+      'POST /api/member/reports': () => ({ status: 201, body: { id: 'r1' } }),
+    });
+    render(<UpdatesFeed />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Report this post' }));
+    const form = screen.getByTestId('report-form');
+    fireEvent.click(within(form).getByLabelText('False or ungodly teaching'));
+    fireEvent.change(within(form).getByLabelText('Anything you want to add (optional)'), { target: { value: 'It praises sin' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Send the report' }));
+    expect(await screen.findByText('Thank you. Your report was sent to the leaders.')).toBeInTheDocument();
+    const sent = calls.find((c) => c.method === 'POST' && c.url === '/api/member/reports');
+    expect(sent?.body).toEqual({ personId: 'p-ada', targetType: 'UPDATE_POST', targetId: 'post-1', reason: 'False or ungodly teaching: It praises sin' });
+    expect(screen.queryByRole('button', { name: 'Report this post' })).not.toBeInTheDocument();
+  });
+
   it('removes a post after a moderator deletes it', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     mockFetch({

@@ -1881,6 +1881,20 @@
     "joined_on": "Joined {{date}}"
   },
   "updates": {
+    "report": "Report this post",
+    "report_title": "Report this post",
+    "report_help": "Tell us why this post does not follow Christian standards. A leader will look at it.",
+    "report_kind_IMMORAL": "Immoral or indecent",
+    "report_kind_HATEFUL": "Hateful, abusive or cruel",
+    "report_kind_FALSE_TEACHING": "False or ungodly teaching",
+    "report_kind_SCAM": "Scam, lies or deception",
+    "report_kind_OTHER": "Something else that does not follow Christian standards",
+    "report_note_placeholder": "Anything you want to add (optional)",
+    "report_send": "Send the report",
+    "report_sending": "Sending…",
+    "report_cancel": "Cancel",
+    "report_sent": "Thank you. Your report was sent to the leaders.",
+    "report_failed": "The report could not be sent. Please try again.",
     "title": "Updates",
     "loading": "Loading…",
     "load_failed": "Could not load updates. Please try again.",
@@ -2097,7 +2111,9 @@
     "note_label": "Note (optional)",
     "note_placeholder": "What was done (optional)",
     "mark_resolved": "Mark as dealt with",
-    "note": "Note: {{note}}"
+    "note": "Note: {{note}}",
+    "what_was_posted": "What was posted: {{text}}",
+    "post_removed": "The post has been removed."
   },
   "learn": {
     "title": "Exam World",

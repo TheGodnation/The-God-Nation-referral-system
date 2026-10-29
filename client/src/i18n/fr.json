@@ -1881,6 +1881,20 @@
     "joined_on": "A rejoint le {{date}}"
   },
   "updates": {
+    "report": "Signaler cette publication",
+    "report_title": "Signaler cette publication",
+    "report_help": "Dites-nous pourquoi cette publication ne respecte pas les normes chrétiennes. Un responsable va la regarder.",
+    "report_kind_IMMORAL": "Immorale ou indécente",
+    "report_kind_HATEFUL": "Haineuse, injurieuse ou cruelle",
+    "report_kind_FALSE_TEACHING": "Enseignement faux ou contraire à Dieu",
+    "report_kind_SCAM": "Arnaque, mensonges ou tromperie",
+    "report_kind_OTHER": "Autre chose qui ne respecte pas les normes chrétiennes",
+    "report_note_placeholder": "Ce que vous voulez ajouter (facultatif)",
+    "report_send": "Envoyer le signalement",
+    "report_sending": "Envoi…",
+    "report_cancel": "Annuler",
+    "report_sent": "Merci. Votre signalement a été envoyé aux responsables.",
+    "report_failed": "Le signalement n'a pas pu être envoyé. Réessayez.",
     "title": "Actualités",
     "loading": "Chargement…",
     "load_failed": "Impossible de charger les actualités. Veuillez réessayer.",
@@ -2097,7 +2111,9 @@
     "note_label": "Note (facultatif)",
     "note_placeholder": "Ce qui a été fait (facultatif)",
     "mark_resolved": "Marquer comme traité",
-    "note": "Note : {{note}}"
+    "note": "Note : {{note}}",
+    "what_was_posted": "Ce qui a été publié : {{text}}",
+    "post_removed": "La publication a été supprimée."
   },
   "learn": {
     "title": "Monde des examens",

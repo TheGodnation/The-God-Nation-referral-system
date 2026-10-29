@@ -683,15 +683,27 @@ function PhotoViewer({ photos, start, onClose }: { photos: { id: string; url: st
 
 const LONG_POST_CHARS = 300;
 
+/** Why a post can be reported (the words the reviewer reads, in English). */
+const REPORT_KINDS = {
+  IMMORAL: 'Immoral or indecent',
+  HATEFUL: 'Hateful, abusive or cruel',
+  FALSE_TEACHING: 'False or ungodly teaching',
+  SCAM: 'Scam, lies or deception',
+  OTHER: 'Other — does not follow Christian standards',
+} as const;
+type ReportKind = keyof typeof REPORT_KINDS;
+
 function PostCard({
   item,
   canReact,
+  myPersonId,
   onDeleted,
   linkAuthors,
   wall,
 }: {
   item: UpdateItem;
   canReact: boolean;
+  myPersonId: string | null;
   onDeleted: (id: string) => void;
   linkAuthors: boolean;
   wall: boolean;
@@ -714,6 +726,13 @@ function PostCard({
   // Auto-translation — shows the translated text by default, with a
   // "Translated from X / Show original" toggle; see TranslationNote.
   const [showOriginal, setShowOriginal] = useState(false);
+  // Reporting a post that does not follow Christian standards.
+  const [reporting, setReporting] = useState(false);
+  const [reportKind, setReportKind] = useState<ReportKind>('IMMORAL');
+  const [reportNote, setReportNote] = useState('');
+  const [reportSending, setReportSending] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
+  const canReport = myPersonId !== null && item.author.personId !== myPersonId;
 
   const totalReactions = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
   const topEmojis = REACTIONS.filter((r) => (counts[r.type] ?? 0) > 0).map((r) => r.emoji).join('');
@@ -744,6 +763,25 @@ function PostCard({
       setCounts(counts);
       setMyReaction(previous);
       setError(t('updates.react_failed'));
+    }
+  }
+
+  async function sendReport(e: React.FormEvent) {
+    e.preventDefault();
+    if (reportSending) return;
+    setReportSending(true);
+    setError(null);
+    try {
+      // The reviewer (a leader or the central admin) reads this in English.
+      const reason = `${REPORT_KINDS[reportKind]}${reportNote.trim() ? `: ${reportNote.trim()}` : ''}`;
+      await api.post('/api/member/reports', { personId: item.author.personId, targetType: 'UPDATE_POST', targetId: item.id, reason });
+      setReportDone(true);
+      setReporting(false);
+      setReportNote('');
+    } catch {
+      setError(t('updates.report_failed'));
+    } finally {
+      setReportSending(false);
     }
   }
 
@@ -790,12 +828,50 @@ function PostCard({
             {relativeWhen(item.createdAt, t, i18n.language)} · 🌍
           </p>
         </div>
+        {canReport && !reportDone && (
+          <button
+            type="button"
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+            aria-label={t('updates.report') ?? ''}
+            title={t('updates.report') ?? ''}
+            onClick={() => setReporting((v) => !v)}
+          >
+            ⚑
+          </button>
+        )}
         {item.canDelete && (
           <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label={t('updates.delete') ?? ''} title={t('updates.delete') ?? ''} onClick={remove}>
             🗑
           </button>
         )}
       </header>
+
+      {reportDone && (
+        <p className="mx-4 mt-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800" role="status">
+          {t('updates.report_sent')}
+        </p>
+      )}
+      {reporting && (
+        <form onSubmit={sendReport} className="mx-4 mt-2 space-y-2 rounded-lg border border-slate-200 p-3" data-testid="report-form">
+          <p className="text-sm font-semibold text-slate-800">{t('updates.report_title')}</p>
+          <p className="text-xs text-slate-600">{t('updates.report_help')}</p>
+          {(Object.keys(REPORT_KINDS) as ReportKind[]).map((k) => (
+            <label key={k} className="flex items-center gap-2 text-sm text-slate-800">
+              <input type="radio" name={`report-${item.id}`} checked={reportKind === k} onChange={() => setReportKind(k)} />
+              {t(`updates.report_kind_${k}`)}
+            </label>
+          ))}
+          <textarea className="input min-h-[4rem]" placeholder={t('updates.report_note_placeholder') ?? ''} aria-label={t('updates.report_note_placeholder') ?? ''} value={reportNote} onChange={(e) => setReportNote(e.target.value)} maxLength={800} />
+          <div className="flex gap-2">
+            <button type="submit" className="btn-primary" disabled={reportSending}>
+              {reportSending ? t('updates.report_sending') : t('updates.report_send')}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setReporting(false)}>
+              {t('updates.report_cancel')}
+            </button>
+          </div>
+        </form>
+      )}
 
       {item.body && (
         <div className="px-4 pt-2">
@@ -1034,7 +1110,7 @@ export function UpdatesFeed({
       {!data && !error && <p className="py-6 text-center text-slate-400">{t('updates.loading')}</p>}
       {data && data.items.length === 0 && <p className="py-6 text-center text-slate-500">{t('updates.empty')}</p>}
       {data?.items.map((item) => (
-        <PostCard key={item.id} item={item} canReact={data.viewer.canPost} onDeleted={removeLocally} linkAuthors={linkAuthors} wall={wall} />
+        <PostCard key={item.id} item={item} canReact={data.viewer.canPost} myPersonId={data.viewer.personId} onDeleted={removeLocally} linkAuthors={linkAuthors} wall={wall} />
       ))}
       <div ref={sentinel} aria-hidden />
       {data?.nextBefore && (

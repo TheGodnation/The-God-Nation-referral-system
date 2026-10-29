@@ -561,6 +561,23 @@ router.post('/reports', memberReportLimiter, requireCsrf, requireMember, asyncHa
   const exists = await prisma.person.findUnique({ where: { id: d.personId }, select: { id: true } });
   if (!exists) return res.status(404).json({ error: 'Not found.' });
 
+  // A report about a post or comment must name a real, visible one written by
+  // the person being reported (no forged targets), and the same person only
+  // reports the same thing once while it is still open.
+  if (d.targetType === 'UPDATE_POST' || d.targetType === 'UPDATE_COMMENT') {
+    if (!d.targetId) return res.status(400).json({ error: 'Nothing to report.' });
+    const target =
+      d.targetType === 'UPDATE_POST'
+        ? await prisma.updatePost.findUnique({ where: { id: d.targetId }, select: { authorPersonId: true, deletedAt: true } })
+        : await prisma.updateComment.findUnique({ where: { id: d.targetId }, select: { authorPersonId: true, deletedAt: true } });
+    if (!target || target.deletedAt || target.authorPersonId !== d.personId) return res.status(404).json({ error: 'Not found.' });
+    const already = await prisma.memberReport.findFirst({
+      where: { reporterPersonId: me, targetType: d.targetType, targetId: d.targetId, status: 'OPEN' },
+      select: { id: true },
+    });
+    if (already) return res.status(200).json({ id: already.id, already: true });
+  }
+
   const report = await prisma.memberReport.create({
     data: {
       reporterPersonId: me,

@@ -369,7 +369,8 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
       reactionCounts: countsByPost.get(p.id) ?? {},
       myReaction: mine.get(p.id) ?? null,
       commentCount: p._count.comments,
-      canDelete: viewer.canModerate || (viewer.personId !== null && p.author.id === viewer.personId),
+      // Only leaders and the central admin remove posts; everyone else reports them.
+      canDelete: viewer.canModerate,
     })),
     nextBefore: hasMore ? page[page.length - 1].createdAt.toISOString() : null,
   });
@@ -453,13 +454,14 @@ router.delete('/:id', updatePostLimiter, requireCsrf, requireViewer, asyncHandle
   const viewer = req.updatesViewer!;
   const post = await prisma.updatePost.findUnique({ where: { id: req.params.id } });
   if (!post || post.deletedAt) return res.status(404).json({ error: 'Post not found.' });
-  const isAuthor = viewer.personId !== null && post.authorPersonId === viewer.personId;
-  if (!isAuthor && !viewer.canModerate) return res.status(403).json({ error: 'You cannot delete this post.' });
+  // Only leaders and the central admin remove a post; a member who finds one
+  // that does not follow Christian standards reports it (POST /api/member/reports).
+  if (!viewer.canModerate) return res.status(403).json({ error: 'You cannot delete this post.' });
 
   await prisma.updatePost.update({ where: { id: post.id }, data: { deletedAt: new Date(), ...deletedByFields(viewer) } });
   await recordAudit({
     actorId: viewer.userId,
-    action: isAuthor ? 'UPDATE_POST_DELETED_BY_AUTHOR' : 'UPDATE_POST_REMOVED_BY_MODERATOR',
+    action: 'UPDATE_POST_REMOVED_BY_MODERATOR',
     targetType: 'UpdatePost',
     targetId: post.id,
     metadata: { authorPersonId: post.authorPersonId, byPersonId: viewer.personId },

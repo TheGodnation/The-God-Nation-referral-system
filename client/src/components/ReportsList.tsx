@@ -12,6 +12,9 @@ interface ReportRow {
   resolutionNote: string | null;
   reporter: { personId: string; name: string };
   reported: { personId: string; name: string };
+  /** For a reported post or comment: what it said (null once it is removed). */
+  targetId?: string | null;
+  targetPreview?: string | null;
 }
 
 // Member reports for review. Used by the admin (every report, basePath
@@ -77,6 +80,11 @@ export function ReportsList({ basePath, title }: { basePath: string; title?: str
               <span className="text-slate-400"> · {when(r.createdAt)}</span>
             </p>
             <p className="mt-1 whitespace-pre-wrap text-slate-700">“{r.reason}”</p>
+            {(r.targetType === 'UPDATE_POST' || r.targetType === 'UPDATE_COMMENT') && (
+              <p className="mt-1 whitespace-pre-wrap break-words rounded bg-slate-50 px-2 py-1 text-slate-600" data-testid="report-target">
+                {r.targetPreview ? t('reports.what_was_posted', { text: r.targetPreview }) : t('reports.post_removed')}
+              </p>
+            )}
             {r.status === 'OPEN' ? (
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                 <input

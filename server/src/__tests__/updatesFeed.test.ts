@@ -219,14 +219,49 @@ describe('Updates feed — reactions and comments', () => {
   });
 });
 
-describe('Updates feed — deleting (author, admin, assigned leaders)', () => {
-  it('lets the author delete their own post but not someone else’s', async () => {
+describe('Updates feed — deleting (admin and assigned leaders only; members report)', () => {
+  it('gives no delete to ordinary members, not even for their own post', async () => {
     const a = await loginAsMember('Owner');
     const b = await loginAsMember('Not Owner');
     const { body } = await post(a.agent, a.csrf, { body: 'mine' });
     expect((await b.agent.delete(`/api/updates/${body.id}`).set('X-CSRF-Token', b.csrf)).status).toBe(403);
-    expect((await a.agent.delete(`/api/updates/${body.id}`).set('X-CSRF-Token', a.csrf)).status).toBe(200);
-    expect((await a.agent.get('/api/updates')).body.items).toHaveLength(0);
+    expect((await a.agent.delete(`/api/updates/${body.id}`).set('X-CSRF-Token', a.csrf)).status).toBe(403);
+    const mine = await a.agent.get('/api/updates');
+    expect(mine.body.items).toHaveLength(1);
+    expect(mine.body.items[0].canDelete).toBe(false);
+    expect((await b.agent.get('/api/updates')).body.items[0].canDelete).toBe(false);
+  });
+
+  it('lets a member report a post, once, and the central admin sees what was reported', async () => {
+    const author = await loginAsMember('Reported Author');
+    const reader = await loginAsMember('Reporting Reader');
+    const { body } = await post(author.agent, author.csrf, { body: 'something unchristian' });
+    const report = (agent: any, csrf: string, extra: Record<string, unknown> = {}) =>
+      agent.post('/api/member/reports').set('X-CSRF-Token', csrf).send({ personId: author.person.id, targetType: 'UPDATE_POST', targetId: body.id, reason: 'Indecent: not a Christian standard', ...extra });
+
+    const first = await report(reader.agent, reader.csrf);
+    expect(first.status).toBe(201);
+    const again = await report(reader.agent, reader.csrf);
+    expect(again.status).toBe(200);
+    expect(again.body).toMatchObject({ id: first.body.id, already: true });
+    expect(await prisma.memberReport.count({ where: { reporterPersonId: reader.person.id, targetId: body.id } })).toBe(1);
+
+    // No forged targets: someone else's post under this person, a missing post, or your own.
+    const other = await loginAsMember('Somebody Else');
+    expect((await report(reader.agent, reader.csrf, { personId: other.person.id })).status).toBe(404);
+    expect((await report(reader.agent, reader.csrf, { targetId: '00000000-0000-0000-0000-000000000000' })).status).toBe(404);
+    expect((await report(reader.agent, reader.csrf, { targetId: undefined })).status).toBe(400);
+    expect((await report(author.agent, author.csrf)).status).toBe(400);
+
+    const admin = await loginAsAdmin('report-admin@test.local');
+    const list = await admin.agent.get('/api/admin/member-reports');
+    const row = list.body.items.find((r: any) => r.id === first.body.id);
+    expect(row).toMatchObject({ targetType: 'UPDATE_POST', targetPreview: 'something unchristian', reporter: { name: 'Reporting Reader' } });
+
+    // Once the post is removed, the report no longer carries its words.
+    await admin.agent.delete(`/api/updates/${body.id}`).set('X-CSRF-Token', admin.csrf);
+    const after = await admin.agent.get('/api/admin/member-reports');
+    expect(after.body.items.find((r: any) => r.id === first.body.id).targetPreview).toBeNull();
   });
 
   it('lets the central admin remove any post, and records who did it', async () => {
@@ -347,7 +382,7 @@ describe('Updates feed — auto-translation', () => {
     const reader = await loginAsMember('English Reader 3');
     const { body } = await post(author.agent, author.csrf, { body: 'Supprimé plus tard' });
     await markTranslated(body.id, 'fr', 'Deleted later');
-    await author.agent.delete(`/api/updates/${body.id}`).set('X-CSRF-Token', author.csrf);
+    await prisma.updatePost.update({ where: { id: body.id }, data: { deletedAt: new Date() } });
 
     const feed = await reader.agent.get('/api/updates');
     expect(feed.body.items).toHaveLength(0);

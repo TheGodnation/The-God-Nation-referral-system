@@ -45,6 +45,18 @@ function toRow(r: {
   };
 }
 
+/** For reports about a post or comment: what it said, so the reviewer knows without hunting for it. */
+async function withPreviews<T extends { targetType: string; targetId: string | null }>(rows: T[]) {
+  const postIds = rows.filter((r) => r.targetType === 'UPDATE_POST' && r.targetId).map((r) => r.targetId!);
+  const commentIds = rows.filter((r) => r.targetType === 'UPDATE_COMMENT' && r.targetId).map((r) => r.targetId!);
+  const [posts, comments] = await Promise.all([
+    postIds.length ? prisma.updatePost.findMany({ where: { id: { in: postIds } }, select: { id: true, body: true, deletedAt: true } }) : [],
+    commentIds.length ? prisma.updateComment.findMany({ where: { id: { in: commentIds } }, select: { id: true, body: true, deletedAt: true } }) : [],
+  ]);
+  const text = new Map([...posts, ...comments].map((x) => [x.id, x.deletedAt ? null : x.body.slice(0, 400)]));
+  return rows.map((r) => ({ ...r, targetPreview: r.targetId ? (text.get(r.targetId) ?? null) : null }));
+}
+
 const listQuery = z.object({ status: z.enum(['OPEN', 'RESOLVED']).default('OPEN') });
 const resolveSchema = z.object({ note: z.string().trim().max(1000).optional() });
 
@@ -74,7 +86,7 @@ adminMemberReportsRouter.get('/', asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' },
     take: 200,
   });
-  res.json({ items: rows.map(toRow) });
+  res.json({ items: await withPreviews(rows.map(toRow)) });
 }));
 
 adminMemberReportsRouter.post('/:id/resolve', socialMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -112,7 +124,7 @@ leaderMemberReportsRouter.get('/', asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' },
     take: 200,
   });
-  res.json({ items: rows.map(toRow) });
+  res.json({ items: await withPreviews(rows.map(toRow)) });
 }));
 
 leaderMemberReportsRouter.post('/:id/resolve', socialMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
