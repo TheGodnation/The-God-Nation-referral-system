@@ -23,6 +23,13 @@ describe('POST /api/client-errors', () => {
     expect(logged).toMatchObject({ kind: 'render', path: '/member/chats', userAgent: 'iPhone iOS 15', standalone: true });
   });
 
+  it('accepts a report that a file upload failed', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = await request(app).post('/api/client-errors').set('X-Forwarded-For', '10.160.0.9').send({ kind: 'upload', message: 'Book PDF upload failed: storage status 403, 4000000 bytes' });
+    expect(res.status).toBe(202);
+    expect(log.mock.calls.some((c) => c[0] === '[client-error]' && String(c[1]).includes('"kind":"upload"'))).toBe(true);
+  });
+
   it('refuses a report with no message, and has a limit', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect((await request(app).post('/api/client-errors').set('X-Forwarded-For', '10.160.0.2').send({ kind: 'render' })).status).toBe(400);

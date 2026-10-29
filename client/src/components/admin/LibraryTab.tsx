@@ -6,6 +6,8 @@ import { PaymentsAndGrace, TrainingPaymentSettings } from './TrainingPaymentsAdm
 import { PaymentAgentsAdmin } from './PaymentAgentsAdmin';
 import { ReferralPayoutsAdmin } from './ReferralPayoutsAdmin';
 import { BookDetailsAdmin } from './BookDetailsAdmin';
+import { putPdf, type PutResult } from '../../lib/libraryUpload';
+import { reportClientError } from '../../lib/reportError';
 import { readPdfCover } from '../../lib/bookCover';
 
 interface BookRow {
@@ -79,6 +81,7 @@ function PdfUpload({ bookId, hasFile, onDone }: { bookId: string; hasFile: boole
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [percent, setPercent] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function upload(file: File | undefined) {
@@ -87,14 +90,26 @@ function PdfUpload({ bookId, hasFile, onDone }: { bookId: string; hasFile: boole
     if (file.type !== 'application/pdf') return setError(t('library.pdf_only'));
     if (file.size > MAX_PDF_BYTES) return setError(t('library.pdf_too_large'));
     setBusy(true);
+    setPercent(0);
     try {
       const reading = readPdfCover(file);
-      const auth = await api.post<{ storageKey: string; uploadUrl: string }>(`/api/admin/library/books/${bookId}/file/authorize`, {
-        mimeType: 'application/pdf',
-        byteSize: file.size,
-      });
-      const put = await fetch(auth.uploadUrl, { method: 'PUT', headers: { 'Content-Type': 'application/pdf' }, body: file });
-      if (!put.ok) throw new Error('upload');
+      // A weak connection often drops a big file once: ask for a fresh link and try again, once.
+      let auth: { storageKey: string; uploadUrl: string } | null = null;
+      let last: PutResult = { ok: false, status: 0 };
+      for (let attempt = 0; attempt < 2 && !last.ok; attempt += 1) {
+        auth = await api.post<{ storageKey: string; uploadUrl: string }>(`/api/admin/library/books/${bookId}/file/authorize`, {
+          mimeType: 'application/pdf',
+          byteSize: file.size,
+        });
+        setPercent(0);
+        last = await putPdf(auth.uploadUrl, file, (f) => setPercent(Math.round(f * 100)));
+      }
+      if (!last.ok || !auth) {
+        // Say what storage answered (or that nothing came back), and tell the server log too.
+        reportClientError('upload', new Error(`Book PDF upload failed: storage status ${last.status}, ${file.size} bytes`));
+        setError(t('library.upload_failed_detail', { detail: last.status ? `storage ${last.status}` : t('library.upload_no_answer') }));
+        return;
+      }
       const info = await reading;
       await api.post(`/api/admin/library/books/${bookId}/file`, { storageKey: auth.storageKey, byteSize: file.size, pageCount: info?.pageCount });
       if (info?.cover) await api.put(`/api/admin/library/books/${bookId}/cover`, { image: info.cover, source: 'AUTO' }).catch(() => {});
@@ -103,6 +118,7 @@ function PdfUpload({ bookId, hasFile, onDone }: { bookId: string; hasFile: boole
       setError(err instanceof ApiError ? err.message : t('library.upload_failed'));
     } finally {
       setBusy(false);
+      setPercent(null);
       if (input.current) input.current.value = '';
     }
   }
@@ -112,7 +128,7 @@ function PdfUpload({ bookId, hasFile, onDone }: { bookId: string; hasFile: boole
       <span className="flex items-center gap-2">
         <span className={hasFile ? 'text-green-700' : 'text-amber-700'}>{hasFile ? `✓ ${t('library.pdf_ready')}` : t('library.no_pdf')}</span>
         <button type="button" className="btn-secondary px-2 py-1 text-xs" disabled={busy} onClick={() => input.current?.click()}>
-          {busy ? t('library.uploading') : hasFile ? t('library.replace_pdf') : t('library.upload_pdf')}
+          {busy ? `${t('library.uploading')}${percent !== null ? ` ${percent}%` : ''}` : hasFile ? t('library.replace_pdf') : t('library.upload_pdf')}
         </button>
       </span>
       <input ref={input} type="file" accept="application/pdf" className="hidden" aria-label={t('library.upload_pdf') ?? ''} onChange={(e) => upload(e.target.files?.[0])} />

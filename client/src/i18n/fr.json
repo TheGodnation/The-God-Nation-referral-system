@@ -2228,6 +2228,8 @@
     "need_title": "Écrivez le titre du livre.",
     "pdf_only": "Veuillez choisir un fichier PDF.",
     "pdf_too_large": "Ce PDF est trop grand (50 Mo maximum).",
+    "upload_failed_detail": "Échec de l'envoi. Réessayez. ({{detail}})",
+    "upload_no_answer": "le stockage n'a pas répondu — vérifiez la connexion internet",
     "upload_failed": "Envoi échoué. Veuillez réessayer.",
     "pdf_ready": "PDF envoyé",
     "no_pdf": "Pas encore de PDF",

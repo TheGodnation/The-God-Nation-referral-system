@@ -101,8 +101,55 @@ describe('Leadership book details (admin)', () => {
   });
 });
 
+// The browser sends the PDF to storage with XMLHttpRequest (it reports progress);
+// this stands in for it, answering each PUT with the next status in `statuses`.
+function fakeStorage(statuses: number[]) {
+  const puts: string[] = [];
+  class FakeXhr {
+    status = 0;
+    upload: { onprogress: ((e: unknown) => void) | null } = { onprogress: null };
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    ontimeout: (() => void) | null = null;
+    private url = '';
+    open(_m: string, url: string) {
+      this.url = url;
+    }
+    setRequestHeader() {}
+    send() {
+      puts.push(this.url);
+      const next = statuses.shift() ?? 200;
+      setTimeout(() => {
+        this.upload.onprogress?.({ lengthComputable: true, loaded: 1, total: 1 });
+        if (next === 0) return this.onerror?.();
+        this.status = next;
+        this.onload?.();
+      }, 0);
+    }
+  }
+  vi.stubGlobal('XMLHttpRequest', FakeXhr as unknown as typeof XMLHttpRequest);
+  return puts;
+}
+
+const LIBRARY_ROUTES = {
+  'GET /api/admin/library/books': () => ({ body: { items: [{ ...BOOK, kind: 'TRAINING', devotional: null, hasFile: false, byteSize: null, exam: null }] } }),
+  'GET /api/admin/library/devotionals': () => ({ body: { items: [] } }),
+  'GET /api/admin/library/trainees': () => ({ body: { items: [] } }),
+  'GET /api/admin/library/retakes': () => ({ body: { items: [] } }),
+  'GET /api/admin/library/payments': () => ({ body: { items: [] } }),
+  'GET /api/admin/library/payments/summary': () => ({ body: { confirmed: { count: 0, amount: 0 }, thisMonth: { count: 0, amount: 0 }, waiting: 0 } }),
+  'GET /api/admin/library/grace': () => ({ body: { items: [] } }),
+  'GET /api/admin/library/training-settings': () => ({ body: { price: 1100, instructionsEn: '', instructionsFr: '', automaticProvider: null } }),
+  'GET /api/admin/library/offering-settings': () => ({ body: { instructionsEn: '', instructionsFr: '' } }),
+  'POST /api/admin/library/books/b1/file/authorize': () => ({ body: { storageKey: 'library/b1/k.pdf', uploadUrl: 'https://r2.example/put' } }),
+  'POST /api/admin/library/books/b1/file': () => ({ body: { ok: true } }),
+  'PUT /api/admin/library/books/b1/cover': () => ({ body: { coverUrl: 'x' } }),
+  'POST /api/client-errors': () => ({ status: 202, body: { ok: true } }),
+};
+
 describe('Uploading a leadership book PDF (admin)', () => {
   it('keeps the page count and makes the cover from page 1', async () => {
+    fakeStorage([200]);
     mockFetch({
       'GET /api/admin/library/books': () => ({ body: { items: [{ ...BOOK, kind: 'TRAINING', devotional: null, hasFile: false, byteSize: null, exam: null }] } }),
       'GET /api/admin/library/devotionals': () => ({ body: { items: [] } }),
@@ -124,5 +171,28 @@ describe('Uploading a leadership book PDF (admin)', () => {
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT' && c.url.endsWith('/cover'))).toBe(true));
     expect(calls.find((c) => c.url === '/api/admin/library/books/b1/file')?.body).toEqual({ storageKey: 'library/b1/k.pdf', byteSize: 4, pageCount: 84 });
     expect(calls.find((c) => c.url.endsWith('/cover'))?.body).toEqual({ image: 'data:image/jpeg;base64,/9j/BBBB', source: 'AUTO' });
+  });
+
+  it('tries again once with a fresh link when the first send drops, then keeps the book', async () => {
+    const puts = fakeStorage([0, 200]);
+    mockFetch(LIBRARY_ROUTES);
+    render(<LibraryTab />);
+    const input = await screen.findAllByLabelText('Upload PDF');
+    fireEvent.change(input[0], { target: { files: [new File(['%PDF'], 'book.pdf', { type: 'application/pdf' })] } });
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/admin/library/books/b1/file')).toBe(true));
+    expect(puts).toHaveLength(2);
+    expect(calls.filter((c) => c.url.endsWith('/file/authorize'))).toHaveLength(2);
+  });
+
+  it('says what storage answered when the send keeps failing, and tells the server log', async () => {
+    const puts = fakeStorage([403, 403]);
+    mockFetch(LIBRARY_ROUTES);
+    render(<LibraryTab />);
+    const input = await screen.findAllByLabelText('Upload PDF');
+    fireEvent.change(input[0], { target: { files: [new File(['%PDF'], 'book.pdf', { type: 'application/pdf' })] } });
+    expect(await screen.findByText('Upload failed. Please try again. (storage 403)')).toBeInTheDocument();
+    expect(puts).toHaveLength(2);
+    expect(calls.some((c) => c.url === '/api/admin/library/books/b1/file')).toBe(false);
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/client-errors' && c.body?.kind === 'upload')).toBe(true));
   });
 });

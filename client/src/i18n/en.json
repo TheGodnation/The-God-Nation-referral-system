@@ -2228,6 +2228,8 @@
     "need_title": "Write the book title.",
     "pdf_only": "Please choose a PDF file.",
     "pdf_too_large": "This PDF is too large (50 MB maximum).",
+    "upload_failed_detail": "Upload failed. Please try again. ({{detail}})",
+    "upload_no_answer": "the storage did not answer — check the internet connection",
     "upload_failed": "Upload failed. Please try again.",
     "pdf_ready": "PDF uploaded",
     "no_pdf": "No PDF yet",

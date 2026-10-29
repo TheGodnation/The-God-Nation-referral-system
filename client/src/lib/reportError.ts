@@ -25,7 +25,7 @@ export function reloadOnceForNewVersion(): boolean {
   return true;
 }
 
-export function reportClientError(kind: 'render' | 'script' | 'chunk', error: unknown, componentStack?: string | null) {
+export function reportClientError(kind: 'render' | 'script' | 'chunk' | 'upload', error: unknown, componentStack?: string | null) {
   try {
     if (sent >= MAX_REPORTS) return;
     sent += 1;

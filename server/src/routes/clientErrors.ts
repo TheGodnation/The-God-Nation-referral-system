@@ -11,7 +11,7 @@ const router = Router();
 
 const clip = (n: number) => z.string().max(n * 4).transform((s) => s.slice(0, n));
 const bodySchema = z.object({
-  kind: z.enum(['render', 'script', 'chunk']).default('render'),
+  kind: z.enum(['render', 'script', 'chunk', 'upload']).default('render'),
   message: clip(300),
   stack: clip(1500).optional(),
   componentStack: clip(800).optional(),
