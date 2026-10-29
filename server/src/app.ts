@@ -29,6 +29,7 @@ import adminCommunitiesRoutes from './routes/adminCommunities';
 import adminDevotionalsRoutes from './routes/adminDevotionals';
 import adminAssessmentsRoutes from './routes/adminAssessments';
 import adminResultsRoutes from './routes/adminResults';
+import clientErrorsRoutes from './routes/clientErrors';
 import adminAttemptsRoutes from './routes/adminAttempts';
 import memberAuthRoutes from './routes/memberAuth';
 import memberAssessmentsRoutes from './routes/memberAssessments';
@@ -118,6 +119,7 @@ export function createApp() {
   app.use('/api/admin', adminRoutes);
   app.use('/api/admin', adminMemberBridgeRoutes);
   app.use('/api/settings', publicSettingsRoutes);
+  app.use('/api/client-errors', clientErrorsRoutes);
   app.use('/api/content-pages', contentPagesRoutes);
   app.use('/api/contact', contactRoutes);
   // Phase 3A: adminPeopleRoutes defines its own '/people' and

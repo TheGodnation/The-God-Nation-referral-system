@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { isStaleAppError, reloadOnceForNewVersion, reportClientError } from '../lib/reportError';
 
 // Last line of defense around the whole app (see main.tsx). Without this,
 // any uncaught error anywhere in the render tree unmounts everything down
@@ -17,6 +18,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
 
   componentDidCatch(error: Error, info: { componentStack?: string | null }) {
     console.error('[app] uncaught render error', error, info.componentStack);
+    // The app was updated while this page was open: its old files are gone.
+    // Loading the page again fixes it, so do that without asking.
+    if (isStaleAppError(error) && reloadOnceForNewVersion()) return;
+    reportClientError(isStaleAppError(error) ? 'chunk' : 'render', error, info.componentStack);
   }
 
   render() {
@@ -52,6 +57,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
         >
           Reload / Recharger
         </button>
+        {/* What went wrong, in small print: a screenshot of this tells us the cause. */}
+        <p style={{ marginTop: '20px', maxWidth: '320px', fontSize: '11px', color: '#94a3b8', wordBreak: 'break-word' }}>
+          {String(this.state.error.message || this.state.error.name || '').slice(0, 160)}
+        </p>
       </div>
     );
   }

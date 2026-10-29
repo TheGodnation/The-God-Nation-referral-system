@@ -5,6 +5,7 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './i18n';
 import './index.css';
+import { reloadOnceForNewVersion, reportClientError } from './lib/reportError';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -15,6 +16,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </React.StrictMode>,
 );
+
+// The app was updated while this page was open, so one of its files is gone:
+// load the page again (once) instead of leaving a broken screen.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  reloadOnceForNewVersion();
+});
+// A script error outside any screen (the screen's own errors are reported by the ErrorBoundary).
+window.addEventListener('error', (event) => {
+  if (event.error) reportClientError('script', event.error);
+});
 
 // Registers the PWA service worker (app-shell caching only — never /api/*,
 // see public/sw.js) so the site can be installed to a phone's home screen.

@@ -559,6 +559,15 @@ export const accountDeletionLimiter = rateLimit({
   message: { error: 'Too many requests. Please try again later.' },
 });
 
+// A crashed screen reporting itself: a few a minute from one place is plenty.
+export const clientErrorLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many reports.' },
+});
+
 export const memberReportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
