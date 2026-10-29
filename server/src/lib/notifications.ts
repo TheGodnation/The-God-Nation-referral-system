@@ -537,3 +537,34 @@ export async function notifyMemberReportReviewed(
     push: { title: fr ? 'À propos de votre signalement' : 'About your report', body: note ? `${body} ${note}` : body, url: '/member/me' },
   });
 }
+
+/** A polite word to the person whose post / comment was reported and found to
+ * go against the community's standards: everything shared here must keep to
+ * the teachings of the Kingdom of God and of Christ. Never names who reported.
+ * Sent once per reported item, however many people reported it. */
+export async function notifyReportedAuthor(
+  report: { id: string; reportedPersonId: string; targetType: string; targetId: string | null },
+  removed: boolean,
+) {
+  if (report.targetId) {
+    const already = await prisma.notification.findFirst({
+      where: { recipientPersonId: report.reportedPersonId, type: 'MEMBER_REPORT_REVIEWED', targetType: report.targetType, targetId: report.targetId },
+      select: { id: true },
+    });
+    if (already) return;
+  }
+  const person = await prisma.person.findUnique({ where: { id: report.reportedPersonId }, select: { preferredLanguage: true } });
+  const fr = person?.preferredLanguage === 'fr';
+  const body = fr
+    ? `Quelque chose que vous avez partagé a été signalé et examiné par les responsables. Dans cette communauté, tout ce qui est publié doit rester conforme à l'enseignement du Royaume de Dieu et à l'enseignement de Christ.${removed ? ' Cette publication a été retirée.' : ''} Merci de partager seulement ce qui édifie le corps de Christ. Que Dieu vous bénisse.`
+    : `Something you shared was reported and reviewed by the leaders. In this community, everything shared must keep to the teachings of the Kingdom of God and the teachings of Christ.${removed ? ' It has been removed.' : ''} Please share only what builds up the body of Christ. God bless you.`;
+  await createNotification({
+    recipientPersonId: report.reportedPersonId,
+    type: 'MEMBER_REPORT_REVIEWED',
+    metadata: { audience: 'REPORTED', removed, reportTargetType: report.targetType },
+    // The reported item, so the same author is not told twice about it.
+    targetType: report.targetType,
+    targetId: report.targetId ?? undefined,
+    push: { title: fr ? 'Un mot des responsables' : 'A word from the leaders', body, url: '/member/me' },
+  });
+}

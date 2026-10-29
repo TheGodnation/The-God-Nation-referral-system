@@ -301,10 +301,25 @@ describe('Updates feed — deleting (admin and assigned leaders only; members re
     expect(list).toHaveLength(3);
     expect(list[2].metadata).toMatchObject({ outcome: null });
 
-    // The reporter sees it in their own notifications; nobody else got one.
+    // The reporter sees it in their own notifications.
     const mine = await reporter.agent.get('/api/notifications');
     expect(mine.body.items.filter((n: any) => n.type === 'MEMBER_REPORT_REVIEWED')).toHaveLength(3);
-    expect(await prisma.notification.count({ where: { recipientPersonId: author.person.id, type: 'MEMBER_REPORT_REVIEWED' } })).toBe(0);
+    // The author was only spoken to about the post that broke the standards (and it said it was removed) —
+    // never about the ones that were fine, and the notice does not say who reported.
+    const toAuthor = await prisma.notification.findMany({ where: { recipientPersonId: author.person.id, type: 'MEMBER_REPORT_REVIEWED' } });
+    expect(toAuthor).toHaveLength(1);
+    expect(toAuthor[0].metadata).toEqual({ audience: 'REPORTED', removed: true, reportTargetType: 'UPDATE_POST' });
+    expect(JSON.stringify(toAuthor[0])).not.toContain(reporter.person.id);
+
+    // Two people report the same post: the author is told once (post kept, so "removed" is false).
+    const second = await loginAsMember('Second Reporter');
+    const shared = await mk('a shared bad post');
+    const r2 = await second.agent.post('/api/member/reports').set('X-CSRF-Token', second.csrf).send({ personId: author.person.id, targetType: 'UPDATE_POST', targetId: shared.postId, reason: 'Scam, lies or deception' });
+    await resolve(shared.reportId, { outcome: 'VIOLATION' });
+    await resolve(r2.body.id, { outcome: 'VIOLATION' });
+    const after = await prisma.notification.findMany({ where: { recipientPersonId: author.person.id, type: 'MEMBER_REPORT_REVIEWED' } });
+    expect(after).toHaveLength(2);
+    expect(after.filter((n) => (n.metadata as any).removed === false)).toHaveLength(1);
     // And the resolved report shows what was found to the reviewer.
     const resolved = await admin.agent.get('/api/admin/member-reports?status=RESOLVED');
     expect(resolved.body.items.find((r: any) => r.id === bad.reportId)).toMatchObject({ outcome: 'VIOLATION', resolutionNote: 'We removed it and spoke to the person.' });

@@ -1763,6 +1763,8 @@
     "all_sent": "Sent to {{count}} members."
   },
   "notifications": {
+    "report_author_notice": "Something you shared was reported and reviewed by the leaders. In this community, everything shared must keep to the teachings of the Kingdom of God and the teachings of Christ. Please share only what builds up the body of Christ. God bless you.",
+    "report_author_removed": "Something you shared was reported and reviewed by the leaders. In this community, everything shared must keep to the teachings of the Kingdom of God and the teachings of Christ. It has been removed. Please share only what builds up the body of Christ. God bless you.",
     "report_violation": "Thank you for your report. We looked at it, and the post did not follow Christian standards. Action was taken.",
     "report_no_violation": "Thank you for your report. We looked at it and did not find that the post breaks Christian standards.",
     "report_reviewed": "Thank you for your report. It has been looked at.",

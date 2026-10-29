@@ -1763,6 +1763,8 @@
     "all_sent": "Envoyé à {{count}} membres."
   },
   "notifications": {
+    "report_author_notice": "Quelque chose que vous avez partagé a été signalé et examiné par les responsables. Dans cette communauté, tout ce qui est publié doit rester conforme à l'enseignement du Royaume de Dieu et à l'enseignement de Christ. Merci de partager seulement ce qui édifie le corps de Christ. Que Dieu vous bénisse.",
+    "report_author_removed": "Quelque chose que vous avez partagé a été signalé et examiné par les responsables. Dans cette communauté, tout ce qui est publié doit rester conforme à l'enseignement du Royaume de Dieu et à l'enseignement de Christ. Cela a été retiré. Merci de partager seulement ce qui édifie le corps de Christ. Que Dieu vous bénisse.",
     "report_violation": "Merci pour votre signalement. Nous l'avons examiné : la publication ne respectait pas les normes chrétiennes. Une mesure a été prise.",
     "report_no_violation": "Merci pour votre signalement. Nous l'avons examiné et n'avons pas constaté que la publication enfreint les normes chrétiennes.",
     "report_reviewed": "Merci pour votre signalement. Il a été examiné.",

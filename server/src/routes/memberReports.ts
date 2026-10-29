@@ -8,7 +8,7 @@ import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { socialMutationLimiter } from '../lib/rateLimit';
 import { getLeaderExactCommunityIds } from '../lib/privateMessaging';
-import { notifyMemberReportReviewed } from '../lib/notifications';
+import { notifyMemberReportReviewed, notifyReportedAuthor } from '../lib/notifications';
 
 // ---------------------------------------------------------------------------
 // Reviewing member reports (see MemberReport). The central admin sees every
@@ -73,7 +73,7 @@ type Resolver = { userId?: string; personId?: string };
 
 /** Closes a report: records what was found, optionally removes the reported post or comment, and tells the reporter. */
 async function finishReport(
-  report: { id: string; reporterPersonId: string; targetType: string; targetId: string | null },
+  report: { id: string; reporterPersonId: string; reportedPersonId: string; targetType: string; targetId: string | null },
   by: Resolver,
   d: z.infer<typeof resolveSchema>,
 ) {
@@ -88,15 +88,18 @@ async function finishReport(
       outcome: d.outcome ?? null,
     },
   });
+  let removed = false;
   if (d.outcome === 'VIOLATION' && d.removeContent && report.targetId) {
     const now = new Date();
     const who = by.userId ? { deletedByUserId: by.userId, deletedByPersonId: null } : { deletedByPersonId: by.personId ?? null, deletedByUserId: null };
     if (report.targetType === 'UPDATE_POST') {
-      await prisma.updatePost.updateMany({ where: { id: report.targetId, deletedAt: null }, data: { deletedAt: now, ...who } });
+      removed = (await prisma.updatePost.updateMany({ where: { id: report.targetId, deletedAt: null }, data: { deletedAt: now, ...who } })).count > 0;
     } else if (report.targetType === 'UPDATE_COMMENT') {
-      await prisma.updateComment.updateMany({ where: { id: report.targetId, deletedAt: null }, data: { deletedAt: now, ...who } });
+      removed = (await prisma.updateComment.updateMany({ where: { id: report.targetId, deletedAt: null }, data: { deletedAt: now, ...who } })).count > 0;
     }
   }
+  // The person whose post it was gets a polite word when it was found to go against the standards.
+  if (d.outcome === 'VIOLATION') await notifyReportedAuthor(report, removed).catch(() => {});
   // The reporter always hears back. Best-effort: never fails the review itself.
   await notifyMemberReportReviewed(report, d.outcome ?? null, d.note || null).catch(() => {});
 }

@@ -161,6 +161,8 @@ export function NotificationBell() {
       case 'BOOK_PASSED_PAY':
         return t('notifications.book_passed_pay', { number: metadata.bookNumber ?? '' });
       case 'MEMBER_REPORT_REVIEWED': {
+        // To the person whose post was reported: a polite reminder of the community's standards.
+        if (metadata.audience === 'REPORTED') return t(metadata.removed ? 'notifications.report_author_removed' : 'notifications.report_author_notice');
         const base = t(metadata.outcome === 'VIOLATION' ? 'notifications.report_violation' : metadata.outcome === 'NO_VIOLATION' ? 'notifications.report_no_violation' : 'notifications.report_reviewed');
         return metadata.note ? `${base} ${t('notifications.report_note', { note: String(metadata.note) })}` : base;
       }

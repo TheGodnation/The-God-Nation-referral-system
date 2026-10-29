@@ -91,6 +91,26 @@ describe('NotificationBell — notification display', () => {
     expect(screen.getByText('Thank you for your report. It has been looked at.')).toBeInTheDocument();
   });
 
+  it('gives the author of a post that broke the standards a polite word, without naming who reported', async () => {
+    mockFetchByUrl({
+      '/api/notifications/unread-count': { status: 200, body: { unreadCount: 2 } },
+      '/api/notifications': {
+        status: 200,
+        body: {
+          items: [
+            { id: 'n1', type: 'MEMBER_REPORT_REVIEWED', metadata: { audience: 'REPORTED', removed: true }, targetType: 'UPDATE_POST', targetId: 'p1', readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+            { id: 'n2', type: 'MEMBER_REPORT_REVIEWED', metadata: { audience: 'REPORTED', removed: false }, targetType: 'UPDATE_POST', targetId: 'p2', readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+          ],
+          pagination: { totalPages: 1 },
+        },
+      },
+    });
+    render(<NotificationBell />);
+    fireEvent.click(await screen.findByLabelText('Notifications'));
+    expect(await screen.findByText(/everything shared must keep to the teachings of the Kingdom of God and the teachings of Christ\. It has been removed\./)).toBeInTheDocument();
+    expect(screen.getByText(/everything shared must keep to the teachings of the Kingdom of God and the teachings of Christ\. Please share only what builds up the body of Christ\. God bless you\./)).toBeInTheDocument();
+  });
+
   it('renders the two Phase 2 prayer request notification types', async () => {
     mockFetchByUrl({
       '/api/notifications/unread-count': { status: 200, body: { unreadCount: 2 } },
