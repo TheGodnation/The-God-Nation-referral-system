@@ -33,7 +33,7 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
     orderBy: { startDate: 'desc' },
     take: 3,
     include: {
-      book: { select: { id: true, storageKey: true } },
+      book: { select: { id: true, storageKey: true, storageKeyFr: true } },
       assessments: {
         where: { status: { not: 'DRAFT' }, weekNumber: { not: null } },
         orderBy: { weekNumber: 'asc' },
@@ -74,7 +74,7 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
       descriptionFr: d.descriptionFr,
       startDate: d.startDate,
       endDate: d.endDate,
-      bookId: d.book?.storageKey ? d.book.id : null,
+      bookId: d.book?.storageKey || d.book?.storageKeyFr ? d.book.id : null,
       iGaveOffering: gaveFor.has(d.id),
       exams: d.assessments.map((a) => {
         const mine = attempts.filter((t) => t.assessmentId === a.id);
@@ -372,6 +372,27 @@ router.post('/devotionals/:id/offering', socialMutationLimiter, requireCsrf, req
 
 // ----------------------------- Reading books --------------------------------
 
+type BookCopies = {
+  storageKey: string | null;
+  byteSize: number | null;
+  pageCount: number | null;
+  storageKeyFr: string | null;
+  byteSizeFr: number | null;
+  pageCountFr: number | null;
+};
+
+/** Which languages this book has a PDF in. */
+function bookLanguages(b: BookCopies): ('en' | 'fr')[] {
+  return [...(b.storageKey ? (['en'] as const) : []), ...(b.storageKeyFr ? (['fr'] as const) : [])];
+}
+
+/** The copy to give a reader: the language they asked for, else the one that exists. */
+function pickBookCopy(b: BookCopies, wanted: unknown): { language: 'en' | 'fr'; storageKey: string; byteSize: number | null; pageCount: number | null } | null {
+  const en = b.storageKey ? { language: 'en' as const, storageKey: b.storageKey, byteSize: b.byteSize, pageCount: b.pageCount } : null;
+  const fr = b.storageKeyFr ? { language: 'fr' as const, storageKey: b.storageKeyFr, byteSize: b.byteSizeFr, pageCount: b.pageCountFr } : null;
+  return (wanted === 'fr' ? fr ?? en : en ?? fr) ?? null;
+}
+
 // GET /api/member/library/books/:id — what the reader needs: title, the
 // reader's own name and phone for the watermark printed across every page,
 // where they stopped reading, and which version of the PDF this is (the
@@ -382,11 +403,25 @@ router.get('/library/books/:id', requireMember, asyncHandler(async (req, res) =>
   const [book, person, progress] = await Promise.all([
     prisma.libraryBook.findUnique({
       where: { id: req.params.id },
-      select: { id: true, kind: true, titleEn: true, titleFr: true, trainingOrder: true, storageKey: true, byteSize: true, pageCount: true, exam: { select: { id: true, status: true } } },
+      select: {
+        id: true,
+        kind: true,
+        titleEn: true,
+        titleFr: true,
+        trainingOrder: true,
+        storageKey: true,
+        byteSize: true,
+        pageCount: true,
+        storageKeyFr: true,
+        byteSizeFr: true,
+        pageCountFr: true,
+        exam: { select: { id: true, status: true } },
+      },
     }),
     prisma.person.findUnique({ where: { id: personId }, select: { name: true, whatsappNumber: true } }),
     prisma.readingProgress.findUnique({ where: { personId_bookId: { personId, bookId: req.params.id } }, select: { page: true, updatedAt: true } }),
   ]);
+  const copy = pickBookCopy(book!, req.query.lang)!;
   const examId = book!.exam && book!.exam.status !== 'DRAFT' && (await examAccess(personId, book!.exam.id)).canView ? book!.exam.id : null;
   res.json({
     id: book!.id,
@@ -396,9 +431,12 @@ router.get('/library/books/:id', requireMember, asyncHandler(async (req, res) =>
     trainingOrder: book!.trainingOrder,
     examId,
     watermark: `${person?.name ?? ''} · ${person?.whatsappNumber ?? ''}`,
-    fileVersion: crypto.createHash('sha256').update(book!.storageKey ?? '').digest('hex').slice(0, 16),
-    byteSize: book!.byteSize,
-    pageCount: book!.pageCount,
+    // Which copy this reader gets: the language they asked for, or the other one when only that exists.
+    language: copy.language,
+    languages: bookLanguages(book!),
+    fileVersion: crypto.createHash('sha256').update(copy.storageKey).digest('hex').slice(0, 16),
+    byteSize: copy.byteSize,
+    pageCount: copy.pageCount,
     progress: progress ? { page: progress.page, at: progress.updatedAt } : null,
   });
 }));
@@ -451,9 +489,10 @@ router.get('/library/books/:id/cover', requireMember, asyncHandler(async (req, r
 router.get('/library/books/:id/content', requireMember, asyncHandler(async (req, res) => {
   const personId = req.member!.personId;
   if (!(await canReadBook(personId, req.params.id))) return res.status(404).json({ error: 'Book not found.' });
-  const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { storageKey: true } });
-  if (!book?.storageKey || !isStorageConfigured()) return res.status(404).json({ error: 'Book not found.' });
-  const object = await getObjectStream({ storageKey: book.storageKey });
+  const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { storageKey: true, storageKeyFr: true, byteSize: true, pageCount: true, byteSizeFr: true, pageCountFr: true } });
+  const copy = book ? pickBookCopy(book, req.query.lang) : null;
+  if (!copy || !isStorageConfigured()) return res.status(404).json({ error: 'Book not found.' });
+  const object = await getObjectStream({ storageKey: copy.storageKey });
   if (!object) return res.status(404).json({ error: 'Book not found.' });
 
   res.setHeader('Content-Type', 'application/pdf');

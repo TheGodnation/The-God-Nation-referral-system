@@ -69,6 +69,9 @@ router.get('/books', asyncHandler(async (_req, res) => {
       hasFile: Boolean(b.storageKey),
       byteSize: b.byteSize,
       pageCount: b.pageCount,
+      hasFileFr: Boolean(b.storageKeyFr),
+      byteSizeFr: b.byteSizeFr,
+      pageCountFr: b.pageCountFr,
       coverUrl: coverUrl(b, '/api/admin/library/books'),
       coverSource: b.cover?.source ?? null,
       chapterCount: b._count.chapters,
@@ -202,6 +205,8 @@ router.post('/books/:id/file/authorize', attachmentUploadAuthorizeLimiter, requi
 const fileFinalizeSchema = z.object({
   storageKey: z.string().min(1),
   byteSize: z.number().int().positive(),
+  // Which copy of the book this is (English by default).
+  language: z.enum(['en', 'fr']).default('en'),
   // Read from the PDF in the admin's browser; left out when it couldn't be.
   pageCount: z.number().int().min(1).max(10000).optional(),
 });
@@ -218,11 +223,14 @@ router.post('/books/:id/file', communityMutationLimiter, requireCsrf, asyncHandl
   if (!head || head.contentLength !== parsed.data.byteSize || (head.contentType && head.contentType !== 'application/pdf')) {
     return res.status(400).json({ error: 'The upload could not be verified. Please try again.' });
   }
+  const fr = parsed.data.language === 'fr';
   await prisma.libraryBook.update({
     where: { id: req.params.id },
-    data: { storageKey: parsed.data.storageKey, byteSize: parsed.data.byteSize, pageCount: parsed.data.pageCount ?? null },
+    data: fr
+      ? { storageKeyFr: parsed.data.storageKey, byteSizeFr: parsed.data.byteSize, pageCountFr: parsed.data.pageCount ?? null }
+      : { storageKey: parsed.data.storageKey, byteSize: parsed.data.byteSize, pageCount: parsed.data.pageCount ?? null },
   });
-  await audit(req, 'LIBRARY_BOOK_FILE_UPLOADED', 'LibraryBook', req.params.id, { byteSize: parsed.data.byteSize });
+  await audit(req, 'LIBRARY_BOOK_FILE_UPLOADED', 'LibraryBook', req.params.id, { byteSize: parsed.data.byteSize, language: parsed.data.language });
   res.json({ ok: true });
 }));
 
@@ -392,7 +400,7 @@ router.get('/devotionals', asyncHandler(async (_req, res) => {
     orderBy: { startDate: 'desc' },
     take: 24,
     include: {
-      book: { select: { id: true, storageKey: true } },
+      book: { select: { id: true, storageKey: true, storageKeyFr: true } },
       assessments: { where: { weekNumber: { not: null } }, orderBy: { weekNumber: 'asc' }, select: { id: true, weekNumber: true, status: true, _count: { select: { questions: true } } } },
       _count: { select: { offerings: true } },
     },
@@ -404,7 +412,7 @@ router.get('/devotionals', asyncHandler(async (_req, res) => {
       status: d.status,
       startDate: d.startDate,
       endDate: d.endDate,
-      book: d.book ? { id: d.book.id, hasFile: Boolean(d.book.storageKey) } : null,
+      book: d.book ? { id: d.book.id, hasFile: Boolean(d.book.storageKey), hasFileFr: Boolean(d.book.storageKeyFr) } : null,
       weeklyExams: d.assessments.map((a) => ({ id: a.id, weekNumber: a.weekNumber, status: a.status, questionCount: a._count.questions })),
       offeringCount: d._count.offerings,
     })),

@@ -2175,6 +2175,7 @@
     "locked_payment": "Opens when Book {{number}} is paid"
   },
   "reader": {
+    "language": "Language of the book",
     "bigger": "Bigger text",
     "smaller": "Smaller text",
     "back": "Back",
@@ -2233,6 +2234,12 @@
     "upload_failed_detail": "Upload failed. Please try again. ({{detail}})",
     "upload_no_answer": "the storage did not answer — check the internet connection",
     "upload_failed": "Upload failed. Please try again.",
+    "pdf_ready_lang": "{{language}} PDF uploaded",
+    "no_pdf_lang": "No {{language}} PDF yet",
+    "upload_pdf_lang": "Upload {{language}} PDF",
+    "replace_pdf_lang": "Replace {{language}} PDF",
+    "language_en": "English",
+    "language_fr": "French",
     "pdf_ready": "PDF uploaded",
     "no_pdf": "No PDF yet",
     "upload_pdf": "Upload PDF",

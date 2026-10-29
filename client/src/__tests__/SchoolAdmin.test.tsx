@@ -166,18 +166,35 @@ describe('Uploading a leadership book PDF (admin)', () => {
       'PUT /api/admin/library/books/b1/cover': () => ({ body: { coverUrl: 'x' } }),
     });
     render(<LibraryTab />);
-    const input = await screen.findAllByLabelText('Upload PDF');
+    const input = await screen.findAllByLabelText('Upload English PDF');
     fireEvent.change(input[0], { target: { files: [new File(['%PDF'], 'book.pdf', { type: 'application/pdf' })] } });
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT' && c.url.endsWith('/cover'))).toBe(true));
-    expect(calls.find((c) => c.url === '/api/admin/library/books/b1/file')?.body).toEqual({ storageKey: 'library/b1/k.pdf', byteSize: 4, pageCount: 84 });
+    expect(calls.find((c) => c.url === '/api/admin/library/books/b1/file')?.body).toEqual({ storageKey: 'library/b1/k.pdf', byteSize: 4, pageCount: 84, language: 'en' });
     expect(calls.find((c) => c.url.endsWith('/cover'))?.body).toEqual({ image: 'data:image/jpeg;base64,/9j/BBBB', source: 'AUTO' });
+  });
+
+  it('has a separate upload for the French copy; it does not replace the cover the English one made', async () => {
+    fakeStorage([200]);
+    mockFetch({
+      ...LIBRARY_ROUTES,
+      'GET /api/admin/library/books': () => ({ body: { items: [{ ...BOOK, kind: 'TRAINING', devotional: null, hasFile: true, byteSize: 10, pageCount: 80, hasFileFr: false, exam: null }] } }),
+    });
+    render(<LibraryTab />);
+    expect(await screen.findByText('✓ English PDF uploaded')).toBeInTheDocument();
+    expect(screen.getByText('No French PDF yet')).toBeInTheDocument();
+    const input = await screen.findAllByLabelText('Upload French PDF');
+    fireEvent.change(input[0], { target: { files: [new File(['%PDF'], 'livre.pdf', { type: 'application/pdf' })] } });
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/admin/library/books/b1/file')).toBe(true));
+    expect(calls.find((c) => c.url === '/api/admin/library/books/b1/file')?.body).toEqual({ storageKey: 'library/b1/k.pdf', byteSize: 4, pageCount: 84, language: 'fr' });
+    // The English copy already made the cover.
+    expect(calls.some((c) => c.method === 'PUT' && c.url.endsWith('/cover'))).toBe(false);
   });
 
   it('tries again once with a fresh link when the first send drops, then keeps the book', async () => {
     const puts = fakeStorage([0, 200]);
     mockFetch(LIBRARY_ROUTES);
     render(<LibraryTab />);
-    const input = await screen.findAllByLabelText('Upload PDF');
+    const input = await screen.findAllByLabelText('Upload English PDF');
     fireEvent.change(input[0], { target: { files: [new File(['%PDF'], 'book.pdf', { type: 'application/pdf' })] } });
     await waitFor(() => expect(calls.some((c) => c.url === '/api/admin/library/books/b1/file')).toBe(true));
     expect(puts).toHaveLength(2);
@@ -188,7 +205,7 @@ describe('Uploading a leadership book PDF (admin)', () => {
     const puts = fakeStorage([403, 403]);
     mockFetch(LIBRARY_ROUTES);
     render(<LibraryTab />);
-    const input = await screen.findAllByLabelText('Upload PDF');
+    const input = await screen.findAllByLabelText('Upload English PDF');
     fireEvent.change(input[0], { target: { files: [new File(['%PDF'], 'book.pdf', { type: 'application/pdf' })] } });
     expect(await screen.findByText('Upload failed. Please try again. (storage 403)')).toBeInTheDocument();
     expect(puts).toHaveLength(2);

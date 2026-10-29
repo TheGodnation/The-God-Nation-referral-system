@@ -480,6 +480,52 @@ describe('Reading books inside the app', () => {
     expect(content.headers['cache-control']).toContain('no-store');
   });
 
+  it('has an English and a French copy: each reader gets their own language, or the other when only one exists', async () => {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1); // English copy only, to start with
+    const m = await member('Bilingual Reader');
+    await post(a, '/api/admin/library/trainees', { personId: m.id });
+    const streamed = () => vi.mocked(storage.getObjectStream).mock.calls.map((c) => c[0].storageKey);
+
+    // Only English exists: a French reader still gets the book, in English.
+    expect((await m.agent.get(`/api/member/library/books/${b1.bookId}?lang=fr`)).body).toMatchObject({ language: 'en', languages: ['en'] });
+    expect((await m.agent.get(`/api/member/library/books/${b1.bookId}/content?lang=fr`).buffer(true)).status).toBe(200);
+    expect(streamed().at(-1)).toBe(`library/${b1.bookId}/x.pdf`);
+
+    // The admin uploads the French copy (a separate upload for the same book).
+    const auth = await post(a, `/api/admin/library/books/${b1.bookId}/file/authorize`, { mimeType: 'application/pdf', byteSize: 2000 });
+    vi.mocked(storage.headObject).mockResolvedValueOnce({ contentLength: 2000, contentType: 'application/pdf' });
+    expect((await post(a, `/api/admin/library/books/${b1.bookId}/file`, { storageKey: auth.body.storageKey, byteSize: 2000, pageCount: 88, language: 'fr' })).status).toBe(200);
+    const row = await prisma.libraryBook.findUniqueOrThrow({ where: { id: b1.bookId } });
+    expect(row).toMatchObject({ storageKey: `library/${b1.bookId}/x.pdf`, storageKeyFr: auth.body.storageKey, byteSizeFr: 2000, pageCountFr: 88 });
+    const listed = (await a.agent.get('/api/admin/library/books')).body.items.find((b: any) => b.id === b1.bookId);
+    expect(listed).toMatchObject({ hasFile: true, hasFileFr: true, byteSizeFr: 2000, pageCountFr: 88 });
+
+    const fr = await m.agent.get(`/api/member/library/books/${b1.bookId}?lang=fr`);
+    expect(fr.body).toMatchObject({ language: 'fr', languages: ['en', 'fr'], byteSize: 2000, pageCount: 88 });
+    const en = await m.agent.get(`/api/member/library/books/${b1.bookId}?lang=en`);
+    expect(en.body).toMatchObject({ language: 'en', byteSize: 13 });
+    // A different copy has a different version, so a phone keeps them apart.
+    expect(fr.body.fileVersion).not.toBe(en.body.fileVersion);
+    await m.agent.get(`/api/member/library/books/${b1.bookId}/content?lang=fr`).buffer(true);
+    expect(streamed().at(-1)).toBe(auth.body.storageKey);
+    // No language asked for: English.
+    expect((await m.agent.get(`/api/member/library/books/${b1.bookId}`)).body.language).toBe('en');
+  });
+
+  it('opens a book that exists only in French', async () => {
+    const a = await admin();
+    const created = await post(a, '/api/admin/library/books', { kind: 'TRAINING', titleEn: 'French only', trainingOrder: 7 });
+    await prisma.libraryBook.update({ where: { id: created.body.id }, data: { storageKeyFr: `library/${created.body.id}/fr.pdf`, byteSizeFr: 20, pageCountFr: 5 } });
+    const m = await member('French Only Reader');
+    await post(a, '/api/admin/library/trainees', { personId: m.id });
+    const dev = await prisma.libraryBook.findUniqueOrThrow({ where: { id: created.body.id } });
+    expect(dev.storageKey).toBeNull();
+    // Book 7 is not open yet for a new trainee, but the file exists: the admin list says so.
+    const listed = (await a.agent.get('/api/admin/library/books')).body.items.find((b: any) => b.id === created.body.id);
+    expect(listed).toMatchObject({ hasFile: false, hasFileFr: true });
+  });
+
   it('lets any member read the monthly devotional book', async () => {
     const a = await admin();
     const devotional = await prisma.monthlyDevotional.create({

@@ -2760,6 +2760,10 @@ model LibraryBook {
   byteSize      Int?
   // Pages in the PDF, read in the admin's browser when it is uploaded.
   pageCount     Int?
+  // The French copy of the same book (the English one is storageKey above).
+  storageKeyFr  String?
+  byteSizeFr    Int?
+  pageCountFr   Int?
   // Changes whenever the cover changes, so phones fetch the new picture
   // (the cover link carries it; null = no cover yet, a drawn one is shown).
   coverVersion  String?

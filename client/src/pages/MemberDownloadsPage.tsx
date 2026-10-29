@@ -37,9 +37,11 @@ export function MemberDownloadsPage() {
   const total = (items ?? []).reduce((sum, i) => sum + i.byteSize, 0);
   const isFr = i18n.language.startsWith('fr');
   const bookTitle = (i: SavedInfo) => {
-    const meta = (i.meta ?? {}) as { titleEn?: string; titleFr?: string | null; trainingOrder?: number | null };
+    const meta = (i.meta ?? {}) as { titleEn?: string; titleFr?: string | null; trainingOrder?: number | null; language?: 'en' | 'fr'; languages?: string[] };
     const name = (isFr && meta.titleFr) || meta.titleEn || i.title;
-    return meta.trainingOrder ? `${t('learn.book', { number: meta.trainingOrder })}: ${name}` : name;
+    const label = meta.trainingOrder ? `${t('learn.book', { number: meta.trainingOrder })}: ${name}` : name;
+    // A book with an English and a French copy: say which one this is.
+    return meta.languages && meta.languages.length > 1 && meta.language ? `${label} (${meta.language === 'fr' ? 'Français' : 'English'})` : label;
   };
 
   async function openDoc(i: SavedInfo) {

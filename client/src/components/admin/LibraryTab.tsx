@@ -22,6 +22,10 @@ interface BookRow {
   hasFile: boolean;
   byteSize: number | null;
   pageCount?: number | null;
+  // The French copy of the same book.
+  hasFileFr?: boolean;
+  byteSizeFr?: number | null;
+  pageCountFr?: number | null;
   coverUrl?: string | null;
   coverSource?: 'AUTO' | 'MANUAL' | null;
   chapterCount?: number;
@@ -53,7 +57,7 @@ interface DevotionalRow {
   status: string;
   startDate: string;
   endDate: string;
-  book: { id: string; hasFile: boolean } | null;
+  book: { id: string; hasFile: boolean; hasFileFr?: boolean } | null;
   weeklyExams: { id: string; weekNumber: number; status: string; questionCount: number }[];
   offeringCount: number;
 }
@@ -77,12 +81,27 @@ const MAX_PDF_BYTES = 50 * 1024 * 1024;
  * Meanwhile this browser reads the PDF's page count and draws page 1 as
  * the book's cover (kept unless the admin chose a cover picture).
  */
-function PdfUpload({ bookId, hasFile, onDone }: { bookId: string; hasFile: boolean; onDone: () => void }) {
+function PdfUpload({
+  bookId,
+  hasFile,
+  language = 'en',
+  makeCover = true,
+  onDone,
+}: {
+  bookId: string;
+  hasFile: boolean;
+  /** Which copy of the book this uploads: the English or the French one. */
+  language?: 'en' | 'fr';
+  /** Draw page 1 of this PDF as the book's cover (only the first copy does). */
+  makeCover?: boolean;
+  onDone: () => void;
+}) {
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [percent, setPercent] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const languageName = t(`library.language_${language}`);
 
   async function upload(file: File | undefined) {
     if (!file) return;
@@ -111,8 +130,8 @@ function PdfUpload({ bookId, hasFile, onDone }: { bookId: string; hasFile: boole
         return;
       }
       const info = await reading;
-      await api.post(`/api/admin/library/books/${bookId}/file`, { storageKey: auth.storageKey, byteSize: file.size, pageCount: info?.pageCount });
-      if (info?.cover) await api.put(`/api/admin/library/books/${bookId}/cover`, { image: info.cover, source: 'AUTO' }).catch(() => {});
+      await api.post(`/api/admin/library/books/${bookId}/file`, { storageKey: auth.storageKey, byteSize: file.size, pageCount: info?.pageCount, language });
+      if (makeCover && info?.cover) await api.put(`/api/admin/library/books/${bookId}/cover`, { image: info.cover, source: 'AUTO' }).catch(() => {});
       onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('library.upload_failed'));
@@ -126,12 +145,16 @@ function PdfUpload({ bookId, hasFile, onDone }: { bookId: string; hasFile: boole
   return (
     <span className="inline-flex flex-col gap-1">
       <span className="flex items-center gap-2">
-        <span className={hasFile ? 'text-green-700' : 'text-amber-700'}>{hasFile ? `✓ ${t('library.pdf_ready')}` : t('library.no_pdf')}</span>
+        <span className={hasFile ? 'text-green-700' : 'text-amber-700'}>{hasFile ? `✓ ${t('library.pdf_ready_lang', { language: languageName })}` : t('library.no_pdf_lang', { language: languageName })}</span>
         <button type="button" className="btn-secondary px-2 py-1 text-xs" disabled={busy} onClick={() => input.current?.click()}>
-          {busy ? `${t('library.uploading')}${percent !== null ? ` ${percent}%` : ''}` : hasFile ? t('library.replace_pdf') : t('library.upload_pdf')}
+          {busy
+            ? `${t('library.uploading')}${percent !== null ? ` ${percent}%` : ''}`
+            : hasFile
+              ? t('library.replace_pdf_lang', { language: languageName })
+              : t('library.upload_pdf_lang', { language: languageName })}
         </button>
       </span>
-      <input ref={input} type="file" accept="application/pdf" className="hidden" aria-label={t('library.upload_pdf') ?? ''} onChange={(e) => upload(e.target.files?.[0])} />
+      <input ref={input} type="file" accept="application/pdf" className="hidden" aria-label={t('library.upload_pdf_lang', { language: languageName }) ?? ''} onChange={(e) => upload(e.target.files?.[0])} />
       {error && <span className="text-xs text-red-700">{error}</span>}
     </span>
   );
@@ -269,7 +292,10 @@ export function LibraryTab() {
                 </p>
                 <div>
                   {d.book ? (
-                    <PdfUpload bookId={d.book.id} hasFile={d.book.hasFile} onDone={load} />
+                    <span className="flex flex-wrap items-center gap-3">
+                      <PdfUpload bookId={d.book.id} hasFile={d.book.hasFile} language="en" onDone={load} />
+                      <PdfUpload bookId={d.book.id} hasFile={Boolean(d.book.hasFileFr)} language="fr" makeCover={!d.book.hasFile} onDone={load} />
+                    </span>
                   ) : (
                     <button
                       type="button"
@@ -328,7 +354,8 @@ export function LibraryTab() {
                 </button>
               </span>
               <span className="flex flex-wrap items-center gap-3">
-                <PdfUpload bookId={b.id} hasFile={b.hasFile} onDone={load} />
+                <PdfUpload bookId={b.id} hasFile={b.hasFile} language="en" onDone={load} />
+                <PdfUpload bookId={b.id} hasFile={Boolean(b.hasFileFr)} language="fr" makeCover={!b.hasFile} onDone={load} />
                 {b.exam && (
                   <span className="text-xs text-slate-600">
                     {examLabel(b.exam)} · {t('library.pass_mark', { mark: b.exam.passMark })}

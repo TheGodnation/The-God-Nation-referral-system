@@ -2175,6 +2175,7 @@
     "locked_payment": "S’ouvre quand le livre {{number}} est payé"
   },
   "reader": {
+    "language": "Langue du livre",
     "bigger": "Texte plus grand",
     "smaller": "Texte plus petit",
     "back": "Retour",
@@ -2233,6 +2234,12 @@
     "upload_failed_detail": "Échec de l'envoi. Réessayez. ({{detail}})",
     "upload_no_answer": "le stockage n'a pas répondu — vérifiez la connexion internet",
     "upload_failed": "Envoi échoué. Veuillez réessayer.",
+    "pdf_ready_lang": "PDF {{language}} envoyé",
+    "no_pdf_lang": "Pas encore de PDF {{language}}",
+    "upload_pdf_lang": "Envoyer le PDF {{language}}",
+    "replace_pdf_lang": "Remplacer le PDF {{language}}",
+    "language_en": "anglais",
+    "language_fr": "français",
     "pdf_ready": "PDF envoyé",
     "no_pdf": "Pas encore de PDF",
     "upload_pdf": "Envoyer le PDF",

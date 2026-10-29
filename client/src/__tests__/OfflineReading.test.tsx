@@ -119,7 +119,7 @@ describe('Leadership books downloaded into the app', () => {
     calls.length = 0;
     const second = renderReader();
     expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
-    expect(calls.some((c) => c.url.endsWith('/content'))).toBe(false);
+    expect(calls.some((c) => c.url.includes('/content'))).toBe(false);
     second.unmount();
 
     // No internet at all: the kept copy opens, without the exam button.
@@ -129,6 +129,51 @@ describe('Leadership books downloaded into the app', () => {
     expect(await screen.findByText(/No internet — reading the copy downloaded on this phone\./)).toBeInTheDocument();
     expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Take the exam (one try)' })).not.toBeInTheDocument();
+  });
+
+  it('opens the copy in the reader’s language, offers the other language when both exist, and keeps the copies apart', async () => {
+    const { default: i18n } = await import('../i18n');
+    await i18n.changeLanguage('fr');
+    try {
+      mockFetch({
+        'GET /api/member/auth/me': () => ({ body: me() }),
+        'GET /api/member/library/books/b1/content': () => ({ bytes: true }),
+        'GET /api/member/library/books/b1': () => ({ body: info({ language: 'fr', languages: ['en', 'fr'], fileVersion: 'v-fr' }) }),
+      });
+      renderReader();
+      await screen.findByTestId('reader-zoom');
+      // A French reader is given the French copy, and may switch to English.
+      expect(calls.some((c) => c.url === '/api/member/library/books/b1?lang=fr')).toBe(true);
+      expect(calls.some((c) => c.url === '/api/member/library/books/b1/content?lang=fr')).toBe(true);
+      expect(screen.getByRole('button', { name: 'Français' })).toHaveAttribute('aria-pressed', 'true');
+      expect(await getInfo(bookKey(personId, 'b1~fr'))).toMatchObject({ kind: 'BOOK', version: 'v-fr' });
+      expect(await getInfo(bookKey(personId, 'b1'))).toBeNull();
+
+      // The reader asks for the English copy: it is fetched and kept under its own key.
+      calls.length = 0;
+      mockFetch({
+        'GET /api/member/auth/me': () => ({ body: me() }),
+        'GET /api/member/library/books/b1/content': () => ({ bytes: true }),
+        'GET /api/member/library/books/b1': () => ({ body: info({ language: 'en', languages: ['en', 'fr'], fileVersion: 'v-en' }) }),
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'English' }));
+      await waitFor(() => expect(calls.some((c) => c.url === '/api/member/library/books/b1/content?lang=en')).toBe(true));
+      await waitFor(async () => expect(await getInfo(bookKey(personId, 'b1'))).toMatchObject({ version: 'v-en' }));
+      expect(await getInfo(bookKey(personId, 'b1~fr'))).toMatchObject({ version: 'v-fr' });
+    } finally {
+      await i18n.changeLanguage('en');
+    }
+  });
+
+  it('shows no language buttons when the book has only one copy', async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: me() }),
+      'GET /api/member/library/books/b1/content': () => ({ bytes: true }),
+      'GET /api/member/library/books/b1': () => ({ body: info({ language: 'en', languages: ['en'] }) }),
+    });
+    renderReader();
+    await screen.findByText('Page 1 of 3');
+    expect(screen.queryByTestId('reader-language')).not.toBeInTheDocument();
   });
 
   it('lets the reader make the pages bigger or smaller, keeps the same page in view, and remembers the choice', async () => {
@@ -179,7 +224,7 @@ describe('Leadership books downloaded into the app', () => {
     });
     const r = renderReader();
     expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
-    expect(calls.some((c) => c.url.endsWith('/content'))).toBe(true);
+    expect(calls.some((c) => c.url.includes('/content'))).toBe(true);
     expect((await getInfo(bookKey(personId, 'b1')))?.version).toBe('v1');
     r.unmount();
 

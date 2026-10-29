@@ -16,6 +16,9 @@ interface BookInfo {
   trainingOrder: number | null;
   examId: string | null;
   watermark: string;
+  // Which copy came back (the language asked for, or the other when only that exists) and which exist.
+  language?: 'en' | 'fr';
+  languages?: ('en' | 'fr')[];
   fileVersion?: string;
   byteSize?: number | null;
   pageCount?: number | null;
@@ -38,8 +41,8 @@ function readZoom(): number {
 const SYNC_EVERY_MS = 15000;
 
 /** Downloads the book's PDF, reporting how far it got. */
-async function downloadBook(bookId: string, expectedBytes: number | null | undefined, onPercent: (p: number) => void): Promise<Blob> {
-  const res = await fetch(`/api/member/library/books/${bookId}/content`, { credentials: 'include' });
+async function downloadBook(bookId: string, language: 'en' | 'fr', expectedBytes: number | null | undefined, onPercent: (p: number) => void): Promise<Blob> {
+  const res = await fetch(`/api/member/library/books/${bookId}/content?lang=${language}`, { credentials: 'include' });
   if (!res.ok) throw new ApiError(res.status, 'content');
   const total = Number(res.headers.get('content-length')) || expectedBytes || 0;
   const reader = res.body?.getReader?.();
@@ -78,6 +81,8 @@ export function MemberReaderPage() {
   // The width of the screen's reading area, and how much bigger than that the reader chose to make the pages.
   const [baseWidth, setBaseWidth] = useState(0);
   const [zoom, setZoom] = useState(readZoom);
+  // Which language's copy of the book is being read (the app's language to begin with).
+  const [lang, setLang] = useState<'en' | 'fr'>(() => (i18n.language.startsWith('fr') ? 'fr' : 'en'));
   const [offline, setOffline] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [page, setPage] = useState(1);
@@ -94,21 +99,29 @@ export function MemberReaderPage() {
     let doc: any = null;
     setStatus('loading');
     (async () => {
-      const key = bookKey(ownerId, bookId);
+      // English copies keep the key they always had; the French copy is kept apart from it.
+      const keyFor = (l: 'en' | 'fr') => bookKey(ownerId, l === 'fr' ? `${bookId}~fr` : bookId);
+      let key = keyFor(lang);
       let info: BookInfo | null = null;
       let blob: Blob | null = null;
       let usingCopy = false;
       try {
-        info = await api.get<BookInfo>(`/api/member/library/books/${bookId}`);
+        info = await api.get<BookInfo>(`/api/member/library/books/${bookId}?lang=${lang}`);
+        key = keyFor(info.language ?? 'en');
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 404) {
           // Closed again (or removed): its downloaded copy goes too.
-          await deleteSaved([key]);
+          await deleteSaved([keyFor('en'), keyFor('fr')]);
           return setStatus('notFound');
         }
         if (!isOfflineError(err)) return setStatus('failed');
-        const saved = await getFile(key);
+        // No internet: the copy kept in the language wanted, else the other one.
+        let saved = await getFile(key);
+        if (!saved) {
+          key = keyFor(lang === 'fr' ? 'en' : 'fr');
+          saved = await getFile(key);
+        }
         if (!saved) return setStatus('offlineMissing');
         info = saved.meta as unknown as BookInfo;
         blob = saved.blob;
@@ -125,7 +138,7 @@ export function MemberReaderPage() {
             void updateMeta(key, info as unknown as Record<string, unknown>);
           } else {
             setStatus('downloading');
-            blob = await downloadBook(bookId, info.byteSize, (p) => !cancelled && setPercent(p));
+            blob = await downloadBook(bookId, info.language ?? 'en', info.byteSize, (p) => !cancelled && setPercent(p));
             const kept = await saveFile({
               key,
               ownerId,
@@ -162,7 +175,7 @@ export function MemberReaderPage() {
       doc?.destroy?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, ownerId]);
+  }, [bookId, ownerId, lang]);
 
   useEffect(() => {
     const measure = () => setBaseWidth(Math.min((areaRef.current?.clientWidth ?? 360) - 8, 900));
@@ -288,6 +301,21 @@ export function MemberReaderPage() {
             <span />
           )}
         </div>
+        {book?.languages && book.languages.length > 1 && (
+          <div className="flex items-center justify-center gap-2 border-t border-slate-100 py-1" role="group" aria-label={t('reader.language') ?? ''} data-testid="reader-language">
+            {(['en', 'fr'] as const).map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setLang(l)}
+                aria-pressed={book.language === l}
+                className={`rounded-full px-3 py-0.5 text-xs font-semibold ${book.language === l ? 'bg-brand-700 text-white' : 'border border-slate-300 text-slate-700'}`}
+              >
+                {l === 'en' ? 'English' : 'Français'}
+              </button>
+            ))}
+          </div>
+        )}
         {status === 'ready' && (
           <div className="flex items-center justify-center gap-3 border-t border-slate-100 pb-1.5 pt-1" data-testid="reader-zoom">
             <button

@@ -119,8 +119,8 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
       titleFr: b.titleFr,
       descriptionEn: b.descriptionEn,
       descriptionFr: b.descriptionFr,
-      hasFile: Boolean(b.storageKey),
-      pageCount: b.pageCount,
+      hasFile: Boolean(b.storageKey || b.storageKeyFr),
+      pageCount: b.pageCount ?? b.pageCountFr,
       coverVersion: b.coverVersion,
       unlocked,
       payment,
@@ -139,7 +139,7 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
 /** Whether this person may open (read) this book in the app. */
 export async function canReadBook(personId: string, bookId: string): Promise<boolean> {
   const book = await prisma.libraryBook.findUnique({ where: { id: bookId }, include: { devotional: true } });
-  if (!book || !book.storageKey) return false;
+  if (!book || !(book.storageKey || book.storageKeyFr)) return false;
   if (book.kind === 'DEVOTIONAL') return Boolean(book.devotional && (await canSeeDevotional(personId, book.devotional)));
   const books = await getTrainingBooksFor(personId);
   return books.some((b) => b.id === book.id && b.unlocked);
