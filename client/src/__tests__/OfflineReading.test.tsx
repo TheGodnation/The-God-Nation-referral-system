@@ -131,6 +131,44 @@ describe('Leadership books downloaded into the app', () => {
     expect(screen.queryByRole('link', { name: 'Take the exam (one try)' })).not.toBeInTheDocument();
   });
 
+  it('lets the reader make the pages bigger or smaller, keeps the same page in view, and remembers the choice', async () => {
+    localStorage.removeItem('reader-zoom');
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: me() }),
+      'GET /api/member/library/books/b1/content': () => ({ bytes: true }),
+      'GET /api/member/library/books/b1': () => ({ body: info() }),
+    });
+    renderReader();
+    await screen.findByText('Page 1 of 3');
+    const pageWidth = () => (screen.getAllByLabelText(/^Page \d$/)[0].parentElement as HTMLElement).style.width;
+    expect(pageWidth()).toBe('352px'); // the screen's width, fitted
+    expect(screen.getByTestId('reader-zoom')).toHaveTextContent('100%');
+    expect(screen.getByRole('button', { name: 'Smaller text' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bigger text' }));
+    expect(screen.getByTestId('reader-zoom')).toHaveTextContent('125%');
+    expect(pageWidth()).toBe('440px');
+    fireEvent.click(screen.getByRole('button', { name: 'Bigger text' }));
+    expect(pageWidth()).toBe('528px');
+    expect(localStorage.getItem('reader-zoom')).toBe('1.5');
+    fireEvent.click(screen.getByRole('button', { name: 'Smaller text' }));
+    expect(pageWidth()).toBe('440px');
+  });
+
+  it('opens at the size the reader chose before', async () => {
+    localStorage.setItem('reader-zoom', '2');
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: me() }),
+      'GET /api/member/library/books/b1/content': () => ({ bytes: true }),
+      'GET /api/member/library/books/b1': () => ({ body: info() }),
+    });
+    renderReader();
+    await screen.findByText('Page 1 of 3');
+    expect(screen.getByTestId('reader-zoom')).toHaveTextContent('200%');
+    expect((screen.getAllByLabelText(/^Page \d$/)[0].parentElement as HTMLElement).style.width).toBe('704px');
+    localStorage.removeItem('reader-zoom');
+  });
+
   it('downloads it again when the admin replaced the PDF, and removes the copy when the book is closed again', async () => {
     await saveFile({ key: bookKey(personId, 'b1'), ownerId: personId, kind: 'BOOK', title: 'Called to serve', version: 'old', meta: info(), blob: new Blob([new Uint8Array([1])]) });
     let status = 200;

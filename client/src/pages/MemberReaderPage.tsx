@@ -23,6 +23,18 @@ interface BookInfo {
 }
 
 const PAGE_GAP = 12;
+// How big the pages can be made (1 = fitted to the screen's width).
+const ZOOMS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+const ZOOM_KEY = 'reader-zoom';
+
+function readZoom(): number {
+  try {
+    const saved = Number(localStorage.getItem(ZOOM_KEY));
+    return ZOOMS.includes(saved) ? saved : 1;
+  } catch {
+    return 1;
+  }
+}
 const SYNC_EVERY_MS = 15000;
 
 /** Downloads the book's PDF, reporting how far it got. */
@@ -63,13 +75,16 @@ export function MemberReaderPage() {
   const [percent, setPercent] = useState(0);
   const [pdf, setPdf] = useState<any>(null);
   const [aspect, setAspect] = useState(1.414);
-  const [width, setWidth] = useState(0);
+  // The width of the screen's reading area, and how much bigger than that the reader chose to make the pages.
+  const [baseWidth, setBaseWidth] = useState(0);
+  const [zoom, setZoom] = useState(readZoom);
   const [offline, setOffline] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [page, setPage] = useState(1);
   const [resumedAt, setResumedAt] = useState<number | null>(null);
   const resumeRef = useRef<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const isFr = i18n.language.startsWith('fr');
 
@@ -150,13 +165,35 @@ export function MemberReaderPage() {
   }, [bookId, ownerId]);
 
   useEffect(() => {
-    const measure = () => setWidth(Math.min((listRef.current?.clientWidth ?? 360) - 8, 900));
+    const measure = () => setBaseWidth(Math.min((areaRef.current?.clientWidth ?? 360) - 8, 900));
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
   }, []);
 
+  const width = Math.round(baseWidth * zoom);
   const pageHeight = Math.round(width * aspect);
+  const pageRef = useRef(1);
+  pageRef.current = page;
+
+  // Bigger / smaller text: the same page stays in view, and the choice is remembered on this phone.
+  function changeZoom(direction: 1 | -1) {
+    const index = ZOOMS.indexOf(zoom);
+    const next = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, (index < 0 ? 0 : index) + direction))];
+    if (next === zoom) return;
+    const target = pageRef.current;
+    const nextHeight = Math.round(baseWidth * next * aspect);
+    setZoom(next);
+    try {
+      localStorage.setItem(ZOOM_KEY, String(next));
+    } catch {
+      // Storage blocked: the choice lasts until the book is closed.
+    }
+    requestAnimationFrame(() => {
+      const top = (listRef.current?.getBoundingClientRect().top ?? 0) + window.scrollY + (target - 1) * (nextHeight + PAGE_GAP);
+      window.scrollTo(0, Math.max(0, top - (headerRef.current?.offsetHeight ?? 0) - 8));
+    });
+  }
 
   // Open at the bookmark, once the pages are laid out.
   useEffect(() => {
@@ -225,7 +262,7 @@ export function MemberReaderPage() {
   const title = book ? (isFr ? book.titleFr || book.titleEn : book.titleEn) : '';
   const watermarkTile = book
     ? `url("data:image/svg+xml;utf8,${encodeURIComponent(
-        `<svg xmlns='http://www.w3.org/2000/svg' width='420' height='220'><text x='10' y='140' transform='rotate(-25 210 110)' font-family='sans-serif' font-size='18' fill='rgba(30,41,90,0.13)'>${book.watermark.replace(/[<>&'"]/g, '')}</text></svg>`,
+        `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='560'><text x='30' y='300' transform='rotate(-25 320 280)' font-family='sans-serif' font-size='12' fill='rgba(30,41,90,0.07)'>${book.watermark.replace(/[<>&'"]/g, '')}</text></svg>`,
       )}")`
     : 'none';
   const backTo = book?.kind === 'TRAINING' ? `/member/school/${book.id}` : '/member/learn';
@@ -251,6 +288,29 @@ export function MemberReaderPage() {
             <span />
           )}
         </div>
+        {status === 'ready' && (
+          <div className="flex items-center justify-center gap-3 border-t border-slate-100 pb-1.5 pt-1" data-testid="reader-zoom">
+            <button
+              type="button"
+              onClick={() => changeZoom(-1)}
+              disabled={zoom <= ZOOMS[0]}
+              aria-label={t('reader.smaller') ?? ''}
+              className="rounded-full border border-slate-300 px-3 py-0.5 text-sm font-semibold text-slate-700 disabled:opacity-40"
+            >
+              A−
+            </button>
+            <span className="w-12 text-center text-xs text-slate-500">{Math.round(zoom * 100)}%</span>
+            <button
+              type="button"
+              onClick={() => changeZoom(1)}
+              disabled={zoom >= ZOOMS[ZOOMS.length - 1]}
+              aria-label={t('reader.bigger') ?? ''}
+              className="rounded-full border border-slate-300 px-3 py-0.5 text-base font-semibold text-slate-700 disabled:opacity-40"
+            >
+              A+
+            </button>
+          </div>
+        )}
         {offline && <p className="bg-amber-50 px-4 py-1 text-center text-xs text-amber-900">📥 {t('reader.offline_copy')}</p>}
         {!offline && justSaved && status === 'ready' && <p className="bg-green-50 px-4 py-1 text-center text-xs text-green-800">✓ {t('reader.downloaded')}</p>}
         {resumedAt && (
@@ -280,13 +340,16 @@ export function MemberReaderPage() {
       {status === 'failed' && <p className="py-16 text-center text-red-700">{t('reader.failed')}</p>}
       {status === 'offlineMissing' && <p className="px-6 py-16 text-center text-slate-600">{t('reader.offline_missing')}</p>}
 
-      <div className="relative px-1 py-4">
-        <div ref={listRef} className="reader-list" style={{ display: 'flex', flexDirection: 'column', gap: PAGE_GAP }}>
-          {status === 'ready' && pdf && width > 0 && Array.from({ length: pdf.numPages }, (_, i) => <PdfPage key={i} pdf={pdf} number={i + 1} width={width} aspect={aspect} />)}
+      {/* When the pages are made bigger than the screen, this area scrolls sideways. */}
+      <div ref={areaRef} className="overflow-x-auto px-1 py-4">
+        <div className="relative mx-auto" style={{ width: width || undefined }}>
+          <div ref={listRef} className="reader-list" style={{ display: 'flex', flexDirection: 'column', gap: PAGE_GAP }}>
+            {status === 'ready' && pdf && width > 0 && Array.from({ length: pdf.numPages }, (_, i) => <PdfPage key={i} pdf={pdf} number={i + 1} width={width} aspect={aspect} />)}
+          </div>
+          {status === 'ready' && (
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ backgroundImage: watermarkTile, backgroundRepeat: 'repeat' }} />
+          )}
         </div>
-        {status === 'ready' && (
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ backgroundImage: watermarkTile, backgroundRepeat: 'repeat' }} />
-        )}
       </div>
       {status === 'ready' && pdf && <p className="pb-8 text-center text-xs text-slate-400">{t('reader.end', { count: pdf.numPages })}</p>}
     </div>

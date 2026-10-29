@@ -2175,6 +2175,8 @@
     "locked_payment": "S’ouvre quand le livre {{number}} est payé"
   },
   "reader": {
+    "bigger": "Texte plus grand",
+    "smaller": "Texte plus petit",
     "back": "Retour",
     "take_exam": "Passer l’examen (un seul essai)",
     "loading": "Ouverture du livre…",
