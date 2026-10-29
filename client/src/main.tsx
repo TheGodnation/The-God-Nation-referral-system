@@ -20,8 +20,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 // The app was updated while this page was open, so one of its files is gone:
 // load the page again (once) instead of leaving a broken screen.
 window.addEventListener('vite:preloadError', (event) => {
-  event.preventDefault();
-  reloadOnceForNewVersion();
+  // Only when the page is really being reloaded is the error swallowed. Otherwise it must
+  // reach the error screen as it is: swallowing it makes the page fail with a confusing
+  // "undefined is not an object" instead of the real reason.
+  if (reloadOnceForNewVersion()) event.preventDefault();
 });
 // A script error outside any screen (the screen's own errors are reported by the ErrorBoundary).
 window.addEventListener('error', (event) => {

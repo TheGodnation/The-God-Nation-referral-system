@@ -8,8 +8,12 @@ import { Fragment, type ReactNode } from 'react';
 
 const TLDS = 'org|com|net|edu|gov|io|app|co|cm|ng|fr|uk|info|church|ministry|tv|me|africa';
 const TRAILING = `[^\\s<]*[^\\s<.,;:!?'")\\]}»”’]`;
+// A bare address (name.org) must not start in the middle of a word or after
+// "@" (an email). That is checked with a leading character group, not with a
+// "lookbehind": older iPhones (iOS before 16.4) cannot even create
+// such an expression, and it broke every screen that shows chat text.
 const ADDRESS = new RegExp(
-  `(?:https?:\\/\\/|www\\.)${TRAILING}|(?<![@\\w.\\/-])(?:[a-z0-9-]+\\.)+(?:${TLDS})\\b(?![@\\w-])(?:\\/${TRAILING})?`,
+  `(?:https?:\\/\\/|www\\.)${TRAILING}|(^|[^@\\w.\\/-])((?:[a-z0-9-]+\\.)+(?:${TLDS})\\b(?![@\\w-])(?:\\/${TRAILING})?)`,
   'gi',
 );
 
@@ -23,9 +27,10 @@ export function splitLinks(text: string): LinkPart[] {
   const parts: LinkPart[] = [];
   let last = 0;
   for (const m of text.matchAll(ADDRESS)) {
-    const at = m.index ?? 0;
+    // A bare address comes with the one character before it (group 1): the link starts after that.
+    const shown = m[2] ?? m[0];
+    const at = (m.index ?? 0) + (m[2] !== undefined ? (m[1] ?? '').length : 0);
     if (at > last) parts.push({ text: text.slice(last, at), href: null });
-    const shown = m[0];
     parts.push({ text: shown, href: /^https?:\/\//i.test(shown) ? shown : `https://${shown}` });
     last = at + shown.length;
   }
