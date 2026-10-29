@@ -78,6 +78,7 @@ import adminLibraryRoutes from './routes/adminLibrary';
 import leaderExamResultsRoutes from './routes/leaderExamResults';
 import leaderResultsRoutes from './routes/leaderResults';
 import { prisma } from './lib/prisma';
+import { markActivity } from './lib/activity';
 import { APP_URL } from './lib/env';
 
 export function createApp() {
@@ -110,6 +111,10 @@ export function createApp() {
   // member session can never satisfy them (see memberSessionIsolation.test.ts).
   app.use(loadMemberSession);
   app.use('/api', generalApiLimiter);
+  app.use('/api', (req, _res, next) => {
+    if (req.path !== '/health') markActivity();
+    next();
+  });
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

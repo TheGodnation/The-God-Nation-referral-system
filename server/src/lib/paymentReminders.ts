@@ -1,9 +1,9 @@
 import { prisma } from './prisma';
+import { startAdaptiveLoop } from './activity';
 import { notifyPaymentOrderReminder } from './notifications';
 
 /** How long a member waits for a reply before the representative is reminded. */
 export const REPLY_REMINDER_MS = 5 * 60 * 1000;
-const TICK_MS = 60 * 1000;
 
 /**
  * Reminds a payment representative, once per unanswered streak, when the
@@ -31,17 +31,7 @@ export async function processPaymentReminders(now = Date.now()): Promise<number>
   return reminded;
 }
 
-/** Looks for waiting members once a minute for the life of the process; never overlaps, never throws. */
+/** Looks for waiting members (every minute while the app is in use, every 30 minutes when quiet); never overlaps, never throws. */
 export function startPaymentReminderLoop(): void {
-  let running = false;
-  const timer = setInterval(() => {
-    if (running) return;
-    running = true;
-    processPaymentReminders()
-      .catch((err) => console.error('[payments] reminder tick failed', { error: err instanceof Error ? err.message : String(err) }))
-      .finally(() => {
-        running = false;
-      });
-  }, TICK_MS);
-  timer.unref();
+  startAdaptiveLoop(processPaymentReminders, (err) => console.error('[payments] reminder tick failed', { error: err instanceof Error ? err.message : String(err) }));
 }

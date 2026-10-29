@@ -1,5 +1,6 @@
 import type { TranslationRetry } from '@prisma/client';
 import { prisma } from './prisma';
+import { startAdaptiveLoop } from './activity';
 import {
   attemptMessageAudioTranscription,
   attemptMessageTranslation,
@@ -24,7 +25,6 @@ const BATCH_SIZE = 5;
 // Longer than one attempt can take (audio download + a 60s Gemini call), so
 // a claimed row isn't picked up again while it's still being worked on.
 const CLAIM_MS = 5 * 60 * 1000;
-const TICK_MS = 60 * 1000;
 
 async function runOne(job: TranslationRetry): Promise<TranslationOutcome> {
   if (job.kind === 'UPDATE_POST') {
@@ -88,20 +88,9 @@ export async function processDueTranslationRetries(now: Date = new Date()): Prom
   }
 }
 
-/** Checks for due retries once a minute for the life of the process. A
- * tick never overlaps the previous one, and never throws. */
+/** Checks for due retries (every minute while the app is in use, every 30 minutes when quiet); never overlaps, never throws. */
 export function startTranslationRetryLoop(): void {
-  let running = false;
-  const timer = setInterval(() => {
-    if (running) return;
-    running = true;
-    processDueTranslationRetries()
-      .catch((err) => {
-        console.error('[translation] retry tick failed', { error: err instanceof Error ? err.message : String(err) });
-      })
-      .finally(() => {
-        running = false;
-      });
-  }, TICK_MS);
-  timer.unref();
+  startAdaptiveLoop(() => processDueTranslationRetries(), (err) => {
+    console.error('[translation] retry tick failed', { error: err instanceof Error ? err.message : String(err) });
+  });
 }

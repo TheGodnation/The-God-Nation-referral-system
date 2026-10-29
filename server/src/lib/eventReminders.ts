@@ -1,9 +1,9 @@
 import { prisma } from './prisma';
+import { startAdaptiveLoop } from './activity';
 import { notifyEventSoon } from './notifications';
 
 /** Members are told once, about an hour before an event starts. */
 export const REMIND_BEFORE_MS = 60 * 60 * 1000;
-const TICK_MS = 60 * 1000;
 
 export async function processEventReminders(now = Date.now()): Promise<number> {
   const due = await prisma.assemblyEvent.findMany({
@@ -19,17 +19,7 @@ export async function processEventReminders(now = Date.now()): Promise<number> {
   return due.length;
 }
 
-/** Looks for events starting soon once a minute for the life of the process; never overlaps, never throws. */
+/** Looks for events starting soon (every minute while the app is in use, every 30 minutes when quiet); never overlaps, never throws. */
 export function startEventReminderLoop(): void {
-  let running = false;
-  const timer = setInterval(() => {
-    if (running) return;
-    running = true;
-    processEventReminders()
-      .catch((err) => console.error('[events] reminder tick failed', { error: err instanceof Error ? err.message : String(err) }))
-      .finally(() => {
-        running = false;
-      });
-  }, TICK_MS);
-  timer.unref();
+  startAdaptiveLoop(processEventReminders, (err) => console.error('[events] reminder tick failed', { error: err instanceof Error ? err.message : String(err) }));
 }
