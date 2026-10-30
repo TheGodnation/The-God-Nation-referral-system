@@ -370,15 +370,21 @@ describe('The one retake', () => {
     expect(screen.queryByTestId('teaching-retake')).not.toBeInTheDocument();
   });
 
-  it('leaders and the central admin see how many are waiting and can invite them all', async () => {
+  it('leaders and the central admin see, right under the quiz, how many are waiting and can remind them all', async () => {
     renderPage(
-      detail({ canManage: true }),
+      detail({ canInvite: true }),
       { 'POST /api/teachings/t1/retake-invite': () => ({ body: { invited: 3 } }) },
-      { ...RESULTS, canInvite: true, retake: { waiting: 3 } },
+      { ...RESULTS, retake: { waiting: 3 } },
     );
     const box = await screen.findByTestId('teaching-retake-invite');
     expect(within(box).getByText('3 member(s) failed and can still try again.')).toBeInTheDocument();
-    fireEvent.click(within(box).getByRole('button', { name: /Invite everyone who failed to try again/ }));
+    fireEvent.click(within(box).getByRole('button', { name: /Remind everyone who failed to try again/ }));
     expect(await within(box).findByText('3 member(s) invited to try again.')).toBeInTheDocument();
+  });
+
+  it('ordinary members do not see the reminder box', async () => {
+    renderPage(detail());
+    await screen.findByTestId('teaching-quiz');
+    expect(screen.queryByTestId('teaching-retake-invite')).not.toBeInTheDocument();
   });
 });

@@ -314,7 +314,12 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const found = await loadTeaching(req, res);
   if (!found) return;
   const { teaching, personId } = found;
-  const [{ progress, quiz }, canManage] = await Promise.all([myQuiz(teaching, personId), isCentralAdminPerson(personId)]);
+  const [{ progress, quiz }, canManage, canInvite] = await Promise.all([
+    myQuiz(teaching, personId),
+    isCentralAdminPerson(personId),
+    // The central admin and this assembly's leaders can remind everyone who failed to retake.
+    isCommunityAdministrator(personId, teaching.communityId),
+  ]);
   res.json({
     id: teaching.id,
     title: teaching.title,
@@ -333,6 +338,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     attachments: teaching.message.attachments,
     minReadSeconds: minReadSeconds(teaching.text),
     canManage,
+    canInvite,
     quiz: quizPayload(teaching, quiz),
     me: myProgress(progress),
   });

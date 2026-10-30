@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { TranslationNote } from '../components/TranslationNote';
+import { RetakeInvite } from '../components/teaching/RetakeInvite';
 import { PdfViewer } from '../components/chat/PdfViewer';
 import { TeachingResults } from '../components/teaching/TeachingResults';
 import { api, ApiError } from '../lib/api';
@@ -32,6 +33,8 @@ interface TeachingDetail {
   attachments: { id: string; originalFilename: string; mimeType: string; byteSize: number; pageCount: number | null }[];
   minReadSeconds: number;
   canManage: boolean;
+  /** The central admin and this assembly's leaders. */
+  canInvite?: boolean;
   quiz: {
     assessmentId: string;
     passMark: number;
@@ -417,6 +420,8 @@ export function MemberTeachingPage() {
           )}
           {!quiz.passed && quiz.retake === 'USED' && quiz.state === 'DONE' && <p className="text-sm text-slate-600">{t('teaching.retake_used')}</p>}
         </div>
+
+        {teaching.canInvite && <RetakeInvite teachingId={teaching.id} refreshKey={refreshKey} />}
 
         <TeachingResults
           teachingId={teaching.id}

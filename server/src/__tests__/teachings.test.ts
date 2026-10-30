@@ -480,6 +480,10 @@ describe('The one retake of a teaching quiz', () => {
     const invite = (who: Who) => who.agent.post(`/api/teachings/${id}/retake-invite`).set('X-CSRF-Token', who.csrf).send({});
 
     expect((await invite(plain)).status).toBe(403);
+    // Only they are shown the reminder on the teaching page.
+    expect((await plain.agent.get(`/api/teachings/${id}`)).body.canInvite).toBe(false);
+    expect((await leader.agent.get(`/api/teachings/${id}`)).body.canInvite).toBe(true);
+    expect((await admin.agent.get(`/api/teachings/${id}`)).body.canInvite).toBe(true);
     expect((await plain.agent.get(`/api/teachings/${id}/results`)).body.canInvite).toBe(false);
     expect((await leader.agent.get(`/api/teachings/${id}/results`)).body).toMatchObject({ canInvite: true, retake: { waiting: 1 } });
 
