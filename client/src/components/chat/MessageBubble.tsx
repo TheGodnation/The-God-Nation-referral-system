@@ -454,18 +454,20 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                 <div className="mb-1 rounded-md bg-slate-900/5 px-2 py-1.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t('translation.transcript_label')}</p>
                   <RichText className="break-words text-sm text-slate-800" text={showOriginalTranscript && m.transcript.original ? m.transcript.original : m.transcript.text} headings />
-                  {(showOriginalTranscript && m.transcript.original ? m.transcript.original : m.transcript.text).length > COMFORT_MIN_CHARS && (
-                    <ComfortButton onClick={() => setComfort(showOriginalTranscript && m.transcript!.original ? m.transcript!.original : m.transcript!.text)} />
-                  )}
-                  {m.transcript.translated && (
-                    <TranslationNote
-                      sourceLanguage={m.transcript.sourceLanguage}
-                      showingOriginal={showOriginalTranscript}
-                      onToggle={() => setShowOriginalTranscript((v) => !v)}
-                      showOriginalLabel={t('translation.show_original_transcript') ?? undefined}
-                      showTranslationLabel={t('translation.show_translated_transcript') ?? undefined}
-                    />
-                  )}
+                  <div className="mt-1 flex flex-col items-start gap-1">
+                    {(showOriginalTranscript && m.transcript.original ? m.transcript.original : m.transcript.text).length > COMFORT_MIN_CHARS && (
+                      <ComfortButton onClick={() => setComfort(showOriginalTranscript && m.transcript!.original ? m.transcript!.original : m.transcript!.text)} />
+                    )}
+                    {m.transcript.translated && (
+                      <TranslationNote
+                        sourceLanguage={m.transcript.sourceLanguage}
+                        showingOriginal={showOriginalTranscript}
+                        onToggle={() => setShowOriginalTranscript((v) => !v)}
+                        showOriginalLabel={t('translation.show_original_transcript') ?? undefined}
+                        showTranslationLabel={t('translation.show_translated_transcript') ?? undefined}
+                      />
+                    )}
+                  </div>
                 </div>
               )}
               {documents.map((a) => (
@@ -476,22 +478,25 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
               {displayBody && !m.teaching && (
                 <>
                   <RichText className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings={Boolean(m.translation) && !showOriginal} />
-                  {displayBody.length > COMFORT_MIN_CHARS && <ComfortButton onClick={() => setComfort(displayBody)} />}
-                  {isLongBody && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpanded((v) => !v);
-                      }}
-                      className="text-sm font-semibold text-emerald-700"
-                    >
-                      {expanded ? t('groupChat.read_less') : t('groupChat.read_more')}
-                    </button>
-                  )}
-                  {m.translation && (
-                    <TranslationNote sourceLanguage={m.translation.sourceLanguage} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />
-                  )}
+                  {/* One under the other: Read more / Read less, then Read comfortably, then Show original. */}
+                  <div className="mt-1 flex flex-col items-start gap-1">
+                    {isLongBody && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpanded((v) => !v);
+                        }}
+                        className="text-sm font-semibold text-emerald-700"
+                      >
+                        {expanded ? t('groupChat.read_less') : t('groupChat.read_more')}
+                      </button>
+                    )}
+                    {displayBody.length > COMFORT_MIN_CHARS && <ComfortButton onClick={() => setComfort(displayBody)} />}
+                    {m.translation && (
+                      <TranslationNote sourceLanguage={m.translation.sourceLanguage} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />
+                    )}
+                  </div>
                 </>
               )}
             </>

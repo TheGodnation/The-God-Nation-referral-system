@@ -86,3 +86,19 @@ describe('MessageBubble — long message truncation', () => {
     expect(onMenu).not.toHaveBeenCalled();
   });
 });
+
+describe('MessageBubble — the controls under a long translated message', () => {
+  it('stack one under the other: Read more, then Read comfortably, then Show original', () => {
+    const long = 'Word '.repeat(120);
+    render(<MessageBubble m={baseMessage({ body: long, translation: { sourceLanguage: 'fr', translatedBody: long } })} {...bubbleHandlers} />);
+    const more = screen.getByRole('button', { name: 'Read more' });
+    const comfort = screen.getByRole('button', { name: 'Read comfortably' });
+    const original = screen.getByRole('button', { name: 'Show original' });
+    const before = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(before(more, comfort)).toBe(true);
+    expect(before(comfort, original)).toBe(true);
+    // Each on its own line, in one column.
+    expect(more.parentElement).toBe(comfort.parentElement);
+    expect(more.parentElement?.className).toContain('flex-col');
+  });
+});

@@ -73,7 +73,7 @@ export function ComfortButton({ onClick }: { onClick: () => void }) {
         e.stopPropagation();
         onClick();
       }}
-      className="mt-1 text-sm font-semibold text-emerald-700 underline"
+      className="text-left text-sm font-semibold text-emerald-700 underline"
     >
       {t('comfort.open')}
     </button>
