@@ -336,18 +336,31 @@ describe('The one retake', () => {
   const failed = (over: Record<string, unknown> = {}) =>
     detail({ me: { textRead: true, mediaFraction: 0, mediaDone: false, completed: true }, quiz: { assessmentId: 'a1', passMark: 70, questionCount: 5, state: 'DONE', percentage: 40, passed: false, retake: 'AVAILABLE', ...over } });
 
-  it('after failing, offers one retake with new questions, telling them to read again first', async () => {
+  it('after failing, offers one retake with new questions, and warns it is the last chance before starting', async () => {
     renderPage(failed(), { 'POST /api/teachings/t1/retake': () => ({ status: 201, body: { assessmentId: 'a1', attemptId: 'x1' } }) });
     const panel = await screen.findByTestId('teaching-retake');
     expect(within(panel).getByText(/Read the teaching carefully again/)).toBeInTheDocument();
-    expect(within(panel).getByText(/last try/)).toBeInTheDocument();
+    // Tapping the button does not start it: a warning comes first.
     fireEvent.click(within(panel).getByRole('button', { name: 'Try again with new questions' }));
+    expect(calls.some((c) => c.url === '/api/teachings/t1/retake')).toBe(false);
+    const warning = await screen.findByTestId('teaching-retake-warning');
+    expect(within(warning).getByText(/This is your LAST chance/)).toBeInTheDocument();
+    expect(within(warning).getByText(/will not be able to retake this quiz again/)).toBeInTheDocument();
+    // "Read the teaching again first" goes back without starting anything.
+    window.scrollTo = vi.fn() as never;
+    fireEvent.click(within(warning).getByRole('button', { name: /Read the teaching again first/ }));
+    expect(screen.queryByTestId('teaching-retake-warning')).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url === '/api/teachings/t1/retake')).toBe(false);
+    // Confirming starts it.
+    fireEvent.click(screen.getByRole('button', { name: 'Try again with new questions' }));
+    fireEvent.click(await screen.findByRole('button', { name: /I have read it/ }));
     await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url === '/api/teachings/t1/retake')).toBe(true));
   });
 
   it('says so when the retake could not be prepared', async () => {
     renderPage(failed(), { 'POST /api/teachings/t1/retake': () => ({ status: 502, body: { error: 'New questions could not be prepared just now.', code: 'AI_FAILED' } }) });
     fireEvent.click(await screen.findByRole('button', { name: 'Try again with new questions' }));
+    fireEvent.click(await screen.findByRole('button', { name: /I have read it/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('could not be prepared');
   });
 

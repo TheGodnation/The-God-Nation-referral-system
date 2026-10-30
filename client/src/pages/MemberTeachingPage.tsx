@@ -132,6 +132,7 @@ export function MemberTeachingPage() {
   const [saveFailed, setSaveFailed] = useState(false);
   const navigate = useNavigate();
   const [retaking, setRetaking] = useState(false);
+  const [confirmingRetake, setConfirmingRetake] = useState(false);
   const [retakeError, setRetakeError] = useState<string | null>(null);
 
   // The one retake: new questions are prepared (a few seconds the first time), then the quiz opens.
@@ -386,9 +387,31 @@ export function MemberTeachingPage() {
           {!quiz.passed && quiz.retake === 'AVAILABLE' && (quiz.state === 'DONE' || quiz.state === 'CLOSED') && (
             <div className="space-y-2 rounded-lg bg-sky-50 px-3 py-3" data-testid="teaching-retake">
               <p className="text-sm text-sky-900">{t('teaching.retake_note')}</p>
-              <button type="button" className="btn-primary w-full" onClick={() => void startRetake()} disabled={retaking} data-testid="teaching-retake-button">
-                {retaking ? t('teaching.retake_preparing') : t('teaching.retake_button')}
-              </button>
+              {!confirmingRetake ? (
+                <button type="button" className="btn-primary w-full" onClick={() => setConfirmingRetake(true)} data-testid="teaching-retake-button">
+                  {t('teaching.retake_button')}
+                </button>
+              ) : (
+                <div className="space-y-2 rounded-lg border-2 border-amber-400 bg-amber-50 p-3" role="alertdialog" aria-labelledby="retake-warn-title" data-testid="teaching-retake-warning">
+                  <p id="retake-warn-title" className="font-bold text-amber-900">
+                    ⚠️ {t('teaching.retake_warn_title')}
+                  </p>
+                  <p className="text-sm text-amber-900">{t('teaching.retake_warn_body')}</p>
+                  <button
+                    type="button"
+                    className="btn-secondary w-full"
+                    onClick={() => {
+                      setConfirmingRetake(false);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    📖 {t('teaching.retake_read_again')}
+                  </button>
+                  <button type="button" className="btn-primary w-full" onClick={() => void startRetake()} disabled={retaking} data-testid="teaching-retake-confirm">
+                    {retaking ? t('teaching.retake_preparing') : t('teaching.retake_ready')}
+                  </button>
+                </div>
+              )}
               {retakeError && <p className="text-sm text-red-700" role="alert">{retakeError}</p>}
             </div>
           )}
