@@ -218,6 +218,12 @@ enum NotificationType {
   PAYMENT_ORDER_MESSAGE
   // The reviewer's answer to a member's report (what was found, and a note).
   MEMBER_REPORT_REVIEWED
+  // Posts: a new post in the Updates feed (from the central admin: to everyone;
+  // from anyone else: to their own assembly), a like/reaction on your post,
+  // comment or chat message, and a comment/reply to them.
+  POST_PUBLISHED
+  POST_LIKED
+  POST_REPLIED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether

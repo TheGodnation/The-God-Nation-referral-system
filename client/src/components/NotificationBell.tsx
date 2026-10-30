@@ -29,7 +29,10 @@ type NotificationType =
   | 'REFERRAL_PAYOUT_REJECTED'
   | 'EVENT_NEW'
   | 'EVENT_REMINDER'
-  | 'MEMBER_REPORT_REVIEWED';
+  | 'MEMBER_REPORT_REVIEWED'
+  | 'POST_PUBLISHED'
+  | 'POST_LIKED'
+  | 'POST_REPLIED';
 
 interface NotificationRow {
   id: string;
@@ -166,6 +169,12 @@ export function NotificationBell() {
         const base = t(metadata.outcome === 'VIOLATION' ? 'notifications.report_violation' : metadata.outcome === 'NO_VIOLATION' ? 'notifications.report_no_violation' : 'notifications.report_reviewed');
         return metadata.note ? `${base} ${t('notifications.report_note', { note: String(metadata.note) })}` : base;
       }
+      case 'POST_PUBLISHED':
+        return t(metadata.audience === 'ALL' ? 'notifications.post_published_all' : 'notifications.post_published', { name: metadata.authorName ?? '' });
+      case 'POST_LIKED':
+        return t(`notifications.post_liked_${metadata.kind === 'COMMENT' ? 'comment' : metadata.kind === 'MESSAGE' ? 'message' : 'post'}`, { name: metadata.actorName ?? '', emoji: metadata.emoji ?? '👍' });
+      case 'POST_REPLIED':
+        return t(`notifications.post_replied_${metadata.kind === 'COMMENT_REPLY' ? 'comment' : metadata.kind === 'MESSAGE_REPLY' ? 'message' : 'post'}`, { name: metadata.actorName ?? '' });
       case 'TRAINING_GRACE_GRANTED':
         return t('notifications.training_grace_granted', { count: Number(metadata.books ?? 0) });
       case 'TRAINING_GRACE_DECLINED':

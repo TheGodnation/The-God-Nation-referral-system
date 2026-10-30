@@ -33,6 +33,9 @@ import {
 } from '../lib/updates';
 import { getBlockedIds, getFriendIds } from '../lib/social';
 import { resolveAuthorPersonId, AuthorToggleError, getAuthorDisplay } from '../lib/authorToggle';
+import { notifyPostPublished, notifyPostLiked, notifyPostReplied } from '../lib/notifications';
+import { isCentralAdminPerson } from '../lib/centralAdmin';
+import { resolveHeadquartersPostAudiencePersonIds } from '../lib/headquartersPosts';
 import { translateAndStoreUpdatePost } from '../lib/translation';
 
 // ---------------------------------------------------------------------------
@@ -245,11 +248,21 @@ router.put('/comments/:commentId/reaction', updateReactionLimiter, requireCsrf, 
   if (!parsed.success) return res.status(400).json({ error: 'Invalid reaction.' });
   if (!(await visibleComment(req.params.commentId))) return res.status(404).json({ error: 'Comment not found.' });
   const personId = req.updatesViewer!.personId!;
+  const before = await prisma.updateCommentReaction.findUnique({ where: { commentId_personId: { commentId: req.params.commentId, personId } }, select: { id: true } }).catch(() => null);
   await prisma.updateCommentReaction.upsert({
     where: { commentId_personId: { commentId: req.params.commentId, personId } },
     create: { commentId: req.params.commentId, personId, type: parsed.data.type },
     update: { type: parsed.data.type },
   });
+  if (!before) {
+    void (async () => {
+      const [comment, actor] = await Promise.all([
+        prisma.updateComment.findUnique({ where: { id: req.params.commentId }, select: { authorPersonId: true } }),
+        prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } }),
+      ]);
+      if (comment && actor) await notifyPostLiked({ recipientPersonId: comment.authorPersonId, actor, kind: 'COMMENT', targetType: 'UpdateComment', targetId: req.params.commentId, url: '/member/updates' });
+    })().catch(() => {});
+  }
   res.json(await commentReactionSummary(req.params.commentId, personId));
 }));
 
@@ -447,6 +460,26 @@ router.post('/', updatePostLimiter, requireCsrf, requireViewer, requirePerson, a
     void translateAndStoreUpdatePost(post.id, d.body).catch(() => {});
   }
 
+  // Tell people about it: everyone when the central admin posted, otherwise only the
+  // author's own assembly(ies). Never delays or fails the post.
+  void (async () => {
+    const author = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } });
+    if (!author) return;
+    if (await isCentralAdminPerson(personId)) {
+      const everyone = await resolveHeadquartersPostAudiencePersonIds({ networkWide: true, targets: [] });
+      await notifyPostPublished({ id: post.id, body: d.body }, author, everyone, 'ALL');
+      return;
+    }
+    const mine = await prisma.communityMembership.findMany({ where: { personId, status: 'ACTIVE' }, select: { communityId: true } });
+    if (mine.length === 0) return;
+    const neighbours = await prisma.communityMembership.findMany({
+      where: { communityId: { in: mine.map((m) => m.communityId) }, status: 'ACTIVE', personId: { not: personId } },
+      select: { personId: true },
+      distinct: ['personId'],
+    });
+    await notifyPostPublished({ id: post.id, body: d.body }, author, neighbours.map((m) => m.personId), 'COMMUNITY');
+  })().catch(() => {});
+
   res.status(201).json({ id: post.id });
 }));
 
@@ -483,11 +516,22 @@ router.put('/:id/reaction', updateReactionLimiter, requireCsrf, requireViewer, r
   if (!parsed.success) return res.status(400).json({ error: 'Invalid reaction.' });
   if (!(await visiblePost(req.params.id))) return res.status(404).json({ error: 'Post not found.' });
   const personId = req.updatesViewer!.personId!;
+  const before = await prisma.updateReaction.findUnique({ where: { postId_personId: { postId: req.params.id, personId } }, select: { id: true } }).catch(() => null);
   await prisma.updateReaction.upsert({
     where: { postId_personId: { postId: req.params.id, personId } },
     create: { postId: req.params.id, personId, type: parsed.data.type },
     update: { type: parsed.data.type },
   });
+  // Tell the author about a new reaction (changing it later does not tell them again).
+  if (!before) {
+    void (async () => {
+      const [post, actor] = await Promise.all([
+        prisma.updatePost.findUnique({ where: { id: req.params.id }, select: { authorPersonId: true } }),
+        prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } }),
+      ]);
+      if (post && actor) await notifyPostLiked({ recipientPersonId: post.authorPersonId, actor, kind: 'POST', targetType: 'UpdatePost', targetId: req.params.id, url: '/member/updates' });
+    })().catch(() => {});
+  }
   // Everyone's reactions, so the count includes the others' too.
   res.json((await postReactionCounts([req.params.id], personId))[req.params.id]);
 }));
@@ -552,21 +596,36 @@ router.post('/:id/comments', updateCommentLimiter, requireCsrf, requireViewer, r
   // A reply must answer a comment on this same post. Replying to a reply
   // attaches to the same top comment (one level, like Facebook).
   let parentCommentId: string | null = null;
+  let parentAuthorPersonId: string | null = null;
   if (parsed.data.parentCommentId) {
     const parent = await prisma.updateComment.findUnique({
       where: { id: parsed.data.parentCommentId },
-      select: { id: true, postId: true, deletedAt: true, parentCommentId: true },
+      select: { id: true, postId: true, deletedAt: true, parentCommentId: true, authorPersonId: true },
     });
     if (!parent || parent.postId !== req.params.id || parent.deletedAt) {
       return res.status(400).json({ error: 'That comment is no longer there.' });
     }
     parentCommentId = parent.parentCommentId ?? parent.id;
+    parentAuthorPersonId = parent.authorPersonId;
   }
 
   const comment = await prisma.updateComment.create({
     data: { postId: req.params.id, authorPersonId: req.updatesViewer!.personId!, body: parsed.data.body, parentCommentId },
     select: { id: true },
   });
+  // Tell the post's author about a comment, and whoever was replied to about the reply
+  // (once each: a reply to the author's own comment is just "replied to your comment").
+  void (async () => {
+    const commenterId = req.updatesViewer!.personId!;
+    const [post, actor] = await Promise.all([
+      prisma.updatePost.findUnique({ where: { id: req.params.id }, select: { authorPersonId: true } }),
+      prisma.person.findUnique({ where: { id: commenterId }, select: { id: true, name: true } }),
+    ]);
+    if (!post || !actor) return;
+    const common = { actor, targetType: 'UpdateComment', targetId: comment.id, url: '/member/updates', text: parsed.data.body } as const;
+    if (parentAuthorPersonId) await notifyPostReplied({ ...common, recipientPersonId: parentAuthorPersonId, kind: 'COMMENT_REPLY' });
+    if (post.authorPersonId !== parentAuthorPersonId) await notifyPostReplied({ ...common, recipientPersonId: post.authorPersonId, kind: 'POST_COMMENT' });
+  })().catch(() => {});
   res.status(201).json({ id: comment.id, parentCommentId });
 }));
 

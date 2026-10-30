@@ -44,6 +44,7 @@ import {
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
 import { profilePhotoPath, groupPhotoPath } from '../lib/profilePhoto';
+import { notifyPostLiked, notifyPostReplied } from '../lib/notifications';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording } from '../lib/presence';
 import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
 import { pushToPersons } from '../lib/push';
@@ -577,11 +578,13 @@ router.post(
 
     // A reply must point at a message in THIS same group chat.
     const replyToMessageId = parsed.data.replyToMessageId ?? null;
+    let repliedToPersonId: string | null = null;
     if (replyToMessageId) {
-      const original = await prisma.message.findUnique({ where: { id: replyToMessageId }, select: { conversationId: true } });
+      const original = await prisma.message.findUnique({ where: { id: replyToMessageId }, select: { conversationId: true, senderPersonId: true } });
       if (!original || original.conversationId !== conversation.id) {
         return res.status(400).json({ error: 'Invalid reply reference.' });
       }
+      repliedToPersonId = original.senderPersonId;
     }
 
     const created = await prisma.message.create({
@@ -624,7 +627,8 @@ router.post(
         prisma.person.findUnique({ where: { id: personId }, select: { name: true } }),
         prisma.community.findUnique({ where: { id: communityId }, select: { name: true } }),
         prisma.communityMembership.findMany({
-          where: { communityId, status: 'ACTIVE', personId: { not: personId } },
+          // Whoever was replied to gets the more specific "replied to your message" notice instead.
+          where: { communityId, status: 'ACTIVE', personId: { notIn: repliedToPersonId ? [personId, repliedToPersonId] : [personId] } },
           select: { personId: true },
         }),
       ]);
@@ -639,6 +643,23 @@ router.post(
         url: `/member/chats/group/${communityId}`,
       });
     })().catch(() => {});
+
+    if (repliedToPersonId) {
+      void (async () => {
+        const actor = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } });
+        if (actor) {
+          await notifyPostReplied({
+            recipientPersonId: repliedToPersonId!,
+            actor,
+            kind: 'MESSAGE_REPLY',
+            targetType: 'Message',
+            targetId: created.id,
+            url: `/member/chats/group/${communityId}`,
+            text: created.body ?? (attachmentDescriptors.length > 0 ? '🎙️📎' : ''),
+          });
+        }
+      })().catch(() => {});
+    }
 
     // Auto-translation — fire-and-forget, same rule as the push block just
     // above: never delays or can fail the message-send response. A text
@@ -892,11 +913,32 @@ router.put(
     if (!parsed.success) {
       return res.status(400).json({ error: 'Unsupported reaction.' });
     }
+    const before = await prisma.messageReaction.findUnique({ where: { messageId_personId: { messageId: target.messageId, personId: target.personId } }, select: { id: true } });
     await prisma.messageReaction.upsert({
       where: { messageId_personId: { messageId: target.messageId, personId: target.personId } },
       create: { messageId: target.messageId, personId: target.personId, emoji: parsed.data.emoji },
       update: { emoji: parsed.data.emoji },
     });
+    // Tell the message's sender about a new reaction (changing it later does not tell them again).
+    if (!before) {
+      void (async () => {
+        const [message, actor] = await Promise.all([
+          prisma.message.findUnique({ where: { id: target.messageId }, select: { senderPersonId: true } }),
+          prisma.person.findUnique({ where: { id: target.personId }, select: { id: true, name: true } }),
+        ]);
+        if (message && actor) {
+          await notifyPostLiked({
+            recipientPersonId: message.senderPersonId,
+            actor,
+            kind: 'MESSAGE',
+            targetType: 'Message',
+            targetId: target.messageId,
+            url: `/member/chats/group/${req.params.communityId}`,
+            emoji: parsed.data.emoji,
+          });
+        }
+      })().catch(() => {});
+    }
     res.json({ reactions: await reactionsFor(target.messageId, target.personId) });
   }),
 );

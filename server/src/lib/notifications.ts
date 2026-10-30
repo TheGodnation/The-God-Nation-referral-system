@@ -47,7 +47,10 @@ interface CreateNotificationParams {
     | 'EVENT_NEW'
     | 'EVENT_REMINDER'
     | 'PAYMENT_ORDER_MESSAGE'
-    | 'MEMBER_REPORT_REVIEWED';
+    | 'MEMBER_REPORT_REVIEWED'
+    | 'POST_PUBLISHED'
+    | 'POST_LIKED'
+    | 'POST_REPLIED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -566,5 +569,106 @@ export async function notifyReportedAuthor(
     targetType: report.targetType,
     targetId: report.targetId ?? undefined,
     push: { title: fr ? 'Un mot des responsables' : 'A word from the leaders', body, url: '/member/me' },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Posts, likes and replies.
+
+const snippet = (text: string | null | undefined, max = 90) => {
+  const t = (text ?? '').replace(/\s+/g, ' ').trim();
+  return t.length > max ? `${t.slice(0, max)}…` : t;
+};
+
+/** A new Updates post: `audience` is 'ALL' when the central admin posted (the whole community is told) or
+ * 'COMMUNITY' when anyone else did (only their own assembly). The caller works out the recipients. */
+export async function notifyPostPublished(
+  post: { id: string; body: string },
+  author: { id: string; name: string },
+  recipientPersonIds: string[],
+  audience: 'ALL' | 'COMMUNITY',
+) {
+  const recipients = recipientPersonIds.filter((id) => id !== author.id);
+  if (recipients.length === 0) return;
+  await prisma.notification.createMany({
+    data: recipients.map((recipientPersonId) => ({
+      recipientPersonId,
+      type: 'POST_PUBLISHED' as const,
+      metadata: { authorName: author.name, audience } as any,
+      targetType: 'UpdatePost',
+      targetId: post.id,
+    })),
+  });
+  pushToPersons(recipients, {
+    title: audience === 'ALL' ? `${author.name} • The God Nation` : author.name,
+    body: snippet(post.body) || '📷 New post',
+    url: '/member/updates',
+  }).catch(() => {});
+}
+
+// The same person reacting to the same thing again within a day is told once, so toggling a
+// like on and off never fills someone's bell.
+async function alreadyToldRecently(recipientPersonId: string, type: 'POST_LIKED', targetId: string, actorPersonId: string) {
+  const found = await prisma.notification.findFirst({
+    where: {
+      recipientPersonId,
+      type,
+      targetId,
+      createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      metadata: { path: ['actorPersonId'], equals: actorPersonId },
+    },
+    select: { id: true },
+  });
+  return Boolean(found);
+}
+
+/** Someone reacted to your post, comment or chat message. `kind` says which. Never to yourself. */
+export async function notifyPostLiked(args: {
+  recipientPersonId: string;
+  actor: { id: string; name: string };
+  kind: 'POST' | 'COMMENT' | 'MESSAGE';
+  targetType: string;
+  targetId: string;
+  url: string;
+  emoji?: string;
+}) {
+  if (args.recipientPersonId === args.actor.id) return;
+  if (await alreadyToldRecently(args.recipientPersonId, 'POST_LIKED', args.targetId, args.actor.id)) return;
+  await createNotification({
+    recipientPersonId: args.recipientPersonId,
+    type: 'POST_LIKED',
+    metadata: { actorPersonId: args.actor.id, actorName: args.actor.name, kind: args.kind, emoji: args.emoji ?? null },
+    targetType: args.targetType,
+    targetId: args.targetId,
+    push: {
+      title: args.actor.name,
+      body: `${args.emoji ?? '👍'} ${args.kind === 'POST' ? 'reacted to your post' : args.kind === 'COMMENT' ? 'reacted to your comment' : 'reacted to your message'}`,
+      url: args.url,
+    },
+  });
+}
+
+/** Someone commented on your post, replied to your comment, or replied to your chat message. Never to yourself. */
+export async function notifyPostReplied(args: {
+  recipientPersonId: string;
+  actor: { id: string; name: string };
+  kind: 'POST_COMMENT' | 'COMMENT_REPLY' | 'MESSAGE_REPLY';
+  targetType: string;
+  targetId: string;
+  url: string;
+  text?: string | null;
+}) {
+  if (args.recipientPersonId === args.actor.id) return;
+  await createNotification({
+    recipientPersonId: args.recipientPersonId,
+    type: 'POST_REPLIED',
+    metadata: { actorPersonId: args.actor.id, actorName: args.actor.name, kind: args.kind },
+    targetType: args.targetType,
+    targetId: args.targetId,
+    push: {
+      title: args.actor.name,
+      body: `${args.kind === 'POST_COMMENT' ? 'commented on your post' : args.kind === 'COMMENT_REPLY' ? 'replied to your comment' : 'replied to your message'}${snippet(args.text) ? `: ${snippet(args.text)}` : ''}`,
+      url: args.url,
+    },
   });
 }

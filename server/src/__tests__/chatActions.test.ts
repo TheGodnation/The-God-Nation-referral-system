@@ -513,3 +513,97 @@ describe('Two-language voice message, live teaching and "recording…"', () => {
     expect(seen.typing).toBe(false);
   });
 });
+
+describe('Notifications for posts, likes and replies', () => {
+  const bell = async (m: M) => (await m.agent.get('/api/notifications?page=1&pageSize=50')).body.items as any[];
+  const ofType = async (m: M, type: string) => (await bell(m)).filter((x) => x.type === type);
+
+  async function world() {
+    const mine = await prisma.community.create({ data: { name: 'Mine' } });
+    const other = await prisma.community.create({ data: { name: 'Other' } });
+    const boss = await member('Boss', mine.id);
+    await prisma.user.create({ data: { name: 'Central Admin', email: `pn-admin-${n}@test.local`, passwordHash: 'x', role: 'ADMIN', personId: boss.person.id } });
+    const ada = await member('Ada', mine.id);
+    const ben = await member('Ben', mine.id);
+    const zed = await member('Zed', other.id);
+    return { mine, other, boss, ada, ben, zed };
+  }
+  const post = (m: M, body: string) => m.agent.post('/api/updates').set('X-CSRF-Token', m.csrf).send({ body });
+  const settle = () => new Promise((r) => setTimeout(r, 400));
+
+  it('a member\'s new post tells only their own assembly; the central admin\'s tells everyone', async () => {
+    const { mine, boss, ada, ben, zed } = await world();
+    // The central admin's posts reach everyone under Headquarters: set the tree up.
+    const hq = await prisma.community.create({ data: { name: 'HQ' } });
+    await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', headquartersCommunityId: hq.id }, update: { headquartersCommunityId: hq.id } });
+    await prisma.community.updateMany({ where: { id: { in: [mine.id] } }, data: { parentId: hq.id } });
+    const zedHome = (await prisma.communityMembership.findFirst({ where: { personId: zed.person.id } }))!.communityId;
+    await prisma.community.update({ where: { id: zedHome }, data: { parentId: hq.id } });
+
+    expect((await post(ada, 'Hello from Ada')).status).toBe(201);
+    await settle();
+    expect(await ofType(ben, 'POST_PUBLISHED')).toHaveLength(1);
+    expect((await ofType(ben, 'POST_PUBLISHED'))[0].metadata).toMatchObject({ authorName: ada.person.name, audience: 'COMMUNITY' });
+    expect(await ofType(zed, 'POST_PUBLISHED')).toHaveLength(0);
+    expect(await ofType(ada, 'POST_PUBLISHED')).toHaveLength(0);
+
+    expect((await post(boss, 'A word for everyone')).status).toBe(201);
+    await settle();
+    expect(await ofType(zed, 'POST_PUBLISHED')).toHaveLength(1);
+    expect((await ofType(zed, 'POST_PUBLISHED'))[0].metadata).toMatchObject({ audience: 'ALL' });
+    // The central admin is in Ada's assembly, so was told about Ada's post, but never about his own.
+    expect((await ofType(boss, 'POST_PUBLISHED')).map((x) => x.metadata.authorName)).toEqual([ada.person.name]);
+  });
+
+  it('a like and a comment on your post tell you; a reply tells whoever was replied to; never yourself', async () => {
+    const { ada, ben, zed } = await world();
+    const created = await post(ada, 'My post');
+    const id = created.body.id as string;
+    await settle();
+
+    // Ben likes it: Ada is told once, even if he changes or repeats it.
+    await ben.agent.put(`/api/updates/${id}/reaction`).set('X-CSRF-Token', ben.csrf).send({ type: 'LIKE' });
+    await ben.agent.put(`/api/updates/${id}/reaction`).set('X-CSRF-Token', ben.csrf).send({ type: 'LOVE' });
+    await settle();
+    expect(await ofType(ada, 'POST_LIKED')).toHaveLength(1);
+    expect((await ofType(ada, 'POST_LIKED'))[0].metadata).toMatchObject({ actorName: ben.person.name, kind: 'POST' });
+    // Liking your own post tells nobody.
+    await ada.agent.put(`/api/updates/${id}/reaction`).set('X-CSRF-Token', ada.csrf).send({ type: 'LIKE' });
+    await settle();
+    expect(await ofType(ada, 'POST_LIKED')).toHaveLength(1);
+
+    // Ben comments: Ada is told. Zed replies to Ben's comment: Ben is told "replied to your comment", Ada "commented".
+    const comment = await ben.agent.post(`/api/updates/${id}/comments`).set('X-CSRF-Token', ben.csrf).send({ body: 'Amen!' });
+    await settle();
+    expect((await ofType(ada, 'POST_REPLIED')).map((x) => x.metadata.kind)).toEqual(['POST_COMMENT']);
+    await zed.agent.post(`/api/updates/${id}/comments`).set('X-CSRF-Token', zed.csrf).send({ body: 'Thank you Ben', parentCommentId: comment.body.id });
+    await settle();
+    expect((await ofType(ben, 'POST_REPLIED')).map((x) => x.metadata.kind)).toEqual(['COMMENT_REPLY']);
+    expect((await ofType(ada, 'POST_REPLIED')).map((x) => x.metadata.kind).sort()).toEqual(['POST_COMMENT', 'POST_COMMENT']);
+
+    // A like on Ben's comment tells Ben; commenting on your own post tells nobody.
+    await zed.agent.put(`/api/updates/comments/${comment.body.id}/reaction`).set('X-CSRF-Token', zed.csrf).send({ type: 'LIKE' });
+    await settle();
+    expect((await ofType(ben, 'POST_LIKED'))[0].metadata).toMatchObject({ kind: 'COMMENT', actorName: zed.person.name });
+    await ada.agent.post(`/api/updates/${id}/comments`).set('X-CSRF-Token', ada.csrf).send({ body: 'Thanks all' });
+    await settle();
+    expect(await ofType(ada, 'POST_REPLIED')).toHaveLength(2);
+  });
+
+  it('a reaction or a quoted reply in a group chat tells the person whose message it was', async () => {
+    const { mine, ada, ben, zed } = await world();
+    const id = await say(ada, mine.id, 'Good morning family');
+    await ben.agent.put(`${g(mine.id)}/messages/${id}/reaction`).set('X-CSRF-Token', ben.csrf).send({ emoji: '🙏' });
+    await settle();
+    expect((await ofType(ada, 'POST_LIKED'))[0].metadata).toMatchObject({ kind: 'MESSAGE', emoji: '🙏', actorName: ben.person.name });
+
+    await ben.agent.post(`${g(mine.id)}/messages`).set('X-CSRF-Token', ben.csrf).send({ body: 'Good morning!', replyToMessageId: id });
+    await settle();
+    expect((await ofType(ada, 'POST_REPLIED')).map((x) => x.metadata.kind)).toEqual(['MESSAGE_REPLY']);
+    // Replying to yourself tells nobody.
+    await ada.agent.post(`${g(mine.id)}/messages`).set('X-CSRF-Token', ada.csrf).send({ body: 'Me again', replyToMessageId: id });
+    await settle();
+    expect(await ofType(ada, 'POST_REPLIED')).toHaveLength(1);
+    expect(await ofType(zed, 'POST_REPLIED')).toHaveLength(0);
+  });
+});
