@@ -26,6 +26,18 @@ function mockGeminiResponse(payload: unknown) {
   );
 }
 
+// Voice notes take two calls: one listens (the request carries the audio), one cleans and translates the text.
+function mockAudioGemini(listen: unknown, write: unknown, seen: { prompt: string }[] = []) {
+  const fetchSpy = vi.fn(async (_url: string, init: RequestInit) => {
+    const parts = JSON.parse(init.body as string).contents[0].parts;
+    seen.push({ prompt: parts[0].text });
+    const payload = parts[1]?.inlineData ? listen : write;
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] }) };
+  });
+  vi.stubGlobal('fetch', fetchSpy);
+  return fetchSpy;
+}
+
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
   vi.restoreAllMocks();
@@ -149,18 +161,76 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
     expect(await translation.translateText('Bonjour')).toBeNull();
   });
 
-  it('transcribeAndTranslateAudio transcribes and translates in one call, sending the audio inline', async () => {
+  it('transcribeAndTranslateAudio listens first, then corrects and translates the writing with the ministry context', async () => {
     const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
-    const fetchSpy = vi.fn(async (_url: string, init: RequestInit) => {
-      const payload = JSON.parse(init.body as string);
-      expect(payload.contents[0].parts[1].inlineData).toEqual({ mimeType: 'audio/webm', data: 'ZmFrZS1hdWRpbw==' });
-      return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'fr', transcript: 'Priez pour moi', translated: 'Pray for me' }) }] } }] }) };
-    });
-    vi.stubGlobal('fetch', fetchSpy);
+    const seen: { prompt: string }[] = [];
+    const fetchSpy = mockAudioGemini(
+      { detectedLanguage: 'fr', transcript: 'priez pour moi' },
+      { transcript: 'Priez pour moi.', translated: 'Pray for me.' },
+      seen,
+    );
 
     const result = await translation.transcribeAndTranslateAudio('ZmFrZS1hdWRpbw==', 'audio/webm');
-    expect(result).toEqual({ detectedLanguage: 'fr', transcript: 'Priez pour moi', translatedTranscript: 'Pray for me' });
+    expect(result).toEqual({ detectedLanguage: 'fr', transcript: 'Priez pour moi.', translatedTranscript: 'Pray for me.' });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    // The audio goes only to the listening step; the writing step gets the transcript and the context.
+    const [listen, write] = seen;
+    expect(listen.prompt).toContain('Cameroon');
+    expect(write.prompt).toContain('priez pour moi');
+    expect(write.prompt).toContain('Louis Segond');
+    expect(write.prompt).toContain('spoken in French');
+  });
+
+  it('transcribeAndTranslateAudio returns an empty result for a silent recording, without a second call', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = mockAudioGemini({ detectedLanguage: 'en', transcript: '  ' }, {});
+    expect(await translation.transcribeAndTranslateAudio('ZmFrZQ==', 'audio/webm')).toEqual({ detectedLanguage: 'en', transcript: '', translatedTranscript: '' });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('transcribeAndTranslateAudio gives up (null) when the writing step fails, so it is retried later', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    mockAudioGemini({ detectedLanguage: 'en', transcript: 'God is good' }, { transcript: '', translated: '' });
+    expect(await translation.transcribeAndTranslateAudio('ZmFrZQ==', 'audio/webm')).toBeNull();
+  });
+
+  it('uses the stronger model for the wording and falls back to the light one when it is not available', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key', GEMINI_QUALITY_MODEL: 'strong-model' });
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url);
+        if (url.includes('strong-model')) return { ok: false, status: 429, text: async () => 'quota' };
+        return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'en', translated: 'Bonjour' }) }] } }] }) };
+      }),
+    );
+    expect(await translation.translateText('Hello')).toEqual({ detectedLanguage: 'en', translatedBody: 'Bonjour' });
+    expect(urls[0]).toContain('strong-model');
+    expect(urls[1]).toContain('gemini-flash-lite-latest');
+
+    urls.length = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url);
+        return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'en', translated: 'Salut' }) }] } }] }) };
+      }),
+    );
+    expect(await translation.translateText('Hi')).toEqual({ detectedLanguage: 'en', translatedBody: 'Salut' });
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain('strong-model');
+  });
+
+  it('tells the translator who is speaking and asks for natural French with Louis Segond verses', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = vi.fn(async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'en', translated: 'x' }) }] } }] }) }));
+    vi.stubGlobal('fetch', fetchSpy);
+    await translation.translateText('God is good');
+    const sent = JSON.parse((fetchSpy.mock.calls[0] as unknown as [string, { body: string }])[1].body).contents[0].parts[0].text as string;
+    expect(sent).toContain('Pentecostal');
+    expect(sent).toContain('Louis Segond');
+    expect(sent).toContain('never word for word');
   });
 
   it('transcribeAndTranslateAudio skips the call entirely for an oversized audio payload', async () => {
@@ -224,7 +294,7 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
       body: Readable.from([Buffer.from('fake-audio-bytes')]),
       contentLength: 17,
     });
-    mockGeminiResponse({ detectedLanguage: 'fr', transcript: 'Merci Seigneur', translated: 'Thank you Lord' });
+    mockAudioGemini({ detectedLanguage: 'fr', transcript: 'merci seigneur' }, { transcript: 'Merci Seigneur', translated: 'Thank you Lord' });
 
     const sender = await prisma.person.create({ data: { name: 'Transcribe Sender', whatsappNumber: '+237699300004' } });
     const community = await prisma.community.create({ data: { name: 'Transcribe Community' } });

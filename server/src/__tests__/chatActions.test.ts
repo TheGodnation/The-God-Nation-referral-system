@@ -240,6 +240,46 @@ describe('Forward', () => {
     expect(inPrivate).toMatchObject({ body: 'Sunday flyer', forwarded: true, isOwn: false });
   });
 
+  it('a forwarded voice note or text keeps its transcript and translation in the other group, and a private chat gets none', async () => {
+    const g1 = await prisma.community.create({ data: { name: 'Voice From' } });
+    const g2 = await prisma.community.create({ data: { name: 'Voice To' } });
+    const ada = await member('Ada Voice', g1.id);
+    await prisma.communityMembership.create({ data: { personId: ada.person.id, communityId: g2.id, status: 'ACTIVE' } });
+    const ben = await member('Ben Voice');
+    const conv = await privateChat(ada, ben);
+    const conversation = await prisma.conversation.create({ data: { communityId: g1.id } });
+    const voice = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderPersonId: ada.person.id,
+        body: null,
+        transcribedLanguage: 'en',
+        transcribedBody: 'God is good.',
+        translatedTranscript: 'Dieu est bon.',
+        transcribedAt: new Date(),
+        attachments: { create: [{ storageKey: `communities/${g1.id}/attachments/${crypto.randomUUID()}`, originalFilename: 'v.webm', mimeType: 'audio/webm', byteSize: 10, uploadedByPersonId: ada.person.id }] },
+      },
+    });
+    const text = await prisma.message.create({
+      data: { conversationId: conversation.id, senderPersonId: ada.person.id, body: 'Praise the Lord', detectedLanguage: 'en', translatedBody: 'Louez le Seigneur', translatedAt: new Date() },
+    });
+
+    const res = await ada.agent
+      .post('/api/chat/forward')
+      .set('X-CSRF-Token', ada.csrf)
+      .send({ source: { kind: 'group', chatId: g1.id, messageIds: [voice.id, text.id] }, targets: [{ kind: 'group', chatId: g2.id }, { kind: 'private', chatId: conv }] });
+    expect(res.status).toBe(201);
+
+    const copies = await prisma.message.findMany({ where: { conversation: { communityId: g2.id }, forwarded: true }, orderBy: { createdAt: 'asc' } });
+    expect(copies).toHaveLength(2);
+    expect(copies[0]).toMatchObject({ transcribedLanguage: 'en', transcribedBody: 'God is good.', translatedTranscript: 'Dieu est bon.' });
+    expect(copies[0].transcribedAt).not.toBeNull();
+    expect(copies[1]).toMatchObject({ detectedLanguage: 'en', translatedBody: 'Louez le Seigneur' });
+    // A private chat is never translated: its copy carries nothing.
+    const inPrivate = await prisma.privateMessage.findMany({ where: { conversationId: conv } });
+    expect(inPrivate).toHaveLength(2);
+  });
+
   describe('the "Forwarded" label', () => {
     async function setup() {
       const g1 = await prisma.community.create({ data: { name: 'Sub assembly' } });

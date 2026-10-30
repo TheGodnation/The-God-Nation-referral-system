@@ -27,6 +27,16 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 // Flash-Lite allows far more. If it ever 404s, logAvailableModels below
 // logs the real options straight from Gemini.
 const GEMINI_MODEL = 'gemini-flash-lite-latest';
+// The wording itself (translation, cleaning up a transcript) is done by a
+// stronger model, which reads far more naturally than Flash-Lite. If it is
+// not available (a free key's small daily allowance used up, a retired name,
+// Google busy) the same job falls back to Flash-Lite, so translation never
+// stops. Set GEMINI_QUALITY_MODEL to try another (e.g. gemini-pro-latest),
+// or to an empty value to use Flash-Lite only.
+const QUALITY_MODEL = process.env.GEMINI_QUALITY_MODEL ?? 'gemini-flash-latest';
+// The stronger model gets at most this long, so that its fallback still fits
+// in the time a retry claims an item for (translationRetry.ts CLAIM_MS).
+const QUALITY_TIMEOUT_MS = 90000;
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const TEXT_TIMEOUT_MS = 30000;
 // Translating a long post (texts can now be up to 65,536 characters) takes
@@ -48,6 +58,8 @@ const RETRY_DELAY_MS = 1500;
 const DEFAULT_ATTEMPTS = 2;
 
 export interface GeminiCallOptions {
+  /** Which Gemini model to ask (default: the Flash-Lite one). */
+  model?: string;
   /** Immediate tries for this one call (the later, spaced-out retries in
    * translationRetry.ts pass 1 — they are already the "try again"). */
   attempts?: number;
@@ -129,7 +141,7 @@ export async function callGemini(contents: unknown[], schema: unknown, opts: Gem
     return null;
   }
   try {
-    const res = await postGeminiJson(`${GEMINI_BASE_URL}/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+    const res = await postGeminiJson(`${GEMINI_BASE_URL}/${opts.model ?? GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
       contents,
       generationConfig: { responseMimeType: 'application/json', responseSchema: schema },
     }, opts);
@@ -159,6 +171,20 @@ export async function callGemini(contents: unknown[], schema: unknown, opts: Gem
   }
 }
 
+/**
+ * Like callGemini, but asks the stronger model first and, when that gives
+ * nothing usable, asks Flash-Lite instead.
+ */
+export async function callGeminiBest(contents: unknown[], schema: unknown, opts: GeminiCallOptions = {}): Promise<any | null> {
+  if (QUALITY_MODEL && QUALITY_MODEL !== GEMINI_MODEL) {
+    const timeoutMs = Math.min(opts.timeoutMs ?? QUALITY_TIMEOUT_MS, QUALITY_TIMEOUT_MS);
+    const result = await callGemini(contents, schema, { ...opts, model: QUALITY_MODEL, timeoutMs, attempts: 1 });
+    if (result) return result;
+    console.warn('[translation] the stronger model gave nothing — using the lighter one', { model: QUALITY_MODEL });
+  }
+  return callGemini(contents, schema, opts);
+}
+
 function isLanguage(v: unknown): v is Language {
   return v === 'en' || v === 'fr';
 }
@@ -176,6 +202,19 @@ export interface TextTranslationResult {
   detectedLanguage: Language;
   translatedBody: string;
 }
+
+// What the translator is told about who is speaking, so the French (and the
+// English) sounds like a pastor speaking to his congregation, not a machine.
+const CONTEXT =
+  'Context: this comes from The God Nation, an evangelical, Pentecostal-style Christian ministry and online ' +
+  'community in Cameroon with English- and French-speaking members. The speaker is a pastor or evangelist ' +
+  'teaching and encouraging ordinary church members. Translate the way a gifted bilingual pastor would say it ' +
+  'aloud to a congregation: natural, warm and idiomatic, never word for word, in the same register as the ' +
+  'speaker (do not make it more formal or more polished than it is). Use the vocabulary the church really ' +
+  'uses in the target language (for example "assembly" = "assemblée", "born again" = "né de nouveau", ' +
+  '"the anointing" = "l\'onction", "fellowship" = "communion fraternelle", "Leadership School" = ' +
+  '"École de Leadership"). In French, quote Bible verses in the Louis Segond version; in English use a ' +
+  'familiar English version. Keep names of people, places and the ministry as they are. ';
 
 // Long texts are hard to read on a phone as one block, and a spoken sermon
 // has no paragraphs at all, so every translation (and voice-note transcript)
@@ -196,6 +235,7 @@ const READABLE =
 export async function translateText(text: string, opts: GeminiCallOptions = {}): Promise<TextTranslationResult | null> {
   if (!text.trim()) return null;
   const prompt =
+    CONTEXT +
     'Detect whether the following message is written in English or French, then translate it into ' +
     'the other of those two languages. Keep the tone, emoji and meaning natural. The message may use ' +
     'formatting symbols: *bold*, _italic_, ~strikethrough~, and lines starting with "- ", "1. ", "> " or ' +
@@ -205,7 +245,7 @@ export async function translateText(text: string, opts: GeminiCallOptions = {}):
     'Reply with the translation only, no commentary.\n\nMessage:\n"""' +
     text +
     '"""';
-  const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], textSchema, { timeoutMs: textTimeoutMs(text), ...opts });
+  const result = await callGeminiBest([{ role: 'user', parts: [{ text: prompt }] }], textSchema, { timeoutMs: textTimeoutMs(text), ...opts });
   if (!result || !isLanguage(result.detectedLanguage) || typeof result.translated !== 'string') return null;
   return { detectedLanguage: result.detectedLanguage, translatedBody: result.translated };
 }
@@ -251,6 +291,7 @@ export interface TeachingTranslationResult {
 export async function translateTeaching(input: TeachingTranslationInput, opts: GeminiCallOptions = {}): Promise<TeachingTranslationResult | null> {
   const payload = JSON.stringify({ title: input.title, text: input.text ?? '', questions: input.questions });
   const prompt =
+    CONTEXT +
     'Below is a teaching from a church community, as JSON: a title, a written text (may be empty) and quiz ' +
     'questions each with their answer choices. Detect whether it is written in English or French, then ' +
     'translate everything into the other of those two languages. Keep the meaning, tone and any Bible ' +
@@ -264,7 +305,7 @@ export async function translateTeaching(input: TeachingTranslationInput, opts: G
     'Reply with the translation only, no commentary.\n\nTeaching:\n"""' +
     payload +
     '"""';
-  const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], teachingSchema, { timeoutMs: textTimeoutMs(payload), ...opts });
+  const result = await callGeminiBest([{ role: 'user', parts: [{ text: prompt }] }], teachingSchema, { timeoutMs: textTimeoutMs(payload), ...opts });
   if (!result || !isLanguage(result.detectedLanguage) || typeof result.title !== 'string' || typeof result.text !== 'string') return null;
   const questions: unknown = result.questions;
   if (!Array.isArray(questions) || questions.length !== input.questions.length) return null;
@@ -279,14 +320,22 @@ export async function translateTeaching(input: TeachingTranslationInput, opts: G
   return { detectedLanguage: result.detectedLanguage, title: result.title, text: input.text?.trim() ? result.text : null, questions: out };
 }
 
-const audioSchema = {
+const listenSchema = {
   type: 'object',
   properties: {
     detectedLanguage: { type: 'string', enum: ['en', 'fr'] },
     transcript: { type: 'string' },
+  },
+  required: ['detectedLanguage', 'transcript'],
+};
+
+const audioSchema = {
+  type: 'object',
+  properties: {
+    transcript: { type: 'string' },
     translated: { type: 'string' },
   },
-  required: ['detectedLanguage', 'transcript', 'translated'],
+  required: ['transcript', 'translated'],
 };
 
 export interface AudioTranslationResult {
@@ -296,10 +345,12 @@ export interface AudioTranslationResult {
 }
 
 /**
- * Transcribes a voice note and translates the transcript into whichever of
- * English/French it was NOT spoken in — one Gemini call, since Gemini
- * accepts audio input directly. Returns null on any failure (including an
- * audio file over MAX_INLINE_AUDIO_BYTES).
+ * Turns a voice note into its transcript and the transcript translated into
+ * whichever of English/French it was NOT spoken in. Two steps, each better
+ * done on its own: the model listens and writes down what was said, then (as
+ * plain text, with the ministry context) the writing is lightly corrected
+ * where a word was clearly misheard and translated naturally. Returns null on
+ * any failure (including an audio file over MAX_INLINE_AUDIO_BYTES).
  */
 export async function transcribeAndTranslateAudio(
   audioBase64: string,
@@ -308,20 +359,36 @@ export async function transcribeAndTranslateAudio(
 ): Promise<AudioTranslationResult | null> {
   // Rough check: base64 is ~4/3 the raw size.
   if (audioBase64.length * 0.75 > MAX_INLINE_AUDIO_BYTES) return null;
-  const prompt =
-    'Transcribe this voice message exactly as spoken. Detect whether it is English or French, and also ' +
-    'translate the transcript into the other of those two languages. Set out both the transcript and the ' +
-    'translation the same way. ' +
-    READABLE;
-  const result = await callGemini(
-    [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType, data: audioBase64 } }] }],
-    audioSchema,
+  const listenPrompt =
+    CONTEXT +
+    'Write down this voice message exactly as it is spoken, in the language spoken (English or French), ' +
+    'adding the punctuation and capital letters that speech does not show. Do not summarise, translate or ' +
+    'leave anything out. If it is silent or has no speech, return an empty transcript.';
+  const heard = await callGeminiBest(
+    [{ role: 'user', parts: [{ text: listenPrompt }, { inlineData: { mimeType, data: audioBase64 } }] }],
+    listenSchema,
     { timeoutMs: AUDIO_TIMEOUT_MS, ...opts },
   );
-  if (!result || !isLanguage(result.detectedLanguage) || typeof result.transcript !== 'string' || typeof result.translated !== 'string') {
-    return null;
-  }
-  return { detectedLanguage: result.detectedLanguage, transcript: result.transcript, translatedTranscript: result.translated };
+  if (!heard || !isLanguage(heard.detectedLanguage) || typeof heard.transcript !== 'string') return null;
+  const raw = heard.transcript.trim();
+  if (!raw) return { detectedLanguage: heard.detectedLanguage, transcript: '', translatedTranscript: '' };
+
+  const from = heard.detectedLanguage === 'fr' ? 'French' : 'English';
+  const to = heard.detectedLanguage === 'fr' ? 'English' : 'French';
+  const writePrompt =
+    CONTEXT +
+    `Below is the transcript of a voice message spoken in ${from}, written by speech recognition. Do two things. ` +
+    `1) "transcript": correct it — fix words that were clearly misheard (use the context of a church teaching, ` +
+    `Bible names and verses), spelling, punctuation and capital letters — but keep the speaker's own words and ` +
+    `style, and never add, remove or reorder ideas. 2) "translated": translate that corrected transcript into ${to}. ` +
+    'Set both out the same way. ' +
+    READABLE +
+    'Reply with these two texts only, no commentary.\n\nTranscript:\n"""' +
+    raw +
+    '"""';
+  const written = await callGeminiBest([{ role: 'user', parts: [{ text: writePrompt }] }], audioSchema, { timeoutMs: textTimeoutMs(raw), ...opts });
+  if (!written || typeof written.transcript !== 'string' || typeof written.translated !== 'string' || !written.transcript.trim() || !written.translated.trim()) return null;
+  return { detectedLanguage: heard.detectedLanguage, transcript: written.transcript, translatedTranscript: written.translated };
 }
 
 let loggedAvailableModels = false;

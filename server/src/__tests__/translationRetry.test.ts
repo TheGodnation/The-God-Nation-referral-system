@@ -187,7 +187,8 @@ describe('Translation retries — a failed first attempt is tried again later, a
       vi
         .fn()
         .mockResolvedValueOnce(geminiOk({ detectedLanguage: 'fr', translated: 'Praise God' }))
-        .mockResolvedValueOnce(geminiOk({ detectedLanguage: 'fr', transcript: 'Merci', translated: 'Thank you' })),
+        .mockResolvedValueOnce(geminiOk({ detectedLanguage: 'fr', transcript: 'Merci' }))
+        .mockResolvedValueOnce(geminiOk({ transcript: 'Merci', translated: 'Thank you' })),
     );
     const author = await prisma.person.create({ data: { name: 'Retry Author', whatsappNumber: '+237699499999' } });
     const post = await prisma.updatePost.create({ data: { authorPersonId: author.id, body: 'Louons Dieu' } });

@@ -22,9 +22,10 @@ import {
 export const RETRY_DELAYS_AFTER_MS = [15 * 60 * 1000, 60 * 60 * 1000];
 export const MAX_RETRIES = 3;
 const BATCH_SIZE = 5;
-// Longer than one attempt can take (audio download + a 60s Gemini call), so
+// Longer than one attempt can take (audio download + two steps, each with a
+// stronger-model try and a fallback try), so
 // a claimed row isn't picked up again while it's still being worked on.
-const CLAIM_MS = 5 * 60 * 1000;
+const CLAIM_MS = 8 * 60 * 1000;
 
 async function runOne(job: TranslationRetry): Promise<TranslationOutcome> {
   if (job.kind === 'UPDATE_POST') {

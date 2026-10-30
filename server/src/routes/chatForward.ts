@@ -13,6 +13,7 @@ import { isStorageConfigured, copyObject } from '../lib/storage';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
 import { MAX_FORWARD_MESSAGES, MAX_FORWARD_TARGETS } from '../lib/chatActions';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
+import { translateAndStoreMessage, transcribeAndStoreMessageAudio } from '../lib/translation';
 
 // POST /api/chat/forward — WhatsApp "Forward": send a copy of one message
 // (its text and its photos / voice notes / files) to up to 5 chats you can
@@ -36,9 +37,25 @@ const forwardSchema = z.object({
   markForwarded: z.boolean().optional(),
 });
 
+// What the app already worked out for a group message (its translation, or a
+// voice note's transcript and translation). A copy sent to another group takes
+// it along, so nothing is translated twice; only what is still missing is
+// translated for the copy. Private chats are never translated at all.
+type KnownTranslation = {
+  detectedLanguage: 'en' | 'fr' | null;
+  translatedBody: string | null;
+  translatedAt: Date | null;
+  transcribedLanguage: 'en' | 'fr' | null;
+  transcribedBody: string | null;
+  translatedTranscript: string | null;
+  transcribedAt: Date | null;
+};
+
 type SourceMessage = {
   /** Whether the person forwarding wrote the message themselves. */
   isOwn: boolean;
+  /** Set when the message comes from a group chat. */
+  known?: KnownTranslation;
   body: string | null;
   attachments: { storageKey: string; originalFilename: string; mimeType: string; byteSize: number; thumbDataUrl: string | null; pageCount: number | null }[];
 };
@@ -61,7 +78,16 @@ async function loadSource(actor: PrivateMessagingActor, source: { kind: 'group' 
       include: { attachments: { select: attachmentSelect }, hiddenFor: { where: { personId: actor.personId }, select: { id: true } } },
     });
     if (!m || m.conversationId !== conversation.id || m.deletedAt || m.hiddenFor.length > 0) return null;
-    return { isOwn: m.senderPersonId === actor.personId, body: m.body, attachments: m.attachments };
+    const known: KnownTranslation = {
+      detectedLanguage: m.detectedLanguage,
+      translatedBody: m.translatedBody,
+      translatedAt: m.translatedAt,
+      transcribedLanguage: m.transcribedLanguage,
+      transcribedBody: m.transcribedBody,
+      translatedTranscript: m.translatedTranscript,
+      transcribedAt: m.transcribedAt,
+    };
+    return { isOwn: m.senderPersonId === actor.personId, known, body: m.body, attachments: m.attachments };
   }
   const conversation = await prisma.privateConversation.findUnique({ where: { id: source.chatId } });
   if (!conversation || !resolvePrivateConversationRole(actor, conversation)) return null;
@@ -161,6 +187,18 @@ router.post(
               senderPersonId: target.personId,
               body: message.body,
               forwarded,
+              // The same words, so the translation already made is still right for the copy.
+              ...(message.known?.translatedBody
+                ? { detectedLanguage: message.known.detectedLanguage, translatedBody: message.known.translatedBody, translatedAt: message.known.translatedAt }
+                : {}),
+              ...(message.known?.transcribedBody && message.known.translatedTranscript
+                ? {
+                    transcribedLanguage: message.known.transcribedLanguage,
+                    transcribedBody: message.known.transcribedBody,
+                    translatedTranscript: message.known.translatedTranscript,
+                    transcribedAt: message.known.transcribedAt,
+                  }
+                : {}),
               attachments: copies.length
                 ? {
                     create: copies.map((a) => ({
@@ -177,6 +215,11 @@ router.post(
             },
           });
           sent.push({ kind: 'group', chatId: target.communityId, messageId: created.id });
+          // Whatever was not translated yet (a fresh message, one from a private chat, or one still being
+          // translated) gets translated for the copy, in the background, like a message sent normally.
+          if (created.body && !created.translatedBody) void translateAndStoreMessage(created.id, created.body).catch(() => {});
+          const voice = copies.find((a) => a.mimeType.startsWith('audio/'));
+          if (voice && !created.transcribedBody) void transcribeAndStoreMessageAudio(created.id, voice.newKey, voice.mimeType).catch(() => {});
         } else {
           const created = await prisma.privateMessage.create({
             data: {

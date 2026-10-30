@@ -6,6 +6,9 @@ import path from 'path';
 // silently point the test suite at the DEVELOPMENT database and TRUNCATE it.
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test'), override: true });
 
+// The tests count Gemini calls: use the one light model, as production does when the stronger one is unavailable.
+process.env.GEMINI_QUALITY_MODEL = '';
+
 import { execSync } from 'child_process';
 import { beforeAll, beforeEach, afterAll } from 'vitest';
 import { prisma } from '../lib/prisma';
