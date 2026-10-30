@@ -580,27 +580,22 @@ const snippet = (text: string | null | undefined, max = 90) => {
   return t.length > max ? `${t.slice(0, max)}…` : t;
 };
 
-/** A new Updates post: `audience` is 'ALL' when the central admin posted (the whole community is told) or
- * 'COMMUNITY' when anyone else did (only their own assembly). The caller works out the recipients. */
-export async function notifyPostPublished(
-  post: { id: string; body: string },
-  author: { id: string; name: string },
-  recipientPersonIds: string[],
-  audience: 'ALL' | 'COMMUNITY',
-) {
+/** A new Updates post by the central admin: the whole community is told. (Anyone else's post notifies nobody.)
+ * The caller works out the recipients. */
+export async function notifyPostPublished(post: { id: string; body: string }, author: { id: string; name: string }, recipientPersonIds: string[]) {
   const recipients = recipientPersonIds.filter((id) => id !== author.id);
   if (recipients.length === 0) return;
   await prisma.notification.createMany({
     data: recipients.map((recipientPersonId) => ({
       recipientPersonId,
       type: 'POST_PUBLISHED' as const,
-      metadata: { authorName: author.name, audience } as any,
+      metadata: { authorName: author.name } as any,
       targetType: 'UpdatePost',
       targetId: post.id,
     })),
   });
   pushToPersons(recipients, {
-    title: audience === 'ALL' ? `${author.name} • The God Nation` : author.name,
+    title: `${author.name} • The God Nation`,
     body: snippet(post.body) || '📷 New post',
     url: '/member/updates',
   }).catch(() => {});

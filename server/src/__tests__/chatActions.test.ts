@@ -531,7 +531,7 @@ describe('Notifications for posts, likes and replies', () => {
   const post = (m: M, body: string) => m.agent.post('/api/updates').set('X-CSRF-Token', m.csrf).send({ body });
   const settle = () => new Promise((r) => setTimeout(r, 400));
 
-  it('a member\'s new post tells only their own assembly; the central admin\'s tells everyone', async () => {
+  it('a member\'s new post notifies nobody; the central admin\'s tells everyone', async () => {
     const { mine, boss, ada, ben, zed } = await world();
     // The central admin's posts reach everyone under Headquarters: set the tree up.
     const hq = await prisma.community.create({ data: { name: 'HQ' } });
@@ -540,19 +540,19 @@ describe('Notifications for posts, likes and replies', () => {
     const zedHome = (await prisma.communityMembership.findFirst({ where: { personId: zed.person.id } }))!.communityId;
     await prisma.community.update({ where: { id: zedHome }, data: { parentId: hq.id } });
 
+    // An ordinary member's post is just a post: nobody is notified, not even their own assembly.
     expect((await post(ada, 'Hello from Ada')).status).toBe(201);
     await settle();
-    expect(await ofType(ben, 'POST_PUBLISHED')).toHaveLength(1);
-    expect((await ofType(ben, 'POST_PUBLISHED'))[0].metadata).toMatchObject({ authorName: ada.person.name, audience: 'COMMUNITY' });
+    expect(await ofType(ben, 'POST_PUBLISHED')).toHaveLength(0);
     expect(await ofType(zed, 'POST_PUBLISHED')).toHaveLength(0);
-    expect(await ofType(ada, 'POST_PUBLISHED')).toHaveLength(0);
+    expect(await ofType(boss, 'POST_PUBLISHED')).toHaveLength(0);
 
     expect((await post(boss, 'A word for everyone')).status).toBe(201);
     await settle();
     expect(await ofType(zed, 'POST_PUBLISHED')).toHaveLength(1);
-    expect((await ofType(zed, 'POST_PUBLISHED'))[0].metadata).toMatchObject({ audience: 'ALL' });
-    // The central admin is in Ada's assembly, so was told about Ada's post, but never about his own.
-    expect((await ofType(boss, 'POST_PUBLISHED')).map((x) => x.metadata.authorName)).toEqual([ada.person.name]);
+    expect((await ofType(zed, 'POST_PUBLISHED'))[0].metadata).toMatchObject({ authorName: boss.person.name });
+    // Never told about his own post.
+    expect(await ofType(boss, 'POST_PUBLISHED')).toHaveLength(0);
   });
 
   it('a like and a comment on your post tell you; a reply tells whoever was replied to; never yourself', async () => {

@@ -170,7 +170,7 @@ export function NotificationBell() {
         return metadata.note ? `${base} ${t('notifications.report_note', { note: String(metadata.note) })}` : base;
       }
       case 'POST_PUBLISHED':
-        return t(metadata.audience === 'ALL' ? 'notifications.post_published_all' : 'notifications.post_published', { name: metadata.authorName ?? '' });
+        return t('notifications.post_published_all', { name: metadata.authorName ?? '' });
       case 'POST_LIKED':
         return t(`notifications.post_liked_${metadata.kind === 'COMMENT' ? 'comment' : metadata.kind === 'MESSAGE' ? 'message' : 'post'}`, { name: metadata.actorName ?? '', emoji: metadata.emoji ?? '👍' });
       case 'POST_REPLIED':

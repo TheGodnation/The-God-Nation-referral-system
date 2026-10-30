@@ -1808,7 +1808,6 @@
     "announcement_published": "New announcement: {{title}}",
     "headquarters_post_published": "New Headquarters post: {{title}}",
     "post_published_all": "{{name}} shared a new post with everyone",
-    "post_published": "{{name}} shared a new post in your assembly",
     "post_liked_post": "{{name}} reacted {{emoji}} to your post",
     "post_liked_comment": "{{name}} reacted {{emoji}} to your comment",
     "post_liked_message": "{{name}} reacted {{emoji}} to your message",

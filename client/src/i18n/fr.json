@@ -1808,7 +1808,6 @@
     "announcement_published": "Nouvelle annonce : {{title}}",
     "headquarters_post_published": "Nouvelle publication du Quartier général : {{title}}",
     "post_published_all": "{{name}} a partagé une nouvelle publication avec tout le monde",
-    "post_published": "{{name}} a partagé une nouvelle publication dans votre assemblée",
     "post_liked_post": "{{name}} a réagi {{emoji}} à votre publication",
     "post_liked_comment": "{{name}} a réagi {{emoji}} à votre commentaire",
     "post_liked_message": "{{name}} a réagi {{emoji}} à votre message",

@@ -460,24 +460,14 @@ router.post('/', updatePostLimiter, requireCsrf, requireViewer, requirePerson, a
     void translateAndStoreUpdatePost(post.id, d.body).catch(() => {});
   }
 
-  // Tell people about it: everyone when the central admin posted, otherwise only the
-  // author's own assembly(ies). Never delays or fails the post.
+  // Tell everyone about it when the central admin posted. Anyone else's post is just a
+  // normal post: nobody is notified (likes and comments on it still tell its author).
   void (async () => {
+    if (!(await isCentralAdminPerson(personId))) return;
     const author = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } });
     if (!author) return;
-    if (await isCentralAdminPerson(personId)) {
-      const everyone = await resolveHeadquartersPostAudiencePersonIds({ networkWide: true, targets: [] });
-      await notifyPostPublished({ id: post.id, body: d.body }, author, everyone, 'ALL');
-      return;
-    }
-    const mine = await prisma.communityMembership.findMany({ where: { personId, status: 'ACTIVE' }, select: { communityId: true } });
-    if (mine.length === 0) return;
-    const neighbours = await prisma.communityMembership.findMany({
-      where: { communityId: { in: mine.map((m) => m.communityId) }, status: 'ACTIVE', personId: { not: personId } },
-      select: { personId: true },
-      distinct: ['personId'],
-    });
-    await notifyPostPublished({ id: post.id, body: d.body }, author, neighbours.map((m) => m.personId), 'COMMUNITY');
+    const everyone = await resolveHeadquartersPostAudiencePersonIds({ networkWide: true, targets: [] });
+    await notifyPostPublished({ id: post.id, body: d.body }, author, everyone);
   })().catch(() => {});
 
   res.status(201).json({ id: post.id });
