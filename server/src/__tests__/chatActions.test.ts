@@ -491,14 +491,22 @@ describe('Two-language voice message, live teaching and "recording…"', () => {
     await ping(boss, { typing: false });
     expect(await recordingFor(ada)).toEqual([]);
 
+    // Only the central admin's recording is announced: anyone else's is not shown, live or not.
     await ping(ada, { recording: true, live: true });
-    expect(await recordingFor(boss)).toEqual([{ name: ada.person.name, live: false }]);
+    expect(await recordingFor(boss)).toEqual([]);
+    expect((await ping(ada, { recording: true })).status).toBe(200);
+    expect(await recordingFor(boss)).toEqual([]);
   });
 
-  it('private chats show "recording" too', async () => {
+  it('in a private chat "recording" is shown for the central admin only', async () => {
     const a = await member('Rec A');
     const b = await member('Rec B');
     const conv = await privateChat(a, b);
+    // An ordinary member recording: nothing shown.
+    await a.agent.post(`${p(conv)}/typing`).set('X-CSRF-Token', a.csrf).send({ recording: true });
+    expect((await b.agent.get(`${p(conv)}/messages`)).body.recording).toBe(false);
+    // The central admin's member profile: shown, and it is not "typing".
+    await prisma.user.create({ data: { name: 'Central Admin', email: `rec-admin-${n}@test.local`, passwordHash: 'x', role: 'ADMIN', personId: a.person.id } });
     await a.agent.post(`${p(conv)}/typing`).set('X-CSRF-Token', a.csrf).send({ recording: true });
     const seen = (await b.agent.get(`${p(conv)}/messages`)).body;
     expect(seen.recording).toBe(true);

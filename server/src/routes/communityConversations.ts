@@ -1002,10 +1002,13 @@ router.post(
       clearTyping(key, personId);
     } else {
       const me = await prisma.person.findUnique({ where: { id: personId }, select: { name: true } });
-      // { recording: true } = "is recording a voice message…"; live only counts for the central admin.
-      const recording = req.body?.recording === true;
-      const live = recording && req.body?.live === true && (await isCentralAdminPerson(personId));
-      setTyping(key, personId, me?.name ?? '', { recording, live });
+      // { recording: true } = "is recording a voice message…". Shown for the central admin only
+      // (and "live" with it): anyone else's recording is not announced at all.
+      if (req.body?.recording === true) {
+        if (await isCentralAdminPerson(personId)) setTyping(key, personId, me?.name ?? '', { recording: true, live: req.body?.live === true });
+      } else {
+        setTyping(key, personId, me?.name ?? '');
+      }
     }
     res.json({ ok: true });
   }),

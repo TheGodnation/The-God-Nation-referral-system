@@ -29,6 +29,7 @@ import {
   THUMB_DATA_URL_PATTERN,
 } from '../lib/attachmentPolicy';
 import { profilePhotoPath } from '../lib/profilePhoto';
+import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording, type TickStatus } from '../lib/presence';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
@@ -689,7 +690,11 @@ router.post(
     const actor = req.privateMessagingActor!;
     const key = typingKey(loaded.conversation.id);
     if (req.body?.typing === false) clearTyping(key, actorKey(actor));
-    else setTyping(key, actorKey(actor), '', { recording: req.body?.recording === true });
+    else if (req.body?.recording === true) {
+      // "Recording…" is shown for the central admin only (their staff account, or the member profile that carries it).
+      const isCentralAdmin = actor.type === 'USER' || (await isCentralAdminPerson(actor.personId));
+      if (isCentralAdmin) setTyping(key, actorKey(actor), '', { recording: true });
+    } else setTyping(key, actorKey(actor), '');
     res.json({ ok: true });
   }),
 );

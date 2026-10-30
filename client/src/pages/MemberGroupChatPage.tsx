@@ -630,7 +630,7 @@ export function MemberGroupChatPage() {
               setReplyTo(null);
             }}
             onTyping={(typing) => void api.post(`/api/communities/${communityId}/conversation/typing`, { typing }).catch(() => {})}
-            onRecording={(on, live) => void api.post(`/api/communities/${communityId}/conversation/typing`, on ? { recording: true, live } : { typing: false }).catch(() => {})}
+            onRecording={canPostTeaching ? (on, live) => void api.post(`/api/communities/${communityId}/conversation/typing`, on ? { recording: true, live } : { typing: false }).catch(() => {}) : undefined}
             bilingual={canPostTeaching}
             onNewTeaching={canPostTeaching ? () => navigate(`/member/chats/group/${communityId}/teaching/new`) : undefined}
           />
