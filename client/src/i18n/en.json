@@ -1676,6 +1676,12 @@
     "hide_password": "Hide password",
     "opening_app": "Opening your community…"
   },
+  "comfort": {
+    "open": "Read in comfort",
+    "close": "Close",
+    "smaller": "Smaller text",
+    "bigger": "Bigger text"
+  },
   "translation": {
     "translated_from": "Translated from {{language}}",
     "show_original": "Show original",

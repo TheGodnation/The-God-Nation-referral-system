@@ -97,7 +97,7 @@ const NUMBER = /^\s*\d{1,3}[.)]\s+(.*)$/;
 const QUOTE = /^>\s?(.*)$/;
 const HEADING = /^(#{1,3})\s+(.*)$/;
 
-function parseBlocks(text: string, headings: boolean): Block[] {
+function parseBlocks(text: string, headings: boolean, splitOnBlank = false): Block[] {
   const lines = text.split('\n');
   const blocks: Block[] = [];
   let para: string[] = [];
@@ -130,7 +130,8 @@ function parseBlocks(text: string, headings: boolean): Block[] {
     } else if (headings && (m = line.match(HEADING)) && m[2].trim()) {
       endPara();
       blocks.push({ t: 'h', level: m[1].length as 1 | 2 | 3, c: parseInline(m[2]) });
-    } else para.push(line);
+    } else if (splitOnBlank && !line.trim()) endPara();
+    else para.push(line);
   }
   endPara();
   return blocks;
@@ -153,19 +154,22 @@ export function RichText({
   text,
   className = '',
   headings = false,
+  comfort = false,
   'data-testid': testId,
 }: {
   text: string | null | undefined;
   className?: string;
   headings?: boolean;
+  /** Roomy spacing for long reading: clear gaps between paragraphs, extra room above each heading. */
+  comfort?: boolean;
   'data-testid'?: string;
 }) {
   if (!text) return null;
-  const blocks = parseBlocks(text, headings);
+  const blocks = parseBlocks(text, headings, comfort);
   return (
     <div className={className} data-testid={testId}>
       {blocks.map((b, i) => {
-        const gap = i === 0 ? '' : 'mt-1';
+        const gap = i === 0 ? '' : comfort ? (b.t === 'h' ? 'mt-7' : 'mt-4') : 'mt-1';
         if (b.t === 'p') return <p key={i} className={`whitespace-pre-wrap break-words ${gap}`}>{renderInline(b.c)}</p>;
         if (b.t === 'ul')
           return (
@@ -189,6 +193,14 @@ export function RichText({
               {renderInline(b.c)}
             </blockquote>
           );
+        if (comfort) {
+          // Sized in em so a heading always stays a little bigger than the text around it.
+          return (
+            <p key={i} className={`mb-[-0.6em] break-words font-bold text-brand-800 ${gap}`} style={{ fontSize: `${{ 1: 1.3, 2: 1.2, 3: 1.1 }[b.level]}em` }}>
+              {renderInline(b.c)}
+            </p>
+          );
+        }
         return <p key={i} className={`break-words ${HEADING_CLASS[b.level]} ${gap}`}>{renderInline(b.c)}</p>;
       })}
     </div>

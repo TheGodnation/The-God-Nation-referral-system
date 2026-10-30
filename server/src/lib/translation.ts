@@ -177,6 +177,17 @@ export interface TextTranslationResult {
   translatedBody: string;
 }
 
+// Long texts are hard to read on a phone as one block, and a spoken sermon
+// has no paragraphs at all, so every translation (and voice-note transcript)
+// is also set out for easy reading. Short texts are left exactly as they are.
+const READABLE =
+  'Make it easy to read on a phone: when the text is longer than about 100 words, break it into short ' +
+  'paragraphs of two or three sentences with a blank line between them (add the punctuation a spoken text ' +
+  'is missing), and put every Bible verse that is quoted on its own line starting with "> ". When the text ' +
+  'is longer than about 300 words and covers several points, also add a short heading for each part on its ' +
+  'own line written as "# Heading" with a blank line before and after it, but only where the text keeps ' +
+  'its own order. Never add, remove or reorder any of the speaker\'s words or ideas. ';
+
 /**
  * Detects whether `text` is English or French and translates it into
  * whichever of the two it is NOT. Returns null if translation is not
@@ -189,7 +200,9 @@ export async function translateText(text: string, opts: GeminiCallOptions = {}):
     'the other of those two languages. Keep the tone, emoji and meaning natural. The message may use ' +
     'formatting symbols: *bold*, _italic_, ~strikethrough~, and lines starting with "- ", "1. ", "> " or ' +
     '"# ". Keep every symbol exactly where it belongs around the translated words, keep line breaks, ' +
-    'and never translate or change web addresses. Reply with the translation only, no commentary.\n\nMessage:\n"""' +
+    'and never translate or change web addresses. ' +
+    READABLE +
+    'Reply with the translation only, no commentary.\n\nMessage:\n"""' +
     text +
     '"""';
   const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], textSchema, { timeoutMs: textTimeoutMs(text), ...opts });
@@ -245,8 +258,10 @@ export async function translateTeaching(input: TeachingTranslationInput, opts: G
     'symbols: *bold*, _italic_, ~strikethrough~, and lines starting with "- ", "1. ", "> " or "# ". Keep every ' +
     'symbol exactly where it belongs around the translated words, keep line breaks, and never translate or ' +
     'change web addresses. Return the same structure: the same number of questions, in the same order, ' +
-    'each with the same number of answer choices in the same order. Empty text stays empty. Reply with ' +
-    'the translation only, no commentary.\n\nTeaching:\n"""' +
+    'each with the same number of answer choices in the same order. Empty text stays empty. For the ' +
+    'written text only (not the title or the quiz): ' +
+    READABLE +
+    'Reply with the translation only, no commentary.\n\nTeaching:\n"""' +
     payload +
     '"""';
   const result = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], teachingSchema, { timeoutMs: textTimeoutMs(payload), ...opts });
@@ -295,7 +310,9 @@ export async function transcribeAndTranslateAudio(
   if (audioBase64.length * 0.75 > MAX_INLINE_AUDIO_BYTES) return null;
   const prompt =
     'Transcribe this voice message exactly as spoken. Detect whether it is English or French, and also ' +
-    'translate the transcript into the other of those two languages.';
+    'translate the transcript into the other of those two languages. Set out both the transcript and the ' +
+    'translation the same way. ' +
+    READABLE;
   const result = await callGemini(
     [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType, data: audioBase64 } }] }],
     audioSchema,

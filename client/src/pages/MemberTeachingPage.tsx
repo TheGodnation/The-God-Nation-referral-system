@@ -296,7 +296,7 @@ export function MemberTeachingPage() {
 
         {hasText && (
           <article className="rounded-xl bg-white p-4 shadow-sm">
-            <RichText className="whitespace-pre-wrap break-words text-[17px] leading-relaxed text-slate-900" data-testid="teaching-text" text={displayText} headings />
+            <RichText className="whitespace-pre-wrap break-words text-[17px] leading-relaxed text-slate-900" data-testid="teaching-text" text={displayText} headings comfort />
             <div ref={endRef} className="mt-4 h-1" data-testid="teaching-end" />
             {me.textRead ? (
               <p className="mt-2 text-sm font-medium text-green-700">✓ {t('teaching.text_counted')}</p>

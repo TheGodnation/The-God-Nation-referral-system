@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Avatar } from '../Avatar';
 import { TranslationNote } from '../TranslationNote';
+import { ComfortButton, ComfortReader } from '../ComfortReader';
 import { formatBytes } from '../../lib/attachmentLimits';
 import { getAttachmentUrl, useAttachmentUrl, useInView } from '../../lib/chatMedia';
 import { isPdf } from '../../lib/pdfPreview';
@@ -22,6 +23,8 @@ const NAME_COLORS = ['text-rose-700', 'text-emerald-700', 'text-violet-700', 'te
 // Same thresholds as UpdatesFeed.tsx's own long-post truncation — a message
 // this long would otherwise fill the whole chat screen on its own.
 const LONG_MESSAGE_CHARS = 300;
+// Text longer than this gets a "Read in comfort" button.
+const COMFORT_MIN_CHARS = 400;
 const LONG_MESSAGE_LINES = 7;
 
 export function nameColor(name: string): string {
@@ -248,6 +251,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
   // first), so a long message never pushes the whole chat screen out of
   // view. Collapsed by default; one toggle per bubble.
   const [expanded, setExpanded] = useState(false);
+  const [comfort, setComfort] = useState<string | null>(null);
   // Auto-translation — shows the translated text by default, with a
   // "Translated from X / Show original" toggle (Facebook-style); the
   // original is never hidden, just one tap away. Long-message truncation
@@ -410,9 +414,10 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
               {m.transcript && (
                 <div className="mb-1 rounded-md bg-slate-900/5 px-2 py-1.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t('translation.transcript_label')}</p>
-                  <p className="whitespace-pre-wrap break-words text-sm text-slate-800">
-                    {showOriginalTranscript && m.transcript.original ? m.transcript.original : m.transcript.text}
-                  </p>
+                  <RichText className="break-words text-sm text-slate-800" text={showOriginalTranscript && m.transcript.original ? m.transcript.original : m.transcript.text} headings />
+                  {(showOriginalTranscript && m.transcript.original ? m.transcript.original : m.transcript.text).length > COMFORT_MIN_CHARS && (
+                    <ComfortButton onClick={() => setComfort(showOriginalTranscript && m.transcript!.original ? m.transcript!.original : m.transcript!.text)} />
+                  )}
                   {m.transcript.translated && (
                     <TranslationNote
                       sourceLanguage={m.transcript.sourceLanguage}
@@ -431,7 +436,8 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
               ))}
               {displayBody && !m.teaching && (
                 <>
-                  <RichText className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} />
+                  <RichText className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings={Boolean(m.translation) && !showOriginal} />
+                  {displayBody.length > COMFORT_MIN_CHARS && <ComfortButton onClick={() => setComfort(displayBody)} />}
                   {isLongBody && (
                     <button
                       type="button"
@@ -487,6 +493,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
             ))}
           </div>
         )}
+        {comfort && <ComfortReader title={m.senderName} text={comfort} onClose={() => setComfort(null)} />}
       </div>
     </div>
   );
