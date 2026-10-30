@@ -180,7 +180,7 @@ router.get('/attempts/:id/questions', asyncHandler(async (req, res) => {
   // with the answer choices shuffled too.
   const inSet = attempt.setNumber !== null;
   const found = await prisma.question.findMany({
-    where: { assessmentId: attempt.assessmentId, ...(inSet ? { setNumber: attempt.setNumber! } : {}) },
+    where: { assessmentId: attempt.assessmentId, setNumber: attempt.setNumber ?? 1 },
     orderBy: { order: 'asc' },
     include: { options: { orderBy: { order: 'asc' } } },
   });

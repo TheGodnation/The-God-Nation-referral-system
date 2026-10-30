@@ -15,6 +15,9 @@ export interface TeachingResultsData {
   participants: { personId: string; name: string; photoUrl: string | null; finishedAt: string | null; percentage: number | null; passed: boolean | null; takenAt: string | null }[];
   notFinished?: { personId: string; name: string; photoUrl?: string | null }[];
   passMark: number;
+  /** The central admin and this assembly's leaders can invite everyone who failed to retake. */
+  canInvite?: boolean;
+  retake?: { waiting: number };
 }
 
 const REFRESH_MS = 20000;
@@ -40,6 +43,7 @@ export function TeachingResults({
   const [data, setData] = useState<TeachingResultsData | null>(null);
   const [failed, setFailed] = useState(false);
   const [reminder, setReminder] = useState<string | null>(null);
+  const [invite, setInvite] = useState<string | null>(null);
   const [showAllPending, setShowAllPending] = useState(false);
 
   const load = useCallback(() => {
@@ -70,6 +74,17 @@ export function TeachingResults({
       setReminder(t('teaching.reminder_sent', { count: res.sent }));
     } catch (err) {
       setReminder(err instanceof ApiError ? err.message : t('teaching.reminder_failed'));
+    }
+  }
+
+  async function inviteRetake() {
+    setInvite(null);
+    try {
+      const res = await api.post<{ invited: number }>(`/api/teachings/${teachingId}/retake-invite`, {});
+      setInvite(t(res.invited > 0 ? 'teaching.retake_invited' : 'teaching.retake_invite_none', { count: res.invited }));
+      load();
+    } catch (err) {
+      setInvite(err instanceof ApiError ? err.message : t('teaching.retake_failed'));
     }
   }
 
@@ -167,6 +182,15 @@ export function TeachingResults({
                   {reminder && <p className="text-sm text-slate-600">{reminder}</p>}
                 </div>
               )}
+            </div>
+          )}
+          {data.canInvite && (
+            <div className="space-y-2 rounded-lg bg-sky-50 px-3 py-3" data-testid="teaching-retake-invite">
+              <p className="text-sm text-sky-900">{t('teaching.retake_waiting', { count: data.retake?.waiting ?? 0 })}</p>
+              <button type="button" className="btn-secondary px-3 py-1.5" onClick={inviteRetake} disabled={(data.retake?.waiting ?? 0) === 0}>
+                🔁 {t('teaching.retake_invite')}
+              </button>
+              {invite && <p className="text-sm text-slate-700">{invite}</p>}
             </div>
           )}
         </>

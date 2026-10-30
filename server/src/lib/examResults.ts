@@ -222,11 +222,13 @@ export async function quizSummary(assessmentId: string, opts: { personIds?: stri
       devotional: { select: { titleEn: true } },
       questions: {
         orderBy: [{ setNumber: 'asc' }, { order: 'asc' }],
-        select: { id: true, textEn: true, textFr: true, options: { select: { id: true, textEn: true, isCorrect: true } } },
+        select: { id: true, setNumber: true, textEn: true, textFr: true, options: { select: { id: true, textEn: true, isCorrect: true } } },
       },
     },
   });
   if (!assessment) return null;
+  // A teaching's retake questions (set 2) are not part of this first-try summary.
+  if (assessment.teaching) assessment.questions = assessment.questions.filter((q) => q.setNumber === 1);
 
   const attempts = await prisma.attempt.findMany({
     where: {

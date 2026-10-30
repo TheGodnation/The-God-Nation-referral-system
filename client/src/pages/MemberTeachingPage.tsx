@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { TranslationNote } from '../components/TranslationNote';
 import { PdfViewer } from '../components/chat/PdfViewer';
 import { TeachingResults } from '../components/teaching/TeachingResults';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { getAttachmentUrl } from '../lib/chatMedia';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { RichText } from '../lib/richText';
@@ -39,6 +39,8 @@ interface TeachingDetail {
     state: 'LOCKED' | 'AVAILABLE' | 'IN_PROGRESS' | 'DONE' | 'CLOSED';
     percentage: number | null;
     passed: boolean | null;
+    /** The one retake after failing: still to take, or already used. */
+    retake?: 'AVAILABLE' | 'USED' | null;
   };
   me: { textRead: boolean; mediaFraction: number; mediaDone: boolean; completed: boolean };
 }
@@ -128,6 +130,23 @@ export function MemberTeachingPage() {
   const sentText = useRef(false);
   // The last try to save the reading failed (no connection, or a restart on the server).
   const [saveFailed, setSaveFailed] = useState(false);
+  const navigate = useNavigate();
+  const [retaking, setRetaking] = useState(false);
+  const [retakeError, setRetakeError] = useState<string | null>(null);
+
+  // The one retake: new questions are prepared (a few seconds the first time), then the quiz opens.
+  async function startRetake() {
+    setRetaking(true);
+    setRetakeError(null);
+    try {
+      const res = await api.post<{ assessmentId: string }>(`/api/teachings/${id}/retake`, {});
+      navigate(`/member/assessments/${res.assessmentId}`);
+    } catch (err) {
+      setRetakeError(err instanceof ApiError ? err.message : t('teaching.retake_failed'));
+    } finally {
+      setRetaking(false);
+    }
+  }
 
   const post = useCallback(
     (body: { textRead?: boolean; mediaFraction?: number }) =>
@@ -364,6 +383,16 @@ export function MemberTeachingPage() {
               {t(quiz.passed ? 'teaching.quiz_passed' : 'teaching.quiz_failed', { percent: Math.round(quiz.percentage ?? 0) })}
             </p>
           )}
+          {!quiz.passed && quiz.retake === 'AVAILABLE' && (quiz.state === 'DONE' || quiz.state === 'CLOSED') && (
+            <div className="space-y-2 rounded-lg bg-sky-50 px-3 py-3" data-testid="teaching-retake">
+              <p className="text-sm text-sky-900">{t('teaching.retake_note')}</p>
+              <button type="button" className="btn-primary w-full" onClick={() => void startRetake()} disabled={retaking} data-testid="teaching-retake-button">
+                {retaking ? t('teaching.retake_preparing') : t('teaching.retake_button')}
+              </button>
+              {retakeError && <p className="text-sm text-red-700" role="alert">{retakeError}</p>}
+            </div>
+          )}
+          {!quiz.passed && quiz.retake === 'USED' && quiz.state === 'DONE' && <p className="text-sm text-slate-600">{t('teaching.retake_used')}</p>}
         </div>
 
         <TeachingResults

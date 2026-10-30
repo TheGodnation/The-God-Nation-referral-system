@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { retakeStateOf } from './teachingRetake';
 import { hasConversationAccess } from './communityConversation';
 
 // ---------------------------------------------------------------------------
@@ -180,7 +181,11 @@ export async function examAccess(
       select: { completedAt: true },
     });
     const closed = teaching.closesAt.getTime() < Date.now();
-    return { canView: true, canStart: Boolean(progress?.completedAt) && !closed, closedReason: closed ? 'CLOSED' : null };
+    // The one retake after a failed first try stays open (and an unfinished try can always be continued),
+    // even after the teaching's closing day.
+    const tries = await prisma.attempt.findMany({ where: { personId, assessmentId }, orderBy: { attemptNumber: 'asc' }, select: { status: true, passed: true } });
+    const retakeOpen = retakeStateOf(tries) === 'AVAILABLE' || tries.some((t) => t.status === 'IN_PROGRESS');
+    return { canView: true, canStart: (Boolean(progress?.completedAt) && !closed) || retakeOpen, closedReason: closed && !retakeOpen ? 'CLOSED' : null };
   }
 
   if (assessment.devotional) {

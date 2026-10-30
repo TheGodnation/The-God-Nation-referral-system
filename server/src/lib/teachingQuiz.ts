@@ -78,6 +78,8 @@ export async function draftQuizQuestions(input: {
   text?: string | null;
   audio?: { base64: string; mimeType: string } | null;
   count: number;
+  /** Questions already asked: the new ones must be about other points and worded differently. */
+  avoid?: string[];
 }): Promise<DraftQuestion[] | null> {
   if (!isQuizDraftingAvailable()) return null;
   const text = (input.text ?? '').trim().slice(0, MAX_TEXT_CHARS);
@@ -90,6 +92,11 @@ export async function draftQuizQuestions(input: {
     'covering different parts of the teaching; wrong options must be believable but clearly wrong according to the teaching; ' +
     'put the correct option at a random position and give its position as correctIndex (starting at 0). ' +
     'Write every question and option in both English (textEn) and French (textFr).' +
+    (input.avoid?.length
+      ? '\n\nThese questions were already asked. Write completely different questions about other points of the teaching, ' +
+        'and do not repeat or rephrase any of them:\n' +
+        input.avoid.map((q) => `- ${q}`).join('\n')
+      : '') +
     (text ? `\n\nTeaching text:\n"""${text}"""` : '') +
     (input.audio ? '\n\nThe teaching is also in the attached audio.' : '');
 

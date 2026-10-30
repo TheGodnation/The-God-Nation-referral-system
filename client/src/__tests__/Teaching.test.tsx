@@ -331,3 +331,41 @@ describe('Posting a teaching', () => {
     expect(screen.getAllByRole('radio')).toHaveLength(3);
   });
 });
+
+describe('The one retake', () => {
+  const failed = (over: Record<string, unknown> = {}) =>
+    detail({ me: { textRead: true, mediaFraction: 0, mediaDone: false, completed: true }, quiz: { assessmentId: 'a1', passMark: 70, questionCount: 5, state: 'DONE', percentage: 40, passed: false, retake: 'AVAILABLE', ...over } });
+
+  it('after failing, offers one retake with new questions, telling them to read again first', async () => {
+    renderPage(failed(), { 'POST /api/teachings/t1/retake': () => ({ status: 201, body: { assessmentId: 'a1', attemptId: 'x1' } }) });
+    const panel = await screen.findByTestId('teaching-retake');
+    expect(within(panel).getByText(/Read the teaching carefully again/)).toBeInTheDocument();
+    expect(within(panel).getByText(/last try/)).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('button', { name: 'Try again with new questions' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url === '/api/teachings/t1/retake')).toBe(true));
+  });
+
+  it('says so when the retake could not be prepared', async () => {
+    renderPage(failed(), { 'POST /api/teachings/t1/retake': () => ({ status: 502, body: { error: 'New questions could not be prepared just now.', code: 'AI_FAILED' } }) });
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again with new questions' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be prepared');
+  });
+
+  it('once used, or once passed, there is no retake button', async () => {
+    renderPage(failed({ retake: 'USED' }));
+    expect(await screen.findByText('You have used your retake.')).toBeInTheDocument();
+    expect(screen.queryByTestId('teaching-retake')).not.toBeInTheDocument();
+  });
+
+  it('leaders and the central admin see how many are waiting and can invite them all', async () => {
+    renderPage(
+      detail({ canManage: true }),
+      { 'POST /api/teachings/t1/retake-invite': () => ({ body: { invited: 3 } }) },
+      { ...RESULTS, canInvite: true, retake: { waiting: 3 } },
+    );
+    const box = await screen.findByTestId('teaching-retake-invite');
+    expect(within(box).getByText('3 member(s) failed and can still try again.')).toBeInTheDocument();
+    fireEvent.click(within(box).getByRole('button', { name: /Invite everyone who failed to try again/ }));
+    expect(await within(box).findByText('3 member(s) invited to try again.')).toBeInTheDocument();
+  });
+});

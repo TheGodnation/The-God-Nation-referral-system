@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { retakeStateOf, type RetakeState } from './teachingRetake';
 import { profilePhotoPath } from './profilePhoto';
 
 // ---------------------------------------------------------------------------
@@ -85,6 +86,8 @@ export interface MyQuiz {
   state: QuizState;
   percentage: number | null;
   passed: boolean | null;
+  /** The one retake after a failed first try: still to take, or already used. */
+  retake: RetakeState;
 }
 
 /** Where this member is with the quiz: locked until approved, then open until the teaching's closing day. */
@@ -94,12 +97,18 @@ export function quizStateOf(
   attempts: { status: string; percentage: number | null; passed: boolean | null }[],
   now = new Date(),
 ): MyQuiz {
-  const submitted = attempts.find((a) => a.status === 'SUBMITTED');
-  if (submitted) return { state: 'DONE', percentage: submitted.percentage, passed: submitted.passed };
-  if (!progress?.completedAt) return { state: now > teaching.closesAt ? 'CLOSED' : 'LOCKED', percentage: null, passed: null };
-  if (now > teaching.closesAt) return { state: 'CLOSED', percentage: null, passed: null };
-  if (attempts.some((a) => a.status === 'IN_PROGRESS')) return { state: 'IN_PROGRESS', percentage: null, passed: null };
-  return { state: 'AVAILABLE', percentage: null, passed: null };
+  const submitted = attempts.filter((a) => a.status === 'SUBMITTED');
+  const retake = retakeStateOf(attempts);
+  // The score shown is the latest try: after a retake, that is the retake.
+  const latest = submitted[submitted.length - 1];
+  if (submitted.length > 0 && attempts.some((a) => a.status === 'IN_PROGRESS')) {
+    return { state: 'IN_PROGRESS', percentage: submitted[0].percentage, passed: submitted[0].passed, retake };
+  }
+  if (latest) return { state: 'DONE', percentage: latest.percentage, passed: latest.passed, retake };
+  if (!progress?.completedAt) return { state: now > teaching.closesAt ? 'CLOSED' : 'LOCKED', percentage: null, passed: null, retake };
+  if (now > teaching.closesAt) return { state: 'CLOSED', percentage: null, passed: null, retake };
+  if (attempts.some((a) => a.status === 'IN_PROGRESS')) return { state: 'IN_PROGRESS', percentage: null, passed: null, retake };
+  return { state: 'AVAILABLE', percentage: null, passed: null, retake };
 }
 
 export type CardState = 'NEW' | 'STARTED' | 'FINISHED' | 'PASSED' | 'FAILED';
@@ -118,7 +127,8 @@ export async function cardStatesFor(personId: string, teachings: { id: string; a
   ]);
   for (const t of teachings) {
     const p = progress.find((x) => x.teachingId === t.id);
-    const a = attempts.find((x) => x.assessmentId === t.assessmentId);
+    // The card shows the latest try (after the one retake, that is the retake).
+    const a = [...attempts].reverse().find((x) => x.assessmentId === t.assessmentId);
     if (a) result.set(t.id, { state: a.passed ? 'PASSED' : 'FAILED', percentage: a.percentage });
     else if (p?.completedAt) result.set(t.id, { state: 'FINISHED', percentage: null });
     else if (p) result.set(t.id, { state: 'STARTED', percentage: null });

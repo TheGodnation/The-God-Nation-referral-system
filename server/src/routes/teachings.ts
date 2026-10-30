@@ -24,6 +24,8 @@ import { pushToPersons } from '../lib/push';
 import { recordAudit } from '../lib/audit';
 import { translateAndStoreTeaching } from '../lib/translation';
 import { draftQuizQuestions, isQuizDraftingAvailable } from '../lib/teachingQuiz';
+import { RetakeError, ensureRetakeQuestions, membersWhoCanRetake, startTeachingRetake } from '../lib/teachingRetake';
+import { isCommunityAdministrator } from '../lib/leadership';
 import {
   DEFAULT_OPEN_DAYS,
   mediaKindOf,
@@ -266,7 +268,8 @@ async function loadTeaching(req: any, res: any) {
       message: { select: { deletedAt: true, attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, pageCount: true } } } },
       community: { select: { name: true } },
       author: { select: { name: true } },
-      assessment: { select: { passMark: true, _count: { select: { questions: true } } } },
+      // The quiz's own questions (the first set); a retake's fresh set is not counted here.
+      assessment: { select: { passMark: true, _count: { select: { questions: { where: { setNumber: 1 } } } } } },
     },
   });
   // Not found, deleted, or not yours to see: all the same answer.
@@ -359,7 +362,54 @@ router.get('/:id/results', asyncHandler(async (req, res) => {
   if (!found) return;
   const { teaching, personId } = found;
   const canManage = await isCentralAdminPerson(personId);
-  res.json({ ...(await teachingResults(teaching, canManage)), passMark: teaching.assessment.passMark, closesAt: teaching.closesAt });
+  // The central admin and this assembly's leaders can invite everyone who failed to retake.
+  const canInvite = canManage || (await isCommunityAdministrator(personId, teaching.communityId));
+  const retake = canInvite ? { waiting: (await membersWhoCanRetake(teaching.assessmentId, teaching.authorPersonId)).length } : undefined;
+  res.json({ ...(await teachingResults(teaching, canManage)), passMark: teaching.assessment.passMark, closesAt: teaching.closesAt, canInvite, retake });
+}));
+
+function retakeFailure(res: any, err: unknown) {
+  if (err instanceof RetakeError) return res.status(err.status).json({ error: err.message, code: err.code });
+  throw err;
+}
+
+// POST /api/teachings/:id/retake — the member's one retake after failing the quiz:
+// starts a new try with fresh questions (never the ones already seen). No approval needed.
+router.post('/:id/retake', teachingProgressLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const found = await loadTeaching(req, res);
+  if (!found) return;
+  const { teaching, personId } = found;
+  try {
+    const attempt = await startTeachingRetake(personId, teaching);
+    res.status(201).json({ assessmentId: teaching.assessmentId, attemptId: attempt.id });
+  } catch (err) {
+    return retakeFailure(res, err);
+  }
+}));
+
+// POST /api/teachings/:id/retake-invite — the central admin or a leader of this assembly:
+// prepares the fresh questions and tells everyone who failed that they can try again.
+router.post('/:id/retake-invite', teachingPostLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const found = await loadTeaching(req, res);
+  if (!found) return;
+  const { teaching, personId } = found;
+  if (!(await isCentralAdminPerson(personId)) && !(await isCommunityAdministrator(personId, teaching.communityId))) {
+    return res.status(403).json({ error: 'Only the central admin or a leader of this assembly can do this.', code: 'NOT_ALLOWED' });
+  }
+  const ids = await membersWhoCanRetake(teaching.assessmentId, teaching.authorPersonId);
+  if (ids.length === 0) return res.json({ invited: 0 });
+  try {
+    await ensureRetakeQuestions(teaching);
+  } catch (err) {
+    return retakeFailure(res, err);
+  }
+  await pushToPersons(ids, {
+    title: `📖 ${teaching.title}`,
+    body: 'You can try the quiz again with new questions. Read the teaching carefully first — this is your last try.',
+    url: `/member/teachings/${teaching.id}`,
+  }).catch(() => {});
+  await recordAudit({ action: 'TEACHING_RETAKE_INVITED', targetType: 'Teaching', targetId: teaching.id, metadata: { recipients: ids.length } });
+  res.json({ invited: ids.length });
 }));
 
 const REMIND_EVERY_MS = 3 * 60 * 60 * 1000;

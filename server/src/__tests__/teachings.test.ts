@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
 
@@ -25,6 +25,24 @@ vi.mock('../lib/translation', async () => {
       if (process.env.FAKE_TEACHING_TRANSLATION === 'on') {
         await prisma.teaching.update({ where: { id }, data: { detectedLanguage: 'en', titleTranslated: 'Marcher dans l’amour', textTranslated: 'Aimez-vous', translatedAt: new Date() } });
       }
+    }),
+  };
+});
+
+// Stands in for the AI that writes the retake's fresh questions; remembers what it was asked to avoid.
+const drafted: { avoid?: string[]; text?: string | null }[] = [];
+let aiOn = false;
+vi.mock('../lib/teachingQuiz', async () => {
+  const actual = await vi.importActual<typeof import('../lib/teachingQuiz')>('../lib/teachingQuiz');
+  return {
+    ...actual,
+    isQuizDraftingAvailable: () => aiOn || actual.isQuizDraftingAvailable(),
+    draftQuizQuestions: vi.fn(async (input: { avoid?: string[]; text?: string | null }) => {
+      drafted.push({ avoid: input.avoid, text: input.text });
+      return [
+        { textEn: 'Which commandment did Jesus give?', textFr: 'Quel commandement Jésus a-t-il donné ?', options: [{ textEn: 'Love one another', textFr: 'Aimez-vous' }, { textEn: 'Rest', textFr: 'Repos' }], correctIndex: 0 },
+        { textEn: 'How should we love?', textFr: 'Comment aimer ?', options: [{ textEn: 'As He loved us', textFr: 'Comme Il nous a aimés' }, { textEn: 'Only friends', textFr: 'Amis seulement' }], correctIndex: 0 },
+      ];
     }),
   };
 });
@@ -351,5 +369,131 @@ describe('Reminders and question drafting', () => {
     // No Gemini key in the test environment.
     expect(res.status).toBe(503);
     expect(res.body.code).toBe('AI_OFF');
+  });
+});
+
+describe('The one retake of a teaching quiz', () => {
+  beforeAll(() => {
+    aiOn = true;
+  });
+  afterAll(() => {
+    aiOn = false;
+  });
+  async function failedOnce(close = false) {
+    const c = await community();
+    const admin = await signedIn('Coordinator', { admin: true });
+    const ann = await signedIn('Ann', { communityId: c.id });
+    const made = await postTeaching(admin, c.id);
+    const id = made.body.id as string;
+    const assessmentId = (await prisma.teaching.findUniqueOrThrow({ where: { id } })).assessmentId;
+    await finishReading(ann, id);
+    const first = await takeQuiz(ann, assessmentId, false);
+    expect(first.body.passed).toBe(false);
+    if (close) await prisma.teaching.update({ where: { id }, data: { closesAt: new Date(Date.now() - 1000) } });
+    return { c, admin, ann, id, assessmentId };
+  }
+  const retake = (who: Who, id: string) => who.agent.post(`/api/teachings/${id}/retake`).set('X-CSRF-Token', who.csrf).send({});
+  // The page never shows which option is right, so the right ones are looked up in the database.
+  const answerAll = async (who: Who, attemptId: string, right: boolean) => {
+    const qs = (await who.agent.get(`/api/member/attempts/${attemptId}/questions`)).body.questions;
+    const rows = await prisma.question.findMany({ where: { id: { in: qs.map((q: any) => q.id) } }, include: { options: true } });
+    const answers = rows.map((q) => ({ questionId: q.id, selectedOptionId: (q.options.find((o) => o.isCorrect === right) ?? q.options[0]).id }));
+    return { qs, submit: () => who.agent.post(`/api/member/attempts/${attemptId}/submit`).set('X-CSRF-Token', who.csrf).send({ answers }) };
+  };
+
+  it('after failing, the retake starts at once with new questions, never the ones already seen', async () => {
+    drafted.length = 0;
+    const { ann, id, assessmentId } = await failedOnce();
+    expect((await ann.agent.get(`/api/teachings/${id}`)).body.quiz).toMatchObject({ state: 'DONE', passed: false, retake: 'AVAILABLE', questionCount: 2 });
+
+    const res = await retake(ann, id);
+    expect(res.status).toBe(201);
+    // The AI was told what had already been asked.
+    expect(drafted).toHaveLength(1);
+    expect(drafted[0].avoid).toEqual(expect.arrayContaining(['Who is the teaching about?', 'Where did it happen?']));
+
+    // The retake shows only the fresh questions, none of the first ones.
+    const { qs, submit } = await answerAll(ann, res.body.attemptId, true);
+    const firstTexts = ['Who is the teaching about?', 'Where did it happen?'];
+    expect(qs).toHaveLength(2);
+    expect(qs.every((q: any) => !firstTexts.includes(q.textEn))).toBe(true);
+    // While it is open the page shows it as continuing; the quiz keeps counting only its own 2 questions.
+    expect((await ann.agent.get(`/api/teachings/${id}`)).body.quiz).toMatchObject({ state: 'IN_PROGRESS', questionCount: 2 });
+
+    const done = await submit();
+    expect(done.body).toMatchObject({ passed: true, percentage: 100 });
+    const after = (await ann.agent.get(`/api/teachings/${id}`)).body.quiz;
+    expect(after).toMatchObject({ state: 'DONE', passed: true, percentage: 100, retake: 'USED' });
+    // The chat card shows the latest result.
+    const chat = await ann.agent.get(`/api/communities/${(await prisma.teaching.findUniqueOrThrow({ where: { id } })).communityId}/conversation/messages`);
+    expect(chat.body.items.find((i: any) => i.teaching?.id === id).teaching).toMatchObject({ myState: 'PASSED', myPercentage: 100 });
+    // The first try is what the assembly's totals count.
+    const results = await ann.agent.get(`/api/teachings/${id}/results`);
+    expect(results.body.totals).toMatchObject({ taken: 1, passed: 0 });
+    expect(assessmentId).toBeTruthy();
+  });
+
+  it('only one retake: fail it too and that is final; the fresh questions are written once and shared', async () => {
+    drafted.length = 0;
+    const { c, ann, id, assessmentId } = await failedOnce();
+    const ben = await signedIn('Ben', { communityId: c.id });
+    await finishReading(ben, id);
+    await takeQuiz(ben, assessmentId, false);
+
+    const a = await retake(ann, id);
+    expect((await (await answerAll(ann, a.body.attemptId, false)).submit()).body.passed).toBe(false);
+    expect((await ann.agent.get(`/api/teachings/${id}`)).body.quiz).toMatchObject({ state: 'DONE', passed: false, retake: 'USED' });
+    expect((await retake(ann, id)).status).toBe(409);
+
+    const b = await retake(ben, id);
+    expect(b.status).toBe(201);
+    // Written once for the whole teaching, the same set for both.
+    expect(drafted).toHaveLength(1);
+    expect(await prisma.question.count({ where: { assessmentId, setNumber: 2 } })).toBe(2);
+    // Starting again just carries on with the open retake.
+    expect((await retake(ben, id)).body.attemptId).toBe(b.body.attemptId);
+  });
+
+  it('is not offered to someone who passed or has not taken the quiz, and still works after the closing day', async () => {
+    const { c, ann, id, assessmentId } = await failedOnce(true);
+    const passer = await signedIn('Pat', { communityId: c.id });
+    await prisma.teaching.update({ where: { id }, data: { closesAt: new Date(Date.now() + 60_000) } });
+    await finishReading(passer, id);
+    await takeQuiz(passer, assessmentId, true);
+    await prisma.teaching.update({ where: { id }, data: { closesAt: new Date(Date.now() - 1000) } });
+    const newcomer = await signedIn('Nina', { communityId: c.id });
+
+    expect((await retake(passer, id)).status).toBe(409);
+    expect((await retake(newcomer, id)).status).toBe(409);
+    // Ann failed before the teaching closed: her retake is still open.
+    expect((await ann.agent.get(`/api/teachings/${id}`)).body.quiz.retake).toBe('AVAILABLE');
+    const res = await retake(ann, id);
+    expect(res.status).toBe(201);
+    expect((await (await answerAll(ann, res.body.attemptId, true)).submit()).body.passed).toBe(true);
+  });
+
+  it('the central admin and a leader of the assembly can invite everyone who failed; others cannot', async () => {
+    const { c, admin, ann, id } = await failedOnce();
+    const leader = await signedIn('Leader', { communityId: c.id });
+    await prisma.roleAssignment.create({ data: { personId: leader.person.id, roleType: 'SCOPED_LEADER', communityId: c.id, assignedByUserId: (await prisma.user.findFirstOrThrow()).id } });
+    const plain = await signedIn('Plain', { communityId: c.id });
+    const invite = (who: Who) => who.agent.post(`/api/teachings/${id}/retake-invite`).set('X-CSRF-Token', who.csrf).send({});
+
+    expect((await invite(plain)).status).toBe(403);
+    expect((await plain.agent.get(`/api/teachings/${id}/results`)).body.canInvite).toBe(false);
+    expect((await leader.agent.get(`/api/teachings/${id}/results`)).body).toMatchObject({ canInvite: true, retake: { waiting: 1 } });
+
+    vi.mocked(pushToPersons).mockClear();
+    const res = await invite(leader);
+    expect(res.body.invited).toBe(1);
+    expect(vi.mocked(pushToPersons).mock.calls.some(([ids]) => ids.length === 1 && ids[0] === ann.person.id)).toBe(true);
+    // The fresh questions are ready before anyone is told.
+    expect(await prisma.question.count({ where: { assessmentId: (await prisma.teaching.findUniqueOrThrow({ where: { id } })).assessmentId, setNumber: 2 } })).toBe(2);
+    expect((await invite(admin)).body.invited).toBe(1);
+
+    // Once Ann has used her retake nobody is waiting any more.
+    const started = await retake(ann, id);
+    await (await answerAll(ann, started.body.attemptId, false)).submit();
+    expect((await invite(admin)).body.invited).toBe(0);
   });
 });

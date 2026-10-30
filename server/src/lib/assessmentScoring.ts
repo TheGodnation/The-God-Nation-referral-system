@@ -103,7 +103,8 @@ export async function submitAttempt(attemptId: string, answers: SubmittedAnswer[
 
       // A training book try is scored on its own question set only.
       const questions = await tx.question.findMany({
-        where: { assessmentId: assessment.id, ...(attempt.setNumber !== null ? { setNumber: attempt.setNumber } : {}) },
+        // A first try (no set recorded) is on set 1; a training try or a teaching's retake is on its own set.
+        where: { assessmentId: assessment.id, setNumber: attempt.setNumber ?? 1 },
         include: { options: true },
       });
       const questionMap = new Map(questions.map((q) => [q.id, q]));
