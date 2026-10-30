@@ -43,6 +43,7 @@ interface PrivateResponse {
   otherPartyPhotoUrl?: string | null;
   otherPartyPresence?: { online: boolean; lastSeenAt: string | null } | null;
   typing?: boolean;
+  recording?: boolean;
 }
 
 const POLL_MS = 5000;
@@ -88,6 +89,7 @@ export function MemberPrivateChatPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [presence, setPresence] = useState<PrivateResponse['otherPartyPresence']>(null);
   const [otherTyping, setOtherTyping] = useState(false);
+  const [otherRecording, setOtherRecording] = useState(false);
   const [editing, setEditing] = useState<ChatMessage | null>(null);
   const [forwarding, setForwarding] = useState<ChatMessage[] | null>(null);
   // Several messages ticked at once (to copy or forward together), like WhatsApp.
@@ -179,6 +181,7 @@ export function MemberPrivateChatPage() {
           });
           setPresence(res.otherPartyPresence ?? null);
           setOtherTyping(Boolean(res.typing));
+          setOtherRecording(Boolean(res.recording));
           if (res.otherPartyType === 'CENTRAL_AUTHORITY') otherNameRef.current = t('privateChat.headquarters');
           else otherNameRef.current = res.otherPartyName || t('privateChat.someone');
           const items = res.items.map(toChat);
@@ -192,7 +195,7 @@ export function MemberPrivateChatPage() {
           if (first) setHasMore(res.hasMore);
           setLoadError(false);
           markRead(res.items, res.unreadCount);
-          return items.length > 0 || Boolean(res.typing);
+          return items.length > 0 || Boolean(res.typing) || Boolean(res.recording);
         })
         .catch((err) => {
           if (err instanceof ApiError && err.status === 404) setNotFound(true);
@@ -442,7 +445,9 @@ export function MemberPrivateChatPage() {
       : other?.otherPartyType === 'LEADER'
         ? t('privateChat.leader')
         : t('privateChat.member');
-  const subtitle = otherTyping
+  const subtitle = otherRecording
+    ? t('privateChat.recording')
+    : otherTyping
     ? t('privateChat.typing')
     : presence?.online
       ? t('privateChat.online')
@@ -460,7 +465,7 @@ export function MemberPrivateChatPage() {
       <span className="min-w-0">
         <h1 className="truncate font-semibold">{other ? otherName : t('groupChat.loading')}</h1>
         {other && (
-          <p className={`truncate text-xs ${otherTyping || presence?.online ? 'font-semibold text-emerald-600' : 'text-slate-500'}`}>{subtitle}</p>
+          <p className={`truncate text-xs ${otherTyping || otherRecording || presence?.online ? 'font-semibold text-emerald-600' : 'text-slate-500'}`}>{subtitle}</p>
         )}
       </span>
     </>
@@ -582,6 +587,7 @@ export function MemberPrivateChatPage() {
               setReplyTo(null);
             }}
           onTyping={(typing) => void api.post(`${base}/typing`, { typing }).catch(() => {})}
+          onRecording={(on) => void api.post(`${base}/typing`, on ? { recording: true } : { typing: false }).catch(() => {})}
         />
       )}
 

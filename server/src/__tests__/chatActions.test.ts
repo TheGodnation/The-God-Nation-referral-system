@@ -401,3 +401,107 @@ describe('Forward', () => {
     expect(await prisma.message.count({ where: { forwarded: true, body: 'Hello' } })).toBe(0);
   });
 });
+
+describe('Two-language voice message, live teaching and "recording…"', () => {
+  async function setup() {
+    const g1 = await prisma.community.create({ data: { name: 'Bilingual Assembly' } });
+    const boss = await member('Evangelist', g1.id);
+    await prisma.user.create({
+      data: { name: 'Central Admin', email: `bi-admin-${n}@test.local`, passwordHash: 'x', role: 'ADMIN', personId: boss.person.id },
+    });
+    const ada = await member('Ada', g1.id);
+    const clip = (language: string | undefined, mime = 'audio/webm') => ({
+      storageKey: `communities/${g1.id}/attachments/${crypto.randomUUID()}`,
+      originalFilename: `voice-${language ?? 'x'}.webm`,
+      mimeType: mime,
+      byteSize: 1000,
+      language,
+    });
+    const sendClips = async (who: M, clips: ReturnType<typeof clip>[], extra: object = {}) => {
+      for (const c of clips) vi.mocked(storage.headObject).mockResolvedValueOnce({ contentLength: c.byteSize, contentType: c.mimeType } as any);
+      return who.agent.post(`${g(g1.id)}/messages`).set('X-CSRF-Token', who.csrf).send({ attachments: clips, ...extra });
+    };
+    return { g1, boss, ada, clip, sendClips };
+  }
+
+  it('the central admin sends an English and a French clip as one message, marked live; readers see both labelled', async () => {
+    const { g1, boss, ada, clip, sendClips } = await setup();
+    const res = await sendClips(boss, [clip('en'), clip('fr')], { liveTeaching: true });
+    expect(res.status).toBe(201);
+    const seen = (await listFor(ada, g1.id)).at(-1);
+    expect(seen.liveTeaching).toBe(true);
+    expect(seen.attachments.map((a: any) => a.language)).toEqual(['en', 'fr']);
+    // Nothing to transcribe or translate: the message carries no transcript.
+    expect(seen.transcript ?? null).toBeNull();
+  });
+
+  it('a single recording is an ordinary voice note (no label), still markable as live', async () => {
+    const { g1, boss, ada, clip, sendClips } = await setup();
+    await sendClips(boss, [clip(undefined)], { liveTeaching: true });
+    const seen = (await listFor(ada, g1.id)).at(-1);
+    expect(seen.liveTeaching).toBe(true);
+    expect(seen.attachments.map((a: any) => a.language)).toEqual([undefined]);
+  });
+
+  it('anyone else\'s labels and live mark are ignored', async () => {
+    const { g1, boss, ada, clip, sendClips } = await setup();
+    const res = await sendClips(ada, [clip('en'), clip('fr')], { liveTeaching: true });
+    expect(res.status).toBe(201);
+    const seen = (await listFor(boss, g1.id)).at(-1);
+    expect(seen.liveTeaching).toBeUndefined();
+    expect(seen.attachments.every((a: any) => a.language === undefined)).toBe(true);
+  });
+
+  it('two clips in the same language, or a clip with a photo, are not a pair', async () => {
+    const { g1, boss, ada, clip, sendClips } = await setup();
+    await sendClips(boss, [clip('en'), clip('en')]);
+    await sendClips(boss, [clip('en'), clip('fr', 'image/jpeg')]);
+    const items = await listFor(ada, g1.id);
+    for (const m of items.slice(-2)) expect(m.attachments.every((a: any) => a.language === undefined)).toBe(true);
+  });
+
+  it('a forwarded pair keeps both labels', async () => {
+    const { g1, boss, clip, sendClips } = await setup();
+    const g2 = await prisma.community.create({ data: { name: 'Second Assembly' } });
+    await prisma.communityMembership.create({ data: { personId: boss.person.id, communityId: g2.id, status: 'ACTIVE' } });
+    const sent = await sendClips(boss, [clip('fr'), clip('en')], { liveTeaching: true });
+    const res = await boss.agent
+      .post('/api/chat/forward')
+      .set('X-CSRF-Token', boss.csrf)
+      .send({ source: { kind: 'group', chatId: g1.id, messageId: sent.body.id }, targets: [{ kind: 'group', chatId: g2.id }] });
+    expect(res.status).toBe(201);
+    const copy = (await listFor(boss, g2.id)).at(-1);
+    expect(copy.attachments.map((a: any) => a.language)).toEqual(['fr', 'en']);
+    // The live mark belongs to the original only.
+    expect(copy.liveTeaching).toBeUndefined();
+  });
+
+  it('shows others "is recording" (live only for the central admin) until it stops', async () => {
+    const { g1, boss, ada } = await setup();
+    const ping = (who: M, body: object) => who.agent.post(`${g(g1.id)}/typing`).set('X-CSRF-Token', who.csrf).send(body);
+    const recordingFor = async (who: M) => (await who.agent.get(`${g(g1.id)}/messages`)).body.recording;
+
+    await ping(boss, { recording: true, live: true });
+    expect(await recordingFor(ada)).toEqual([{ name: boss.person.name, live: true }]);
+    // Never shown to the person recording.
+    expect(await recordingFor(boss)).toEqual([]);
+    // Recording is not "typing".
+    expect((await ada.agent.get(`${g(g1.id)}/messages`)).body.typing).toEqual([]);
+
+    await ping(boss, { typing: false });
+    expect(await recordingFor(ada)).toEqual([]);
+
+    await ping(ada, { recording: true, live: true });
+    expect(await recordingFor(boss)).toEqual([{ name: ada.person.name, live: false }]);
+  });
+
+  it('private chats show "recording" too', async () => {
+    const a = await member('Rec A');
+    const b = await member('Rec B');
+    const conv = await privateChat(a, b);
+    await a.agent.post(`${p(conv)}/typing`).set('X-CSRF-Token', a.csrf).send({ recording: true });
+    const seen = (await b.agent.get(`${p(conv)}/messages`)).body;
+    expect(seen.recording).toBe(true);
+    expect(seen.typing).toBe(false);
+  });
+});

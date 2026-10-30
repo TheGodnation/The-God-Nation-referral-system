@@ -1,5 +1,5 @@
 import { CoordinatorBadge } from '../CoordinatorBadge';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Avatar } from '../Avatar';
@@ -237,6 +237,26 @@ interface BubbleProps {
   onToggleSelect?: (m: ChatMessage) => void;
 }
 
+// The central admin's voice message in two languages: both clips in one
+// bubble, the reader's own language first and larger, the other labelled and
+// smaller. Playing one stops the other.
+function PlayTogether({ children }: { children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const onPlay = (e: Event) => {
+      el.querySelectorAll('audio').forEach((other) => {
+        if (other !== e.target) other.pause();
+      });
+    };
+    // Media events don't bubble, so listen on the way down.
+    el.addEventListener('play', onPlay, true);
+    return () => el.removeEventListener('play', onPlay, true);
+  }, []);
+  return <div ref={box}>{children}</div>;
+}
+
 const SWIPE_TRIGGER = 60;
 const LONG_PRESS_MS = 450;
 
@@ -244,7 +264,7 @@ const LONG_PRESS_MS = 450;
 // for reactions and options — the same gestures as WhatsApp.
 export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto, onShowReactions, privateChat = false, selecting = false, selected = false, onToggleSelect }: BubbleProps) {
   const showSender = showSenderProp && !privateChat;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [dx, setDx] = useState(0);
   // WhatsApp-style long-message truncation — same threshold/pattern as
   // UpdatesFeed's own "Read more" (length OR line count, whichever comes
@@ -306,6 +326,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
   // A teaching is shown as a card; its file is played on the teaching's own page.
   const shown = m.teaching ? [] : m.attachments;
   const photos = shown.filter((a) => mediaKind(a.mimeType) === 'photo');
+  const myLanguage = i18n.language?.startsWith('fr') ? 'fr' : 'en';
   const playables = shown.filter((a) => ['video', 'voice'].includes(mediaKind(a.mimeType) ?? ''));
   const documents = shown.filter((a) => mediaKind(a.mimeType) === 'document');
   const reactions = m.reactions ?? [];
@@ -406,11 +427,29 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                   ))}
                 </div>
               )}
-              {playables.map((a) => (
-                <div key={a.id} className="mb-1">
-                  <PlayableAttachment mediaBase={mediaBase} messageId={m.id} a={a} senderName={m.senderName} senderPhotoUrl={m.senderPhotoUrl} isOwn={m.isOwn} />
-                </div>
-              ))}
+              {m.liveTeaching && <p className="mb-1 text-xs font-bold uppercase tracking-wide text-red-600">🔴 {t('bilingual.live_badge')}</p>}
+              {playables.some((a) => a.language) ? (
+                <PlayTogether>
+                  {[...playables]
+                    .sort((a, b) => Number(b.language === myLanguage) - Number(a.language === myLanguage))
+                    .map((a) => (
+                      <div key={a.id} className="mb-1">
+                        {a.language && (
+                          <p className={a.language === myLanguage ? 'text-sm font-semibold text-slate-800' : 'text-xs text-slate-500'}>
+                            🎧 {t(`bilingual.listen_${a.language}`)}
+                          </p>
+                        )}
+                        <PlayableAttachment mediaBase={mediaBase} messageId={m.id} a={a} senderName={m.senderName} senderPhotoUrl={m.senderPhotoUrl} isOwn={m.isOwn} />
+                      </div>
+                    ))}
+                </PlayTogether>
+              ) : (
+                playables.map((a) => (
+                  <div key={a.id} className="mb-1">
+                    <PlayableAttachment mediaBase={mediaBase} messageId={m.id} a={a} senderName={m.senderName} senderPhotoUrl={m.senderPhotoUrl} isOwn={m.isOwn} />
+                  </div>
+                ))
+              )}
               {m.transcript && (
                 <div className="mb-1 rounded-md bg-slate-900/5 px-2 py-1.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t('translation.transcript_label')}</p>

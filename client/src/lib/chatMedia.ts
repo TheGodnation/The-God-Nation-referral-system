@@ -16,6 +16,8 @@ export interface UploadedAttachment {
   thumb?: string;
   /** A PDF's number of pages. */
   pageCount?: number;
+  /** Which language this voice clip is in (the central admin's two-language voice message only). */
+  language?: 'en' | 'fr';
 }
 
 export type UploadProblem = 'type' | 'size' | 'storage' | 'failed';

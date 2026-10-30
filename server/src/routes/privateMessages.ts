@@ -29,7 +29,7 @@ import {
   THUMB_DATA_URL_PATTERN,
 } from '../lib/attachmentPolicy';
 import { profilePhotoPath } from '../lib/profilePhoto';
-import { isOnline, setTyping, clearTyping, whoIsTyping, type TickStatus } from '../lib/presence';
+import { isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording, type TickStatus } from '../lib/presence';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
 import {
@@ -389,6 +389,7 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
     // "online" / "last seen today at 10:45" under the name (people only).
     otherPartyPresence: side.otherPersonId ? { online: isOnline(side.lastSeenAt), lastSeenAt: side.lastSeenAt } : null,
     typing: whoIsTyping(typingKey(conversation.id), actorKey(actor)).length > 0,
+    recording: whoIsRecording(typingKey(conversation.id), actorKey(actor)).length > 0,
   });
 }));
 
@@ -688,7 +689,7 @@ router.post(
     const actor = req.privateMessagingActor!;
     const key = typingKey(loaded.conversation.id);
     if (req.body?.typing === false) clearTyping(key, actorKey(actor));
-    else setTyping(key, actorKey(actor), '');
+    else setTyping(key, actorKey(actor), '', { recording: req.body?.recording === true });
     res.json({ ok: true });
   }),
 );

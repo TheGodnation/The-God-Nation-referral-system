@@ -29,33 +29,44 @@ export function touchLastSeen(personId: string, previous: Date | null | undefine
 // stored in the database. (One server instance; if there were several, a
 // person might briefly not see "typing…" — harmless.)
 const TYPING_FOR_MS = 6 * 1000;
-const typing = new Map<string, Map<string, { name: string; until: number }>>();
+type Activity = { name: string; until: number; kind: 'typing' | 'recording'; live: boolean };
+const typing = new Map<string, Map<string, Activity>>();
 
-export function setTyping(chatKey: string, personId: string, name: string): void {
+/** Marks someone as typing (or recording a voice message) in this chat for the next few seconds. */
+export function setTyping(chatKey: string, personId: string, name: string, opts: { recording?: boolean; live?: boolean } = {}): void {
   let chat = typing.get(chatKey);
   if (!chat) {
     chat = new Map();
     typing.set(chatKey, chat);
   }
-  chat.set(personId, { name, until: Date.now() + TYPING_FOR_MS });
+  chat.set(personId, { name, until: Date.now() + TYPING_FOR_MS, kind: opts.recording ? 'recording' : 'typing', live: Boolean(opts.recording && opts.live) });
 }
 
 export function clearTyping(chatKey: string, personId: string): void {
   typing.get(chatKey)?.delete(personId);
 }
 
-/** Names of people typing in this chat now (never the viewer). */
-export function whoIsTyping(chatKey: string, viewerPersonId: string | null): string[] {
+function activeIn(chatKey: string, viewerPersonId: string | null, kind: Activity['kind']): Activity[] {
   const chat = typing.get(chatKey);
   if (!chat) return [];
   const now = Date.now();
-  const names: string[] = [];
+  const found: Activity[] = [];
   for (const [personId, entry] of chat) {
     if (entry.until < now) chat.delete(personId);
-    else if (personId !== viewerPersonId) names.push(entry.name);
+    else if (personId !== viewerPersonId && entry.kind === kind) found.push(entry);
   }
   if (chat.size === 0) typing.delete(chatKey);
-  return names;
+  return found;
+}
+
+/** Names of people typing in this chat now (never the viewer). */
+export function whoIsTyping(chatKey: string, viewerPersonId: string | null): string[] {
+  return activeIn(chatKey, viewerPersonId, 'typing').map((e) => e.name);
+}
+
+/** People recording a voice message in this chat now (never the viewer), and whether it is a live teaching. */
+export function whoIsRecording(chatKey: string, viewerPersonId: string | null): { name: string; live: boolean }[] {
+  return activeIn(chatKey, viewerPersonId, 'recording').map((e) => ({ name: e.name, live: e.live }));
 }
 
 // ---------------------------------------------------------------- groups

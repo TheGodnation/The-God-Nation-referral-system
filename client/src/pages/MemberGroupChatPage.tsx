@@ -27,6 +27,7 @@ interface MessagesResponse {
   memberCount?: number;
   onlineCount?: number;
   typing?: string[];
+  recording?: { name: string; live: boolean }[];
 }
 
 interface InfoPerson {
@@ -126,6 +127,7 @@ export function MemberGroupChatPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [counts, setCounts] = useState<{ members: number; online: number } | null>(null);
   const [typingNames, setTypingNames] = useState<string[]>([]);
+  const [recordingNow, setRecordingNow] = useState<{ name: string; live: boolean }[]>([]);
   const [info, setInfo] = useState<{ message: ChatMessage; data: MessageInfo | null } | null>(null);
   const [editing, setEditing] = useState<ChatMessage | null>(null);
   const [forwarding, setForwarding] = useState<ChatMessage[] | null>(null);
@@ -202,10 +204,11 @@ export function MemberGroupChatPage() {
           setIsAdministrator(res.isAdministrator);
           if (typeof res.memberCount === 'number') setCounts({ members: res.memberCount, online: res.onlineCount ?? 0 });
           setTypingNames(res.typing ?? []);
+          setRecordingNow(res.recording ?? []);
           setCanPost(res.canPost !== false);
           setLoadError(false);
           markRead(res.items, res.unreadCount);
-          return res.items.length > 0 || (res.typing ?? []).length > 0;
+          return res.items.length > 0 || (res.typing ?? []).length > 0 || (res.recording ?? []).length > 0;
         })
         .catch((err) => {
           if (err instanceof ApiError && (err.status === 403 || err.status === 404)) setNotAllowed(true);
@@ -502,8 +505,12 @@ export function MemberGroupChatPage() {
         <Avatar name={groupName || '?'} photoUrl={groupPhoto} size={40} />
         <div className="min-w-0">
           <h1 className="truncate font-semibold">{groupName || t('groupChat.group')}</h1>
-          <p className={`truncate text-xs ${typingNames.length ? 'font-semibold text-emerald-600' : 'text-slate-500'}`}>
-            {typingNames.length === 1
+          <p className={`truncate text-xs ${typingNames.length || recordingNow.length ? 'font-semibold text-emerald-600' : 'text-slate-500'}`}>
+            {recordingNow.length === 1
+              ? t(recordingNow[0].live ? 'groupChat.recording_live' : 'groupChat.recording_one', { name: recordingNow[0].name })
+              : recordingNow.length > 1
+                ? t('groupChat.recording_many', { count: recordingNow.length })
+                : typingNames.length === 1
               ? t('groupChat.typing_one', { name: typingNames[0] })
               : typingNames.length > 1
                 ? t('groupChat.typing_many', { count: typingNames.length })
@@ -623,6 +630,8 @@ export function MemberGroupChatPage() {
               setReplyTo(null);
             }}
             onTyping={(typing) => void api.post(`/api/communities/${communityId}/conversation/typing`, { typing }).catch(() => {})}
+            onRecording={(on, live) => void api.post(`/api/communities/${communityId}/conversation/typing`, on ? { recording: true, live } : { typing: false }).catch(() => {})}
+            bilingual={canPostTeaching}
             onNewTeaching={canPostTeaching ? () => navigate(`/member/chats/group/${communityId}/teaching/new`) : undefined}
           />
         ) : (

@@ -57,7 +57,7 @@ type SourceMessage = {
   /** Set when the message comes from a group chat. */
   known?: KnownTranslation;
   body: string | null;
-  attachments: { storageKey: string; originalFilename: string; mimeType: string; byteSize: number; thumbDataUrl: string | null; pageCount: number | null }[];
+  attachments: { storageKey: string; originalFilename: string; mimeType: string; byteSize: number; thumbDataUrl: string | null; pageCount: number | null; language?: 'en' | 'fr' | null }[];
 };
 
 const attachmentSelect = { storageKey: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } as const;
@@ -75,7 +75,7 @@ async function loadSource(actor: PrivateMessagingActor, source: { kind: 'group' 
     const conversation = await getOrCreateConversation(source.chatId);
     const m = await prisma.message.findUnique({
       where: { id: source.messageId },
-      include: { attachments: { select: attachmentSelect }, hiddenFor: { where: { personId: actor.personId }, select: { id: true } } },
+      include: { attachments: { select: { ...attachmentSelect, language: true } }, hiddenFor: { where: { personId: actor.personId }, select: { id: true } } },
     });
     if (!m || m.conversationId !== conversation.id || m.deletedAt || m.hiddenFor.length > 0) return null;
     const known: KnownTranslation = {
@@ -207,6 +207,7 @@ router.post(
                       mimeType: a.mimeType,
                       byteSize: a.byteSize,
                       thumbDataUrl: a.thumbDataUrl,
+                      language: a.language ?? null,
                       pageCount: a.pageCount,
                       uploadedByPersonId: target.personId,
                     })),
@@ -219,7 +220,7 @@ router.post(
           // translated) gets translated for the copy, in the background, like a message sent normally.
           if (created.body && !created.translatedBody) void translateAndStoreMessage(created.id, created.body).catch(() => {});
           const voice = copies.find((a) => a.mimeType.startsWith('audio/'));
-          if (voice && !created.transcribedBody) void transcribeAndStoreMessageAudio(created.id, voice.newKey, voice.mimeType).catch(() => {});
+          if (voice && !voice.language && !created.transcribedBody) void transcribeAndStoreMessageAudio(created.id, voice.newKey, voice.mimeType).catch(() => {});
         } else {
           const created = await prisma.privateMessage.create({
             data: {

@@ -44,7 +44,7 @@ import {
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } from '../lib/storage';
 import { profilePhotoPath, groupPhotoPath } from '../lib/profilePhoto';
-import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping } from '../lib/presence';
+import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording } from '../lib/presence';
 import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
 import { pushToPersons } from '../lib/push';
 import { translateAndStoreMessage, transcribeAndStoreMessageAudio } from '../lib/translation';
@@ -308,7 +308,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     },
     include: {
       sender: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } },
-      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } },
+      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true, language: true } },
       replyTo: replyToInclude,
       reactions: { select: { emoji: true, personId: true } },
       teaching: { select: { id: true, title: true, assessmentId: true, mediaKind: true, closesAt: true, text: true, communityId: true, authorPersonId: true, detectedLanguage: true, titleTranslated: true } },
@@ -402,7 +402,9 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
             byteSize: a.byteSize,
             thumb: a.thumbDataUrl ?? undefined,
             pageCount: a.pageCount ?? undefined,
+            language: a.language ?? undefined,
           })),
+      liveTeaching: !m.deletedAt && m.liveTeaching ? true : undefined,
       replyTo: m.deletedAt ? null : replyPreview(m.replyTo),
       reactions: m.deletedAt ? [] : summarizeReactions(m.reactions, personId),
       status: m.senderPersonId === personId ? groupMessageReceipt(m, audience, readAtByPerson).status : undefined,
@@ -452,6 +454,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     memberCount: audience.length,
     onlineCount: audience.filter((a) => a.personId === personId || isOnline(a.lastSeenAt, now)).length,
     typing: whoIsTyping(`group:${conversation.id}`, personId),
+    recording: whoIsRecording(`group:${conversation.id}`, personId),
     hasMore,
     unreadCount,
     isAdministrator,
@@ -468,6 +471,8 @@ const attachmentDescriptorSchema = z.object({
   // photo downloads — see lib/attachmentPolicy.ts THUMB_DATA_URL_PATTERN.
   thumb: z.string().max(MAX_THUMB_DATA_URL_LENGTH).regex(THUMB_DATA_URL_PATTERN).optional(),
   pageCount: z.number().int().min(1).max(MAX_PDF_PAGE_COUNT).optional(),
+  // Only the central admin's two-language voice message uses this (anyone else's is ignored).
+  language: z.enum(['en', 'fr']).optional(),
 });
 
 // Phase 3M.8C: body is now optional (an attachment-only message is valid),
@@ -480,6 +485,8 @@ const sendMessageSchema = z
     body: z.string().trim().max(MAX_MESSAGE_CHARS).optional(),
     attachments: z.array(attachmentDescriptorSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
     replyToMessageId: z.string().min(1).optional(),
+    // Only honoured for the central admin: this message is a live teaching.
+    liveTeaching: z.boolean().optional(),
   })
   .refine((d) => Boolean(d.body && d.body.length > 0) || Boolean(d.attachments && d.attachments.length > 0), {
     message: 'A message must include text or at least one attachment.',
@@ -512,7 +519,15 @@ router.post(
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid message.' });
     }
-    const attachmentDescriptors = parsed.data.attachments ?? [];
+    // The central admin's own extras: a voice message recorded in both languages
+    // (an English and a French clip, each labelled) and the "live teaching" mark.
+    // For anyone else they are simply dropped.
+    const isAdminSender = await isCentralAdminPerson(personId);
+    const rawDescriptors = parsed.data.attachments ?? [];
+    const audioCount = rawDescriptors.filter((a) => a.mimeType.startsWith('audio/')).length;
+    const labelled = isAdminSender && rawDescriptors.length === 2 && audioCount === 2 && rawDescriptors[0].language && rawDescriptors[1].language && rawDescriptors[0].language !== rawDescriptors[1].language;
+    const attachmentDescriptors = rawDescriptors.map((a) => ({ ...a, language: labelled ? a.language : undefined }));
+    const liveTeaching = isAdminSender && parsed.data.liveTeaching === true;
 
     // Phase 3M.8C — re-validates every attachment descriptor at the one
     // point that actually matters (finalization), never trusting whatever
@@ -575,9 +590,11 @@ router.post(
         senderPersonId: personId,
         replyToMessageId,
         body: parsed.data.body && parsed.data.body.length > 0 ? parsed.data.body : null,
+        liveTeaching,
         attachments: attachmentDescriptors.length
           ? {
               create: attachmentDescriptors.map((a) => ({
+                language: a.language ?? null,
                 storageKey: a.storageKey,
                 originalFilename: a.originalFilename,
                 mimeType: a.mimeType,
@@ -611,7 +628,11 @@ router.post(
           select: { personId: true },
         }),
       ]);
-      const preview = created.body ?? (attachmentDescriptors.length > 0 ? '📎 Attachment' : '');
+      const hasVoice = attachmentDescriptors.some((a) => a.mimeType.startsWith('audio/'));
+      // Said the same way to everyone, in both languages, since a notification can't know who reads it.
+      const preview = liveTeaching
+        ? `🔴 Live teaching · Enseignement en direct${labelled ? ' (EN + FR)' : ''}`
+        : (created.body ?? (hasVoice ? `🎙️ Voice message${labelled ? ' (EN + FR)' : ''}` : attachmentDescriptors.length > 0 ? '📎 Attachment' : ''));
       await pushToPersons(recipients.map((r) => r.personId), {
         title: `${sender?.name ?? 'Someone'} • ${community?.name ?? 'Group'}`,
         body: preview.length > 120 ? `${preview.slice(0, 120)}…` : preview,
@@ -628,7 +649,8 @@ router.post(
     if (created.body) {
       void translateAndStoreMessage(created.id, created.body).catch(() => {});
     }
-    const audioAttachment = attachmentDescriptors.find((a) => a.mimeType.startsWith('audio/'));
+    // A two-language recording is already in both languages: nothing to transcribe or translate.
+    const audioAttachment = labelled ? undefined : attachmentDescriptors.find((a) => a.mimeType.startsWith('audio/'));
     if (audioAttachment) {
       void transcribeAndStoreMessageAudio(created.id, audioAttachment.storageKey, audioAttachment.mimeType).catch(() => {});
     }
@@ -980,7 +1002,10 @@ router.post(
       clearTyping(key, personId);
     } else {
       const me = await prisma.person.findUnique({ where: { id: personId }, select: { name: true } });
-      setTyping(key, personId, me?.name ?? '');
+      // { recording: true } = "is recording a voice message…"; live only counts for the central admin.
+      const recording = req.body?.recording === true;
+      const live = recording && req.body?.live === true && (await isCentralAdminPerson(personId));
+      setTyping(key, personId, me?.name ?? '', { recording, live });
     }
     res.json({ ok: true });
   }),

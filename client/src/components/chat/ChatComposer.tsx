@@ -27,7 +27,19 @@ export interface OutgoingMessage {
   body?: string;
   attachments?: UploadedAttachment[];
   replyToMessageId?: string;
+  /** The central admin marked this message as a live teaching. */
+  liveTeaching?: boolean;
 }
+
+// One recording of the central admin's two-language voice message.
+interface Clip {
+  blob: Blob;
+  mime: string;
+  ms: number;
+  url: string;
+  at: number;
+}
+type ClipLanguage = 'en' | 'fr';
 
 // The emoji list is only downloaded the first time someone opens the panel.
 const EmojiPanel = lazy(() => import('./EmojiPanel'));
@@ -51,6 +63,8 @@ export function ChatComposer({
   onSend,
   onPickMedia,
   onTyping,
+  onRecording,
+  bilingual = false,
   onNewTeaching,
   draftKey,
 }: {
@@ -67,6 +81,10 @@ export function ChatComposer({
   onNewTeaching?: () => void;
   /** Tells the others "typing…" (sent at most every few seconds). */
   onTyping?: (typing: boolean) => void;
+  /** Tells the others "recording a voice message…" while a recording is open (`live`: it is a live teaching). */
+  onRecording?: (recording: boolean, live: boolean) => void;
+  /** Only for the central admin in an assembly: a voice message recorded in English and French. */
+  bilingual?: boolean;
   /** Where to keep what is typed but not sent yet (see lib/drafts). The
    * parent keys the composer by this, so each chat has its own box. */
   draftKey?: string;
@@ -147,12 +165,30 @@ export function ChatComposer({
   const pausedRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  // Listening to what was recorded so far, while paused.
+  const [listening, setListening] = useState(false);
+  const listenRef = useRef<{ audio: HTMLAudioElement; url: string } | null>(null);
+  // The two-language voice message: the panel, its clips, and which clip is being recorded now.
+  const [dual, setDual] = useState<{ clips: Partial<Record<ClipLanguage, Clip>>; live: boolean } | null>(null);
+  const dualTargetRef = useRef<ClipLanguage | null>(null);
 
   useEffect(() => {
     if (replyTo) textRef.current?.focus();
   }, [replyTo]);
 
   const isRecording = recording !== null;
+  const dualLive = Boolean(dual?.live);
+  // "…is recording" for the others, kept alive every few seconds while the recorder is open.
+  useEffect(() => {
+    if (!isRecording || !onRecording) return;
+    onRecording(true, dualLive);
+    const timer = window.setInterval(() => onRecording(true, dualLive), 4000);
+    return () => {
+      window.clearInterval(timer);
+      onRecording(false, dualLive);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording, dualLive]);
   useEffect(() => {
     if (!isRecording) return;
     const timer = window.setInterval(() => {
@@ -169,6 +205,7 @@ export function ChatComposer({
     () => () => {
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
       void audioCtxRef.current?.close().catch(() => {});
+      stopListeningNow();
     },
     [],
   );
@@ -391,6 +428,7 @@ export function ChatComposer({
     const rec = recorderRef.current;
     if (!rec || typeof rec.pause !== 'function') return;
     if (pausedRef.current) {
+      stopListeningNow();
       rec.resume();
       resumedAtRef.current = Date.now();
       pausedRef.current = false;
@@ -413,6 +451,9 @@ export function ChatComposer({
     recorderRef.current = null;
     setRecording(null);
     stopLevelMeter();
+    stopListeningNow();
+    const target = dualTargetRef.current;
+    dualTargetRef.current = null;
     if (!rec) return;
     const duration = recordedMs();
     const mime = baseMime(rec.mimeType || 'audio/webm');
@@ -425,10 +466,109 @@ export function ChatComposer({
         return;
       }
       const blob = new Blob(chunksRef.current, { type: mime });
-      void sendVoice(blob, mime);
+      if (target) storeClip(target, blob, mime, duration);
+      else void sendVoice(blob, mime);
     };
     if (rec.state !== 'inactive') rec.stop();
     else rec.onstop?.(new Event('stop'));
+  }
+
+  // ---------- Listen while paused ----------
+  function stopListeningNow() {
+    const current = listenRef.current;
+    listenRef.current = null;
+    if (current) {
+      current.audio.pause();
+      URL.revokeObjectURL(current.url);
+    }
+    setListening(false);
+  }
+
+  // Plays back what has been recorded so far (the recording stays paused;
+  // Resume carries on from where it stopped).
+  async function listenSoFar() {
+    const rec = recorderRef.current;
+    if (!rec) return;
+    if (listenRef.current) return stopListeningNow();
+    // Make sure the last moments are in the recording before playing it.
+    await new Promise<void>((resolve) => {
+      const done = () => resolve();
+      rec.addEventListener('dataavailable', done, { once: true });
+      try {
+        rec.requestData();
+      } catch {
+        resolve();
+      }
+      window.setTimeout(done, 500);
+    });
+    const blob = new Blob(chunksRef.current, { type: baseMime(rec.mimeType || 'audio/webm') });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => stopListeningNow();
+    listenRef.current = { audio, url };
+    setListening(true);
+    void audio.play().catch(() => stopListeningNow());
+  }
+
+  // ---------- Voice message in two languages (central admin) ----------
+  function storeClip(language: ClipLanguage, blob: Blob, mime: string, ms: number) {
+    if (ms < MIN_VOICE_MS) {
+      setError(t('groupChat.hold_longer'));
+      return;
+    }
+    setDual((d) => {
+      if (!d) return d;
+      const old = d.clips[language];
+      if (old) URL.revokeObjectURL(old.url);
+      return { ...d, clips: { ...d.clips, [language]: { blob, mime, ms, url: URL.createObjectURL(blob), at: Date.now() } } };
+    });
+  }
+
+  function removeClip(language: ClipLanguage) {
+    setDual((d) => {
+      if (!d) return d;
+      const old = d.clips[language];
+      if (old) URL.revokeObjectURL(old.url);
+      const { [language]: _gone, ...rest } = d.clips;
+      return { ...d, clips: rest };
+    });
+  }
+
+  function closeDual() {
+    setDual((d) => {
+      Object.values(d?.clips ?? {}).forEach((c) => c && URL.revokeObjectURL(c.url));
+      return null;
+    });
+  }
+
+  async function recordClip(language: ClipLanguage) {
+    if (recording || busy) return;
+    dualTargetRef.current = language;
+    const ok = await startVoice();
+    if (ok) lockVoice();
+    else dualTargetRef.current = null;
+  }
+
+  async function sendDual() {
+    if (!dual) return;
+    const clips = (['en', 'fr'] as const).flatMap((language) => (dual.clips[language] ? [{ language, clip: dual.clips[language]! }] : [])).sort((a, b) => a.clip.at - b.clip.at);
+    if (clips.length === 0) return setError(t('bilingual.need_one'));
+    setBusy(true);
+    setError(null);
+    try {
+      const uploaded: UploadedAttachment[] = [];
+      for (const { language, clip } of clips) {
+        const file = await uploadChatFile(uploadPath, clip.blob, `voice-note-${language}-${Date.now()}.${extensionFor(clip.mime)}`);
+        // Two clips travel as an English + French pair; a single one is an ordinary voice note.
+        uploaded.push(clips.length === 2 ? { ...file, language } : file);
+      }
+      const ok = await onSend({ attachments: uploaded, replyToMessageId: replyTo?.id, liveTeaching: dual.live || undefined });
+      if (ok) closeDual();
+    } catch (err) {
+      setError(problemText(err instanceof ChatUploadError ? err.reason : 'failed'));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function sendVoice(blob: Blob, mime: string) {
@@ -536,6 +676,12 @@ export function ChatComposer({
               })}
             </div>
           </div>
+          {dualTargetRef.current && (
+            <p className="mt-1 text-sm font-semibold text-slate-800">
+              {dualTargetRef.current === 'en' ? '🇬🇧' : '🇫🇷'} {t('bilingual.recording_for', { language: t(dualTargetRef.current === 'en' ? 'bilingual.english' : 'bilingual.french') })}
+              {dual?.live ? ' · 🔴' : ''}
+            </p>
+          )}
           <p className="mt-1 text-xs text-slate-500">
             {recording.paused ? t('groupChat.recording_paused') : (
               <>
@@ -574,6 +720,16 @@ export function ChatComposer({
             ) : (
               <span className="flex-1" />
             )}
+            {recording.paused && (
+              <button
+                type="button"
+                onClick={() => void listenSoFar()}
+                aria-pressed={listening}
+                className="flex h-12 shrink-0 items-center justify-center gap-1 rounded-full bg-sky-50 px-4 font-medium text-sky-800"
+              >
+                {listening ? '⏹' : '▶'} {t(listening ? 'groupChat.recording_stop_listen' : 'groupChat.recording_listen')}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => finishVoice(true)}
@@ -581,6 +737,53 @@ export function ChatComposer({
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
             >
               <ChatIcon name="send" />
+            </button>
+          </div>
+        </div>
+      ) : dual ? (
+        <div className="space-y-3 rounded-2xl bg-white px-4 pb-3 pt-3 shadow-sm" data-testid="dual-panel">
+          <div>
+            <p className="font-semibold text-slate-900">🌐 {t('bilingual.title')}</p>
+            <p className="text-xs text-slate-500">{t('bilingual.help')}</p>
+          </div>
+          {(['en', 'fr'] as const).map((language) => {
+            const clip = dual.clips[language];
+            return (
+              <div key={language} className="rounded-xl bg-slate-50 p-2" data-testid={`dual-row-${language}`}>
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 font-medium text-slate-800">
+                    {language === 'en' ? '🇬🇧' : '🇫🇷'} {t(language === 'en' ? 'bilingual.english' : 'bilingual.french')}
+                    {clip && <span className="ml-2 font-mono text-xs text-slate-500">{formatDuration(clip.ms)}</span>}
+                  </span>
+                  {clip && (
+                    <button type="button" onClick={() => removeClip(language)} className="text-xs text-slate-500 underline">
+                      {t('bilingual.remove')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void recordClip(language)}
+                    disabled={busy}
+                    className="flex h-10 items-center gap-1 rounded-full bg-emerald-600 px-4 text-sm font-medium text-white disabled:bg-emerald-300"
+                  >
+                    <ChatIcon name="mic" className="h-5 w-5" />
+                    {clip ? t('bilingual.redo') : t('bilingual.record')}
+                  </button>
+                </div>
+                {clip && <audio controls preload="metadata" src={clip.url} className="mt-2 h-9 w-full" aria-label={t(language === 'en' ? 'bilingual.english' : 'bilingual.french') ?? ''} />}
+              </div>
+            );
+          })}
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
+            <input type="checkbox" checked={dual.live} onChange={(e) => setDual((d) => (d ? { ...d, live: e.target.checked } : d))} className="h-5 w-5 rounded border-slate-300 accent-red-600" />
+            🔴 {t('bilingual.live')}
+          </label>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={closeDual} disabled={busy} className="btn-secondary flex-1 py-2">
+              {t('bilingual.cancel')}
+            </button>
+            <button type="button" onClick={() => void sendDual()} disabled={busy || Object.keys(dual.clips).length === 0} className="btn-primary flex-1 py-2 disabled:opacity-50">
+              {t('bilingual.send')}
             </button>
           </div>
         </div>
@@ -683,6 +886,19 @@ export function ChatComposer({
               <ChatIcon name="send" />
             </button>
           ) : (
+            <>
+            {bilingual && (
+              <button
+                type="button"
+                onClick={() => setDual({ clips: {}, live: false })}
+                disabled={busy}
+                aria-label={t('bilingual.open') ?? ''}
+                title={t('bilingual.open') ?? ''}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-xl shadow-sm"
+              >
+                🌐
+              </button>
+            )}
             <button
               type="button"
               onClick={() => void startRecording()}
@@ -693,6 +909,7 @@ export function ChatComposer({
             >
               <ChatIcon name="mic" />
             </button>
+            </>
           )}
         </div>
         <LengthNote value={text} max={MAX_MESSAGE_CHARS} className="px-3 pt-1" />

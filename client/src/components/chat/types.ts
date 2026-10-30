@@ -8,6 +8,8 @@ export interface ChatAttachment {
   thumb?: string;
   /** A PDF's number of pages ("71 pages • 3.5 MB • PDF"). */
   pageCount?: number;
+  /** One of the two clips of a voice message the central admin recorded in both languages. */
+  language?: 'en' | 'fr';
 }
 
 export interface ChatReaction {
@@ -70,6 +72,8 @@ export interface ChatMessage {
   createdAt: string;
   deleted: boolean;
   attachments: ChatAttachment[];
+  /** Marked by the central admin as a live teaching. */
+  liveTeaching?: boolean;
   replyTo?: ChatReplyPreview | null;
   reactions?: ChatReaction[];
   /** Shown while a message is still being sent. */

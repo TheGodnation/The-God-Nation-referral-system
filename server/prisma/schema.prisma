@@ -1661,6 +1661,8 @@ model Message {
   transcribedLanguage  Language?
   translatedTranscript String?
   transcribedAt        DateTime?
+  // Marked by the central admin as a live teaching (shown on the message, said in the notification).
+  liveTeaching         Boolean @default(false)
 
   conversation Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       Person                   @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
@@ -1748,6 +1750,10 @@ model MessageAttachment {
   thumbDataUrl       String?
   // A PDF's number of pages ("71 pages • 3.5 MB • PDF"), read by the sender's phone.
   pageCount          Int?
+  // The language of a recording the central admin made in both languages
+  // (one message carries an English and a French voice note); null for
+  // everything else.
+  language           Language?
   uploadedByPersonId String
   createdAt          DateTime @default(now())
 
