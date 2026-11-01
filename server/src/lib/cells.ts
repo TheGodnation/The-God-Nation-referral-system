@@ -99,11 +99,13 @@ export interface AssemblyOverviewRow {
   members: number;
   leaders: number;
   readyToLead: number;
+  /** Members nobody follows yet (not leaders, not the central admin). */
+  unassigned: number;
 }
 
 /** Every active assembly with its size, leaders and how many are ready to lead. */
 export async function assembliesOverview(): Promise<{ capacity: number; requiredBooks: number; items: AssemblyOverviewRow[] }> {
-  const [communities, memberships, roles, settings, examIds] = await Promise.all([
+  const [communities, memberships, roles, settings, examIds, followed, admins] = await Promise.all([
     prisma.community.findMany({
       where: { active: true },
       select: { id: true, name: true, parentId: true, autoCreated: true, createdAt: true },
@@ -113,15 +115,24 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
     prisma.roleAssignment.findMany({ where: { status: 'ACTIVE', communityId: { not: null } }, select: { personId: true, communityId: true } }),
     prisma.settings.findUnique({ where: { id: 'singleton' }, select: { assemblyCapacity: true } }),
     requiredLeadershipExamIds(),
+    prisma.followUpAssignment.findMany({ where: { status: 'ACTIVE' }, select: { contextId: true, followedPersonId: true } }),
+    prisma.user.findMany({ where: { role: 'ADMIN', active: true, personId: { not: null } }, select: { personId: true } }),
   ]);
+  const followedKey = new Set(followed.map((f) => `${f.contextId}:${f.followedPersonId}`));
+  const adminIds = new Set(admins.map((a) => a.personId as string));
 
   const graduates = await graduatesAmong([...new Set(memberships.map((m) => m.personId))]);
   const nameOf = new Map(communities.map((c) => [c.id, c.name]));
   const leaderKey = new Set(roles.map((r) => `${r.communityId}:${r.personId}`));
   const members = new Map<string, number>();
   const ready = new Map<string, number>();
+  const unassigned = new Map<string, number>();
   for (const m of memberships) {
     members.set(m.communityId, (members.get(m.communityId) ?? 0) + 1);
+    const key = `${m.communityId}:${m.personId}`;
+    if (!leaderKey.has(key) && !followedKey.has(key) && !adminIds.has(m.personId)) {
+      unassigned.set(m.communityId, (unassigned.get(m.communityId) ?? 0) + 1);
+    }
     if (graduates.has(m.personId) && !leaderKey.has(`${m.communityId}:${m.personId}`)) {
       ready.set(m.communityId, (ready.get(m.communityId) ?? 0) + 1);
     }
@@ -142,6 +153,7 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
       members: members.get(c.id) ?? 0,
       leaders: leaders.get(c.id) ?? 0,
       readyToLead: ready.get(c.id) ?? 0,
+      unassigned: unassigned.get(c.id) ?? 0,
     })),
   };
 }

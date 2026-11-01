@@ -13,6 +13,7 @@ import { computeAttentionForLeader } from '../lib/followUpAttention';
 import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
 import { followUpCardsFor, CONTACT_DAYS_PER_WEEK } from '../lib/followUpCard';
 import { getOrCreatePrivateConversation } from '../lib/privateMessaging';
+import { handOverPeople, isAway, leaderLoads, shareWithLeader } from '../lib/followUpShare';
 
 const router = Router();
 
@@ -81,13 +82,69 @@ router.get('/follow-ups/attention', asyncHandler(async (req, res) => {
 // as a follow-up card, the ones who need them most first. Members never see
 // their own card; this is for their leaders only.
 router.get('/my-people', asyncHandler(async (req, res) => {
-  const items = await followUpCardsFor(req.leaderPersonId!);
+  const [items, me] = await Promise.all([
+    followUpCardsFor(req.leaderPersonId!),
+    prisma.person.findUnique({ where: { id: req.leaderPersonId! }, select: { awayUntil: true } }),
+  ]);
   res.json({
+    away: isAway(me?.awayUntil) ? { until: me!.awayUntil } : null,
     contactTarget: CONTACT_DAYS_PER_WEEK,
     total: items.length,
     needingAttention: items.filter((c) => c.flags.length > 0).length,
     items,
   });
+}));
+
+// PUT /api/leader/my-people/away — "I am away until <date>" (or back now: until null).
+// While away, new people are not given to this leader.
+router.put('/my-people/away', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = z.object({ until: z.string().datetime().nullable() }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'until must be a date, or null to say you are back.' });
+  const until = parsed.data.until ? new Date(parsed.data.until) : null;
+  if (until && (until.getTime() <= Date.now() || until.getTime() > Date.now() + 366 * 24 * 60 * 60 * 1000)) {
+    return res.status(400).json({ error: 'Choose a date in the future, within a year.' });
+  }
+  await prisma.person.update({ where: { id: req.leaderPersonId! }, data: { awayUntil: until } });
+  res.json({ away: until ? { until } : null });
+}));
+
+// GET /api/leader/my-people/colleagues — the other leaders of the assemblies I lead, with their load.
+router.get('/my-people/colleagues', asyncHandler(async (req, res) => {
+  const roles = await prisma.roleAssignment.findMany({
+    where: { personId: req.leaderPersonId, status: 'ACTIVE', communityId: { not: null } },
+    select: { community: { select: { id: true, name: true } } },
+  });
+  const items = [];
+  for (const r of roles) {
+    if (!r.community) continue;
+    const leaders = (await leaderLoads(r.community.id)).filter((l) => l.personId !== req.leaderPersonId);
+    items.push({ communityId: r.community.id, communityName: r.community.name, leaders });
+  }
+  res.json({ items });
+}));
+
+// POST /api/leader/my-people/:personId/share — share one of my people with
+// another leader of the same assembly (we both follow them), or hand them over
+// (they go to the other leader, with the notes and the chat).
+router.post('/my-people/:personId/share', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = z.object({ toLeaderPersonId: z.string().min(1), mode: z.enum(['share', 'handover']) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Choose a leader and whether to share or hand over.' });
+  const personId = String(req.params.personId);
+  const mine = await prisma.followUpAssignment.findFirst({
+    where: { followerId: req.leaderPersonId, followedPersonId: personId, status: 'ACTIVE' },
+  });
+  if (!mine) return res.status(403).json({ error: 'This person is not one of your people.' });
+  const { toLeaderPersonId, mode } = parsed.data;
+  if (toLeaderPersonId === req.leaderPersonId) return res.status(400).json({ error: 'Choose another leader.' });
+  const colleague = await findActiveScopedRole(toLeaderPersonId, 'COMMUNITY', mine.contextId);
+  if (!colleague) return res.status(400).json({ error: 'That person is not a leader of this assembly.' });
+
+  if (mode === 'share') {
+    const r = await shareWithLeader({ personId, toLeaderId: toLeaderPersonId, communityId: mine.contextId, actorUserId: req.user!.id });
+    return res.json({ mode, done: true, alreadyFollowing: !r.created });
+  }
+  const r = await handOverPeople({ fromLeaderId: req.leaderPersonId!, communityId: mine.contextId, toLeaderId: toLeaderPersonId, onlyPersonId: personId, actorUserId: req.user!.id });
+  res.json({ mode, done: r.moved > 0 });
 }));
 
 // POST /api/leader/my-people/:personId/chat — opens (or creates) the private

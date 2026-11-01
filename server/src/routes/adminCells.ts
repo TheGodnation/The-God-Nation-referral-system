@@ -8,6 +8,7 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
+import { handOverPeople, leaderLoads, shareUnassigned } from '../lib/followUpShare';
 import { appointLeader, assembliesOverview, readyToLeadIn } from '../lib/cells';
 
 // Cells for the central admin: every assembly with its size, leaders and
@@ -39,6 +40,37 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     const result = await appointLeader(parsed.data.personId, parsed.data.communityId, actor);
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     res.status(201).json({ id: result.id });
+  }));
+
+  // Give the people nobody follows yet to the assembly's leaders, evenly by headcount.
+  router.post('/share', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ communityId: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'communityId is required.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const result = await shareUnassigned(parsed.data.communityId, actor.id);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_BULK_DISTRIBUTED', targetType: 'Community', targetId: parsed.data.communityId, metadata: { totalAssigned: result.assigned, via: 'share-by-headcount' } });
+    res.json(result);
+  }));
+
+  // The leaders of one assembly with how many people each follows and who is away.
+  router.get('/leaders', asyncHandler(async (req, res) => {
+    const communityId = z.string().min(1).safeParse(req.query.communityId);
+    if (!communityId.success) return res.status(400).json({ error: 'communityId is required.' });
+    res.json({ items: await leaderLoads(communityId.data) });
+  }));
+
+  // Hand every person (or the people of a leader in one assembly) to another leader, records and chat with them.
+  router.post('/handover', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z
+      .object({ fromLeaderPersonId: z.string().min(1), communityId: z.string().min(1), toLeaderPersonId: z.string().min(1).optional() })
+      .safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'fromLeaderPersonId and communityId are required.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const result = await handOverPeople({ ...parsed.data, fromLeaderId: parsed.data.fromLeaderPersonId, toLeaderId: parsed.data.toLeaderPersonId, actorUserId: actor.id });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_REASSIGNED', targetType: 'Community', targetId: parsed.data.communityId, metadata: { ...result, fromLeaderPersonId: parsed.data.fromLeaderPersonId, via: 'handover' } });
+    res.json(result);
   }));
 
   // The size of an assembly: when it is reached, newcomers go to a new assembly.

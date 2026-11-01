@@ -708,6 +708,9 @@ model ContactMessage {
 model Person {
   id                  String              @id @default(uuid())
   name                String
+  // A leader who is away (travelling, ill...) until this moment: new people
+  // are not shared with them, and anything urgent goes past them.
+  awayUntil           DateTime?
   // Share-into-app: a Leader allowed to forward posts in from WhatsApp,
   // TikTok, Facebook, Instagram. Off for everyone by default; the Central
   // Admin can always share and never needs this.

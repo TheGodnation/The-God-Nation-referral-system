@@ -24,7 +24,14 @@ interface Card {
   flags: Flag[];
 }
 
+interface Colleague {
+  personId: string;
+  name: string;
+  away: boolean;
+  headcount: number;
+}
 interface Response {
+  away: { until: string } | null;
   contactTarget: number;
   total: number;
   needingAttention: number;
@@ -51,6 +58,10 @@ export function MyPeople() {
   const [onlyAttention, setOnlyAttention] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [colleagues, setColleagues] = useState<Colleague[] | null>(null);
+  const [pick, setPick] = useState('');
+  const [awayDate, setAwayDate] = useState('');
+  const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -58,6 +69,53 @@ export function MyPeople() {
       .then(setData)
       .catch(() => setFailed(true));
   }, []);
+
+  function reload() {
+    api.get<Response>('/api/leader/my-people').then(setData).catch(() => {});
+  }
+
+  async function setAway(until: string | null) {
+    setError(null);
+    setNote(null);
+    try {
+      await api.put('/api/leader/my-people/away', { until });
+      setNote(until ? t('myPeople.away_set') : t('myPeople.away_cleared'));
+      setAwayDate('');
+      reload();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('myPeople.away_failed'));
+    }
+  }
+
+  function openCard(id: string | null) {
+    setOpenId(id);
+    setPick('');
+    setNote(null);
+    if (id && colleagues === null) {
+      api
+        .get<{ items: { leaders: Colleague[] }[] }>('/api/leader/my-people/colleagues')
+        .then((r) => {
+          const seen = new Map<string, Colleague>();
+          for (const c of r.items) for (const l of c.leaders) seen.set(l.personId, l);
+          setColleagues([...seen.values()]);
+        })
+        .catch(() => setColleagues([]));
+    }
+  }
+
+  async function shareCard(personId: string, mode: 'share' | 'handover') {
+    if (!pick) return;
+    setError(null);
+    setNote(null);
+    try {
+      await api.post(`/api/leader/my-people/${personId}/share`, { toLeaderPersonId: pick, mode });
+      setNote(mode === 'share' ? t('myPeople.shared_done') : t('myPeople.handed_done'));
+      setOpenId(null);
+      reload();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('myPeople.share_failed'));
+    }
+  }
 
   async function message(personId: string) {
     setBusy(personId);
@@ -90,6 +148,21 @@ export function MyPeople() {
         </label>
       </div>
       <p className="text-xs text-slate-500">{t('myPeople.rule', { count: data.contactTarget })}</p>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        {data.away ? (
+          <>
+            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">{t('myPeople.away_until', { date: new Date(data.away.until).toLocaleDateString() })}</span>
+            <button type="button" className="btn-secondary px-3 py-1" onClick={() => setAway(null)}>{t('myPeople.im_back')}</button>
+          </>
+        ) : (
+          <>
+            <label htmlFor="away-date" className="text-slate-600">{t('myPeople.im_away')}</label>
+            <input id="away-date" type="date" className="input w-auto py-1" value={awayDate} min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} onChange={(e) => setAwayDate(e.target.value)} />
+            <button type="button" className="btn-secondary px-3 py-1" disabled={!awayDate} onClick={() => setAway(new Date(`${awayDate}T23:59:00`).toISOString())}>{t('myPeople.away_save')}</button>
+          </>
+        )}
+      </div>
+      {note && <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{note}</p>}
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <ul className="space-y-2">
@@ -100,7 +173,7 @@ export function MyPeople() {
           return (
             <li key={c.followUpAssignmentId} className={`rounded-xl border p-3 ${urgent ? 'border-red-200 bg-red-50/40' : c.flags.length ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200'}`}>
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <button type="button" className="text-left" onClick={() => setOpenId(open ? null : c.followUpAssignmentId)} aria-expanded={open}>
+                <button type="button" className="text-left" onClick={() => openCard(open ? null : c.followUpAssignmentId)} aria-expanded={open}>
                   <span className="font-medium text-slate-900">{c.name}</span>
                   <span className="block text-xs text-slate-500">
                     {since === null ? t('myPeople.never_contacted') : since === 0 ? t('myPeople.contact_today') : t('myPeople.contact_days_ago', { count: since })}
@@ -152,6 +225,26 @@ export function MyPeople() {
                     </div>
                   )}
                 </dl>
+              )}
+              {open && (
+                <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                  <p className="text-xs text-slate-500">{t('myPeople.share_help')}</p>
+                  {colleagues && colleagues.length === 0 && <p className="text-sm text-slate-500">{t('myPeople.no_colleagues')}</p>}
+                  {colleagues && colleagues.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select className="input w-auto" aria-label={t('myPeople.choose_leader')} value={pick} onChange={(e) => setPick(e.target.value)}>
+                        <option value="">{t('myPeople.choose_leader')}</option>
+                        {colleagues.map((l) => (
+                          <option key={l.personId} value={l.personId}>
+                            {l.name} ({t('myPeople.their_people', { count: l.headcount })}{l.away ? `, ${t('myPeople.is_away')}` : ''})
+                          </option>
+                        ))}
+                      </select>
+                      <button type="button" className="btn-secondary px-3 py-1.5 text-sm" disabled={!pick} onClick={() => shareCard(c.personId, 'share')}>{t('myPeople.share_with')}</button>
+                      <button type="button" className="btn-secondary px-3 py-1.5 text-sm" disabled={!pick} onClick={() => shareCard(c.personId, 'handover')}>{t('myPeople.hand_over')}</button>
+                    </div>
+                  )}
+                </div>
               )}
             </li>
           );

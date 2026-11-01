@@ -12,6 +12,7 @@ import { findActiveScopedRole, contextTargetExists } from '../lib/leadership';
 import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
 import { computeAttentionAcrossNetwork } from '../lib/followUpAttention';
 import { notifyFollowUpAssigned, notifyRoleAssigned } from '../lib/notifications';
+import { handOverPeople } from '../lib/followUpShare';
 
 const router = Router();
 
@@ -137,6 +138,19 @@ router.patch('/role-assignments/:id/end', leadershipMutationLimiter, requireCsrf
     targetType: 'RoleAssignment',
     targetId: id,
   });
+
+  // The leader's people (with their notes and chats) go to the assembly's other
+  // leaders, evenly. If there is no other leader, they stay as they are.
+  if (assignment.communityId) {
+    try {
+      const result = await handOverPeople({ fromLeaderId: assignment.personId, communityId: assignment.communityId, actorUserId: req.user!.id });
+      if (result.moved > 0) {
+        await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'FOLLOW_UP_REASSIGNED', targetType: 'RoleAssignment', targetId: id, metadata: { ...result, via: 'leader-role-ended' } });
+      }
+    } catch (err) {
+      console.error('[handover] could not hand over after the role ended', err);
+    }
+  }
 
   res.json(updated);
 }));

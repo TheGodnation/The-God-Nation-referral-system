@@ -12,6 +12,7 @@ interface Row {
   members: number;
   leaders: number;
   readyToLead: number;
+  unassigned: number;
 }
 interface Overview {
   capacity: number;
@@ -74,6 +75,22 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       setMessage(t('cells.appointed'));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('cells.appoint_failed'));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function shareOut() {
+    if (!open) return;
+    setBusyId('share');
+    setError(null);
+    setMessage(null);
+    try {
+      const r = await api.post<{ assigned: number; noLeaders: boolean }>(`${base}/share`, { communityId: open.id });
+      setMessage(r.noLeaders ? t('cells.share_no_leaders') : t('cells.share_done', { count: r.assigned }));
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('cells.share_failed'));
     } finally {
       setBusyId(null);
     }
@@ -152,6 +169,9 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
                 </span>
                 <span className="text-sm text-slate-600">
                   {t('cells.counts', { members: r.members, capacity: data.capacity, leaders: r.leaders })}
+                  {r.unassigned > 0 && r.leaders > 0 && (
+                    <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{t('cells.unassigned_count', { count: r.unassigned })}</span>
+                  )}
                   {r.readyToLead > 0 && (
                     <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
                       {t('cells.ready_count', { count: r.readyToLead })}
@@ -168,6 +188,18 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       {open && (
         <section className="card space-y-3" aria-label={t('cells.ready_title', { name: open.name })}>
           <h3 className="font-semibold text-brand-900">{t('cells.ready_title', { name: open.name })}</h3>
+          {(() => {
+            const row = data.items.find((r) => r.id === open.id);
+            if (!row || row.unassigned === 0) return null;
+            return (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                <span>{t('cells.unassigned_help', { count: row.unassigned })}</span>
+                <button type="button" className="btn-secondary px-3 py-1.5 text-sm" disabled={busyId === 'share'} onClick={shareOut}>
+                  {t('cells.share_button')}
+                </button>
+              </div>
+            );
+          })()}
           <p className="text-sm text-slate-600">{t('cells.ready_help')}</p>
           {!ready && <p className="text-sm text-slate-400">{t('cells.loading')}</p>}
           {ready && ready.items.length === 0 && <p className="text-sm text-slate-500">{t('cells.ready_none')}</p>}

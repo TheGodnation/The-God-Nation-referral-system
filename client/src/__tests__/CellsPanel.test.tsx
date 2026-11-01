@@ -28,8 +28,8 @@ const overview = {
   capacity: 200,
   requiredBooks: 15,
   items: [
-    { id: 'a1', name: 'Headquarters', parentId: null, parentName: null, autoCreated: false, createdAt: '2026-01-01', members: 200, leaders: 3, readyToLead: 0 },
-    { id: 'a2', name: 'Headquarters · 1', parentId: 'a1', parentName: 'Headquarters', autoCreated: true, createdAt: '2026-11-01', members: 12, leaders: 0, readyToLead: 2 },
+    { id: 'a1', name: 'Headquarters', parentId: null, parentName: null, autoCreated: false, createdAt: '2026-01-01', members: 200, leaders: 3, readyToLead: 0, unassigned: 0 },
+    { id: 'a2', name: 'Headquarters · 1', parentId: 'a1', parentName: 'Headquarters', autoCreated: true, createdAt: '2026-11-01', members: 12, leaders: 2, readyToLead: 2, unassigned: 5 },
   ],
 };
 
@@ -39,7 +39,7 @@ describe('CellsPanel', () => {
     render(<CellsPanel base="/api/admin/cells" />);
     expect(await screen.findByText('Headquarters · 1')).toBeInTheDocument();
     expect(screen.getByText('200 of 200 members · 3 leaders')).toBeInTheDocument();
-    expect(screen.getByText('12 of 200 members · 0 leaders')).toBeInTheDocument();
+    expect(screen.getByText('12 of 200 members · 2 leaders')).toBeInTheDocument();
     expect(screen.getByText('Opened automatically')).toBeInTheDocument();
     expect(screen.getByText('Under Headquarters')).toBeInTheDocument();
     expect(screen.getByText('2 ready to lead')).toBeInTheDocument();
@@ -86,6 +86,21 @@ describe('CellsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Saved.')).toBeInTheDocument();
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ assemblyCapacity: 150 });
+  });
+
+  it('shows how many people nobody follows and shares them among the leaders', async () => {
+    mockFetch({
+      '/api/admin/cells/overview': () => ({ status: 200, body: overview }),
+      '/api/admin/cells/ready-to-lead': () => ({ status: 200, body: { requiredBooks: 15, items: [] } }),
+      '/api/admin/cells/share': () => ({ status: 200, body: { assigned: 5, noLeaders: false } }),
+    });
+    render(<CellsPanel base="/api/admin/cells" />);
+    expect(await screen.findByText('5 not followed yet')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Headquarters · 1'));
+    expect(await screen.findByText('5 people in this assembly are not followed by any leader yet.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Share them among the leaders' }));
+    expect(await screen.findByText('5 people shared among the leaders, evenly.')).toBeInTheDocument();
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ communityId: 'a2' });
   });
 
   it('says so when no Leadership School exam is published yet', async () => {
