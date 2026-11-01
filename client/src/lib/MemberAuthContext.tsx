@@ -18,6 +18,8 @@ export interface CurrentMember {
   // details; missing (older server) is treated as complete.
   profileComplete?: boolean;
   personId?: string;
+  // True only for the central admin's own member profile (carries the assembly tools).
+  isCentralAdmin?: boolean;
   // Path of the member's own profile picture, or null when they have none.
   photoUrl?: string | null;
   // The wide picture at the top of the member's wall, and a short line

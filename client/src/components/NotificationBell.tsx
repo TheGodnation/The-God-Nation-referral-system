@@ -32,7 +32,8 @@ type NotificationType =
   | 'MEMBER_REPORT_REVIEWED'
   | 'POST_PUBLISHED'
   | 'POST_LIKED'
-  | 'POST_REPLIED';
+  | 'POST_REPLIED'
+  | 'ASSEMBLY_OPENED';
 
 interface NotificationRow {
   id: string;
@@ -169,6 +170,8 @@ export function NotificationBell() {
         const base = t(metadata.outcome === 'VIOLATION' ? 'notifications.report_violation' : metadata.outcome === 'NO_VIOLATION' ? 'notifications.report_no_violation' : 'notifications.report_reviewed');
         return metadata.note ? `${base} ${t('notifications.report_note', { note: String(metadata.note) })}` : base;
       }
+      case 'ASSEMBLY_OPENED':
+        return t('notifications.assembly_opened', { name: metadata.assemblyName ?? '', parent: metadata.parentName ?? '' });
       case 'POST_PUBLISHED':
         return t('notifications.post_published_all', { name: metadata.authorName ?? '' });
       case 'POST_LIKED':

@@ -1074,10 +1074,12 @@ router.get('/ping', (req, res) => {
   res.json({ ok: Boolean(req.member) });
 });
 
-router.get('/me', (req, res) => {
+router.get('/me', asyncHandler(async (req, res) => {
   if (!req.member) return res.json({ member: null });
   res.json({
     member: {
+      // The central admin's own member profile carries the assembly tools.
+      isCentralAdmin: await isCentralAdminPerson(req.member.personId),
       name: req.member.name,
       email: req.member.email,
       preferredLanguage: req.member.preferredLanguage,
@@ -1105,7 +1107,7 @@ router.get('/me', (req, res) => {
       bio: req.member.bio ?? null,
     },
   });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Sign-up step 2: the details form shown right after the member clicks

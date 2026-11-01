@@ -224,6 +224,9 @@ enum NotificationType {
   POST_PUBLISHED
   POST_LIKED
   POST_REPLIED
+  // The app opened a new assembly because the previous one was full; sent
+  // to the central admin so leaders can be appointed.
+  ASSEMBLY_OPENED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -571,6 +574,10 @@ model Settings {
   headquartersCommunityId String?
   headquartersCommunity   Community?    @relation("SettingsHeadquarters", fields: [headquartersCommunityId], references: [id], onDelete: SetNull)
   placementMode           PlacementMode @default(SMALLEST_GROUP)
+  // How many active members an assembly holds before newcomers are placed
+  // in a new child assembly instead (see lib/cells.ts). Adjustable by the
+  // central admin.
+  assemblyCapacity        Int           @default(200)
   // "Live now" slot on the Updates page: the YouTube video id of the live
   // (video or audio-only) the central admin is streaming, or null when
   // nothing is live. Set/cleared from the admin Updates tab.
@@ -876,6 +883,9 @@ model Community {
   // off when creating a special-purpose sub-group (Leaders only, Prayer,
   // etc.) that should never receive automatic placements.
   autoPlacementEligible Boolean             @default(true)
+  // True for an assembly the app opened by itself because its parent was
+  // full ("one brings two": at most two such children per assembly).
+  autoCreated      Boolean                @default(false)
   // Optional location tag used only by BY_LOCATION placement: newcomers
   // whose country (and region, when set) match go to this group first.
   placementCountry String?

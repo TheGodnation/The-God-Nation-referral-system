@@ -13,7 +13,6 @@ import { StartPrivateMessage } from './StartPrivateMessage';
 import { MyFollowUp } from './MyFollowUp';
 import { TrainingProgress } from './TrainingProgress';
 import { MyMembers } from './MyMembers';
-import { MyOrganizationalLeadershipRecommendations } from './MyOrganizationalLeadershipRecommendations';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
 import { LeaderLeadershipCollaboration } from './LeaderLeadershipCollaboration';
 import { LeaderCommunityConversations } from './LeaderCommunityConversations';
@@ -266,8 +265,6 @@ export function LeadershipDashboardBody() {
       <TrainingProgress />
 
       <MyMembers />
-
-      <MyOrganizationalLeadershipRecommendations />
 
       <MyLeadershipPeers />
 

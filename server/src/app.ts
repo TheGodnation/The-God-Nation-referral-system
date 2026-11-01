@@ -33,6 +33,7 @@ import clientErrorsRoutes from './routes/clientErrors';
 import adminAttemptsRoutes from './routes/adminAttempts';
 import memberAuthRoutes from './routes/memberAuth';
 import memberAssessmentsRoutes from './routes/memberAssessments';
+import { adminCellsRoutes, memberCentralCellsRoutes } from './routes/adminCells';
 import adminLeadershipRoutes from './routes/adminLeadership';
 import leaderFollowUpsRoutes from './routes/leaderFollowUps';
 import leaderCommunitiesRoutes from './routes/leaderCommunities';
@@ -42,8 +43,6 @@ import announcementsRoutes from './routes/announcements';
 import adminAnnouncementsRoutes from './routes/adminAnnouncements';
 import adminConversationOversightRoutes from './routes/adminConversationOversight';
 import leaderLeadershipCollaborationRoutes from './routes/leaderLeadershipCollaboration';
-import leaderOrganizationalLeadershipRecommendationsRoutes from './routes/leaderOrganizationalLeadershipRecommendations';
-import adminOrganizationalLeadershipRecommendationsRoutes from './routes/adminOrganizationalLeadershipRecommendations';
 import adminLocationsRoutes from './routes/adminLocations';
 import adminPresenceRoutes from './routes/adminPresence';
 import appBrandingRoutes from './routes/appBranding';
@@ -150,6 +149,8 @@ export function createApp() {
   // Phase 3D: adminLeadershipRoutes defines '/role-assignments' and
   // '/follow-ups', so it mounts at the '/api/admin' root, same pattern as
   // adminPeopleRoutes/adminAttemptsRoutes above.
+  app.use('/api/admin/cells', adminCellsRoutes);
+  app.use('/api/member/central-cells', memberCentralCellsRoutes);
   app.use('/api/admin', adminLeadershipRoutes);
   app.use('/api/leader', leaderFollowUpsRoutes);
   // Phase 3M.8A: leaderCommunitiesRoutes defines '/communities/:communityId/members',
@@ -189,14 +190,6 @@ export function createApp() {
   // communityConversationsRoutes/followUpConversationsRoutes — own models,
   // own tables, own authorization helper (lib/leadershipCollaboration.ts).
   app.use('/api/leader', leaderLeadershipCollaborationRoutes);
-  // Phase 2C: leaderOrganizationalLeadershipRecommendationsRoutes defines
-  // '/organizational-leadership-recommendations' and its sub-routes under
-  // '/api/leader'; adminOrganizationalLeadershipRecommendationsRoutes
-  // defines the same path under '/api/admin' — same root-mount pattern as
-  // the routes above. Own model, own table, own authorization helper
-  // (lib/organizationalLeadershipRecommendation.ts).
-  app.use('/api/leader', leaderOrganizationalLeadershipRecommendationsRoutes);
-  app.use('/api/admin', adminOrganizationalLeadershipRecommendationsRoutes);
   // Member Location & Central Authority Location Intelligence:
   // adminLocationsRoutes defines '/locations' under '/api/admin' — same
   // root-mount pattern as adminPeopleRoutes/adminAttemptsRoutes above.

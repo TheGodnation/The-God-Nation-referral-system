@@ -50,7 +50,8 @@ interface CreateNotificationParams {
     | 'MEMBER_REPORT_REVIEWED'
     | 'POST_PUBLISHED'
     | 'POST_LIKED'
-    | 'POST_REPLIED';
+    | 'POST_REPLIED'
+    | 'ASSEMBLY_OPENED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -666,4 +667,23 @@ export async function notifyPostReplied(args: {
       url: args.url,
     },
   });
+}
+
+/** The app opened a new assembly because the previous one was full: tell
+ * the central admin (their member profile, or their admin account when it
+ * has no member profile yet) so leaders can be appointed to it. */
+export async function notifyAssemblyOpened(assembly: { id: string; name: string; parentName: string }) {
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true, personId: true } });
+  await Promise.all(
+    admins.map((a) =>
+      createNotification({
+        ...(a.personId ? { recipientPersonId: a.personId } : { recipientUserId: a.id }),
+        type: 'ASSEMBLY_OPENED',
+        metadata: { assemblyName: assembly.name, parentName: assembly.parentName },
+        targetType: 'Community',
+        targetId: assembly.id,
+        push: { title: 'A new assembly has opened', body: `${assembly.parentName} was full, so ${assembly.name} has opened. Appoint its leaders.`, url: '/member/me' },
+      }),
+    ),
+  );
 }

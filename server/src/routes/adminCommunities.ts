@@ -173,22 +173,29 @@ router.post('/headquarters/replace', communityMutationLimiter, requireCsrf, asyn
 // members are placed into groups (see lib/placement.ts). Registered before
 // /:id so "placement-settings" is never captured as a Community id.
 router.get('/placement-settings', asyncHandler(async (_req, res) => {
-  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { placementMode: true } });
-  res.json({ placementMode: settings?.placementMode ?? 'SMALLEST_GROUP' });
+  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { placementMode: true, assemblyCapacity: true } });
+  res.json({ placementMode: settings?.placementMode ?? 'SMALLEST_GROUP', assemblyCapacity: settings?.assemblyCapacity ?? 200 });
 }));
 
-const placementSettingsSchema = z.object({ placementMode: z.enum(['SMALLEST_GROUP', 'BY_LOCATION']) });
+// assemblyCapacity: how many members an assembly holds before new members go
+// to a new child assembly (see lib/placement.ts). Optional so the older
+// "mode only" request still works.
+const placementSettingsSchema = z.object({
+  placementMode: z.enum(['SMALLEST_GROUP', 'BY_LOCATION']),
+  assemblyCapacity: z.number().int().min(10).max(5000).optional(),
+});
 
 router.put('/placement-settings', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = placementSettingsSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'placementMode must be SMALLEST_GROUP or BY_LOCATION.' });
+    return res.status(400).json({ error: 'placementMode must be SMALLEST_GROUP or BY_LOCATION, and assemblyCapacity a whole number from 10 to 5000.' });
   }
-  const { placementMode } = parsed.data;
-  await prisma.settings.upsert({
+  const { placementMode, assemblyCapacity } = parsed.data;
+  const saved = await prisma.settings.upsert({
     where: { id: 'singleton' },
-    create: { id: 'singleton', placementMode },
-    update: { placementMode },
+    create: { id: 'singleton', placementMode, ...(assemblyCapacity !== undefined ? { assemblyCapacity } : {}) },
+    update: { placementMode, ...(assemblyCapacity !== undefined ? { assemblyCapacity } : {}) },
+    select: { assemblyCapacity: true },
   });
   await recordAudit({
     actorId: req.user!.id,
@@ -196,9 +203,9 @@ router.put('/placement-settings', communityMutationLimiter, requireCsrf, asyncHa
     action: 'PLACEMENT_MODE_UPDATED',
     targetType: 'Settings',
     targetId: 'singleton',
-    metadata: { placementMode },
+    metadata: { placementMode, assemblyCapacity: saved.assemblyCapacity },
   });
-  res.json({ placementMode });
+  res.json({ placementMode, assemblyCapacity: saved.assemblyCapacity });
 }));
 
 // GET /api/admin/communities/export — CSV export of every CommunityMembership

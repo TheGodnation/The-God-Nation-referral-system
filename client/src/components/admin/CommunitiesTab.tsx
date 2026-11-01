@@ -68,6 +68,9 @@ export function CommunitiesTab() {
   const [placementMode, setPlacementMode] = useState<PlacementMode | null>(null);
   const [savingPlacement, setSavingPlacement] = useState(false);
   const [placementError, setPlacementError] = useState<string | null>(null);
+  const [capacity, setCapacity] = useState<number | null>(null);
+  const [capacityDraft, setCapacityDraft] = useState('');
+  const [capacitySaved, setCapacitySaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oversightId, setOversightId] = useState<string | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
@@ -100,8 +103,12 @@ export function CommunitiesTab() {
 
   function loadPlacementMode() {
     api
-      .get<{ placementMode: PlacementMode }>('/api/admin/communities/placement-settings')
-      .then((res) => setPlacementMode(res.placementMode))
+      .get<{ placementMode: PlacementMode; assemblyCapacity?: number }>('/api/admin/communities/placement-settings')
+      .then((res) => {
+        setPlacementMode(res.placementMode);
+        setCapacity(res.assemblyCapacity ?? 200);
+        setCapacityDraft(String(res.assemblyCapacity ?? 200));
+      })
       .catch(() => setPlacementMode(null));
   }
   useEffect(loadPlacementMode, []);
@@ -114,6 +121,30 @@ export function CommunitiesTab() {
         placementMode: mode,
       });
       setPlacementMode(res.placementMode);
+    } catch (err) {
+      setPlacementError(err instanceof ApiError ? err.message : t('admin.communities.placement_save_failed'));
+    } finally {
+      setSavingPlacement(false);
+    }
+  }
+
+  async function saveCapacity() {
+    const value = Number(capacityDraft);
+    if (!Number.isInteger(value) || value < 10 || value > 5000) {
+      setPlacementError(t('admin.communities.capacity_invalid'));
+      return;
+    }
+    setSavingPlacement(true);
+    setPlacementError(null);
+    setCapacitySaved(false);
+    try {
+      const res = await api.put<{ placementMode: PlacementMode; assemblyCapacity: number }>('/api/admin/communities/placement-settings', {
+        placementMode: placementMode ?? 'SMALLEST_GROUP',
+        assemblyCapacity: value,
+      });
+      setCapacity(res.assemblyCapacity);
+      setCapacityDraft(String(res.assemblyCapacity));
+      setCapacitySaved(true);
     } catch (err) {
       setPlacementError(err instanceof ApiError ? err.message : t('admin.communities.placement_save_failed'));
     } finally {
@@ -354,6 +385,30 @@ export function CommunitiesTab() {
                 </span>
               </label>
             ))}
+          </div>
+        )}
+        {capacity !== null && (
+          <div className="space-y-1 border-t border-slate-200 pt-3">
+            <label className="label" htmlFor="assembly-capacity">{t('admin.communities.capacity_label')}</label>
+            <p className="text-sm text-slate-500">{t('admin.communities.capacity_help')}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                id="assembly-capacity"
+                type="number"
+                min={10}
+                max={5000}
+                className="input w-28"
+                value={capacityDraft}
+                onChange={(e) => {
+                  setCapacityDraft(e.target.value);
+                  setCapacitySaved(false);
+                }}
+              />
+              <button type="button" className="btn-secondary" disabled={savingPlacement || Number(capacityDraft) === capacity} onClick={saveCapacity}>
+                {t('admin.communities.capacity_save')}
+              </button>
+              {capacitySaved && <span className="text-sm text-green-700">{t('admin.communities.capacity_saved')}</span>}
+            </div>
           </div>
         )}
         {placementError && <p className="text-sm text-red-700">{placementError}</p>}

@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { getDescendantCommunityIds, getHeadquartersCommunityId } from './tree';
+import { notifyAssemblyOpened } from './notifications';
 
 // ---------------------------------------------------------------------------
 // Automatic group placement for newly signed-up members.
@@ -23,7 +24,16 @@ import { getDescendantCommunityIds, getHeadquartersCommunityId } from './tree';
 //    the member goes to the smallest UNTAGGED open group, or the smallest
 //    open group of all if every open group is tagged. Nobody is ever left
 //    without a group.
+//
+// Cells: an assembly holds Settings.assemblyCapacity active members (200 by
+// default). A full assembly is skipped. When every open assembly is full,
+// the app opens a new child assembly under one of them and places the
+// newcomer there ("one brings two": an assembly brings at most two children
+// this way), then tells the central admin so leaders can be appointed.
 // ---------------------------------------------------------------------------
+
+export const DEFAULT_ASSEMBLY_CAPACITY = 200;
+export const MAX_AUTO_CHILDREN = 2;
 
 export interface PlacementLocation {
   country: string | null;
@@ -32,9 +42,12 @@ export interface PlacementLocation {
 
 interface OpenGroup {
   id: string;
+  name: string;
   placementCountry: string | null;
   placementRegion: string | null;
   memberCount: number;
+  /** How many assemblies the app has already opened under this one. */
+  autoChildCount: number;
   createdAt: Date;
 }
 
@@ -49,6 +62,7 @@ async function findOpenGroups(headquartersId: string): Promise<OpenGroup[]> {
     where: { id: { in: treeIds }, active: true, autoPlacementEligible: true },
     select: {
       id: true,
+      name: true,
       placementCountry: true,
       placementRegion: true,
       createdAt: true,
@@ -56,6 +70,13 @@ async function findOpenGroups(headquartersId: string): Promise<OpenGroup[]> {
   });
 
   if (groups.length === 0) return [];
+
+  const childCounts = await prisma.community.groupBy({
+    by: ['parentId'],
+    where: { parentId: { in: groups.map((g) => g.id) }, autoCreated: true },
+    _count: { _all: true },
+  });
+  const childCountById = new Map(childCounts.map((c) => [c.parentId as string, c._count._all]));
 
   const counts = await prisma.communityMembership.groupBy({
     by: ['communityId'],
@@ -66,9 +87,11 @@ async function findOpenGroups(headquartersId: string): Promise<OpenGroup[]> {
 
   return groups.map((g) => ({
     id: g.id,
+    name: g.name,
     placementCountry: g.placementCountry,
     placementRegion: g.placementRegion,
     memberCount: countById.get(g.id) ?? 0,
+    autoChildCount: childCountById.get(g.id) ?? 0,
     createdAt: g.createdAt,
   }));
 }
@@ -110,6 +133,38 @@ export function chooseGroup(
   return (smallest(untagged) ?? smallest(groups))!.id;
 }
 
+export type PlacementPlan =
+  | { kind: 'place'; groupId: string }
+  | { kind: 'split'; parentId: string };
+
+/**
+ * Pure plan — exported for unit testing. Place in an assembly that still
+ * has room; when all are full, open a child under a full assembly that has
+ * fewer than two app-opened children (chosen by the same mode/location rules).
+ * If somehow no assembly can host a new child, the smallest one takes the
+ * newcomer anyway: nobody is ever left without an assembly.
+ * Returns null when there are no open assemblies at all.
+ */
+export function planPlacement(
+  groups: OpenGroup[],
+  mode: 'SMALLEST_GROUP' | 'BY_LOCATION',
+  location: PlacementLocation,
+  capacity: number,
+): PlacementPlan | null {
+  if (groups.length === 0) return null;
+  const withRoom = groups.filter((g) => g.memberCount < capacity);
+  if (withRoom.length > 0) return { kind: 'place', groupId: chooseGroup(withRoom, mode, location)! };
+
+  const canHostChild = groups.filter((g) => g.autoChildCount < MAX_AUTO_CHILDREN);
+  if (canHostChild.length > 0) return { kind: 'split', parentId: chooseGroup(canHostChild, mode, location)! };
+
+  return { kind: 'place', groupId: smallest(groups)!.id };
+}
+
+// One lock for every placement, so two people signing up at the same moment
+// can never open two new assemblies for the same overflow.
+const PLACEMENT_LOCK_KEY = 7340011;
+
 /**
  * Places a Person into a group if they don't already have an ACTIVE
  * membership anywhere. Returns the community id they are in afterwards
@@ -126,20 +181,61 @@ export async function placePersonInGroup(personId: string, location: PlacementLo
   const headquartersId = await getHeadquartersCommunityId();
   if (!headquartersId) return null;
 
-  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { placementMode: true } });
-  const mode = settings?.placementMode ?? 'SMALLEST_GROUP';
+  const result = await prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${PLACEMENT_LOCK_KEY})`;
 
-  const groups = await findOpenGroups(headquartersId);
-  const chosen = chooseGroup(groups, mode, location) ?? headquartersId;
+      // Another request may have placed this person while we waited.
+      const again = await tx.communityMembership.findFirst({ where: { personId, status: 'ACTIVE' }, select: { communityId: true } });
+      if (again) return { communityId: again.communityId, opened: null as null | { id: string; name: string; parentName: string } };
 
-  // upsert: an INACTIVE membership row for the same (person, group) pair
-  // may already exist (the pair is unique) — reactivate it instead of
-  // failing on the unique constraint.
-  await prisma.communityMembership.upsert({
-    where: { personId_communityId: { personId, communityId: chosen } },
-    create: { personId, communityId: chosen },
-    update: { status: 'ACTIVE', joinedAt: new Date() },
-  });
+      const settings = await tx.settings.findUnique({
+        where: { id: 'singleton' },
+        select: { placementMode: true, assemblyCapacity: true },
+      });
+      const mode = settings?.placementMode ?? 'SMALLEST_GROUP';
+      const capacity = Math.max(1, settings?.assemblyCapacity ?? DEFAULT_ASSEMBLY_CAPACITY);
 
-  return chosen;
+      const groups = await findOpenGroups(headquartersId);
+      const plan = planPlacement(groups, mode, location, capacity);
+
+      let chosen = headquartersId;
+      let opened: { id: string; name: string; parentName: string } | null = null;
+      if (plan?.kind === 'place') {
+        chosen = plan.groupId;
+      } else if (plan?.kind === 'split') {
+        const parent = groups.find((g) => g.id === plan.parentId)!;
+        const child = await tx.community.create({
+          data: {
+            name: `${parent.name} · ${parent.autoChildCount + 1}`,
+            parentId: parent.id,
+            autoPlacementEligible: true,
+            autoCreated: true,
+            placementCountry: parent.placementCountry,
+            placementRegion: parent.placementRegion,
+          },
+        });
+        await tx.conversation.create({ data: { communityId: child.id } });
+        chosen = child.id;
+        opened = { id: child.id, name: child.name, parentName: parent.name };
+      }
+
+      // upsert: an INACTIVE membership row for the same (person, group) pair
+      // may already exist (the pair is unique) — reactivate it instead of
+      // failing on the unique constraint.
+      await tx.communityMembership.upsert({
+        where: { personId_communityId: { personId, communityId: chosen } },
+        create: { personId, communityId: chosen },
+        update: { status: 'ACTIVE', joinedAt: new Date() },
+      });
+      return { communityId: chosen, opened };
+    },
+    { timeout: 20000, maxWait: 20000 },
+  );
+
+  if (result.opened) {
+    // Tell the central admin; a failure here must never undo the signup.
+    notifyAssemblyOpened(result.opened).catch(() => {});
+  }
+  return result.communityId;
 }

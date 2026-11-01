@@ -15,6 +15,7 @@ import { useAuth } from '../lib/AuthContext';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { ProfileImageError, uploadProfileImage } from '../lib/profileImages';
 import { ImageCropper } from '../components/ImageCropper';
+import { CellsPanel } from '../components/admin/CellsPanel';
 
 interface ExamWorld {
   devotionals: {
@@ -35,7 +36,7 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-type Tab = 'posts' | 'photos' | 'progress';
+type Tab = 'posts' | 'photos' | 'progress' | 'cells';
 
 // "My progress" tab: this month's devotional exam scores, leadership
 // training books passed, and the member's group(s).
@@ -319,6 +320,8 @@ export function MemberMePage() {
               { id: 'posts', label: t('wall.tab_posts') },
               { id: 'photos', label: t('wall.tab_photos') },
               { id: 'progress', label: t('wall.tab_progress') },
+              // Only the central admin's own profile carries the assembly tools.
+              ...(member.isCentralAdmin ? [{ id: 'cells' as const, label: t('cells.tab') }] : []),
             ]}
           />
         </div>
@@ -327,6 +330,7 @@ export function MemberMePage() {
           {tab === 'posts' && member.personId && <UpdatesFeed authorPersonId={member.personId} linkAuthors />}
           {tab === 'photos' && member.personId && <PhotoGrid personId={member.personId} />}
           {tab === 'progress' && <Progress groups={groups} />}
+          {tab === 'cells' && member.isCentralAdmin && <CellsPanel base="/api/member/central-cells" />}
         </div>
         <MemberNav />
       </section>
