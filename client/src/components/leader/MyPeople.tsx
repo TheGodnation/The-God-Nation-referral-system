@@ -62,6 +62,10 @@ export function MyPeople() {
   const [pick, setPick] = useState('');
   const [awayDate, setAwayDate] = useState('');
   const [note, setNote] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [askTo, setAskTo] = useState<'PARENT' | 'CENTRAL'>('PARENT');
+  const [question, setQuestion] = useState('');
+  const [urgent, setUrgent] = useState(false);
 
   useEffect(() => {
     api
@@ -87,7 +91,25 @@ export function MyPeople() {
     }
   }
 
+  async function ask(personId: string) {
+    const text = question.trim();
+    if (!text) return;
+    setError(null);
+    setNote(null);
+    try {
+      const r = await api.post<{ bypassed: boolean }>('/api/leader/escalations', { aboutPersonId: personId, question: text, urgent, to: askTo });
+      setNote(r.bypassed ? t('escalations.ask_sent_passed') : t('escalations.ask_sent'));
+      setAsking(false);
+      setQuestion('');
+      setUrgent(false);
+      setOpenId(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('escalations.ask_failed'));
+    }
+  }
+
   function openCard(id: string | null) {
+    setAsking(false);
     setOpenId(id);
     setPick('');
     setNote(null);
@@ -228,6 +250,30 @@ export function MyPeople() {
               )}
               {open && (
                 <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                  <div className="space-y-2">
+                    <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setAsking((a) => !a)} aria-expanded={asking}>
+                      {t('escalations.open_button')}
+                    </button>
+                    {asking && (
+                      <div className="space-y-2 rounded-lg border border-slate-200 p-3">
+                        <p className="text-xs text-slate-500">{t('escalations.ask_help')}</p>
+                        <label className="label" htmlFor={`ask-to-${c.personId}`}>{t('escalations.ask_to')}</label>
+                        <select id={`ask-to-${c.personId}`} className="input w-auto" value={askTo} onChange={(e) => setAskTo(e.target.value as 'PARENT' | 'CENTRAL')}>
+                          <option value="PARENT">{t('escalations.to_parent')}</option>
+                          <option value="CENTRAL">{t('escalations.to_central')}</option>
+                        </select>
+                        <label className="label" htmlFor={`ask-q-${c.personId}`}>{t('escalations.ask_question')}</label>
+                        <textarea id={`ask-q-${c.personId}`} className="input" rows={3} value={question} onChange={(e) => setQuestion(e.target.value)} />
+                        <label className="flex items-center gap-2 text-sm text-slate-700">
+                          <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
+                          {t('escalations.ask_urgent')}
+                        </label>
+                        <button type="button" className="btn-primary px-3 py-1.5 text-sm" disabled={!question.trim()} onClick={() => ask(c.personId)}>
+                          {t('escalations.ask_send')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-500">{t('myPeople.share_help')}</p>
                   {colleagues && colleagues.length === 0 && <p className="text-sm text-slate-500">{t('myPeople.no_colleagues')}</p>}
                   {colleagues && colleagues.length > 0 && (

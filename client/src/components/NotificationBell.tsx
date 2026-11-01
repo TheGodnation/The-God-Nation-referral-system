@@ -33,7 +33,10 @@ type NotificationType =
   | 'POST_PUBLISHED'
   | 'POST_LIKED'
   | 'POST_REPLIED'
-  | 'ASSEMBLY_OPENED';
+  | 'ASSEMBLY_OPENED'
+  | 'ESCALATION_RECEIVED'
+  | 'ESCALATION_ANSWERED'
+  | 'ESCALATION_BYPASSED';
 
 interface NotificationRow {
   id: string;
@@ -170,6 +173,12 @@ export function NotificationBell() {
         const base = t(metadata.outcome === 'VIOLATION' ? 'notifications.report_violation' : metadata.outcome === 'NO_VIOLATION' ? 'notifications.report_no_violation' : 'notifications.report_reviewed');
         return metadata.note ? `${base} ${t('notifications.report_note', { note: String(metadata.note) })}` : base;
       }
+      case 'ESCALATION_RECEIVED':
+        return t(metadata.passedOn ? 'notifications.escalation_passed_on' : metadata.urgent ? 'notifications.escalation_urgent' : 'notifications.escalation_received', { asker: metadata.askerName ?? '', about: metadata.aboutName ?? '' });
+      case 'ESCALATION_ANSWERED':
+        return t('notifications.escalation_answered', { name: metadata.answererName ?? '', about: metadata.aboutName ?? '' });
+      case 'ESCALATION_BYPASSED':
+        return t(metadata.role === 'ASKER' ? 'notifications.escalation_bypassed_asker' : metadata.reason === 'AWAY' ? 'notifications.escalation_bypassed_away' : 'notifications.escalation_bypassed_skipped', { asker: metadata.askerName ?? '', about: metadata.aboutName ?? '' });
       case 'ASSEMBLY_OPENED':
         return t('notifications.assembly_opened', { name: metadata.assemblyName ?? '', parent: metadata.parentName ?? '' });
       case 'POST_PUBLISHED':

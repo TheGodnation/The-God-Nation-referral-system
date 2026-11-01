@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
+import { Escalations } from '../leader/Escalations';
 
 interface Row {
   id: string;
@@ -142,6 +143,12 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
         </div>
         <p className="text-xs text-slate-500">{t('cells.size_help')}</p>
       </section>
+
+      <Escalations
+        hideWhenEmpty
+        messagesBase={`${base}/escalations`}
+        lists={[{ key: 'all', title: t('escalations.all_title'), url: `${base}/escalations`, empty: t('escalations.none') }]}
+      />
 
       {(message || error) && (
         <p role={error ? 'alert' : 'status'} className={`rounded-lg px-3 py-2 text-sm ${error ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>

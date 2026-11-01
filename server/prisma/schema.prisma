@@ -227,6 +227,10 @@ enum NotificationType {
   // The app opened a new assembly because the previous one was full; sent
   // to the central admin so leaders can be appointed.
   ASSEMBLY_OPENED
+  // A leader's hard question: sent to you, answered, or passed on past you.
+  ESCALATION_RECEIVED
+  ESCALATION_ANSWERED
+  ESCALATION_BYPASSED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -711,6 +715,8 @@ model Person {
   // A leader who is away (travelling, ill...) until this moment: new people
   // are not shared with them, and anything urgent goes past them.
   awayUntil           DateTime?
+  escalationsAsked    FollowUpEscalation[] @relation("EscalationAsker")
+  escalationsAbout    FollowUpEscalation[] @relation("EscalationAbout")
   // Share-into-app: a Leader allowed to forward posts in from WhatsApp,
   // TikTok, Facebook, Instagram. Off for everyone by default; the Central
   // Admin can always share and never needs this.
@@ -3346,4 +3352,65 @@ model EventAttendance {
 
   @@unique([eventId, personId])
   @@index([personId])
+}
+
+
+// ---------------------------------------------------------------------------
+// Escalation: a leader's hard question about one of their people, sent to the
+// leaders of the parent assembly or straight to the central admin. If it is
+// not answered within 24 hours (2 hours when urgent) — or the leaders it was
+// sent to are away — it is passed on to the central admin, and the leaders
+// who were skipped are told.
+// ---------------------------------------------------------------------------
+enum EscalationLevel {
+  PARENT_LEADERS
+  CENTRAL_ADMIN
+}
+
+enum EscalationStatus {
+  OPEN
+  ANSWERED
+}
+
+model FollowUpEscalation {
+  id                 String           @id @default(uuid())
+  askerPersonId      String
+  aboutPersonId      String
+  // The assembly the asking leader follows the person in.
+  communityId        String
+  question           String
+  urgent             Boolean          @default(false)
+  level              EscalationLevel
+  status             EscalationStatus @default(OPEN)
+  // When it passes on to the central admin (only while with the parent leaders).
+  dueAt              DateTime?
+  bypassedAt         DateTime?
+  // AWAY (they were away when it was sent) or NO_REPLY (nobody answered in time).
+  bypassReason       String?
+  answeredByPersonId String?
+  answeredByUserId   String?
+  answeredAt         DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  asker    Person                      @relation("EscalationAsker", fields: [askerPersonId], references: [id], onDelete: Cascade)
+  about    Person                      @relation("EscalationAbout", fields: [aboutPersonId], references: [id], onDelete: Cascade)
+  messages FollowUpEscalationMessage[]
+
+  @@index([askerPersonId, createdAt])
+  @@index([communityId, status])
+  @@index([status, level, dueAt])
+}
+
+model FollowUpEscalationMessage {
+  id             String   @id @default(uuid())
+  escalationId   String
+  senderPersonId String?
+  senderUserId   String?
+  body           String
+  createdAt      DateTime @default(now())
+
+  escalation FollowUpEscalation @relation(fields: [escalationId], references: [id], onDelete: Cascade)
+
+  @@index([escalationId, createdAt])
 }

@@ -12,6 +12,7 @@ import { MyResources } from '../MyResources';
 import { StartPrivateMessage } from './StartPrivateMessage';
 import { MyFollowUp } from './MyFollowUp';
 import { MyPeople } from './MyPeople';
+import { Escalations } from './Escalations';
 import { TrainingProgress } from './TrainingProgress';
 import { MyMembers } from './MyMembers';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
@@ -135,6 +136,20 @@ function InvitePeople({
 // /api/leader/* exactly as before — unaffected by which page renders it,
 // since a bridged Leader's Member session now silently carries a paired
 // Leader session too (Section 25's auto-pairing).
+function LeaderEscalations() {
+  const { t } = useTranslation();
+  return (
+    <Escalations
+      hideWhenEmpty
+      messagesBase="/api/leader/escalations"
+      lists={[
+        { key: 'inbox', title: t('escalations.for_me'), url: '/api/leader/escalations/inbox', empty: t('escalations.none') },
+        { key: 'mine', title: t('escalations.i_asked'), url: '/api/leader/escalations/mine', empty: t('escalations.none') },
+      ]}
+    />
+  );
+}
+
 export function LeadershipDashboardBody() {
   const { t, i18n } = useTranslation();
   const { content } = usePublicSettings();
@@ -238,6 +253,8 @@ export function LeadershipDashboardBody() {
       )}
 
       <MyPeople />
+
+      <LeaderEscalations />
 
       <InvitePeople links={links} messageTemplate={messageTemplate} />
 

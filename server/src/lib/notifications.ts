@@ -51,7 +51,10 @@ interface CreateNotificationParams {
     | 'POST_PUBLISHED'
     | 'POST_LIKED'
     | 'POST_REPLIED'
-    | 'ASSEMBLY_OPENED';
+    | 'ASSEMBLY_OPENED'
+    | 'ESCALATION_RECEIVED'
+    | 'ESCALATION_ANSWERED'
+    | 'ESCALATION_BYPASSED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -683,6 +686,86 @@ export async function notifyAssemblyOpened(assembly: { id: string; name: string;
         targetType: 'Community',
         targetId: assembly.id,
         push: { title: 'A new assembly has opened', body: `${assembly.parentName} was full, so ${assembly.name} has opened. Appoint its leaders.`, url: '/member/me' },
+      }),
+    ),
+  );
+}
+
+/** A notification to the central admin: to their member profile, or to their admin account when it has none. */
+async function notifyCentralAdmins(
+  type: 'ESCALATION_RECEIVED' | 'ESCALATION_ANSWERED' | 'ESCALATION_BYPASSED',
+  target: { targetType: string; targetId: string },
+  metadata: Record<string, unknown>,
+  push: PushPayload,
+) {
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true, personId: true } });
+  await Promise.all(
+    admins.map((a) =>
+      createNotification({
+        ...(a.personId ? { recipientPersonId: a.personId } : { recipientUserId: a.id }),
+        type,
+        metadata,
+        targetType: target.targetType,
+        targetId: target.targetId,
+        push,
+      }),
+    ),
+  );
+}
+
+export interface EscalationNoticeInfo {
+  id: string;
+  askerName: string;
+  aboutName: string;
+  urgent: boolean;
+}
+
+/** A leader's hard question reached you (a parent-assembly leader, or the central admin). `passedOn`: it was passed on to you because the leaders before you did not answer in time or were away. */
+export async function notifyEscalationReceived(e: EscalationNoticeInfo, recipientPersonIds: string[] | 'ADMIN', passedOn = false) {
+  const metadata = { askerName: e.askerName, aboutName: e.aboutName, urgent: e.urgent, passedOn };
+  const push = {
+    title: e.urgent ? 'Urgent question from a leader' : 'Question from a leader',
+    body: `${e.askerName} asks about ${e.aboutName}.`,
+    url: '/member/me',
+  };
+  if (recipientPersonIds === 'ADMIN') {
+    await notifyCentralAdmins('ESCALATION_RECEIVED', { targetType: 'FollowUpEscalation', targetId: e.id }, metadata, push);
+    return;
+  }
+  await Promise.all(
+    recipientPersonIds.map((recipientPersonId) =>
+      createNotification({ recipientPersonId, type: 'ESCALATION_RECEIVED', metadata, targetType: 'FollowUpEscalation', targetId: e.id, push }),
+    ),
+  );
+}
+
+/** Your question was answered. */
+export async function notifyEscalationAnswered(e: EscalationNoticeInfo, askerPersonId: string, answererName: string) {
+  await createNotification({
+    recipientPersonId: askerPersonId,
+    type: 'ESCALATION_ANSWERED',
+    metadata: { aboutName: e.aboutName, answererName },
+    targetType: 'FollowUpEscalation',
+    targetId: e.id,
+    push: { title: 'Your question was answered', body: `${answererName} answered your question about ${e.aboutName}.`, url: '/member/leadership-dashboard' },
+  });
+}
+
+/** A question was passed on past you (you were away, or did not answer in time), or past the leaders you asked: to the central admin. */
+export async function notifyEscalationBypassed(e: EscalationNoticeInfo, recipientPersonIds: string[], role: 'SKIPPED' | 'ASKER', reason: 'AWAY' | 'NO_REPLY') {
+  await Promise.all(
+    recipientPersonIds.map((recipientPersonId) =>
+      createNotification({
+        recipientPersonId,
+        type: 'ESCALATION_BYPASSED',
+        metadata: { askerName: e.askerName, aboutName: e.aboutName, role, reason },
+        targetType: 'FollowUpEscalation',
+        targetId: e.id,
+        push: {
+          title: 'A question was passed on',
+          body: role === 'ASKER' ? `Your question about ${e.aboutName} was passed on to the central administration.` : `${e.askerName}'s question about ${e.aboutName} was passed on to the central administration.`,
+          url: '/member/me',
+        },
       }),
     ),
   );
