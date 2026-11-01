@@ -17,6 +17,7 @@ import {
   PROOF_MIME_TYPES,
 } from '../lib/attachmentPolicy';
 import { createClaimBatch, decideBookPayment, openUnpaidBook, payableBooks } from '../lib/bookPayments';
+import { TokenSpendError, francsFor, holdTokens, spendQuote } from '../lib/tokenSpend';
 import { notifyPaymentOrderMessage, notifyPaymentOrderNew } from '../lib/notifications';
 import { MAX_COMMENT_CHARS } from '../lib/textLimits';
 import { agentConfirmedToday, orderThread, STALE_ORDER_MS } from '../lib/paymentOrders';
@@ -82,7 +83,7 @@ router.get('/pay/agents', requireMember, asyncHandler(async (req, res) => {
 
 // bookId: pay for that one book; count (no bookId, or more than one): pay for
 // the next `count` unpaid books in order, including ones not open yet.
-const startSchema = z.object({ agentId: z.string().min(1), bookId: z.string().min(1).optional(), count: z.number().int().min(1).max(100).optional() });
+const startSchema = z.object({ agentId: z.string().min(1), bookId: z.string().min(1).optional(), count: z.number().int().min(1).max(100).optional(), useTokens: z.boolean().optional() });
 
 router.post('/pay/orders', socialMutationLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
   const parsed = startSchema.safeParse(req.body);
@@ -110,14 +111,23 @@ router.post('/pay/orders', socialMutationLimiter, requireCsrf, requireMember, as
     first = payable[0];
   }
 
-  const same = await prisma.paymentOrder.findFirst({ where: { buyerPersonId: personId, bookId: first.id, bookCount: count, agentId: agent.id, status: 'OPEN' } });
-  if (same) return res.json({ id: same.id });
-  await prisma.paymentOrder.updateMany({ where: { buyerPersonId: personId, status: 'OPEN' }, data: { status: 'CANCELLED', decidedAt: new Date() } });
-
   const settings = await prisma.settings.findUnique({
     where: { id: 'singleton' },
     select: { trainingBookPrice: true, trainingPaymentInstructionsEn: true, trainingPaymentInstructionsFr: true },
   });
+  // Earned tokens the buyer chose to use: as many as are allowed on this many books.
+  let tokens = 0;
+  let francs = 0;
+  if (parsed.data.useTokens) {
+    const quote = await spendQuote(personId, settings?.trainingBookPrice ?? 1200, count);
+    if (quote.maxTokens <= 0) return res.status(409).json({ error: 'You cannot use tokens for this payment right now.', code: 'TOKENS_UNAVAILABLE' });
+    tokens = quote.maxTokens;
+    francs = quote.split.reduce((n, t) => n + francsFor(t, quote.valueFcfa), 0);
+  }
+  const same = await prisma.paymentOrder.findFirst({ where: { buyerPersonId: personId, bookId: first.id, bookCount: count, agentId: agent.id, status: 'OPEN', tokensApplied: tokens } });
+  if (same) return res.json({ id: same.id });
+  await prisma.paymentOrder.updateMany({ where: { buyerPersonId: personId, status: 'OPEN' }, data: { status: 'CANCELLED', decidedAt: new Date() } });
+
   const buyer = await prisma.person.findUnique({ where: { id: personId }, select: { name: true } });
   const instructions =
     agent.instructions?.trim() ||
@@ -131,6 +141,8 @@ router.post('/pay/orders', socialMutationLimiter, requireCsrf, requireMember, as
       bookNumber: first.trainingOrder,
       bookCount: count,
       amount: (settings?.trainingBookPrice ?? 1200) * count,
+      tokensApplied: tokens,
+      tokenFrancs: francs,
       // The agent's first message is the payment instructions, so the member can pay at once.
       messages: instructions ? { create: { senderPersonId: agent.personId, body: instructions, auto: true } } : undefined,
     },
@@ -171,7 +183,10 @@ router.get('/pay/orders/:id', requireMember, asyncHandler(async (req, res) => {
     id: order.id,
     role,
     status: order.status,
-    amount: order.amount,
+    // What the member pays in cash; Earned tokens cover the rest.
+    amount: order.amount - order.tokenFrancs,
+    tokensApplied: order.tokensApplied,
+    tokenFrancs: order.tokenFrancs,
     bookNumber: order.bookNumber,
     bookCount: order.bookCount,
     bookTitleEn: order.book?.titleEn ?? null,
@@ -280,13 +295,42 @@ router.post('/pay/orders/:id/paid', socialMutationLimiter, requireCsrf, requireM
     const found = await openUnpaidBook(personId, order.bookId);
     if (found.error === 404) return res.status(404).json({ error: 'Book not found.' });
     if (found.error) return res.status(409).json({ error: 'This book is already paid or waiting for confirmation.', code: found.error });
-    const payment = await prisma.bookPayment.create({
-      data: { personId, bookId: order.bookId, bookNumber: order.bookNumber, amount: order.amount, method: 'MANUAL', status: 'CLAIMED', reference: parsed.data.reference, payerPhone: parsed.data.payerPhone || null, orderId: order.id },
-      select: { id: true },
-    });
+    let payment: { id: string };
+    try {
+      payment = await prisma.$transaction(async (tx) => {
+        const row = await tx.bookPayment.create({
+          data: { personId, bookId: order.bookId!, bookNumber: order.bookNumber, amount: order.amount, method: 'MANUAL', status: 'CLAIMED', reference: parsed.data.reference, payerPhone: parsed.data.payerPhone || null, orderId: order.id, tokensApplied: order.tokensApplied, tokenFrancs: order.tokenFrancs },
+          select: { id: true },
+        });
+        if (order.tokensApplied > 0) await holdTokens(tx, personId, row.id, order.tokensApplied);
+        return row;
+      });
+    } catch (err) {
+      if (err instanceof TokenSpendError) return res.status(409).json({ error: 'You no longer have enough tokens for this order. Please cancel it and start a new one.', code: 'TOKENS_GONE' });
+      throw err;
+    }
     paymentId = payment.id;
   } else {
-    const batch = await createClaimBatch({ personId, count: order.bookCount, amountEach: priceEach, reference: parsed.data.reference, payerPhone: parsed.data.payerPhone, orderId: order.id });
+    // Several books: the tokens are spread over them, as evenly as whole tokens allow.
+    const base = Math.floor(order.tokensApplied / order.bookCount);
+    const extra = order.tokensApplied - base * order.bookCount;
+    const tokensPerBook = Array.from({ length: order.bookCount }, (_, i) => base + (i < extra ? 1 : 0));
+    let batch;
+    try {
+      batch = await createClaimBatch({
+        personId,
+        count: order.bookCount,
+        amountEach: priceEach,
+        reference: parsed.data.reference,
+        payerPhone: parsed.data.payerPhone,
+        orderId: order.id,
+        tokensPerBook: order.tokensApplied > 0 ? tokensPerBook : undefined,
+        tokenValueFcfa: order.tokensApplied > 0 ? order.tokenFrancs / order.tokensApplied : undefined,
+      });
+    } catch (err) {
+      if (err instanceof TokenSpendError) return res.status(409).json({ error: 'You no longer have enough tokens for this order. Please cancel it and start a new one.', code: 'TOKENS_GONE' });
+      throw err;
+    }
     if (!batch) return res.status(409).json({ error: 'Some of these books are already paid. Please cancel and start a new order.', code: 'TOO_MANY' });
     paymentId = batch.rows[0].id;
   }
@@ -365,7 +409,8 @@ router.get('/pay/desk', requireMember, asyncHandler(async (req, res) => {
   const toItem = (o: (typeof rows)[number]) => ({
     id: o.id,
     status: o.status,
-    amount: o.amount,
+    amount: o.amount - o.tokenFrancs,
+    tokensApplied: o.tokensApplied,
     bookNumber: o.bookNumber,
     bookCount: o.bookCount,
     buyerName: o.buyer.name,

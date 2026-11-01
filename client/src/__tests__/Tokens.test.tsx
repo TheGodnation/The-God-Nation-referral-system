@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { MemberTokensPage } from '../pages/MemberTokensPage';
 import { MemberClinicPage } from '../pages/MemberClinicPage';
 import { TokensCard } from '../components/admin/TokensCard';
+import { PayBookPanel } from '../components/learn/TrainingPayments';
 
 // King's Tokens: the member's balance page, the tokens shown in the Dominion
 // Clinic results, and the central admin's "Start counting" card.
@@ -143,5 +144,121 @@ describe('TokensCard (central admin)', () => {
     expect(await screen.findByText('The start day is saved.')).toBeInTheDocument();
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ date: '2099-03-01' });
     expect(screen.getByText(/Starts on/)).toBeInTheDocument();
+  });
+});
+
+const quote = { enabled: true, price: 1200, count: 1, balance: 500, perBookCap: 360, maxTokens: 360, maxFrancs: 360, valueFcfa: 1, maxPercent: 30 };
+
+describe('paying a book with tokens', () => {
+  async function openPanel() {
+    render(
+      <MemoryRouter>
+        <PayBookPanel bookId="b1" bookNumber={1} price={1200} instructions="Pay to MTN 670" automatic={false} onDone={() => {}} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Pay/ }));
+  }
+
+  it('offers the tokens when spending is on, says what the member then pays, and sends useTokens with the claim', async () => {
+    mockFetch({
+      '/api/member/tokens/spend-quote': () => quote,
+      '/api/member/pay/agents': () => ({ items: [], activeOrder: null }),
+      '/api/member/training/books/b1/payments': () => ({ id: 'p1', status: 'CLAIMED' }),
+    });
+    await openPanel();
+    const box = await screen.findByTestId('use-tokens');
+    expect(box).toHaveTextContent('360 tokens take 360 FCFA off');
+    expect(box).toHaveTextContent('Tokens can pay up to 30% of the price');
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(box).toHaveTextContent('You then pay 840 FCFA');
+    fireEvent.change(screen.getByLabelText(/transaction ID/i), { target: { value: 'MP-123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'I have paid' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url.includes('/books/b1/payments'))).toBe(true));
+    expect(calls.find((c) => c.method === 'POST' && c.url.includes('/books/b1/payments'))?.body).toMatchObject({ reference: 'MP-123456', useTokens: true });
+  });
+
+  it('shows nothing about tokens when spending is off or the member has none', async () => {
+    mockFetch({
+      '/api/member/tokens/spend-quote': () => ({ ...quote, enabled: false, maxTokens: 0, maxFrancs: 0 }),
+      '/api/member/pay/agents': () => ({ items: [], activeOrder: null }),
+    });
+    await openPanel();
+    await waitFor(() => expect(calls.some((c) => c.url.includes('spend-quote'))).toBe(true));
+    expect(screen.queryByTestId('use-tokens')).not.toBeInTheDocument();
+  });
+
+  it('sends an ordinary claim, without useTokens, when the box is left unticked', async () => {
+    mockFetch({
+      '/api/member/tokens/spend-quote': () => quote,
+      '/api/member/pay/agents': () => ({ items: [], activeOrder: null }),
+      '/api/member/training/books/b1/payments': () => ({ id: 'p1', status: 'CLAIMED' }),
+    });
+    await openPanel();
+    await screen.findByTestId('use-tokens');
+    fireEvent.change(screen.getByLabelText(/transaction ID/i), { target: { value: 'MP-654321' } });
+    fireEvent.click(screen.getByRole('button', { name: 'I have paid' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url.includes('/books/b1/payments'))).toBe(true));
+    expect(calls.find((c) => c.method === 'POST' && c.url.includes('/books/b1/payments'))?.body).not.toHaveProperty('useTokens');
+  });
+});
+
+describe('the member tokens page with spending', () => {
+  it('says tokens can be used toward a book once spending is on, and lists a spend in the history', async () => {
+    mockFetch({
+      '/api/member/tokens': () => ({
+        ...started,
+        usable: true,
+        spend: { enabled: true, valueFcfa: 1, maxPercent: 30 },
+        balance: { earned: 140, bought: 0, total: 140 },
+        history: [
+          { id: 'h2', at: '2026-12-01T10:00:00Z', reason: 'SPEND_HOLD', kind: 'EARNED', amount: -360, correctAnswers: null, ratePerAnswer: null, examNumber: null, monthTitleEn: null, monthTitleFr: null, bookNumber: 1 },
+          ...started.history.map((h) => ({ ...h, bookNumber: null })),
+        ],
+      }),
+    });
+    render(<MemoryRouter><MemberTokensPage /></MemoryRouter>);
+    expect(await screen.findByText(/You can use tokens toward a book when you pay for it: up to 30%/)).toBeInTheDocument();
+    expect(screen.getByTestId('tokens-history')).toHaveTextContent('Used toward Book 1');
+    expect(screen.getByTestId('tokens-history')).toHaveTextContent('-360');
+  });
+});
+
+describe('TokensCard spending controls', () => {
+  const base = { started: true, startsAt: '2026-11-15T00:00:00Z', clinicRate: 8, earnedTotal: 100, foundationTotal: 43, members: 2, burnedTotal: 0, spentTotal: 0, spend: { enabled: false, valueFcfa: 1, maxPercent: 30 } };
+
+  it('switches spending on after a confirmation and saves the rate and limit', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockFetch({
+      '/api/admin/tokens/summary': () => base,
+      '/api/admin/tokens/spend-settings': (init) => ({ ...base, spend: JSON.parse(init!.body as string) }),
+    });
+    render(<TokensCard base="/api/admin/tokens" />);
+    fireEvent.click(await screen.findByLabelText('Members can use tokens toward books'));
+    fireEvent.change(screen.getByLabelText('Francs one token takes off'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('Most of a price tokens can pay (%)'), { target: { value: '40' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save spending settings' }));
+    expect(await screen.findByText('Spending settings saved.')).toBeInTheDocument();
+    expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ enabled: true, valueFcfa: 2, maxPercent: 40 });
+  });
+
+  it('does not switch spending on when the confirmation is declined, and refuses a bad value', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    mockFetch({ '/api/admin/tokens/summary': () => base });
+    render(<TokensCard base="/api/admin/tokens" />);
+    fireEvent.click(await screen.findByLabelText('Members can use tokens toward books'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save spending settings' }));
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false);
+    fireEvent.change(screen.getByLabelText('Francs one token takes off'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save spending settings' }));
+    expect(await screen.findByText('Enter more than 0 francs, and a limit from 1 to 100.')).toBeInTheDocument();
+  });
+
+  it('shows how much was used on books and burned', async () => {
+    mockFetch({ '/api/admin/tokens/summary': () => ({ ...base, spentTotal: 360, burnedTotal: 180, spend: { enabled: true, valueFcfa: 1, maxPercent: 30 } }) });
+    render(<TokensCard base="/api/admin/tokens" />);
+    const box = await screen.findByTestId('tokens-spend');
+    expect(box).toHaveTextContent('Tokens used on books');
+    expect(box).toHaveTextContent('360');
+    expect(box).toHaveTextContent('180');
   });
 });

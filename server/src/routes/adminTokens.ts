@@ -36,6 +36,24 @@ function buildTokensRouter(resolveActor: (req: Request) => Promise<Actor | null>
     res.json(await adminTokenSummary());
   }));
 
+  // Spending Earned tokens toward a book: the switch, what a token is worth in francs, the most of a price tokens can pay.
+  const spendSchema = z.object({
+    enabled: z.boolean(),
+    valueFcfa: z.number().positive().max(100000),
+    maxPercent: z.number().int().min(1).max(100),
+  });
+  router.put('/spend-settings', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = spendSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'A token is worth more than 0 francs, and tokens can pay from 1% to 100% of a price.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const d = parsed.data;
+    const data = { tokenSpendEnabled: d.enabled, tokenValueFcfa: d.valueFcfa, tokenSpendMaxPercent: d.maxPercent };
+    await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', ...data }, update: data });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TOKEN_SPEND_SETTINGS_UPDATED', targetType: 'Settings', targetId: 'singleton', metadata: { ...d } });
+    res.json(await adminTokenSummary());
+  }));
+
   return router;
 }
 

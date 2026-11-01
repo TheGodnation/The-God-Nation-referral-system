@@ -10,6 +10,7 @@ interface TokensData {
   started: boolean;
   startsAt: string | null;
   usable: boolean;
+  spend?: { enabled: boolean; valueFcfa: number; maxPercent: number };
   balance: { earned: number; bought: number; total: number };
   foundation: { total: number };
   clinicRate: number | null;
@@ -18,7 +19,7 @@ interface TokensData {
   history: {
     id: string;
     at: string;
-    reason: 'CLINIC_EXAM' | 'FOUNDATION_SHARE';
+    reason: 'CLINIC_EXAM' | 'FOUNDATION_SHARE' | 'SPEND_HOLD' | 'SPEND_RELEASE' | 'TREASURY_SHARE' | 'SPEND_BURN';
     kind: 'EARNED' | 'BOUGHT';
     amount: number;
     correctAnswers: number | null;
@@ -26,6 +27,7 @@ interface TokensData {
     examNumber: number | null;
     monthTitleEn: string | null;
     monthTitleFr: string | null;
+    bookNumber: number | null;
   }[];
 }
 
@@ -69,7 +71,7 @@ export function MemberTokensPage() {
                 {t('tokens.earned')}: {fmt(data.balance.earned, i18n.language)}
                 {data.balance.bought > 0 && <> · {t('tokens.bought')}: {fmt(data.balance.bought, i18n.language)}</>}
               </p>
-              <p className="text-sm text-slate-500">{t('tokens.cannot_use_yet')}</p>
+              <p className="text-sm text-slate-500">{data.usable && data.spend ? t('tokens.can_use', { percent: data.spend.maxPercent }) : t('tokens.cannot_use_yet')}</p>
             </section>
 
             <section className="card space-y-2" data-testid="tokens-rate">
@@ -105,7 +107,13 @@ export function MemberTokensPage() {
                 {data.history.map((h) => (
                   <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <span>
-                      {h.reason === 'CLINIC_EXAM'
+                      {h.reason === 'SPEND_HOLD'
+                        ? h.bookNumber !== null
+                          ? t('tokens.reason_spend', { number: h.bookNumber })
+                          : t('tokens.reason_spend_plain')
+                        : h.reason === 'SPEND_RELEASE'
+                        ? t('tokens.reason_release')
+                        : h.reason === 'CLINIC_EXAM'
                         ? h.examNumber !== null
                           ? t('tokens.reason_clinic', { number: h.examNumber, month: (isFr ? h.monthTitleFr || h.monthTitleEn : h.monthTitleEn) ?? '', correct: h.correctAnswers ?? 0, rate: fmt(h.ratePerAnswer ?? 0, i18n.language) })
                           : t('tokens.reason_clinic_plain', { correct: h.correctAnswers ?? 0, rate: fmt(h.ratePerAnswer ?? 0, i18n.language) })

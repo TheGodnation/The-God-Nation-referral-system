@@ -3535,6 +3535,10 @@
     "load_failed": "Could not load. Please try again."
   },
   "tokens": {
+    "reason_spend": "Used toward Book {{number}}",
+    "reason_spend_plain": "Used toward a book",
+    "reason_release": "Given back (the payment was not confirmed)",
+    "can_use": "You can use tokens toward a book when you pay for it: up to {{percent}}% of the price. Half of the tokens used are burned, and half go to the foundation.",
     "title": "King's Tokens",
     "link_help": "See the tokens you have earned by learning.",
     "intro": "You earn King's Tokens by answering the Dominion Clinic exam questions correctly. They are kept safely for you, and you will be told when and how they can be used.",
@@ -3562,6 +3566,17 @@
     "back": "Back to my profile"
   },
   "tokensAdmin": {
+    "spend_title": "Spending tokens on books",
+    "spend_help": "When switched on, members can pay part of a leadership book with their Earned tokens; the rest is paid as usual. Half of the tokens used go to the foundation and half are burned for good. Tokens are held when the member says they have paid, used when the payment is confirmed, and given back if it is rejected.",
+    "spend_enabled": "Members can use tokens toward books",
+    "spend_value": "Francs one token takes off",
+    "spend_percent": "Most of a price tokens can pay (%)",
+    "spend_save": "Save spending settings",
+    "spend_saved": "Spending settings saved.",
+    "spend_confirm_on": "Switch on token spending now? Members will see the option at once.",
+    "burned_total": "Burned for good",
+    "spent_total": "Tokens used on books",
+    "spend_invalid": "Enter more than 0 francs, and a limit from 1 to 100.",
     "title": "King's Token",
     "help": "Choose the day tokens start counting. Members earn from exams taken on or after that day, and the reward halves every 4 years counted from it. Once the day has arrived it cannot be changed.",
     "not_started": "Not started yet.",
@@ -3579,6 +3594,15 @@
     "members": "Members with tokens",
     "failed": "Could not save.",
     "day_required": "Choose a day."
+  },
+  "tokensUse": {
+    "label": "Use my King's Tokens: {{tokens}} tokens take {{francs}} off",
+    "you_pay": "You then pay {{cash}}.",
+    "limit": "Tokens can pay up to {{percent}}% of the price.",
+    "order_note": "Paid with {{tokens}} tokens ({{francs}} off)",
+    "agent_note": "{{tokens}} tokens ({{francs}} off) cover the rest",
+    "desk_note": "{{tokens}} tokens used",
+    "admin_note": "{{tokens}} tokens used"
   },
   "clinicRhythm": {
     "title": "Dominion Clinic rhythm",

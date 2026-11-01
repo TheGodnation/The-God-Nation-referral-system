@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { AgentPicker } from './PayWithAgent';
+import { UseTokensBox, useSpendQuote } from './UseTokens';
 
 // Paying for leadership books (1,200 FCFA each, before the next book opens)
 // and "study now, pay later" grace. Manual Mobile Money is the normal way:
@@ -33,6 +34,8 @@ export function PayBookPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startedAutomatic, setStartedAutomatic] = useState(false);
+  const [useTokens, setUseTokens] = useState(false);
+  const quote = useSpendQuote(1);
 
   async function send(path: string, body: Record<string, unknown>) {
     setError(null);
@@ -51,7 +54,7 @@ export function PayBookPanel({
   async function claim(e: React.FormEvent) {
     e.preventDefault();
     if (reference.trim().length < 3) return setError(t('payments.need_reference'));
-    if (await send(`/api/member/training/books/${bookId}/payments`, { reference: reference.trim(), payerPhone: phone.trim() || undefined })) onDone();
+    if (await send(`/api/member/training/books/${bookId}/payments`, { reference: reference.trim(), payerPhone: phone.trim() || undefined, ...(useTokens && quote ? { useTokens: true } : {}) })) onDone();
   }
 
   async function payNow() {
@@ -73,7 +76,8 @@ export function PayBookPanel({
   return (
     <div className="mt-2 w-full space-y-3 rounded-lg border border-brand-100 bg-brand-50 p-3 text-sm" data-testid={`pay-book-${bookNumber}`}>
       <p className="font-semibold text-brand-900">{t('payments.title', { number: bookNumber, price: fcfa(price) })}</p>
-      <AgentPicker bookId={bookId} />
+      <UseTokensBox quote={quote} checked={useTokens} onChange={setUseTokens} />
+      <AgentPicker bookId={bookId} useTokens={useTokens && Boolean(quote)} />
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('payAgents.or_yourself')}</p>
       {instructions ? <p className="whitespace-pre-wrap text-slate-700">{instructions}</p> : <p className="text-slate-600">{t('payments.no_instructions')}</p>}
       {startedAutomatic && <p className="font-medium text-green-700">{t('payments.approve_on_phone')}</p>}
@@ -131,6 +135,8 @@ export function PayManyPanel({
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [useTokens, setUseTokens] = useState(false);
+  const quote = useSpendQuote(count);
 
   if (payable < 1) return null;
   if (!open) {
@@ -150,7 +156,7 @@ export function PayManyPanel({
     setError(null);
     setBusy(true);
     try {
-      await api.post('/api/member/training/payments', { count, reference: reference.trim(), payerPhone: phone.trim() || undefined });
+      await api.post('/api/member/training/payments', { count, reference: reference.trim(), payerPhone: phone.trim() || undefined, ...(useTokens && quote ? { useTokens: true } : {}) });
       setOpen(false);
       onDone();
     } catch (err) {
@@ -187,7 +193,8 @@ export function PayManyPanel({
         {t('payMany.total', { count, amount: fcfa(count * price) })}
       </p>
       <p className="text-xs text-slate-500">{t('payMany.ahead_note')}</p>
-      <AgentPicker count={count} />
+      <UseTokensBox quote={quote} checked={useTokens} onChange={setUseTokens} />
+      <AgentPicker count={count} useTokens={useTokens && Boolean(quote)} />
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('payAgents.or_yourself')}</p>
       {instructions ? <p className="whitespace-pre-wrap text-slate-700">{instructions}</p> : <p className="text-slate-600">{t('payments.no_instructions')}</p>}
       <form onSubmit={claim} className="space-y-2" noValidate>

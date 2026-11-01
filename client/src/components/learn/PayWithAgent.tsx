@@ -57,7 +57,7 @@ export function PresenceDot({ online }: { online: boolean }) {
 }
 
 // bookId: pay for that one book. count (no bookId): pay for the next `count` unpaid books.
-export function AgentPicker({ bookId, count }: { bookId?: string; count?: number }) {
+export function AgentPicker({ bookId, count, useTokens }: { bookId?: string; count?: number; useTokens?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const data = useAgents(bookId, true);
@@ -70,7 +70,7 @@ export function AgentPicker({ bookId, count }: { bookId?: string; count?: number
     setError(null);
     setBusyId(agentId);
     try {
-      const res = await api.post<{ id: string }>('/api/member/pay/orders', { agentId, ...(bookId ? { bookId } : {}), ...(count ? { count } : {}) });
+      const res = await api.post<{ id: string }>('/api/member/pay/orders', { agentId, ...(bookId ? { bookId } : {}), ...(count ? { count } : {}), ...(useTokens ? { useTokens: true } : {}) });
       navigate(`/member/payment-orders/${res.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('payAgents.failed'));

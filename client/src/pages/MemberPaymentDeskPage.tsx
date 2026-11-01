@@ -13,6 +13,7 @@ interface DeskOrder {
   id: string;
   status: 'OPEN' | 'CLAIMED' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
   amount: number;
+  tokensApplied?: number;
   bookNumber: number | null;
   bookCount: number;
   buyerName: string;
@@ -43,6 +44,7 @@ function Row({ o }: { o: DeskOrder }) {
           </span>
           <span className="block truncate text-sm text-slate-500">
             {o.bookCount > 1 ? t('payAgents.books_line', { count: o.bookCount }) : t('payAgents.book_line', { number: o.bookNumber ?? '' })} · {fcfa(o.amount)}
+            {(o.tokensApplied ?? 0) > 0 && ` · 👑 ${t('tokensUse.desk_note', { tokens: (o.tokensApplied ?? 0).toLocaleString('fr-FR') })}`}
           </span>
         </span>
         <span className={`shrink-0 text-xs font-semibold ${o.status === 'CLAIMED' ? 'text-amber-700' : o.status === 'CONFIRMED' ? 'text-green-700' : 'text-slate-500'}`}>

@@ -597,12 +597,14 @@ router.get('/payments', asyncHandler(async (req, res) => {
     include: { person: { select: { id: true, name: true, whatsappNumber: true } } },
   });
   // A payment for several books is one line: the lowest book's row stands for the batch.
-  const batchSize = new Map<string, { count: number; amount: number; numbers: number[] }>();
+  const batchSize = new Map<string, { count: number; amount: number; tokens: number; numbers: number[] }>();
   for (const p of rows) {
     if (!p.batchId) continue;
-    const b = batchSize.get(p.batchId) ?? { count: 0, amount: 0, numbers: [] };
+    const b = batchSize.get(p.batchId) ?? { count: 0, amount: 0, tokens: 0, numbers: [] };
     b.count += 1;
-    b.amount += p.amount;
+    // The cash to expect: the price minus what Earned tokens cover.
+    b.amount += p.amount - p.tokenFrancs;
+    b.tokens += p.tokensApplied;
     if (p.bookNumber !== null) b.numbers.push(p.bookNumber);
     batchSize.set(p.batchId, b);
   }
@@ -622,7 +624,8 @@ router.get('/payments', asyncHandler(async (req, res) => {
         bookNumber: p.bookNumber,
         bookNumbers: batch ? batch.numbers.sort((x, y) => x - y) : p.bookNumber !== null ? [p.bookNumber] : [],
         bookCount: batch?.count ?? 1,
-        amount: batch?.amount ?? p.amount,
+        amount: batch?.amount ?? p.amount - p.tokenFrancs,
+        tokensApplied: batch?.tokens ?? p.tokensApplied,
         method: p.method,
         status: p.status,
         reference: p.reference,
@@ -640,13 +643,14 @@ router.get('/payments/summary', asyncHandler(async (_req, res) => {
   startOfMonth.setUTCDate(1);
   startOfMonth.setUTCHours(0, 0, 0, 0);
   const [all, month, waiting] = await Promise.all([
-    prisma.bookPayment.aggregate({ where: { status: 'CONFIRMED' }, _sum: { amount: true }, _count: { _all: true } }),
-    prisma.bookPayment.aggregate({ where: { status: 'CONFIRMED', decidedAt: { gte: startOfMonth } }, _sum: { amount: true }, _count: { _all: true } }),
+    prisma.bookPayment.aggregate({ where: { status: 'CONFIRMED' }, _sum: { amount: true, tokenFrancs: true }, _count: { _all: true } }),
+    prisma.bookPayment.aggregate({ where: { status: 'CONFIRMED', decidedAt: { gte: startOfMonth } }, _sum: { amount: true, tokenFrancs: true }, _count: { _all: true } }),
     prisma.bookPayment.count({ where: { status: 'CLAIMED' } }),
   ]);
   res.json({
-    confirmed: { count: all._count._all, amount: all._sum.amount ?? 0 },
-    thisMonth: { count: month._count._all, amount: month._sum.amount ?? 0 },
+    // Cash received: the price minus what Earned tokens covered.
+    confirmed: { count: all._count._all, amount: (all._sum.amount ?? 0) - (all._sum.tokenFrancs ?? 0) },
+    thisMonth: { count: month._count._all, amount: (month._sum.amount ?? 0) - (month._sum.tokenFrancs ?? 0) },
     waiting,
   });
 }));

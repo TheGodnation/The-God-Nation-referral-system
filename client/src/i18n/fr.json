@@ -3535,6 +3535,10 @@
     "load_failed": "Impossible de charger. Réessayez."
   },
   "tokens": {
+    "reason_spend": "Utilisés pour le Livre {{number}}",
+    "reason_spend_plain": "Utilisés pour un livre",
+    "reason_release": "Rendus (le paiement n'a pas été confirmé)",
+    "can_use": "Vous pouvez utiliser des jetons pour un livre au moment de le payer : jusqu'à {{percent}} % du prix. La moitié des jetons utilisés est brûlée, et l'autre moitié va à la fondation.",
     "title": "Jetons du Roi",
     "link_help": "Voyez les jetons que vous avez gagnés en apprenant.",
     "intro": "Vous gagnez des Jetons du Roi en répondant correctement aux questions des examens de la Clinique de la Domination. Ils sont gardés en sécurité pour vous, et on vous dira quand et comment les utiliser.",
@@ -3562,6 +3566,17 @@
     "back": "Retour à mon profil"
   },
   "tokensAdmin": {
+    "spend_title": "Dépenser des jetons pour les livres",
+    "spend_help": "Quand c'est activé, les membres peuvent payer une partie d'un livre de leadership avec leurs jetons gagnés ; le reste se paie comme d'habitude. La moitié des jetons utilisés va à la fondation et l'autre moitié est brûlée définitivement. Les jetons sont réservés quand le membre dit avoir payé, utilisés quand le paiement est confirmé, et rendus s'il est refusé.",
+    "spend_enabled": "Les membres peuvent utiliser des jetons pour les livres",
+    "spend_value": "Francs qu'un jeton retire du prix",
+    "spend_percent": "Maximum du prix payable en jetons (%)",
+    "spend_save": "Enregistrer les réglages",
+    "spend_saved": "Réglages enregistrés.",
+    "spend_confirm_on": "Activer maintenant l'utilisation des jetons ? Les membres verront l'option tout de suite.",
+    "burned_total": "Brûlés définitivement",
+    "spent_total": "Jetons utilisés pour les livres",
+    "spend_invalid": "Entrez plus de 0 franc, et une limite de 1 à 100.",
     "title": "Jeton du Roi",
     "help": "Choisissez le jour où les jetons commencent à compter. Les membres gagnent avec les examens passés à partir de ce jour, et la récompense est divisée par deux tous les 4 ans à partir de lui. Une fois ce jour arrivé, il ne peut plus être changé.",
     "not_started": "Pas encore commencé.",
@@ -3579,6 +3594,15 @@
     "members": "Membres avec des jetons",
     "failed": "Enregistrement impossible.",
     "day_required": "Choisissez un jour."
+  },
+  "tokensUse": {
+    "label": "Utiliser mes Jetons du Roi : {{tokens}} jetons retirent {{francs}}",
+    "you_pay": "Vous payez alors {{cash}}.",
+    "limit": "Les jetons peuvent payer jusqu'à {{percent}} % du prix.",
+    "order_note": "Payé avec {{tokens}} jetons ({{francs}} en moins)",
+    "agent_note": "{{tokens}} jetons ({{francs}} en moins) couvrent le reste",
+    "desk_note": "{{tokens}} jetons utilisés",
+    "admin_note": "{{tokens}} jetons utilisés"
   },
   "clinicRhythm": {
     "title": "Rythme de la Clinique de la Domination",

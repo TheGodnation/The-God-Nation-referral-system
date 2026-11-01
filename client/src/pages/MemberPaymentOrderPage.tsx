@@ -28,6 +28,8 @@ interface Order {
   role: 'BUYER' | 'AGENT';
   status: 'OPEN' | 'CLAIMED' | 'CONFIRMED' | 'CANCELLED' | 'EXPIRED';
   amount: number;
+  tokensApplied?: number;
+  tokenFrancs?: number;
   bookNumber: number | null;
   bookCount: number;
   bookTitleEn: string | null;
@@ -210,6 +212,9 @@ export function MemberPaymentOrderPage() {
           </div>
           <div className="text-right">
             <p className="font-bold text-brand-900">{fcfa(order.amount)}</p>
+            {(order.tokensApplied ?? 0) > 0 && (
+              <p className="text-xs text-amber-700" data-testid="order-tokens">👑 {t('tokensUse.order_note', { tokens: (order.tokensApplied ?? 0).toLocaleString('fr-FR'), francs: fcfa(order.tokenFrancs ?? 0) })}</p>
+            )}
             <p
               className={`text-xs font-semibold ${order.status === 'CONFIRMED' ? 'text-green-700' : order.status === 'CLAIMED' ? 'text-amber-700' : 'text-slate-500'}`}
               data-testid="order-status"
@@ -259,6 +264,7 @@ export function MemberPaymentOrderPage() {
             <p className="text-sm text-slate-800">
               {t('payAgents.reference_is')} <strong className="font-mono">{order.payment.reference}</strong>
               {order.payment.payerPhone ? ` · ${order.payment.payerPhone}` : ''} · {fcfa(order.amount)}
+              {(order.tokensApplied ?? 0) > 0 && ` · ${t('tokensUse.agent_note', { tokens: (order.tokensApplied ?? 0).toLocaleString('fr-FR'), francs: fcfa(order.tokenFrancs ?? 0) })}`}
             </p>
             <p className="text-xs text-slate-600">{t('payAgents.check_hint')}</p>
             {rejecting ? (

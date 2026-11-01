@@ -17,6 +17,7 @@ interface PaymentRow {
   bookNumbers?: number[];
   bookCount?: number;
   amount: number;
+  tokensApplied?: number;
   method: 'MANUAL' | 'AUTOMATIC';
   status: string;
   reference: string | null;
@@ -166,7 +167,7 @@ export function PaymentsAndGrace({ books, onChanged }: { books: { id: string; tr
                 <span className="min-w-0">
                   <span className="font-semibold">{p.person?.name ?? '—'}</span> <span className="text-slate-500">{p.person?.whatsappNumber}</span>
                   <span className="block text-xs text-slate-600">
-                    {(p.bookCount ?? 1) > 1 ? t('library.books_many', { numbers: (p.bookNumbers ?? []).join(', '), count: p.bookCount }) : t('library.book', { number: p.bookNumber ?? '' })} · {fcfa(p.amount)} · {t('library.payment_ref', { ref: p.reference ?? '—' })}
+                    {(p.bookCount ?? 1) > 1 ? t('library.books_many', { numbers: (p.bookNumbers ?? []).join(', '), count: p.bookCount }) : t('library.book', { number: p.bookNumber ?? '' })} · {fcfa(p.amount)}{(p.tokensApplied ?? 0) > 0 && <> · 👑 {t('tokensUse.admin_note', { tokens: (p.tokensApplied ?? 0).toLocaleString('fr-FR') })}</>} · {t('library.payment_ref', { ref: p.reference ?? '—' })}
                     {p.payerPhone ? ` · ${p.payerPhone}` : ''} · {new Date(p.createdAt).toLocaleString()}
                   </span>
                 </span>

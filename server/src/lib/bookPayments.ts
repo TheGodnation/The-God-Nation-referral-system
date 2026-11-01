@@ -3,6 +3,7 @@ import { prisma } from './prisma';
 import { getTrainingBooksFor } from './examWorld';
 import { notifyBookPassedPay, notifyBookPaymentDecision } from './notifications';
 import { creditReferralEarning } from './referralEarnings';
+import { holdTokens, releaseHold, settleHold } from './tokenSpend';
 
 export type BookPaymentDecision =
   | { ok: true; payment: NonNullable<Awaited<ReturnType<typeof prisma.bookPayment.findUnique>>>; status: 'CONFIRMED' | 'REJECTED'; count: number }
@@ -46,6 +47,7 @@ export async function decideBookPayment(opts: {
         where: { id: row.id, status: { in: ['CLAIMED', 'PENDING'] } },
         data: { status: 'REJECTED', decidedAt: new Date(), decidedByUserId: opts.byUserId ?? null, decidedByPersonId: opts.byPersonId ?? null, note: 'This book was already paid.' },
       });
+      await releaseHold(row.id).catch(() => {});
       continue;
     }
     const changed = await prisma.bookPayment.updateMany({
@@ -61,6 +63,11 @@ export async function decideBookPayment(opts: {
     if (changed.count > 0) decided.push(row);
   }
   if (decided.length === 0) return { ok: false, error: single ? 'ALREADY_DECIDED' : 'ALREADY_PAID', status: existing.status };
+
+  // Earned tokens used toward these books: settled when confirmed, given back when rejected.
+  for (const row of decided) {
+    if (row.tokensApplied > 0) await (confirmed ? settleHold(row.id) : releaseHold(row.id)).catch((err) => console.error('[tokens] hold update failed', { paymentId: row.id, error: err instanceof Error ? err.message : String(err) }));
+  }
 
   // One message to the member for the whole payment.
   await notifyBookPaymentDecision({ ...decided[0], amount: decided.reduce((sum, r) => sum + r.amount, 0) }, confirmed, decided.length).catch(() => {});
@@ -119,14 +126,19 @@ export async function createClaimBatch(opts: {
   reference: string;
   payerPhone?: string | null;
   orderId?: string | null;
+  /** Earned tokens used on each book (same order as the books), and the francs each takes off. */
+  tokensPerBook?: number[];
+  tokenValueFcfa?: number;
 }) {
   const payable = await payableBooks(opts.personId);
   if (opts.count < 1 || payable.length < opts.count) return null;
   const chosen = payable.slice(0, opts.count);
   const batchId = opts.count > 1 ? crypto.randomUUID() : null;
-  const rows = await prisma.$transaction(
-    chosen.map((b) =>
-      prisma.bookPayment.create({
+  const rows = await prisma.$transaction(async (tx) => {
+    const made: { id: string; bookNumber: number | null }[] = [];
+    for (const [i, b] of chosen.entries()) {
+      const tokens = opts.tokensPerBook?.[i] ?? 0;
+      const row = await tx.bookPayment.create({
         data: {
           personId: opts.personId,
           bookId: b.id,
@@ -138,11 +150,16 @@ export async function createClaimBatch(opts: {
           payerPhone: opts.payerPhone || null,
           orderId: opts.orderId ?? null,
           batchId,
+          tokensApplied: tokens,
+          tokenFrancs: tokens > 0 ? Math.floor(tokens * (opts.tokenValueFcfa ?? 1)) : 0,
         },
         select: { id: true, bookNumber: true },
-      }),
-    ),
-  );
+      });
+      if (tokens > 0) await holdTokens(tx, opts.personId, row.id, tokens);
+      made.push(row);
+    }
+    return made;
+  });
   return { rows, books: chosen };
 }
 

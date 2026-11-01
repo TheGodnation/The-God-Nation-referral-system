@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
+import { reconcileHolds, spendSettings } from './tokenSpend';
 
 // ---------------------------------------------------------------------------
 // King's Token — earning (Phase 5a).
@@ -215,14 +216,16 @@ export async function balanceOf(personId: string | null): Promise<TokenBalance> 
 export interface TokenHistoryItem {
   id: string;
   at: string;
-  reason: 'CLINIC_EXAM' | 'FOUNDATION_SHARE';
-  kind: 'EARNED' | 'BOUGHT';
+  reason: 'CLINIC_EXAM' | 'FOUNDATION_SHARE' | 'SPEND_HOLD' | 'SPEND_RELEASE' | 'TREASURY_SHARE' | 'SPEND_BURN';
+  kind: 'EARNED' | 'BOUGHT' | 'BURNED';
   amount: number;
   correctAnswers: number | null;
   ratePerAnswer: number | null;
   examNumber: number | null;
   monthTitleEn: string | null;
   monthTitleFr: string | null;
+  /** A spend or its release: the book it paid toward. */
+  bookNumber: number | null;
 }
 
 /** A member's own ledger, newest first, with the exam each reward came from. */
@@ -233,6 +236,9 @@ export async function historyOf(personId: string, take = 100): Promise<TokenHist
     ? await prisma.assessment.findMany({ where: { id: { in: ids } }, select: { id: true, weekNumber: true, devotional: { select: { titleEn: true, titleFr: true } } } })
     : [];
   const byId = new Map(exams.map((e) => [e.id, e]));
+  const paymentIds = [...new Set(rows.map((r) => r.bookPaymentId).filter((x): x is string => Boolean(x)))];
+  const payments = paymentIds.length ? await prisma.bookPayment.findMany({ where: { id: { in: paymentIds } }, select: { id: true, bookNumber: true } }) : [];
+  const bookOf = new Map(payments.map((p) => [p.id, p.bookNumber]));
   return rows.map((r) => {
     const exam = r.assessmentId ? byId.get(r.assessmentId) : undefined;
     return {
@@ -246,6 +252,7 @@ export async function historyOf(personId: string, take = 100): Promise<TokenHist
       examNumber: exam?.weekNumber ?? null,
       monthTitleEn: exam?.devotional?.titleEn ?? null,
       monthTitleFr: exam?.devotional?.titleFr ?? null,
+      bookNumber: r.bookPaymentId ? (bookOf.get(r.bookPaymentId) ?? null) : null,
     };
   });
 }
@@ -253,13 +260,16 @@ export async function historyOf(personId: string, take = 100): Promise<TokenHist
 /** What the member sees: their own balance and history, the foundation's balance, the rate now and the next halving. */
 export async function memberTokenView(personId: string, now = new Date()) {
   await settleClinicTokens(personId);
+  await reconcileHolds(personId);
   const start = await tokensStartAt();
-  const [balance, foundation, history] = await Promise.all([balanceOf(personId), balanceOf(null), historyOf(personId)]);
+  const [balance, foundation, history, spend] = await Promise.all([balanceOf(personId), balanceOf(null), historyOf(personId), spendSettings()]);
   const started = Boolean(start && start.getTime() <= now.getTime());
   return {
     started,
     startsAt: start ? start.toISOString() : null,
-    usable: false,
+    // Spending is switched on by the central admin when tokens are announced.
+    usable: spend.enabled,
+    spend,
     balance,
     foundation: { total: foundation.total },
     clinicRate: started ? rateAt('CLINIC', start, now) : null,
@@ -274,9 +284,14 @@ export async function adminTokenSummary(now = new Date()) {
   const start = await tokensStartAt();
   const [earned, foundation, members, entries] = await Promise.all([
     prisma.tokenEntry.aggregate({ where: { personId: { not: null }, reason: 'CLINIC_EXAM' }, _sum: { amount: true } }),
-    prisma.tokenEntry.aggregate({ where: { personId: null }, _sum: { amount: true } }),
+    prisma.tokenEntry.aggregate({ where: { personId: null, kind: { not: 'BURNED' } }, _sum: { amount: true } }),
     prisma.tokenEntry.groupBy({ by: ['personId'], where: { personId: { not: null } } }),
     prisma.tokenEntry.count(),
+  ]);
+  const [burned, spent, spend] = await Promise.all([
+    prisma.tokenEntry.aggregate({ where: { kind: 'BURNED' }, _sum: { amount: true } }),
+    prisma.tokenEntry.aggregate({ where: { reason: 'SPEND_HOLD' }, _sum: { amount: true } }),
+    spendSettings(),
   ]);
   const started = Boolean(start && start.getTime() <= now.getTime());
   return {
@@ -284,6 +299,9 @@ export async function adminTokenSummary(now = new Date()) {
     startsAt: start ? start.toISOString() : null,
     clinicRate: started ? rateAt('CLINIC', start, now) : null,
     nextHalving: started ? nextHalving('CLINIC', start, now) : null,
+    spend,
+    burnedTotal: num(burned._sum.amount),
+    spentTotal: -num(spent._sum.amount),
     earnedTotal: num(earned._sum.amount),
     foundationTotal: num(foundation._sum.amount),
     members: members.length,

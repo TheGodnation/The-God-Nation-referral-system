@@ -10,6 +10,7 @@ import { readingProgressLimiter, socialMutationLimiter } from '../lib/rateLimit'
 import { getObjectStream, isStorageConfigured } from '../lib/storage';
 import crypto from 'crypto';
 import { createClaimBatch, openUnpaidBook } from '../lib/bookPayments';
+import { TokenSpendError, francsFor, holdTokens, spendQuote } from '../lib/tokenSpend';
 import { canReadBook, canSeeDevotional, clinicRhythm, examAccess, getTrainingBooksFor, MAX_GRACE_BOOKS } from '../lib/examWorld';
 import { activePaymentProvider } from '../lib/payments';
 import { trainingExamState } from '../lib/trainingExam';
@@ -231,7 +232,10 @@ router.post('/training/request', socialMutationLimiter, requireCsrf, requireMemb
 const claimSchema = z.object({
   reference: z.string().trim().min(3).max(60),
   payerPhone: z.string().trim().max(30).optional(),
+  // Use Earned King's Tokens toward the price (as many as are allowed).
+  useTokens: z.boolean().optional(),
 });
+const TOKENS_UNAVAILABLE = { error: 'You cannot use tokens for this payment right now.', code: 'TOKENS_UNAVAILABLE' };
 
 // POST /api/member/training/books/:id/payments — "I have paid" by Mobile
 // Money: the transaction ID goes to the central admin to confirm.
@@ -250,19 +254,40 @@ router.post('/training/books/:id/payments', socialMutationLimiter, requireCsrf, 
   });
   if (reused) return res.status(409).json({ error: 'This transaction ID has already been used for a payment. Please check it and type the ID from your own payment message.', code: 'DUPLICATE_REFERENCE' });
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { trainingBookPrice: true } });
-  const payment = await prisma.bookPayment.create({
-    data: {
-      personId,
-      bookId: found.book.id,
-      bookNumber: found.book.trainingOrder,
-      amount: settings?.trainingBookPrice ?? 1200,
-      method: 'MANUAL',
-      status: 'CLAIMED',
-      reference: parsed.data.reference,
-      payerPhone: parsed.data.payerPhone || null,
-    },
-    select: { id: true, status: true },
-  });
+  const price = settings?.trainingBookPrice ?? 1200;
+  let tokens = 0;
+  let francs = 0;
+  if (parsed.data.useTokens) {
+    const quote = await spendQuote(personId, price, 1);
+    if (quote.maxTokens <= 0) return res.status(409).json(TOKENS_UNAVAILABLE);
+    tokens = quote.split[0];
+    francs = francsFor(tokens, quote.valueFcfa);
+  }
+  let payment: { id: string; status: string };
+  try {
+    payment = await prisma.$transaction(async (tx) => {
+      const row = await tx.bookPayment.create({
+        data: {
+          personId,
+          bookId: found.book.id,
+          bookNumber: found.book.trainingOrder,
+          amount: price,
+          method: 'MANUAL',
+          status: 'CLAIMED',
+          reference: parsed.data.reference,
+          payerPhone: parsed.data.payerPhone || null,
+          tokensApplied: tokens,
+          tokenFrancs: francs,
+        },
+        select: { id: true, status: true },
+      });
+      if (tokens > 0) await holdTokens(tx, personId, row.id, tokens);
+      return row;
+    });
+  } catch (err) {
+    if (err instanceof TokenSpendError) return res.status(409).json(TOKENS_UNAVAILABLE);
+    throw err;
+  }
   await recordAudit({ action: 'BOOK_PAYMENT_CLAIMED', targetType: 'BookPayment', targetId: payment.id, metadata: { personId, bookNumber: found.book.trainingOrder } });
   res.status(201).json(payment);
 }));
@@ -271,6 +296,7 @@ const claimManySchema = z.object({
   count: z.number().int().min(1).max(100),
   reference: z.string().trim().min(3).max(60),
   payerPhone: z.string().trim().max(30).optional(),
+  useTokens: z.boolean().optional(),
 });
 
 // POST /api/member/training/payments — "I have paid" for several books at
@@ -287,13 +313,27 @@ router.post('/training/payments', socialMutationLimiter, requireCsrf, requireMem
   });
   if (reused) return res.status(409).json({ error: 'This transaction ID has already been used for a payment. Please check it and type the ID from your own payment message.', code: 'DUPLICATE_REFERENCE' });
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { trainingBookPrice: true } });
-  const batch = await createClaimBatch({
-    personId,
-    count: parsed.data.count,
-    amountEach: settings?.trainingBookPrice ?? 1200,
-    reference: parsed.data.reference,
-    payerPhone: parsed.data.payerPhone,
-  });
+  const price = settings?.trainingBookPrice ?? 1200;
+  let quote: Awaited<ReturnType<typeof spendQuote>> | null = null;
+  if (parsed.data.useTokens) {
+    quote = await spendQuote(personId, price, parsed.data.count);
+    if (quote.maxTokens <= 0) return res.status(409).json(TOKENS_UNAVAILABLE);
+  }
+  let batch;
+  try {
+    batch = await createClaimBatch({
+      personId,
+      count: parsed.data.count,
+      amountEach: price,
+      reference: parsed.data.reference,
+      payerPhone: parsed.data.payerPhone,
+      tokensPerBook: quote?.split,
+      tokenValueFcfa: quote?.valueFcfa,
+    });
+  } catch (err) {
+    if (err instanceof TokenSpendError) return res.status(409).json(TOKENS_UNAVAILABLE);
+    throw err;
+  }
   if (!batch) return res.status(409).json({ error: 'You cannot pay for that many books. Please choose fewer.', code: 'TOO_MANY' });
   await recordAudit({ action: 'BOOK_PAYMENT_CLAIMED', targetType: 'BookPayment', targetId: batch.rows[0].id, metadata: { personId, count: parsed.data.count } });
   res.status(201).json({ id: batch.rows[0].id, status: 'CLAIMED', count: batch.rows.length });

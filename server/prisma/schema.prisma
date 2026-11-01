@@ -615,6 +615,11 @@ model Settings {
   // King's Token: the day tokens start counting (year 1 of the rate schedule).
   // Null = not started. Set once from the central admin's panel; locked once it has arrived.
   tokensStartAt           DateTime?
+  // Spending Earned tokens toward a book: off until the central admin announces it;
+  // how many francs one token takes off the price; the most of a price tokens can pay.
+  tokenSpendEnabled       Boolean   @default(false)
+  tokenValueFcfa          Decimal   @default(1) @db.Decimal(12, 6)
+  tokenSpendMaxPercent    Int       @default(30)
   // "Live now" slot on the Updates page: the YouTube video id of the live
   // (video or audio-only) the central admin is streaming, or null when
   // nothing is live. Set/cleared from the admin Updates tab.
@@ -3007,6 +3012,9 @@ model BookPayment {
   // Several books paid with one payment share a batchId (one row per book,
   // each at the book price, so every book earns the inviter's share).
   batchId           String?
+  // Earned tokens used toward this book, and the francs they took off (the member pays amount minus tokenFrancs in cash).
+  tokensApplied     Int               @default(0)
+  tokenFrancs       Int               @default(0)
 
   person    Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
   book      LibraryBook? @relation(fields: [bookId], references: [id], onDelete: SetNull)
@@ -3300,6 +3308,9 @@ model PaymentOrder {
   amount        Int
   // How many books this order pays for (the next unpaid ones, in order).
   bookCount     Int                @default(1)
+  // Earned tokens the buyer chose to use toward this order, and the francs they take off.
+  tokensApplied Int                @default(0)
+  tokenFrancs   Int                @default(0)
   status        PaymentOrderStatus @default(OPEN)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
@@ -3564,11 +3575,20 @@ model BookDelivery {
 enum TokenKind {
   EARNED
   BOUGHT
+  // Destroyed for good: kept only so the supply page can say how much was burned.
+  BURNED
 }
 
 enum TokenReason {
   CLINIC_EXAM
   FOUNDATION_SHARE
+  // Paying part of a book with Earned tokens: held when the member claims the
+  // payment, then settled (half to the foundation treasury, half burned) when it
+  // is confirmed, or released back to the member when it is rejected.
+  SPEND_HOLD
+  SPEND_RELEASE
+  TREASURY_SHARE
+  SPEND_BURN
 }
 
 model TokenEntry {
@@ -3587,12 +3607,15 @@ model TokenEntry {
   sourceEntryId  String?     @unique
   // Foundation tokens are locked until this moment.
   lockedUntil    DateTime?
+  // A spend, its release, its treasury half and its burned half all point at the book payment.
+  bookPaymentId  String?
   createdAt      DateTime    @default(now())
 
   person Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   // A member earns from an exam once (the first try).
   @@unique([personId, assessmentId, reason])
+  @@unique([bookPaymentId, reason])
   @@index([personId, createdAt])
   @@index([reason, createdAt])
 }
