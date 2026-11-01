@@ -287,7 +287,10 @@ router.post(
       const result = await submitAttempt(attempt.id, parsed.data.answers);
       // After passing a leadership book's exam with books still to pay: a prompt for the result screen.
       const payPrompt = await bookPassedPrompt(attempt.personId, attempt.assessmentId, attempt.id, Boolean((result as { passed?: boolean | null }).passed)).catch(() => null);
-      res.json(payPrompt ? { ...result, payPrompt } : result);
+      // King's Token: what this try earned, if it was a first try at a Dominion Clinic exam.
+      const earned = await prisma.tokenEntry.findFirst({ where: { attemptId: attempt.id, reason: 'CLINIC_EXAM' }, select: { amount: true } }).catch(() => null);
+      const extra = { ...(payPrompt ? { payPrompt } : {}), ...(earned ? { tokensEarned: earned.amount.toNumber() } : {}) };
+      res.json(Object.keys(extra).length ? { ...result, ...extra } : result);
     } catch (err) {
       if (err instanceof AssessmentSubmissionError) {
         return res.status(err.status).json({ error: err.message });

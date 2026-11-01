@@ -612,6 +612,9 @@ model Settings {
   clinicTopicRhythm       ClinicTopicRhythm @default(DAILY)
   clinicExamEveryDays     Int       @default(10)
   clinicExamQuestions     Int       @default(10)
+  // King's Token: the day tokens start counting (year 1 of the rate schedule).
+  // Null = not started. Set once from the central admin's panel; locked once it has arrived.
+  tokensStartAt           DateTime?
   // "Live now" slot on the Updates page: the YouTube video id of the live
   // (video or audio-only) the central admin is streaming, or null when
   // nothing is live. Set/cleared from the admin Updates tab.
@@ -744,6 +747,7 @@ model Person {
   name                String
   bookDeliveries      BookDelivery[]
   gifts               Gift[]
+  tokenEntries        TokenEntry[]
   // A leader who is away (travelling, ill...) until this moment: new people
   // are not shared with them, and anything urgent goes past them.
   awayUntil           DateTime?
@@ -3550,4 +3554,45 @@ model BookDelivery {
 
   @@unique([personId, bookId])
   @@index([bookId])
+}
+
+// ---------------------------------------------------------------------------
+// King's Token — the permanent ledger. Entries are only ever added: a
+// correction is a new entry that points to the old one, never an edit.
+// A null personId is the foundation's own account.
+// ---------------------------------------------------------------------------
+enum TokenKind {
+  EARNED
+  BOUGHT
+}
+
+enum TokenReason {
+  CLINIC_EXAM
+  FOUNDATION_SHARE
+}
+
+model TokenEntry {
+  id             String      @id @default(uuid())
+  personId       String?
+  kind           TokenKind   @default(EARNED)
+  reason         TokenReason
+  // Signed: gains are positive, uses and burns negative. Tokens are divisible.
+  amount         Decimal     @db.Decimal(24, 6)
+  // A Dominion Clinic reward: the exam, the try that earned it, the answers and the rate used.
+  assessmentId   String?
+  attemptId      String?
+  correctAnswers Int?
+  ratePerAnswer  Decimal?    @db.Decimal(12, 6)
+  // A foundation share points at the member reward it matches.
+  sourceEntryId  String?     @unique
+  // Foundation tokens are locked until this moment.
+  lockedUntil    DateTime?
+  createdAt      DateTime    @default(now())
+
+  person Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  // A member earns from an exam once (the first try).
+  @@unique([personId, assessmentId, reason])
+  @@index([personId, createdAt])
+  @@index([reason, createdAt])
 }

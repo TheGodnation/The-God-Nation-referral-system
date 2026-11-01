@@ -2,6 +2,7 @@ import { prisma } from './prisma';
 import { startAdaptiveLoop } from './activity';
 import { canSeeDevotional, clinicExamOpensAt, clinicRhythm } from './examWorld';
 import { notifyClinicExamOpen } from './notifications';
+import { settleClinicTokens } from './tokens';
 
 // ---------------------------------------------------------------------------
 // Dominion Clinic exams: the rhythm (an exam every N days, N questions drawn
@@ -49,6 +50,8 @@ export interface ClinicExamResult {
   percentage: number | null;
   passed: boolean | null;
   takenAt: string | null;
+  /** King's Tokens this exam earned (null = none credited). */
+  tokens: number | null;
 }
 
 /** Every monthly exam this member can see, newest month first, with the official (first) score. */
@@ -66,6 +69,9 @@ export async function clinicResultsFor(personId: string, now = new Date()) {
   const attempts = examIds.length
     ? await prisma.attempt.findMany({ where: { personId, assessmentId: { in: examIds }, status: 'SUBMITTED' }, orderBy: { attemptNumber: 'asc' } })
     : [];
+  await settleClinicTokens(personId);
+  const rewards = examIds.length ? await prisma.tokenEntry.findMany({ where: { personId, reason: 'CLINIC_EXAM', assessmentId: { in: examIds } }, select: { assessmentId: true, amount: true } }) : [];
+  const tokensOf = new Map(rewards.map((r) => [r.assessmentId, r.amount.toNumber()]));
   const exams: ClinicExamResult[] = [];
   for (const d of visible) {
     for (const a of d.assessments) {
@@ -83,6 +89,7 @@ export async function clinicResultsFor(personId: string, now = new Date()) {
         percentage: first?.percentage ?? null,
         passed: first?.passed ?? null,
         takenAt: first?.submittedAt?.toISOString() ?? null,
+        tokens: tokensOf.get(a.id) ?? null,
       });
     }
   }

@@ -39,6 +39,8 @@ import memberClinicRoutes from './routes/memberClinic';
 import leaderClinicRoutes from './routes/leaderClinic';
 import leaderEscalationsRoutes from './routes/leaderEscalations';
 import { adminCellsRoutes, memberCentralCellsRoutes } from './routes/adminCells';
+import { adminTokensRoutes, memberCentralTokensRoutes } from './routes/adminTokens';
+import memberTokensRoutes from './routes/memberTokens';
 import adminLeadershipRoutes from './routes/adminLeadership';
 import leaderFollowUpsRoutes from './routes/leaderFollowUps';
 import leaderCommunitiesRoutes from './routes/leaderCommunities';
@@ -162,6 +164,9 @@ export function createApp() {
   app.use('/api/leader', leaderEscalationsRoutes);
   app.use('/api/admin/cells', adminCellsRoutes);
   app.use('/api/member/central-cells', memberCentralCellsRoutes);
+  app.use('/api/admin/tokens', adminTokensRoutes);
+  app.use('/api/member/central-tokens', memberCentralTokensRoutes);
+  app.use('/api/member/tokens', memberTokensRoutes);
   app.use('/api/admin', adminLeadershipRoutes);
   app.use('/api/leader', leaderFollowUpsRoutes);
   // Phase 3M.8A: leaderCommunitiesRoutes defines '/communities/:communityId/members',

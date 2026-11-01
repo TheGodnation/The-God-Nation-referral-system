@@ -157,6 +157,7 @@
     "photo_unavailable": "Picture uploads are not available right now."
   },
   "memberAssessment": {
+    "tokens_earned": "You earned {{count}} King's Tokens for this exam.",
     "loading": "Loading…",
     "not_found": "This assessment is not available.",
     "back_to_dashboard": "← Back to My God Nation",
@@ -3506,6 +3507,7 @@
     "admin_done": "Sent to {{count}} members, each as a private message from the central administration."
   },
   "clinicPage": {
+    "tokens_earned": "{{count}} tokens earned",
     "link_help": "How it works, and your exam scores.",
     "title": "Dominion Clinic",
     "subtitle": "Unveiling Kingdom Secrets for Daily Dominion",
@@ -3531,6 +3533,52 @@
     "exam_n": "Exam {{number}}",
     "take": "Take the exam",
     "load_failed": "Could not load. Please try again."
+  },
+  "tokens": {
+    "title": "King's Tokens",
+    "link_help": "See the tokens you have earned by learning.",
+    "intro": "You earn King's Tokens by answering the Dominion Clinic exam questions correctly. They are kept safely for you, and you will be told when and how they can be used.",
+    "not_started": "Tokens have not started counting yet.",
+    "starts_on": "They start counting on {{date}}.",
+    "balance": "Your tokens",
+    "earned": "Earned",
+    "bought": "Bought",
+    "cannot_use_yet": "You cannot use them yet. They accumulate in your profile until the announcement.",
+    "rate_now": "Now, each correct answer in a Dominion Clinic exam earns {{rate}} tokens.",
+    "next_halving": "On {{date}} it halves to {{rate}}.",
+    "at_floor": "This is the lowest rate. It stays here for ever.",
+    "schedule": "The rate over the years",
+    "years_range": "Years {{from}} to {{to}}",
+    "years_after": "Year {{from}} and after, for ever",
+    "per_answer": "{{rate}} per correct answer",
+    "foundation": "The foundation holds {{amount}} tokens. For every 70 tokens members earn, 30 more are credited to the foundation and locked for 4 years.",
+    "history": "History",
+    "no_history": "Nothing yet. Take a Dominion Clinic exam to earn your first tokens.",
+    "reason_clinic": "Dominion Clinic, exam {{number}} ({{month}}): {{correct}} correct × {{rate}}",
+    "reason_clinic_plain": "Dominion Clinic exam: {{correct}} correct × {{rate}}",
+    "reason_foundation": "Foundation share",
+    "first_try": "Only the first try of an exam earns tokens.",
+    "load_failed": "We could not load your tokens.",
+    "back": "Back to my profile"
+  },
+  "tokensAdmin": {
+    "title": "King's Token",
+    "help": "Choose the day tokens start counting. Members earn from exams taken on or after that day, and the reward halves every 4 years counted from it. Once the day has arrived it cannot be changed.",
+    "not_started": "Not started yet.",
+    "starts_on": "Starts on {{date}}.",
+    "started_on": "Counting since {{date}}.",
+    "start_now": "Start counting now",
+    "choose_day": "Or choose the day",
+    "set_day": "Set this day",
+    "confirm_now": "Start counting tokens now? This cannot be changed afterwards.",
+    "started": "Tokens are counting.",
+    "saved": "The start day is saved.",
+    "rate_now": "Now: {{rate}} tokens per correct answer.",
+    "earned_total": "Tokens earned by members",
+    "foundation_total": "Held by the foundation",
+    "members": "Members with tokens",
+    "failed": "Could not save.",
+    "day_required": "Choose a day."
   },
   "clinicRhythm": {
     "title": "Dominion Clinic rhythm",

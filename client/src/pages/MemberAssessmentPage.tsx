@@ -73,6 +73,8 @@ interface AttemptSummary {
   submittedAt: string | null;
   /** Present after passing a leadership book while books are still to be paid for. */
   payPrompt?: { bookNumber: number; payableCount: number; nextWaitsForPayment: boolean };
+  /** King's Tokens this try earned (a first try at a Dominion Clinic exam). */
+  tokensEarned?: number;
 }
 
 interface TakingQuestion {
@@ -285,6 +287,12 @@ export function MemberAssessmentPage() {
                   {t('teaching.stay_here')}
                 </button>
               </div>
+            )}
+            {lastResult.tokensEarned !== undefined && (
+              <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-amber-900" role="status" data-testid="tokens-earned">
+                👑 {t('memberAssessment.tokens_earned', { count: lastResult.tokensEarned })}{' '}
+                <Link to="/member/tokens" className="underline">{t('tokens.title')}</Link>
+              </p>
             )}
             {lastResult.payPrompt && (
               <div className="mt-3 space-y-2 rounded-lg bg-amber-50 px-3 py-3 text-amber-900" data-testid="pay-prompt">

@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
+import { awardClinicTokens } from './tokens';
 
 // Thrown for any expected, client-facing failure in the attempt lifecycle
 // (not found, already submitted, limit reached, bad data) so route handlers
@@ -92,6 +93,13 @@ interface SubmittedAnswer {
  *  - zero questions -> maxScore 0 -> percentage 0 (never divides by zero)
  */
 export async function submitAttempt(attemptId: string, answers: SubmittedAnswer[]) {
+  const updated = await submitAttemptScored(attemptId, answers);
+  // King's Token: a first try at a Dominion Clinic exam earns tokens (a no-op for every other exam).
+  await awardClinicTokens(attemptId).catch((err) => console.error('[tokens] award failed', { attemptId, error: err instanceof Error ? err.message : String(err) }));
+  return updated;
+}
+
+async function submitAttemptScored(attemptId: string, answers: SubmittedAnswer[]) {
   try {
     return await prisma.$transaction(async (tx) => {
       const attempt = await tx.attempt.findUnique({ where: { id: attemptId } });

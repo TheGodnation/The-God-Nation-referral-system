@@ -157,6 +157,7 @@
     "photo_unavailable": "L’envoi de photos n’est pas disponible pour le moment."
   },
   "memberAssessment": {
+    "tokens_earned": "Vous avez gagné {{count}} Jetons du Roi pour cet examen.",
     "loading": "Chargement…",
     "not_found": "Cette évaluation n'est pas disponible.",
     "back_to_dashboard": "← Retour à Mon Espace God Nation",
@@ -3506,6 +3507,7 @@
     "admin_done": "Envoyé à {{count}} membres, chacun par message privé de l'administration centrale."
   },
   "clinicPage": {
+    "tokens_earned": "{{count}} jetons gagnés",
     "link_help": "Comment ça marche, et vos notes d'examen.",
     "title": "Clinique de la Domination",
     "subtitle": "Dévoiler les secrets du Royaume pour une domination quotidienne",
@@ -3531,6 +3533,52 @@
     "exam_n": "Examen {{number}}",
     "take": "Passer l'examen",
     "load_failed": "Impossible de charger. Réessayez."
+  },
+  "tokens": {
+    "title": "Jetons du Roi",
+    "link_help": "Voyez les jetons que vous avez gagnés en apprenant.",
+    "intro": "Vous gagnez des Jetons du Roi en répondant correctement aux questions des examens de la Clinique de la Domination. Ils sont gardés en sécurité pour vous, et on vous dira quand et comment les utiliser.",
+    "not_started": "Les jetons ne comptent pas encore.",
+    "starts_on": "Ils commenceront à compter le {{date}}.",
+    "balance": "Vos jetons",
+    "earned": "Gagnés",
+    "bought": "Achetés",
+    "cannot_use_yet": "Vous ne pouvez pas encore les utiliser. Ils s'accumulent dans votre profil jusqu'à l'annonce.",
+    "rate_now": "Actuellement, chaque bonne réponse à un examen de la Clinique de la Domination rapporte {{rate}} jetons.",
+    "next_halving": "Le {{date}}, elle est divisée par deux : {{rate}}.",
+    "at_floor": "C'est le taux le plus bas. Il reste ainsi pour toujours.",
+    "schedule": "Le taux au fil des années",
+    "years_range": "Années {{from}} à {{to}}",
+    "years_after": "Année {{from}} et après, pour toujours",
+    "per_answer": "{{rate}} par bonne réponse",
+    "foundation": "La fondation détient {{amount}} jetons. Pour 70 jetons gagnés par les membres, 30 de plus sont crédités à la fondation et bloqués pendant 4 ans.",
+    "history": "Historique",
+    "no_history": "Rien pour l'instant. Passez un examen de la Clinique de la Domination pour gagner vos premiers jetons.",
+    "reason_clinic": "Clinique de la Domination, examen {{number}} ({{month}}) : {{correct}} bonnes réponses × {{rate}}",
+    "reason_clinic_plain": "Examen de la Clinique de la Domination : {{correct}} bonnes réponses × {{rate}}",
+    "reason_foundation": "Part de la fondation",
+    "first_try": "Seul le premier essai d'un examen rapporte des jetons.",
+    "load_failed": "Nous n'avons pas pu charger vos jetons.",
+    "back": "Retour à mon profil"
+  },
+  "tokensAdmin": {
+    "title": "Jeton du Roi",
+    "help": "Choisissez le jour où les jetons commencent à compter. Les membres gagnent avec les examens passés à partir de ce jour, et la récompense est divisée par deux tous les 4 ans à partir de lui. Une fois ce jour arrivé, il ne peut plus être changé.",
+    "not_started": "Pas encore commencé.",
+    "starts_on": "Commence le {{date}}.",
+    "started_on": "Compte depuis le {{date}}.",
+    "start_now": "Commencer à compter maintenant",
+    "choose_day": "Ou choisissez le jour",
+    "set_day": "Fixer ce jour",
+    "confirm_now": "Commencer à compter les jetons maintenant ? Cela ne pourra plus être changé.",
+    "started": "Les jetons comptent.",
+    "saved": "Le jour de départ est enregistré.",
+    "rate_now": "Actuellement : {{rate}} jetons par bonne réponse.",
+    "earned_total": "Jetons gagnés par les membres",
+    "foundation_total": "Détenus par la fondation",
+    "members": "Membres avec des jetons",
+    "failed": "Enregistrement impossible.",
+    "day_required": "Choisissez un jour."
   },
   "clinicRhythm": {
     "title": "Rythme de la Clinique de la Domination",
