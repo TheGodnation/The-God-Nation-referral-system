@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from '../admin/SearchPicker';
-import { FollowUpConversation } from '../FollowUpConversation';
 
 // Geography Retirement Step 5A: Follow-Up is now Community-scoped only.
 type ContextType = 'COMMUNITY';
@@ -282,6 +281,17 @@ export function MyFollowUp() {
     }
   }
 
+  // Follow-up conversations happen in the normal private chat (voice notes,
+  // photos and files included): open it, creating it the first time.
+  async function openChat(personId: string) {
+    try {
+      const r = await api.post<{ conversationId: string }>(`/api/leader/my-people/${personId}/chat`, {});
+      window.location.assign(`/member/chats/private/${r.conversationId}`);
+    } catch (err) {
+      setDetailError(err instanceof ApiError ? err.message : t('myPeople.chat_failed'));
+    }
+  }
+
   if (loading) return null;
 
   if (notLinked) {
@@ -314,7 +324,12 @@ export function MyFollowUp() {
         <h2 className="mb-2 font-semibold text-brand-900">{selected.followedPerson.name}</h2>
         {detailError && <p className="mb-4 text-sm text-red-700">{detailError}</p>}
 
-        <FollowUpConversation followUpAssignmentId={selected.id} />
+        <div className="mb-4">
+          <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => openChat(selected.followedPerson.id)}>
+            {t('myPeople.message')}
+          </button>
+          <p className="mt-1 text-xs text-slate-500">{t('myPeople.chat_hint')}</p>
+        </div>
 
         {selected.status === 'ACTIVE' && (
           <>

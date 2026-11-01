@@ -11,6 +11,8 @@ import { requireLinkedPerson, findActiveScopedRole, personBelongsToContext, cont
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { computeAttentionForLeader } from '../lib/followUpAttention';
 import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
+import { followUpCardsFor, CONTACT_DAYS_PER_WEEK } from '../lib/followUpCard';
+import { getOrCreatePrivateConversation } from '../lib/privateMessaging';
 
 const router = Router();
 
@@ -73,6 +75,34 @@ router.get('/follow-ups/attention', asyncHandler(async (req, res) => {
   }));
 
   res.json(paginatedResult(pageItems, attention.length, page, pageSize));
+}));
+
+// GET /api/leader/my-people — "Today" for a leader: each person they follow,
+// as a follow-up card, the ones who need them most first. Members never see
+// their own card; this is for their leaders only.
+router.get('/my-people', asyncHandler(async (req, res) => {
+  const items = await followUpCardsFor(req.leaderPersonId!);
+  res.json({
+    contactTarget: CONTACT_DAYS_PER_WEEK,
+    total: items.length,
+    needingAttention: items.filter((c) => c.flags.length > 0).length,
+    items,
+  });
+}));
+
+// POST /api/leader/my-people/:personId/chat — opens (or creates) the private
+// chat with one of my people, so a leader can write, send a voice note, a
+// photo or a file exactly as in any private chat. Only for a person the
+// leader is actually following.
+router.post('/my-people/:personId/chat', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const personId = String(req.params.personId);
+  const mine = await prisma.followUpAssignment.findFirst({
+    where: { followerId: req.leaderPersonId, followedPersonId: personId, status: 'ACTIVE' },
+    select: { id: true },
+  });
+  if (!mine) return res.status(403).json({ error: 'This person is not one of your people.' });
+  const conversation = await getOrCreatePrivateConversation(personId, { type: 'PERSON', personId: req.leaderPersonId! });
+  res.json({ conversationId: conversation.id });
 }));
 
 const scopedPeopleQuerySchema = z.object({

@@ -2,18 +2,16 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MyFollowUp } from '../components/leader/MyFollowUp';
 
-// Phase 3M.2 — confirms the shared FollowUpConversation panel is wired into
-// the Leader's existing "My Follow-Up" detail view (opened via "View"),
-// without disturbing any of its existing Phase 3D/3I behavior (log contact,
-// reassign, close, attention). Same URL-dispatching fetch mock pattern as
-// FollowUpConversation.test.tsx.
+// The follow-up conversation is now the normal private chat between the
+// leader and the person: "My Follow-Up" opens it from the detail view, next
+// to the log-contact form, without disturbing log contact, reassign or close.
+const calls: { url: string; method: string }[] = [];
+
 function mockFetchByUrl(responses: Record<string, { status: number; body: unknown }>) {
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string) => {
-      // Longest-key-first so a more specific path (e.g. .../conversation/messages)
-      // is never shadowed by a shorter one that happens to be a substring of it
-      // (e.g. .../conversation).
+    vi.fn((url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? 'GET' });
       const match = Object.keys(responses)
         .sort((a, b) => b.length - a.length)
         .find((key) => url.includes(key));
@@ -30,6 +28,7 @@ function mockFetchByUrl(responses: Record<string, { status: number; body: unknow
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  calls.length = 0;
 });
 
 const BASE_MOCKS = {
@@ -38,56 +37,39 @@ const BASE_MOCKS = {
   '/api/leader/follow-ups/f1/contacts': { status: 200, body: { items: [] } },
 };
 
-describe('MyFollowUp — Phase 3M.2 conversation integration', () => {
-  it('shows the conversation panel when a Follow-Up is opened, alongside the existing log-contact form', async () => {
+describe('MyFollowUp — private chat integration', () => {
+  it('offers the private chat when a Follow-Up is opened, alongside the log-contact form', async () => {
     mockFetchByUrl({
       ...BASE_MOCKS,
       '/api/leader/follow-ups': {
         status: 200,
         body: { items: [{ id: 'f1', status: 'ACTIVE', contextType: 'COMMUNITY', contextId: 'c1', followedPerson: { id: 'p1', name: 'Candidate Person' }, contacts: [] }] },
       },
-      '/api/follow-ups/f1/conversation': { status: 200, body: { assignmentStatus: 'ACTIVE' } },
-      '/api/follow-ups/f1/conversation/messages': {
-        status: 200,
-        body: { items: [{ id: 'm1', senderName: 'Candidate Person', body: 'Thanks for checking in.', createdAt: '2026-01-10T00:00:00Z' }], hasMore: false },
-      },
+      '/api/leader/my-people/p1/chat': { status: 200, body: { conversationId: 'conv-1' } },
     });
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
 
     render(<MyFollowUp />);
-
     fireEvent.click(await screen.findByText('View'));
 
-    await waitFor(() => {
-      expect(screen.getByText('Thanks for checking in.')).toBeInTheDocument();
-    });
-    // Existing Phase 3D log-contact form is still present, unaffected.
-    expect(screen.getByText('Log a Contact')).toBeInTheDocument();
+    expect(await screen.findByText('Log a Contact')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Message' }));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/member/chats/private/conv-1'));
+    expect(calls.some((c) => c.url.includes('/api/leader/my-people/p1/chat') && c.method === 'POST')).toBe(true);
   });
 
-  it('shows the conversation as read-only (no composer) once the Follow-Up is closed, and hides the log-contact form', async () => {
+  it('hides the log-contact form for a closed follow-up (existing behavior)', async () => {
     mockFetchByUrl({
       ...BASE_MOCKS,
       '/api/leader/follow-ups': {
         status: 200,
         body: { items: [{ id: 'f1', status: 'CLOSED', contextType: 'COMMUNITY', contextId: 'c1', followedPerson: { id: 'p1', name: 'Candidate Person' }, contacts: [] }] },
       },
-      '/api/follow-ups/f1/conversation': { status: 200, body: { assignmentStatus: 'CLOSED' } },
-      '/api/follow-ups/f1/conversation/messages': {
-        status: 200,
-        body: { items: [{ id: 'm1', senderName: 'Candidate Person', body: 'Historical message.', createdAt: '2026-01-10T00:00:00Z' }], hasMore: false },
-      },
     });
-
     render(<MyFollowUp />);
-
     fireEvent.click(await screen.findByText('View'));
-
-    await waitFor(() => {
-      expect(screen.getByText('This follow-up has been closed. The conversation is read-only.')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Historical message.')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Write a message…')).not.toBeInTheDocument();
-    // Existing Phase 3D log-contact form is correctly hidden for a closed assignment (pre-existing behavior).
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Candidate Person' })).toBeInTheDocument());
     expect(screen.queryByText('Log a Contact')).not.toBeInTheDocument();
   });
 });

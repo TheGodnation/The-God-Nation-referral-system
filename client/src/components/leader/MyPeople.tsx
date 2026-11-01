@@ -1,0 +1,172 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { api, ApiError } from '../../lib/api';
+
+type Flag = 'EMERGENCY' | 'NEEDS_ATTENTION' | 'UNABLE_TO_REACH' | 'OVERDUE' | 'NOT_YET_CONTACTED' | 'CONTACT_TWICE_WEEK' | 'NO_REPLY' | 'PAYMENT_OWED';
+
+interface Card {
+  followUpAssignmentId: string;
+  personId: string;
+  name: string;
+  lastContactAt: string | null;
+  contactDaysThisWeek: number;
+  contactTarget: number;
+  replied: boolean | null;
+  wellbeing: 'GOOD' | 'NEEDS_ATTENTION' | 'EMERGENCY' | 'UNABLE_TO_REACH' | null;
+  note: string | null;
+  nextAction: { date: string; overdue: boolean } | null;
+  prayerRequests: number;
+  attendance: { attended: number; events: number };
+  teachingsFinished: number;
+  school: { passed: number; required: number };
+  payment: { owedBooks: number; waitingConfirmation: number };
+  flags: Flag[];
+}
+
+interface Response {
+  contactTarget: number;
+  total: number;
+  needingAttention: number;
+  items: Card[];
+}
+
+const URGENT: Flag[] = ['EMERGENCY', 'NEEDS_ATTENTION', 'UNABLE_TO_REACH', 'OVERDUE', 'NO_REPLY'];
+
+function daysAgo(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
+}
+
+// "Today" for a leader: the people they follow, as follow-up cards, the ones
+// who need them most first — with a one-tap way to write to them in the
+// normal private chat (voice notes, photos and files included). Members never
+// see their own card.
+export function MyPeople() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [data, setData] = useState<Response | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [onlyAttention, setOnlyAttention] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<Response>('/api/leader/my-people')
+      .then(setData)
+      .catch(() => setFailed(true));
+  }, []);
+
+  async function message(personId: string) {
+    setBusy(personId);
+    setError(null);
+    try {
+      const r = await api.post<{ conversationId: string }>(`/api/leader/my-people/${personId}/chat`, {});
+      navigate(`/member/chats/private/${r.conversationId}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('myPeople.chat_failed'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (failed) return null;
+  if (!data || data.total === 0) return null;
+
+  const items = data.items.filter((c) => !onlyAttention || c.flags.length > 0);
+
+  return (
+    <section className="card space-y-3" data-testid="my-people">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="font-semibold text-brand-900">{t('myPeople.title')}</h2>
+          <p className="text-sm text-slate-600">{t('myPeople.summary', { total: data.total, count: data.needingAttention })}</p>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={onlyAttention} onChange={(e) => setOnlyAttention(e.target.checked)} />
+          {t('myPeople.only_attention')}
+        </label>
+      </div>
+      <p className="text-xs text-slate-500">{t('myPeople.rule', { count: data.contactTarget })}</p>
+      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      <ul className="space-y-2">
+        {items.map((c) => {
+          const since = daysAgo(c.lastContactAt);
+          const open = openId === c.followUpAssignmentId;
+          const urgent = c.flags.some((f) => URGENT.includes(f));
+          return (
+            <li key={c.followUpAssignmentId} className={`rounded-xl border p-3 ${urgent ? 'border-red-200 bg-red-50/40' : c.flags.length ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200'}`}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <button type="button" className="text-left" onClick={() => setOpenId(open ? null : c.followUpAssignmentId)} aria-expanded={open}>
+                  <span className="font-medium text-slate-900">{c.name}</span>
+                  <span className="block text-xs text-slate-500">
+                    {since === null ? t('myPeople.never_contacted') : since === 0 ? t('myPeople.contact_today') : t('myPeople.contact_days_ago', { count: since })}
+                    {' · '}
+                    {t('myPeople.this_week', { done: Math.min(c.contactDaysThisWeek, c.contactTarget), target: c.contactTarget })}
+                  </span>
+                </button>
+                <button type="button" className="btn-primary px-3 py-1.5 text-sm" disabled={busy === c.personId} onClick={() => message(c.personId)}>
+                  {t('myPeople.message')}
+                </button>
+              </div>
+
+              {c.flags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {c.flags.map((f) => (
+                    <span key={f} className={`rounded-full px-2 py-0.5 text-xs font-medium ${URGENT.includes(f) ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-900'}`}>
+                      {t(`myPeople.flag_${f.toLowerCase()}`)}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {open && (
+                <dl className="mt-3 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+                  <Row label={t('myPeople.replied')} value={c.replied === null ? t('myPeople.not_written_yet') : c.replied ? t('myPeople.yes') : t('myPeople.waiting_reply')} />
+                  <Row label={t('myPeople.how_doing')} value={c.wellbeing ? t(`leader.followUp.wellbeing_${c.wellbeing.toLowerCase()}`) : '—'} />
+                  <Row label={t('myPeople.prayer')} value={String(c.prayerRequests)} />
+                  <Row label={t('myPeople.attendance')} value={`${c.attendance.attended} / ${c.attendance.events}`} />
+                  <Row label={t('myPeople.teachings')} value={String(c.teachingsFinished)} />
+                  <Row label={t('myPeople.school')} value={c.school.required ? `${c.school.passed} / ${c.school.required}` : '—'} />
+                  <Row
+                    label={t('myPeople.books')}
+                    value={
+                      c.payment.owedBooks === 0 && c.payment.waitingConfirmation === 0
+                        ? t('myPeople.books_ok')
+                        : [c.payment.owedBooks ? t('myPeople.books_owed', { count: c.payment.owedBooks }) : null, c.payment.waitingConfirmation ? t('myPeople.books_waiting', { count: c.payment.waitingConfirmation }) : null]
+                            .filter(Boolean)
+                            .join(' · ')
+                    }
+                  />
+                  <Row
+                    label={t('myPeople.next_action')}
+                    value={c.nextAction ? `${new Date(c.nextAction.date).toLocaleDateString()}${c.nextAction.overdue ? ` (${t('myPeople.overdue')})` : ''}` : '—'}
+                  />
+                  {c.note && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-xs text-slate-500">{t('myPeople.last_note')}</dt>
+                      <dd className="text-slate-800">{c.note}</dd>
+                    </div>
+                  )}
+                </dl>
+              )}
+            </li>
+          );
+        })}
+        {items.length === 0 && <li className="text-sm text-slate-500">{t('myPeople.nobody_needs')}</li>}
+      </ul>
+    </section>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="text-slate-800">{value}</dd>
+    </div>
+  );
+}

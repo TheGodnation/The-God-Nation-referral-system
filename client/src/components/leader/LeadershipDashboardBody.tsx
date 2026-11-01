@@ -11,6 +11,7 @@ import { PrivateMessages } from '../PrivateMessages';
 import { MyResources } from '../MyResources';
 import { StartPrivateMessage } from './StartPrivateMessage';
 import { MyFollowUp } from './MyFollowUp';
+import { MyPeople } from './MyPeople';
 import { TrainingProgress } from './TrainingProgress';
 import { MyMembers } from './MyMembers';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
@@ -235,6 +236,8 @@ export function LeadershipDashboardBody() {
           </div>
         </div>
       )}
+
+      <MyPeople />
 
       <InvitePeople links={links} messageTemplate={messageTemplate} />
 

@@ -9,7 +9,6 @@ import { WallHeader } from '../components/wall/WallHeader';
 import { PhotoGrid, WallTabs } from '../components/wall/PhotoGrid';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { MyResources } from '../components/MyResources';
-import { MyFollowUps } from '../components/member/MyFollowUps';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { useMemberAuth } from '../lib/MemberAuthContext';
@@ -156,7 +155,6 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
       </section>
 
       <MyResources />
-      <MyFollowUps />
 
       <section className="card">
         <h2 className="mb-2 font-semibold text-brand-900">👥 {t('wall.my_referrals')}</h2>

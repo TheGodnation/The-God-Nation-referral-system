@@ -48,6 +48,20 @@ export async function graduatesAmong(personIds: string[]): Promise<Map<string, D
   return result;
 }
 
+/** How many of the required Leadership School exams each given person has passed. */
+export async function schoolProgressAmong(personIds: string[]): Promise<{ required: number; passed: Map<string, number> }> {
+  const examIds = await requiredLeadershipExamIds();
+  const passed = new Map<string, number>();
+  if (examIds.length === 0 || personIds.length === 0) return { required: examIds.length, passed };
+  const rows = await prisma.attempt.findMany({
+    where: { personId: { in: personIds }, assessmentId: { in: examIds }, status: 'SUBMITTED', passed: true },
+    select: { personId: true, assessmentId: true },
+    distinct: ['personId', 'assessmentId'],
+  });
+  for (const r of rows) passed.set(r.personId, (passed.get(r.personId) ?? 0) + 1);
+  return { required: examIds.length, passed };
+}
+
 export interface ReadyToLeadPerson {
   personId: string;
   name: string;
