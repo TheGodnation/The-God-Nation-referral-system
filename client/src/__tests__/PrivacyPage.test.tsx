@@ -26,6 +26,7 @@ describe('Privacy policy', () => {
     expect(screen.getByText(/Google Gemini is used to translate/)).toBeInTheDocument();
     expect(screen.getByText(/never receives private messages or prayer requests/)).toBeInTheDocument();
     expect(screen.getByText(/We do not sell your information/)).toBeInTheDocument();
+    expect(screen.getByText(/Follow-up conversations between a leader and a member may be reviewed by the central administration for care and quality/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Delete my account' })).toHaveAttribute('href', '/delete-account');
     expect(screen.getByText(/contact@thegodnationacademy\.org/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open the contact page' })).toHaveAttribute('href', '/contact');
@@ -37,5 +38,6 @@ describe('Privacy policy', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Politique de confidentialité' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(10);
     expect(screen.getByText(/Nous ne vendons pas vos informations/)).toBeInTheDocument();
+    expect(screen.getByText(/Les conversations de suivi entre un responsable et un membre peuvent être consultées par l'administration centrale/)).toBeInTheDocument();
   });
 });

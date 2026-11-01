@@ -3274,7 +3274,7 @@
   "privacy": {
     "title": "Politique de confidentialité",
     "nav": "Confidentialité",
-    "updated": "Dernière mise à jour : 27 octobre 2026",
+    "updated": "Dernière mise à jour : 1er novembre 2026",
     "intro": "The God Nation (« nous », « le ministère ») gère l'application The God Nation et le site thegodnationacademy.org. Cette page explique en termes simples ce que nous collectons, pourquoi, qui peut le voir, qui nous aide à faire fonctionner l'application et comment vous pouvez faire supprimer vos informations.",
     "sections": [
       {
@@ -3305,7 +3305,8 @@
           "Les autres membres et responsables peuvent voir ce que vous choisissez de rendre visible sur votre profil et aux endroits où vous publiez, comme votre nom, votre photo, votre biographie et votre assemblée.",
           "Les responsables de votre assemblée et les administrateurs centraux du ministère peuvent voir les informations de votre compte afin de prendre soin de vous et de gérer la communauté. Seuls les responsables et les administrateurs voient la feuille de présence d'un événement.",
           "Les représentants de paiement, des personnes nommées par le ministère, peuvent voir une commande que vous ouvrez avec eux : votre nom, le montant, ainsi que l'identifiant de transaction et la capture d'écran que vous envoyez.",
-          "Les messages envoyés dans une conversation peuvent être vus par les personnes de cette conversation. Nous demandons aux responsables et aux administrateurs de n'utiliser les informations des membres que pour le travail du ministère."
+          "Les messages envoyés dans une conversation peuvent être vus par les personnes de cette conversation. Nous demandons aux responsables et aux administrateurs de n'utiliser les informations des membres que pour le travail du ministère.",
+          "Les conversations de suivi entre un responsable et un membre peuvent être consultées par l'administration centrale afin de veiller au soin des personnes et à la qualité du suivi."
         ]
       },
       {

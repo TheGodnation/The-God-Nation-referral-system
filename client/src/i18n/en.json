@@ -3274,7 +3274,7 @@
   "privacy": {
     "title": "Privacy Policy",
     "nav": "Privacy",
-    "updated": "Last updated: 27 October 2026",
+    "updated": "Last updated: 1 November 2026",
     "intro": "The God Nation (\"we\", \"the ministry\") runs The God Nation app and the website thegodnationacademy.org. This page explains in plain words what we collect, why, who can see it, who helps us run the app, and how you can have it deleted.",
     "sections": [
       {
@@ -3305,7 +3305,8 @@
           "Other members and leaders can see what you choose to make visible on your profile and in the places you post, such as your name, photo, bio and your assembly.",
           "The leaders of your assembly, and the central administrators of the ministry, can see your member details so they can care for you and manage the community. Only leaders and administrators can see the attendance sheet of an event.",
           "Payment representatives, who are people the ministry has appointed, can see an order you open with them: your name, the amount, and the transaction ID and screenshot you send.",
-          "Messages sent in a chat can be seen by the people in that chat. We ask leaders and administrators to use member information only for the work of the ministry."
+          "Messages sent in a chat can be seen by the people in that chat. We ask leaders and administrators to use member information only for the work of the ministry.",
+          "Follow-up conversations between a leader and a member may be reviewed by the central administration for care and quality."
         ]
       },
       {
