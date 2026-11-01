@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 
-type Flag = 'EMERGENCY' | 'NEEDS_ATTENTION' | 'UNABLE_TO_REACH' | 'OVERDUE' | 'NOT_YET_CONTACTED' | 'CONTACT_TWICE_WEEK' | 'NO_REPLY' | 'PAYMENT_OWED';
+type Flag = 'EMERGENCY' | 'NEEDS_ATTENTION' | 'UNABLE_TO_REACH' | 'OVERDUE' | 'NOT_YET_CONTACTED' | 'CONTACT_TWICE_WEEK' | 'NO_REPLY' | 'SCHOOL_SLOW' | 'PAYMENT_OWED';
 
 interface Card {
   followUpAssignmentId: string;

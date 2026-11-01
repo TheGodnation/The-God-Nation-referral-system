@@ -136,6 +136,43 @@ function InvitePeople({
 // /api/leader/* exactly as before — unaffected by which page renders it,
 // since a bridged Leader's Member session now silently carries a paired
 // Leader session too (Section 25's auto-pairing).
+interface HealthItem {
+  id: string;
+  name: string;
+  parentId: string | null;
+  own: { color: 'GREEN' | 'YELLOW' | 'RED' | 'GREY'; weeklyRate: number | null };
+}
+const HEALTH_DOT = { GREEN: 'bg-green-500', YELLOW: 'bg-amber-400', RED: 'bg-red-500', GREY: 'bg-slate-300' } as const;
+
+// How the assemblies I lead, and the ones below them, are doing.
+function AssemblyHealthForLeader() {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<HealthItem[]>([]);
+  useEffect(() => {
+    api.get<{ items: HealthItem[] }>('/api/leader/assembly-health').then((r) => setItems(r.items)).catch(() => {});
+  }, []);
+  if (items.length === 0) return null;
+  return (
+    <section className="card space-y-2" data-testid="assembly-health-leader">
+      <h2 className="font-semibold text-brand-900">{t('oversight.health_below')}</h2>
+      <ul className="divide-y divide-slate-100">
+        {items.map((h) => (
+          <li key={h.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+            <span>
+              <span className={`mr-2 inline-block h-3 w-3 rounded-full align-middle ${HEALTH_DOT[h.own.color]}`} />
+              {h.name}
+            </span>
+            <span className="text-xs text-slate-500">
+              {t(`oversight.health_${h.own.color.toLowerCase()}`)}
+              {h.own.weeklyRate !== null && ` · ${t('oversight.health_rate', { percent: Math.round(h.own.weeklyRate * 100) })}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function LeaderEscalations() {
   const { t } = useTranslation();
   return (
@@ -255,6 +292,8 @@ export function LeadershipDashboardBody() {
       <MyPeople />
 
       <LeaderEscalations />
+
+      <AssemblyHealthForLeader />
 
       <InvitePeople links={links} messageTemplate={messageTemplate} />
 

@@ -1,5 +1,5 @@
 import { prisma } from './prisma';
-import { schoolProgressAmong } from './cells';
+import { requiredLeadershipExamIds, schoolProgressAmong } from './cells';
 
 // ---------------------------------------------------------------------------
 // The follow-up card: everything a leader needs to know about one of "my
@@ -22,10 +22,11 @@ export type CardFlag =
   | 'NOT_YET_CONTACTED'
   | 'CONTACT_TWICE_WEEK'
   | 'NO_REPLY'
+  | 'SCHOOL_SLOW'
   | 'PAYMENT_OWED';
 
 // Most urgent first.
-const FLAG_ORDER: CardFlag[] = ['EMERGENCY', 'NEEDS_ATTENTION', 'UNABLE_TO_REACH', 'OVERDUE', 'NO_REPLY', 'NOT_YET_CONTACTED', 'CONTACT_TWICE_WEEK', 'PAYMENT_OWED'];
+const FLAG_ORDER: CardFlag[] = ['EMERGENCY', 'NEEDS_ATTENTION', 'UNABLE_TO_REACH', 'OVERDUE', 'NO_REPLY', 'NOT_YET_CONTACTED', 'CONTACT_TWICE_WEEK', 'SCHOOL_SLOW', 'PAYMENT_OWED'];
 
 export interface FollowUpCard {
   followUpAssignmentId: string;
@@ -110,6 +111,23 @@ export async function followUpCardsFor(followerId: string, now = new Date()): Pr
   ]);
   void enrollments;
 
+  // Slow in the Leadership School: started, not finished, and nothing passed or opened for a month.
+  const examIds = await requiredLeadershipExamIds();
+  const lastPasses = examIds.length
+    ? await prisma.attempt.groupBy({
+        by: ['personId'],
+        where: { personId: { in: personIds }, assessmentId: { in: examIds }, status: 'SUBMITTED', passed: true },
+        _max: { submittedAt: true },
+      })
+    : [];
+  const lastOpens = await prisma.trainingBookOpen.groupBy({ by: ['personId'], where: { personId: { in: personIds } }, _max: { openedAt: true } });
+  const lastSchoolActivity = new Map<string, Date>();
+  for (const r of lastPasses) if (r._max.submittedAt) lastSchoolActivity.set(r.personId, r._max.submittedAt);
+  for (const r of lastOpens) {
+    const prev = lastSchoolActivity.get(r.personId);
+    if (r._max.openedAt && (!prev || r._max.openedAt > prev)) lastSchoolActivity.set(r.personId, r._max.openedAt);
+  }
+
   const conversationByPerson = new Map(conversations.map((c) => [c.memberPersonId, c.id]));
   const messages = conversations.length
     ? await prisma.privateMessage.findMany({
@@ -167,6 +185,9 @@ export async function followUpCardsFor(followerId: string, now = new Date()): Pr
     const settledIn = now.getTime() - a.assignedAt.getTime() > 3 * DAY;
     if (settledIn && contactDays.size < CONTACT_DAYS_PER_WEEK) flags.add('CONTACT_TWICE_WEEK');
     if (lastLeaderMsgAt && replied === false && now.getTime() - lastLeaderMsgAt.getTime() > 3 * DAY) flags.add('NO_REPLY');
+    const lastSchool = lastSchoolActivity.get(personId);
+    const passedBooks = school.passed.get(personId) ?? 0;
+    if (lastSchool && school.required > 0 && passedBooks < school.required && now.getTime() - lastSchool.getTime() > 30 * DAY) flags.add('SCHOOL_SLOW');
     if ((owedBy.get(personId) ?? 0) > 0) flags.add('PAYMENT_OWED');
 
     return {

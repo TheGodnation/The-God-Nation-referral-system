@@ -8,6 +8,8 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
+import { assemblyHealth, leadersHealthIn } from '../lib/assemblyHealth';
+import { adminReadsEnabled, chatsOfLeader, readLeaderChat, setAdminReads } from '../lib/chatOversight';
 import { addEscalationMessage, escalationViewFor, escalationsForAdmin, type EscalationActor } from '../lib/escalations';
 import { handOverPeople, leaderLoads, shareUnassigned } from '../lib/followUpShare';
 import { appointLeader, assembliesOverview, readyToLeadIn } from '../lib/cells';
@@ -92,6 +94,51 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     const result = await addEscalationMessage(id, asEscalationActor(actor), parsed.data.body);
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     res.status(201).json({ item: await escalationViewFor(id, asEscalationActor(actor)) });
+  }));
+
+  // How each assembly is doing (green / yellow / red), rolled up the tree, and who is behind it.
+  router.get('/health', asyncHandler(async (_req, res) => {
+    res.json({ items: await assemblyHealth() });
+  }));
+
+  router.get('/health/:communityId/leaders', asyncHandler(async (req, res) => {
+    res.json({ items: await leadersHealthIn(String(req.params.communityId)) });
+  }));
+
+  // Reading the follow-up chats between leaders and their people (read-only; nobody is told).
+  router.get('/oversight/settings', asyncHandler(async (_req, res) => {
+    res.json({ enabled: await adminReadsEnabled() });
+  }));
+
+  router.put('/oversight/settings', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'enabled must be true or false.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    await setAdminReads(parsed.data.enabled);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_CHAT_OVERSIGHT_SETTING', targetType: 'Settings', targetId: 'singleton', metadata: { enabled: parsed.data.enabled } });
+    res.json({ enabled: parsed.data.enabled });
+  }));
+
+  router.get('/oversight/leaders/:leaderPersonId/chats', asyncHandler(async (req, res) => {
+    if (!(await adminReadsEnabled())) return res.status(403).json({ error: 'Reading follow-up chats is switched off.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const leaderPersonId = String(req.params.leaderPersonId);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_CHAT_OVERSIGHT_LIST', targetType: 'Person', targetId: leaderPersonId });
+    res.json({ items: await chatsOfLeader(leaderPersonId) });
+  }));
+
+  router.get('/oversight/chats/:conversationId', asyncHandler(async (req, res) => {
+    if (!(await adminReadsEnabled())) return res.status(403).json({ error: 'Reading follow-up chats is switched off.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const conversationId = String(req.params.conversationId);
+    const chat = await readLeaderChat(conversationId);
+    if (!chat) return res.status(404).json({ error: 'Chat not found.' });
+    // Only the central admin's own access record; the leader and the person see nothing.
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_CHAT_OVERSIGHT_READ', targetType: 'PrivateConversation', targetId: conversationId, metadata: { leaderPersonId: chat.leaderPersonId, memberPersonId: chat.memberPersonId } });
+    res.json(chat);
   }));
 
   // The size of an assembly: when it is reached, newcomers go to a new assembly.

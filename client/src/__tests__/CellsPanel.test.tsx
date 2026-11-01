@@ -103,6 +103,22 @@ describe('CellsPanel', () => {
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ communityId: 'a2' });
   });
 
+  it('shows each assembly\'s health as a coloured dot', async () => {
+    mockFetch({
+      '/api/admin/cells/overview': () => ({ status: 200, body: overview }),
+      '/api/admin/cells/health': () => ({
+        status: 200,
+        body: { items: [
+          { id: 'a1', own: { color: 'GREEN', weeklyRate: 0.9 }, tree: { color: 'RED' } },
+          { id: 'a2', own: { color: 'RED', weeklyRate: 0.1 }, tree: { color: 'RED' } },
+        ] },
+      }),
+    });
+    render(<CellsPanel base="/api/admin/cells" />);
+    expect(await screen.findByLabelText('Going well')).toBeInTheDocument();
+    expect(screen.getByLabelText('Needs help')).toBeInTheDocument();
+  });
+
   it('says so when no Leadership School exam is published yet', async () => {
     mockFetch({ '/api/admin/cells/overview': () => ({ status: 200, body: { ...overview, requiredBooks: 0 } }) });
     render(<CellsPanel base="/api/admin/cells" />);

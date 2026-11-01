@@ -13,6 +13,7 @@ import { computeAttentionForLeader } from '../lib/followUpAttention';
 import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
 import { followUpCardsFor, CONTACT_DAYS_PER_WEEK } from '../lib/followUpCard';
 import { getOrCreatePrivateConversation } from '../lib/privateMessaging';
+import { assemblyHealth } from '../lib/assemblyHealth';
 import { handOverPeople, isAway, leaderLoads, shareWithLeader } from '../lib/followUpShare';
 
 const router = Router();
@@ -93,6 +94,20 @@ router.get('/my-people', asyncHandler(async (req, res) => {
     needingAttention: items.filter((c) => c.flags.length > 0).length,
     items,
   });
+}));
+
+// GET /api/leader/assembly-health — how the assemblies I lead, and the ones below them, are doing.
+router.get('/assembly-health', asyncHandler(async (req, res) => {
+  const roles = await prisma.roleAssignment.findMany({ where: { personId: req.leaderPersonId, status: 'ACTIVE', communityId: { not: null } }, select: { communityId: true } });
+  const mineIds = new Set(roles.map((r) => r.communityId as string));
+  if (mineIds.size === 0) return res.json({ items: [] });
+  const all = await assemblyHealth();
+  const parentOf = new Map(all.map((r) => [r.id, r.parentId]));
+  const inMySubtree = (id: string) => {
+    for (let cur: string | null | undefined = id, i = 0; cur && i < 50; cur = parentOf.get(cur), i += 1) if (mineIds.has(cur)) return true;
+    return false;
+  };
+  res.json({ items: all.filter((r) => inMySubtree(r.id)) });
 }));
 
 // PUT /api/leader/my-people/away — "I am away until <date>" (or back now: until null).

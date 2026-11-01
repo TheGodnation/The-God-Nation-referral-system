@@ -582,6 +582,12 @@ model Settings {
   // in a new child assembly instead (see lib/cells.ts). Adjustable by the
   // central admin.
   assemblyCapacity        Int           @default(200)
+  // When the weekly "Leadership School progress" post last went out to the groups.
+  lastSchoolProgressPostAt DateTime?
+  // Whether the central admin can read the follow-up chats between leaders and
+  // their people (read-only, nobody is told). On from the beginning, so he can
+  // see that leaders are doing the work; he can switch it off.
+  adminReadsFollowUpChats Boolean @default(true)
   // "Live now" slot on the Updates page: the YouTube video id of the live
   // (video or audio-only) the central admin is streaming, or null when
   // nothing is live. Set/cleared from the admin Updates tab.

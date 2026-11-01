@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Escalations } from '../leader/Escalations';
+import { LeadersOversight } from './LeadersOversight';
 
 interface Row {
   id: string;
@@ -20,6 +21,14 @@ interface Overview {
   requiredBooks: number;
   items: Row[];
 }
+type HealthColor = 'GREEN' | 'YELLOW' | 'RED' | 'GREY';
+interface HealthRow {
+  id: string;
+  own: { color: HealthColor; weeklyRate: number | null };
+  tree: { color: HealthColor };
+}
+const DOT: Record<HealthColor, string> = { GREEN: 'bg-green-500', YELLOW: 'bg-amber-400', RED: 'bg-red-500', GREY: 'bg-slate-300' };
+
 interface Ready {
   requiredBooks: number;
   items: { personId: string; name: string; whatsappNumber: string; finishedAt: string }[];
@@ -41,6 +50,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
   const [error, setError] = useState<string | null>(null);
   const [sizeDraft, setSizeDraft] = useState('');
   const [onlyWithReady, setOnlyWithReady] = useState(false);
+  const [health, setHealth] = useState<Map<string, HealthRow>>(new Map());
 
   function load() {
     api
@@ -52,6 +62,12 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       .catch(() => setFailed(true));
   }
   useEffect(load, [base]);
+  useEffect(() => {
+    api
+      .get<{ items: HealthRow[] }>(`${base}/health`)
+      .then((r) => setHealth(new Map(r.items.map((h) => [h.id, h]))))
+      .catch(() => {});
+  }, [base]);
 
   function openAssembly(row: Row) {
     setOpen(row);
@@ -170,6 +186,13 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
             <li key={r.id} className="py-2">
               <button type="button" className="flex w-full flex-wrap items-center justify-between gap-2 text-left" onClick={() => openAssembly(r)}>
                 <span>
+                  {health.get(r.id) && (
+                    <span
+                      className={`mr-2 inline-block h-3 w-3 rounded-full align-middle ${DOT[health.get(r.id)!.own.color]}`}
+                      title={t(`oversight.health_${health.get(r.id)!.own.color.toLowerCase()}`)}
+                      aria-label={t(`oversight.health_${health.get(r.id)!.own.color.toLowerCase()}`)}
+                    />
+                  )}
                   <span className="font-medium text-slate-800">{r.name}</span>
                   {r.autoCreated && <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-700">{t('cells.opened_automatically')}</span>}
                   {r.parentName && <span className="block text-xs text-slate-500">{t('cells.under', { name: r.parentName })}</span>}
@@ -207,6 +230,18 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
               </div>
             );
           })()}
+          {(() => {
+            const h = health.get(open.id);
+            if (!h) return null;
+            return (
+              <p className="text-sm text-slate-600">
+                <span className={`mr-2 inline-block h-3 w-3 rounded-full align-middle ${DOT[h.own.color]}`} />
+                {t(`oversight.health_${h.own.color.toLowerCase()}`)}
+                {h.own.weeklyRate !== null && ` · ${t('oversight.health_rate', { percent: Math.round(h.own.weeklyRate * 100) })}`}
+                {h.tree.color !== h.own.color && ` · ${t('oversight.health_tree', { label: t(`oversight.health_${h.tree.color.toLowerCase()}`) })}`}
+              </p>
+            );
+          })()}
           <p className="text-sm text-slate-600">{t('cells.ready_help')}</p>
           {!ready && <p className="text-sm text-slate-400">{t('cells.loading')}</p>}
           {ready && ready.items.length === 0 && <p className="text-sm text-slate-500">{t('cells.ready_none')}</p>}
@@ -223,6 +258,9 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
               </li>
             ))}
           </ul>
+          <div className="border-t border-slate-200 pt-3">
+            <LeadersOversight base={base} communityId={open.id} />
+          </div>
         </section>
       )}
     </div>
