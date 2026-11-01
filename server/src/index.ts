@@ -9,6 +9,7 @@ import { startEventReminderLoop } from './lib/eventReminders';
 import { startEscalationLoop } from './lib/escalations';
 import { startSchoolProgressLoop } from './lib/schoolProgressPost';
 import { startGivingPostLoop } from './lib/givingPost';
+import { startClinicAutoSendLoop } from './lib/clinic';
 
 // Last-resort safety net. Every route handler is wrapped in asyncHandler
 // (see lib/asyncHandler.ts) specifically so a failed database call — the
@@ -39,3 +40,4 @@ startEventReminderLoop();
 startEscalationLoop();
 startSchoolProgressLoop();
 startGivingPostLoop();
+startClinicAutoSendLoop();

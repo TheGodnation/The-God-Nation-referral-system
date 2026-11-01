@@ -7,6 +7,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { teachingDraftLimiter, teachingPostLimiter, teachingProgressLimiter } from '../lib/rateLimit';
 import { contextTargetExists } from '../lib/leadership';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
+import { canReadBook } from '../lib/examWorld';
 import { hasConversationAccess, getOrCreateConversation } from '../lib/communityConversation';
 import {
   isAllowedAttachmentMime,
@@ -80,6 +81,8 @@ const createSchema = z.object({
   questions: z.array(questionSchema).min(1).max(20),
   passMark: z.number().int().min(1).max(100).default(70),
   openDays: z.number().int().min(1).max(60).default(DEFAULT_OPEN_DAYS),
+  // Dominion Clinic: the part of the monthly book this teaching is taught from.
+  portion: z.object({ bookId: z.string().min(1), page: z.number().int().min(1).max(10000), label: z.string().trim().max(200).optional() }).optional(),
 });
 
 // POST /api/teachings — post a teaching (central admin only).
@@ -112,6 +115,9 @@ router.post('/', teachingPostLimiter, requireCsrf, asyncHandler(async (req, res)
     }
   }
 
+  if (d.portion && !(await prisma.libraryBook.findUnique({ where: { id: d.portion.bookId }, select: { id: true } }))) {
+    return res.status(400).json({ error: 'The book for this portion was not found.' });
+  }
   const conversation = await getOrCreateConversation(d.communityId);
   const closesAt = new Date(Date.now() + d.openDays * DAY);
 
@@ -166,6 +172,9 @@ router.post('/', teachingPostLimiter, requireCsrf, asyncHandler(async (req, res)
         text,
         mediaKind,
         closesAt,
+        portionBookId: d.portion?.bookId ?? null,
+        portionPage: d.portion?.page ?? null,
+        portionLabel: d.portion?.label || null,
       },
     });
   });
@@ -320,10 +329,15 @@ router.get('/:id', asyncHandler(async (req, res) => {
     // The central admin and this assembly's leaders can remind everyone who failed to retake.
     isCommunityAdministrator(personId, teaching.communityId),
   ]);
+  // The part of the monthly book this is taught from, and whether this member can open it (it was sent to them).
+  const portion = teaching.portionBookId && teaching.portionPage
+    ? { bookId: teaching.portionBookId, page: teaching.portionPage, label: teaching.portionLabel, canOpen: await canReadBook(personId, teaching.portionBookId) }
+    : null;
   res.json({
     id: teaching.id,
     title: teaching.title,
     text: teaching.text,
+    portion,
     detectedLanguage: teaching.detectedLanguage,
     titleTranslated: teaching.titleTranslated,
     textTranslated: teaching.textTranslated,
@@ -342,6 +356,23 @@ router.get('/:id', asyncHandler(async (req, res) => {
     quiz: quizPayload(teaching, quiz),
     me: myProgress(progress),
   });
+}));
+
+const portionSchema = z.object({ portion: z.object({ bookId: z.string().min(1), page: z.number().int().min(1).max(10000), label: z.string().trim().max(200).optional() }).nullable() });
+
+// PUT /api/teachings/:id/portion — the central admin maps (or clears) the part
+// of the monthly book a teaching is taught from.
+router.put('/:id/portion', teachingPostLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  if (!(await isCentralAdminPerson(req.member!.personId))) return res.status(403).json({ error: 'Only the central admin can do this.', code: 'NOT_ALLOWED' });
+  const parsed = portionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Choose the book and the page.' });
+  const id = String(req.params.id);
+  const exists = await prisma.teaching.findUnique({ where: { id }, select: { id: true } });
+  if (!exists) return res.status(404).json({ error: 'Teaching not found.' });
+  const p = parsed.data.portion;
+  if (p && !(await prisma.libraryBook.findUnique({ where: { id: p.bookId }, select: { id: true } }))) return res.status(400).json({ error: 'The book was not found.' });
+  await prisma.teaching.update({ where: { id }, data: { portionBookId: p?.bookId ?? null, portionPage: p?.page ?? null, portionLabel: p?.label || null } });
+  res.json({ ok: true });
 }));
 
 const progressSchema = z.object({

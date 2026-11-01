@@ -3483,6 +3483,26 @@
     "load_failed": "Impossible de charger. Réessayez.",
     "tab": "Dons"
   },
+  "clinic": {
+    "not_sent_yet": "Votre responsable ne vous a pas encore envoyé ce livre. Il vous parviendra bientôt.",
+    "taught_from": "Enseigné à partir de cette partie du livre",
+    "page": "page {{page}}",
+    "open_portion": "Ouvrir la partie du jour",
+    "map_portion": "Cet enseignement est donné à partir de « {{title}} »",
+    "portion_page": "Commencer à la page",
+    "portion_label": "Partie (par exemple : Chapitre 3)",
+    "leader_title": "Livre de la Clinique de la Domination",
+    "leader_help": "Le livre du mois : {{title}}. {{sent}} de vos {{people}} personnes l'ont déjà.",
+    "leader_none": "Aucun livre de la Clinique de la Domination n'est ouvert pour le moment.",
+    "send_button": "L'envoyer à mes {{count}} personnes qui ne l'ont pas",
+    "send_done": "Envoyé à {{count}} personnes, chacune par message privé.",
+    "send_nobody": "Toutes les personnes que vous suivez l'ont déjà.",
+    "send_failed": "Impossible d'envoyer. Réessayez.",
+    "admin_help": "Le livre du mois : {{title}}. {{sent}} membres sur {{members}} l'ont.",
+    "admin_send_all": "L'envoyer maintenant aux {{count}} qui ne l'ont pas",
+    "admin_auto": "Les membres qui ne l'ont toujours pas le reçoivent automatiquement deux jours après son ouverture (les responsables le reçoivent tout de suite).",
+    "admin_done": "Envoyé à {{count}} membres, chacun par message privé de l'administration centrale."
+  },
   "cells": {
     "title": "Assemblées et responsables",
     "intro": "Voyez à quel point chaque assemblée est remplie, qui est prêt à diriger, et nommez vous-même les responsables. Une assemblée peut avoir autant de responsables que vous le souhaitez.",

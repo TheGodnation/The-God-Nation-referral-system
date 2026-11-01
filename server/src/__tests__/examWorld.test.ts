@@ -526,7 +526,7 @@ describe('Reading books inside the app', () => {
     expect(listed).toMatchObject({ hasFile: false, hasFileFr: true });
   });
 
-  it('lets any member read the monthly devotional book', async () => {
+  it('lets a member read the monthly devotional book once it was sent to them (not before)', async () => {
     const a = await admin();
     const devotional = await prisma.monthlyDevotional.create({
       data: { titleEn: 'October', contentEn: '-', startDate: new Date(), endDate: new Date(Date.now() + 20 * 86400000), status: 'PUBLISHED' },
@@ -536,6 +536,10 @@ describe('Reading books inside the app', () => {
     const m = await member('Any Member');
     const world = await m.agent.get('/api/member/exam-world');
     expect(world.body.devotionals[0].bookId).toBe(book.body.id);
+    // The monthly book is sent to each member (by their leader, the central admin, or automatically).
+    expect((await m.agent.get(`/api/member/library/books/${book.body.id}/content`)).status).toBe(404);
+    const me = await prisma.person.findFirstOrThrow({ where: { name: { startsWith: 'Any Member' } } });
+    await prisma.bookDelivery.create({ data: { personId: me.id, bookId: book.body.id, via: 'LEADER' } });
     expect((await m.agent.get(`/api/member/library/books/${book.body.id}/content`)).status).toBe(200);
   });
 

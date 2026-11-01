@@ -3483,6 +3483,26 @@
     "load_failed": "Could not load. Please try again.",
     "tab": "Giving"
   },
+  "clinic": {
+    "not_sent_yet": "Your leader has not sent you this book yet. It will reach you soon.",
+    "taught_from": "Taught from this part of the book",
+    "page": "page {{page}}",
+    "open_portion": "Open today's portion",
+    "map_portion": "This teaching is taught from \"{{title}}\"",
+    "portion_page": "Start at page",
+    "portion_label": "Part (for example: Chapter 3)",
+    "leader_title": "Dominion Clinic book",
+    "leader_help": "This month's book: {{title}}. {{sent}} of your {{people}} people already have it.",
+    "leader_none": "There is no Dominion Clinic book open right now.",
+    "send_button": "Send it to my {{count}} people who do not have it",
+    "send_done": "Sent to {{count}} people, each as a private message.",
+    "send_nobody": "Everyone you follow already has it.",
+    "send_failed": "Could not send. Please try again.",
+    "admin_help": "This month's book: {{title}}. {{sent}} of {{members}} members have it.",
+    "admin_send_all": "Send it now to the {{count}} who do not have it",
+    "admin_auto": "Members who still do not have it get it automatically two days after it opens (leaders get it at once).",
+    "admin_done": "Sent to {{count}} members, each as a private message from the central administration."
+  },
   "cells": {
     "title": "Assemblies and leaders",
     "intro": "See how full each assembly is, who is ready to lead, and appoint leaders yourself. An assembly can have as many leaders as you want.",

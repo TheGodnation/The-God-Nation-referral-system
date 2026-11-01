@@ -33,6 +33,8 @@ interface TeachingDetail {
   attachments: { id: string; originalFilename: string; mimeType: string; byteSize: number; pageCount: number | null }[];
   minReadSeconds: number;
   canManage: boolean;
+  // Dominion Clinic: the part of the monthly book this is taught from.
+  portion?: { bookId: string; page: number; label: string | null; canOpen: boolean } | null;
   /** The central admin and this assembly's leaders. */
   canInvite?: boolean;
   quiz: {
@@ -294,6 +296,21 @@ export function MemberTeachingPage() {
           <h1 className="mt-1 break-words text-2xl font-bold text-brand-900">{displayTitle}</h1>
           {hasTranslation && (
             <TranslationNote sourceLanguage={teaching.detectedLanguage!} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />
+          )}
+          {teaching.portion && (
+            <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm" data-testid="teaching-portion">
+              <p className="font-medium text-emerald-900">
+                {t('clinic.taught_from')}
+                {teaching.portion.label ? `: ${teaching.portion.label}` : ''} ({t('clinic.page', { page: teaching.portion.page })})
+              </p>
+              {teaching.portion.canOpen ? (
+                <Link to={`/member/read/${teaching.portion.bookId}?page=${teaching.portion.page}`} className="btn-primary mt-2 inline-block px-3 py-1.5 text-sm">
+                  {t('clinic.open_portion')}
+                </Link>
+              ) : (
+                <p className="mt-1 text-amber-800">{t('clinic.not_sent_yet')}</p>
+              )}
+            </div>
           )}
           <p className="mt-1 text-xs text-slate-500">
             {teaching.authorName ? `${teaching.authorName} · ` : ''}

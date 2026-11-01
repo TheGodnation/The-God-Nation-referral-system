@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
 import { loadPdfJs } from '../lib/loadPdfJs';
@@ -73,6 +73,9 @@ export function MemberReaderPage() {
   const { member } = useMemberAuth();
   const ownerId = member?.personId ?? '';
   const { bookId = '' } = useParams();
+  // Opened from a teaching: go straight to the part being taught.
+  const [searchParams] = useSearchParams();
+  const jumpTo = Number(searchParams.get('page')) || 0;
   const [book, setBook] = useState<BookInfo | null>(null);
   const [status, setStatus] = useState<'loading' | 'downloading' | 'ready' | 'notFound' | 'failed' | 'offlineMissing'>('loading');
   const [percent, setPercent] = useState(0);
@@ -162,7 +165,8 @@ export function MemberReaderPage() {
         const vp = first.getViewport({ scale: 1 });
         if (cancelled) return;
         setAspect(vp.height / vp.width);
-        resumeRef.current = mark && mark.page > 1 && mark.page <= doc.numPages ? mark.page : null;
+        const wanted = jumpTo > 1 ? jumpTo : mark?.page ?? 0;
+        resumeRef.current = wanted > 1 && wanted <= doc.numPages ? wanted : null;
         setPdf(doc);
         setStatus('ready');
       } catch (err) {

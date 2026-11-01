@@ -149,6 +149,18 @@ describe('The teaching page', () => {
     expect(calls.some((c) => c.method === 'POST' && c.url === '/api/teachings/t1/progress' && JSON.stringify(c.body) === '{}')).toBe(true);
   });
 
+  it('Dominion Clinic: shows the part of the book being taught and opens it, or says the book has not been sent yet', async () => {
+    const { unmount } = renderPage(detail({ portion: { bookId: 'b1', page: 12, label: 'Chapter 3: Authority', canOpen: true } }));
+    const box = await screen.findByTestId('teaching-portion');
+    expect(box).toHaveTextContent('Taught from this part of the book: Chapter 3: Authority (page 12)');
+    expect(within(box).getByRole('link', { name: "Open today's portion" })).toHaveAttribute('href', '/member/read/b1?page=12');
+    unmount();
+    renderPage(detail({ portion: { bookId: 'b1', page: 12, label: null, canOpen: false } }));
+    const closed = await screen.findByTestId('teaching-portion');
+    expect(within(closed).queryByRole('link')).not.toBeInTheDocument();
+    expect(closed).toHaveTextContent('Your leader has not sent you this book yet');
+  });
+
   it('shows a French member the French translation of an English teaching, with a way back to the original', async () => {
     const { default: i18n } = await import('../i18n');
     await i18n.changeLanguage('fr');

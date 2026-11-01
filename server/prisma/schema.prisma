@@ -727,6 +727,7 @@ model ContactMessage {
 model Person {
   id                  String              @id @default(uuid())
   name                String
+  bookDeliveries      BookDelivery[]
   gifts               Gift[]
   // A leader who is away (travelling, ill...) until this moment: new people
   // are not shared with them, and anything urgent goes past them.
@@ -2831,6 +2832,7 @@ model LibraryBook {
   cover      LibraryBookCover?
   coverFr    LibraryBookCoverFr?
   chapters   BookChapter[]
+  deliveries BookDelivery[]
 
   @@index([kind])
 }
@@ -3193,6 +3195,11 @@ model Teaching {
   titleTranslated  String?
   textTranslated   String?
   translatedAt     DateTime?
+  // Dominion Clinic: the part of the monthly book this teaching is taught from
+  // (the book, the page to open at, and a label such as "Chapter 3").
+  portionBookId    String?
+  portionPage      Int?
+  portionLabel     String?
 
   community  Community          @relation(fields: [communityId], references: [id], onDelete: Cascade)
   message    Message            @relation(fields: [messageId], references: [id], onDelete: Cascade)
@@ -3503,4 +3510,27 @@ model Gift {
   @@index([personId, createdAt])
   @@index([communityId, status])
   @@index([campaignId, status])
+}
+
+
+// ---------------------------------------------------------------------------
+// Dominion Clinic delivery: a monthly book is "sent" to a member — by their
+// leader in one tap (as a private message), by the central admin, or
+// automatically after two days if nobody sent it. Only a member it was sent to
+// can open it (the central admin always can).
+// ---------------------------------------------------------------------------
+model BookDelivery {
+  id             String   @id @default(uuid())
+  personId       String
+  bookId         String
+  // LEADER, ADMIN, AUTO (the fallback), or BACKFILL (books that were open to everyone before deliveries existed).
+  via            String
+  sentByPersonId String?
+  createdAt      DateTime @default(now())
+
+  person Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  book   LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, bookId])
+  @@index([bookId])
 }

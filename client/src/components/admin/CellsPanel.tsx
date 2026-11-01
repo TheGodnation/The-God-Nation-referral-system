@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Escalations } from '../leader/Escalations';
+import { ClinicBookCard } from '../leader/ClinicBookCard';
 import { LeadersOversight } from './LeadersOversight';
 
 interface Row {
@@ -159,6 +160,8 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
         </div>
         <p className="text-xs text-slate-500">{t('cells.size_help')}</p>
       </section>
+
+      <ClinicBookCard mode="central" statusUrl={`${base}/clinic`} sendUrl={`${base}/clinic/send-all`} />
 
       <Escalations
         hideWhenEmpty

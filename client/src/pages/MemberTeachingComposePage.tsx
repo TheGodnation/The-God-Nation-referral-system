@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
@@ -57,6 +57,17 @@ export function MemberTeachingComposePage() {
   const [passMark, setPassMark] = useState(70);
   const [openDays, setOpenDays] = useState(7);
   const [posting, setPosting] = useState(false);
+  // Dominion Clinic: this month's book, so the teaching can point at the part it is taught from.
+  const [clinicBook, setClinicBook] = useState<{ id: string; titleEn: string; titleFr: string | null } | null>(null);
+  const [portionOn, setPortionOn] = useState(false);
+  const [portionPage, setPortionPage] = useState('');
+  const [portionLabel, setPortionLabel] = useState('');
+  useEffect(() => {
+    api
+      .get<{ book: { id: string; titleEn: string; titleFr: string | null } | null }>('/api/member/central-cells/clinic')
+      .then((r) => setClinicBook(r.book))
+      .catch(() => {});
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -130,6 +141,7 @@ export function MemberTeachingComposePage() {
         attachment: file?.uploaded ?? undefined,
         passMark,
         openDays,
+        ...(portionOn && clinicBook && Number(portionPage) >= 1 ? { portion: { bookId: clinicBook.id, page: Number(portionPage), label: portionLabel.trim() || undefined } } : {}),
         questions: questions.map((q) => ({
           textEn: q.textEn.trim(),
           textFr: q.textFr.trim() || undefined,
@@ -255,6 +267,27 @@ export function MemberTeachingComposePage() {
           </div>
         </div>
         <p className="text-xs text-slate-500">{t('teaching.rules_note')}</p>
+
+        {clinicBook && (
+          <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
+              <input type="checkbox" checked={portionOn} onChange={(e) => setPortionOn(e.target.checked)} />
+              {t('clinic.map_portion', { title: clinicBook.titleEn })}
+            </label>
+            {portionOn && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label" htmlFor="portion-page">{t('clinic.portion_page')}</label>
+                  <input id="portion-page" className="input" type="number" min={1} max={10000} value={portionPage} onChange={(e) => setPortionPage(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label" htmlFor="portion-label">{t('clinic.portion_label')}</label>
+                  <input id="portion-label" className="input" maxLength={200} value={portionLabel} onChange={(e) => setPortionLabel(e.target.value)} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {error && (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">

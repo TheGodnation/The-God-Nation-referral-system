@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { retakeStateOf } from './teachingRetake';
 import { hasConversationAccess } from './communityConversation';
+import { bookWasSentTo } from './clinic';
 
 // ---------------------------------------------------------------------------
 // Exam World rules (see LibraryBook / TrainingEnrollment schema comments).
@@ -143,7 +144,8 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
 export async function canReadBook(personId: string, bookId: string): Promise<boolean> {
   const book = await prisma.libraryBook.findUnique({ where: { id: bookId }, include: { devotional: true } });
   if (!book || !(book.storageKey || book.storageKeyFr)) return false;
-  if (book.kind === 'DEVOTIONAL') return Boolean(book.devotional && (await canSeeDevotional(personId, book.devotional)));
+  // The monthly Dominion Clinic book: only a member it was sent to (the central admin always) can open it.
+  if (book.kind === 'DEVOTIONAL') return Boolean(book.devotional && (await canSeeDevotional(personId, book.devotional)) && (await bookWasSentTo(personId, book.id)));
   const books = await getTrainingBooksFor(personId);
   return books.some((b) => b.id === book.id && b.unlocked);
 }

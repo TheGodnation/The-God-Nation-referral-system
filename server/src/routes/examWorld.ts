@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireMember } from '../lib/memberAuth';
@@ -63,6 +64,13 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
 
   const now = Date.now();
   const DAY = 24 * 60 * 60 * 1000;
+  // Which of these monthly books were sent to this member.
+  const sentRows = await prisma.bookDelivery.findMany({
+    where: { personId, bookId: { in: devotionals.map((d) => d.book?.id).filter((id): id is string => Boolean(id)) } },
+    select: { bookId: true },
+  });
+  const sentSet = new Set(sentRows.map((r) => r.bookId));
+  const isAdmin = await isCentralAdminPerson(personId);
 
   res.json({
     offering: { instructionsEn: settings?.offeringInstructionsEn ?? null, instructionsFr: settings?.offeringInstructionsFr ?? null },
@@ -75,6 +83,7 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
       startDate: d.startDate,
       endDate: d.endDate,
       bookId: d.book?.storageKey || d.book?.storageKeyFr ? d.book.id : null,
+      bookSent: Boolean(d.book && (isAdmin || sentSet.has(d.book.id))),
       iGaveOffering: gaveFor.has(d.id),
       exams: d.assessments.map((a) => {
         const mine = attempts.filter((t) => t.assessmentId === a.id);

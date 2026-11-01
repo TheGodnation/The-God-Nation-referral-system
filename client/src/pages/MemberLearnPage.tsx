@@ -29,6 +29,8 @@ interface DevotionalRow {
   startDate: string;
   endDate: string;
   bookId: string | null;
+  // Whether the monthly book was sent to this member (older servers: assume yes).
+  bookSent?: boolean;
   iGaveOffering: boolean;
   exams: WeeklyExam[];
 }
@@ -143,11 +145,12 @@ export function MemberLearnPage() {
                         <p className="text-sm text-slate-600">{tr(d.descriptionEn ?? '', d.descriptionFr)}</p>
                       )}
                     </div>
-                    {d.bookId && (
+                    {d.bookId && d.bookSent !== false && (
                       <Link to={`/member/read/${d.bookId}`} className="btn-primary px-3 py-1.5 text-sm">
                         {t('learn.read')}
                       </Link>
                     )}
+                    {d.bookId && d.bookSent === false && <p className="max-w-[16rem] text-sm text-amber-800">{t('clinic.not_sent_yet')}</p>}
                   </div>
 
                   {index === 0 && <OfferingBox devotional={d} instructions={instructions} onGiven={() => {}} />}

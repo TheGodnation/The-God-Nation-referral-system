@@ -13,6 +13,7 @@ import { StartPrivateMessage } from './StartPrivateMessage';
 import { MyFollowUp } from './MyFollowUp';
 import { MyPeople } from './MyPeople';
 import { Escalations } from './Escalations';
+import { ClinicBookCard } from './ClinicBookCard';
 import { TrainingProgress } from './TrainingProgress';
 import { MyMembers } from './MyMembers';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
@@ -290,6 +291,8 @@ export function LeadershipDashboardBody() {
       )}
 
       <MyPeople />
+
+      <ClinicBookCard mode="leader" statusUrl="/api/leader/clinic" sendUrl="/api/leader/clinic/send" />
 
       <LeaderEscalations />
 

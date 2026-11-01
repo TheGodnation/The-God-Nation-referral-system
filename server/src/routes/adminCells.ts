@@ -8,6 +8,7 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
+import { adminClinicStatus, adminSendsBookToAll } from '../lib/clinic';
 import { assemblyHealth, leadersHealthIn } from '../lib/assemblyHealth';
 import { adminReadsEnabled, chatsOfLeader, readLeaderChat, setAdminReads } from '../lib/chatOversight';
 import { addEscalationMessage, escalationViewFor, escalationsForAdmin, type EscalationActor } from '../lib/escalations';
@@ -139,6 +140,20 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     // Only the central admin's own access record; the leader and the person see nothing.
     await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_CHAT_OVERSIGHT_READ', targetType: 'PrivateConversation', targetId: conversationId, metadata: { leaderPersonId: chat.leaderPersonId, memberPersonId: chat.memberPersonId } });
     res.json(chat);
+  }));
+
+  // The Dominion Clinic book: how many members have it, and send it to everyone who does not.
+  router.get('/clinic', asyncHandler(async (_req, res) => {
+    res.json(await adminClinicStatus());
+  }));
+
+  router.post('/clinic/send-all', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const result = await adminSendsBookToAll(actor.id);
+    if (!result) return res.status(404).json({ error: 'There is no Dominion Clinic book open right now.' });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'CLINIC_BOOK_SENT_TO_ALL', targetType: 'Settings', targetId: 'singleton', metadata: { ...result } });
+    res.json(result);
   }));
 
   // The size of an assembly: when it is reached, newcomers go to a new assembly.
