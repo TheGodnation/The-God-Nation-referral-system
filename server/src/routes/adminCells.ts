@@ -9,6 +9,7 @@ import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { adminClinicStatus, adminSendsBookToAll } from '../lib/clinic';
+import { clinicRhythm } from '../lib/examWorld';
 import { assemblyHealth, leadersHealthIn } from '../lib/assemblyHealth';
 import { adminReadsEnabled, chatsOfLeader, readLeaderChat, setAdminReads } from '../lib/chatOversight';
 import { addEscalationMessage, escalationViewFor, escalationsForAdmin, type EscalationActor } from '../lib/escalations';
@@ -154,6 +155,31 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     if (!result) return res.status(404).json({ error: 'There is no Dominion Clinic book open right now.' });
     await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'CLINIC_BOOK_SENT_TO_ALL', targetType: 'Settings', targetId: 'singleton', metadata: { ...result } });
     res.json(result);
+  }));
+
+  // The Dominion Clinic rhythm: how often a new topic is taught, the days between exams, the questions in an exam.
+  router.get('/clinic/settings', asyncHandler(async (_req, res) => {
+    res.json(await clinicRhythm());
+  }));
+
+  const rhythmSchema = z.object({
+    topicRhythm: z.enum(['DAILY', 'EVERY_2_DAYS', 'EVERY_3_DAYS', 'MORNING_EVENING']),
+    examEveryDays: z.number().int().min(1).max(31),
+    examQuestions: z.number().int().min(1).max(50),
+  });
+  router.put('/clinic/settings', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = rhythmSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Days between exams: 1 to 31. Questions per exam: 1 to 50.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const d = parsed.data;
+    await prisma.settings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', clinicTopicRhythm: d.topicRhythm, clinicExamEveryDays: d.examEveryDays, clinicExamQuestions: d.examQuestions },
+      update: { clinicTopicRhythm: d.topicRhythm, clinicExamEveryDays: d.examEveryDays, clinicExamQuestions: d.examQuestions },
+    });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'CLINIC_RHYTHM_UPDATED', targetType: 'Settings', targetId: 'singleton', metadata: { ...d } });
+    res.json(d);
   }));
 
   // The size of an assembly: when it is reached, newcomers go to a new assembly.

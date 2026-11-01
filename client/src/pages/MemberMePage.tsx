@@ -165,6 +165,13 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
       </section>
 
       <section className="card">
+        <h2 className="mb-2 font-semibold text-brand-900">🩺 {t('clinicPage.title')}</h2>
+        <Link to="/member/clinic" className="text-sm font-medium text-brand-700 underline">
+          {t('clinicPage.link_help')}
+        </Link>
+      </section>
+
+      <section className="card">
         <h2 className="mb-2 font-semibold text-brand-900">🙏 {t('giving.link_title')}</h2>
         <Link to="/member/give" className="text-sm font-medium text-brand-700 underline">
           {t('giving.link_help')}

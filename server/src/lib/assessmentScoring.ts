@@ -48,7 +48,9 @@ export async function createAttempt(personId: string, assessmentId: string) {
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const attempt = await tx.attempt.create({ data: { personId, assessmentId, attemptNumber } });
+      // Dominion Clinic: a monthly exam asks a set number of questions, drawn at random from the book's questions.
+      const questionOrder = assessment.weekNumber !== null && assessment.devotionalId ? await drawClinicQuestions(tx, assessmentId) : [];
+      const attempt = await tx.attempt.create({ data: { personId, assessmentId, attemptNumber, questionOrder } });
       if (assessment.status === 'PUBLISHED') {
         await tx.assessment.update({ where: { id: assessmentId }, data: { status: 'LOCKED' } });
       }
@@ -102,11 +104,14 @@ export async function submitAttempt(attemptId: string, answers: SubmittedAnswer[
       if (!assessment) throw new AssessmentSubmissionError(404, 'Assessment not found.');
 
       // A training book try is scored on its own question set only.
-      const questions = await tx.question.findMany({
+      const inSet = await tx.question.findMany({
         // A first try (no set recorded) is on set 1; a training try or a teaching's retake is on its own set.
         where: { assessmentId: assessment.id, setNumber: attempt.setNumber ?? 1 },
         include: { options: true },
       });
+      // A monthly Dominion Clinic exam is scored on the questions it drew, not the whole bank.
+      const drawn = attempt.setNumber === null && attempt.questionOrder.length > 0 ? new Set(attempt.questionOrder) : null;
+      const questions = drawn ? inSet.filter((q) => drawn.has(q.id)) : inSet;
       const questionMap = new Map(questions.map((q) => [q.id, q]));
 
       const seenQuestionIds = new Set<string>();
@@ -191,4 +196,20 @@ export async function submitAttempt(attemptId: string, answers: SubmittedAnswer[
     }
     throw err;
   }
+}
+
+/** Picks the questions a monthly exam will ask: all of them when the bank is no bigger than the exam size, otherwise a random draw. */
+export async function drawClinicQuestions(db: { question: typeof prisma.question; settings: typeof prisma.settings }, assessmentId: string): Promise<string[]> {
+  const [bank, settings] = await Promise.all([
+    db.question.findMany({ where: { assessmentId, setNumber: 1 }, select: { id: true } }),
+    db.settings.findUnique({ where: { id: 'singleton' }, select: { clinicExamQuestions: true } }),
+  ]);
+  const size = settings?.clinicExamQuestions ?? 10;
+  if (bank.length <= size) return [];
+  const ids = bank.map((q) => q.id);
+  for (let i = ids.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  return ids.slice(0, size);
 }

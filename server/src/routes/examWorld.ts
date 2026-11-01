@@ -10,7 +10,7 @@ import { readingProgressLimiter, socialMutationLimiter } from '../lib/rateLimit'
 import { getObjectStream, isStorageConfigured } from '../lib/storage';
 import crypto from 'crypto';
 import { createClaimBatch, openUnpaidBook } from '../lib/bookPayments';
-import { canReadBook, canSeeDevotional, examAccess, getTrainingBooksFor, MAX_GRACE_BOOKS } from '../lib/examWorld';
+import { canReadBook, canSeeDevotional, clinicRhythm, examAccess, getTrainingBooksFor, MAX_GRACE_BOOKS } from '../lib/examWorld';
 import { activePaymentProvider } from '../lib/payments';
 import { trainingExamState } from '../lib/trainingExam';
 import { coverFrUrl, coverUrl, sendCover } from '../lib/bookCovers';
@@ -71,6 +71,8 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
   });
   const sentSet = new Set(sentRows.map((r) => r.bookId));
   const isAdmin = await isCentralAdminPerson(personId);
+  const rhythm = await clinicRhythm();
+  const clinicOpensAt = (d: { startDate: Date }, a: { weekNumber: number | null }) => (a.weekNumber === null ? 0 : d.startDate.getTime() + (a.weekNumber - 1) * rhythm.examEveryDays * DAY);
 
   res.json({
     offering: { instructionsEn: settings?.offeringInstructionsEn ?? null, instructionsFr: settings?.offeringInstructionsFr ?? null },
@@ -94,7 +96,8 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
           titleEn: a.titleEn,
           titleFr: a.titleFr,
           passMark: a.passMark,
-          open: d.endDate.getTime() + DAY >= now,
+          open: d.endDate.getTime() + DAY >= now && clinicOpensAt(d, a) <= now,
+          opensAt: new Date(clinicOpensAt(d, a)).toISOString(),
           firstScore: first?.percentage ?? null,
           firstPassed: first?.passed ?? null,
           tries: mine.length,

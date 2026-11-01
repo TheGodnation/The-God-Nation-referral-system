@@ -37,6 +37,7 @@ type NotificationType =
   | 'ESCALATION_RECEIVED'
   | 'ESCALATION_ANSWERED'
   | 'ESCALATION_BYPASSED'
+  | 'CLINIC_EXAM_OPEN'
   | 'GIFT_CONFIRMED'
   | 'GIFT_REJECTED';
 
@@ -175,6 +176,8 @@ export function NotificationBell() {
         const base = t(metadata.outcome === 'VIOLATION' ? 'notifications.report_violation' : metadata.outcome === 'NO_VIOLATION' ? 'notifications.report_no_violation' : 'notifications.report_reviewed');
         return metadata.note ? `${base} ${t('notifications.report_note', { note: String(metadata.note) })}` : base;
       }
+      case 'CLINIC_EXAM_OPEN':
+        return t('notifications.clinic_exam_open', { number: metadata.number ?? '', questions: metadata.questions ?? '' });
       case 'GIFT_CONFIRMED':
       case 'GIFT_REJECTED':
         return t(n.type === 'GIFT_CONFIRMED' ? 'notifications.gift_confirmed' : 'notifications.gift_rejected', { amount: `${Number(metadata.amount ?? 0).toLocaleString('fr-FR')} FCFA` });

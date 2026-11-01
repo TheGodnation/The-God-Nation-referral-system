@@ -158,7 +158,7 @@ export async function canReadBook(personId: string, bookId: string): Promise<boo
 export async function examAccess(
   personId: string,
   assessmentId: string,
-): Promise<{ canView: boolean; canStart: boolean; closedReason: 'CLOSED' | null }> {
+): Promise<{ canView: boolean; canStart: boolean; closedReason: 'CLOSED' | 'NOT_YET' | null }> {
   const assessment = await prisma.assessment.findUnique({ where: { id: assessmentId }, include: { devotional: true } });
   const none = { canView: false, canStart: false, closedReason: null };
   if (!assessment || assessment.status === 'DRAFT') return none;
@@ -196,8 +196,30 @@ export async function examAccess(
     // last day); older devotional exams without a week number never did.
     const DAY = 24 * 60 * 60 * 1000;
     const closed = assessment.weekNumber !== null && assessment.devotional.endDate.getTime() + DAY < Date.now();
-    return { canView: true, canStart: !closed, closedReason: closed ? 'CLOSED' : null };
+    // Dominion Clinic rhythm: exam n opens (n - 1) x "days between exams" after the month's book opened.
+    const notYet = !closed && (await clinicExamOpensAt(assessment)).getTime() > Date.now();
+    return { canView: true, canStart: !closed && !notYet, closedReason: closed ? 'CLOSED' : notYet ? 'NOT_YET' : null };
   }
 
   return none;
+}
+
+export const CLINIC_DEFAULT_EVERY_DAYS = 10;
+export const CLINIC_DEFAULT_QUESTIONS = 10;
+
+/** The central admin's Dominion Clinic rhythm. */
+export async function clinicRhythm() {
+  const s = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { clinicExamEveryDays: true, clinicExamQuestions: true, clinicTopicRhythm: true } });
+  return {
+    examEveryDays: s?.clinicExamEveryDays ?? CLINIC_DEFAULT_EVERY_DAYS,
+    examQuestions: s?.clinicExamQuestions ?? CLINIC_DEFAULT_QUESTIONS,
+    topicRhythm: s?.clinicTopicRhythm ?? 'DAILY',
+  };
+}
+
+/** When a monthly exam opens: exam 1 with the month's book, then one every "examEveryDays" days. Exams with no week number are always open. */
+export async function clinicExamOpensAt(assessment: { weekNumber: number | null; devotional: { startDate: Date } | null }, everyDays?: number): Promise<Date> {
+  if (assessment.weekNumber === null || !assessment.devotional) return new Date(0);
+  const days = everyDays ?? (await clinicRhythm()).examEveryDays;
+  return new Date(assessment.devotional.startDate.getTime() + (assessment.weekNumber - 1) * days * 24 * 60 * 60 * 1000);
 }

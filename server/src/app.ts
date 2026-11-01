@@ -35,6 +35,7 @@ import memberAuthRoutes from './routes/memberAuth';
 import memberAssessmentsRoutes from './routes/memberAssessments';
 import memberGivingRoutes from './routes/memberGiving';
 import { adminGivingRoutes, memberCentralGivingRoutes } from './routes/adminGiving';
+import memberClinicRoutes from './routes/memberClinic';
 import leaderClinicRoutes from './routes/leaderClinic';
 import leaderEscalationsRoutes from './routes/leaderEscalations';
 import { adminCellsRoutes, memberCentralCellsRoutes } from './routes/adminCells';
@@ -156,6 +157,7 @@ export function createApp() {
   app.use('/api/member/giving', memberGivingRoutes);
   app.use('/api/member/central-giving', memberCentralGivingRoutes);
   app.use('/api/admin/giving', adminGivingRoutes);
+  app.use('/api/member/clinic', memberClinicRoutes);
   app.use('/api/leader', leaderClinicRoutes);
   app.use('/api/leader', leaderEscalationsRoutes);
   app.use('/api/admin/cells', adminCellsRoutes);

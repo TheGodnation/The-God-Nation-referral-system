@@ -152,6 +152,13 @@ enum ResourceAccessGrantStatus {
 // fewest active members. BY_LOCATION: an open group tagged with the
 // member's country/region first; falls back to SMALLEST_GROUP when no
 // tagged group matches, so nobody is ever left without a group.
+enum ClinicTopicRhythm {
+  DAILY
+  EVERY_2_DAYS
+  EVERY_3_DAYS
+  MORNING_EVENING
+}
+
 enum PlacementMode {
   SMALLEST_GROUP
   BY_LOCATION
@@ -224,6 +231,8 @@ enum NotificationType {
   POST_PUBLISHED
   POST_LIKED
   POST_REPLIED
+  // Dominion Clinic: an exam has opened.
+  CLINIC_EXAM_OPEN
   // Giving: a gift you made was confirmed (a thank-you) or could not be confirmed.
   GIFT_CONFIRMED
   GIFT_REJECTED
@@ -597,6 +606,12 @@ model Settings {
   givingInstructionsFr    String?
   givingWeeklyPost        Boolean   @default(true)
   lastGivingPostAt        DateTime?
+  // Dominion Clinic rhythm, set by the central admin: how often a new topic is
+  // taught, how many days between exams, and how many questions an exam draws
+  // from the month's book.
+  clinicTopicRhythm       ClinicTopicRhythm @default(DAILY)
+  clinicExamEveryDays     Int       @default(10)
+  clinicExamQuestions     Int       @default(10)
   // "Live now" slot on the Updates page: the YouTube video id of the live
   // (video or audio-only) the central admin is streaming, or null when
   // nothing is live. Set/cleared from the admin Updates tab.
@@ -1035,6 +1050,8 @@ model Assessment {
   // weekNumber; a leadership-training book's exam has trainingBookId.
   weekNumber     Int?
   trainingBookId String? @unique
+  // Dominion Clinic: members were told once that this exam has opened.
+  openReminderSentAt DateTime?
 
   devotional   MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
   trainingBook LibraryBook?       @relation(fields: [trainingBookId], references: [id], onDelete: SetNull)

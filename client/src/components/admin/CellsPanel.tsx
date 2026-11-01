@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Escalations } from '../leader/Escalations';
 import { ClinicBookCard } from '../leader/ClinicBookCard';
+import { ClinicRhythmCard } from './ClinicRhythmCard';
 import { LeadersOversight } from './LeadersOversight';
 
 interface Row {
@@ -162,6 +163,8 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       </section>
 
       <ClinicBookCard mode="central" statusUrl={`${base}/clinic`} sendUrl={`${base}/clinic/send-all`} />
+
+      <ClinicRhythmCard base={base} />
 
       <Escalations
         hideWhenEmpty

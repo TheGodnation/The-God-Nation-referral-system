@@ -15,6 +15,8 @@ interface WeeklyExam {
   titleFr: string | null;
   passMark: number;
   open: boolean;
+  // When this exam opens (the Dominion Clinic rhythm).
+  opensAt?: string;
   firstScore: number | null;
   firstPassed: boolean | null;
   tries: number;
@@ -170,7 +172,11 @@ export function MemberLearnPage() {
                                   {Math.round(e.firstScore)}%
                                 </span>
                               ) : !e.open ? (
-                                <span className="text-slate-400">{t('learn.closed')}</span>
+                                <span className="text-slate-400">
+                                  {e.opensAt && new Date(e.opensAt).getTime() > Date.now()
+                                    ? t('learn.opens_on', { date: new Date(e.opensAt).toLocaleDateString(isFr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long' }) })
+                                    : t('learn.closed')}
+                                </span>
                               ) : null}
                               <Link to={`/member/assessments/${e.id}`} className="text-brand-700 underline">
                                 {e.firstScore !== null ? t('learn.see_results') : e.open ? t('learn.take_exam') : t('learn.view')}

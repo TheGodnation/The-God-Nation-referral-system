@@ -55,6 +55,7 @@ interface CreateNotificationParams {
     | 'ESCALATION_RECEIVED'
     | 'ESCALATION_ANSWERED'
     | 'ESCALATION_BYPASSED'
+    | 'CLINIC_EXAM_OPEN'
     | 'GIFT_CONFIRMED'
     | 'GIFT_REJECTED';
   metadata?: Record<string, unknown>;
@@ -786,4 +787,19 @@ export async function notifyGiftDecision(gift: { id: string; personId: string | 
       ? { title: 'Thank you', body: 'Your gift was received. God bless you.', url: '/member/give' }
       : { title: 'Gift not confirmed', body: 'We could not confirm your gift. Please check the transaction ID.', url: '/member/give' },
   });
+}
+
+/** A Dominion Clinic exam has opened: everyone who can take it is told once. */
+export async function notifyClinicExamOpen(personIds: string[], info: { assessmentId: string; number: number; questions: number }) {
+  if (personIds.length === 0) return;
+  await prisma.notification.createMany({
+    data: personIds.map((recipientPersonId) => ({
+      recipientPersonId,
+      type: 'CLINIC_EXAM_OPEN' as const,
+      metadata: { number: info.number, questions: info.questions } as any,
+      targetType: 'Assessment',
+      targetId: info.assessmentId,
+    })),
+  });
+  pushToPersons(personIds, { title: 'Dominion Clinic exam', body: `Exam ${info.number} is open: ${info.questions} questions from the book.`, url: '/member/learn' }).catch(() => {});
 }

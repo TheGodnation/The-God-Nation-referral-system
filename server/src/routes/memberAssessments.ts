@@ -185,11 +185,15 @@ router.get('/attempts/:id/questions', asyncHandler(async (req, res) => {
     include: { options: { orderBy: { order: 'asc' } } },
   });
   const position = new Map(attempt.questionOrder.map((id, i) => [id, i]));
+  // A monthly Dominion Clinic exam shows only the questions it drew (in the order drawn).
+  const drawnOnly = !inSet && attempt.questionOrder.length > 0;
   const questions = inSet
     ? [...found]
         .sort((a, b) => (position.get(a.id) ?? 1e9) - (position.get(b.id) ?? 1e9))
         .map((q) => ({ ...q, options: shuffleOptionsFor(attempt.id, q.id, q.options) }))
-    : found;
+    : drawnOnly
+      ? found.filter((q) => position.has(q.id)).sort((a, b) => position.get(a.id)! - position.get(b.id)!)
+      : found;
 
   if (attempt.status === 'IN_PROGRESS') {
     return res.json({
