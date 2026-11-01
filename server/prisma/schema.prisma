@@ -224,6 +224,9 @@ enum NotificationType {
   POST_PUBLISHED
   POST_LIKED
   POST_REPLIED
+  // Giving: a gift you made was confirmed (a thank-you) or could not be confirmed.
+  GIFT_CONFIRMED
+  GIFT_REJECTED
   // The app opened a new assembly because the previous one was full; sent
   // to the central admin so leaders can be appointed.
   ASSEMBLY_OPENED
@@ -588,6 +591,12 @@ model Settings {
   // their people (read-only, nobody is told). On from the beginning, so he can
   // see that leaders are doing the work; he can switch it off.
   adminReadsFollowUpChats Boolean @default(true)
+  // Giving: how to give (Mobile Money numbers...), shown to members; and the
+  // weekly invitation to give, posted in the groups by the central admin's profile.
+  givingInstructionsEn    String?
+  givingInstructionsFr    String?
+  givingWeeklyPost        Boolean   @default(true)
+  lastGivingPostAt        DateTime?
   // "Live now" slot on the Updates page: the YouTube video id of the live
   // (video or audio-only) the central admin is streaming, or null when
   // nothing is live. Set/cleared from the admin Updates tab.
@@ -718,6 +727,7 @@ model ContactMessage {
 model Person {
   id                  String              @id @default(uuid())
   name                String
+  gifts               Gift[]
   // A leader who is away (travelling, ill...) until this moment: new people
   // are not shared with them, and anything urgent goes past them.
   awayUntil           DateTime?
@@ -3419,4 +3429,78 @@ model FollowUpEscalationMessage {
   escalation FollowUpEscalation @relation(fields: [escalationId], references: [id], onDelete: Cascade)
 
   @@index([escalationId, createdAt])
+}
+
+
+// ---------------------------------------------------------------------------
+// Giving. Gifts go straight to the central administration (the member gives by
+// Mobile Money and says so; the central admin confirms). Leaders never see who
+// gave: only the central admin sees gifts, and the totals per assembly.
+// Offerings, tithes and free-will gifts are never listed publicly. A
+// help-one-another campaign has a public report with names and amounts, and a
+// giver may choose to appear as "Anonymous".
+// ---------------------------------------------------------------------------
+enum GiftKind {
+  OFFERING
+  TITHE
+  FREE_WILL
+  CAMPAIGN
+}
+
+enum GiftStatus {
+  CLAIMED
+  CONFIRMED
+  REJECTED
+}
+
+enum GiftCampaignStatus {
+  OPEN
+  CLOSED
+}
+
+model GiftCampaign {
+  id               String             @id @default(uuid())
+  titleEn          String
+  titleFr          String?
+  descriptionEn    String?
+  descriptionFr    String?
+  // FCFA the campaign hopes to gather (optional).
+  targetAmount     Int?
+  status           GiftCampaignStatus @default(OPEN)
+  createdByUserId  String?
+  createdAt        DateTime           @default(now())
+  closedAt         DateTime?
+
+  gifts Gift[]
+
+  @@index([status, createdAt])
+}
+
+model Gift {
+  id              String      @id @default(uuid())
+  // Cleared (record kept for the accounts) when the giver deletes their account.
+  personId        String?
+  // The assembly the giver belonged to when giving: for the totals per assembly.
+  communityId     String?
+  kind            GiftKind
+  campaignId      String?
+  amount          Int
+  // Mobile Money transaction ID typed by the giver, and the number used.
+  reference       String?
+  payerPhone      String?
+  // Campaign gifts only: show the giver as "Anonymous" in the public report.
+  anonymous       Boolean     @default(false)
+  status          GiftStatus  @default(CLAIMED)
+  note            String?
+  createdAt       DateTime    @default(now())
+  decidedAt       DateTime?
+  decidedByUserId String?
+
+  person   Person?       @relation(fields: [personId], references: [id], onDelete: SetNull)
+  campaign GiftCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([personId, createdAt])
+  @@index([communityId, status])
+  @@index([campaignId, status])
 }

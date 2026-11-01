@@ -33,6 +33,8 @@ import clientErrorsRoutes from './routes/clientErrors';
 import adminAttemptsRoutes from './routes/adminAttempts';
 import memberAuthRoutes from './routes/memberAuth';
 import memberAssessmentsRoutes from './routes/memberAssessments';
+import memberGivingRoutes from './routes/memberGiving';
+import { adminGivingRoutes, memberCentralGivingRoutes } from './routes/adminGiving';
 import leaderEscalationsRoutes from './routes/leaderEscalations';
 import { adminCellsRoutes, memberCentralCellsRoutes } from './routes/adminCells';
 import adminLeadershipRoutes from './routes/adminLeadership';
@@ -150,6 +152,9 @@ export function createApp() {
   // Phase 3D: adminLeadershipRoutes defines '/role-assignments' and
   // '/follow-ups', so it mounts at the '/api/admin' root, same pattern as
   // adminPeopleRoutes/adminAttemptsRoutes above.
+  app.use('/api/member/giving', memberGivingRoutes);
+  app.use('/api/member/central-giving', memberCentralGivingRoutes);
+  app.use('/api/admin/giving', adminGivingRoutes);
   app.use('/api/leader', leaderEscalationsRoutes);
   app.use('/api/admin/cells', adminCellsRoutes);
   app.use('/api/member/central-cells', memberCentralCellsRoutes);

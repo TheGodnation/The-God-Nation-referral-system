@@ -83,6 +83,7 @@ const MemberSchoolPage = lazy(() => import('./pages/MemberSchoolPage').then((m) 
 const MemberSchoolBookPage = lazy(() => import('./pages/MemberSchoolBookPage').then((m) => ({ default: m.MemberSchoolBookPage })));
 const MemberPaymentOrderPage = lazy(() => import('./pages/MemberPaymentOrderPage').then((m) => ({ default: m.MemberPaymentOrderPage })));
 const MemberPaymentDeskPage = lazy(() => import('./pages/MemberPaymentDeskPage').then((m) => ({ default: m.MemberPaymentDeskPage })));
+const MemberGivePage = lazy(() => import('./pages/MemberGivePage').then((m) => ({ default: m.MemberGivePage })));
 const MemberEarningsPage = lazy(() => import('./pages/MemberEarningsPage').then((m) => ({ default: m.MemberEarningsPage })));
 const MemberEventsPage = lazy(() => import('./pages/MemberEventsPage').then((m) => ({ default: m.MemberEventsPage })));
 const MemberEventPage = lazy(() => import('./pages/MemberEventPage').then((m) => ({ default: m.MemberEventPage })));
@@ -334,6 +335,14 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberPaymentDeskPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/give"
+              element={
+                <RequireMember>
+                  <MemberGivePage />
                 </RequireMember>
               }
             />

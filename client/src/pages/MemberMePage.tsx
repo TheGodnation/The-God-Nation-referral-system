@@ -15,6 +15,7 @@ import { useMemberAuth } from '../lib/MemberAuthContext';
 import { ProfileImageError, uploadProfileImage } from '../lib/profileImages';
 import { ImageCropper } from '../components/ImageCropper';
 import { CellsPanel } from '../components/admin/CellsPanel';
+import { GivingPanel } from '../components/admin/GivingPanel';
 
 interface ExamWorld {
   devotionals: {
@@ -35,7 +36,7 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-type Tab = 'posts' | 'photos' | 'progress' | 'cells';
+type Tab = 'posts' | 'photos' | 'progress' | 'cells' | 'giving';
 
 // "My progress" tab: this month's devotional exam scores, leadership
 // training books passed, and the member's group(s).
@@ -160,6 +161,13 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
         <h2 className="mb-2 font-semibold text-brand-900">👥 {t('wall.my_referrals')}</h2>
         <Link to="/member/referrals" className="text-sm font-medium text-brand-700 underline">
           {t('wall.my_referrals_link')}
+        </Link>
+      </section>
+
+      <section className="card">
+        <h2 className="mb-2 font-semibold text-brand-900">🙏 {t('giving.link_title')}</h2>
+        <Link to="/member/give" className="text-sm font-medium text-brand-700 underline">
+          {t('giving.link_help')}
         </Link>
       </section>
 
@@ -319,7 +327,12 @@ export function MemberMePage() {
               { id: 'photos', label: t('wall.tab_photos') },
               { id: 'progress', label: t('wall.tab_progress') },
               // Only the central admin's own profile carries the assembly tools.
-              ...(member.isCentralAdmin ? [{ id: 'cells' as const, label: t('cells.tab') }] : []),
+              ...(member.isCentralAdmin
+                ? [
+                    { id: 'cells' as const, label: t('cells.tab') },
+                    { id: 'giving' as const, label: t('givingAdmin.tab') },
+                  ]
+                : []),
             ]}
           />
         </div>
@@ -329,6 +342,7 @@ export function MemberMePage() {
           {tab === 'photos' && member.personId && <PhotoGrid personId={member.personId} />}
           {tab === 'progress' && <Progress groups={groups} />}
           {tab === 'cells' && member.isCentralAdmin && <CellsPanel base="/api/member/central-cells" />}
+          {tab === 'giving' && member.isCentralAdmin && <GivingPanel base="/api/member/central-giving" />}
         </div>
         <MemberNav />
       </section>

@@ -54,7 +54,9 @@ interface CreateNotificationParams {
     | 'ASSEMBLY_OPENED'
     | 'ESCALATION_RECEIVED'
     | 'ESCALATION_ANSWERED'
-    | 'ESCALATION_BYPASSED';
+    | 'ESCALATION_BYPASSED'
+    | 'GIFT_CONFIRMED'
+    | 'GIFT_REJECTED';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -769,4 +771,19 @@ export async function notifyEscalationBypassed(e: EscalationNoticeInfo, recipien
       }),
     ),
   );
+}
+
+/** The central admin confirmed (a thank-you) or could not confirm a gift the member said they made. */
+export async function notifyGiftDecision(gift: { id: string; personId: string | null; amount: number }, confirmed: boolean) {
+  if (!gift.personId) return;
+  await createNotification({
+    recipientPersonId: gift.personId,
+    type: confirmed ? 'GIFT_CONFIRMED' : 'GIFT_REJECTED',
+    metadata: { amount: gift.amount },
+    targetType: 'Gift',
+    targetId: gift.id,
+    push: confirmed
+      ? { title: 'Thank you', body: 'Your gift was received. God bless you.', url: '/member/give' }
+      : { title: 'Gift not confirmed', body: 'We could not confirm your gift. Please check the transaction ID.', url: '/member/give' },
+  });
 }

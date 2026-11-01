@@ -15,6 +15,7 @@ import { AssessmentsTab } from '../components/admin/AssessmentsTab';
 import { ExamResults } from '../components/admin/ExamResults';
 import { OpenMemberProfileButton } from '../components/OpenMemberProfileButton';
 import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
+import { GivingPanel } from '../components/admin/GivingPanel';
 import { GeographicAreasTab } from '../components/admin/GeographicAreasTab';
 import { AreaRepresentationRequestsTab } from '../components/admin/AreaRepresentationRequestsTab';
 import { FollowUpsTab } from '../components/admin/FollowUpsTab';
@@ -50,6 +51,7 @@ type Tab =
   | 'assessments'
   | 'results'
   | 'roleAssignments'
+  | 'giving'
   | 'geographicAreas'
   | 'areaRepresentationRequests'
   | 'followUps'
@@ -1769,6 +1771,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'areaRepresentationRequests'} onClick={() => setTab('areaRepresentationRequests')}>
               {t('admin.tabs.areaRepresentationRequests')}
             </TabButton>
+            <TabButton active={tab === 'giving'} onClick={() => setTab('giving')}>
+              {t('admin.tabs.giving')}
+            </TabButton>
             <TabButton active={tab === 'followUps'} onClick={() => setTab('followUps')}>
               {t('admin.tabs.followUps')}
             </TabButton>
@@ -1840,6 +1845,7 @@ export function AdminDashboardPage() {
         )}
         {tab === 'library' && <LibraryTab />}
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
+        {tab === 'giving' && <GivingPanel base="/api/admin/giving" />}
         {tab === 'geographicAreas' && <GeographicAreasTab />}
         {tab === 'areaRepresentationRequests' && <AreaRepresentationRequestsTab />}
         {tab === 'followUps' && <FollowUpsTab />}

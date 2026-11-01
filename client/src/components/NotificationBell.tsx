@@ -36,7 +36,9 @@ type NotificationType =
   | 'ASSEMBLY_OPENED'
   | 'ESCALATION_RECEIVED'
   | 'ESCALATION_ANSWERED'
-  | 'ESCALATION_BYPASSED';
+  | 'ESCALATION_BYPASSED'
+  | 'GIFT_CONFIRMED'
+  | 'GIFT_REJECTED';
 
 interface NotificationRow {
   id: string;
@@ -173,6 +175,9 @@ export function NotificationBell() {
         const base = t(metadata.outcome === 'VIOLATION' ? 'notifications.report_violation' : metadata.outcome === 'NO_VIOLATION' ? 'notifications.report_no_violation' : 'notifications.report_reviewed');
         return metadata.note ? `${base} ${t('notifications.report_note', { note: String(metadata.note) })}` : base;
       }
+      case 'GIFT_CONFIRMED':
+      case 'GIFT_REJECTED':
+        return t(n.type === 'GIFT_CONFIRMED' ? 'notifications.gift_confirmed' : 'notifications.gift_rejected', { amount: `${Number(metadata.amount ?? 0).toLocaleString('fr-FR')} FCFA` });
       case 'ESCALATION_RECEIVED':
         return t(metadata.passedOn ? 'notifications.escalation_passed_on' : metadata.urgent ? 'notifications.escalation_urgent' : 'notifications.escalation_received', { asker: metadata.askerName ?? '', about: metadata.aboutName ?? '' });
       case 'ESCALATION_ANSWERED':
