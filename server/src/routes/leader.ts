@@ -30,7 +30,7 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   const personId = req.user!.personId;
   const codeIds = await getLeaderCodeIds(leaderId);
 
-  const [totalVisits, uniqueVisitorRows, registrations, whatsappClicks, activeCode, memberAccount] = await Promise.all([
+  const [totalVisits, uniqueVisitorRows, registrations, activeCode, memberAccount] = await Promise.all([
     prisma.referralVisit.count({ where: { referralCodeId: { in: codeIds } } }),
     prisma.referralVisit.findMany({
       where: { referralCodeId: { in: codeIds } },
@@ -38,9 +38,6 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
       distinct: ['visitorId'],
     }),
     prisma.referralRelationship.count({ where: { leaderId } }),
-    prisma.event.count({
-      where: { type: 'WHATSAPP_CLICKED', registration: { relationship: { leaderId } } },
-    }),
     prisma.referralCode.findFirst({ where: { leaderId, active: true } }),
     // Only relevant once linked (see the Leader<->Member bridge below) — an
     // account linked before Member passwords existed may have none yet,
@@ -57,11 +54,10 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   // conversion rate — they are deliberately NOT returned to the Leader.
   // Those numbers stay Admin-only (see admin.ts /dashboard and
   // /registrations, which already show them site-wide and per-leader);
-  // a Leader sees only their WhatsApp clicks and conversion rate here.
+  // a Leader sees only their conversion rate here.
   res.json({
     referralCode: activeCode?.code ?? null,
     stats: {
-      whatsappClicks,
       conversionRate: Math.round(conversion * 100) / 100,
     },
     // null: not linked to a Member profile at all yet.
@@ -212,14 +208,7 @@ router.get('/referrals', asyncHandler(async (req, res) => {
     prisma.referralRelationship.count({ where }),
     prisma.referralRelationship.findMany({
       where,
-      include: {
-        registration: {
-          // Only need to know whether a WHATSAPP_CLICKED event exists at
-          // all for this registration — not its details — so this fetches
-          // at most one, purely as a presence check.
-          include: { events: { where: { type: 'WHATSAPP_CLICKED' }, take: 1 } },
-        },
-      },
+      include: { registration: true },
       orderBy: { createdAt: 'desc' },
       skip,
       take,
@@ -232,11 +221,6 @@ router.get('/referrals', asyncHandler(async (req, res) => {
     language: r.registration.language,
     registeredAt: r.registration.createdAt,
     status: r.registration.status,
-    // Whether this person has tapped through from the site to the
-    // WhatsApp community — the same signal Admin's WhatsApp Join
-    // Reminders already relies on, just surfaced per-referral here so a
-    // Leader knows who to actually look for in the group.
-    whatsappJoined: r.registration.events.length > 0,
   }));
 
   res.json(paginatedResult(items, total, page, pageSize));

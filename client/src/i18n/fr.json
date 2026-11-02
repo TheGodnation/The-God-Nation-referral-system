@@ -188,7 +188,6 @@
     "my_dashboard_title": "Mon tableau de bord de leadership",
     "logout": "Déconnexion",
     "stat_referral_code": "Code de parrainage",
-    "stat_whatsapp_clicks": "Clics WhatsApp",
     "stat_conversion": "Conversion",
     "member_bridge_title": "Créez votre profil Membre",
     "member_bridge_help": "Reliez votre compte Leader à un profil Membre — la même application sociale que chaque membre utilise — afin de publier, discuter et échanger avec eux. Choisissez un mot de passe ci-dessous pour pouvoir vous connecter directement sur l'application du téléphone ensuite, sans avoir à revenir ici.",
@@ -221,9 +220,6 @@
     "table_whatsapp": "WhatsApp",
     "table_language": "Langue",
     "table_registered": "Inscrit le",
-    "table_status": "Lien d'adhésion cliqué",
-    "status_joined": "✓ Lien d'adhésion cliqué",
-    "status_not_joined": "Pas encore cliqué",
     "no_referrals": "Aucun parrainage pour le moment.",
     "prev": "Précédent",
     "next": "Suivant",
@@ -1247,8 +1243,6 @@
       "close": "Fermer"
     },
     "branding": {
-      "banner_title": "Bannière de la page Actualités",
-      "banner_hint": "La grande image en haut de la page Actualités des membres. Choisissez un visuel qui représente le ministère. Son slogan et la Mission, la Vision et le But s'écrivent dans la case « Bannière de la page Actualités » ci-dessous.",
       "add_picture": "Ajouter une image",
       "change_picture": "Changer l'image",
       "home_wallpaper_title": "Fond de la page d'accueil",
@@ -1352,15 +1346,13 @@
       "none": "Personne n'est bloqué sur cette période. 🎉",
       "kind": {
         "LEADER_SIGN_IN": "Connexion page responsables",
-        "MEMBER_SIGN_IN": "Connexion application",
-        "UNFINISHED_SIGNUP": "Inscription non terminée"
+        "MEMBER_SIGN_IN": "Connexion application"
       },
       "last_tried": "Dernier essai : {{when}}",
       "tries_one": "{{count}} essai erroné",
       "tries_other": "{{count}} essais erronés",
       "typo": "⚠ Cet e-mail semble mal écrit — vouliez-vous dire {{fix}} ?",
       "no_account": "Aucun compte n'utilise cet e-mail — la personne l'a peut-être mal tapé ou en a utilisé un autre.",
-      "unfinished_hint": "Un code à 6 chiffres lui a été envoyé mais n'a jamais été saisi (souvent l'e-mail est arrivé dans les spams, ou l'adresse est fausse).",
       "whatsapp": "WhatsApp",
       "email": "Envoyer un e-mail"
     },

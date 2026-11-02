@@ -15,6 +15,32 @@
   (Not built yet: it is part of the Play Store build work.)
 - Store name: **The God Nation**.
 - Store details (screenshots, descriptions): later, when we start that step.
+- Second clean-up round approved: the Updates banner picture, the old
+  three-step sign-up routes, and anything else that no longer fits the app.
+
+## What was removed in the clean-up (done)
+
+- Dead text, five unused functions, the unused Updates banner screen part, and
+  the one-time backfill tool.
+- Leader recommendations (feature and database table), the personal WhatsApp
+  setting, leader self-sign-up (page, route, phrase), and the old Home,
+  Welcome and Registration text editors in the admin "Website text" tab.
+- The Updates banner picture (admin upload, server routes, stored settings).
+- The old three-step sign-up on the server (`/signup/start`, `/check-code`,
+  `/finish`), its holding table and its email. The live sign-up (email, phone,
+  password, emailed link, then the details form) does everything they did:
+  referral attribution, leader pairing, group placement.
+- The leader dashboard's "WhatsApp clicks" number and "Joined / Not joined"
+  column: nothing recorded WhatsApp clicks any more, so they always read zero.
+- The admin Sign-in trouble list no longer has the "Joining not finished" row,
+  which only came from the old wizard.
+- `/welcome` and `/register` links still work (they lead to the new sign-up).
+
+Left in place on purpose: the stored `WHATSAPP_CLICKED` event type and old
+registration rows (history), the staff leader sign-in and invitation flow
+(used by appointed leaders), and the wallpaper pickers (still shown in the app).
+The old banner image file may still sit in file storage; it is no longer
+reachable and can be deleted from the storage dashboard.
 
 
 Written 2 November 2026. This is a report only. Nothing has been deleted or

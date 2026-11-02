@@ -70,17 +70,9 @@ async function admin() {
 
 const JPEG = { mimeType: 'image/jpeg', byteSize: 150_000 };
 
-describe('Updates banner', () => {
-  it('admin sets the picture and the Mission / Vision / Purpose texts; members see them', async () => {
+describe('Site text', () => {
+  it('admin sets the footer texts; the public settings show them', async () => {
     const a = await admin();
-    const auth = await a.agent.post('/api/admin/app-banner/authorize').set('X-CSRF-Token', a.csrf).send(JPEG);
-    expect(auth.status).toBe(200);
-    expect(auth.body.storageKey).toMatch(/^settings\/app-banner\/[0-9a-f-]{36}$/);
-    vi.mocked(storage.headObject).mockResolvedValueOnce({ contentLength: JPEG.byteSize, contentType: JPEG.mimeType } as any);
-    const saved = await a.agent.post('/api/admin/app-banner').set('X-CSRF-Token', a.csrf).send({ storageKey: auth.body.storageKey, ...JPEG });
-    expect(saved.status).toBe(200);
-    expect(saved.body.appBannerUrl).toContain('/api/app-banner?v=');
-
     const texts = await a.agent
       .patch('/api/admin/settings')
       .set('X-CSRF-Token', a.csrf)
@@ -88,23 +80,7 @@ describe('Updates banner', () => {
     expect(texts.status).toBe(200);
 
     const pub = await request(app).get('/api/settings/public');
-    expect(pub.body.appBannerUrl).toContain('/api/app-banner');
     expect(pub.body.content).toMatchObject({ footerEn: 'Raising kingdom leaders', contactInfoEn: 'To train leaders.', footerFr: 'Une nation pour Dieu.' });
-
-    const m = await member('Ada');
-    const pic = await m.agent.get('/api/app-banner');
-    expect(pic.status).toBe(302);
-    expect(pic.headers.location).toContain('settings/app-banner/');
-    expect((await request(app).get('/api/app-banner')).status).toBe(401);
-
-    const removed = await a.agent.delete('/api/admin/app-banner').set('X-CSRF-Token', a.csrf);
-    expect(removed.body.appBannerUrl).toBeNull();
-  });
-
-  it('members cannot change the banner', async () => {
-    const m = await member('Ben');
-    const res = await m.agent.post('/api/admin/app-banner/authorize').set('X-CSRF-Token', m.csrf).send(JPEG);
-    expect([401, 403]).toContain(res.status);
   });
 });
 

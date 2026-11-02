@@ -112,21 +112,6 @@ export async function createRegistrationFixture(
   }
 }
 
-// Test-only stand-in for the now-removed GET /api/registrations/:id/whatsapp
-// redirect, which used to record a WHATSAPP_CLICKED Event before sending the
-// visitor on to a configured WhatsApp group. That redirect (and the settings
-// fields naming its destinations) no longer exist, but a few older features
-// that merely *consume* this historical event (e.g. a Leader's own "has this
-// referral joined WhatsApp yet" status) are left as-is for now — this just
-// creates the Event row directly so those tests keep exercising that
-// consuming code, not the deleted producer.
-export async function recordWhatsappClick(registrationId: string, visitorId?: string) {
-  const registration = await prisma.registration.findUniqueOrThrow({ where: { id: registrationId } });
-  return prisma.event.create({
-    data: { type: 'WHATSAPP_CLICKED', registrationId, visitorId: visitorId ?? registration.visitorId, isTestData: registration.isTestData },
-  });
-}
-
 export function extractCookie(res: any, name: string): string | undefined {
   const setCookies: string[] = res.headers['set-cookie'] || [];
   for (const c of setCookies) {

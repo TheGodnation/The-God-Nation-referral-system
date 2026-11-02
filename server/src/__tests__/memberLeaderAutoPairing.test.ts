@@ -2,9 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { EmailService } from '../lib/email';
 import { createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
+import { joinAsNewMember } from './joinHelper';
 
 // Unified Leader/Member identity: a single ReferralCode can now carry BOTH
 // Leader attribution (leaderId) and Member auto-friending (personId) at
@@ -38,16 +38,6 @@ async function makeHeadquarters(name = 'Headquarters') {
   return hq;
 }
 
-async function start(email: string, password = 'Testpass123') {
-  const spy = vi.spyOn(EmailService, 'sendMemberSignupCode').mockResolvedValue({ ok: true });
-  const agent = agentWithUniqueIp();
-  const { csrf } = await bootstrap(agent as any);
-  await agent.post('/api/member/auth/signup/start').set('X-CSRF-Token', csrf).send({ email, password, pathway: 'DISCOVER_GROW', language: 'en' });
-  const code = spy.mock.calls[0]?.[0]?.code as string | undefined;
-  spy.mockRestore();
-  return { agent, csrf, code };
-}
-
 const CAMEROON_DETAILS = {
   name: 'Jean Ngono',
   country: 'Cameroon',
@@ -74,13 +64,11 @@ describe('Unified referral code: Leader attribution + Member auto-friend togethe
     const code = await prisma.referralCode.create({ data: { code: 'DUALCODE1', personId: referrerPerson.id, leaderId: leaderUser.id } });
 
     const email = 'dual-joiner@example.com';
-    const { agent, csrf, code: signupCode } = await start(email);
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
     await agent.post('/api/referrals/visit').set('X-CSRF-Token', csrf).send({ ref: code.code });
     const whatsapp = freshPhone();
-    const res = await agent
-      .post('/api/member/auth/signup/finish')
-      .set('X-CSRF-Token', csrf)
-      .send({ email, code: signupCode, whatsapp, ...CAMEROON_DETAILS });
+    const res = (await joinAsNewMember(agent, csrf, { email, whatsapp, details: CAMEROON_DETAILS })).done;
     expect(res.status).toBe(200);
 
     const person = await prisma.person.findUnique({ where: { whatsappNumber: whatsapp } });
@@ -99,12 +87,10 @@ describe('Unified referral code: Leader attribution + Member auto-friend togethe
   it('every new Person gets their own ReferralCode eagerly at signup, without visiting /referrals/links first', async () => {
     await makeHeadquarters();
     const email = 'eager-code@example.com';
-    const { agent, csrf, code: signupCode } = await start(email);
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
     const whatsapp = freshPhone();
-    const res = await agent
-      .post('/api/member/auth/signup/finish')
-      .set('X-CSRF-Token', csrf)
-      .send({ email, code: signupCode, whatsapp, ...CAMEROON_DETAILS });
+    const res = (await joinAsNewMember(agent, csrf, { email, whatsapp, details: CAMEROON_DETAILS })).done;
     expect(res.status).toBe(200);
 
     const person = await prisma.person.findUnique({ where: { whatsappNumber: whatsapp } });
@@ -124,12 +110,10 @@ describe('Settings.defaultReferrerPersonId — catch-all for a purely organic jo
     });
 
     const email = 'organic-joiner@example.com';
-    const { agent, csrf, code: signupCode } = await start(email);
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
     const whatsapp = freshPhone();
-    const res = await agent
-      .post('/api/member/auth/signup/finish')
-      .set('X-CSRF-Token', csrf)
-      .send({ email, code: signupCode, whatsapp, ...CAMEROON_DETAILS });
+    const res = (await joinAsNewMember(agent, csrf, { email, whatsapp, details: CAMEROON_DETAILS })).done;
     expect(res.status).toBe(200);
 
     const person = await prisma.person.findUnique({ where: { whatsappNumber: whatsapp } });
@@ -155,13 +139,11 @@ describe('Settings.defaultReferrerPersonId — catch-all for a purely organic jo
     const code = await prisma.referralCode.create({ data: { code: 'LEADERONLY1', leaderId: leaderUser.id } });
 
     const email = 'leader-code-joiner@example.com';
-    const { agent, csrf, code: signupCode } = await start(email);
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
     await agent.post('/api/referrals/visit').set('X-CSRF-Token', csrf).send({ ref: code.code });
     const whatsapp = freshPhone();
-    const res = await agent
-      .post('/api/member/auth/signup/finish')
-      .set('X-CSRF-Token', csrf)
-      .send({ email, code: signupCode, whatsapp, ...CAMEROON_DETAILS });
+    const res = (await joinAsNewMember(agent, csrf, { email, whatsapp, details: CAMEROON_DETAILS })).done;
     expect(res.status).toBe(200);
 
     const person = await prisma.person.findUnique({ where: { whatsappNumber: whatsapp } });
@@ -172,12 +154,10 @@ describe('Settings.defaultReferrerPersonId — catch-all for a purely organic jo
   it('with no catch-all configured and no referral code, nobody is auto-friended and referredByPersonId stays null', async () => {
     await makeHeadquarters();
     const email = 'no-catchall-joiner@example.com';
-    const { agent, csrf, code: signupCode } = await start(email);
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
     const whatsapp = freshPhone();
-    const res = await agent
-      .post('/api/member/auth/signup/finish')
-      .set('X-CSRF-Token', csrf)
-      .send({ email, code: signupCode, whatsapp, ...CAMEROON_DETAILS });
+    const res = (await joinAsNewMember(agent, csrf, { email, whatsapp, details: CAMEROON_DETAILS })).done;
     expect(res.status).toBe(200);
 
     const person = await prisma.person.findUnique({ where: { whatsappNumber: whatsapp } });

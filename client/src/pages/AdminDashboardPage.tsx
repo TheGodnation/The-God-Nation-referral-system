@@ -2,7 +2,6 @@ import { normalizeWhatsappLink } from '../lib/whatsapp';
 import { AccountDeletionsTab } from '../components/admin/AccountDeletionsTab';
 import { SignInTroubleTab } from '../components/admin/SignInTroubleTab';
 import { AdminOnlineNow } from '../components/admin/AdminOnlineNow';
-import { AdminBannerPicture } from '../components/admin/AdminBannerPicture';
 import { AdminWallpaperPicker } from '../components/admin/AdminWallpaperPicker';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -991,7 +990,6 @@ function ContentTab() {
         <h2 className="font-semibold text-brand-900">{t('admin.content.title')}</h2>
         <p className="text-xs text-slate-400">{t('admin.content.hint')}</p>
       </div>
-      <AdminBannerPicture />
       <AdminWallpaperPicker target="home" title={t('admin.branding.home_wallpaper_title')} hint={t('admin.branding.home_wallpaper_hint')} />
       <AdminWallpaperPicker target="chat" title={t('admin.branding.chat_wallpaper_title')} hint={t('admin.branding.chat_wallpaper_hint')} />
       {CONTENT_SECTIONS.map(({ section, fields }) => (

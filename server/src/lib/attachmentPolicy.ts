@@ -149,18 +149,8 @@ export function isPaymentProofKeyForOrder(storageKey: string, orderId: string): 
   return Boolean(match) && match![1] === orderId;
 }
 
-// The Updates banner and group pictures (admin uploads; same image rules as
-// profile pictures).
-const APP_BANNER_KEY_PATTERN = /^settings\/app-banner\/([0-9a-f-]{36})$/;
+// Group pictures (admin uploads; same image rules as profile pictures).
 const GROUP_PHOTO_KEY_PATTERN = /^communities\/([0-9a-f-]{36})\/photo\/([0-9a-f-]{36})$/;
-
-export function generateAppBannerStorageKey(): string {
-  return `settings/app-banner/${crypto.randomUUID()}`;
-}
-
-export function isStorageKeyForAppBanner(storageKey: string): boolean {
-  return APP_BANNER_KEY_PATTERN.test(storageKey);
-}
 
 export function generateGroupPhotoStorageKey(communityId: string): string {
   return `communities/${communityId}/photo/${crypto.randomUUID()}`;

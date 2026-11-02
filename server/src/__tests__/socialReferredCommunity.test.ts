@@ -29,7 +29,7 @@ describe('GET /api/member/people/:personId — referredCount/communityCount', ()
     const { person: viewer, email: viewerEmail } = await makeMember('Viewer Person');
     void viewerEmail;
 
-    // Simulates what memberAuth.ts's /signup/finish creates for a referral-code join.
+    // Simulates what memberAuth.ts's /signup creates for a referral-code join.
     await prisma.friendship.create({
       data: { requesterPersonId: referrer.id, addresseePersonId: joiner.id, status: 'ACCEPTED', respondedAt: new Date(), origin: 'REFERRAL' },
     });

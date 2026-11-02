@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
+import { joinAsNewMember } from './joinHelper';
 
 // A leader from the first system joining the app as an ordinary newcomer: the
 // join goes through (nothing rejects them), the admin sees a one-tap suggestion
@@ -33,19 +34,17 @@ async function admin(email: string) {
   return { agent, csrf };
 }
 
-/** Joins through the public join flow (email + password, the emailed code, then details). */
+/** Joins the way the app does today: email + phone + password, the emailed link, then the details form. */
 async function join(email: string, whatsapp: string, password = 'NewPass12345') {
-  const spy = vi.spyOn(EmailService, 'sendMemberSignupCode').mockResolvedValue({ ok: true });
   const agent = agentWithUniqueIp();
   const { csrf } = await bootstrap(agent as any);
-  const started = await agent.post('/api/member/auth/signup/start').set('X-CSRF-Token', csrf).send({ email, password, pathway: 'DISCOVER_GROW', language: 'en' });
-  const code = spy.mock.calls[0]?.[0]?.code as string;
-  spy.mockRestore();
-  const finished = await agent
-    .post('/api/member/auth/signup/finish')
-    .set('X-CSRF-Token', csrf)
-    .send({ email, code, whatsapp, name: 'Papa Former Leader', country: 'Cameroon', region: 'Littoral', division: 'Wouri', subdivision: 'Douala V', quarter: 'Bepanda' });
-  return { started, finished, agent, csrf };
+  const { signup, done } = await joinAsNewMember(agent, csrf, {
+    email,
+    whatsapp,
+    password,
+    details: { name: 'Papa Former Leader', country: 'Cameroon', region: 'Littoral', division: 'Wouri', subdivision: 'Douala V', quarter: 'Bepanda' },
+  });
+  return { started: signup, finished: done, agent, csrf };
 }
 
 let phone = 0;

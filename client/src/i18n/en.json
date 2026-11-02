@@ -188,7 +188,6 @@
     "my_dashboard_title": "My Leadership Dashboard",
     "logout": "Log out",
     "stat_referral_code": "Referral Code",
-    "stat_whatsapp_clicks": "WhatsApp Clicks",
     "stat_conversion": "Conversion",
     "member_bridge_title": "Create your Member profile",
     "member_bridge_help": "Link your Leader account to a Member profile — the same social app every member uses — so you can post, chat, and connect alongside them. Choose a password below so you can sign in directly on the phone app later, with no need to come back here.",
@@ -221,9 +220,6 @@
     "table_whatsapp": "WhatsApp",
     "table_language": "Language",
     "table_registered": "Registered",
-    "table_status": "Join Link Clicked",
-    "status_joined": "✓ Join Link Clicked",
-    "status_not_joined": "Not Yet Clicked",
     "no_referrals": "No referrals yet.",
     "prev": "Prev",
     "next": "Next",
@@ -1247,8 +1243,6 @@
       "close": "Close"
     },
     "branding": {
-      "banner_title": "Updates page banner",
-      "banner_hint": "The wide picture at the top of the members' Updates page. Use a design that represents the ministry. Its slogan and the Mission, Vision and Purpose are written in the \"Updates page banner\" box below.",
       "add_picture": "Add picture",
       "change_picture": "Change picture",
       "home_wallpaper_title": "Home page background",
@@ -1352,15 +1346,13 @@
       "none": "Nobody is stuck in this period. 🎉",
       "kind": {
         "LEADER_SIGN_IN": "Leader page sign-in",
-        "MEMBER_SIGN_IN": "App sign-in",
-        "UNFINISHED_SIGNUP": "Joining not finished"
+        "MEMBER_SIGN_IN": "App sign-in"
       },
       "last_tried": "Last try: {{when}}",
       "tries_one": "{{count}} wrong try",
       "tries_other": "{{count}} wrong tries",
       "typo": "⚠ This email looks misspelled — did they mean {{fix}}?",
       "no_account": "No account uses this email — they may have typed it wrong, or used a different one.",
-      "unfinished_hint": "They were sent a 6-digit code but never entered it (often the email went to Spam, or the address is wrong).",
       "whatsapp": "WhatsApp",
       "email": "Send an email"
     },

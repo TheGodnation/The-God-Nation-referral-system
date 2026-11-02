@@ -23,7 +23,6 @@ import { api } from '../../lib/api';
 import { usePublicSettings } from '../../lib/usePublicSettings';
 
 interface DashboardStats {
-  whatsappClicks: number;
   conversionRate: number;
 }
 
@@ -33,7 +32,6 @@ interface ReferralItem {
   language: string;
   registeredAt: string;
   status: string;
-  whatsappJoined: boolean;
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -241,9 +239,8 @@ export function LeadershipDashboardBody() {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard label={t('leader.stat_referral_code')} value={referralCode ?? '—'} />
-        <StatCard label={t('leader.stat_whatsapp_clicks')} value={stats?.whatsappClicks ?? '—'} />
         <StatCard label={t('leader.stat_conversion')} value={stats ? `${stats.conversionRate}%` : '—'} />
       </div>
 
@@ -319,7 +316,6 @@ export function LeadershipDashboardBody() {
               <th className="py-2 pr-4">{t('leader.table_whatsapp')}</th>
               <th className="py-2 pr-4">{t('leader.table_language')}</th>
               <th className="py-2 pr-4">{t('leader.table_registered')}</th>
-              <th className="py-2 pr-4">{t('leader.table_status')}</th>
             </tr>
           </thead>
           <tbody>
@@ -329,22 +325,11 @@ export function LeadershipDashboardBody() {
                 <td className="py-2 pr-4">{r.whatsapp}</td>
                 <td className="py-2 pr-4 uppercase">{r.language}</td>
                 <td className="py-2 pr-4">{new Date(r.registeredAt).toLocaleDateString()}</td>
-                <td className="py-2 pr-4">
-                  {r.whatsappJoined ? (
-                    <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                      {t('leader.status_joined')}
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-                      {t('leader.status_not_joined')}
-                    </span>
-                  )}
-                </td>
               </tr>
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-slate-400">
+                <td colSpan={4} className="py-6 text-center text-slate-400">
                   {t('leader.no_referrals')}
                 </td>
               </tr>

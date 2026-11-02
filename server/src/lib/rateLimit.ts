@@ -93,38 +93,6 @@ export const memberSignupLimiter = rateLimit({
   message: { error: 'Too many requests. Please try again later.' },
 });
 
-// Public join flow (/register) step 1: email+password -> a pending signup
-// row + emailed code. Same enumeration-risk magnitude as memberSignupLimiter.
-export const memberSignupStartLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests. Please try again later.' },
-});
-
-// Public join flow step 2: checking the emailed code (non-destructive).
-// Same magnitude as memberLoginConsumeLimiter, the closest existing
-// precedent for a code/token verification surface.
-export const memberSignupCheckCodeLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many attempts. Please try again later.' },
-});
-
-// Public join flow step 3: finishing sign-up (name+phone+location), which
-// also re-checks the code atomically — same magnitude as
-// memberSignupCheckCodeLimiter.
-export const memberSignupFinishLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many attempts. Please try again later.' },
-});
-
 // Member finishing their sign-up details form.
 export const memberCompleteProfileLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

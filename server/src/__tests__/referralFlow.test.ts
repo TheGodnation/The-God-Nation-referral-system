@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { createLeader, createRegistrationFixture, recordWhatsappClick } from './helpers';
+import { createLeader, createRegistrationFixture } from './helpers';
 import { bootstrap } from './testUtils';
 
 const app = createApp();
@@ -52,14 +52,6 @@ describe('Acceptance Test 1 — Mary basic flow', () => {
     expect(relationship).toBeTruthy();
     expect(relationship!.leaderId).toBe(mary.id);
 
-    // WhatsApp click (historical signal still consumed by the Leader
-    // dashboard's own "joined" status — see leaderReferralWhatsappStatus.test.ts).
-    await recordWhatsappClick(registrationId, visitorCookie);
-
-    const events = await prisma.event.findMany({ where: { registrationId } });
-    const clickEvent = events.find((e) => e.type === 'WHATSAPP_CLICKED');
-    expect(clickEvent).toBeTruthy();
-
     // Leader dashboard reflects the activity.
     const leaderAgent = request.agent(app);
     const { csrf: leaderCsrf } = await bootstrap(leaderAgent);
@@ -74,8 +66,7 @@ describe('Acceptance Test 1 — Mary basic flow', () => {
     expect(dashRes.body.referralCode).toBe('MARY7X2');
     // Visit/registration counts are Admin-only (checked below via
     // /api/admin/dashboard) — a Leader's own dashboard only surfaces
-    // WhatsApp clicks and the conversion rate.
-    expect(dashRes.body.stats.whatsappClicks).toBe(1);
+    // the conversion rate.
     expect(dashRes.body.stats.conversionRate).toBe(100);
     expect(dashRes.body.stats.totalVisits).toBeUndefined();
     expect(dashRes.body.stats.registrations).toBeUndefined();

@@ -553,10 +553,6 @@ model Settings {
   telegramUrl             String?
   messengerUrl            String?
   content                 Json?
-  // The wide picture at the top of the member Updates page (the ministry's
-  // banner). Its Mission / Vision / Purpose text lives in `content`.
-  appBannerStorageKey     String?
-  appBannerUpdatedAt      DateTime?
   // Recipient address for the public Contact form (Phase 2). Admin-editable;
   // never sent to the client. Null/blank means the contact form is disabled.
   contactEmail            String?
@@ -1321,31 +1317,6 @@ model MemberSession {
 
   @@index([memberAccountId])
   @@index([expiresAt])
-}
-
-// Holds screen 1 (email + password + pathway + language) and screen 2 (the
-// emailed 6-digit code) of the public join flow at /register until screen 3
-// (name + phone + location) is submitted — see POST
-// /api/member/auth/signup/{start,check-code,finish} in memberAuth.ts.
-// Deliberately NOT a Person/MemberAccount/Registration: nothing else is
-// created until finish succeeds, which is also the moment this row is
-// deleted. One row per email (re-starting replaces it with a fresh code).
-model PendingMemberSignup {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  pathway      Pathway
-  language     Language @default(en)
-  visitorId    String
-  codeHash     String
-  // Codes sent earlier for this same sign-up that still count (newest
-  // first, capped at MAX_LIVE_CODES - 1 in memberAuth.ts): a slow email
-  // often arrives after the visitor has already asked for another code.
-  previousCodeHashes String[] @default([])
-  codeAttempts Int      @default(0)
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------

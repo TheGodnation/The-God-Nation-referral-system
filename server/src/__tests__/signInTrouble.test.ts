@@ -49,20 +49,14 @@ describe('Sign-in trouble', () => {
     const okAccount = await prisma.memberAccount.create({ data: { personId: okPerson.id, email: 'gotin@example.com', lastLoginAt: ago(1) } });
     await prisma.auditLog.create({ data: { action: 'MEMBER_LOGIN_CODE_WRONG', targetType: 'MemberAccount', targetId: okAccount.id, createdAt: ago(3) } });
 
-    // Someone who started joining and never finished.
-    await prisma.pendingMemberSignup.create({
-      data: { email: 'joiner@example.com', passwordHash: 'x', pathway: 'TRAINING', visitorId: 'v1', codeHash: 'x', codeAttempts: 2, expiresAt: new Date(Date.now() + 10 * 60_000) },
-    });
-
     const res = await agent.get('/api/admin/sign-in-trouble?days=30');
     expect(res.status).toBe(200);
     const byEmail = Object.fromEntries(res.body.items.map((i: any) => [i.email, i]));
-    expect(Object.keys(byEmail).sort()).toEqual(['joiner@example.com', 'member@example.com', 'nobody@yahooo.fr', 'stuck@gmial.com']);
+    expect(Object.keys(byEmail).sort()).toEqual(['member@example.com', 'nobody@yahooo.fr', 'stuck@gmial.com']);
 
     expect(byEmail['stuck@gmial.com']).toMatchObject({ kind: 'LEADER_SIGN_IN', failedTries: 2, hasAccount: true, leaderId: stuckLeader.id, name: 'Stuck Leader' });
     expect(byEmail['nobody@yahooo.fr']).toMatchObject({ kind: 'LEADER_SIGN_IN', hasAccount: false, leaderId: null });
     expect(byEmail['member@example.com']).toMatchObject({ kind: 'MEMBER_SIGN_IN', name: 'Stuck Member', whatsappNumber: '+237670888001', personId: person.id });
-    expect(byEmail['joiner@example.com']).toMatchObject({ kind: 'UNFINISHED_SIGNUP', failedTries: 2, hasAccount: false });
     // Newest first.
     expect(res.body.items[0].email).toBe('member@example.com');
   });

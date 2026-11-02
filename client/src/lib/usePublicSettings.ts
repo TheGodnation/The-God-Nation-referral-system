@@ -12,8 +12,6 @@ export interface PublicSettings {
   telegramUrl: string | null;
   messengerUrl: string | null;
   content: Record<string, string>;
-  /** Address of the Updates banner picture, or null (viewing needs sign-in). */
-  appBannerUrl?: string | null;
   homeWallpaper?: { preset: string | null; imageUrl: string | null };
   chatWallpaper?: { preset: string | null; imageUrl: string | null };
   // True once the real settings have been fetched from the server (success

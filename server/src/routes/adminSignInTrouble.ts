@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../lib/auth';
 import { asyncHandler } from '../lib/asyncHandler';
-import { PENDING_MEMBER_SIGNUP_TTL_MS } from '../lib/env';
 
 // ---------------------------------------------------------------------------
 // Admin → Sign-in trouble: everyone who tried and is still stuck, so the
@@ -11,9 +10,7 @@ import { PENDING_MEMBER_SIGNUP_TTL_MS } from '../lib/env';
 // email). Only people who have NOT got in since are listed:
 //   LEADER_SIGN_IN    wrong password on the leader page
 //   MEMBER_SIGN_IN    wrong password or wrong code in the app
-//   UNFINISHED_SIGNUP started joining (code emailed) but never finished
-// Read-only; built from what sign-in already records (LoginAttempt,
-// AuditLog, PendingMemberSignup).
+// Read-only; built from what sign-in already records (LoginAttempt, AuditLog).
 // ---------------------------------------------------------------------------
 
 const router = Router();
@@ -21,7 +18,7 @@ router.use(requireAuth, requireRole('ADMIN'));
 
 const querySchema = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
 
-type Kind = 'LEADER_SIGN_IN' | 'MEMBER_SIGN_IN' | 'UNFINISHED_SIGNUP';
+type Kind = 'LEADER_SIGN_IN' | 'MEMBER_SIGN_IN';
 
 interface Item {
   email: string;
@@ -69,17 +66,10 @@ router.get('/', asyncHandler(async (req, res) => {
     _max: { createdAt: true },
   });
 
-  // Each "send me a new code" pushes expiresAt on, so it dates the last try.
-  const pending = await prisma.pendingMemberSignup.findMany({
-    where: { expiresAt: { gte: new Date(since.getTime() + PENDING_MEMBER_SIGNUP_TTL_MS) } },
-    select: { email: true, expiresAt: true, codeAttempts: true },
-  });
-
   // Who these emails belong to.
   const leaderEmails = failed.filter((f) => !f.identifier.startsWith(MEMBER_PREFIX)).map((f) => f.identifier);
   const memberEmails = [
     ...failed.filter((f) => f.identifier.startsWith(MEMBER_PREFIX)).map((f) => f.identifier.slice(MEMBER_PREFIX.length)),
-    ...pending.map((p) => p.email),
   ];
   const personSelect = { id: true, name: true, whatsappNumber: true, erasedAt: true } as const;
   const [users, accounts, codeAccounts] = await Promise.all([
@@ -159,22 +149,6 @@ router.get('/', asyncHandler(async (req, res) => {
     const last = w._max.createdAt!;
     if (!account || gotInSince(last, account.lastLoginAt)) continue;
     add({ email: account.email, kind: 'MEMBER_SIGN_IN', failedTries: w._count._all, lastTriedAt: last, ...memberItem(account) });
-  }
-
-  for (const p of pending) {
-    // Finished since under the same email (the pending row is normally removed then).
-    if (accountByEmail.has(p.email)) continue;
-    add({
-      email: p.email,
-      kind: 'UNFINISHED_SIGNUP',
-      failedTries: p.codeAttempts,
-      lastTriedAt: new Date(p.expiresAt.getTime() - PENDING_MEMBER_SIGNUP_TTL_MS),
-      name: null,
-      whatsappNumber: null,
-      hasAccount: false,
-      leaderId: null,
-      personId: null,
-    });
   }
 
   const list = [...items.values()].sort((a, b) => b.lastTriedAt.getTime() - a.lastTriedAt.getTime());

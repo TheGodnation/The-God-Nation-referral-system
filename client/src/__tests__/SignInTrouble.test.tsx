@@ -22,7 +22,7 @@ afterEach(() => {
 
 const ITEMS = [
   { email: 'paul@gmial.com', kind: 'LEADER_SIGN_IN', failedTries: 3, lastTriedAt: '2026-10-22T10:00:00Z', name: 'Pastor Paul', whatsappNumber: null, hasAccount: true, leaderId: 'u1', personId: null },
-  { email: 'joiner@example.com', kind: 'UNFINISHED_SIGNUP', failedTries: 0, lastTriedAt: '2026-10-21T10:00:00Z', name: null, whatsappNumber: null, hasAccount: false, leaderId: null, personId: null },
+  { email: 'joiner@example.com', kind: 'MEMBER_SIGN_IN', failedTries: 1, lastTriedAt: '2026-10-21T10:00:00Z', name: null, whatsappNumber: null, hasAccount: false, leaderId: null, personId: null },
 ];
 
 describe('Sign-in trouble', () => {
@@ -35,7 +35,7 @@ describe('Sign-in trouble', () => {
     expect(await screen.findByText('paul@gmial.com')).toBeInTheDocument();
     expect(screen.getByText('2 people')).toBeInTheDocument();
     expect(screen.getByText('Leader page sign-in')).toBeInTheDocument();
-    expect(screen.getByText('Joining not finished')).toBeInTheDocument();
+    expect(screen.getByText('App sign-in')).toBeInTheDocument();
     expect(screen.getByText(/did they mean paul@gmail\.com/)).toBeInTheDocument();
     expect(screen.getByText(/3 wrong tries/)).toBeInTheDocument();
 

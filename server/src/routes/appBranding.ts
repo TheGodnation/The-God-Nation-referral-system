@@ -10,19 +10,16 @@ import { isStorageConfigured, createUploadUrl, createDownloadUrl, headObject } f
 import {
   PROFILE_PHOTO_MIME_LIMITS,
   isAllowedProfilePhotoMime,
-  generateAppBannerStorageKey,
-  isStorageKeyForAppBanner,
   generateGroupPhotoStorageKey,
   isStorageKeyForGroupPhoto,
   generateWallpaperStorageKey,
   isStorageKeyForWallpaper,
   type WallpaperTarget,
 } from '../lib/attachmentPolicy';
-import { appBannerPath, groupPhotoPath, wallpaperPath } from '../lib/profilePhoto';
+import { groupPhotoPath, wallpaperPath } from '../lib/profilePhoto';
 
 // The ministry's look in the member app, set by the admin only:
-//  - the banner picture at the top of the Updates page (its Mission /
-//    Vision / Purpose text is part of the editable site text),
+//  - the Home page and chat backgrounds,
 //  - each group's picture and purpose / vision text.
 // Pictures use the usual three steps (ask for an upload link → upload
 // straight to storage → confirm, checked by the server) and are viewed by
@@ -51,56 +48,6 @@ function requireSignedIn(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// ------------------------------------------------------------ Updates banner
-
-router.post('/admin/app-banner/authorize', ...adminOnly, attachmentUploadAuthorizeLimiter, requireCsrf, asyncHandler(async (req, res) => {
-  const parsed = authorizeSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid photo.' });
-  const problem = checkImage(parsed.data.mimeType, parsed.data.byteSize);
-  if (problem) return res.status(problem.code === 'STORAGE_UNAVAILABLE' ? 503 : 400).json(problem);
-  const storageKey = generateAppBannerStorageKey();
-  const { url, expiresAt } = await createUploadUrl({ storageKey, mimeType: parsed.data.mimeType });
-  res.json({ storageKey, uploadUrl: url, expiresAt });
-}));
-
-router.post('/admin/app-banner', ...adminOnly, requireCsrf, asyncHandler(async (req, res) => {
-  const parsed = finalizeSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid photo.' });
-  const d = parsed.data;
-  if (!isStorageKeyForAppBanner(d.storageKey)) return res.status(400).json({ error: 'Invalid photo reference.' });
-  const problem = checkImage(d.mimeType, d.byteSize);
-  if (problem) return res.status(problem.code === 'STORAGE_UNAVAILABLE' ? 503 : 400).json(problem);
-  if (!(await verifyUpload(d.storageKey, d.mimeType, d.byteSize))) {
-    return res.status(400).json({ error: 'The photo upload could not be verified. Please try again.' });
-  }
-  const settings = await prisma.settings.upsert({
-    where: { id: 'singleton' },
-    create: { id: 'singleton', appBannerStorageKey: d.storageKey, appBannerUpdatedAt: new Date() },
-    update: { appBannerStorageKey: d.storageKey, appBannerUpdatedAt: new Date() },
-  });
-  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'APP_BANNER_UPDATED', targetType: 'Settings', targetId: 'singleton' });
-  res.json({ appBannerUrl: appBannerPath(settings) });
-}));
-
-router.delete('/admin/app-banner', ...adminOnly, requireCsrf, asyncHandler(async (req, res) => {
-  await prisma.settings.upsert({
-    where: { id: 'singleton' },
-    create: { id: 'singleton' },
-    update: { appBannerStorageKey: null, appBannerUpdatedAt: new Date() },
-  });
-  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'APP_BANNER_REMOVED', targetType: 'Settings', targetId: 'singleton' });
-  res.json({ appBannerUrl: null });
-}));
-
-// GET /api/app-banner — the banner picture, for signed-in people.
-router.get('/app-banner', requireSignedIn, attachmentDownloadLimiter, asyncHandler(async (_req, res) => {
-  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { appBannerStorageKey: true } });
-  if (!settings?.appBannerStorageKey || !isStorageConfigured()) return res.status(404).json({ error: 'No banner.' });
-  const { url } = await createDownloadUrl({ storageKey: settings.appBannerStorageKey });
-  res.setHeader('Cache-Control', 'private, max-age=3600');
-  res.redirect(302, url);
-}));
-
 // ------------------------------------------------------------ Wallpaper
 //
 // Home page and chat background — Admin sets ONE for everyone (never a
@@ -108,7 +55,7 @@ router.get('/app-banner', requireSignedIn, attachmentDownloadLimiter, asyncHandl
 // zero-download preset (client/src/lib/wallpaper.ts; validated server-side
 // against the same small allow-list, kept in sync by hand since client and
 // server are separate bundles) or an uploaded custom image (same three-step
-// pattern as the Updates banner above) — never both at once: setting a
+// upload pattern as group pictures) — never both at once: setting a
 // preset clears any uploaded image, and uploading an image clears any
 // preset. Clearing resets to the app's own built-in default.
 

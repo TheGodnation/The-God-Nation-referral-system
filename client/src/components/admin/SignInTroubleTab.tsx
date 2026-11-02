@@ -10,7 +10,7 @@ import { SignInHelpPanel } from './SignInHelpCard';
 
 interface TroubleItem {
   email: string;
-  kind: 'LEADER_SIGN_IN' | 'MEMBER_SIGN_IN' | 'UNFINISHED_SIGNUP';
+  kind: 'LEADER_SIGN_IN' | 'MEMBER_SIGN_IN';
   failedTries: number;
   lastTriedAt: string;
   name: string | null;
@@ -109,10 +109,9 @@ export function SignInTroubleTab() {
                   {item.failedTries > 0 && ` · ${t('admin.signInTrouble.tries', { count: item.failedTries })}`}
                 </p>
                 {fix && <p className="text-sm text-amber-800">{t('admin.signInTrouble.typo', { fix })}</p>}
-                {!item.hasAccount && item.kind !== 'UNFINISHED_SIGNUP' && (
+                {!item.hasAccount && (
                   <p className="text-sm text-slate-600">{t('admin.signInTrouble.no_account')}</p>
                 )}
-                {item.kind === 'UNFINISHED_SIGNUP' && <p className="text-sm text-slate-600">{t('admin.signInTrouble.unfinished_hint')}</p>}
                 <div className="flex flex-wrap gap-3 pt-1 text-sm">
                   {(item.personId || item.leaderId) && (
                     <button type="button" className="font-medium text-brand-700 underline" onClick={() => setHelping(item)}>

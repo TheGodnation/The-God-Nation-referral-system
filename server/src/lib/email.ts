@@ -80,15 +80,6 @@ const DEFAULTS = {
   memberLoginCodeBodyFr:
     'Bonjour {{name}},\n\nVotre code est : {{code}}\n\nTapez-le dans l’application, sur l’écran où vous l’avez demandé.\n\nLe code expire dans 15 minutes et ne fonctionne qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
 
-  // Public join flow (PendingMemberSignup) — no account exists yet, so
-  // unlike memberLoginCode there is no sign-in link to offer, only the code.
-  memberSignupCodeSubjectEn: '{{code}} is your God Nation code',
-  memberSignupCodeSubjectFr: '{{code}} est votre code God Nation',
-  memberSignupCodeBodyEn:
-    'Hi,\n\nYour code to finish joining The God Nation is: {{code}}\n\nType it in the app where you asked for it. It expires in 30 minutes and works only once. If you did not ask for this, you can safely ignore this email.',
-  memberSignupCodeBodyFr:
-    'Bonjour,\n\nVotre code pour terminer votre inscription à The God Nation est : {{code}}\n\nTapez-le dans l’application, là où vous l’avez demandé. Il expire dans 30 minutes et ne fonctionne qu’une seule fois. Si vous n’avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
-
   accountDeletionCodeSubjectEn: '{{code}} is your code to delete your God Nation account',
   accountDeletionCodeSubjectFr: '{{code}} est votre code pour supprimer votre compte God Nation',
   accountDeletionCodeBodyEn:
@@ -204,9 +195,6 @@ export const EmailService = {
     return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
   },
 
-  /** Public join flow (PendingMemberSignup): screen 1's emailed code. No
-   * account/Person exists yet, so (unlike sendMemberLoginLink) this never
-   * has a name to greet or a link to offer — only the code. */
   /** The public "Delete your account" web page's 6-digit code. */
   async sendAccountDeletionCode(params: { to: string; name: string; language: 'en' | 'fr'; code: string }): Promise<SendResult> {
     const isFr = params.language === 'fr';
@@ -225,14 +213,6 @@ export const EmailService = {
     return send(params.to, subject, renderHtml(bodyTemplate, { name: escapeHtml(params.name), date: escapeHtml(date) }), renderText(bodyTemplate, { name: params.name, date }));
   },
 
-  async sendMemberSignupCode(params: { to: string; language: 'en' | 'fr'; code: string }): Promise<SendResult> {
-    const isFr = params.language === 'fr';
-    const subject = (isFr ? DEFAULTS.memberSignupCodeSubjectFr : DEFAULTS.memberSignupCodeSubjectEn).replace('{{code}}', params.code);
-    const bodyTemplate = isFr ? DEFAULTS.memberSignupCodeBodyFr : DEFAULTS.memberSignupCodeBodyEn;
-    const htmlVars = { code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code)}</strong>` };
-    const textVars = { code: params.code };
-    return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
-  },
 };
 
 /** The wording of the member code email (before the code is filled in) — exported so a test can check it has no link. */

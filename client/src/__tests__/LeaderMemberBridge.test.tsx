@@ -61,7 +61,7 @@ describe('LeaderDashboardPage — Leader <-> Member identity bridge', () => {
       vi.fn((url: string) => {
         const responses: Record<string, { status: number; body: unknown }> = {
           ...AUTH_MOCKS,
-          '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { whatsappClicks: 0, conversionRate: 0 }, memberProfileHasPassword } },
+          '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { conversionRate: 0 }, memberProfileHasPassword } },
           '/api/leader/me/create-member-profile': { status: 201, body: { personId: 'p1', personName: 'Mary Ngu' } },
         };
         if (url.includes('/api/leader/me/create-member-profile')) memberProfileHasPassword = true;
@@ -93,7 +93,7 @@ describe('LeaderDashboardPage — Leader <-> Member identity bridge', () => {
     mockFetchByUrl({
       ...AUTH_MOCKS,
       '/api/auth/me': { status: 200, body: { user: { id: 'u1', name: 'Mary Ngu', email: 'mary@example.com', role: 'LEADER', personId: 'p1' } } },
-      '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { whatsappClicks: 0, conversionRate: 0 }, memberProfileHasPassword: true } },
+      '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { conversionRate: 0 }, memberProfileHasPassword: true } },
       '/api/leader/me/open-member-profile': { status: 200, body: { ok: true } },
     });
     const assign = vi.fn();
@@ -111,7 +111,7 @@ describe('LeaderDashboardPage — Leader <-> Member identity bridge', () => {
   it('shows an error message when the server rejects the request', async () => {
     mockFetchByUrl({
       ...AUTH_MOCKS,
-      '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { whatsappClicks: 0, conversionRate: 0 }, memberProfileHasPassword: null } },
+      '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { conversionRate: 0 }, memberProfileHasPassword: null } },
       '/api/leader/me/create-member-profile': { status: 409, body: { error: 'This WhatsApp number already belongs to a different member account. Please contact an Admin for help.' } },
     });
     renderDashboard();
@@ -128,7 +128,7 @@ describe('LeaderDashboardPage — Leader <-> Member identity bridge', () => {
   it('requires a password of at least 8 characters before submitting', async () => {
     mockFetchByUrl({
       ...AUTH_MOCKS,
-      '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { whatsappClicks: 0, conversionRate: 0 }, memberProfileHasPassword: null } },
+      '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { conversionRate: 0 }, memberProfileHasPassword: null } },
     });
     renderDashboard();
 
@@ -149,7 +149,7 @@ describe('LeaderDashboardPage — Leader <-> Member identity bridge', () => {
         const responses: Record<string, { status: number; body: unknown }> = {
           ...AUTH_MOCKS,
           '/api/auth/me': { status: 200, body: { user: { id: 'u1', name: 'Mary Ngu', email: 'mary@example.com', role: 'LEADER', personId: 'p1' } } },
-          '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { whatsappClicks: 0, conversionRate: 0 }, memberProfileHasPassword } },
+          '/api/leader/dashboard': { status: 200, body: { referralCode: 'MARY123', stats: { conversionRate: 0 }, memberProfileHasPassword } },
           '/api/leader/me/set-member-password': { status: 200, body: { ok: true } },
         };
         if (url.includes('/api/leader/me/set-member-password')) memberProfileHasPassword = true;
