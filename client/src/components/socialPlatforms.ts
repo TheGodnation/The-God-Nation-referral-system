@@ -25,7 +25,6 @@ export const SOCIAL_ICONS: Record<string, { Icon: IconType; bg: string }> = {
 export interface SocialUrls {
   whatsappGroupEnUrl?: string | null;
   whatsappGroupFrUrl?: string | null;
-  whatsappContactUrl: string | null;
   telegramUrl: string | null;
   messengerUrl: string | null;
   facebookUrl: string | null;
@@ -43,12 +42,14 @@ export interface SocialLink {
   icon: string;
 }
 
-/** The places that have a link (the admin chooses which), in a fixed order: the two WhatsApp groups first. */
+/**
+ * The places that have a link (the admin chooses which), in a fixed order: the two WhatsApp groups first.
+ * Only groups and public pages: the ministry's personal WhatsApp contact is the Assistance button on the Chats page.
+ */
 export function configuredSocials(s: SocialUrls): SocialLink[] {
   return [
     { url: s.whatsappGroupEnUrl, key: 'whatsapp_en', label: 'WhatsApp (English)', icon: 'WhatsApp' },
     { url: s.whatsappGroupFrUrl, key: 'whatsapp_fr', label: 'WhatsApp (French)', icon: 'WhatsApp' },
-    { url: s.whatsappContactUrl, key: 'whatsapp', label: 'WhatsApp', icon: 'WhatsApp' },
     { url: s.telegramUrl, key: 'telegram', label: 'Telegram', icon: 'Telegram' },
     { url: s.messengerUrl, key: 'messenger', label: 'Messenger', icon: 'Messenger' },
     { url: s.facebookUrl, key: 'facebook', label: 'Facebook', icon: 'Facebook' },

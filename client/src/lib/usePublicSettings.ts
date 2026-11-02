@@ -9,7 +9,6 @@ export interface PublicSettings {
   instagramUrl: string | null;
   tiktokUrl: string | null;
   youtubeUrl: string | null;
-  whatsappContactUrl: string | null;
   telegramUrl: string | null;
   messengerUrl: string | null;
   content: Record<string, string>;
@@ -33,7 +32,6 @@ const EMPTY: PublicSettings = {
   instagramUrl: null,
   tiktokUrl: null,
   youtubeUrl: null,
-  whatsappContactUrl: null,
   telegramUrl: null,
   messengerUrl: null,
   content: {},

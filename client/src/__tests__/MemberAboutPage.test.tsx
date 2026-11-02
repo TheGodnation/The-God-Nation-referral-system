@@ -119,7 +119,7 @@ describe('About the God Nation', () => {
 
 describe('About page — our social networks, at the end', () => {
   const links = {
-    whatsappContactUrl: 'https://chat.whatsapp.com/abc123',
+    whatsappGroupEnUrl: 'https://chat.whatsapp.com/abc123',
     messengerUrl: 'https://m.me/j/xyz',
     facebookUrl: 'https://facebook.com/groups/godnation',
     youtubeUrl: 'https://youtube.com/@godnation',
@@ -130,7 +130,7 @@ describe('About page — our social networks, at the end', () => {
     renderAbout();
     const box = await screen.findByTestId('about-social');
     expect(within(box).getByRole('heading', { name: 'Join our community' })).toBeInTheDocument();
-    expect(within(box).getByRole('link', { name: 'Join our WhatsApp group' })).toHaveAttribute('href', links.whatsappContactUrl);
+    expect(within(box).getByRole('link', { name: 'Join our WhatsApp group (English)' })).toHaveAttribute('href', links.whatsappGroupEnUrl);
     expect(within(box).getByRole('link', { name: 'Join our Messenger group' })).toHaveAttribute('href', links.messengerUrl);
     expect(within(box).getByRole('link', { name: 'Join our Facebook group' })).toHaveAttribute('href', links.facebookUrl);
     expect(within(box).getByRole('link', { name: 'Watch us on YouTube' })).toHaveAttribute('href', links.youtubeUrl);
@@ -164,11 +164,25 @@ describe('About page — our social networks, at the end', () => {
     await i18n.changeLanguage('en');
   });
 
-  it('shows all seven when all have links', async () => {
-    mockFetch({ content: {}, ...links, telegramUrl: 'https://t.me/godnation', instagramUrl: 'https://instagram.com/godnation', tiktokUrl: 'https://tiktok.com/@godnation' });
+  it('shows every group and page when all have links — and never a personal WhatsApp contact, which lives only on the Chats page', async () => {
+    mockFetch({
+      content: {},
+      ...links,
+      whatsappGroupFrUrl: 'https://chat.whatsapp.com/FRE',
+      telegramUrl: 'https://t.me/godnation',
+      instagramUrl: 'https://instagram.com/godnation',
+      tiktokUrl: 'https://tiktok.com/@godnation',
+      // A leftover personal contact link from the old settings must not appear.
+      whatsappContactUrl: 'https://wa.me/237600000000',
+      supportWhatsappUrl: 'https://wa.me/237677272261',
+    });
     renderAbout();
     const box = await screen.findByTestId('about-social');
-    expect(within(box).getAllByRole('link')).toHaveLength(7);
+    expect(within(box).getAllByRole('link')).toHaveLength(8);
+    const hrefs = within(box).getAllByRole('link').map((a) => a.getAttribute('href'));
+    expect(hrefs.some((h) => h!.startsWith('https://wa.me/'))).toBe(false);
+    // Exactly two WhatsApp entries: the two groups.
+    expect(within(box).getAllByRole('link', { name: /WhatsApp/ })).toHaveLength(2);
   });
 
   it('shows nothing at all until at least one link has been chosen', async () => {
@@ -185,7 +199,7 @@ describe('About page — our social networks, at the end', () => {
     renderAbout();
     const box = await screen.findByTestId('about-social');
     expect(within(box).getByRole('heading', { name: 'Rejoignez notre communauté' })).toBeInTheDocument();
-    expect(within(box).getByRole('link', { name: 'Rejoindre notre groupe WhatsApp' })).toBeInTheDocument();
+    expect(within(box).getByRole('link', { name: 'Rejoindre notre groupe WhatsApp (anglais)' })).toBeInTheDocument();
     await i18n.changeLanguage('en');
   });
 });

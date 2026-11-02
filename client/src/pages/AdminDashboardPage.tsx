@@ -633,7 +633,6 @@ interface SettingsData {
   instagramUrl: string | null;
   tiktokUrl: string | null;
   youtubeUrl: string | null;
-  whatsappContactUrl: string | null;
   telegramUrl: string | null;
   messengerUrl: string | null;
   leaderSignupPhrase: string | null;
@@ -655,7 +654,6 @@ const EMPTY_SETTINGS: SettingsData = {
   instagramUrl: '',
   tiktokUrl: '',
   youtubeUrl: '',
-  whatsappContactUrl: '',
   telegramUrl: '',
   messengerUrl: '',
   leaderSignupPhrase: '',
@@ -811,7 +809,6 @@ export function SettingsTab() {
         instagramUrl: settings.instagramUrl?.trim() || null,
         tiktokUrl: settings.tiktokUrl?.trim() || null,
         youtubeUrl: settings.youtubeUrl?.trim() || null,
-        whatsappContactUrl: normalizeWhatsappLink(settings.whatsappContactUrl),
         telegramUrl: settings.telegramUrl?.trim() || null,
         messengerUrl: settings.messengerUrl?.trim() || null,
         // Unlike the URL fields above, an intentionally blank phrase is a
@@ -927,7 +924,6 @@ export function SettingsTab() {
           [
             ['whatsappGroupEnUrl', 'WhatsApp group (English)'],
             ['whatsappGroupFrUrl', 'WhatsApp group (French)'],
-            ['whatsappContactUrl', 'WhatsApp'],
             ['telegramUrl', 'Telegram'],
             ['messengerUrl', 'Messenger'],
             ['facebookUrl', 'Facebook'],
