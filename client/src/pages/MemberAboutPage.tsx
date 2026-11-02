@@ -8,13 +8,14 @@ import { resolveWallpaperStyle } from '../lib/wallpaper';
 import { usePublicSettings } from '../lib/usePublicSettings';
 
 // "About the God Nation": the academy's own words — who we are, our calling,
-// our vision and mission (one blended section), and our motto — as written by
-// the central admin (English and French), followed by ways to take part. Same blue and the same
+// our vision in action (the mission is blended into it), and our motto, which
+// stands where the mission used to be — as written by the central admin
+// (English and French), followed by ways to take part. Same blue and the same
 // background as the Home page.
 const SECTIONS = [
   { id: 'who', paragraphs: 3 },
   { id: 'calling', paragraphs: 3 },
-  { id: 'action', paragraphs: 4 },
+  { id: 'action', paragraphs: 5 },
 ] as const;
 
 export function MemberAboutPage() {

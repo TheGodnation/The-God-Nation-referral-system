@@ -38,13 +38,14 @@ describe('About the God Nation', () => {
     expect(screen.getByText(/exists to bring together citizens of the Kingdom of God/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Our calling' })).toBeInTheDocument();
     expect(screen.getByText(/many years of personal encounters with Christ/)).toBeInTheDocument();
-    // The mission is blended into the vision: one section, no separate "Our mission" repeating it.
-    expect(screen.getByRole('heading', { name: 'Our vision and mission' })).toBeInTheDocument();
+    // The vision continues, with the mission's words blended into it; there is no separate "Our mission".
+    expect(screen.getByRole('heading', { name: 'Our vision in action' })).toBeInTheDocument();
     expect(screen.getByText(/modern media provides an unprecedented opportunity/)).toBeInTheDocument();
-    expect(screen.getByText(/Our mission is to gather, train, equip, and mobilize citizens of the Kingdom of God/)).toBeInTheDocument();
+    expect(screen.getByText(/to gather, train, equip, and mobilize citizens of the Kingdom of God/)).toBeInTheDocument();
+    expect(screen.getByText(/From Cameroon to Africa and to the ends of the earth, we are preparing and mobilizing them/)).toBeInTheDocument();
     expect(screen.getByText(/We are not simply building a media team/)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Our mission' })).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'Our vision in action' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Our vision and mission' })).toBeNull();
   });
 
   it('states the motto', async () => {
@@ -57,6 +58,16 @@ describe('About the God Nation', () => {
     expect(motto).toHaveTextContent('Thereby taking the Gospel of the Kingdom to the ends of the earth.');
   });
 
+  it('puts the motto where the mission used to be: right after the vision, before the ways to take part', async () => {
+    mockFetch({ content: {} });
+    renderAbout();
+    const vision = await screen.findByRole('heading', { name: 'Our vision in action' });
+    const motto = screen.getByRole('heading', { name: 'Our motto' });
+    const join = screen.getByRole('heading', { name: 'How you can take part' });
+    expect(vision.compareDocumentPosition(motto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(motto.compareDocumentPosition(join) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('has the motto in French too', async () => {
     mockFetch({ content: {} });
     const { default: i18n } = await import('../i18n');
@@ -65,7 +76,7 @@ describe('About the God Nation', () => {
     const motto = await screen.findByTestId('about-motto');
     expect(motto).toHaveTextContent('Notre devise');
     expect(motto).toHaveTextContent('Faire des disciples qui font des disciples.');
-    expect(screen.getByRole('heading', { name: 'Notre vision et notre mission' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Notre vision en action' })).toBeInTheDocument();
     await i18n.changeLanguage('en');
   });
 
