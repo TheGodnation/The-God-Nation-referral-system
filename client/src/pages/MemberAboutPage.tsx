@@ -6,6 +6,7 @@ import { MemberNav } from '../components/member/MemberNav';
 import { HomeAboutTabs } from '../components/member/HomeAboutTabs';
 import { resolveWallpaperStyle } from '../lib/wallpaper';
 import { usePublicSettings } from '../lib/usePublicSettings';
+import { SOCIAL_ICONS, configuredSocials } from '../components/socialPlatforms';
 
 // "About the God Nation": the academy's own words — who we are, our calling,
 // our vision in action (the mission is blended into it), and our motto, which
@@ -20,7 +21,9 @@ const SECTIONS = [
 
 export function MemberAboutPage() {
   const { t } = useTranslation();
-  const { homeWallpaper } = usePublicSettings();
+  const settings = usePublicSettings();
+  const { homeWallpaper } = settings;
+  const socials = configuredSocials(settings);
   const section = 'card space-y-3 border-l-4 border-brand-500';
 
   return (
@@ -89,6 +92,37 @@ export function MemberAboutPage() {
                 </li>
               </ul>
             </article>
+
+            {socials.length > 0 && (
+              <article className="card space-y-3 border-l-4 border-brand-500" aria-labelledby="about-social" data-testid="about-social">
+                <h2 id="about-social" className="font-semibold text-brand-900">
+                  {t('aboutGodNation.social_title')}
+                </h2>
+                <p className="text-[15px] leading-relaxed text-slate-800">{t('aboutGodNation.social_intro')}</p>
+                <ul className="space-y-2">
+                  {socials.map((s) => {
+                    const icon = SOCIAL_ICONS[s.label];
+                    return (
+                      <li key={s.label}>
+                        <a
+                          href={s.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-medium text-brand-800 no-underline hover:bg-brand-50"
+                        >
+                          {icon && (
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white" style={{ background: icon.bg }}>
+                              <icon.Icon className="h-5 w-5" />
+                            </span>
+                          )}
+                          <span>{t(`aboutGodNation.social_${s.label.toLowerCase()}`)}</span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </article>
+            )}
           </div>
           <MemberNav />
         </section>

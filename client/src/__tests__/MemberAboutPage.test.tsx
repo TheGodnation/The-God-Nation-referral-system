@@ -48,6 +48,16 @@ describe('About the God Nation', () => {
     expect(screen.queryByRole('heading', { name: 'Our vision and mission' })).toBeNull();
   });
 
+  it('says just "The God Nation" — in the blue heading and in "Who we are" — never the long name', async () => {
+    mockFetch({ content: {} });
+    const { container } = renderAbout();
+    await screen.findByRole('heading', { name: 'Who we are' });
+    const header = container.querySelector('header.rounded-xl')!;
+    expect(within(header as HTMLElement).getByRole('heading', { name: 'The God Nation' })).toBeInTheDocument();
+    expect(screen.getByText(/^The God Nation exists to bring together citizens of the Kingdom of God/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Media and Leadership Academy/);
+  });
+
   it('states the motto', async () => {
     mockFetch({ content: {} });
     renderAbout();
@@ -105,6 +115,58 @@ describe('About the God Nation', () => {
     expect(tabs.getByRole('link', { name: 'About the God Nation' })).toHaveAttribute('aria-current', 'page');
     fireEvent.click(tabs.getByRole('link', { name: 'Home' }));
     expect(await screen.findByText('The Home page')).toBeInTheDocument();
+  });
+});
+
+describe('About page — our social networks, at the end', () => {
+  const links = {
+    whatsappContactUrl: 'https://chat.whatsapp.com/abc123',
+    messengerUrl: 'https://m.me/j/xyz',
+    facebookUrl: 'https://facebook.com/groups/godnation',
+    youtubeUrl: 'https://youtube.com/@godnation',
+  };
+
+  it('shows the networks the admin has given a link for, each opening its link, after "How you can take part"', async () => {
+    mockFetch({ content: {}, ...links });
+    renderAbout();
+    const box = await screen.findByTestId('about-social');
+    expect(within(box).getByRole('heading', { name: 'Join our community' })).toBeInTheDocument();
+    expect(within(box).getByRole('link', { name: 'Join our WhatsApp group' })).toHaveAttribute('href', links.whatsappContactUrl);
+    expect(within(box).getByRole('link', { name: 'Join our Messenger group' })).toHaveAttribute('href', links.messengerUrl);
+    expect(within(box).getByRole('link', { name: 'Join our Facebook group' })).toHaveAttribute('href', links.facebookUrl);
+    expect(within(box).getByRole('link', { name: 'Watch us on YouTube' })).toHaveAttribute('href', links.youtubeUrl);
+    // Networks with no link yet do not show.
+    expect(within(box).queryByRole('link', { name: /Telegram/ })).toBeNull();
+    expect(within(box).queryByRole('link', { name: /Instagram/ })).toBeNull();
+    expect(within(box).queryByRole('link', { name: /TikTok/ })).toBeNull();
+    const join = screen.getByRole('heading', { name: 'How you can take part' });
+    expect(join.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const a of within(box).getAllByRole('link')) expect(a).toHaveAttribute('target', '_blank');
+  });
+
+  it('shows all seven when all have links', async () => {
+    mockFetch({ content: {}, ...links, telegramUrl: 'https://t.me/godnation', instagramUrl: 'https://instagram.com/godnation', tiktokUrl: 'https://tiktok.com/@godnation' });
+    renderAbout();
+    const box = await screen.findByTestId('about-social');
+    expect(within(box).getAllByRole('link')).toHaveLength(7);
+  });
+
+  it('shows nothing at all until at least one link has been chosen', async () => {
+    mockFetch({ content: {} });
+    renderAbout();
+    await screen.findByRole('heading', { name: 'How you can take part' });
+    expect(screen.queryByTestId('about-social')).toBeNull();
+  });
+
+  it('is in French too', async () => {
+    mockFetch({ content: {}, ...links });
+    const { default: i18n } = await import('../i18n');
+    await i18n.changeLanguage('fr');
+    renderAbout();
+    const box = await screen.findByTestId('about-social');
+    expect(within(box).getByRole('heading', { name: 'Rejoignez notre communauté' })).toBeInTheDocument();
+    expect(within(box).getByRole('link', { name: 'Rejoindre notre groupe WhatsApp' })).toBeInTheDocument();
+    await i18n.changeLanguage('en');
   });
 });
 

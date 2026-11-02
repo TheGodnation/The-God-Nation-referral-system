@@ -16,27 +16,10 @@ import {
   SproutIcon,
   CompassIcon,
   ChatHeartIcon,
-  WhatsAppIcon,
-  TelegramIcon,
-  MessengerIcon,
-  FacebookIcon,
-  InstagramIcon,
-  TikTokIcon,
-  YouTubeIcon,
 } from '../components/Icons';
+import { SOCIAL_ICONS, configuredSocials } from '../components/socialPlatforms';
 
 type IconType = (p: { className?: string }) => JSX.Element;
-
-// One brand-appropriate icon + background color per social platform.
-const SOCIAL_ICONS: Record<string, { Icon: IconType; bg: string }> = {
-  WhatsApp: { Icon: WhatsAppIcon, bg: '#25D366' },
-  Telegram: { Icon: TelegramIcon, bg: '#26A5E4' },
-  Messenger: { Icon: MessengerIcon, bg: '#0084FF' },
-  Facebook: { Icon: FacebookIcon, bg: '#1877F2' },
-  Instagram: { Icon: InstagramIcon, bg: '#E1306C' },
-  TikTok: { Icon: TikTokIcon, bg: '#000000' },
-  YouTube: { Icon: YouTubeIcon, bg: '#FF0000' },
-};
 
 const OFFERS: { n: number; Icon: IconType }[] = [
   { n: 1, Icon: OpenBookIcon },
@@ -79,15 +62,7 @@ export function HomePage() {
   const { t } = useTranslation();
   const { facebookUrl, instagramUrl, tiktokUrl, youtubeUrl, whatsappContactUrl, telegramUrl, messengerUrl } = usePublicSettings();
 
-  const socials = [
-    { url: whatsappContactUrl, label: 'WhatsApp' },
-    { url: telegramUrl, label: 'Telegram' },
-    { url: messengerUrl, label: 'Messenger' },
-    { url: facebookUrl, label: 'Facebook' },
-    { url: instagramUrl, label: 'Instagram' },
-    { url: tiktokUrl, label: 'TikTok' },
-    { url: youtubeUrl, label: 'YouTube' },
-  ].filter((s) => s.url);
+  const socials = configuredSocials({ whatsappContactUrl, telegramUrl, messengerUrl, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl });
 
   return (
     <ContinueIfSignedIn>
