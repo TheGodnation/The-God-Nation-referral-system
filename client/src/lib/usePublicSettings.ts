@@ -3,6 +3,8 @@ import { api } from './api';
 
 export interface PublicSettings {
   supportWhatsappUrl: string | null;
+  whatsappGroupEnUrl: string | null;
+  whatsappGroupFrUrl: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
   tiktokUrl: string | null;
@@ -25,6 +27,8 @@ export interface PublicSettings {
 
 const EMPTY: PublicSettings = {
   supportWhatsappUrl: null,
+  whatsappGroupEnUrl: null,
+  whatsappGroupFrUrl: null,
   facebookUrl: null,
   instagramUrl: null,
   tiktokUrl: null,

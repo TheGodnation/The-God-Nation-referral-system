@@ -14,6 +14,8 @@ router.get('/public', asyncHandler(async (_req, res) => {
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' } });
   res.json({
     supportWhatsappUrl: settings?.supportWhatsappUrl ?? null,
+    whatsappGroupEnUrl: settings?.whatsappGroupEnUrl ?? null,
+    whatsappGroupFrUrl: settings?.whatsappGroupFrUrl ?? null,
     facebookUrl: settings?.facebookUrl ?? null,
     instagramUrl: settings?.instagramUrl ?? null,
     tiktokUrl: settings?.tiktokUrl ?? null,

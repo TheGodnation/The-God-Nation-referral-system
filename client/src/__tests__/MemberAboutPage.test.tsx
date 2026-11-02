@@ -139,6 +139,27 @@ describe('About page — our social networks, at the end', () => {
     for (const a of within(box).getAllByRole('link')) expect(a).toHaveAttribute('target', '_blank');
   });
 
+  it('has a place for the English and the French WhatsApp group, shown first', async () => {
+    mockFetch({ content: {}, whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENG', whatsappGroupFrUrl: 'https://chat.whatsapp.com/FRE', youtubeUrl: links.youtubeUrl });
+    renderAbout();
+    const box = await screen.findByTestId('about-social');
+    const all = within(box).getAllByRole('link');
+    expect(all.map((a) => a.textContent)).toEqual(['Join our WhatsApp group (English)', 'Join our WhatsApp group (French)', 'Watch us on YouTube']);
+    expect(all[0]).toHaveAttribute('href', 'https://chat.whatsapp.com/ENG');
+    expect(all[1]).toHaveAttribute('href', 'https://chat.whatsapp.com/FRE');
+  });
+
+  it('shows the group wording in French too', async () => {
+    mockFetch({ content: {}, whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENG', whatsappGroupFrUrl: 'https://chat.whatsapp.com/FRE' });
+    const { default: i18n } = await import('../i18n');
+    await i18n.changeLanguage('fr');
+    renderAbout();
+    const box = await screen.findByTestId('about-social');
+    expect(within(box).getByRole('link', { name: 'Rejoindre notre groupe WhatsApp (anglais)' })).toBeInTheDocument();
+    expect(within(box).getByRole('link', { name: 'Rejoindre notre groupe WhatsApp (français)' })).toBeInTheDocument();
+    await i18n.changeLanguage('en');
+  });
+
   it('shows all seven when all have links', async () => {
     mockFetch({ content: {}, ...links, telegramUrl: 'https://t.me/godnation', instagramUrl: 'https://instagram.com/godnation', tiktokUrl: 'https://tiktok.com/@godnation' });
     renderAbout();

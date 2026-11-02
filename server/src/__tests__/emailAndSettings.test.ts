@@ -42,6 +42,29 @@ describe('Admin Settings — extended fields', () => {
     expect(second.body.facebookUrl).toBe('https://facebook.com/thegodnation'); // untouched scalar preserved
   });
 
+  it('keeps the English and French WhatsApp group links, shows them publicly, and lets the admin clear one', async () => {
+    await createAdmin('admin-settings-wa@test.local', 'AdminPass123!');
+    const agent = request.agent(app);
+    const { csrf } = await bootstrap(agent);
+    await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email: 'admin-settings-wa@test.local', password: 'AdminPass123!' });
+    const set = await agent
+      .patch('/api/admin/settings')
+      .set('X-CSRF-Token', csrf)
+      .send({ whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENGLISHGROUP', whatsappGroupFrUrl: 'https://chat.whatsapp.com/FRENCHGROUP', supportWhatsappUrl: 'https://wa.me/237677272261' });
+    expect(set.status).toBe(200);
+    expect(set.body).toMatchObject({ whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENGLISHGROUP', whatsappGroupFrUrl: 'https://chat.whatsapp.com/FRENCHGROUP' });
+    // Anyone can see them (they are meant to be joined).
+    const pub = await request(app).get('/api/settings/public');
+    expect(pub.body).toMatchObject({ whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENGLISHGROUP', whatsappGroupFrUrl: 'https://chat.whatsapp.com/FRENCHGROUP', supportWhatsappUrl: 'https://wa.me/237677272261' });
+    // An unrelated update leaves them; null clears just one.
+    await agent.patch('/api/admin/settings').set('X-CSRF-Token', csrf).send({ facebookUrl: 'https://facebook.com/thegodnation' });
+    const cleared = await agent.patch('/api/admin/settings').set('X-CSRF-Token', csrf).send({ whatsappGroupFrUrl: null });
+    expect(cleared.body.whatsappGroupEnUrl).toBe('https://chat.whatsapp.com/ENGLISHGROUP');
+    expect(cleared.body.whatsappGroupFrUrl).toBeNull();
+    // Not a link: refused.
+    expect((await agent.patch('/api/admin/settings').set('X-CSRF-Token', csrf).send({ whatsappGroupEnUrl: 'join us' })).status).toBe(400);
+  });
+
   it('sets, preserves, and clears the leader signup access phrase', async () => {
     await createAdmin('admin-settings3@test.local', 'AdminPass123!');
     const agent = request.agent(app);

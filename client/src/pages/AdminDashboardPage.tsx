@@ -627,6 +627,8 @@ function RegistrationsTab({ includeTestData }: { includeTestData: boolean }) {
 
 interface SettingsData {
   supportWhatsappUrl: string | null;
+  whatsappGroupEnUrl: string | null;
+  whatsappGroupFrUrl: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
   tiktokUrl: string | null;
@@ -647,6 +649,8 @@ interface SettingsData {
 
 const EMPTY_SETTINGS: SettingsData = {
   supportWhatsappUrl: '',
+  whatsappGroupEnUrl: '',
+  whatsappGroupFrUrl: '',
   facebookUrl: '',
   instagramUrl: '',
   tiktokUrl: '',
@@ -801,6 +805,8 @@ export function SettingsTab() {
         // A blank link is sent as null so it can be taken away again (a missing field would leave it as it was).
         // A WhatsApp number typed instead of a link becomes a wa.me link.
         supportWhatsappUrl: normalizeWhatsappLink(settings.supportWhatsappUrl),
+        whatsappGroupEnUrl: normalizeWhatsappLink(settings.whatsappGroupEnUrl),
+        whatsappGroupFrUrl: normalizeWhatsappLink(settings.whatsappGroupFrUrl),
         facebookUrl: settings.facebookUrl?.trim() || null,
         instagramUrl: settings.instagramUrl?.trim() || null,
         tiktokUrl: settings.tiktokUrl?.trim() || null,
@@ -919,6 +925,8 @@ export function SettingsTab() {
         <h2 className="font-semibold text-brand-900">{t('admin.settings.social_heading')}</h2>
         {(
           [
+            ['whatsappGroupEnUrl', 'WhatsApp group (English)'],
+            ['whatsappGroupFrUrl', 'WhatsApp group (French)'],
             ['whatsappContactUrl', 'WhatsApp'],
             ['telegramUrl', 'Telegram'],
             ['messengerUrl', 'Messenger'],

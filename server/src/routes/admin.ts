@@ -884,6 +884,8 @@ const contentSchema = z
 
 function settingsResponse(settings: {
   supportWhatsappUrl: string | null;
+  whatsappGroupEnUrl: string | null;
+  whatsappGroupFrUrl: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
   tiktokUrl: string | null;
@@ -900,6 +902,8 @@ function settingsResponse(settings: {
 } | null) {
   return {
     supportWhatsappUrl: settings?.supportWhatsappUrl ?? null,
+    whatsappGroupEnUrl: settings?.whatsappGroupEnUrl ?? null,
+    whatsappGroupFrUrl: settings?.whatsappGroupFrUrl ?? null,
     facebookUrl: settings?.facebookUrl ?? null,
     instagramUrl: settings?.instagramUrl ?? null,
     tiktokUrl: settings?.tiktokUrl ?? null,
@@ -929,6 +933,8 @@ router.get('/settings', asyncHandler(async (_req, res) => {
 
 const settingsSchema = z.object({
   supportWhatsappUrl: z.string().url().optional().nullable(),
+  whatsappGroupEnUrl: z.string().url().optional().nullable(),
+  whatsappGroupFrUrl: z.string().url().optional().nullable(),
   facebookUrl: z.string().url().optional().nullable(),
   instagramUrl: z.string().url().optional().nullable(),
   tiktokUrl: z.string().url().optional().nullable(),
@@ -993,6 +999,8 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
 
   const scalarFields = {
     ...(d.supportWhatsappUrl !== undefined ? { supportWhatsappUrl: d.supportWhatsappUrl } : {}),
+    ...(d.whatsappGroupEnUrl !== undefined ? { whatsappGroupEnUrl: d.whatsappGroupEnUrl } : {}),
+    ...(d.whatsappGroupFrUrl !== undefined ? { whatsappGroupFrUrl: d.whatsappGroupFrUrl } : {}),
     ...(d.facebookUrl !== undefined ? { facebookUrl: d.facebookUrl } : {}),
     ...(d.instagramUrl !== undefined ? { instagramUrl: d.instagramUrl } : {}),
     ...(d.tiktokUrl !== undefined ? { tiktokUrl: d.tiktokUrl } : {}),

@@ -23,6 +23,8 @@ export const SOCIAL_ICONS: Record<string, { Icon: IconType; bg: string }> = {
 };
 
 export interface SocialUrls {
+  whatsappGroupEnUrl?: string | null;
+  whatsappGroupFrUrl?: string | null;
   whatsappContactUrl: string | null;
   telegramUrl: string | null;
   messengerUrl: string | null;
@@ -32,15 +34,26 @@ export interface SocialUrls {
   youtubeUrl: string | null;
 }
 
-/** The platforms that have a link (the admin chooses which), in a fixed order. */
-export function configuredSocials(s: SocialUrls): { label: string; url: string }[] {
+export interface SocialLink {
+  /** Used for the About page wording (aboutGodNation.social_<key>). */
+  key: string;
+  label: string;
+  url: string;
+  /** Which brand icon (a key of SOCIAL_ICONS). */
+  icon: string;
+}
+
+/** The places that have a link (the admin chooses which), in a fixed order: the two WhatsApp groups first. */
+export function configuredSocials(s: SocialUrls): SocialLink[] {
   return [
-    { url: s.whatsappContactUrl, label: 'WhatsApp' },
-    { url: s.telegramUrl, label: 'Telegram' },
-    { url: s.messengerUrl, label: 'Messenger' },
-    { url: s.facebookUrl, label: 'Facebook' },
-    { url: s.instagramUrl, label: 'Instagram' },
-    { url: s.tiktokUrl, label: 'TikTok' },
-    { url: s.youtubeUrl, label: 'YouTube' },
-  ].filter((x): x is { label: string; url: string } => Boolean(x.url));
+    { url: s.whatsappGroupEnUrl, key: 'whatsapp_en', label: 'WhatsApp (English)', icon: 'WhatsApp' },
+    { url: s.whatsappGroupFrUrl, key: 'whatsapp_fr', label: 'WhatsApp (French)', icon: 'WhatsApp' },
+    { url: s.whatsappContactUrl, key: 'whatsapp', label: 'WhatsApp', icon: 'WhatsApp' },
+    { url: s.telegramUrl, key: 'telegram', label: 'Telegram', icon: 'Telegram' },
+    { url: s.messengerUrl, key: 'messenger', label: 'Messenger', icon: 'Messenger' },
+    { url: s.facebookUrl, key: 'facebook', label: 'Facebook', icon: 'Facebook' },
+    { url: s.instagramUrl, key: 'instagram', label: 'Instagram', icon: 'Instagram' },
+    { url: s.tiktokUrl, key: 'tiktok', label: 'TikTok', icon: 'TikTok' },
+    { url: s.youtubeUrl, key: 'youtube', label: 'YouTube', icon: 'YouTube' },
+  ].filter((x): x is SocialLink => Boolean(x.url));
 }

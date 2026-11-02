@@ -60,9 +60,9 @@ function JoinButton({ className = '' }: { className?: string }) {
 // who referred the visitor, and everyone sees the same page.
 export function HomePage() {
   const { t } = useTranslation();
-  const { facebookUrl, instagramUrl, tiktokUrl, youtubeUrl, whatsappContactUrl, telegramUrl, messengerUrl } = usePublicSettings();
+  const { facebookUrl, instagramUrl, tiktokUrl, youtubeUrl, whatsappContactUrl, telegramUrl, messengerUrl, whatsappGroupEnUrl, whatsappGroupFrUrl } = usePublicSettings();
 
-  const socials = configuredSocials({ whatsappContactUrl, telegramUrl, messengerUrl, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl });
+  const socials = configuredSocials({ whatsappGroupEnUrl, whatsappGroupFrUrl, whatsappContactUrl, telegramUrl, messengerUrl, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl });
 
   return (
     <ContinueIfSignedIn>
@@ -198,9 +198,9 @@ export function HomePage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{t('homePage.connect')}</h2>
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             {socials.map((s) => {
-              const iconInfo = SOCIAL_ICONS[s.label];
+              const iconInfo = SOCIAL_ICONS[s.icon];
               return (
-                <a key={s.label} href={s.url!} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-full border border-slate-200 py-2 pl-2 pr-5 text-sm font-medium text-brand-700 hover:bg-brand-50">
+                <a key={s.key} href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-full border border-slate-200 py-2 pl-2 pr-5 text-sm font-medium text-brand-700 hover:bg-brand-50">
                   {iconInfo && (
                     <span className="flex h-7 w-7 items-center justify-center rounded-full text-white" style={{ background: iconInfo.bg }}>
                       <iconInfo.Icon className="h-4 w-4" />

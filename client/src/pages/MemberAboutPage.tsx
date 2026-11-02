@@ -120,9 +120,9 @@ export function MemberAboutPage() {
                 <p className="text-[15px] leading-relaxed text-slate-800">{t('aboutGodNation.social_intro')}</p>
                 <ul className="space-y-2">
                   {socials.map((s) => {
-                    const icon = SOCIAL_ICONS[s.label];
+                    const icon = SOCIAL_ICONS[s.icon];
                     return (
-                      <li key={s.label}>
+                      <li key={s.key}>
                         <a
                           href={s.url}
                           target="_blank"
@@ -134,7 +134,7 @@ export function MemberAboutPage() {
                               <icon.Icon className="h-5 w-5" />
                             </span>
                           )}
-                          <span>{t(`aboutGodNation.social_${s.label.toLowerCase()}`)}</span>
+                          <span>{t(`aboutGodNation.social_${s.key}`)}</span>
                         </a>
                       </li>
                     );

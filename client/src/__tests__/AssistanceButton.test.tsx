@@ -38,6 +38,11 @@ describe('the helpers', () => {
     expect(normalizeWhatsappLink('wa.me/237670000000')).toBe('https://wa.me/237670000000');
     expect(normalizeWhatsappLink('chat.whatsapp.com/ABC')).toBe('https://chat.whatsapp.com/ABC');
     expect(normalizeWhatsappLink('https://wa.me/237670000000')).toBe('https://wa.me/237670000000');
+    // A local Cameroon number (9 digits) gets the +237 in front; an international 00 prefix is understood.
+    expect(normalizeWhatsappLink('677272261')).toBe('https://wa.me/237677272261');
+    expect(normalizeWhatsappLink('677 27 22 61')).toBe('https://wa.me/237677272261');
+    expect(normalizeWhatsappLink('00237677272261')).toBe('https://wa.me/237677272261');
+    expect(normalizeWhatsappLink('+33 6 12 34 56 78')).toBe('https://wa.me/33612345678');
     expect(normalizeWhatsappLink('   ')).toBeNull();
     expect(normalizeWhatsappLink(null)).toBeNull();
   });
