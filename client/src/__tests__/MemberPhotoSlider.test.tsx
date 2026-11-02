@@ -68,7 +68,7 @@ describe('MemberPhotoSlider', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('looks again when the app returns to the front after an hour or more, but not straight away', async () => {
+  it('looks again when the app returns to the front after half an hour or more, but not straight away', async () => {
     mockFetch([{ personId: 'p1', name: 'Grace Mbeki', photoUrl: '/api/people/p1/photo?v=1' }]);
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
     renderSlider();
@@ -79,9 +79,9 @@ describe('MemberPhotoSlider', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // Two hours later: fetch the strip again.
+    // Forty minutes later: fetch the strip again.
     const real = Date.now;
-    vi.spyOn(Date, 'now').mockImplementation(() => real() + 2 * 60 * 60 * 1000);
+    vi.spyOn(Date, 'now').mockImplementation(() => real() + 40 * 60 * 1000);
     document.dispatchEvent(new Event('visibilitychange'));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });

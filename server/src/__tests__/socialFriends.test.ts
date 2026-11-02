@@ -323,7 +323,7 @@ describe('Home strip — everyone, photos first', () => {
   });
 });
 
-describe('Home strip — revolves every 12 hours', () => {
+describe('Home strip — revolves every hour', () => {
   const HOUR = 60 * 60 * 1000;
   let seed = 0;
   async function photoPerson(name: string) {
@@ -338,11 +338,11 @@ describe('Home strip — revolves every 12 hours', () => {
       },
     });
   }
-  /** Reads the strip as it is `hours` after the start of a 12-hour window. */
+  /** Reads the strip a little way into the hour that is `windowOffset` hours after the current one. */
   async function stripAt(me: Awaited<ReturnType<typeof member>>, windowOffset: number) {
-    const start = Math.floor(Date.now() / (12 * HOUR)) * 12 * HOUR;
+    const start = Math.floor(Date.now() / HOUR) * HOUR;
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(start + windowOffset * 12 * HOUR + HOUR));
+    vi.setSystemTime(new Date(start + windowOffset * HOUR + 10 * 60 * 1000));
     try {
       const res = await me.agent.get('/api/member/people/strip');
       return res.body.items.map((p: any) => p.name) as string[];
@@ -351,11 +351,17 @@ describe('Home strip — revolves every 12 hours', () => {
     }
   }
 
-  it('stays the same within a 12-hour window, and moves on in the next', async () => {
+  it('stays the same within an hour, and moves on in the next', async () => {
     const me = await member('Rev Me');
     for (let i = 1; i <= 3; i++) await photoPerson(`Rev Photo ${i}`);
     const a = await stripAt(me, 0);
     expect(await stripAt(me, 0)).toEqual(a);
+    // Later in the same hour: still the same strip.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(Math.floor(Date.now() / HOUR) * HOUR + 50 * 60 * 1000));
+    const late = (await me.agent.get('/api/member/people/strip')).body.items.map((p: any) => p.name);
+    vi.useRealTimers();
+    expect(late).toEqual(a);
     const b = await stripAt(me, 1);
     const c = await stripAt(me, 2);
     const d = await stripAt(me, 3);

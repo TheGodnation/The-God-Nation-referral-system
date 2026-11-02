@@ -203,7 +203,7 @@ router.get('/people/with-photo', requireMember, asyncHandler(async (req, res) =>
 
 // GET /api/member/people/strip — the Home page strip: every member alike
 // (leaders and members are not told apart). People with a profile picture come
-// first and they revolve: every 12 hours the strip moves on to the next
+// first and they revolve: every hour the strip moves on to the next
 // STRIP_SIZE of them (see lib/memberStrip.ts), so the same pictures are not
 // there for long. Then the others (newest members first), if there is room;
 // they are shown with their initials by the app. Same lightness rules as
