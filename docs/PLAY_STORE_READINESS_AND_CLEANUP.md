@@ -20,8 +20,7 @@
 
 ## What was removed in the clean-up (done)
 
-- Dead text, five unused functions, the unused Updates banner screen part, and
-  the one-time backfill tool.
+- Dead text, five unused functions and the unused Updates banner screen part.
 - Leader recommendations (feature and database table), the personal WhatsApp
   setting, leader self-sign-up (page, route, phrase), and the old Home,
   Welcome and Registration text editors in the admin "Website text" tab.
@@ -79,7 +78,7 @@ safe it is to remove. Tell me which items to go ahead with.
 | A5 | **Updates banner screen part** (`UpdatesBanner.tsx`) | Not placed on any page now; only a test uses it. Its text (Mission / Vision / Purpose boxes) is also out of date against the new motto | None. Remove the file and its test |
 | A6 | **Unused small functions (client)**: `FormIcon`, `CrossIcon`, `disablePushNotifications`, `canRecord`, `clearDraft` | Written, never called | None |
 | A7 | **`WhatsApp contact` setting** (`Settings.whatsappContactUrl`, and its field in the admin and public settings answers) | We removed the personal WhatsApp contact from Home and About. Nothing on the app reads it. The old number is still stored in the database | Low. Remove the field, then a migration drops the column (this also deletes the stored personal number, which is good) |
-| A8 | **`personBackfill.ts`** (server) | A one-time tool from Phase 3 that linked old registrations to people. It is only run by its own test | None |
+| A8 | **`personBackfill.ts`** (server) | A safety net from Phase 3 that links any old registration without a person; the deploy's seed step runs it every time. **Kept**: deleting it broke the 2 November deploy (see below) | Keep |
 | A9 | **`robots.txt`** points to `/sitemap.xml` with no domain | Google wants the full web address, `https://thegodnationacademy.org/sitemap.xml`. The sitemap itself exists | None, this is a one-line fix |
 | A10 | **Old manifest and page description**: "Be Equipped. Be Transformed. Be Sent. Register and join our WhatsApp community." (manifest.webmanifest and index.html) | Out of date; it is the first thing Google and the Play Store show | None. Replace with the new description (see Part 2) |
 
@@ -217,3 +216,15 @@ I would do these in this order. None is started.
 4. Do you want the Play Store name to be **The God Nation**?
 5. Anything you want to say in the store description (I will draft it in
    English and French for your approval).
+
+## Incident: 2 November 2026, deploy failed after the second clean-up
+
+I deleted `server/src/lib/personBackfill.ts`, believing only its test used it.
+The deploy's seed step (`server/prisma/seed.ts`) also imports it, so the deploy
+failed *after* its database migrations had already run. The old server code
+kept running against a database that had lost two columns it still read, so
+the public settings call failed and the Chats Assistance button and the
+About-page WhatsApp groups and social links disappeared. Fix: the file and its
+tests were restored. The seed was then run twice on a fresh database built from
+all migrations to prove it works. Lesson: the type-check does not cover
+`prisma/seed.ts`, so any future removal must also be checked against it.
