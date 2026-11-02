@@ -84,12 +84,12 @@ describe('Updates banner', () => {
     const texts = await a.agent
       .patch('/api/admin/settings')
       .set('X-CSRF-Token', a.csrf)
-      .send({ content: { appSloganEn: 'Raising kingdom leaders', appMissionEn: 'To train leaders.', appVisionFr: 'Une nation pour Dieu.' } });
+      .send({ content: { footerEn: 'Raising kingdom leaders', contactInfoEn: 'To train leaders.', footerFr: 'Une nation pour Dieu.' } });
     expect(texts.status).toBe(200);
 
     const pub = await request(app).get('/api/settings/public');
     expect(pub.body.appBannerUrl).toContain('/api/app-banner');
-    expect(pub.body.content).toMatchObject({ appSloganEn: 'Raising kingdom leaders', appMissionEn: 'To train leaders.', appVisionFr: 'Une nation pour Dieu.' });
+    expect(pub.body.content).toMatchObject({ footerEn: 'Raising kingdom leaders', contactInfoEn: 'To train leaders.', footerFr: 'Une nation pour Dieu.' });
 
     const m = await member('Ada');
     const pic = await m.agent.get('/api/app-banner');

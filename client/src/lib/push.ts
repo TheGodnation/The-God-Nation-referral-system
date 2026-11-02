@@ -66,21 +66,6 @@ export async function enablePushNotifications(): Promise<EnablePushResult> {
 
 /** Unregisters the current device's subscription, both server-side and in
  * the browser itself. Used if a member turns notifications back off. */
-export async function disablePushNotifications(): Promise<void> {
-  if (!pushSupported()) return;
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
-    if (subscription) {
-      await api.delete('/api/notifications/push/subscribe', { endpoint: subscription.endpoint }).catch(() => {});
-      await subscription.unsubscribe().catch(() => {});
-    }
-  } catch {
-    // Best-effort — nothing more useful to do if the service worker/browser
-    // API itself is unavailable here.
-  }
-}
-
 export function isIos(): boolean {
   if (typeof navigator === 'undefined') return false;
   // iPadOS reports itself as a Mac; a touch screen gives it away.

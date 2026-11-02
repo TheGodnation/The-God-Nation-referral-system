@@ -93,7 +93,7 @@ describe('AssistanceButton', () => {
 describe('Admin → Settings: the assistance WhatsApp', () => {
   const settings = {
     supportWhatsappUrl: null, facebookUrl: 'https://facebook.com/groups/old', instagramUrl: null, tiktokUrl: null, youtubeUrl: null,
-    telegramUrl: null, messengerUrl: null, leaderSignupPhrase: null, contactEmail: null,
+    telegramUrl: null, messengerUrl: null, contactEmail: null,
     defaultReferrerPersonId: null, defaultReferrerPersonName: null, authorTitle: null, content: {},
   };
 

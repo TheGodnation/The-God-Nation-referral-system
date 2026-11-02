@@ -127,14 +127,6 @@ export async function recordWhatsappClick(registrationId: string, visitorId?: st
   });
 }
 
-export async function setLeaderSignupPhrase(phrase: string | null) {
-  await prisma.settings.upsert({
-    where: { id: 'singleton' },
-    create: { id: 'singleton', leaderSignupPhrase: phrase },
-    update: { leaderSignupPhrase: phrase },
-  });
-}
-
 export function extractCookie(res: any, name: string): string | undefined {
   const setCookies: string[] = res.headers['set-cookie'] || [];
   for (const c of setCookies) {

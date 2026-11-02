@@ -112,17 +112,6 @@ enum WellbeingStatus {
   UNABLE_TO_REACH
 }
 
-// Phase 2C — kept as its own enum, deliberately never shared with any other
-// status enum in this schema even where states are named identically: same
-// convention as every other status enum in this schema — one dedicated enum
-// per model, never shared across unrelated models.
-enum OrganizationalLeadershipRecommendationStatus {
-  PROPOSED
-  APPROVED
-  REJECTED
-  WITHDRAWN
-}
-
 // Community Posting Policy — a Community-scoped posting PERMISSION, never a
 // new role or authorization engine. EVERYONE preserves this codebase's
 // existing behavior (any Person with hasConversationAccess may post);
@@ -334,7 +323,6 @@ model User {
   followUpAssignmentsClosed                      FollowUpAssignment[]                     @relation("FollowUpClosedBy")
   followUpContactsLogged                         FollowUpContact[]
   announcementsCreated                           Announcement[]
-  organizationalLeadershipRecommendationsDecided OrganizationalLeadershipRecommendation[]
   headquartersPostsCreated                       HeadquartersPost[]
   privateConversationsInitiated                  PrivateConversation[]
   privateMessagesSent                            PrivateMessage[]
@@ -562,14 +550,8 @@ model Settings {
   instagramUrl            String?
   tiktokUrl               String?
   youtubeUrl              String?
-  whatsappContactUrl      String?
   telegramUrl             String?
   messengerUrl            String?
-  // Shared access phrase gating Leader self-signup (POST
-  // /api/auth/leader-signup). Stored in plain text — the Admin needs to be
-  // able to read it back to share it in the WhatsApp group, so it isn't a
-  // password. Null/blank means self-signup is turned off entirely.
-  leaderSignupPhrase      String?
   content                 Json?
   // The wide picture at the top of the member Updates page (the ministry's
   // banner). Its Mission / Vision / Purpose text lives in `content`.
@@ -851,8 +833,6 @@ model Person {
   followUpConversationReads                       FollowUpConversationRead[]
   leadershipCollaborationMessages                 LeadershipCollaborationMessage[]
   leadershipCollaborationConversationReads        LeadershipCollaborationConversationRead[]
-  organizationalLeadershipRecommendationsMade     OrganizationalLeadershipRecommendation[]  @relation("OrganizationalLeadershipRecommendationProposer")
-  organizationalLeadershipRecommendationsReceived OrganizationalLeadershipRecommendation[]  @relation("OrganizationalLeadershipRecommendationCandidate")
   headquartersPostComments                        HeadquartersPostComment[]
   headquartersPostReactions                       HeadquartersPostReaction[]
   announcementsAuthored                           Announcement[]                            @relation("AnnouncementAuthor")
@@ -964,7 +944,6 @@ model Community {
   conversation                            Conversation?
   announcementTargets                     AnnouncementTarget[]
   headquartersSettings                    Settings[]                               @relation("SettingsHeadquarters")
-  organizationalLeadershipRecommendations OrganizationalLeadershipRecommendation[]
   headquartersPostTargets                 HeadquartersPostTarget[]
   prayerRequests                          PrayerRequest[]
   teachings                               Teaching[]
@@ -1466,50 +1445,6 @@ model FollowUpContact {
   @@index([followUpAssignmentId])
   @@index([contactedAt])
   @@index([loggedByUserId])
-}
-
-// Phase 2C — an organizational (Community-generation) leadership
-// recommendation: the Community-generation-growth recommendation mechanism.
-//
-// communityId is the ANCHOR Community — "this recommendation concerns the
-// next-generation growth of this existing Community" — never a placeholder
-// for a Community that doesn't exist yet (no future-Community row is ever
-// created by this model or by approving it). Organizational generation is
-// intentionally NOT a column here: it is always derived on read from
-// communityId via lib/tree.ts's getCommunityGeneration, exactly like every
-// other generation-derived value in this schema (Phase 1/2A/2B's own
-// precedent) — a recommendation's displayed generation always reflects the
-// anchor Community's CURRENT position in the Headquarters tree, never a
-// value frozen at creation time.
-//
-// Approving a recommendation changes ONLY this row's own status/decision
-// fields — it never creates a Community, never creates a RoleAssignment,
-// never touches Community.parentId, and never touches Headquarters. Formal
-// Community creation and Leader appointment remain fully separate,
-// Admin-only actions (adminCommunities.ts / adminLeadership.ts), completely
-// unmodified by this model's existence — a "recommend, never appoint"
-// boundary.
-model OrganizationalLeadershipRecommendation {
-  id                 String                                       @id @default(uuid())
-  proposedPersonId   String
-  communityId        String
-  proposedByPersonId String
-  status             OrganizationalLeadershipRecommendationStatus @default(PROPOSED)
-  note               String?
-  createdAt          DateTime                                     @default(now())
-  updatedAt          DateTime                                     @updatedAt
-  decidedAt          DateTime?
-  decidedByUserId    String?
-  decisionNote       String?
-
-  proposedPerson   Person    @relation("OrganizationalLeadershipRecommendationCandidate", fields: [proposedPersonId], references: [id], onDelete: Cascade)
-  proposedByPerson Person    @relation("OrganizationalLeadershipRecommendationProposer", fields: [proposedByPersonId], references: [id], onDelete: Cascade)
-  community        Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  decidedByUser    User?     @relation(fields: [decidedByUserId], references: [id])
-
-  @@index([proposedByPersonId, status])
-  @@index([proposedPersonId, status])
-  @@index([communityId, status])
 }
 
 // ---------------------------------------------------------------------------

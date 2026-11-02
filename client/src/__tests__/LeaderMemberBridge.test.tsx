@@ -50,7 +50,7 @@ function renderDashboard() {
 const AUTH_MOCKS = {
   '/api/auth/me': { status: 200, body: { user: { id: 'u1', name: 'Mary Ngu', email: 'mary@example.com', role: 'LEADER', personId: null } } },
   '/api/leader/referrals': { status: 200, body: { items: [], pagination: { totalPages: 1 } } },
-  '/api/leader/links': { status: 200, body: { referralCode: null, links: null, outreachLinks: null } },
+  '/api/leader/links': { status: 200, body: { referralCode: null, links: null } },
 };
 
 describe('LeaderDashboardPage — Leader <-> Member identity bridge', () => {

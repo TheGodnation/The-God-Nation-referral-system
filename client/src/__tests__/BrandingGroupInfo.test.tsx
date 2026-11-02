@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { UpdatesBanner } from '../components/updates/UpdatesBanner';
 import { MemberGroupInfoPage } from '../pages/MemberGroupInfoPage';
 import { MemberChatsPage } from '../pages/MemberChatsPage';
 import { GroupDetailsEditor } from '../components/admin/GroupDetailsEditor';
@@ -33,36 +32,6 @@ afterEach(() => {
   calls.length = 0;
   localStorage.clear();
   delete (navigator as unknown as { connection?: unknown }).connection;
-});
-
-describe('Updates banner', () => {
-  it('shows the picture, the slogan and Mission / Vision / Purpose', async () => {
-    mockFetch({
-      'GET /api/settings/public': () => ({
-        body: {
-          content: { appSloganEn: 'Raising kingdom leaders', appMissionEn: 'To train leaders.', appVisionEn: 'A nation for God.', appPurposeEn: 'To serve.' },
-          appBannerUrl: '/api/app-banner?v=1',
-        },
-      }),
-    });
-    const { container } = render(<UpdatesBanner />);
-    expect(await screen.findByText('Raising kingdom leaders')).toBeInTheDocument();
-    expect(screen.getByText('📌 Mission')).toBeInTheDocument();
-    expect(screen.getByText('To train leaders.')).toBeInTheDocument();
-    expect(screen.getByText('👁 Vision')).toBeInTheDocument();
-    expect(screen.getByText('🎯 Purpose')).toBeInTheDocument();
-    expect(container.querySelector('img[src="/api/app-banner?v=1"]')).not.toBeNull();
-  });
-
-  it('with Save data on, shows colours instead of the picture', async () => {
-    // "Automatic" turns save-data on by itself on a very slow network —
-    // there is no manual "always save data" option any more.
-    Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
-    mockFetch({ 'GET /api/settings/public': () => ({ body: { content: {}, appBannerUrl: '/api/app-banner?v=1' } }) });
-    const { container } = render(<UpdatesBanner />);
-    expect(await screen.findByText('THE GOD NATION')).toBeInTheDocument();
-    expect(container.querySelector('img[src="/api/app-banner?v=1"]')).toBeNull();
-  });
 });
 
 describe('Group info page', () => {

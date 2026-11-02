@@ -2,7 +2,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberLoginPage } from '../pages/MemberLoginPage';
-import { RegisterPage } from '../pages/RegisterPage';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 import { suggestEmailFix } from '../lib/emailTypo';
 
@@ -80,29 +79,6 @@ describe('"Send a new code" waits a minute', () => {
     expect(screen.getByRole('button', { name: /Send a new code in \d+s/ })).toBeDisabled();
   });
 
-  it('on the join flow code screen too', async () => {
-    mockFetch({ 'POST /api/member/auth/signup/start': () => ({ body: { message: 'ok' } }) });
-    render(
-      <MemoryRouter initialEntries={['/register?pathway=TRAINING']}>
-        <RegisterPage />
-      </MemoryRouter>,
-    );
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await screen.findByLabelText('6-digit code');
-
-    // Only the clock is faked: the real once-a-second tick then reads it.
-    vi.useFakeTimers({ toFake: ['Date'] });
-    expect(screen.getByRole('button', { name: /Resend code in \d+s/ })).toBeDisabled();
-    vi.setSystemTime(Date.now() + 61_000);
-    const resend = await screen.findByRole('button', { name: 'Resend code' }, { timeout: 2500 });
-    await act(async () => {
-      fireEvent.click(resend);
-    });
-    expect(signupStarts()).toBe(2);
-    expect(screen.getByRole('button', { name: /Resend code in \d+s/ })).toBeDisabled();
-  });
 });
 
 describe('"Did you mean …?" for a misspelled email provider', () => {
@@ -125,46 +101,6 @@ describe('"Did you mean …?" for a misspelled email provider', () => {
     for (const ok of ['a@gmail.com', 'a@yahoo.fr', 'a@mail.com', 'a@live.fr', 'a@thegodnationacademy.org', 'a@orange.cm', 'a@gmx.com', 'not-an-email', 'a@', 'a@localhost', 'a@church']) {
       expect(suggestEmailFix(ok)).toBeNull();
     }
-  });
-
-  it('on the join flow: stops before sending, and "Yes, use this" fixes the address', async () => {
-    mockFetch({ 'POST /api/member/auth/signup/start': () => ({ body: { message: 'ok' } }) });
-    render(
-      <MemoryRouter initialEntries={['/register?pathway=TRAINING']}>
-        <RegisterPage />
-      </MemoryRouter>,
-    );
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@gmil.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-
-    expect(screen.getByText('Did you mean ada@gmail.com?')).toBeInTheDocument();
-    expect(signupStarts()).toBe(0);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Yes, use this' }));
-    expect(screen.getByLabelText('Email')).toHaveValue('ada@gmail.com');
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await screen.findByLabelText('6-digit code');
-    expect(calls.find((c) => c.url === '/api/member/auth/signup/start')?.body.email).toBe('ada@gmail.com');
-  });
-
-  it('"No, keep mine" sends the address as typed', async () => {
-    mockFetch({ 'POST /api/member/auth/signup/start': () => ({ body: { message: 'ok' } }) });
-    render(
-      <MemoryRouter initialEntries={['/register?pathway=TRAINING']}>
-        <RegisterPage />
-      </MemoryRouter>,
-    );
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@gmal.com' } });
-    fireEvent.blur(screen.getByLabelText('Email'));
-    expect(screen.getByText('Did you mean ada@gmail.com?')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'No, keep mine' }));
-    expect(screen.queryByText('Did you mean ada@gmail.com?')).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await screen.findByLabelText('6-digit code');
-    expect(calls.find((c) => c.url === '/api/member/auth/signup/start')?.body.email).toBe('ada@gmal.com');
   });
 
   it('on "forgot password": no code is requested for a misspelled address until the visitor answers', () => {

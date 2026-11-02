@@ -8,7 +8,7 @@
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#0f2260",
-  "description": "Be Equipped. Be Transformed. Be Sent. Register and join our WhatsApp community.",
+  "description": "The God Nation: a community of disciples learning, praying and growing together — leadership school, Dominion Clinic, chats and giving, in English and French.",
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -60,5 +60,10 @@
         }
       ]
     }
-  }
+  },
+  "categories": [
+    "education",
+    "lifestyle",
+    "social"
+  ]
 }

@@ -20,7 +20,6 @@ router.get('/public', asyncHandler(async (_req, res) => {
     instagramUrl: settings?.instagramUrl ?? null,
     tiktokUrl: settings?.tiktokUrl ?? null,
     youtubeUrl: settings?.youtubeUrl ?? null,
-    whatsappContactUrl: settings?.whatsappContactUrl ?? null,
     telegramUrl: settings?.telegramUrl ?? null,
     messengerUrl: settings?.messengerUrl ?? null,
     content: (settings?.content as Record<string, string> | null) ?? {},

@@ -3,8 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { HomePage } from './pages/HomePage';
 import { JoinPage } from './pages/JoinPage';
-import { WelcomePage } from './pages/WelcomePage';
-import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
 import { RequireMember } from './components/RequireMember';
 import { AuthProvider } from './lib/AuthContext';
@@ -32,9 +30,6 @@ const ChangePasswordPage = lazy(() =>
 );
 const LeaderSetupPage = lazy(() =>
   import('./pages/LeaderSetupPage').then((m) => ({ default: m.LeaderSetupPage })),
-);
-const LeaderSignupPage = lazy(() =>
-  import('./pages/LeaderSignupPage').then((m) => ({ default: m.LeaderSignupPage })),
 );
 const ForgotPasswordPage = lazy(() =>
   import('./pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
@@ -112,13 +107,12 @@ export default function App() {
             <Route path="/join" element={<JoinPage />} />
             {/* Share-into-app: opened from the phone's Share menu (see public/sw.js). */}
             <Route path="/share" element={<SharePage />} />
-            <Route path="/welcome" element={<WelcomePage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/welcome" element={<JoinPage />} />
+            <Route path="/register" element={<Navigate to="/member/join" replace />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/leader/setup" element={<LeaderSetupPage />} />
-            <Route path="/leader-signup" element={<LeaderSignupPage />} />
             <Route path="/page/:slug" element={<ContentPageView />} />
             <Route path="/teachings" element={<TeachingsPage />} />
             <Route path="/announcements" element={<AnnouncementsPage />} />

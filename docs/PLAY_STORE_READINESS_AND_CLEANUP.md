@@ -1,5 +1,22 @@
 # The God Nation — Clean-up report and Play Store readiness check
 
+## Decisions made by the founder (2 November 2026)
+
+- Clean-up approved: the whole A list, the leader-recommendation feature
+  (including its database table), the personal WhatsApp setting, the old
+  README and acceptance-test document.
+- Leaders' shared links now lead to the new sign-up (`/member/join`). The old
+  `/welcome` and `/register` links stay working and lead to the same place.
+- The leader self-sign-up phrase and page are removed.
+- The privacy page may mention King's Tokens (done, worded as study rewards
+  with no cash value).
+- Payments for the first Android release: option 3. Paid books stay on the
+  website; the Android app only offers books the ministry has unlocked.
+  (Not built yet: it is part of the Play Store build work.)
+- Store name: **The God Nation**.
+- Store details (screenshots, descriptions): later, when we start that step.
+
+
 Written 2 November 2026. This is a report only. Nothing has been deleted or
 changed. Each item says what it is, why it is not needed any more, and how
 safe it is to remove. Tell me which items to go ahead with.

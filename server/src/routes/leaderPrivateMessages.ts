@@ -36,7 +36,7 @@ const createSchema = z
 // private conversation only with a Person who is an ACTIVE member of a
 // Community the Leader currently holds an ACTIVE, EXACT SCOPED_LEADER
 // RoleAssignment for (never Geography, never a parent/child/descendant
-// Community, never OrganizationalLeadershipRecommendation — see
+// Community — see
 // getLeaderExactCommunityIds in lib/privateMessaging.ts, which reuses
 // RoleAssignment directly rather than any recommendation/proposal record).
 // leaderPersonId is always req.leaderPersonId, never accepted from the body.

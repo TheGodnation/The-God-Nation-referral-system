@@ -635,7 +635,6 @@ interface SettingsData {
   youtubeUrl: string | null;
   telegramUrl: string | null;
   messengerUrl: string | null;
-  leaderSignupPhrase: string | null;
   contactEmail: string | null;
   // Section 14/15: the single catch-all Person every unattributed joiner is
   // auto-friended to, and the shared title shown alongside a "post as self"
@@ -656,7 +655,6 @@ const EMPTY_SETTINGS: SettingsData = {
   youtubeUrl: '',
   telegramUrl: '',
   messengerUrl: '',
-  leaderSignupPhrase: '',
   contactEmail: '',
   defaultReferrerPersonId: null,
   defaultReferrerPersonName: null,
@@ -755,8 +753,6 @@ export function SettingsTab() {
   const [settings, setSettings] = useState<SettingsData>(EMPTY_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
-  const signupLink = `${window.location.origin}/leader-signup`;
 
   // Section 14: the catch-all Person is a standalone action (saved
   // immediately on pick/clear), independent of the main form's Save button.
@@ -769,16 +765,6 @@ export function SettingsTab() {
       setSettings(res);
     } catch (err) {
       setCatchAllError(err instanceof ApiError ? err.message : t('admin.settings.catch_all_failed'));
-    }
-  }
-
-  async function copySignupLink() {
-    try {
-      await navigator.clipboard.writeText(signupLink);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 1500);
-    } catch {
-      // Clipboard API unavailable — no-op; the link is still selectable/visible.
     }
   }
 
@@ -814,7 +800,6 @@ export function SettingsTab() {
         // Unlike the URL fields above, an intentionally blank phrase is a
         // real, submittable value here — it's how self-signup gets turned
         // off — so it's always sent, never swapped for `undefined`.
-        leaderSignupPhrase: settings.leaderSignupPhrase ?? '',
         contactEmail: settings.contactEmail ?? '',
         authorTitle: settings.authorTitle || undefined,
       });
@@ -854,29 +839,6 @@ export function SettingsTab() {
             placeholder="contact@example.com"
           />
           <p className="mt-1 text-xs text-slate-400">{t('admin.settings.contact_email_hint')}</p>
-        </div>
-      </div>
-
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-brand-900">{t('admin.settings.leader_signup_heading')}</h2>
-        <div>
-          <label className="label">{t('admin.settings.leader_signup_phrase')}</label>
-          <input
-            className="input"
-            value={field('leaderSignupPhrase') ?? ''}
-            onChange={(e) => setField('leaderSignupPhrase', e.target.value)}
-            placeholder={t('admin.settings.leader_signup_phrase_placeholder') ?? ''}
-          />
-          <p className="mt-1 text-xs text-slate-400">{t('admin.settings.leader_signup_hint')}</p>
-        </div>
-        <div>
-          <label className="label">{t('admin.settings.leader_signup_link')}</label>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <input readOnly value={signupLink} className="input flex-1 bg-slate-50 text-sm" />
-            <button type="button" className="btn-secondary sm:w-32" onClick={copySignupLink}>
-              {linkCopied ? t('leader.copied') : t('leader.copy')}
-            </button>
-          </div>
         </div>
       </div>
 
@@ -964,78 +926,8 @@ const CONTENT_SECTIONS: {
   fields: { key: string; multiline?: boolean; bilingual?: boolean }[];
 }[] = [
   {
-    // Top of the member Updates page (its picture is set just above).
-    section: 'appBanner',
-    fields: [
-      { key: 'appSlogan' },
-      { key: 'appMission', multiline: true },
-      { key: 'appVision', multiline: true },
-      { key: 'appPurpose', multiline: true },
-    ],
-  },
-  {
-    section: 'hero',
-    fields: [
-      { key: 'homepageTitle' },
-      { key: 'homepageSubtitle' },
-      { key: 'heroSupport', multiline: true },
-      { key: 'heroCta' },
-    ],
-  },
-  {
-    section: 'training',
-    fields: [
-      { key: 'trainingTitle' },
-      { key: 'trainingSupporting' },
-      { key: 'trainingDescription', multiline: true },
-      { key: 'trainingExplanation', multiline: true },
-      { key: 'trainingCta' },
-    ],
-  },
-  {
-    section: 'discover',
-    fields: [
-      { key: 'discoverTitle' },
-      { key: 'discoverSupporting' },
-      { key: 'discoverDescription', multiline: true },
-      { key: 'discoverCta' },
-    ],
-  },
-  {
-    section: 'vision',
-    fields: [{ key: 'visionTitle' }, { key: 'vision', multiline: true }],
-  },
-  {
-    section: 'howItWorks',
-    fields: [
-      { key: 'howTitle' },
-      { key: 'how1Title' },
-      { key: 'how1Body', multiline: true },
-      { key: 'how2Title' },
-      { key: 'how2Body', multiline: true },
-      { key: 'how3Title' },
-      { key: 'how3Body', multiline: true },
-    ],
-  },
-  {
     section: 'footer',
-    fields: [{ key: 'connectTitle' }, { key: 'footer' }, { key: 'contactInfo', multiline: true }],
-  },
-  {
-    section: 'welcome',
-    fields: [
-      { key: 'welcomeEyebrow' },
-      { key: 'welcomeTitle' },
-      { key: 'welcomeBody', multiline: true },
-      { key: 'welcomeBody2', multiline: true },
-      { key: 'welcomeSupporting' },
-      { key: 'welcomeCta' },
-      { key: 'welcomeSupportNote', multiline: true },
-    ],
-  },
-  {
-    section: 'registration',
-    fields: [{ key: 'registrationPageText', multiline: true }],
+    fields: [{ key: 'footer' }, { key: 'contactInfo', multiline: true }],
   },
   {
     section: 'emails',
@@ -1109,7 +1001,6 @@ function ContentTab() {
           {section === 'leaderInvite' && (
             <p className="text-xs text-slate-400">{t('admin.content.leader_invite_hint')}</p>
           )}
-          {section === 'welcome' && <p className="text-xs text-slate-400">{t('admin.content.welcome_hint')}</p>}
           {fields.map(({ key, multiline, bilingual = true }) => (
             <div key={key}>
               <label className="label">{t(`admin.content.fields.${key}`)}</label>

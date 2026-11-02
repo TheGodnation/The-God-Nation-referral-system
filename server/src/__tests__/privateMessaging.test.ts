@@ -210,29 +210,6 @@ describe('Private Messaging — Leader authorization', () => {
     expect(res.status).toBe(403);
   });
 
-  it('an OrganizationalLeadershipRecommendation alone does not grant permission', async () => {
-    const community = await makeCommunity('Recommendation Only Community');
-    const unrelatedHome = await makeCommunity('Unrelated Leader Home');
-    const { agent, csrf, person: leaderPerson } = await setupCommunityLeader(5, unrelatedHome.id);
-    const { person: candidate } = await loginAsMember('+237694900010', 'pm-member10@example.com');
-    await makeMembership(candidate.id, community.id);
-
-    await prisma.organizationalLeadershipRecommendation.create({
-      data: {
-        proposedByPersonId: leaderPerson.id,
-        proposedPersonId: candidate.id,
-        communityId: community.id,
-        note: 'Recommended',
-      },
-    });
-
-    const res = await agent
-      .post('/api/leader/private-messages/conversations')
-      .set('X-CSRF-Token', csrf)
-      .send({ personIds: [candidate.id], body: 'Should be rejected' });
-    expect(res.status).toBe(403);
-  });
-
 });
 
 describe('Private Messaging — participant isolation', () => {

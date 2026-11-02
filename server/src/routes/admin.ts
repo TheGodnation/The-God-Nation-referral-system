@@ -806,46 +806,13 @@ router.get('/export', asyncHandler(async (req, res) => {
 // client's own built-in default text.
 //
 // Every piece of copy is bilingual: each base name below gets an "En" and
-// an "Fr" key (e.g. homepageTitleEn / homepageTitleFr), so an Admin edit in
+// an "Fr" key (e.g. footerEn / footerFr), so an Admin edit in
 // one language can never silently override what the other language's
 // visitors see — the two are stored, and served, completely independently.
 const CONTENT_BASE_KEYS = [
-  'homepageTitle',
-  'homepageSubtitle',
-  'heroSupport',
-  'heroCta',
-  'trainingTitle',
-  'trainingSupporting',
-  'trainingDescription',
-  'trainingExplanation',
-  'trainingCta',
-  'discoverTitle',
-  'discoverSupporting',
-  'discoverDescription',
-  'discoverCta',
-  'visionTitle',
-  'vision',
-  'howTitle',
-  'how1Title',
-  'how1Body',
-  'how2Title',
-  'how2Body',
-  'how3Title',
-  'how3Body',
-  'connectTitle',
+  // The line at the bottom of every public page, and optional contact lines.
   'footer',
   'contactInfo',
-  'registrationPageText',
-  // The /welcome page — a separate first-contact entry point for outreach
-  // (e.g. a Leader's evangelism message), distinct from the homepage's
-  // hero/pathway copy above.
-  'welcomeEyebrow',
-  'welcomeTitle',
-  'welcomeBody',
-  'welcomeBody2',
-  'welcomeSupporting',
-  'welcomeCta',
-  'welcomeSupportNote',
   // The message a Leader shares (WhatsApp/Telegram/native share) to invite
   // people to register — bilingual, picked by the Leader's own UI language
   // (not the recipient's, which the app has no way to know ahead of time).
@@ -853,12 +820,6 @@ const CONTENT_BASE_KEYS = [
   // that Leader's own referral link; for Telegram, any line containing
   // `{{link}}` is dropped instead, since Telegram attaches the link itself.
   'leaderInviteMessage',
-  // The banner at the top of the member Updates page: a short slogan and
-  // the ministry's Mission, Vision and Purpose (picture: routes/appBranding.ts).
-  'appSlogan',
-  'appMission',
-  'appVision',
-  'appPurpose',
 ] as const;
 
 const CONTENT_KEYS = CONTENT_BASE_KEYS.flatMap((k) => [`${k}En`, `${k}Fr`] as const);
@@ -890,10 +851,8 @@ function settingsResponse(settings: {
   instagramUrl: string | null;
   tiktokUrl: string | null;
   youtubeUrl: string | null;
-  whatsappContactUrl: string | null;
   telegramUrl: string | null;
   messengerUrl: string | null;
-  leaderSignupPhrase: string | null;
   contactEmail: string | null;
   content: unknown;
   defaultReferrerPersonId: string | null;
@@ -908,10 +867,8 @@ function settingsResponse(settings: {
     instagramUrl: settings?.instagramUrl ?? null,
     tiktokUrl: settings?.tiktokUrl ?? null,
     youtubeUrl: settings?.youtubeUrl ?? null,
-    whatsappContactUrl: settings?.whatsappContactUrl ?? null,
     telegramUrl: settings?.telegramUrl ?? null,
     messengerUrl: settings?.messengerUrl ?? null,
-    leaderSignupPhrase: settings?.leaderSignupPhrase ?? null,
     contactEmail: settings?.contactEmail ?? null,
     content: (settings?.content as Record<string, string> | null) ?? {},
     // Section 14/6: the single catch-all Person every unattributed joiner
@@ -939,24 +896,11 @@ const settingsSchema = z.object({
   instagramUrl: z.string().url().optional().nullable(),
   tiktokUrl: z.string().url().optional().nullable(),
   youtubeUrl: z.string().url().optional().nullable(),
-  whatsappContactUrl: z.string().url().optional().nullable(),
   telegramUrl: z.string().url().optional().nullable(),
   messengerUrl: z.string().url().optional().nullable(),
-  // Not a URL — a short shared phrase. Unlike the URL fields above, blank
-  // is a meaningful, submittable value here (it turns Leader self-signup
-  // off), so it's normalized to null rather than dropped.
-  leaderSignupPhrase: z
-    .string()
-    .trim()
-    .max(200)
-    .optional()
-    .nullable()
-    // Field omitted entirely -> leave untouched (undefined). Field sent as
-    // '' or null -> normalize to null (explicitly turns signup off).
-    .transform((v) => (v === undefined ? undefined : v ? v : null)),
   // Public Contact form (Phase 2) recipient. Blank/null disables the form's
-  // email notification (messages are still saved to ContactMessage) — same
-  // blank-is-meaningful pattern as leaderSignupPhrase above.
+  // email notification (messages are still saved to ContactMessage). Blank
+  // is a meaningful, submittable value, so it is normalized to null.
   contactEmail: z
     .string()
     .trim()
@@ -1005,10 +949,8 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
     ...(d.instagramUrl !== undefined ? { instagramUrl: d.instagramUrl } : {}),
     ...(d.tiktokUrl !== undefined ? { tiktokUrl: d.tiktokUrl } : {}),
     ...(d.youtubeUrl !== undefined ? { youtubeUrl: d.youtubeUrl } : {}),
-    ...(d.whatsappContactUrl !== undefined ? { whatsappContactUrl: d.whatsappContactUrl } : {}),
     ...(d.telegramUrl !== undefined ? { telegramUrl: d.telegramUrl } : {}),
     ...(d.messengerUrl !== undefined ? { messengerUrl: d.messengerUrl } : {}),
-    ...(d.leaderSignupPhrase !== undefined ? { leaderSignupPhrase: d.leaderSignupPhrase } : {}),
     ...(d.contactEmail !== undefined ? { contactEmail: d.contactEmail } : {}),
     ...(d.defaultReferrerPersonId !== undefined ? { defaultReferrerPersonId: d.defaultReferrerPersonId } : {}),
     ...(d.authorTitle !== undefined ? { authorTitle: d.authorTitle } : {}),

@@ -13,7 +13,7 @@ function mockFetch() {
         ok: true,
         status: 200,
         headers: { get: () => 'application/json' },
-        json: async () => ({ content: { appSloganEn: 'Raising kingdom leaders' } }),
+        json: async () => ({ content: { footerEn: 'Raising kingdom leaders' } }),
       });
     }),
   );
@@ -33,11 +33,11 @@ describe('usePublicSettings caching', () => {
     mockFetch();
     const first = renderHook(() => usePublicSettings());
     await waitFor(() => expect(first.result.current.loaded).toBe(true));
-    expect(first.result.current.content.appSloganEn).toBe('Raising kingdom leaders');
+    expect(first.result.current.content.footerEn).toBe('Raising kingdom leaders');
 
     const second = renderHook(() => usePublicSettings());
     await waitFor(() => expect(second.result.current.loaded).toBe(true));
-    expect(second.result.current.content.appSloganEn).toBe('Raising kingdom leaders');
+    expect(second.result.current.content.footerEn).toBe('Raising kingdom leaders');
 
     expect(calls.filter((u) => u.includes('/api/settings/public')).length).toBe(1);
   });

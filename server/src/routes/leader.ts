@@ -75,7 +75,7 @@ router.get('/links', asyncHandler(async (req, res) => {
   const activeCode = await prisma.referralCode.findFirst({ where: { leaderId, active: true } });
 
   if (!activeCode) {
-    return res.json({ referralCode: null, links: null, outreachLinks: null });
+    return res.json({ referralCode: null, links: null });
   }
 
   res.json({
@@ -83,15 +83,6 @@ router.get('/links', asyncHandler(async (req, res) => {
     links: {
       en: `${CLIENT_URL}/join?ref=${activeCode.code}&lang=en`,
       fr: `${CLIENT_URL}/join?ref=${activeCode.code}&lang=fr`,
-    },
-    // A second pair of links landing on /welcome instead of the homepage —
-    // for direct outreach (e.g. an evangelism message) rather than a warm
-    // referral. Same attribution, same eventual WhatsApp community; just a
-    // different first-contact page for people who've never heard of the
-    // ministry before.
-    outreachLinks: {
-      en: `${CLIENT_URL}/welcome?ref=${activeCode.code}&lang=en`,
-      fr: `${CLIENT_URL}/welcome?ref=${activeCode.code}&lang=fr`,
     },
   });
 }));

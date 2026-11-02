@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
-import { backfillPersonsFromRegistrations } from '../lib/personBackfill';
 import { createLeader, createAdmin, createRegistrationFixture } from './helpers';
 import { bootstrap } from './testUtils';
 
@@ -29,87 +28,6 @@ describe('Phase 3A — Person identity linking', () => {
 
     const personCount = await prisma.person.count({ where: { whatsappNumber: registration!.normalizedWhatsApp } });
     expect(personCount).toBe(1);
-  });
-
-  it('Case 4: existing Registration data is untouched by backfill (simulating pre-Phase-3A rows)', async () => {
-    // Simulate a Registration created before Phase 3A existed, by inserting
-    // one directly with personId left null (bypassing the connectOrCreate
-    // now present in the registration route).
-    const pre = await prisma.registration.create({
-      data: {
-        visitorId: 'legacy-visitor-1',
-        normalizedWhatsApp: '+237670001002',
-        name: 'Legacy Person',
-        email: 'legacy@example.com',
-        language: 'fr',
-        pathway: 'DISCOVER_GROW',
-        utmSource: 'legacy-source',
-      },
-    });
-    expect(pre.personId).toBeNull();
-
-    const { linked } = await backfillPersonsFromRegistrations();
-    expect(linked).toBeGreaterThanOrEqual(1);
-
-    const after = await prisma.registration.findUnique({ where: { id: pre.id } });
-    // Every pre-existing field is exactly as it was.
-    expect(after!.normalizedWhatsApp).toBe('+237670001002');
-    expect(after!.name).toBe('Legacy Person');
-    expect(after!.email).toBe('legacy@example.com');
-    expect(after!.language).toBe('fr');
-    expect(after!.pathway).toBe('DISCOVER_GROW');
-    expect(after!.utmSource).toBe('legacy-source');
-    expect(after!.visitorId).toBe('legacy-visitor-1');
-    // Only personId changed.
-    expect(after!.personId).not.toBeNull();
-
-    const person = await prisma.person.findUnique({ where: { id: after!.personId! } });
-    expect(person!.whatsappNumber).toBe('+237670001002');
-    expect(person!.name).toBe('Legacy Person');
-    expect(person!.preferredLanguage).toBe('fr');
-  });
-
-  it('Case 3: running the backfill twice never creates duplicate People', async () => {
-    await prisma.registration.create({
-      data: {
-        visitorId: 'legacy-visitor-2',
-        normalizedWhatsApp: '+237670001003',
-        name: 'Repeat Backfill',
-        language: 'en',
-        pathway: 'TRAINING',
-      },
-    });
-
-    const first = await backfillPersonsFromRegistrations();
-    expect(first.linked).toBe(1);
-    const second = await backfillPersonsFromRegistrations();
-    expect(second.linked).toBe(0);
-
-    const people = await prisma.person.findMany({ where: { whatsappNumber: '+237670001003' } });
-    expect(people).toHaveLength(1);
-  });
-
-  it('Case 6/7: an existing User is never auto-linked by email similarity, and stays valid with personId null', async () => {
-    const shared = 'shared@example.com';
-    const leader = await createLeader('Email Match Leader', shared, 'EMAILM1');
-    const reg = await register('+237670001004', 'Different Human Same Email', shared);
-    // The registration already linked its own Person inline at creation —
-    // confirm that, then run the backfill again to prove it changes
-    // nothing further (in particular, it must never touch User.personId).
-    const registration = await prisma.registration.findUnique({ where: { id: reg.body.registrationId } });
-    expect(registration!.personId).not.toBeNull();
-
-    const { linked } = await backfillPersonsFromRegistrations();
-    expect(linked).toBe(0);
-
-    // The backfill only ever touches Registration rows — it must never
-    // write to User.personId based on an email match.
-    const userAfter = await prisma.user.findUnique({ where: { id: leader.user.id } });
-    expect(userAfter!.personId).toBeNull();
-
-    // The User remains fully valid and usable with personId still null.
-    expect(userAfter!.email).toBe(shared);
-    expect(userAfter!.role).toBe('LEADER');
   });
 
   it('Case 5: an existing User CAN be linked to a Person once a genuine relationship is established (manual admin action)', async () => {

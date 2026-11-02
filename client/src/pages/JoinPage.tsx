@@ -6,11 +6,12 @@ import { api } from '../lib/api';
 
 // /join?ref=CODE&lang=en&utm_source=...&utm_medium=...&utm_campaign=...
 //
-// Section 8: a referral link must land on the normal official homepage —
-// never a page that reveals who referred the visitor. This page's only job
-// is to record the server-side ReferralVisit (which is where attribution
-// actually lives, via the opaque visitor_id cookie), then silently redirect
-// to "/". The visitor never sees a distinct "you were invited" screen.
+// A referral link never shows a page that reveals who referred the visitor.
+// This page's only job is to record the server-side ReferralVisit (which is
+// where attribution actually lives, via the opaque visitor_id cookie), then
+// silently send the visitor to the sign-up page (/member/join). The old
+// /welcome links that leaders shared earlier open this same page, so they
+// keep working.
 export function JoinPage() {
   const { i18n, t } = useTranslation();
   const [params] = useSearchParams();
@@ -42,11 +43,11 @@ export function JoinPage() {
         landingPage: window.location.pathname + window.location.search,
       })
       .catch(() => {
-        // Non-fatal: the visitor still lands on the homepage even if the
+        // Non-fatal: the visitor still reaches sign-up even if the
         // visit could not be recorded (e.g. transient network issue).
       })
       .finally(() => {
-        navigate('/', { replace: true });
+        navigate('/member/join', { replace: true });
         // In case navigation is somehow blocked, don't leave a spinner
         // forever — show a manual link after a moment.
         setTimeout(() => setShowFallback(true), 3000);

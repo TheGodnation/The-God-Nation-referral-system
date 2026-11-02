@@ -33,16 +33,6 @@ export function CompassIcon({ className }: IconProps) {
   );
 }
 
-export function FormIcon({ className }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
-      <path d="M14 3v6h6" />
-      <path d="M9 13h6M9 17h4" />
-    </svg>
-  );
-}
-
 export function ChatHeartIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -189,10 +179,3 @@ export function SproutIcon({ className }: IconProps) {
   );
 }
 
-export function CrossIcon({ className }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" {...base}>
-      <path d="M12 2.5v19M6.5 8h11" />
-    </svg>
-  );
-}

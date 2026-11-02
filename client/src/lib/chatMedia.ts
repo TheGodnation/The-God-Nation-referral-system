@@ -235,10 +235,6 @@ export function pickRecorderMime(kind: 'audio' | 'video'): string | undefined {
   return options.find((t) => MediaRecorder.isTypeSupported(t) && isAllowedAttachmentMime(baseMime(t)));
 }
 
-export function canRecord(kind: 'audio' | 'video'): boolean {
-  return typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia) && Boolean(pickRecorderMime(kind));
-}
-
 // Short-lived download links, kept for 4 minutes so scrolling back and
 // forth doesn't ask the server again and again.
 const urlCache = new Map<string, { url: string; expires: number }>();

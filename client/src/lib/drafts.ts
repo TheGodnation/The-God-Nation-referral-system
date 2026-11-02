@@ -47,15 +47,6 @@ export function saveDraft(key: string | undefined, text: string): void {
   }
 }
 
-export function clearDraft(key: string | undefined): void {
-  if (!key) return;
-  try {
-    localStorage.removeItem(PREFIX + key);
-  } catch {
-    // Nothing to do.
-  }
-}
-
 /** Removes every draft on this phone (when a member signs out). */
 export function clearAllDrafts(): void {
   try {
