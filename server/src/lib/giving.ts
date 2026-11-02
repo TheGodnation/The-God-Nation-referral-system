@@ -2,19 +2,19 @@ import { prisma } from './prisma';
 import { notifyGiftDecision } from './notifications';
 
 // ---------------------------------------------------------------------------
-// Giving. A member gives by Mobile Money to the central administration and
-// says so with the transaction ID; the central admin confirms. Leaders never
-// see who gave: nothing here is exposed to a leader, and totals per assembly
-// are for the central admin only. Offerings, tithes and free-will gifts are
-// never listed publicly. A help-one-another campaign has a public report with
-// names and amounts; a giver may appear as "Anonymous".
+// Giving. A member gives by Mobile Money and says so with the transaction ID
+// ("Contact to Receive Confirmation"); the central admin confirms. Leaders
+// never see who gave: nothing here is exposed to a leader, and totals per
+// assembly are for the central admin only. Gifts are never listed publicly,
+// except in a help-one-another campaign's report, with names and amounts; a
+// giver may appear as "Anonymous".
 // ---------------------------------------------------------------------------
 
 export const MIN_GIFT = 100;
 export const MAX_GIFT = 10_000_000;
 
-export type GiftKindName = 'OFFERING' | 'TITHE' | 'FREE_WILL' | 'CAMPAIGN';
-export const GIFT_KINDS: GiftKindName[] = ['OFFERING', 'TITHE', 'FREE_WILL', 'CAMPAIGN'];
+export type GiftKindName = 'OFFERING' | 'TITHE' | 'FREE_WILL' | 'CAMPAIGN' | 'SEED_FAITH' | 'THANKSGIVING' | 'FIRST_FRUITS' | 'OTHER';
+export const GIFT_KINDS: GiftKindName[] = ['OFFERING', 'TITHE', 'SEED_FAITH', 'THANKSGIVING', 'FIRST_FRUITS', 'FREE_WILL', 'OTHER', 'CAMPAIGN'];
 
 export async function givingInstructions(language: 'en' | 'fr'): Promise<string> {
   const s = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { givingInstructionsEn: true, givingInstructionsFr: true } });

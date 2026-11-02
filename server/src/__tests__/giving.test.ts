@@ -49,6 +49,26 @@ async function adminLogin() {
 const give = (m: Awaited<ReturnType<typeof member>>, body: Record<string, unknown>) =>
   m.agent.post('/api/member/giving/gifts').set('X-CSRF-Token', m.csrf).send({ kind: 'OFFERING', amount: 5000, reference: 'MP123456', ...body });
 
+describe('the giving categories', () => {
+  it('accepts every category: offering, tithes, seed faith, thanksgiving offering, first fruits, the monthly freewill gift for Dominion Clinic books, and other gifts', async () => {
+    const m = await member('Giver Grace');
+    for (const kind of ['OFFERING', 'TITHE', 'SEED_FAITH', 'THANKSGIVING', 'FIRST_FRUITS', 'FREE_WILL', 'OTHER']) {
+      const res = await give(m, { kind, amount: 1000 });
+      expect(res.status).toBe(201);
+      expect(await prisma.gift.findUniqueOrThrow({ where: { id: res.body.id } })).toMatchObject({ kind, anonymous: false, campaignId: null });
+    }
+    expect((await give(m, { kind: 'MADE_UP' })).status).toBe(400);
+    // The admin's totals count each category.
+    const a = await adminLogin();
+    const waiting = (await a.agent.get('/api/admin/giving/waiting')).body.items;
+    expect(waiting).toHaveLength(7);
+    const seed = waiting.find((w: any) => w.kind === 'SEED_FAITH');
+    expect((await a.agent.post(`/api/admin/giving/gifts/${seed.id}/decide`).set('X-CSRF-Token', a.csrf).send({ decision: 'CONFIRM' })).status).toBe(200);
+    const summary = (await a.agent.get('/api/admin/giving/summary')).body;
+    expect(summary.byKind).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'SEED_FAITH', total: 1000, count: 1 })]));
+  });
+});
+
 describe('a member says "I have given"', () => {
   it('records a waiting gift in the giver\'s assembly, and refuses a bad amount or a missing transaction ID', async () => {
     const a = await prisma.community.create({ data: { name: 'Assembly A' } });
@@ -213,7 +233,9 @@ describe('the weekly invitation to give', () => {
     const messages = await prisma.message.findMany();
     expect(messages).toHaveLength(2);
     expect(messages[0].senderPersonId).toBe(adminPerson.id);
-    expect(messages[0].body).toContain('free-will');
+    expect(messages[0].body).toContain('weekly freewill offerings');
+    expect(messages[0].body).toContain('Contact to Receive Confirmation');
+    expect(messages[0].body).not.toMatch(/central administration/i);
     expect(messages[0].body).toContain('Donner cette semaine');
     expect(messages[0].body).not.toMatch(/\d+\s*FCFA/);
 

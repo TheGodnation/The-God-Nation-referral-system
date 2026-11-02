@@ -754,6 +754,8 @@ model Person {
   id                  String              @id @default(uuid())
   name                String
   bookDeliveries      BookDelivery[]
+  // Set when the member chose to stop receiving the monthly Dominion Clinic book; cleared when they subscribe again.
+  clinicBookUnsubscribedAt DateTime?
   gifts               Gift[]
   tokenEntries        TokenEntry[]
   pinsMade            MessagePin[]      @relation("MessagePinnedBy")
@@ -3489,8 +3491,13 @@ model FollowUpEscalationMessage {
 enum GiftKind {
   OFFERING
   TITHE
+  // The monthly freewill gift for the Dominion Clinic books.
   FREE_WILL
   CAMPAIGN
+  SEED_FAITH
+  THANKSGIVING
+  FIRST_FRUITS
+  OTHER
 }
 
 enum GiftStatus {

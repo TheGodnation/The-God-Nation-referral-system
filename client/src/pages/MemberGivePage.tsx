@@ -6,7 +6,10 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api, ApiError } from '../lib/api';
 
-type Kind = 'OFFERING' | 'TITHE' | 'FREE_WILL' | 'CAMPAIGN';
+type Kind = 'OFFERING' | 'TITHE' | 'FREE_WILL' | 'CAMPAIGN' | 'SEED_FAITH' | 'THANKSGIVING' | 'FIRST_FRUITS' | 'OTHER';
+
+// What a gift can be for, in the order they are listed (a campaign is added when one is open).
+const KINDS: Kind[] = ['OFFERING', 'TITHE', 'SEED_FAITH', 'THANKSGIVING', 'FIRST_FRUITS', 'FREE_WILL', 'OTHER'];
 
 interface Campaign {
   id: string;
@@ -32,10 +35,9 @@ interface Report {
 
 const fcfa = (n: number) => `${n.toLocaleString('fr-FR')} FCFA`;
 
-// "Give": how to give, saying "I have given" (the central administration
-// confirms), the help-one-another campaigns with their public reports, and
-// the member's own gifts. Gifts go straight to the central administration;
-// leaders never see who gave.
+// "Give": how to give, "Contact to Receive Confirmation" once a gift has been
+// made, the help-one-another campaigns with their public reports, and the
+// member's own gifts.
 export function MemberGivePage() {
   const { t, i18n } = useTranslation();
   const isFr = i18n.language.startsWith('fr');
@@ -107,7 +109,10 @@ export function MemberGivePage() {
           <h1 className="text-2xl font-bold text-brand-900">{t('giving.title')}</h1>
           <NotificationBell />
         </div>
-        <p className="text-sm text-slate-600">{t('giving.intro')}</p>
+        <div className="space-y-2 text-sm text-slate-700">
+          <p>{t('giving.intro')}</p>
+          <p className="font-medium text-brand-900">{t('giving.intro2')}</p>
+        </div>
         {failed && <p className="card text-sm text-red-700">{t('giving.load_failed')}</p>}
         {!info && !failed && <p className="py-6 text-center text-sm text-slate-400">{t('common.loading')}</p>}
 
@@ -115,6 +120,7 @@ export function MemberGivePage() {
           <>
             <section className="card space-y-2">
               <h2 className="font-semibold text-brand-900">{t('giving.how_title')}</h2>
+              <p className="text-sm text-slate-600">{t('giving.how_intro')}</p>
               {info.instructions ? <p className="whitespace-pre-line text-slate-800">{info.instructions}</p> : <p className="text-sm text-slate-500">{t('giving.no_instructions')}</p>}
               <p className="text-xs text-slate-500">{t('giving.privacy_note')}</p>
             </section>
@@ -124,7 +130,7 @@ export function MemberGivePage() {
               <div>
                 <label className="label" htmlFor="gift-kind">{t('giving.what_for')}</label>
                 <select id="gift-kind" className="input" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
-                  {(['OFFERING', 'TITHE', 'FREE_WILL'] as Kind[]).map((k) => (
+                  {KINDS.map((k) => (
                     <option key={k} value={k}>{kindLabel(k)}</option>
                   ))}
                   {info.campaigns.length > 0 && <option value="CAMPAIGN">{kindLabel('CAMPAIGN')}</option>}
@@ -167,6 +173,7 @@ export function MemberGivePage() {
               <button className="btn-primary" disabled={busy || (kind === 'CAMPAIGN' && !campaignId)}>
                 {t('giving.send')}
               </button>
+              <p className="text-xs text-slate-500">{t('giving.send_help')}</p>
             </form>
 
             {info.campaigns.length > 0 && (

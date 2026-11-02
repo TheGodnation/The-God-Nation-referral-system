@@ -19,6 +19,7 @@ function mockFetch(handlers: Record<string, (init?: RequestInit) => unknown>) {
 }
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   calls.length = 0;
 });
 
@@ -31,6 +32,7 @@ const data = {
     { assessmentId: 'a3', number: 3, monthTitleEn: 'November', monthTitleFr: 'Novembre', opensAt: future, open: false, score: null, maxScore: null, percentage: null, passed: null, takenAt: null },
   ],
   total: { exams: 1, score: 8, maxScore: 10 },
+  subscribed: true,
 };
 
 describe('MemberClinicPage', () => {
@@ -45,6 +47,39 @@ describe('MemberClinicPage', () => {
     expect(results).toHaveTextContent('8 / 10 (80%)');
     expect(screen.getByRole('link', { name: 'Take the exam' })).toHaveAttribute('href', '/member/assessments/a2');
     expect(results).toHaveTextContent(/Opens \d/);
+  });
+
+  it('says it is a monthly book publication, and explains the monthly freewill gifts for the books and how to unsubscribe', async () => {
+    mockFetch({ '/api/member/clinic': () => data });
+    render(<MemoryRouter><MemberClinicPage /></MemoryRouter>);
+    expect(await screen.findByText(/The Dominion Clinic is a monthly book publication and a daily teaching series on The God Nation digital platform\./)).toBeInTheDocument();
+    expect(screen.getByText('Monthly freewill donations are made for the books. You choose whatever amount you wish to give towards the books. The books are distributed each month to everyone in the community, unless you choose to unsubscribe.')).toBeInTheDocument();
+    expect(screen.queryByText(/Giving is never required/)).toBeNull();
+  });
+
+  it('lets a member unsubscribe from the monthly book, and subscribe again', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockFetch({
+      '/api/member/clinic/subscription': (init) => ({ subscribed: JSON.parse(init!.body as string).subscribed }),
+      '/api/member/clinic': () => data,
+    });
+    render(<MemoryRouter><MemberClinicPage /></MemoryRouter>);
+    const box = await screen.findByTestId('clinic-subscription');
+    expect(box).toHaveTextContent('You receive the monthly book.');
+    fireEvent.click(screen.getByRole('button', { name: 'Unsubscribe' }));
+    await waitFor(() => expect(box).toHaveTextContent('You have unsubscribed'));
+    expect(calls.find((x) => x.method === 'PUT')?.body).toEqual({ subscribed: false });
+    fireEvent.click(screen.getByRole('button', { name: 'Subscribe again' }));
+    await waitFor(() => expect(box).toHaveTextContent('You receive the monthly book.'));
+    expect(calls.filter((x) => x.method === 'PUT').pop()?.body).toEqual({ subscribed: true });
+  });
+
+  it('does not unsubscribe when the confirmation is declined', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    mockFetch({ '/api/member/clinic': () => data });
+    render(<MemoryRouter><MemberClinicPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Unsubscribe' }));
+    expect(calls.some((x) => x.method === 'PUT')).toBe(false);
   });
 
   it('is in French too', async () => {

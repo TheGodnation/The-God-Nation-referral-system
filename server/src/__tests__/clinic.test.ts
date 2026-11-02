@@ -171,6 +171,52 @@ describe('the central admin sends it to everyone, and the fallback sends it afte
   });
 });
 
+describe('a member can unsubscribe from the monthly book', () => {
+  it('is not sent it by the admin, the fallback or a leader, and is not counted as waiting; subscribing again includes them', async () => {
+    const w = await world(60); // opened 60 hours ago: the fallback is due
+    const lead = await w.leader('Leader Lea');
+    const keeps = await w.member('Stays Subscribed');
+    const leaves = await w.member('Unsubscribes');
+    await w.follow(lead.p.id, keeps.id);
+    await w.follow(lead.p.id, leaves.id);
+    await prisma.person.update({ where: { id: leaves.id }, data: { clinicBookUnsubscribedAt: new Date() } });
+
+    const { agent, csrf } = await login('clinic-admin@test.local', 'AdminPass123!');
+    expect((await agent.get('/api/admin/cells/clinic')).body).toMatchObject({ members: 2 }); // the leader and the subscribed member (not the one who unsubscribed)
+    const lagent = await login(lead.email, 'password123');
+    expect((await lagent.agent.get('/api/leader/clinic')).body).toMatchObject({ people: 1, waiting: 1 });
+    expect((await lagent.agent.post('/api/leader/clinic/send').set('X-CSRF-Token', lagent.csrf).send({})).body).toEqual({ sent: 1, alreadyHad: 0 });
+    expect(await prisma.bookDelivery.count({ where: { personId: leaves.id } })).toBe(0);
+
+    const all = await agent.post('/api/admin/cells/clinic/send-all').set('X-CSRF-Token', csrf).send({});
+    expect(all.status).toBe(200);
+    expect(await processClinicAutoSend(new Date(Date.now() + 60 * HOUR))).toBeGreaterThanOrEqual(0);
+    expect(await prisma.bookDelivery.count({ where: { personId: leaves.id } })).toBe(0);
+
+    // They subscribe again and are included from then on.
+    await prisma.person.update({ where: { id: leaves.id }, data: { clinicBookUnsubscribedAt: null } });
+    expect((await agent.post('/api/admin/cells/clinic/send-all').set('X-CSRF-Token', csrf).send({})).body).toMatchObject({ sent: 1 });
+    expect(await prisma.bookDelivery.count({ where: { personId: leaves.id } })).toBe(1);
+  });
+
+  it('the member sees whether they are subscribed, can unsubscribe and subscribe again, and keeps a book already sent', async () => {
+    const w = await world();
+    const me = await w.member('Reader Rita');
+    await prisma.bookDelivery.create({ data: { personId: me.id, bookId: w.book.id, via: 'ADMIN' } });
+    const s = await memberSignIn(me.id);
+    expect((await s.agent.get('/api/member/clinic')).body.subscribed).toBe(true);
+    const off = await s.agent.put('/api/member/clinic/subscription').set('X-CSRF-Token', s.csrf).send({ subscribed: false });
+    expect(off.body).toEqual({ subscribed: false });
+    expect((await s.agent.get('/api/member/clinic')).body.subscribed).toBe(false);
+    expect((await prisma.person.findUniqueOrThrow({ where: { id: me.id } })).clinicBookUnsubscribedAt).not.toBeNull();
+    // The book they already have stays theirs.
+    expect(await prisma.bookDelivery.count({ where: { personId: me.id } })).toBe(1);
+    expect((await s.agent.put('/api/member/clinic/subscription').set('X-CSRF-Token', s.csrf).send({ subscribed: true })).body).toEqual({ subscribed: true });
+    expect((await s.agent.get('/api/member/clinic')).body.subscribed).toBe(true);
+    expect((await s.agent.put('/api/member/clinic/subscription').set('X-CSRF-Token', s.csrf).send({ subscribed: 'yes' })).status).toBe(400);
+  });
+});
+
 describe('a teaching points at the part of the book', () => {
   it('the central admin maps the portion; a member who was sent the book can open it, another sees it cannot yet', async () => {
     const w = await world();

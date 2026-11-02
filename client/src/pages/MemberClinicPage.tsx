@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 
 interface ClinicData {
   rhythm: { examEveryDays: number; examQuestions: number; topicRhythm: 'DAILY' | 'EVERY_2_DAYS' | 'EVERY_3_DAYS' | 'MORNING_EVENING' };
@@ -23,6 +23,8 @@ interface ClinicData {
     tokens: number | null;
   }[];
   total: { exams: number; score: number; maxScore: number };
+  /** Whether the member receives the monthly book (they can unsubscribe). */
+  subscribed?: boolean;
 }
 
 // "Dominion Clinic": what it is, how it works (the book, the daily teaching,
@@ -32,6 +34,8 @@ export function MemberClinicPage() {
   const isFr = i18n.language.startsWith('fr');
   const [data, setData] = useState<ClinicData | null>(null);
   const [failed, setFailed] = useState(false);
+  const [subBusy, setSubBusy] = useState(false);
+  const [subError, setSubError] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -39,6 +43,20 @@ export function MemberClinicPage() {
       .then(setData)
       .catch(() => setFailed(true));
   }, []);
+
+  async function setSubscribed(subscribed: boolean) {
+    if (!subscribed && !window.confirm(t('clinicPage.sub_confirm') ?? '')) return;
+    setSubBusy(true);
+    setSubError(null);
+    try {
+      const res = await api.put<{ subscribed: boolean }>('/api/member/clinic/subscription', { subscribed });
+      setData((d) => (d ? { ...d, subscribed: res.subscribed } : d));
+    } catch (err) {
+      setSubError(err instanceof ApiError ? err.message : t('clinicPage.sub_failed'));
+    } finally {
+      setSubBusy(false);
+    }
+  }
 
   const date = (iso: string) => new Date(iso).toLocaleDateString(isFr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long' });
 
@@ -69,6 +87,17 @@ export function MemberClinicPage() {
             <Link to="/member/tokens" className="text-brand-700 underline">{t('tokens.title')}</Link>
           </p>
         </section>
+
+        {data && typeof data.subscribed === 'boolean' && (
+          <section className="card space-y-2" data-testid="clinic-subscription">
+            <h2 className="font-semibold text-brand-900">{t('clinicPage.sub_title')}</h2>
+            <p className="text-sm text-slate-700">{data.subscribed ? t('clinicPage.sub_on') : t('clinicPage.sub_off')}</p>
+            {subError && <p role="alert" className="text-sm text-red-700">{subError}</p>}
+            <button type="button" className={data.subscribed ? 'btn-secondary' : 'btn-primary'} disabled={subBusy} onClick={() => void setSubscribed(!data.subscribed)}>
+              {data.subscribed ? t('clinicPage.sub_unsubscribe') : t('clinicPage.sub_resubscribe')}
+            </button>
+          </section>
+        )}
 
         <section className="card space-y-2" data-testid="clinic-results">
           <h2 className="font-semibold text-brand-900">{t('clinicPage.results_title')}</h2>

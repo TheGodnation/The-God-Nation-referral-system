@@ -60,6 +60,17 @@ describe('MemberTokensPage', () => {
     expect(screen.getByTestId('tokens-foundation')).toHaveTextContent('The foundation holds 24 tokens');
   });
 
+  it('says how tokens are earned, and what they will be used for: Bible study tools, a share of materials, helping one another', async () => {
+    mockFetch({ '/api/member/tokens': () => started });
+    render(<MemoryRouter><MemberTokensPage /></MemoryRouter>);
+    expect(await screen.findByText("You earn King's Tokens by answering Dominion Clinic examination questions correctly. They are kept for you, and you will be told when and how to use them.")).toBeInTheDocument();
+    const uses = screen.getByTestId('tokens-uses');
+    expect(uses).toHaveTextContent('What they will be used for');
+    expect(uses).toHaveTextContent('They will be used to access tools that will be made available to the community, especially Bible study tools. These will include all the concordances and different versions of the Bible, making it easy for anybody to study the Bible. These tools will be made available within the community.');
+    expect(uses).toHaveTextContent('The tokens might also be used to purchase a percentage of certain materials that will be made available.');
+    expect(uses).toHaveTextContent('They might equally be used to help one another within the community when the time comes.');
+  });
+
   it('says tokens have not started counting yet, with the start day', async () => {
     mockFetch({ '/api/member/tokens': () => ({ ...started, started: false, startsAt: '2099-01-02T00:00:00Z', clinicRate: null, nextHalving: null, balance: { earned: 0, bought: 0, total: 0 }, history: [] }) });
     render(<MemoryRouter><MemberTokensPage /></MemoryRouter>);

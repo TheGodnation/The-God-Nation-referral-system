@@ -100,6 +100,15 @@ export function MemberTokensPage() {
               </ul>
             </section>
 
+            <section className="card space-y-2" data-testid="tokens-uses">
+              <h2 className="font-semibold text-brand-900">{t('tokens.uses_title')}</h2>
+              <ul className="list-disc space-y-2 pl-5 text-sm text-slate-700">
+                <li>{t('tokens.uses_tools')}</li>
+                <li>{t('tokens.uses_materials')}</li>
+                <li>{t('tokens.uses_help')}</li>
+              </ul>
+            </section>
+
             <section className="card space-y-2" data-testid="tokens-history">
               <h2 className="font-semibold text-brand-900">{t('tokens.history')}</h2>
               {data.history.length === 0 && <p className="text-sm text-slate-500">{t('tokens.no_history')}</p>}

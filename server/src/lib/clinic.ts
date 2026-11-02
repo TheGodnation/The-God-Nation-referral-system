@@ -34,10 +34,13 @@ export async function currentClinicBook(now = new Date()): Promise<ClinicBook | 
   return { bookId: d.book.id, devotionalId: d.id, titleEn: d.titleEn, titleFr: d.titleFr, communityId: d.communityId, startDate: d.startDate };
 }
 
-/** Members who may be sent the book: everyone active (or the members of the one assembly it is made for). */
+/**
+ * Members who may be sent the book: everyone active (or the members of the one
+ * assembly it is made for) except those who chose to unsubscribe.
+ */
 async function eligibleMembers(book: ClinicBook): Promise<{ personId: string; joinedAt: Date }[]> {
   const rows = await prisma.communityMembership.findMany({
-    where: { status: 'ACTIVE', ...(book.communityId ? { communityId: book.communityId } : {}) },
+    where: { status: 'ACTIVE', person: { clinicBookUnsubscribedAt: null }, ...(book.communityId ? { communityId: book.communityId } : {}) },
     select: { personId: true, joinedAt: true },
   });
   const first = new Map<string, Date>();
@@ -112,7 +115,9 @@ export async function leaderClinicStatus(leaderPersonId: string, now = new Date(
   const book = await currentClinicBook(now);
   const assignments = await prisma.followUpAssignment.findMany({ where: { followerId: leaderPersonId, status: 'ACTIVE' }, select: { followedPersonId: true } });
   if (!book) return { book: null, people: assignments.length, sent: 0, waiting: 0 };
-  const ids = [...new Set(assignments.map((a) => a.followedPersonId))];
+  // People who unsubscribed from the monthly book are not counted as waiting for it.
+  const subscribed = new Set((await eligibleMembers(book)).map((m) => m.personId));
+  const ids = [...new Set(assignments.map((a) => a.followedPersonId))].filter((id) => subscribed.has(id));
   const have = await deliveredPersonIds(book.bookId);
   const sent = ids.filter((id) => have.has(id)).length;
   return { book: { id: book.bookId, titleEn: book.titleEn, titleFr: book.titleFr }, people: ids.length, sent, waiting: ids.length - sent };
@@ -184,4 +189,14 @@ export async function processClinicAutoSend(now = new Date()): Promise<number> {
 
 export function startClinicAutoSendLoop(): void {
   startAdaptiveLoop(processClinicAutoSend, (err) => console.error('[clinic] auto-send failed', { error: err instanceof Error ? err.message : String(err) }));
+}
+
+/** Whether this member receives the monthly book (they can unsubscribe, and subscribe again). */
+export async function clinicBookSubscribed(personId: string): Promise<boolean> {
+  const p = await prisma.person.findUnique({ where: { id: personId }, select: { clinicBookUnsubscribedAt: true } });
+  return !p?.clinicBookUnsubscribedAt;
+}
+
+export async function setClinicBookSubscription(personId: string, subscribed: boolean): Promise<void> {
+  await prisma.person.update({ where: { id: personId }, data: { clinicBookUnsubscribedAt: subscribed ? null : new Date() } });
 }

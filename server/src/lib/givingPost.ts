@@ -11,8 +11,16 @@ import { startAdaptiveLoop } from './activity';
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 
 export function givingPostText(instructionsEn: string | null, instructionsFr: string | null): string {
-  const en = ['Giving this week. Giving is a free-will gift and is never required. Your gift goes straight to the central administration.', instructionsEn?.trim() || '', 'Open "Give" in the app to tell us you have given.'].filter(Boolean).join('\n');
-  const fr = ["Donner cette semaine. Donner est un geste libre et n'est jamais obligatoire. Votre don va directement à l'administration centrale.", instructionsFr?.trim() || instructionsEn?.trim() || '', 'Ouvrez « Donner » dans l\'application pour nous dire que vous avez donné.'].filter(Boolean).join('\n');
+  const en = [
+    'Giving this week. Giving consists of weekly freewill offerings, and others given to support the work we are doing in reaching people with the Gospel through the media. Help us penetrate the digital media space, make disciples and take the Gospel to the ends of the earth.',
+    instructionsEn?.trim() || '',
+    'Open "Give" in the app, and use "Contact to Receive Confirmation" once you have given.',
+  ].filter(Boolean).join('\n');
+  const fr = [
+    "Donner cette semaine. Donner, ce sont les offrandes volontaires de chaque semaine, et d'autres dons faits pour soutenir l'œuvre que nous accomplissons pour atteindre les gens avec l'Évangile par les médias. Aidez-nous à pénétrer l'espace des médias numériques, à faire des disciples et à porter l'Évangile jusqu'aux extrémités de la terre.",
+    instructionsFr?.trim() || instructionsEn?.trim() || '',
+    'Ouvrez « Donner » dans l\'application, puis utilisez « Contacter pour recevoir la confirmation » après avoir donné.',
+  ].filter(Boolean).join('\n');
   return `${en}\n\n${fr}`;
 }
 
