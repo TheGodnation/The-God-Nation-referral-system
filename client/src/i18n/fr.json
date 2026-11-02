@@ -765,7 +765,8 @@
     "settings": {
       "support_heading": "Assistance",
       "social_heading": "Réseaux sociaux",
-      "support_whatsapp_url": "URL WhatsApp d'assistance",
+      "support_whatsapp_url": "WhatsApp d'assistance (numéro ou lien)",
+      "support_whatsapp_hint": "Saisissez le numéro WhatsApp (par exemple +237 6XX XXX XXX) ou collez un lien wa.me. Il devient le bouton vert Assistance sur la page Discussions. Laissez vide pour masquer le bouton.",
       "leader_signup_heading": "Auto-inscription des Leaders",
       "leader_signup_phrase": "Phrase d'accès",
       "leader_signup_phrase_placeholder": "ex. GODSNATION2026",
@@ -3049,9 +3050,6 @@
     "action_p4": "Notre but est de former une génération unie, solidement ancrée spirituellement et techniquement équipée. Du Cameroun à l’Afrique et jusqu’aux extrémités de la terre, nous la préparons et la mobilisons pour qu’elle travaille ensemble à porter l’Évangile du Royaume par les médias modernes.",
     "action_p5": "Nous ne sommes pas simplement en train de constituer une équipe média ; nous préparons des personnes, nous formons des responsables et nous bâtissons une communauté unie d’ambassadeurs du Royaume engagés à porter l’Évangile aux nations.",
     "motto_title": "Notre devise",
-    "motto_l1": "Utiliser les médias modernes.",
-    "motto_l2": "Faire des disciples qui font des disciples.",
-    "motto_l3": "Portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.",
     "social_title": "Rejoignez notre communauté",
     "social_intro": "Rejoignez-nous dans nos groupes et suivez-nous sur nos réseaux sociaux, afin de grandir ensemble et de rester en contact.",
     "social_whatsapp": "Rejoindre notre groupe WhatsApp",
@@ -3060,7 +3058,8 @@
     "social_facebook": "Rejoindre notre groupe Facebook",
     "social_instagram": "Nous suivre sur Instagram",
     "social_tiktok": "Nous suivre sur TikTok",
-    "social_youtube": "Nous regarder sur YouTube"
+    "social_youtube": "Nous regarder sur YouTube",
+    "motto_text": "Utiliser les médias modernes. Faire des disciples qui font des disciples. Portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre."
   },
   "cropper": {
     "title_photo": "Ajustez votre photo de profil",
@@ -3628,6 +3627,11 @@
     "pin_limit": "Vous pouvez épingler jusqu'à 3 messages. Désépinglez-en un d'abord.",
     "pinned_toast": "Épinglé en haut.",
     "unpinned_toast": "Désépinglé."
+  },
+  "assistance": {
+    "label": "Assistance",
+    "aria": "Discuter avec nous sur WhatsApp pour une assistance",
+    "message": "Bonjour, j’ai besoin d’assistance avec l’application The God Nation."
   },
   "clinicRhythm": {
     "title": "Rythme de la Clinique de la Domination",

@@ -60,13 +60,32 @@ export function MemberAboutPage() {
               </article>
             ))}
 
-            <article className="card space-y-2 border-l-4 border-gold-400 bg-gradient-to-br from-brand-50 to-white" aria-labelledby="about-motto" data-testid="about-motto">
-              <h2 id="about-motto" className="font-semibold text-brand-900">
+            <article
+              className="relative overflow-hidden rounded-xl border border-gold-400/70 bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 px-6 py-8 text-center shadow-lg"
+              aria-labelledby="about-motto"
+              data-testid="about-motto"
+            >
+              <div aria-hidden className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-gold-400/15 blur-2xl" />
+              <div aria-hidden className="pointer-events-none absolute -bottom-14 -left-10 h-40 w-40 rounded-full bg-brand-500/30 blur-2xl" />
+              <h2 id="about-motto" className="relative flex items-center justify-center gap-3 text-xs font-bold uppercase tracking-[0.3em] text-gold-400">
+                <span aria-hidden className="h-px w-8 bg-gold-400/70" />
+                <span aria-hidden>✦</span>
                 {t('aboutGodNation.motto_title')}
+                <span aria-hidden>✦</span>
+                <span aria-hidden className="h-px w-8 bg-gold-400/70" />
               </h2>
-              <p className="text-lg font-bold leading-snug text-brand-900">{t('aboutGodNation.motto_l1')}</p>
-              <p className="text-lg font-bold leading-snug text-brand-900">{t('aboutGodNation.motto_l2')}</p>
-              <p className="text-lg font-bold leading-snug text-brand-700">{t('aboutGodNation.motto_l3')}</p>
+              <blockquote className="relative mt-5">
+                <span aria-hidden className="block font-serif text-6xl leading-none text-gold-400/50">“</span>
+                <p className="-mt-6 font-serif text-xl italic leading-relaxed text-gold-400 sm:text-2xl" data-testid="about-motto-text">
+                  {t('aboutGodNation.motto_text')}
+                </p>
+                <span aria-hidden className="mt-1 block font-serif text-6xl leading-none text-gold-400/50">”</span>
+              </blockquote>
+              <div aria-hidden className="relative mt-1 flex items-center justify-center gap-2 text-gold-400/80">
+                <span className="h-px w-16 bg-gold-400/50" />
+                <span>❖</span>
+                <span className="h-px w-16 bg-gold-400/50" />
+              </div>
             </article>
 
             <article className={section}>

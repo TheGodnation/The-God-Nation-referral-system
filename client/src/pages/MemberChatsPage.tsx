@@ -5,6 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { InstallAppBanner } from '../components/member/InstallAppBanner';
+import { AssistanceButton } from '../components/member/AssistanceButton';
 import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
@@ -118,7 +119,7 @@ export function MemberChatsPage() {
 
   return (
     <PageShell minimal>
-      <section className="mx-auto max-w-2xl px-4 py-6">
+      <section className="mx-auto max-w-2xl px-4 py-6 pb-16">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-brand-900">{t('memberNav.chats')}</h1>
           <NotificationBell />
@@ -152,6 +153,7 @@ export function MemberChatsPage() {
           <Announcements />
         </div>
         <MemberNav />
+        <AssistanceButton />
       </section>
     </PageShell>
   );

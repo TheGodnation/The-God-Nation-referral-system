@@ -58,24 +58,19 @@ describe('About the God Nation', () => {
     expect(document.body.textContent).not.toMatch(/Media and Leadership Academy/);
   });
 
-  it('states the motto', async () => {
+  it('states the motto as one statement, set apart in gold', async () => {
     mockFetch({ content: {} });
     renderAbout();
     const motto = await screen.findByTestId('about-motto');
     expect(within(motto).getByRole('heading', { name: 'Our motto' })).toBeInTheDocument();
-    expect(motto).toHaveTextContent('Use modern media.');
-    expect(motto).toHaveTextContent('Make disciples who make disciples.');
-    expect(motto).toHaveTextContent('Thereby taking the Gospel of the Kingdom to the ends of the earth.');
-  });
-
-  it('puts the motto where the mission used to be: right after the vision, before the ways to take part', async () => {
-    mockFetch({ content: {} });
-    renderAbout();
-    const vision = await screen.findByRole('heading', { name: 'Our vision in action' });
-    const motto = screen.getByRole('heading', { name: 'Our motto' });
-    const join = screen.getByRole('heading', { name: 'How you can take part' });
-    expect(vision.compareDocumentPosition(motto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(motto.compareDocumentPosition(join) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // One statement in one block, not three separate lines.
+    const text = within(motto).getByTestId('about-motto-text');
+    expect(text.textContent).toBe('Use modern media. Make disciples who make disciples. Thereby taking the Gospel of the Kingdom to the ends of the earth.');
+    expect(text.tagName).toBe('P');
+    expect(motto.querySelectorAll('p')).toHaveLength(1);
+    expect(motto.className).toMatch(/border-gold-400/);
+    expect(text.className).toMatch(/text-gold-400/);
+    expect(text.className).toMatch(/font-serif/);
   });
 
   it('has the motto in French too', async () => {
@@ -85,7 +80,7 @@ describe('About the God Nation', () => {
     renderAbout();
     const motto = await screen.findByTestId('about-motto');
     expect(motto).toHaveTextContent('Notre devise');
-    expect(motto).toHaveTextContent('Faire des disciples qui font des disciples.');
+    expect(motto).toHaveTextContent('Utiliser les médias modernes. Faire des disciples qui font des disciples. Portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.');
     expect(screen.getByRole('heading', { name: 'Notre vision en action' })).toBeInTheDocument();
     await i18n.changeLanguage('en');
   });

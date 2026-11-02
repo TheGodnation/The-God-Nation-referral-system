@@ -1,3 +1,4 @@
+import { normalizeWhatsappLink } from '../lib/whatsapp';
 import { AccountDeletionsTab } from '../components/admin/AccountDeletionsTab';
 import { SignInTroubleTab } from '../components/admin/SignInTroubleTab';
 import { AdminOnlineNow } from '../components/admin/AdminOnlineNow';
@@ -747,7 +748,7 @@ function AdminMemberBridgeCard() {
   );
 }
 
-function SettingsTab() {
+export function SettingsTab() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<SettingsData>(EMPTY_SETTINGS);
   const [saved, setSaved] = useState(false);
@@ -797,14 +798,16 @@ function SettingsTab() {
     setSaved(false);
     try {
       const res = await api.patch<SettingsData>('/api/admin/settings', {
-        supportWhatsappUrl: settings.supportWhatsappUrl || undefined,
-        facebookUrl: settings.facebookUrl || undefined,
-        instagramUrl: settings.instagramUrl || undefined,
-        tiktokUrl: settings.tiktokUrl || undefined,
-        youtubeUrl: settings.youtubeUrl || undefined,
-        whatsappContactUrl: settings.whatsappContactUrl || undefined,
-        telegramUrl: settings.telegramUrl || undefined,
-        messengerUrl: settings.messengerUrl || undefined,
+        // A blank link is sent as null so it can be taken away again (a missing field would leave it as it was).
+        // A WhatsApp number typed instead of a link becomes a wa.me link.
+        supportWhatsappUrl: normalizeWhatsappLink(settings.supportWhatsappUrl),
+        facebookUrl: settings.facebookUrl?.trim() || null,
+        instagramUrl: settings.instagramUrl?.trim() || null,
+        tiktokUrl: settings.tiktokUrl?.trim() || null,
+        youtubeUrl: settings.youtubeUrl?.trim() || null,
+        whatsappContactUrl: normalizeWhatsappLink(settings.whatsappContactUrl),
+        telegramUrl: settings.telegramUrl?.trim() || null,
+        messengerUrl: settings.messengerUrl?.trim() || null,
         // Unlike the URL fields above, an intentionally blank phrase is a
         // real, submittable value here — it's how self-signup gets turned
         // off — so it's always sent, never swapped for `undefined`.
@@ -824,13 +827,15 @@ function SettingsTab() {
       <div className="card space-y-4">
         <h2 className="font-semibold text-brand-900">{t('admin.settings.support_heading')}</h2>
         <div>
-          <label className="label">{t('admin.settings.support_whatsapp_url')}</label>
+          <label className="label" htmlFor="support-whatsapp">{t('admin.settings.support_whatsapp_url')}</label>
           <input
+            id="support-whatsapp"
             className="input"
             value={field('supportWhatsappUrl') ?? ''}
             onChange={(e) => setField('supportWhatsappUrl', e.target.value)}
-            placeholder="https://wa.me/2376..."
+            placeholder="+237 6XX XXX XXX"
           />
+          <p className="mt-1 text-xs text-slate-500">{t('admin.settings.support_whatsapp_hint')}</p>
         </div>
       </div>
 
@@ -924,8 +929,8 @@ function SettingsTab() {
           ] as const
         ).map(([key, label]) => (
           <div key={key}>
-            <label className="label">{label}</label>
-            <input className="input" value={field(key) ?? ''} onChange={(e) => setField(key, e.target.value)} />
+            <label className="label" htmlFor={`social-${key}`}>{label}</label>
+            <input id={`social-${key}`} className="input" value={field(key) ?? ''} onChange={(e) => setField(key, e.target.value)} />
           </div>
         ))}
         <p className="text-xs text-slate-400">{t('admin.settings.social_hint')}</p>

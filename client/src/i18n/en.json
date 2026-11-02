@@ -765,7 +765,8 @@
     "settings": {
       "support_heading": "Support",
       "social_heading": "Social Media",
-      "support_whatsapp_url": "Support WhatsApp URL",
+      "support_whatsapp_url": "Assistance WhatsApp (number or link)",
+      "support_whatsapp_hint": "Type the WhatsApp number (for example +237 6XX XXX XXX) or paste a wa.me link. It becomes the green Assistance button on the Chats page. Leave it blank to hide the button.",
       "leader_signup_heading": "Leader Self-Signup",
       "leader_signup_phrase": "Access Phrase",
       "leader_signup_phrase_placeholder": "e.g. GODSNATION2026",
@@ -3049,9 +3050,6 @@
     "action_p4": "Our goal is to develop a united, spiritually grounded, and technically equipped generation. From Cameroon to Africa and to the ends of the earth, we are preparing and mobilizing them to work together and carry the Gospel of the Kingdom through modern media.",
     "action_p5": "We are not simply building a media team; we are preparing people, developing leaders, and building a united community of Kingdom ambassadors committed to taking the Gospel to the nations.",
     "motto_title": "Our motto",
-    "motto_l1": "Use modern media.",
-    "motto_l2": "Make disciples who make disciples.",
-    "motto_l3": "Thereby taking the Gospel of the Kingdom to the ends of the earth.",
     "social_title": "Join our community",
     "social_intro": "Join us in our groups and follow us on our social networks, so that we can grow together and stay in touch.",
     "social_whatsapp": "Join our WhatsApp group",
@@ -3060,7 +3058,8 @@
     "social_facebook": "Join our Facebook group",
     "social_instagram": "Follow us on Instagram",
     "social_tiktok": "Follow us on TikTok",
-    "social_youtube": "Watch us on YouTube"
+    "social_youtube": "Watch us on YouTube",
+    "motto_text": "Use modern media. Make disciples who make disciples. Thereby taking the Gospel of the Kingdom to the ends of the earth."
   },
   "cropper": {
     "title_photo": "Adjust your profile photo",
@@ -3628,6 +3627,11 @@
     "pin_limit": "You can pin up to 3 messages. Unpin one first.",
     "pinned_toast": "Pinned to the top.",
     "unpinned_toast": "Unpinned."
+  },
+  "assistance": {
+    "label": "Assistance",
+    "aria": "Chat with us on WhatsApp for assistance",
+    "message": "Hello, I need assistance with The God Nation app."
   },
   "clinicRhythm": {
     "title": "Dominion Clinic rhythm",
