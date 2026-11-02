@@ -18,6 +18,7 @@ import {
   ChatHeartIcon,
 } from '../components/Icons';
 import { SOCIAL_ICONS, configuredSocials } from '../components/socialPlatforms';
+import { MottoCard } from '../components/MottoCard';
 
 type IconType = (p: { className?: string }) => JSX.Element;
 
@@ -98,6 +99,13 @@ export function HomePage() {
               <GlobeIcon className="h-5 w-5 text-gold-400" /> {t('homePage.chip_world')}
             </li>
           </ul>
+        </div>
+      </section>
+
+      {/* Our motto */}
+      <section id="motto" className="scroll-mt-16 bg-slate-50 px-4 py-12 sm:py-16">
+        <div className="mx-auto max-w-3xl">
+          <MottoCard />
         </div>
       </section>
 

@@ -45,6 +45,22 @@ describe('HomePage', () => {
     for (const a of screen.getAllByRole('link', { name: /Existing Members — Sign In/ })) expect(a).toHaveAttribute('href', '/member/login');
   });
 
+  it('shows our motto right after the opening, as one statement', async () => {
+    const { container } = show();
+    const motto = screen.getByTestId('about-motto');
+    expect(motto).toHaveTextContent('Our motto');
+    expect(screen.getByTestId('about-motto-text').textContent).toBe(
+      'Go into the digital media spaces where billions gather. Make disciples who make disciples, thereby taking the Gospel of the Kingdom to the ends of the earth.',
+    );
+    // After the hero, before "What we offer".
+    const hero = container.querySelector('#top')!;
+    const offer = container.querySelector('#offer')!;
+    expect(hero.compareDocumentPosition(motto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(motto.compareDocumentPosition(offer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Français' }));
+    expect(await screen.findByText(/Allez dans les espaces des médias numériques/)).toBeInTheDocument();
+  });
+
   it('has section links in the top bar, and is in French too', async () => {
     show();
     expect(screen.getByRole('link', { name: 'What We Offer' })).toHaveAttribute('href', '#offer');
