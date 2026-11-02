@@ -8,14 +8,13 @@ import { resolveWallpaperStyle } from '../lib/wallpaper';
 import { usePublicSettings } from '../lib/usePublicSettings';
 
 // "About the God Nation": the academy's own words — who we are, our calling,
-// our vision in action and our mission — as written by the central admin
-// (English and French), followed by ways to take part. Same blue and the same
+// our vision and mission (one blended section), and our motto — as written by
+// the central admin (English and French), followed by ways to take part. Same blue and the same
 // background as the Home page.
 const SECTIONS = [
   { id: 'who', paragraphs: 3 },
   { id: 'calling', paragraphs: 3 },
   { id: 'action', paragraphs: 4 },
-  { id: 'mission', paragraphs: 3 },
 ] as const;
 
 export function MemberAboutPage() {
@@ -50,16 +49,21 @@ export function MemberAboutPage() {
                   {t(`aboutGodNation.${s.id}_title`)}
                 </h2>
                 {Array.from({ length: s.paragraphs }, (_, i) => (
-                  <p
-                    key={i}
-                    // The closing line of the mission is the one to remember.
-                    className={`text-[15px] leading-relaxed ${s.id === 'mission' && i === s.paragraphs - 1 ? 'font-semibold text-brand-900' : 'text-slate-800'}`}
-                  >
+                  <p key={i} className="text-[15px] leading-relaxed text-slate-800">
                     {t(`aboutGodNation.${s.id}_p${i + 1}`)}
                   </p>
                 ))}
               </article>
             ))}
+
+            <article className="card space-y-2 border-l-4 border-gold-400 bg-gradient-to-br from-brand-50 to-white" aria-labelledby="about-motto" data-testid="about-motto">
+              <h2 id="about-motto" className="font-semibold text-brand-900">
+                {t('aboutGodNation.motto_title')}
+              </h2>
+              <p className="text-lg font-bold leading-snug text-brand-900">{t('aboutGodNation.motto_l1')}</p>
+              <p className="text-lg font-bold leading-snug text-brand-900">{t('aboutGodNation.motto_l2')}</p>
+              <p className="text-lg font-bold leading-snug text-brand-700">{t('aboutGodNation.motto_l3')}</p>
+            </article>
 
             <article className={section}>
               <h2 className="font-semibold text-brand-900">{t('aboutGodNation.join_title')}</h2>
