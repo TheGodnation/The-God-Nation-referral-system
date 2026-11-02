@@ -5,6 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { BookCover } from '../components/learn/BookCover';
+import { BookCoverViewer } from '../components/learn/BookCoverViewer';
 import { PayBookPanel, PayManyPanel } from '../components/learn/TrainingPayments';
 import { WaitingOrderLink } from '../components/learn/PayWithAgent';
 import { BookStatusLines, SchoolBook, SchoolSummary, TrainingStatusCard, useTr } from '../components/learn/schoolBits';
@@ -28,13 +29,14 @@ type BookPage = SchoolSummary & { book: SchoolBook; chapters: Chapter[] };
 // chapter (shown before it opens too), and — once open — Read, the exam
 // (one try) and paying for it.
 export function MemberSchoolBookPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const tr = useTr();
   const { bookId = '' } = useParams();
   const [data, setData] = useState<BookPage | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'notFound' | 'failed'>('loading');
   const [fromCache, setFromCache] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
+  const [coverOpen, setCoverOpen] = useState(false);
   const { member } = useMemberAuth();
   const ownerId = member?.personId ?? '';
 
@@ -54,6 +56,8 @@ export function MemberSchoolBookPage() {
   const b = data?.book;
   const title = b ? tr(b.titleEn, b.titleFr) : '';
   const description = b ? tr(b.descriptionEn ?? '', b.descriptionFr) : '';
+  // The cover picture in the app's language (the French one when the app is in French), if the book has one.
+  const coverUrl = b ? (b.coverUrlFr && i18n.language?.startsWith('fr') ? b.coverUrlFr : b.coverUrl) ?? null : null;
 
   return (
     <PageShell minimal>
@@ -69,11 +73,29 @@ export function MemberSchoolBookPage() {
         {status === 'notFound' && <p className="card text-center text-slate-600">{t('school.not_found')}</p>}
         {status === 'failed' && <p className="text-sm text-red-700">{t('learn.load_failed')}</p>}
 
+        {data && b && coverOpen && coverUrl && (
+          <BookCoverViewer
+            url={coverUrl}
+            alt={t('school.cover_alt', { number: b.trainingOrder, title })}
+            onClose={() => setCoverOpen(false)}
+            readHref={b.unlocked && b.canRead ? `/member/read/${b.id}` : undefined}
+            readLabel={b.unlocked && b.canRead ? (b.lastPage && b.lastPage > 1 ? t('school.continue_reading', { page: b.lastPage }) : t('school.read_book')) : undefined}
+          />
+        )}
+
         {data && b && (
           <div className="space-y-5">
             <div className="flex gap-4">
               <div className="w-28 shrink-0 sm:w-36">
-                <BookCover number={b.trainingOrder} title={title} coverUrl={b.coverUrl ?? null} coverUrlFr={b.coverUrlFr ?? null} />
+                {coverUrl ? (
+                  // Tap the cover to see it big, like a profile photo.
+                  <button type="button" onClick={() => setCoverOpen(true)} aria-label={t('school.cover_enlarge') ?? ''} className="block w-full text-left" data-testid="open-cover">
+                    <BookCover number={b.trainingOrder} title={title} coverUrl={b.coverUrl ?? null} coverUrlFr={b.coverUrlFr ?? null} />
+                    <span className="mt-1 block text-center text-[11px] text-slate-500">🔍 {t('school.cover_enlarge')}</span>
+                  </button>
+                ) : (
+                  <BookCover number={b.trainingOrder} title={title} coverUrl={null} />
+                )}
               </div>
               <div className="min-w-0 space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{t('learn.book', { number: b.trainingOrder })}</p>

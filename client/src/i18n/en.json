@@ -2741,7 +2741,12 @@
     "offline_saved": "No internet — showing what was saved on this phone. Your downloaded books still open.",
     "continue_reading": "Continue reading · page {{page}}",
     "downloaded": "Downloaded on this phone — opens even without internet",
-    "downloads_first_time": "Downloaded in your phone the first time you open it, then it opens even without internet."
+    "downloads_first_time": "Downloaded in your phone the first time you open it, then it opens even without internet.",
+    "cover_enlarge": "Tap the cover to see it bigger",
+    "cover_back": "Back to the book",
+    "cover_close": "Close",
+    "cover_zoom_in": "Zoom in",
+    "cover_zoom_out": "Zoom out"
   },
   "downloads": {
     "title": "Downloads",

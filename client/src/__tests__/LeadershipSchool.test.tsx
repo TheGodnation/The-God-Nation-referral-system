@@ -132,6 +132,83 @@ describe("A book's page", () => {
     expect(screen.queryByRole('button', { name: /Pay 1\s100 FCFA/ })).not.toBeInTheDocument();
   });
 
+  describe('tapping the cover opens it big, like a profile photo', () => {
+    const open = async (book: Record<string, unknown>) => {
+      mockFetch({
+        'GET /api/member/auth/me': () => ({ body: ME }),
+        'GET /api/member/school/books/b1': () => ({ body: { ...SUMMARY, book, chapters: CHAPTERS } }),
+      });
+      renderAt('/member/school/b1');
+      await screen.findByRole('heading', { name: 'Called to serve' });
+    };
+
+    it('shows the cover large with a way back, and a zoom', async () => {
+      await open(BOOKS[0]);
+      expect(screen.queryByTestId('cover-viewer')).toBeNull();
+      expect(screen.getByText(/Tap the cover to see it bigger/)).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('open-cover'));
+      const viewer = screen.getByTestId('cover-viewer');
+      const big = within(viewer).getByRole('img', { name: 'Cover of Book 1: Called to serve' });
+      expect(big).toHaveAttribute('src', '/api/member/library/books/b1/cover?v=abc');
+      expect(big).toHaveAttribute('data-zoomed', 'false');
+      // Come closer, and back out again.
+      fireEvent.click(within(viewer).getByRole('button', { name: /Zoom in/ }));
+      expect(big).toHaveAttribute('data-zoomed', 'true');
+      fireEvent.click(big);
+      expect(big).toHaveAttribute('data-zoomed', 'false');
+    });
+
+    it('goes back to the book with "Back to the book", the ✕, or the Escape key', async () => {
+      await open(BOOKS[0]);
+      for (const close of [
+        () => fireEvent.click(screen.getByRole('button', { name: /Back to the book/ })),
+        () => fireEvent.click(screen.getByRole('button', { name: 'Close' })),
+        () => fireEvent.keyDown(window, { key: 'Escape' }),
+      ]) {
+        fireEvent.click(screen.getByTestId('open-cover'));
+        expect(screen.getByTestId('cover-viewer')).toBeInTheDocument();
+        close();
+        expect(screen.queryByTestId('cover-viewer')).toBeNull();
+        // The book page is still there, where it was.
+        expect(screen.getByRole('heading', { name: 'Called to serve' })).toBeInTheDocument();
+      }
+    });
+
+    it('offers to read the book from there, picking up at the last page', async () => {
+      await open({ ...BOOKS[0], lastPage: 71 });
+      fireEvent.click(screen.getByTestId('open-cover'));
+      expect(within(screen.getByTestId('cover-viewer')).getByRole('link', { name: /Continue reading · page 71/ })).toHaveAttribute('href', '/member/read/b1');
+    });
+
+    it('does not offer reading for a book that cannot be read yet', async () => {
+      await open({ ...BOOKS[0], canRead: false, unlocked: false });
+      fireEvent.click(screen.getByTestId('open-cover'));
+      expect(within(screen.getByTestId('cover-viewer')).queryByRole('link')).toBeNull();
+    });
+
+    it('a book with no cover picture has nothing to enlarge', async () => {
+      mockFetch({
+        'GET /api/member/auth/me': () => ({ body: ME }),
+        'GET /api/member/school/books/b2': () => ({ body: { ...SUMMARY, book: BOOKS[1], chapters: [] } }),
+      });
+      renderAt('/member/school/b2');
+      await screen.findByRole('heading', { name: 'Faithful in little' });
+      expect(screen.queryByTestId('open-cover')).toBeNull();
+    });
+
+    it('is in French too, with the French cover', async () => {
+      const { default: i18n } = await import('../i18n');
+      await i18n.changeLanguage('fr');
+      await open({ ...BOOKS[0], coverUrlFr: '/api/member/library/books/b1/cover?lang=fr' }).catch(() => {});
+      await screen.findByText(/Touchez la couverture pour la voir en grand/);
+      fireEvent.click(screen.getByTestId('open-cover'));
+      const viewer = screen.getByTestId('cover-viewer');
+      expect(within(viewer).getByRole('button', { name: /Retour au livre/ })).toBeInTheDocument();
+      expect(within(viewer).getByRole('img')).toHaveAttribute('src', '/api/member/library/books/b1/cover?lang=fr');
+      await i18n.changeLanguage('en');
+    });
+  });
+
   it('a closed book still shows what it teaches, and why it is closed', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: ME }),
