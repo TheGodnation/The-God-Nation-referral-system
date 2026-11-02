@@ -312,13 +312,82 @@ describe('Home strip — everyone, photos first', () => {
 
     const res = await me.agent.get('/api/member/people/strip');
     const names = res.body.items.map((p: any) => p.name);
-    expect(names.slice(0, 2)).toEqual(['Strip Photo New', 'Strip Photo Old']);
+    // The people with photos come first (in whatever turn the strip is at), then those without.
+    expect([...names.slice(0, 2)].sort()).toEqual(['Strip Photo New', 'Strip Photo Old']);
     expect(names).toContain('Strip No Photo');
     expect(names.indexOf('Strip No Photo')).toBeGreaterThan(1);
     expect(names).not.toContain('Strip Me');
     expect(names).not.toContain('Strip Blocker');
     expect(res.body.items.find((p: any) => p.name === 'Strip No Photo').photoUrl).toBeNull();
     expect(noPhoto.id).toBeTruthy();
+  });
+});
+
+describe('Home strip — revolves every 12 hours', () => {
+  const HOUR = 60 * 60 * 1000;
+  let seed = 0;
+  async function photoPerson(name: string) {
+    seed += 1;
+    return prisma.person.create({
+      data: {
+        name,
+        whatsappNumber: `+2376799${String(seed).padStart(5, '0')}`,
+        photoStorageKey: `profile-photos/rev${seed}.jpg`,
+        photoUpdatedAt: new Date(),
+        memberAccount: { create: { email: `rev${seed}@example.com` } },
+      },
+    });
+  }
+  /** Reads the strip as it is `hours` after the start of a 12-hour window. */
+  async function stripAt(me: Awaited<ReturnType<typeof member>>, windowOffset: number) {
+    const start = Math.floor(Date.now() / (12 * HOUR)) * 12 * HOUR;
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(start + windowOffset * 12 * HOUR + HOUR));
+    try {
+      const res = await me.agent.get('/api/member/people/strip');
+      return res.body.items.map((p: any) => p.name) as string[];
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it('stays the same within a 12-hour window, and moves on in the next', async () => {
+    const me = await member('Rev Me');
+    for (let i = 1; i <= 3; i++) await photoPerson(`Rev Photo ${i}`);
+    const a = await stripAt(me, 0);
+    expect(await stripAt(me, 0)).toEqual(a);
+    const b = await stripAt(me, 1);
+    const c = await stripAt(me, 2);
+    const d = await stripAt(me, 3);
+    // Everyone is shown each time, but the order turns by one each window and comes back round.
+    expect([...b].sort()).toEqual([...a].sort());
+    expect(b[0]).not.toBe(a[0]);
+    expect(c[0]).not.toBe(b[0]);
+    expect(d).toEqual(a);
+  });
+
+  it('with more people than places, shows a different set each window until everyone has had a turn; those without a photo stay at the end', async () => {
+    const me = await member('Rev Me');
+    const names = new Set<string>();
+    for (let i = 1; i <= 45; i++) names.add((await photoPerson(`Rev Photo ${i}`)).name);
+    await member('Rev No Photo');
+    const w0 = await stripAt(me, 0);
+    const w1 = await stripAt(me, 1);
+    expect(w0).toHaveLength(40);
+    expect(w1).toHaveLength(40);
+    expect(new Set(w0).size).toBe(40);
+    expect(w0).not.toEqual(w1);
+    expect(w0.includes('Rev No Photo') || w1.includes('Rev No Photo')).toBe(false);
+    expect(new Set([...w0, ...w1]).size).toBe(45); // between them, everyone with a photo appeared
+    for (const n of [...w0, ...w1]) expect(names.has(n)).toBe(true);
+  });
+
+  it('puts people without a photo after those with one when there is room', async () => {
+    const me = await member('Rev Me');
+    await photoPerson('Rev Photo A');
+    await member('Rev No Photo');
+    const names = await stripAt(me, 5);
+    expect(names).toEqual(['Rev Photo A', 'Rev No Photo']);
   });
 });
 

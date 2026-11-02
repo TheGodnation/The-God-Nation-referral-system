@@ -15,17 +15,32 @@ interface StripMember {
 // first as tall picture cards, then the others as cards with their initials;
 // the last card opens the People page. Tapping a card opens that profile.
 // One light request (GET /api/member/people/strip), no further loading while
-// scrolling — this is a discovery strip, not a feed.
+// scrolling — this is a discovery strip, not a feed. The pictures revolve on the
+// server every 12 hours; the strip is fetched again only when the app returns to
+// the front after an hour or more.
 export function MemberPhotoSlider() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [items, setItems] = useState<StripMember[] | null>(null);
 
   useEffect(() => {
-    api
-      .get<{ items: StripMember[] }>('/api/member/people/strip')
-      .then((res) => setItems(res.items))
-      .catch(() => setItems([]));
+    let loadedAt = Date.now();
+    const load = () =>
+      api
+        .get<{ items: StripMember[] }>('/api/member/people/strip')
+        .then((res) => {
+          loadedAt = Date.now();
+          setItems(res.items);
+        })
+        .catch(() => setItems((prev) => prev ?? []));
+    void load();
+    // The strip revolves every 12 hours on the server: when the app comes back to the
+    // front after a while, look again so the pictures are not stale.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - loadedAt > 60 * 60 * 1000) void load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   // While loading: grey cards where the pictures will be, so the page below doesn't jump.

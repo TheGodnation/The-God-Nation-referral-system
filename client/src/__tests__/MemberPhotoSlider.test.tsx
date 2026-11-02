@@ -67,4 +67,22 @@ describe('MemberPhotoSlider', () => {
     await waitFor(() => expect(container.querySelector('button')).not.toBeInTheDocument());
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('looks again when the app returns to the front after an hour or more, but not straight away', async () => {
+    mockFetch([{ personId: 'p1', name: 'Grace Mbeki', photoUrl: '/api/people/p1/photo?v=1' }]);
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    renderSlider();
+    await waitFor(() => expect(screen.getByText('Grace Mbeki')).toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Back to the front straight away: nothing new to fetch.
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Two hours later: fetch the strip again.
+    const real = Date.now;
+    vi.spyOn(Date, 'now').mockImplementation(() => real() + 2 * 60 * 60 * 1000);
+    document.dispatchEvent(new Event('visibilitychange'));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
 });

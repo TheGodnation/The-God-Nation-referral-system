@@ -9,6 +9,7 @@ import { requireCsrf } from '../lib/csrf';
 import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { profilePhotoPath, coverPhotoPath } from '../lib/profilePhoto';
+import { STRIP_SIZE, stripStart, stripWindow } from '../lib/memberStrip';
 import { titleForLevel, getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
 import { getOrCreatePrivateConversation } from '../lib/privateMessaging';
@@ -201,22 +202,25 @@ router.get('/people/with-photo', requireMember, asyncHandler(async (req, res) =>
 }));
 
 // GET /api/member/people/strip — the Home page strip: every member alike
-// (leaders and members are not told apart), those with a profile picture
-// first (newest picture first), then the others (newest members first), up to
-// STRIP_SIZE. People without a picture are shown with their initials by the
-// app. Same lightness rules as /people/with-photo.
-const STRIP_SIZE = 40;
+// (leaders and members are not told apart). People with a profile picture come
+// first and they revolve: every 12 hours the strip moves on to the next
+// STRIP_SIZE of them (see lib/memberStrip.ts), so the same pictures are not
+// there for long. Then the others (newest members first), if there is room;
+// they are shown with their initials by the app. Same lightness rules as
+// /people/with-photo.
 router.get('/people/strip', requireMember, asyncHandler(async (req, res) => {
   const me = req.member!.personId;
   const blockedIds = await getBlockedIds(me);
   const base = { ...APP_MEMBER, id: { notIn: [me, ...blockedIds] } };
   const select = { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } as const;
-  const withPhoto = await prisma.person.findMany({
-    where: { ...base, photoStorageKey: { not: null } },
-    select,
-    orderBy: { photoUpdatedAt: 'desc' },
-    take: STRIP_SIZE,
-  });
+  const photoWhere = { ...base, photoStorageKey: { not: null } };
+  const photoCount = await prisma.person.count({ where: photoWhere });
+  const take = Math.min(STRIP_SIZE, photoCount);
+  const start = stripStart(photoCount, STRIP_SIZE, stripWindow(Date.now()));
+  const firstPart = take > 0 ? await prisma.person.findMany({ where: photoWhere, select, orderBy: { id: 'asc' }, skip: start, take }) : [];
+  // Past the end of the list: carry on from the beginning.
+  const wrapped = firstPart.length < take ? await prisma.person.findMany({ where: photoWhere, select, orderBy: { id: 'asc' }, take: take - firstPart.length }) : [];
+  const withPhoto = [...firstPart, ...wrapped];
   const without =
     withPhoto.length < STRIP_SIZE
       ? await prisma.person.findMany({
