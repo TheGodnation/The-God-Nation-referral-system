@@ -58,18 +58,22 @@ describe('About the God Nation', () => {
     expect(document.body.textContent).not.toMatch(/Media and Leadership Academy/);
   });
 
-  it('states the motto as one statement, set apart in gold', async () => {
+  it('states the motto as one statement, set apart in gold, with its call to go in bold capitals', async () => {
     mockFetch({ content: {} });
     renderAbout();
     const motto = await screen.findByTestId('about-motto');
     expect(within(motto).getByRole('heading', { name: 'Our motto' })).toBeInTheDocument();
-    // One statement in one block, not three separate lines.
+    // One statement in one block.
     const text = within(motto).getByTestId('about-motto-text');
-    expect(text.textContent).toBe('Use modern media. Make disciples who make disciples. Thereby taking the Gospel of the Kingdom to the ends of the earth.');
+    expect(text.textContent).toBe('Go into the digital media spaces where billions gather. Make disciples who make disciples, thereby taking the Gospel of the Kingdom to the ends of the earth.');
     expect(text.tagName).toBe('P');
     expect(motto.querySelectorAll('p')).toHaveLength(1);
+    // The opening call is in capitals and bold; the rest flows on in italic.
+    const lead = within(text).getByText('Go into the digital media spaces where billions gather.');
+    expect(lead.className).toMatch(/uppercase/);
+    expect(lead.className).toMatch(/font-bold/);
+    expect(within(text).getByText(/^Make disciples who make disciples/).className).toMatch(/italic/);
     expect(motto.className).toMatch(/border-gold-400/);
-    expect(text.className).toMatch(/text-gold-400/);
     expect(text.className).toMatch(/font-serif/);
   });
 
@@ -80,7 +84,7 @@ describe('About the God Nation', () => {
     renderAbout();
     const motto = await screen.findByTestId('about-motto');
     expect(motto).toHaveTextContent('Notre devise');
-    expect(motto).toHaveTextContent('Utiliser les médias modernes. Faire des disciples qui font des disciples. Portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.');
+    expect(motto).toHaveTextContent('Allez dans les espaces des médias numériques où des milliards de personnes se rassemblent. Faites des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.');
     expect(screen.getByRole('heading', { name: 'Notre vision en action' })).toBeInTheDocument();
     await i18n.changeLanguage('en');
   });
