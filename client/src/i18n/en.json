@@ -3604,6 +3604,21 @@
     "desk_note": "{{tokens}} tokens used",
     "admin_note": "{{tokens}} tokens used"
   },
+  "pins": {
+    "pinned": "Pinned message",
+    "n_of": "Pinned {{current}} of {{total}}",
+    "important_chip": "Important message, tap to read",
+    "central_label": "Central message",
+    "previous": "Previous",
+    "next": "Next",
+    "show_in_chat": "Show in chat",
+    "unpin": "Unpin",
+    "pin_menu": "Pin to top",
+    "unpin_menu": "Unpin",
+    "pin_limit": "You can pin up to 3 messages. Unpin one first.",
+    "pinned_toast": "Pinned to the top.",
+    "unpinned_toast": "Unpinned."
+  },
   "clinicRhythm": {
     "title": "Dominion Clinic rhythm",
     "help": "How often a new topic is taught, how many days between exams, and how many questions an exam asks (drawn at random from the book's questions).",

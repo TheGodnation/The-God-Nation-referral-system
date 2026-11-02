@@ -3604,6 +3604,21 @@
     "desk_note": "{{tokens}} jetons utilisés",
     "admin_note": "{{tokens}} jetons utilisés"
   },
+  "pins": {
+    "pinned": "Message épinglé",
+    "n_of": "Épinglé {{current}} sur {{total}}",
+    "important_chip": "Message important, touchez pour lire",
+    "central_label": "Message central",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "show_in_chat": "Voir dans la discussion",
+    "unpin": "Désépingler",
+    "pin_menu": "Épingler en haut",
+    "unpin_menu": "Désépingler",
+    "pin_limit": "Vous pouvez épingler jusqu'à 3 messages. Désépinglez-en un d'abord.",
+    "pinned_toast": "Épinglé en haut.",
+    "unpinned_toast": "Désépinglé."
+  },
   "clinicRhythm": {
     "title": "Rythme de la Clinique de la Domination",
     "help": "À quelle fréquence un nouveau sujet est enseigné, combien de jours entre les examens, et combien de questions pose un examen (tirées au hasard parmi les questions du livre).",

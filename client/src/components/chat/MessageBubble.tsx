@@ -395,9 +395,19 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
       >
         <div
           className={`relative rounded-lg px-2 pb-1 pt-1.5 text-[15px] shadow-sm ${
-            m.isOwn ? 'rounded-br-sm bg-[#d9fdd3]' : 'rounded-bl-sm bg-white'
-          } ${highlighted ? 'ring-2 ring-amber-400' : ''} ${m.pending ? 'opacity-70' : ''}`}
+            m.isOwn ? 'rounded-br-sm bg-[#d9fdd3]' : m.senderBadge && !m.deleted ? 'rounded-bl-sm bg-[#fff8e1]' : 'rounded-bl-sm bg-white'
+          } ${m.senderBadge && !m.deleted ? 'border-l-4 border-amber-500' : ''} ${highlighted ? 'ring-2 ring-amber-400' : ''} ${m.pending ? 'opacity-70' : ''}`}
+          data-central={m.senderBadge && !m.deleted ? 'true' : undefined}
         >
+          {m.senderBadge && !m.deleted && (
+            <p className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-700">
+              📣 {t('pins.central_label')}
+              {m.pinned && <span className="ml-2" title={t('pins.pinned') ?? ''}>📌</span>}
+            </p>
+          )}
+          {m.pinned && !m.deleted && !m.senderBadge && (
+            <p className="mb-0.5 text-[11px] font-semibold text-slate-500">📌 {t('pins.pinned')}</p>
+          )}
           {showSender && !m.isOwn && (
             <p className={`mb-0.5 text-xs font-semibold ${nameColor(m.senderName)}`}>
               {m.senderPersonId ? (

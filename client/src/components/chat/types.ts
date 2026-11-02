@@ -91,6 +91,8 @@ export interface ChatMessage {
   translation?: ChatTranslation | null;
   transcript?: ChatTranscript | null;
   teaching?: ChatTeaching | null;
+  /** Pinned to the top of the assembly's chat by the central admin. */
+  pinned?: boolean;
 }
 
 /** Edit allowed for 15 minutes; delete for everyone for 2 days (like WhatsApp). */

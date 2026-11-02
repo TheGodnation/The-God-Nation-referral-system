@@ -12,6 +12,7 @@ import { ChatComposer, type OutgoingMessage } from '../components/chat/ChatCompo
 import { UploadingBubble } from '../components/chat/UploadingBubble';
 import { useMediaUploads } from '../lib/useMediaUploads';
 import { REACTIONS, canEditMessage, canUnsendMessage, type ChatMessage, type ChatReaction } from '../components/chat/types';
+import { PinnedMessages, type ChatPin } from '../components/chat/PinnedMessages';
 import { ChatSearch, EditSheet, ForwardSheet, SelectionBar, copyableText, findAndJump } from '../components/chat/ChatActions';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { draftKeyFor } from '../lib/drafts';
@@ -134,6 +135,9 @@ export function MemberGroupChatPage() {
   // Several messages ticked at once (to copy or forward together), like WhatsApp.
   const [selected, setSelected] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
+  // Messages the central admin pinned to the top of this assembly's chat.
+  const [pins, setPins] = useState<ChatPin[]>([]);
+  const [canPin, setCanPin] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -145,16 +149,47 @@ export function MemberGroupChatPage() {
       .get<{ items: { communityId: string; communityName: string }[] }>('/api/member/me/community-memberships')
       .then((r) => setGroupName((cur) => cur || (r.items.find((m) => m.communityId === communityId)?.communityName ?? '')))
       .catch(() => {});
-    // The group's picture and proper name (set by the admin).
-    api
-      .get<{ name?: string | null; photoUrl?: string | null; canPostTeaching?: boolean }>(`/api/communities/${communityId}/conversation`)
-      .then((r) => {
-        setCanPostTeaching(Boolean(r.canPostTeaching));
-        if (r.name) setGroupName(r.name);
-        setGroupPhoto(r.photoUrl ?? null);
-      })
-      .catch(() => {});
+    // The group's picture and proper name (set by the admin), and what is pinned.
+    const loadInfo = () =>
+      api
+        .get<{ name?: string | null; photoUrl?: string | null; canPostTeaching?: boolean; pins?: ChatPin[]; canPin?: boolean }>(`/api/communities/${communityId}/conversation`)
+        .then((r) => {
+          setCanPostTeaching(Boolean(r.canPostTeaching));
+          if (r.name) setGroupName(r.name);
+          setGroupPhoto(r.photoUrl ?? null);
+          setPins(r.pins ?? []);
+          setCanPin(Boolean(r.canPin));
+        })
+        .catch(() => {});
+    void loadInfo();
+    // Pins change rarely: look again now and then while the chat is open.
+    const timer = window.setInterval(() => void loadInfo(), 60000);
+    return () => window.clearInterval(timer);
   }, [communityId]);
+
+  function pinSeen(messageId: string) {
+    setPins((prev) => prev.map((p) => (p.messageId === messageId ? { ...p, unseen: false } : p)));
+    api.post(`/api/communities/${communityId}/conversation/messages/${messageId}/pin/seen`).catch(() => {});
+  }
+
+  async function togglePin(m: ChatMessage) {
+    setMenuFor(null);
+    try {
+      if (m.pinned) {
+        const res = await api.delete<{ pins: ChatPin[] }>(`/api/communities/${communityId}/conversation/messages/${m.id}/pin`);
+        setPins(res.pins);
+        setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, pinned: false } : x)));
+        showToast(t('pins.unpinned_toast'));
+      } else {
+        const res = await api.put<{ pins: ChatPin[] }>(`/api/communities/${communityId}/conversation/messages/${m.id}/pin`);
+        setPins(res.pins);
+        setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, pinned: true } : x)));
+        showToast(t('pins.pinned_toast'));
+      }
+    } catch (err) {
+      showToast(err instanceof ApiError && err.status === 409 ? t('pins.pin_limit') : t('groupChat.action_failed'));
+    }
+  }
 
   function markRead(items: ChatMessage[], unread: number) {
     const latest = items[items.length - 1];
@@ -525,6 +560,17 @@ export function MemberGroupChatPage() {
         </button>
       </header>
 
+      <PinnedMessages
+        pins={pins}
+        canPin={canPin}
+        onSeen={pinSeen}
+        onShowInChat={(id) => void findAndJump(id, () => loadOlderPage().catch(() => false), jumpTo, () => showToast(t('groupChat.not_loaded')))}
+        onUnpin={(id) => {
+          const m = messagesRef.current.find((x) => x.id === id);
+          void togglePin(m ?? ({ id, pinned: true } as ChatMessage));
+        }}
+      />
+
       {selected.length > 0 && (
         <SelectionBar
           count={selected.length}
@@ -674,6 +720,11 @@ export function MemberGroupChatPage() {
                   }}
                 >
                   ↩️ {t('groupChat.reply')}
+                </button>
+              )}
+              {canPin && !menuFor.deleted && !menuFor.pending && (
+                <button type="button" className="block w-full py-3 text-left" onClick={() => void togglePin(menuFor)}>
+                  📌 {menuFor.pinned ? t('pins.unpin_menu') : t('pins.pin_menu')}
                 </button>
               )}
               {menuFor.body && (
