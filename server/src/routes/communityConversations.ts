@@ -48,6 +48,7 @@ import { notifyPostLiked, notifyPostReplied } from '../lib/notifications';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording } from '../lib/presence';
 import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
 import { pushToPersons } from '../lib/push';
+import { markPinSeen, pinMessage, pinsFor, unpinMessage } from '../lib/messagePins';
 import { translateAndStoreMessage, transcribeAndStoreMessageAudio } from '../lib/translation';
 import type { Language } from '@prisma/client';
 
@@ -193,7 +194,8 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
 
   const conversation = await getOrCreateConversation(communityId);
   const cutoff = await historyCutoffFor(personId, communityId, conversation.id);
-  const [unreadCount, isAdministrator, community, last] = await Promise.all([
+  const viewerPerson = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
+  const [unreadCount, isAdministrator, community, last, pins] = await Promise.all([
     getCommunityConversationUnreadCount(personId, conversation.id, communityId),
     isCommunityAdministrator(personId, communityId),
     prisma.community.findUnique({
@@ -205,6 +207,8 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: { sender: { select: { name: true } }, attachments: { select: { mimeType: true }, take: 1 } },
     }),
+    // Pinned messages are shown to everyone in the assembly, newcomers too, whatever their age.
+    pinsFor(conversation.id, personId, appLanguage(req, viewerPerson?.preferredLanguage)),
   ]);
   res.json({
     id: conversation.id,
@@ -216,6 +220,9 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
     canPostTeaching: await isCentralAdminPerson(personId),
     // The same profile can also add people and make sub-assemblies (communityManage.ts).
     canManage: await isCentralAdminPerson(personId),
+    // ...and pin messages to the top of the chat.
+    canPin: await isCentralAdminPerson(personId),
+    pins,
     // For the WhatsApp-style chat list and chat header.
     name: community?.name ?? null,
     photoUrl: community ? groupPhotoPath(community) : null,
@@ -313,6 +320,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       replyTo: replyToInclude,
       reactions: { select: { emoji: true, personId: true } },
       teaching: { select: { id: true, title: true, assessmentId: true, mediaKind: true, closesAt: true, text: true, communityId: true, authorPersonId: true, detectedLanguage: true, titleTranslated: true } },
+      pin: { select: { id: true } },
     },
     orderBy: afterCursor ? [{ createdAt: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
@@ -394,6 +402,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       deletedBySender: Boolean(m.deletedAt) && m.deletedByPersonId === m.senderPersonId,
       edited: !m.deletedAt && Boolean(m.editedAt),
       forwarded: !m.deletedAt && m.forwarded,
+      pinned: !m.deletedAt && Boolean(m.pin),
       attachments: m.deletedAt
         ? []
         : m.attachments.map((a) => ({
@@ -789,6 +798,78 @@ router.post(
     const unreadCount = await getCommunityConversationUnreadCount(personId, conversation.id, communityId);
 
     res.json({ unreadCount });
+  }),
+);
+
+// Pinned messages — only the central admin's profile pins or unpins (up to
+// three per assembly); everyone in the assembly sees them (see the
+// conversation route above). "seen" is anyone's own: they opened the pin.
+async function loadPinTarget(req: Request, res: Response, centralOnly: boolean) {
+  const { communityId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) {
+    res.status(404).json({ error: 'Community not found.' });
+    return null;
+  }
+  const personId = req.conversationActorPersonId!;
+  if (!(await hasConversationAccess(personId, communityId))) {
+    res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+    return null;
+  }
+  if (centralOnly && !(await isCentralAdminPerson(personId))) {
+    res.status(403).json({ error: 'Only the central admin can pin messages.' });
+    return null;
+  }
+  const conversation = await getOrCreateConversation(communityId);
+  return { communityId, personId, conversation };
+}
+
+async function pinsResponse(req: Request, conversationId: string, personId: string) {
+  const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
+  return { pins: await pinsFor(conversationId, personId, appLanguage(req, person?.preferredLanguage)) };
+}
+
+router.put(
+  '/:communityId/conversation/messages/:messageId/pin',
+  communityModerationLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const target = await loadPinTarget(req, res, true);
+    if (!target) return;
+    const result = await pinMessage(target.conversation.id, req.params.messageId, target.personId);
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    await recordAudit({
+      actorId: req.user?.id ?? null,
+      actorEmail: req.user?.email ?? null,
+      action: 'COMMUNITY_MESSAGE_PINNED',
+      targetType: 'Message',
+      targetId: req.params.messageId,
+      metadata: { communityId: target.communityId, pinnedByPersonId: target.personId },
+    });
+    res.json(await pinsResponse(req, target.conversation.id, target.personId));
+  }),
+);
+
+router.delete(
+  '/:communityId/conversation/messages/:messageId/pin',
+  communityModerationLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const target = await loadPinTarget(req, res, true);
+    if (!target) return;
+    await unpinMessage(target.conversation.id, req.params.messageId);
+    res.json(await pinsResponse(req, target.conversation.id, target.personId));
+  }),
+);
+
+router.post(
+  '/:communityId/conversation/messages/:messageId/pin/seen',
+  communityConversationReadLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const target = await loadPinTarget(req, res, false);
+    if (!target) return;
+    await markPinSeen(target.conversation.id, req.params.messageId, target.personId);
+    res.json({ ok: true });
   }),
 );
 

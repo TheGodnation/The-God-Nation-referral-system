@@ -753,6 +753,8 @@ model Person {
   bookDeliveries      BookDelivery[]
   gifts               Gift[]
   tokenEntries        TokenEntry[]
+  pinsMade            MessagePin[]      @relation("MessagePinnedBy")
+  pinsSeen            MessagePinSeen[]  @relation("MessagePinSeenBy")
   // A leader who is away (travelling, ill...) until this moment: new people
   // are not shared with them, and anything urgent goes past them.
   awayUntil           DateTime?
@@ -1671,6 +1673,7 @@ model Conversation {
   community Community                   @relation(fields: [communityId], references: [id], onDelete: Cascade)
   messages  Message[]
   reads     CommunityConversationRead[]
+  pins      MessagePin[]
 }
 
 // A single message in a Community's Conversation. senderPersonId is always
@@ -1741,6 +1744,7 @@ model Message {
   attachments  MessageAttachment[]
   reactions    MessageReaction[]
   teaching     Teaching?
+  pin          MessagePin?
 
   @@index([conversationId, createdAt])
 }
@@ -3618,4 +3622,38 @@ model TokenEntry {
   @@unique([bookPaymentId, reason])
   @@index([personId, createdAt])
   @@index([reason, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Pinned messages: the central admin pins up to three messages at the top of an
+// assembly's chat. Everyone in the assembly sees them first, newcomers
+// included, whatever the message's age. MessagePinSeen records who has opened
+// a pin, so the "Important message" chip shows only until they have.
+// ---------------------------------------------------------------------------
+model MessagePin {
+  id               String   @id @default(uuid())
+  conversationId   String
+  messageId        String   @unique
+  pinnedByPersonId String?
+  pinnedAt         DateTime @default(now())
+
+  conversation Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  pinnedBy     Person?          @relation("MessagePinnedBy", fields: [pinnedByPersonId], references: [id], onDelete: SetNull)
+  seen         MessagePinSeen[]
+
+  @@index([conversationId, pinnedAt])
+}
+
+model MessagePinSeen {
+  id       String   @id @default(uuid())
+  pinId    String
+  personId String
+  seenAt   DateTime @default(now())
+
+  pin    MessagePin @relation(fields: [pinId], references: [id], onDelete: Cascade)
+  person Person     @relation("MessagePinSeenBy", fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([pinId, personId])
+  @@index([personId])
 }
