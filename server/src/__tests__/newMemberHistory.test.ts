@@ -6,7 +6,7 @@ import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 
-// "Last 10 messages for newcomers": someone who joins an assembly sees the 10
+// "Last 30 messages for newcomers": someone who joins an assembly sees the 30
 // latest earlier messages and everything since, with the unread badge showing
 // that messages are waiting. Current members, leaders and the central admin
 // keep the full history.
@@ -47,12 +47,12 @@ async function signedIn(name: string, opts: { admin?: boolean; communityId?: str
 
 const MIN = 60_000;
 
-/** An assembly with 15 old messages (m1 … m15, oldest first) from someone already in it. */
+/** An assembly with 45 old messages (m1 … m45, oldest first) from someone already in it. */
 async function assemblyWithHistory() {
   const community = await prisma.community.create({ data: { name: `History ${n++}` } });
   const old = await signedIn('Old Timer', { communityId: community.id, joinedAt: new Date(Date.now() - 3 * 24 * 60 * MIN) });
   const conversation = await prisma.conversation.create({ data: { communityId: community.id } });
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= 45; i++) {
     await prisma.message.create({
       data: { conversationId: conversation.id, senderPersonId: old.person.id, body: `m${i}`, createdAt: new Date(Date.now() - (60 - i) * MIN) },
     });
@@ -64,17 +64,17 @@ const bodies = (res: request.Response) => res.body.items.map((i: any) => i.body)
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('Newcomers see the last 10 messages', () => {
-  it('a new member sees the 10 latest earlier messages and what comes after, with the unread badge', async () => {
+describe('Newcomers see the last 30 messages', () => {
+  it('a new member sees the 30 latest earlier messages and what comes after, with the unread badge', async () => {
     const { community, conversation, old } = await assemblyWithHistory();
     const fresh = await signedIn('Newcomer', { communityId: community.id });
 
     const info = await fresh.agent.get(`/api/communities/${community.id}/conversation`);
-    expect(info.body.unreadCount).toBe(10);
-    expect(info.body.lastMessage.body).toBe('m15');
+    expect(info.body.unreadCount).toBe(30);
+    expect(info.body.lastMessage.body).toBe('m45');
 
     const list = await fresh.agent.get(`/api/communities/${community.id}/conversation/messages`);
-    expect(bodies(list)).toEqual(['m6', 'm7', 'm8', 'm9', 'm10', 'm11', 'm12', 'm13', 'm14', 'm15']);
+    expect(bodies(list)).toEqual(Array.from({ length: 30 }, (_, i) => `m${i + 16}`));
 
     // Scrolling up reaches nothing older.
     const older = await fresh.agent.get(`/api/communities/${community.id}/conversation/messages?before=${list.body.items[0].id}`);
@@ -82,28 +82,28 @@ describe('Newcomers see the last 10 messages', () => {
 
     // New messages after joining are all seen.
     await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: old.person.id, body: 'after joining' } });
-    const again = await fresh.agent.get(`/api/communities/${community.id}/conversation/messages`);
-    expect(bodies(again)).toHaveLength(11);
+    const again = await fresh.agent.get(`/api/communities/${community.id}/conversation/messages?limit=50`);
+    expect(bodies(again)).toHaveLength(31);
     expect(bodies(again).at(-1)).toBe('after joining');
-    expect((await fresh.agent.get(`/api/communities/${community.id}/conversation`)).body.unreadCount).toBe(11);
+    expect((await fresh.agent.get(`/api/communities/${community.id}/conversation`)).body.unreadCount).toBe(31);
   });
 
   it('search never reaches before that window', async () => {
     const { community } = await assemblyWithHistory();
     const fresh = await signedIn('Newcomer', { communityId: community.id });
     const hit = await fresh.agent.get(`/api/communities/${community.id}/conversation/search?q=m1`);
-    // m1 … m5 are older than the window; m10 … m15 match "m1".
-    expect(hit.body.items.map((i: any) => i.body).sort()).toEqual(['m10', 'm11', 'm12', 'm13', 'm14', 'm15']);
-    const old = await fresh.agent.get(`/api/communities/${community.id}/conversation/search?q=m3`);
+    // m1 … m15 are older than the window; of those that match "m1", only m16 … m19 are inside it.
+    expect(hit.body.items.map((i: any) => i.body).sort()).toEqual(['m16', 'm17', 'm18', 'm19']);
+    const old = await fresh.agent.get(`/api/communities/${community.id}/conversation/search?q=m5`);
     expect(old.body.items).toEqual([]);
   });
 
   it('members who joined before keep their full history, as do the central admin and an assembly with few messages', async () => {
     const { community } = await assemblyWithHistory();
     const veteran = await signedIn('Veteran', { communityId: community.id, joinedAt: new Date(Date.now() - 2 * 24 * 60 * MIN) });
-    expect(bodies(await veteran.agent.get(`/api/communities/${community.id}/conversation/messages`))).toHaveLength(15);
+    expect(bodies(await veteran.agent.get(`/api/communities/${community.id}/conversation/messages?limit=50`))).toHaveLength(45);
     const admin = await signedIn('Coordinator', { admin: true });
-    expect(bodies(await admin.agent.get(`/api/communities/${community.id}/conversation/messages`))).toHaveLength(15);
+    expect(bodies(await admin.agent.get(`/api/communities/${community.id}/conversation/messages?limit=50`))).toHaveLength(45);
 
     const small = await prisma.community.create({ data: { name: `Small ${n++}` } });
     const sender = await signedIn('Sender', { communityId: small.id, joinedAt: new Date(Date.now() - 2 * 24 * 60 * MIN) });
@@ -118,6 +118,6 @@ describe('Newcomers see the last 10 messages', () => {
     const fresh = await signedIn('Joined Yesterday Enough', { communityId: community.id });
     // The rule "starts" in the future: this member joined before it.
     await prisma.settings.create({ data: { id: 'singleton', newMemberHistoryFrom: new Date(Date.now() + 60 * MIN) } });
-    expect(bodies(await fresh.agent.get(`/api/communities/${community.id}/conversation/messages`))).toHaveLength(15);
+    expect(bodies(await fresh.agent.get(`/api/communities/${community.id}/conversation/messages?limit=50`))).toHaveLength(45);
   });
 });

@@ -271,7 +271,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
   const limit = Math.min(parsed.data.limit ?? DEFAULT_MESSAGE_PAGE_SIZE, MAX_MESSAGE_PAGE_SIZE);
 
   const conversation = await getOrCreateConversation(communityId);
-  // A newcomer sees only the last 10 earlier messages and what came since.
+  // A newcomer sees only the last 30 earlier messages and what came since.
   const cutoff = await historyCutoffFor(personId, communityId, conversation.id);
 
   let cursor: { createdAt: Date; id: string } | null = null;
