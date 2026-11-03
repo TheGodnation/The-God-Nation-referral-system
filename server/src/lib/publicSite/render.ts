@@ -2,7 +2,7 @@ import { APP_URL } from '../env';
 import { CSS, CSS_ARTICLES } from './style';
 import { headingsOf, renderBody } from './text';
 import {
-  DIVISIONS, FR_REVIEWED, LANGS, MISSION, PAGE_META, PHOTOS, SECTION, UI, VISION, WHAT_WE_DO,
+  DIVISIONS, FEATURED_BOOK, FOUNDER, FR_REVIEWED, LANGS, MISSION, MOTTO, PAGE_META, PHOTOS, SECTION, UI, VISION, WHAT_WE_DO,
   type Division, type Lang, type PageKey,
 } from './content';
 
@@ -147,7 +147,7 @@ function head(p: PageRef, ctx: Ctx): string {
     const enRef: PageRef = p.lang === 'en' ? p : cp && cp.lang === 'en' ? cp : null as unknown as PageRef;
     if (enRef) alts.push(`<link rel="alternate" hreflang="x-default" href="${urlOf(enRef)}">`);
   }
-  const org = { '@type': 'Organization', name: t.siteName, url: APP_URL, logo: `${APP_URL}/icons/icon-512.png`, description: MISSION[p.lang] };
+  const org = { '@type': 'Organization', name: t.siteName, url: APP_URL, logo: `${APP_URL}/icons/icon-512.png`, description: MISSION[p.lang], founder: { '@type': 'Person', name: FOUNDER.name } };
   const ld: unknown[] = [];
   if (p.key === 'home') ld.push({ '@context': 'https://schema.org', ...org }, { '@context': 'https://schema.org', '@type': 'WebSite', name: t.siteName, url: `${APP_URL}/${p.lang}/`, inLanguage: p.lang });
   if (p.key === 'article') ld.push(...articleLd(p, url));
@@ -172,11 +172,11 @@ function header(p: PageRef, ctx: Ctx): string {
   const cp = counterpart(p, ctx);
   // The language switch appears only when the other language version is approved for the public
   // (a French reader can always go to the English page).
-  const sw = cp ? `<a class="lang" href="${pathOf(cp)}" hreflang="${cp.lang}" lang="${cp.lang}">${esc(p.key === 'article' ? t.readOther : t.langSwitch)}</a>` : '';
+  const sw = cp ? `<a class="lang" href="${pathOf(cp)}" hreflang="${cp.lang}" lang="${cp.lang}" aria-label="${esc(p.key === 'article' ? t.readOther : t.langSwitch)}"><span class="ll">${esc(p.key === 'article' ? t.readOther : t.langSwitch)}</span><span class="ls" aria-hidden="true">${cp.lang.toUpperCase()}</span></a>` : '';
   return `<a class="skip" href="#content">${esc(t.skip)}</a>
 <header class="site"><div class="bar"><a class="brand" href="/${l}/"><img src="/icons/icon-192.png" width="34" height="34" alt="">${esc(t.siteName)}</a>
-<a class="btn gold top-join" href="${joinHref(l, campaignOf(p))}">${esc(t.navJoin)}</a>
-<nav class="main" aria-label="${esc(t.mainNav)}"><a href="${pathOf({ key: 'knowledge', lang: l })}"${cur('knowledge')}>${esc(t.navKnowledge)}</a><a href="${pathOf({ key: 'about', lang: l })}"${cur('about')}>${esc(t.navAbout)}</a><a href="${pathOf({ key: 'contact', lang: l })}"${cur('contact')}>${esc(t.navContact)}</a>${sw}</nav></div></header>`;
+${sw}<a class="btn gold top-join" href="${joinHref(l, campaignOf(p))}"><span class="jl">${esc(t.navJoin)}</span><span class="js">${esc(t.navJoinShort)}</span></a>
+<nav class="main" aria-label="${esc(t.mainNav)}"><a href="${pathOf({ key: 'knowledge', lang: l })}"${cur('knowledge')}>${esc(t.navKnowledge)}</a><a href="${pathOf({ key: 'about', lang: l })}"${cur('about')}>${esc(t.navAbout)}</a><a href="${pathOf({ key: 'contact', lang: l })}"${cur('contact')}>${esc(t.navContact)}</a></nav></div></header>`;
 }
 
 function crumbHtml(p: PageRef): string {
@@ -201,11 +201,11 @@ function footer(p: PageRef): string {
 <div class="fbase"><span>© ${esc(t.rights)}</span></div></footer>`;
 }
 
-const photo = (ph: import('./content').SitePhoto, lang: Lang) =>
-  `<figure class="photo"><img src="${esc(ph.src)}" alt="${esc(ph.alt[lang])}" decoding="async"${ph.caption ? '' : ''}>${ph.caption ? `<figcaption>${esc(ph.caption[lang])}</figcaption>` : ''}</figure>`;
+const photo = (ph: import('./content').SitePhoto, lang: Lang, o: { eager?: boolean; caption?: string } = {}) =>
+  `<figure class="photo"><img src="${esc(ph.src)}" width="${ph.w}" height="${ph.h}" alt="${esc(ph.alt[lang])}" decoding="async"${o.eager ? ' fetchpriority="high"' : ' loading="lazy"'}>${o.caption ? `<figcaption>${o.caption}</figcaption>` : ph.caption ? `<figcaption>${esc(ph.caption[lang])}</figcaption>` : ''}</figure>`;
 
 const divisionCards = (lang: Lang) =>
-  DIVISIONS.map((d) => `<a class="card" href="${pathOf({ key: 'division', lang, division: d })}"><b>${esc(d.name[lang])}</b><span>${esc(d.blurb[lang])}</span></a>`).join('');
+  DIVISIONS.map((d, i) => `<a class="card area" href="${pathOf({ key: 'division', lang, division: d })}"><i class="num" aria-hidden="true">0${i + 1}</i><b>${esc(d.name[lang])}</b><span>${esc(d.blurb[lang])}</span></a>`).join('');
 
 function articleCards(list: PublicArticle[], lang: Lang): string {
   const t = UI[lang];
@@ -242,13 +242,21 @@ function body(p: PageRef, ctx: Ctx): string {
   const l = p.lang;
   const latest = articlesOf(ctx, l).slice(0, 6);
   switch (p.key) {
-    case 'home':
-      return `<section class="hero"><div class="in${PHOTOS.founder ? ' has-photo' : ''}"><div><div class="kicker">${esc(t.heroKicker)}</div><h1>${esc(t.heroTitle)}</h1><p>${esc(MISSION[l])}</p>
-<a class="btn gold" href="${pathOf({ key: 'knowledge', lang: l })}">${esc(t.heroCta)}</a><a class="btn line" href="${pathOf({ key: 'about', lang: l })}">${esc(t.heroCta2)}</a></div>${PHOTOS.founder ? photo(PHOTOS.founder, l) : ''}</div></section>
+    case 'home': {
+      const book = FEATURED_BOOK;
+      const bookCard = `<section class="book"><div class="in wrap"><div class="cover" aria-hidden="true"><span class="s">${esc(book.series[l])}</span><span class="t">${esc(book.title)}</span><span class="a">${esc(FOUNDER.name)}</span></div>
+<div class="txt"><div class="kicker">${esc(t.bookKicker)}</div><h2>${esc(book.title)}</h2><p class="sub">${esc(book.subtitle[l])}</p><p class="by">${esc(t.bookBy)} ${esc(FOUNDER.name)} · <em>${esc(book.tagline[l])}</em></p><p>${esc(t.bookText)}</p>
+<a class="btn gold" href="${joinHref(l, 'featured-book')}">${esc(t.bookCta)}</a><a class="btn line" href="${pathOf({ key: 'division', lang: l, division: DIVISIONS.find((d) => d.key === 'books-publications')! })}">${esc(t.bookAbout)}</a></div></div></section>`;
+      return `<section class="hero"><div class="in${PHOTOS.founder ? ' has-photo' : ''}"><div class="copy"><div class="kicker">${esc(t.heroKicker)}</div><h1>${esc(t.heroTitle)}</h1><p>${esc(MISSION[l])}</p>
+<a class="btn gold" href="${pathOf({ key: 'knowledge', lang: l })}">${esc(t.heroCta)}</a><a class="btn line" href="${pathOf({ key: 'about', lang: l })}">${esc(t.heroCta2)}</a></div>${PHOTOS.founder ? photo(PHOTOS.founder, l, { eager: true, caption: `<b>${esc(FOUNDER.name)}</b><span>${esc(t.founderRole)}</span>` }) : ''}</div></section>
+<section class="motto"><div class="wrap"><div class="kicker">${esc(t.mottoKicker)}</div><blockquote><p class="m1">${esc(MOTTO[l].lead)}</p><p class="m2">${esc(MOTTO[l].text)}</p></blockquote></div></section>
 <main id="content"><section class="blk wrap"><div class="kicker dark">${esc(t.startHere)}</div><h2>${esc(t.areasTitle)}</h2><div class="grid two">${divisionCards(l)}</div></section>
+${bookCard}
 ${latest.length ? `<section class="blk wrap"><h2>${esc(t.latestTitle)}</h2>${articleCards(latest.slice(0, 3), l)}</section>` : ''}
-<section class="blk wrap"><h2>${esc(t.whatTitle)}</h2><ul class="list read">${WHAT_WE_DO[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>
-<section class="blk wrap"><h2>${esc(t.ecoTitle)}</h2><div class="grid three"><div class="card"><b>${esc(t.ecoRead)}</b><span>${esc(t.ecoReadText)}</span></div><div class="card"><b>${esc(t.ecoLearn)}</b><span>${esc(t.ecoLearnText)}</span></div><div class="card"><b>${esc(t.ecoBelong)}</b><span>${esc(t.ecoBelongText)}</span></div></div></section></main>`;
+${PHOTOS.founderOffice ? `<section class="blk wrap founder">${photo(PHOTOS.founderOffice, l)}<div class="txt"><div class="kicker dark">${esc(t.founderKicker)}</div><h2>${esc(t.founderTitle)}</h2><p>${esc(t.founderText1)}</p><p>${esc(t.founderText2)}</p><a class="btn navy" href="${pathOf({ key: 'about', lang: l })}">${esc(t.founderCta)}</a></div></section>` : ''}
+<section class="blk wrap"><h2>${esc(t.whatTitle)}</h2><ul class="ticks">${WHAT_WE_DO[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>
+<section class="blk wrap"><h2>${esc(t.ecoTitle)}</h2><div class="grid three steps"><div class="card"><i class="num" aria-hidden="true">1</i><b>${esc(t.ecoRead)}</b><span>${esc(t.ecoReadText)}</span></div><div class="card"><i class="num" aria-hidden="true">2</i><b>${esc(t.ecoLearn)}</b><span>${esc(t.ecoLearnText)}</span></div><div class="card"><i class="num" aria-hidden="true">3</i><b>${esc(t.ecoBelong)}</b><span>${esc(t.ecoBelongText)}</span></div></div></section></main>`;
+    }
     case 'knowledge':
       return `${crumbHtml(p)}<main id="content"><section class="blk wrap"><div class="kicker dark">${esc(t.navKnowledge)}</div><h1>${esc(t.kcTitle)}</h1><p class="lead read">${esc(t.kcIntro)}</p><div class="grid two" style="margin-top:22px">${divisionCards(l)}</div></section>
 ${latest.length ? `<section class="blk wrap"><h2>${esc(t.latestTitle)}</h2>${articleCards(latest, l)}</section>` : ''}</main>`;
@@ -260,7 +268,7 @@ ${latest.length ? `<section class="blk wrap"><h2>${esc(t.latestTitle)}</h2>${art
 ${list.length ? `<h2 style="margin-top:30px">${esc(t.articlesIn)}</h2>${articleCards(list, l)}` : d.hasArticles ? '' : `<div class="callout read">${esc(t.divSoon)}</div>`}<p><a href="${pathOf({ key: 'knowledge', lang: l })}">← ${esc(t.divBack)}</a></p></section></main>`;
     }
     case 'about':
-      return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1>${PHOTOS.group ? photo(PHOTOS.group, l) : ''}<h2>${esc(t.aboutMission)}</h2><p class="lead">${esc(MISSION[l])}</p><h2>${esc(t.aboutVision)}</h2><p class="lead">${esc(VISION[l])}</p>
+      return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1>${PHOTOS.founderOffice ? `<div class="about-photo">${photo(PHOTOS.founderOffice, l, { caption: `<b>${esc(FOUNDER.name)}</b><span>${esc(t.founderRole)}</span>` })}</div>` : ''}${PHOTOS.group ? photo(PHOTOS.group, l) : ''}<h2>${esc(t.aboutMission)}</h2><p class="lead">${esc(MISSION[l])}</p><h2>${esc(t.aboutVision)}</h2><p class="lead">${esc(VISION[l])}</p>
 <h2>${esc(t.aboutWhat)}</h2><ul class="list">${WHAT_WE_DO[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
 <h2 style="margin-top:28px">${esc(t.aboutHow)}</h2><p>${esc(t.aboutHowText1)}</p><p>${esc(t.aboutHowText2)}</p><p>${esc(t.aboutHowText3)}</p></section></main>`;
     case 'contact':

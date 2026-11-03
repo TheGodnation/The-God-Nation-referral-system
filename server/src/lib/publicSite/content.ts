@@ -23,6 +23,26 @@ export const WHAT_WE_DO: Record<Lang, string[]> = {
   fr: ['L’éducation du Royaume', 'La citoyenneté et l’identité du Royaume', 'Le développement du leadership chrétien', 'La croissance spirituelle et le discipulat', 'Les livres et publications éducatives', 'Les médias numériques et l’évangélisation', 'Équiper les croyants pour qu’ils deviennent des ambassadeurs efficaces du Royaume', 'Bâtir une communauté qui soutient, enseigne et fait grandir ses membres'],
 };
 
+/** The ministry's motto, in the founder's own words (also on the app's About page). */
+export const MOTTO: Record<Lang, { lead: string; text: string }> = {
+  en: { lead: 'Go into the digital media spaces where billions gather.', text: 'Make disciples who make disciples, thereby taking the Gospel of the Kingdom to the ends of the earth.' },
+  fr: { lead: 'Allez dans les espaces des médias numériques où des milliards de personnes se rassemblent.', text: 'Faites des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.' },
+};
+
+/** The founder. Facts taken from the ministry's own book cover and mission. */
+export const FOUNDER = { name: 'Evangelist Stanley A. Ndoh' };
+
+/** The flagship book (title, subtitle and tagline are as printed on its cover). */
+export const FEATURED_BOOK = {
+  title: 'The Restoration of Dominion',
+  series: { en: 'The Kingdom Series · Book One', fr: 'La Série du Royaume · Livre un' } as Record<Lang, string>,
+  subtitle: {
+    en: 'Understanding the Kingdom of Heaven and the Kingdom of God as the government of God and its manifestation on earth through its citizens.',
+    fr: 'Comprendre le Royaume des cieux et le Royaume de Dieu comme le gouvernement de Dieu et sa manifestation sur la terre par ses citoyens.',
+  } as Record<Lang, string>,
+  tagline: { en: 'A book for Kingdom people. Raising Kingdom impact.', fr: 'Un livre pour les gens du Royaume. Pour un impact du Royaume.' } as Record<Lang, string>,
+};
+
 export interface Division {
   key: string;
   slug: Record<Lang, string>;
@@ -132,6 +152,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     navAbout: 'About',
     navContact: 'Contact',
     navJoin: 'Join the community',
+    navJoinShort: 'Join',
     navMembers: 'Members: Sign in',
     langSwitch: 'Lire en français',
     home: 'Home',
@@ -175,6 +196,18 @@ export const UI: Record<Lang, Record<string, string>> = {
     footerMembers: 'Members: Sign in',
     footerPrivacy: 'Privacy',
     footerMore: 'The ministry',
+    founderRole: 'Founder',
+    mottoKicker: 'Our call',
+    founderKicker: 'The founder',
+    founderTitle: 'Meet the founder',
+    founderText1: 'Evangelist Stanley A. Ndoh founded The God Nation Media and Leadership Academy to equip citizens of the Kingdom of God to carry the Gospel of the Kingdom through modern media.',
+    founderText2: 'He holds a B.A. in Christian Ministry and is the author of The Kingdom Series, which begins with The Restoration of Dominion.',
+    founderCta: 'Our purpose and vision',
+    bookKicker: 'Featured book',
+    bookText: 'Available to registered members in the Leadership School, with study, reading offline on the phone, and an examination.',
+    bookBy: 'By',
+    bookCta: 'Join to read it',
+    bookAbout: 'About our books',
     rights: 'The God Nation Media & Leadership Academy',
     notFoundTitle: 'Page not found',
     notFoundText: 'This page does not exist, or is not public.',
@@ -205,6 +238,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     navAbout: 'À propos',
     navContact: 'Contact',
     navJoin: 'Rejoindre la communauté',
+    navJoinShort: 'Rejoindre',
     navMembers: 'Membres : connexion',
     langSwitch: 'Read in English',
     home: 'Accueil',
@@ -248,6 +282,18 @@ export const UI: Record<Lang, Record<string, string>> = {
     footerMembers: 'Membres : connexion',
     footerPrivacy: 'Confidentialité',
     footerMore: 'Le ministère',
+    founderRole: 'Fondateur',
+    mottoKicker: 'Notre appel',
+    founderKicker: 'Le fondateur',
+    founderTitle: 'Faites connaissance avec le fondateur',
+    founderText1: 'L’évangéliste Stanley A. Ndoh a fondé The God Nation Media and Leadership Academy pour équiper les citoyens du Royaume de Dieu afin qu’ils portent l’Évangile du Royaume par les médias modernes.',
+    founderText2: 'Titulaire d’une licence en ministère chrétien, il est l’auteur de La Série du Royaume, qui commence par The Restoration of Dominion.',
+    founderCta: 'Notre raison d’être et notre vision',
+    bookKicker: 'Livre à la une',
+    bookText: 'Disponible pour les membres inscrits dans l’École de leadership, avec étude, lecture hors connexion sur le téléphone et examen.',
+    bookBy: 'Par',
+    bookCta: 'Rejoindre pour le lire',
+    bookAbout: 'À propos de nos livres',
     rights: 'The God Nation Media & Leadership Academy',
     notFoundTitle: 'Page introuvable',
     notFoundText: 'Cette page n’existe pas, ou n’est pas publique.',
@@ -295,7 +341,10 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
  * Photographs for the public pages. Empty until real photos are supplied; a page shows a photo
  * only when one is set here (with a description for people who cannot see it, in both
  * languages). Files live in client/public/site/ and are served at /site/<file>.
- * Example: founder: { src: '/site/founder.jpg', alt: { en: 'Evangelist Stanley A. Ndoh', fr: 'L\'évangéliste Stanley A. Ndoh' } }
+ * Example: founder: { src: '/site/founder.jpg', w: 760, h: 1013, alt: { en: 'Evangelist Stanley A. Ndoh', fr: 'L\'évangéliste Stanley A. Ndoh' } }
  */
-export interface SitePhoto { src: string; alt: Record<Lang, string>; caption?: Record<Lang, string> }
-export const PHOTOS: { founder?: SitePhoto; group?: SitePhoto } = {};
+export interface SitePhoto { src: string; w: number; h: number; alt: Record<Lang, string>; caption?: Record<Lang, string> }
+export const PHOTOS: { founder?: SitePhoto; founderOffice?: SitePhoto; group?: SitePhoto } = {
+  founder: { src: '/site/founder.jpg', w: 760, h: 1013, alt: { en: 'Evangelist Stanley A. Ndoh, founder of The God Nation Media and Leadership Academy', fr: 'L’évangéliste Stanley A. Ndoh, fondateur de The God Nation Media and Leadership Academy' } },
+  founderOffice: { src: '/site/founder-office.jpg', w: 760, h: 1013, alt: { en: 'Evangelist Stanley A. Ndoh in his office', fr: 'L’évangéliste Stanley A. Ndoh dans son bureau' } },
+};
