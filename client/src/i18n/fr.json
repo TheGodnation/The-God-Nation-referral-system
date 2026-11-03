@@ -66,7 +66,10 @@
     "error_email": "Veuillez entrer une adresse e-mail valide.",
     "error_phone": "Veuillez entrer un numéro de téléphone valide, avec l’indicatif du pays.",
     "error_password": "Veuillez choisir un mot de passe d’au moins 8 caractères.",
-    "error_generic": "Une erreur s’est produite. Veuillez réessayer."
+    "error_generic": "Une erreur s’est produite. Veuillez réessayer.",
+    "consent_whatsapp": "Oui, envoyez-moi les nouvelles et les encouragements de The God Nation sur WhatsApp.",
+    "consent_email": "Oui, envoyez-moi les nouvelles et les encouragements de The God Nation par e-mail.",
+    "consent_hint": "Facultatif. Vous pouvez changer cela à tout moment dans votre profil."
   },
   "memberCompleteProfile": {
     "title": "Parlez-nous de vous",
@@ -388,7 +391,8 @@
       "geographicAreas": "Zones géographiques",
       "areaRepresentationRequests": "Demandes de zone",
       "accountDeletions": "Suppressions de compte",
-      "signInTrouble": "Problèmes de connexion"
+      "signInTrouble": "Problèmes de connexion",
+      "growth": "Croissance"
     },
     "overview": {
       "total_visits": "Visites totales",
@@ -3479,7 +3483,7 @@
   "privacy": {
     "title": "Politique de confidentialité",
     "nav": "Confidentialité",
-    "updated": "Dernière mise à jour : 2 novembre 2026",
+    "updated": "Dernière mise à jour : 3 novembre 2026",
     "intro": "The God Nation (« nous », « le ministère ») gère l'application The God Nation et le site thegodnationacademy.org. Cette page explique en termes simples ce que nous collectons, pourquoi, qui peut le voir, qui nous aide à faire fonctionner l'application et comment vous pouvez faire supprimer vos informations.",
     "sections": [
       {
@@ -3490,6 +3494,8 @@
           "Votre formation : les enseignements et les livres que vous avez ouverts ou terminés, vos signets, vos résultats de quiz et d'examens.",
           "Les paiements : quand vous payez un livre de formation par Mobile Money, nous gardons la commande, le montant, l'identifiant de transaction que vous envoyez et la capture d'écran que vous téléversez comme preuve. Nous ne voyons jamais votre code secret Mobile Money, et le paiement lui-même se fait en dehors de l'application.",
           "Les Jetons du Roi : si le ministère les a lancés, nous gardons un registre des jetons que vous gagnez grâce à vos examens de la Clinique de la Domination, des jetons que vous utilisez pour un livre de formation, avec la date et le motif de chacun. Les Jetons du Roi sont un registre de récompenses d'étude à l'intérieur de l'application. Ce ne sont pas de l'argent : ils ne peuvent être ni achetés, ni vendus, ni retirés en espèces, ni envoyés à une autre personne, et ils servent uniquement pour le matériel de formation du ministère.",
+          "Détails des publicités et des liens : quand vous arrivez depuis une publicité ou un lien partagé, nous notons lequel (par exemple le nom de la campagne et le site d’où vous venez, mais pas l’adresse complète de cette page) afin de voir quelles publicités et quels ambassadeurs amènent des personnes. Ces informations sont gardées avec votre visite et votre inscription.",
+          "Si vous laissez votre nom et votre numéro WhatsApp dans la case « Restons connectés », ou si vous cochez les cases à l’inscription, nous gardons votre choix, la date et la phrase exacte que vous avez acceptée. Nous ne vous écrivons que sur les canaux que vous avez acceptés, et vous pouvez changer ou arrêter cela à tout moment dans votre profil.",
           "Parrainage et gains : qui vous a invité, qui vous avez invité, ainsi que les gains et les paiements de parrainage.",
           "Événements : les événements auxquels vous avez dit que vous viendriez, et si un responsable vous a marqué présent ou si vous avez terminé l'enregistrement lié à l'événement.",
           "Informations techniques : si vous êtes en ligne et votre dernière connexion, les sessions de connexion sur vos appareils et, si vous autorisez les notifications, un code qui permet à votre téléphone de recevoir nos alertes."
@@ -3669,5 +3675,69 @@
     "open_on": "Ouvrir sur {{site}}",
     "open_link": "Ouvrir le lien",
     "player_title": "Publication {{site}}"
+  },
+  "stayConnected": {
+    "title": "Restons connectés",
+    "body": "Pas encore prêt à créer un compte ? Laissez votre nom et votre numéro WhatsApp, et nous vous enverrons des encouragements et des nouvelles de The God Nation.",
+    "name_label": "Votre nom",
+    "phone_label": "Votre numéro WhatsApp",
+    "phone_hint": "Avec l’indicatif du pays, par exemple +237 6XX XXX XXX.",
+    "consent": "Oui, envoyez-moi les nouvelles et les encouragements de The God Nation sur WhatsApp.",
+    "consent_note": "Vous pouvez arrêter à tout moment. Nous ne vendons jamais vos coordonnées.",
+    "submit": "Gardons le contact",
+    "submitting": "Envoi…",
+    "thanks_title": "Merci !",
+    "thanks_body": "Nous vous contacterons sur WhatsApp. Vous pouvez aussi créer votre compte à tout moment.",
+    "error_consent": "Veuillez cocher la case pour accepter de recevoir des nouvelles sur WhatsApp.",
+    "error_name": "Veuillez entrer votre nom.",
+    "error_phone": "Veuillez entrer un numéro de téléphone valide, avec l’indicatif du pays.",
+    "error_generic": "Un problème est survenu. Veuillez réessayer."
+  },
+  "joinGroup": {
+    "title": "Rejoignez notre groupe WhatsApp",
+    "body_en": "Notre communauté se retrouve aussi sur WhatsApp. Rejoignez le groupe anglophone pour recevoir des nouvelles, des encouragements et prier avec les autres.",
+    "body_fr": "Notre communauté se retrouve aussi sur WhatsApp. Rejoignez le groupe francophone pour recevoir des nouvelles, des encouragements et prier avec les autres.",
+    "button": "Rejoindre le groupe WhatsApp",
+    "continue": "Continuer vers l’application",
+    "skip": "Pas maintenant",
+    "joined_note": "WhatsApp s’ouvre. Revenez ici quand vous êtes prêt."
+  },
+  "contactPrefs": {
+    "title": "Comment nous pouvons vous contacter",
+    "help": "Choisissez comment The God Nation peut vous envoyer des nouvelles et des encouragements. Vous pouvez changer cela à tout moment.",
+    "whatsapp": "M’envoyer des nouvelles sur WhatsApp",
+    "email": "M’envoyer des nouvelles par e-mail",
+    "not_answered": "Pas encore répondu",
+    "saved": "Enregistré.",
+    "failed": "Impossible d’enregistrer. Veuillez réessayer."
+  },
+  "growth": {
+    "tab": "Croissance",
+    "title": "Rapport de croissance",
+    "hint": "D’où viennent les personnes, et jusqu’où elles vont. Il compte les personnes inscrites pendant la période choisie ; les données de test sont exclues.",
+    "days_7": "7 jours",
+    "days_30": "30 jours",
+    "days_90": "90 jours",
+    "totals": "Toutes les sources",
+    "by_source": "Par source et campagne",
+    "by_ambassador": "Par lien d’ambassadeur",
+    "col_source": "Source",
+    "col_campaign": "Campagne",
+    "col_visitors": "Visiteurs",
+    "col_leads": "Numéro laissé",
+    "col_registered": "Inscrits",
+    "col_confirmed": "Confirmés",
+    "col_profile": "Profil terminé",
+    "col_group": "Groupe WhatsApp",
+    "col_chat": "A écrit dans un chat",
+    "col_exam": "A passé un examen",
+    "col_back7": "De retour après 7 jours",
+    "col_back30": "De retour après 30 jours",
+    "col_ambassador": "Ambassadeur",
+    "no_campaign": "—",
+    "empty": "Personne ne s’est encore inscrit pendant cette période.",
+    "note": "Confirmé signifie qu’ils se sont connectés au moins une fois. De retour après 7 ou 30 jours signifie revus au moins autant de temps après l’inscription.",
+    "truncated": "Seuls les 20 000 plus récents sont comptés.",
+    "failed": "Le rapport n’a pas pu être chargé."
   }
 }

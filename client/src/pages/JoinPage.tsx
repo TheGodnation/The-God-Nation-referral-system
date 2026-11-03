@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
-import { api } from '../lib/api';
+import { recordVisit } from '../lib/trackVisit';
 
 // /join?ref=CODE&lang=en&utm_source=...&utm_medium=...&utm_campaign=...
 //
@@ -33,15 +33,7 @@ export function JoinPage() {
     if (sentRef.current) return;
     sentRef.current = true;
 
-    api
-      .post('/api/referrals/visit', {
-        ref,
-        lang: lang === 'fr' ? 'fr' : 'en',
-        utmSource: params.get('utm_source') || undefined,
-        utmMedium: params.get('utm_medium') || undefined,
-        utmCampaign: params.get('utm_campaign') || undefined,
-        landingPage: window.location.pathname + window.location.search,
-      })
+    recordVisit({ ref, lang: lang === 'fr' ? 'fr' : 'en' })
       .catch(() => {
         // Non-fatal: the visitor still reaches sign-up even if the
         // visit could not be recorded (e.g. transient network issue).

@@ -66,7 +66,10 @@
     "error_email": "Please enter a valid email address.",
     "error_phone": "Please enter a valid phone number, including the country code.",
     "error_password": "Please choose a password with at least 8 characters.",
-    "error_generic": "Something went wrong. Please try again."
+    "error_generic": "Something went wrong. Please try again.",
+    "consent_whatsapp": "Yes, send me updates and encouragement from The God Nation on WhatsApp.",
+    "consent_email": "Yes, send me updates and encouragement from The God Nation by email.",
+    "consent_hint": "Optional. You can change this any time in your profile."
   },
   "memberCompleteProfile": {
     "title": "Tell us about you",
@@ -388,7 +391,8 @@
       "geographicAreas": "Geographic Areas",
       "areaRepresentationRequests": "Area Requests",
       "accountDeletions": "Account deletions",
-      "signInTrouble": "Sign-in trouble"
+      "signInTrouble": "Sign-in trouble",
+      "growth": "Growth"
     },
     "overview": {
       "total_visits": "Total Visits",
@@ -3479,7 +3483,7 @@
   "privacy": {
     "title": "Privacy Policy",
     "nav": "Privacy",
-    "updated": "Last updated: 2 November 2026",
+    "updated": "Last updated: 3 November 2026",
     "intro": "The God Nation (\"we\", \"the ministry\") runs The God Nation app and the website thegodnationacademy.org. This page explains in plain words what we collect, why, who can see it, who helps us run the app, and how you can have it deleted.",
     "sections": [
       {
@@ -3490,6 +3494,8 @@
           "Your training: which teachings and books you have opened or finished, bookmarks, quiz and exam results.",
           "Payments: when you pay for a training book by Mobile Money, we keep the order, the amount, the transaction ID you send, and the screenshot you upload as proof. We never see your Mobile Money PIN, and the payment itself happens outside the app.",
           "King's Tokens: if the ministry has started them, we keep a record of the tokens you earn for your Dominion Clinic exams, the tokens you use toward a training book, and the date and reason for each. King's Tokens are a record of study rewards inside the app. They are not money, they cannot be bought, sold, cashed out or sent to another person, and they are used only toward the ministry's own training materials.",
+          "Ad and link details: when you arrive from an advertisement or a shared link, we note which one (for example the campaign name and the website you came from, but not the full address of that page) so we can see which ads and ambassadors bring people. This is kept with your visit and your sign-up.",
+          "If you leave your name and WhatsApp number in the “Stay connected” box, or tick the boxes at sign-up, we keep your choice, the date, and the exact sentence you agreed to. We only message you on the channels you agreed to, and you can change or stop this at any time in your profile.",
           "Referrals and earnings: who invited you, who you invited, and any referral earnings and payouts.",
           "Events: which events you said you would come to, and whether a leader marked you present, or you finished the recording linked to the event.",
           "Technical information: whether you are online and when you were last seen, the sign-in sessions on your devices, and, if you allow notifications, a code that lets your phone receive alerts from us."
@@ -3669,5 +3675,69 @@
     "open_on": "Open on {{site}}",
     "open_link": "Open link",
     "player_title": "{{site}} post"
+  },
+  "stayConnected": {
+    "title": "Stay connected",
+    "body": "Not ready to make an account? Leave your name and WhatsApp number, and we will send you encouragement and news from The God Nation.",
+    "name_label": "Your name",
+    "phone_label": "Your WhatsApp number",
+    "phone_hint": "With the country code, for example +237 6XX XXX XXX.",
+    "consent": "Yes, send me updates and encouragement from The God Nation on WhatsApp.",
+    "consent_note": "You can stop at any time. We never sell your details.",
+    "submit": "Keep me connected",
+    "submitting": "Sending…",
+    "thanks_title": "Thank you!",
+    "thanks_body": "We will be in touch on WhatsApp. You can also create your account any time.",
+    "error_consent": "Please tick the box to agree to receive updates on WhatsApp.",
+    "error_name": "Please enter your name.",
+    "error_phone": "Please enter a valid phone number, including the country code.",
+    "error_generic": "Something went wrong. Please try again."
+  },
+  "joinGroup": {
+    "title": "Join our WhatsApp group",
+    "body_en": "Our community also meets on WhatsApp. Join the English group to get updates, encouragement and prayer with others.",
+    "body_fr": "Our community also meets on WhatsApp. Join the French group to get updates, encouragement and prayer with others.",
+    "button": "Join the WhatsApp group",
+    "continue": "Continue to the app",
+    "skip": "Not now",
+    "joined_note": "WhatsApp is opening. Come back here when you are ready."
+  },
+  "contactPrefs": {
+    "title": "How we may contact you",
+    "help": "Choose how The God Nation may send you updates and encouragement. You can change this at any time.",
+    "whatsapp": "Send me updates on WhatsApp",
+    "email": "Send me updates by email",
+    "not_answered": "Not answered yet",
+    "saved": "Saved.",
+    "failed": "Could not save. Please try again."
+  },
+  "growth": {
+    "tab": "Growth",
+    "title": "Growth report",
+    "hint": "Where people come from, and how far they get. It counts the people who joined in the chosen period; test data is left out.",
+    "days_7": "7 days",
+    "days_30": "30 days",
+    "days_90": "90 days",
+    "totals": "All sources",
+    "by_source": "By source and campaign",
+    "by_ambassador": "By ambassador link",
+    "col_source": "Source",
+    "col_campaign": "Campaign",
+    "col_visitors": "Visitors",
+    "col_leads": "Left a number",
+    "col_registered": "Joined",
+    "col_confirmed": "Confirmed",
+    "col_profile": "Finished profile",
+    "col_group": "WhatsApp group",
+    "col_chat": "Wrote in a chat",
+    "col_exam": "Took an exam",
+    "col_back7": "Back after 7 days",
+    "col_back30": "Back after 30 days",
+    "col_ambassador": "Ambassador",
+    "no_campaign": "—",
+    "empty": "Nobody joined in this period yet.",
+    "note": "Confirmed means they signed in at least once. Back after 7 or 30 days means seen again at least that long after joining.",
+    "truncated": "Only the newest 20,000 are counted.",
+    "failed": "The report could not be loaded."
   }
 }

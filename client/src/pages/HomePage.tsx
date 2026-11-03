@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
+import { StayConnected } from '../components/StayConnected';
 import { usePublicSettings } from '../lib/usePublicSettings';
 import {
   GraduationCapIcon,
@@ -185,6 +186,11 @@ export function HomePage() {
             <p className="text-lg font-semibold leading-snug text-gold-400">{t('homePage.mission_tag')}</p>
           </div>
         </div>
+      </section>
+
+      {/* Not ready to join: leave a number */}
+      <section className="bg-slate-50 px-4 py-12">
+        <StayConnected />
       </section>
 
       {/* Final invitation */}

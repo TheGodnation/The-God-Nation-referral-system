@@ -21,6 +21,15 @@ enum EventType {
   VISITED
   REGISTERED
   WHATSAPP_CLICKED
+  // A member tapped "Join our WhatsApp group" (the step after sign-up).
+  GROUP_LINK_CLICKED
+}
+
+// How someone agreed to be contacted. One row per choice (never edited): the
+// latest row for a person and channel is what counts, the older ones are the proof.
+enum ConsentChannel {
+  WHATSAPP
+  EMAIL
 }
 
 enum Language {
@@ -432,6 +441,7 @@ model ReferralCode {
   person        Person?                @relation(fields: [personId], references: [id], onDelete: Cascade)
   visits        ReferralVisit[]
   relationships ReferralRelationship[]
+  registrations Registration[]         @relation("RegistrationReferralCode")
 
   @@index([leaderId])
   @@index([active])
@@ -445,6 +455,16 @@ model ReferralVisit {
   utmSource      String?
   utmMedium      String?
   utmCampaign    String?
+  // The creative / ad name (utm_content) and the click codes that Facebook /
+  // Instagram, TikTok and Google add to ad links, kept so ad spend can be
+  // matched to the people it brought, and so sign-ups can later be reported
+  // back to those platforms. referrerHost is only the website name the visitor
+  // came from (never the full address).
+  utmContent     String?
+  fbclid         String?
+  ttclid         String?
+  gclid          String?
+  referrerHost   String?
   landingPage    String?
   language       Language @default(en)
   isTestData     Boolean  @default(false)
@@ -469,6 +489,13 @@ model Registration {
   utmSource          String?
   utmMedium          String?
   utmCampaign        String?
+  utmContent         String?
+  fbclid             String?
+  ttclid             String?
+  gclid              String?
+  referrerHost       String?
+  // The referral link (ambassador or leader code) that brought this person, when one did.
+  referralCodeId     String?
   landingPage        String?
   status             RegistrationStatus @default(ACTIVE)
   isTestData         Boolean            @default(false)
@@ -489,9 +516,11 @@ model Registration {
   person           Person?               @relation(fields: [personId], references: [id], onDelete: SetNull)
   referredByPerson Person?               @relation("RegistrationReferredBy", fields: [referredByPersonId], references: [id], onDelete: SetNull)
   relationship     ReferralRelationship?
+  referralCode     ReferralCode?         @relation("RegistrationReferralCode", fields: [referralCodeId], references: [id], onDelete: SetNull)
   events           Event[]
 
   @@index([visitorId])
+  @@index([referralCodeId])
   @@index([createdAt])
   @@index([language])
   @@index([personId])
@@ -736,6 +765,8 @@ model Person {
   clinicBookUnsubscribedAt DateTime?
   gifts               Gift[]
   tokenEntries        TokenEntry[]
+  contactConsents     ContactConsent[]
+  leadsConverted      Lead[]
   pinsMade            MessagePin[]      @relation("MessagePinnedBy")
   pinsSeen            MessagePinSeen[]  @relation("MessagePinSeenBy")
   // A leader who is away (travelling, ill...) until this moment: new people
@@ -3572,4 +3603,57 @@ model MessagePinSeen {
 
   @@unique([pinId, personId])
   @@index([personId])
+}
+
+// Someone who left their name and WhatsApp number in the "stay connected" box
+// but has not made an account. Kept only because they agreed (see
+// ContactConsent) to receive the ministry's updates. When the same number later
+// signs up, convertedPersonId is filled in and the consent moves to the member.
+model Lead {
+  id                String    @id @default(uuid())
+  name              String
+  whatsappNumber    String    @unique
+  language          Language  @default(en)
+  visitorId         String?
+  referralCodeId    String?
+  utmSource         String?
+  utmMedium         String?
+  utmCampaign       String?
+  utmContent        String?
+  fbclid            String?
+  ttclid            String?
+  gclid             String?
+  referrerHost      String?
+  landingPage       String?
+  isTestData        Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  convertedPersonId String?
+  convertedAt       DateTime?
+
+  convertedPerson Person?          @relation(fields: [convertedPersonId], references: [id], onDelete: SetNull)
+  consents        ContactConsent[]
+
+  @@index([createdAt])
+  @@index([convertedPersonId])
+  @@index([utmSource])
+}
+
+// One recorded choice about being contacted on one channel. Append-only: to
+// change a choice, add a new row. `wording` is the exact sentence the person
+// saw, `source` says where they answered (signup, stay-connected, profile).
+model ContactConsent {
+  id        String         @id @default(uuid())
+  personId  String?
+  leadId    String?
+  channel   ConsentChannel
+  granted   Boolean
+  wording   String
+  source    String
+  createdAt DateTime       @default(now())
+
+  person Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([personId, channel, createdAt])
+  @@index([leadId, channel, createdAt])
 }

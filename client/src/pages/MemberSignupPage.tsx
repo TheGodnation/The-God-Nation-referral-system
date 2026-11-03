@@ -27,6 +27,8 @@ function MemberSignupPageInner() {
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [password, setPassword] = useState('');
+  const [consentWhatsapp, setConsentWhatsapp] = useState(false);
+  const [consentEmail, setConsentEmail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -51,7 +53,7 @@ function MemberSignupPageInner() {
     setSubmitting(true);
     try {
       const language = i18n.language?.startsWith('fr') ? 'fr' : 'en';
-      await api.post('/api/member/auth/signup', { email: email.trim(), whatsapp: whatsapp.trim(), password, language });
+      await api.post('/api/member/auth/signup', { email: email.trim(), whatsapp: whatsapp.trim(), password, language, consentWhatsapp, consentEmail });
       setSent(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'INVALID_PHONE') setError(t('memberSignup.error_phone'));
@@ -118,6 +120,18 @@ function MemberSignupPageInner() {
               </label>
               <PasswordInput id="signup-password" value={password} onChange={setPassword} autoComplete="new-password" />
               <p className="mt-1 text-xs text-slate-500">{t('memberSignup.password_hint')}</p>
+            </div>
+
+            <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-3" data-testid="signup-consent">
+              <label className="flex items-start gap-2 text-sm text-slate-700">
+                <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={consentWhatsapp} onChange={(e) => setConsentWhatsapp(e.target.checked)} />
+                <span>{t('memberSignup.consent_whatsapp')}</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm text-slate-700">
+                <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={consentEmail} onChange={(e) => setConsentEmail(e.target.checked)} />
+                <span>{t('memberSignup.consent_email')}</span>
+              </label>
+              <p className="text-xs text-slate-500">{t('memberSignup.consent_hint')}</p>
             </div>
 
             {error && (

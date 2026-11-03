@@ -147,7 +147,7 @@ export async function completeAccountDeletion(requestId: string, adminUserId: st
 
   const person = await prisma.person.findUnique({
     where: { id: personId },
-    select: { name: true, preferredLanguage: true, photoStorageKey: true, coverStorageKey: true, users: { select: { id: true, role: true } } },
+    select: { name: true, whatsappNumber: true, preferredLanguage: true, photoStorageKey: true, coverStorageKey: true, users: { select: { id: true, role: true } } },
   });
   if (!person) throw new AccountDeletionError('NOT_FOUND');
   if (person.users.some((u) => u.role === 'ADMIN')) throw new AccountDeletionError('ADMIN_ACCOUNT');
@@ -212,6 +212,8 @@ export async function completeAccountDeletion(requestId: string, adminUserId: st
       });
     }
 
+    // Anything kept from the "stay connected" box under this person's number goes with them.
+    await tx.lead.deleteMany({ where: { OR: [{ convertedPersonId: personId }, { whatsappNumber: person.whatsappNumber }] } });
     await tx.person.delete({ where: { id: personId } });
     await tx.accountDeletionRequest.update({
       where: { id: request.id },

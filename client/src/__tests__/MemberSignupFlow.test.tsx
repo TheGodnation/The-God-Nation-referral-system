@@ -60,7 +60,7 @@ describe('MemberSignupPage', () => {
 
     await waitFor(() => expect(screen.getByText('Check your email')).toBeInTheDocument());
     const post = calls.find((c) => c.url.includes('/api/member/auth/signup'));
-    expect(post?.body).toEqual({ email: 'ada@example.com', whatsapp: '+237670000001', password: 'Testpass123', language: 'en' });
+    expect(post?.body).toEqual({ email: 'ada@example.com', whatsapp: '+237670000001', password: 'Testpass123', language: 'en', consentWhatsapp: false, consentEmail: false });
   });
 
   it('shows a clear message for an invalid phone number', async () => {
@@ -136,7 +136,7 @@ describe('MemberCompleteProfilePage', () => {
         <MemberAuthProvider>
           <Routes>
             <Route path="/member/complete-profile" element={<MemberCompleteProfilePage />} />
-            <Route path="/member/dashboard" element={<p>Dashboard</p>} />
+            <Route path="/member/welcome-group" element={<p>Group step</p>} />
           </Routes>
         </MemberAuthProvider>
       </MemoryRouter>,
@@ -170,7 +170,7 @@ describe('MemberCompleteProfilePage', () => {
     fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Efoulan' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enter the community' }));
 
-    await waitFor(() => expect(screen.getByText('Dashboard')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Group step')).toBeInTheDocument());
     const post = calls.find((c) => c.url.includes('/api/member/auth/complete-profile'));
     expect(post?.body).toEqual({
       name: 'Jean Ngono',
@@ -204,7 +204,7 @@ describe('MemberCompleteProfilePage', () => {
     fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Ikeja' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enter the community' }));
 
-    await waitFor(() => expect(screen.getByText('Dashboard')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Group step')).toBeInTheDocument());
     const post = calls.find((c) => c.url.includes('/api/member/auth/complete-profile'));
     expect(post?.body).toEqual({ name: 'Ada', preferredLanguage: 'en', country: 'Nigeria', region: 'Lagos State', division: 'Ikeja' });
   });

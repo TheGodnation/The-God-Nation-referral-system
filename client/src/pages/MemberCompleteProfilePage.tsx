@@ -50,7 +50,7 @@ export function MemberCompleteProfilePage() {
         ...locationPayload(place),
       });
       await refresh();
-      navigate('/member/dashboard', { replace: true });
+      navigate('/member/welcome-group', { replace: true });
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : t('memberCompleteProfile.error_generic'));
     } finally {

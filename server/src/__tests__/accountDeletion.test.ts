@@ -175,6 +175,11 @@ describe('The final deletion, after the month', () => {
     const devotional = await prisma.monthlyDevotional.create({ data: { titleEn: 'Oct', contentEn: '-', startDate: new Date(), endDate: new Date(), status: 'PUBLISHED' } });
     const offering = await prisma.devotionalOffering.create({ data: { personId: mary.person.id, devotionalId: devotional.id, amount: 500 } });
 
+    // Left in the "stay connected" box before joining, with her agreement.
+    const lead = await prisma.lead.create({ data: { name: 'Mary', whatsappNumber: mary.person.whatsappNumber, convertedPersonId: mary.person.id } });
+    await prisma.contactConsent.create({ data: { leadId: lead.id, channel: 'WHATSAPP', granted: true, wording: 'Yes', source: 'stay-connected' } });
+    await prisma.contactConsent.create({ data: { personId: mary.person.id, channel: 'EMAIL', granted: true, wording: 'Yes', source: 'signup' } });
+
     await askToDelete(mary);
     const req0 = await prisma.accountDeletionRequest.findFirst({ where: { personId: mary.person.id } });
     await prisma.accountDeletionRequest.update({ where: { id: req0!.id }, data: { readyAt: new Date(Date.now() - 1000) } });
@@ -184,6 +189,9 @@ describe('The final deletion, after the month', () => {
 
     // Gone: no person, no sign-in, the phone number free again.
     expect(await prisma.person.findUnique({ where: { id: mary.person.id } })).toBeNull();
+    // Nothing kept from the stay-connected box or her contact choices.
+    expect(await prisma.lead.count({ where: { whatsappNumber: mary.person.whatsappNumber } })).toBe(0);
+    expect(await prisma.contactConsent.count()).toBe(0);
     expect((await signIn(mary.email)).res.status).toBe(401);
     expect(await prisma.person.findFirst({ where: { whatsappNumber: mary.person.whatsappNumber } })).toBeNull();
     expect(storage.deleteObject).toHaveBeenCalledWith({ storageKey: `chat/${groupFile.id}.jpg` });

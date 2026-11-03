@@ -13,8 +13,31 @@ const visitSchema = z.object({
   utmSource: z.string().trim().max(255).optional(),
   utmMedium: z.string().trim().max(255).optional(),
   utmCampaign: z.string().trim().max(255).optional(),
+  utmContent: z.string().trim().max(255).optional(),
+  // Click codes added by the ad platforms. Only plain code characters are kept.
+  fbclid: z.string().trim().max(255).optional(),
+  ttclid: z.string().trim().max(255).optional(),
+  gclid: z.string().trim().max(255).optional(),
+  // Where the visitor came from: only the website name is ever kept.
+  referrer: z.string().trim().max(2048).optional(),
   landingPage: z.string().trim().max(2048).optional(),
 });
+
+const CLICK_ID = /^[A-Za-z0-9_.~\-]+$/;
+const clean = (v: string | undefined) => (v && CLICK_ID.test(v) ? v : null);
+
+/** The website name of the page the visitor came from, or null (own site, bad address, or none). */
+export function referrerHostOf(referrer: string | undefined, ownHost: string | undefined): string | null {
+  if (!referrer) return null;
+  try {
+    const host = new URL(referrer).hostname.toLowerCase().replace(/^www\./, '');
+    if (!host) return null;
+    if (ownHost && host === ownHost.toLowerCase().replace(/^www\./, '').split(':')[0]) return null;
+    return host.slice(0, 255);
+  } catch {
+    return null;
+  }
+}
 
 // POST /api/referrals/visit
 // Records a new ReferralVisit for the current opaque visitor_id. Every valid
@@ -26,7 +49,7 @@ router.post('/visit', referralVisitLimiter, requireCsrf, asyncHandler(async (req
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid request.' });
   }
-  const { ref, lang, utmSource, utmMedium, utmCampaign, landingPage } = parsed.data;
+  const { ref, lang, utmSource, utmMedium, utmCampaign, utmContent, fbclid, ttclid, gclid, referrer, landingPage } = parsed.data;
   const visitorId = req.visitorId!;
 
   let referralCodeId: string | null = null;
@@ -50,6 +73,11 @@ router.post('/visit', referralVisitLimiter, requireCsrf, asyncHandler(async (req
       utmSource: utmSource || null,
       utmMedium: utmMedium || null,
       utmCampaign: utmCampaign || null,
+      utmContent: utmContent || null,
+      fbclid: clean(fbclid),
+      ttclid: clean(ttclid),
+      gclid: clean(gclid),
+      referrerHost: referrerHostOf(referrer, req.hostname),
       landingPage: landingPage || null,
       isTestData,
     },

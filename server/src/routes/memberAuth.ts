@@ -22,6 +22,7 @@ import {
 import { selectApplicableReferralVisit } from '../lib/attribution';
 import { placePersonInGroup } from '../lib/placement';
 import { getOrCreatePersonReferralCode } from '../lib/referralCode';
+import { recordConsent, convertLeadToMember } from '../lib/contactConsent';
 import { profilePhotoPath, coverPhotoPath } from '../lib/profilePhoto';
 import { EmailService } from '../lib/email';
 import { CLIENT_URL, MEMBER_LOGIN_TOKEN_TTL_MS } from '../lib/env';
@@ -231,6 +232,9 @@ const signupSchema = z.object({
   whatsapp: z.string().trim().min(1).max(32),
   password: z.string().min(8, 'Please choose a password with at least 8 characters.').max(100),
   language: z.enum(['en', 'fr']).default('en'),
+  // Optional, unticked by default: agreement to be contacted (see lib/contactConsent.ts).
+  consentWhatsapp: z.boolean().optional().default(false),
+  consentEmail: z.boolean().optional().default(false),
 });
 
 router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -242,7 +246,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
     }
     return res.status(400).json({ error: 'Please enter a valid email address and phone number.', code: 'INVALID_INPUT' });
   }
-  const { email, whatsapp, password, language } = parsed.data;
+  const { email, whatsapp, password, language, consentWhatsapp, consentEmail } = parsed.data;
   const normalizedEmail = email.toLowerCase();
   const normalizedWhatsApp = normalizeToE164(whatsapp);
   if (!normalizedWhatsApp) {
@@ -349,12 +353,23 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
           utmSource: selectedVisit?.utmSource ?? null,
           utmMedium: selectedVisit?.utmMedium ?? null,
           utmCampaign: selectedVisit?.utmCampaign ?? null,
+          utmContent: selectedVisit?.utmContent ?? null,
+          fbclid: selectedVisit?.fbclid ?? null,
+          ttclid: selectedVisit?.ttclid ?? null,
+          gclid: selectedVisit?.gclid ?? null,
+          referrerHost: selectedVisit?.referrerHost ?? null,
+          referralCodeId: referralCode?.id ?? null,
           landingPage: selectedVisit?.landingPage ?? null,
           isTestData,
           personId: person.id,
           referredByPersonId: referralCode?.personId ?? catchAllPersonId,
         },
       });
+      // Their own answers, kept as proof; and, if this number was left in the
+      // "stay connected" box before, that earlier agreement moves to them.
+      if (consentWhatsapp) await recordConsent(tx, { personId: person.id }, 'WHATSAPP', true, 'signup', language);
+      if (consentEmail) await recordConsent(tx, { personId: person.id }, 'EMAIL', true, 'signup', language);
+      await convertLeadToMember(tx, person.id, normalizedWhatsApp);
       if (referralCode?.leaderId) {
         await tx.referralRelationship.create({
           data: {

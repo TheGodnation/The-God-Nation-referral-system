@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { HomePage } from './pages/HomePage';
 import { JoinPage } from './pages/JoinPage';
+import { LandingVisitTracker } from './components/LandingVisitTracker';
 import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
 import { RequireMember } from './components/RequireMember';
 import { AuthProvider } from './lib/AuthContext';
@@ -84,6 +85,7 @@ const MemberGivePage = lazy(() => import('./pages/MemberGivePage').then((m) => (
 const MemberEarningsPage = lazy(() => import('./pages/MemberEarningsPage').then((m) => ({ default: m.MemberEarningsPage })));
 const MemberEventsPage = lazy(() => import('./pages/MemberEventsPage').then((m) => ({ default: m.MemberEventsPage })));
 const MemberEventPage = lazy(() => import('./pages/MemberEventPage').then((m) => ({ default: m.MemberEventPage })));
+const MemberJoinGroupPage = lazy(() => import('./pages/MemberJoinGroupPage').then((m) => ({ default: m.MemberJoinGroupPage })));
 const MemberAboutPage = lazy(() => import('./pages/MemberAboutPage').then((m) => ({ default: m.MemberAboutPage })));
 const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
 const MemberMePage = lazy(() => import('./pages/MemberMePage').then((m) => ({ default: m.MemberMePage })));
@@ -101,6 +103,7 @@ export default function App() {
   return (
     <AuthProvider>
       <MemberAuthProvider>
+        <LandingVisitTracker />
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
@@ -379,6 +382,14 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberEventPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/welcome-group"
+              element={
+                <RequireMember>
+                  <MemberJoinGroupPage />
                 </RequireMember>
               }
             />

@@ -15,6 +15,10 @@ import { generalApiLimiter } from './lib/rateLimit';
 
 import authRoutes from './routes/auth';
 import referralRoutes from './routes/referrals';
+import leadsRoutes from './routes/leads';
+import { spaHandler } from './lib/ogMeta';
+import { adminGrowthRoutes, memberCentralGrowthRoutes } from './routes/adminGrowth';
+import memberContactConsentRoutes from './routes/memberContactConsent';
 import leaderRoutes from './routes/leader';
 import adminRoutes from './routes/admin';
 import adminMemberBridgeRoutes from './routes/adminMemberBridge';
@@ -126,6 +130,7 @@ export function createApp() {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/referrals', referralRoutes);
+  app.use('/api/leads', leadsRoutes);
   app.use('/api/leader', leaderRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/admin', adminMemberBridgeRoutes);
@@ -165,8 +170,11 @@ export function createApp() {
   app.use('/api/admin/cells', adminCellsRoutes);
   app.use('/api/member/central-cells', memberCentralCellsRoutes);
   app.use('/api/admin/tokens', adminTokensRoutes);
+  app.use('/api/admin/growth', adminGrowthRoutes);
   app.use('/api/member/central-tokens', memberCentralTokensRoutes);
+  app.use('/api/member/central-growth', memberCentralGrowthRoutes);
   app.use('/api/member/tokens', memberTokensRoutes);
+  app.use('/api/member', memberContactConsentRoutes);
   app.use('/api/admin', adminLeadershipRoutes);
   app.use('/api/leader', leaderFollowUpsRoutes);
   // Phase 3M.8A: leaderCommunitiesRoutes defines '/communities/:communityId/members',
@@ -340,6 +348,16 @@ export function createApp() {
           next();
         });
       }
+      // The start page is built here (not sent as a plain file) so every
+      // shared link gets its own title, picture and sentence; see lib/ogMeta.ts.
+      // The guide folders (e.g. /leader-guide/) keep being served as plain files.
+      const indexTemplate = fs.readFileSync(path.join(clientDist, 'index.html'), 'utf8');
+      const spa = spaHandler(indexTemplate, APP_URL, async (slug, lang) => {
+        const row = await prisma.contentPage.findFirst({ where: { slug, published: true }, select: { titleEn: true, titleFr: true, bodyEn: true, bodyFr: true } });
+        if (!row) return null;
+        return lang === 'fr' && row.titleFr ? { title: row.titleFr, text: row.bodyFr ?? row.bodyEn } : { title: row.titleEn, text: row.bodyEn };
+      });
+      app.get('/', spa);
       app.use(
         express.static(clientDist, {
           setHeaders: (res, filePath) => {
@@ -368,10 +386,7 @@ export function createApp() {
           },
         }),
       );
-      app.get('*', (req, res, next) => {
-        if (req.path.startsWith('/api')) return next();
-        res.sendFile(path.join(clientDist, 'index.html'));
-      });
+      app.get('*', spa);
     }
   }
 

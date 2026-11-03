@@ -2,6 +2,7 @@ import { normalizeWhatsappLink } from '../lib/whatsapp';
 import { AccountDeletionsTab } from '../components/admin/AccountDeletionsTab';
 import { SignInTroubleTab } from '../components/admin/SignInTroubleTab';
 import { AdminOnlineNow } from '../components/admin/AdminOnlineNow';
+import { GrowthPanel } from '../components/admin/GrowthPanel';
 import { AdminWallpaperPicker } from '../components/admin/AdminWallpaperPicker';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +38,7 @@ import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 
 type Tab =
+  | 'growth'
   | 'overview'
   | 'leaders'
   | 'registrations'
@@ -1672,6 +1674,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'giving'} onClick={() => setTab('giving')}>
               {t('admin.tabs.giving')}
             </TabButton>
+            <TabButton active={tab === 'growth'} onClick={() => setTab('growth')}>
+              {t('admin.tabs.growth')}
+            </TabButton>
             <TabButton active={tab === 'followUps'} onClick={() => setTab('followUps')}>
               {t('admin.tabs.followUps')}
             </TabButton>
@@ -1744,6 +1749,7 @@ export function AdminDashboardPage() {
         {tab === 'library' && <LibraryTab />}
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
         {tab === 'giving' && <GivingPanel base="/api/admin/giving" />}
+        {tab === 'growth' && <GrowthPanel base="/api/admin/growth" />}
         {tab === 'geographicAreas' && <GeographicAreasTab />}
         {tab === 'areaRepresentationRequests' && <AreaRepresentationRequestsTab />}
         {tab === 'followUps' && <FollowUpsTab />}

@@ -9,13 +9,13 @@ import { EmailService } from '../lib/email';
 export async function joinAsNewMember(
   agent: any,
   csrf: string,
-  opts: { email: string; whatsapp: string; password?: string; language?: 'en' | 'fr'; details: Record<string, unknown> },
+  opts: { email: string; whatsapp: string; password?: string; language?: 'en' | 'fr'; details: Record<string, unknown>; extra?: Record<string, unknown> },
 ) {
   const spy = vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true });
   const signup = await agent
     .post('/api/member/auth/signup')
     .set('X-CSRF-Token', csrf)
-    .send({ email: opts.email, whatsapp: opts.whatsapp, password: opts.password ?? 'Testpass123', language: opts.language ?? 'en' });
+    .send({ email: opts.email, whatsapp: opts.whatsapp, password: opts.password ?? 'Testpass123', language: opts.language ?? 'en', ...(opts.extra ?? {}) });
   const link = spy.mock.calls[0]?.[0]?.link as string | undefined;
   spy.mockRestore();
   if (!link) return { signup, consume: null, done: signup };

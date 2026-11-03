@@ -19,6 +19,15 @@ export const referralVisitLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
+// The public "stay connected" box: a name and a number, so keep it tight.
+export const leadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
+});
+
 export const generalApiLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 300,

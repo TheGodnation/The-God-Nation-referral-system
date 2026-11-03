@@ -1,7 +1,43 @@
 # The God Nation — Growth and retention foundation (no app store needed)
 
-Written 3 November 2026. This is a blueprint, not a build. Nothing in it has
-been started. Each phase is built only when the founder says to start it.
+Written 3 November 2026. Each phase is built only when the founder says to
+start it. **Phase A is built (3 November 2026).** The rest is still a blueprint.
+
+## Phase A — what was built
+
+- **Ad and link details on every visit and sign-up:** campaign details
+  (source, medium, campaign, ad name), the Facebook, TikTok and Google click
+  codes, and the website the visitor came from (the website name only). First
+  visits from a phone, visits that arrive through an ad or another website, and
+  every referral link are recorded; a member opening the app daily is not.
+- **Recorded consent:** two unticked boxes at sign-up (WhatsApp updates, email
+  updates). Every choice is kept with the date and the exact sentence shown, in
+  English or French, and cannot be edited, only replaced by a newer choice. Each
+  member can change their choices on their Me page at any time.
+- **"Stay connected" box** on the Home page and at the end of every public
+  content page: name + WhatsApp number + a tick. Nothing is kept without the
+  tick. If the same number later signs up, the person and their consent are
+  joined up.
+- **"Join our WhatsApp group" step** right after the details form (English or
+  French group, by the member's language). The tap is counted. Skipped
+  automatically if no group link is set.
+- **Growth report** for the central admin (admin dashboard "Growth" tab and the
+  central admin's own member profile): visitors, numbers left, joined,
+  confirmed, finished profile, joined the group, wrote in a chat, took an exam,
+  back after 7 and 30 days, by source and campaign, and by ambassador link.
+- **Link previews:** every shared link now carries its own title, picture and
+  sentence (home page, sign-up links, blog and content pages), in English or
+  French (`?lang=fr`). A new 1200×630 share picture was added. Referral codes
+  are never copied into the preview address.
+- **Privacy page** updated for ad and link details, the stay-connected box and
+  recorded consent. Deleting an account also deletes anything kept from the
+  stay-connected box under that number.
+
+Not in Phase A (as planned): ad pixels, ad-platform event connections, the
+reminder emails, the "Open in Chrome" prompt, the blog upgrade and WhatsApp
+automation.
+
+
 
 ## 1. The question: do we need the Play Store or the App Store?
 

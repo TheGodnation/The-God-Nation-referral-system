@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { StayConnected } from '../components/StayConnected';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { api, ApiError } from '../lib/api';
 
@@ -85,6 +86,7 @@ export function ContentPageView() {
             </a>
           </div>
         )}
+        <StayConnected className="mt-10" />
       </article>
     </PageShell>
   );
