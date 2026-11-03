@@ -1,4 +1,14 @@
+# The God Nation. Public pages (/en/ and /fr/) are open to search engines and AI search tools.
+# Private areas are protected by sign-in on the server; the lines below only keep crawlers
+# from wasting time there (robots.txt is not what protects them).
 User-agent: *
 Allow: /
+Allow: /member/join
+Allow: /member/login
+Disallow: /api/
+Disallow: /admin/
+Disallow: /leader/
+Disallow: /member/
 
 Sitemap: https://thegodnationacademy.org/sitemap.xml
+Sitemap: https://thegodnationacademy.org/sitemap-public.xml

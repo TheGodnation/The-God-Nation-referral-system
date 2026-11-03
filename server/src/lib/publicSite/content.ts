@@ -113,8 +113,15 @@ export const SECTION: Record<Lang, { knowledge: string; about: string; contact: 
 
 export type PageKey = 'home' | 'knowledge' | 'division' | 'about' | 'contact' | 'article';
 
-/** The French page is public (indexable, linked) only after the French reviewer approves it. */
-export const FR_REVIEWED: Record<PageKey, boolean> = { home: false, knowledge: false, division: false, about: false, contact: false, article: true };
+/**
+ * The French page is public (indexable, linked) only after the ministry approves it.
+ * Approved by the founder on 3 November 2026 so that the French pages go live with the English
+ * ones. This is a decision to publish, not a French-language proofreading: the founder will
+ * read the French line by line (docs/FRENCH_REVIEW_SHEET.md) and send corrections, which are
+ * then made here. Set a page to false to take its French version back off the public site.
+ */
+export const FR_APPROVAL = { by: 'Evangelist Stanley A. Ndoh', on: '2026-11-03', note: 'Approved to publish; line-by-line reading and corrections to follow.' };
+export const FR_REVIEWED: Record<PageKey, boolean> = { home: true, knowledge: true, division: true, about: true, contact: true, article: true };
 
 export const UI: Record<Lang, Record<string, string>> = {
   en: {
@@ -167,6 +174,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     contactPrivacy: 'How we handle your information',
     footerMembers: 'Members: Sign in',
     footerPrivacy: 'Privacy',
+    footerMore: 'The ministry',
     rights: 'The God Nation Media & Leadership Academy',
     notFoundTitle: 'Page not found',
     notFoundText: 'This page does not exist, or is not public.',
@@ -229,7 +237,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     aboutVision: 'Notre vision',
     aboutWhat: 'Ce que nous faisons',
     aboutHow: 'Comment tout s’articule',
-    aboutHowText1: 'Le site public présente The God Nation et met la connaissance approuvée du Royaume à la disposition de tous, sans connexion.',
+    aboutHowText1: 'Le site public présente The God Nation et met la connaissance approuvée du Royaume à la disposition de tous, sans avoir à se connecter.',
     aboutHowText2: 'Le Centre de connaissance est le lieu où l’enseignement original est organisé, publié et traduit.',
     aboutHowText3: 'La plateforme communautaire, sur votre téléphone, équipe et fait grandir les membres inscrits par l’École de leadership, les enseignements, les livres, les examens et la communion fraternelle.',
     contactTitle: 'Contact',
@@ -239,6 +247,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     contactPrivacy: 'Comment nous traitons vos informations',
     footerMembers: 'Membres : connexion',
     footerPrivacy: 'Confidentialité',
+    footerMore: 'Le ministère',
     rights: 'The God Nation Media & Leadership Academy',
     notFoundTitle: 'Page introuvable',
     notFoundText: 'Cette page n’existe pas, ou n’est pas publique.',
@@ -281,3 +290,12 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
     contact: { title: 'Contact — The God Nation', description: 'Comment contacter The God Nation.' },
   },
 };
+
+/**
+ * Photographs for the public pages. Empty until real photos are supplied; a page shows a photo
+ * only when one is set here (with a description for people who cannot see it, in both
+ * languages). Files live in client/public/site/ and are served at /site/<file>.
+ * Example: founder: { src: '/site/founder.jpg', alt: { en: 'Evangelist Stanley A. Ndoh', fr: 'L\'évangéliste Stanley A. Ndoh' } }
+ */
+export interface SitePhoto { src: string; alt: Record<Lang, string>; caption?: Record<Lang, string> }
+export const PHOTOS: { founder?: SitePhoto; group?: SitePhoto } = {};

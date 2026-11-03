@@ -1,0 +1,61 @@
+name: Second backup copy (Backblaze B2)
+
+# Every day, after the nightly database backup: everything in the private Cloudflare backup
+# bucket is copied to a second provider (Backblaze B2) in an account the founder owns, so the
+# backups survive even if the Cloudflare account is lost. See docs/SECOND_BACKUP_GUIDE.md.
+# Until the four B2 secrets are added this job just prints a note and finishes green; it never
+# touches anything. It only adds files, it never deletes.
+
+on:
+  schedule:
+    - cron: '47 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offsite-backup
+  cancel-in-progress: false
+
+jobs:
+  offsite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET || 'godnation-backups' }}
+      B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+      B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+      B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+      B2_BUCKET: ${{ secrets.B2_BUCKET }}
+    steps:
+      - name: Is the second copy set up?
+        id: configured
+        run: |
+          missing=""
+          for v in B2_ENDPOINT B2_KEY_ID B2_APPLICATION_KEY B2_BUCKET; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::notice title=Second backup copy not set up yet::Nothing was done. When ready, add these secrets in GitHub (Settings > Secrets and variables > Actions):$missing. Steps: docs/SECOND_BACKUP_GUIDE.md"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.ready == 'true'
+
+      - name: Install rclone
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y rclone
+          rclone version | head -1
+
+      - name: Copy the backups to the second provider
+        if: steps.configured.outputs.ready == 'true'
+        run: ./server/scripts/backup/offsite-copy.sh

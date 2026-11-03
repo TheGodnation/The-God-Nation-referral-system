@@ -1,6 +1,9 @@
 # French review sheet: The God Nation public website
 
-For the ministry's French reviewer. English is the ministry's own wording (or plain interface text). French was drafted by the developer and is **not approved**. Please mark each line OK or write the corrected French next to it, paying particular attention to theological terms (for example: righteousness, dominion, inheritance, fivefold ministry, Kingdom ambassadors, disciples who make disciples). Until you approve a page, its French version stays hidden from search engines and from the English pages.
+> **Status, 3 November 2026:** the founder, Evangelist Stanley A. Ndoh, approved the French pages to be published and will read this sheet line by line. Send corrections and they are made at once. (Recorded in `FR_APPROVAL`, `server/src/lib/publicSite/content.ts`.)
+
+
+For the ministry's French reviewer. English is the ministry's own wording (or plain interface text). French was drafted by the developer and is **approved for publication by the founder, pending his line-by-line reading**. Please mark each line OK or write the corrected French next to it, paying particular attention to theological terms (for example: righteousness, dominion, inheritance, fivefold ministry, Kingdom ambassadors, disciples who make disciples). Corrections are made as soon as you send them. A page's French can be taken off the public site at any time.
 
 ## Purpose and vision
 

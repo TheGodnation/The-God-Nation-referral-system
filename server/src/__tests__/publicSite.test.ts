@@ -1,8 +1,10 @@
-import { describe, it, expect, afterEach, beforeAll } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import zlib from 'node:zlib';
 import { createApp } from '../app';
-import { DIVISIONS, FR_REVIEWED, LANGS } from '../lib/publicSite/content';
+import fs from 'node:fs';
+import path from 'node:path';
+import { DIVISIONS, FR_APPROVAL, FR_REVIEWED, LANGS } from '../lib/publicSite/content';
 import { allPages, isIndexable, pathOf, renderPage, sitemapXml } from '../lib/publicSite/render';
 
 // Phase 2 of the Knowledge Centre: the public website foundation (/en/…, /fr/…).
@@ -18,6 +20,9 @@ beforeAll(() => {
   appOff = createApp();
 });
 
+const SHIPPED = { ...FR_REVIEWED }; // as shipped, before any test changes them
+// The site ships with French approved; these tests start every case from "not yet approved".
+beforeEach(() => { for (const k of Object.keys(FR_REVIEWED) as (keyof typeof FR_REVIEWED)[]) FR_REVIEWED[k] = false; });
 const everyPath = () => allPages().map((p) => pathOf(p));
 afterEach(() => { for (const k of Object.keys(FR_REVIEWED) as (keyof typeof FR_REVIEWED)[]) FR_REVIEWED[k] = false; DIVISIONS.forEach((d) => { d.hasArticles = false; }); });
 
@@ -218,5 +223,21 @@ describe('Addresses', () => {
     expect(en.text).toContain('Identity in Christ');
     const fr = await request(appOn).get(`/fr/connaissance/${d.slug.fr}/`);
     expect(fr.text).toContain('L’identité en Christ');
+  });
+});
+
+describe('As shipped', () => {
+  it('has French approved by the founder (recorded), so French pages go live with the English ones', () => {
+    expect(Object.values(SHIPPED).every(Boolean)).toBe(true);
+    expect(FR_APPROVAL.by).toBe('Evangelist Stanley A. Ndoh');
+    expect(FR_APPROVAL.note).toMatch(/corrections to follow/);
+  });
+
+  it('robots.txt opens the public pages, keeps crawlers out of private areas, and lists both sitemaps', () => {
+    const robots = fs.readFileSync(path.join(__dirname, '../../../client/public/robots.txt'), 'utf8');
+    for (const line of ['Allow: /', 'Allow: /member/join', 'Allow: /member/login', 'Disallow: /api/', 'Disallow: /admin/', 'Disallow: /leader/', 'Disallow: /member/', 'Sitemap: https://thegodnationacademy.org/sitemap.xml', 'Sitemap: https://thegodnationacademy.org/sitemap-public.xml']) {
+      expect(robots, line).toContain(line);
+    }
+    expect(robots).not.toMatch(/Disallow:\s*\/en|Disallow:\s*\/fr/);
   });
 });
