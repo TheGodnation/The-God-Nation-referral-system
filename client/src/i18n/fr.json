@@ -647,7 +647,8 @@
       "saved": "Paramètres enregistrés.",
       "save_failed": "Échec de l'enregistrement des paramètres.",
       "community_heading": "Lieux de la communauté",
-      "community_help": "Les endroits où l’on peut nous rejoindre. Remplissez seulement ceux que vous avez créés ; un champ vide n’est pas affiché. Après l’inscription, chacun choisit l’endroit qu’il préfère, et le choix est compté dans l’onglet Croissance."
+      "community_help": "Les endroits où l’on peut nous rejoindre. Remplissez seulement ceux que vous avez créés ; un champ vide n’est pas affiché. Après l’inscription, chacun choisit l’endroit qu’il préfère, et le choix est compté dans l’onglet Croissance.",
+      "not_set_up": "Pas encore configuré"
     },
     "content": {
       "title": "Contenu du site",
@@ -3749,6 +3750,12 @@
     "by_platform": "Où les personnes ont choisi de nous rejoindre",
     "col_platform": "Endroit",
     "col_taps": "Appuis",
-    "platform_unknown": "Non enregistré"
+    "platform_unknown": "Non enregistré",
+    "setup_title": "Reste à créer",
+    "setup_body": "Les gens ne peuvent choisir qu’un endroit qui a un lien. Créez ceux ci-dessous, puis collez chaque lien dans les Paramètres. Cette note disparaît quand chaque endroit a un lien.",
+    "setup_community": "Groupes et chaînes :",
+    "setup_follow": "Pages :",
+    "setup_where": "Où les coller : Admin, puis l’onglet Paramètres, cases « Lieux de la communauté » et « Suivez-nous ».",
+    "setup_link": "Ouvrir le tableau de bord admin"
   }
 }

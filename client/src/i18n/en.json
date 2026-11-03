@@ -647,7 +647,8 @@
       "saved": "Settings saved.",
       "save_failed": "Failed to save settings.",
       "community_heading": "Community places",
-      "community_help": "Where people can join us. Fill in only the ones you have created; a blank one is not shown. People pick the place they prefer after signing up, and which one they choose is counted in the Growth tab."
+      "community_help": "Where people can join us. Fill in only the ones you have created; a blank one is not shown. People pick the place they prefer after signing up, and which one they choose is counted in the Growth tab.",
+      "not_set_up": "Not set up yet"
     },
     "content": {
       "title": "Website Content",
@@ -3749,6 +3750,12 @@
     "by_platform": "Where people chose to join",
     "col_platform": "Place",
     "col_taps": "Taps",
-    "platform_unknown": "Not recorded"
+    "platform_unknown": "Not recorded",
+    "setup_title": "Still to create",
+    "setup_body": "People can only choose a place that has a link. Create the ones below, then paste each link in Settings. This note disappears when every place has a link.",
+    "setup_community": "Groups and channels:",
+    "setup_follow": "Pages:",
+    "setup_where": "Where to paste them: Admin, then the Settings tab, boxes “Community places” and “Follow us”.",
+    "setup_link": "Open the admin dashboard"
   }
 }

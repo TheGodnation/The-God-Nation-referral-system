@@ -905,7 +905,10 @@ export function SettingsTab() {
           ] as const
         ).map(([key, label]) => (
           <div key={key}>
-            <label className="label" htmlFor={`social-${key}`}>{label}</label>
+            <label className="label" htmlFor={`social-${key}`}>
+              {label}
+              {!(field(key) ?? '').toString().trim() && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">{t('admin.settings.not_set_up')}</span>}
+            </label>
             <input id={`social-${key}`} className="input" value={field(key) ?? ''} onChange={(e) => setField(key, e.target.value)} />
           </div>
         ))}
@@ -922,7 +925,10 @@ export function SettingsTab() {
           ] as const
         ).map(([key, label]) => (
           <div key={key}>
-            <label className="label" htmlFor={`social-${key}`}>{label}</label>
+            <label className="label" htmlFor={`social-${key}`}>
+              {label}
+              {!(field(key) ?? '').toString().trim() && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">{t('admin.settings.not_set_up')}</span>}
+            </label>
             <input id={`social-${key}`} className="input" value={field(key) ?? ''} onChange={(e) => setField(key, e.target.value)} />
           </div>
         ))}

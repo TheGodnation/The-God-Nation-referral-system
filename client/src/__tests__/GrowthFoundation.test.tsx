@@ -6,6 +6,7 @@ import { MemberJoinGroupPage } from '../pages/MemberJoinGroupPage';
 import { StayConnected } from '../components/StayConnected';
 import { ContactPreferencesCard } from '../components/member/ContactPreferencesCard';
 import { GrowthPanel } from '../components/admin/GrowthPanel';
+import { missingPlaces } from '../components/admin/CommunitySetupReminder';
 import { visitDetails, recordLandingVisitOnce } from '../lib/trackVisit';
 import i18n from '../i18n';
 
@@ -254,5 +255,47 @@ describe('Growth report', () => {
     mockFetch({ '/api/member/central-growth': { body: { days: 30, totals: { ...TOTALS, registered: 0 }, truncated: false, bySource: [], byAmbassador: [] } } });
     render(<GrowthPanel base="/api/member/central-growth" />);
     expect(await screen.findByText('Nobody joined in this period yet.')).toBeInTheDocument();
+  });
+});
+
+describe('Reminder to create the groups, channels and pages', () => {
+  const EMPTY_REPORT = { days: 30, totals: { visitors: 0, leads: 0, registered: 0, confirmed: 0, profileCompleted: 0, joinedGroup: 0, firstChat: 0, firstExam: 0, returned7: 0, returned30: 0 }, truncated: false, bySource: [], byAmbassador: [] };
+  const NULLS = { telegramUrl: null, messengerUrl: null, facebookUrl: null, instagramUrl: null, tiktokUrl: null, youtubeUrl: null };
+
+  it('lists what has no link yet, by name, and where to paste the links', async () => {
+    mockFetch({
+      '/api/settings/public': { body: { content: {}, whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENG', facebookUrl: 'https://facebook.com/page' } },
+      '/api/admin/growth': { body: EMPTY_REPORT },
+    });
+    render(<GrowthPanel base="/api/admin/growth" />);
+    const note = await screen.findByTestId('setup-reminder');
+    expect(note).toHaveTextContent('Still to create');
+    expect(note).toHaveTextContent('WhatsApp channel');
+    expect(note).toHaveTextContent('Telegram group');
+    expect(note).toHaveTextContent('Facebook group');
+    expect(note).toHaveTextContent('Instagram');
+    // What is already set up is not listed.
+    expect(note).not.toHaveTextContent('WhatsApp group (English)');
+    expect(note).not.toHaveTextContent('Facebook page');
+    expect(note).toHaveTextContent('Community places');
+  });
+
+  it('is gone once every place has a link', async () => {
+    const all = {
+      content: {}, whatsappGroupEnUrl: 'https://a.example', whatsappGroupFrUrl: 'https://a.example', whatsappChannelUrl: 'https://a.example',
+      telegramGroupUrl: 'https://a.example', telegramUrl: 'https://a.example', messengerUrl: 'https://a.example', facebookGroupUrl: 'https://a.example',
+      facebookUrl: 'https://a.example', instagramUrl: 'https://a.example', tiktokUrl: 'https://a.example', youtubeUrl: 'https://a.example',
+    };
+    mockFetch({ '/api/settings/public': { body: all }, '/api/admin/growth': { body: EMPTY_REPORT } });
+    render(<GrowthPanel base="/api/admin/growth" />);
+    await screen.findByTestId('growth-panel');
+    await waitFor(() => expect(calls.some((c) => c.url.includes('/api/settings/public'))).toBe(true));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByTestId('setup-reminder')).toBeNull();
+  });
+
+  it('missingPlaces counts all eleven when nothing is set', () => {
+    expect(missingPlaces({ ...NULLS }).length).toBe(11);
+    expect(missingPlaces({ ...NULLS, telegramUrl: 'https://t.me/x' }).map((m) => m.platform)).not.toContain('telegram_channel');
   });
 });
