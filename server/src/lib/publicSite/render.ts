@@ -2,7 +2,7 @@ import { APP_URL } from '../env';
 import { CSS, CSS_ARTICLES } from './style';
 import { headingsOf, renderBody } from './text';
 import {
-  DIVISIONS, FEATURED_BOOK, FOUNDER, FR_REVIEWED, LANGS, MISSION, MOTTO, PAGE_META, PHOTOS, SECTION, UI, VISION, WHAT_WE_DO,
+  BOOKS, DIVISIONS, FOUNDER, founderName, FR_REVIEWED, LANGS, MISSION, MOTTO, PAGE_META, PHOTOS, SECTION, UI, VISION, WHAT_WE_DO,
   type Division, type Lang, type PageKey,
 } from './content';
 
@@ -204,6 +204,17 @@ function footer(p: PageRef): string {
 const photo = (ph: import('./content').SitePhoto, lang: Lang, o: { eager?: boolean; caption?: string } = {}) =>
   `<figure class="photo"><img src="${esc(ph.src)}" width="${ph.w}" height="${ph.h}" alt="${esc(ph.alt[lang])}" decoding="async"${o.eager ? ' fetchpriority="high"' : ' loading="lazy"'}>${o.caption ? `<figcaption>${o.caption}</figcaption>` : o.caption === undefined && ph.caption ? `<figcaption>${esc(ph.caption[lang])}</figcaption>` : ''}</figure>`;
 
+/** The Kingdom Series with its real covers (in the visitor's language). */
+function bookShelf(lang: Lang, withMore: boolean): string {
+  const t = UI[lang];
+  const books = BOOKS.map((b) => {
+    const c = b.cover[lang];
+    return `<article class="bk"><img src="${esc(c.src)}" width="${c.w}" height="${c.h}" alt="${esc(`${b.title[lang]} — ${b.series[lang]}`)}" loading="lazy" decoding="async"><div class="bt"><span class="s">${esc(b.series[lang])}</span><h3>${esc(b.title[lang])}</h3><p class="sub">${esc(b.subtitle[lang])}</p><p class="by">${esc(t.bookBy)} ${esc(founderName(lang))}</p>${b.inSchool ? `<a class="btn gold" href="${joinHref(lang, 'book-' + b.key)}">${esc(t.bookCta)}</a>` : ''}</div></article>`;
+  }).join('');
+  const more = withMore ? `<a class="btn line" href="${pathOf({ key: 'division', lang, division: DIVISIONS.find((d) => d.key === 'books-publications')! })}">${esc(t.bookMore)}</a>` : '';
+  return `<section class="shelf"><div class="wrap"><div class="kicker">${esc(t.bookKicker)}</div><h2>${esc(t.bookShelfTitle)}</h2><div class="books">${books}</div><p class="note">${esc(t.bookText)}</p>${more}</div></section>`;
+}
+
 const divisionCards = (lang: Lang) =>
   DIVISIONS.map((d, i) => `<a class="card area" href="${pathOf({ key: 'division', lang, division: d })}"><i class="num" aria-hidden="true">0${i + 1}</i><b>${esc(d.name[lang])}</b><span>${esc(d.blurb[lang])}</span></a>`).join('');
 
@@ -243,12 +254,9 @@ function body(p: PageRef, ctx: Ctx): string {
   const latest = articlesOf(ctx, l).slice(0, 6);
   switch (p.key) {
     case 'home': {
-      const book = FEATURED_BOOK;
-      const bookCard = `<section class="book"><div class="in wrap"><div class="cover" aria-hidden="true"><span class="s">${esc(book.series[l])}</span><span class="t">${esc(book.title)}</span><span class="a">${esc(FOUNDER.name)}</span></div>
-<div class="txt"><div class="kicker">${esc(t.bookKicker)}</div><h2>${esc(book.title)}</h2><p class="sub">${esc(book.subtitle[l])}</p><p class="by">${esc(t.bookBy)} ${esc(FOUNDER.name)} · <em>${esc(book.tagline[l])}</em></p><p>${esc(t.bookText)}</p>
-<a class="btn gold" href="${joinHref(l, 'featured-book')}">${esc(t.bookCta)}</a><a class="btn line" href="${pathOf({ key: 'division', lang: l, division: DIVISIONS.find((d) => d.key === 'books-publications')! })}">${esc(t.bookAbout)}</a></div></div></section>`;
+      const bookCard = bookShelf(l, true);
       return `<section class="hero"><div class="in${PHOTOS.founder ? ' has-photo' : ''}"><div class="copy"><div class="kicker">${esc(t.heroKicker)}</div><h1>${esc(t.heroTitle)}</h1><p>${esc(MISSION[l])}</p>
-<a class="btn gold" href="${pathOf({ key: 'knowledge', lang: l })}">${esc(t.heroCta)}</a><a class="btn line" href="${pathOf({ key: 'about', lang: l })}">${esc(t.heroCta2)}</a></div>${PHOTOS.founder ? photo(PHOTOS.founder, l, { eager: true, caption: `<b>${esc(FOUNDER.name)}</b><span>${esc(t.founderRole)}</span>` }) : ''}</div></section>
+<a class="btn gold" href="${pathOf({ key: 'knowledge', lang: l })}">${esc(t.heroCta)}</a><a class="btn line" href="${pathOf({ key: 'about', lang: l })}">${esc(t.heroCta2)}</a></div>${PHOTOS.founder ? photo(PHOTOS.founder, l, { eager: true, caption: `<b>${esc(founderName(l))}</b><span>${esc(t.founderRole)}</span>` }) : ''}</div></section>
 <section class="motto"><div class="wrap"><div class="kicker">${esc(t.mottoKicker)}</div><blockquote><p class="m1">${esc(MOTTO[l].lead)}</p><p class="m2">${esc(MOTTO[l].text)}</p></blockquote></div></section>
 <main id="content"><section class="blk wrap"><div class="kicker dark">${esc(t.startHere)}</div><h2>${esc(t.areasTitle)}</h2><div class="grid two">${divisionCards(l)}</div></section>
 ${bookCard}
@@ -266,10 +274,11 @@ ${latest.length ? `<section class="blk wrap"><h2>${esc(t.latestTitle)}</h2>${art
       const list = articlesOf(ctx, l, d.key);
       return `${crumbHtml(p)}<main id="content"><section class="blk wrap"><div class="kicker dark">${esc(t.kcTitle)}</div><h1>${esc(d.name[l])}</h1><p class="lead read">${esc(d.blurb[l])}</p>
 <h2 style="margin-top:26px">${esc(t.divCovers)}</h2><ul class="list read">${d.topics[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+${d.key === 'books-publications' ? `</section>${bookShelf(l, false)}<section class="blk wrap">` : ''}
 ${list.length ? `<h2 style="margin-top:30px">${esc(t.articlesIn)}</h2>${articleCards(list, l)}` : d.hasArticles ? '' : `<div class="callout read">${esc(t.divSoon)}</div>`}<p><a href="${pathOf({ key: 'knowledge', lang: l })}">← ${esc(t.divBack)}</a></p></section></main>`;
     }
     case 'about':
-      return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1>${PHOTOS.founderOffice ? `<div class="about-photo">${photo(PHOTOS.founderOffice, l, { caption: `<b>${esc(FOUNDER.name)}</b><span>${esc(t.founderRole)}</span>` })}</div>` : ''}<h2>${esc(t.aboutMission)}</h2><p class="lead">${esc(MISSION[l])}</p><h2>${esc(t.aboutVision)}</h2><p class="lead">${esc(VISION[l])}</p>
+      return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1>${PHOTOS.founderOffice ? `<div class="about-photo">${photo(PHOTOS.founderOffice, l, { caption: `<b>${esc(founderName(l))}</b><span>${esc(t.founderRole)}</span>` })}</div>` : ''}<h2>${esc(t.aboutMission)}</h2><p class="lead">${esc(MISSION[l])}</p><h2>${esc(t.aboutVision)}</h2><p class="lead">${esc(VISION[l])}</p>
 <h2>${esc(t.aboutWhat)}</h2><ul class="list">${WHAT_WE_DO[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
 <h2 style="margin-top:28px">${esc(t.aboutHow)}</h2><p>${esc(t.aboutHowText1)}</p><p>${esc(t.aboutHowText2)}</p><p>${esc(t.aboutHowText3)}</p>${PHOTOS.group ? photo(PHOTOS.group, l) : ''}</section></main>`;
     case 'contact':

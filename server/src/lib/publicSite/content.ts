@@ -30,18 +30,44 @@ export const MOTTO: Record<Lang, { lead: string; text: string }> = {
 };
 
 /** The founder. Facts taken from the ministry's own book cover and mission. */
-export const FOUNDER = { name: 'Evangelist Stanley A. Ndoh' };
+export const FOUNDER = { name: 'Evangelist Stanley A. Ndoh', nameFr: 'Évangéliste Stanley A. Ndoh' };
+export const founderName = (l: Lang) => (l === 'fr' ? FOUNDER.nameFr : FOUNDER.name);
 
-/** The flagship book (title, subtitle and tagline are as printed on its cover). */
-export const FEATURED_BOOK = {
-  title: 'The Restoration of Dominion',
-  series: { en: 'The Kingdom Series · Book One', fr: 'La Série du Royaume · Livre un' } as Record<Lang, string>,
-  subtitle: {
-    en: 'Understanding the Kingdom of Heaven and the Kingdom of God as the government of God and its manifestation on earth through its citizens.',
-    fr: 'Comprendre le Royaume des cieux et le Royaume de Dieu comme le gouvernement de Dieu et sa manifestation sur la terre par ses citoyens.',
-  } as Record<Lang, string>,
-  tagline: { en: 'A book for Kingdom people. Raising Kingdom impact.', fr: 'Un livre pour les gens du Royaume. Pour un impact du Royaume.' } as Record<Lang, string>,
-};
+/** The Kingdom Series. Titles, subtitles and taglines are as printed on each cover, in each language. */
+export interface BookCover { src: string; w: number; h: number }
+export interface SiteBook {
+  key: string;
+  title: Record<Lang, string>;
+  series: Record<Lang, string>;
+  subtitle: Record<Lang, string>;
+  tagline: Record<Lang, string>;
+  cover: Record<Lang, BookCover>;
+  /** Only the first book is opened to registered members in the Leadership School so far; no availability is claimed for the others. */
+  inSchool: boolean;
+}
+export const BOOKS: SiteBook[] = [
+  {
+    key: 'restoration-of-dominion',
+    title: { en: 'The Restoration of Dominion', fr: 'La Restauration de la Domination' },
+    series: { en: 'The Kingdom Series · Book One', fr: 'La Série du Royaume · Livre un' },
+    subtitle: {
+      en: 'Understanding the Kingdom of Heaven and the Kingdom of God as the government of God and its manifestation on earth through its citizens.',
+      fr: 'Comprendre le Royaume de Dieu et le Royaume des Cieux et sa manifestation sur terre à travers ses citoyens.',
+    },
+    tagline: { en: 'A book for Kingdom people, raising Kingdom impact.', fr: 'Un livre pour le peuple du Royaume, produisant un impact du Royaume.' },
+    cover: { en: { src: '/site/book1-en.webp', w: 520, h: 780 }, fr: { src: '/site/book1-fr.webp', w: 520, h: 780 } },
+    inSchool: true,
+  },
+  {
+    key: 'doorway-into-the-kingdom',
+    title: { en: 'The Doorway into the Kingdom', fr: 'La Porte d’entrée dans le Royaume de Dieu' },
+    series: { en: 'The Kingdom Series · Book Two', fr: 'La Série du Royaume · Livre deux' },
+    subtitle: { en: 'Fundamental principles of the Kingdom of God: repent, be baptized, receive the Holy Spirit.', fr: 'Principes fondamentaux du Royaume de Dieu : repentez-vous, soyez baptisés, recevez le Saint-Esprit.' },
+    tagline: { en: 'The path to God’s government begins here.', fr: 'Le chemin du retour au gouvernement de Dieu commence ici.' },
+    cover: { en: { src: '/site/book2-en.webp', w: 520, h: 780 }, fr: { src: '/site/book2-fr.webp', w: 520, h: 780 } },
+    inSchool: false,
+  },
+];
 
 export interface Division {
   key: string;
@@ -204,11 +230,13 @@ export const UI: Record<Lang, Record<string, string>> = {
     founderText1: 'Evangelist Stanley A. Ndoh founded The God Nation Media and Leadership Academy to equip citizens of the Kingdom of God to carry the Gospel of the Kingdom through modern media.',
     founderText2: 'He holds a B.A. in Christian Ministry and is the author of The Kingdom Series, which begins with The Restoration of Dominion.',
     founderCta: 'Our purpose and vision',
-    bookKicker: 'Featured book',
-    bookText: 'Available to registered members in the Leadership School, with study, reading offline on the phone, and an examination.',
+    bookKicker: 'The Kingdom Series',
+    bookShelfTitle: 'Books by Evangelist Stanley A. Ndoh',
+    bookText: 'Registered members study Book One in the Leadership School, with reading offline on the phone and an examination.',
     bookBy: 'By',
     bookCta: 'Join to read it',
     bookAbout: 'About our books',
+    bookMore: 'More about our books',
     rights: 'The God Nation Media & Leadership Academy',
     notFoundTitle: 'Page not found',
     notFoundText: 'This page does not exist, or is not public.',
@@ -291,11 +319,13 @@ export const UI: Record<Lang, Record<string, string>> = {
     founderText1: 'L’évangéliste Stanley A. Ndoh a fondé The God Nation Media and Leadership Academy pour équiper les citoyens du Royaume de Dieu afin qu’ils portent l’Évangile du Royaume par les médias modernes.',
     founderText2: 'Titulaire d’une licence en ministère chrétien, il est l’auteur de La Série du Royaume, qui commence par The Restoration of Dominion.',
     founderCta: 'Notre raison d’être et notre vision',
-    bookKicker: 'Livre à la une',
-    bookText: 'Disponible pour les membres inscrits dans l’École de leadership, avec étude, lecture hors connexion sur le téléphone et examen.',
+    bookKicker: 'La Série du Royaume',
+    bookShelfTitle: 'Livres de l’évangéliste Stanley A. Ndoh',
+    bookText: 'Les membres inscrits étudient le Livre un dans l’École de leadership, avec lecture hors connexion sur le téléphone et examen.',
     bookBy: 'Par',
     bookCta: 'Rejoindre pour le lire',
     bookAbout: 'À propos de nos livres',
+    bookMore: 'En savoir plus sur nos livres',
     rights: 'The God Nation Media & Leadership Academy',
     notFoundTitle: 'Page introuvable',
     notFoundText: 'Cette page n’existe pas, ou n’est pas publique.',
