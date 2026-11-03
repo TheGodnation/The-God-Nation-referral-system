@@ -376,8 +376,12 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
  * Example: founder: { src: '/site/founder.jpg', w: 760, h: 1013, alt: { en: 'Evangelist Stanley A. Ndoh', fr: 'L\'évangéliste Stanley A. Ndoh' } }
  */
 export interface SitePhoto { src: string; w: number; h: number; alt: Record<Lang, string>; caption?: Record<Lang, string> }
-export const PHOTOS: { founder?: SitePhoto; founderOffice?: SitePhoto; group?: SitePhoto; groupClose?: SitePhoto } = {
+export const PHOTOS: { founder?: SitePhoto; founderOffice?: SitePhoto; group?: SitePhoto; groupClose?: SitePhoto; sessionMore?: SitePhoto[] } = {
   group: { src: '/site/session-room.jpg', w: 1000, h: 750, alt: { en: 'People seated around tables during a teaching and training session', fr: 'Des personnes assises autour de tables pendant une session d’enseignement et de formation' }, caption: { en: 'People gathered for a teaching and training session.', fr: 'Des participants réunis pour une session d’enseignement et de formation.' } },
+  sessionMore: [
+    { src: '/site/session-presenter.jpg', w: 900, h: 405, alt: { en: 'A facilitator presenting to participants seated at long tables', fr: 'Une animatrice s’adresse aux participants assis autour de longues tables' } },
+    { src: '/site/session-workshop.jpg', w: 700, h: 933, alt: { en: 'A facilitator addressing participants during a training workshop', fr: 'Une animatrice s’adresse aux participants pendant un atelier de formation' } },
+  ],
   groupClose: { src: '/site/session-close.jpg', w: 700, h: 933, alt: { en: 'Participants listening and taking notes during a training session', fr: 'Des participants écoutent et prennent des notes pendant une session de formation' } },
   founder: { src: '/site/founder.jpg', w: 760, h: 1013, alt: { en: 'Evangelist Stanley A. Ndoh, founder of The God Nation Media and Leadership Academy', fr: 'L’évangéliste Stanley A. Ndoh, fondateur de The God Nation Media and Leadership Academy' } },
   founderOffice: { src: '/site/founder-office.jpg', w: 760, h: 1013, alt: { en: 'Evangelist Stanley A. Ndoh in his office', fr: 'L’évangéliste Stanley A. Ndoh dans son bureau' } },
