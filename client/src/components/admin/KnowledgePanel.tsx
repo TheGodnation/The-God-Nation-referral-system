@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { applyFormat, wordStats, type Fmt } from '../../lib/articleFormat';
+import { PublicViewer } from './PublicViewer';
 import { PictureError, uploadPicture, type MediaItem, type UploadStage } from '../../lib/knowledgePicture';
 
 // The central admin's Knowledge Centre editor: write an article in English and French, have a
@@ -55,6 +56,7 @@ export function KnowledgePanel({ base }: { base: string }) {
   const [filter, setFilter] = useState<Status | 'ALL'>('ALL');
   const [newArea, setNewArea] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api.get<Overview>(base).then((d) => { setData(d); setFailed(false); }).catch(() => setFailed(true));
@@ -85,6 +87,7 @@ export function KnowledgePanel({ base }: { base: string }) {
 
   return (
     <div className="space-y-4" data-testid="knowledge-panel">
+      {viewing && <PublicViewer url={viewing} onClose={() => setViewing(null)} />}
       <div className="card space-y-3">
         <div>
           <h2 className="font-semibold text-brand-900">{t('knowledgeAdmin.title')}</h2>
@@ -98,7 +101,7 @@ export function KnowledgePanel({ base }: { base: string }) {
             </select>
           </div>
           <button type="button" className="btn-primary" onClick={create}>＋ {t('knowledgeAdmin.new_article')}</button>
-          <a className="text-sm text-brand-700 underline" href="/en/knowledge/" target="_blank" rel="noreferrer">{t('knowledgeAdmin.view_site')}</a>
+          <button type="button" className="text-sm text-brand-700 underline" onClick={() => setViewing(uiLang === 'fr' ? '/fr/connaissance/' : '/en/knowledge/')}>{t('knowledgeAdmin.view_site')}</button>
         </div>
         {msg && <p role="status" className={`text-sm font-medium ${msg.ok ? 'text-green-700' : 'text-red-700'}`}>{msg.text}</p>}
       </div>
@@ -375,6 +378,7 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
   const [meta, setMeta] = useState({ divisionKey: '', authorId: '', imageUrl: '', altEn: '', altFr: '', ai: false, source: '', related: [] as string[] });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
 
   // After a change, bring in the server's copy. Only the parts that were just saved replace what is
   // on screen, so unsaved words in the other language (or in the details) are never thrown away.
@@ -494,6 +498,7 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
 
   return (
     <div className="space-y-4" data-testid="kc-editor">
+      {viewing && <PublicViewer url={viewing} onClose={() => setViewing(null)} />}
       <button type="button" className="text-sm text-brand-700 underline" onClick={() => { if (!anyDirty || window.confirm(t('knowledgeAdmin.leave_confirm') ?? '')) onBack(); }}>← {t('knowledgeAdmin.back')}</button>
 
       <div className="card space-y-3">
@@ -590,7 +595,7 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
           <div className="flex flex-wrap gap-2">
             {!tr.reviewedAt && <button type="button" className="btn-primary" onClick={() => review(true)}>{t('knowledgeAdmin.approve_version', { lang: lang.toUpperCase() })}</button>}
             {tr.reviewedAt && <button type="button" className="btn-secondary" onClick={() => review(false)}>{t('knowledgeAdmin.take_back')}</button>}
-            {tr.isPublic && tr.publicPath && <a className="btn-secondary" href={tr.publicPath} target="_blank" rel="noreferrer">{t('knowledgeAdmin.open_public')}</a>}
+            {tr.isPublic && tr.publicPath && <button type="button" className="btn-secondary" onClick={() => setViewing(tr.publicPath)}>{t('knowledgeAdmin.open_public')}</button>}
           </div>
           <p className="text-xs text-slate-500">{t('knowledgeAdmin.review_help')}</p>
         </div>

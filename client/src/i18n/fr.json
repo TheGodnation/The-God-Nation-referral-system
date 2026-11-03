@@ -3882,6 +3882,11 @@
     "dynamic_help_google": "Dans Google Ads, collez le lien complet comme « modèle de suivi » (remplacez le début par {lpurl} si Google le demande) : Google remplit les identifiants de campagne et de création."
   },
   "knowledgeAdmin": {
+    "viewer": {
+      "title": "Le site public",
+      "close": "Fermer",
+      "browser": "Ouvrir dans le navigateur"
+    },
     "pic": {
       "title": "Image principale (facultatif)",
       "none": "Pas encore d'image.",

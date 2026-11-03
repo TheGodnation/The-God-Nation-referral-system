@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { KnowledgePanel } from '../components/admin/KnowledgePanel';
 import i18n from '../i18n';
 
@@ -118,7 +118,13 @@ describe('Knowledge Centre editor', () => {
     expect(await screen.findByRole('button', { name: 'Withdraw from the website' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     expect(screen.queryByText('Delete')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open on the public website' })).toHaveAttribute('href', '/en/knowledge/kingdom-knowledge/faith/');
+    // It opens inside the admin (never leaving the app), with a Close button.
+    fireEvent.click(screen.getByRole('button', { name: 'Open on the public website' }));
+    const viewer = screen.getByTestId('kc-viewer');
+    expect(viewer.querySelector('iframe')).toHaveAttribute('src', '/en/knowledge/kingdom-knowledge/faith/');
+    expect(within(viewer).getByRole('link', { name: 'Open in the browser' })).toHaveAttribute('href', '/en/knowledge/kingdom-knowledge/faith/');
+    fireEvent.click(within(viewer).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByTestId('kc-viewer')).not.toBeInTheDocument();
   });
 
   it('speaks French when the app is in French', async () => {
@@ -216,5 +222,16 @@ describe('Knowledge Centre editor', () => {
     expect(box).toHaveTextContent('Needs approving');
     expect(box).toHaveTextContent('English only');
     expect(box).not.toHaveTextContent('Both');
+  });
+
+  it('opens the public Knowledge Centre inside the admin, in the right language, and closes with Escape', async () => {
+    routes = { 'GET /k': () => ({ body: overview([article()]) }) };
+    mockFetch();
+    render(<KnowledgePanel base="/k" />);
+    await screen.findAllByTestId('kc-row');
+    fireEvent.click(screen.getByRole('button', { name: 'Open the public Knowledge Centre' }));
+    expect(screen.getByTestId('kc-viewer').querySelector('iframe')).toHaveAttribute('src', '/en/knowledge/');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('kc-viewer')).not.toBeInTheDocument();
   });
 });

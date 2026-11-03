@@ -3882,6 +3882,11 @@
     "dynamic_help_google": "In Google Ads, paste the full link as the “tracking template” (replace the start with {lpurl} if Google asks): Google fills in the campaign and creative ids."
   },
   "knowledgeAdmin": {
+    "viewer": {
+      "title": "The public website",
+      "close": "Close",
+      "browser": "Open in the browser"
+    },
     "pic": {
       "title": "Main picture (optional)",
       "none": "No picture yet.",
