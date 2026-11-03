@@ -21,7 +21,7 @@ import { MemberReaderPage } from '../pages/MemberReaderPage';
 import { MemberDownloadsPage } from '../pages/MemberDownloadsPage';
 import { PdfViewer } from '../components/chat/PdfViewer';
 import { MemberAuthProvider, useMemberAuth } from '../lib/MemberAuthContext';
-import { bookKey, docKey, getInfo, listSaved, saveFile } from '../lib/offlineStore';
+import { blobBytes, bookKey, docKey, getFile, getInfo, lastSaveProblem, listSaved, saveFile } from '../lib/offlineStore';
 
 // Books downloaded into the app (they open again without internet), the
 // reading bookmark, chat PDFs kept after viewing, and the Downloads page.
@@ -240,6 +240,45 @@ describe('Leadership books downloaded into the app', () => {
     mockFetch({});
     renderReader();
     expect(await screen.findByText(/No internet, and this book is not downloaded on this phone yet/)).toBeInTheDocument();
+  });
+});
+
+describe('Keeping a big book on a phone that struggles', () => {
+  const realPut = IDBObjectStore.prototype.put;
+  afterEach(() => { IDBObjectStore.prototype.put = realPut; });
+
+  it('stores the book as a file, and falls back to plain bytes when the browser refuses a file', async () => {
+    // A browser that cannot store a file (Blob) in its database.
+    IDBObjectStore.prototype.put = function (this: IDBObjectStore, value: unknown, key?: IDBValidKey) {
+      if (typeof Blob !== 'undefined' && value instanceof Blob) throw new DOMException('no blobs here', 'DataCloneError');
+      return realPut.call(this, value as never, key);
+    } as typeof realPut;
+    const kept = await saveFile({ key: bookKey(personId, 'b1'), ownerId: personId, kind: 'BOOK', title: 'Called to serve', version: 'v1', meta: info(), blob: new Blob([new Uint8Array([37, 80, 68, 70])]) });
+    expect(kept).toBe(true);
+    expect(lastSaveProblem()).toBeNull();
+    const back = await getFile(bookKey(personId, 'b1'));
+    expect(back).not.toBeNull();
+    expect(Array.from(new Uint8Array(await blobBytes(back!.blob)))).toEqual([37, 80, 68, 70]);
+  });
+
+  it('says why when nothing can be kept, and the reader is told on screen instead of finding out offline', async () => {
+    IDBObjectStore.prototype.put = function () {
+      throw new DOMException('full', 'QuotaExceededError');
+    } as unknown as typeof realPut;
+    expect(await saveFile({ key: bookKey(personId, 'bx'), ownerId: personId, kind: 'BOOK', title: 'x', meta: {}, blob: new Blob([new Uint8Array(4)]) })).toBe(false);
+    expect(lastSaveProblem()).toBe('QuotaExceededError');
+
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: me() }),
+      'GET /api/member/library/books/b1/content': () => ({ bytes: true }),
+      'GET /api/member/library/books/b1': () => ({ body: info() }),
+    });
+    renderReader();
+    // The book still opens (online); the reader is warned that it was not kept, with the reason.
+    expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could NOT be kept on this phone.*QuotaExceededError/);
+    expect(screen.queryByText(/Downloaded\. This book now opens/)).not.toBeInTheDocument();
+    expect(await getInfo(bookKey(personId, 'b1'))).toBeNull();
   });
 });
 

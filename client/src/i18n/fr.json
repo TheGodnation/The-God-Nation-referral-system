@@ -2034,7 +2034,8 @@
     "resumed": "Ouvert là où vous vous êtes arrêté : page {{page}}",
     "from_start": "Aller au début",
     "downloading": "Téléchargement du livre… {{percent}} %",
-    "offline_missing": "Pas d'internet, et ce livre n'est pas encore téléchargé sur ce téléphone. Ouvrez-le une fois avec internet et il sera gardé pour vous."
+    "offline_missing": "Pas d'internet, et ce livre n'est pas encore téléchargé sur ce téléphone. Ouvrez-le une fois avec internet et il sera gardé pour vous.",
+    "not_kept": "Ce livre n'a PAS pu être gardé sur ce téléphone : il faudra internet à chaque ouverture. Libérez de l'espace sur le téléphone et rouvrez le livre. (Raison : {{reason}})"
   },
   "examResults": {
     "title": "Monde des examens : mes membres",

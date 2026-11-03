@@ -5,7 +5,7 @@ import { api, ApiError } from '../lib/api';
 import { loadPdfJs } from '../lib/loadPdfJs';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { PdfPage } from '../components/chat/PdfViewer';
-import { blobBytes, bookKey, deleteSaved, getFile, isOfflineError, saveFile, updateMeta } from '../lib/offlineStore';
+import { blobBytes, bookKey, deleteSaved, getFile, isOfflineError, lastSaveProblem, saveFile, updateMeta } from '../lib/offlineStore';
 import { newestBookmark, readLocalBookmark, syncBookmark, writeLocalBookmark } from '../lib/readingProgress';
 
 interface BookInfo {
@@ -88,6 +88,8 @@ export function MemberReaderPage() {
   const [lang, setLang] = useState<'en' | 'fr'>(() => (i18n.language.startsWith('fr') ? 'fr' : 'en'));
   const [offline, setOffline] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  // Set when the book could not be kept on this phone (and why), so the reader is told instead of finding out offline.
+  const [keepProblem, setKeepProblem] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [resumedAt, setResumedAt] = useState<number | null>(null);
   const resumeRef = useRef<number | null>(null);
@@ -151,7 +153,10 @@ export function MemberReaderPage() {
               meta: info as unknown as Record<string, unknown>,
               blob,
             });
-            if (!cancelled) setJustSaved(kept);
+            if (!cancelled) {
+              setJustSaved(kept);
+              setKeepProblem(kept ? null : lastSaveProblem() ?? 'Unknown');
+            }
           }
         }
         // Where to open: the newest of this phone's bookmark and the server's.
@@ -344,6 +349,11 @@ export function MemberReaderPage() {
           </div>
         )}
         {offline && <p className="bg-amber-50 px-4 py-1 text-center text-xs text-amber-900">📥 {t('reader.offline_copy')}</p>}
+        {!offline && keepProblem && status === 'ready' && (
+          <p className="bg-red-50 px-4 py-1 text-center text-xs text-red-800" role="alert">
+            ⚠️ {t('reader.not_kept', { reason: keepProblem })}
+          </p>
+        )}
         {!offline && justSaved && status === 'ready' && <p className="bg-green-50 px-4 py-1 text-center text-xs text-green-800">✓ {t('reader.downloaded')}</p>}
         {resumedAt && (
           <p className="flex items-center justify-center gap-3 bg-brand-50 px-4 py-1 text-xs text-brand-900" role="status">

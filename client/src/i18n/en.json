@@ -2034,7 +2034,8 @@
     "resumed": "Opened where you stopped: page {{page}}",
     "from_start": "Go to the start",
     "downloading": "Downloading the book… {{percent}}%",
-    "offline_missing": "No internet, and this book is not downloaded on this phone yet. Open it once with internet and it will be kept for you."
+    "offline_missing": "No internet, and this book is not downloaded on this phone yet. Open it once with internet and it will be kept for you.",
+    "not_kept": "This book could NOT be kept on this phone, so it will need internet each time you open it. Free some space on the phone and open the book again. (Reason: {{reason}})"
   },
   "examResults": {
     "title": "Exam World: my members",

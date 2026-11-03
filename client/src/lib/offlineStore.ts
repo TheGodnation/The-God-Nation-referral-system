@@ -60,11 +60,21 @@ function openDb(): Promise<IDBDatabase | null> {
   return p;
 }
 
+/** Why the last attempt to keep a file failed (for a plain message on screen), or null. */
+let lastProblem: string | null = null;
+export const lastSaveProblem = (): string | null => lastProblem;
+
 function done(tx: IDBTransaction): Promise<boolean> {
   return new Promise((resolve) => {
     tx.oncomplete = () => resolve(true);
-    tx.onerror = () => resolve(false);
-    tx.onabort = () => resolve(false);
+    tx.onerror = () => {
+      lastProblem = tx.error?.name || 'WriteError';
+      resolve(false);
+    };
+    tx.onabort = () => {
+      lastProblem = tx.error?.name || 'WriteAborted';
+      resolve(false);
+    };
   });
 }
 
@@ -89,26 +99,54 @@ export function blobBytes(blob: Blob): Promise<ArrayBuffer> {
   });
 }
 
-/** Keeps a file on this phone (replacing an older copy). False when it couldn't be kept (no room, no IndexedDB). */
+/**
+ * Keeps a file on this phone (replacing an older copy). False when it couldn't be kept (no room, no
+ * IndexedDB); lastSaveProblem() then says why.
+ *
+ * The file is stored as a file (a Blob) first: the browser writes that straight to disk, which a
+ * big book on a phone with little memory needs. Only if the browser refuses that is it stored as
+ * plain bytes (older browsers), which needs several copies in memory.
+ */
 export async function saveFile(info: Omit<SavedInfo, 'savedAt' | 'byteSize'> & { blob: Blob }): Promise<boolean> {
+  lastProblem = null;
   const db = await openDb();
-  if (!db) return false;
-  try {
-    const { blob, ...rest } = info;
-    // Kept as plain bytes: every browser can store those.
-    const bytes = await blobBytes(blob);
-    const tx = db.transaction([FILES, INFO], 'readwrite');
-    tx.objectStore(FILES).put(bytes, info.key);
-    tx.objectStore(INFO).put({ ...rest, byteSize: bytes.byteLength, savedAt: Date.now() });
-    const ok = await done(tx);
-    if (ok) {
-      askToKeepStorage();
-      window.dispatchEvent(new Event('offline-files-changed'));
-    }
-    return ok;
-  } catch {
+  if (!db) {
+    lastProblem = 'NoStorage';
     return false;
   }
+  askToKeepStorage(); // before writing: a protected store is not cleared when the phone runs low on space
+  const { blob, ...rest } = info;
+  const attempt = async (value: () => Promise<Blob | ArrayBuffer>, size: number): Promise<boolean> => {
+    let tx: IDBTransaction | null = null;
+    try {
+      const v = await value();
+      tx = db.transaction([FILES, INFO], 'readwrite');
+      const finished = done(tx);
+      tx.objectStore(FILES).put(v, info.key);
+      tx.objectStore(INFO).put({ ...rest, byteSize: size, savedAt: Date.now() });
+      return await finished;
+    } catch (err) {
+      lastProblem = (err as { name?: string } | null)?.name || 'WriteError';
+      try { tx?.abort(); } catch { /* already finished */ }
+      return false;
+    }
+  };
+  let ok = await attempt(async () => blob, blob.size);
+  // Trust it only if it reads back whole (a few browsers accept a file and then lose it).
+  if (ok && !(await getFile(info.key))) {
+    lastProblem = 'CopyNotReadable';
+    ok = false;
+  }
+  if (!ok) {
+    const first = lastProblem;
+    ok = await attempt(() => blobBytes(blob), blob.size);
+    if (!ok && !lastProblem) lastProblem = first;
+  }
+  if (ok) {
+    lastProblem = null;
+    window.dispatchEvent(new Event('offline-files-changed'));
+  }
+  return ok;
 }
 
 export async function getInfo(key: string): Promise<SavedInfo | null> {
@@ -127,7 +165,14 @@ export async function getFile(key: string): Promise<SavedFile | null> {
   try {
     const tx = db.transaction([FILES, INFO]);
     const [info, bytes] = await Promise.all([read(tx.objectStore(INFO).get(key)), read(tx.objectStore(FILES).get(key))]);
-    return info && bytes ? { ...(info as SavedInfo), blob: new Blob([bytes as ArrayBuffer], { type: 'application/pdf' }) } : null;
+    if (!info || !bytes) return null;
+    // Kept either as a file (Blob) or, on browsers that refused that, as plain bytes.
+    const stored = bytes as Blob | ArrayBuffer;
+    const isBytes = Object.prototype.toString.call(stored) === '[object ArrayBuffer]';
+    const size = isBytes ? (stored as ArrayBuffer).byteLength : (stored as Blob).size;
+    // A copy that came back empty or the wrong size (some browsers lose stored files) is not a copy.
+    if (typeof size !== 'number' || size !== (info as SavedInfo).byteSize) return null;
+    return { ...(info as SavedInfo), blob: isBytes ? new Blob([stored as ArrayBuffer], { type: 'application/pdf' }) : (stored as Blob) };
   } catch {
     return null;
   }
