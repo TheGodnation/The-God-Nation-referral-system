@@ -1715,7 +1715,21 @@
     "impact_title": "My Kingdom Impact",
     "impact_count": "{{count}} people reached",
     "list_empty": "Nobody has joined through your link yet.",
-    "joined_on": "Joined {{date}}"
+    "joined_on": "Joined {{date}}",
+    "filter_label": "Show",
+    "filter_all": "Everyone ({{count}})",
+    "filter_nudge": "Needs a word ({{count}})",
+    "nudge_none": "Nobody needs a word right now. 🎉",
+    "status_NOT_CONFIRMED": "Not signed in yet",
+    "status_PROFILE_INCOMPLETE": "Needs to finish joining",
+    "status_QUIET_one": "Quiet {{count}} day",
+    "status_QUIET_other": "Quiet {{count}} days",
+    "status_ACTIVE": "Active",
+    "nudge_whatsapp": "WhatsApp",
+    "nudge_in_app": "Message in the app",
+    "nudge_not_confirmed": "Hi, this is {{me}} from The God Nation. I saw you started joining. It only takes a minute to finish: open the app and sign in with the email and password you chose. I am here if you need help.",
+    "nudge_profile": "Hi, this is {{me}} from The God Nation. You are almost in! Please tell the app your name and where you live, and you will be placed in your group. I am here if you need help.",
+    "nudge_quiet": "Hi, this is {{me}} from The God Nation. We miss you! Come and see what is new in your group and in the Dominion Clinic."
   },
   "updates": {
     "report": "Report this post",
@@ -3513,7 +3527,7 @@
           "To run the community: let you sign in, place you in your assembly, show you your leaders and fellow members, and let you chat, post and pray together.",
           "To run the training: save your progress, mark quizzes, and confirm book payments.",
           "To keep the app safe: prevent abuse, handle reports, and keep a record of important actions by leaders and administrators.",
-          "To contact you: send sign-in codes and notices by email, and alerts about messages, events and payments on your phone if you allow them.",
+          "To contact you: send sign-in codes and notices by email, and alerts about messages, events and payments on your phone if you allow them. If you start joining and do not finish, we may send you up to three reminder emails to help you finish. If you agreed to updates by email and have been away for a while, we may send a “we miss you” email; every such email has a link to stop them, and you can change your choice at any time in your profile.",
           "We do not sell your information. We do not show advertisements, and the app does not use advertising or analytics trackers."
         ]
       },
@@ -3757,5 +3771,32 @@
     "setup_follow": "Pages:",
     "setup_where": "Where to paste them: Admin, then the Settings tab, boxes “Community places” and “Follow us”.",
     "setup_link": "Open the admin dashboard"
+  },
+  "inApp": {
+    "title": "For the best experience, open this page in your phone’s browser",
+    "body_android": "You are inside another app’s built-in browser. Notifications and installing The God Nation do not work here.",
+    "body_ios": "You are inside another app’s built-in browser. Tap the ⋯ or share button and choose “Open in Safari”. Notifications and installing do not work here.",
+    "open_chrome": "Open in Chrome",
+    "copy": "Copy the link",
+    "copied": "Link copied. Paste it in your browser.",
+    "dismiss": "Not now"
+  },
+  "reminders": {
+    "title": "Reminder emails",
+    "help": "Gentle emails to people who started joining and stopped, and to members who have been away. They are off until you switch them on. “We miss you” goes only to members who agreed to emails, and has an unsubscribe link.",
+    "enabled": "Send reminder emails",
+    "quiet_days": "Days away before “We miss you”",
+    "daily_cap": "Most emails in one day",
+    "save": "Save",
+    "saved": "Saved.",
+    "failed": "Could not save. Check the numbers and try again.",
+    "email_off": "No email service is set up on the server, so nothing can be sent yet.",
+    "pending_title": "Waiting to go out now",
+    "sent_title": "Sent in the last 7 days",
+    "sent_today": "Sent today: {{count}}",
+    "kind_FINISH_SIGNUP_1": "Finish sign-up (first)",
+    "kind_FINISH_SIGNUP_2": "Finish sign-up (second)",
+    "kind_FINISH_PROFILE": "Finish name and place",
+    "kind_WINBACK": "We miss you"
   }
 }

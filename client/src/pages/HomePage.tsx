@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
 import { StayConnected } from '../components/StayConnected';
+import { InAppBrowserNotice } from '../components/InAppBrowserNotice';
 import { usePublicSettings } from '../lib/usePublicSettings';
 import {
   GraduationCapIcon,
@@ -68,6 +69,7 @@ export function HomePage() {
   return (
     <ContinueIfSignedIn>
     <PageShell homeNav>
+      <div className="bg-brand-950 px-4 pt-2"><InAppBrowserNotice /></div>
       {/* Hero */}
       <section id="top" className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 px-4 py-16 text-white sm:py-24">
         <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-[30rem] w-[30rem] rounded-full bg-gold-400/20 blur-3xl" />

@@ -27,6 +27,14 @@ enum EventType {
 
 // How someone agreed to be contacted. One row per choice (never edited): the
 // latest row for a person and channel is what counts, the older ones are the proof.
+// The reminder emails a member can be sent (each at most once; WINBACK once per quiet spell).
+enum ReminderKind {
+  FINISH_SIGNUP_1
+  FINISH_SIGNUP_2
+  FINISH_PROFILE
+  WINBACK
+}
+
 enum ConsentChannel {
   WHATSAPP
   EMAIL
@@ -638,6 +646,12 @@ model Settings {
   tokenSpendEnabled       Boolean   @default(false)
   tokenValueFcfa          Decimal   @default(1) @db.Decimal(12, 6)
   tokenSpendMaxPercent    Int       @default(30)
+  // Reminder emails to members (finish your sign-up, we miss you). Off until the central admin
+  // switches them on; "quiet" means this many days since the member was last seen; never more
+  // than the daily cap in one day (the email service has a daily sending limit).
+  remindersEnabled        Boolean   @default(false)
+  reminderQuietDays       Int       @default(7)
+  reminderDailyCap        Int       @default(40)
   // "Live now" slot on the Updates page: the YouTube video id of the live
   // (video or audio-only) the central admin is streaming, or null when
   // nothing is live. Set/cleared from the admin Updates tab.
@@ -774,6 +788,7 @@ model Person {
   gifts               Gift[]
   tokenEntries        TokenEntry[]
   contactConsents     ContactConsent[]
+  reminders           MemberReminder[]
   leadsConverted      Lead[]
   pinsMade            MessagePin[]      @relation("MessagePinnedBy")
   pinsSeen            MessagePinSeen[]  @relation("MessagePinSeenBy")
@@ -3664,4 +3679,17 @@ model ContactConsent {
 
   @@index([personId, channel, createdAt])
   @@index([leadId, channel, createdAt])
+}
+
+// A reminder email that was sent to a member, so none is ever sent twice.
+model MemberReminder {
+  id       String       @id @default(uuid())
+  personId String
+  kind     ReminderKind
+  sentAt   DateTime     @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId, kind, sentAt])
+  @@index([sentAt])
 }

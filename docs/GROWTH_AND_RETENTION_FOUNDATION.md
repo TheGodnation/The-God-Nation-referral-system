@@ -39,9 +39,35 @@ start it. **Phase A is built (3 November 2026).** The rest is still a blueprint.
   recorded consent. Deleting an account also deletes anything kept from the
   stay-connected box under that number.
 
-Not in Phase A (as planned): ad pixels, ad-platform event connections, the
-reminder emails, the "Open in Chrome" prompt, the blog upgrade and WhatsApp
-automation.
+## Phase B — what was built (3 November 2026)
+
+- **Reminder emails (off until the central admin switches them on).** Four
+  kinds, each sent at most once (the last once per quiet spell): "finish your
+  sign-up" two hours after starting, a second one after three days, "finish
+  your name and place" for people who signed in but did not finish, and
+  "we miss you" for members away for a chosen number of days. English or French
+  by the person's language. A daily limit (40 to begin) protects the email
+  service. The central admin sees what is waiting and what went out, in the
+  Growth tab, and can switch it on or off there.
+- **Consent rules:** "we miss you" goes only to members who ticked the email
+  box, and every such email has a one-click unsubscribe (also shown by mail apps
+  as an Unsubscribe button). The sign-up reminders go only to people who
+  started joining themselves, up to three, and say they can be ignored. Please
+  have a Cameroonian lawyer confirm this wording.
+- **Inviter's follow-up list:** "My Ambassador Dashboard" now shows how far each
+  person who joined through the member's link has got (not signed in, needs to
+  finish, quiet, active), a "Needs a word" filter, a message button inside the
+  app, and for leaders a WhatsApp button with a first message already written in
+  the person's own language. Ordinary members never see phone numbers.
+- **"Open in your browser" notice** for people who arrive from an ad inside
+  Facebook's, Instagram's or TikTok's built-in browser (where notifications and
+  installing do not work): an "Open in Chrome" button on Android, and the Safari
+  instruction on iPhone.
+- **Notifications asked at a better moment:** right on the "Join us where you
+  prefer" step after sign-up, with the explanation, instead of only later.
+
+Not yet built: ad pixels and the ad-platform connections (Phase C), the blog
+upgrade (Phase D) and automatic WhatsApp messages (Phase E).
 
 
 

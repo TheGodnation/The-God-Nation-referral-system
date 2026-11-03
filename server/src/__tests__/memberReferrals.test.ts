@@ -168,3 +168,60 @@ describe('My Referrals — joining through a Member\'s link', () => {
     expect(row).toBeTruthy();
   });
 });
+
+describe('My Referrals — who needs a word of encouragement', () => {
+  const DAY = 86_400_000;
+  let k = 0;
+  async function invited(referrerId: string, opts: { confirmed?: boolean; profileDone?: boolean; lastSeenDaysAgo?: number; lang?: 'en' | 'fr' }) {
+    k += 1;
+    const created = new Date(Date.now() - 30 * DAY);
+    const person = await prisma.person.create({
+      data: {
+        name: `Invited ${k}`, whatsappNumber: `+23767630${String(1000 + k)}`, preferredLanguage: opts.lang ?? 'en',
+        profileCompletedAt: opts.profileDone ? created : null,
+        lastSeenAt: opts.lastSeenDaysAgo === undefined ? null : new Date(Date.now() - opts.lastSeenDaysAgo * DAY),
+      },
+    });
+    await prisma.memberAccount.create({ data: { personId: person.id, email: `invited${k}@example.com`, passwordHash: 'x', createdAt: created, lastLoginAt: opts.confirmed ? created : null } });
+    await prisma.registration.create({ data: { visitorId: `iv${k}`, normalizedWhatsApp: person.whatsappNumber, name: person.name, personId: person.id, referredByPersonId: referrerId, createdAt: created } });
+    return person;
+  }
+
+  it('says how far each person got, counts them, and keeps phone numbers from an ordinary member', async () => {
+    const referrer = await member('Inviter Ann');
+    const a = await invited(referrer.id, {});
+    const b = await invited(referrer.id, { confirmed: true });
+    const c = await invited(referrer.id, { confirmed: true, profileDone: true, lastSeenDaysAgo: 12, lang: 'fr' });
+    const d = await invited(referrer.id, { confirmed: true, profileDone: true, lastSeenDaysAgo: 1 });
+
+    const res = await referrer.agent.get('/api/member/referrals/mine?pageSize=50');
+    expect(res.status).toBe(200);
+    const byId = Object.fromEntries(res.body.items.map((i: any) => [i.personId, i]));
+    expect(byId[a.id].status).toBe('NOT_CONFIRMED');
+    expect(byId[b.id].status).toBe('PROFILE_INCOMPLETE');
+    expect(byId[c.id]).toMatchObject({ status: 'QUIET', daysQuiet: 12, language: 'fr' });
+    expect(byId[d.id].status).toBe('ACTIVE');
+    expect(res.body.summary).toEqual({ NOT_CONFIRMED: 1, PROFILE_INCOMPLETE: 1, QUIET: 1, ACTIVE: 1 });
+    expect(res.body.canSeeWhatsapp).toBe(false);
+    expect(res.body.items.every((i: any) => i.whatsapp === undefined)).toBe(true);
+  });
+
+  it('gives a leader the WhatsApp numbers too', async () => {
+    const referrer = await member('Inviter Leader');
+    await prisma.user.create({ data: { name: 'Inviter Leader', email: 'inviter-leader@test.local', passwordHash: 'x', role: 'LEADER', active: true, personId: referrer.id } });
+    const p = await invited(referrer.id, {});
+    const res = await referrer.agent.get('/api/member/referrals/mine');
+    expect(res.body.canSeeWhatsapp).toBe(true);
+    expect(res.body.items.find((i: any) => i.personId === p.id).whatsapp).toBe(p.whatsappNumber);
+  });
+
+  it('uses the admin’s "quiet" days for what counts as quiet', async () => {
+    const referrer = await member('Inviter Bob');
+    const p = await invited(referrer.id, { confirmed: true, profileDone: true, lastSeenDaysAgo: 5 });
+    expect((await referrer.agent.get('/api/member/referrals/mine')).body.items.find((i: any) => i.personId === p.id).status).toBe('ACTIVE');
+    await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', reminderQuietDays: 3 }, update: { reminderQuietDays: 3 } });
+    const after = await referrer.agent.get('/api/member/referrals/mine');
+    expect(after.body.items.find((i: any) => i.personId === p.id).status).toBe('QUIET');
+    expect(after.body.quietDays).toBe(3);
+  });
+});

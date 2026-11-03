@@ -1715,7 +1715,21 @@
     "impact_title": "Mon impact pour le Royaume",
     "impact_count": "{{count}} personnes touchées",
     "list_empty": "Personne n'a encore rejoint via votre lien.",
-    "joined_on": "A rejoint le {{date}}"
+    "joined_on": "A rejoint le {{date}}",
+    "filter_label": "Afficher",
+    "filter_all": "Tout le monde ({{count}})",
+    "filter_nudge": "A besoin d’un mot ({{count}})",
+    "nudge_none": "Personne n’a besoin d’un mot pour le moment. 🎉",
+    "status_NOT_CONFIRMED": "Pas encore connecté",
+    "status_PROFILE_INCOMPLETE": "Doit terminer son inscription",
+    "status_QUIET_one": "Silencieux depuis {{count}} jour",
+    "status_QUIET_other": "Silencieux depuis {{count}} jours",
+    "status_ACTIVE": "Actif",
+    "nudge_whatsapp": "WhatsApp",
+    "nudge_in_app": "Message dans l’application",
+    "nudge_not_confirmed": "Bonjour, c’est {{me}} de The God Nation. J’ai vu que vous avez commencé à nous rejoindre. Il suffit d’une minute pour terminer : ouvrez l’application et connectez-vous avec l’adresse e-mail et le mot de passe que vous avez choisis. Je suis là si vous avez besoin d’aide.",
+    "nudge_profile": "Bonjour, c’est {{me}} de The God Nation. Vous y êtes presque ! Dites simplement à l’application votre nom et où vous habitez, et vous serez placé dans votre groupe. Je suis là si vous avez besoin d’aide.",
+    "nudge_quiet": "Bonjour, c’est {{me}} de The God Nation. Vous nous manquez ! Venez voir les nouveautés dans votre groupe et dans la Clinique de la Domination."
   },
   "updates": {
     "report": "Signaler cette publication",
@@ -3513,7 +3527,7 @@
           "Pour faire fonctionner la communauté : vous permettre de vous connecter, vous placer dans votre assemblée, vous montrer vos responsables et les autres membres, et vous permettre de discuter, de publier et de prier ensemble.",
           "Pour faire fonctionner la formation : enregistrer votre progression, corriger les quiz et confirmer les paiements de livres.",
           "Pour protéger l'application : empêcher les abus, traiter les signalements et garder une trace des actions importantes des responsables et des administrateurs.",
-          "Pour vous contacter : envoyer des codes de connexion et des avis par e-mail, et des alertes sur votre téléphone pour les messages, les événements et les paiements si vous les autorisez.",
+          "Pour vous contacter : envoyer des codes de connexion et des avis par e-mail, et des alertes sur votre téléphone pour les messages, les événements et les paiements si vous les autorisez. Si vous commencez à nous rejoindre sans terminer, nous pouvons vous envoyer jusqu’à trois e-mails de rappel pour vous aider à terminer. Si vous avez accepté les nouvelles par e-mail et que vous êtes absent depuis un moment, nous pouvons vous envoyer un e-mail « vous nous manquez » ; chacun de ces e-mails contient un lien pour les arrêter, et vous pouvez changer votre choix à tout moment dans votre profil.",
           "Nous ne vendons pas vos informations. Nous n'affichons pas de publicité, et l'application n'utilise pas de traceurs publicitaires ni d'analyse d'audience."
         ]
       },
@@ -3757,5 +3771,32 @@
     "setup_follow": "Pages :",
     "setup_where": "Où les coller : Admin, puis l’onglet Paramètres, cases « Lieux de la communauté » et « Suivez-nous ».",
     "setup_link": "Ouvrir le tableau de bord admin"
+  },
+  "inApp": {
+    "title": "Pour une meilleure expérience, ouvrez cette page dans le navigateur de votre téléphone",
+    "body_android": "Vous êtes dans le navigateur intégré d’une autre application. Les notifications et l’installation de The God Nation ne fonctionnent pas ici.",
+    "body_ios": "Vous êtes dans le navigateur intégré d’une autre application. Touchez le bouton ⋯ ou partager et choisissez « Ouvrir dans Safari ». Les notifications et l’installation ne fonctionnent pas ici.",
+    "open_chrome": "Ouvrir dans Chrome",
+    "copy": "Copier le lien",
+    "copied": "Lien copié. Collez-le dans votre navigateur.",
+    "dismiss": "Pas maintenant"
+  },
+  "reminders": {
+    "title": "E-mails de rappel",
+    "help": "De petits e-mails aux personnes qui ont commencé à nous rejoindre puis se sont arrêtées, et aux membres qui sont absents depuis un moment. Ils sont désactivés tant que vous ne les activez pas. « Vous nous manquez » n’est envoyé qu’aux membres qui ont accepté les e-mails, avec un lien de désabonnement.",
+    "enabled": "Envoyer les e-mails de rappel",
+    "quiet_days": "Jours d’absence avant « Vous nous manquez »",
+    "daily_cap": "Maximum d’e-mails par jour",
+    "save": "Enregistrer",
+    "saved": "Enregistré.",
+    "failed": "Impossible d’enregistrer. Vérifiez les nombres et réessayez.",
+    "email_off": "Aucun service d’e-mail n’est configuré sur le serveur, donc rien ne peut encore être envoyé.",
+    "pending_title": "En attente d’envoi maintenant",
+    "sent_title": "Envoyés ces 7 derniers jours",
+    "sent_today": "Envoyés aujourd’hui : {{count}}",
+    "kind_FINISH_SIGNUP_1": "Terminer l’inscription (premier)",
+    "kind_FINISH_SIGNUP_2": "Terminer l’inscription (deuxième)",
+    "kind_FINISH_PROFILE": "Terminer nom et lieu",
+    "kind_WINBACK": "Vous nous manquez"
   }
 }

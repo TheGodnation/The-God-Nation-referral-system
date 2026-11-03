@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { CommunityChoices } from '../components/CommunityChoices';
+import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { communityPlaces, followPlaces } from '../components/socialPlatforms';
 import { usePublicSettings } from '../lib/usePublicSettings';
 import { api } from '../lib/api';
@@ -34,6 +35,7 @@ export function MemberJoinGroupPage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-sm px-4 py-12" data-testid="join-group">
+        <EnableNotificationsBanner className="mb-5" />
         <h1 className="text-center text-2xl font-bold text-brand-900">{t('joinGroup.title')}</h1>
         <p className="mb-5 mt-2 text-center text-sm text-slate-600">{t('joinGroup.body')}</p>
         <CommunityChoices settings={settings} onTap={onTap} />

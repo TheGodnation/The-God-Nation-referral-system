@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { CommunitySetupReminder } from './CommunitySetupReminder';
+import { RemindersCard } from './RemindersCard';
 
 interface Counts {
   visitors: number; leads: number; registered: number; confirmed: number; profileCompleted: number;
@@ -66,6 +67,7 @@ export function GrowthPanel({ base }: { base: string }) {
   return (
     <div className="space-y-4" data-testid="growth-panel">
       <CommunitySetupReminder />
+      <RemindersCard base={base.replace('/growth', '/reminders').replace('central-growth', 'central-reminders')} />
       <div className="card space-y-2">
         <h2 className="font-semibold text-brand-900">{t('growth.title')}</h2>
         <p className="text-xs text-slate-500">{t('growth.hint')}</p>

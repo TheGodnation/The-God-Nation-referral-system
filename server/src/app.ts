@@ -16,6 +16,8 @@ import { generalApiLimiter } from './lib/rateLimit';
 import authRoutes from './routes/auth';
 import referralRoutes from './routes/referrals';
 import leadsRoutes from './routes/leads';
+import unsubscribeRoutes from './routes/unsubscribe';
+import { adminRemindersRoutes, memberCentralRemindersRoutes } from './routes/adminReminders';
 import { spaHandler } from './lib/ogMeta';
 import { adminGrowthRoutes, memberCentralGrowthRoutes } from './routes/adminGrowth';
 import memberContactConsentRoutes from './routes/memberContactConsent';
@@ -131,6 +133,7 @@ export function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/referrals', referralRoutes);
   app.use('/api/leads', leadsRoutes);
+  app.use('/api/unsubscribe', unsubscribeRoutes);
   app.use('/api/leader', leaderRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/admin', adminMemberBridgeRoutes);
@@ -171,8 +174,10 @@ export function createApp() {
   app.use('/api/member/central-cells', memberCentralCellsRoutes);
   app.use('/api/admin/tokens', adminTokensRoutes);
   app.use('/api/admin/growth', adminGrowthRoutes);
+  app.use('/api/admin/reminders', adminRemindersRoutes);
   app.use('/api/member/central-tokens', memberCentralTokensRoutes);
   app.use('/api/member/central-growth', memberCentralGrowthRoutes);
+  app.use('/api/member/central-reminders', memberCentralRemindersRoutes);
   app.use('/api/member/tokens', memberTokensRoutes);
   app.use('/api/member', memberContactConsentRoutes);
   app.use('/api/admin', adminLeadershipRoutes);

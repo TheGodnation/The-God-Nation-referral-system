@@ -7,6 +7,7 @@ import { PasswordInput } from '../components/PasswordInput';
 import { api, ApiError } from '../lib/api';
 import { CodeEntry } from '../components/member/CodeEntry';
 import { useEmailTypoCheck } from '../components/EmailTypoHint';
+import { InAppBrowserNotice } from '../components/InAppBrowserNotice';
 
 // Step 1 of joining the community: email, phone and a password. The server
 // always gives the same reply (it never says whether someone is already
@@ -68,6 +69,7 @@ function MemberSignupPageInner() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-sm px-4 py-16">
+        <InAppBrowserNotice />
         <h1 className="text-2xl font-bold text-brand-900">{t('memberSignup.title')}</h1>
         <p className="mt-2 text-sm text-slate-500">{t('memberSignup.subtitle')}</p>
 

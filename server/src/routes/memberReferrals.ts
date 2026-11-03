@@ -35,32 +35,69 @@ router.get('/referrals/links', requireMember, asyncHandler(async (req, res) => {
 // (Person + MemberAccount together, see memberAuth.ts), so unlike the
 // Leader's pre-membership WhatsApp-click funnel there is no separate
 // "joined" step to track here.
+const DAY = 24 * 60 * 60 * 1000;
+
+type InviteeStatus = 'NOT_CONFIRMED' | 'PROFILE_INCOMPLETE' | 'QUIET' | 'ACTIVE';
+
+/** How far someone who joined through this link has got, so their inviter knows who to encourage. */
+function statusOf(
+  p: { profileCompletedAt: Date | null; lastSeenAt: Date | null; memberAccount: { lastLoginAt: Date | null } | null },
+  quietBefore: Date,
+): InviteeStatus {
+  if (!p.memberAccount?.lastLoginAt) return 'NOT_CONFIRMED';
+  if (!p.profileCompletedAt) return 'PROFILE_INCOMPLETE';
+  const last = p.lastSeenAt ?? p.profileCompletedAt;
+  return last < quietBefore ? 'QUIET' : 'ACTIVE';
+}
+
+// GET /api/member/referrals/mine — everyone who joined the app through this
+// Member's link, and how far each one has got: not signed in yet, still to give
+// their name and place, quiet for a while, or active. A leader also gets the
+// WhatsApp number (leaders may already see member details, see the privacy page);
+// everyone else reaches them through the app's own messages.
 router.get('/referrals/mine', requireMember, asyncHandler(async (req, res) => {
   const me = req.member!.personId;
   const { page, pageSize, skip, take } = parsePagination(req);
   const where = { referredByPersonId: me };
+  const person = {
+    select: {
+      id: true, name: true, photoStorageKey: true, photoUpdatedAt: true, whatsappNumber: true, preferredLanguage: true,
+      profileCompletedAt: true, lastSeenAt: true, memberAccount: { select: { lastLoginAt: true } },
+    },
+  } as const;
 
-  const [total, registrations] = await Promise.all([
+  const [settings, leader, total, registrations, everyone] = await Promise.all([
+    prisma.settings.findUnique({ where: { id: 'singleton' }, select: { reminderQuietDays: true } }),
+    prisma.user.findFirst({ where: { personId: me, role: 'LEADER', active: true }, select: { id: true } }),
     prisma.registration.count({ where }),
-    prisma.registration.findMany({
-      where,
-      include: { person: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } } },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take,
-    }),
+    prisma.registration.findMany({ where, include: { person }, orderBy: { createdAt: 'desc' }, skip, take }),
+    prisma.registration.findMany({ where, take: 2000, select: { person: { select: { profileCompletedAt: true, lastSeenAt: true, memberAccount: { select: { lastLoginAt: true } } } } } }),
   ]);
+  const quietDays = settings?.reminderQuietDays ?? 7;
+  const quietBefore = new Date(Date.now() - quietDays * DAY);
+
+  const summary: Record<InviteeStatus, number> = { NOT_CONFIRMED: 0, PROFILE_INCOMPLETE: 0, QUIET: 0, ACTIVE: 0 };
+  for (const r of everyone) if (r.person) summary[statusOf(r.person, quietBefore)] += 1;
 
   const items = registrations
     .filter((r) => r.person)
-    .map((r) => ({
-      personId: r.person!.id,
-      name: r.person!.name,
-      photoUrl: profilePhotoPath(r.person!),
-      joinedAt: r.createdAt,
-    }));
+    .map((r) => {
+      const p = r.person!;
+      const status = statusOf(p, quietBefore);
+      const last = p.lastSeenAt ?? p.profileCompletedAt;
+      return {
+        personId: p.id,
+        name: p.name,
+        photoUrl: profilePhotoPath(p),
+        joinedAt: r.createdAt,
+        status,
+        language: p.preferredLanguage === 'fr' ? 'fr' : 'en',
+        daysQuiet: status === 'QUIET' && last ? Math.floor((Date.now() - last.getTime()) / DAY) : null,
+        ...(leader ? { whatsapp: p.whatsappNumber } : {}),
+      };
+    });
 
-  res.json(paginatedResult(items, total, page, pageSize));
+  res.json({ ...paginatedResult(items, total, page, pageSize), summary, quietDays, canSeeWhatsapp: Boolean(leader) });
 }));
 
 export default router;

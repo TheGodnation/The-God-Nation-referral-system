@@ -11,6 +11,8 @@ import { prisma } from './prisma';
 // a custom domain is added.
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
+/** Whether an email service key is set (without it, no email is sent at all). */
+export const emailConfigured = Boolean(resendApiKey);
 const FROM_ADDRESS = process.env.EMAIL_FROM || 'The God Nation <onboarding@resend.dev>';
 
 function escapeHtml(input: string): string {
@@ -23,7 +25,7 @@ interface SendResult {
   id?: string;
 }
 
-async function send(to: string, subject: string, html: string, text: string): Promise<SendResult> {
+async function send(to: string, subject: string, html: string, text: string, headers?: Record<string, string>): Promise<SendResult> {
   if (!resend) {
     // Never block the caller (registration, leader creation, etc.) just
     // because email isn't configured — log and move on.
@@ -31,7 +33,7 @@ async function send(to: string, subject: string, html: string, text: string): Pr
     return { ok: false, skipped: true };
   }
   try {
-    const result = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html, text });
+    const result = await resend.emails.send({ from: FROM_ADDRESS, to, subject, html, text, ...(headers ? { headers } : {}) });
     if (result.error) {
       console.error('[email] Resend rejected the send', { to, subject, error: result.error.message });
       return { ok: false };
@@ -193,6 +195,21 @@ export const EmailService = {
     const htmlVars = { name: escapeHtml(params.name), link: linkHtml(params.link ?? ''), code: `<strong style="font-size:22px;letter-spacing:4px">${escapeHtml(params.code ?? '')}</strong>` };
     const textVars = { name: params.name, link: params.link ?? '', code: params.code ?? '' };
     return send(params.to, subject, renderHtml(bodyTemplate, htmlVars), renderText(bodyTemplate, textVars));
+  },
+
+  /** A reminder email: a few short paragraphs, one button, and a small footer. When an
+   * unsubscribe address is given, the email also carries the standard one-click
+   * "List-Unsubscribe" header, so mail apps show their own Unsubscribe button. */
+  async sendReminder(params: { to: string; subject: string; paragraphs: string[]; buttonLabel: string; buttonUrl: string; footer: string; unsubscribeUrl?: string }): Promise<SendResult> {
+    const paras = params.paragraphs.map((p) => `<p style="margin:0 0 14px">${escapeHtml(p)}</p>`).join('');
+    const html =
+      `<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#1e293b;max-width:520px">` +
+      paras +
+      `<p style="margin:22px 0"><a href="${params.buttonUrl}" style="background:#0f2260;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:bold;display:inline-block">${escapeHtml(params.buttonLabel)}</a></p>` +
+      `<p style="margin:22px 0 0;font-size:12px;color:#64748b">${escapeHtml(params.footer)}${params.unsubscribeUrl ? ` <a href="${params.unsubscribeUrl}" style="color:#64748b">${params.unsubscribeUrl}</a>` : ''}</p></div>`;
+    const text = `${params.paragraphs.join('\n\n')}\n\n${params.buttonLabel}: ${params.buttonUrl}\n\n${params.footer}${params.unsubscribeUrl ? ` ${params.unsubscribeUrl}` : ''}`;
+    const headers = params.unsubscribeUrl ? { 'List-Unsubscribe': `<${params.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : undefined;
+    return send(params.to, params.subject, html, text, headers);
   },
 
   /** The public "Delete your account" web page's 6-digit code. */
