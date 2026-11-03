@@ -13,7 +13,7 @@ interface Consent {
 
 // The member's own choices about being contacted by WhatsApp and email.
 // Every change is saved at once (and kept as a dated record on the server).
-export function ContactPreferencesCard() {
+export function ContactPreferencesCard({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [c, setC] = useState<Consent | null>(null);
   const settings = usePublicSettings();
@@ -50,9 +50,9 @@ export function ContactPreferencesCard() {
   );
 
   return (
-    <section className="mt-3 rounded-xl bg-white p-4 shadow-sm" data-testid="contact-prefs">
-      <h2 className="font-semibold text-brand-900">{t('contactPrefs.title')}</h2>
-      <p className="mt-1 text-xs text-slate-500">{t('contactPrefs.help')}</p>
+    <section className={embedded ? 'pt-1' : 'mt-3 rounded-xl bg-white p-4 shadow-sm'} data-testid="contact-prefs">
+      {!embedded && <h2 className="font-semibold text-brand-900">{t('contactPrefs.title')}</h2>}
+      <p className={`text-xs text-slate-500 ${embedded ? '' : 'mt-1'}`}>{t('contactPrefs.help')}</p>
       <div className="mt-3 space-y-2">
         {row('whatsapp', t('contactPrefs.whatsapp'), 'prefs-whatsapp')}
         {row('email', t('contactPrefs.email'), 'prefs-email')}

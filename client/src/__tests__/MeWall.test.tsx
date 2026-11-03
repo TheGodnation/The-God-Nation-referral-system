@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 import { MemberMePage } from '../pages/MemberMePage';
@@ -95,6 +95,40 @@ describe('Me wall', () => {
     expect(screen.getByRole('link', { name: /Edit profile/ })).toHaveAttribute('href', '/member/me/edit');
     // Posts tab first, showing this member's own posts.
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/api/updates?authorPersonId=me1'))).toBe(true));
+  });
+
+  it('an ordinary member sees just Posts, Photos and My progress, and the contact choices folded away', async () => {
+    mockFetch(baseRoutes({ 'GET /api/member/contact-consent': () => ({ body: { whatsapp: true, email: null } }) }));
+    renderAt('/member/me');
+    await screen.findByRole('heading', { name: 'Grace Ngwa' });
+    expect(screen.queryByTestId('profile-sections')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Posts', 'Photos', 'My progress']);
+    const fold = (await screen.findByTestId('prefs-fold')) as HTMLDetailsElement;
+    expect(fold.open).toBe(false);
+    expect(fold.querySelector('summary')).toHaveTextContent('How we may contact you');
+  });
+
+  it('the central admin gets a second layer: My space and Admin tools, each remembering its tab', async () => {
+    mockFetch(baseRoutes({ 'GET /api/member/auth/me': () => ({ body: { member: { ...ME.member, isCentralAdmin: true } } }) }));
+    renderAt('/member/me');
+    await screen.findByRole('heading', { name: 'Grace Ngwa' });
+    const switcher = await screen.findByTestId('profile-sections');
+    expect(within(switcher).getByRole('button', { name: /My space/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Posts', 'Photos', 'My progress']);
+
+    fireEvent.click(within(switcher).getByRole('button', { name: /Admin tools/ }));
+    const names = ['Assemblies and leaders', 'Giving', 'Growth', 'Knowledge Centre'];
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toHaveLength(4);
+    expect(screen.getByRole('tab', { name: 'Knowledge Centre' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Posts' })).not.toBeInTheDocument();
+    expect(names.length).toBe(4);
+    fireEvent.click(screen.getByRole('tab', { name: 'Growth' }));
+
+    // Back to My space: the Photos tab you left is not forgotten, and the admin layer remembers Growth.
+    fireEvent.click(within(switcher).getByRole('button', { name: /My space/ }));
+    expect(screen.getByRole('tab', { name: 'Posts' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(within(switcher).getByRole('button', { name: /Admin tools/ }));
+    expect(screen.getByRole('tab', { name: 'Growth' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('tapping the cover picture zooms it full-screen, like Facebook', async () => {

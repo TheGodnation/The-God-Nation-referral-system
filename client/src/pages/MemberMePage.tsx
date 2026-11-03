@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
@@ -40,6 +40,9 @@ interface MembershipRow {
 }
 
 type Tab = 'posts' | 'photos' | 'progress' | 'cells' | 'giving' | 'growth' | 'knowledge';
+// Two layers: everyone has "My space"; the central admin also has "Admin tools" (each with its own tabs).
+const ME_TABS: Tab[] = ['posts', 'photos', 'progress'];
+const ADMIN_TABS: Tab[] = ['cells', 'giving', 'growth', 'knowledge'];
 
 // "My progress" tab: this month's devotional exam scores, leadership
 // training books passed, and the member's group(s).
@@ -222,6 +225,11 @@ export function MemberMePage() {
   const { t } = useTranslation();
   const { member, refresh, logout } = useMemberAuth();
   const [tab, setTab] = useState<Tab>('posts');
+  const section: 'me' | 'admin' = ADMIN_TABS.includes(tab) ? 'admin' : 'me';
+  // Each layer remembers the tab you were on, so switching back lands where you left.
+  const lastTab = useRef<{ me: Tab; admin: Tab }>({ me: 'posts', admin: 'cells' });
+  useEffect(() => { lastTab.current[section] = tab; }, [tab, section]);
+  const goSection = (to: 'me' | 'admin') => { if (to !== section) setTab(lastTab.current[to]); };
   const [groups, setGroups] = useState<MembershipRow[]>([]);
   const [referredCount, setReferredCount] = useState<number | null>(null);
   const [communityCount, setCommunityCount] = useState<number | null>(null);
@@ -335,29 +343,44 @@ export function MemberMePage() {
           <EnableNotificationsBanner className="" />
         </div>
 
-        <div className="px-4 sm:px-0">
-          <ContactPreferencesCard />
-        </div>
+        <details className="mt-3 rounded-xl bg-white px-4 py-3 shadow-sm sm:mx-0" data-testid="prefs-fold">
+          <summary className="cursor-pointer text-sm font-semibold text-brand-900">{t('contactPrefs.title')}</summary>
+          <ContactPreferencesCard embedded />
+        </details>
+
+        {member.isCentralAdmin && (
+          <div role="group" aria-label={t('wall.sections') ?? ''} className="mt-3 grid grid-cols-2 gap-2 px-4 sm:px-0" data-testid="profile-sections">
+            {([['me', t('wall.section_me'), '🙋'], ['admin', t('wall.section_admin'), '🛠️']] as const).map(([id, label, icon]) => (
+              <button key={id} type="button" aria-pressed={section === id} onClick={() => goSection(id)}
+                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${section === id ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="mt-3">
-          <WallTabs<Tab>
-            value={tab}
-            onChange={setTab}
-            tabs={[
-              { id: 'posts', label: t('wall.tab_posts') },
-              { id: 'photos', label: t('wall.tab_photos') },
-              { id: 'progress', label: t('wall.tab_progress') },
-              // Only the central admin's own profile carries the assembly tools.
-              ...(member.isCentralAdmin
-                ? [
-                    { id: 'cells' as const, label: t('cells.tab') },
-                    { id: 'giving' as const, label: t('givingAdmin.tab') },
-                    { id: 'growth' as const, label: t('growth.tab') },
-                    { id: 'knowledge' as const, label: t('knowledgeAdmin.tab') },
-                  ]
-                : []),
-            ]}
-          />
+          {section === 'me' ? (
+            <WallTabs<Tab>
+              value={tab}
+              onChange={setTab}
+              tabs={[
+                { id: 'posts', label: t('wall.tab_posts') },
+                { id: 'photos', label: t('wall.tab_photos') },
+                { id: 'progress', label: t('wall.tab_progress') },
+              ]}
+            />
+          ) : (
+            // The administrator's tools: four pills in a tidy block (two by two on a phone), each name fully readable.
+            <div role="tablist" aria-label={t('wall.section_admin') ?? ''} className="grid grid-cols-2 gap-2 border-b border-slate-200 bg-white px-4 pb-3 sm:grid-cols-4 sm:px-2" data-testid="admin-tabs">
+              {([['cells', t('cells.tab')], ['giving', t('givingAdmin.tab')], ['growth', t('growth.tab')], ['knowledge', t('knowledgeAdmin.tab')]] as [Tab, string][]).map(([id, label]) => (
+                <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+                  className={`rounded-full border px-3 py-2.5 text-center text-sm font-semibold ${tab === id ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-4 px-4 sm:px-0">
