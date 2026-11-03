@@ -3722,3 +3722,95 @@ model AdEventLog {
   @@index([platform, createdAt])
   @@index([personId])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Knowledge Centre (public website). These tables hold ONLY public publishing
+// content and are never joined to member tables: the public pages read nothing
+// else. `personId` on an author is a plain id (no relation) on purpose, so the
+// public side has no path into Person. (Finished pages are kept in memory by the
+// server; see lib/publicSite/router.ts.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ArticleStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  UNPUBLISHED
+}
+
+model KnowledgeAuthor {
+  id        String   @id @default(uuid())
+  name      String
+  bioEn     String?
+  bioFr     String?
+  personId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articles KnowledgeArticle[]
+}
+
+model KnowledgeArticle {
+  id               String        @id @default(uuid())
+  // One of the six knowledge areas (the keys in lib/publicSite/content.ts).
+  divisionKey      String
+  status           ArticleStatus @default(DRAFT)
+  authorId         String?
+  featuredImageUrl String?
+  featuredImageAltEn String?
+  featuredImageAltFr String?
+  publishedAt      DateTime?
+  scheduledFor     DateTime?
+  // Whether AI helped produce it, and what it came from (kept for tracing). The
+  // publish step refuses AI-assisted items nobody has approved (Phase 5).
+  aiAssisted       Boolean       @default(false)
+  sourceNote       String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  author       KnowledgeAuthor?              @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  translations KnowledgeArticleTranslation[]
+  relatedTo    KnowledgeArticleLink[]        @relation("LinkFrom")
+  relatedFrom  KnowledgeArticleLink[]        @relation("LinkTo")
+
+  @@index([status, divisionKey, publishedAt])
+}
+
+model KnowledgeArticleTranslation {
+  id             String   @id @default(uuid())
+  articleId      String
+  lang           Language
+  slug           String
+  title          String
+  summary        String
+  // The article text in a small, safe set of markers (headings, lists, quotes, links); see lib/publicSite/text.ts.
+  body           String
+  seoTitle       String?
+  seoDescription String?
+  readingMinutes Int      @default(1)
+  // Questions and answers shown at the end: [{ "q": "...", "a": "..." }].
+  faq            Json?
+  // A French (or English) version is public only when a person has reviewed it.
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  article KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, lang])
+  @@unique([lang, slug])
+}
+
+model KnowledgeArticleLink {
+  id     String @id @default(uuid())
+  fromId String
+  toId   String
+
+  from KnowledgeArticle @relation("LinkFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   KnowledgeArticle @relation("LinkTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId])
+}

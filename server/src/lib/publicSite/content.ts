@@ -111,10 +111,10 @@ export const SECTION: Record<Lang, { knowledge: string; about: string; contact: 
   fr: { knowledge: 'connaissance', about: 'a-propos', contact: 'contact', join: 'rejoindre', login: 'connexion' },
 };
 
-export type PageKey = 'home' | 'knowledge' | 'division' | 'about' | 'contact';
+export type PageKey = 'home' | 'knowledge' | 'division' | 'about' | 'contact' | 'article';
 
 /** The French page is public (indexable, linked) only after the French reviewer approves it. */
-export const FR_REVIEWED: Record<PageKey, boolean> = { home: false, knowledge: false, division: false, about: false, contact: false };
+export const FR_REVIEWED: Record<PageKey, boolean> = { home: false, knowledge: false, division: false, about: false, contact: false, article: true };
 
 export const UI: Record<Lang, Record<string, string>> = {
   en: {
@@ -174,6 +174,20 @@ export const UI: Record<Lang, Record<string, string>> = {
     breadcrumbs: 'Breadcrumb',
     mainNav: 'Main navigation',
     languageLabel: 'Language',
+    latestTitle: 'Latest from the Knowledge Centre',
+    articlesIn: 'Articles in this area',
+    byAuthor: 'By',
+    published: 'Published',
+    updated: 'Updated',
+    minRead: 'min read',
+    inThisArticle: 'In this article',
+    faqTitle: 'Questions people ask',
+    relatedTitle: 'Related articles',
+    shareTitle: 'Share',
+    shareWhatsapp: 'WhatsApp',
+    shareFacebook: 'Facebook',
+    aboutAuthor: 'About the author',
+    readOther: 'Lire cet article en français',
   },
   fr: {
     siteName: 'The God Nation',
@@ -232,6 +246,20 @@ export const UI: Record<Lang, Record<string, string>> = {
     breadcrumbs: 'Fil d’Ariane',
     mainNav: 'Navigation principale',
     languageLabel: 'Langue',
+    latestTitle: 'Dernières publications du Centre de connaissance',
+    articlesIn: 'Articles de ce domaine',
+    byAuthor: 'Par',
+    published: 'Publié le',
+    updated: 'Mis à jour le',
+    minRead: 'min de lecture',
+    inThisArticle: 'Dans cet article',
+    faqTitle: 'Questions fréquentes',
+    relatedTitle: 'Articles associés',
+    shareTitle: 'Partager',
+    shareWhatsapp: 'WhatsApp',
+    shareFacebook: 'Facebook',
+    aboutAuthor: 'À propos de l’auteur',
+    readOther: 'Read this article in English',
   },
 };
 
@@ -240,6 +268,7 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
     home: { title: 'The God Nation — Media & Leadership Academy', description: MISSION.en },
     knowledge: { title: 'Knowledge Centre — The God Nation', description: 'An organised library of Kingdom knowledge in six areas: Kingdom knowledge, leadership, digital media and evangelism, discipleship, books and publications, and community and outreach.' },
     division: { title: '', description: '' },
+    article: { title: '', description: '' },
     about: { title: 'About The God Nation', description: 'Our purpose, our vision and what The God Nation Media and Leadership Academy does.' },
     contact: { title: 'Contact — The God Nation', description: 'How to contact The God Nation.' },
   },
@@ -247,6 +276,7 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
     home: { title: 'The God Nation — Académie des médias et du leadership', description: MISSION.fr },
     knowledge: { title: 'Centre de connaissance — The God Nation', description: 'Une bibliothèque organisée de la connaissance du Royaume en six domaines : connaissance du Royaume, leadership, médias numériques et évangélisation, discipulat, livres et publications, communauté et rayonnement.' },
     division: { title: '', description: '' },
+    article: { title: '', description: '' },
     about: { title: 'À propos de The God Nation', description: 'Notre raison d’être, notre vision et ce que fait The God Nation Media and Leadership Academy.' },
     contact: { title: 'Contact — The God Nation', description: 'Comment contacter The God Nation.' },
   },

@@ -1,5 +1,6 @@
 import { APP_URL } from '../env';
-import { CSS } from './style';
+import { CSS, CSS_ARTICLES } from './style';
+import { headingsOf, renderBody } from './text';
 import {
   DIVISIONS, FR_REVIEWED, LANGS, MISSION, PAGE_META, SECTION, UI, VISION, WHAT_WE_DO,
   type Division, type Lang, type PageKey,
@@ -8,7 +9,30 @@ import {
 // Writes the public website's pages as complete HTML. Pure functions: no database, no
 // cookies, no JavaScript. (Articles, which come from the database, arrive in Phase 3.)
 
-export interface PageRef { key: PageKey; lang: Lang; division?: Division }
+export interface PublicTr {
+  slug: string; title: string; summary: string; body: string;
+  seoTitle?: string | null; seoDescription?: string | null; readingMinutes: number;
+  faq?: { q: string; a: string }[] | null;
+}
+/** A published article, with only the languages that a person has reviewed. Never holds anything private. */
+export interface PublicArticle {
+  id: string; divisionKey: string; publishedAt: Date; updatedAt: Date;
+  authorName: string | null; authorBio: Partial<Record<Lang, string | null>>;
+  imageUrl: string | null; imageAlt: Partial<Record<Lang, string | null>>;
+  tr: Partial<Record<Lang, PublicTr>>; relatedIds: string[];
+}
+export interface Ctx { articles: PublicArticle[] }
+export const EMPTY_CTX: Ctx = { articles: [] };
+
+export interface PageRef { key: PageKey; lang: Lang; division?: Division; article?: PublicArticle }
+
+export const divisionOf = (key: string): Division | undefined => DIVISIONS.find((d) => d.key === key);
+/** Public articles in a language (newest first), optionally within one area. */
+export function articlesOf(ctx: Ctx, lang: Lang, divisionKey?: string): PublicArticle[] {
+  return ctx.articles
+    .filter((a) => a.tr[lang] && divisionOf(a.divisionKey) && (!divisionKey || a.divisionKey === divisionKey))
+    .sort((x, y) => y.publishedAt.getTime() - x.publishedAt.getTime());
+}
 
 export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const other = (l: Lang): Lang => (l === 'en' ? 'fr' : 'en');
@@ -22,14 +46,16 @@ export function pathOf(p: PageRef): string {
     case 'division': return `/${l}/${s.knowledge}/${division!.slug[l]}/`;
     case 'about': return `/${l}/${s.about}/`;
     case 'contact': return `/${l}/${s.contact}/`;
+    case 'article': return `/${l}/${s.knowledge}/${divisionOf(p.article!.divisionKey)!.slug[l]}/${p.article!.tr[l]!.slug}/`;
   }
 }
 export const urlOf = (p: PageRef) => `${APP_URL.replace(/\/+$/, '')}${pathOf(p)}`;
 
 /** Whether this version may be indexed and linked as a public page. */
-export function isIndexable(p: PageRef): boolean {
+export function isIndexable(p: PageRef, ctx: Ctx = EMPTY_CTX): boolean {
+  if (p.key === 'article') return Boolean(p.article!.tr[p.lang]); // only reviewed versions exist in the public set
   if (p.lang === 'fr' && !FR_REVIEWED[p.key]) return false;
-  if (p.key === 'division' && !p.division!.hasArticles) return false; // an empty area is a thin page
+  if (p.key === 'division' && !p.division!.hasArticles && articlesOf(ctx, p.lang, p.division!.key).length === 0) return false; // an empty area is a thin page
   return true;
 }
 
@@ -47,10 +73,16 @@ export function joinHref(lang: Lang, campaign: string): string {
   return `/member/join?utm_source=site&utm_medium=public&utm_campaign=${encodeURIComponent(campaign)}&lang=${lang}`;
 }
 
+const fmtDate = (d: Date, lang: Lang) => d.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
 function titleOf(p: PageRef): { title: string; description: string } {
   if (p.key === 'division') {
     const d = p.division!;
     return { title: `${d.name[p.lang]} — ${UI[p.lang].kcTitle} — The God Nation`, description: `${d.blurb[p.lang]} ${d.topics[p.lang].slice(0, 4).join(', ')}.` };
+  }
+  if (p.key === 'article') {
+    const tr = p.article!.tr[p.lang]!;
+    return { title: `${tr.seoTitle || tr.title} — The God Nation`, description: tr.seoDescription || tr.summary };
   }
   return PAGE_META[p.lang][p.key];
 }
@@ -61,51 +93,89 @@ function crumbsOf(p: PageRef): { name: string; path: string }[] {
   if (p.key === 'home') return [];
   if (p.key === 'knowledge') return [home, { name: t.kcTitle, path: pathOf(p) }];
   if (p.key === 'division') return [home, { name: t.kcTitle, path: pathOf({ key: 'knowledge', lang: p.lang }) }, { name: p.division!.name[p.lang], path: pathOf(p) }];
+  if (p.key === 'article') {
+    const d = divisionOf(p.article!.divisionKey)!;
+    return [home, { name: t.kcTitle, path: pathOf({ key: 'knowledge', lang: p.lang }) }, { name: d.name[p.lang], path: pathOf({ key: 'division', lang: p.lang, division: d }) }, { name: p.article!.tr[p.lang]!.title, path: pathOf(p) }];
+  }
   if (p.key === 'about') return [home, { name: t.aboutTitle, path: pathOf(p) }];
   return [home, { name: t.contactTitle, path: pathOf(p) }];
 }
 
-function head(p: PageRef): string {
+/** The other-language version of the same page, if a person has approved it for the public. */
+function counterpart(p: PageRef, ctx: Ctx): PageRef | null {
+  const o = other(p.lang);
+  const ref: PageRef = { ...p, lang: o };
+  if (p.key === 'article') return p.article!.tr[o] ? ref : null;
+  return isIndexable(ref, ctx) ? ref : null;
+}
+
+function campaignOf(p: PageRef): string {
+  if (p.key === 'division') return p.division!.key;
+  if (p.key === 'article') return (p.article!.tr.en ?? p.article!.tr[p.lang]!).slug;
+  return p.key;
+}
+
+function articleLd(p: PageRef, url: string): unknown[] {
+  const a = p.article!;
+  const tr = a.tr[p.lang]!;
+  const t = UI[p.lang];
+  const ld: Record<string, unknown> = {
+    '@context': 'https://schema.org', '@type': 'Article', headline: tr.title, description: tr.seoDescription || tr.summary, inLanguage: p.lang,
+    datePublished: a.publishedAt.toISOString(), dateModified: a.updatedAt.toISOString(), mainEntityOfPage: url,
+    publisher: { '@type': 'Organization', name: t.siteName, url: APP_URL },
+  };
+  if (a.authorName) ld.author = { '@type': 'Person', name: a.authorName };
+  if (a.imageUrl && a.imageAlt[p.lang]) ld.image = a.imageUrl.startsWith('/') ? `${APP_URL}${a.imageUrl}` : a.imageUrl;
+  const out: unknown[] = [ld];
+  if (tr.faq && tr.faq.length) {
+    out.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: tr.faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) });
+  }
+  return out;
+}
+
+function head(p: PageRef, ctx: Ctx): string {
   const t = UI[p.lang];
   const { title, description } = titleOf(p);
   const url = urlOf(p);
-  const indexable = isIndexable(p);
+  const indexable = isIndexable(p, ctx);
   const o = other(p.lang);
-  const oRef: PageRef = { ...p, lang: o };
   const alts: string[] = [];
+  const cp = counterpart(p, ctx);
   if (indexable) {
     alts.push(`<link rel="alternate" hreflang="${p.lang}" href="${url}">`);
-    if (isIndexable(oRef)) alts.push(`<link rel="alternate" hreflang="${o}" href="${urlOf(oRef)}">`);
-    const enRef: PageRef = { ...p, lang: 'en' };
-    if (isIndexable(enRef)) alts.push(`<link rel="alternate" hreflang="x-default" href="${urlOf(enRef)}">`);
+    if (cp) alts.push(`<link rel="alternate" hreflang="${o}" href="${urlOf(cp)}">`);
+    const enRef: PageRef = p.lang === 'en' ? p : cp && cp.lang === 'en' ? cp : null as unknown as PageRef;
+    if (enRef) alts.push(`<link rel="alternate" hreflang="x-default" href="${urlOf(enRef)}">`);
   }
   const org = { '@type': 'Organization', name: t.siteName, url: APP_URL, logo: `${APP_URL}/icons/icon-512.png`, description: MISSION[p.lang] };
   const ld: unknown[] = [];
   if (p.key === 'home') ld.push({ '@context': 'https://schema.org', ...org }, { '@context': 'https://schema.org', '@type': 'WebSite', name: t.siteName, url: `${APP_URL}/${p.lang}/`, inLanguage: p.lang });
+  if (p.key === 'article') ld.push(...articleLd(p, url));
   const crumbs = crumbsOf(p);
   if (crumbs.length) {
     ld.push({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: `${APP_URL}${c.path}` })) });
   }
+  const og = p.key === 'article' && p.article!.imageUrl && p.article!.imageAlt[p.lang] ? (p.article!.imageUrl.startsWith('/') ? `${APP_URL}${p.article!.imageUrl}` : p.article!.imageUrl) : `${APP_URL}/og-image.png`;
   return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f2260">
 <title>${esc(title)}</title><meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${url}">
 ${indexable ? '' : '<meta name="robots" content="noindex,follow">\n'}${alts.join('\n')}
-<meta property="og:type" content="website"><meta property="og:site_name" content="${esc(t.siteName)}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${url}"><meta property="og:image" content="${APP_URL}/og-image.png"><meta property="og:locale" content="${p.lang === 'fr' ? 'fr_FR' : 'en_US'}">
+<meta property="og:type" content="${p.key === 'article' ? 'article' : 'website'}"><meta property="og:site_name" content="${esc(t.siteName)}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${url}"><meta property="og:image" content="${esc(og)}"><meta property="og:locale" content="${p.lang === 'fr' ? 'fr_FR' : 'en_US'}">
 <link rel="icon" href="/icons/icon-192.png" type="image/png">
-<style>${CSS}</style>${ld.length ? `\n<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` : ''}`;
+<style>${CSS}${p.key === 'article' || p.key === 'division' || p.key === 'knowledge' || p.key === 'home' ? CSS_ARTICLES : ''}</style>${ld.length ? `\n<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` : ''}`;
 }
 
-function header(p: PageRef): string {
+function header(p: PageRef, ctx: Ctx): string {
   const t = UI[p.lang];
   const l = p.lang;
-  const cur = (k: PageKey) => (p.key === k || (k === 'knowledge' && p.key === 'division') ? ' aria-current="page"' : '');
-  const oRef: PageRef = { ...p, lang: other(l) };
-  // The language switch appears only when the other language version is approved for the public.
-  const sw = isIndexable(oRef) || (other(l) === 'en')
-    ? `<a class="lang" href="${pathOf(oRef)}" hreflang="${other(l)}" lang="${other(l)}">${esc(t.langSwitch)}</a>` : '';
+  const cur = (k: PageKey) => (p.key === k || (k === 'knowledge' && (p.key === 'division' || p.key === 'article')) ? ' aria-current="page"' : '');
+  const cp = counterpart(p, ctx);
+  // The language switch appears only when the other language version is approved for the public
+  // (a French reader can always go to the English page).
+  const sw = cp ? `<a class="lang" href="${pathOf(cp)}" hreflang="${cp.lang}" lang="${cp.lang}">${esc(p.key === 'article' ? t.readOther : t.langSwitch)}</a>` : '';
   return `<a class="skip" href="#content">${esc(t.skip)}</a>
 <header class="site"><div class="bar"><a class="brand" href="/${l}/"><i aria-hidden="true"></i>${esc(t.siteName)}</a>
-<nav class="main" aria-label="${esc(t.mainNav)}"><a href="${pathOf({ key: 'knowledge', lang: l })}"${cur('knowledge')}>${esc(t.navKnowledge)}</a><a href="${pathOf({ key: 'about', lang: l })}"${cur('about')}>${esc(t.navAbout)}</a><a href="${pathOf({ key: 'contact', lang: l })}"${cur('contact')}>${esc(t.navContact)}</a><a class="btn gold" style="padding:8px 14px;font-size:14px" href="${joinHref(l, p.key === 'division' ? p.division!.key : p.key)}">${esc(t.navJoin)}</a>${sw}</nav></div></header>`;
+<nav class="main" aria-label="${esc(t.mainNav)}"><a href="${pathOf({ key: 'knowledge', lang: l })}"${cur('knowledge')}>${esc(t.navKnowledge)}</a><a href="${pathOf({ key: 'about', lang: l })}"${cur('about')}>${esc(t.navAbout)}</a><a href="${pathOf({ key: 'contact', lang: l })}"${cur('contact')}>${esc(t.navContact)}</a><a class="btn gold" style="padding:8px 14px;font-size:14px" href="${joinHref(l, campaignOf(p))}">${esc(t.navJoin)}</a>${sw}</nav></div></header>`;
 }
 
 function crumbHtml(p: PageRef): string {
@@ -117,7 +187,7 @@ function crumbHtml(p: PageRef): string {
 
 function joinBand(p: PageRef): string {
   const t = UI[p.lang];
-  return `<section class="join"><h2>${esc(t.joinTitle)}</h2><p>${esc(t.joinText)}</p><a class="btn gold" href="${joinHref(p.lang, p.key === 'division' ? p.division!.key : p.key)}">${esc(t.joinCta)}</a><small>${esc(t.joinMember)} <a href="/member/login">${esc(t.joinSignIn)}</a></small></section>`;
+  return `<section class="join"><h2>${esc(t.joinTitle)}</h2><p>${esc(t.joinText)}</p><a class="btn gold" href="${joinHref(p.lang, campaignOf(p))}">${esc(t.joinCta)}</a><small>${esc(t.joinMember)} <a href="/member/login">${esc(t.joinSignIn)}</a></small></section>`;
 }
 
 function footer(p: PageRef): string {
@@ -128,23 +198,57 @@ function footer(p: PageRef): string {
 const divisionCards = (lang: Lang) =>
   DIVISIONS.map((d) => `<a class="card" href="${pathOf({ key: 'division', lang, division: d })}"><b>${esc(d.name[lang])}</b><span>${esc(d.blurb[lang])}</span></a>`).join('');
 
-function body(p: PageRef): string {
+function articleCards(list: PublicArticle[], lang: Lang): string {
+  const t = UI[lang];
+  return `<ul class="cards">${list
+    .map((a) => {
+      const tr = a.tr[lang]!;
+      const d = divisionOf(a.divisionKey)!;
+      return `<li><a class="card" href="${pathOf({ key: 'article', lang, article: a })}"><span class="kicker dark" style="font-size:11px">${esc(d.name[lang])}</span><b>${esc(tr.title)}</b><span>${esc(tr.summary)}</span><span class="meta">${a.authorName ? `${esc(a.authorName)} · ` : ''}${fmtDate(a.publishedAt, lang)} · ${tr.readingMinutes} ${esc(t.minRead)}</span></a></li>`;
+    })
+    .join('')}</ul>`;
+}
+
+function articleBody(p: PageRef, ctx: Ctx): string {
   const t = UI[p.lang];
   const l = p.lang;
+  const a = p.article!;
+  const tr = a.tr[l]!;
+  const url = urlOf(p);
+  const heads = headingsOf(tr.body);
+  const toc = heads.length >= 3 ? `<nav class="toc" aria-label="${esc(t.inThisArticle)}"><b>${esc(t.inThisArticle)}</b>${heads.map((h) => `<a href="#${h.id}">${esc(h.text)}</a>`).join('<br>')}</nav>` : '';
+  const img = a.imageUrl && a.imageAlt[l] ? `<img class="hero-img" src="${esc(a.imageUrl)}" alt="${esc(a.imageAlt[l]!)}" decoding="async">` : '';
+  const faq = tr.faq && tr.faq.length ? `<h2>${esc(t.faqTitle)}</h2>${tr.faq.map((f) => `<details class="faq"><summary>${esc(f.q)}</summary><div>${esc(f.a)}</div></details>`).join('')}` : '';
+  const rel = a.relatedIds.map((id) => ctx.articles.find((x) => x.id === id)).filter((x): x is PublicArticle => Boolean(x && x.tr[l])).slice(0, 3);
+  const who = a.authorName ? `<div class="who"><b>${esc(a.authorName)}</b>${a.authorBio[l] ? esc(a.authorBio[l]!) : ''}</div>` : '';
+  const share = `<div class="share" aria-label="${esc(t.shareTitle)}"><a class="wa" rel="noopener noreferrer" href="https://wa.me/?text=${encodeURIComponent(`${tr.title} ${url}`)}">${esc(t.shareWhatsapp)}</a><a rel="noopener noreferrer" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}">${esc(t.shareFacebook)}</a></div>`;
+  return `${crumbHtml(p)}<main id="content"><article class="blk wrap read"><div class="kicker dark">${esc(divisionOf(a.divisionKey)!.name[l])}</div><h1>${esc(tr.title)}</h1><p class="lead">${esc(tr.summary)}</p>
+<div class="byline">${a.authorName ? `${esc(t.byAuthor)} ${esc(a.authorName)} · ` : ''}${esc(t.published)} ${fmtDate(a.publishedAt, l)}${a.updatedAt.getTime() - a.publishedAt.getTime() > 86400000 ? ` · ${esc(t.updated)} ${fmtDate(a.updatedAt, l)}` : ''} · ${tr.readingMinutes} ${esc(t.minRead)}</div>
+${img}${toc}<div class="prose">${renderBody(tr.body)}</div>${faq}${share}${who}
+${rel.length ? `<h2>${esc(t.relatedTitle)}</h2>${articleCards(rel, l)}` : ''}</article></main>`;
+}
+
+function body(p: PageRef, ctx: Ctx): string {
+  const t = UI[p.lang];
+  const l = p.lang;
+  const latest = articlesOf(ctx, l).slice(0, 6);
   switch (p.key) {
     case 'home':
       return `<section class="hero"><div class="in"><div class="kicker">${esc(t.heroKicker)}</div><h1>${esc(t.heroTitle)}</h1><p>${esc(MISSION[l])}</p>
 <a class="btn gold" href="${pathOf({ key: 'knowledge', lang: l })}">${esc(t.heroCta)}</a><a class="btn line" href="${pathOf({ key: 'about', lang: l })}">${esc(t.heroCta2)}</a></div></section>
 <main id="content"><section class="blk wrap"><div class="kicker dark">${esc(t.startHere)}</div><h2>${esc(t.areasTitle)}</h2><div class="grid two">${divisionCards(l)}</div></section>
+${latest.length ? `<section class="blk wrap"><h2>${esc(t.latestTitle)}</h2>${articleCards(latest.slice(0, 3), l)}</section>` : ''}
 <section class="blk wrap"><h2>${esc(t.whatTitle)}</h2><ul class="list read">${WHAT_WE_DO[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>
 <section class="blk wrap"><h2>${esc(t.ecoTitle)}</h2><div class="grid three"><div class="card"><b>${esc(t.ecoRead)}</b><span>${esc(t.ecoReadText)}</span></div><div class="card"><b>${esc(t.ecoLearn)}</b><span>${esc(t.ecoLearnText)}</span></div><div class="card"><b>${esc(t.ecoBelong)}</b><span>${esc(t.ecoBelongText)}</span></div></div></section></main>`;
     case 'knowledge':
-      return `${crumbHtml(p)}<main id="content"><section class="blk wrap"><div class="kicker dark">${esc(t.navKnowledge)}</div><h1>${esc(t.kcTitle)}</h1><p class="lead read">${esc(t.kcIntro)}</p><div class="grid two" style="margin-top:22px">${divisionCards(l)}</div></section></main>`;
+      return `${crumbHtml(p)}<main id="content"><section class="blk wrap"><div class="kicker dark">${esc(t.navKnowledge)}</div><h1>${esc(t.kcTitle)}</h1><p class="lead read">${esc(t.kcIntro)}</p><div class="grid two" style="margin-top:22px">${divisionCards(l)}</div></section>
+${latest.length ? `<section class="blk wrap"><h2>${esc(t.latestTitle)}</h2>${articleCards(latest, l)}</section>` : ''}</main>`;
     case 'division': {
       const d = p.division!;
+      const list = articlesOf(ctx, l, d.key);
       return `${crumbHtml(p)}<main id="content"><section class="blk wrap"><div class="kicker dark">${esc(t.kcTitle)}</div><h1>${esc(d.name[l])}</h1><p class="lead read">${esc(d.blurb[l])}</p>
 <h2 style="margin-top:26px">${esc(t.divCovers)}</h2><ul class="list read">${d.topics[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-${d.hasArticles ? '' : `<div class="callout read">${esc(t.divSoon)}</div>`}<p><a href="${pathOf({ key: 'knowledge', lang: l })}">← ${esc(t.divBack)}</a></p></section></main>`;
+${list.length ? `<h2 style="margin-top:30px">${esc(t.articlesIn)}</h2>${articleCards(list, l)}` : d.hasArticles ? '' : `<div class="callout read">${esc(t.divSoon)}</div>`}<p><a href="${pathOf({ key: 'knowledge', lang: l })}">← ${esc(t.divBack)}</a></p></section></main>`;
     }
     case 'about':
       return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1><h2>${esc(t.aboutMission)}</h2><p class="lead">${esc(MISSION[l])}</p><h2>${esc(t.aboutVision)}</h2><p class="lead">${esc(VISION[l])}</p>
@@ -154,25 +258,35 @@ ${d.hasArticles ? '' : `<div class="callout read">${esc(t.divSoon)}</div>`}<p><a
       return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.contactTitle)}</h1><p class="lead">${esc(t.contactIntro)}</p>
 <div class="callout"><h3>${esc(t.contactForm)}</h3><p>${esc(t.contactFormText)}</p><a class="btn navy" href="/contact">${esc(t.contactForm)}</a></div>
 <p><a href="/privacy">${esc(t.contactPrivacy)}</a></p></section></main>`;
+    case 'article':
+      return articleBody(p, ctx);
   }
 }
 
-export function renderPage(p: PageRef): string {
-  return `<!doctype html><html lang="${p.lang}"><head>${head(p)}</head><body>${header(p)}${body(p)}${joinBand(p)}${footer(p)}</body></html>`;
+export function renderPage(p: PageRef, ctx: Ctx = EMPTY_CTX): string {
+  return `<!doctype html><html lang="${p.lang}"><head>${head(p, ctx)}</head><body>${header(p, ctx)}${body(p, ctx)}${joinBand(p)}${footer(p)}</body></html>`;
 }
 
 export function renderNotFound(lang: Lang): string {
   const t = UI[lang];
   const p: PageRef = { key: 'home', lang };
-  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(t.notFoundTitle)} — The God Nation</title><style>${CSS}</style></head><body>${header(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.notFoundTitle)}</h1><p class="lead">${esc(t.notFoundText)}</p><p><a class="btn navy" href="/${lang}/">${esc(t.notFoundHome)}</a></p></section></main>${footer(p)}</body></html>`;
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(t.notFoundTitle)} — The God Nation</title><style>${CSS}</style></head><body>${header(p, EMPTY_CTX)}<main id="content"><section class="blk wrap read"><h1>${esc(t.notFoundTitle)}</h1><p class="lead">${esc(t.notFoundText)}</p><p><a class="btn navy" href="/${lang}/">${esc(t.notFoundHome)}</a></p></section></main>${footer(p)}</body></html>`;
 }
 
-export function sitemapXml(): string {
-  const base = (r: PageRef) => ({ r, indexable: isIndexable(r) });
-  const items = allPages().map(base).filter((x) => x.indexable);
-  const urls = items.map(({ r }) => {
-    const alts = LANGS.map((l) => ({ ...r, lang: l } as PageRef)).filter(isIndexable).map((x) => `<xhtml:link rel="alternate" hreflang="${x.lang}" href="${urlOf(x)}"/>`).join('');
-    return `<url><loc>${urlOf(r)}</loc>${alts}</url>`;
+/** Every page version that exists right now: the fixed pages plus each public article in each approved language. */
+export function allPagesWith(ctx: Ctx): PageRef[] {
+  const pages = allPages();
+  for (const a of ctx.articles) for (const lang of LANGS) if (a.tr[lang] && divisionOf(a.divisionKey)) pages.push({ key: 'article', lang, article: a });
+  return pages;
+}
+
+export function sitemapXml(ctx: Ctx = EMPTY_CTX): string {
+  const items = allPagesWith(ctx).filter((r) => isIndexable(r, ctx));
+  const urls = items.map((r) => {
+    const cp = counterpart(r, ctx);
+    const alts = [r, ...(cp ? [cp] : [])].map((x) => `<xhtml:link rel="alternate" hreflang="${x.lang}" href="${urlOf(x)}"/>`).join('');
+    const last = r.key === 'article' ? `<lastmod>${r.article!.updatedAt.toISOString().slice(0, 10)}</lastmod>` : '';
+    return `<url><loc>${urlOf(r)}</loc>${last}${alts}</url>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls.join('\n')}\n</urlset>`;
 }

@@ -39,3 +39,15 @@ ul.list{padding-left:1.2em;margin:0}ul.list li{margin:.35em 0}
 footer.site{background:#080f2c;color:#9fb0e4;font-size:14px;padding:22px 18px}footer.site .bar{padding:0}footer.site a{color:#c9d3f2}
 .pill{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:#fff7dc;border:1px solid #ecd68a;border-radius:999px;padding:2px 10px;color:#7a5a00}
 `;
+
+export const CSS_ARTICLES = `
+.prose{font:18px/1.75 var(--serif);color:#222a3d}.prose h2{margin:1.6em 0 .4em;font-size:26px}.prose h3{margin:1.3em 0 .3em;font-size:21px}.prose p{margin:0 0 1em}.prose ul,.prose ol{margin:0 0 1em;padding-left:1.3em}.prose li{margin:.3em 0}
+.prose blockquote{margin:1.2em 0;background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:0 10px 10px 0;padding:12px 16px;font-style:italic}.prose blockquote p{margin:0}
+.prose cite{display:block;font:700 12px/1.4 var(--sans);font-style:normal;letter-spacing:.06em;color:var(--navy-mid);margin-top:6px;text-transform:uppercase}
+.byline{font:14px/1.5 var(--sans);color:var(--muted);margin:10px 0 18px}.toc{border-left:3px solid var(--gold);padding:4px 0 4px 14px;margin:0 0 22px;font:15px/1.7 var(--sans)}.toc b{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--navy-mid)}
+.hero-img{display:block;max-width:100%;height:auto;border-radius:12px;margin:0 0 20px}
+details.faq{background:var(--white);border:1px solid var(--line);border-radius:10px;margin:8px 0}details.faq summary{cursor:pointer;padding:12px 14px;font:600 16px/1.4 var(--sans);color:var(--navy)}details.faq div{padding:0 14px 12px;font:16px/1.6 var(--serif)}
+.share{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0}.share a{border:1px solid var(--line);background:var(--white);border-radius:999px;padding:6px 14px;font:700 13px/1.2 var(--sans);text-decoration:none;color:var(--navy)}.share a.wa{background:#1fa855;border-color:#1fa855;color:#fff}
+.meta{font:13px var(--sans);color:var(--muted);margin-top:6px}ul.cards{list-style:none;padding:0;margin:0;display:grid;gap:14px}ul.cards li{margin:0}
+.who{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:26px 0;font:15px/1.6 var(--sans)}.who b{display:block;font:700 18px var(--serif);color:var(--navy)}
+`;
