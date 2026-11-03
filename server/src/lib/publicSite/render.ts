@@ -202,7 +202,7 @@ function footer(p: PageRef): string {
 }
 
 const photo = (ph: import('./content').SitePhoto, lang: Lang, o: { eager?: boolean; caption?: string } = {}) =>
-  `<figure class="photo"><img src="${esc(ph.src)}" width="${ph.w}" height="${ph.h}" alt="${esc(ph.alt[lang])}" decoding="async"${o.eager ? ' fetchpriority="high"' : ' loading="lazy"'}>${o.caption ? `<figcaption>${o.caption}</figcaption>` : ph.caption ? `<figcaption>${esc(ph.caption[lang])}</figcaption>` : ''}</figure>`;
+  `<figure class="photo"><img src="${esc(ph.src)}" width="${ph.w}" height="${ph.h}" alt="${esc(ph.alt[lang])}" decoding="async"${o.eager ? ' fetchpriority="high"' : ' loading="lazy"'}>${o.caption ? `<figcaption>${o.caption}</figcaption>` : o.caption === undefined && ph.caption ? `<figcaption>${esc(ph.caption[lang])}</figcaption>` : ''}</figure>`;
 
 const divisionCards = (lang: Lang) =>
   DIVISIONS.map((d, i) => `<a class="card area" href="${pathOf({ key: 'division', lang, division: d })}"><i class="num" aria-hidden="true">0${i + 1}</i><b>${esc(d.name[lang])}</b><span>${esc(d.blurb[lang])}</span></a>`).join('');
@@ -255,6 +255,7 @@ ${bookCard}
 ${latest.length ? `<section class="blk wrap"><h2>${esc(t.latestTitle)}</h2>${articleCards(latest.slice(0, 3), l)}</section>` : ''}
 ${PHOTOS.founderOffice ? `<section class="blk wrap founder">${photo(PHOTOS.founderOffice, l)}<div class="txt"><div class="kicker dark">${esc(t.founderKicker)}</div><h2>${esc(t.founderTitle)}</h2><p>${esc(t.founderText1)}</p><p>${esc(t.founderText2)}</p><a class="btn navy" href="${pathOf({ key: 'about', lang: l })}">${esc(t.founderCta)}</a></div></section>` : ''}
 <section class="blk wrap"><h2>${esc(t.whatTitle)}</h2><ul class="ticks">${WHAT_WE_DO[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>
+${PHOTOS.group ? `<section class="blk wrap"><h2>${esc(t.togetherTitle)}</h2><div class="pair">${photo(PHOTOS.group, l, { caption: '' })}${PHOTOS.groupClose ? photo(PHOTOS.groupClose, l, { caption: '' }) : ''}</div>${PHOTOS.group.caption ? `<p class="meta">${esc(PHOTOS.group.caption[l])}</p>` : ''}</section>` : ''}
 <section class="blk wrap"><h2>${esc(t.ecoTitle)}</h2><div class="grid three steps"><div class="card"><i class="num" aria-hidden="true">1</i><b>${esc(t.ecoRead)}</b><span>${esc(t.ecoReadText)}</span></div><div class="card"><i class="num" aria-hidden="true">2</i><b>${esc(t.ecoLearn)}</b><span>${esc(t.ecoLearnText)}</span></div><div class="card"><i class="num" aria-hidden="true">3</i><b>${esc(t.ecoBelong)}</b><span>${esc(t.ecoBelongText)}</span></div></div></section></main>`;
     }
     case 'knowledge':
@@ -268,9 +269,9 @@ ${latest.length ? `<section class="blk wrap"><h2>${esc(t.latestTitle)}</h2>${art
 ${list.length ? `<h2 style="margin-top:30px">${esc(t.articlesIn)}</h2>${articleCards(list, l)}` : d.hasArticles ? '' : `<div class="callout read">${esc(t.divSoon)}</div>`}<p><a href="${pathOf({ key: 'knowledge', lang: l })}">← ${esc(t.divBack)}</a></p></section></main>`;
     }
     case 'about':
-      return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1>${PHOTOS.founderOffice ? `<div class="about-photo">${photo(PHOTOS.founderOffice, l, { caption: `<b>${esc(FOUNDER.name)}</b><span>${esc(t.founderRole)}</span>` })}</div>` : ''}${PHOTOS.group ? photo(PHOTOS.group, l) : ''}<h2>${esc(t.aboutMission)}</h2><p class="lead">${esc(MISSION[l])}</p><h2>${esc(t.aboutVision)}</h2><p class="lead">${esc(VISION[l])}</p>
+      return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1>${PHOTOS.founderOffice ? `<div class="about-photo">${photo(PHOTOS.founderOffice, l, { caption: `<b>${esc(FOUNDER.name)}</b><span>${esc(t.founderRole)}</span>` })}</div>` : ''}<h2>${esc(t.aboutMission)}</h2><p class="lead">${esc(MISSION[l])}</p><h2>${esc(t.aboutVision)}</h2><p class="lead">${esc(VISION[l])}</p>
 <h2>${esc(t.aboutWhat)}</h2><ul class="list">${WHAT_WE_DO[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-<h2 style="margin-top:28px">${esc(t.aboutHow)}</h2><p>${esc(t.aboutHowText1)}</p><p>${esc(t.aboutHowText2)}</p><p>${esc(t.aboutHowText3)}</p></section></main>`;
+<h2 style="margin-top:28px">${esc(t.aboutHow)}</h2><p>${esc(t.aboutHowText1)}</p><p>${esc(t.aboutHowText2)}</p><p>${esc(t.aboutHowText3)}</p>${PHOTOS.group ? photo(PHOTOS.group, l) : ''}</section></main>`;
     case 'contact':
       return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.contactTitle)}</h1><p class="lead">${esc(t.contactIntro)}</p>
 <div class="callout"><h3>${esc(t.contactForm)}</h3><p>${esc(t.contactFormText)}</p><a class="btn navy" href="/contact">${esc(t.contactForm)}</a></div>

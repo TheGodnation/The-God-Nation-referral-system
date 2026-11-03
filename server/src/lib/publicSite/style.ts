@@ -43,6 +43,7 @@ footer.site{background:#080f2c;color:#9fb0e4;font-size:14px;padding:34px 18px 22
 .fbase{max-width:1100px;margin:26px auto 0;padding-top:16px;border-top:1px solid #1b2756;display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between}
 .photo{margin:0 0 22px}.photo img{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 8px 24px rgba(15,34,96,.18)}.photo figcaption{font-size:13px;color:var(--muted);margin-top:8px}
 .hero .in.has-photo{display:grid;gap:26px;align-items:center}@media(min-width:820px){.hero .in.has-photo{grid-template-columns:1.3fr .8fr}}.hero .photo{margin:0}.hero .photo img{box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.pair{display:grid;gap:16px}@media(min-width:760px){.pair{grid-template-columns:1.5fr 1fr}}.pair .photo{margin:0}.pair .photo img{aspect-ratio:4/3;object-fit:cover;object-position:50% 40%}@media(min-width:760px){.pair{align-items:stretch}.pair .photo{height:100%}.pair .photo img{height:100%;aspect-ratio:auto}}
 .about-photo{max-width:320px;margin:0 auto 22px}@media(min-width:760px){.about-photo{float:right;margin:4px 0 18px 30px}}
 .photo figcaption{display:flex;flex-direction:column;gap:2px;font-size:14px}.photo figcaption b{font:700 17px var(--serif);color:var(--navy)}.photo figcaption span{color:var(--muted);font-size:13px;letter-spacing:.06em;text-transform:uppercase}
 .hero{position:relative;overflow:hidden}.hero::before{content:"";position:absolute;right:-120px;top:-140px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(224,176,39,.22),transparent 68%)}
