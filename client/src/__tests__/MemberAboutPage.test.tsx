@@ -120,8 +120,12 @@ describe('About the God Nation', () => {
 describe('About page — our social networks, at the end', () => {
   const links = {
     whatsappGroupEnUrl: 'https://chat.whatsapp.com/abc123',
+    whatsappChannelUrl: 'https://whatsapp.com/channel/abc',
+    telegramGroupUrl: 'https://t.me/godnation_group',
+    telegramUrl: 'https://t.me/godnation',
     messengerUrl: 'https://m.me/j/xyz',
-    facebookUrl: 'https://facebook.com/groups/godnation',
+    facebookGroupUrl: 'https://facebook.com/groups/godnation',
+    facebookUrl: 'https://facebook.com/godnation',
     youtubeUrl: 'https://youtube.com/@godnation',
   };
 
@@ -132,10 +136,13 @@ describe('About page — our social networks, at the end', () => {
     expect(within(box).getByRole('heading', { name: 'Join our community' })).toBeInTheDocument();
     expect(within(box).getByRole('link', { name: 'Join our WhatsApp group (English)' })).toHaveAttribute('href', links.whatsappGroupEnUrl);
     expect(within(box).getByRole('link', { name: 'Join our Messenger group' })).toHaveAttribute('href', links.messengerUrl);
-    expect(within(box).getByRole('link', { name: 'Join our Facebook group' })).toHaveAttribute('href', links.facebookUrl);
+    expect(within(box).getByRole('link', { name: 'Join our WhatsApp channel' })).toHaveAttribute('href', links.whatsappChannelUrl);
+    expect(within(box).getByRole('link', { name: 'Join our Telegram group' })).toHaveAttribute('href', links.telegramGroupUrl);
+    expect(within(box).getByRole('link', { name: 'Join our Telegram channel' })).toHaveAttribute('href', links.telegramUrl);
+    expect(within(box).getByRole('link', { name: 'Join our Facebook group' })).toHaveAttribute('href', links.facebookGroupUrl);
+    expect(within(box).getByRole('link', { name: 'Follow us on Facebook' })).toHaveAttribute('href', links.facebookUrl);
     expect(within(box).getByRole('link', { name: 'Watch us on YouTube' })).toHaveAttribute('href', links.youtubeUrl);
     // Networks with no link yet do not show.
-    expect(within(box).queryByRole('link', { name: /Telegram/ })).toBeNull();
     expect(within(box).queryByRole('link', { name: /Instagram/ })).toBeNull();
     expect(within(box).queryByRole('link', { name: /TikTok/ })).toBeNull();
     const join = screen.getByRole('heading', { name: 'How you can take part' });
@@ -178,11 +185,11 @@ describe('About page — our social networks, at the end', () => {
     });
     renderAbout();
     const box = await screen.findByTestId('about-social');
-    expect(within(box).getAllByRole('link')).toHaveLength(8);
+    expect(within(box).getAllByRole('link')).toHaveLength(11);
     const hrefs = within(box).getAllByRole('link').map((a) => a.getAttribute('href'));
     expect(hrefs.some((h) => h!.startsWith('https://wa.me/'))).toBe(false);
-    // Exactly two WhatsApp entries: the two groups.
-    expect(within(box).getAllByRole('link', { name: /WhatsApp/ })).toHaveLength(2);
+    // Exactly three WhatsApp entries: the two groups and the channel. No personal contact.
+    expect(within(box).getAllByRole('link', { name: /WhatsApp/ })).toHaveLength(3);
   });
 
   it('shows nothing at all until at least one link has been chosen', async () => {

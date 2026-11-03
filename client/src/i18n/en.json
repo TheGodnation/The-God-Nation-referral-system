@@ -645,7 +645,9 @@
       "bridge_view_profile": "View my Member profile",
       "save": "Save Settings",
       "saved": "Settings saved.",
-      "save_failed": "Failed to save settings."
+      "save_failed": "Failed to save settings.",
+      "community_heading": "Community places",
+      "community_help": "Where people can join us. Fill in only the ones you have created; a blank one is not shown. People pick the place they prefer after signing up, and which one they choose is counted in the Growth tab."
     },
     "content": {
       "title": "Website Content",
@@ -2830,17 +2832,20 @@
     "action_p5": "We are not simply building a media team; we are preparing people, developing leaders, and building a united community of Kingdom ambassadors committed to taking the Gospel to the nations.",
     "motto_title": "Our motto",
     "social_title": "Join our community",
-    "social_intro": "Join us in our groups and follow us on our social networks, so that we can grow together and stay in touch.",
+    "social_intro": "Join us where you prefer — WhatsApp, Telegram, Messenger or Facebook — and follow us on our social networks, so that we can grow together and stay in touch.",
     "social_whatsapp_en": "Join our WhatsApp group (English)",
     "social_whatsapp_fr": "Join our WhatsApp group (French)",
-    "social_telegram": "Join our Telegram group",
+    "social_telegram": "Join our Telegram channel",
     "social_messenger": "Join our Messenger group",
-    "social_facebook": "Join our Facebook group",
+    "social_facebook": "Follow us on Facebook",
     "social_instagram": "Follow us on Instagram",
     "social_tiktok": "Follow us on TikTok",
     "social_youtube": "Watch us on YouTube",
     "motto_lead": "Go into the digital media spaces where billions gather.",
-    "motto_text": "Make disciples who make disciples, thereby taking the Gospel of the Kingdom to the ends of the earth."
+    "motto_text": "Make disciples who make disciples, thereby taking the Gospel of the Kingdom to the ends of the earth.",
+    "social_whatsapp_channel": "Join our WhatsApp channel",
+    "social_telegram_group": "Join our Telegram group",
+    "social_facebook_group": "Join our Facebook group"
   },
   "cropper": {
     "title_photo": "Adjust your profile photo",
@@ -3495,7 +3500,7 @@
           "Payments: when you pay for a training book by Mobile Money, we keep the order, the amount, the transaction ID you send, and the screenshot you upload as proof. We never see your Mobile Money PIN, and the payment itself happens outside the app.",
           "King's Tokens: if the ministry has started them, we keep a record of the tokens you earn for your Dominion Clinic exams, the tokens you use toward a training book, and the date and reason for each. King's Tokens are a record of study rewards inside the app. They are not money, they cannot be bought, sold, cashed out or sent to another person, and they are used only toward the ministry's own training materials.",
           "Ad and link details: when you arrive from an advertisement or a shared link, we note which one (for example the campaign name and the website you came from, but not the full address of that page) so we can see which ads and ambassadors bring people. This is kept with your visit and your sign-up.",
-          "If you leave your name and WhatsApp number in the “Stay connected” box, or tick the boxes at sign-up, we keep your choice, the date, and the exact sentence you agreed to. We only message you on the channels you agreed to, and you can change or stop this at any time in your profile.",
+          "If you leave your name and WhatsApp number in the “Stay connected” box, or tick the boxes at sign-up, we keep your choice, the date, and the exact sentence you agreed to. We only message you on the channels you agreed to, and you can change or stop this at any time in your profile. We also count which group, channel or page you tap to join (for example WhatsApp, Telegram or Messenger). We do not see anything about you inside those apps.",
           "Referrals and earnings: who invited you, who you invited, and any referral earnings and payouts.",
           "Events: which events you said you would come to, and whether a leader marked you present, or you finished the recording linked to the event.",
           "Technical information: whether you are online and when you were last seen, the sign-in sessions on your devices, and, if you allow notifications, a code that lets your phone receive alerts from us."
@@ -3691,16 +3696,18 @@
     "error_consent": "Please tick the box to agree to receive updates on WhatsApp.",
     "error_name": "Please enter your name.",
     "error_phone": "Please enter a valid phone number, including the country code.",
-    "error_generic": "Something went wrong. Please try again."
+    "error_generic": "Something went wrong. Please try again.",
+    "choose_title": "Join us where you prefer",
+    "choose_body": "Choose the place you use most, or more than one.",
+    "follow_title": "Follow us"
   },
   "joinGroup": {
-    "title": "Join our WhatsApp group",
-    "body_en": "Our community also meets on WhatsApp. Join the English group to get updates, encouragement and prayer with others.",
-    "body_fr": "Our community also meets on WhatsApp. Join the French group to get updates, encouragement and prayer with others.",
-    "button": "Join the WhatsApp group",
+    "title": "Join us where you prefer",
+    "body": "Our community meets in several places. Pick the one you use most, or more than one, to get updates, encouragement and prayer with others.",
+    "follow_title": "Follow us",
     "continue": "Continue to the app",
     "skip": "Not now",
-    "joined_note": "WhatsApp is opening. Come back here when you are ready."
+    "joined_note": "Opening. Come back here when you are ready."
   },
   "contactPrefs": {
     "title": "How we may contact you",
@@ -3738,6 +3745,10 @@
     "empty": "Nobody joined in this period yet.",
     "note": "Confirmed means they signed in at least once. Back after 7 or 30 days means seen again at least that long after joining.",
     "truncated": "Only the newest 20,000 are counted.",
-    "failed": "The report could not be loaded."
+    "failed": "The report could not be loaded.",
+    "by_platform": "Where people chose to join",
+    "col_platform": "Place",
+    "col_taps": "Taps",
+    "platform_unknown": "Not recorded"
   }
 }

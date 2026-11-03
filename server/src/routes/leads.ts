@@ -7,6 +7,7 @@ import { leadLimiter } from '../lib/rateLimit';
 import { normalizeToE164 } from '../lib/phone';
 import { selectApplicableReferralVisit } from '../lib/attribution';
 import { recordConsent } from '../lib/contactConsent';
+import { ALL_PLATFORMS } from '../lib/communityPlatforms';
 
 // POST /api/leads — the "stay connected" box on the public pages: a name and a
 // WhatsApp number from someone who is not ready to make an account, and their
@@ -74,6 +75,16 @@ router.post('/', leadLimiter, requireCsrf, asyncHandler(async (req, res) => {
     if (!(typeof err === 'object' && err && (err as { code?: string }).code === 'P2002')) throw err;
   }
   res.json(ok);
+}));
+
+// POST /api/leads/click — someone who left a number (no account) tapped one of
+// the places to join. Counted with their visit, nothing about them is stored.
+const clickSchema = z.object({ platform: z.enum(ALL_PLATFORMS) });
+router.post('/click', leadLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = clickSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: 'Unknown place.' });
+  await prisma.event.create({ data: { type: 'GROUP_LINK_CLICKED', detail: parsed.data.platform, visitorId: req.visitorId ?? null } });
+  res.json({ ok: true });
 }));
 
 export default router;

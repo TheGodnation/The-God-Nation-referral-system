@@ -6,11 +6,12 @@ import { requireCsrf } from '../lib/csrf';
 import { asyncHandler } from '../lib/asyncHandler';
 import { socialMutationLimiter } from '../lib/rateLimit';
 import { currentConsent, recordConsent } from '../lib/contactConsent';
+import { ALL_PLATFORMS } from '../lib/communityPlatforms';
 
 // /api/member/contact-consent — the member's own choices about being contacted
 // by WhatsApp and email (shown on their Me page, changeable at any time), and
-// /api/member/group-link-click — noting that they tapped "Join our WhatsApp
-// group", so the growth report can count who joined.
+// /api/member/group-link-click — noting which group, channel or page they
+// tapped (WhatsApp, Telegram, Messenger...), so the growth report can count it.
 const router = Router();
 router.use(requireMember);
 
@@ -36,11 +37,21 @@ router.put('/contact-consent', socialMutationLimiter, requireCsrf, asyncHandler(
   res.json(await currentConsent(prisma, personId));
 }));
 
+const clickSchema = z.object({ platform: z.enum(ALL_PLATFORMS).optional() });
+
 router.post('/group-link-click', socialMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = clickSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: 'Unknown place.' });
   const personId = req.member!.personId;
   const registration = await prisma.registration.findFirst({ where: { personId }, select: { id: true, isTestData: true } });
   await prisma.event.create({
-    data: { type: 'GROUP_LINK_CLICKED', registrationId: registration?.id ?? null, visitorId: req.visitorId ?? null, isTestData: registration?.isTestData ?? false },
+    data: {
+      type: 'GROUP_LINK_CLICKED',
+      detail: parsed.data.platform ?? null,
+      registrationId: registration?.id ?? null,
+      visitorId: req.visitorId ?? null,
+      isTestData: registration?.isTestData ?? false,
+    },
   });
   res.json({ ok: true });
 }));

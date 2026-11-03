@@ -5,6 +5,9 @@ export interface PublicSettings {
   supportWhatsappUrl: string | null;
   whatsappGroupEnUrl: string | null;
   whatsappGroupFrUrl: string | null;
+  whatsappChannelUrl?: string | null;
+  telegramGroupUrl?: string | null;
+  facebookGroupUrl?: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
   tiktokUrl: string | null;

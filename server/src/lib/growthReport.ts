@@ -26,6 +26,11 @@ export interface GrowthRow extends FunnelCounts {
   campaign: string | null;
 }
 
+export interface PlatformRow {
+  platform: string;
+  taps: number;
+}
+
 export interface AmbassadorRow {
   name: string;
   registered: number;
@@ -84,10 +89,12 @@ export async function growthReport(days: number, now = new Date()) {
 
   const regIds = registrations.map((r) => r.id);
   const personIds = registrations.map((r) => r.personId!).filter(Boolean);
-  const [groupClicks, chatters, examTakers] = await Promise.all([
+  const [groupClicks, chatters, examTakers, platformTaps] = await Promise.all([
     prisma.event.findMany({ where: { type: 'GROUP_LINK_CLICKED', registrationId: { in: regIds } }, select: { registrationId: true }, distinct: ['registrationId'] }),
     prisma.message.findMany({ where: { senderPersonId: { in: personIds }, deletedAt: null }, select: { senderPersonId: true }, distinct: ['senderPersonId'] }),
     prisma.attempt.findMany({ where: { personId: { in: personIds }, status: 'SUBMITTED' }, select: { personId: true }, distinct: ['personId'] }),
+    // Every tap in the period on a group, channel or page (members and visitors who left a number).
+    prisma.event.groupBy({ by: ['detail'], where: { type: 'GROUP_LINK_CLICKED', timestamp: { gte: since }, isTestData: false }, _count: { _all: true } }),
   ]);
   const clicked = new Set(groupClicks.map((e) => e.registrationId));
   const chatted = new Set(chatters.map((m) => m.senderPersonId));
@@ -161,6 +168,9 @@ export async function growthReport(days: number, now = new Date()) {
     totals,
     bySource: [...rows.values()].sort((a, b) => b.registered - a.registered || b.visitors - a.visitors),
     byAmbassador: [...ambassadors.values()].sort((a, b) => b.registered - a.registered).slice(0, 25),
+    byPlatform: platformTaps
+      .map((p): PlatformRow => ({ platform: p.detail ?? 'unknown', taps: p._count._all }))
+      .sort((a, b) => b.taps - a.taps),
     truncated: registrations.length >= MAX_REGISTRATIONS,
   };
 }

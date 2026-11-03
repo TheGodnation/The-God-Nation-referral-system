@@ -847,6 +847,9 @@ function settingsResponse(settings: {
   supportWhatsappUrl: string | null;
   whatsappGroupEnUrl: string | null;
   whatsappGroupFrUrl: string | null;
+  whatsappChannelUrl: string | null;
+  telegramGroupUrl: string | null;
+  facebookGroupUrl: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
   tiktokUrl: string | null;
@@ -863,6 +866,9 @@ function settingsResponse(settings: {
     supportWhatsappUrl: settings?.supportWhatsappUrl ?? null,
     whatsappGroupEnUrl: settings?.whatsappGroupEnUrl ?? null,
     whatsappGroupFrUrl: settings?.whatsappGroupFrUrl ?? null,
+    whatsappChannelUrl: settings?.whatsappChannelUrl ?? null,
+    telegramGroupUrl: settings?.telegramGroupUrl ?? null,
+    facebookGroupUrl: settings?.facebookGroupUrl ?? null,
     facebookUrl: settings?.facebookUrl ?? null,
     instagramUrl: settings?.instagramUrl ?? null,
     tiktokUrl: settings?.tiktokUrl ?? null,
@@ -892,6 +898,9 @@ const settingsSchema = z.object({
   supportWhatsappUrl: z.string().url().optional().nullable(),
   whatsappGroupEnUrl: z.string().url().optional().nullable(),
   whatsappGroupFrUrl: z.string().url().optional().nullable(),
+  whatsappChannelUrl: z.string().url().optional().nullable(),
+  telegramGroupUrl: z.string().url().optional().nullable(),
+  facebookGroupUrl: z.string().url().optional().nullable(),
   facebookUrl: z.string().url().optional().nullable(),
   instagramUrl: z.string().url().optional().nullable(),
   tiktokUrl: z.string().url().optional().nullable(),
@@ -945,6 +954,9 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
     ...(d.supportWhatsappUrl !== undefined ? { supportWhatsappUrl: d.supportWhatsappUrl } : {}),
     ...(d.whatsappGroupEnUrl !== undefined ? { whatsappGroupEnUrl: d.whatsappGroupEnUrl } : {}),
     ...(d.whatsappGroupFrUrl !== undefined ? { whatsappGroupFrUrl: d.whatsappGroupFrUrl } : {}),
+    ...(d.whatsappChannelUrl !== undefined ? { whatsappChannelUrl: d.whatsappChannelUrl } : {}),
+    ...(d.telegramGroupUrl !== undefined ? { telegramGroupUrl: d.telegramGroupUrl } : {}),
+    ...(d.facebookGroupUrl !== undefined ? { facebookGroupUrl: d.facebookGroupUrl } : {}),
     ...(d.facebookUrl !== undefined ? { facebookUrl: d.facebookUrl } : {}),
     ...(d.instagramUrl !== undefined ? { instagramUrl: d.instagramUrl } : {}),
     ...(d.tiktokUrl !== undefined ? { tiktokUrl: d.tiktokUrl } : {}),

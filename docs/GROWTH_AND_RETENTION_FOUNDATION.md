@@ -18,10 +18,16 @@ start it. **Phase A is built (3 November 2026).** The rest is still a blueprint.
   content page: name + WhatsApp number + a tick. Nothing is kept without the
   tick. If the same number later signs up, the person and their consent are
   joined up.
-- **"Join our WhatsApp group" step** right after the details form (English or
-  French group, by the member's language). The tap is counted. Skipped
-  automatically if no group link is set.
-- **Growth report** for the central admin (admin dashboard "Growth" tab and the
+- **"Join us where you prefer" step** right after the details form. It offers
+  every place the central admin has set up, so nobody is forced onto WhatsApp:
+  WhatsApp group (English and French, the person's own language first),
+  WhatsApp channel, Telegram group, Telegram channel, Messenger group and
+  Facebook group, plus the pages to follow (Facebook page, Instagram, TikTok,
+  YouTube). People pick one or several. Each tap is counted by place. Skipped
+  automatically if nothing is set up. The same choices appear right after
+  someone leaves a number in the "Stay connected" box, and on the About page.
+  The links are set in Admin, Settings: "Community places" and "Follow us".
+- **Growth report** (with a table of which place people chose) for the central admin (admin dashboard "Growth" tab and the
   central admin's own member profile): visitors, numbers left, joined,
   confirmed, finished profile, joined the group, wrote in a chat, took an exam,
   back after 7 and 30 days, by source and campaign, and by ambassador link.

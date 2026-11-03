@@ -645,7 +645,9 @@
       "bridge_view_profile": "Voir mon profil Membre",
       "save": "Enregistrer les paramètres",
       "saved": "Paramètres enregistrés.",
-      "save_failed": "Échec de l'enregistrement des paramètres."
+      "save_failed": "Échec de l'enregistrement des paramètres.",
+      "community_heading": "Lieux de la communauté",
+      "community_help": "Les endroits où l’on peut nous rejoindre. Remplissez seulement ceux que vous avez créés ; un champ vide n’est pas affiché. Après l’inscription, chacun choisit l’endroit qu’il préfère, et le choix est compté dans l’onglet Croissance."
     },
     "content": {
       "title": "Contenu du site",
@@ -2830,17 +2832,20 @@
     "action_p5": "Nous ne sommes pas simplement en train de constituer une équipe média ; nous préparons des personnes, nous formons des responsables et nous bâtissons une communauté unie d’ambassadeurs du Royaume engagés à porter l’Évangile aux nations.",
     "motto_title": "Notre devise",
     "social_title": "Rejoignez notre communauté",
-    "social_intro": "Rejoignez-nous dans nos groupes et suivez-nous sur nos réseaux sociaux, afin de grandir ensemble et de rester en contact.",
+    "social_intro": "Rejoignez-nous là où vous préférez — WhatsApp, Telegram, Messenger ou Facebook — et suivez-nous sur nos réseaux sociaux, pour grandir ensemble et rester en contact.",
     "social_whatsapp_en": "Rejoindre notre groupe WhatsApp (anglais)",
     "social_whatsapp_fr": "Rejoindre notre groupe WhatsApp (français)",
-    "social_telegram": "Rejoindre notre groupe Telegram",
+    "social_telegram": "Rejoindre notre chaîne Telegram",
     "social_messenger": "Rejoindre notre groupe Messenger",
-    "social_facebook": "Rejoindre notre groupe Facebook",
+    "social_facebook": "Nous suivre sur Facebook",
     "social_instagram": "Nous suivre sur Instagram",
     "social_tiktok": "Nous suivre sur TikTok",
     "social_youtube": "Nous regarder sur YouTube",
     "motto_lead": "Allez dans les espaces des médias numériques où des milliards de personnes se rassemblent.",
-    "motto_text": "Faites des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre."
+    "motto_text": "Faites des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.",
+    "social_whatsapp_channel": "Rejoindre notre chaîne WhatsApp",
+    "social_telegram_group": "Rejoindre notre groupe Telegram",
+    "social_facebook_group": "Rejoindre notre groupe Facebook"
   },
   "cropper": {
     "title_photo": "Ajustez votre photo de profil",
@@ -3495,7 +3500,7 @@
           "Les paiements : quand vous payez un livre de formation par Mobile Money, nous gardons la commande, le montant, l'identifiant de transaction que vous envoyez et la capture d'écran que vous téléversez comme preuve. Nous ne voyons jamais votre code secret Mobile Money, et le paiement lui-même se fait en dehors de l'application.",
           "Les Jetons du Roi : si le ministère les a lancés, nous gardons un registre des jetons que vous gagnez grâce à vos examens de la Clinique de la Domination, des jetons que vous utilisez pour un livre de formation, avec la date et le motif de chacun. Les Jetons du Roi sont un registre de récompenses d'étude à l'intérieur de l'application. Ce ne sont pas de l'argent : ils ne peuvent être ni achetés, ni vendus, ni retirés en espèces, ni envoyés à une autre personne, et ils servent uniquement pour le matériel de formation du ministère.",
           "Détails des publicités et des liens : quand vous arrivez depuis une publicité ou un lien partagé, nous notons lequel (par exemple le nom de la campagne et le site d’où vous venez, mais pas l’adresse complète de cette page) afin de voir quelles publicités et quels ambassadeurs amènent des personnes. Ces informations sont gardées avec votre visite et votre inscription.",
-          "Si vous laissez votre nom et votre numéro WhatsApp dans la case « Restons connectés », ou si vous cochez les cases à l’inscription, nous gardons votre choix, la date et la phrase exacte que vous avez acceptée. Nous ne vous écrivons que sur les canaux que vous avez acceptés, et vous pouvez changer ou arrêter cela à tout moment dans votre profil.",
+          "Si vous laissez votre nom et votre numéro WhatsApp dans la case « Restons connectés », ou si vous cochez les cases à l’inscription, nous gardons votre choix, la date et la phrase exacte que vous avez acceptée. Nous ne vous écrivons que sur les canaux que vous avez acceptés, et vous pouvez changer ou arrêter cela à tout moment dans votre profil. Nous comptons aussi quel groupe, quelle chaîne ou quelle page vous touchez pour rejoindre (par exemple WhatsApp, Telegram ou Messenger). Nous ne voyons rien de vous à l’intérieur de ces applications.",
           "Parrainage et gains : qui vous a invité, qui vous avez invité, ainsi que les gains et les paiements de parrainage.",
           "Événements : les événements auxquels vous avez dit que vous viendriez, et si un responsable vous a marqué présent ou si vous avez terminé l'enregistrement lié à l'événement.",
           "Informations techniques : si vous êtes en ligne et votre dernière connexion, les sessions de connexion sur vos appareils et, si vous autorisez les notifications, un code qui permet à votre téléphone de recevoir nos alertes."
@@ -3691,16 +3696,18 @@
     "error_consent": "Veuillez cocher la case pour accepter de recevoir des nouvelles sur WhatsApp.",
     "error_name": "Veuillez entrer votre nom.",
     "error_phone": "Veuillez entrer un numéro de téléphone valide, avec l’indicatif du pays.",
-    "error_generic": "Un problème est survenu. Veuillez réessayer."
+    "error_generic": "Un problème est survenu. Veuillez réessayer.",
+    "choose_title": "Rejoignez-nous là où vous préférez",
+    "choose_body": "Choisissez l’endroit que vous utilisez le plus, ou plusieurs.",
+    "follow_title": "Suivez-nous"
   },
   "joinGroup": {
-    "title": "Rejoignez notre groupe WhatsApp",
-    "body_en": "Notre communauté se retrouve aussi sur WhatsApp. Rejoignez le groupe anglophone pour recevoir des nouvelles, des encouragements et prier avec les autres.",
-    "body_fr": "Notre communauté se retrouve aussi sur WhatsApp. Rejoignez le groupe francophone pour recevoir des nouvelles, des encouragements et prier avec les autres.",
-    "button": "Rejoindre le groupe WhatsApp",
+    "title": "Rejoignez-nous là où vous préférez",
+    "body": "Notre communauté se retrouve à plusieurs endroits. Choisissez celui que vous utilisez le plus, ou plusieurs, pour recevoir des nouvelles, des encouragements et prier avec les autres.",
+    "follow_title": "Suivez-nous",
     "continue": "Continuer vers l’application",
     "skip": "Pas maintenant",
-    "joined_note": "WhatsApp s’ouvre. Revenez ici quand vous êtes prêt."
+    "joined_note": "Ouverture en cours. Revenez ici quand vous êtes prêt."
   },
   "contactPrefs": {
     "title": "Comment nous pouvons vous contacter",
@@ -3738,6 +3745,10 @@
     "empty": "Personne ne s’est encore inscrit pendant cette période.",
     "note": "Confirmé signifie qu’ils se sont connectés au moins une fois. De retour après 7 ou 30 jours signifie revus au moins autant de temps après l’inscription.",
     "truncated": "Seuls les 20 000 plus récents sont comptés.",
-    "failed": "Le rapport n’a pas pu être chargé."
+    "failed": "Le rapport n’a pas pu être chargé.",
+    "by_platform": "Où les personnes ont choisi de nous rejoindre",
+    "col_platform": "Endroit",
+    "col_taps": "Appuis",
+    "platform_unknown": "Non enregistré"
   }
 }

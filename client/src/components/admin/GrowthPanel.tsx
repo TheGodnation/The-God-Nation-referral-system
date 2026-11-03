@@ -8,9 +8,24 @@ interface Counts {
 }
 interface Row extends Counts { key: string; source: string; campaign: string | null }
 interface Ambassador { name: string; registered: number; confirmed: number; profileCompleted: number; returned7: number }
-interface Report { days: number; totals: Counts; bySource: Row[]; byAmbassador: Ambassador[]; truncated: boolean }
+interface Report { days: number; totals: Counts; bySource: Row[]; byAmbassador: Ambassador[]; byPlatform?: { platform: string; taps: number }[]; truncated: boolean }
 
 const DAYS = [7, 30, 90] as const;
+
+// The server counts taps by these names.
+const PLATFORM_LABELS: Record<string, string> = {
+  whatsapp_group_en: 'WhatsApp group (English)',
+  whatsapp_group_fr: 'WhatsApp group (French)',
+  whatsapp_channel: 'WhatsApp channel',
+  telegram_group: 'Telegram group',
+  telegram_channel: 'Telegram channel',
+  messenger: 'Messenger',
+  facebook_group: 'Facebook group',
+  facebook: 'Facebook page',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  youtube: 'YouTube',
+};
 
 // The growth report: where people come from and how far they get. Shown to the
 // central admin in the admin dashboard and in their own member profile.
@@ -31,6 +46,8 @@ export function GrowthPanel({ base }: { base: string }) {
       cancelled = true;
     };
   }, [base, days]);
+
+  const platformLabel = (p: string) => PLATFORM_LABELS[p] ?? (p === 'unknown' ? t('growth.platform_unknown') : p);
 
   const cols: { key: keyof Counts; label: string }[] = [
     { key: 'visitors', label: t('growth.col_visitors') },
@@ -108,6 +125,28 @@ export function GrowthPanel({ base }: { base: string }) {
               </table>
             )}
           </div>
+
+          {report.byPlatform && report.byPlatform.length > 0 && (
+            <div className="card overflow-x-auto">
+              <h3 className="mb-2 font-semibold text-brand-900">{t('growth.by_platform')}</h3>
+              <table className="w-full min-w-[320px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400">
+                    <th className="py-2 pr-3">{t('growth.col_platform')}</th>
+                    <th className="py-2 pr-3">{t('growth.col_taps')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.byPlatform.map((p) => (
+                    <tr key={p.platform} className="border-b border-slate-50" data-testid={`growth-platform-${p.platform}`}>
+                      <td className="py-2 pr-3 font-medium">{platformLabel(p.platform)}</td>
+                      <td className="py-2 pr-3">{p.taps}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {report.byAmbassador.length > 0 && (
             <div className="card overflow-x-auto">

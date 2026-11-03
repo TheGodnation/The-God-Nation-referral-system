@@ -25,8 +25,14 @@ export const SOCIAL_ICONS: Record<string, { Icon: IconType; bg: string }> = {
 export interface SocialUrls {
   whatsappGroupEnUrl?: string | null;
   whatsappGroupFrUrl?: string | null;
+  whatsappChannelUrl?: string | null;
+  telegramGroupUrl?: string | null;
+  /** The Telegram channel. */
   telegramUrl: string | null;
+  /** The Messenger group or community. */
   messengerUrl: string | null;
+  facebookGroupUrl?: string | null;
+  /** The Facebook page. */
   facebookUrl: string | null;
   instagramUrl: string | null;
   tiktokUrl: string | null;
@@ -40,21 +46,41 @@ export interface SocialLink {
   url: string;
   /** Which brand icon (a key of SOCIAL_ICONS). */
   icon: string;
+  /** The name used when a tap is counted (the server's list in lib/communityPlatforms.ts). */
+  platform: string;
+  /** "community" places are where people meet (groups, channels); "follow" places are public pages. */
+  kind: 'community' | 'follow';
 }
 
 /**
- * The places that have a link (the admin chooses which), in a fixed order: the two WhatsApp groups first.
- * Only groups and public pages: the ministry's personal WhatsApp contact is the Assistance button on the Chats page.
+ * Every place that has a link (the admin chooses which), in a fixed order: the groups and channels where
+ * people meet first, then the public pages. Only groups, channels and pages: the ministry's personal
+ * WhatsApp contact is the Assistance button on the Chats page.
  */
 export function configuredSocials(s: SocialUrls): SocialLink[] {
-  return [
-    { url: s.whatsappGroupEnUrl, key: 'whatsapp_en', label: 'WhatsApp (English)', icon: 'WhatsApp' },
-    { url: s.whatsappGroupFrUrl, key: 'whatsapp_fr', label: 'WhatsApp (French)', icon: 'WhatsApp' },
-    { url: s.telegramUrl, key: 'telegram', label: 'Telegram', icon: 'Telegram' },
-    { url: s.messengerUrl, key: 'messenger', label: 'Messenger', icon: 'Messenger' },
-    { url: s.facebookUrl, key: 'facebook', label: 'Facebook', icon: 'Facebook' },
-    { url: s.instagramUrl, key: 'instagram', label: 'Instagram', icon: 'Instagram' },
-    { url: s.tiktokUrl, key: 'tiktok', label: 'TikTok', icon: 'TikTok' },
-    { url: s.youtubeUrl, key: 'youtube', label: 'YouTube', icon: 'YouTube' },
-  ].filter((x): x is SocialLink => Boolean(x.url));
+  const all: (Omit<SocialLink, 'url'> & { url?: string | null })[] = [
+    { url: s.whatsappGroupEnUrl, key: 'whatsapp_en', label: 'WhatsApp (English)', icon: 'WhatsApp', platform: 'whatsapp_group_en', kind: 'community' },
+    { url: s.whatsappGroupFrUrl, key: 'whatsapp_fr', label: 'WhatsApp (French)', icon: 'WhatsApp', platform: 'whatsapp_group_fr', kind: 'community' },
+    { url: s.whatsappChannelUrl, key: 'whatsapp_channel', label: 'WhatsApp channel', icon: 'WhatsApp', platform: 'whatsapp_channel', kind: 'community' },
+    { url: s.telegramGroupUrl, key: 'telegram_group', label: 'Telegram group', icon: 'Telegram', platform: 'telegram_group', kind: 'community' },
+    { url: s.telegramUrl, key: 'telegram', label: 'Telegram channel', icon: 'Telegram', platform: 'telegram_channel', kind: 'community' },
+    { url: s.messengerUrl, key: 'messenger', label: 'Messenger', icon: 'Messenger', platform: 'messenger', kind: 'community' },
+    { url: s.facebookGroupUrl, key: 'facebook_group', label: 'Facebook group', icon: 'Facebook', platform: 'facebook_group', kind: 'community' },
+    { url: s.facebookUrl, key: 'facebook', label: 'Facebook', icon: 'Facebook', platform: 'facebook', kind: 'follow' },
+    { url: s.instagramUrl, key: 'instagram', label: 'Instagram', icon: 'Instagram', platform: 'instagram', kind: 'follow' },
+    { url: s.tiktokUrl, key: 'tiktok', label: 'TikTok', icon: 'TikTok', platform: 'tiktok', kind: 'follow' },
+    { url: s.youtubeUrl, key: 'youtube', label: 'YouTube', icon: 'YouTube', platform: 'youtube', kind: 'follow' },
+  ];
+  return all.filter((x): x is SocialLink => Boolean(x.url));
+}
+
+/** The places to join, with the WhatsApp group in the person's own language first. */
+export function communityPlaces(s: SocialUrls, lang: 'en' | 'fr'): SocialLink[] {
+  const places = configuredSocials(s).filter((x) => x.kind === 'community');
+  const mine = lang === 'fr' ? 'whatsapp_fr' : 'whatsapp_en';
+  return [...places.filter((x) => x.key === mine), ...places.filter((x) => x.key !== mine)];
+}
+
+export function followPlaces(s: SocialUrls): SocialLink[] {
+  return configuredSocials(s).filter((x) => x.kind === 'follow');
 }

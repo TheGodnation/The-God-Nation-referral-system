@@ -5,6 +5,7 @@ import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { bootstrap } from './testUtils';
 import { joinAsNewMember } from './joinHelper';
+import { createAdmin } from './helpers';
 import { referrerHostOf } from '../routes/referrals';
 
 // Phase A of the growth foundation: ad click codes on visits, recorded consent,
@@ -178,5 +179,50 @@ describe('A member’s own contact choices and the group click', () => {
     expect((await agent.post('/api/member/group-link-click').set('X-CSRF-Token', csrf).send({})).status).toBe(200);
     const reg = await prisma.registration.findFirstOrThrow({ where: { personId: person.id } });
     expect(await prisma.event.count({ where: { type: 'GROUP_LINK_CLICKED', registrationId: reg.id } })).toBe(1);
+  });
+});
+
+describe('Choosing where to join', () => {
+  it('counts a member’s tap on a place, with which place it was', async () => {
+    const { agent, csrf } = await fresh();
+    const whatsapp = freshPhone();
+    await joinAsNewMember(agent, csrf, { email: `place${phone}@example.com`, whatsapp, details: DETAILS });
+    expect((await agent.post('/api/member/group-link-click').set('X-CSRF-Token', csrf).send({ platform: 'telegram_channel' })).status).toBe(200);
+    const ev = await prisma.event.findFirstOrThrow({ where: { type: 'GROUP_LINK_CLICKED' } });
+    expect(ev.detail).toBe('telegram_channel');
+    expect((await agent.post('/api/member/group-link-click').set('X-CSRF-Token', csrf).send({ platform: 'myspace' })).status).toBe(400);
+  });
+
+  it('counts a tap from someone who only left a number, without an account', async () => {
+    const { agent, csrf } = await fresh();
+    expect((await agent.post('/api/leads/click').set('X-CSRF-Token', csrf).send({ platform: 'messenger' })).status).toBe(200);
+    const ev = await prisma.event.findFirstOrThrow({ where: { type: 'GROUP_LINK_CLICKED' } });
+    expect(ev).toMatchObject({ detail: 'messenger', registrationId: null });
+    expect(ev.visitorId).toBeTruthy();
+    expect((await agent.post('/api/leads/click').set('X-CSRF-Token', csrf).send({ platform: 'nope' })).status).toBe(400);
+    expect((await agent.post('/api/leads/click').set('X-CSRF-Token', csrf).send({})).status).toBe(400);
+  });
+
+  it('the admin sets the extra places in Settings and the public settings show them', async () => {
+    await createAdmin('places-admin@test.local', 'AdminPass123!');
+    const admin = request.agent(app);
+    const { csrf } = await bootstrap(admin);
+    await admin.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email: 'places-admin@test.local', password: 'AdminPass123!' });
+    const saved = await admin.patch('/api/admin/settings').set('X-CSRF-Token', csrf).send({
+      whatsappChannelUrl: 'https://whatsapp.com/channel/ABC',
+      telegramGroupUrl: 'https://t.me/godnation_group',
+      telegramUrl: 'https://t.me/godnation',
+      messengerUrl: 'https://m.me/j/XYZ',
+      facebookGroupUrl: 'https://facebook.com/groups/godnation',
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body).toMatchObject({ whatsappChannelUrl: 'https://whatsapp.com/channel/ABC', telegramGroupUrl: 'https://t.me/godnation_group', facebookGroupUrl: 'https://facebook.com/groups/godnation' });
+    const pub = await request(app).get('/api/settings/public');
+    expect(pub.body).toMatchObject({ whatsappChannelUrl: 'https://whatsapp.com/channel/ABC', telegramGroupUrl: 'https://t.me/godnation_group', telegramUrl: 'https://t.me/godnation', messengerUrl: 'https://m.me/j/XYZ', facebookGroupUrl: 'https://facebook.com/groups/godnation' });
+    // Clearing one leaves the others.
+    const cleared = await admin.patch('/api/admin/settings').set('X-CSRF-Token', csrf).send({ telegramGroupUrl: null });
+    expect(cleared.body.telegramGroupUrl).toBeNull();
+    expect(cleared.body.whatsappChannelUrl).toBe('https://whatsapp.com/channel/ABC');
+    expect((await admin.patch('/api/admin/settings').set('X-CSRF-Token', csrf).send({ facebookGroupUrl: 'join us' })).status).toBe(400);
   });
 });

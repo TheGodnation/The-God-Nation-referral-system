@@ -106,7 +106,7 @@ describe('Admin → Settings: the assistance WhatsApp', () => {
     const input = await screen.findByLabelText('Assistance WhatsApp (number or link)');
     fireEvent.change(input, { target: { value: '+237 670 00 00 00' } });
     // Take the old Facebook link away.
-    const facebook = screen.getByLabelText('Facebook');
+    const facebook = screen.getByLabelText('Facebook page');
     await waitFor(() => expect(facebook).toHaveValue('https://facebook.com/groups/old'));
     fireEvent.change(facebook, { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));

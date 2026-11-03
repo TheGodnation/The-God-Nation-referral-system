@@ -62,9 +62,8 @@ function JoinButton({ className = '' }: { className?: string }) {
 // who referred the visitor, and everyone sees the same page.
 export function HomePage() {
   const { t } = useTranslation();
-  const { facebookUrl, instagramUrl, tiktokUrl, youtubeUrl, telegramUrl, messengerUrl, whatsappGroupEnUrl, whatsappGroupFrUrl } = usePublicSettings();
-
-  const socials = configuredSocials({ whatsappGroupEnUrl, whatsappGroupFrUrl, telegramUrl, messengerUrl, facebookUrl, instagramUrl, tiktokUrl, youtubeUrl });
+  const settings = usePublicSettings();
+  const socials = configuredSocials(settings);
 
   return (
     <ContinueIfSignedIn>

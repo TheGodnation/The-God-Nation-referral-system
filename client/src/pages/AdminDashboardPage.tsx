@@ -630,6 +630,9 @@ interface SettingsData {
   supportWhatsappUrl: string | null;
   whatsappGroupEnUrl: string | null;
   whatsappGroupFrUrl: string | null;
+  whatsappChannelUrl: string | null;
+  telegramGroupUrl: string | null;
+  facebookGroupUrl: string | null;
   facebookUrl: string | null;
   instagramUrl: string | null;
   tiktokUrl: string | null;
@@ -650,6 +653,9 @@ const EMPTY_SETTINGS: SettingsData = {
   supportWhatsappUrl: '',
   whatsappGroupEnUrl: '',
   whatsappGroupFrUrl: '',
+  whatsappChannelUrl: '',
+  telegramGroupUrl: '',
+  facebookGroupUrl: '',
   facebookUrl: '',
   instagramUrl: '',
   tiktokUrl: '',
@@ -792,6 +798,9 @@ export function SettingsTab() {
         supportWhatsappUrl: normalizeWhatsappLink(settings.supportWhatsappUrl),
         whatsappGroupEnUrl: normalizeWhatsappLink(settings.whatsappGroupEnUrl),
         whatsappGroupFrUrl: normalizeWhatsappLink(settings.whatsappGroupFrUrl),
+        whatsappChannelUrl: settings.whatsappChannelUrl?.trim() || null,
+        telegramGroupUrl: settings.telegramGroupUrl?.trim() || null,
+        facebookGroupUrl: settings.facebookGroupUrl?.trim() || null,
         facebookUrl: settings.facebookUrl?.trim() || null,
         instagramUrl: settings.instagramUrl?.trim() || null,
         tiktokUrl: settings.tiktokUrl?.trim() || null,
@@ -882,14 +891,31 @@ export function SettingsTab() {
       <AdminMemberBridgeCard />
 
       <div className="card space-y-4">
-        <h2 className="font-semibold text-brand-900">{t('admin.settings.social_heading')}</h2>
+        <h2 className="font-semibold text-brand-900">{t('admin.settings.community_heading')}</h2>
+        <p className="text-xs text-slate-500">{t('admin.settings.community_help')}</p>
         {(
           [
             ['whatsappGroupEnUrl', 'WhatsApp group (English)'],
             ['whatsappGroupFrUrl', 'WhatsApp group (French)'],
-            ['telegramUrl', 'Telegram'],
-            ['messengerUrl', 'Messenger'],
-            ['facebookUrl', 'Facebook'],
+            ['whatsappChannelUrl', 'WhatsApp channel'],
+            ['telegramGroupUrl', 'Telegram group'],
+            ['telegramUrl', 'Telegram channel'],
+            ['messengerUrl', 'Messenger group or community'],
+            ['facebookGroupUrl', 'Facebook group'],
+          ] as const
+        ).map(([key, label]) => (
+          <div key={key}>
+            <label className="label" htmlFor={`social-${key}`}>{label}</label>
+            <input id={`social-${key}`} className="input" value={field(key) ?? ''} onChange={(e) => setField(key, e.target.value)} />
+          </div>
+        ))}
+      </div>
+
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-brand-900">{t('admin.settings.social_heading')}</h2>
+        {(
+          [
+            ['facebookUrl', 'Facebook page'],
             ['instagramUrl', 'Instagram'],
             ['tiktokUrl', 'TikTok'],
             ['youtubeUrl', 'YouTube'],

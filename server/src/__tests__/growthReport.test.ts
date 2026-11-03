@@ -81,7 +81,17 @@ describe('growthReport', () => {
     ] });
     await prisma.lead.create({ data: { name: 'Lead', whatsappNumber: '+237674088888', utmSource: 'facebook', utmCampaign: 'nov' } });
 
+    await prisma.event.createMany({ data: [
+      { type: 'GROUP_LINK_CLICKED', detail: 'whatsapp_group_en' },
+      { type: 'GROUP_LINK_CLICKED', detail: 'telegram_channel' },
+      { type: 'GROUP_LINK_CLICKED', detail: 'telegram_channel' },
+    ] });
+
     const r = await growthReport(30);
+    // The joiner above tapped before places were recorded: counted as unknown.
+    expect(r.byPlatform[0]).toEqual({ platform: 'telegram_channel', taps: 2 });
+    expect(r.byPlatform).toContainEqual({ platform: 'whatsapp_group_en', taps: 1 });
+    expect(r.byPlatform).toContainEqual({ platform: 'unknown', taps: 1 });
     expect(r.totals).toMatchObject({ registered: 4, confirmed: 3, profileCompleted: 2, joinedGroup: 1, firstChat: 1, firstExam: 1, returned7: 2, returned30: 0, leads: 1, visitors: 2 });
 
     const fb = r.bySource.find((x) => x.source === 'facebook' && x.campaign === 'nov')!;

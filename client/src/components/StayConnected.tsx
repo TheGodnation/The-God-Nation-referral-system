@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, ensureCsrfReady } from '../lib/api';
+import { CommunityChoices } from './CommunityChoices';
+import { usePublicSettings } from '../lib/usePublicSettings';
 
 // "Stay connected": for visitors who are not ready to make an account. A name
 // and a WhatsApp number, and their own tick to agree to updates on WhatsApp.
 // Nothing is kept without the tick (the server refuses it as well).
 export function StayConnected({ className = '' }: { className?: string }) {
   const { t, i18n } = useTranslation();
+  const settings = usePublicSettings();
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [agree, setAgree] = useState(false);
@@ -46,10 +49,21 @@ export function StayConnected({ className = '' }: { className?: string }) {
     <section className={`mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`} data-testid="stay-connected">
       <h2 className="text-lg font-bold text-brand-900">{t('stayConnected.title')}</h2>
       {done ? (
-        <div role="status" className="mt-3 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
-          <p className="font-medium">{t('stayConnected.thanks_title')}</p>
-          <p>{t('stayConnected.thanks_body')}</p>
-        </div>
+        <>
+          <div role="status" className="mt-3 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+            <p className="font-medium">{t('stayConnected.thanks_title')}</p>
+            <p>{t('stayConnected.thanks_body')}</p>
+          </div>
+          <div className="mt-4">
+            <p className="mb-2 text-sm font-semibold text-brand-900">{t('stayConnected.choose_title')}</p>
+            <p className="mb-3 text-xs text-slate-500">{t('stayConnected.choose_body')}</p>
+            <CommunityChoices
+              settings={settings}
+              titleKeyPrefix="stayConnected"
+              onTap={(platform) => void api.post('/api/leads/click', { platform }).catch(() => {})}
+            />
+          </div>
+        </>
       ) : (
         <form onSubmit={submit} className="mt-2 space-y-3" noValidate>
           <p className="text-sm text-slate-600">{t('stayConnected.body')}</p>
