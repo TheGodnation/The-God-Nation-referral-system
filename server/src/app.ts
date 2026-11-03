@@ -19,6 +19,7 @@ import leadsRoutes from './routes/leads';
 import unsubscribeRoutes from './routes/unsubscribe';
 import { adminRemindersRoutes, memberCentralRemindersRoutes } from './routes/adminReminders';
 import { adminAdsRoutes, memberCentralAdsRoutes } from './routes/adminAds';
+import { publicSiteRouter } from './lib/publicSite/router';
 import { spaHandler } from './lib/ogMeta';
 import { adminGrowthRoutes, memberCentralGrowthRoutes } from './routes/adminGrowth';
 import memberContactConsentRoutes from './routes/memberContactConsent';
@@ -110,6 +111,9 @@ export function createApp() {
       credentials: true,
     }),
   );
+  // The public website (/en/…, /fr/…): complete HTML pages, no cookies. Off unless
+  // PUBLIC_SITE_ENABLED=true. Placed before the cookie, session and API steps on purpose.
+  if (process.env.PUBLIC_SITE_ENABLED === 'true') app.use(publicSiteRouter());
   // 1mb: a 65,536-character chat message (WhatsApp's own limit, now matched
   // by communityConversations.ts/privateMessages.ts) can be a few hundred KB
   // once multi-byte UTF-8 (accented French text, emoji) is accounted for.
