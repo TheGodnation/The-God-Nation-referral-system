@@ -43,6 +43,14 @@
 const GUIDE_PREFIXES = ['/leader-guide/', '/notifications-guide/', '/phone-settings-guide/', '/no-app-guide/'];
 const isGuidePath = (p) => GUIDE_PREFIXES.some((g) => p.startsWith(g));
 
+// The public website and Knowledge Centre (/en/… and /fr/…): complete pages written
+// by the server, each different from the next. They must stay entirely out of this
+// worker. Otherwise every page opened there would be saved as the app's offline start
+// page (see networkFirstPage), and opening the installed app without internet would show
+// that page instead of the app. Same technique as the guide folders above.
+const PUBLIC_SITE_ROOTS = ['/en', '/fr'];
+const isPublicSitePath = (p) => PUBLIC_SITE_ROOTS.some((r) => p === r || p.startsWith(r + '/'));
+
 const CACHE_VERSION = 'god-nation-v6';
 // The app's start page for offline launches, kept apart from the asset
 // cache (and never deleted by a cache-version bump of the assets).
@@ -140,7 +148,7 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     if (url.origin !== self.location.origin) return;
-    if (url.pathname.startsWith('/api/') || isGuidePath(url.pathname)) return;
+    if (url.pathname.startsWith('/api/') || isGuidePath(url.pathname) || isPublicSitePath(url.pathname)) return;
     event.respondWith(networkFirstPage(request));
     return;
   }
@@ -153,7 +161,7 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
-  if (isGuidePath(url.pathname)) return;
+  if (isGuidePath(url.pathname) || isPublicSitePath(url.pathname)) return;
 
   event.respondWith(
     (async () => {
