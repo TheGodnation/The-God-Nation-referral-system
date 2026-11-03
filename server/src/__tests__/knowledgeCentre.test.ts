@@ -333,6 +333,33 @@ describe('Writing, reviewing and publishing', () => {
   });
 });
 
+describe('The editing screen needs', () => {
+  it('a safe preview of the text, the public address of each version, and the areas with their address words', async () => {
+    const a = await admin();
+    const prev = await a.agent.post(`${base}/preview`).set('X-CSRF-Token', a.csrf).send({ body: '## Hello\n\n<script>alert(1)</script> and **bold**' });
+    expect(prev.status).toBe(200);
+    expect(prev.body.html).toContain('<h2 id="hello">Hello</h2>');
+    expect(prev.body.html).not.toContain('<script');
+    expect(prev.body.html).toContain('<strong>bold</strong>');
+    expect(prev.body.readingMinutes).toBe(1);
+    expect((await a.agent.post(`${base}/preview`).send({ body: 'x' })).status).toBe(403);
+    expect((await agentWithIp().post(`${base}/preview`).send({ body: 'x' })).status).toBe(401);
+
+    const slug = `edit-screen-${RUN}`;
+    const id = await makeArticle(a);
+    await putTr(a, id, 'en', { title: 'Screen', summary: 'S.', body: 'b', slug });
+    const draft = await a.agent.get(`${base}/articles/${id}`);
+    expect(draft.body.translations[0]).toMatchObject({ lang: 'en', publicPath: enPath(slug), isPublic: false });
+    await review(a, id, 'en');
+    await publish(a, id);
+    const live = await a.agent.get(`${base}/articles/${id}`);
+    expect(live.body.translations[0].isPublic).toBe(true);
+    const list = await a.agent.get(base);
+    expect(list.body.divisions).toHaveLength(6);
+    expect(list.body.divisions[0].slug).toEqual({ en: DIV.slug.en, fr: DIV.slug.fr });
+  });
+});
+
 describe('When the database is away', () => {
   it('keeps serving the last good pages; with none yet, answers "try again" (503), never a false not-found', async () => {
     const a = await admin();

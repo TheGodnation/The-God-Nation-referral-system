@@ -9,8 +9,8 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
-import { DIVISIONS } from '../lib/publicSite/content';
-import { readingMinutes, slugOf } from '../lib/publicSite/text';
+import { DIVISIONS, SECTION } from '../lib/publicSite/content';
+import { readingMinutes, renderBody, slugOf } from '../lib/publicSite/text';
 import { invalidatePublicSite } from '../lib/publicSite/router';
 
 // The Knowledge Centre's editing tools (central admin only). Nothing here can reach the
@@ -71,9 +71,24 @@ const articleSelect = {
   relatedTo: { select: { toId: true } },
 } satisfies Prisma.KnowledgeArticleSelect;
 
+/** Where a version lives on the public site (only reachable once published and reviewed). */
+function publicPathOf(divisionKey: string, lang: 'en' | 'fr', slug: string): string | null {
+  const d = DIVISIONS.find((x) => x.key === divisionKey);
+  return d ? `/${lang}/${SECTION[lang].knowledge}/${d.slug[lang]}/${slug}/` : null;
+}
+
 function shape(a: Prisma.KnowledgeArticleGetPayload<{ select: typeof articleSelect }>) {
   const { relatedTo, ...rest } = a;
-  return { ...rest, relatedIds: relatedTo.map((r) => r.toId) };
+  return {
+    ...rest,
+    translations: rest.translations.map((t) => ({
+      ...t,
+      publicPath: publicPathOf(a.divisionKey, t.lang as 'en' | 'fr', t.slug),
+      // Visible to the public right now: published, and a person has reviewed this version.
+      isPublic: a.status === 'PUBLISHED' && Boolean(t.reviewedAt),
+    })),
+    relatedIds: relatedTo.map((r) => r.toId),
+  };
 }
 
 function build(resolveActor: (req: Request) => Promise<Actor | null>) {
@@ -93,7 +108,7 @@ function build(resolveActor: (req: Request) => Promise<Actor | null>) {
       prisma.knowledgeAuthor.findMany({ orderBy: { name: 'asc' } }),
     ]);
     res.json({
-      divisions: DIVISIONS.map((d) => ({ key: d.key, name: d.name })),
+      divisions: DIVISIONS.map((d) => ({ key: d.key, name: d.name, slug: d.slug })),
       authors,
       // The list leaves out the long text; open one article to read or edit it.
       articles: articles.map((a) => {
@@ -101,6 +116,13 @@ function build(resolveActor: (req: Request) => Promise<Actor | null>) {
         return { ...s, translations: s.translations.map(({ body: _b, faq: _f, ...t }) => t) };
       }),
     });
+  }));
+
+  // How a piece of article text will look: the very same safe renderer the public pages use.
+  router.post('/preview', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const p = z.object({ body: z.string().max(100_000) }).safeParse(req.body);
+    if (!p.success) return bad(res, 'Send the text to preview.');
+    res.json({ html: renderBody(p.data.body), readingMinutes: readingMinutes(p.data.body) });
   }));
 
   router.get('/articles/:id', asyncHandler(async (req, res) => {

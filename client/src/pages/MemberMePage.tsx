@@ -7,6 +7,7 @@ import { MemberNav } from '../components/member/MemberNav';
 import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { ContactPreferencesCard } from '../components/member/ContactPreferencesCard';
 import { GrowthPanel } from '../components/admin/GrowthPanel';
+import { KnowledgePanel } from '../components/admin/KnowledgePanel';
 import { WallHeader } from '../components/wall/WallHeader';
 import { PhotoGrid, WallTabs } from '../components/wall/PhotoGrid';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
@@ -38,7 +39,7 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-type Tab = 'posts' | 'photos' | 'progress' | 'cells' | 'giving' | 'growth';
+type Tab = 'posts' | 'photos' | 'progress' | 'cells' | 'giving' | 'growth' | 'knowledge';
 
 // "My progress" tab: this month's devotional exam scores, leadership
 // training books passed, and the member's group(s).
@@ -352,6 +353,7 @@ export function MemberMePage() {
                     { id: 'cells' as const, label: t('cells.tab') },
                     { id: 'giving' as const, label: t('givingAdmin.tab') },
                     { id: 'growth' as const, label: t('growth.tab') },
+                    { id: 'knowledge' as const, label: t('knowledgeAdmin.tab') },
                   ]
                 : []),
             ]}
@@ -365,6 +367,7 @@ export function MemberMePage() {
           {tab === 'cells' && member.isCentralAdmin && <CellsPanel base="/api/member/central-cells" />}
           {tab === 'giving' && member.isCentralAdmin && <GivingPanel base="/api/member/central-giving" />}
           {tab === 'growth' && member.isCentralAdmin && <GrowthPanel base="/api/member/central-growth" />}
+          {tab === 'knowledge' && member.isCentralAdmin && <KnowledgePanel base="/api/member/central-knowledge" />}
         </div>
         <MemberNav />
       </section>

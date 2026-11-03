@@ -3,6 +3,7 @@ import { AccountDeletionsTab } from '../components/admin/AccountDeletionsTab';
 import { SignInTroubleTab } from '../components/admin/SignInTroubleTab';
 import { AdminOnlineNow } from '../components/admin/AdminOnlineNow';
 import { GrowthPanel } from '../components/admin/GrowthPanel';
+import { KnowledgePanel } from '../components/admin/KnowledgePanel';
 import { AdminWallpaperPicker } from '../components/admin/AdminWallpaperPicker';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +40,7 @@ import { useAuth } from '../lib/AuthContext';
 
 type Tab =
   | 'growth'
+  | 'knowledge'
   | 'overview'
   | 'leaders'
   | 'registrations'
@@ -1709,6 +1711,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'growth'} onClick={() => setTab('growth')}>
               {t('admin.tabs.growth')}
             </TabButton>
+            <TabButton active={tab === 'knowledge'} onClick={() => setTab('knowledge')}>
+              {t('admin.tabs.knowledge')}
+            </TabButton>
             <TabButton active={tab === 'followUps'} onClick={() => setTab('followUps')}>
               {t('admin.tabs.followUps')}
             </TabButton>
@@ -1782,6 +1787,7 @@ export function AdminDashboardPage() {
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
         {tab === 'giving' && <GivingPanel base="/api/admin/giving" />}
         {tab === 'growth' && <GrowthPanel base="/api/admin/growth" />}
+        {tab === 'knowledge' && <KnowledgePanel base="/api/admin/knowledge" />}
         {tab === 'geographicAreas' && <GeographicAreasTab />}
         {tab === 'areaRepresentationRequests' && <AreaRepresentationRequestsTab />}
         {tab === 'followUps' && <FollowUpsTab />}
