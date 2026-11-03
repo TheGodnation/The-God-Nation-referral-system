@@ -124,6 +124,12 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
     if (personId) void deleteAllFor(personId);
     // Unsent drafts leave the phone too, so the next person never sees them.
     clearAllDrafts();
+    // So do the lists kept for offline use (Learn, the School and its books).
+    try {
+      for (const k of Object.keys(localStorage)) if (/^(school|school-book|exam-world):/.test(k)) localStorage.removeItem(k);
+    } catch {
+      // Storage unavailable: nothing was kept.
+    }
   }
 
   useEffect(() => {

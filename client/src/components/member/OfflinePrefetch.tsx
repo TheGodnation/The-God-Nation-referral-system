@@ -7,7 +7,7 @@ let done = false;
 
 // When a member has books or documents downloaded on this phone, quietly
 // fetch (once per visit, with internet) the parts of the app needed to
-// open them offline — the reader, Downloads, the school pages and PDF.js —
+// open them offline — the reader, Downloads, Learn, the school pages and PDF.js —
 // so the phone keeps them (public/sw.js) for when there is no internet.
 export function OfflinePrefetch() {
   const { member } = useMemberAuth();
@@ -24,8 +24,9 @@ export function OfflinePrefetch() {
         import('../../pages/MemberDownloadsPage'),
         import('../../pages/MemberSchoolPage'),
         import('../../pages/MemberSchoolBookPage'),
+        import('../../pages/MemberLearnPage'),
         loadPdfJs(),
-        fetch(PDFJS_WORKER_URL, { mode: 'no-cors' }),
+        fetch(PDFJS_WORKER_URL),
       ]);
     }, 4000);
     return () => window.clearTimeout(timer);

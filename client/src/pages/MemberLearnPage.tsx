@@ -7,6 +7,8 @@ import { PayPromptCard, SCHOOL_BOOK_COUNT, SchoolSummary } from '../components/l
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api, ApiError } from '../lib/api';
+import { cachedGet } from '../lib/cachedGet';
+import { useMemberAuth } from '../lib/MemberAuthContext';
 
 interface WeeklyExam {
   id: string;
@@ -108,13 +110,19 @@ function OfferingBox({ devotional, instructions, onGiven }: { devotional: Devoti
 export function MemberLearnPage() {
   const { t, i18n } = useTranslation();
   const isFr = i18n.language.startsWith('fr');
+  const { member } = useMemberAuth();
   const [data, setData] = useState<ExamWorld | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // True when there is no internet and what is shown is the last copy kept on this phone.
+  const [fromCache, setFromCache] = useState(false);
 
   function load() {
-    api
-      .get<ExamWorld>('/api/member/exam-world')
-      .then(setData)
+    cachedGet<ExamWorld>('/api/member/exam-world', `exam-world:${member?.personId ?? ''}`)
+      .then((r) => {
+        setData(r.data);
+        setFromCache(r.fromCache);
+        setError(null);
+      })
       .catch(() => setError(t('learn.load_failed')));
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,6 +138,7 @@ export function MemberLearnPage() {
           <h1 className="text-2xl font-bold text-brand-900">{t('learn.title')}</h1>
           <NotificationBell />
         </div>
+        {fromCache && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">📶 {t('school.offline_saved')}</p>}
         {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
         {!data && !error && <p className="text-center text-slate-400">{t('learn.loading')}</p>}
 
