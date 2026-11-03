@@ -3882,6 +3882,28 @@
     "dynamic_help_google": "Dans Google Ads, collez le lien complet comme « modèle de suivi » (remplacez le début par {lpurl} si Google le demande) : Google remplit les identifiants de campagne et de création."
   },
   "knowledgeAdmin": {
+    "and_more": "…et {{count}} de plus",
+    "needs_approval": "En attente de l'approbation d'une personne ({{count}})",
+    "one_language": "Publiés dans une seule langue ({{count}})",
+    "leave_confirm": "Des modifications ne sont pas enregistrées. Quitter sans enregistrer ? (Une copie est gardée sur cet appareil pour vous.)",
+    "restore_text": "Des mots saisis plus tôt sur cet appareil n'ont pas été enregistrés. Les récupérer ?",
+    "restore": "Les récupérer",
+    "discard": "Les abandonner",
+    "unsaved": "Modifications non enregistrées",
+    "words": "{{words}} mots · environ {{minutes}} min de lecture",
+    "fmt": {
+      "toolbar": "Mise en forme",
+      "heading": "Titre",
+      "subheading": "Sous-titre",
+      "bold": "Gras",
+      "italic": "Italique",
+      "list": "Liste à puces",
+      "numbered": "Liste numérotée",
+      "quote": "Citation",
+      "link": "Lien",
+      "link_prompt": "Adresse web du lien (elle peut commencer par https:// ou par / pour une page de ce site) :",
+      "placeholder": "vos mots"
+    },
     "tab": "Centre de connaissance",
     "title": "Centre de connaissance",
     "loading": "Chargement…",

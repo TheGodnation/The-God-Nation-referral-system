@@ -3882,6 +3882,28 @@
     "dynamic_help_google": "In Google Ads, paste the full link as the “tracking template” (replace the start with {lpurl} if Google asks): Google fills in the campaign and creative ids."
   },
   "knowledgeAdmin": {
+    "and_more": "…and {{count}} more",
+    "needs_approval": "Waiting for a person's approval ({{count}})",
+    "one_language": "Published in one language only ({{count}})",
+    "leave_confirm": "You have changes that are not saved. Leave without saving? (A copy is kept on this device for you.)",
+    "restore_text": "Words you typed earlier on this device were not saved. Bring them back?",
+    "restore": "Bring them back",
+    "discard": "Discard them",
+    "unsaved": "Unsaved changes",
+    "words": "{{words}} words · about {{minutes}} min read",
+    "fmt": {
+      "toolbar": "Formatting",
+      "heading": "Heading",
+      "subheading": "Smaller heading",
+      "bold": "Bold",
+      "italic": "Italic",
+      "list": "Bullet list",
+      "numbered": "Numbered list",
+      "quote": "Quotation",
+      "link": "Link",
+      "link_prompt": "Web address for the link (it can start with https:// or with / for a page on this site):",
+      "placeholder": "your words"
+    },
     "tab": "Knowledge Centre",
     "title": "Knowledge Centre",
     "loading": "Loading…",

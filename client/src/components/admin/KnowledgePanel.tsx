@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
+import { applyFormat, wordStats, type Fmt } from '../../lib/articleFormat';
 
 // The central admin's Knowledge Centre editor: write an article in English and French, have a
 // person review each language, then publish. Nothing reaches the public website until a version
@@ -101,6 +102,8 @@ export function KnowledgePanel({ base }: { base: string }) {
         {msg && <p role="status" className={`text-sm font-medium ${msg.ok ? 'text-green-700' : 'text-red-700'}`}>{msg.text}</p>}
       </div>
 
+      <Attention articles={data.articles} titleOf={titleOf} onOpen={setOpenId} />
+
       <div className="flex flex-wrap gap-2" role="group" aria-label={t('knowledgeAdmin.filter') ?? ''}>
         {FILTERS.map((f) => (
           <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f}
@@ -140,6 +143,43 @@ export function KnowledgePanel({ base }: { base: string }) {
       )}
 
       <AuthorsBox base={base} authors={data.authors} onChanged={load} />
+    </div>
+  );
+}
+
+// What needs a person's attention: versions written but not approved, and published articles
+// that exist in only one language.
+function Attention({ articles, titleOf, onOpen }: { articles: Article[]; titleOf: (a: Article) => string; onOpen: (id: string) => void }) {
+  const { t } = useTranslation();
+  const toApprove = articles.filter((a) => a.status !== 'UNPUBLISHED' && a.translations.some((x) => !x.reviewedAt));
+  const oneLanguage = articles.filter((a) => a.status === 'PUBLISHED' && a.translations.filter((x) => x.reviewedAt).length < 2);
+  const counts = (['DRAFT', 'IN_REVIEW', 'APPROVED', 'PUBLISHED'] as Status[]).map((st) => [st, articles.filter((a) => a.status === st).length] as const);
+  if (articles.length === 0) return null;
+  const list = (items: Article[]) => (
+    <ul className="mt-1 space-y-1">
+      {items.slice(0, 5).map((a) => (
+        <li key={a.id}><button type="button" className="text-left text-sm text-brand-700 underline" onClick={() => onOpen(a.id)}>{titleOf(a)}</button></li>
+      ))}
+      {items.length > 5 && <li className="text-xs text-slate-500">{t('knowledgeAdmin.and_more', { count: items.length - 5 })}</li>}
+    </ul>
+  );
+  return (
+    <div className="card space-y-3" data-testid="kc-attention">
+      <div className="flex flex-wrap gap-2 text-xs">
+        {counts.map(([st, n]) => <span key={st} className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">{t(`knowledgeAdmin.status.${st}`)}: <b>{n}</b></span>)}
+      </div>
+      {toApprove.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-amber-800">{t('knowledgeAdmin.needs_approval', { count: toApprove.length })}</h3>
+          {list(toApprove)}
+        </div>
+      )}
+      {oneLanguage.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-amber-800">{t('knowledgeAdmin.one_language', { count: oneLanguage.length })}</h3>
+          {list(oneLanguage)}
+        </div>
+      )}
     </div>
   );
 }
@@ -200,6 +240,44 @@ function AuthorsBox({ base, authors, onChanged }: { base: string; authors: Autho
   );
 }
 
+const BAR: { kind: Fmt; label: string; key: string; cls?: string }[] = [
+  { kind: 'h2', label: 'H', key: 'heading', cls: 'font-bold' },
+  { kind: 'h3', label: 'h', key: 'subheading', cls: 'font-semibold text-sm' },
+  { kind: 'bold', label: 'B', key: 'bold', cls: 'font-bold' },
+  { kind: 'italic', label: 'I', key: 'italic', cls: 'italic' },
+  { kind: 'ul', label: '•', key: 'list' },
+  { kind: 'ol', label: '1.', key: 'numbered' },
+  { kind: 'quote', label: '❝', key: 'quote' },
+  { kind: 'link', label: '🔗', key: 'link' },
+];
+
+// Buttons that add the simple markers around the selected words, so nobody types them by hand.
+function FormatBar({ areaRef, value, onChange }: { areaRef: React.RefObject<HTMLTextAreaElement>; value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation();
+  function run(kind: Fmt) {
+    const el = areaRef.current;
+    const start = el?.selectionStart ?? value.length;
+    const end = el?.selectionEnd ?? value.length;
+    let url: string | undefined;
+    if (kind === 'link') {
+      url = window.prompt(t('knowledgeAdmin.fmt.link_prompt') ?? '', 'https://') ?? '';
+      if (!url.trim() || url.trim() === 'https://') return;
+    }
+    const r = applyFormat(value, start, end, kind, url, t('knowledgeAdmin.fmt.placeholder') ?? 'text');
+    onChange(r.text);
+    // Put the selection back on the formatted words once the text has been redrawn.
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(r.start, r.end); });
+  }
+  return (
+    <div role="toolbar" aria-label={t('knowledgeAdmin.fmt.toolbar') ?? ''} className="flex flex-wrap gap-1" data-testid="kc-toolbar">
+      {BAR.map((b) => (
+        <button key={b.kind} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => run(b.kind)} title={t(`knowledgeAdmin.fmt.${b.key}`) ?? ''} aria-label={t(`knowledgeAdmin.fmt.${b.key}`) ?? ''}
+          className={`min-w-[2.25rem] rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 hover:bg-slate-50 ${b.cls ?? ''}`}>{b.label}</button>
+      ))}
+    </div>
+  );
+}
+
 interface TrForm { title: string; summary: string; body: string; slug: string; seoTitle: string; seoDescription: string; faq: Faq[] }
 const emptyForm = (): TrForm => ({ title: '', summary: '', body: '', slug: '', seoTitle: '', seoDescription: '', faq: [] });
 const formOf = (tr?: Tr): TrForm => (tr ? { title: tr.title, summary: tr.summary, body: tr.body ?? '', slug: tr.slug, seoTitle: tr.seoTitle ?? '', seoDescription: tr.seoDescription ?? '', faq: tr.faq ?? [] } : emptyForm());
@@ -214,13 +292,66 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const apply = useCallback((a: Article) => {
+  // After a change, bring in the server's copy. Only the parts that were just saved replace what is
+  // on screen, so unsaved words in the other language (or in the details) are never thrown away.
+  const apply = useCallback((a: Article, parts: { langs?: Lang[]; meta?: boolean } = {}) => {
     setArt(a);
-    setForms({ en: formOf(a.translations.find((x) => x.lang === 'en')), fr: formOf(a.translations.find((x) => x.lang === 'fr')) });
-    setMeta({ divisionKey: a.divisionKey, authorId: a.authorId ?? '', imageUrl: a.featuredImageUrl ?? '', altEn: a.featuredImageAltEn ?? '', altFr: a.featuredImageAltFr ?? '', ai: a.aiAssisted, source: a.sourceNote ?? '', related: a.relatedIds });
+    if (parts.langs?.length) {
+      setForms((prev) => {
+        const next = { ...prev };
+        for (const l of parts.langs!) next[l] = formOf(a.translations.find((x) => x.lang === l));
+        return next;
+      });
+    }
+    if (parts.meta) setMeta({ divisionKey: a.divisionKey, authorId: a.authorId ?? '', imageUrl: a.featuredImageUrl ?? '', altEn: a.featuredImageAltEn ?? '', altFr: a.featuredImageAltFr ?? '', ai: a.aiAssisted, source: a.sourceNote ?? '', related: a.relatedIds });
   }, []);
-  const reload = useCallback(() => api.get<Article>(`${base}/articles/${id}`).then(apply), [base, id, apply]);
-  useEffect(() => { reload().catch(() => setMsg({ ok: false, text: t('knowledgeAdmin.load_failed') })); }, [reload, t]);
+  const reload = useCallback((parts: { langs?: Lang[]; meta?: boolean } = {}) => api.get<Article>(`${base}/articles/${id}`).then((a) => { apply(a, parts); return a; }), [base, id, apply]);
+  const [restorable, setRestorable] = useState<Partial<Record<Lang, TrForm>>>({});
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const draftKey = (l: Lang) => `kc-draft:${id}:${l}`;
+  useEffect(() => {
+    reload({ langs: LANGS, meta: true })
+      .then((a) => {
+        // Words typed earlier on this device but never saved (a closed tab, a lost connection) are offered back.
+        const found: Partial<Record<Lang, TrForm>> = {};
+        for (const l of LANGS) {
+          try {
+            const raw = localStorage.getItem(draftKey(l));
+            if (!raw) continue;
+            const saved = JSON.parse(raw) as TrForm;
+            if (JSON.stringify(saved) !== JSON.stringify(formOf(a.translations.find((x) => x.lang === l)))) found[l] = saved;
+          } catch { /* nothing kept, or storage unavailable */ }
+        }
+        setRestorable(found);
+      })
+      .catch(() => setMsg({ ok: false, text: t('knowledgeAdmin.load_failed') }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reload]);
+
+  // Unsaved changes: compare what is on screen with what was last saved, per language.
+  const savedForm = (l: Lang) => formOf(art?.translations.find((x) => x.lang === l));
+  const dirty: Record<Lang, boolean> = { en: false, fr: false };
+  for (const l of LANGS) dirty[l] = Boolean(art) && JSON.stringify(forms[l]) !== JSON.stringify(savedForm(l));
+  const anyDirty = dirty.en || dirty.fr;
+  useEffect(() => {
+    // Keep a copy on this device while there are unsaved changes (a short pause after typing).
+    const timer = setTimeout(() => {
+      for (const l of LANGS) {
+        try {
+          if (dirty[l]) localStorage.setItem(draftKey(l), JSON.stringify(forms[l]));
+          else localStorage.removeItem(draftKey(l));
+        } catch { /* storage unavailable: the screen still works */ }
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forms, art]);
+  useEffect(() => {
+    if (!anyDirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [anyDirty]);
 
   if (!art) return <p className="text-center text-slate-400">{t('knowledgeAdmin.loading')}</p>;
 
@@ -238,7 +369,8 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
         title: f.title, summary: f.summary, body: f.body, ...(f.slug ? { slug: f.slug } : {}),
         seoTitle: f.seoTitle || null, seoDescription: f.seoDescription || null, faq: f.faq.filter((x) => x.q.trim() && x.a.trim()),
       });
-      await reload();
+      await reload({ langs: [lang] });
+      try { localStorage.removeItem(draftKey(lang)); } catch { /* ignore */ }
       onChanged();
       ok(r.reviewReset ? t('knowledgeAdmin.saved_reset') : t('knowledgeAdmin.saved'));
     } catch (err) { fail(err); }
@@ -251,7 +383,7 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
         divisionKey: meta.divisionKey, authorId: meta.authorId || null, featuredImageUrl: meta.imageUrl || null,
         featuredImageAltEn: meta.altEn || null, featuredImageAltFr: meta.altFr || null, aiAssisted: meta.ai, sourceNote: meta.source || null, relatedIds: meta.related,
       });
-      await reload();
+      await reload({ meta: true });
       onChanged();
       ok(t('knowledgeAdmin.saved'));
     } catch (err) { fail(err); }
@@ -278,7 +410,7 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
 
   return (
     <div className="space-y-4" data-testid="kc-editor">
-      <button type="button" className="text-sm text-brand-700 underline" onClick={onBack}>← {t('knowledgeAdmin.back')}</button>
+      <button type="button" className="text-sm text-brand-700 underline" onClick={() => { if (!anyDirty || window.confirm(t('knowledgeAdmin.leave_confirm') ?? '')) onBack(); }}>← {t('knowledgeAdmin.back')}</button>
 
       <div className="card space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -301,11 +433,19 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
           return (
             <button key={l} type="button" role="tab" aria-selected={lang === l} onClick={() => { setLang(l); setPreview(null); }}
               className={`rounded-full border px-4 py-1.5 text-sm font-semibold ${lang === l ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>
-              {l === 'en' ? 'English' : 'Français'} {x?.reviewedAt ? '✓' : x ? '…' : ''}
+              {l === 'en' ? 'English' : 'Français'} {x?.reviewedAt ? '✓' : x ? '…' : ''}{dirty[l] ? ' ●' : ''}
             </button>
           );
         })}
       </div>
+
+      {restorable[lang] && (
+        <div role="alert" className="card flex flex-wrap items-center gap-3 border-amber-300 bg-amber-50 text-sm text-amber-900" data-testid="kc-restore">
+          <span>{t('knowledgeAdmin.restore_text')}</span>
+          <button type="button" className="btn-primary" onClick={() => { setForms({ ...forms, [lang]: restorable[lang]! }); setRestorable({ ...restorable, [lang]: undefined }); }}>{t('knowledgeAdmin.restore')}</button>
+          <button type="button" className="btn-secondary" onClick={() => { try { localStorage.removeItem(draftKey(lang)); } catch { /* ignore */ } setRestorable({ ...restorable, [lang]: undefined }); }}>{t('knowledgeAdmin.discard')}</button>
+        </div>
+      )}
 
       <form onSubmit={saveTr} className="card space-y-3">
         <label className="label" htmlFor="kc-title">{t('knowledgeAdmin.f_title')}</label>
@@ -313,7 +453,9 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
         <label className="label" htmlFor="kc-summary">{t('knowledgeAdmin.f_summary')}</label>
         <textarea id="kc-summary" className="input" required rows={2} maxLength={500} value={f.summary} onChange={(e) => setF({ summary: e.target.value })} />
         <label className="label" htmlFor="kc-body">{t('knowledgeAdmin.f_body')}</label>
-        <textarea id="kc-body" className="input font-serif" rows={16} maxLength={100000} value={f.body} onChange={(e) => setF({ body: e.target.value })} />
+        <FormatBar areaRef={bodyRef} value={f.body} onChange={(body) => setF({ body })} />
+        <textarea id="kc-body" ref={bodyRef} className="input font-serif" rows={16} maxLength={100000} value={f.body} onChange={(e) => setF({ body: e.target.value })} />
+        <p className="text-xs text-slate-500" data-testid="kc-words">{t('knowledgeAdmin.words', { words: wordStats(f.body).words, minutes: wordStats(f.body).minutes })}</p>
         <p className="text-xs text-slate-500">{t('knowledgeAdmin.body_help')}</p>
         <button type="button" className="btn-secondary" onClick={showPreview}>{preview === null ? t('knowledgeAdmin.preview') : t('knowledgeAdmin.hide_preview')}</button>
         {preview !== null && (
@@ -347,7 +489,10 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
           </div>
         </details>
 
-        <button type="submit" className="btn-primary">{t('knowledgeAdmin.save_version', { lang: lang.toUpperCase() })}</button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="submit" className="btn-primary">{t('knowledgeAdmin.save_version', { lang: lang.toUpperCase() })}</button>
+          {dirty[lang] && <span className="text-sm font-medium text-amber-800" data-testid="kc-unsaved">● {t('knowledgeAdmin.unsaved')}</span>}
+        </div>
       </form>
 
       {tr && (
