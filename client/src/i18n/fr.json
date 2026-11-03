@@ -3882,6 +3882,25 @@
     "dynamic_help_google": "Dans Google Ads, collez le lien complet comme « modèle de suivi » (remplacez le début par {lpurl} si Google le demande) : Google remplit les identifiants de campagne et de création."
   },
   "knowledgeAdmin": {
+    "pic": {
+      "title": "Image principale (facultatif)",
+      "none": "Pas encore d'image.",
+      "choose": "Choisir une image",
+      "change": "Choisir une autre image",
+      "remove": "Retirer l'image",
+      "preparing": "Préparation de l'image…",
+      "sending": "Envoi… {{percent}} %",
+      "saving": "Enregistrement…",
+      "help": "Choisissez une photo sur ce téléphone. Elle est réduite pour vous, afin que le site reste rapide. Donnez-lui ensuite une courte description dans chaque langue ci-dessous (pour les personnes qui ne la voient pas) et enregistrez les détails.",
+      "earlier": "Images envoyées précédemment",
+      "no_earlier": "Aucune pour le moment.",
+      "use": "Utiliser cette image",
+      "delete_confirm": "Supprimer définitivement cette image ? Cette action est irréversible.",
+      "advanced": "Ou coller l'adresse d'une image",
+      "err_read": "Ce fichier n'a pas pu être lu comme une image. Essayez une photo JPEG, PNG ou WebP.",
+      "err_storage": "L'envoi d'images n'est pas disponible pour le moment. Veuillez réessayer plus tard.",
+      "err_send": "L'image n'a pas pu être envoyée. Vérifiez votre connexion et réessayez."
+    },
     "and_more": "…et {{count}} de plus",
     "needs_approval": "En attente de l'approbation d'une personne ({{count}})",
     "one_language": "Publiés dans une seule langue ({{count}})",

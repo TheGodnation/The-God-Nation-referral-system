@@ -3814,3 +3814,18 @@ model KnowledgeArticleLink {
 
   @@unique([fromId, toId])
 }
+
+// A picture uploaded for the public Knowledge Centre. The file itself lives in object storage;
+// the public website serves it through the app at /media/k/<id>.<ext> (long-cached, never listed).
+model KnowledgeMedia {
+  id         String   @id @default(uuid())
+  storageKey String   @unique
+  mimeType   String
+  byteSize   Int
+  width      Int
+  height     Int
+  altEn      String?
+  altFr      String?
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+}

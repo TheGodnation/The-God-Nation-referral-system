@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
@@ -6,7 +7,8 @@ import { requireAuth, requireRole } from '../lib/auth';
 import { requireMember } from '../lib/memberAuth';
 import { requireCsrf } from '../lib/csrf';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
-import { leadershipMutationLimiter } from '../lib/rateLimit';
+import { attachmentUploadAuthorizeLimiter, leadershipMutationLimiter } from '../lib/rateLimit';
+import { createUploadUrl, deleteObject, headObject, isStorageConfigured } from '../lib/storage';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { DIVISIONS, SECTION } from '../lib/publicSite/content';
@@ -49,6 +51,17 @@ const authorSchema = z.object({
   name: z.string().trim().min(1).max(120),
   bioEn: z.string().trim().max(600).nullable().optional(),
   bioFr: z.string().trim().max(600).nullable().optional(),
+});
+
+
+const MEDIA_MIMES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+// The browser shrinks pictures before sending (long side 1600 px, about 150 to 400 KB); this is a ceiling.
+export const MEDIA_MAX_BYTES = 1_500_000;
+const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+export const mediaKey = (id: string, mime: string) => `knowledge/${id}.${EXT[mime]}`;
+export const mediaUrl = (id: string, mime: string) => `/media/k/${id}.${EXT[mime]}`;
+const mediaShape = (m: { id: string; mimeType: string; byteSize: number; width: number; height: number; altEn: string | null; altFr: string | null; createdAt: Date }) => ({
+  id: m.id, url: mediaUrl(m.id, m.mimeType), byteSize: m.byteSize, width: m.width, height: m.height, altEn: m.altEn, altFr: m.altFr, createdAt: m.createdAt,
 });
 
 const nul = (v: string | null | undefined) => (v === undefined ? undefined : v === null || v.trim() === '' ? null : v.trim());
@@ -276,6 +289,75 @@ function build(resolveActor: (req: Request) => Promise<Actor | null>) {
     await prisma.knowledgeArticle.delete({ where: { id: a.id } });
     await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'KNOWLEDGE_ARTICLE_DELETED', targetType: 'KnowledgeArticle', targetId: a.id });
     changed();
+    res.json({ ok: true });
+  }));
+
+
+  // ---- Pictures --------------------------------------------------------------------------------
+  // The browser shrinks the picture, sends it straight to storage, then tells us it is there. The
+  // public website serves it through the app at /media/k/<id>.<ext> (see publicSite/router.ts).
+  router.post('/media/authorize', attachmentUploadAuthorizeLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const actor = await act(req, res); if (!actor) return;
+    const p = z.object({ mimeType: z.enum(MEDIA_MIMES), byteSize: z.number().int().min(1).max(MEDIA_MAX_BYTES) }).safeParse(req.body);
+    if (!p.success) return bad(res, `Use a JPEG, PNG or WebP picture of at most ${Math.round(MEDIA_MAX_BYTES / 1000)} KB.`);
+    if (!isStorageConfigured()) return res.status(503).json({ error: 'Picture uploads are not available right now.', code: 'STORAGE_UNAVAILABLE' });
+    const id = crypto.randomUUID();
+    const { url, expiresAt } = await createUploadUrl({ storageKey: mediaKey(id, p.data.mimeType), mimeType: p.data.mimeType });
+    res.json({ id, uploadUrl: url, expiresAt, publicUrl: mediaUrl(id, p.data.mimeType) });
+  }));
+
+  router.post('/media/:id/finalize', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const actor = await act(req, res); if (!actor) return;
+    const p = z.object({
+      mimeType: z.enum(MEDIA_MIMES), width: z.number().int().min(1).max(8000), height: z.number().int().min(1).max(8000),
+      altEn: z.string().trim().max(300).nullable().optional(), altFr: z.string().trim().max(300).nullable().optional(),
+    }).safeParse(req.body);
+    if (!p.success || !z.string().uuid().safeParse(req.params.id).success) return bad(res, 'Check the picture details.');
+    const existing = await prisma.knowledgeMedia.findUnique({ where: { storageKey: mediaKey(req.params.id, p.data.mimeType) } });
+    if (existing) return res.json(mediaShape(existing));
+    if (!isStorageConfigured()) return res.status(503).json({ error: 'Picture uploads are not available right now.', code: 'STORAGE_UNAVAILABLE' });
+    const key = mediaKey(req.params.id, p.data.mimeType);
+    const head = await headObject({ storageKey: key });
+    if (!head) return bad(res, 'The picture did not arrive. Please try again.', 404);
+    if (head.contentLength > MEDIA_MAX_BYTES || (head.contentType && head.contentType !== p.data.mimeType)) {
+      await deleteObject({ storageKey: key }).catch(() => undefined);
+      return bad(res, 'The picture is too big or is not the kind that was announced.');
+    }
+    const row = await prisma.knowledgeMedia.create({
+      data: { id: req.params.id, storageKey: key, mimeType: p.data.mimeType, byteSize: head.contentLength, width: p.data.width, height: p.data.height, altEn: nul(p.data.altEn) ?? null, altFr: nul(p.data.altFr) ?? null, uploadedBy: actor.email },
+    });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'KNOWLEDGE_MEDIA_ADDED', targetType: 'KnowledgeMedia', targetId: row.id, metadata: { bytes: row.byteSize } });
+    res.status(201).json(mediaShape(row));
+  }));
+
+  router.get('/media', asyncHandler(async (_req, res) => {
+    const [rows, articles] = await Promise.all([
+      prisma.knowledgeMedia.findMany({ orderBy: { createdAt: 'desc' }, take: 200 }),
+      prisma.knowledgeArticle.findMany({ where: { featuredImageUrl: { not: null } }, select: { featuredImageUrl: true } }),
+    ]);
+    const used = (m: { id: string; mimeType: string }) => articles.some((a) => a.featuredImageUrl === mediaUrl(m.id, m.mimeType));
+    res.json({ items: rows.map((m) => ({ ...mediaShape(m), inUse: used(m) })) });
+  }));
+
+  router.put('/media/:id', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const actor = await act(req, res); if (!actor) return;
+    const p = z.object({ altEn: z.string().trim().max(300).nullable().optional(), altFr: z.string().trim().max(300).nullable().optional() }).safeParse(req.body);
+    if (!p.success) return bad(res, 'Check the descriptions.');
+    const cur = await prisma.knowledgeMedia.findUnique({ where: { id: req.params.id } });
+    if (!cur) return bad(res, 'Picture not found.', 404);
+    const row = await prisma.knowledgeMedia.update({ where: { id: cur.id }, data: { ...(p.data.altEn !== undefined ? { altEn: nul(p.data.altEn) ?? null } : {}), ...(p.data.altFr !== undefined ? { altFr: nul(p.data.altFr) ?? null } : {}) } });
+    res.json(mediaShape(row));
+  }));
+
+  router.delete('/media/:id', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const actor = await act(req, res); if (!actor) return;
+    const cur = await prisma.knowledgeMedia.findUnique({ where: { id: req.params.id } });
+    if (!cur) return bad(res, 'Picture not found.', 404);
+    const inUse = await prisma.knowledgeArticle.count({ where: { featuredImageUrl: mediaUrl(cur.id, cur.mimeType) } });
+    if (inUse > 0) return bad(res, 'An article still uses this picture. Choose another picture there first.', 409);
+    await deleteObject({ storageKey: cur.storageKey }).catch(() => undefined);
+    await prisma.knowledgeMedia.delete({ where: { id: cur.id } });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'KNOWLEDGE_MEDIA_DELETED', targetType: 'KnowledgeMedia', targetId: cur.id });
     res.json({ ok: true });
   }));
 

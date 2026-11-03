@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { Readable } from 'node:stream';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import { createApp } from '../app';
@@ -8,6 +9,16 @@ import { bootstrap } from './testUtils';
 import { DIVISIONS } from '../lib/publicSite/content';
 import { renderBody, headingsOf, readingMinutes, slugOf } from '../lib/publicSite/text';
 import { resetPublicSiteForTests } from '../lib/publicSite/router';
+
+// Object storage, faked: what was "uploaded" by the browser, and what storage can read back.
+const fake = vi.hoisted(() => ({ heads: new Map<string, { contentLength: number; contentType: string }>(), bytes: new Map<string, Buffer>(), deleted: [] as string[] }));
+vi.mock('../lib/storage', () => ({
+  isStorageConfigured: () => true,
+  createUploadUrl: async ({ storageKey }: { storageKey: string }) => ({ url: `https://storage.test/${storageKey}?signed`, expiresAt: new Date(Date.now() + 300000) }),
+  headObject: async ({ storageKey }: { storageKey: string }) => fake.heads.get(storageKey) ?? null,
+  deleteObject: async ({ storageKey }: { storageKey: string }) => { fake.deleted.push(storageKey); fake.heads.delete(storageKey); fake.bytes.delete(storageKey); },
+  getObjectStream: async ({ storageKey }: { storageKey: string }) => (fake.bytes.has(storageKey) ? { body: Readable.from(fake.bytes.get(storageKey)!), contentLength: fake.bytes.get(storageKey)!.length } : null),
+}));
 
 // Phase 3 of the Knowledge Centre: articles in the database, the editing tools (central
 // admin only), and the rule that nothing reaches a public page until a person has reviewed
@@ -357,6 +368,110 @@ describe('The editing screen needs', () => {
     const list = await a.agent.get(base);
     expect(list.body.divisions).toHaveLength(6);
     expect(list.body.divisions[0].slug).toEqual({ en: DIV.slug.en, fr: DIV.slug.fr });
+  });
+});
+
+describe('Pictures', () => {
+  const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1, 0xff, 0xd9]);
+  async function upload(a: { agent: any; csrf: string }, extra: Record<string, unknown> = {}) {
+    const auth = await a.agent.post(`${base}/media/authorize`).set('X-CSRF-Token', a.csrf).send({ mimeType: 'image/jpeg', byteSize: JPEG.length });
+    expect(auth.status).toBe(200);
+    // The browser sends the file straight to storage ...
+    const key = `knowledge/${auth.body.id}.jpg`;
+    fake.heads.set(key, { contentLength: JPEG.length, contentType: 'image/jpeg' });
+    fake.bytes.set(key, JPEG);
+    // ... then tells the app it is there.
+    const fin = await a.agent.post(`${base}/media/${auth.body.id}/finalize`).set('X-CSRF-Token', a.csrf).send({ mimeType: 'image/jpeg', width: 1200, height: 800, altEn: 'A pastor teaching', altFr: 'Un pasteur enseigne', ...extra });
+    return { auth: auth.body, fin, key };
+  }
+
+  it('is for the central admin only, needs the protection token, and accepts only small JPEG, PNG or WebP pictures', async () => {
+    const a = await admin();
+    expect((await agentWithIp().post(`${base}/media/authorize`).send({ mimeType: 'image/jpeg', byteSize: 1000 })).status).toBe(401);
+    expect((await a.agent.post(`${base}/media/authorize`).send({ mimeType: 'image/jpeg', byteSize: 1000 })).status).toBe(403);
+    for (const bad of [{ mimeType: 'image/svg+xml', byteSize: 1000 }, { mimeType: 'image/gif', byteSize: 1000 }, { mimeType: 'text/html', byteSize: 1000 }, { mimeType: 'image/jpeg', byteSize: 9_000_000 }, { mimeType: 'image/jpeg', byteSize: 0 }]) {
+      expect((await a.agent.post(`${base}/media/authorize`).set('X-CSRF-Token', a.csrf).send(bad)).status, JSON.stringify(bad)).toBe(400);
+    }
+    const ok = await a.agent.post(`${base}/media/authorize`).set('X-CSRF-Token', a.csrf).send({ mimeType: 'image/png', byteSize: 50_000 });
+    expect(ok.status).toBe(200);
+    expect(ok.body.uploadUrl).toContain(`knowledge/${ok.body.id}.png`);
+    expect(ok.body.publicUrl).toBe(`/media/k/${ok.body.id}.png`);
+  });
+
+  it('registers a picture only once it really arrived, and not twice', async () => {
+    const a = await admin();
+    const auth = await a.agent.post(`${base}/media/authorize`).set('X-CSRF-Token', a.csrf).send({ mimeType: 'image/jpeg', byteSize: 1000 });
+    const missing = await a.agent.post(`${base}/media/${auth.body.id}/finalize`).set('X-CSRF-Token', a.csrf).send({ mimeType: 'image/jpeg', width: 100, height: 100 });
+    expect(missing.status).toBe(404);
+    expect((await prisma.knowledgeMedia.count({ where: { id: auth.body.id } }))).toBe(0);
+
+    const { fin, auth: first } = await upload(a);
+    expect(fin.status).toBe(201);
+    expect(fin.body).toMatchObject({ url: `/media/k/${first.id}.jpg`, width: 1200, height: 800, altEn: 'A pastor teaching' });
+    const again = await a.agent.post(`${base}/media/${first.id}/finalize`).set('X-CSRF-Token', a.csrf).send({ mimeType: 'image/jpeg', width: 1200, height: 800 });
+    expect(again.status).toBe(200);
+    expect(await prisma.knowledgeMedia.count({ where: { id: first.id } })).toBe(1);
+  });
+
+  it('refuses and removes a file that is bigger than announced', async () => {
+    const a = await admin();
+    const auth = await a.agent.post(`${base}/media/authorize`).set('X-CSRF-Token', a.csrf).send({ mimeType: 'image/jpeg', byteSize: 1000 });
+    const key = `knowledge/${auth.body.id}.jpg`;
+    fake.heads.set(key, { contentLength: 5_000_000, contentType: 'image/jpeg' });
+    const fin = await a.agent.post(`${base}/media/${auth.body.id}/finalize`).set('X-CSRF-Token', a.csrf).send({ mimeType: 'image/jpeg', width: 100, height: 100 });
+    expect(fin.status).toBe(400);
+    expect(fake.deleted).toContain(key);
+    expect(await prisma.knowledgeMedia.count({ where: { id: auth.body.id } })).toBe(0);
+  });
+
+  it('lists pictures, shows which an article uses, and refuses to delete one that is in use', async () => {
+    const a = await admin();
+    const { auth } = await upload(a);
+    const url = `/media/k/${auth.id}.jpg`;
+    const list1 = await a.agent.get(`${base}/media`);
+    expect(list1.body.items.find((m: { id: string }) => m.id === auth.id)).toMatchObject({ url, inUse: false });
+
+    const id = await makeArticle(a, { featuredImageUrl: url, featuredImageAltEn: 'A pastor teaching' });
+    expect((await a.agent.get(`${base}/media`)).body.items.find((m: { id: string }) => m.id === auth.id).inUse).toBe(true);
+    const refused = await a.agent.delete(`${base}/media/${auth.id}`).set('X-CSRF-Token', a.csrf);
+    expect(refused.status).toBe(409);
+
+    await a.agent.put(`${base}/articles/${id}`).set('X-CSRF-Token', a.csrf).send({ featuredImageUrl: null });
+    const del = await a.agent.delete(`${base}/media/${auth.id}`).set('X-CSRF-Token', a.csrf);
+    expect(del.status).toBe(200);
+    expect(fake.deleted).toContain(`knowledge/${auth.id}.jpg`);
+    expect(await prisma.knowledgeMedia.count({ where: { id: auth.id } })).toBe(0);
+  });
+
+  it('the public website serves a registered picture with a long cache and no cookies, and nothing else', async () => {
+    const a = await admin();
+    const { auth } = await upload(a);
+    const res = await request(appOn).get(`/media/k/${auth.id}.jpg`).buffer(true).parse((r, cb) => { const chunks: Buffer[] = []; r.on('data', (c: Buffer) => chunks.push(c)); r.on('end', () => cb(null, Buffer.concat(chunks))); });
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/jpeg');
+    expect(res.headers['cache-control']).toContain('immutable');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['set-cookie']).toBeUndefined();
+    expect(Buffer.compare(res.body as Buffer, JPEG)).toBe(0);
+    // Wrong kind in the address, an unknown id, and a made-up key are all just "not found".
+    expect((await request(appOn).get(`/media/k/${auth.id}.png`)).status).toBe(404);
+    expect((await request(appOn).get('/media/k/00000000-0000-0000-0000-000000000000.jpg')).status).toBe(404);
+    expect((await request(appOn).get('/media/k/..%2f..%2fetc.jpg')).status).not.toBe(200);
+  });
+
+  it('an article page shows its picture with the reserved size and the description in each language', async () => {
+    const a = await admin();
+    const { auth } = await upload(a);
+    const slug = `pic-up-${RUN}`;
+    const id = await makeArticle(a, { featuredImageUrl: `/media/k/${auth.id}.jpg`, featuredImageAltEn: 'A pastor teaching', featuredImageAltFr: 'Un pasteur enseigne' });
+    await putTr(a, id, 'en', { title: 'With uploaded picture', summary: 'S.', body: EN_BODY, slug });
+    await review(a, id, 'en');
+    await publish(a, id);
+    const page = await request(appOn).get(enPath(slug));
+    expect(page.status).toBe(200);
+    expect(page.text).toContain(`src="/media/k/${auth.id}.jpg" width="1200" height="800" alt="A pastor teaching"`);
+    expect(page.text).toContain(`<meta property="og:image" content="`);
+    expect(page.text).toContain(`/media/k/${auth.id}.jpg"`);
   });
 });
 

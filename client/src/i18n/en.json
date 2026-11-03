@@ -3882,6 +3882,25 @@
     "dynamic_help_google": "In Google Ads, paste the full link as the “tracking template” (replace the start with {lpurl} if Google asks): Google fills in the campaign and creative ids."
   },
   "knowledgeAdmin": {
+    "pic": {
+      "title": "Main picture (optional)",
+      "none": "No picture yet.",
+      "choose": "Choose a picture",
+      "change": "Choose another picture",
+      "remove": "Remove the picture",
+      "preparing": "Preparing the picture…",
+      "sending": "Sending… {{percent}}%",
+      "saving": "Saving…",
+      "help": "Pick a photo from this phone. It is made smaller for you, so the website stays fast. Then give it a short description in each language below (for people who cannot see it) and save the details.",
+      "earlier": "Pictures uploaded earlier",
+      "no_earlier": "None yet.",
+      "use": "Use this picture",
+      "delete_confirm": "Delete this picture for good? It cannot be undone.",
+      "advanced": "Or paste a picture address",
+      "err_read": "This file could not be read as a picture. Try a JPEG, PNG or WebP photo.",
+      "err_storage": "Picture uploads are not available right now. Please try again later.",
+      "err_send": "The picture could not be sent. Check your connection and try again."
+    },
     "and_more": "…and {{count}} more",
     "needs_approval": "Waiting for a person's approval ({{count}})",
     "one_language": "Published in one language only ({{count}})",

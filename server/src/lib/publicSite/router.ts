@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import { getObjectStream } from '../storage';
 import { prisma } from '../prisma';
 import { DIVISIONS, LANGS, SECTION, type Lang } from './content';
 import { loadPublicContext } from './articles';
@@ -96,6 +97,26 @@ function unavailable(res: Response, lang: Lang) {
 
 export function publicSiteRouter(): Router {
   const router = Router();
+
+  // Pictures uploaded for the Knowledge Centre. Only rows registered as Knowledge Centre media are
+  // ever served (never an arbitrary storage key), with a long cache because a picture's address
+  // never changes: a replaced picture is a new one.
+  router.get(/^\/media\/k\/([0-9a-f-]{36})\.(jpg|png|webp)$/, async (req: Request, res: Response) => {
+    try {
+      const [, id, ext] = req.path.match(/^\/media\/k\/([0-9a-f-]{36})\.(jpg|png|webp)$/)!;
+      const row = await prisma.knowledgeMedia.findUnique({ where: { id }, select: { storageKey: true, mimeType: true } });
+      const wanted = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext];
+      if (!row || row.mimeType !== wanted) return res.status(404).type('text/plain').send('Not found.');
+      const obj = await getObjectStream({ storageKey: row.storageKey });
+      if (!obj) return res.status(404).type('text/plain').send('Not found.');
+      res.set({ 'Content-Type': row.mimeType, 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' });
+      if (obj.contentLength !== undefined) res.set('Content-Length', String(obj.contentLength));
+      obj.body.on('error', () => res.destroy());
+      obj.body.pipe(res);
+    } catch {
+      if (!res.headersSent) res.status(502).type('text/plain').set('Cache-Control', 'no-store').send('Temporarily unavailable.');
+    }
+  });
 
   // Friendly addresses that lead to the existing, only registration and sign-in systems.
   for (const lang of LANGS) {

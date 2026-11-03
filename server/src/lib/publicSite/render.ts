@@ -18,7 +18,7 @@ export interface PublicTr {
 export interface PublicArticle {
   id: string; divisionKey: string; publishedAt: Date; updatedAt: Date;
   authorName: string | null; authorBio: Partial<Record<Lang, string | null>>;
-  imageUrl: string | null; imageAlt: Partial<Record<Lang, string | null>>;
+  imageUrl: string | null; imageSize?: { w: number; h: number }; imageAlt: Partial<Record<Lang, string | null>>;
   tr: Partial<Record<Lang, PublicTr>>; relatedIds: string[];
 }
 export interface Ctx { articles: PublicArticle[] }
@@ -237,7 +237,7 @@ function articleBody(p: PageRef, ctx: Ctx): string {
   const url = urlOf(p);
   const heads = headingsOf(tr.body);
   const toc = heads.length >= 3 ? `<nav class="toc" aria-label="${esc(t.inThisArticle)}"><b>${esc(t.inThisArticle)}</b>${heads.map((h) => `<a href="#${h.id}">${esc(h.text)}</a>`).join('<br>')}</nav>` : '';
-  const img = a.imageUrl && a.imageAlt[l] ? `<img class="hero-img" src="${esc(a.imageUrl)}" alt="${esc(a.imageAlt[l]!)}" decoding="async">` : '';
+  const img = a.imageUrl && a.imageAlt[l] ? `<img class="hero-img" src="${esc(a.imageUrl)}"${a.imageSize ? ` width="${a.imageSize.w}" height="${a.imageSize.h}"` : ''} alt="${esc(a.imageAlt[l]!)}" decoding="async" fetchpriority="high">` : '';
   const faq = tr.faq && tr.faq.length ? `<h2>${esc(t.faqTitle)}</h2>${tr.faq.map((f) => `<details class="faq"><summary>${esc(f.q)}</summary><div>${esc(f.a)}</div></details>`).join('')}` : '';
   const rel = a.relatedIds.map((id) => ctx.articles.find((x) => x.id === id)).filter((x): x is PublicArticle => Boolean(x && x.tr[l])).slice(0, 3);
   const who = a.authorName ? `<div class="who"><b>${esc(a.authorName)}</b>${a.authorBio[l] ? esc(a.authorBio[l]!) : ''}</div>` : '';

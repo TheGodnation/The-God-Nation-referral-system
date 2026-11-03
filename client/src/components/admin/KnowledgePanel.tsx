@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { applyFormat, wordStats, type Fmt } from '../../lib/articleFormat';
+import { PictureError, uploadPicture, type MediaItem, type UploadStage } from '../../lib/knowledgePicture';
 
 // The central admin's Knowledge Centre editor: write an article in English and French, have a
 // person review each language, then publish. Nothing reaches the public website until a version
@@ -278,6 +279,89 @@ function FormatBar({ areaRef, value, onChange }: { areaRef: React.RefObject<HTML
   );
 }
 
+// The article's main picture: choose one from the phone (it is shrunk and sent for you), pick one
+// uploaded earlier, or paste an address. It is attached to the article when the details are saved.
+function PictureBox({ base, url, onChange }: { base: string; url: string; onChange: (url: string, alts?: { en: string | null; fr: string | null }) => void }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState<{ stage: UploadStage; fraction?: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [library, setLibrary] = useState<MediaItem[] | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    try {
+      const item = await uploadPicture(base, file, (stage, fraction) => setBusy({ stage, fraction }));
+      onChange(item.url, { en: item.altEn, fr: item.altFr });
+      if (library) setLibrary([item, ...library]);
+    } catch (err) {
+      const reason = err instanceof PictureError ? err.reason : 'send';
+      setError(reason === 'read' ? t('knowledgeAdmin.pic.err_read') : reason === 'storage_off' ? t('knowledgeAdmin.pic.err_storage') : reason === 'send' ? t('knowledgeAdmin.pic.err_send') : (err as Error).message || t('knowledgeAdmin.failed'));
+    } finally {
+      setBusy(null);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+  async function openLibrary() {
+    if (library) return;
+    try { setLibrary((await api.get<{ items: MediaItem[] }>(`${base}/media`)).items); } catch { setLibrary([]); }
+  }
+  async function removeFromLibrary(m: MediaItem) {
+    if (!window.confirm(t('knowledgeAdmin.pic.delete_confirm') ?? '')) return;
+    try { await api.delete(`${base}/media/${m.id}`); setLibrary((library ?? []).filter((x) => x.id !== m.id)); } catch (err) { setError(errorText(err, t('knowledgeAdmin.failed'))); }
+  }
+
+  const progress = busy ? (busy.stage === 'preparing' ? t('knowledgeAdmin.pic.preparing') : busy.stage === 'saving' ? t('knowledgeAdmin.pic.saving') : t('knowledgeAdmin.pic.sending', { percent: Math.round((busy.fraction ?? 0) * 100) })) : null;
+
+  return (
+    <div className="space-y-2" data-testid="kc-picture">
+      <span className="label">{t('knowledgeAdmin.pic.title')}</span>
+      {url ? (
+        <div className="flex items-start gap-3">
+          <img src={url} alt="" className="h-24 w-24 rounded-lg border border-slate-200 object-cover" />
+          <div className="space-y-1 text-sm">
+            <p className="break-all font-mono text-xs text-slate-500">{url}</p>
+            <button type="button" className="text-red-700 underline" onClick={() => onChange('')}>{t('knowledgeAdmin.pic.remove')}</button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-slate-500">{t('knowledgeAdmin.pic.none')}</p>
+      )}
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" aria-label={t('knowledgeAdmin.pic.choose') ?? ''} onChange={(e) => onFile(e.target.files?.[0])} />
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="btn-primary" disabled={Boolean(busy)} onClick={() => fileRef.current?.click()}>📷 {url ? t('knowledgeAdmin.pic.change') : t('knowledgeAdmin.pic.choose')}</button>
+        {progress && <span role="status" className="text-sm text-slate-600">{progress}</span>}
+      </div>
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      <p className="text-xs text-slate-500">{t('knowledgeAdmin.pic.help')}</p>
+
+      <details onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) void openLibrary(); }}>
+        <summary className="cursor-pointer text-sm font-semibold text-brand-900">{t('knowledgeAdmin.pic.earlier')}</summary>
+        <div className="mt-2">
+          {library === null ? <p className="text-xs text-slate-400">{t('knowledgeAdmin.loading')}</p> : library.length === 0 ? <p className="text-xs text-slate-400">{t('knowledgeAdmin.pic.no_earlier')}</p> : (
+            <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {library.map((m) => (
+                <li key={m.id} className="space-y-1">
+                  <button type="button" className="block w-full" onClick={() => onChange(m.url, { en: m.altEn, fr: m.altFr })} aria-label={t('knowledgeAdmin.pic.use') ?? ''}>
+                    <img src={m.url} alt="" loading="lazy" className={`aspect-square w-full rounded-lg border object-cover ${m.url === url ? 'border-brand-700 ring-2 ring-brand-700' : 'border-slate-200'}`} />
+                  </button>
+                  {!m.inUse && m.url !== url && <button type="button" className="text-xs text-red-700 underline" onClick={() => removeFromLibrary(m)}>{t('knowledgeAdmin.delete')}</button>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </details>
+
+      <details>
+        <summary className="cursor-pointer text-sm font-semibold text-brand-900">{t('knowledgeAdmin.pic.advanced')}</summary>
+        <input className="input mt-2 font-mono text-sm" aria-label={t('knowledgeAdmin.image_url') ?? ''} placeholder="https://…" value={url} onChange={(e) => onChange(e.target.value)} />
+      </details>
+    </div>
+  );
+}
+
 interface TrForm { title: string; summary: string; body: string; slug: string; seoTitle: string; seoDescription: string; faq: Faq[] }
 const emptyForm = (): TrForm => ({ title: '', summary: '', body: '', slug: '', seoTitle: '', seoDescription: '', faq: [] });
 const formOf = (tr?: Tr): TrForm => (tr ? { title: tr.title, summary: tr.summary, body: tr.body ?? '', slug: tr.slug, seoTitle: tr.seoTitle ?? '', seoDescription: tr.seoDescription ?? '', faq: tr.faq ?? [] } : emptyForm());
@@ -523,9 +607,11 @@ function ArticleEditor({ base, id, data, onBack, onChanged }: { base: string; id
           <option value="">{t('knowledgeAdmin.no_author')}</option>
           {data.authors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
-        <label className="label" htmlFor="kc-img">{t('knowledgeAdmin.image_url')}</label>
-        <input id="kc-img" className="input font-mono text-sm" placeholder="https://…" value={meta.imageUrl} onChange={(e) => setMeta({ ...meta, imageUrl: e.target.value })} />
-        <p className="text-xs text-slate-500">{t('knowledgeAdmin.image_help')}</p>
+        <PictureBox
+          base={base}
+          url={meta.imageUrl}
+          onChange={(url, alts) => setMeta({ ...meta, imageUrl: url, altEn: meta.altEn || alts?.en || '', altFr: meta.altFr || alts?.fr || '' })}
+        />
         <label className="label" htmlFor="kc-alt-en">{t('knowledgeAdmin.alt_en')}</label>
         <input id="kc-alt-en" className="input" maxLength={300} value={meta.altEn} onChange={(e) => setMeta({ ...meta, altEn: e.target.value })} />
         <label className="label" htmlFor="kc-alt-fr">{t('knowledgeAdmin.alt_fr')}</label>
