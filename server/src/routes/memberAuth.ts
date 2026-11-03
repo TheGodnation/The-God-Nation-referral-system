@@ -23,6 +23,7 @@ import { selectApplicableReferralVisit } from '../lib/attribution';
 import { placePersonInGroup } from '../lib/placement';
 import { getOrCreatePersonReferralCode } from '../lib/referralCode';
 import { recordConsent, convertLeadToMember } from '../lib/contactConsent';
+import { sendAdEventInBackground, AD_EVENT_ID, FBP_VALUE } from '../lib/adsEvents';
 import { profilePhotoPath, coverPhotoPath } from '../lib/profilePhoto';
 import { EmailService } from '../lib/email';
 import { CLIENT_URL, MEMBER_LOGIN_TOKEN_TTL_MS } from '../lib/env';
@@ -235,6 +236,11 @@ const signupSchema = z.object({
   // Optional, unticked by default: agreement to be contacted (see lib/contactConsent.ts).
   consentWhatsapp: z.boolean().optional().default(false),
   consentEmail: z.boolean().optional().default(false),
+  // Agreement to share scrambled details with ad platforms; with the id the browser
+  // pixel used for the same sign-up (so the platform counts it once) and the Meta cookie.
+  consentAds: z.boolean().optional().default(false),
+  adEventId: z.string().regex(AD_EVENT_ID).optional(),
+  fbp: z.string().regex(FBP_VALUE).optional(),
 });
 
 router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -246,7 +252,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
     }
     return res.status(400).json({ error: 'Please enter a valid email address and phone number.', code: 'INVALID_INPUT' });
   }
-  const { email, whatsapp, password, language, consentWhatsapp, consentEmail } = parsed.data;
+  const { email, whatsapp, password, language, consentWhatsapp, consentEmail, consentAds, adEventId, fbp } = parsed.data;
   const normalizedEmail = email.toLowerCase();
   const normalizedWhatsApp = normalizeToE164(whatsapp);
   if (!normalizedWhatsApp) {
@@ -332,7 +338,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
   const placeholderName = normalizedEmail;
 
   try {
-    const { memberAccount, person } = await prisma.$transaction(async (tx) => {
+    const { memberAccount, person, registration } = await prisma.$transaction(async (tx) => {
       const person = await tx.person.create({
         data: {
           name: placeholderName,
@@ -369,6 +375,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
       // "stay connected" box before, that earlier agreement moves to them.
       if (consentWhatsapp) await recordConsent(tx, { personId: person.id }, 'WHATSAPP', true, 'signup', language);
       if (consentEmail) await recordConsent(tx, { personId: person.id }, 'EMAIL', true, 'signup', language);
+      if (consentAds) await recordConsent(tx, { personId: person.id }, 'ADS', true, 'signup', language);
       await convertLeadToMember(tx, person.id, normalizedWhatsApp);
       if (referralCode?.leaderId) {
         await tx.referralRelationship.create({
@@ -403,7 +410,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
         data: { personId: person.id, email: normalizedEmail, passwordHash },
       });
       await getOrCreatePersonReferralCode(tx, person.id, placeholderName);
-      return { memberAccount, person };
+      return { memberAccount, person, registration };
     });
 
     await recordAudit({
@@ -412,6 +419,23 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
       targetId: memberAccount.id,
       metadata: { personId: person.id, via: 'signup' },
     });
+    // Tell the ad platforms (only if they agreed, and only if the platform is connected).
+    if (consentAds) {
+      sendAdEventInBackground({
+        personId: person.id,
+        event: 'Lead',
+        eventId: adEventId,
+        email: normalizedEmail,
+        phone: normalizedWhatsApp,
+        fbclid: registration.fbclid,
+        ttclid: registration.ttclid,
+        fbp,
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+        sourceUrl: `${CLIENT_URL}/member/join`,
+        clickedAt: selectedVisit?.timestamp,
+      });
+    }
     await sendMemberLoginLink(memberAccount, person);
   } catch (err) {
     // Unique clash (same phone/email submitted twice at once, or an old
@@ -828,6 +852,8 @@ const completeProfileSchema = z
     subdivision: detailText.optional(),
     quarter: detailText.optional(),
     city: detailText.optional(),
+    adEventId: z.string().regex(AD_EVENT_ID).optional(),
+    fbp: z.string().regex(FBP_VALUE).optional(),
   })
   .superRefine((d, ctx) => {
     if (d.country.toLowerCase() === CAMEROON) {
@@ -887,6 +913,29 @@ router.post('/complete-profile', memberCompleteProfileLimiter, requireCsrf, requ
     targetId: personId,
     metadata: { placedInCommunityId: communityId },
   });
+
+  // The sign-up is now complete: tell the ad platforms, if the person agreed (first time only).
+  if (!req.member!.profileCompletedAt) {
+    const registration = await prisma.registration.findFirst({
+      where: { personId },
+      orderBy: { createdAt: 'asc' },
+      select: { fbclid: true, ttclid: true, createdAt: true },
+    });
+    sendAdEventInBackground({
+      personId,
+      event: 'CompleteRegistration',
+      eventId: d.adEventId,
+      email: person.email,
+      phone: person.whatsappNumber,
+      fbclid: registration?.fbclid,
+      ttclid: registration?.ttclid,
+      fbp: d.fbp,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      sourceUrl: `${CLIENT_URL}/member/complete-profile`,
+      clickedAt: registration?.createdAt,
+    });
+  }
 
   res.json({ profileComplete: true, community });
 }));

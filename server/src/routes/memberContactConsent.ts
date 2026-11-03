@@ -9,7 +9,7 @@ import { currentConsent, recordConsent } from '../lib/contactConsent';
 import { ALL_PLATFORMS } from '../lib/communityPlatforms';
 
 // /api/member/contact-consent — the member's own choices about being contacted
-// by WhatsApp and email (shown on their Me page, changeable at any time), and
+// by WhatsApp and email, and about sharing scrambled details with ad platforms (shown on their Me page, changeable at any time), and
 // /api/member/group-link-click — noting which group, channel or page they
 // tapped (WhatsApp, Telegram, Messenger...), so the growth report can count it.
 const router = Router();
@@ -19,7 +19,7 @@ router.get('/contact-consent', asyncHandler(async (req, res) => {
   res.json(await currentConsent(prisma, req.member!.personId));
 }));
 
-const putSchema = z.object({ whatsapp: z.boolean().optional(), email: z.boolean().optional() });
+const putSchema = z.object({ whatsapp: z.boolean().optional(), email: z.boolean().optional(), ads: z.boolean().optional() });
 
 router.put('/contact-consent', socialMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = putSchema.safeParse(req.body);
@@ -33,6 +33,9 @@ router.put('/contact-consent', socialMutationLimiter, requireCsrf, asyncHandler(
   }
   if (parsed.data.email !== undefined && parsed.data.email !== now.email) {
     await recordConsent(prisma, { personId }, 'EMAIL', parsed.data.email, 'profile', lang);
+  }
+  if (parsed.data.ads !== undefined && parsed.data.ads !== now.ads) {
+    await recordConsent(prisma, { personId }, 'ADS', parsed.data.ads, 'profile', lang);
   }
   res.json(await currentConsent(prisma, personId));
 }));

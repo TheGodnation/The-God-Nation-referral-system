@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { HomePage } from './pages/HomePage';
 import { JoinPage } from './pages/JoinPage';
 import { LandingVisitTracker } from './components/LandingVisitTracker';
+import { AdsConsentBanner } from './components/AdsConsentBanner';
 import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
 import { RequireMember } from './components/RequireMember';
 import { AuthProvider } from './lib/AuthContext';
@@ -104,6 +105,7 @@ export default function App() {
     <AuthProvider>
       <MemberAuthProvider>
         <LandingVisitTracker />
+        <AdsConsentBanner />
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<HomePage />} />

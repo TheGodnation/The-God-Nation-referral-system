@@ -38,6 +38,7 @@ enum ReminderKind {
 enum ConsentChannel {
   WHATSAPP
   EMAIL
+  ADS
 }
 
 enum Language {
@@ -597,6 +598,13 @@ model Settings {
   youtubeUrl              String?
   telegramUrl             String?
   messengerUrl            String?
+  // Ad-platform connections (public identifiers only; the secret access tokens live in
+  // server environment variables and never in the database). Empty = switched off.
+  metaPixelId             String?
+  tiktokPixelId           String?
+  googleTagId             String?
+  googleLeadSendTo        String?
+  googleSignupSendTo      String?
   content                 Json?
   // Recipient address for the public Contact form (Phase 2). Admin-editable;
   // never sent to the client. Null/blank means the contact form is disabled.
@@ -789,6 +797,7 @@ model Person {
   tokenEntries        TokenEntry[]
   contactConsents     ContactConsent[]
   reminders           MemberReminder[]
+  adEvents            AdEventLog[]
   leadsConverted      Lead[]
   pinsMade            MessagePin[]      @relation("MessagePinnedBy")
   pinsSeen            MessagePinSeen[]  @relation("MessagePinSeenBy")
@@ -3692,4 +3701,24 @@ model MemberReminder {
 
   @@index([personId, kind, sentAt])
   @@index([sentAt])
+}
+
+// One row for every conversion event we tried to send to an ad platform (Meta, TikTok)
+// from the server, so the admin can see what was sent and whether it worked.
+model AdEventLog {
+  id        String   @id @default(uuid())
+  personId  String?
+  platform  String
+  event     String
+  eventId   String
+  ok        Boolean
+  status    Int?
+  error     String?
+  createdAt DateTime @default(now())
+
+  person Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([platform, createdAt])
+  @@index([personId])
 }

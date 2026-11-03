@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
+import { usePublicSettings } from '../../lib/usePublicSettings';
+import { adsConfigured } from '../../lib/adsTracking';
+import { AdsDeviceChoice } from '../AdsDeviceChoice';
 
 interface Consent {
   whatsapp: boolean | null;
   email: boolean | null;
+  ads?: boolean | null;
 }
 
 // The member's own choices about being contacted by WhatsApp and email.
@@ -12,6 +16,8 @@ interface Consent {
 export function ContactPreferencesCard() {
   const { t } = useTranslation();
   const [c, setC] = useState<Consent | null>(null);
+  const settings = usePublicSettings();
+  const showAds = adsConfigured(settings.ads);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
@@ -50,7 +56,13 @@ export function ContactPreferencesCard() {
       <div className="mt-3 space-y-2">
         {row('whatsapp', t('contactPrefs.whatsapp'), 'prefs-whatsapp')}
         {row('email', t('contactPrefs.email'), 'prefs-email')}
+        {showAds && row('ads', t('contactPrefs.ads'), 'prefs-ads')}
       </div>
+      {showAds && (
+        <div className="mt-3">
+          <AdsDeviceChoice />
+        </div>
+      )}
       {message && (
         <p role="status" className={`mt-2 text-xs font-medium ${message.ok ? 'text-green-700' : 'text-red-700'}`}>
           {message.text}

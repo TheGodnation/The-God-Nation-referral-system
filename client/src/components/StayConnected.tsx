@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError, ensureCsrfReady } from '../lib/api';
 import { CommunityChoices } from './CommunityChoices';
 import { usePublicSettings } from '../lib/usePublicSettings';
+import { newAdEventId, trackAd } from '../lib/adsTracking';
 
 // "Stay connected": for visitors who are not ready to make an account. A name
 // and a WhatsApp number, and their own tick to agree to updates on WhatsApp.
@@ -35,6 +36,7 @@ export function StayConnected({ className = '' }: { className?: string }) {
         language: i18n.language?.startsWith('fr') ? 'fr' : 'en',
         consentWhatsapp: true,
       });
+      trackAd('Lead', newAdEventId());
       setDone(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'INVALID_PHONE') setError(t('stayConnected.error_phone'));

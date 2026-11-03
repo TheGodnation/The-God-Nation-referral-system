@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
+import { AdsDeviceChoice } from '../components/AdsDeviceChoice';
 
 interface Section {
   h: string;
@@ -35,6 +36,7 @@ export function PrivacyPage() {
             ))}
           </section>
         ))}
+        <AdsDeviceChoice />
         <div className="flex flex-wrap gap-3 pt-2">
           <Link to="/contact" className="btn-primary">
             {t('privacy.contact_link')}

@@ -69,7 +69,8 @@
     "error_generic": "Une erreur s’est produite. Veuillez réessayer.",
     "consent_whatsapp": "Oui, envoyez-moi les nouvelles et les encouragements de The God Nation sur WhatsApp.",
     "consent_email": "Oui, envoyez-moi les nouvelles et les encouragements de The God Nation par e-mail.",
-    "consent_hint": "Facultatif. Vous pouvez changer cela à tout moment dans votre profil."
+    "consent_hint": "Facultatif. Vous pouvez changer cela à tout moment dans votre profil.",
+    "consent_ads": "Oui, The God Nation peut transmettre mon e-mail et mon numéro de téléphone, brouillés pour ne pas être lisibles (hachés), à Meta (Facebook et Instagram), TikTok et Google, afin de mesurer quelles publicités m’ont amené ici et de montrer les messages de The God Nation à moi et à des personnes qui me ressemblent."
   },
   "memberCompleteProfile": {
     "title": "Parlez-nous de vous",
@@ -3516,6 +3517,7 @@
           "Les Jetons du Roi : si le ministère les a lancés, nous gardons un registre des jetons que vous gagnez grâce à vos examens de la Clinique de la Domination, des jetons que vous utilisez pour un livre de formation, avec la date et le motif de chacun. Les Jetons du Roi sont un registre de récompenses d'étude à l'intérieur de l'application. Ce ne sont pas de l'argent : ils ne peuvent être ni achetés, ni vendus, ni retirés en espèces, ni envoyés à une autre personne, et ils servent uniquement pour le matériel de formation du ministère.",
           "Détails des publicités et des liens : quand vous arrivez depuis une publicité ou un lien partagé, nous notons lequel (par exemple le nom de la campagne et le site d’où vous venez, mais pas l’adresse complète de cette page) afin de voir quelles publicités et quels ambassadeurs amènent des personnes. Ces informations sont gardées avec votre visite et votre inscription.",
           "Si vous laissez votre nom et votre numéro WhatsApp dans la case « Restons connectés », ou si vous cochez les cases à l’inscription, nous gardons votre choix, la date et la phrase exacte que vous avez acceptée. Nous ne vous écrivons que sur les canaux que vous avez acceptés, et vous pouvez changer ou arrêter cela à tout moment dans votre profil. Nous comptons aussi quel groupe, quelle chaîne ou quelle page vous touchez pour rejoindre (par exemple WhatsApp, Telegram ou Messenger). Nous ne voyons rien de vous à l’intérieur de ces applications.",
+          "Mesure des publicités (seulement si vous l’autorisez) : si vous cochez la case à l’inscription ou dans votre profil, nous pouvons envoyer votre adresse e-mail et votre numéro de téléphone, brouillés pour ne pas être lisibles (hachés), avec le fait que vous vous êtes inscrit, à Meta (Facebook et Instagram), TikTok et Google. Ils s’en servent pour nous dire quelles publicités ont fonctionné, et pour montrer nos messages à vous et à des personnes qui vous ressemblent. Dans ce navigateur, les outils de ces entreprises ne fonctionnent qu’après que vous avez appuyé sur « Autoriser » dans la bannière, et ils peuvent déposer des cookies. Vous pouvez reprendre l’un ou l’autre choix à tout moment (dans votre profil, ou en bas de cette page), et nous demander de supprimer votre compte.",
           "Parrainage et gains : qui vous a invité, qui vous avez invité, ainsi que les gains et les paiements de parrainage.",
           "Événements : les événements auxquels vous avez dit que vous viendriez, et si un responsable vous a marqué présent ou si vous avez terminé l'enregistrement lié à l'événement.",
           "Informations techniques : si vous êtes en ligne et votre dernière connexion, les sessions de connexion sur vos appareils et, si vous autorisez les notifications, un code qui permet à votre téléphone de recevoir nos alertes."
@@ -3528,7 +3530,7 @@
           "Pour faire fonctionner la formation : enregistrer votre progression, corriger les quiz et confirmer les paiements de livres.",
           "Pour protéger l'application : empêcher les abus, traiter les signalements et garder une trace des actions importantes des responsables et des administrateurs.",
           "Pour vous contacter : envoyer des codes de connexion et des avis par e-mail, et des alertes sur votre téléphone pour les messages, les événements et les paiements si vous les autorisez. Si vous commencez à nous rejoindre sans terminer, nous pouvons vous envoyer jusqu’à trois e-mails de rappel pour vous aider à terminer. Si vous avez accepté les nouvelles par e-mail et que vous êtes absent depuis un moment, nous pouvons vous envoyer un e-mail « vous nous manquez » ; chacun de ces e-mails contient un lien pour les arrêter, et vous pouvez changer votre choix à tout moment dans votre profil.",
-          "Nous ne vendons pas vos informations. Nous n'affichons pas de publicité, et l'application n'utilise pas de traceurs publicitaires ni d'analyse d'audience."
+          "Nous ne vendons pas vos informations. Nous n’affichons pas de publicité dans l’application. Les outils des plateformes publicitaires (Meta, TikTok, Google) ne fonctionnent que si vous les autorisez, comme décrit à la section 1 ; sans votre « Autoriser », l’application n’utilise ni traceurs publicitaires ni analyse d’audience."
         ]
       },
       {
@@ -3731,7 +3733,8 @@
     "email": "M’envoyer des nouvelles par e-mail",
     "not_answered": "Pas encore répondu",
     "saved": "Enregistré.",
-    "failed": "Impossible d’enregistrer. Veuillez réessayer."
+    "failed": "Impossible d’enregistrer. Veuillez réessayer.",
+    "ads": "Transmettre mon e-mail et mon numéro brouillés (hachés) aux plateformes publicitaires (Meta, TikTok, Google)"
   },
   "growth": {
     "tab": "Croissance",
@@ -3798,5 +3801,82 @@
     "kind_FINISH_SIGNUP_2": "Terminer l’inscription (deuxième)",
     "kind_FINISH_PROFILE": "Terminer nom et lieu",
     "kind_WINBACK": "Vous nous manquez"
+  },
+  "adsBanner": {
+    "title": "Mesure des publicités.",
+    "body": "Pouvons-nous utiliser des outils de Meta, TikTok et Google dans ce navigateur pour voir quelles publicités amènent des personnes à The God Nation ? Ils peuvent déposer des cookies. Vous pouvez refuser et tout utiliser quand même.",
+    "more": "Comment nous les utilisons",
+    "yes": "Autoriser",
+    "no": "Non merci",
+    "device_title": "Mesure des publicités sur cet appareil",
+    "device_yes": "Vous avez autorisé. Les outils de Meta, TikTok et Google peuvent fonctionner dans ce navigateur.",
+    "device_no": "Vous avez refusé. Rien de Meta, TikTok ou Google ne fonctionne dans ce navigateur.",
+    "device_unset": "Vous n’avez pas encore choisi.",
+    "device_reload": "Enregistré. Cela s’arrête complètement au prochain chargement de cette page."
+  },
+  "ads": {
+    "title": "Connexions publicitaires",
+    "help": "Connectez Meta (Facebook, Instagram), TikTok et Google pour qu’ils sachent quelles publicités ont amené des inscriptions, et pour montrer vos messages aux membres et à des personnes qui leur ressemblent. Rien ne fonctionne tant que vous n’avez pas collé un identifiant ici. Les visiteurs sont consultés avant que ces outils ne se chargent dans leur navigateur, et seuls les membres qui cochent la case publicité voient leurs informations brouillées transmises.",
+    "untested": "Pas encore testé avec les plateformes réelles. À la première connexion de chacune, utilisez son écran « événements de test » pour vérifier que l’inscription arrive, et regardez les événements récents ci-dessous.",
+    "meta_pixel": "Identifiant du pixel Meta (jeu de données)",
+    "tiktok_pixel": "Code du pixel TikTok",
+    "google_tag": "Identifiant de la balise Google",
+    "google_lead": "Conversion Google : première étape (formulaire d’inscription)",
+    "google_signup": "Conversion Google : inscription terminée",
+    "ids_hint": "Ces identifiants ne sont pas secrets. Laissez une case vide pour désactiver cette plateforme. Les jetons d’accès secrets ne se tapent jamais ici : ils se configurent sur le serveur (Render), sous les noms META_CAPI_TOKEN et TIKTOK_EVENTS_TOKEN.",
+    "save": "Enregistrer",
+    "saved": "Enregistré.",
+    "failed": "Impossible d’enregistrer. Un des identifiants semble incorrect : copiez-le à nouveau exactement comme la plateforme l’affiche.",
+    "status": "État des connexions",
+    "pixel_set": "identifiant saisi",
+    "pixel_missing": "pas encore d’identifiant",
+    "token_set": "jeton serveur configuré",
+    "token_missing": "jeton serveur manquant",
+    "server_ready": "envoi depuis le serveur",
+    "test_mode": "mode test",
+    "tokens_hint": "Les événements serveur ne partent que si l’identifiant est saisi, le jeton serveur configuré, et le membre a coché la case publicité.",
+    "last7": "7 derniers jours : {{ok}} événements envoyés, {{failed}} échoués.",
+    "col_when": "Quand",
+    "col_platform": "Plateforme",
+    "col_event": "Événement",
+    "col_result": "Résultat",
+    "ok": "Envoyé",
+    "failed_row": "Échec",
+    "lists_title": "Listes de membres pour les publicités",
+    "lists_help": "Tableurs des membres qui ont accepté, avec e-mail et téléphone brouillés (hachés) pour ne pas être lisibles. Importez-en un dans l’outil de liste de clients de la plateforme pour montrer des publicités aux membres et à des personnes qui leur ressemblent, ou pour reconquérir les membres silencieux. Chaque téléchargement est enregistré.",
+    "download_members": "Tous les membres qui ont accepté ({{n}})",
+    "download_quiet": "Silencieux depuis {{days}}+ jours ({{n}})"
+  },
+  "linkBuilder": {
+    "title": "Créateur de liens suivis",
+    "help": "Créez un lien qui indique au rapport de croissance d’où vient chaque personne. Utilisez un nom de campagne ou de publicité différent pour chaque publicité ou publication.",
+    "destination": "Où mène le lien",
+    "dest_join": "Page d’inscription (recommandé pour les publicités)",
+    "dest_home": "Page d’accueil",
+    "where": "Où vous allez le placer",
+    "preset_facebook": "Publicité Facebook",
+    "preset_instagram": "Publicité Instagram",
+    "preset_tiktok": "Publicité TikTok",
+    "preset_google": "Publicité Google",
+    "preset_whatsapp": "Message ou groupe WhatsApp",
+    "preset_telegram": "Publication Telegram",
+    "preset_email": "E-mail",
+    "preset_other": "Autre chose",
+    "source": "Nom de la source",
+    "medium": "Type (medium)",
+    "campaign": "Nom de la campagne",
+    "campaign_ph": "par exemple : lancement-novembre",
+    "content": "Nom de la publicité ou publication (facultatif)",
+    "content_ph": "par exemple : video-1",
+    "lang": "Langue de la page",
+    "lang_any": "Langue du visiteur",
+    "link": "Votre lien",
+    "copy": "Copier",
+    "copied": "Copié",
+    "params": "Paramètres d’URL (pour la plateforme publicitaire)",
+    "dynlink": "Lien complet avec noms automatiques",
+    "dynamic_help_facebook": "Dans le Gestionnaire de publicités Meta, collez les paramètres dans « Paramètres d’URL » de la publicité : Meta remplit les vrais noms de campagne et de publicité.",
+    "dynamic_help_tiktok": "Dans TikTok Ads Manager, collez les paramètres à la fin du lien de la page de destination : TikTok remplit le nom de la campagne et l’identifiant de la création. Consultez l’aide de TikTok si un nom reste vide.",
+    "dynamic_help_google": "Dans Google Ads, collez le lien complet comme « modèle de suivi » (remplacez le début par {lpurl} si Google le demande) : Google remplit les identifiants de campagne et de création."
   }
 }

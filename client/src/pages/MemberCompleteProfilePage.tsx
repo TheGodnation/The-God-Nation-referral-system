@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
+import { getAdsChoice, getFbp, newAdEventId, trackAd } from '../lib/adsTracking';
 import { EMPTY_LOCATION, LocationFields, locationCountry, locationPayload, validateLocation, type LocationValue } from '../components/member/LocationFields';
 
 type Field = 'name' | 'country' | 'region' | 'division' | 'subdivision' | 'quarter';
@@ -44,11 +45,15 @@ export function MemberCompleteProfilePage() {
 
     setSubmitting(true);
     try {
+      const adEventId = newAdEventId();
       await api.post('/api/member/auth/complete-profile', {
         name: name.trim(),
         preferredLanguage: language,
         ...locationPayload(place),
+        // Only when this browser's pixel is running: the same id lets the platform count the sign-up once.
+        ...(getAdsChoice() === 'yes' ? { adEventId, fbp: getFbp() } : {}),
       });
+      trackAd('CompleteRegistration', adEventId);
       await refresh();
       navigate('/member/welcome-group', { replace: true });
     } catch (err) {

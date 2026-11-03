@@ -17,6 +17,10 @@ export const CONSENT_WORDING: Record<ConsentChannel, Record<Lang, string>> = {
     en: 'Yes, send me updates and encouragement from The God Nation by email.',
     fr: 'Oui, envoyez-moi les nouvelles et les encouragements de The God Nation par e-mail.',
   },
+  ADS: {
+    en: 'Yes, The God Nation may share my email and phone number, scrambled so they cannot be read (hashed), with Meta (Facebook and Instagram), TikTok and Google, to measure which ads brought me here and to show The God Nation messages to me and to people like me.',
+    fr: 'Oui, The God Nation peut transmettre mon e-mail et mon numéro de téléphone, brouillés pour ne pas être lisibles (hachés), à Meta (Facebook et Instagram), TikTok et Google, afin de mesurer quelles publicités m’ont amené ici et de montrer les messages de The God Nation à moi et à des personnes qui me ressemblent.',
+  },
 };
 
 export type ConsentSource = 'signup' | 'stay-connected' | 'profile' | 'unsubscribe-link';
@@ -46,6 +50,7 @@ export async function recordConsent(
 export interface ConsentState {
   whatsapp: boolean | null;
   email: boolean | null;
+  ads: boolean | null;
 }
 
 /** The person's current choices; null means they were never asked or never answered. */
@@ -56,7 +61,7 @@ export async function currentConsent(db: Db, personId: string): Promise<ConsentS
     select: { channel: true, granted: true },
   });
   const pick = (c: ConsentChannel) => rows.find((r) => r.channel === c)?.granted ?? null;
-  return { whatsapp: pick('WHATSAPP'), email: pick('EMAIL') };
+  return { whatsapp: pick('WHATSAPP'), email: pick('EMAIL'), ads: pick('ADS') };
 }
 
 /**

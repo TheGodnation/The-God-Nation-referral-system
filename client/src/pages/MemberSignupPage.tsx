@@ -8,6 +8,8 @@ import { api, ApiError } from '../lib/api';
 import { CodeEntry } from '../components/member/CodeEntry';
 import { useEmailTypoCheck } from '../components/EmailTypoHint';
 import { InAppBrowserNotice } from '../components/InAppBrowserNotice';
+import { usePublicSettings } from '../lib/usePublicSettings';
+import { adsConfigured, getFbp, newAdEventId, trackAd } from '../lib/adsTracking';
 
 // Step 1 of joining the community: email, phone and a password. The server
 // always gives the same reply (it never says whether someone is already
@@ -30,6 +32,9 @@ function MemberSignupPageInner() {
   const [password, setPassword] = useState('');
   const [consentWhatsapp, setConsentWhatsapp] = useState(false);
   const [consentEmail, setConsentEmail] = useState(false);
+  const [consentAds, setConsentAds] = useState(false);
+  const settings = usePublicSettings();
+  const showAds = adsConfigured(settings.ads);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -54,7 +59,13 @@ function MemberSignupPageInner() {
     setSubmitting(true);
     try {
       const language = i18n.language?.startsWith('fr') ? 'fr' : 'en';
-      await api.post('/api/member/auth/signup', { email: email.trim(), whatsapp: whatsapp.trim(), password, language, consentWhatsapp, consentEmail });
+      const ads = showAds && consentAds;
+      const adEventId = newAdEventId();
+      await api.post('/api/member/auth/signup', {
+        email: email.trim(), whatsapp: whatsapp.trim(), password, language, consentWhatsapp, consentEmail,
+        ...(ads ? { consentAds: true, adEventId, fbp: getFbp() } : {}),
+      });
+      trackAd('Lead', adEventId);
       setSent(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'INVALID_PHONE') setError(t('memberSignup.error_phone'));
@@ -133,6 +144,12 @@ function MemberSignupPageInner() {
                 <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={consentEmail} onChange={(e) => setConsentEmail(e.target.checked)} />
                 <span>{t('memberSignup.consent_email')}</span>
               </label>
+              {showAds && (
+                <label className="flex items-start gap-2 text-sm text-slate-700">
+                  <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={consentAds} onChange={(e) => setConsentAds(e.target.checked)} data-testid="signup-consent-ads" />
+                  <span>{t('memberSignup.consent_ads')}</span>
+                </label>
+              )}
               <p className="text-xs text-slate-500">{t('memberSignup.consent_hint')}</p>
             </div>
 

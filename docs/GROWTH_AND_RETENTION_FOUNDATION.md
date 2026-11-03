@@ -66,8 +66,46 @@ start it. **Phase A is built (3 November 2026).** The rest is still a blueprint.
 - **Notifications asked at a better moment:** right on the "Join us where you
   prefer" step after sign-up, with the explanation, instead of only later.
 
-Not yet built: ad pixels and the ad-platform connections (Phase C), the blog
-upgrade (Phase D) and automatic WhatsApp messages (Phase E).
+### Phase C built (ads connections)
+
+Everything below is **inert until you paste an id** in the Growth tab, "Ads
+connections" card. Nothing has been tested against the live Meta, TikTok or
+Google systems yet: the first connection of each must be checked with that
+platform's "test events" screen.
+
+- **Tagged link maker** (Growth tab): choose where the link goes and where you
+  will put it (Facebook, Instagram, TikTok, Google, WhatsApp, Telegram, email),
+  name the campaign and ad, and get a clean link plus, for ads, the "URL
+  parameters" string in which Meta, TikTok or Google fill in the real campaign
+  and ad names themselves. The Growth report already reads these tags.
+- **Browser pixels** (Meta, TikTok, Google tag) load only after the visitor
+  presses **Allow** on a small banner; **No thanks** is remembered and nothing
+  loads. The banner appears only once an id has been entered. Visitors can
+  change their answer at the bottom of the Privacy page and in their profile.
+- **Third consent box at sign-up** (unticked): agreement to share scrambled
+  (hashed) email and phone with Meta, TikTok and Google. It is recorded with the
+  exact wording, like the WhatsApp and email choices, and can be withdrawn in the
+  profile.
+- **Server-side events:** with the box ticked, a "Lead" event (sign-up) and a
+  "CompleteRegistration" event (name and place filled in) are sent from the
+  server to Meta's Conversions API and TikTok's Events API, with email and phone
+  SHA-256 hashed, the ad click code (fbclid / ttclid) and the same event id the
+  browser pixel used, so the platform counts each sign-up once. A platform
+  receives an event only if the person arrived from it. Every attempt (sent or
+  failed) is listed in the card. Google receives conversions from the browser
+  tag; the Google click code (gclid) is stored for later offline uploads.
+- **Secret tokens** are never typed into the app or stored in the database: set
+  `META_CAPI_TOKEN` and `TIKTOK_EVENTS_TOKEN` as environment variables on Render
+  (and, only while testing, `META_TEST_EVENT_CODE` / `TIKTOK_TEST_EVENT_CODE`).
+- **Hashed member lists** for the platforms' customer-list tools: all members who
+  agreed, and members quiet for the reminder period. Only people whose latest
+  choice is "yes" are included; test accounts and accounts being deleted are left
+  out. Each download is written to the audit trail.
+- **Privacy page** now describes ad measurement, the hashed data shared, the
+  banner and how to withdraw. Please have the Cameroonian lawyer review it.
+
+Not yet built: the blog upgrade (Phase D) and automatic WhatsApp messages
+(Phase E).
 
 
 

@@ -162,12 +162,12 @@ describe('A member’s own contact choices and the group click', () => {
 
   it('shows "not answered", then follows each change and keeps the history', async () => {
     const { agent, csrf, person } = await signedInMember();
-    expect((await agent.get('/api/member/contact-consent')).body).toEqual({ whatsapp: null, email: null });
+    expect((await agent.get('/api/member/contact-consent')).body).toEqual({ whatsapp: null, email: null, ads: null });
 
     const on = await agent.put('/api/member/contact-consent').set('X-CSRF-Token', csrf).send({ whatsapp: true, email: true });
-    expect(on.body).toEqual({ whatsapp: true, email: true });
+    expect(on.body).toEqual({ whatsapp: true, email: true, ads: null });
     const off = await agent.put('/api/member/contact-consent').set('X-CSRF-Token', csrf).send({ whatsapp: false });
-    expect(off.body).toEqual({ whatsapp: false, email: true });
+    expect(off.body).toEqual({ whatsapp: false, email: true, ads: null });
     // Same answer again adds nothing.
     await agent.put('/api/member/contact-consent').set('X-CSRF-Token', csrf).send({ whatsapp: false });
     const rows = await prisma.contactConsent.findMany({ where: { personId: person.id, channel: 'WHATSAPP' } });

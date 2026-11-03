@@ -69,7 +69,8 @@
     "error_generic": "Something went wrong. Please try again.",
     "consent_whatsapp": "Yes, send me updates and encouragement from The God Nation on WhatsApp.",
     "consent_email": "Yes, send me updates and encouragement from The God Nation by email.",
-    "consent_hint": "Optional. You can change this any time in your profile."
+    "consent_hint": "Optional. You can change this any time in your profile.",
+    "consent_ads": "Yes, The God Nation may share my email and phone number, scrambled so they cannot be read (hashed), with Meta (Facebook and Instagram), TikTok and Google, to measure which ads brought me here and to show The God Nation messages to me and to people like me."
   },
   "memberCompleteProfile": {
     "title": "Tell us about you",
@@ -3516,6 +3517,7 @@
           "King's Tokens: if the ministry has started them, we keep a record of the tokens you earn for your Dominion Clinic exams, the tokens you use toward a training book, and the date and reason for each. King's Tokens are a record of study rewards inside the app. They are not money, they cannot be bought, sold, cashed out or sent to another person, and they are used only toward the ministry's own training materials.",
           "Ad and link details: when you arrive from an advertisement or a shared link, we note which one (for example the campaign name and the website you came from, but not the full address of that page) so we can see which ads and ambassadors bring people. This is kept with your visit and your sign-up.",
           "If you leave your name and WhatsApp number in the “Stay connected” box, or tick the boxes at sign-up, we keep your choice, the date, and the exact sentence you agreed to. We only message you on the channels you agreed to, and you can change or stop this at any time in your profile. We also count which group, channel or page you tap to join (for example WhatsApp, Telegram or Messenger). We do not see anything about you inside those apps.",
+          "Ad measurement (only if you allow it): if you tick the box at sign-up or in your profile, we may send your email address and phone number, scrambled so they cannot be read (hashed), together with the fact that you signed up, to Meta (Facebook and Instagram), TikTok and Google. They use it to tell us which ads worked, and to show our messages to you and to people like you. In this browser, tools from those companies run only after you press “Allow” in the banner, and they may set cookies. You can take back either choice at any time (in your profile, or at the bottom of this page), and ask us to delete your account.",
           "Referrals and earnings: who invited you, who you invited, and any referral earnings and payouts.",
           "Events: which events you said you would come to, and whether a leader marked you present, or you finished the recording linked to the event.",
           "Technical information: whether you are online and when you were last seen, the sign-in sessions on your devices, and, if you allow notifications, a code that lets your phone receive alerts from us."
@@ -3528,7 +3530,7 @@
           "To run the training: save your progress, mark quizzes, and confirm book payments.",
           "To keep the app safe: prevent abuse, handle reports, and keep a record of important actions by leaders and administrators.",
           "To contact you: send sign-in codes and notices by email, and alerts about messages, events and payments on your phone if you allow them. If you start joining and do not finish, we may send you up to three reminder emails to help you finish. If you agreed to updates by email and have been away for a while, we may send a “we miss you” email; every such email has a link to stop them, and you can change your choice at any time in your profile.",
-          "We do not sell your information. We do not show advertisements, and the app does not use advertising or analytics trackers."
+          "We do not sell your information. We do not show advertisements inside the app. Tools from advertising platforms (Meta, TikTok, Google) run only if you allow them, as described in section 1; without your “Allow”, the app uses no advertising or analytics trackers."
         ]
       },
       {
@@ -3731,7 +3733,8 @@
     "email": "Send me updates by email",
     "not_answered": "Not answered yet",
     "saved": "Saved.",
-    "failed": "Could not save. Please try again."
+    "failed": "Could not save. Please try again.",
+    "ads": "Share my scrambled (hashed) email and phone number with ad platforms (Meta, TikTok, Google)"
   },
   "growth": {
     "tab": "Growth",
@@ -3798,5 +3801,82 @@
     "kind_FINISH_SIGNUP_2": "Finish sign-up (second)",
     "kind_FINISH_PROFILE": "Finish name and place",
     "kind_WINBACK": "We miss you"
+  },
+  "adsBanner": {
+    "title": "Ad measurement.",
+    "body": "May we use tools from Meta, TikTok and Google in this browser to see which ads bring people to The God Nation? They may set cookies. You can say no and still use everything.",
+    "more": "How we use this",
+    "yes": "Allow",
+    "no": "No thanks",
+    "device_title": "Ad measurement on this device",
+    "device_yes": "You allowed it. Meta, TikTok and Google tools may run in this browser.",
+    "device_no": "You said no. Nothing from Meta, TikTok or Google runs in this browser.",
+    "device_unset": "You have not chosen yet.",
+    "device_reload": "Saved. It stops completely the next time this page loads."
+  },
+  "ads": {
+    "title": "Ads connections",
+    "help": "Connect Meta (Facebook, Instagram), TikTok and Google so they can tell which ads brought sign-ups, and so you can show your messages to members and people like them. Nothing runs until you paste an id here. Visitors are asked before any of these tools load in their browser, and only members who tick the ads box have scrambled details sent.",
+    "untested": "Not yet tested with the live platforms. When you first connect each one, use that platform’s “test events” screen to check the sign-up arrives, and look at the recent events below.",
+    "meta_pixel": "Meta pixel (dataset) id",
+    "tiktok_pixel": "TikTok pixel code",
+    "google_tag": "Google tag id",
+    "google_lead": "Google conversion: first step (sign-up form)",
+    "google_signup": "Google conversion: finished joining",
+    "ids_hint": "These ids are not secret. Leave a box empty to switch that platform off. The secret access tokens are never typed here: they are set on the server (Render), as META_CAPI_TOKEN and TIKTOK_EVENTS_TOKEN.",
+    "save": "Save",
+    "saved": "Saved.",
+    "failed": "Could not save. One of the ids does not look right: copy it again exactly as the platform shows it.",
+    "status": "Connection status",
+    "pixel_set": "id entered",
+    "pixel_missing": "no id yet",
+    "token_set": "server token set",
+    "token_missing": "server token missing",
+    "server_ready": "sending from the server",
+    "test_mode": "test mode",
+    "tokens_hint": "Server events are sent only when the id is entered, the server token is set, and the member ticked the ads box.",
+    "last7": "Last 7 days: {{ok}} events sent, {{failed}} failed.",
+    "col_when": "When",
+    "col_platform": "Platform",
+    "col_event": "Event",
+    "col_result": "Result",
+    "ok": "Sent",
+    "failed_row": "Failed",
+    "lists_title": "Member lists for ads",
+    "lists_help": "Spreadsheets of members who agreed, with email and phone scrambled (hashed) so they cannot be read. Upload one to the platform’s customer-list tool to show ads to members and to people like them, or to win back quiet members. Each download is recorded.",
+    "download_members": "All members who agreed ({{n}})",
+    "download_quiet": "Quiet {{days}}+ days ({{n}})"
+  },
+  "linkBuilder": {
+    "title": "Tagged link maker",
+    "help": "Make a link that tells the Growth report where each person came from. Use a different campaign or ad name for each ad or post.",
+    "destination": "Where the link goes",
+    "dest_join": "Join page (recommended for ads)",
+    "dest_home": "Home page",
+    "where": "Where you will put it",
+    "preset_facebook": "Facebook ad",
+    "preset_instagram": "Instagram ad",
+    "preset_tiktok": "TikTok ad",
+    "preset_google": "Google ad",
+    "preset_whatsapp": "WhatsApp message or group",
+    "preset_telegram": "Telegram post",
+    "preset_email": "Email",
+    "preset_other": "Something else",
+    "source": "Source name",
+    "medium": "Kind (medium)",
+    "campaign": "Campaign name",
+    "campaign_ph": "for example: november-launch",
+    "content": "Ad or post name (optional)",
+    "content_ph": "for example: video-1",
+    "lang": "Language of the page",
+    "lang_any": "Visitor’s own language",
+    "link": "Your link",
+    "copy": "Copy",
+    "copied": "Copied",
+    "params": "URL parameters (for the ad platform)",
+    "dynlink": "Full link with automatic names",
+    "dynamic_help_facebook": "In Meta Ads Manager, paste the parameters into “URL parameters” on the ad: Meta then fills in the real campaign and ad names for you.",
+    "dynamic_help_tiktok": "In TikTok Ads Manager, paste the parameters at the end of the landing-page link: TikTok fills in the campaign name and creative id. Check TikTok’s help if a name shows up empty.",
+    "dynamic_help_google": "In Google Ads, paste the full link as the “tracking template” (replace the start with {lpurl} if Google asks): Google fills in the campaign and creative ids."
   }
 }

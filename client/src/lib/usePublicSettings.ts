@@ -14,6 +14,14 @@ export interface PublicSettings {
   youtubeUrl: string | null;
   telegramUrl: string | null;
   messengerUrl: string | null;
+  // Public ad-platform identifiers; pixels load only after the visitor allows them (lib/adsTracking.ts).
+  ads?: {
+    metaPixelId: string | null;
+    tiktokPixelId: string | null;
+    googleTagId: string | null;
+    googleLeadSendTo: string | null;
+    googleSignupSendTo: string | null;
+  };
   content: Record<string, string>;
   homeWallpaper?: { preset: string | null; imageUrl: string | null };
   chatWallpaper?: { preset: string | null; imageUrl: string | null };

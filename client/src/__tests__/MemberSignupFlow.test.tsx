@@ -183,6 +183,29 @@ describe('MemberCompleteProfilePage', () => {
     });
   });
 
+  it('when the visitor allowed ad measurement, sends the shared event id so the sign-up is counted once', async () => {
+    localStorage.setItem('gn_ads_consent', 'yes');
+    try {
+      mockFetchByUrl({
+        '/api/member/auth/me': { status: 200, body: { member: NEW_MEMBER } },
+        '/api/member/auth/complete-profile': { status: 200, body: { profileComplete: true, community: null } },
+      });
+      renderPage();
+      await waitFor(() => expect(screen.getByLabelText('Region')).toBeInTheDocument());
+      fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Jean Ngono' } });
+      fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'Centre' } });
+      fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Mfoundi' } });
+      fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Yaoundé III' } });
+      fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Efoulan' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Enter the community' }));
+      await waitFor(() => expect(screen.getByText('Group step')).toBeInTheDocument());
+      const body = calls.find((c) => c.url.includes('/api/member/auth/complete-profile'))?.body;
+      expect(body.adEventId).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
+    } finally {
+      localStorage.removeItem('gn_ads_consent');
+    }
+  });
+
   it('asks for the same five levels outside Cameroon, typed in, with only the region required', async () => {
     mockFetchByUrl({
       '/api/member/auth/me': { status: 200, body: { member: NEW_MEMBER } },

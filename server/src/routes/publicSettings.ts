@@ -25,6 +25,14 @@ router.get('/public', asyncHandler(async (_req, res) => {
     youtubeUrl: settings?.youtubeUrl ?? null,
     telegramUrl: settings?.telegramUrl ?? null,
     messengerUrl: settings?.messengerUrl ?? null,
+    // Public ad-platform identifiers (not secrets); the browser pixels load only after the visitor says yes.
+    ads: {
+      metaPixelId: settings?.metaPixelId ?? null,
+      tiktokPixelId: settings?.tiktokPixelId ?? null,
+      googleTagId: settings?.googleTagId ?? null,
+      googleLeadSendTo: settings?.googleLeadSendTo ?? null,
+      googleSignupSendTo: settings?.googleSignupSendTo ?? null,
+    },
     content: (settings?.content as Record<string, string> | null) ?? {},
     // Home page / chat background — a preset name, an uploaded image URL
     // (viewing it needs sign-in), or both null (the
