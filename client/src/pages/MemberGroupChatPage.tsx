@@ -191,6 +191,21 @@ export function MemberGroupChatPage() {
     }
   }
 
+  /** Pin or unpin every selected message in one go (the central admin only). */
+  async function pinSelected(action: 'PIN' | 'UNPIN') {
+    const ids = selectedMessages.map((m) => m.id);
+    if (ids.length === 0) return;
+    try {
+      const res = await api.post<{ pins: ChatPin[]; changed: number }>(`/api/communities/${communityId}/conversation/pins`, { action, messageIds: ids });
+      setPins(res.pins);
+      setMessages((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, pinned: action === 'PIN' } : x)));
+      setSelected([]);
+      showToast(t(action === 'PIN' ? 'pins.pinned_many_toast' : 'pins.unpinned_many_toast', { count: ids.length }));
+    } catch {
+      showToast(t('groupChat.action_failed'));
+    }
+  }
+
   function markRead(items: ChatMessage[], unread: number) {
     const latest = items[items.length - 1];
     if (!latest || unread === 0 || lastReadId.current === latest.id) return;
@@ -563,6 +578,7 @@ export function MemberGroupChatPage() {
       <PinnedMessages
         pins={pins}
         canPin={canPin}
+        loadFull={(id) => api.get<{ body: string | null; translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null }>(`/api/communities/${communityId}/conversation/pins/${id}`)}
         onSeen={pinSeen}
         onShowInChat={(id) => void findAndJump(id, () => loadOlderPage().catch(() => false), jumpTo, () => showToast(t('groupChat.not_loaded')))}
         onUnpin={(id) => {
@@ -578,6 +594,8 @@ export function MemberGroupChatPage() {
           onClose={() => setSelected([])}
           onCopy={() => void copySelected()}
           onForward={() => selectedMessages.length > 0 && setForwarding(selectedMessages)}
+          onPin={canPin ? () => void pinSelected('PIN') : undefined}
+          onUnpin={canPin ? () => void pinSelected('UNPIN') : undefined}
         />
       )}
 

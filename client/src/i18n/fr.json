@@ -3474,9 +3474,18 @@
     "unpin": "Désépingler",
     "pin_menu": "Épingler en haut",
     "unpin_menu": "Désépingler",
-    "pin_limit": "Vous pouvez épingler jusqu'à 3 messages. Désépinglez-en un d'abord.",
+    "pin_limit": "Ces messages n’ont pas pu être épinglés.",
     "pinned_toast": "Épinglé en haut.",
-    "unpinned_toast": "Désépinglé."
+    "unpinned_toast": "Désépinglé.",
+    "pin_selected": "Épingler",
+    "unpin_selected": "Désépingler",
+    "pinned_many_toast": "{{count}} messages épinglés",
+    "unpinned_many_toast": "{{count}} messages désépinglés",
+    "see_all": "Voir les {{count}}",
+    "hide_all": "Masquer la liste",
+    "finish": "Terminer",
+    "close": "Fermer",
+    "loading_full": "Chargement du message complet…"
   },
   "assistance": {
     "label": "Assistance",

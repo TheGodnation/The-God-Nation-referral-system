@@ -6,8 +6,8 @@ import { EmailService } from '../lib/email';
 import { createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
 
-// Pinned messages: the central admin pins up to three messages at the top of
-// an assembly's chat; everyone in it sees them first (newcomers too, whatever
+// Pinned messages: the central admin pins as many messages as they like at the top of
+// an assembly's chat (one at a time or many at once); everyone in it sees them first (newcomers too, whatever
 // the message's age); a pin you have not opened is "unseen" until you do.
 const app = createApp();
 const MIN = 60_000;
@@ -82,20 +82,75 @@ describe('pinning', () => {
     expect(await prisma.auditLog.count({ where: { action: 'COMMUNITY_MESSAGE_PINNED' } })).toBe(1);
   });
 
-  it('is safe to repeat, allows at most three at a time, and unpinning frees a place', async () => {
-    const { community, ids } = await assembly(5);
+  it('is safe to repeat, has no limit on how many are pinned, and unpinning one leaves the rest', async () => {
+    const { community, ids } = await assembly(14);
     const owner = await centralAdmin();
-    for (const id of ids.slice(0, 3)) expect((await pin(owner, community.id, id)).status).toBe(200);
+    for (const id of ids.slice(0, 12)) expect((await pin(owner, community.id, id)).status).toBe(200);
     expect((await pin(owner, community.id, ids[0])).status).toBe(200); // again: no change
-    expect(await prisma.messagePin.count()).toBe(3);
-    const fourth = await pin(owner, community.id, ids[3]);
-    expect(fourth.status).toBe(409);
-    expect(fourth.body.error).toMatch(/up to 3/);
+    expect(await prisma.messagePin.count()).toBe(12);
+    expect((await pin(owner, community.id, ids[12])).status).toBe(200); // a thirteenth: allowed
     const after = await unpin(owner, community.id, ids[1]);
     expect(after.status).toBe(200);
-    expect(after.body.pins).toHaveLength(2);
+    expect(after.body.pins).toHaveLength(12);
     expect((await unpin(owner, community.id, ids[1])).status).toBe(200); // again: no change
-    expect((await pin(owner, community.id, ids[3])).status).toBe(200);
+  });
+
+  it('pins and unpins many messages at once from the selection, ignoring ones that are not in this chat', async () => {
+    const { community, ids } = await assembly(25);
+    const other = await assembly(1);
+    const owner = await centralAdmin();
+    const bulk = (action: 'PIN' | 'UNPIN', messageIds: string[]) => owner.agent.post(`${base(community.id)}/pins`).set('X-CSRF-Token', owner.csrf).send({ action, messageIds });
+
+    const first = await bulk('PIN', [...ids.slice(0, 20), other.ids[0]]);
+    expect(first.status).toBe(200);
+    expect(first.body.changed).toBe(20); // the other chat's message is not pinned here
+    expect(first.body.pins).toHaveLength(20);
+    // Again, with two more: only the new ones count.
+    expect((await bulk('PIN', ids.slice(18, 22))).body).toMatchObject({ changed: 2 });
+    expect(await prisma.messagePin.count({ where: { conversationId: (await prisma.conversation.findFirstOrThrow({ where: { communityId: community.id } })).id } })).toBe(22);
+    expect(await prisma.messagePin.count({ where: { messageId: other.ids[0] } })).toBe(0);
+    // Unpin a selection.
+    const gone = await bulk('UNPIN', ids.slice(0, 10));
+    expect(gone.body.changed).toBe(10);
+    expect(gone.body.pins).toHaveLength(12);
+    expect(await prisma.auditLog.count({ where: { action: 'COMMUNITY_MESSAGES_PINNED' } })).toBe(2);
+    expect(await prisma.auditLog.count({ where: { action: 'COMMUNITY_MESSAGES_UNPINNED' } })).toBe(1);
+  });
+
+  it('the pin list carries only the start of a long teaching; the reader fetches the whole one', async () => {
+    const { community, conversation, old, ids } = await assembly(2);
+    const owner = await centralAdmin();
+    const long = `Teaching: ${'The Kingdom of God. '.repeat(200)}THE END`;
+    const msg = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: old.person.id, body: long } });
+    await pin(owner, community.id, msg.id);
+    await pin(owner, community.id, ids[0]);
+    const member1 = await member('Reader', community.id);
+
+    const listed = (await info(member1, community.id)).pins as { messageId: string; body: string; bodyTruncated: boolean }[];
+    const longPin = listed.find((p) => p.messageId === msg.id)!;
+    expect(longPin.body.length).toBe(600);
+    expect(longPin.bodyTruncated).toBe(true);
+    expect(listed.find((p) => p.messageId === ids[0])!.bodyTruncated).toBe(false);
+
+    const full = await member1.agent.get(`${base(community.id)}/pins/${msg.id}`);
+    expect(full.status).toBe(200);
+    expect(full.body.body).toBe(long);
+    // A message that is not pinned (or not in this chat) cannot be fetched this way.
+    expect((await member1.agent.get(`${base(community.id)}/pins/${ids[1]}`)).status).toBe(404);
+    const outsider = await member('Outsider');
+    expect((await outsider.agent.get(`${base(community.id)}/pins/${msg.id}`)).status).toBe(403);
+  });
+
+  it('only the central admin can pin many at once, and an empty or oversized selection is refused', async () => {
+    const { community, ids } = await assembly(3);
+    const owner = await centralAdmin();
+    const ordinary = await member('Ordinary', community.id);
+    const post = (w: Who, body: unknown) => w.agent.post(`${base(community.id)}/pins`).set('X-CSRF-Token', w.csrf).send(body as object);
+    expect((await post(ordinary, { action: 'PIN', messageIds: ids })).status).toBe(403);
+    expect(await prisma.messagePin.count()).toBe(0);
+    expect((await post(owner, { action: 'PIN', messageIds: [] })).status).toBe(400);
+    expect((await post(owner, { action: 'PIN', messageIds: Array.from({ length: 301 }, () => ids[0]) })).status).toBe(400);
+    expect((await post(owner, { action: 'WHATEVER', messageIds: ids })).status).toBe(400);
   });
 
   it('refuses a message from another assembly, a removed message, and someone with no access', async () => {

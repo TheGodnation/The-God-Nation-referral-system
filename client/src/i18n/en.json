@@ -3474,9 +3474,18 @@
     "unpin": "Unpin",
     "pin_menu": "Pin to top",
     "unpin_menu": "Unpin",
-    "pin_limit": "You can pin up to 3 messages. Unpin one first.",
+    "pin_limit": "These messages could not be pinned.",
     "pinned_toast": "Pinned to the top.",
-    "unpinned_toast": "Unpinned."
+    "unpinned_toast": "Unpinned.",
+    "pin_selected": "Pin",
+    "unpin_selected": "Unpin",
+    "pinned_many_toast": "{{count}} messages pinned",
+    "unpinned_many_toast": "{{count}} messages unpinned",
+    "see_all": "See all {{count}}",
+    "hide_all": "Hide the list",
+    "finish": "Finish",
+    "close": "Close",
+    "loading_full": "Loading the whole message…"
   },
   "assistance": {
     "label": "Assistance",

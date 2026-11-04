@@ -90,12 +90,17 @@ export function SelectionBar({
   onClose,
   onCopy,
   onForward,
+  onPin,
+  onUnpin,
 }: {
   count: number;
   canCopy: boolean;
   onClose: () => void;
   onCopy: () => void;
   onForward: () => void;
+  /** The central admin only: pin or unpin everything selected. */
+  onPin?: () => void;
+  onUnpin?: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -112,6 +117,16 @@ export function SelectionBar({
       {canCopy && (
         <button type="button" onClick={onCopy} aria-label={t('groupChat.copy') ?? ''} title={t('groupChat.copy') ?? ''} className="px-3 py-1 text-xl">
           📋
+        </button>
+      )}
+      {onPin && (
+        <button type="button" onClick={onPin} className="rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold">
+          📌 {t('pins.pin_selected')}
+        </button>
+      )}
+      {onUnpin && (
+        <button type="button" onClick={onUnpin} className="rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold">
+          {t('pins.unpin_selected')}
         </button>
       )}
       <button type="button" onClick={onForward} aria-label={t('chatActions.forward') ?? ''} title={t('chatActions.forward') ?? ''} className="px-3 py-1 text-xl">

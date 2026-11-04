@@ -48,7 +48,7 @@ import { notifyPostLiked, notifyPostReplied } from '../lib/notifications';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording } from '../lib/presence';
 import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
 import { pushToPersons } from '../lib/push';
-import { markPinSeen, pinMessage, pinsFor, unpinMessage } from '../lib/messagePins';
+import { MAX_PINS_PER_REQUEST, markPinSeen, pinFull, pinMessage, pinMessages, pinsFor, unpinMessage, unpinMessages } from '../lib/messagePins';
 import { translateAndStoreMessage, transcribeAndStoreMessageAudio } from '../lib/translation';
 import type { Language } from '@prisma/client';
 
@@ -801,8 +801,8 @@ router.post(
   }),
 );
 
-// Pinned messages — only the central admin's profile pins or unpins (up to
-// three per assembly); everyone in the assembly sees them (see the
+// Pinned messages — only the central admin's profile pins or unpins (as many
+// as they like); everyone in the assembly sees them (see the
 // conversation route above). "seen" is anyone's own: they opened the pin.
 async function loadPinTarget(req: Request, res: Response, centralOnly: boolean) {
   const { communityId } = req.params;
@@ -858,6 +858,53 @@ router.delete(
     if (!target) return;
     await unpinMessage(target.conversation.id, req.params.messageId);
     res.json(await pinsResponse(req, target.conversation.id, target.personId));
+  }),
+);
+
+// POST .../conversation/pins { action: 'PIN' | 'UNPIN', messageIds: [...] } — pin or unpin many
+// messages at once (the chat's selection), in one request.
+const bulkPinSchema = z.object({
+  action: z.enum(['PIN', 'UNPIN']),
+  messageIds: z.array(z.string().uuid()).min(1).max(MAX_PINS_PER_REQUEST),
+});
+
+router.post(
+  '/:communityId/conversation/pins',
+  communityModerationLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const parsed = bulkPinSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Choose the messages first.' });
+    const target = await loadPinTarget(req, res, true);
+    if (!target) return;
+    const changed =
+      parsed.data.action === 'PIN'
+        ? await pinMessages(target.conversation.id, parsed.data.messageIds, target.personId)
+        : await unpinMessages(target.conversation.id, parsed.data.messageIds);
+    await recordAudit({
+      actorId: req.user?.id ?? null,
+      actorEmail: req.user?.email ?? null,
+      action: parsed.data.action === 'PIN' ? 'COMMUNITY_MESSAGES_PINNED' : 'COMMUNITY_MESSAGES_UNPINNED',
+      targetType: 'Community',
+      targetId: target.communityId,
+      metadata: { count: changed, requested: parsed.data.messageIds.length, byPersonId: target.personId },
+    });
+    res.json({ ...(await pinsResponse(req, target.conversation.id, target.personId)), changed });
+  }),
+);
+
+// GET .../conversation/pins/:messageId — one pinned message in full, for reading it from the pin
+// list (the list itself carries only the start of each). Any member of the assembly may read it.
+router.get(
+  '/:communityId/conversation/pins/:messageId',
+  communityConversationReadLimiter,
+  asyncHandler(async (req, res) => {
+    const target = await loadPinTarget(req, res, false);
+    if (!target) return;
+    const person = await prisma.person.findUnique({ where: { id: target.personId }, select: { preferredLanguage: true } });
+    const full = await pinFull(target.conversation.id, req.params.messageId, target.personId, appLanguage(req, person?.preferredLanguage));
+    if (!full) return res.status(404).json({ error: 'Pinned message not found.' });
+    res.json(full);
   }),
 );
 
