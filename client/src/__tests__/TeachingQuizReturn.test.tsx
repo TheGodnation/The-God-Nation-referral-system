@@ -77,4 +77,22 @@ describe('Back to the teaching after its quiz', () => {
     expect(screen.queryByText('The teaching page')).not.toBeInTheDocument();
     expect(screen.queryByTestId('back-to-teaching')).not.toBeInTheDocument();
   });
+
+  it('keeps the pinned trail when it takes the member back to the teaching', async () => {
+    mockFetch();
+    render(
+      <MemoryRouter initialEntries={['/member/assessments/a1?pins=g1']}>
+        <Routes>
+          <Route path="/member/assessments/:id" element={<MemberAssessmentPage />} />
+          <Route path="/member/teachings/:id" element={<div>The teaching page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('link', { name: /Back to the teaching/ })).toHaveAttribute('href', '/member/teachings/t1?pins=g1');
+    fireEvent.click(await screen.findByRole('button', { name: /Start/i }));
+    fireEvent.click(await screen.findByLabelText('Yes'));
+    fireEvent.click(await screen.findByRole('button', { name: /Submit/i }));
+    const note = await screen.findByTestId('back-to-teaching');
+    expect(note.querySelector('a')).toHaveAttribute('href', '/member/teachings/t1?pins=g1');
+  });
 });

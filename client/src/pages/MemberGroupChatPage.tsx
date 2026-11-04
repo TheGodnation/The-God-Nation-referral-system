@@ -167,11 +167,6 @@ export function MemberGroupChatPage() {
     return () => window.clearInterval(timer);
   }, [communityId]);
 
-  function pinSeen(messageId: string) {
-    setPins((prev) => prev.map((p) => (p.messageId === messageId ? { ...p, unseen: false } : p)));
-    api.post(`/api/communities/${communityId}/conversation/messages/${messageId}/pin/seen`).catch(() => {});
-  }
-
   async function togglePin(m: ChatMessage) {
     setMenuFor(null);
     try {
@@ -575,17 +570,7 @@ export function MemberGroupChatPage() {
         </button>
       </header>
 
-      <PinnedMessages
-        pins={pins}
-        canPin={canPin}
-        loadFull={(id) => api.get<{ body: string | null; translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null }>(`/api/communities/${communityId}/conversation/pins/${id}`)}
-        onSeen={pinSeen}
-        onShowInChat={(id) => void findAndJump(id, () => loadOlderPage().catch(() => false), jumpTo, () => showToast(t('groupChat.not_loaded')))}
-        onUnpin={(id) => {
-          const m = messagesRef.current.find((x) => x.id === id);
-          void togglePin(m ?? ({ id, pinned: true } as ChatMessage));
-        }}
-      />
+      <PinnedMessages pins={pins} onOpen={(id) => navigate(`/member/chats/group/${communityId}/pinned/${id}`)} />
 
       {selected.length > 0 && (
         <SelectionBar

@@ -2,6 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { PinnedMessages, type ChatPin } from '../components/chat/PinnedMessages';
+import { MemberPinnedPage } from '../pages/MemberPinnedPage';
+import { MemberTeachingPage } from '../pages/MemberTeachingPage';
+import { MemberAuthProvider } from '../lib/MemberAuthContext';
 import { MessageBubble } from '../components/chat/MessageBubble';
 import { MemberGroupChatPage } from '../pages/MemberGroupChatPage';
 import type { ChatMessage } from '../components/chat/types';
@@ -45,121 +48,165 @@ const pin = (over: Partial<ChatPin> = {}): ChatPin => ({
   ...over,
 });
 
-describe('PinnedMessages', () => {
+describe('PinnedMessages (the strip under the chat header)', () => {
   it('shows nothing when nothing is pinned', () => {
-    const { container } = render(<PinnedMessages pins={[]} canPin={false} onSeen={() => {}} onShowInChat={() => {}} onUnpin={() => {}} />);
+    const { container } = render(<PinnedMessages pins={[]} onOpen={() => {}} />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows the pinned message at the top, and opens it in full', () => {
-    render(<PinnedMessages pins={[pin()]} canPin={false} onSeen={() => {}} onShowInChat={() => {}} onUnpin={() => {}} />);
-    const bar = screen.getByTestId('pinned-messages');
-    expect(bar).toHaveTextContent('Pinned message');
-    expect(bar).toHaveTextContent('Stanley Ndoh');
-    expect(bar).toHaveTextContent('the conference is on Saturday at 9am');
-    expect(screen.queryByTestId('important-chip')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Unpin' })).not.toBeInTheDocument();
-  });
-
-  it('turns gold with "Important message, tap to read" when unseen; tapping opens it and counts it as seen', () => {
-    const onSeen = vi.fn();
-    render(<PinnedMessages pins={[pin({ unseen: true })]} canPin={false} onSeen={onSeen} onShowInChat={() => {}} onUnpin={() => {}} />);
-    const chip = screen.getByTestId('important-chip');
-    expect(chip).toHaveTextContent('Important message, tap to read');
-    expect(screen.getByTestId('pinned-messages').className).toContain('bg-amber-100');
-    fireEvent.click(chip);
-    expect(onSeen).toHaveBeenCalledWith('m1');
-    expect(screen.getByText(/the conference is on Saturday at 9am/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show in chat' })).toBeInTheDocument();
-  });
-
-  it('goes to the pin nobody has read when there are several, and steps through them', () => {
-    const onSeen = vi.fn();
-    const pins = [pin({ messageId: 'a', body: 'First pinned' }), pin({ messageId: 'b', body: 'Second pinned', unseen: true }), pin({ messageId: 'c', body: 'Third pinned' })];
-    render(<PinnedMessages pins={pins} canPin={false} onSeen={onSeen} onShowInChat={() => {}} onUnpin={() => {}} />);
-    fireEvent.click(screen.getByTestId('important-chip'));
-    expect(onSeen).toHaveBeenCalledWith('b');
-    expect(screen.getByTestId('pinned-messages')).toHaveTextContent('Pinned 2 of 3');
-    expect(screen.getByText('Second pinned')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
-    expect(screen.getByText('Third pinned')).toBeInTheDocument();
-    // The last one has no "Next": it ends with "Finish", which goes back to the chat.
-    expect(screen.queryByRole('button', { name: /Next/ })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Finish/ }));
-    expect(screen.queryByTestId('pinned-reader')).toBeNull();
-  });
-
-  it('reads them one after another, in the order they were written, then returns to the chat; opening again starts from the first', () => {
-    const onSeen = vi.fn();
+  it('shows how many are done, the next one to do, and opens the Pinned page at it', () => {
+    const onOpen = vi.fn();
     const pins = [
-      pin({ messageId: 'c', body: 'Lesson 3', createdAt: '2026-11-03T10:00:00Z', unseen: true }),
-      pin({ messageId: 'a', body: 'Lesson 1', createdAt: '2026-11-01T10:00:00Z', unseen: true }),
-      pin({ messageId: 'b', body: 'Lesson 2', createdAt: '2026-11-02T10:00:00Z', unseen: true }),
+      pin({ messageId: 'b', body: 'Lesson 2', createdAt: '2026-11-02T10:00:00Z', done: false }),
+      pin({ messageId: 'a', body: 'Lesson 1', createdAt: '2026-11-01T10:00:00Z', done: true }),
+      pin({ messageId: 'c', body: 'Lesson 3', createdAt: '2026-11-03T10:00:00Z', done: false }),
     ];
-    render(<PinnedMessages pins={pins} canPin={false} onSeen={onSeen} onShowInChat={() => {}} onUnpin={() => {}} />);
-    fireEvent.click(screen.getByTestId('important-chip'));
-    const reader = () => screen.getByTestId('pinned-reader');
-    expect(reader()).toHaveTextContent('Lesson 1');
-    expect(screen.getByTestId('pinned-messages')).toHaveTextContent('Pinned 1 of 3');
-    expect(screen.queryByRole('button', { name: /Previous/ })).toBeNull(); // nothing before the first
-    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
-    expect(reader()).toHaveTextContent('Lesson 2');
-    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
-    expect(reader()).toHaveTextContent('Lesson 3');
-    expect(onSeen.mock.calls.map((c) => c[0])).toEqual(['a', 'b', 'c']); // each one counted as read as it is reached
-    fireEvent.click(screen.getByRole('button', { name: /Finish/ }));
-    expect(screen.queryByTestId('pinned-reader')).toBeNull();
-    // Opened again (nothing unseen now), it starts from the first.
-    fireEvent.click(screen.getByTestId('pinned-messages').querySelector('button')!);
-    expect(reader()).toHaveTextContent('Lesson 1');
+    render(<PinnedMessages pins={pins} onOpen={onOpen} />);
+    const bar = screen.getByTestId('pinned-messages');
+    expect(bar).toHaveTextContent('1 of 3 done');
+    expect(screen.getByTestId('pinned-next-preview')).toHaveTextContent('Lesson 2'); // the first one not done, in the order written
+    expect(screen.queryByTestId('important-chip')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('pinned-open'));
+    expect(onOpen).toHaveBeenCalledWith('b');
   });
 
-  it('a long teaching is fetched in full when it is read, and shown with its headings', async () => {
-    const loadFull = vi.fn(async () => ({ body: '## The Government of God\n\nThe whole teaching, from start to end.', translation: null }));
-    render(<PinnedMessages pins={[pin({ messageId: 'long', body: 'The start…', bodyTruncated: true })]} canPin={false} onSeen={() => {}} onShowInChat={() => {}} onUnpin={() => {}} loadFull={loadFull} />);
-    fireEvent.click(screen.getByRole('button', { name: /Pinned message/ }));
-    expect(await screen.findByText('The Government of God')).toHaveClass('font-bold');
-    expect(screen.getByText('The whole teaching, from start to end.')).toBeInTheDocument();
-    expect(loadFull).toHaveBeenCalledWith('long');
-    expect(screen.getByRole('button', { name: /Close/ })).toBeInTheDocument(); // a single pin ends with "Close"
+  it('when everything is done it offers to open them again, from the first', () => {
+    const onOpen = vi.fn();
+    render(<PinnedMessages pins={[pin({ messageId: 'a', done: true }), pin({ messageId: 'b', done: true, createdAt: '2026-11-02T10:00:00Z' })]} onOpen={onOpen} />);
+    expect(screen.getByTestId('pinned-open')).toHaveTextContent('Open');
+    fireEvent.click(screen.getByTestId('pinned-open'));
+    expect(onOpen).toHaveBeenCalledWith('a');
   });
 
-  it('shows the translation when there is one, and a picture or teaching as words', () => {
-    const { rerender } = render(
-      <PinnedMessages pins={[pin({ body: 'Bonjour à tous', translation: { sourceLanguage: 'fr', translatedBody: 'Hello everyone' } })]} canPin={false} onSeen={() => {}} onShowInChat={() => {}} onUnpin={() => {}} />,
-    );
+  it('turns gold with "Important message, tap to read" when something new is pinned, and opens that one', () => {
+    const onOpen = vi.fn();
+    render(<PinnedMessages pins={[pin({ messageId: 'a', done: true }), pin({ messageId: 'n', unseen: true, createdAt: '2026-11-02T10:00:00Z' })]} onOpen={onOpen} />);
+    expect(screen.getByTestId('important-chip')).toHaveTextContent('Important message, tap to read');
+    expect(screen.getByTestId('pinned-messages').className).toContain('bg-amber-100');
+    fireEvent.click(screen.getByTestId('pinned-open'));
+    expect(onOpen).toHaveBeenCalledWith('n');
+  });
+
+  it('shows a translation, a teaching or a picture as words in the preview', () => {
+    const { rerender } = render(<PinnedMessages pins={[pin({ body: 'Bonjour à tous', translation: { sourceLanguage: 'fr', translatedBody: 'Hello everyone' } })]} onOpen={() => {}} />);
     expect(screen.getByText('Hello everyone')).toBeInTheDocument();
-    rerender(<PinnedMessages pins={[pin({ body: null, teachingTitle: 'Walking in Dominion' })]} canPin={false} onSeen={() => {}} onShowInChat={() => {}} onUnpin={() => {}} />);
+    rerender(<PinnedMessages pins={[pin({ body: null, teachingTitle: 'Walking in Dominion' })]} onOpen={() => {}} />);
     expect(screen.getByText('📚 Walking in Dominion')).toBeInTheDocument();
-    rerender(<PinnedMessages pins={[pin({ body: null, attachmentMimeType: 'image/jpeg' })]} canPin={false} onSeen={() => {}} onShowInChat={() => {}} onUnpin={() => {}} />);
+    rerender(<PinnedMessages pins={[pin({ body: null, attachmentMimeType: 'image/jpeg' })]} onOpen={() => {}} />);
     expect(screen.getByText(/Photo/)).toBeInTheDocument();
   });
+});
 
-  it('with many pins, "See all" lists every one and opens the one you tap', () => {
-    const onShow = vi.fn();
-    const onSeen = vi.fn();
-    const pins = Array.from({ length: 14 }, (_, i) => pin({ messageId: `m${i}`, body: `Teaching number ${i + 1}`, unseen: i === 13 }));
-    render(<PinnedMessages pins={pins} canPin={false} onSeen={onSeen} onShowInChat={onShow} onUnpin={() => {}} />);
-    fireEvent.click(screen.getByTestId('important-chip'));
-    fireEvent.click(screen.getByRole('button', { name: 'See all 14' }));
-    const list = screen.getByTestId('pinned-list');
-    expect(list.querySelectorAll('li')).toHaveLength(14);
-    fireEvent.click(within(list).getByText('Teaching number 14'));
-    expect(onSeen).toHaveBeenCalledWith('m13');
-    expect(onShow).toHaveBeenCalledWith('m13');
-    fireEvent.click(screen.getByRole('button', { name: 'Hide the list' }));
-    expect(screen.queryByTestId('pinned-list')).toBeNull();
+describe('the Pinned page', () => {
+  const G = 'g1';
+  const lesson = (n: number, over: Partial<ChatPin> = {}) => pin({ messageId: `m${n}`, body: `Lesson ${n}`, createdAt: `2026-11-0${n}T10:00:00Z`, unseen: true, done: false, ...over });
+  const pageRoutes = (pins: ChatPin[], extra: Record<string, (b: any) => { status?: number; body: unknown }> = {}, canPin = false) => ({
+    [`GET /api/communities/${G}/conversation`]: () => ({ body: { name: 'Buea Group', canPin, pins } }),
+    [`POST /api/communities/${G}/conversation/messages/`]: () => ({ body: { ok: true } }),
+    [`GET /api/communities/${G}/conversation/pins/m1/comments`]: () => ({ body: { items: [{ id: 'c1', senderName: 'Ada Nkem', isOwn: false, body: 'Amen!', createdAt: '2026-11-01T11:00:00Z' }] } }),
+    [`GET /api/communities/${G}/conversation/pins/m2/comments`]: () => ({ body: { items: [] } }),
+    ...extra,
+  });
+  const renderPage = (path = `/member/chats/group/${G}/pinned`) =>
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/member/chats/group/:communityId/pinned/:messageId?" element={<MemberPinnedPage />} />
+          <Route path="/member/chats/group/:communityId" element={<p>The chat</p>} />
+          <Route path="/member/teachings/:id" element={<p>The teaching page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+  it('opens at the first one not done, shows the whole post with its comments, and counts it as read', async () => {
+    mockFetch(pageRoutes([lesson(1, { done: true }), lesson(2), lesson(3)]));
+    renderPage();
+    expect(await screen.findByTestId('pinned-post')).toHaveTextContent('Lesson 2');
+    expect(screen.getByTestId('pinned-position')).toHaveTextContent('2 of 3');
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/messages/m2/pin/seen'))).toBe(true));
+    // The first one, done, shows a tick.
+    expect(screen.getByRole('link', { name: '✓' })).toBeInTheDocument();
   });
 
-  it('lets the central admin unpin, and "Show in chat" jumps to the message', () => {
-    const onUnpin = vi.fn();
-    const onShow = vi.fn();
-    render(<PinnedMessages pins={[pin()]} canPin onSeen={() => {}} onShowInChat={onShow} onUnpin={onUnpin} />);
-    fireEvent.click(screen.getByRole('button', { name: /Pinned message/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Show in chat' }));
-    expect(onShow).toHaveBeenCalledWith('m1');
-    fireEvent.click(screen.getByRole('button', { name: 'Unpin' }));
-    expect(onUnpin).toHaveBeenCalledWith('m1');
+  it('shows the comments under a post and sends a new one as a reply to it', async () => {
+    mockFetch(pageRoutes([lesson(1)]));
+    renderPage(`/member/chats/group/${G}/pinned/m1`);
+    expect(await screen.findByText('Amen!')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Write a comment…'), { target: { value: 'Thank you, Pastor' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/conversation/messages'))).toBe(true));
+    expect(calls.find((c) => c.method === 'POST' && c.url.endsWith('/conversation/messages'))!.body).toEqual({ body: 'Thank you, Pastor', replyToMessageId: 'm1' });
+  });
+
+  it('goes on from one pin to the next, in the order written, and the last one ends with Finish back to the chat', async () => {
+    mockFetch(pageRoutes([lesson(2), lesson(1)]));
+    renderPage(`/member/chats/group/${G}/pinned/m1`);
+    expect(await screen.findByTestId('pinned-post')).toHaveTextContent('Lesson 1');
+    expect(screen.queryByRole('link', { name: /Previous/ })).toBeNull();
+    fireEvent.click(screen.getByTestId('pinned-next'));
+    await waitFor(() => expect(screen.getByTestId('pinned-post')).toHaveTextContent('Lesson 2'));
+    expect(screen.queryByTestId('pinned-next')).toBeNull();
+    fireEvent.click(screen.getByTestId('pinned-finish'));
+    expect(await screen.findByText('The chat')).toBeInTheDocument();
+  });
+
+  it('a teaching opens its own page (reading and quiz) straight away, on the pinned trail', async () => {
+    mockFetch(pageRoutes([lesson(1, { body: null, teachingId: 'tc1', teachingTitle: 'Walking in Dominion' })]));
+    renderPage(`/member/chats/group/${G}/pinned/m1`);
+    expect(await screen.findByText('The teaching page')).toBeInTheDocument();
+  });
+
+  it('fetches the whole of a long post', async () => {
+    mockFetch(pageRoutes([lesson(1, { body: 'The start…', bodyTruncated: true })], { [`GET /api/communities/${G}/conversation/pins/m1`]: () => ({ body: { body: '## The Government of God\n\nThe whole post.', translation: null } }) }));
+    renderPage(`/member/chats/group/${G}/pinned/m1`);
+    expect(await screen.findByText('The Government of God')).toHaveClass('font-bold');
+    expect(screen.getByText('The whole post.')).toBeInTheDocument();
+  });
+
+  it('lets the central admin unpin from the page', async () => {
+    mockFetch(pageRoutes([lesson(1)], { [`DELETE /api/communities/${G}/conversation/messages/m1/pin`]: () => ({ body: { pins: [] } }) }, true));
+    renderPage(`/member/chats/group/${G}/pinned/m1`);
+    fireEvent.click(await screen.findByRole('button', { name: 'Unpin' }));
+    expect(await screen.findByText('The chat')).toBeInTheDocument();
+  });
+
+  it('an ordinary member is not offered Unpin', async () => {
+    mockFetch(pageRoutes([lesson(1)]));
+    renderPage(`/member/chats/group/${G}/pinned/m1`);
+    await screen.findByTestId('pinned-post');
+    expect(screen.queryByRole('button', { name: 'Unpin' })).toBeNull();
+  });
+});
+
+describe('a teaching opened from the pinned messages', () => {
+  it('shows where it is among the pins, offers the next one, and keeps the trail on the quiz link', async () => {
+    const G = 'g1';
+    const CLOSES = new Date(Date.now() + 5 * 86400000).toISOString();
+    const detail = {
+      id: 'tc1', title: 'Walking in Dominion', text: 'Read this', communityId: G, communityName: 'Buea Group', messageId: 'm1', authorName: 'Coordinator', isAuthor: false,
+      closesAt: CLOSES, mediaKind: null, attachments: [], minReadSeconds: 0, canManage: false,
+      quiz: { assessmentId: 'as1', passMark: 70, questionCount: 5, state: 'AVAILABLE', percentage: null, passed: null },
+      me: { textRead: true, mediaFraction: 0, mediaDone: false, completed: true },
+    };
+    mockFetch({
+      [`GET /api/teachings/tc1/results`]: () => ({ body: { totals: { members: 1, opened: 1, finished: 1, taken: 0, passed: 0, averagePercentage: null }, passMark: 70, closesAt: CLOSES, participants: [] } }),
+      [`GET /api/teachings/tc1`]: () => ({ body: detail }),
+      [`POST /api/teachings/tc1/progress`]: () => ({ body: { me: detail.me, quiz: detail.quiz } }),
+      [`GET /api/communities/${G}/conversation`]: () => ({ body: { name: 'Buea Group', pins: [pin({ messageId: 'm1', body: null, teachingId: 'tc1', createdAt: '2026-11-01T10:00:00Z' }), pin({ messageId: 'm2', body: 'Lesson 2', createdAt: '2026-11-02T10:00:00Z' })] } }),
+    });
+    render(
+      <MemoryRouter initialEntries={[`/member/teachings/tc1?pins=${G}`]}>
+        <MemberAuthProvider>
+          <Routes>
+            <Route path="/member/teachings/:id" element={<MemberTeachingPage />} />
+          </Routes>
+        </MemberAuthProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByTestId('pinned-trail-top')).toHaveTextContent('Pinned 1 of 2');
+    const next = await screen.findByRole('link', { name: /Next pinned message/ });
+    expect(next).toHaveAttribute('href', `/member/chats/group/${G}/pinned/m2`);
+    expect(screen.getByTestId('teaching-start-quiz')).toHaveAttribute('href', `/member/assessments/as1?pins=${G}`);
   });
 });
 
@@ -247,13 +294,18 @@ describe('the group chat page with pins', () => {
       </MemoryRouter>,
     );
 
-  it('shows the pinned message to a newcomer, with the gold chip; tapping it tells the server it was seen', async () => {
+  it('shows the pinned message to a newcomer with the gold chip; tapping it opens the Pinned page', async () => {
     mockFetch(routes({ pins: [pin({ unseen: true })], canPin: false }));
-    renderChat();
-    const chip = await screen.findByTestId('important-chip');
-    fireEvent.click(chip);
-    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/messages/m1/pin/seen'))).toBe(true));
-    expect(screen.queryByTestId('important-chip')).not.toBeInTheDocument();
+    render(
+      <MemoryRouter initialEntries={[`/member/chats/group/${G}`]}>
+        <Routes>
+          <Route path="/member/chats/group/:communityId" element={<MemberGroupChatPage />} />
+          <Route path="/member/chats/group/:communityId/pinned/:messageId" element={<p>The pinned page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByTestId('important-chip'));
+    expect(await screen.findByText('The pinned page')).toBeInTheDocument();
   });
 
   it('lets the central admin pin a message from its menu', async () => {

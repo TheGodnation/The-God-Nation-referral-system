@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { badgeOf, centralAdminAmong } from './centralAdmin';
+import { cardStatesFor } from './teachings';
 
 // ---------------------------------------------------------------------------
 // Pinned messages. The central admin can pin as many messages as they like at
@@ -26,6 +27,12 @@ export interface PinView {
   bodyTruncated: boolean;
   translation: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null;
   teachingTitle: string | null;
+  /** The teaching this message carries (the pinned page opens its reading and quiz). */
+  teachingId: string | null;
+  /** The viewer is done with it: a teaching's quiz taken, or a post opened and read. */
+  done: boolean;
+  /** How many comments (replies) the post has. */
+  commentCount: number;
   attachmentMimeType: string | null;
   createdAt: Date;
   pinnedAt: Date;
@@ -47,13 +54,15 @@ export async function pinsFor(conversationId: string, viewerPersonId: string, vi
           translatedBody: true,
           sender: { select: { name: true } },
           attachments: { select: { mimeType: true }, take: 1 },
-          teaching: { select: { title: true, titleTranslated: true, detectedLanguage: true } },
+          teaching: { select: { id: true, assessmentId: true, title: true, titleTranslated: true, detectedLanguage: true } },
+          _count: { select: { replies: { where: { deletedAt: null } } } },
         },
       },
       seen: { where: { personId: viewerPersonId }, select: { id: true } },
     },
   });
   const coordinators = await centralAdminAmong(pins.map((p) => p.message.senderPersonId));
+  const states = await cardStatesFor(viewerPersonId, pins.flatMap((p) => (p.message.teaching ? [p.message.teaching] : [])));
   return pins.map((p) => {
     const m = p.message;
     const translated = viewerLanguage && m.detectedLanguage && m.detectedLanguage !== viewerLanguage && m.translatedBody ? { sourceLanguage: m.detectedLanguage, translatedBody: m.translatedBody.slice(0, PREVIEW_CHARS) } : null;
@@ -71,6 +80,9 @@ export async function pinsFor(conversationId: string, viewerPersonId: string, vi
       bodyTruncated: Boolean(m.body && m.body.length > PREVIEW_CHARS) || Boolean(translated && m.translatedBody && m.translatedBody.length > PREVIEW_CHARS),
       translation: translated,
       teachingTitle,
+      teachingId: m.teaching?.id ?? null,
+      done: m.teaching ? ['PASSED', 'FAILED'].includes(states.get(m.teaching.id)?.state ?? 'NEW') : p.pinnedByPersonId === viewerPersonId || p.seen.length > 0,
+      commentCount: m._count.replies,
       attachmentMimeType: m.attachments[0]?.mimeType ?? null,
       createdAt: m.createdAt,
       pinnedAt: p.pinnedAt,

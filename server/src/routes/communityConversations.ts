@@ -908,6 +908,40 @@ router.get(
   }),
 );
 
+// GET .../conversation/pins/:messageId/comments — the comments (replies) under a pinned post, oldest
+// first, for the pinned page. Anyone in the assembly may read them; writing one is an ordinary reply
+// sent through the chat's message route.
+router.get(
+  '/:communityId/conversation/pins/:messageId/comments',
+  communityConversationReadLimiter,
+  asyncHandler(async (req, res) => {
+    const target = await loadPinTarget(req, res, false);
+    if (!target) return;
+    const pin = await prisma.messagePin.findFirst({ where: { conversationId: target.conversation.id, messageId: req.params.messageId }, select: { id: true } });
+    if (!pin) return res.status(404).json({ error: 'Pinned message not found.' });
+    const rows = await prisma.message.findMany({
+      where: { conversationId: target.conversation.id, replyToMessageId: req.params.messageId, deletedAt: null, NOT: { hiddenFor: { some: { personId: target.personId } } } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 200,
+      select: { id: true, body: true, createdAt: true, senderPersonId: true, sender: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } } },
+    });
+    const coordinators = await centralAdminAmong(rows.map((m) => m.senderPersonId));
+    res.json({
+      items: rows
+        .filter((m) => m.body)
+        .map((m) => ({
+          id: m.id,
+          senderName: m.sender.name,
+          senderBadge: badgeOf(coordinators, m.senderPersonId),
+          senderPhotoUrl: profilePhotoPath(m.sender),
+          isOwn: m.senderPersonId === target.personId,
+          body: m.body,
+          createdAt: m.createdAt,
+        })),
+    });
+  }),
+);
+
 router.post(
   '/:communityId/conversation/messages/:messageId/pin/seen',
   communityConversationReadLimiter,

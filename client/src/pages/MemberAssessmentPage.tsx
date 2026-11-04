@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
@@ -88,6 +88,9 @@ interface TakingQuestion {
 export function MemberAssessmentPage() {
   const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  // Opened from the pinned messages: going back to the teaching keeps that trail.
+  const pinsParam = useSearchParams()[0].get('pins');
+  const pinsQuery = pinsParam ? `?pins=${pinsParam}` : '';
   const isFr = i18n.language.startsWith('fr');
 
   const [assessment, setAssessment] = useState<AssessmentInfo | null>(null);
@@ -209,12 +212,12 @@ export function MemberAssessmentPage() {
   useEffect(() => {
     if (backIn === null || !assessment?.teaching) return;
     if (backIn <= 0) {
-      navigate(`/member/teachings/${assessment.teaching.id}`);
+      navigate(`/member/teachings/${assessment.teaching.id}${pinsQuery}`);
       return;
     }
     const timer = window.setTimeout(() => setBackIn((n) => (n === null ? null : n - 1)), 1000);
     return () => window.clearTimeout(timer);
-  }, [backIn, assessment?.teaching, navigate]);
+  }, [backIn, assessment?.teaching, navigate, pinsQuery]);
 
   if (notFound) {
     return (
@@ -243,7 +246,7 @@ export function MemberAssessmentPage() {
     <PageShell minimal>
       <section className="mx-auto max-w-lg px-4 py-8">
         {assessment.teaching ? (
-          <Link to={`/member/teachings/${assessment.teaching.id}`} className="text-sm text-brand-700 hover:underline">
+          <Link to={`/member/teachings/${assessment.teaching.id}${pinsQuery}`} className="text-sm text-brand-700 hover:underline">
             ← {t('teaching.back_to_teaching')}
           </Link>
         ) : (
@@ -280,7 +283,7 @@ export function MemberAssessmentPage() {
             {assessment.teaching && backIn !== null && (
               <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-sky-50 px-3 py-2 text-sky-900" role="status" data-testid="back-to-teaching">
                 <span>{t('teaching.back_to_teaching_soon')} ({backIn})</span>
-                <Link to={`/member/teachings/${assessment.teaching.id}`} className="font-semibold underline">
+                <Link to={`/member/teachings/${assessment.teaching.id}${pinsQuery}`} className="font-semibold underline">
                   {t('teaching.back_now')}
                 </Link>
                 <button type="button" className="underline" onClick={() => setBackIn(null)}>

@@ -70,6 +70,7 @@ const MemberGroupInfoPage = lazy(() => import('./pages/MemberGroupInfoPage').the
 const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').then((m) => ({ default: m.MemberGroupChatPage })));
 const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
 const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
+const MemberPinnedPage = lazy(() => import('./pages/MemberPinnedPage').then((m) => ({ default: m.MemberPinnedPage })));
 const MemberTeachingPage = lazy(() => import('./pages/MemberTeachingPage').then((m) => ({ default: m.MemberTeachingPage })));
 const MemberTeachingComposePage = lazy(() => import('./pages/MemberTeachingComposePage').then((m) => ({ default: m.MemberTeachingComposePage })));
 const MemberPasswordHelpPage = lazy(() => import('./pages/MemberPasswordHelpPage').then((m) => ({ default: m.MemberPasswordHelpPage })));
@@ -201,6 +202,14 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberTeachingPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/chats/group/:communityId/pinned/:messageId?"
+              element={
+                <RequireMember>
+                  <MemberPinnedPage />
                 </RequireMember>
               }
             />

@@ -245,4 +245,49 @@ describe('what the assembly sees', () => {
     expect((await info(old, community.id)).pins).toEqual([]);
     expect((await info(owner, community.id)).pins).toHaveLength(1);
   });
+  it('the pin list says which pin is a teaching, whether the viewer is done, and how many comments a post has', async () => {
+    const { community, conversation, ids, old } = await assembly(2);
+    const owner = await centralAdmin();
+    const tMsg = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: owner.person.id, body: 'Teaching one' } });
+    const assessment = await prisma.assessment.create({ data: { titleEn: 'Quiz', passMark: 70, status: 'PUBLISHED' } });
+    const teaching = await prisma.teaching.create({ data: { communityId: community.id, messageId: tMsg.id, assessmentId: assessment.id, authorPersonId: owner.person.id, title: 'Walking in Dominion', text: 'x', closesAt: new Date(Date.now() + 86_400_000) } });
+    await pin(owner, community.id, tMsg.id);
+    await pin(owner, community.id, ids[0]);
+    const reader = await member('Reader', community.id, new Date(Date.now() - 5 * 24 * 60 * MIN));
+    // A comment under the post (a reply), and one deleted.
+    await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: old.person.id, body: 'Amen', replyToMessageId: ids[0] } });
+    await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: old.person.id, body: 'gone', replyToMessageId: ids[0], deletedAt: new Date() } });
+
+    const list = (await info(reader, community.id)).pins as { messageId: string; teachingId: string | null; done: boolean; commentCount: number }[];
+    const t = list.find((p) => p.messageId === tMsg.id)!;
+    const post = list.find((p) => p.messageId === ids[0])!;
+    expect(t).toMatchObject({ teachingId: teaching.id, done: false });
+    expect(post).toMatchObject({ teachingId: null, done: false, commentCount: 1 });
+
+    // Opening the post marks it done; taking the quiz marks the teaching done.
+    await seen(reader, community.id, ids[0]);
+    await prisma.attempt.create({ data: { assessmentId: assessment.id, personId: reader.person.id, attemptNumber: 1, status: 'SUBMITTED', percentage: 50, passed: false, submittedAt: new Date() } as any });
+    const after = (await info(reader, community.id)).pins as { messageId: string; done: boolean }[];
+    expect(after.find((p) => p.messageId === ids[0])!.done).toBe(true);
+    expect(after.find((p) => p.messageId === tMsg.id)!.done).toBe(true);
+  });
+
+  it('shows the comments under a pinned post, oldest first, to anyone in the assembly', async () => {
+    const { community, conversation, ids, old } = await assembly(2);
+    const owner = await centralAdmin();
+    await pin(owner, community.id, ids[0]);
+    const reader = await member('Reader', community.id);
+    const a = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: old.person.id, body: 'First comment', replyToMessageId: ids[0], createdAt: new Date(Date.now() - 2 * MIN) } });
+    await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: reader.person.id, body: 'Second comment', replyToMessageId: ids[0], createdAt: new Date(Date.now() - MIN) } });
+    await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: old.person.id, body: 'Removed', replyToMessageId: ids[0], deletedAt: new Date() } });
+    const res = await reader.agent.get(`${base(community.id)}/pins/${ids[0]}/comments`);
+    expect(res.status).toBe(200);
+    expect(res.body.items.map((c: { body: string }) => c.body)).toEqual(['First comment', 'Second comment']);
+    expect(res.body.items[0]).toMatchObject({ id: a.id, senderName: 'Old Timer', isOwn: false });
+    expect(res.body.items[1].isOwn).toBe(true);
+    // Not a pinned message: nothing; an outsider: refused.
+    expect((await reader.agent.get(`${base(community.id)}/pins/${ids[1]}/comments`)).status).toBe(404);
+    const outsider = await member('Outsider');
+    expect((await outsider.agent.get(`${base(community.id)}/pins/${ids[0]}/comments`)).status).toBe(403);
+  });
 });

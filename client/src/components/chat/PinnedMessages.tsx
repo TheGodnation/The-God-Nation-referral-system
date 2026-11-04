@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RichText, plainPreview } from '../../lib/richText';
+import { plainPreview } from '../../lib/richText';
 
 /** A message the central admin pinned to the top of an assembly's chat. */
 export interface ChatPin {
@@ -8,10 +8,15 @@ export interface ChatPin {
   senderName: string;
   senderBadge?: string | null;
   body: string | null;
-  /** The list carries only the start of it; "loadFull" gets the rest when it is read. */
+  /** The list carries only the start of it; the pinned page fetches the rest. */
   bodyTruncated?: boolean;
   translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null;
   teachingTitle?: string | null;
+  /** Set when the pin is a teaching: its reading and quiz open from the pinned page. */
+  teachingId?: string | null;
+  /** The viewer is done with it: a teaching's quiz taken, or a post opened. */
+  done?: boolean;
+  commentCount?: number;
   attachmentMimeType?: string | null;
   createdAt: string;
   pinnedAt: string;
@@ -19,7 +24,18 @@ export interface ChatPin {
   unseen: boolean;
 }
 
-function previewOf(p: ChatPin, t: (k: string) => string): string {
+/** Read in the order they were written (a series of teachings goes 1, 2, 3…); equal dates keep the list's order. */
+export function orderedPins(pins: ChatPin[]): ChatPin[] {
+  return [...pins].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+/** Where a person carries on: the first pin they have not finished (the first one when all are done). */
+export function resumePin(pins: ChatPin[]): ChatPin | null {
+  const list = orderedPins(pins);
+  return list.find((p) => !p.done) ?? list[0] ?? null;
+}
+
+export function pinPreview(p: ChatPin, t: (k: string) => string): string {
   const text = p.translation?.translatedBody ?? p.body;
   if (text) return plainPreview(text); // no formatting symbols in a one-line preview
   if (p.teachingTitle) return `📚 ${p.teachingTitle}`;
@@ -30,174 +46,48 @@ function previewOf(p: ChatPin, t: (k: string) => string): string {
   return '';
 }
 
-// The strip under the chat header: the pinned messages stay here however many
-// messages come after them, so a newcomer sees them first. When one is unseen,
-// the strip turns gold with "Important message, tap to read"; tapping opens
-// it in full and counts it as seen. The central admin can unpin from here.
-export function PinnedMessages({
-  pins: pinsIn,
-  canPin,
-  onSeen,
-  onShowInChat,
-  onUnpin,
-  loadFull,
-}: {
-  pins: ChatPin[];
-  canPin: boolean;
-  onSeen: (messageId: string) => void;
-  onShowInChat: (messageId: string) => void;
-  onUnpin: (messageId: string) => void;
-  /** Fetches one pinned message in full (the list carries only its start). */
-  loadFull?: (messageId: string) => Promise<{ body: string | null; translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null }>;
-}) {
+// The strip under the chat header. Tapping it opens the Pinned page, where the
+// pinned messages are read, taken (a teaching's quiz) and commented on one after
+// another, without going into the chat. It carries on at the first one the person
+// has not finished. When something was pinned since the person last looked, the
+// strip turns gold: "Important message, tap to read".
+export function PinnedMessages({ pins, onOpen }: { pins: ChatPin[]; onOpen: (messageId: string) => void }) {
   const { t } = useTranslation();
-  const [index, setIndex] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
-  const [full, setFull] = useState<Record<string, { body: string | null; translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null } | 'failed'>>({});
-  // Read in the order they were written (a series of teachings goes 1, 2, 3…); equal dates keep the list's order.
-  const pins = useMemo(() => [...pinsIn].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [pinsIn]);
-  const shownId = pins.length ? pins[Math.min(index, pins.length - 1)].messageId : null;
-  const shownTruncated = pins.length ? pins[Math.min(index, pins.length - 1)].bodyTruncated : false;
-  // Reading one that is longer than the list carries: fetch the whole of it.
-  useEffect(() => {
-    if (!open || !shownId || !shownTruncated || !loadFull || full[shownId]) return;
-    let live = true;
-    loadFull(shownId)
-      .then((r) => live && setFull((f) => ({ ...f, [shownId]: r })))
-      .catch(() => live && setFull((f) => ({ ...f, [shownId]: 'failed' })));
-    return () => {
-      live = false;
-    };
-  }, [open, shownId, shownTruncated, loadFull, full]);
-  if (pins.length === 0) return null;
+  const list = useMemo(() => orderedPins(pins), [pins]);
+  if (list.length === 0) return null;
 
-  const firstUnseen = pins.findIndex((p) => p.unseen);
-  const current = pins[Math.min(index, pins.length - 1)];
-  const unseenCount = pins.filter((p) => p.unseen).length;
-
-  function openOrClose() {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    // Tapping the gold chip goes straight to the pin nobody has read yet.
-    const target = current.unseen ? pins.indexOf(current) : firstUnseen >= 0 ? firstUnseen : pins.indexOf(current);
-    setIndex(target);
-    setOpen(true);
-    const shown = pins[target];
-    if (shown.unseen) onSeen(shown.messageId);
-  }
-
-  const at = Math.min(index, pins.length - 1);
-  const isLast = at === pins.length - 1;
-
-  function step(delta: number) {
-    const next = Math.min(Math.max(at + delta, 0), pins.length - 1);
-    setIndex(next);
-    if (pins[next].unseen) onSeen(pins[next].messageId);
-  }
-
-  /** The last one is read: back to the chat (the next time it is opened, it starts again from the first). */
-  function finish() {
-    setOpen(false);
-    setShowAll(false);
-    setIndex(0);
-  }
-
-  const text = previewOf(current, t as (k: string) => string);
-  // What is read when it is open: the whole message (fetched when the list carries only its start), set out like a teaching.
-  const fetched = full[current.messageId];
-  const whole = typeof fetched === 'object' ? (fetched.translation?.translatedBody ?? fetched.body) : (current.translation?.translatedBody ?? current.body);
-  const loadingWhole = Boolean(current.bodyTruncated && loadFull && !fetched);
-  const gold = unseenCount > 0;
+  const unseen = list.find((p) => p.unseen);
+  const next = resumePin(list)!;
+  const doneCount = list.filter((p) => p.done).length;
+  const allDone = doneCount === list.length;
+  const target = unseen && !unseen.done ? unseen : next;
+  const gold = Boolean(unseen);
 
   return (
     <div
       className={`border-b px-3 py-2 text-sm shadow-sm ${gold ? 'border-amber-300 bg-amber-100 text-amber-950' : 'border-slate-200 bg-white text-slate-800'}`}
       data-testid="pinned-messages"
     >
-      <button type="button" className="flex w-full items-start gap-2 text-left" onClick={openOrClose} aria-expanded={open}>
-        <span aria-hidden className="mt-0.5">📌</span>
+      <button type="button" className="flex w-full items-center gap-2 text-left" onClick={() => onOpen(target.messageId)} data-testid="pinned-open">
+        <span aria-hidden>📌</span>
         <span className="min-w-0 flex-1">
-          {gold && !open ? (
+          {gold ? (
             <span className="font-semibold" data-testid="important-chip">
               {t('pins.important_chip')}
             </span>
           ) : (
-            <span className="block text-xs font-semibold text-slate-500">
-              {pins.length > 1 ? t('pins.n_of', { current: Math.min(index, pins.length - 1) + 1, total: pins.length }) : t('pins.pinned')} · {current.senderName}
-            </span>
+            <>
+              <span className="block text-xs font-semibold text-slate-500">
+                {t('pins.strip_title')} · {t('pins.done_of', { done: doneCount, total: list.length })}
+              </span>
+              <span className="mt-0.5 block truncate" data-testid="pinned-next-preview">
+                {pinPreview(next, t as (k: string) => string)}
+              </span>
+            </>
           )}
-          {(!gold || open) && !open && <span className="mt-0.5 block truncate">{text}</span>}
         </span>
-        <span aria-hidden className="text-slate-500">{open ? '▲' : '▼'}</span>
+        <span className="shrink-0 rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white">{allDone && !gold ? t('pins.open') : t('pins.continue')} ›</span>
       </button>
-      {open && (
-        <div className="mt-1 max-h-[55vh] overflow-y-auto rounded-lg bg-white/70 px-2 py-2 text-[15px] leading-relaxed" data-testid="pinned-reader">
-          {whole ? <RichText text={whole} headings comfort /> : <p className="whitespace-pre-wrap break-words">{text}</p>}
-          {loadingWhole && <p className="mt-2 text-xs text-slate-500">{t('pins.loading_full')}</p>}
-        </div>
-      )}
-      {open && (
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-          {pins.length > 1 && at > 0 && (
-            <button type="button" className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-slate-300" onClick={() => step(-1)}>
-              ← {t('pins.previous')}
-            </button>
-          )}
-          {isLast ? (
-            <button type="button" className="rounded-full bg-brand-700 px-4 py-1.5 text-sm font-semibold text-white" onClick={finish}>
-              {pins.length > 1 ? t('pins.finish') : t('pins.close')} ✓
-            </button>
-          ) : (
-            <button type="button" className="rounded-full bg-brand-700 px-4 py-1.5 text-sm font-semibold text-white" onClick={() => step(1)}>
-              {t('pins.next')} →
-            </button>
-          )}
-          <button type="button" className="font-semibold text-brand-700 underline" onClick={() => onShowInChat(current.messageId)}>
-            {t('pins.show_in_chat')}
-          </button>
-          {pins.length > 1 && (
-            <button type="button" className="font-semibold text-brand-700 underline" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
-              {showAll ? t('pins.hide_all') : t('pins.see_all', { count: pins.length })}
-            </button>
-          )}
-          {canPin && (
-            <button type="button" className="font-semibold text-red-700 underline" onClick={() => onUnpin(current.messageId)}>
-              {t('pins.unpin')}
-            </button>
-          )}
-        </div>
-      )}
-      {open && showAll && (
-        <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-slate-800" data-testid="pinned-list">
-          {pins.map((p, i) => (
-            <li key={p.messageId} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-slate-50">
-              <button
-                type="button"
-                className="min-w-0 flex-1 text-left"
-                onClick={() => {
-                  setIndex(i);
-                  if (p.unseen) onSeen(p.messageId);
-                  onShowInChat(p.messageId);
-                }}
-              >
-                <span className="block text-xs font-semibold text-slate-500">
-                  {i + 1}. {p.senderName}
-                  {p.unseen ? ' · ●' : ''}
-                </span>
-                <span className="line-clamp-2 block whitespace-pre-wrap break-words text-sm">{previewOf(p, t as (k: string) => string)}</span>
-              </button>
-              {canPin && (
-                <button type="button" className="shrink-0 px-1 text-xs font-semibold text-red-700 underline" onClick={() => onUnpin(p.messageId)}>
-                  {t('pins.unpin')}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
