@@ -84,10 +84,10 @@ export function PinnedMessages({ pins, onOpen }: { pins: ChatPin[]; onOpen: (mes
 
   return (
     <div className={`relative border-b shadow-sm ${gold ? 'border-amber-300 bg-amber-100 text-amber-950' : 'border-slate-200 bg-white text-slate-800'}`} data-testid="pinned-messages">
-      <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-left" onClick={() => onOpen(target.messageId)} data-testid="pinned-open">
-        <span aria-hidden>📌</span>
+      <button type="button" className="flex w-full items-center gap-2 px-3 py-1 text-left" onClick={() => onOpen(target.messageId)} data-testid="pinned-open">
+        <span aria-hidden className="text-sm">📌</span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 overflow-hidden text-xs font-semibold">
+          <span className="flex items-center gap-1.5 overflow-hidden text-[11px] font-semibold leading-4">
             <span className="whitespace-nowrap font-bold">{t('pins.strip_title')}</span>
             <span className="rounded-full bg-slate-800 px-1.5 text-[11px] leading-4 text-white" data-testid="pinned-count">
               {list.length}
@@ -100,11 +100,11 @@ export function PinnedMessages({ pins, onOpen }: { pins: ChatPin[]; onOpen: (mes
               <span className="truncate font-medium opacity-70">{t('pins.done_of', { done: doneCount, total: list.length })}</span>
             )}
           </span>
-          <span className="block truncate text-sm font-semibold" data-testid="pinned-next-preview">
+          <span className="block truncate text-[13px] font-semibold leading-4" data-testid="pinned-next-preview">
             {heading}
           </span>
         </span>
-        <span className="shrink-0 whitespace-nowrap rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white">{allDone && !gold ? t('pins.open') : gold ? t('pins.read_short') : t('pins.continue')} ›</span>
+        <span className="shrink-0 whitespace-nowrap rounded-full bg-brand-700 px-2.5 py-0.5 text-[11px] font-semibold text-white">{allDone && !gold ? t('pins.open') : gold ? t('pins.read_short') : t('pins.continue')} ›</span>
       </button>
       {/* How far through them the person is: a thin line along the bottom edge, so it takes no height. */}
       <span className="absolute inset-x-0 bottom-0 h-0.5 bg-black/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
