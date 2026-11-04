@@ -3509,7 +3509,10 @@
     "attachment_in_chat": "Open the attachment in the chat",
     "load_failed": "The pinned messages could not be loaded.",
     "empty": "Nothing is pinned here now.",
-    "pin_progress": "Pinned {{current}} of {{total}}"
+    "pin_progress": "Pinned {{current}} of {{total}}",
+    "n_new": "{{count}} new",
+    "read_now": "Read now",
+    "read_short": "Read"
   },
   "assistance": {
     "label": "Assistance",

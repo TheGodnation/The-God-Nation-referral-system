@@ -63,7 +63,10 @@ describe('PinnedMessages (the strip under the chat header)', () => {
     ];
     render(<PinnedMessages pins={pins} onOpen={onOpen} />);
     const bar = screen.getByTestId('pinned-messages');
+    expect(bar).toHaveTextContent('Pinned messages');
+    expect(screen.getByTestId('pinned-count')).toHaveTextContent('3');
     expect(bar).toHaveTextContent('1 of 3 done');
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '33');
     expect(screen.getByTestId('pinned-next-preview')).toHaveTextContent('Lesson 2'); // the first one not done, in the order written
     expect(screen.queryByTestId('important-chip')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('pinned-open'));
@@ -78,10 +81,24 @@ describe('PinnedMessages (the strip under the chat header)', () => {
     expect(onOpen).toHaveBeenCalledWith('a');
   });
 
-  it('turns gold with "Important message, tap to read" when something new is pinned, and opens that one', () => {
+  it('shows the heading of the next message and the start of it under the title', () => {
+    render(<PinnedMessages pins={[pin({ body: '## Walking in Dominion\n\nThe first lesson is about authority.' })]} onOpen={() => {}} />);
+    const next = screen.getByTestId('pinned-next-preview');
+    expect(next).toHaveTextContent('Walking in Dominion');
+    expect(next).toHaveTextContent('The first lesson is about authority.');
+    expect(next).not.toHaveTextContent('##');
+  });
+
+  it('a teaching shows its title as the heading', () => {
+    render(<PinnedMessages pins={[pin({ body: null, teachingTitle: 'The Kingdom of God', teachingId: 'tc1' })]} onOpen={() => {}} />);
+    expect(screen.getByTestId('pinned-next-preview')).toHaveTextContent('The Kingdom of God');
+  });
+
+  it('turns gold with a "new" badge and "Read now" when something new is pinned, and opens that one', () => {
     const onOpen = vi.fn();
     render(<PinnedMessages pins={[pin({ messageId: 'a', done: true }), pin({ messageId: 'n', unseen: true, createdAt: '2026-11-02T10:00:00Z' })]} onOpen={onOpen} />);
-    expect(screen.getByTestId('important-chip')).toHaveTextContent('Important message, tap to read');
+    expect(screen.getByTestId('important-chip')).toHaveTextContent('1 new');
+    expect(screen.getByTestId('pinned-open')).toHaveTextContent('Read');
     expect(screen.getByTestId('pinned-messages').className).toContain('bg-amber-100');
     fireEvent.click(screen.getByTestId('pinned-open'));
     expect(onOpen).toHaveBeenCalledWith('n');
@@ -91,7 +108,7 @@ describe('PinnedMessages (the strip under the chat header)', () => {
     const { rerender } = render(<PinnedMessages pins={[pin({ body: 'Bonjour à tous', translation: { sourceLanguage: 'fr', translatedBody: 'Hello everyone' } })]} onOpen={() => {}} />);
     expect(screen.getByText('Hello everyone')).toBeInTheDocument();
     rerender(<PinnedMessages pins={[pin({ body: null, teachingTitle: 'Walking in Dominion' })]} onOpen={() => {}} />);
-    expect(screen.getByText('📚 Walking in Dominion')).toBeInTheDocument();
+    expect(screen.getByText('Walking in Dominion')).toBeInTheDocument();
     rerender(<PinnedMessages pins={[pin({ body: null, attachmentMimeType: 'image/jpeg' })]} onOpen={() => {}} />);
     expect(screen.getByText(/Photo/)).toBeInTheDocument();
   });

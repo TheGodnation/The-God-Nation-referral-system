@@ -3509,7 +3509,10 @@
     "attachment_in_chat": "Ouvrir la pièce jointe dans le chat",
     "load_failed": "Les messages épinglés n'ont pas pu être chargés.",
     "empty": "Rien n'est épinglé ici pour le moment.",
-    "pin_progress": "Épinglé {{current}} sur {{total}}"
+    "pin_progress": "Épinglé {{current}} sur {{total}}",
+    "n_new": "{{count}} nouveau(x)",
+    "read_now": "Lire maintenant",
+    "read_short": "Lire"
   },
   "assistance": {
     "label": "Assistance",

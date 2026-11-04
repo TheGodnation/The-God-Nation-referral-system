@@ -46,47 +46,73 @@ export function pinPreview(p: ChatPin, t: (k: string) => string): string {
   return '';
 }
 
-// The strip under the chat header. Tapping it opens the Pinned page, where the
-// pinned messages are read, taken (a teaching's quiz) and commented on one after
-// another, without going into the chat. It carries on at the first one the person
-// has not finished. When something was pinned since the person last looked, the
-// strip turns gold: "Important message, tap to read".
+/**
+ * The heading of a pin: a teaching's title, or the first line of a post (a "## heading" without its
+ * symbols), or the kind of attachment. `rest` is what follows, for a short preview under it.
+ */
+export function pinHeading(p: ChatPin, t: (k: string) => string): { heading: string; rest: string } {
+  if (p.teachingTitle) return { heading: p.teachingTitle, rest: '' };
+  const text = (p.translation?.translatedBody ?? p.body ?? '').trim();
+  if (text) {
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const first = plainPreview(lines[0] ?? '');
+    const rest = plainPreview(lines.slice(1).join(' '));
+    return { heading: first, rest };
+  }
+  return { heading: pinPreview(p, t), rest: '' };
+}
+
+// The card under the chat header, so a person who enters an assembly sees at once that there are
+// pinned messages for them: a clear "Pinned messages" heading with how many there are (and how many are
+// new), the heading of the one to read next with the start of it, a progress bar, and a "Read now" /
+// "Continue" button. Tapping it opens the Pinned page, where the pinned messages are read, taken (a
+// teaching's quiz) and commented on one after another, without going into the chat. It carries on at the
+// first one the person has not finished. It turns gold when something new was pinned.
 export function PinnedMessages({ pins, onOpen }: { pins: ChatPin[]; onOpen: (messageId: string) => void }) {
   const { t } = useTranslation();
   const list = useMemo(() => orderedPins(pins), [pins]);
   if (list.length === 0) return null;
 
-  const unseen = list.find((p) => p.unseen);
+  const unseenList = list.filter((p) => p.unseen && !p.done);
   const next = resumePin(list)!;
   const doneCount = list.filter((p) => p.done).length;
   const allDone = doneCount === list.length;
-  const target = unseen && !unseen.done ? unseen : next;
-  const gold = Boolean(unseen);
+  const target = unseenList[0] ?? next;
+  const gold = unseenList.length > 0;
+  const { heading, rest } = pinHeading(target, t as (k: string) => string);
+  const percent = Math.round((doneCount / list.length) * 100);
 
   return (
-    <div
-      className={`border-b px-3 py-2 text-sm shadow-sm ${gold ? 'border-amber-300 bg-amber-100 text-amber-950' : 'border-slate-200 bg-white text-slate-800'}`}
-      data-testid="pinned-messages"
-    >
-      <button type="button" className="flex w-full items-center gap-2 text-left" onClick={() => onOpen(target.messageId)} data-testid="pinned-open">
-        <span aria-hidden>📌</span>
-        <span className="min-w-0 flex-1">
-          {gold ? (
-            <span className="font-semibold" data-testid="important-chip">
-              {t('pins.important_chip')}
+    <div className={`border-b px-3 py-2.5 shadow-sm ${gold ? 'border-amber-300 bg-amber-100 text-amber-950' : 'border-slate-200 bg-white text-slate-800'}`} data-testid="pinned-messages">
+      <button type="button" className="block w-full text-left" onClick={() => onOpen(target.messageId)} data-testid="pinned-open">
+        <span className="flex items-center gap-2">
+          <span aria-hidden className="text-base">📌</span>
+          <span className="whitespace-nowrap text-sm font-bold">{t('pins.strip_title')}</span>
+          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-white" data-testid="pinned-count">
+            {list.length}
+          </span>
+          {gold && (
+            <span className="whitespace-nowrap rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white" data-testid="important-chip">
+              {t('pins.n_new', { count: unseenList.length })}
             </span>
-          ) : (
-            <>
-              <span className="block text-xs font-semibold text-slate-500">
-                {t('pins.strip_title')} · {t('pins.done_of', { done: doneCount, total: list.length })}
-              </span>
-              <span className="mt-0.5 block truncate" data-testid="pinned-next-preview">
-                {pinPreview(next, t as (k: string) => string)}
-              </span>
-            </>
           )}
+          <span className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white">{allDone && !gold ? t('pins.open') : gold ? t('pins.read_short') : t('pins.continue')} ›</span>
         </span>
-        <span className="shrink-0 rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white">{allDone && !gold ? t('pins.open') : t('pins.continue')} ›</span>
+        <span className="mt-1.5 block" data-testid="pinned-next-preview">
+          <span
+            className={`block text-[15px] font-semibold ${rest ? 'truncate' : ''}`}
+            style={rest ? undefined : { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' }}
+          >
+            {heading}
+          </span>
+          {rest && <span className="block truncate text-sm opacity-80">{rest}</span>}
+        </span>
+        <span className="mt-1.5 flex items-center gap-2 text-xs font-medium opacity-80">
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+            <span className="block h-full rounded-full bg-emerald-600" style={{ width: `${percent}%` }} />
+          </span>
+          <span>{t('pins.done_of', { done: doneCount, total: list.length })}</span>
+        </span>
       </button>
     </div>
   );
