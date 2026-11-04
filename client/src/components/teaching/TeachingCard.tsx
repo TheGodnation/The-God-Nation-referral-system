@@ -29,6 +29,8 @@ export function TeachingCard({ teaching }: { teaching: ChatTeaching }) {
     <Link
       to={`/member/teachings/${teaching.id}`}
       onClick={(e) => e.stopPropagation()}
+      draggable={false}
+      style={{ WebkitTouchCallout: 'none' }}
       className="block min-w-[14rem] rounded-lg border border-emerald-200 bg-white p-3 no-underline"
       data-testid="teaching-card"
     >

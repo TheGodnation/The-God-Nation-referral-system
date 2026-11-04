@@ -283,6 +283,8 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
   const displayBody = m.translation && !showOriginal ? m.translation.translatedBody : m.body;
   const isLongBody = Boolean(displayBody) && (displayBody!.length > LONG_MESSAGE_CHARS || displayBody!.split('\n').length > LONG_MESSAGE_LINES);
   const touch = useRef<{ x: number; y: number; swiping: boolean; timer: number | null; longPressed: boolean } | null>(null);
+  // After a long press opens the menu, the finger lifting would "tap" whatever is under it (a teaching card, a link): ignore that tap.
+  const ignoreTapsUntil = useRef(0);
 
   const canInteract = !m.deleted && !m.pending;
 
@@ -294,6 +296,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
     const state = { x: p.clientX, y: p.clientY, swiping: false, timer: null as number | null, longPressed: false };
     state.timer = window.setTimeout(() => {
       state.longPressed = true;
+      ignoreTapsUntil.current = Date.now() + 1200;
       if (navigator.vibrate) navigator.vibrate(15);
       onMenu(m);
     }, LONG_PRESS_MS);
@@ -341,15 +344,16 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
       aria-checked={picking ? selected : undefined}
       aria-label={picking ? (t('chatActions.select_message', { name: m.senderName }) ?? '') : undefined}
       // While selecting, a tap anywhere on the message ticks / unticks it (and nothing inside it opens).
-      onClickCapture={
-        picking
-          ? (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleSelect?.(m);
-            }
-          : undefined
-      }
+      onClickCapture={(e) => {
+        if (picking) {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggleSelect?.(m);
+        } else if (Date.now() < ignoreTapsUntil.current) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
     >
       {picking && (
         <span

@@ -167,6 +167,49 @@ describe('MessageBubble — the central admin\'s messages', () => {
   const base = (over: Partial<ChatMessage>): ChatMessage => ({ id: 'x1', senderName: 'Grace', isOwn: false, body: 'Hello', createdAt: new Date().toISOString(), deleted: false, attachments: [], ...over });
   const handlers = { mediaBase: '/api/communities/c1/conversation', showSender: true, highlighted: false, onReply: () => {}, onMenu: () => {}, onReact: () => {}, onJumpTo: () => {}, onOpenPhoto: () => {} };
 
+  it('holding a teaching card opens the menu, and letting go does not open the teaching; in selection mode a tap ticks it', () => {
+    vi.useFakeTimers();
+    try {
+      const onMenu = vi.fn();
+      const onToggle = vi.fn();
+      const teaching = base({ id: 't1', body: null, teaching: { id: 'tc1', title: 'Walking in Dominion', hasText: true, mediaKind: null, closesAt: new Date(Date.now() + 86400000).toISOString(), myState: 'NOT_OPENED' } as never });
+      const ui = (extra: Record<string, unknown> = {}) => (
+        <MemoryRouter initialEntries={['/chat']}>
+          <Routes>
+            <Route path="/chat" element={<MessageBubble m={teaching} {...handlers} onMenu={onMenu} {...extra} />} />
+            <Route path="/member/teachings/:id" element={<p>The teaching page</p>} />
+          </Routes>
+        </MemoryRouter>
+      );
+      const { unmount } = render(ui());
+      const card = screen.getByTestId('teaching-card');
+      // Finger down on the card, held for a moment: the message menu opens.
+      fireEvent.touchStart(card, { touches: [{ clientX: 10, clientY: 10 }] });
+      vi.advanceTimersByTime(500);
+      expect(onMenu).toHaveBeenCalledWith(teaching);
+      // The finger lifts: the browser sends a tap to the card. It must not open the teaching.
+      fireEvent.touchEnd(card);
+      fireEvent.click(card);
+      expect(screen.queryByText('The teaching page')).toBeNull();
+      // A normal tap, much later, still opens it.
+      vi.advanceTimersByTime(2000);
+      fireEvent.click(screen.getByTestId('teaching-card'));
+      expect(screen.getByText('The teaching page')).toBeInTheDocument();
+      unmount();
+
+      // In selection mode, tapping the card ticks the message instead of opening it.
+      const picking = render(ui({ selecting: true, selected: false, onToggleSelect: onToggle }));
+      fireEvent.click(screen.getByTestId('teaching-card'));
+      expect(onToggle).toHaveBeenCalledWith(teaching);
+      expect(screen.queryByText('The teaching page')).toBeNull();
+      picking.unmount();
+      render(ui({ selecting: true, selected: true, onToggleSelect: onToggle }));
+      expect(screen.getByRole('checkbox')).toHaveAttribute('aria-checked', 'true');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('stand out with a gold edge and a "Central message" label; an ordinary message does not', () => {
     const { container, rerender } = render(<MessageBubble m={base({ senderName: 'Stanley Ndoh', senderBadge: 'National Coordinator' })} {...handlers} />);
     expect(container.querySelector('[data-central="true"]')).not.toBeNull();
