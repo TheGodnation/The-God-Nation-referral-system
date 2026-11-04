@@ -159,8 +159,12 @@ describe('the Pinned page', () => {
     renderPage(`/member/chats/group/${G}/pinned/m1`);
     expect(await screen.findByTestId('pinned-post')).toHaveTextContent('Lesson 1');
     expect(screen.queryByRole('link', { name: /Previous/ })).toBeNull();
-    fireEvent.click(screen.getByTestId('pinned-next'));
+    // Next is at the top as well as at the bottom, so it is clear at once that there is more.
+    expect(screen.getByTestId('pinned-nav-top')).toHaveTextContent('Next');
+    expect(screen.getByTestId('pinned-nav-bottom')).toHaveTextContent('Next');
+    fireEvent.click(screen.getByTestId('pinned-next-top'));
     await waitFor(() => expect(screen.getByTestId('pinned-post')).toHaveTextContent('Lesson 2'));
+    expect(screen.getAllByRole('link', { name: /Previous/ })).toHaveLength(2); // top and bottom
     expect(screen.queryByTestId('pinned-next')).toBeNull();
     fireEvent.click(screen.getByTestId('pinned-finish'));
     expect(await screen.findByText('The chat')).toBeInTheDocument();
@@ -220,6 +224,7 @@ describe('a teaching opened from the pinned messages', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByTestId('pinned-trail-top')).toHaveTextContent('Pinned 1 of 2');
+    expect(await screen.findByTestId('pinned-trail-next-top')).toHaveAttribute('href', `/member/chats/group/${G}/pinned/m2`);
     const next = await screen.findByRole('link', { name: /Next pinned message/ });
     expect(next).toHaveAttribute('href', `/member/chats/group/${G}/pinned/m2`);
     expect(screen.getByTestId('teaching-start-quiz')).toHaveAttribute('href', `/member/assessments/as1?pins=${G}`);

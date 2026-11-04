@@ -173,6 +173,30 @@ export function MemberPinnedPage() {
   const text = (fetched ? (fetched.translation?.translatedBody ?? fetched.body) : (current.translation?.translatedBody ?? current.body)) ?? '';
   const loadingWhole = Boolean(current.bodyTruncated && !fetched);
 
+  const nav = (position: 'top' | 'bottom') => (
+    <nav className={`flex flex-wrap items-center gap-3 ${position === 'bottom' ? 'pb-6' : ''}`} data-testid={`pinned-nav-${position}`}>
+      {at > 0 && (
+        <Link to={pinnedPath(pins[at - 1].messageId)} replace className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-700 ring-1 ring-slate-300">
+          ← {t('pins.previous')}
+        </Link>
+      )}
+      {isLast ? (
+        <Link to={chatPath} className="rounded-full bg-brand-700 px-5 py-2 text-sm font-semibold text-white" data-testid={position === 'bottom' ? 'pinned-finish' : 'pinned-finish-top'}>
+          {t('pins.finish')} ✓
+        </Link>
+      ) : (
+        <Link to={pinnedPath(pins[at + 1].messageId)} replace className="rounded-full bg-brand-700 px-5 py-2 text-sm font-semibold text-white" data-testid={position === 'bottom' ? 'pinned-next' : 'pinned-next-top'}>
+          {t('pins.next')} →
+        </Link>
+      )}
+      {position === 'bottom' && info.canPin && (
+        <button type="button" className="text-sm font-semibold text-red-700 underline" onClick={() => void unpin(current.messageId)}>
+          {t('pins.unpin')}
+        </button>
+      )}
+    </nav>
+  );
+
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-lg space-y-4 px-4 py-6" data-testid="pinned-page">
@@ -201,6 +225,8 @@ export function MemberPinnedPage() {
             ))}
           </ol>
         </header>
+
+        {pins.length > 1 && nav('top')}
 
         <article className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-2">
@@ -253,27 +279,7 @@ export function MemberPinnedPage() {
           {commentError && <p className="text-sm text-red-700" role="alert">{commentError}</p>}
         </section>
 
-        <nav className="flex flex-wrap items-center gap-3 pb-6">
-          {at > 0 && (
-            <Link to={pinnedPath(pins[at - 1].messageId)} replace className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-700 ring-1 ring-slate-300">
-              ← {t('pins.previous')}
-            </Link>
-          )}
-          {isLast ? (
-            <Link to={chatPath} className="rounded-full bg-brand-700 px-5 py-2 text-sm font-semibold text-white" data-testid="pinned-finish">
-              {t('pins.finish')} ✓
-            </Link>
-          ) : (
-            <Link to={pinnedPath(pins[at + 1].messageId)} replace className="rounded-full bg-brand-700 px-5 py-2 text-sm font-semibold text-white" data-testid="pinned-next">
-              {t('pins.next')} →
-            </Link>
-          )}
-          {info.canPin && (
-            <button type="button" className="text-sm font-semibold text-red-700 underline" onClick={() => void unpin(current.messageId)}>
-              {t('pins.unpin')}
-            </button>
-          )}
-        </nav>
+        {nav('bottom')}
       </section>
     </PageShell>
   );

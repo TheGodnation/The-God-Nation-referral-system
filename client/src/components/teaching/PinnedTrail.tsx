@@ -32,15 +32,33 @@ export function usePinnedTrail(communityId: string | null, teachingId: string | 
 
 type Trail = NonNullable<ReturnType<typeof usePinnedTrail>>;
 
-/** The top line: "📌 Pinned 2 of 5 · back to the list". */
+/** The top: "📌 Pinned 2 of 5", Previous / Next, and back to the list, so it is clear at once that there is more. */
 export function PinnedTrailTop({ trail }: { trail: Trail }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-wrap items-center gap-x-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950" data-testid="pinned-trail-top">
-      <span className="font-semibold">📌 {t('pins.pin_progress', { current: trail.at + 1, total: trail.total })}</span>
-      <Link to={trail.pinnedPath(trail.current.messageId)} className="font-semibold text-brand-700 underline">
-        {t('pins.back_to_pinned')}
-      </Link>
+    <div className="space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950" data-testid="pinned-trail-top">
+      <div className="flex flex-wrap items-center gap-x-3">
+        <span className="font-semibold">📌 {t('pins.pin_progress', { current: trail.at + 1, total: trail.total })}</span>
+        <Link to={trail.pinnedPath(trail.current.messageId)} className="font-semibold text-brand-700 underline">
+          {t('pins.back_to_pinned')}
+        </Link>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {trail.previous && (
+          <Link to={trail.pinnedPath(trail.previous.messageId)} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-brand-700 ring-1 ring-slate-300" data-testid="pinned-trail-previous-top">
+            ← {t('pins.previous')}
+          </Link>
+        )}
+        {trail.next ? (
+          <Link to={trail.pinnedPath(trail.next.messageId)} className="rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white" data-testid="pinned-trail-next-top">
+            {t('pins.next')} →
+          </Link>
+        ) : (
+          <Link to={trail.chatPath} className="rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white">
+            {t('pins.finish')} ✓
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
