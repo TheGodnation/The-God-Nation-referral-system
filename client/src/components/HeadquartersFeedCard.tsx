@@ -1,6 +1,8 @@
 import { ReactionsSheet, type ReactorList } from './ReactionsSheet';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import { Avatar } from './Avatar';
 import { api } from '../lib/api';
 import { useInView } from '../lib/chatMedia';
 import { useDataSaver } from '../lib/dataSaver';
@@ -34,6 +36,8 @@ export interface HeadquartersFeedItem {
   media: HeadquartersFeedMedia[];
   /** Which official name it shows (share-into-app). */
   voice?: 'CENTRAL_AUTHORITY' | 'COMMUNICATION_DEPARTMENT';
+  /** Posted "as myself": the person's own name, photo and title are shown instead of the official name. */
+  author?: { personId: string; name: string; photoUrl: string | null; title: string | null } | null;
   /** A shared TikTok / Instagram / Facebook / YouTube post to play in the feed. */
   embed?: SocialEmbedInfo | null;
 }
@@ -190,14 +194,27 @@ export function HeadquartersFeedCard({
       aria-label={t('headquartersPosts.post_label', { title: title || t('headquartersPosts.hq_name') }) ?? ''}
     >
       <header className="flex items-center gap-3 px-4 pt-3">
-        <img src="/icons/icon-192.png" alt="" className="h-11 w-11 rounded-full border border-slate-200 bg-white object-contain p-0.5" />
+        {item.author ? (
+          <Avatar name={item.author.name} photoUrl={item.author.photoUrl} size={44} />
+        ) : (
+          <img src="/icons/icon-192.png" alt="" className="h-11 w-11 rounded-full border border-slate-200 bg-white object-contain p-0.5" />
+        )}
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1 truncate font-semibold text-slate-900">
-            {item.voice === 'COMMUNICATION_DEPARTMENT' ? t('headquartersPosts.comm_dept_name') : t('headquartersPosts.hq_name')}
-            <span className="rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white" aria-label={t('headquartersPosts.official') ?? ''}>
-              ✓
-            </span>
-          </p>
+          {item.author ? (
+            <p className="truncate font-semibold text-slate-900" data-testid="hq-post-author">
+              <Link to={`/member/people/${item.author.personId}`} className="hover:underline">
+                {item.author.name}
+              </Link>
+              {item.author.title && <span className="ml-1 text-xs font-normal text-slate-500">· {item.author.title}</span>}
+            </p>
+          ) : (
+            <p className="flex items-center gap-1 truncate font-semibold text-slate-900">
+              {item.voice === 'COMMUNICATION_DEPARTMENT' ? t('headquartersPosts.comm_dept_name') : t('headquartersPosts.hq_name')}
+              <span className="rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white" aria-label={t('headquartersPosts.official') ?? ''}>
+                ✓
+              </span>
+            </p>
+          )}
           <p className="text-xs text-slate-500">
             📌 {t('headquartersPosts.pinned')} · {date}
           </p>

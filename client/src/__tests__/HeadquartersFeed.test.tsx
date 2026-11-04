@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 
@@ -115,5 +116,38 @@ describe('Writing a post', () => {
     expect(screen.queryByRole('button', { name: /YouTube/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('YouTube link')).not.toBeInTheDocument();
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+  });
+});
+
+
+describe('Who a Headquarters post shows as', () => {
+  const show = async (extra: Record<string, unknown>) => {
+    mockFetch({ 'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [], ...extra }] } }) });
+    render(
+      <MemoryRouter>
+        <HeadquartersPosts variant="feed" />
+      </MemoryRouter>,
+    );
+    await screen.findByText('Fasting week');
+  };
+
+  it('posted as the person: their own name, photo and title, not the Headquarters name', async () => {
+    await show({ author: { personId: 'p1', name: 'Evangelist Stanley A. Ndoh', photoUrl: null, title: 'Founder' } });
+    const who = screen.getByTestId('hq-post-author');
+    expect(who).toHaveTextContent('Evangelist Stanley A. Ndoh');
+    expect(who).toHaveTextContent('Founder');
+    expect(within(who).getByRole('link')).toHaveAttribute('href', '/member/people/p1');
+    expect(screen.queryByText('The God Nation Headquarters')).toBeNull();
+  });
+
+  it('posted as the Communication Department or as Headquarters: that official name', async () => {
+    await show({ author: null, voice: 'COMMUNICATION_DEPARTMENT' });
+    expect(screen.getByText("God's Nation Communication Department")).toBeInTheDocument();
+    expect(screen.queryByTestId('hq-post-author')).toBeNull();
+  });
+
+  it('with nothing set it is the Headquarters', async () => {
+    await show({ author: null });
+    expect(screen.getByText('The God Nation Headquarters')).toBeInTheDocument();
   });
 });

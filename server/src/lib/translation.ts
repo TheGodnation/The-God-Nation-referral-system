@@ -458,6 +458,49 @@ export async function attemptUpdatePostTranslation(postId: string, body: string,
   );
 }
 
+/**
+ * One try at filling in the French of a Headquarters post. The post has an English and a French box;
+ * when the French one is empty, the English is translated into it (title and text separately).
+ * If the "English" box was written in French, the French goes in the French box and the English is
+ * the translation. Only an EMPTY language is ever filled: what a person wrote is never overwritten.
+ */
+export async function attemptHeadquartersPostTranslation(postId: string, opts: GeminiCallOptions = {}): Promise<TranslationOutcome> {
+  if (!isTranslationConfigured()) return 'skip';
+  const post = await prisma.headquartersPost.findUnique({ where: { id: postId }, select: { titleEn: true, titleFr: true, bodyEn: true, bodyFr: true } });
+  if (!post) return 'skip';
+  const needBody = !post.bodyFr?.trim() && post.bodyEn.trim() !== '';
+  const needTitle = !post.titleFr?.trim() && post.titleEn.trim() !== '';
+  if (!needBody && !needTitle) return 'skip';
+  const data: { titleEn?: string; titleFr?: string; bodyEn?: string; bodyFr?: string; frAutoTranslated?: boolean } = { frAutoTranslated: true };
+  if (needBody) {
+    const r = await translateText(post.bodyEn, opts);
+    if (!r) return 'retry';
+    if (r.detectedLanguage === 'fr') {
+      data.bodyFr = post.bodyEn;
+      data.bodyEn = r.translatedBody;
+    } else data.bodyFr = r.translatedBody;
+  }
+  if (needTitle) {
+    const r = await translateText(post.titleEn, opts);
+    if (!r) return 'retry';
+    if (r.detectedLanguage === 'fr') {
+      data.titleFr = post.titleEn;
+      data.titleEn = r.translatedBody;
+    } else data.titleFr = r.translatedBody;
+  }
+  // Written only if the French is still empty (the admin may have filled it in meanwhile).
+  const done = await prisma.headquartersPost.updateMany({
+    where: { id: postId, ...(needBody ? { bodyFr: null } : {}), ...(needTitle ? { titleFr: null } : {}) },
+    data,
+  });
+  return done.count === 1 ? 'done' : 'skip';
+}
+
+/** Best-effort, in the background: never throws into the request that triggered it. */
+export function translateHeadquartersPostInBackground(postId: string): void {
+  void attemptHeadquartersPostTranslation(postId).catch(() => undefined);
+}
+
 /** One try at translating a group-chat message and storing the result. */
 export async function attemptMessageTranslation(messageId: string, body: string, opts: GeminiCallOptions = {}): Promise<TranslationOutcome> {
   if (!isTranslationConfigured() || !body.trim()) return 'skip';

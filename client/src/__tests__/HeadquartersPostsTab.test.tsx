@@ -140,6 +140,37 @@ describe('HeadquartersPostsTab (Admin)', () => {
     });
   });
 
+  it('"Post as" offers Headquarters, the Communication Department and Myself, and sends the choice', async () => {
+    mockFetchByUrl({ '/api/admin/headquarters-posts': { status: 200, body: { items: [], pagination: { totalPages: 1 } } } });
+    render(<HeadquartersPostsTab />);
+    fireEvent.click(await screen.findByText('+ New Post'));
+    fireEvent.change(screen.getByLabelText('Title (English)'), { target: { value: 'Hello' } });
+    fireEvent.change(screen.getByLabelText('Body (English)'), { target: { value: 'Hello everyone.' } });
+    expect(screen.getByLabelText('The God Nation Headquarters')).toBeChecked();
+    expect(screen.getByText(/translated automatically/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("God's Nation Communication Department"));
+    fireEvent.click(screen.getByLabelText('Network-Wide (entire Headquarters Community network)'));
+    fireEvent.click(screen.getByText('Create Draft'));
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST' && c.url === '/api/admin/headquarters-posts')).toBeTruthy());
+    expect(calls.find((c) => c.method === 'POST')!.body).toMatchObject({ postAsSelf: false, voice: 'COMMUNICATION_DEPARTMENT' });
+  });
+
+  it('"Myself" sends postAsSelf so the post shows the admin\'s own name and photo', async () => {
+    mockFetchByUrl({ '/api/admin/headquarters-posts': { status: 200, body: { items: [], pagination: { totalPages: 1 } } } });
+    render(<HeadquartersPostsTab />);
+    fireEvent.click(await screen.findByText('+ New Post'));
+    fireEvent.change(screen.getByLabelText('Title (English)'), { target: { value: 'Hello' } });
+    fireEvent.change(screen.getByLabelText('Body (English)'), { target: { value: 'Hello everyone.' } });
+    fireEvent.click(screen.getByLabelText('Myself (my photo, name and title)'));
+    fireEvent.click(screen.getByLabelText('Network-Wide (entire Headquarters Community network)'));
+    fireEvent.click(screen.getByText('Create Draft'));
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST' && c.url === '/api/admin/headquarters-posts')).toBeTruthy());
+    const body = calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>;
+    expect(body.postAsSelf).toBe(true);
+    expect(body).not.toHaveProperty('voice');
+  });
+
   it('choosing network-wide audience sends networkWide: true and no target picker is shown', async () => {
     mockFetchByUrl({
       '/api/admin/headquarters-posts': { status: 200, body: { items: [], pagination: { totalPages: 1 } } },

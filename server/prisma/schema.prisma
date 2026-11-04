@@ -2099,6 +2099,9 @@ model HeadquartersPost {
   // Headquarters voice, or the God's Nation Communication Department page).
   // The real person who shared it is still createdByUserId, kept private.
   voice           HeadquartersPostVoice @default(CENTRAL_AUTHORITY)
+  // True while the French was filled in by the automatic translation (so it is redone when the
+  // English is edited, and left alone once a person has written or changed the French).
+  frAutoTranslated Boolean  @default(false)
   // A TikTok / Instagram / Facebook / YouTube link shown as a player right
   // in the feed (see lib/socialEmbed.ts). Only ever a link we parsed and
   // normalized ourselves; the embed address is rebuilt from it on read.

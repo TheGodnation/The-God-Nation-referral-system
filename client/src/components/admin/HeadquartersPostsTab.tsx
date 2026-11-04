@@ -35,13 +35,16 @@ interface HeadquartersPostRow {
   // Section 15: whether this post shows the Admin's own photo/name/title
   // ("post as self") or the plain institutional "Central Authority" voice.
   postAsSelf: boolean;
+  /** Which official name it shows when it is not posted as the person. */
+  voice?: 'CENTRAL_AUTHORITY' | 'COMMUNICATION_DEPARTMENT';
   targets: HeadquartersPostTargetRow[];
   commentCount: number;
   reactionCount: number;
   media: HeadquartersPostMediaRow[];
 }
 
-const EMPTY_FORM = { titleEn: '', titleFr: '', bodyEn: '', bodyFr: '', postAsSelf: false };
+type PostAs = 'CENTRAL_AUTHORITY' | 'COMMUNICATION_DEPARTMENT' | 'SELF';
+const EMPTY_FORM: { titleEn: string; titleFr: string; bodyEn: string; bodyFr: string; postAs: PostAs } = { titleEn: '', titleFr: '', bodyEn: '', bodyFr: '', postAs: 'CENTRAL_AUTHORITY' };
 
 function postStatus(row: HeadquartersPostRow): 'draft' | 'published' | 'archived' {
   if (row.archivedAt) return 'archived';
@@ -125,7 +128,7 @@ export function HeadquartersPostsTab() {
   }
 
   function startEdit(row: HeadquartersPostRow) {
-    setForm({ titleEn: row.titleEn, titleFr: row.titleFr ?? '', bodyEn: row.bodyEn, bodyFr: row.bodyFr ?? '', postAsSelf: row.postAsSelf });
+    setForm({ titleEn: row.titleEn, titleFr: row.titleFr ?? '', bodyEn: row.bodyEn, bodyFr: row.bodyFr ?? '', postAs: row.postAsSelf ? 'SELF' : (row.voice ?? 'CENTRAL_AUTHORITY') });
     setNetworkWide(row.networkWide);
     setFormTargets(row.targets.map((tgt) => ({ id: tgt.communityId, name: tgt.communityName })));
     setFormError(null);
@@ -235,7 +238,8 @@ export function HeadquartersPostsTab() {
       titleFr: form.titleFr.trim() || null,
       bodyEn: form.bodyEn.trim(),
       bodyFr: form.bodyFr.trim() || null,
-      postAsSelf: form.postAsSelf,
+      postAsSelf: form.postAs === 'SELF',
+      ...(form.postAs === 'SELF' ? {} : { voice: form.postAs }),
     };
     try {
       if (editingId) {
@@ -387,14 +391,23 @@ export function HeadquartersPostsTab() {
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={form.postAsSelf}
-              onChange={(e) => setForm((v) => ({ ...v, postAsSelf: e.target.checked }))}
-            />
-            {t('admin.headquartersPosts.post_as_self')}
-          </label>
+          <p className="-mt-1 text-xs text-slate-500">{t('admin.headquartersPosts.french_auto_hint')}</p>
+
+          <fieldset>
+            <legend className="label">{t('admin.headquartersPosts.post_as_label')}</legend>
+            <div className="mt-1 flex flex-col gap-1.5 text-sm text-slate-700">
+              {([
+                ['CENTRAL_AUTHORITY', t('admin.headquartersPosts.voice_hq')],
+                ['COMMUNICATION_DEPARTMENT', t('admin.headquartersPosts.voice_comm')],
+                ['SELF', t('admin.headquartersPosts.voice_self')],
+              ] as [PostAs, string][]).map(([value, label]) => (
+                <label key={value} className="flex items-center gap-2">
+                  <input type="radio" name="hqpost-post-as" checked={form.postAs === value} onChange={() => setForm((v) => ({ ...v, postAs: value }))} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <div>
             <label className="label">{t('admin.headquartersPosts.audience_label')}</label>
@@ -559,7 +572,7 @@ export function HeadquartersPostsTab() {
                     {t('admin.headquartersPosts.engagement_summary', { comments: row.commentCount, reactions: row.reactionCount })}
                   </td>
                   <td className="py-2 pr-4">
-                    {row.postAsSelf ? t('admin.headquartersPosts.author_self') : t('admin.headquartersPosts.author_central')}
+                    {row.postAsSelf ? t('admin.headquartersPosts.author_self') : row.voice === 'COMMUNICATION_DEPARTMENT' ? t('headquartersPosts.comm_dept_name') : t('admin.headquartersPosts.author_central')}
                   </td>
                   <td className="py-2 pr-4">
                     <div className="flex flex-col gap-1">

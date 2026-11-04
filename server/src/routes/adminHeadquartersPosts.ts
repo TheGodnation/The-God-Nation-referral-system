@@ -10,6 +10,7 @@ import { headquartersPostMutationLimiter, attachmentUploadAuthorizeLimiter } fro
 import { asyncHandler } from '../lib/asyncHandler';
 import { validateCommunityTargetReferences, resolveHeadquartersPostAudiencePersonIds } from '../lib/headquartersPosts';
 import { notifyHeadquartersPostPublished } from '../lib/notifications';
+import { attemptHeadquartersPostTranslation, translateHeadquartersPostInBackground } from '../lib/translation';
 import {
   isAllowedAttachmentMime,
   maxBytesForMime,
@@ -125,6 +126,8 @@ const createSchema = z.object({
   bodyEn: z.string().trim().min(1).max(MAX_POST_CHARS),
   bodyFr: z.string().trim().min(1).max(MAX_POST_CHARS).optional().nullable(),
   postAsSelf: z.boolean().optional(),
+  // Which official name it shows when it is not posted "as myself".
+  voice: z.enum(['CENTRAL_AUTHORITY', 'COMMUNICATION_DEPARTMENT']).optional(),
 });
 
 // POST /api/admin/headquarters-posts — always created as a draft
@@ -153,9 +156,11 @@ router.post('/', headquartersPostMutationLimiter, requireCsrf, asyncHandler(asyn
       bodyFr: d.bodyFr ?? null,
       createdByUserId: req.user!.id,
       authorPersonId,
+      ...(d.voice ? { voice: d.voice } : {}),
     },
     include: targetInclude,
   });
+  translateHeadquartersPostInBackground(created.id);
 
   await recordAudit({
     actorId: req.user!.id,
@@ -177,6 +182,7 @@ const patchSchema = z.object({
   networkWide: z.boolean().optional(),
   targetCommunityIds: z.array(z.string().min(1)).max(50).optional(),
   postAsSelf: z.boolean().optional(),
+  voice: z.enum(['CENTRAL_AUTHORITY', 'COMMUNICATION_DEPARTMENT']).optional(),
 });
 
 // PATCH /api/admin/headquarters-posts/:id — draft only. Once published or
@@ -215,6 +221,12 @@ router.patch('/:id', headquartersPostMutationLimiter, requireCsrf, asyncHandler(
     }
   }
 
+  // The French the translation filled in follows the English: redone when the English changes, and
+  // left alone as soon as a person writes or changes the French themselves.
+  const frEdited = (d.titleFr !== undefined && d.titleFr !== existing.titleFr) || (d.bodyFr !== undefined && d.bodyFr !== existing.bodyFr);
+  const enEdited = (d.titleEn !== undefined && d.titleEn !== existing.titleEn) || (d.bodyEn !== undefined && d.bodyEn !== existing.bodyEn);
+  const redoFrench = existing.frAutoTranslated && enEdited && !frEdited;
+
   const updated = await prisma.$transaction(async (tx) => {
     if (d.networkWide === true) {
       await tx.headquartersPostTarget.deleteMany({ where: { headquartersPostId: id } });
@@ -239,10 +251,13 @@ router.patch('/:id', headquartersPostMutationLimiter, requireCsrf, asyncHandler(
             ? { networkWide: false }
             : {}),
         ...(authorPersonId !== undefined ? { authorPersonId } : {}),
+        ...(d.voice ? { voice: d.voice } : {}),
+        ...(redoFrench ? { titleFr: null, bodyFr: null, frAutoTranslated: false } : frEdited ? { frAutoTranslated: false } : {}),
       },
       include: targetInclude,
     });
   });
+  translateHeadquartersPostInBackground(id);
 
   await recordAudit({
     actorId: req.user!.id,
@@ -461,6 +476,10 @@ router.post('/:id/publish', headquartersPostMutationLimiter, requireCsrf, asyncH
     if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community.' });
   }
 
+  // If the French is still empty, give the translation a moment so the post goes out in both languages.
+  if (!existing.bodyFr?.trim() || !existing.titleFr?.trim()) {
+    await attemptHeadquartersPostTranslation(id, { timeoutMs: 25000, attempts: 1 }).catch(() => undefined);
+  }
   const result = await prisma.headquartersPost.updateMany({
     where: { id, publishedAt: null, archivedAt: null },
     data: { publishedAt: new Date() },
@@ -478,7 +497,8 @@ router.post('/:id/publish', headquartersPostMutationLimiter, requireCsrf, asyncH
   });
 
   const recipientPersonIds = await resolveHeadquartersPostAudiencePersonIds(existing);
-  await notifyHeadquartersPostPublished({ id, titleEn: existing.titleEn, titleFr: existing.titleFr }, recipientPersonIds);
+  const fresh = await prisma.headquartersPost.findUnique({ where: { id }, select: { titleEn: true, titleFr: true } });
+  await notifyHeadquartersPostPublished({ id, titleEn: fresh?.titleEn ?? existing.titleEn, titleFr: fresh?.titleFr ?? existing.titleFr }, recipientPersonIds);
 
   const updated = await prisma.headquartersPost.findUnique({ where: { id }, include: targetInclude });
   res.json(toAdminResponse(updated!));

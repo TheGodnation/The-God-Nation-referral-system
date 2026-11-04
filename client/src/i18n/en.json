@@ -1161,7 +1161,12 @@
       "media_type_image": "Image",
       "media_type_video": "Video",
       "media_type_audio": "Audio",
-      "media_type_pdf": "PDF"
+      "media_type_pdf": "PDF",
+      "french_auto_hint": "Write in one language only if you like: the other box is translated automatically when you leave it empty.",
+      "post_as_label": "Post as",
+      "voice_hq": "The God Nation Headquarters",
+      "voice_comm": "God's Nation Communication Department",
+      "voice_self": "Myself (my photo, name and title)"
     },
     "privateMessages": {
       "title": "Private Messages",
@@ -2834,14 +2839,14 @@
     "paste_plain": "Paste as plain text"
   },
   "storeRead": {
-      "explain": "To read the Leadership School books, send a request. When the central team approves it, you can start reading with the first book.",
-      "request_button": "Request to read",
-      "requested": "Your request has been sent. You will be told when the central team approves it, and then you can start reading.",
-      "failed": "Your request could not be sent. Please try again.",
-      "next_explain": "The next book opens when the central team approves your request.",
-      "next_button": "Request to read the next book",
-      "next_requested": "Your request for the next book has been sent to the central team.",
-      "next_locked": "This book opens when the central team approves your request."
+    "explain": "To read the Leadership School books, send a request. When the central team approves it, you can start reading with the first book.",
+    "request_button": "Request to read",
+    "requested": "Your request has been sent. You will be told when the central team approves it, and then you can start reading.",
+    "failed": "Your request could not be sent. Please try again.",
+    "next_explain": "The next book opens when the central team approves your request.",
+    "next_button": "Request to read the next book",
+    "next_requested": "Your request for the next book has been sent to the central team.",
+    "next_locked": "This book opens when the central team approves your request."
   },
   "aboutGodNation": {
     "tab": "About the God Nation",

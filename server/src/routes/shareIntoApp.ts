@@ -19,6 +19,7 @@ import {
   MAX_HEADQUARTERS_POST_MEDIA,
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, headObject } from '../lib/storage';
+import { attemptHeadquartersPostTranslation, translateHeadquartersPostInBackground } from '../lib/translation';
 import { resolveSocialLink, embedFor, findFirstUrl } from '../lib/socialEmbed';
 
 // ---------------------------------------------------------------------------
@@ -214,6 +215,8 @@ router.post('/posts', headquartersPostMutationLimiter, requireCsrf, asyncHandler
     },
   });
 
+  translateHeadquartersPostInBackground(created.id);
+
   await recordAudit({
     actorId: sharer.userId,
     actorEmail: sharer.email,
@@ -326,6 +329,8 @@ router.post('/posts/:id/publish', headquartersPostMutationLimiter, requireCsrf, 
     return res.status(400).json({ error: 'There is nothing to post yet.' });
   }
 
+  // Give the translation a moment so the post goes out in both languages.
+  await attemptHeadquartersPostTranslation(post.id, { timeoutMs: 25000, attempts: 1 }).catch(() => undefined);
   const result = await prisma.headquartersPost.updateMany({
     where: { id: post.id, publishedAt: null, archivedAt: null },
     data: { publishedAt: new Date() },
@@ -341,9 +346,10 @@ router.post('/posts/:id/publish', headquartersPostMutationLimiter, requireCsrf, 
     metadata: { via: 'share-into-app' },
   });
 
+  const fresh = await prisma.headquartersPost.findUnique({ where: { id: post.id }, select: { titleFr: true } });
   const notifyTitle = post.titleEn || post.bodyEn.split('\n')[0]?.slice(0, 120) || 'New post';
   const recipients = await resolveHeadquartersPostAudiencePersonIds(post);
-  await notifyHeadquartersPostPublished({ id: post.id, titleEn: notifyTitle, titleFr: null }, recipients);
+  await notifyHeadquartersPostPublished({ id: post.id, titleEn: notifyTitle, titleFr: fresh?.titleFr ?? null }, recipients);
 
   res.json({ id: post.id, published: true });
 }));
