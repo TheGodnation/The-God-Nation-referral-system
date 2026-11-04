@@ -81,11 +81,10 @@ describe('PinnedMessages (the strip under the chat header)', () => {
     expect(onOpen).toHaveBeenCalledWith('a');
   });
 
-  it('shows the heading of the next message and the start of it under the title', () => {
+  it('shows the heading of the next message, without its symbols', () => {
     render(<PinnedMessages pins={[pin({ body: '## Walking in Dominion\n\nThe first lesson is about authority.' })]} onOpen={() => {}} />);
     const next = screen.getByTestId('pinned-next-preview');
     expect(next).toHaveTextContent('Walking in Dominion');
-    expect(next).toHaveTextContent('The first lesson is about authority.');
     expect(next).not.toHaveTextContent('##');
   });
 

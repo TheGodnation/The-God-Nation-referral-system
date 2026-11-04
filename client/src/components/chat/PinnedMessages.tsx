@@ -79,41 +79,37 @@ export function PinnedMessages({ pins, onOpen }: { pins: ChatPin[]; onOpen: (mes
   const allDone = doneCount === list.length;
   const target = unseenList[0] ?? next;
   const gold = unseenList.length > 0;
-  const { heading, rest } = pinHeading(target, t as (k: string) => string);
+  const { heading } = pinHeading(target, t as (k: string) => string);
   const percent = Math.round((doneCount / list.length) * 100);
 
   return (
-    <div className={`border-b px-3 py-2.5 shadow-sm ${gold ? 'border-amber-300 bg-amber-100 text-amber-950' : 'border-slate-200 bg-white text-slate-800'}`} data-testid="pinned-messages">
-      <button type="button" className="block w-full text-left" onClick={() => onOpen(target.messageId)} data-testid="pinned-open">
-        <span className="flex items-center gap-2">
-          <span aria-hidden className="text-base">📌</span>
-          <span className="whitespace-nowrap text-sm font-bold">{t('pins.strip_title')}</span>
-          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-white" data-testid="pinned-count">
-            {list.length}
-          </span>
-          {gold && (
-            <span className="whitespace-nowrap rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white" data-testid="important-chip">
-              {t('pins.n_new', { count: unseenList.length })}
+    <div className={`relative border-b shadow-sm ${gold ? 'border-amber-300 bg-amber-100 text-amber-950' : 'border-slate-200 bg-white text-slate-800'}`} data-testid="pinned-messages">
+      <button type="button" className="flex w-full items-center gap-2 px-3 py-1.5 text-left" onClick={() => onOpen(target.messageId)} data-testid="pinned-open">
+        <span aria-hidden>📌</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 overflow-hidden text-xs font-semibold">
+            <span className="whitespace-nowrap font-bold">{t('pins.strip_title')}</span>
+            <span className="rounded-full bg-slate-800 px-1.5 text-[11px] leading-4 text-white" data-testid="pinned-count">
+              {list.length}
             </span>
-          )}
-          <span className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white">{allDone && !gold ? t('pins.open') : gold ? t('pins.read_short') : t('pins.continue')} ›</span>
-        </span>
-        <span className="mt-1.5 block" data-testid="pinned-next-preview">
-          <span
-            className={`block text-[15px] font-semibold ${rest ? 'truncate' : ''}`}
-            style={rest ? undefined : { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden' }}
-          >
+            {gold ? (
+              <span className="whitespace-nowrap rounded-full bg-amber-500 px-1.5 text-[11px] font-bold leading-4 text-white" data-testid="important-chip">
+                {t('pins.n_new', { count: unseenList.length })}
+              </span>
+            ) : (
+              <span className="truncate font-medium opacity-70">{t('pins.done_of', { done: doneCount, total: list.length })}</span>
+            )}
+          </span>
+          <span className="block truncate text-sm font-semibold" data-testid="pinned-next-preview">
             {heading}
           </span>
-          {rest && <span className="block truncate text-sm opacity-80">{rest}</span>}
         </span>
-        <span className="mt-1.5 flex items-center gap-2 text-xs font-medium opacity-80">
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-            <span className="block h-full rounded-full bg-emerald-600" style={{ width: `${percent}%` }} />
-          </span>
-          <span>{t('pins.done_of', { done: doneCount, total: list.length })}</span>
-        </span>
+        <span className="shrink-0 whitespace-nowrap rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white">{allDone && !gold ? t('pins.open') : gold ? t('pins.read_short') : t('pins.continue')} ›</span>
       </button>
+      {/* How far through them the person is: a thin line along the bottom edge, so it takes no height. */}
+      <span className="absolute inset-x-0 bottom-0 h-0.5 bg-black/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+        <span className="block h-full bg-emerald-600" style={{ width: `${percent}%` }} />
+      </span>
     </div>
   );
 }
