@@ -18,6 +18,7 @@ import { useMemberAuth } from '../lib/MemberAuthContext';
 import { ProfileImageError, uploadProfileImage } from '../lib/profileImages';
 import { ImageCropper } from '../components/ImageCropper';
 import { CellsPanel } from '../components/admin/CellsPanel';
+import { useStoreApp } from '../lib/storeApp';
 import { GivingPanel } from '../components/admin/GivingPanel';
 
 interface ExamWorld {
@@ -49,6 +50,7 @@ const ADMIN_TABS: Tab[] = ['cells', 'giving', 'growth', 'knowledge'];
 function Progress({ groups }: { groups: MembershipRow[] }) {
   const { user: leaderUser } = useAuth();
   const { t, i18n } = useTranslation();
+  const store = useStoreApp();
   const isFr = i18n.language.startsWith('fr');
   const [data, setData] = useState<ExamWorld | null>(null);
   const [failed, setFailed] = useState(false);
@@ -184,19 +186,23 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
         </Link>
       </section>
 
-      <section className="card">
-        <h2 className="mb-2 font-semibold text-brand-900">🙏 {t('giving.link_title')}</h2>
-        <Link to="/member/give" className="text-sm font-medium text-brand-700 underline">
-          {t('giving.link_help')}
-        </Link>
-      </section>
+      {!store && (
+        <>
+          <section className="card">
+            <h2 className="mb-2 font-semibold text-brand-900">🙏 {t('giving.link_title')}</h2>
+            <Link to="/member/give" className="text-sm font-medium text-brand-700 underline">
+              {t('giving.link_help')}
+            </Link>
+          </section>
 
-      <section className="card">
-        <h2 className="mb-2 font-semibold text-brand-900">💰 {t('earnings.link_title')}</h2>
-        <Link to="/member/earnings" className="text-sm font-medium text-brand-700 underline">
-          {t('earnings.link_help')}
-        </Link>
-      </section>
+          <section className="card">
+            <h2 className="mb-2 font-semibold text-brand-900">💰 {t('earnings.link_title')}</h2>
+            <Link to="/member/earnings" className="text-sm font-medium text-brand-700 underline">
+              {t('earnings.link_help')}
+            </Link>
+          </section>
+        </>
+      )}
 
       <section className="card">
         <h2 className="mb-2 font-semibold text-brand-900">📥 {t('downloads.title')}</h2>

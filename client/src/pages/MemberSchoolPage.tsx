@@ -8,6 +8,7 @@ import { BookCover } from '../components/learn/BookCover';
 import { SCHOOL_BOOK_COUNT, SchoolSummary, TrainingStatusCard, currentBook, useTr } from '../components/learn/schoolBits';
 import { cachedGet } from '../lib/cachedGet';
 import { useMemberAuth } from '../lib/MemberAuthContext';
+import { useStoreApp } from '../lib/storeApp';
 
 // The God Nation Leadership School: the 15 leadership books as covers, in
 // order, each showing whether it is passed, open or still closed. Tapping a
@@ -15,6 +16,7 @@ import { useMemberAuth } from '../lib/MemberAuthContext';
 // admin hasn't added yet show as "Coming soon".
 export function MemberSchoolPage() {
   const { t } = useTranslation();
+  const store = useStoreApp();
   const tr = useTr();
   const [data, setData] = useState<SchoolSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +68,8 @@ export function MemberSchoolPage() {
 
         {data && (
           <div className="space-y-5">
-            <ol className="grid gap-2 text-sm sm:grid-cols-3" aria-label={t('school.how_heading') ?? ''}>
-              {[t('school.step_read'), t('school.step_exam'), t('school.step_pay', { price: (data.price ?? 1200).toLocaleString('fr-FR') })].map((text, i) => (
+            <ol className={`grid gap-2 text-sm ${store ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`} aria-label={t('school.how_heading') ?? ''}>
+              {[t('school.step_read'), t('school.step_exam'), ...(store ? [] : [t('school.step_pay', { price: (data.price ?? 1200).toLocaleString('fr-FR') })])].map((text, i) => (
                 <li key={i} className="flex gap-2 rounded-lg bg-white p-3 shadow-sm">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-800">{i + 1}</span>
                   <span className="text-slate-700">{text}</span>

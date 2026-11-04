@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isStoreApp } from '../lib/storeApp';
 import { api } from '../lib/api';
 
 type NotificationType =
@@ -23,6 +24,8 @@ type NotificationType =
   | 'BOOK_PASSED_PAY'
   | 'PAYMENT_ORDER_MESSAGE'
   | 'TRAINING_GRACE_GRANTED'
+  | 'READ_REQUESTED'
+  | 'READ_APPROVED'
   | 'TRAINING_GRACE_DECLINED'
   | 'REFERRAL_EARNING'
   | 'REFERRAL_PAYOUT_PAID'
@@ -169,7 +172,7 @@ export function NotificationBell() {
       case 'PAYMENT_ORDER_MESSAGE':
         return metadata.reminder ? t('notifications.payment_order_reminder', { name: metadata.name ?? '' }) : t('notifications.payment_order_message', { name: metadata.name ?? '' });
       case 'BOOK_PASSED_PAY':
-        return t('notifications.book_passed_pay', { number: metadata.bookNumber ?? '' });
+        return t(isStoreApp() ? 'notifications.book_passed_store' : 'notifications.book_passed_pay', { number: metadata.bookNumber ?? '' });
       case 'MEMBER_REPORT_REVIEWED': {
         // To the person whose post was reported: a polite reminder of the community's standards.
         if (metadata.audience === 'REPORTED') return t(metadata.removed ? 'notifications.report_author_removed' : 'notifications.report_author_notice');
@@ -195,6 +198,10 @@ export function NotificationBell() {
         return t(`notifications.post_liked_${metadata.kind === 'COMMENT' ? 'comment' : metadata.kind === 'MESSAGE' ? 'message' : 'post'}`, { name: metadata.actorName ?? '', emoji: metadata.emoji ?? '👍' });
       case 'POST_REPLIED':
         return t(`notifications.post_replied_${metadata.kind === 'COMMENT_REPLY' ? 'comment' : metadata.kind === 'MESSAGE_REPLY' ? 'message' : 'post'}`, { name: metadata.actorName ?? '' });
+      case 'READ_REQUESTED':
+        return t('notifications.read_requested', { name: metadata.personName ?? '' });
+      case 'READ_APPROVED':
+        return t('notifications.read_approved');
       case 'TRAINING_GRACE_GRANTED':
         return t('notifications.training_grace_granted', { count: Number(metadata.books ?? 0) });
       case 'TRAINING_GRACE_DECLINED':

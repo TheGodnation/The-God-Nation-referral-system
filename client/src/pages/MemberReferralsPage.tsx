@@ -5,6 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { Avatar } from '../components/Avatar';
 import { api } from '../lib/api';
+import { useStoreApp } from '../lib/storeApp';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 
 type Status = 'NOT_CONFIRMED' | 'PROFILE_INCOMPLETE' | 'QUIET' | 'ACTIVE';
@@ -36,6 +37,7 @@ const STATUS_STYLE: Record<Status, string> = {
 // the Leader dashboard and the underlying role names are untouched.
 export function MemberReferralsPage() {
   const { t, i18n } = useTranslation();
+  const store = useStoreApp();
   const { member } = useMemberAuth();
   const [filter, setFilter] = useState<'all' | 'nudge'>('all');
   const [links, setLinks] = useState<{ en: string; fr: string } | null>(null);
@@ -96,14 +98,16 @@ export function MemberReferralsPage() {
         <p className="mb-4 text-sm italic text-brand-700">{t('myReferrals.tagline')}</p>
 
         <div className="space-y-6">
-          <Link to="/member/earnings" className="card flex items-center gap-3 no-underline">
-            <span aria-hidden className="text-2xl">💰</span>
-            <span className="min-w-0 flex-1">
-              <span className="block font-semibold text-brand-900">{t('earnings.link_title')}</span>
-              <span className="block text-sm text-slate-600">{t('earnings.link_help')}</span>
-            </span>
-            <span aria-hidden className="text-brand-700">›</span>
-          </Link>
+          {!store && (
+            <Link to="/member/earnings" className="card flex items-center gap-3 no-underline">
+              <span aria-hidden className="text-2xl">💰</span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-brand-900">{t('earnings.link_title')}</span>
+                <span className="block text-sm text-slate-600">{t('earnings.link_help')}</span>
+              </span>
+              <span aria-hidden className="text-brand-700">›</span>
+            </Link>
+          )}
 
           <section className="card space-y-3">
             <h2 className="font-semibold text-brand-900">{t('myReferrals.link_title')}</h2>

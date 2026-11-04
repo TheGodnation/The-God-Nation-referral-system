@@ -144,6 +144,36 @@ describe('Leadership training: paid access and books in order', () => {
     expect((await m.agent.get(`/api/member/library/books/${b1.bookId}/content`)).status).toBe(404);
   });
 
+  it('the Play Store app asks to read: nothing opens until the central admin approves, who is told, and the member is told back', async () => {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1);
+    const m = await member('Asker');
+
+    const ask = await post(m, '/api/member/training/request', { approval: true });
+    expect(ask.status).toBe(201);
+    expect(ask.body.enrollment).toBe('REQUESTED');
+    // Asking again changes nothing, and Book 1 is still closed.
+    expect((await post(m, '/api/member/training/request', { approval: true })).body.enrollment).toBe('REQUESTED');
+    expect((await m.agent.get('/api/member/exam-world')).body.training).toMatchObject({ enrollment: 'REQUESTED' });
+    expect((await m.agent.get(`/api/member/library/books/${b1.bookId}/content`)).status).toBe(404);
+    // The central admin is told (once).
+    const admins = await prisma.user.findMany({ where: { role: 'ADMIN', active: true }, select: { id: true, personId: true } });
+    const told = await prisma.notification.count({ where: { type: 'READ_REQUESTED', targetId: m.id, OR: [{ recipientUserId: { in: admins.map((x) => x.id) } }, { recipientPersonId: { in: admins.flatMap((x) => (x.personId ? [x.personId] : [])) } }] } });
+    expect(told).toBeGreaterThan(0);
+    // It shows in the admin's list of requests.
+    const list = await a.agent.get('/api/admin/library/trainees?status=REQUESTED');
+    expect(list.body.items.map((i: { personId: string }) => i.personId)).toContain(m.id);
+
+    // Approving opens Book 1 and tells the member.
+    expect((await post(a, '/api/admin/library/trainees', { personId: m.id })).body.status).toBe('ACTIVE');
+    expect((await m.agent.get('/api/member/exam-world')).body.training.books[0]).toMatchObject({ unlocked: true, canRead: true });
+    expect(await prisma.notification.findFirst({ where: { recipientPersonId: m.id, type: 'READ_APPROVED' } })).not.toBeNull();
+
+    // Without the new flag, the web app still starts on trust, as before.
+    const web = await member('Web');
+    expect((await post(web, '/api/member/training/request')).body.enrollment).toBe('ACTIVE');
+  });
+
   it('opens Book 2 only after Book 1 is passed with 70%, and keeps it open', async () => {
     const a = await admin();
     const b1 = await trainingBook(a, 1);

@@ -6,6 +6,10 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import './i18n';
 import './index.css';
 import { reloadOnceForNewVersion, reportClientError } from './lib/reportError';
+import { isStoreApp } from './lib/storeApp';
+
+// Notice the Play Store version at the very start (see lib/storeApp.ts).
+isStoreApp();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

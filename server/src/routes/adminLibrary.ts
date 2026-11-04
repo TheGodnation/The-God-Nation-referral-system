@@ -11,7 +11,7 @@ import { attachmentUploadAuthorizeLimiter, communityMutationLimiter } from '../l
 import { createUploadUrl, headObject, isStorageConfigured } from '../lib/storage';
 import { MAX_GRACE_BOOKS, TRAINING_PASS_MARK, getTrainingBooksFor } from '../lib/examWorld';
 import { examSetNumbers } from '../lib/trainingExam';
-import { notifyBookPaymentDecision, notifyExamRetakeDecision, notifyTrainingGraceDecision } from '../lib/notifications';
+import { notifyBookPaymentDecision, notifyExamRetakeDecision, notifyReadApproved, notifyTrainingGraceDecision } from '../lib/notifications';
 import { activePaymentProvider } from '../lib/payments';
 import { coverFrUrl, coverUrl, newCoverVersion, readCoverDataUrl, sendCover } from '../lib/bookCovers';
 import { creditReferralEarning } from '../lib/referralEarnings';
@@ -535,8 +535,11 @@ router.post('/trainees', communityMutationLimiter, requireCsrf, asyncHandler(asy
   const person = await prisma.person.findUnique({ where: { id: parsed.data.personId }, select: { id: true } });
   if (!person) return res.status(404).json({ error: 'Person not found.' });
   const data = { status: 'ACTIVE' as const, activatedAt: new Date(), activatedByUserId: req.user!.id, note: parsed.data.note || null };
+  const before = await prisma.trainingEnrollment.findUnique({ where: { personId: person.id }, select: { status: true } });
   await prisma.trainingEnrollment.upsert({ where: { personId: person.id }, create: { personId: person.id, ...data }, update: data });
   await audit(req, 'TRAINING_ACTIVATED', 'Person', person.id);
+  // Someone who asked to read (the Play Store app) is told they can start.
+  if (before?.status === 'REQUESTED') await notifyReadApproved(person.id).catch(() => {});
   res.json({ status: 'ACTIVE' });
 }));
 

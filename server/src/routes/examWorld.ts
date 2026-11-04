@@ -15,6 +15,7 @@ import { canReadBook, canSeeDevotional, clinicRhythm, examAccess, getTrainingBoo
 import { activePaymentProvider } from '../lib/payments';
 import { trainingExamState } from '../lib/trainingExam';
 import { coverFrUrl, coverUrl, sendCover } from '../lib/bookCovers';
+import { notifyReadRequested } from '../lib/notifications';
 
 // ---------------------------------------------------------------------------
 // /api/member — Exam World for members: the summary page (this month's
@@ -218,6 +219,20 @@ router.post('/training/request', socialMutationLimiter, requireCsrf, requireMemb
   const existing = await prisma.trainingEnrollment.findUnique({ where: { personId } });
   if (existing?.status === 'ACTIVE' || existing?.status === 'REVOKED') return res.json({ enrollment: existing.status });
   const now = new Date();
+  // The Play Store app has no prices and starts nothing on trust: the member asks to read,
+  // and the central admin approves it (Library tab) before Book 1 opens.
+  if (req.body?.approval === true) {
+    if (existing?.status === 'REQUESTED') return res.json({ enrollment: 'REQUESTED' });
+    const asked = await prisma.trainingEnrollment.upsert({
+      where: { personId },
+      create: { personId, status: 'REQUESTED', requestedAt: now },
+      update: { status: 'REQUESTED', requestedAt: now },
+    });
+    await recordAudit({ action: 'TRAINING_REQUESTED', targetType: 'Person', targetId: personId });
+    const who = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } });
+    if (who) await notifyReadRequested(who).catch(() => {});
+    return res.status(201).json({ enrollment: asked.status });
+  }
   const e = await prisma.trainingEnrollment.upsert({
     where: { personId },
     create: { personId, status: 'ACTIVE', requestedAt: now, activatedAt: now },

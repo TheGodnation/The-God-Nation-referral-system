@@ -250,6 +250,10 @@ enum NotificationType {
   ESCALATION_RECEIVED
   ESCALATION_ANSWERED
   ESCALATION_BYPASSED
+  // "Request to read" (the Play Store app has no prices): the member asked to start
+  // reading (sent to the central admin), and the central admin approved it (sent to the member).
+  READ_REQUESTED
+  READ_APPROVED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether

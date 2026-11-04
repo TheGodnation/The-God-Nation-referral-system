@@ -13,6 +13,7 @@ import { ApiError } from '../lib/api';
 import { cachedGet } from '../lib/cachedGet';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { bookKey, getInfo } from '../lib/offlineStore';
+import { useStoreApp } from '../lib/storeApp';
 
 interface Chapter {
   id: string;
@@ -31,6 +32,7 @@ type BookPage = SchoolSummary & { book: SchoolBook; chapters: Chapter[] };
 export function MemberSchoolBookPage() {
   const { t, i18n } = useTranslation();
   const tr = useTr();
+  const store = useStoreApp();
   const { bookId = '' } = useParams();
   const [data, setData] = useState<BookPage | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'notFound' | 'failed'>('loading');
@@ -134,8 +136,8 @@ export function MemberSchoolBookPage() {
                   )}
                 </div>
                 {b.canRead && <p className="text-xs text-slate-500">{downloaded ? `✓ ${t('school.downloaded')}` : t('school.downloads_first_time')}</p>}
-                {b.payment === 'CLAIMED' && !fromCache && <WaitingOrderLink bookId={b.id} />}
-                {!b.payment && !fromCache && (data.payableCount ?? 0) > 1 && (
+                {!store && b.payment === 'CLAIMED' && !fromCache && <WaitingOrderLink bookId={b.id} />}
+                {!store && !b.payment && !fromCache && (data.payableCount ?? 0) > 1 && (
                   <PayManyPanel
                     price={data.price ?? 1200}
                     owedBooks={data.owed?.books ?? 0}
@@ -144,7 +146,7 @@ export function MemberSchoolBookPage() {
                     onDone={load}
                   />
                 )}
-                {!b.payment && !fromCache && (
+                {!store && !b.payment && !fromCache && (
                   <PayBookPanel
                     bookId={b.id}
                     bookNumber={b.trainingOrder}

@@ -8,6 +8,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api, ApiError } from '../lib/api';
 import { cachedGet } from '../lib/cachedGet';
+import { useStoreApp } from '../lib/storeApp';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 
 interface WeeklyExam {
@@ -47,6 +48,7 @@ interface ExamWorld {
 
 function OfferingBox({ devotional, instructions, onGiven }: { devotional: DevotionalRow; instructions: string | null; onGiven: () => void }) {
   const { t } = useTranslation();
+  const store = useStoreApp();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ function OfferingBox({ devotional, instructions, onGiven }: { devotional: Devoti
     }
   }
 
-  if (!instructions) return null;
+  if (!instructions || store) return null;
   return (
     <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
       <p className="font-semibold">🙏 {t('learn.offering_title')}</p>

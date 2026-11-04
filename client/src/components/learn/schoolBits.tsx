@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { GraceBox, PayManyPanel } from './TrainingPayments';
+import { useStoreApp } from '../../lib/storeApp';
 
 // Shared by the Leadership School page, each book's page and the Learn page.
 
@@ -65,6 +66,7 @@ export function currentBook(books: SchoolBook[]): SchoolBook | null {
 /** Short lines under a book: exam result, retake, payment, why it is closed. */
 export function BookStatusLines({ book: b }: { book: SchoolBook }) {
   const { t } = useTranslation();
+  const store = useStoreApp();
   return (
     <>
       {b.exam?.passed && <span className="block text-green-700">✓ {t('learn.passed_with', { score: Math.round(b.exam.bestPercentage ?? 0) })}</span>}
@@ -74,10 +76,10 @@ export function BookStatusLines({ book: b }: { book: SchoolBook }) {
       {b.exam && (b.exam.block === 'NEEDS_RETAKE' || b.exam.block === 'RETAKE_DECLINED') && <span className="block text-amber-800">{t('learn.exam_retake_needed')}</span>}
       {b.exam?.block === 'RETAKE_REQUESTED' && <span className="block text-amber-800">{t('learn.exam_retake_requested')}</span>}
       {b.exam && !b.exam.passed && (b.exam.tries ?? 0) > 0 && b.exam.canStart && <span className="block text-green-700">{t('learn.exam_retake_granted')}</span>}
-      {b.unlocked && b.payment === 'PAID' && <span className="block text-green-700">✓ {t('learn.paid')}</span>}
-      {b.unlocked && (b.payment === 'CLAIMED' || b.payment === 'PENDING') && <span className="block text-amber-800">{t('learn.payment_waiting')}</span>}
+      {!store && b.unlocked && b.payment === 'PAID' && <span className="block text-green-700">✓ {t('learn.paid')}</span>}
+      {!store && b.unlocked && (b.payment === 'CLAIMED' || b.payment === 'PENDING') && <span className="block text-amber-800">{t('learn.payment_waiting')}</span>}
       {!b.unlocked && b.lockedBecause === 'PREVIOUS_EXAM' && <span className="block text-slate-600">{t('learn.locked_exam', { number: b.trainingOrder - 1 })}</span>}
-      {!b.unlocked && b.lockedBecause === 'PAYMENT' && <span className="block text-slate-600">{t('learn.locked_payment', { number: b.trainingOrder - 1 })}</span>}
+      {!b.unlocked && b.lockedBecause === 'PAYMENT' && <span className="block text-slate-600">{store ? t('storeRead.next_locked') : t('learn.locked_payment', { number: b.trainingOrder - 1 })}</span>}
       {!b.unlocked && b.lockedBecause === 'NOT_STARTED' && <span className="block text-slate-600">{t('school.locked_not_started')}</span>}
     </>
   );
@@ -85,6 +87,78 @@ export function BookStatusLines({ book: b }: { book: SchoolBook }) {
 
 /** Begin my training / what is owed and grace / training paused. */
 export function TrainingStatusCard({ summary, onChanged }: { summary: SchoolSummary; onChanged: () => void }) {
+  const store = useStoreApp();
+  if (store) return <StoreReadCard summary={summary} onChanged={onChanged} />;
+  return <TrainingStatusCardWithPrices summary={summary} onChanged={onChanged} />;
+}
+
+/**
+ * The Play Store version: no prices and no payment. A member asks to read; the central admin
+ * approves (and, away from the app, tells them how to pay). Later books are asked for the same way.
+ */
+function StoreReadCard({ summary, onChanged }: { summary: SchoolSummary; onChanged: () => void }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function send(path: string, body?: Record<string, unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post(path, body);
+      onChanged();
+    } catch {
+      setError(t('storeRead.failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (summary.enrollment === 'REVOKED') {
+    return (
+      <div className="card text-sm" data-testid="store-read-card">
+        <p className="font-medium text-amber-800">{t('learn.training_stopped')}</p>
+      </div>
+    );
+  }
+  if (summary.enrollment !== 'ACTIVE') {
+    return (
+      <div className="card space-y-2 text-sm" data-testid="store-read-card">
+        {summary.enrollment === 'REQUESTED' ? (
+          <p className="font-medium text-amber-800">{t('storeRead.requested')}</p>
+        ) : (
+          <>
+            <p className="text-slate-700">{t('storeRead.explain')}</p>
+            <button type="button" className="btn-primary" disabled={busy} onClick={() => send('/api/member/training/request', { approval: true })}>
+              {t('storeRead.request_button')}
+            </button>
+          </>
+        )}
+        {error && <p className="text-red-700">{error}</p>}
+      </div>
+    );
+  }
+  const nextWaits = summary.books.some((b) => b.lockedBecause === 'PAYMENT');
+  if (!nextWaits) return null;
+  const max = summary.maxGraceBooks ?? 5;
+  return (
+    <div className="card space-y-2 text-sm" data-testid="store-read-card">
+      {summary.graceRequest?.status === 'REQUESTED' ? (
+        <p className="font-medium text-amber-800">{t('storeRead.next_requested')}</p>
+      ) : (
+        <>
+          <p className="text-slate-700">{t('storeRead.next_explain')}</p>
+          <button type="button" className="btn-primary" disabled={busy} onClick={() => send('/api/member/training/grace', { books: Math.min(max, (summary.owed?.books ?? 0) + 1) })}>
+            {t('storeRead.next_button')}
+          </button>
+        </>
+      )}
+      {error && <p className="text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+function TrainingStatusCardWithPrices({ summary, onChanged }: { summary: SchoolSummary; onChanged: () => void }) {
   const { t } = useTranslation();
   const tr = useTr();
   const [busy, setBusy] = useState(false);
@@ -142,6 +216,8 @@ export function TrainingStatusCard({ summary, onChanged }: { summary: SchoolSumm
 /** On the Learn page: when books are waiting to be paid for, a card that says so and points to paying (several at once if they like). */
 export function PayPromptCard({ summary }: { summary: SchoolSummary }) {
   const { t } = useTranslation();
+  const store = useStoreApp();
+  if (store) return null;
   if (summary.enrollment !== 'ACTIVE' || (summary.payableCount ?? 0) < 1) return null;
   const owed = summary.owed?.books ?? 0;
   const nextWaits = summary.books.some((b) => b.lockedBecause === 'PAYMENT');

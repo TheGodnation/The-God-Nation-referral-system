@@ -1633,6 +1633,9 @@
     "exam_retake_declined": "Votre demande de reprise de l’examen du livre {{number}} n’a pas été accordée pour le moment.",
     "book_payment_confirmed": "Votre paiement du livre {{number}} est confirmé. Merci !",
     "book_payment_rejected": "Votre paiement du livre {{number}} n’a pas pu être confirmé. Vérifiez l’identifiant de la transaction.",
+    "book_passed_store": "Vous avez réussi le livre {{number}}. Demandez à lire le livre suivant dans l’École de Leadership.",
+    "read_requested": "{{name}} a demandé à commencer à lire. Approuvez-le dans l’onglet Bibliothèque.",
+    "read_approved": "Votre demande est approuvée : vous pouvez commencer à lire dans l’École de Leadership.",
     "training_grace_granted": "Grâce accordée : vous pouvez étudier jusqu’à {{count}} livres avant de payer.",
     "training_grace_declined": "Votre demande d’étudier maintenant et payer plus tard n’a pas été accordée pour le moment.",
     "referral_earning": "Vous avez gagné {{amount}} FCFA : une personne que vous avez invitée a payé un livre de leadership.",
@@ -2829,6 +2832,16 @@
     "more": "Plus",
     "pasted": "Collé avec ses titres, listes et tableaux conservés.",
     "paste_plain": "Coller en texte simple"
+  },
+  "storeRead": {
+      "explain": "Pour lire les livres de l’École de Leadership, envoyez une demande. Quand l’équipe centrale l’approuve, vous pouvez commencer à lire avec le premier livre.",
+      "request_button": "Demander à lire",
+      "requested": "Votre demande a été envoyée. Vous serez prévenu quand l’équipe centrale l’approuvera, et vous pourrez alors commencer à lire.",
+      "failed": "Votre demande n’a pas pu être envoyée. Veuillez réessayer.",
+      "next_explain": "Le livre suivant s’ouvre quand l’équipe centrale approuve votre demande.",
+      "next_button": "Demander à lire le livre suivant",
+      "next_requested": "Votre demande pour le livre suivant a été envoyée à l’équipe centrale.",
+      "next_locked": "Ce livre s’ouvre quand l’équipe centrale approuve votre demande."
   },
   "aboutGodNation": {
     "tab": "À propos de The God Nation",

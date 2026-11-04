@@ -65,6 +65,26 @@ safe it is to remove. Tell me which items to go ahead with.
 
 ---
 
+## Decisions and progress since (4 November 2026)
+
+- **Developer account: personal** (decided by the founder). A personal account
+  must run a **closed test with at least 12 testers for 14 days** before it can
+  publish to production. That wait is the longest step, so the account and the
+  tester list should be started first, in parallel with everything else.
+- **Render Starter plan is active** (confirmed on the service: 0.5 CPU, 512 MB).
+  The server no longer sleeps on the free plan.
+- Google billing and the Backblaze account: the founder will do these soon.
+- Built: the `/.well-known/assetlinks.json` route (`server/src/lib/assetLinks.ts`).
+  It answers "not found" until two settings are added on Render once the app is
+  signed in Play Console: `ANDROID_PACKAGE_NAME` and `ANDROID_SHA256_FINGERPRINTS`
+  (comma-separated, from Play Console, App signing). Then it serves the file.
+- Built: manifest shortcuts (Chats, Learn, King's Tokens). The manifest
+  description and categories were already in place.
+- Still to do for the store: phone screenshots in the manifest and the listing,
+  the store text (English and French), the 1024×500 graphic, the Android
+  package, the Play Console forms, and the Android payment rule (only
+  ministry-unlocked books).
+
 ## Part 1 — Clean-up report
 
 ### A. Safe to remove (confirmed not used anywhere)

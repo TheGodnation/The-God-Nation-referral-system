@@ -95,6 +95,7 @@ import leaderResultsRoutes from './routes/leaderResults';
 import { prisma } from './lib/prisma';
 import { markActivity } from './lib/activity';
 import { APP_URL } from './lib/env';
+import { assetLinksHandler } from './lib/assetLinks';
 
 export function createApp() {
   const app = express();
@@ -112,6 +113,8 @@ export function createApp() {
       credentials: true,
     }),
   );
+  // Proof for Google Play that the Android app and this website belong together (see lib/assetLinks.ts).
+  app.get('/.well-known/assetlinks.json', assetLinksHandler);
   // The public website (/en/…, /fr/…): complete HTML pages, no cookies. Off unless
   // PUBLIC_SITE_ENABLED=true. Placed before the cookie, session and API steps on purpose.
   if (process.env.PUBLIC_SITE_ENABLED === 'true') app.use(publicSiteRouter());

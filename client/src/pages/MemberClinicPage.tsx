@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
+import { useStoreApp } from '../lib/storeApp';
 import { api, ApiError } from '../lib/api';
 
 interface ClinicData {
@@ -31,6 +32,7 @@ interface ClinicData {
 // the exams and how often), and the member's own exam scores with the total.
 export function MemberClinicPage() {
   const { t, i18n } = useTranslation();
+  const store = useStoreApp();
   const isFr = i18n.language.startsWith('fr');
   const [data, setData] = useState<ClinicData | null>(null);
   const [failed, setFailed] = useState(false);
@@ -83,7 +85,7 @@ export function MemberClinicPage() {
           <p className="text-sm text-slate-600">{t('clinicPage.questions_from_book')}</p>
           <p className="flex flex-wrap gap-4 text-sm">
             <Link to="/member/learn" className="text-brand-700 underline">{t('clinicPage.go_learn')}</Link>
-            <Link to="/member/give" className="text-brand-700 underline">{t('clinicPage.go_give')}</Link>
+            {!store && <Link to="/member/give" className="text-brand-700 underline">{t('clinicPage.go_give')}</Link>}
             <Link to="/member/tokens" className="text-brand-700 underline">{t('tokens.title')}</Link>
           </p>
         </section>

@@ -8,6 +8,7 @@ import { AdsConsentBanner } from './components/AdsConsentBanner';
 import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
 import { RequireMember } from './components/RequireMember';
 import { AuthProvider } from './lib/AuthContext';
+import { StoreHidden } from './components/StoreHidden';
 import { MemberAuthProvider } from './lib/MemberAuthContext';
 
 // The public referral funnel above (Home -> Join -> Register, the latter a
@@ -359,7 +360,9 @@ export default function App() {
               path="/member/give"
               element={
                 <RequireMember>
-                  <MemberGivePage />
+                  <StoreHidden>
+                    <MemberGivePage />
+                  </StoreHidden>
                 </RequireMember>
               }
             />
@@ -367,7 +370,9 @@ export default function App() {
               path="/member/earnings"
               element={
                 <RequireMember>
-                  <MemberEarningsPage />
+                  <StoreHidden>
+                    <MemberEarningsPage />
+                  </StoreHidden>
                 </RequireMember>
               }
             />

@@ -38,6 +38,8 @@ interface CreateNotificationParams {
     | 'BOOK_PAYMENT_CONFIRMED'
     | 'BOOK_PAYMENT_REJECTED'
     | 'TRAINING_GRACE_GRANTED'
+    | 'READ_REQUESTED'
+    | 'READ_APPROVED'
     | 'TRAINING_GRACE_DECLINED'
     | 'REFERRAL_EARNING'
     | 'REFERRAL_PAYOUT_PAID'
@@ -184,6 +186,28 @@ export async function notifyReferralPayout(payout: { id: string; personId: strin
     push: paid
       ? { title: 'Payout sent', body: payout.amount + ' FCFA has been sent to your Mobile Money number.', url: '/member/earnings' }
       : { title: 'Payout not sent', body: 'We could not send your payout request. Your earnings are back in your balance.', url: '/member/earnings' },
+  });
+}
+
+/** A member asked to start reading (the Play Store app has no prices): tell the central admin to approve it. */
+export async function notifyReadRequested(person: { id: string; name: string }) {
+  await notifyCentralAdmins(
+    'READ_REQUESTED',
+    { targetType: 'Person', targetId: person.id },
+    { personName: person.name },
+    { title: 'Request to read', body: `${person.name} asked to start reading. Approve it in the Library tab.`, url: '/member/me' },
+  );
+}
+
+/** The central admin approved a member's request to read: they can start. */
+export async function notifyReadApproved(personId: string) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'READ_APPROVED',
+    metadata: {},
+    targetType: 'Person',
+    targetId: personId,
+    push: { title: 'You can start reading', body: 'Your request was approved. Open the Leadership School to begin.', url: '/member/school' },
   });
 }
 
@@ -696,7 +720,7 @@ export async function notifyAssemblyOpened(assembly: { id: string; name: string;
 
 /** A notification to the central admin: to their member profile, or to their admin account when it has none. */
 async function notifyCentralAdmins(
-  type: 'ESCALATION_RECEIVED' | 'ESCALATION_ANSWERED' | 'ESCALATION_BYPASSED',
+  type: 'ESCALATION_RECEIVED' | 'ESCALATION_ANSWERED' | 'ESCALATION_BYPASSED' | 'READ_REQUESTED',
   target: { targetType: string; targetId: string },
   metadata: Record<string, unknown>,
   push: PushPayload,

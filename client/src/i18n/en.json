@@ -1633,6 +1633,9 @@
     "exam_retake_declined": "Your retake request for the Book {{number}} exam was not granted for now.",
     "book_payment_confirmed": "Your payment for Book {{number}} is confirmed. Thank you!",
     "book_payment_rejected": "Your payment for Book {{number}} could not be confirmed. Please check the transaction ID.",
+    "book_passed_store": "You passed Book {{number}}. Ask to read the next book in the Leadership School.",
+    "read_requested": "{{name}} asked to start reading. Approve it in the Library tab.",
+    "read_approved": "Your request was approved: you can start reading in the Leadership School.",
     "training_grace_granted": "Grace granted: you may study up to {{count}} books before paying.",
     "training_grace_declined": "Your request to study now and pay later was not granted for now.",
     "referral_earning": "You earned {{amount}} FCFA: someone you invited paid for a leadership book.",
@@ -2829,6 +2832,16 @@
     "more": "More",
     "pasted": "Pasted with its headings, lists and tables kept.",
     "paste_plain": "Paste as plain text"
+  },
+  "storeRead": {
+      "explain": "To read the Leadership School books, send a request. When the central team approves it, you can start reading with the first book.",
+      "request_button": "Request to read",
+      "requested": "Your request has been sent. You will be told when the central team approves it, and then you can start reading.",
+      "failed": "Your request could not be sent. Please try again.",
+      "next_explain": "The next book opens when the central team approves your request.",
+      "next_button": "Request to read the next book",
+      "next_requested": "Your request for the next book has been sent to the central team.",
+      "next_locked": "This book opens when the central team approves your request."
   },
   "aboutGodNation": {
     "tab": "About the God Nation",
