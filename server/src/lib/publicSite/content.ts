@@ -37,6 +37,8 @@ export const founderName = (l: Lang) => (l === 'fr' ? FOUNDER.nameFr : FOUNDER.n
 export interface BookCover { src: string; w: number; h: number }
 export interface SiteBook {
   key: string;
+  /** The book's page address in each language (/en/books/<slug>/). */
+  slug: Record<Lang, string>;
   title: Record<Lang, string>;
   series: Record<Lang, string>;
   subtitle: Record<Lang, string>;
@@ -48,6 +50,7 @@ export interface SiteBook {
 export const BOOKS: SiteBook[] = [
   {
     key: 'restoration-of-dominion',
+    slug: { en: 'the-restoration-of-dominion', fr: 'la-restauration-de-la-domination' },
     title: { en: 'The Restoration of Dominion', fr: 'La Restauration de la Domination' },
     series: { en: 'The Kingdom Series · Book One', fr: 'La Série du Royaume · Livre un' },
     subtitle: {
@@ -60,6 +63,7 @@ export const BOOKS: SiteBook[] = [
   },
   {
     key: 'doorway-into-the-kingdom',
+    slug: { en: 'the-doorway-into-the-kingdom', fr: 'la-porte-d-entree-dans-le-royaume-de-dieu' },
     title: { en: 'The Doorway into the Kingdom', fr: 'La Porte d’entrée dans le Royaume de Dieu' },
     series: { en: 'The Kingdom Series · Book Two', fr: 'La Série du Royaume · Livre deux' },
     subtitle: { en: 'Fundamental principles of the Kingdom of God: repent, be baptized, receive the Holy Spirit.', fr: 'Principes fondamentaux du Royaume de Dieu : repentez-vous, soyez baptisés, recevez le Saint-Esprit.' },
@@ -152,12 +156,12 @@ export const DIVISIONS: Division[] = [
 ];
 
 /** Section words in the address, per language. */
-export const SECTION: Record<Lang, { knowledge: string; about: string; contact: string; join: string; login: string }> = {
-  en: { knowledge: 'knowledge', about: 'about', contact: 'contact', join: 'join', login: 'login' },
-  fr: { knowledge: 'connaissance', about: 'a-propos', contact: 'contact', join: 'rejoindre', login: 'connexion' },
+export const SECTION: Record<Lang, { knowledge: string; about: string; contact: string; join: string; login: string; books: string }> = {
+  en: { knowledge: 'knowledge', about: 'about', contact: 'contact', join: 'join', login: 'login', books: 'books' },
+  fr: { knowledge: 'connaissance', about: 'a-propos', contact: 'contact', join: 'rejoindre', login: 'connexion', books: 'livres' },
 };
 
-export type PageKey = 'home' | 'knowledge' | 'division' | 'about' | 'contact' | 'article';
+export type PageKey = 'home' | 'knowledge' | 'division' | 'about' | 'contact' | 'article' | 'book';
 
 /**
  * The French page is public (indexable, linked) only after the ministry approves it.
@@ -167,7 +171,7 @@ export type PageKey = 'home' | 'knowledge' | 'division' | 'about' | 'contact' | 
  * then made here. Set a page to false to take its French version back off the public site.
  */
 export const FR_APPROVAL = { by: 'Evangelist Stanley A. Ndoh', on: '2026-11-03', note: 'Approved to publish; line-by-line reading and corrections to follow.' };
-export const FR_REVIEWED: Record<PageKey, boolean> = { home: true, knowledge: true, division: true, about: true, contact: true, article: true };
+export const FR_REVIEWED: Record<PageKey, boolean> = { home: true, knowledge: true, division: true, about: true, contact: true, article: true, book: true };
 
 export const UI: Record<Lang, Record<string, string>> = {
   en: {
@@ -237,6 +241,10 @@ export const UI: Record<Lang, Record<string, string>> = {
     bookCta: 'Join to read it',
     bookAbout: 'About our books',
     bookMore: 'More about our books',
+    bookDetails: 'About the book',
+    bookChapters: 'Chapter summaries',
+    bookMembers: 'The full book is read inside the community. Join, and you can start reading.',
+    bookAll: 'All our books',
     rights: 'The God Nation Media & Leadership Academy',
     notFoundTitle: 'Page not found',
     notFoundText: 'This page does not exist, or is not public.',
@@ -326,6 +334,10 @@ export const UI: Record<Lang, Record<string, string>> = {
     bookCta: 'Rejoindre pour le lire',
     bookAbout: 'À propos de nos livres',
     bookMore: 'En savoir plus sur nos livres',
+    bookDetails: 'À propos du livre',
+    bookChapters: 'Résumés des chapitres',
+    bookMembers: 'Le livre complet se lit au sein de la communauté. Rejoignez-nous, et vous pourrez commencer à lire.',
+    bookAll: 'Tous nos livres',
     rights: 'The God Nation Media & Leadership Academy',
     notFoundTitle: 'Page introuvable',
     notFoundText: 'Cette page n’existe pas, ou n’est pas publique.',
@@ -356,6 +368,7 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
     knowledge: { title: 'Knowledge Centre — The God Nation', description: 'An organised library of Kingdom knowledge in six areas: Kingdom knowledge, leadership, digital media and evangelism, discipleship, books and publications, and community and outreach.' },
     division: { title: '', description: '' },
     article: { title: '', description: '' },
+    book: { title: '', description: '' },
     about: { title: 'About The God Nation', description: 'Our purpose, our vision and what The God Nation Media and Leadership Academy does.' },
     contact: { title: 'Contact — The God Nation', description: 'How to contact The God Nation.' },
   },
@@ -364,6 +377,7 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
     knowledge: { title: 'Centre de connaissance — The God Nation', description: 'Une bibliothèque organisée de la connaissance du Royaume en six domaines : connaissance du Royaume, leadership, médias numériques et évangélisation, discipulat, livres et publications, communauté et rayonnement.' },
     division: { title: '', description: '' },
     article: { title: '', description: '' },
+    book: { title: '', description: '' },
     about: { title: 'À propos de The God Nation', description: 'Notre raison d’être, notre vision et ce que fait The God Nation Media and Leadership Academy.' },
     contact: { title: 'Contact — The God Nation', description: 'Comment contacter The God Nation.' },
   },

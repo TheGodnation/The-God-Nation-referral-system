@@ -3,7 +3,7 @@ import { CSS, CSS_ARTICLES } from './style';
 import { headingsOf, renderBody } from './text';
 import {
   BOOKS, DIVISIONS, FOUNDER, founderName, FR_REVIEWED, LANGS, MISSION, MOTTO, PAGE_META, PHOTOS, SECTION, UI, VISION, WHAT_WE_DO,
-  type Division, type Lang, type PageKey,
+  type Division, type Lang, type PageKey, type SiteBook,
 } from './content';
 
 // Writes the public website's pages as complete HTML. Pure functions: no database, no
@@ -21,10 +21,15 @@ export interface PublicArticle {
   imageUrl: string | null; imageSize?: { w: number; h: number }; imageAlt: Partial<Record<Lang, string | null>>;
   tr: Partial<Record<Lang, PublicTr>>; relatedIds: string[];
 }
-export interface Ctx { articles: PublicArticle[] }
+/** What the app holds about one of the books: its chapters and their summaries (never the book itself). */
+export interface PublicBook {
+  key: string;
+  chapters: { titleEn: string; titleFr: string | null; summaryEn: string | null; summaryFr: string | null }[];
+}
+export interface Ctx { articles: PublicArticle[]; books?: PublicBook[] }
 export const EMPTY_CTX: Ctx = { articles: [] };
 
-export interface PageRef { key: PageKey; lang: Lang; division?: Division; article?: PublicArticle }
+export interface PageRef { key: PageKey; lang: Lang; division?: Division; article?: PublicArticle; book?: SiteBook }
 
 export const divisionOf = (key: string): Division | undefined => DIVISIONS.find((d) => d.key === key);
 /** Public articles in a language (newest first), optionally within one area. */
@@ -44,6 +49,7 @@ export function pathOf(p: PageRef): string {
     case 'home': return `/${l}/`;
     case 'knowledge': return `/${l}/${s.knowledge}/`;
     case 'division': return `/${l}/${s.knowledge}/${division!.slug[l]}/`;
+    case 'book': return `/${l}/${s.books}/${p.book!.slug[l]}/`;
     case 'about': return `/${l}/${s.about}/`;
     case 'contact': return `/${l}/${s.contact}/`;
     case 'article': return `/${l}/${s.knowledge}/${divisionOf(p.article!.divisionKey)!.slug[l]}/${p.article!.tr[l]!.slug}/`;
@@ -65,6 +71,7 @@ export function allPages(): PageRef[] {
   for (const lang of LANGS) {
     pages.push({ key: 'home', lang }, { key: 'knowledge', lang }, { key: 'about', lang }, { key: 'contact', lang });
     for (const division of DIVISIONS) pages.push({ key: 'division', lang, division });
+    for (const book of BOOKS) pages.push({ key: 'book', lang, book });
   }
   return pages;
 }
@@ -79,6 +86,10 @@ function titleOf(p: PageRef): { title: string; description: string } {
   if (p.key === 'division') {
     const d = p.division!;
     return { title: `${d.name[p.lang]} — ${UI[p.lang].kcTitle} — The God Nation`, description: `${d.blurb[p.lang]} ${d.topics[p.lang].slice(0, 4).join(', ')}.` };
+  }
+  if (p.key === 'book') {
+    const b = p.book!;
+    return { title: `${b.title[p.lang]} — ${b.series[p.lang]} — The God Nation`, description: `${b.subtitle[p.lang]} ${b.tagline[p.lang]}` };
   }
   if (p.key === 'article') {
     const tr = p.article!.tr[p.lang]!;
@@ -97,6 +108,10 @@ function crumbsOf(p: PageRef): { name: string; path: string }[] {
     const d = divisionOf(p.article!.divisionKey)!;
     return [home, { name: t.kcTitle, path: pathOf({ key: 'knowledge', lang: p.lang }) }, { name: d.name[p.lang], path: pathOf({ key: 'division', lang: p.lang, division: d }) }, { name: p.article!.tr[p.lang]!.title, path: pathOf(p) }];
   }
+  if (p.key === 'book') {
+    const d = DIVISIONS.find((x) => x.key === 'books-publications')!;
+    return [home, { name: t.kcTitle, path: pathOf({ key: 'knowledge', lang: p.lang }) }, { name: d.name[p.lang], path: pathOf({ key: 'division', lang: p.lang, division: d }) }, { name: p.book!.title[p.lang], path: pathOf(p) }];
+  }
   if (p.key === 'about') return [home, { name: t.aboutTitle, path: pathOf(p) }];
   return [home, { name: t.contactTitle, path: pathOf(p) }];
 }
@@ -111,6 +126,7 @@ function counterpart(p: PageRef, ctx: Ctx): PageRef | null {
 
 function campaignOf(p: PageRef): string {
   if (p.key === 'division') return p.division!.key;
+  if (p.key === 'book') return `book-${p.book!.key}`;
   if (p.key === 'article') return (p.article!.tr.en ?? p.article!.tr[p.lang]!).slug;
   return p.key;
 }
@@ -151,18 +167,22 @@ function head(p: PageRef, ctx: Ctx): string {
   const ld: unknown[] = [];
   if (p.key === 'home') ld.push({ '@context': 'https://schema.org', ...org }, { '@context': 'https://schema.org', '@type': 'WebSite', name: t.siteName, url: `${APP_URL}/${p.lang}/`, inLanguage: p.lang });
   if (p.key === 'article') ld.push(...articleLd(p, url));
+  if (p.key === 'book') {
+    const b = p.book!;
+    ld.push({ '@context': 'https://schema.org', '@type': 'Book', name: b.title[p.lang], description: b.subtitle[p.lang], inLanguage: p.lang, url, image: `${APP_URL}${b.cover[p.lang].src}`, author: { '@type': 'Person', name: FOUNDER.name }, publisher: { '@type': 'Organization', name: t.siteName, url: APP_URL }, isPartOf: { '@type': 'BookSeries', name: b.series[p.lang] } });
+  }
   const crumbs = crumbsOf(p);
   if (crumbs.length) {
     ld.push({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: `${APP_URL}${c.path}` })) });
   }
-  const og = p.key === 'article' && p.article!.imageUrl && p.article!.imageAlt[p.lang] ? (p.article!.imageUrl.startsWith('/') ? `${APP_URL}${p.article!.imageUrl}` : p.article!.imageUrl) : `${APP_URL}/og-image.png`;
+  const og = p.key === 'book' ? `${APP_URL}${p.book!.cover[p.lang].src}` : p.key === 'article' && p.article!.imageUrl && p.article!.imageAlt[p.lang] ? (p.article!.imageUrl.startsWith('/') ? `${APP_URL}${p.article!.imageUrl}` : p.article!.imageUrl) : `${APP_URL}/og-image.png`;
   return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f2260">
 <title>${esc(title)}</title><meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${url}">
 ${indexable ? '' : '<meta name="robots" content="noindex,follow">\n'}${alts.join('\n')}
 <meta property="og:type" content="${p.key === 'article' ? 'article' : 'website'}"><meta property="og:site_name" content="${esc(t.siteName)}"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${url}"><meta property="og:image" content="${esc(og)}"><meta property="og:locale" content="${p.lang === 'fr' ? 'fr_FR' : 'en_US'}">
 <link rel="icon" href="/icons/icon-192.png" type="image/png">
-<style>${CSS}${p.key === 'article' || p.key === 'division' || p.key === 'knowledge' || p.key === 'home' ? CSS_ARTICLES : ''}</style>${ld.length ? `\n<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` : ''}`;
+<style>${CSS}${p.key === 'article' || p.key === 'division' || p.key === 'knowledge' || p.key === 'home' || p.key === 'book' ? CSS_ARTICLES : ''}</style>${ld.length ? `\n<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` : ''}`;
 }
 
 function header(p: PageRef, ctx: Ctx): string {
@@ -209,7 +229,7 @@ function bookShelf(lang: Lang, withMore: boolean): string {
   const t = UI[lang];
   const books = BOOKS.map((b) => {
     const c = b.cover[lang];
-    return `<article class="bk"><img src="${esc(c.src)}" width="${c.w}" height="${c.h}" alt="${esc(`${b.title[lang]} — ${b.series[lang]}`)}" loading="lazy" decoding="async"><div class="bt"><span class="s">${esc(b.series[lang])}</span><h3>${esc(b.title[lang])}</h3><p class="sub">${esc(b.subtitle[lang])}</p><p class="by">${esc(t.bookBy)} ${esc(founderName(lang))}</p>${b.inSchool ? `<a class="btn gold" href="${joinHref(lang, 'book-' + b.key)}">${esc(t.bookCta)}</a>` : ''}</div></article>`;
+    return `<article class="bk"><img src="${esc(c.src)}" width="${c.w}" height="${c.h}" alt="${esc(`${b.title[lang]} — ${b.series[lang]}`)}" loading="lazy" decoding="async"><div class="bt"><span class="s">${esc(b.series[lang])}</span><h3>${esc(b.title[lang])}</h3><p class="sub">${esc(b.subtitle[lang])}</p><p class="by">${esc(t.bookBy)} ${esc(founderName(lang))}</p>${b.inSchool ? `<a class="btn gold" href="${joinHref(lang, 'book-' + b.key)}">${esc(t.bookCta)}</a> ` : ''}<a class="btn line" href="${pathOf({ key: 'book', lang, book: b })}">${esc(t.bookDetails)}</a></div></article>`;
   }).join('');
   const more = withMore ? `<a class="btn line" href="${pathOf({ key: 'division', lang, division: DIVISIONS.find((d) => d.key === 'books-publications')! })}">${esc(t.bookMore)}</a>` : '';
   return `<section class="shelf"><div class="wrap"><div class="kicker">${esc(t.bookKicker)}</div><h2>${esc(t.bookShelfTitle)}</h2><div class="books">${books}</div><p class="note">${esc(t.bookText)}</p>${more}</div></section>`;
@@ -248,6 +268,16 @@ ${img}${toc}<div class="prose">${renderBody(tr.body)}</div>${faq}${share}${who}
 ${rel.length ? `<h2>${esc(t.relatedTitle)}</h2>${articleCards(rel, l)}` : ''}</article></main>`;
 }
 
+/** The chapters to show for a book in a language: only ones written in that language (a French page never shows English text). */
+function chaptersOf(ctx: Ctx, key: string, lang: Lang): { title: string; summary: string | null }[] {
+  const book = (ctx.books ?? []).find((b) => b.key === key);
+  if (!book) return [];
+  return book.chapters
+    .map((c) => (lang === 'fr' ? { title: c.titleFr, summary: c.summaryFr } : { title: c.titleEn, summary: c.summaryEn }))
+    .filter((c): c is { title: string; summary: string | null } => Boolean(c.title && c.title.trim()))
+    .map((c) => ({ title: c.title.trim(), summary: c.summary && c.summary.trim() ? c.summary.trim() : null }));
+}
+
 function body(p: PageRef, ctx: Ctx): string {
   const t = UI[p.lang];
   const l = p.lang;
@@ -276,6 +306,16 @@ ${latest.length ? `<section class="blk wrap"><h2>${esc(t.latestTitle)}</h2>${art
 <h2 style="margin-top:26px">${esc(t.divCovers)}</h2><ul class="list read">${d.topics[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
 ${d.key === 'books-publications' ? `</section>${bookShelf(l, false)}<section class="blk wrap">` : ''}
 ${list.length ? `<h2 style="margin-top:30px">${esc(t.articlesIn)}</h2>${articleCards(list, l)}` : d.hasArticles ? '' : `<div class="callout read">${esc(t.divSoon)}</div>`}<p><a href="${pathOf({ key: 'knowledge', lang: l })}">← ${esc(t.divBack)}</a></p></section></main>`;
+    }
+    case 'book': {
+      const b = p.book!;
+      const c = b.cover[l];
+      const chapters = chaptersOf(ctx, b.key, l);
+      const paras = (x: string) => x.split(/\n{2,}/).map((q) => `<p>${esc(q.trim())}</p>`).join('');
+      return `${crumbHtml(p)}<main id="content"><section class="blk wrap bookpage"><div class="bp"><img class="cover" src="${esc(c.src)}" width="${c.w}" height="${c.h}" alt="${esc(`${b.title[l]} — ${b.series[l]}`)}" decoding="async" fetchpriority="high"><div class="info"><div class="kicker dark">${esc(b.series[l])}</div><h1>${esc(b.title[l])}</h1><p class="lead">${esc(b.subtitle[l])}</p><p class="by">${esc(t.bookBy)} ${esc(founderName(l))}</p><p class="tag">${esc(b.tagline[l])}</p>${b.inSchool ? `<a class="btn gold" href="${joinHref(l, 'book-' + b.key)}">${esc(t.bookCta)}</a>` : ''}</div></div>
+${chapters.length ? `<h2>${esc(t.bookChapters)}</h2><ol class="chap">${chapters.map((ch) => `<li><h3>${esc(ch.title)}</h3>${ch.summary ? paras(ch.summary) : ''}</li>`).join('')}</ol>` : ''}
+${b.inSchool ? `<div class="callout read"><p>${esc(t.bookMembers)}</p></div>` : ''}
+<p><a href="${pathOf({ key: 'division', lang: l, division: DIVISIONS.find((d) => d.key === 'books-publications')! })}">← ${esc(t.bookAll)}</a></p></section></main>`;
     }
     case 'about':
       return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1>${PHOTOS.founderOffice ? `<div class="about-photo">${photo(PHOTOS.founderOffice, l, { caption: `<b>${esc(founderName(l))}</b><span>${esc(t.founderRole)}</span>` })}</div>` : ''}<h2>${esc(t.aboutMission)}</h2><p class="lead">${esc(MISSION[l])}</p><h2>${esc(t.aboutVision)}</h2><p class="lead">${esc(VISION[l])}</p>

@@ -35,3 +35,15 @@ These can be changed at any time.
 | 8 | Addresses `/en/…` and `/fr/…`; `/` unchanged | Approved. |
 | 9 | No new paid hosting now (Render stays as is; no Cloudflare in front yet; Neon not upgraded yet) | Approved. The developer will measure speed from Cameroon after go-live and advise. |
 | 10 | Crawlers and cookies: search engines and AI search tools may read public pages; private areas blocked; public pages set no cookies; analytics only after consent | Approved. Wording to be checked by a lawyer. `robots.txt` updated accordingly. |
+
+## Book pages on the public website (4 November 2026)
+
+- Decided by the founder: the public site shows each book's cover, description and
+  **chapter summaries only**. No preview of the book's text. Readers join the community to read.
+- Each book has its own page: `/en/books/<slug>/` and `/fr/livres/<slug>/`, linked from the
+  book shelf and the Books and Publications area.
+- Chapter summaries come from the app (Library, chapters) and are matched to the website's
+  books by **title**. A book the app does not hold yet, or has no chapters for, shows no
+  chapter section. A French page shows only chapters written in French.
+- Book Two (The Doorway into the Kingdom) is not in the Leadership School yet, so its page
+  shows no "Join to read it" button and no chapters until it is added in the app.

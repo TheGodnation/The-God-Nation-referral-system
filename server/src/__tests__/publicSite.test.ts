@@ -5,7 +5,9 @@ import { createApp } from '../app';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DIVISIONS, FR_APPROVAL, FR_REVIEWED, LANGS } from '../lib/publicSite/content';
-import { allPages, isIndexable, pathOf, renderPage, sitemapXml } from '../lib/publicSite/render';
+import { allPages, isIndexable, pathOf, renderPage, sitemapXml, type Ctx } from '../lib/publicSite/render';
+import { loadPublicContext } from '../lib/publicSite/articles';
+import { BOOKS } from '../lib/publicSite/content';
 
 // Phase 2 of the Knowledge Centre: the public website foundation (/en/…, /fr/…).
 // It is off unless PUBLIC_SITE_ENABLED=true, serves complete cookie-free HTML, never serves
@@ -177,7 +179,7 @@ describe('The French review gate', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('application/xml');
     const locs = [...res.text.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
-    expect(locs.sort()).toEqual(['/en/', '/en/about/', '/en/contact/', '/en/knowledge/']);
+    expect(locs.sort()).toEqual(['/en/', '/en/about/', '/en/books/the-doorway-into-the-kingdom/', '/en/books/the-restoration-of-dominion/', '/en/contact/', '/en/knowledge/']);
   });
 });
 
@@ -239,5 +241,66 @@ describe('As shipped', () => {
       expect(robots, line).toContain(line);
     }
     expect(robots).not.toMatch(/Disallow:\s*\/en|Disallow:\s*\/fr/);
+  });
+});
+
+
+describe('Book pages: cover, description and chapter summaries, never the book', () => {
+  const chapters = [
+    { titleEn: 'The Government of God', titleFr: 'Le gouvernement de Dieu', summaryEn: 'Why a kingdom needs a king.\n\nWho rules.', summaryFr: 'Pourquoi un royaume a besoin d’un roi.' },
+    { titleEn: 'Citizens', titleFr: null, summaryEn: null, summaryFr: null },
+  ];
+  const ctx: Ctx = { articles: [], books: [{ key: 'restoration-of-dominion', chapters }] };
+  const page = (lang: 'en' | 'fr', key = 'restoration-of-dominion', c: Ctx = ctx) => renderPage({ key: 'book', lang, book: BOOKS.find((b) => b.key === key)! }, c);
+
+  it('shows the cover, the summaries in order, and a way to join, with no reading text', () => {
+    const html = page('en');
+    expect(html).toContain('/site/book1-en.webp');
+    expect(html).toContain('<h1>The Restoration of Dominion</h1>');
+    expect(html.indexOf('The Government of God')).toBeLessThan(html.indexOf('Citizens'));
+    expect(html).toContain('<p>Why a kingdom needs a king.</p><p>Who rules.</p>');
+    expect(html).toContain('utm_campaign=book-restoration-of-dominion');
+    expect(html).toContain('"@type":"Book"');
+    expect(html).not.toMatch(/<script(?![^>]*ld\+json)/); // still no scripts
+    expect(Buffer.byteLength(html)).toBeLessThan(30_000);
+  });
+
+  it('a French page shows only chapters written in French, never English text', () => {
+    const html = page('fr');
+    expect(html).toContain('Le gouvernement de Dieu');
+    expect(html).toContain('Pourquoi un royaume a besoin d’un roi.');
+    expect(html).not.toContain('Citizens'); // no French title: left out
+    expect(html).not.toContain('Why a kingdom needs a king');
+    expect(html).toContain('<html lang="fr">');
+  });
+
+  it('a book the app does not hold yet has no chapter section, and claims nothing', () => {
+    const html = page('en', 'doorway-into-the-kingdom');
+    expect(html).not.toContain('Chapter summaries');
+    expect(html).not.toContain('Join to read it'); // not in the school yet
+    expect(html).toContain('The Doorway into the Kingdom');
+  });
+
+  it('reads chapters from the app by title (an exact or longer title matches), and survives a database error', async () => {
+    const make = (rows: unknown[] | Error) => ({
+      knowledgeArticle: { findMany: async () => [] },
+      knowledgeMedia: { findMany: async () => [] },
+      libraryBook: { findMany: async () => { if (rows instanceof Error) throw rows; return rows; } },
+    }) as never;
+    const row = (titleEn: string) => ({ titleEn, titleFr: null, chapters });
+    expect((await loadPublicContext(make([row('Book One: The Restoration of Dominion')]))).books).toEqual([{ key: 'restoration-of-dominion', chapters }]);
+    expect((await loadPublicContext(make([row('Something else entirely')]))).books).toEqual([]);
+    expect((await loadPublicContext(make(new Error('down')))).books).toEqual([]);
+  });
+
+  it('the shelf links each book to its page, and the pages are in the sitemap for both languages', () => {
+    const home = renderPage({ key: 'home', lang: 'en' }, ctx);
+    expect(home).toContain('/en/books/the-restoration-of-dominion/');
+    expect(home).toContain('/en/books/the-doorway-into-the-kingdom/');
+    expect(sitemapXml(ctx)).not.toContain('/fr/livres/'); // French pages join the sitemap only once approved
+    FR_REVIEWED.book = true;
+    const xml = sitemapXml(ctx);
+    expect(xml).toContain('/fr/livres/la-restauration-de-la-domination/');
+    expect(xml).toContain('/en/books/the-restoration-of-dominion/');
   });
 });

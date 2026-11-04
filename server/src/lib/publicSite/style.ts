@@ -66,6 +66,11 @@ ul.ticks{list-style:none;padding:0;margin:0;display:grid;gap:10px;grid-template-
 `;
 
 export const CSS_ARTICLES = `
+.bookpage .bp{display:grid;gap:22px;align-items:start;margin-bottom:8px}@media(min-width:640px){.bookpage .bp{grid-template-columns:220px 1fr;gap:34px}}
+.bookpage .cover{width:100%;max-width:240px;height:auto;border-radius:6px 10px 10px 6px;box-shadow:8px 12px 26px rgba(15,34,96,.28)}
+.bookpage .by{margin:0 0 6px;color:#44506f}.bookpage .tag{margin:0 0 16px;font:italic 18px/1.5 var(--serif);color:#26325a}
+.chap{list-style:none;margin:14px 0 24px;padding:0;display:grid;gap:12px;counter-reset:ch}.chap li{counter-increment:ch;background:#fff;border:1px solid #dfe3ee;border-radius:10px;padding:16px 18px}
+.chap h3{margin:0 0 6px;font-size:19px}.chap h3::before{content:counter(ch) ". ";color:#b8860b}.chap p{margin:0 0 .7em;font:17px/1.65 var(--serif);color:#2b3552}.chap p:last-child{margin:0}
 .prose{font:18px/1.75 var(--serif);color:#222a3d}.prose h2{margin:1.6em 0 .4em;font-size:26px}.prose h3{margin:1.3em 0 .3em;font-size:21px}.prose p{margin:0 0 1em}.prose ul,.prose ol{margin:0 0 1em;padding-left:1.3em}.prose li{margin:.3em 0}
 .prose blockquote{margin:1.2em 0;background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:0 10px 10px 0;padding:12px 16px;font-style:italic}.prose blockquote p{margin:0}
 .prose cite{display:block;font:700 12px/1.4 var(--sans);font-style:normal;letter-spacing:.06em;color:var(--navy-mid);margin-top:6px;text-transform:uppercase}
