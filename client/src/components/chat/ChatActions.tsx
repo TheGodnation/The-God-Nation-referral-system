@@ -42,6 +42,7 @@ export function EditSheet({ message, onCancel, onSave }: { message: ChatMessage;
         value={body}
         onValueChange={setBody}
         rows={4}
+        headings
         autoFocus
         className="w-full rounded-lg border border-slate-300 p-2 text-[15px]"
       />

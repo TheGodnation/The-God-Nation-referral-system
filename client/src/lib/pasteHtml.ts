@@ -477,3 +477,29 @@ export function smartPaste(clip: { html: string; plain: string }): string | null
   }
   return md;
 }
+
+/**
+ * What a paste does to a writing box: the new text and where the cursor goes, or null to let the
+ * phone paste in the normal way (nothing worth converting, or the result would be too long).
+ * Headings, tables and lists are started on a line of their own.
+ */
+export function pasteIntoText(
+  clip: { html: string; plain: string },
+  value: string,
+  start: number,
+  end: number,
+  maxLength?: number,
+): { next: string; cursor: number; plain: string; before: string } | null {
+  const converted = smartPaste(clip);
+  if (!converted) return null;
+  const before = value.slice(0, start);
+  const after = value.slice(end);
+  const block = /^(#{1,3} |\||- |\d+\. |> )/;
+  const lead = before && !before.endsWith('\n') && block.test(converted) ? '\n' : '';
+  const last = converted.split('\n').pop() ?? '';
+  const trail = after && !after.startsWith('\n') && block.test(last) ? '\n' : '';
+  const inserted = `${lead}${converted}${trail}`;
+  const next = before + inserted + after;
+  if (maxLength !== undefined && next.length > maxLength) return null;
+  return { next, cursor: start + inserted.length, plain: clip.plain || converted, before: value };
+}

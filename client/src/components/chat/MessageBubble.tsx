@@ -25,6 +25,8 @@ const NAME_COLORS = ['text-rose-700', 'text-emerald-700', 'text-violet-700', 'te
 const LONG_MESSAGE_CHARS = 300;
 // Text longer than this gets a "Read in comfort" button.
 const COMFORT_MIN_CHARS = 400;
+// A pasted teaching (a heading line or a table) is shown with the roomy layout; ordinary messages stay compact.
+const STRUCTURED = /^(#{1,3}\s+\S|\|.*\|\s*$)/m;
 const LONG_MESSAGE_LINES = 7;
 
 export function nameColor(name: string): string {
@@ -492,7 +494,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                       <ComfortButton onClick={() => setComfort(displayBody)} />
                     </div>
                   )}
-                  <RichText className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings={Boolean(m.translation) && !showOriginal} />
+                  <RichText className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings comfort={STRUCTURED.test(displayBody)} />
                   {/* Read comfortably sits at the start of the text; under it, one under the other: Read more / Read less, then Show original. */}
                   <div className="mt-1 flex flex-col items-start gap-1">
                     {isLongBody && (

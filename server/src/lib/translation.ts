@@ -239,7 +239,8 @@ export async function translateText(text: string, opts: GeminiCallOptions = {}):
     'Detect whether the following message is written in English or French, then translate it into ' +
     'the other of those two languages. Keep the tone, emoji and meaning natural. The message may use ' +
     'formatting symbols: *bold*, _italic_, ~strikethrough~, and lines starting with "- ", "1. ", "> " or ' +
-    '"# ". Keep every symbol exactly where it belongs around the translated words, keep line breaks, ' +
+    '"# ". A table is written as lines like "| a | b |", with a line "| --- | --- |" under its first row: keep every bar and that line exactly, and translate only the words inside the cells. ' +
+    'Keep every symbol exactly where it belongs around the translated words, keep line breaks, ' +
     'and never translate or change web addresses. ' +
     READABLE +
     'Reply with the translation only, no commentary.\n\nMessage:\n"""' +

@@ -22,6 +22,7 @@ import type { ChatMessage } from './types';
 import { loadDraft, saveDraft } from '../../lib/drafts';
 import { SelectionFormatBar } from '../FormatBar';
 import { LiveFormatTextarea } from '../LiveFormatTextarea';
+import { pasteIntoText } from '../../lib/pasteHtml';
 
 export interface OutgoingMessage {
   body?: string;
@@ -848,6 +849,22 @@ export function ChatComposer({
               }}
               onFocus={() => setEmojiOpen(false)}
               onKeyDown={onKeyDown}
+              onPaste={(e) => {
+                // A teaching copied from Word, Google Docs or a web page keeps its headings, bold, lists and tables.
+                const el = e.currentTarget;
+                const start = el.selectionStart ?? text.length;
+                const r = pasteIntoText({ html: e.clipboardData.getData('text/html'), plain: e.clipboardData.getData('text/plain') }, text, start, el.selectionEnd ?? start, MAX_MESSAGE_CHARS);
+                if (!r) return;
+                e.preventDefault();
+                setText(r.next);
+                signalTyping(r.next);
+                window.requestAnimationFrame(() => {
+                  resizeText(el);
+                  el.focus();
+                  el.setSelectionRange(r.cursor, r.cursor);
+                  rememberCursor(el);
+                });
+              }}
               className="block w-full max-h-[120px] resize-none border-0 bg-transparent px-1 py-3 text-[16px] leading-6 outline-none focus:ring-0"
             />
             <button

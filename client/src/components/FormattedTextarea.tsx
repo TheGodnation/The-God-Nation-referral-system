@@ -2,7 +2,7 @@ import { useRef, useState, type RefObject, type TextareaHTMLAttributes } from 'r
 import { useTranslation } from 'react-i18next';
 import { SelectionFormatBar } from './FormatBar';
 import { LiveFormatTextarea } from './LiveFormatTextarea';
-import { smartPaste } from '../lib/pasteHtml';
+import { pasteIntoText } from '../lib/pasteHtml';
 
 /**
  * A writing box for posts and updates that works like WhatsApp: select words
@@ -89,22 +89,14 @@ export function FormattedTextarea({
           // A teaching or post keeps the shape of what was copied: headings, bold, lists, tables.
           const el = e.currentTarget;
           const plain = e.clipboardData.getData('text/plain');
-          const converted = smartPaste({ html: e.clipboardData.getData('text/html'), plain });
-          if (!converted) return;
           const start = el.selectionStart ?? value.length;
           const end = el.selectionEnd ?? start;
-          const before = value.slice(0, start);
-          const after = value.slice(end);
-          // Headings, tables and lists must begin on a line of their own.
-          const lead = before && !before.endsWith('\n') && /^(#{1,3} |\||- |\d+\. |> )/.test(converted) ? '\n' : '';
-          const trail = after && !after.startsWith('\n') && /\n(#{1,3} |\||- |\d+\. |> )/.test(`\n${converted.split('\n').pop() ?? ''}`) ? '\n' : '';
-          const inserted = `${lead}${converted}${trail}`;
-          const next = before + inserted + after;
-          if (rest.maxLength !== undefined && next.length > rest.maxLength) return; // let the phone paste (and trim) as usual
+          const r = pasteIntoText({ html: e.clipboardData.getData('text/html'), plain }, value, start, end, rest.maxLength);
+          if (!r) return; // let the phone paste (and trim) as usual
           e.preventDefault();
-          onValueChange(next);
-          setPasted({ before: value, start, end, plain: plain || converted });
-          place(el, start + inserted.length);
+          onValueChange(r.next);
+          setPasted({ before: value, start, end, plain: r.plain });
+          place(el, r.cursor);
         }}
         onSelect={(e) => {
           setHasSelection(selected(e.currentTarget));

@@ -311,3 +311,17 @@ describe('No mute option (members always get notified)', () => {
     expect(await screen.findByLabelText('3 new messages')).toHaveClass('bg-emerald-600');
   });
 });
+
+describe('A pasted teaching in a group chat', () => {
+  it('shows with bold headings and a table that keeps its columns, while ordinary messages stay compact', async () => {
+    const teaching = { id: 'm9', senderName: 'Ada Nkem', isOwn: false, body: '## The Government of God\n\nA kingdom needs a king.\n\n| Day | Topic |\n| --- | --- |\n| Monday | Faith |', createdAt: now, deleted: false, attachments: [], replyTo: null, reactions: [] };
+    mockFetch(routes({ [`GET /api/communities/${G}/conversation/messages`]: () => ({ body: { items: [...messages, teaching], hasMore: false, unreadCount: 0, isAdministrator: false, canPost: true } }) }));
+    renderChat();
+    const heading = await screen.findByText('The Government of God');
+    expect(heading.className).toContain('font-bold');
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getByText('Monday')).toBeInTheDocument();
+    // An ordinary message has no table and no heading style.
+    expect(screen.getByText('Meeting at 6').className).not.toContain('font-bold');
+  });
+});

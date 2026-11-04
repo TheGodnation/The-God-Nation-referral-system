@@ -20,6 +20,24 @@ function select(el: HTMLTextAreaElement, start: number, end: number) {
   fireEvent.select(el);
 }
 
+describe('pasting a document into the message box', () => {
+  const paste = (el: HTMLElement, data: Record<string, string>) => fireEvent.paste(el, { clipboardData: { getData: (k: string) => data[k] ?? '' } });
+
+  it('keeps headings, bold and a table, like the teaching and post boxes', async () => {
+    composer();
+    paste(box(), { 'text/html': '<h2>Faith</h2><p>Trust <b>God</b>.</p><table><tr><th>Day</th><th>Verse</th></tr><tr><td>Mon</td><td>Heb 11:1</td></tr></table>', 'text/plain': 'Faith' });
+    await waitFor(() => expect(box().value).toBe('## Faith\n\nTrust *God*.\n\n| Day | Verse |\n| --- | --- |\n| Mon | Heb 11:1 |'));
+  });
+
+  it('an ordinary paste of a few words is left to the phone', () => {
+    composer();
+    const ev = new Event('paste', { bubbles: true, cancelable: true }) as Event & { clipboardData: unknown };
+    ev.clipboardData = { getData: (k: string) => (k === 'text/plain' ? 'Amen' : '') };
+    box().dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+  });
+});
+
 describe('formatting in the message box', () => {
   it('has no formatting bar until words are selected, and no "Aa" button', () => {
     composer();
