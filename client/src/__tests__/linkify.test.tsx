@@ -35,6 +35,25 @@ describe('linkify', () => {
     expect(a.closest('p')).toHaveTextContent('Read the guide at https://thegodnationacademy.org/x today');
   });
 
+  it('leaves out bold / italic / crossed-out marks and dashes around a link', () => {
+    expect(links('*https://example.org/page*')).toEqual([['https://example.org/page', 'https://example.org/page']]);
+    expect(links('_https://youtu.be/abc_ now')).toEqual([['https://youtu.be/abc', 'https://youtu.be/abc']]);
+    expect(links('~www.example.com~')).toEqual([['www.example.com', 'https://www.example.com']]);
+    expect(links('see https://example.org/a—then')).toEqual([['https://example.org/a—then', 'https://example.org/a—then']]);
+    expect(links('https://example.org/a — good')).toEqual([['https://example.org/a', 'https://example.org/a']]);
+  });
+
+  it('opens an address on our own site in the same window, other sites in a new tab', () => {
+    render(
+      <p>
+        <Linkified text={`${window.location.origin}/notifications-guide/ and https://example.org/x`} />
+      </p>,
+    );
+    const [own, other] = screen.getAllByRole('link');
+    expect(own).not.toHaveAttribute('target');
+    expect(other).toHaveAttribute('target', '_blank');
+  });
+
   it('finds bare addresses at the start of the text, after a new line, and side by side', () => {
     expect(links('thegodnationacademy.org')).toEqual([['thegodnationacademy.org', 'https://thegodnationacademy.org']]);
     expect(links('first line\nthegodnationacademy.org/learn rest')).toEqual([['thegodnationacademy.org/learn', 'https://thegodnationacademy.org/learn']]);

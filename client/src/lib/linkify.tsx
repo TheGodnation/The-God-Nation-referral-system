@@ -7,7 +7,8 @@ import { Fragment, type ReactNode } from 'react';
 // left alone.
 
 const TLDS = 'org|com|net|edu|gov|io|app|co|cm|ng|fr|uk|info|church|ministry|tv|me|africa';
-const TRAILING = `[^\\s<]*[^\\s<.,;:!?'")\\]}»”’]`;
+// A link never ends with a formatting mark (*bold*, _italic_, ~crossed~ around it) or a dash/ellipsis after it.
+const TRAILING = `[^\\s<]*[^\\s<.,;:!?'")\\]}»”’*_~—–…]`;
 // A bare address (name.org) must not start in the middle of a word or after
 // "@" (an email). That is checked with a leading character group, not with a
 // "lookbehind": older iPhones (iOS before 16.4) cannot even create
@@ -38,10 +39,24 @@ export function splitLinks(text: string): LinkPart[] {
   return parts;
 }
 
+/**
+ * Where a link opens. An address on our own site opens in the same window: in
+ * the installed app a "new tab" for our own address flashed and left the app
+ * with nothing shown. Any other site opens in a new tab, as before.
+ */
+function linkTarget(href: string): { target?: '_blank'; rel?: string } {
+  try {
+    if (typeof window !== 'undefined' && new URL(href).origin === window.location.origin) return {};
+  } catch {
+    // Not a readable address: treat it as outside.
+  }
+  return { target: '_blank', rel: 'noopener noreferrer' };
+}
+
 /** One tappable link (used by the text formatter too). */
 export function LinkAnchor({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="break-all text-sky-700 underline">
+    <a href={href} {...linkTarget(href)} onClick={(e) => e.stopPropagation()} className="break-all text-sky-700 underline">
       {children}
     </a>
   );
@@ -57,8 +72,7 @@ export function Linkified({ text }: { text: string | null | undefined }): ReactN
           <a
             key={i}
             href={p.href}
-            target="_blank"
-            rel="noopener noreferrer"
+            {...linkTarget(p.href)}
             onClick={(e) => e.stopPropagation()}
             className="break-all text-sky-700 underline"
           >

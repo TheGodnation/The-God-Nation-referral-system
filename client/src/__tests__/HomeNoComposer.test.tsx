@@ -15,7 +15,7 @@ it('the home page has no post box and no Everyone / Friends tabs', async () => {
         ? { viewer: { canPost: true, canModerate: false, personId: 'p1' }, items: [], nextBefore: null }
         : url.startsWith('/api/member/auth/me')
           ? { member: { name: 'Mary', email: 'm@x.com', preferredLanguage: 'en', personId: 'p1', profileComplete: true } }
-          : {};
+          : { items: [] };
       const status = url.startsWith('/api/settings/public') ? 404 : 200;
       return Promise.resolve({ ok: status === 200, status, headers: { get: () => 'application/json' }, json: async () => body });
     }),
