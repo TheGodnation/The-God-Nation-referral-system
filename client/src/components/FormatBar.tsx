@@ -7,7 +7,8 @@ import { toggleInline, toggleLines, type Edit, type InlineMark, type LineKind } 
 // on the line the cursor is on, and work by adding the symbols described in
 // lib/richText.tsx. The box keeps focus, so the phone keyboard stays up.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /** What the buttons do to the text: wrap the selected words in a symbol, or turn the lines into a list / quote / heading. */
 function useFormatActions(textareaRef: RefObject<HTMLTextAreaElement | null>, value: string, onChange: (next: string) => void) {
@@ -88,10 +89,40 @@ export function FormatBar({
   );
 }
 
+/** True on phones and tablets (a finger, not a mouse), where the phone shows its own Cut · Copy · Paste menu over selected words. */
+function useTouchScreen(): boolean {
+  const query = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(pointer: coarse)') : null;
+  return Boolean(query?.matches);
+}
+
 /**
- * The bar that appears over the message box when words are selected, like the
- * menu WhatsApp shows: Bold · Italic · Strikethrough, and "More" for lists and
- * quotes. Select your words, tap one, and they change (tap again to undo).
+ * How far the visible screen's bottom edge is above the bottom of the page — i.e. the height of
+ * the phone keyboard — so a bar can sit right on top of the keyboard, far from the phone's own menu.
+ */
+function useKeyboardHeight(active: boolean): number {
+  const [h, setH] = useState(0);
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!active || !vv) return undefined;
+    const update = () => setH(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)));
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, [active]);
+  return h;
+}
+
+/**
+ * The bar shown when words are selected: Bold · Italic · Strikethrough, and "More" for lists
+ * and quotes. Select your words, tap one, and they change (tap again to undo).
+ *
+ * On a phone the bar sits just above the keyboard, with large buttons and clear gaps, because the
+ * phone's own Cut · Copy · Select all menu appears over the selected words and used to hide or
+ * crowd it (a tap meant for Bold landed on Cut). On a computer it stays over the box.
  */
 export function SelectionFormatBar({
   textareaRef,
@@ -110,13 +141,19 @@ export function SelectionFormatBar({
   const { t } = useTranslation();
   const { inline, lines } = useFormatActions(textareaRef, value, onChange);
   const [more, setMore] = useState(false);
-  const item = 'whitespace-nowrap rounded-xl px-3 py-2 text-[15px] text-slate-800 active:bg-slate-100';
-  return (
+  const touch = useTouchScreen();
+  const keyboard = useKeyboardHeight(touch);
+  const item = touch
+    ? 'flex h-12 min-w-[3.25rem] items-center justify-center whitespace-nowrap rounded-xl bg-slate-50 px-4 text-base text-slate-800 ring-1 ring-slate-200 active:bg-slate-200'
+    : 'whitespace-nowrap rounded-xl px-3 py-2 text-[15px] text-slate-800 active:bg-slate-100';
+  const gap = touch ? 'gap-3' : 'gap-0.5';
+  const bar = (
     <div
       role="toolbar"
       aria-label={t('format.toolbar') ?? ''}
       data-testid="selection-format-bar"
-      className={`flex max-w-full flex-wrap items-center gap-0.5 self-start rounded-2xl bg-white px-1 py-1 shadow-lg ring-1 ring-slate-200 ${className}`}
+      data-placement={touch ? 'keyboard' : 'inline'}
+      className={`flex max-w-full flex-wrap items-center ${gap} self-start rounded-2xl bg-white shadow-lg ring-1 ring-slate-200 ${touch ? 'justify-center p-2' : 'px-1 py-1'} ${className}`}
     >
       <button type="button" {...keepFocus} onClick={inline('*')} aria-label={t('format.bold') ?? ''} className={`${item} font-bold`}>
         {t('format.bold')}
@@ -127,7 +164,8 @@ export function SelectionFormatBar({
       <button type="button" {...keepFocus} onClick={inline('~')} aria-label={t('format.strike') ?? ''} className={`${item} line-through`}>
         {t('format.strike')}
       </button>
-      <button type="button" {...keepFocus} onClick={() => setMore((v) => !v)} aria-expanded={more} aria-label={t('format.more') ?? ''} className={`${item} font-bold`}>
+      {/* A clear space before "More", so a tap on Strikethrough never opens it by mistake. */}
+      <button type="button" {...keepFocus} onClick={() => setMore((v) => !v)} aria-expanded={more} aria-label={t('format.more') ?? ''} className={`${item} font-bold ${touch ? 'ml-2' : ''}`}>
         ⋮
       </button>
       {more && (
@@ -149,5 +187,13 @@ export function SelectionFormatBar({
         </>
       )}
     </div>
+  );
+  if (!touch) return bar;
+  // Lifted out of the page and fixed above the keyboard (events still reach the box's wrapper).
+  return createPortal(
+    <div className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-3 pb-2" style={{ bottom: keyboard }}>
+      <div className="pointer-events-auto max-w-full">{bar}</div>
+    </div>,
+    document.body,
   );
 }

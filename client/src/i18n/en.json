@@ -2657,6 +2657,9 @@
     "done": "Your new password is saved. You are signed in. Next time, sign in with {{email}} and this password."
   },
   "teaching": {
+    "draft_restored": "Your unfinished teaching was kept on this phone — you can carry on.",
+    "draft_clear": "Start again",
+    "draft_saved": "Saved on this phone as you write. If you leave, it will still be here.",
     "label": "Teaching",
     "menu": "Teaching",
     "open": "Open",
@@ -2823,7 +2826,9 @@
     "show": "Formatting",
     "hide": "Hide formatting",
     "hint": "Select words to make them bold, italic or crossed out.",
-    "more": "More"
+    "more": "More",
+    "pasted": "Pasted with its headings, lists and tables kept.",
+    "paste_plain": "Paste as plain text"
   },
   "aboutGodNation": {
     "tab": "About the God Nation",

@@ -344,6 +344,52 @@ describe('Posting a teaching', () => {
   });
 });
 
+describe('An unfinished teaching is kept', () => {
+  function open() {
+    mockFetch({
+      'GET /api/settings/public': () => ({ status: 404, body: {} }),
+      'GET /api/member/auth/me': () => ({ body: ME }),
+      'POST /api/teachings': () => ({ status: 201, body: { id: 't9' } }),
+    });
+    return render(
+      <MemoryRouter initialEntries={['/member/chats/group/c1/teaching/new']}>
+        <MemberAuthProvider>
+          <Routes>
+            <Route path="/member/chats/group/:communityId/teaching/new" element={<MemberTeachingComposePage />} />
+            <Route path="/member/teachings/:id" element={<p>Teaching page</p>} />
+          </Routes>
+        </MemberAuthProvider>
+      </MemoryRouter>,
+    );
+  }
+
+  it('is still there after leaving the screen and coming back, until "Start again" is pressed', async () => {
+    localStorage.clear();
+    const first = open();
+    // Wait for the profile (the draft belongs to the signed-in person).
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/member/auth/me')).toBe(true));
+    await new Promise((r) => setTimeout(r, 30));
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Grace upon grace' } });
+    fireEvent.change(screen.getByLabelText(/Written teaching/), { target: { value: '## Grace\n\n| A | B |\n| --- | --- |\n| 1 | 2 |' } });
+    fireEvent.click(screen.getByRole('button', { name: /Add a question/ }));
+    fireEvent.change(screen.getByPlaceholderText('Question (English)'), { target: { value: 'What is grace?' } });
+    // Leave at once (no waiting for the quiet moment that saves).
+    first.unmount();
+
+    open();
+    expect(await screen.findByTestId('teaching-draft-note')).toHaveTextContent('kept on this phone');
+    expect(screen.getByLabelText('Title')).toHaveValue('Grace upon grace');
+    expect((screen.getByLabelText(/Written teaching/) as HTMLTextAreaElement).value).toContain('| A | B |');
+    expect(screen.getByDisplayValue('What is grace?')).toBeInTheDocument();
+
+    // "Start again" empties everything and the draft is gone.
+    fireEvent.click(screen.getByRole('button', { name: 'Start again' }));
+    expect(screen.getByLabelText('Title')).toHaveValue('');
+    await new Promise((r) => setTimeout(r, 400));
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('draft:v1:'))).toEqual([]);
+  });
+});
+
 describe('The one retake', () => {
   const failed = (over: Record<string, unknown> = {}) =>
     detail({ me: { textRead: true, mediaFraction: 0, mediaDone: false, completed: true }, quiz: { assessmentId: 'a1', passMark: 70, questionCount: 5, state: 'DONE', percentage: 40, passed: false, retake: 'AVAILABLE', ...over } });

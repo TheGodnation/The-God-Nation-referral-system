@@ -2657,6 +2657,9 @@
     "done": "Votre nouveau mot de passe est enregistré. Vous êtes connecté. La prochaine fois, connectez-vous avec {{email}} et ce mot de passe."
   },
   "teaching": {
+    "draft_restored": "Votre enseignement non terminé a été gardé sur ce téléphone — vous pouvez continuer.",
+    "draft_clear": "Recommencer",
+    "draft_saved": "Enregistré sur ce téléphone pendant que vous écrivez. Si vous quittez, il sera toujours là.",
     "label": "Enseignement",
     "menu": "Enseignement",
     "open": "Ouvrir",
@@ -2823,7 +2826,9 @@
     "show": "Mise en forme",
     "hide": "Masquer la mise en forme",
     "hint": "Sélectionnez des mots pour les mettre en gras, en italique ou les barrer.",
-    "more": "Plus"
+    "more": "Plus",
+    "pasted": "Collé avec ses titres, listes et tableaux conservés.",
+    "paste_plain": "Coller en texte simple"
   },
   "aboutGodNation": {
     "tab": "À propos de The God Nation",

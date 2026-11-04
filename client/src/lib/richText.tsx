@@ -4,6 +4,7 @@ import { LinkAnchor, splitLinks } from './linkify';
 // WhatsApp-style text formatting, kept as plain text underneath:
 //   *bold*  _italic_  ~strikethrough~
 //   - bullet list   1. numbered list   > quote   # heading (posts only)
+//   | a | b |  rows make a table (a "|---|---|" line under the first row marks it as the header)
 // A marker only counts when it hugs the words (never "5 * 3 * 2") and is not
 // in the middle of a word ("snake_case_name"). Web addresses are linked first
 // and left alone, so an underscore inside a link never turns into italics.
@@ -16,7 +17,8 @@ type Block =
   | { t: 'ul'; items: Inline[][] }
   | { t: 'ol'; items: Inline[][] }
   | { t: 'quote'; c: Inline[] }
-  | { t: 'h'; level: 1 | 2 | 3; c: Inline[] };
+  | { t: 'h'; level: 1 | 2 | 3; c: Inline[] }
+  | { t: 'table'; header: Inline[][] | null; rows: Inline[][][] };
 
 const MARKS: Record<string, 'b' | 'i' | 's'> = { '*': 'b', _: 'i', '~': 's' };
 const WORD = /[\p{L}\p{N}]/u;
@@ -96,6 +98,26 @@ const BULLET = /^\s*[-*•]\s+(.*)$/;
 const NUMBER = /^\s*\d{1,3}[.)]\s+(.*)$/;
 const QUOTE = /^>\s?(.*)$/;
 const HEADING = /^(#{1,3})\s+(.*)$/;
+const TABLE_ROW = /^\s*\|.*\|\s*$/;
+const TABLE_RULE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+
+/** "| a | b |" as its cells ("\|" is a bar inside a cell). */
+function tableCells(line: string): string[] {
+  const body = line.trim().replace(/^\|/, '').replace(/\|$/, '');
+  const cells: string[] = [];
+  let cur = '';
+  for (let i = 0; i < body.length; i += 1) {
+    if (body[i] === '\\' && body[i + 1] === '|') {
+      cur += '|';
+      i += 1;
+    } else if (body[i] === '|') {
+      cells.push(cur.trim());
+      cur = '';
+    } else cur += body[i];
+  }
+  cells.push(cur.trim());
+  return cells;
+}
 
 function parseBlocks(text: string, headings: boolean, splitOnBlank = false): Block[] {
   const lines = text.split('\n');
@@ -110,7 +132,24 @@ function parseBlocks(text: string, headings: boolean, splitOnBlank = false): Blo
   for (let n = 0; n < lines.length; n += 1) {
     const line = lines[n];
     let m: RegExpMatchArray | null;
-    if ((m = line.match(BULLET)) && m[1].trim()) {
+    if (TABLE_ROW.test(line) && (TABLE_ROW.test(lines[n + 1] ?? '') || TABLE_ROW.test(lines[n - 1] ?? ''))) {
+      // A run of "| … |" lines is a table; a rule line ("|---|---|") under the first row marks it as the header.
+      endPara();
+      let end = n;
+      while (end + 1 < lines.length && TABLE_ROW.test(lines[end + 1])) end += 1;
+      const rowsText = lines.slice(n, end + 1);
+      const hasHeader = rowsText.length > 1 && TABLE_RULE.test(rowsText[1]) && tableCells(rowsText[1]).every((c) => /^:?-+:?$/.test(c));
+      const body = rowsText.filter((_, k) => !(hasHeader && k === 1));
+      const width = Math.max(...body.map((r) => tableCells(r).length));
+      const cellsOf = (r: string) => {
+        const c = tableCells(r).map((x) => parseInline(x));
+        while (c.length < width) c.push([]);
+        return c;
+      };
+      const parsed = body.map(cellsOf);
+      blocks.push({ t: 'table', header: hasHeader ? parsed[0] : null, rows: hasHeader ? parsed.slice(1) : parsed });
+      n = end;
+    } else if ((m = line.match(BULLET)) && m[1].trim()) {
       endPara();
       const last = blocks[blocks.length - 1];
       const item = parseInline(m[1]);
@@ -193,6 +232,32 @@ export function RichText({
               {renderInline(b.c)}
             </blockquote>
           );
+        if (b.t === 'table')
+          return (
+            <div key={i} data-testid="rich-table" className={`max-w-full overflow-x-auto ${gap}`} role="region" tabIndex={0}>
+              <table className="w-full border-collapse whitespace-normal text-left text-[0.95em] leading-snug">
+                {b.header && (
+                  <thead>
+                    <tr>
+                      {b.header.map((c, k) => (
+                        <th key={k} scope="col" className="min-w-[6rem] border border-slate-300 bg-slate-100 px-2.5 py-1.5 align-top font-semibold text-slate-900">{renderInline(c)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                )}
+                <tbody>
+                  {b.rows.map((r, k) => (
+                    <tr key={k} className={k % 2 ? 'bg-slate-50' : ''}>
+                      {r.map((c, x) => (
+                        <td key={x} className="min-w-[6rem] break-words border border-slate-300 px-2.5 py-1.5 align-top">{renderInline(c)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        if (b.t !== 'h') return null;
         if (comfort) {
           // Sized in em so a heading always stays a little bigger than the text around it.
           return (
@@ -217,6 +282,7 @@ export function plainPreview(text: string | null | undefined): string {
   return parseBlocks(text, true)
     .map((b) => {
       if (b.t === 'ul' || b.t === 'ol') return b.items.map(plainInline).join(' ');
+      if (b.t === 'table') return [...(b.header ? [b.header] : []), ...b.rows].map((r) => r.map(plainInline).join(' ')).join(' ');
       return plainInline(b.c);
     })
     .join(' ')

@@ -8,6 +8,8 @@ import { ChatUploadError, uploadChatFile } from '../lib/chatMedia';
 import { formatBytes } from '../lib/attachmentLimits';
 import { MAX_MESSAGE_CHARS, isTooLong } from '../lib/textLimits';
 import { FormattedTextarea } from '../components/FormattedTextarea';
+import { useMemberAuth } from '../lib/MemberAuthContext';
+import { draftKeyFor, loadDraft, saveDraft } from '../lib/drafts';
 
 // The central admin's screen for a new teaching: title, text, an audio /
 // video / PDF, the quiz questions (written by hand or drafted by the AI and
@@ -43,10 +45,50 @@ const blankQuestion = (): QuestionDraft => ({
   ],
 });
 
+// Everything typed on this screen is kept on the phone (see lib/drafts): leave, come back, and the
+// title, text, quiz questions, settings and the attached file are all still here. It is removed
+// when the teaching is posted, or when "Start again" is pressed.
+interface SavedTeaching {
+  title: string;
+  text: string;
+  questions: Omit<QuestionDraft, 'key'>[];
+  passMark: number;
+  openDays: number;
+  portionOn: boolean;
+  portionPage: string;
+  portionLabel: string;
+  file: { name: string; size: number; uploaded: Uploaded } | null;
+}
+function readSaved(key: string): SavedTeaching | null {
+  try {
+    const raw = loadDraft(key);
+    if (!raw) return null;
+    const d = JSON.parse(raw) as Partial<SavedTeaching>;
+    if (typeof d !== 'object' || !d) return null;
+    return {
+      title: typeof d.title === 'string' ? d.title : '',
+      text: typeof d.text === 'string' ? d.text : '',
+      questions: Array.isArray(d.questions) ? d.questions.filter((q) => q && typeof q.textEn === 'string' && Array.isArray(q.options)) : [],
+      passMark: typeof d.passMark === 'number' ? d.passMark : 70,
+      openDays: typeof d.openDays === 'number' ? d.openDays : 7,
+      portionOn: Boolean(d.portionOn),
+      portionPage: typeof d.portionPage === 'string' ? d.portionPage : '',
+      portionLabel: typeof d.portionLabel === 'string' ? d.portionLabel : '',
+      file: d.file && d.file.uploaded && typeof d.file.uploaded.storageKey === 'string' ? d.file : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function MemberTeachingComposePage() {
   const { t } = useTranslation();
   const { communityId = '' } = useParams();
   const navigate = useNavigate();
+  const { member } = useMemberAuth();
+  // The draft belongs to the signed-in person, so it is looked for once their profile has loaded.
+  const draftKey = member?.personId ? draftKeyFor(member.personId, `teaching:${communityId}`) : undefined;
+  const [restored, setRestored] = useState(false);
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [file, setFile] = useState<{ name: string; size: number; progress: number; uploaded: Uploaded | null } | null>(null);
@@ -69,6 +111,77 @@ export function MemberTeachingComposePage() {
       .catch(() => {});
   }, []);
   const [error, setError] = useState<string | null>(null);
+
+  // Keep the draft on the phone as it is typed; the latest copy is also saved when leaving the screen.
+  const latest = useRef('');
+  const done = useRef(false);
+  latest.current = JSON.stringify({
+    title,
+    text,
+    questions: questions.map(({ key: _k, ...q }) => q),
+    passMark,
+    openDays,
+    portionOn,
+    portionPage,
+    portionLabel,
+    file: file?.uploaded ? { name: file.name, size: file.size, uploaded: file.uploaded } : null,
+  } satisfies SavedTeaching);
+  const empty = !title.trim() && !text.trim() && questions.length === 0 && !file?.uploaded;
+  const hydrated = useRef(false);
+  const emptyRef = useRef(true);
+  emptyRef.current = empty;
+  // Bring the saved draft back (once), unless something has already been typed.
+  useEffect(() => {
+    if (!draftKey || hydrated.current) return;
+    hydrated.current = true;
+    const d = readSaved(draftKey);
+    if (!d || !emptyRef.current) return;
+    if (!(d.title.trim() || d.text.trim() || d.questions.length || d.file)) return;
+    setTitle(d.title);
+    setText(d.text);
+    setQuestions(d.questions.map((q) => ({ ...q, key: ++keyCounter })));
+    setPassMark(d.passMark);
+    setOpenDays(d.openDays);
+    setPortionOn(d.portionOn);
+    setPortionPage(d.portionPage);
+    setPortionLabel(d.portionLabel);
+    setFile(d.file ? { name: d.file.name, size: d.file.size, progress: 1, uploaded: d.file.uploaded } : null);
+    setRestored(true);
+  }, [draftKey]);
+  const flush = () => {
+    // Nothing is written before the saved draft has been looked at, so it can never be overwritten by an empty form.
+    if (!done.current && hydrated.current) saveDraft(draftKey, empty ? '' : latest.current);
+  };
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+  useEffect(() => {
+    const id = window.setTimeout(() => flushRef.current(), 300);
+    return () => window.clearTimeout(id);
+  }, [title, text, questions, passMark, openDays, portionOn, portionPage, portionLabel, file, empty, draftKey]);
+  useEffect(() => {
+    const leave = () => flushRef.current();
+    window.addEventListener('pagehide', leave);
+    document.addEventListener('visibilitychange', leave);
+    return () => {
+      window.removeEventListener('pagehide', leave);
+      document.removeEventListener('visibilitychange', leave);
+      leave();
+    };
+  }, []);
+  function startAgain() {
+    done.current = false;
+    setTitle('');
+    setText('');
+    setFile(null);
+    setQuestions([]);
+    setPassMark(70);
+    setOpenDays(7);
+    setPortionOn(false);
+    setPortionPage('');
+    setPortionLabel('');
+    setRestored(false);
+    saveDraft(draftKey, '');
+  }
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function pickFile(f: File | undefined) {
@@ -148,6 +261,8 @@ export function MemberTeachingComposePage() {
           options: q.options.map((o) => ({ textEn: o.textEn.trim(), textFr: o.textFr.trim() || undefined, isCorrect: o.isCorrect })),
         })),
       });
+      done.current = true;
+      saveDraft(draftKey, '');
       navigate(`/member/teachings/${res.id}`, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('teaching.post_failed'));
@@ -163,6 +278,15 @@ export function MemberTeachingComposePage() {
         </Link>
         <h1 className="text-2xl font-bold text-brand-900">📖 {t('teaching.new_title')}</h1>
         <p className="text-sm text-slate-600">{t('teaching.new_intro')}</p>
+        {restored && (
+          <div role="status" data-testid="teaching-draft-note" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <span>{t('teaching.draft_restored')}</span>
+            <button type="button" className="rounded-lg px-2 py-1.5 font-medium underline" onClick={startAgain}>
+              {t('teaching.draft_clear')}
+            </button>
+          </div>
+        )}
+        {!restored && !empty && <p className="text-xs text-slate-500">{t('teaching.draft_saved')}</p>}
 
         <div>
           <label className="label" htmlFor="teaching-title">
