@@ -4,6 +4,8 @@ import { startAdaptiveLoop } from './activity';
 import {
   attemptMessageAudioTranscription,
   attemptMessageTranslation,
+  attemptAnnouncementTranslation,
+  attemptHeadquartersPostTranslation,
   attemptTeachingTranslation,
   attemptUpdatePostTranslation,
   isTranslationConfigured,
@@ -34,6 +36,8 @@ async function runOne(job: TranslationRetry): Promise<TranslationOutcome> {
     return attemptUpdatePostTranslation(post.id, post.body, { attempts: 1 });
   }
   if (job.kind === 'TEACHING') return attemptTeachingTranslation(job.targetId, { attempts: 1 });
+  if (job.kind === 'HEADQUARTERS_POST') return attemptHeadquartersPostTranslation(job.targetId, { attempts: 1 });
+  if (job.kind === 'ANNOUNCEMENT') return attemptAnnouncementTranslation(job.targetId, { attempts: 1 });
   const message = await prisma.message.findUnique({
     where: { id: job.targetId },
     include: { attachments: { select: { storageKey: true, mimeType: true } } },

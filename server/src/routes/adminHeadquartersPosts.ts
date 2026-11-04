@@ -10,7 +10,7 @@ import { headquartersPostMutationLimiter, attachmentUploadAuthorizeLimiter } fro
 import { asyncHandler } from '../lib/asyncHandler';
 import { validateCommunityTargetReferences, resolveHeadquartersPostAudiencePersonIds } from '../lib/headquartersPosts';
 import { notifyHeadquartersPostPublished } from '../lib/notifications';
-import { attemptHeadquartersPostTranslation, translateHeadquartersPostInBackground } from '../lib/translation';
+import { translateBeforePublish, translateHeadquartersPostInBackground } from '../lib/translation';
 import {
   isAllowedAttachmentMime,
   maxBytesForMime,
@@ -477,9 +477,7 @@ router.post('/:id/publish', headquartersPostMutationLimiter, requireCsrf, asyncH
   }
 
   // If the French is still empty, give the translation a moment so the post goes out in both languages.
-  if (!existing.bodyFr?.trim() || !existing.titleFr?.trim()) {
-    await attemptHeadquartersPostTranslation(id, { timeoutMs: 25000, attempts: 1 }).catch(() => undefined);
-  }
+  if (!existing.bodyFr?.trim() || !existing.titleFr?.trim()) await translateBeforePublish('HEADQUARTERS_POST', id);
   const result = await prisma.headquartersPost.updateMany({
     where: { id, publishedAt: null, archivedAt: null },
     data: { publishedAt: new Date() },

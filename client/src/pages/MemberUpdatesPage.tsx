@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
@@ -19,7 +18,6 @@ import { usePublicSettings } from '../lib/usePublicSettings';
 export function MemberUpdatesPage() {
   const { t } = useTranslation();
   const { homeWallpaper } = usePublicSettings();
-  const [friendsOnly, setFriendsOnly] = useState(false);
   return (
     <PageShell minimal>
       <div className="min-h-full" style={resolveWallpaperStyle(homeWallpaper?.preset ?? null, homeWallpaper?.imageUrl ?? null)}>
@@ -35,27 +33,7 @@ export function MemberUpdatesPage() {
               <LiveBanner />
             </div>
             <HeadquartersPosts variant="feed" />
-            <div className="flex gap-2 px-4 sm:px-0" role="tablist" aria-label={t('updates.view_label') ?? ''}>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={!friendsOnly}
-                className={`rounded-full px-4 py-1.5 text-sm font-semibold ${!friendsOnly ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 shadow-sm'}`}
-                onClick={() => setFriendsOnly(false)}
-              >
-                {t('updates.view_everyone')}
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={friendsOnly}
-                className={`rounded-full px-4 py-1.5 text-sm font-semibold ${friendsOnly ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 shadow-sm'}`}
-                onClick={() => setFriendsOnly(true)}
-              >
-                {t('updates.view_friends')}
-              </button>
-            </div>
-            <UpdatesFeed friendsOnly={friendsOnly} linkAuthors wall />
+            <UpdatesFeed showComposer={false} linkAuthors wall />
           </div>
           <MemberNav />
         </section>

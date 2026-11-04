@@ -19,7 +19,7 @@ import {
   MAX_HEADQUARTERS_POST_MEDIA,
 } from '../lib/attachmentPolicy';
 import { isStorageConfigured, createUploadUrl, headObject } from '../lib/storage';
-import { attemptHeadquartersPostTranslation, translateHeadquartersPostInBackground } from '../lib/translation';
+import { translateBeforePublish, translateHeadquartersPostInBackground } from '../lib/translation';
 import { resolveSocialLink, embedFor, findFirstUrl } from '../lib/socialEmbed';
 
 // ---------------------------------------------------------------------------
@@ -330,7 +330,7 @@ router.post('/posts/:id/publish', headquartersPostMutationLimiter, requireCsrf, 
   }
 
   // Give the translation a moment so the post goes out in both languages.
-  await attemptHeadquartersPostTranslation(post.id, { timeoutMs: 25000, attempts: 1 }).catch(() => undefined);
+  await translateBeforePublish('HEADQUARTERS_POST', post.id);
   const result = await prisma.headquartersPost.updateMany({
     where: { id: post.id, publishedAt: null, archivedAt: null },
     data: { publishedAt: new Date() },

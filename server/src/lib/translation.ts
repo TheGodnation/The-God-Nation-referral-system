@@ -458,15 +458,24 @@ export async function attemptUpdatePostTranslation(postId: string, body: string,
   );
 }
 
+type FrenchFillKind = 'HEADQUARTERS_POST' | 'ANNOUNCEMENT';
+interface FrenchFillRow { titleEn: string; titleFr: string | null; bodyEn: string; bodyFr: string | null }
+interface FrenchFillDelegate {
+  findUnique(args: { where: { id: string }; select: Record<string, true> }): Promise<FrenchFillRow | null>;
+  updateMany(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<{ count: number }>;
+}
+
 /**
- * One try at filling in the French of a Headquarters post. The post has an English and a French box;
- * when the French one is empty, the English is translated into it (title and text separately).
- * If the "English" box was written in French, the French goes in the French box and the English is
- * the translation. Only an EMPTY language is ever filled: what a person wrote is never overwritten.
+ * One try at filling in the French of a Headquarters post or an announcement. Each has an English
+ * and a French box; when the French one is empty, the English is translated into it (title and text
+ * separately). If the "English" box was written in French, the French goes in the French box and the
+ * English is the translation. Only an EMPTY language is ever filled: what a person wrote is never
+ * overwritten.
  */
-export async function attemptHeadquartersPostTranslation(postId: string, opts: GeminiCallOptions = {}): Promise<TranslationOutcome> {
+async function fillMissingFrench(kind: FrenchFillKind, id: string, opts: GeminiCallOptions): Promise<TranslationOutcome> {
   if (!isTranslationConfigured()) return 'skip';
-  const post = await prisma.headquartersPost.findUnique({ where: { id: postId }, select: { titleEn: true, titleFr: true, bodyEn: true, bodyFr: true } });
+  const delegate = (kind === 'ANNOUNCEMENT' ? prisma.announcement : prisma.headquartersPost) as unknown as FrenchFillDelegate;
+  const post = await delegate.findUnique({ where: { id }, select: { titleEn: true, titleFr: true, bodyEn: true, bodyFr: true } });
   if (!post) return 'skip';
   const needBody = !post.bodyFr?.trim() && post.bodyEn.trim() !== '';
   const needTitle = !post.titleFr?.trim() && post.titleEn.trim() !== '';
@@ -489,16 +498,39 @@ export async function attemptHeadquartersPostTranslation(postId: string, opts: G
     } else data.titleFr = r.translatedBody;
   }
   // Written only if the French is still empty (the admin may have filled it in meanwhile).
-  const done = await prisma.headquartersPost.updateMany({
-    where: { id: postId, ...(needBody ? { bodyFr: null } : {}), ...(needTitle ? { titleFr: null } : {}) },
+  const done = await delegate.updateMany({
+    where: { id, ...(needBody ? { bodyFr: null } : {}), ...(needTitle ? { titleFr: null } : {}) },
     data,
   });
   return done.count === 1 ? 'done' : 'skip';
 }
 
-/** Best-effort, in the background: never throws into the request that triggered it. */
+export const attemptHeadquartersPostTranslation = (postId: string, opts: GeminiCallOptions = {}) => fillMissingFrench('HEADQUARTERS_POST', postId, opts);
+export const attemptAnnouncementTranslation = (announcementId: string, opts: GeminiCallOptions = {}) => fillMissingFrench('ANNOUNCEMENT', announcementId, opts);
+
+/** One try; a failure that may pass later is queued for the retry schedule (translationRetry.ts). Never throws. */
+async function tryThenQueue(kind: FrenchFillKind, id: string): Promise<void> {
+  try {
+    if ((await fillMissingFrench(kind, id, {})) === 'retry') await scheduleTranslationRetry(kind, id);
+  } catch {
+    // Best effort: the post itself is already saved.
+  }
+}
+
+/** In the background, after saving: never holds up the request that triggered it. */
 export function translateHeadquartersPostInBackground(postId: string): void {
-  void attemptHeadquartersPostTranslation(postId).catch(() => undefined);
+  void tryThenQueue('HEADQUARTERS_POST', postId);
+}
+export function translateAnnouncementInBackground(id: string): void {
+  void tryThenQueue('ANNOUNCEMENT', id);
+}
+
+/**
+ * When publishing: give the translation a few seconds so the post goes out in both languages. If it
+ * is not done by then, publishing carries on and the translation finishes (or is retried) in the background.
+ */
+export async function translateBeforePublish(kind: FrenchFillKind, id: string, waitMs = 15000): Promise<void> {
+  await Promise.race([tryThenQueue(kind, id), new Promise<void>((resolve) => setTimeout(resolve, waitMs))]);
 }
 
 /** One try at translating a group-chat message and storing the result. */

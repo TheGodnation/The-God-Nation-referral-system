@@ -10,6 +10,7 @@ import { announcementMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { validateTargetReferences, resolveAnnouncementAudiencePersonIds } from '../lib/announcements';
 import { notifyAnnouncementPublished } from '../lib/notifications';
+import { translateAnnouncementInBackground, translateBeforePublish } from '../lib/translation';
 import { resolveAuthorPersonId, AuthorToggleError } from '../lib/authorToggle';
 
 const router = Router();
@@ -145,6 +146,8 @@ router.post('/', announcementMutationLimiter, requireCsrf, asyncHandler(async (r
     include: targetInclude,
   });
 
+  translateAnnouncementInBackground(created.id);
+
   await recordAudit({
     actorId: req.user!.id,
     actorEmail: req.user!.email,
@@ -198,6 +201,12 @@ router.patch('/:id', announcementMutationLimiter, requireCsrf, asyncHandler(asyn
     }
   }
 
+  // The French the translation filled in follows the English: redone when the English changes, and
+  // left alone as soon as a person writes or changes the French themselves.
+  const frEdited = (d.titleFr !== undefined && d.titleFr !== existing.titleFr) || (d.bodyFr !== undefined && d.bodyFr !== existing.bodyFr);
+  const enEdited = (d.titleEn !== undefined && d.titleEn !== existing.titleEn) || (d.bodyEn !== undefined && d.bodyEn !== existing.bodyEn);
+  const redoFrench = existing.frAutoTranslated && enEdited && !frEdited;
+
   const updated = await prisma.$transaction(async (tx) => {
     if (d.targets !== undefined) {
       await tx.announcementTarget.deleteMany({ where: { announcementId: id } });
@@ -215,10 +224,12 @@ router.patch('/:id', announcementMutationLimiter, requireCsrf, asyncHandler(asyn
         ...(d.bodyEn !== undefined ? { bodyEn: d.bodyEn } : {}),
         ...(d.bodyFr !== undefined ? { bodyFr: d.bodyFr } : {}),
         ...(authorPersonId !== undefined ? { authorPersonId } : {}),
+        ...(redoFrench ? { titleFr: null, bodyFr: null, frAutoTranslated: false } : frEdited ? { frAutoTranslated: false } : {}),
       },
       include: targetInclude,
     });
   });
+  translateAnnouncementInBackground(id);
 
   await recordAudit({
     actorId: req.user!.id,
@@ -251,6 +262,8 @@ router.post('/:id/publish', announcementMutationLimiter, requireCsrf, asyncHandl
   const valid = await validateTargetReferences(existing.targets);
   if (!valid) return res.status(400).json({ error: 'One or more targets reference an unknown Community.' });
 
+  // If the French is still empty, give the translation a few seconds so the announcement goes out in both languages.
+  if (!existing.bodyFr?.trim() || !existing.titleFr?.trim()) await translateBeforePublish('ANNOUNCEMENT', id);
   const result = await prisma.announcement.updateMany({
     where: { id, publishedAt: null, archivedAt: null },
     data: { publishedAt: new Date() },
@@ -268,7 +281,8 @@ router.post('/:id/publish', announcementMutationLimiter, requireCsrf, asyncHandl
   });
 
   const recipientPersonIds = await resolveAnnouncementAudiencePersonIds(existing.targets);
-  await notifyAnnouncementPublished({ id, titleEn: existing.titleEn, titleFr: existing.titleFr }, recipientPersonIds);
+  const fresh = await prisma.announcement.findUnique({ where: { id }, select: { titleEn: true, titleFr: true } });
+  await notifyAnnouncementPublished({ id, titleEn: fresh?.titleEn ?? existing.titleEn, titleFr: fresh?.titleFr ?? existing.titleFr }, recipientPersonIds);
 
   const updated = await prisma.announcement.findUnique({ where: { id }, include: targetInclude });
   res.json(toAdminResponse(updated!));

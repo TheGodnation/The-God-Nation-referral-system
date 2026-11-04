@@ -8,6 +8,7 @@ const ORIGINAL_ENV = { ...process.env };
 let prisma: typeof import('../lib/prisma').prisma;
 let translation: typeof import('../lib/translation');
 let app: import('express').Express;
+let ipCounter = 0;
 let admin: { agent: ReturnType<typeof request.agent>; csrf: string; userId: string };
 
 // A fake Gemini: "Bonjour…" is French, anything else English; the answer is marked so tests can see what was translated.
@@ -40,7 +41,8 @@ beforeEach(async () => {
   const u = await createAdmin(email, 'AdminPass123!');
   const agent = request.agent(app);
   const { csrf } = await bootstrap(agent as never);
-  await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password: 'AdminPass123!' });
+  ipCounter += 1; // each sign-in comes from its own address, so the login limiter is never reached
+  await agent.post('/api/auth/login').set('X-Forwarded-For', `10.88.0.${ipCounter}`).set('X-CSRF-Token', csrf).send({ email, password: 'AdminPass123!' });
   admin = { agent, csrf, userId: u.id };
 });
 afterAll(() => {
@@ -134,5 +136,55 @@ describe('Headquarters post: creating and editing from the admin screen', () => 
     expect(res.body.voice).toBe('COMMUNICATION_DEPARTMENT');
     const patched = await admin.agent.patch(`/api/admin/headquarters-posts/${res.body.id}`).set('X-CSRF-Token', admin.csrf).send({ voice: 'CENTRAL_AUTHORITY' });
     expect(patched.body.voice).toBe('CENTRAL_AUTHORITY');
+  });
+});
+
+describe('When the translator is slow or down', () => {
+  const failing = () => vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503, json: async () => ({}) })));
+
+  it('a failed first try is queued, and the retry fills the French in later', async () => {
+    failing();
+    const res = await admin.agent.post('/api/admin/headquarters-posts').set('X-CSRF-Token', admin.csrf).send({ titleEn: 'Retry me', bodyEn: 'Please translate me later.' });
+    await wait(async () => (await prisma.translationRetry.count({ where: { kind: 'HEADQUARTERS_POST', targetId: res.body.id } })) > 0);
+    expect(await prisma.translationRetry.count({ where: { kind: 'HEADQUARTERS_POST', targetId: res.body.id } })).toBe(1);
+    expect((await hq(res.body.id)).bodyFr).toBeNull();
+
+    // The translator is back: the due retry fills it in and the queue empties.
+    fakeGemini();
+    const { processDueTranslationRetries } = await import('../lib/translationRetry');
+    await processDueTranslationRetries(new Date(Date.now() + 60 * 60 * 1000));
+    expect(await hq(res.body.id)).toMatchObject({ titleFr: 'FR(Retry me)', bodyFr: 'FR(Please translate me later.)', frAutoTranslated: true });
+    expect(await prisma.translationRetry.count({ where: { targetId: res.body.id } })).toBe(0);
+  });
+
+  it('publishing does not wait for a slow translator: it publishes, and the translation carries on afterwards', async () => {
+    // A translator that answers only after 1.5 s.
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init: RequestInit) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      const text = (JSON.parse(init.body as string).contents[0].parts[0].text as string).split('"""')[1] ?? '';
+      return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'en', translated: `FR(${text})` }) }] } }] }) };
+    }));
+    const created = await make({ networkWide: true });
+    const t0 = Date.now();
+    const pub = await admin.agent.post(`/api/admin/headquarters-posts/${created.id}/publish`).set('X-CSRF-Token', admin.csrf);
+    expect(pub.status).toBe(200);
+    expect(Date.now() - t0).toBeLessThan(14000);
+    expect(pub.body.bodyFr).toBe('FR(Join us this Sunday.)'); // it finished within the few seconds allowed
+  });
+});
+
+describe('Announcements are translated the same way', () => {
+  it('an English-only announcement gets its French, and editing the English redoes it', async () => {
+    fakeGemini();
+    const created = await admin.agent.post('/api/admin/announcements').set('X-CSRF-Token', admin.csrf).send({ titleEn: 'Service time', bodyEn: 'We meet at nine.' });
+    expect(created.status).toBe(201);
+    const id = created.body.id as string;
+    const ann = () => prisma.announcement.findUniqueOrThrow({ where: { id } });
+    await wait(async () => (await ann()).bodyFr !== null);
+    expect(await ann()).toMatchObject({ titleFr: 'FR(Service time)', bodyFr: 'FR(We meet at nine.)', frAutoTranslated: true });
+
+    await admin.agent.patch(`/api/admin/announcements/${id}`).set('X-CSRF-Token', admin.csrf).send({ titleEn: 'Service time', titleFr: 'FR(Service time)', bodyEn: 'We meet at ten.', bodyFr: 'FR(We meet at nine.)' });
+    await wait(async () => (await ann()).bodyFr === 'FR(We meet at ten.)');
+    expect((await ann()).bodyFr).toBe('FR(We meet at ten.)');
   });
 });

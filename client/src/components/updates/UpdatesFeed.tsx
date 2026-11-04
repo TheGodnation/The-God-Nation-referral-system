@@ -46,6 +46,8 @@ export interface UpdateItem {
   /** Present only once a background translation has landed and it differs
    * from the viewer's own language — see updates.ts's own response mapping. */
   translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null;
+  /** Who can see it: everyone, or only the author's friends. */
+  audience?: 'EVERYONE' | 'FRIENDS';
   youtubeVideoId: string | null;
   createdAt: string;
   photos: { id: string; url: string }[];
@@ -124,6 +126,7 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [body, setBody] = useState('');
+  const [audience, setAudience] = useState<'EVERYONE' | 'FRIENDS'>('EVERYONE');
   const [files, setFiles] = useState<PickedPhoto[]>([]);
   const [preparing, setPreparing] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -190,7 +193,7 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
         photos.push({ storageKey: auth.storageKey, mimeType, byteSize: file.blob.size });
       }
       // Members share words and photos only (no YouTube links).
-      await api.post('/api/updates', { body: body.trim(), photos });
+      await api.post('/api/updates', { body: body.trim(), photos, audience });
       setBody('');
       files.forEach((f) => revokeUrl(f.preview));
       setFiles([]);
@@ -206,12 +209,13 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
   }
 
   return (
-    <form onSubmit={submit} className={`space-y-3 bg-white p-4 shadow-sm ${wall ? 'sm:rounded-xl' : 'rounded-xl border border-slate-100'}`}>
+    <form onSubmit={submit} className={`space-y-2 bg-white p-3 shadow-sm ${wall ? 'sm:rounded-xl' : 'rounded-xl border border-slate-100'}`}>
       <FormattedTextarea
         textareaRef={textRef}
-        className="w-full resize-none rounded-2xl border-0 bg-slate-100 px-4 py-3 text-[16px] outline-none focus:ring-2 focus:ring-brand-200"
+        className="w-full resize-none rounded-2xl border-0 bg-slate-100 px-4 py-2.5 text-[16px] outline-none focus:ring-2 focus:ring-brand-200"
         rows={2}
         headings
+        compact
         aria-label={t('updates.compose_label') ?? ''}
         placeholder={t('updates.compose_placeholder') ?? ''}
         value={body}
@@ -251,7 +255,22 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
           {error}
         </p>
       )}
-      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+      <div role="radiogroup" aria-label={t('updates.audience_label') ?? ''} className="flex items-center gap-2" data-testid="post-audience">
+        <span className="text-xs font-medium text-slate-500">{t('updates.audience_label')}</span>
+        {(['EVERYONE', 'FRIENDS'] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={audience === value}
+            onClick={() => setAudience(value)}
+            className={`rounded-full px-3 py-1 text-sm font-semibold ${audience === value ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+          >
+            {value === 'EVERYONE' ? t('updates.view_everyone') : t('updates.view_friends')}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
         <div className="flex gap-1">
           <button
             type="button"
@@ -825,7 +844,8 @@ function PostCard({
             </p>
           )}
           <p className="text-xs text-slate-500" title={formatWhen(item.createdAt, i18n.language)}>
-            {relativeWhen(item.createdAt, t, i18n.language)} · 🌍
+            {relativeWhen(item.createdAt, t, i18n.language)} ·{' '}
+            {item.audience === 'FRIENDS' ? <span title={t('updates.friends_only_title') ?? ''} aria-label={t('updates.friends_only_title') ?? ''}>👥</span> : '🌍'}
           </p>
         </div>
         {canReport && !reportDone && (

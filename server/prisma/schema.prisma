@@ -2000,6 +2000,8 @@ model Announcement {
   // Purely a display choice: pinning/prominence/eligibility are completely
   // unaffected either way. Null means the institutional voice.
   authorPersonId  String?
+  // True while the French was filled in by the automatic translation (see HeadquartersPost).
+  frAutoTranslated Boolean  @default(false)
   createdAt       DateTime  @default(now())
   publishedAt     DateTime?
   archivedAt      DateTime?
@@ -2513,6 +2515,8 @@ enum TranslationRetryKind {
   MESSAGE_AUDIO
   UPDATE_POST
   TEACHING
+  HEADQUARTERS_POST
+  ANNOUNCEMENT
 }
 
 // A translation (or voice-note transcription) whose first attempt failed,
@@ -2614,10 +2618,17 @@ model PrayerRequestComment {
 // record of who removed what.
 // ---------------------------------------------------------------------------
 
+// Who may see an Updates post: everyone, or only the author's friends (and the author).
+enum UpdateAudience {
+  EVERYONE
+  FRIENDS
+}
+
 model UpdatePost {
   id                String    @id @default(uuid())
   authorPersonId    String
   body              String
+  audience          UpdateAudience @default(EVERYONE)
   // YouTube video id (never a raw URL) when the author attached a video.
   youtubeVideoId    String?
   createdAt         DateTime  @default(now())

@@ -42,6 +42,19 @@ import { translateAndStoreUpdatePost } from '../lib/translation';
 // /api/updates — the community-wide Updates feed (see UpdatePost schema).
 // ---------------------------------------------------------------------------
 
+
+/**
+ * Which posts this viewer may see: everyone's "Everyone" posts, plus "Friends" posts only from the
+ * viewer's own friends (and the viewer's own). Moderators (leaders, central admin) see all.
+ * Returns null when nothing needs filtering.
+ */
+async function audienceWhere(viewer: UpdatesViewer): Promise<Prisma.UpdatePostWhereInput | null> {
+  if (viewer.canModerate) return null;
+  if (!viewer.personId) return { audience: 'EVERYONE' };
+  const friends = await getFriendIds(viewer.personId);
+  return { OR: [{ audience: 'EVERYONE' }, { authorPersonId: viewer.personId }, { authorPersonId: { in: friends } }] };
+}
+
 const router = Router();
 
 declare global {
@@ -164,9 +177,10 @@ router.post('/photos/authorize', attachmentUploadAuthorizeLimiter, requireCsrf, 
 router.get('/photos/:photoId', requireViewer, asyncHandler(async (req, res) => {
   const photo = await prisma.updatePostPhoto.findUnique({
     where: { id: req.params.photoId },
-    select: { storageKey: true, post: { select: { deletedAt: true } } },
+    select: { storageKey: true, postId: true, post: { select: { deletedAt: true } } },
   });
   if (!photo || photo.post.deletedAt || !isStorageConfigured()) return res.status(404).json({ error: 'Not found.' });
+  if (!(await visiblePost(photo.postId, req.updatesViewer!))) return res.status(404).json({ error: 'Not found.' });
   const { url } = await createDownloadUrl({ storageKey: photo.storageKey });
   res.setHeader('Cache-Control', 'private, max-age=3600');
   res.redirect(302, url);
@@ -186,8 +200,9 @@ router.get('/photo-wall', requireViewer, asyncHandler(async (req, res) => {
     const blocked = await getBlockedIds(viewer.personId);
     if (blocked.includes(authorPersonId)) return res.json({ items: [] });
   }
+  const audience = await audienceWhere(viewer);
   const photos = await prisma.updatePostPhoto.findMany({
-    where: { post: { authorPersonId, deletedAt: null } },
+    where: { post: { authorPersonId, deletedAt: null, ...(audience ? { AND: [audience] } : {}) } },
     orderBy: [{ post: { createdAt: 'desc' } }, { position: 'asc' }],
     take: 60,
     select: { id: true, postId: true },
@@ -304,7 +319,9 @@ async function postReactionCounts(ids: string[], personId: string | null) {
 router.get('/reaction-counts', requireViewer, asyncHandler(async (req, res) => {
   const parsed = countsQuerySchema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request.' });
-  const ids = [...new Set(parsed.data.ids.split(',').filter((id) => /^[0-9a-f-]{36}$/i.test(id)))].slice(0, 40);
+  const wanted = [...new Set(parsed.data.ids.split(',').filter((id) => /^[0-9a-f-]{36}$/i.test(id)))].slice(0, 40);
+  const audience = await audienceWhere(req.updatesViewer!);
+  const ids = audience && wanted.length ? (await prisma.updatePost.findMany({ where: { id: { in: wanted }, ...audience }, select: { id: true } })).map((p) => p.id) : wanted;
   res.json({ items: ids.length ? await postReactionCounts(ids, req.updatesViewer!.personId) : {} });
 }));
 
@@ -324,6 +341,8 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
   if (hiddenAuthors.length && !viewer.canModerate) authorFilters.push({ authorPersonId: { notIn: hiddenAuthors } });
   if (friendAuthors) authorFilters.push({ authorPersonId: { in: friendAuthors } });
   if (q.data.authorPersonId) authorFilters.push({ authorPersonId: q.data.authorPersonId });
+  const audience = await audienceWhere(viewer);
+  if (audience) authorFilters.push(audience);
 
   const posts = await prisma.updatePost.findMany({
     where: {
@@ -368,6 +387,7 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
       id: p.id,
       author: { personId: p.author.id, name: p.author.name, photoUrl: profilePhotoPath(p.author), badge: badgeOf(coordinators, p.author.id) },
       body: p.body,
+      audience: p.audience,
       // Auto-translation — only surfaced once a background translation has
       // actually landed, and only when it differs from the viewer's own
       // language (someone reading in the post's own language never sees
@@ -399,6 +419,7 @@ const createPostSchema = z.object({
   body: z.string().trim().max(MAX_UPDATE_BODY).default(''),
   youtubeUrl: z.string().trim().max(500).optional(),
   photos: z.array(photoRefSchema).max(MAX_PHOTOS_PER_UPDATE).default([]),
+  audience: z.enum(['EVERYONE', 'FRIENDS']).default('EVERYONE'),
 });
 
 router.post('/', updatePostLimiter, requireCsrf, requireViewer, requirePerson, asyncHandler(async (req, res) => {
@@ -440,6 +461,7 @@ router.post('/', updatePostLimiter, requireCsrf, requireViewer, requirePerson, a
     data: {
       authorPersonId: personId,
       body: d.body,
+      audience: d.audience,
       youtubeVideoId,
       photos: {
         create: d.photos.map((ph, position) => ({
@@ -463,6 +485,7 @@ router.post('/', updatePostLimiter, requireCsrf, requireViewer, requirePerson, a
   // Tell everyone about it when the central admin posted. Anyone else's post is just a
   // normal post: nobody is notified (likes and comments on it still tell its author).
   void (async () => {
+    if (d.audience === 'FRIENDS') return; // a friends-only post tells no one outside the friends
     if (!(await isCentralAdminPerson(personId))) return;
     const author = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } });
     if (!author) return;
@@ -496,15 +519,21 @@ router.delete('/:id', updatePostLimiter, requireCsrf, requireViewer, asyncHandle
 
 const reactionSchema = z.object({ type: z.enum(REACTION_TYPES) });
 
-async function visiblePost(id: string) {
-  const post = await prisma.updatePost.findUnique({ where: { id }, select: { id: true, deletedAt: true } });
-  return post && !post.deletedAt ? post : null;
+async function visiblePost(id: string, viewer: UpdatesViewer) {
+  const post = await prisma.updatePost.findUnique({ where: { id }, select: { id: true, deletedAt: true, audience: true, authorPersonId: true } });
+  if (!post || post.deletedAt) return null;
+  const audience = await audienceWhere(viewer);
+  if (audience && post.audience === 'FRIENDS' && post.authorPersonId !== viewer.personId) {
+    const friends = viewer.personId ? await getFriendIds(viewer.personId) : [];
+    if (!friends.includes(post.authorPersonId)) return null;
+  }
+  return post;
 }
 
 router.put('/:id/reaction', updateReactionLimiter, requireCsrf, requireViewer, requirePerson, asyncHandler(async (req, res) => {
   const parsed = reactionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid reaction.' });
-  if (!(await visiblePost(req.params.id))) return res.status(404).json({ error: 'Post not found.' });
+  if (!(await visiblePost(req.params.id, req.updatesViewer!))) return res.status(404).json({ error: 'Post not found.' });
   const personId = req.updatesViewer!.personId!;
   const before = await prisma.updateReaction.findUnique({ where: { postId_personId: { postId: req.params.id, personId } }, select: { id: true } }).catch(() => null);
   await prisma.updateReaction.upsert({
@@ -533,7 +562,7 @@ router.delete('/:id/reaction', updateReactionLimiter, requireCsrf, requireViewer
 
 // GET /api/updates/:id/reactions — who reacted, and with what.
 router.get('/:id/reactions', requireViewer, asyncHandler(async (req, res) => {
-  if (!(await visiblePost(req.params.id))) return res.status(404).json({ error: 'Post not found.' });
+  if (!(await visiblePost(req.params.id, req.updatesViewer!))) return res.status(404).json({ error: 'Post not found.' });
   const rows = await prisma.updateReaction.findMany({ where: { postId: req.params.id }, select: { personId: true, type: true, createdAt: true } });
   const list = await reactorList(rows.map((r) => ({ personId: r.personId, reaction: r.type, createdAt: r.createdAt })), { personId: req.updatesViewer!.personId });
   res.json(list);
@@ -543,7 +572,7 @@ router.get('/:id/reactions', requireViewer, asyncHandler(async (req, res) => {
 
 router.get('/:id/comments', requireViewer, asyncHandler(async (req, res) => {
   const viewer = req.updatesViewer!;
-  if (!(await visiblePost(req.params.id))) return res.status(404).json({ error: 'Post not found.' });
+  if (!(await visiblePost(req.params.id, req.updatesViewer!))) return res.status(404).json({ error: 'Post not found.' });
   const comments = await prisma.updateComment.findMany({
     where: { postId: req.params.id, deletedAt: null },
     orderBy: { createdAt: 'asc' },
@@ -581,7 +610,7 @@ const commentSchema = z.object({
 router.post('/:id/comments', updateCommentLimiter, requireCsrf, requireViewer, requirePerson, asyncHandler(async (req, res) => {
   const parsed = commentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Write a comment first.' });
-  if (!(await visiblePost(req.params.id))) return res.status(404).json({ error: 'Post not found.' });
+  if (!(await visiblePost(req.params.id, req.updatesViewer!))) return res.status(404).json({ error: 'Post not found.' });
 
   // A reply must answer a comment on this same post. Replying to a reply
   // attaches to the same top comment (one level, like Facebook).

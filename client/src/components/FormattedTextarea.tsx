@@ -15,6 +15,7 @@ export function FormattedTextarea({
   value,
   onValueChange,
   headings = false,
+  compact = false,
   textareaRef,
   onSelect,
   onKeyUp,
@@ -27,6 +28,8 @@ export function FormattedTextarea({
   onValueChange: (next: string) => void;
   /** Whether "# Heading" lines are offered (posts, not comments). */
   headings?: boolean;
+  /** A tighter writing box: the hint line takes less room. */
+  compact?: boolean;
   textareaRef?: RefObject<HTMLTextAreaElement>;
 }) {
   const { t } = useTranslation();
@@ -46,7 +49,7 @@ export function FormattedTextarea({
   return (
     <div>
       <div
-        className="mb-1.5 flex min-h-[2.75rem] items-center"
+        className={`flex items-center ${compact ? 'mb-1 min-h-[1.5rem]' : 'mb-1.5 min-h-[2.75rem]'}`}
         onPointerDownCapture={() => (barPressedAt.current = Date.now())}
         onTouchStartCapture={() => (barPressedAt.current = Date.now())}
         onMouseDownCapture={() => (barPressedAt.current = Date.now())}
@@ -70,7 +73,7 @@ export function FormattedTextarea({
             </button>
           </p>
         ) : (
-          <p className="px-1 text-xs text-slate-500">{t('format.hint')}</p>
+          <p className={`px-1 text-slate-500 ${compact ? 'text-[11px]' : 'text-xs'}`}>{t('format.hint')}</p>
         )}
       </div>
       <LiveFormatTextarea

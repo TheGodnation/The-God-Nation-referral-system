@@ -99,8 +99,29 @@ describe('UpdatesFeed', () => {
     const box = await screen.findByLabelText('Write a post');
     fireEvent.change(box, { target: { value: 'Hello family' } });
     fireEvent.click(screen.getByRole('button', { name: 'Post' }));
-    await waitFor(() => expect(posted).toEqual({ body: 'Hello family', photos: [] }));
+    await waitFor(() => expect(posted).toEqual({ body: 'Hello family', photos: [], audience: 'EVERYONE' }));
     await screen.findByText('Praise God for this week!');
+  });
+
+  it('lets the author choose Everyone or Friends for a post, and a Friends post is marked', async () => {
+    let posted: any = null;
+    mockFetch({
+      'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, [{ ...POST, id: 'post-2', audience: 'FRIENDS' }, POST]) }),
+      'POST /api/updates': (_m, body) => {
+        posted = body;
+        return { status: 201, body: { id: 'new' } };
+      },
+    });
+    render(<UpdatesFeed />);
+    const choice = await screen.findByTestId('post-audience');
+    expect(within(choice).getByRole('radio', { name: 'Everyone' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(within(choice).getByRole('radio', { name: 'Friends' }));
+    expect(within(choice).getByRole('radio', { name: 'Friends' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.change(screen.getByLabelText('Write a post'), { target: { value: 'Only for my friends' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Post' }));
+    await waitFor(() => expect(posted).toEqual({ body: 'Only for my friends', photos: [], audience: 'FRIENDS' }));
+    // The friends-only post is marked with the friends sign instead of the globe.
+    expect(await screen.findByLabelText('Friends only')).toBeInTheDocument();
   });
 
   it('does not send an empty post', async () => {

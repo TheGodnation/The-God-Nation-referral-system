@@ -1836,7 +1836,9 @@
     "cancel": "Annuler",
     "reply_label": "Répondre à {{name}}",
     "reply_placeholder": "Écrivez une réponse…",
-    "comment_by": "Commentaire de {{name}}"
+    "comment_by": "Commentaire de {{name}}",
+    "audience_label": "Qui peut le voir",
+    "friends_only_title": "Amis seulement"
   },
   "prayerRequests": {
     "title": "Demandes de prière",
