@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberGroupChatPage } from '../pages/MemberGroupChatPage';
 import { MemberGroupInfoPage } from '../pages/MemberGroupInfoPage';
@@ -172,6 +172,18 @@ describe('Selecting several messages (like WhatsApp)', () => {
     fireEvent.click(screen.getByText('See the flyer'));
     fireEvent.click(screen.getByText('Meeting at 6'));
     expect(screen.queryByTestId('selection-bar')).not.toBeInTheDocument();
+  });
+
+  it('shows Pin in the selection bar for the central admin, and not for anyone else', async () => {
+    mockFetch(routes({ [`GET /api/communities/${G}/conversation`]: () => ({ body: { canPin: true, pins: [], name: 'Buea Group' } }) }));
+    await startSelecting();
+    expect(await screen.findByTestId('pin-selected')).toBeInTheDocument();
+    expect(screen.getByTestId('unpin-selected')).toBeInTheDocument();
+    cleanup();
+    mockFetch(routes({ [`GET /api/communities/${G}/conversation`]: () => ({ body: { canPin: false, pins: [], name: 'Buea Group' } }) }));
+    await startSelecting();
+    await waitFor(() => expect(screen.getByTestId('selection-bar')).toBeInTheDocument());
+    expect(screen.queryByTestId('pin-selected')).not.toBeInTheDocument();
   });
 
   it('copies the selected messages together, oldest first', async () => {

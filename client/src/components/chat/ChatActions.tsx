@@ -113,23 +113,23 @@ export function SelectionBar({
       <button type="button" onClick={onClose} aria-label={t('chatActions.cancel_selection') ?? ''} className="px-2 text-2xl leading-none">
         ✕
       </button>
-      <span className="flex-1 text-lg font-semibold">{t('chatActions.selected_count', { count })}</span>
+      <span className="min-w-0 flex-1 truncate text-base font-semibold">{t('chatActions.selected_count', { count })}</span>
       {canCopy && (
-        <button type="button" onClick={onCopy} aria-label={t('groupChat.copy') ?? ''} title={t('groupChat.copy') ?? ''} className="px-3 py-1 text-xl">
+        <button type="button" onClick={onCopy} aria-label={t('groupChat.copy') ?? ''} title={t('groupChat.copy') ?? ''} className="shrink-0 px-2 py-1 text-xl">
           📋
         </button>
       )}
       {onPin && (
-        <button type="button" onClick={onPin} className="rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold">
+        <button type="button" onClick={onPin} aria-label={t('pins.pin_selected') ?? ''} data-testid="pin-selected" className="shrink-0 whitespace-nowrap rounded-full bg-amber-400 px-3 py-1.5 text-sm font-bold text-slate-900">
           📌 {t('pins.pin_selected')}
         </button>
       )}
       {onUnpin && (
-        <button type="button" onClick={onUnpin} className="rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold">
-          {t('pins.unpin_selected')}
+        <button type="button" onClick={onUnpin} aria-label={t('pins.unpin_selected') ?? ''} data-testid="unpin-selected" className="shrink-0 whitespace-nowrap rounded-full bg-white/15 px-2.5 py-1.5 text-sm font-semibold">
+          ✕📌
         </button>
       )}
-      <button type="button" onClick={onForward} aria-label={t('chatActions.forward') ?? ''} title={t('chatActions.forward') ?? ''} className="px-3 py-1 text-xl">
+      <button type="button" onClick={onForward} aria-label={t('chatActions.forward') ?? ''} title={t('chatActions.forward') ?? ''} className="shrink-0 px-2 py-1 text-xl">
         ↪️
       </button>
     </div>
