@@ -224,7 +224,7 @@ export function HeadquartersFeedCard({
       <div className="px-4 pt-3">
         {title && <h3 className="text-lg font-bold leading-snug text-brand-900">{title}</h3>}
         {body && (
-          <RichText className={`mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-800 ${expanded ? '' : firstMedia?.mediaType === 'IMAGE' ? 'line-clamp-2' : 'line-clamp-3'}`} text={body} headings />
+          <RichText className={`mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-800 ${expanded ? '' : firstMedia?.mediaType === 'IMAGE' ? 'line-clamp-2' : 'line-clamp-3'}`} text={body} headings comfort />
         )}
         <button type="button" onClick={expanded ? onCollapse : onOpen} className="mt-1 text-sm font-semibold text-brand-700 hover:underline">
           {t(expanded ? 'headquartersPosts.read_less' : 'headquartersPosts.read_more')}

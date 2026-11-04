@@ -895,7 +895,7 @@ function PostCard({
 
       {item.body && (
         <div className="px-4 pt-2">
-          <RichText className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings />
+          <RichText className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings comfort />
           {isLong && (
             <button type="button" className="text-sm font-semibold text-slate-500 hover:underline" onClick={() => setExpanded((v) => !v)}>
               {expanded ? t('updates.see_less') : t('updates.see_more')}

@@ -282,7 +282,7 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
             )}
             <h2 className="mb-1 font-semibold text-brand-900">{isFr ? detail.titleFr || detail.titleEn : detail.titleEn}</h2>
             <p className="mb-3 text-xs text-slate-400">{new Date(detail.publishedAt).toLocaleDateString()}</p>
-            <RichText className="whitespace-pre-wrap text-sm text-slate-700" text={isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn} headings />
+            <RichText className="whitespace-pre-wrap text-sm text-slate-700" text={isFr ? detail.bodyFr || detail.bodyEn : detail.bodyEn} headings comfort />
             {detail.embed && (
               <div className="mb-3 mt-2">
                 <SocialEmbed embed={detail.embed} />

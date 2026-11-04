@@ -124,6 +124,27 @@ describe('UpdatesFeed', () => {
     expect(await screen.findByLabelText('Friends only')).toBeInTheDocument();
   });
 
+  it('shows a pasted teaching organised: headings stand out, paragraphs are apart, and a table keeps its columns', async () => {
+    const body = '## The Government of God\n\nA kingdom needs a king.\n\n| Day | Topic |\n| --- | --- |\n| Monday | Faith |\n\n> “Your kingdom come.”\n> — Matthew 6:10';
+    mockFetch({ 'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, [{ ...POST, body }]) }) });
+    render(<UpdatesFeed />);
+    const heading = await screen.findByText('The Government of God');
+    expect(heading.tagName).toBe('P');
+    expect(heading.className).toContain('font-bold');
+    const table = screen.getByRole('table');
+    expect(within(table).getAllByRole('columnheader').map((c) => c.textContent)).toEqual(['Day', 'Topic']);
+    expect(within(table).getByText('Monday')).toBeInTheDocument();
+    expect(screen.getByText('A kingdom needs a king.').tagName).toBe('P');
+  });
+
+  it('pasting a document into the post box keeps its headings and table, like the teaching box', async () => {
+    mockFetch({ 'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, []) }) });
+    render(<UpdatesFeed />);
+    const box = (await screen.findByLabelText('Write a post')) as HTMLTextAreaElement;
+    fireEvent.paste(box, { clipboardData: { getData: (k: string) => ({ 'text/html': '<h2>Faith</h2><p>Trust <b>God</b>.</p><table><tr><th>Day</th><th>Verse</th></tr><tr><td>Mon</td><td>Heb 11:1</td></tr></table>', 'text/plain': 'Faith' }[k] ?? '') } });
+    expect(box.value).toBe('## Faith\n\nTrust *God*.\n\n| Day | Verse |\n| --- | --- |\n| Mon | Heb 11:1 |');
+  });
+
   it('does not send an empty post', async () => {
     mockFetch({ 'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, []) }) });
     render(<UpdatesFeed />);
