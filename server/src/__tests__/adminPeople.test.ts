@@ -7,9 +7,12 @@ import { bootstrap } from './testUtils';
 
 const app = createApp();
 
+let adminLogins = 0;
 async function loginAsAdmin(email = 'admin-people@test.local', password = 'AdminPass123!') {
   await createAdmin(email, password);
-  const agent = request.agent(app);
+  // Each login comes from its own address, so the many logins of this file never hit the login rate limit.
+  adminLogins += 1;
+  const agent = request.agent(app).set('X-Forwarded-For', `10.77.${Math.floor(adminLogins / 250)}.${(adminLogins % 250) + 1}`);
   const { csrf } = await bootstrap(agent);
   await agent.post('/api/auth/login').set('X-CSRF-Token', csrf).send({ email, password });
   return { agent, csrf };
@@ -236,5 +239,33 @@ describe('Phase 3A — Admin People management', () => {
     // Characters that mean something to the database are just characters.
     expect(await ids('100%')).toEqual([]);
     expect(await ids("O'Brien_")).toEqual([]);
+  });
+  it('shows what a person can do as a leader, and what is missing for the leader dashboard', async () => {
+    const { agent } = await loginAsAdmin('admin-people-powers@test.local');
+    const admin = await prisma.user.findFirstOrThrow({ where: { email: 'admin-people-powers@test.local' } });
+    const person = await prisma.person.create({ data: { name: 'Hq Leader', whatsappNumber: '+237670009931' } });
+    const hq = await prisma.community.create({ data: { name: 'Headquarter Assembly' } });
+    await prisma.roleAssignment.create({ data: { personId: person.id, roleType: 'SCOPED_LEADER', communityId: hq.id, assignedByUserId: admin.id } });
+
+    // An assembly role but no Leader account: the dashboard is not available yet, and the page says so.
+    const before = await agent.get(`/api/admin/people/${person.id}/powers`);
+    expect(before.status).toBe(200);
+    expect(before.body).toMatchObject({ centralAdmin: false, leaderAccount: null, hasDashboard: false });
+    expect(before.body.assemblies).toEqual([expect.objectContaining({ name: 'Headquarter Assembly' })]);
+    expect(before.body.notes).toEqual(['LEADS_ASSEMBLY_NO_LEADER_ACCOUNT']);
+
+    // With a Leader account linked to the person, the dashboard opens (after signing in again).
+    const { user: leader } = await createLeader('Hq Leader Account', 'hq.leader@test.local', 'HQLEAD001');
+    await prisma.user.update({ where: { id: leader.id }, data: { personId: person.id } });
+    const area = await prisma.geographicArea.create({ data: { name: 'Cameroon', level: 'NATIONAL', country: 'Cameroon' } });
+    await prisma.areaLeadershipAssignment.create({ data: { personId: person.id, areaId: area.id, assignedByUserId: admin.id, title: 'National Representative' } });
+    await prisma.nationalTeamMember.create({ data: { personId: person.id, title: 'Director', assignedByUserId: admin.id } });
+    const after = await agent.get(`/api/admin/people/${person.id}/powers`);
+    expect(after.body).toMatchObject({ hasDashboard: true, nationalTeamTitle: 'Director' });
+    expect(after.body.leaderAccount).toMatchObject({ active: true, email: 'hq.leader@test.local' });
+    expect(after.body.areas).toEqual([expect.objectContaining({ title: 'National Representative', place: 'Cameroon' })]);
+    expect(after.body.notes).toEqual(['SIGN_IN_AGAIN_ONCE']);
+
+    expect((await agent.get('/api/admin/people/no-such-person/powers')).status).toBe(404);
   });
 });

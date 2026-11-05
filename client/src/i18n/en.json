@@ -849,7 +849,25 @@
         "failed": "Failed to delete this person."
       },
       "number_taken": "Someone in People already has this WhatsApp number. Deleting a registration or a leader does not remove the person behind it. Find them: if it was a mistake, open them and press \"Delete This Person\"; if it is the right person, keep them and use \"Help them sign in\" to give them access.",
-      "number_taken_show": "Show the person with this number"
+      "number_taken_show": "Show the person with this number",
+      "powers": {
+        "title": "What this person can do",
+        "none": "No leadership powers yet: an ordinary member.",
+        "central": "Central admin: has every power in every assembly.",
+        "team": "National Team: {{title}}",
+        "leads": "Leads: {{names}}",
+        "assembly_remove": "Remove other people's messages in the chat",
+        "assembly_results": "See the results of its teachings and invite a retake",
+        "assembly_prayer": "See and moderate the private prayer requests of the assembly",
+        "assembly_events": "Add events and take attendance",
+        "dashboard_yes": "Has the My Leadership Dashboard (follow-ups, members, referrals, exam results).",
+        "dashboard_no": "No leader dashboard yet.",
+        "represents": "{{title}}: {{place}}",
+        "note_leads_assembly_no_leader_account": "This person leads an assembly but has no Leader account, so the leader dashboard is not available. In the Leaders tab, press “Assign as Leader” and pick them.",
+        "note_leader_account_inactive": "This person's Leader account is switched off, so the leader dashboard is not available.",
+        "note_leader_account_no_assembly": "This person has a Leader account but leads no assembly yet. Add them in Role Assignments.",
+        "note_sign_in_again_once": "After being made a leader, they must sign out and sign in once for the dashboard to appear on their Me page."
+      }
     },
     "communities": {
       "root": "Root",

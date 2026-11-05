@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { searchPersonIds } from '../lib/personSearch';
+import { isCentralAdminPerson } from '../lib/centralAdmin';
+import { titleForLevel, getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
 import { requireAuth, requireRole } from '../lib/auth';
 import { adminSensitiveLimiter } from '../lib/rateLimit';
 import { leaderSignInHelpLink, memberSignInHelpLink, type SignInHelpLink } from '../lib/signInHelp';
@@ -98,6 +100,60 @@ router.get('/people/:id', asyncHandler(async (req, res) => {
   });
   if (!person) return res.status(404).json({ error: 'Person not found.' });
   res.json(person);
+}));
+
+// GET /api/admin/people/:id/powers — everything this person can do as a leader, in one place: the central
+// admin profile, the Leader account (which opens the "My Leadership Dashboard"), the assemblies they lead
+// (Role Assignments), the places they represent, and the National Team. `notes` says what is missing, if anything.
+router.get('/people/:id/powers', asyncHandler(async (req, res) => {
+  const person = await prisma.person.findUnique({ where: { id: req.params.id }, select: { id: true, name: true } });
+  if (!person) return res.status(404).json({ error: 'Person not found.' });
+
+  const [central, leaderUser, roles, areas, team] = await Promise.all([
+    isCentralAdminPerson(person.id),
+    prisma.user.findUnique({ where: { personId: person.id }, select: { id: true, role: true, active: true, email: true } }),
+    prisma.roleAssignment.findMany({
+      where: { personId: person.id, status: 'ACTIVE' },
+      include: { community: { select: { id: true, name: true, postingPolicy: true } } },
+      orderBy: { assignedAt: 'asc' },
+    }),
+    prisma.areaLeadershipAssignment.findMany({
+      where: { personId: person.id, status: 'ACTIVE' },
+      include: { area: { select: { id: true, name: true, level: true } } },
+      orderBy: { assignedAt: 'asc' },
+    }),
+    prisma.nationalTeamMember.findUnique({ where: { personId: person.id }, select: { title: true } }),
+  ]);
+
+  const assemblies = roles.filter((r) => r.community).map((r) => ({ communityId: r.community!.id, name: r.community!.name, since: r.assignedAt }));
+  const areaPlaces = await Promise.all(
+    areas.map(async (a) => ({
+      areaId: a.area.id,
+      level: a.area.level,
+      title: a.title || titleForLevel(a.area.level),
+      place: formatAreaPath(a.area, await getAreaAncestors(a.area.id)),
+      since: a.assignedAt,
+    })),
+  );
+  const leaderAccount = leaderUser && leaderUser.role === 'LEADER' ? { active: leaderUser.active, email: leaderUser.email } : null;
+  const hasDashboard = Boolean(leaderAccount?.active);
+
+  const notes: string[] = [];
+  if (assemblies.length > 0 && !hasDashboard) notes.push('LEADS_ASSEMBLY_NO_LEADER_ACCOUNT');
+  if (leaderAccount && !leaderAccount.active) notes.push('LEADER_ACCOUNT_INACTIVE');
+  if (hasDashboard && assemblies.length === 0) notes.push('LEADER_ACCOUNT_NO_ASSEMBLY');
+  if (hasDashboard) notes.push('SIGN_IN_AGAIN_ONCE');
+
+  res.json({
+    person,
+    centralAdmin: central,
+    leaderAccount,
+    hasDashboard,
+    assemblies,
+    areas: areaPlaces,
+    nationalTeamTitle: team?.title ?? null,
+    notes,
+  });
 }));
 
 // GET /api/admin/people/:id/training-progress — Phase 3E. Admin may inspect

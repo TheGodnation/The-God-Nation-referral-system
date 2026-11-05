@@ -849,7 +849,25 @@
         "failed": "Échec de la suppression de cette personne."
       },
       "number_taken": "Quelqu'un dans Personnes a déjà ce numéro WhatsApp. Supprimer une inscription ou un responsable ne supprime pas la personne. Retrouvez-la : si c'était une erreur, ouvrez-la et appuyez sur « Supprimer cette personne » ; si c'est la bonne personne, gardez-la et utilisez « L'aider à se connecter » pour lui donner accès.",
-      "number_taken_show": "Afficher la personne avec ce numéro"
+      "number_taken_show": "Afficher la personne avec ce numéro",
+      "powers": {
+        "title": "Ce que cette personne peut faire",
+        "none": "Aucun pouvoir de responsable pour l'instant : un membre ordinaire.",
+        "central": "Administrateur central : tous les pouvoirs dans toutes les assemblées.",
+        "team": "Équipe nationale : {{title}}",
+        "leads": "Dirige : {{names}}",
+        "assembly_remove": "Retirer les messages d'autres personnes dans le chat",
+        "assembly_results": "Voir les résultats de ses enseignements et inviter à repasser un quiz",
+        "assembly_prayer": "Voir et modérer les demandes de prière privées de l'assemblée",
+        "assembly_events": "Ajouter des événements et faire l'appel",
+        "dashboard_yes": "A le tableau de bord de responsable (suivis, membres, parrainages, résultats d'examens).",
+        "dashboard_no": "Pas encore de tableau de bord de responsable.",
+        "represents": "{{title}} : {{place}}",
+        "note_leads_assembly_no_leader_account": "Cette personne dirige une assemblée mais n'a pas de compte Responsable, donc le tableau de bord n'est pas disponible. Dans l'onglet Leaders, appuyez sur « Assigner comme responsable » et choisissez-la.",
+        "note_leader_account_inactive": "Le compte Responsable de cette personne est désactivé, donc le tableau de bord n'est pas disponible.",
+        "note_leader_account_no_assembly": "Cette personne a un compte Responsable mais ne dirige aucune assemblée. Ajoutez-la dans Role Assignments.",
+        "note_sign_in_again_once": "Une fois nommée responsable, elle doit se déconnecter puis se reconnecter une fois pour que le tableau de bord apparaisse sur sa page Moi."
+      }
     },
     "communities": {
       "root": "Racine",

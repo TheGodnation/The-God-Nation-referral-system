@@ -4,6 +4,7 @@ import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { SignInHelpCard } from './SignInHelpCard';
 import { ExamResults } from './ExamResults';
+import { PersonPowers } from './PersonPowers';
 import { suggestEmailFix } from '../../lib/emailTypo';
 
 // Member Reassignment — the server's fixed set of machine-readable move
@@ -392,6 +393,8 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
             {t('admin.people.save_changes')}
           </button>
         </form>
+
+        <PersonPowers personId={detail.id} />
 
         <div className="card space-y-3">
           <h2 className="font-semibold text-brand-900">{t('admin.people.community_memberships')}</h2>
