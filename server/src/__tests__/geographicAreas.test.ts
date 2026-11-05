@@ -546,4 +546,21 @@ describe('Leadership Directory — a member whose request is approved becomes vi
     const anon = request.agent(app);
     expect((await anon.get('/api/member/leadership-directory/faces')).status).toBe(401);
   });
+
+  it('a long National Team never pushes a newly approved representative out of the faces', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-faces-many@test.local');
+    const path = await buildCameroonPath(adminAgent, adminCsrf);
+    const viewer = await member('Many Viewer');
+    for (let i = 0; i < 9; i++) {
+      const t = await member(`Team Person ${i}`);
+      await send(adminAgent, adminCsrf, 'post', '/api/admin/national-team', { personId: t.id, title: `Role ${i}`, sortOrder: i });
+    }
+    const rep = await member('Late Representative');
+    const sent = await send(rep.agent, rep.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.division.id });
+    await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${sent.body.id}/approve`);
+    const faces = await viewer.agent.get('/api/member/leadership-directory/faces');
+    expect(faces.body.items.length).toBeLessThanOrEqual(8);
+    expect(faces.body.items.map((f: any) => f.name)).toContain('Late Representative');
+    expect(faces.body.total).toBe(10);
+  });
 });

@@ -138,18 +138,25 @@ router.get('/leadership-directory/national-team', requireMember, asyncHandler(as
 router.get('/leadership-directory/faces', requireMember, asyncHandler(async (_req, res) => {
   const personSelect = { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } as const;
   const [team, assignments] = await Promise.all([
-    prisma.nationalTeamMember.findMany({ include: { person: { select: personSelect } }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }], take: 6 }),
-    prisma.areaLeadershipAssignment.findMany({ where: { status: 'ACTIVE' }, include: { person: { select: personSelect } }, orderBy: { createdAt: 'asc' }, take: 20 }),
+    prisma.nationalTeamMember.findMany({ include: { person: { select: personSelect } }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }], take: 20 }),
+    prisma.areaLeadershipAssignment.findMany({ where: { status: 'ACTIVE' }, include: { person: { select: personSelect } }, orderBy: { createdAt: 'asc' }, take: 40 }),
   ]);
-  const seen = new Set<string>();
-  const items: { personId: string; name: string; photoUrl: string | null }[] = [];
-  for (const p of [...team.map((t) => t.person), ...assignments.map((a) => a.person)]) {
-    if (seen.has(p.id)) continue;
-    seen.add(p.id);
-    items.push({ personId: p.id, name: p.name, photoUrl: profilePhotoPath(p) });
-  }
-  res.json({ items: items.slice(0, 6), total: items.length });
+  const dedupe = (people: { id: string; name: string; photoStorageKey: string | null; photoUpdatedAt: Date | null }[]) => {
+    const seen = new Set<string>();
+    return people.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+  };
+  const teamPeople = dedupe(team.map((t) => t.person));
+  const areaPeople = dedupe(assignments.map((a) => a.person)).filter((p) => !teamPeople.some((t) => t.id === p.id));
+  // Both kinds of leaders are shown: the National Team first, but never so many of them that the
+  // people appointed to a place (an approved request, say) are pushed out of sight.
+  const MAX = 8;
+  const RESERVED_FOR_PLACES = Math.min(areaPeople.length, 4);
+  const shownTeam = teamPeople.slice(0, MAX - RESERVED_FOR_PLACES);
+  const shownAreas = areaPeople.slice(0, MAX - shownTeam.length);
+  const items = [...shownTeam, ...shownAreas].map((p) => ({ personId: p.id, name: p.name, photoUrl: profilePhotoPath(p) }));
+  res.json({ items, total: teamPeople.length + areaPeople.length });
 }));
+
 
 // Either a place from the list (areaId), or — when the member's place is not
 // listed — the place typed in. At least the region is needed in that case.

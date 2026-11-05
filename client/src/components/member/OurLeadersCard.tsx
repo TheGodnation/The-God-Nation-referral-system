@@ -17,11 +17,15 @@ interface Face {
 export function OurLeadersCard() {
   const { t } = useTranslation();
   const [faces, setFaces] = useState<Face[]>([]);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     api
-      .get<{ items: Face[] }>('/api/member/leadership-directory/faces')
-      .then((res) => setFaces(res.items.slice(0, 5)))
+      .get<{ items: Face[]; total?: number }>('/api/member/leadership-directory/faces')
+      .then((res) => {
+        setFaces(res.items.slice(0, 6));
+        setTotal(res.total ?? res.items.length);
+      })
       .catch(() => setFaces([]));
   }, []);
 
@@ -40,6 +44,9 @@ export function OurLeadersCard() {
                 <Avatar name={f.name} photoUrl={f.photoUrl} size={32} />
               </span>
             ))}
+            {total > faces.length && (
+              <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-slate-200 px-1.5 text-xs font-semibold text-slate-700 ring-2 ring-white">+{total - faces.length}</span>
+            )}
           </span>
         )}
         <span aria-hidden className="text-brand-700">›</span>
