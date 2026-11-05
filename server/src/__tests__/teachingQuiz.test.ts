@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 const callGemini = vi.fn();
-vi.mock('../lib/translation', () => ({ callGemini: (...a: unknown[]) => callGemini(...a), isTranslationConfigured: () => true }));
+vi.mock('../lib/translation', () => ({ callGeminiPersistent: (...a: unknown[]) => callGemini(...a), isTranslationConfigured: () => true }));
 
 import { cleanDraft, draftQuizQuestions } from '../lib/teachingQuiz';
 

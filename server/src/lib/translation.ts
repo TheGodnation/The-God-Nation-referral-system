@@ -185,6 +185,28 @@ export async function callGeminiBest(contents: unknown[], schema: unknown, opts:
   return callGemini(contents, schema, opts);
 }
 
+/**
+ * For jobs somebody is waiting on (drafting quiz questions): when Google says "high demand" the
+ * answer is usually back within seconds, so ask again, alternating between the stronger and the
+ * lighter model, with a growing pause, before giving up. Returns null only after every try failed.
+ */
+export async function callGeminiPersistent(
+  contents: unknown[],
+  schema: unknown,
+  opts: GeminiCallOptions & { tries?: number; pauseMs?: number } = {},
+): Promise<any | null> {
+  if (!GEMINI_API_KEY) return callGemini(contents, schema, opts);
+  const tries = opts.tries ?? 5;
+  const pauseMs = opts.pauseMs ?? 4000;
+  const models = [QUALITY_MODEL, GEMINI_MODEL].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
+  for (let i = 0; i < tries; i++) {
+    const result = await callGemini(contents, schema, { ...opts, model: models[i % models.length], attempts: 1 });
+    if (result) return result;
+    if (i < tries - 1) await sleep(pauseMs * (i + 1));
+  }
+  return null;
+}
+
 function isLanguage(v: unknown): v is Language {
   return v === 'en' || v === 'fr';
 }
