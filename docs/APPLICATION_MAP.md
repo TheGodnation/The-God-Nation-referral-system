@@ -111,7 +111,8 @@ Both `visitor_id` and `csrf_token` are set by steps that run before every route.
 | Cloudflare R2 | Files | R2 access settings in Render; separate settings in GitHub for backups |
 | Resend | Email | `RESEND_API_KEY`, `EMAIL_FROM` |
 | Web Push | Notifications | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` |
-| Google Gemini | Translation, quiz drafts | `GEMINI_API_KEY`, `GEMINI_QUALITY_MODEL` |
+| Google Gemini | Translation, quiz drafts (fallback when Claude is set up); the only one that listens to voice notes | `GEMINI_API_KEY`, `GEMINI_QUALITY_MODEL` |
+| Anthropic Claude | First choice for translation and quiz drafts when the key is set (text only, never audio) | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (default `claude-opus-5-5`) |
 | Mobile Money provider | Automatic payments (ready, optional) | `PAYMENT_PROVIDER` and provider keys |
 | Meta, TikTok | Ad measurement (off until set) | `META_CAPI_TOKEN`, `TIKTOK_EVENTS_TOKEN` |
 | Unsubscribe links | Signed reminder links | `UNSUBSCRIBE_SECRET` |

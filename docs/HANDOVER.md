@@ -18,7 +18,7 @@ One Node/Express server (TypeScript) with a React app, PostgreSQL through Prisma
 Pushing to the branch `claude/god-nation-referral-mvp-sjpz82` deploys automatically on Render (build, database changes, seed, start). `main` is kept identical.
 
 ## Switches and secrets (names only)
-`PUBLIC_SITE_ENABLED` (public website), `DATABASE_URL`, `DIRECT_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, `VAPID_*`, `GEMINI_API_KEY`, `META_CAPI_TOKEN`, `TIKTOK_EVENTS_TOKEN`, `UNSUBSCRIBE_SECRET`, `APP_URL`, `CLIENT_URL`. Values live in Render and GitHub secrets only.
+`PUBLIC_SITE_ENABLED` (public website), `DATABASE_URL`, `DIRECT_URL`, `RESEND_API_KEY`, `EMAIL_FROM`, `VAPID_*`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `META_CAPI_TOKEN`, `TIKTOK_EVENTS_TOKEN`, `UNSUBSCRIBE_SECRET`, `APP_URL`, `CLIENT_URL`. Values live in Render and GitHub secrets only.
 
 ## Rules that must not be broken
 1. Never change existing addresses, sign-in, cookies or the installed app's identity. Tests guard this (`existingAddressesContract`, `existingApiContract`, `serviceWorkerPublicArea`).
