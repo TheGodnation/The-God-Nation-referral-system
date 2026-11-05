@@ -39,6 +39,7 @@ describe('callGeminiPersistent', () => {
 
   it('gives up with null only after every try failed', async () => {
     process.env.GEMINI_API_KEY = 'test-key';
+    process.env.GEMINI_QUALITY_MODEL = 'gemini-flash-latest';
     vi.resetModules();
     const fetchMock = vi.fn(async () => busy);
     vi.stubGlobal('fetch', fetchMock);

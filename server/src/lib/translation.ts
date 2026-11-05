@@ -33,7 +33,13 @@ const GEMINI_MODEL = 'gemini-flash-lite-latest';
 // Google busy) the same job falls back to Flash-Lite, so translation never
 // stops. Set GEMINI_QUALITY_MODEL to try another (e.g. gemini-pro-latest),
 // or to an empty value to use Flash-Lite only.
-const QUALITY_MODEL = process.env.GEMINI_QUALITY_MODEL ?? 'gemini-flash-latest';
+// A comma-separated list, best first. By default the strongest model (Pro) is asked first, then Flash, then
+// Flash-Lite. A model that is not available to the key (free tier: no Pro) answers at once with an error and
+// the next one is tried, so this never slows translation down noticeably.
+const QUALITY_MODELS = (process.env.GEMINI_QUALITY_MODEL ?? 'gemini-pro-latest,gemini-flash-latest')
+  .split(',')
+  .map((m) => m.trim())
+  .filter((m, i, all) => m && m !== 'gemini-flash-lite-latest' && all.indexOf(m) === i);
 // The stronger model gets at most this long, so that its fallback still fits
 // in the time a retry claims an item for (translationRetry.ts CLAIM_MS).
 const QUALITY_TIMEOUT_MS = 90000;
@@ -179,11 +185,15 @@ export async function callGemini(contents: unknown[], schema: unknown, opts: Gem
  * nothing usable, asks Flash-Lite instead.
  */
 export async function callGeminiBest(contents: unknown[], schema: unknown, opts: GeminiCallOptions = {}): Promise<any | null> {
-  if (QUALITY_MODEL && QUALITY_MODEL !== GEMINI_MODEL) {
-    const timeoutMs = Math.min(opts.timeoutMs ?? QUALITY_TIMEOUT_MS, QUALITY_TIMEOUT_MS);
-    const result = await callGemini(contents, schema, { ...opts, model: QUALITY_MODEL, timeoutMs, attempts: 1 });
+  const started = Date.now();
+  for (const model of QUALITY_MODELS) {
+    // All the stronger models together get at most QUALITY_TIMEOUT_MS, so the lighter fallback still fits in the
+    // time a retry claims an item for (translationRetry.ts CLAIM_MS).
+    const remaining = QUALITY_TIMEOUT_MS - (Date.now() - started);
+    if (remaining < 5000) break;
+    const result = await callGemini(contents, schema, { ...opts, model, timeoutMs: Math.min(opts.timeoutMs ?? QUALITY_TIMEOUT_MS, remaining), attempts: 1 });
     if (result) return result;
-    console.warn('[translation] the stronger model gave nothing — using the lighter one', { model: QUALITY_MODEL });
+    console.warn('[translation] this model gave nothing — trying the next one', { model });
   }
   return callGemini(contents, schema, opts);
 }
@@ -207,7 +217,7 @@ export async function callGeminiPersistent(
   // Each model is a separate pool of capacity on Google's side, so when the Flash ones are overloaded
   // the Pro one may still answer (GEMINI_DRAFT_MODELS can list others, comma separated).
   const extra = (process.env.GEMINI_DRAFT_MODELS ?? 'gemini-pro-latest').split(',').map((m) => m.trim());
-  let models = [QUALITY_MODEL, GEMINI_MODEL, ...extra].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
+  let models = [...QUALITY_MODELS, GEMINI_MODEL, ...extra].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
   for (let i = 0; i < tries; i++) {
     const remaining = budgetMs - (Date.now() - started);
     if (remaining < 4000) break;
