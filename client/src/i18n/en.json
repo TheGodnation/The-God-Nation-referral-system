@@ -467,7 +467,9 @@
       "create_profile_help": "This leader has no person profile yet, so they cannot be given an assembly role. Type their WhatsApp number (with the country code). A profile is made from their name and email, linked to their Leader account, and their referral code is kept. Then press “Help them sign in” on their row to send them a link to choose a password.",
       "create_profile_whatsapp": "WhatsApp number, e.g. +2376…",
       "create_profile_submit": "Create profile",
-      "create_profile_failed": "The profile could not be created."
+      "create_profile_failed": "The profile could not be created.",
+      "help_off": "Turned off: press Activate first",
+      "profile_linked": "Profile linked"
     },
     "roleAssignments": {
       "title": "Role Assignments",

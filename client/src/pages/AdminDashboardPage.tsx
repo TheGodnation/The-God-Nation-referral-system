@@ -509,17 +509,26 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
                   <button className="text-brand-700 hover:underline" onClick={() => resendInvitation(l)}>
                     {resendStatus[l.id] ?? t('admin.leaders.resend_invitation')}
                   </button>
-                  {l.active && (
-                    <button
-                      className="text-brand-700 hover:underline"
-                      onClick={() => setHelping(l)}
-                    >
+                  {/* Every leader has this action. A leader who is turned off cannot get a link until they are
+                      activated, and the row says so instead of hiding the button. */}
+                  {l.active ? (
+                    <button className="text-brand-700 hover:underline" onClick={() => setHelping(l)}>
                       {t('admin.leaders.help_sign_in')}
                     </button>
+                  ) : (
+                    <span className="text-left text-slate-400" data-testid={`help-off-${l.id}`}>
+                      {t('admin.leaders.help_sign_in')}
+                      <span className="block text-xs">{t('admin.leaders.help_off')}</span>
+                    </span>
                   )}
                   <button className="text-red-700 hover:underline" onClick={() => deleteLeader(l)}>
                     {t('admin.leaders.delete')}
                   </button>
+                  {l.personId && (
+                    <span className="text-left text-xs font-medium text-green-700" data-testid={`profile-ok-${l.id}`}>
+                      ✓ {t('admin.leaders.profile_linked')}
+                    </span>
+                  )}
                   {!l.personId && (
                     <button className="text-brand-700 hover:underline" onClick={() => startLinkPerson(l)}>
                       {t('admin.leaders.link_person_action')}

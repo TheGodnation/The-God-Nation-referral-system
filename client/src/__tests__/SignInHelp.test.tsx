@@ -250,3 +250,26 @@ describe('A leader with no person profile at all', () => {
     await waitFor(() => expect(screen.queryByTestId('create-profile')).toBeNull());
   });
 });
+
+describe('Every leader row says what can be done', () => {
+  it('shows "Help them sign in" for a leader who is turned off as a note, and says when the profile is already linked', async () => {
+    mockFetch({
+      'GET /api/admin/leaders': () => ({
+        body: {
+          items: [
+            { id: 'a1', name: 'Active Linked', email: 'a@x.com', active: true, isTestData: false, selfRegistered: false, referralCode: 'A1', referredCount: 0, createdAt: '2026-01-01T00:00:00Z', personId: 'p1', personName: 'Active Linked', suggestedPerson: null },
+            { id: 'a2', name: 'Off Unlinked', email: 'b@x.com', active: false, isTestData: false, selfRegistered: false, referralCode: 'A2', referredCount: 0, createdAt: '2026-01-01T00:00:00Z', personId: null, personName: null, suggestedPerson: null },
+          ],
+          pagination: { totalPages: 1 },
+        },
+      }),
+    });
+    render(<LeadersTab includeTestData={false} />);
+    expect(await screen.findByTestId('profile-ok-a1')).toHaveTextContent('Profile linked');
+    // The turned-off leader is not left without the action: the row explains what to do first.
+    expect(screen.getByTestId('help-off-a2')).toHaveTextContent('Turned off: press Activate first');
+    // The linked, active leader has the working button; the unlinked one can be given a profile.
+    expect(screen.getAllByRole('button', { name: 'Help them sign in' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Create profile' })).toBeInTheDocument();
+  });
+});

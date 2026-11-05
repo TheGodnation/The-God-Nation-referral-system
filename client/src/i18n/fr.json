@@ -467,7 +467,9 @@
       "create_profile_help": "Ce responsable n'a pas encore de profil de personne, donc on ne peut pas lui donner un rôle d'assemblée. Écrivez son numéro WhatsApp (avec l'indicatif du pays). Un profil est créé à partir de son nom et de son e-mail, lié à son compte Responsable, et son code de parrainage est conservé. Appuyez ensuite sur « Aider à se connecter » sur sa ligne pour lui envoyer un lien pour choisir un mot de passe.",
       "create_profile_whatsapp": "Numéro WhatsApp, ex. +2376…",
       "create_profile_submit": "Créer le profil",
-      "create_profile_failed": "Le profil n'a pas pu être créé."
+      "create_profile_failed": "Le profil n'a pas pu être créé.",
+      "help_off": "Désactivé : appuyez d'abord sur Activer",
+      "profile_linked": "Profil lié"
     },
     "roleAssignments": {
       "title": "Attributions de rôles",
