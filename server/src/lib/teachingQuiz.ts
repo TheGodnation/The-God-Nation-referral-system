@@ -1,4 +1,4 @@
-import { callGemini, isTranslationConfigured } from './translation';
+import { callGeminiPersistent, isTranslationConfigured } from './translation';
 
 // "Draft the questions with AI" for a teaching: Gemini reads the written
 // text (or listens to the audio) and proposes multiple-choice questions in
@@ -102,7 +102,7 @@ export async function draftQuizQuestions(input: {
 
   const parts: unknown[] = [{ text: prompt }];
   if (input.audio) parts.push({ inlineData: { mimeType: input.audio.mimeType, data: input.audio.base64 } });
-  const result = await callGemini([{ role: 'user', parts }], schema, { timeoutMs: 120000, attempts: 1 });
+  const result = await callGeminiPersistent([{ role: 'user', parts }], schema, { timeoutMs: 90000 });
   if (!result) return null;
   const cleaned = cleanDraft(result, input.count);
   return cleaned.length ? cleaned : null;
