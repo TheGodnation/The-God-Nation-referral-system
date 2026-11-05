@@ -28,29 +28,71 @@ export type EnablePushResult =
   | { ok: true }
   | { ok: false; reason: 'unsupported' | 'denied' | 'not_configured' | 'failed' };
 
+let vapidKeyRequest: Promise<{ configured: boolean; publicKey: string | null }> | null = null;
+
+/** Fetches the server's public key ahead of time (one request, kept), so tapping "Turn on" never waits for it. */
+export function prefetchPushKey(): Promise<{ configured: boolean; publicKey: string | null }> {
+  if (!vapidKeyRequest) {
+    vapidKeyRequest = api
+      .get<{ configured: boolean; publicKey: string | null }>('/api/notifications/push/vapid-public-key')
+      .catch((err) => {
+        vapidKeyRequest = null;
+        throw err;
+      });
+  }
+  return vapidKeyRequest;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 /** Requests Notification permission (the real browser dialog) and, once
  * granted, registers a Push subscription with the server. Safe to call
  * repeatedly — re-subscribing an already-subscribed device just confirms
- * the existing registration. */
-export async function enablePushNotifications(): Promise<EnablePushResult> {
+ * the existing registration.
+ *
+ * It is quick to the eye: the server's key is fetched while the browser's
+ * dialog is open, and `onGranted` fires the moment the member taps Allow, so
+ * the screen can say "on" at once while the (slower, network-bound) subscription
+ * finishes in the background. If that finishing fails, the result says so. */
+export async function enablePushNotifications(opts: { onGranted?: () => void } = {}): Promise<EnablePushResult> {
   if (!pushSupported()) return { ok: false, reason: 'unsupported' };
 
-  const permission = await Notification.requestPermission();
+  // Started now, in parallel with the permission dialog.
+  const keyRequest = prefetchPushKey();
+  void keyRequest.catch(() => {});
+
+  const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
   if (permission !== 'granted') return { ok: false, reason: 'denied' };
+  opts.onGranted?.();
 
   try {
-    const { configured, publicKey } = await api.get<{ configured: boolean; publicKey: string | null }>(
-      '/api/notifications/push/vapid-public-key',
-    );
+    const { configured, publicKey } = await keyRequest;
     if (!configured || !publicKey) return { ok: false, reason: 'not_configured' };
 
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await withTimeout(navigator.serviceWorker.ready, 15000);
     let subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-      });
+      const options = { userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource };
+      try {
+        subscription = await withTimeout(registration.pushManager.subscribe(options), 25000);
+      } catch {
+        // One more try: a first attempt on a slow network often fails only because it was slow.
+        subscription = await withTimeout(registration.pushManager.subscribe(options), 25000);
+      }
     }
     const json = subscription.toJSON();
     await api.post('/api/notifications/push/subscribe', {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { enablePushNotifications, checkPushOnThisDevice, type PushDeviceStatus } from '../../lib/push';
+import { enablePushNotifications, checkPushOnThisDevice, prefetchPushKey, type PushDeviceStatus } from '../../lib/push';
 
 const DISMISS_KEY = 'notifyBannerDismissed';
 
@@ -32,7 +32,10 @@ export function EnableNotificationsBanner({ className = 'mb-4' }: { className?: 
   useEffect(() => {
     let cancelled = false;
     void checkPushOnThisDevice().then((s) => {
-      if (!cancelled) setStatus(s);
+      if (cancelled) return;
+      setStatus(s);
+      // Ready before the tap: the server's key is fetched while the banner is simply showing.
+      if (s === 'not_subscribed') void prefetchPushKey().catch(() => {});
     });
     return () => {
       cancelled = true;
@@ -53,13 +56,15 @@ export function EnableNotificationsBanner({ className = 'mb-4' }: { className?: 
   async function enable() {
     setBusy(true);
     setFailed(false);
-    const result = await enablePushNotifications();
+    // The moment "Allow" is tapped the banner says done; the network part finishes behind it, and if that fails it comes back with the message.
+    const result = await enablePushNotifications({ onGranted: () => setStatus('subscribed') });
     setBusy(false);
     if (result.ok) {
       setStatus('subscribed');
     } else if (result.reason === 'denied') {
       setStatus('denied');
     } else {
+      setStatus('not_subscribed');
       setFailed(true);
     }
   }
