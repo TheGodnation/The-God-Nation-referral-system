@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { searchPersonIds } from '../lib/personSearch';
 import { requireAuth, requireRole } from '../lib/auth';
 import { adminSensitiveLimiter } from '../lib/rateLimit';
 import { leaderSignInHelpLink, memberSignInHelpLink, type SignInHelpLink } from '../lib/signInHelp';
@@ -33,30 +34,14 @@ router.get('/people', asyncHandler(async (req, res) => {
   const q = listQuerySchema.parse(req.query);
   const testFilter = includeTestData(req) ? {} : { isTestData: false };
 
+  // Every word typed must match somewhere (name without regard to accents or capitals, WhatsApp number even
+  // when typed with spaces, or the email of the person or of their member account or leader account), in any order.
+  const matchingIds = q.search ? await searchPersonIds(q.search, { includeTestData: includeTestData(req) }) : null;
   const where: Prisma.PersonWhereInput = {
     ...testFilter,
     // The empty placeholders left in chats by deleted accounts are nobody.
     erasedAt: null,
-    // Every word typed must match somewhere (name, WhatsApp number, or the email of the person or of their
-    // member account), in any order: "Etabu Gertrude" finds "Gertrude Etabu" and "Gertrude Ayuk Etabu".
-    ...(q.search
-      ? {
-          AND: q.search
-            .split(/\s+/)
-            .filter(Boolean)
-            .slice(0, 6)
-            .map((word) => ({
-              OR: [
-                { name: { contains: word, mode: 'insensitive' as const } },
-                { whatsappNumber: { contains: word } },
-                { email: { contains: word, mode: 'insensitive' as const } },
-                { memberAccount: { is: { email: { contains: word, mode: 'insensitive' as const } } } },
-                // A leader account linked to this person, found by the name or email it was created with.
-                { users: { some: { OR: [{ name: { contains: word, mode: 'insensitive' as const } }, { email: { contains: word, mode: 'insensitive' as const } }] } } },
-              ],
-            })),
-        }
-      : {}),
+    ...(matchingIds ? { id: { in: matchingIds } } : {}),
   };
 
   const [total, people] = await Promise.all([

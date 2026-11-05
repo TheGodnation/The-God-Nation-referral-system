@@ -1441,7 +1441,7 @@
       "reverse_confirm": "Take back {{amount}} from {{name}}?"
     },
     "search": {
-      "none": "Nobody found. Try one word of the name, or the phone number or email.",
+      "none": "Nobody found. Try one word of the name, or the phone number or email. Someone who has not finished joining the app does not appear yet.",
       "failed": "The search could not be done. Try again."
     }
   },

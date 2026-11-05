@@ -106,8 +106,8 @@ export function RoleAssignmentsTab() {
             ) : (
               <SearchPicker
                 placeholder={t('admin.roleAssignments.search_person_placeholder') ?? ''}
-                searchPath="/api/admin/people?search="
-                renderLabel={(p) => `${p.name} (${p.whatsappNumber})`}
+                searchPath="/api/admin/people?includeTestData=true&search="
+                renderLabel={(p) => `${p.name} (${p.whatsappNumber})${p.isTestData ? ' · test' : ''}`}
                 actionLabel={t('admin.roleAssignments.select')}
                 searchButtonLabel={t('admin.people.search_button')}
                 onPick={(p) => setSelectedPerson({ id: p.id, name: p.name })}

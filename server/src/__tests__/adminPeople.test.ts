@@ -219,4 +219,22 @@ describe('Phase 3A — Admin People management', () => {
     expect(none.body.items).toEqual([]);
     expect(none.body.unlinkedLeaders).toEqual([expect.objectContaining({ name: 'Mercy Unlinked', email: 'mercy.unlinked@test.local' })]);
   });
+  it('search does not mind accents, capitals or spaces in a phone number, and can include people marked as test data', async () => {
+    const { agent } = await loginAsAdmin('admin-people-accents@test.local');
+    const etienne = await prisma.person.create({ data: { name: 'Étienne Ngô-Müller', whatsappNumber: '+237670123456' } });
+    const hidden = await prisma.person.create({ data: { name: 'Hidden Tester', whatsappNumber: '+237670123457', isTestData: true } });
+    const ids = async (q: string, extra = '') => ((await agent.get(`/api/admin/people?search=${encodeURIComponent(q)}${extra}`)).body.items as { id: string }[]).map((p) => p.id);
+    // Typed without the accents, or in capitals, in any order.
+    expect(await ids('etienne ngo')).toEqual([etienne.id]);
+    expect(await ids('MULLER Etienne')).toEqual([etienne.id]);
+    // A phone number typed with spaces, or without the country code.
+    expect(await ids('670 123 456')).toEqual([etienne.id]);
+    expect(await ids('0123456')).toEqual([etienne.id]);
+    // Someone marked as test data only shows when asked for.
+    expect(await ids('Hidden')).toEqual([]);
+    expect(await ids('Hidden', '&includeTestData=true')).toEqual([hidden.id]);
+    // Characters that mean something to the database are just characters.
+    expect(await ids('100%')).toEqual([]);
+    expect(await ids("O'Brien_")).toEqual([]);
+  });
 });

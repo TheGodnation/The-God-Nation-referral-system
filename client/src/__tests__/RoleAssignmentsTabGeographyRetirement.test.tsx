@@ -58,7 +58,7 @@ describe('RoleAssignmentsTab (Admin) — Geography Retirement Step 5B', () => {
     mockFetchByUrl({
       '/api/admin/role-assignments': { status: 200, body: { items: [], pagination: { totalPages: 1 } } },
       '/api/admin/organizational-leadership-recommendations': { status: 200, body: { items: [], pagination: { totalPages: 1 } } },
-      '/api/admin/people?search=': { status: 200, body: { items: [{ id: 'person-1', name: 'Jane Doe', whatsappNumber: '+237600000001' }] } },
+      '/api/admin/people?includeTestData=true&search=': { status: 200, body: { items: [{ id: 'person-1', name: 'Jane Doe', whatsappNumber: '+237600000001' }] } },
       '/api/admin/communities?search=': { status: 200, body: { items: [{ id: 'community-1', name: 'Youth Ministry' }] } },
     });
 

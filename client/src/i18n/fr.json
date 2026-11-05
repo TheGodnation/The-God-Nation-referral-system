@@ -1441,7 +1441,7 @@
       "reverse_confirm": "Retirer {{amount}} à {{name}} ?"
     },
     "search": {
-      "none": "Personne trouvé. Essayez un seul mot du nom, ou le numéro de téléphone ou l'e-mail.",
+      "none": "Personne trouvé. Essayez un seul mot du nom, ou le numéro de téléphone ou l'e-mail. Quelqu'un qui n'a pas fini de rejoindre l'application n'apparaît pas encore.",
       "failed": "La recherche n'a pas pu être faite. Réessayez."
     }
   },
