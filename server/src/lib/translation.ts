@@ -193,14 +193,24 @@ export async function callGeminiBest(contents: unknown[], schema: unknown, opts:
 export async function callGeminiPersistent(
   contents: unknown[],
   schema: unknown,
-  opts: GeminiCallOptions & { tries?: number; pauseMs?: number } = {},
+  opts: GeminiCallOptions & { tries?: number; pauseMs?: number; budgetMs?: number } = {},
 ): Promise<any | null> {
   if (!GEMINI_API_KEY) return callGemini(contents, schema, opts);
   const tries = opts.tries ?? 5;
-  const pauseMs = opts.pauseMs ?? 4000;
+  const pauseMs = opts.pauseMs ?? 2000;
+  // The person waiting is never kept longer than this in total, whatever Google does.
+  const budgetMs = opts.budgetMs ?? 70000;
+  const started = Date.now();
   const models = [QUALITY_MODEL, GEMINI_MODEL].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
   for (let i = 0; i < tries; i++) {
-    const result = await callGemini(contents, schema, { ...opts, model: models[i % models.length], attempts: 1 });
+    const remaining = budgetMs - (Date.now() - started);
+    if (remaining < 4000) break;
+    const result = await callGemini(contents, schema, {
+      ...opts,
+      model: models[i % models.length],
+      attempts: 1,
+      timeoutMs: Math.min(opts.timeoutMs ?? TEXT_TIMEOUT_MS, remaining),
+    });
     if (result) return result;
     if (i < tries - 1) await sleep(pauseMs * (i + 1));
   }

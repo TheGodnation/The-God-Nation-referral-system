@@ -102,7 +102,7 @@ export async function draftQuizQuestions(input: {
 
   const parts: unknown[] = [{ text: prompt }];
   if (input.audio) parts.push({ inlineData: { mimeType: input.audio.mimeType, data: input.audio.base64 } });
-  const result = await callGeminiPersistent([{ role: 'user', parts }], schema, { timeoutMs: 90000 });
+  const result = await callGeminiPersistent([{ role: 'user', parts }], schema, { timeoutMs: input.audio ? 90000 : 35000, budgetMs: input.audio ? 110000 : 70000 });
   if (!result) return null;
   const cleaned = cleanDraft(result, input.count);
   return cleaned.length ? cleaned : null;
