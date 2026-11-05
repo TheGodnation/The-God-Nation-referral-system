@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import { Prisma, type MemberAccount, type Person } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { hashToken, autoPairLeaderSession } from '../lib/auth';
+import { hashToken, autoPairLeaderSession, destroySession, SESSION_COOKIE_NAME } from '../lib/auth';
 import { createMemberSession, destroyMemberSession, requireMember, MEMBER_SESSION_COOKIE_NAME } from '../lib/memberAuth';
 import { normalizeToE164 } from '../lib/phone';
 import { recordAudit, isBruteForced, recordLoginAttempt } from '../lib/audit';
@@ -502,7 +502,7 @@ router.post('/login', memberPasswordLoginLimiter, requireCsrf, asyncHandler(asyn
   await recordLoginAttempt(bruteForceId, true, ip, userAgent);
   await createMemberSession(account.id, res);
   const deletionCancelled = await comeBack(account.person);
-  await autoPairLeaderSession(account.personId, res);
+  await autoPairLeaderSession(account.personId, res, req);
   await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'password' } });
 
   res.json({
@@ -627,7 +627,7 @@ router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler
   await createMemberSession(account.id, res);
   await trustThisDevice(account.id, account.personId, res);
   const deletionCancelled = await comeBack(account.person);
-  await autoPairLeaderSession(account.personId, res);
+  await autoPairLeaderSession(account.personId, res, req);
   await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'code' } });
   if (newPasswordHash) {
     await recordAudit({ action: 'MEMBER_PASSWORD_SET', targetType: 'MemberAccount', targetId: account.id });
@@ -682,7 +682,7 @@ router.post('/consume', memberLoginConsumeLimiter, requireCsrf, asyncHandler(asy
   await createMemberSession(memberAccount.id, res);
   await trustThisDevice(memberAccount.id, memberAccount.personId, res);
   const deletionCancelled = await comeBack(memberAccount.person);
-  await autoPairLeaderSession(memberAccount.personId, res);
+  await autoPairLeaderSession(memberAccount.personId, res, req);
 
   await recordAudit({
     action: 'MEMBER_LOGIN_SUCCESS',
@@ -771,7 +771,7 @@ router.post('/password-help', memberPasswordHelpLimiter, requireCsrf, asyncHandl
   ]);
   await createMemberSession(account.id, res);
   const deletionCancelled = await comeBack(account.person);
-  await autoPairLeaderSession(account.personId, res);
+  await autoPairLeaderSession(account.personId, res, req);
   await recordAudit({ action: 'MEMBER_PASSWORD_SET', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'admin_help_link' } });
 
   res.json({
@@ -787,6 +787,12 @@ router.post('/password-help', memberPasswordHelpLimiter, requireCsrf, asyncHandl
 router.post('/logout', requireCsrf, requireMember, asyncHandler(async (req, res) => {
   if (req.memberSessionToken) {
     await destroyMemberSession(req.memberSessionToken);
+  }
+  // The Leader session that was paired behind this member sign-in ends with it, so the next person on this
+  // phone does not find a leader dashboard open. (An admin session is separate and is left alone.)
+  if (req.sessionToken && req.user?.role === 'LEADER' && req.user.personId === req.member!.personId) {
+    await destroySession(req.sessionToken);
+    res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
   }
   res.clearCookie(MEMBER_SESSION_COOKIE_NAME, { path: '/' });
   res.json({ ok: true });

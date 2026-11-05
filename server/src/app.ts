@@ -9,7 +9,7 @@ import fs from 'fs';
 import { CLIENT_URL, GUIDE_HOST, isProd } from './lib/env';
 import { ensureVisitorId } from './lib/visitor';
 import { ensureCsrfCookie } from './lib/csrf';
-import { loadSession } from './lib/auth';
+import { loadSession, dropMismatchedLeaderSession } from './lib/auth';
 import { loadMemberSession } from './lib/memberAuth';
 import { generalApiLimiter } from './lib/rateLimit';
 
@@ -131,6 +131,7 @@ export function createApp() {
   // req.user. requireAuth/requireRole below only ever check req.user, so a
   // member session can never satisfy them (see memberSessionIsolation.test.ts).
   app.use(loadMemberSession);
+  app.use(dropMismatchedLeaderSession);
   app.use('/api', generalApiLimiter);
   app.use('/api', (req, _res, next) => {
     if (req.path !== '/health') markActivity();

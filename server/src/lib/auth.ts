@@ -53,7 +53,13 @@ export async function createSession(userId: string, res: Response) {
 // Person bridged to an ADMIN User (Section 13) must never gain a sid
 // session this way — Admin always signs in explicitly through its own,
 // permanently separate /login.
-export async function autoPairLeaderSession(personId: string, res: Response) {
+export async function autoPairLeaderSession(personId: string, res: Response, req?: Request) {
+  // A leader session left on this device by someone else must never outlive a new member sign-in: the next
+  // person on a shared phone would otherwise see that leader's dashboard. (A leader's own session is replaced below.)
+  if (req?.sessionToken && req.user && req.user.role === 'LEADER' && req.user.personId !== personId) {
+    await destroySession(req.sessionToken);
+    res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
+  }
   const linkedUser = await prisma.user.findUnique({ where: { personId } });
   if (!linkedUser || linkedUser.role !== 'LEADER' || !linkedUser.active) return;
   await createSession(linkedUser.id, res);
@@ -107,6 +113,25 @@ export async function loadSession(req: Request, res: Response, next: NextFunctio
       res.cookie(SESSION_COOKIE_NAME, token, { httpOnly: true, secure: isProd, sameSite: 'lax', maxAge: SESSION_MAX_AGE_MS, path: '/' });
     }
 
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * A leader session that belongs to a different person than the member session beside it is a leftover (a shared
+ * phone, or testing with two accounts): it is ended at once, so a member never sees or uses someone else's
+ * leader dashboard. Only Leader sessions linked to a person are judged; admin sessions are separate by design.
+ */
+export async function dropMismatchedLeaderSession(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (req.user && req.user.role === 'LEADER' && req.user.personId && req.member && req.user.personId !== req.member.personId && req.sessionToken) {
+      await destroySession(req.sessionToken);
+      res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
+      req.user = undefined;
+      req.sessionToken = undefined;
+    }
     next();
   } catch (err) {
     next(err);
