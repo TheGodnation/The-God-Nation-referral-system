@@ -1995,7 +1995,8 @@
     "report_sent": "Merci. Votre signalement a été envoyé aux responsables.",
     "posts_title": "Publications",
     "our_leaders_none": "Les responsables apparaîtront ici dès leur nomination.",
-    "represent_button": "Demander à représenter votre zone"
+    "represent_button": "Demander à représenter votre zone",
+    "search_short": "Chercher…"
   },
   "reports": {
     "outcome_title": "Qu'avez-vous constaté ? (la personne qui a signalé en sera informée)",

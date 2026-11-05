@@ -1995,7 +1995,8 @@
     "report_sent": "Thank you. Your report was sent to the leaders.",
     "posts_title": "Posts",
     "our_leaders_none": "Leaders will appear here as they are appointed.",
-    "represent_button": "Request to represent your area"
+    "represent_button": "Request to represent your area",
+    "search_short": "Search…"
   },
   "reports": {
     "outcome_title": "What did you find? (the person who reported will be told)",

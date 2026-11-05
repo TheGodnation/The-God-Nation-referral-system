@@ -76,10 +76,37 @@ export function MemberPeoplePage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-2xl px-4 py-3">
-        <div className="mb-2 flex items-center justify-between">
+        {/* Search sits in the title row, beside "People", so the people near you rise higher on the page. */}
+        <div className="mb-2 flex items-center gap-2">
           <h1 className="text-2xl font-bold text-brand-900">{t('people.title')}</h1>
+          <form onSubmit={search} className="flex min-w-0 flex-1 gap-1" role="search">
+            <input
+              className="input min-w-0 flex-1 !py-2"
+              aria-label={t('people.search_label') ?? ''}
+              placeholder={t('people.search_short') ?? ''}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <button type="submit" className="btn-primary shrink-0 !px-3 !py-2" aria-label={t('people.search') ?? ''}>
+              <span aria-hidden>🔍</span>
+            </button>
+          </form>
           <NotificationBell />
         </div>
+
+        {(searchError || results) && (
+          <section className="card mb-3">
+            {searchError && <p className="text-sm text-red-700">{searchError}</p>}
+            {results && (
+              <ul className="divide-y divide-slate-100">
+                {results.length === 0 && <li className="py-2 text-sm text-slate-500">{t('people.no_results')}</li>}
+                {results.map((p) => (
+                  <PersonCard key={p.personId} person={p} />
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <div className="space-y-3">
           <OurLeadersCard />
@@ -93,30 +120,6 @@ export function MemberPeoplePage() {
           </Link>
 
           <Section title={t('people.requests')} items={incoming} />
-
-          <section className="card">
-            <form onSubmit={search} className="flex gap-2">
-              <input
-                className="input flex-1"
-                aria-label={t('people.search_label') ?? ''}
-                placeholder={t('people.search_placeholder') ?? ''}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-              <button type="submit" className="btn-primary px-4">
-                {t('people.search')}
-              </button>
-            </form>
-            {searchError && <p className="mt-2 text-sm text-red-700">{searchError}</p>}
-            {results && (
-              <ul className="mt-2 divide-y divide-slate-100">
-                {results.length === 0 && <li className="py-2 text-sm text-slate-500">{t('people.no_results')}</li>}
-                {results.map((p) => (
-                  <PersonCard key={p.personId} person={p} />
-                ))}
-              </ul>
-            )}
-          </section>
 
           <Section title={t('people.near_you')} items={near} empty={t('people.near_empty')} />
           <Section title={t('people.may_know')} items={suggested} />
