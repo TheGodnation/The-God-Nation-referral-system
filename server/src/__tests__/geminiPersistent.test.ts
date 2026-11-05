@@ -50,4 +50,23 @@ describe('callGeminiPersistent', () => {
     expect(third).toContain('gemini-pro-latest');
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it('stops asking a model whose allowance is used up (429) and keeps trying the others', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
+    process.env.GEMINI_QUALITY_MODEL = 'gemini-flash-latest';
+    vi.resetModules();
+    const urls: string[] = [];
+    const fetchMock = vi.fn(async (url: string) => {
+      urls.push(url);
+      if (url.includes('gemini-flash-latest') || url.includes('gemini-pro-latest')) return { ok: false, status: 429, json: async () => ({}), text: async () => 'quota' };
+      return urls.filter((u) => u.includes('lite')).length < 3 ? busy : ok({ questions: ['y'] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { callGeminiPersistent } = await import('../lib/translation');
+    expect(await callGeminiPersistent([], {}, { pauseMs: 1 })).toEqual({ questions: ['y'] });
+    expect(urls.filter((u) => u.includes('gemini-flash-latest')).length).toBe(1);
+    expect(urls.filter((u) => u.includes('gemini-pro-latest')).length).toBe(1);
+  });
 });
