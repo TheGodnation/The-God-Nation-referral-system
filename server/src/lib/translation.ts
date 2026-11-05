@@ -201,7 +201,10 @@ export async function callGeminiPersistent(
   // The person waiting is never kept longer than this in total, whatever Google does.
   const budgetMs = opts.budgetMs ?? 70000;
   const started = Date.now();
-  const models = [QUALITY_MODEL, GEMINI_MODEL].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
+  // Each model is a separate pool of capacity on Google's side, so when the Flash ones are overloaded
+  // the Pro one may still answer (GEMINI_DRAFT_MODELS can list others, comma separated).
+  const extra = (process.env.GEMINI_DRAFT_MODELS ?? 'gemini-pro-latest').split(',').map((m) => m.trim());
+  const models = [QUALITY_MODEL, GEMINI_MODEL, ...extra].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
   for (let i = 0; i < tries; i++) {
     const remaining = budgetMs - (Date.now() - started);
     if (remaining < 4000) break;

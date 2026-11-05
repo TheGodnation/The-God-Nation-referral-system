@@ -34,6 +34,7 @@ describe('callGeminiPersistent', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(urls[0]).toContain('gemini-flash-latest');
     expect(urls[1]).toContain('gemini-flash-lite-latest');
+    expect(urls.length).toBe(3);
   });
 
   it('gives up with null only after every try failed', async () => {
@@ -45,6 +46,8 @@ describe('callGeminiPersistent', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { callGeminiPersistent } = await import('../lib/translation');
     expect(await callGeminiPersistent([], {}, { tries: 3, pauseMs: 1 })).toBeNull();
+    const third = fetchMock.mock.calls[2][0] as string;
+    expect(third).toContain('gemini-pro-latest');
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

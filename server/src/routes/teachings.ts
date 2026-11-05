@@ -260,7 +260,7 @@ router.post('/draft-questions', teachingDraftLimiter, requireCsrf, asyncHandler(
 
   const questions = await draftQuizQuestions({ text: d.text, audio, count: d.count });
   if (!questions) {
-    return res.status(502).json({ error: 'The assistant could not write questions just now. Please try again, or write them yourself.', code: 'AI_FAILED' });
+    return res.status(502).json({ error: 'The AI service is very busy right now and could not write the questions. Please try again in a few minutes, or write them yourself.', code: 'AI_FAILED' });
   }
   res.json({ questions });
 }));
