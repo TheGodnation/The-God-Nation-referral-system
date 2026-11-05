@@ -1,13 +1,17 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../../lib/locations';
+import { divisionsOf, quartersOf, subdivisionsOf } from '../../lib/cameroonPlaces';
 
 // Where a member lives, always asked in the same order: country, region,
 // division, subdivision, quarter — when joining, on the "tell us about you"
 // step, and when editing the profile. For Cameroon the region is picked from
-// the ten regions; anywhere else every level is typed in (a place that is not
-// on a list is simply written the same way).
+// the ten regions, then its division, subdivision and (for the main towns) quarter
+// from lists that follow each other; "Other — type it" is always there for a place
+// that is not listed. Anywhere else every level is typed in.
 
 export const OTHER_COUNTRY = '__other__';
+const OTHER_PLACE = '__other_place__';
 
 export interface LocationValue {
   countryChoice: string;
@@ -97,6 +101,19 @@ export function LocationFields({
       {err(field)}
     </div>
   );
+  // A level picked from a list, with "Other — type it" for a place that is not on it.
+  const pick = (field: 'division' | 'subdivision' | 'quarter', label: string, chooseLabel: string, list: string[]) => (
+    <PlaceSelect
+      key={`${field}-${value.region}-${value.division}-${value.subdivision}`}
+      id={`${idPrefix}-${field}`}
+      label={label}
+      chooseLabel={chooseLabel}
+      options={list}
+      value={value[field]}
+      onChange={(v) => set(field === 'division' ? { division: v, subdivision: '', quarter: '' } : field === 'subdivision' ? { subdivision: v, quarter: '' } : { quarter: v })}
+      error={errors[field]}
+    />
+  );
 
   return (
     <>
@@ -130,7 +147,7 @@ export function LocationFields({
           <label className="label" htmlFor={`${idPrefix}-region`}>
             {t('memberCompleteProfile.region_label')}
           </label>
-          <select id={`${idPrefix}-region`} className="input" value={value.region} onChange={(e) => set({ region: e.target.value })}>
+          <select id={`${idPrefix}-region`} className="input" value={value.region} onChange={(e) => set({ region: e.target.value, division: '', subdivision: '', quarter: '' })}>
             <option value="">{t('memberCompleteProfile.choose_region')}</option>
             {CAMEROON_REGIONS.map((r) => (
               <option key={r.value} value={r.value}>
@@ -143,9 +160,92 @@ export function LocationFields({
       ) : (
         text('region', t('memberCompleteProfile.region_label'))
       )}
-      {text('division', t('memberCompleteProfile.division_label'), inCameroon ? 'Mfoundi' : undefined)}
-      {text('subdivision', t('memberCompleteProfile.subdivision_label'), inCameroon ? 'Yaoundé III' : undefined)}
-      {text('quarter', t('memberCompleteProfile.quarter_label'), inCameroon ? 'Efoulan' : undefined)}
+      {inCameroon && value.region ? (
+        <>
+          {pick('division', t('memberCompleteProfile.division_label'), t('memberCompleteProfile.choose_division'), divisionsOf(value.region).map((d) => d.name))}
+          {pick('subdivision', t('memberCompleteProfile.subdivision_label'), t('memberCompleteProfile.choose_subdivision'), subdivisionsOf(value.region, value.division))}
+          {pick('quarter', t('memberCompleteProfile.quarter_label'), t('memberCompleteProfile.choose_quarter'), quartersOf(value.subdivision))}
+        </>
+      ) : (
+        <>
+          {text('division', t('memberCompleteProfile.division_label'), inCameroon ? 'Mfoundi' : undefined)}
+          {text('subdivision', t('memberCompleteProfile.subdivision_label'), inCameroon ? 'Yaoundé III' : undefined)}
+          {text('quarter', t('memberCompleteProfile.quarter_label'), inCameroon ? 'Efoulan' : undefined)}
+        </>
+      )}
     </>
+  );
+}
+
+/**
+ * A list to pick a place from, with "Other — type it" at the end. A saved value that is not on the list
+ * (typed earlier, or from an older version) opens as "Other" with the value in the box. With no list
+ * (a quarter outside the main towns) it is simply a box to type in.
+ */
+function PlaceSelect({
+  id,
+  label,
+  chooseLabel,
+  options,
+  value,
+  onChange,
+  error,
+}: {
+  id: string;
+  label: string;
+  chooseLabel: string;
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+}) {
+  const { t } = useTranslation();
+  const [typing, setTyping] = useState(Boolean(value) && !options.includes(value));
+  const err = error ? (
+    <p className="mt-1 text-xs font-medium text-red-700" role="alert">
+      {error}
+    </p>
+  ) : null;
+  if (options.length === 0) {
+    return (
+      <div>
+        <label className="label" htmlFor={id}>
+          {label}
+        </label>
+        <input id={id} className="input" maxLength={100} value={value} onChange={(e) => onChange(e.target.value)} />
+        {err}
+      </div>
+    );
+  }
+  return (
+    <div>
+      <label className="label" htmlFor={id}>
+        {label}
+      </label>
+      <select
+        id={id}
+        className="input"
+        value={typing ? OTHER_PLACE : value}
+        onChange={(e) => {
+          if (e.target.value === OTHER_PLACE) {
+            setTyping(true);
+            onChange('');
+          } else {
+            setTyping(false);
+            onChange(e.target.value);
+          }
+        }}
+      >
+        <option value="">{chooseLabel}</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+        <option value={OTHER_PLACE}>{t('memberCompleteProfile.other_place')}</option>
+      </select>
+      {typing && <input aria-label={`${label}: ${t('memberCompleteProfile.type_place')}`} className="input mt-2" placeholder={t('memberCompleteProfile.type_place') ?? ''} maxLength={100} value={value} onChange={(e) => onChange(e.target.value)} />}
+      {err}
+    </div>
   );
 }

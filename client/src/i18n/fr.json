@@ -88,7 +88,12 @@
     "required": "Veuillez remplir ce champ.",
     "submit": "Entrer dans la communauté",
     "submitting": "Enregistrement…",
-    "error_generic": "Une erreur s’est produite. Veuillez réessayer."
+    "error_generic": "Une erreur s’est produite. Veuillez réessayer.",
+    "choose_division": "Choisissez votre département",
+    "choose_subdivision": "Choisissez votre arrondissement",
+    "choose_quarter": "Choisissez votre quartier",
+    "other_place": "Autre — l'écrire",
+    "type_place": "Écrivez-le ici"
   },
   "memberLoginConfirm": {
     "title": "Connexion en cours",

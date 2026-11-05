@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
+import { LocationFields, locationFrom, locationCountry, type LocationValue } from './LocationFields';
 
 type Level = 'NATIONAL' | 'REGION' | 'DIVISION' | 'SUBDIVISION' | 'QUARTER';
 
@@ -58,8 +59,8 @@ export function RepresentRequestForm({
   const [options, setOptions] = useState<AreaOption[][]>([]);
   const [picked, setPicked] = useState<string[]>([]);
   const [notListed, setNotListed] = useState(noList);
-  const [typedCountry, setTypedCountry] = useState(country);
-  const [typed, setTyped] = useState({ region: '', division: '', subdivision: '', quarter: '' });
+  // A place that is not on the lists: the same pick-lists as the profile (country, then region, division, subdivision, quarter).
+  const [loc, setLoc] = useState<LocationValue>(() => locationFrom({ country }));
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -107,7 +108,7 @@ export function RepresentRequestForm({
 
   const pending = myRequests?.find((r) => r.status === 'PENDING') ?? null;
   const areaId = fixedArea?.id ?? (picked.length > 0 ? picked[picked.length - 1] : '');
-  const canSend = notListed ? typed.region.trim().length > 0 && (!noList || typedCountry.trim().length > 0) : Boolean(areaId);
+  const canSend = notListed ? loc.region.trim().length > 0 && locationCountry(loc).length > 0 : Boolean(areaId);
 
   async function submit() {
     setError(null);
@@ -116,11 +117,11 @@ export function RepresentRequestForm({
       await api.post('/api/member/area-representation-requests', {
         ...(notListed
           ? {
-              typedCountry: noList ? typedCountry.trim() : country,
-              typedRegion: typed.region.trim(),
-              typedDivision: typed.division.trim() || undefined,
-              typedSubdivision: typed.subdivision.trim() || undefined,
-              typedQuarter: typed.quarter.trim() || undefined,
+              typedCountry: locationCountry(loc),
+              typedRegion: loc.region.trim(),
+              typedDivision: loc.division.trim() || undefined,
+              typedSubdivision: loc.subdivision.trim() || undefined,
+              typedQuarter: loc.quarter.trim() || undefined,
             }
           : { areaId }),
         note: note.trim() || undefined,
@@ -129,7 +130,7 @@ export function RepresentRequestForm({
       setOpen(false);
       setPicked([]);
       setOptions([]);
-      setTyped({ region: '', division: '', subdivision: '', quarter: '' });
+      setLoc(locationFrom({ country }));
       setNote('');
       onClearFixedArea?.();
       loadMine();
@@ -194,29 +195,7 @@ export function RepresentRequestForm({
           ) : notListed ? (
             <div className="space-y-2">
               <p className="text-sm text-slate-600">{t('leadershipDirectory.typed_help')}</p>
-              {noList && (
-                <div>
-                  <label className="label" htmlFor="typed-country">
-                    {t('leadershipDirectory.field_country')} *
-                  </label>
-                  <input id="typed-country" className="input" maxLength={120} value={typedCountry} onChange={(e) => setTypedCountry(e.target.value)} />
-                </div>
-              )}
-              {(['region', 'division', 'subdivision', 'quarter'] as const).map((k) => (
-                <div key={k}>
-                  <label className="label" htmlFor={`typed-${k}`}>
-                    {t(`leadershipDirectory.field_${k}`)}
-                    {k === 'region' ? ' *' : ''}
-                  </label>
-                  <input
-                    id={`typed-${k}`}
-                    className="input"
-                    maxLength={120}
-                    value={typed[k]}
-                    onChange={(e) => setTyped((v) => ({ ...v, [k]: e.target.value }))}
-                  />
-                </div>
-              ))}
+              <LocationFields value={loc} onChange={setLoc} idPrefix="typed" />
             </div>
           ) : (
             <div className="space-y-2">

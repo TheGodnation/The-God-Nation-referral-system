@@ -205,14 +205,18 @@ describe('GeographicDirectory (Member)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Request to represent my area' }));
     fireEvent.click(await screen.findByLabelText("My place isn't listed"));
     expect(screen.getByRole('button', { name: 'Submit request' })).toBeDisabled(); // needs at least the region
-    fireEvent.change(screen.getByLabelText('Region *'), { target: { value: 'South West' } });
+    // Country, region, division, subdivision and quarter are picked from lists that follow each other.
+    expect((screen.getByLabelText('Country') as HTMLSelectElement).value).toBe('Cameroon');
+    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'South-West' } });
     fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
-    fireEvent.change(screen.getByLabelText('Quarter or locality'), { target: { value: 'Mile 17' } });
+    expect(Array.from((screen.getByLabelText('Subdivision') as HTMLSelectElement).options).map((o) => o.value)).toContain('Buea');
+    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
+    fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Molyko' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
 
     await waitFor(() => {
       const post = calls.find((c) => c.method === 'POST' && c.url.includes('/area-representation-requests'));
-      expect(post?.body).toMatchObject({ typedCountry: 'Cameroon', typedRegion: 'South West', typedDivision: 'Fako', typedQuarter: 'Mile 17' });
+      expect(post?.body).toMatchObject({ typedCountry: 'Cameroon', typedRegion: 'South-West', typedDivision: 'Fako', typedSubdivision: 'Buea', typedQuarter: 'Molyko' });
       expect((post?.body as any).areaId).toBeUndefined();
     });
   });

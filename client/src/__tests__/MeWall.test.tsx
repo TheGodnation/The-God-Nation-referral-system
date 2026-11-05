@@ -48,7 +48,7 @@ const ME = {
     email: 'grace@example.com',
     preferredLanguage: 'en',
     locationCountry: 'Cameroon',
-    locationCity: 'Buea',
+    locationCity: 'Fako',
     locationArea: 'Molyko',
     personId: 'me1',
     photoUrl: null,
@@ -213,7 +213,10 @@ describe('Edit profile', () => {
     expect(screen.queryByText(/Private details/)).not.toBeInTheDocument();
     expect((screen.getByLabelText('Country') as HTMLSelectElement).value).toBe('Cameroon');
     fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'South-West' } });
-    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea Town' } });
+    // Division, subdivision and quarter are picked from lists that follow the region.
+    fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
+    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
+    fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Molyko' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
@@ -224,10 +227,10 @@ describe('Edit profile', () => {
         preferredLanguage: 'en',
         locationCountry: 'Cameroon',
         locationRegion: 'South-West',
-        locationDivision: 'Buea',
-        locationSubdivision: 'Buea Town',
+        locationDivision: 'Fako',
+        locationSubdivision: 'Buea',
         locationQuarter: 'Molyko',
-        locationCity: 'Buea',
+        locationCity: 'Fako',
         locationArea: 'Molyko',
       });
     });

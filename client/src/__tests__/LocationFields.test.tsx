@@ -46,3 +46,37 @@ describe('Location fields', () => {
     expect(locationFrom({}).countryChoice).toBe('Cameroon');
   });
 });
+
+describe('Location fields — the lists for Cameroon', () => {
+  it('offers the region\'s divisions, then the division\'s subdivisions, then a town\'s quarters, and clears what follows when one changes', () => {
+    let latest = EMPTY_LOCATION;
+    render(<Form onValue={(v) => (latest = v)} />);
+    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'Littoral' } });
+    const options = (label: string) => Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((o) => o.value);
+    expect(options('Division')).toEqual(['', 'Moungo', 'Nkam', 'Sanaga-Maritime', 'Wouri', '__other_place__']);
+    fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Wouri' } });
+    expect(options('Subdivision')).toContain('Douala III');
+    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Douala III' } });
+    expect(options('Quarter')).toContain('Makepe');
+    fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Makepe' } });
+    expect(latest).toMatchObject({ region: 'Littoral', division: 'Wouri', subdivision: 'Douala III', quarter: 'Makepe' });
+    // Changing the division clears the subdivision and quarter under it.
+    fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Nkam' } });
+    expect(latest).toMatchObject({ division: 'Nkam', subdivision: '', quarter: '' });
+  });
+
+  it('"Other — type it" lets someone write a place that is not on the list', () => {
+    let latest = EMPTY_LOCATION;
+    render(<Form onValue={(v) => (latest = v)} />);
+    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'Centre' } });
+    fireEvent.change(screen.getByLabelText('Division'), { target: { value: '__other_place__' } });
+    fireEvent.change(screen.getByLabelText('Division: Type it here'), { target: { value: 'Nouveau-Département' } });
+    expect(latest.division).toBe('Nouveau-Département');
+  });
+
+  it('opens a saved place that is not on the list as "Other", with the saved words in the box', () => {
+    render(<Form start={{ ...EMPTY_LOCATION, region: 'South-West', division: 'Fako', subdivision: 'Buea Town', quarter: '' }} />);
+    expect((screen.getByLabelText('Subdivision') as HTMLSelectElement).value).toBe('__other_place__');
+    expect(screen.getByLabelText('Subdivision: Type it here')).toHaveValue('Buea Town');
+  });
+});

@@ -88,7 +88,12 @@
     "required": "Please fill this in.",
     "submit": "Enter the community",
     "submitting": "Saving…",
-    "error_generic": "Something went wrong. Please try again."
+    "error_generic": "Something went wrong. Please try again.",
+    "choose_division": "Choose your division",
+    "choose_subdivision": "Choose your subdivision",
+    "choose_quarter": "Choose your quarter",
+    "other_place": "Other — type it",
+    "type_place": "Type it here"
   },
   "memberLoginConfirm": {
     "title": "Signing You In",
