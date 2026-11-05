@@ -16,6 +16,7 @@ import { getOrCreatePersonReferralCode } from '../lib/referralCode';
 import { notifyLeaderDashboardMovedIfNeeded } from '../lib/notifications';
 import { leaderSignInHelpLink, memberSignInHelpLink } from '../lib/signInHelp';
 import { bridgeUserToMemberProfile, MemberBridgeError } from '../lib/memberBridge';
+import { ensureLeaderAccount } from '../lib/leaderAccounts';
 
 const router = Router();
 
@@ -269,54 +270,11 @@ router.post('/leaders/assign', requireCsrf, asyncHandler(async (req, res) => {
   if (!person) {
     return res.status(404).json({ error: 'Person not found.' });
   }
-  if (!person.memberAccount) {
-    return res.status(400).json({ error: 'This person has not joined as a Member yet.' });
-  }
-
-  const existingLinkForPerson = await prisma.user.findUnique({ where: { personId } });
-  if (existingLinkForPerson) {
-    return res.status(409).json({ error: 'This person is already linked to a User account.' });
-  }
-
-  const unusablePasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
-
-  let leader;
-  try {
-    leader = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          name: person.name,
-          email: person.email ?? person.memberAccount!.email,
-          passwordHash: unusablePasswordHash,
-          role: 'LEADER',
-          active: true,
-          isTestData: person.isTestData,
-          mustChangePassword: false,
-          personId,
-        },
-      });
-      const code = await getOrCreatePersonReferralCode(tx, personId, person.name);
-      await tx.referralCode.update({ where: { id: code.id }, data: { leaderId: user.id } });
-      return user;
-    });
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return res.status(409).json({ error: 'A user with this email already exists.' });
-    }
-    throw err;
-  }
-
-  await notifyLeaderDashboardMovedIfNeeded(leader);
-
-  await recordAudit({
-    actorId: req.user!.id,
-    actorEmail: req.user!.email,
-    action: 'LEADER_ASSIGNED_FROM_MEMBER',
-    targetType: 'User',
-    targetId: leader.id,
-    metadata: { personId, name: person.name },
-  });
-
+  const result = await ensureLeaderAccount(personId, { id: req.user!.id, email: req.user!.email });
+  if (result.status === 'NO_MEMBER_ACCOUNT') return res.status(400).json({ error: 'This person has not joined as a Member yet.' });
+  if (result.status === 'ALREADY') return res.status(409).json({ error: 'This person is already linked to a User account.' });
+  if (result.status === 'EMAIL_TAKEN') return res.status(409).json({ error: 'A user with this email already exists.' });
+  const leader = result.user;
   res.status(201).json({ id: leader.id, name: leader.name, email: leader.email, personId });
 }));
 

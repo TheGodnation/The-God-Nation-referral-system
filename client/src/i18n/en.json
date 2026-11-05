@@ -495,7 +495,12 @@
       "table_assigned_by": "Assigned By",
       "table_assigned_at": "Assigned",
       "no_assignments": "No role assignments found.",
-      "unlinked_leader": "{{name}} ({{email}}) has a Leader account that is not linked to a person profile yet, so they cannot be picked here. Open the Leaders tab, press “Link Person” on their row, then search again. If they have no member profile at all, they first need to join the app as a member."
+      "unlinked_leader": "{{name}} ({{email}}) has a Leader account that is not linked to a person profile yet, so they cannot be picked here. Open the Leaders tab, press “Link Person” on their row, then search again. If they have no member profile at all, they first need to join the app as a member.",
+      "done_title": "{{name}} now leads the assembly.",
+      "done_created": "They were also made a Leader, so the My Leadership Dashboard is ready on their Me page (it appears by itself, no need to sign out).",
+      "done_already": "They already had a Leader account, so their dashboard is ready.",
+      "done_no_member_account": "They have not joined the app as a member yet, so their dashboard will open once they have joined and you have pressed “Assign as Leader” for them.",
+      "done_email_taken": "The assembly role is given, but a Leader account could not be made because another account uses their email. Check the Leaders tab."
     },
     "followUps": {
       "title": "Follow-Ups",

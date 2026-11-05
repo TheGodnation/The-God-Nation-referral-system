@@ -84,10 +84,21 @@ router.post('/logout', requireCsrf, requireAuth, asyncHandler(async (req, res) =
   res.json({ ok: true });
 }));
 
-router.get('/me', (req, res) => {
-  if (!req.user) return res.json({ user: null });
-  res.json({ user: req.user });
-});
+router.get('/me', asyncHandler(async (req, res) => {
+  if (req.user) return res.json({ user: req.user });
+  // A signed-in member who was made a Leader after they signed in: pair the Leader session now, so the
+  // dashboard appears without signing out and in again (the same pairing that happens when a member signs in).
+  if (req.member) {
+    const linked = await prisma.user.findUnique({ where: { personId: req.member.personId } });
+    if (linked && linked.role === 'LEADER' && linked.active) {
+      await createSession(linked.id, res);
+      return res.json({
+        user: { id: linked.id, name: linked.name, email: linked.email, role: linked.role, mustChangePassword: linked.mustChangePassword, personId: linked.personId },
+      });
+    }
+  }
+  res.json({ user: null });
+}));
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),

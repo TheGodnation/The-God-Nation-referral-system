@@ -96,6 +96,8 @@ describe('RoleAssignmentsTab (Admin) — Geography Retirement Step 5B', () => {
       expect(createCall).toBeTruthy();
       expect((createCall!.body as any)).toEqual({ personId: 'person-1', roleType: 'SCOPED_LEADER', communityId: 'community-1' });
     });
+    // The admin is told what happened to the leader dashboard, in the same step.
+    expect(await screen.findByTestId('role-done')).toHaveTextContent('Jane Doe now leads the assembly.');
   });
 
   it('3-4. Community remains as the scope label for existing rows in the list, and Geography never appears', async () => {

@@ -13,6 +13,7 @@ import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
 import { computeAttentionAcrossNetwork } from '../lib/followUpAttention';
 import { notifyFollowUpAssigned, notifyRoleAssigned } from '../lib/notifications';
 import { handOverPeople } from '../lib/followUpShare';
+import { ensureLeaderAccount } from '../lib/leaderAccounts';
 
 const router = Router();
 
@@ -113,7 +114,11 @@ router.post('/role-assignments', leadershipMutationLimiter, requireCsrf, asyncHa
 
   await notifyRoleAssigned(created);
 
-  res.status(201).json(created);
+  // One step for the admin: leading an assembly also needs the Leader account that opens the "My Leadership
+  // Dashboard", so a member who has none gets it now. (Someone with no member account yet cannot; the page says so.)
+  const leaderAccount = await ensureLeaderAccount(personId, { id: req.user!.id, email: req.user!.email });
+
+  res.status(201).json({ ...created, leaderAccount: leaderAccount.status });
 }));
 
 router.patch('/role-assignments/:id/end', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {

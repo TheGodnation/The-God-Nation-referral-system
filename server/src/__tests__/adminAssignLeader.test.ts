@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { createAdmin } from './helpers';
+import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 
 // Admin "Assign as Leader" — the only way a new Leader is created going
@@ -116,5 +117,57 @@ describe('POST /api/admin/leaders/assign — Assign an existing Member as Leader
 
     const leader = await prisma.user.findUnique({ where: { id: res.body.id } });
     expect(leader?.personLinkNotifiedAt).not.toBeNull();
+  });
+});
+
+describe('One step: an assembly role also makes the member a Leader', () => {
+  it('POST /api/admin/role-assignments gives a member without a Leader account one, and leaves everyone else alone', async () => {
+    const { agent, csrf } = await loginAsAdmin('role-leader-admin@test.local');
+    const hq = await prisma.community.create({ data: { name: 'Headquarter Assembly' } });
+    const member = await createMember('Role Leader', '+237670400101', 'role-leader@test.local');
+    const post = (personId: string) => agent.post('/api/admin/role-assignments').set('X-CSRF-Token', csrf).send({ personId, roleType: 'SCOPED_LEADER', communityId: hq.id });
+
+    const first = await post(member.id);
+    expect(first.status).toBe(201);
+    expect(first.body.leaderAccount).toBe('CREATED');
+    const user = await prisma.user.findUniqueOrThrow({ where: { personId: member.id } });
+    expect(user).toMatchObject({ role: 'LEADER', active: true, email: 'role-leader@test.local' });
+    // Their own referral code now carries the leader.
+    expect((await prisma.referralCode.findUniqueOrThrow({ where: { personId: member.id } })).leaderId).toBe(user.id);
+
+    // A second assembly for the same person: nothing new is made.
+    const other = await prisma.community.create({ data: { name: 'Buea Assembly' } });
+    const second = await agent.post('/api/admin/role-assignments').set('X-CSRF-Token', csrf).send({ personId: member.id, roleType: 'SCOPED_LEADER', communityId: other.id });
+    expect(second.status).toBe(201);
+    expect(second.body.leaderAccount).toBe('ALREADY');
+    expect(await prisma.user.count({ where: { personId: member.id } })).toBe(1);
+
+    // Someone with no member account yet still gets the assembly role; the answer says the dashboard waits.
+    const noAccount = await prisma.person.create({ data: { name: 'No Account Yet', whatsappNumber: '+237670400102' } });
+    const third = await post(noAccount.id);
+    expect(third.status).toBe(201);
+    expect(third.body.leaderAccount).toBe('NO_MEMBER_ACCOUNT');
+  });
+
+  it('a member who is made a Leader while signed in gets the dashboard without signing out and in', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('role-leader-admin2@test.local');
+    const hq = await prisma.community.create({ data: { name: 'Pairing Assembly' } });
+    const member = await createMember('Pairing Leader', '+237670400103', 'pairing-leader@test.local');
+    // The member signs in as an ordinary member (an emailed code).
+    const spy = vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true });
+    const memberAgent = request.agent(app);
+    const { csrf } = await bootstrap(memberAgent);
+    await memberAgent.post('/api/member/auth/request-code').set('X-CSRF-Token', csrf).send({ email: 'pairing-leader@test.local' });
+    const code = spy.mock.calls[0][0].code as string;
+    spy.mockRestore();
+    await memberAgent.post('/api/member/auth/verify-code').set('X-CSRF-Token', csrf).send({ email: 'pairing-leader@test.local', code });
+    expect((await memberAgent.get('/api/auth/me')).body.user).toBeNull();
+
+    // The admin gives the assembly role. The member, still signed in, now has the Leader session.
+    await adminAgent.post('/api/admin/role-assignments').set('X-CSRF-Token', adminCsrf).send({ personId: member.id, roleType: 'SCOPED_LEADER', communityId: hq.id });
+    const me = await memberAgent.get('/api/auth/me');
+    expect(me.body.user).toMatchObject({ role: 'LEADER', personId: member.id });
+    // And it stays: the next call finds the session already there.
+    expect((await memberAgent.get('/api/auth/me')).body.user.role).toBe('LEADER');
   });
 });

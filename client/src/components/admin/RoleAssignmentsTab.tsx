@@ -32,6 +32,8 @@ export function RoleAssignmentsTab() {
   const [selectedPerson, setSelectedPerson] = useState<{ id: string; name: string } | null>(null);
   const [selectedScope, setSelectedScope] = useState<{ id: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // What happened to the leader dashboard when the role was given (said after the form closes).
+  const [done, setDone] = useState<{ name: string; leaderAccount: string } | null>(null);
 
   function load() {
     const q = statusFilter ? `&status=${statusFilter}` : '';
@@ -57,11 +59,12 @@ export function RoleAssignmentsTab() {
     if (!selectedPerson || !selectedScope) return;
     setError(null);
     try {
-      await api.post('/api/admin/role-assignments', {
+      const res = await api.post<{ leaderAccount?: string }>('/api/admin/role-assignments', {
         personId: selectedPerson.id,
         roleType: 'SCOPED_LEADER',
         communityId: selectedScope.id,
       });
+      setDone({ name: selectedPerson.name, leaderAccount: res.leaderAccount ?? 'ALREADY' });
       resetForm();
       setShowForm(false);
       setPage(1);
@@ -91,6 +94,13 @@ export function RoleAssignmentsTab() {
       </div>
 
       <p className="mb-4 text-sm text-slate-500">{t('admin.roleAssignments.description')}</p>
+
+      {done && (
+        <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-900" role="status" data-testid="role-done">
+          <p className="font-semibold">{t('admin.roleAssignments.done_title', { name: done.name })}</p>
+          <p>{t(`admin.roleAssignments.done_${done.leaderAccount.toLowerCase()}`)}</p>
+        </div>
+      )}
 
       {showForm && (
         <div className="card mb-4 space-y-4">

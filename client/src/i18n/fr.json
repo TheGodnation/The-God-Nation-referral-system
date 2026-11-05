@@ -495,7 +495,12 @@
       "table_assigned_by": "Attribué par",
       "table_assigned_at": "Attribué le",
       "no_assignments": "Aucune attribution de rôle trouvée.",
-      "unlinked_leader": "{{name}} ({{email}}) a un compte Leader qui n'est pas encore lié à un profil de personne, donc on ne peut pas le choisir ici. Ouvrez l'onglet Leaders, appuyez sur « Lier une personne » sur sa ligne, puis cherchez à nouveau. S'il n'a aucun profil de membre, il doit d'abord rejoindre l'application comme membre."
+      "unlinked_leader": "{{name}} ({{email}}) a un compte Leader qui n'est pas encore lié à un profil de personne, donc on ne peut pas le choisir ici. Ouvrez l'onglet Leaders, appuyez sur « Lier une personne » sur sa ligne, puis cherchez à nouveau. S'il n'a aucun profil de membre, il doit d'abord rejoindre l'application comme membre.",
+      "done_title": "{{name}} dirige maintenant l'assemblée.",
+      "done_created": "Cette personne a aussi été nommée Responsable : son tableau de bord est prêt sur sa page Moi (il apparaît tout seul, sans se déconnecter).",
+      "done_already": "Cette personne avait déjà un compte Responsable, son tableau de bord est prêt.",
+      "done_no_member_account": "Cette personne n'a pas encore rejoint l'application comme membre : son tableau de bord s'ouvrira quand elle aura rejoint et que vous aurez appuyé sur « Assigner comme responsable ».",
+      "done_email_taken": "Le rôle d'assemblée est donné, mais le compte Responsable n'a pas pu être créé car un autre compte utilise son e-mail. Vérifiez l'onglet Leaders."
     },
     "followUps": {
       "title": "Suivis",
