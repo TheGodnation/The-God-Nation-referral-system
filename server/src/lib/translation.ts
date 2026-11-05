@@ -1,6 +1,7 @@
 import type { Language, TranslationRetryKind } from '@prisma/client';
 import { prisma } from './prisma';
 import { getObjectStream } from './storage';
+import { callClaudeJson, isClaudeConfigured, textOnlyPrompt } from './claude';
 
 // Auto-translation (Gemini) — text translation on Updates posts, teachings
 // (title, text and quiz) and Community group-chat messages, and voice-note transcription+translation in
@@ -83,7 +84,7 @@ export interface GeminiCallOptions {
 export type TranslationOutcome = 'done' | 'retry' | 'skip';
 
 export function isTranslationConfigured(): boolean {
-  return Boolean(GEMINI_API_KEY);
+  return Boolean(GEMINI_API_KEY) || isClaudeConfigured();
 }
 
 let warnedUnconfigured = false;
@@ -185,6 +186,12 @@ export async function callGemini(contents: unknown[], schema: unknown, opts: Gem
  * nothing usable, asks Flash-Lite instead.
  */
 export async function callGeminiBest(contents: unknown[], schema: unknown, opts: GeminiCallOptions = {}): Promise<any | null> {
+  const prompt = isClaudeConfigured() ? textOnlyPrompt(contents) : null;
+  if (prompt) {
+    const fromClaude = await callClaudeJson(prompt, schema, { timeoutMs: opts.timeoutMs });
+    if (fromClaude) return fromClaude;
+    console.warn('[translation] Claude gave nothing — using Gemini');
+  }
   const started = Date.now();
   for (const model of QUALITY_MODELS) {
     // All the stronger models together get at most QUALITY_TIMEOUT_MS, so the lighter fallback still fits in the
@@ -208,6 +215,12 @@ export async function callGeminiPersistent(
   schema: unknown,
   opts: GeminiCallOptions & { tries?: number; pauseMs?: number; budgetMs?: number } = {},
 ): Promise<any | null> {
+  const prompt = isClaudeConfigured() ? textOnlyPrompt(contents) : null;
+  if (prompt) {
+    const fromClaude = await callClaudeJson(prompt, schema, { timeoutMs: Math.min(opts.timeoutMs ?? 60000, opts.budgetMs ?? 70000) });
+    if (fromClaude) return fromClaude;
+    console.warn('[translation] Claude gave nothing — using Gemini');
+  }
   if (!GEMINI_API_KEY) return callGemini(contents, schema, opts);
   const tries = opts.tries ?? 8;
   const pauseMs = opts.pauseMs ?? 2000;
