@@ -82,7 +82,7 @@ export function MemberAboutPage() {
                   <Link to="/member/leadership" className="font-medium text-brand-700 underline">{t('aboutGodNation.join_leaders')}</Link>
                 </li>
                 <li>
-                  <Link to="/member/leadership" className="font-medium text-brand-700 underline">{t('aboutGodNation.join_represent')}</Link>
+                  <Link to="/member/represent" className="font-medium text-brand-700 underline">{t('aboutGodNation.join_represent')}</Link>
                 </li>
               </ul>
             </article>

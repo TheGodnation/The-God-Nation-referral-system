@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemberRepresentPage } from '../pages/MemberRepresentPage';
 import { GeographicDirectory } from '../components/member/GeographicDirectory';
 
 const calls: { url: string; method: string; body: unknown }[] = [];
@@ -44,6 +45,18 @@ function renderWithRoutes() {
   );
 }
 
+// "Request to represent your area" is a page of its own; it opens with the form ready.
+function renderRepresent(path = '/member/represent') {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/member/represent" element={<MemberRepresentPage />} />
+        <Route path="/member/representatives" element={<div>The wall</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 const BASE_ROUTES = {
   '/geographic-areas/countries': { status: 200, body: { items: [{ id: 'c1', name: 'Cameroon', country: 'Cameroon' }] } },
   '/area-representation-requests/mine': { status: 200, body: { items: [] } },
@@ -63,10 +76,8 @@ describe('GeographicDirectory (Member)', () => {
       '/leadership-directory/national-team': { status: 200, body: { items: [] } },
       'POST /area-representation-requests': { status: 201, body: { id: 'r1' } },
     });
-    renderWithRoutes();
+    renderRepresent();
     expect(await screen.findByText('Represent The God Nation in your area')).toBeInTheDocument();
-    expect(screen.getByText(/No leaders have been appointed yet/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Request to represent my area' }));
     // There is no list to pick from, so the place is typed, with the country.
     const send = screen.getByRole('button', { name: 'Submit request' });
     expect(send).toBeDisabled();
@@ -83,16 +94,11 @@ describe('GeographicDirectory (Member)', () => {
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ typedCountry: 'Cameroon', typedRegion: 'Littoral', typedDivision: 'Wouri', typedSubdivision: 'Douala V', typedQuarter: 'Bonamoussadi' }));
   });
 
-  it('opens the request form at once when arriving from the People page button', async () => {
+  it('opens the request form at once on its own page', async () => {
     mockFetchByUrl(BASE_ROUTES as never);
-    render(
-      <MemoryRouter initialEntries={['/member/leadership#represent']}>
-        <Routes>
-          <Route path="/member/leadership" element={<GeographicDirectory />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderRepresent();
     expect(await screen.findByRole('button', { name: 'Submit request' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Request to represent your area' })).toBeInTheDocument();
   });
 
   it('shows a leader as a face card with name, position and place, plus the full path, no profile click needed', async () => {
@@ -190,8 +196,7 @@ describe('GeographicDirectory (Member)', () => {
       '/geographic-areas?parentId=s1': { status: 200, body: QUARTER_OPTIONS },
       'POST /area-representation-requests': { status: 201, body: { id: 'req-1', status: 'PENDING' } },
     });
-    renderWithRoutes();
-    fireEvent.click(await screen.findByRole('button', { name: 'Request to represent my area' }));
+    renderRepresent();
     fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'r1' } });
     fireEvent.change(await screen.findByLabelText('Division'), { target: { value: 'd1' } });
     // Regions and divisions are appointed by the central authority: a division alone cannot be sent.
@@ -219,8 +224,7 @@ describe('GeographicDirectory (Member)', () => {
       '/geographic-areas?parentId=s1': { status: 200, body: QUARTER_OPTIONS },
       'POST /area-representation-requests': { status: 201, body: { id: 'req-9', status: 'PENDING' } },
     });
-    renderWithRoutes();
-    fireEvent.click(await screen.findByRole('button', { name: 'Request to represent my area' }));
+    renderRepresent();
     fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'r1' } });
     fireEvent.change(await screen.findByLabelText('Division'), { target: { value: 'd1' } });
     fireEvent.change(await screen.findByLabelText('Subdivision'), { target: { value: 's1' } });
@@ -239,8 +243,7 @@ describe('GeographicDirectory (Member)', () => {
       '/geographic-areas?parentId=c1': { status: 200, body: REGION_OPTIONS },
       'POST /area-representation-requests': { status: 201, body: { id: 'req-2', status: 'PENDING' } },
     });
-    renderWithRoutes();
-    fireEvent.click(await screen.findByRole('button', { name: 'Request to represent my area' }));
+    renderRepresent();
     fireEvent.click(await screen.findByLabelText("My place isn't listed"));
     expect(screen.getByRole('button', { name: 'Submit request' })).toBeDisabled(); // needs the exact subdivision
     // Country, region, division, subdivision and quarter are picked from lists that follow each other.
@@ -273,11 +276,18 @@ describe('GeographicDirectory (Member)', () => {
       },
       'POST /area-representation-requests': { status: 201, body: { id: 'req-3', status: 'PENDING' } },
     });
-    window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
     renderWithRoutes();
     // Only the subdivision can be asked for; the vacant division has no button (the central authority appoints those).
     expect(await screen.findAllByRole('button', { name: 'Represent this place' })).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Represent this place' }));
+  });
+
+  it('arriving with a chosen place, the request page asks for exactly that place', async () => {
+    mockFetchByUrl({
+      ...BASE_ROUTES,
+      'POST /area-representation-requests': { status: 201, body: { id: 'req-3', status: 'PENDING' } },
+    });
+    renderRepresent('/member/represent?areaId=area-2&label=Subdivisional%20Leader%20%E2%80%94%20Ed%C3%A9a%20I');
+    expect(await screen.findByText(/Edéa I/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: 'Submit request' }));
     await waitFor(() => {
       expect(calls.some((c) => c.method === 'POST' && (c.body as any)?.areaId === 'area-2')).toBe(true);
@@ -295,9 +305,8 @@ describe('GeographicDirectory (Member)', () => {
       'DELETE /area-representation-requests/req-1': { status: 200, body: { ok: true } },
     });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    renderWithRoutes();
+    renderRepresent();
     expect(await screen.findByText('Mile 17, Fako, South West')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Request to represent my area' })).toBeNull();
     fireEvent.click(screen.getByText('Withdraw request'));
     await waitFor(() => {
       expect(calls.some((c) => c.method === 'DELETE' && c.url.includes('/area-representation-requests/req-1'))).toBe(true);

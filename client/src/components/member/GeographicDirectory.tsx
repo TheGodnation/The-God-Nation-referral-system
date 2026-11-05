@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { PortraitCard } from '../PortraitCard';
-import { RepresentRequestForm } from './RepresentRequestForm';
 
 type GeographicLevel = 'NATIONAL' | 'REGION' | 'DIVISION' | 'SUBDIVISION' | 'QUARTER';
 
@@ -47,16 +46,12 @@ const LEVELS: GeographicLevel[] = ['NATIONAL', 'REGION', 'DIVISION', 'SUBDIVISIO
 export function GeographicDirectory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  // "Request to represent your area" on the People page lands here, with the form open.
-  const openForm = useLocation().hash === '#represent';
-
   const [countries, setCountries] = useState<CountryRow[] | null>(null);
   const [country, setCountry] = useState<string>('');
   const [level, setLevel] = useState<'' | GeographicLevel>('');
   const [areas, setAreas] = useState<AreaEntry[] | null>(null);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [loadError, setLoadError] = useState(false);
-  const [fixedArea, setFixedArea] = useState<{ id: string; label: string } | null>(null);
 
   useEffect(() => {
     api
@@ -84,7 +79,6 @@ export function GeographicDirectory() {
       .catch(() => setLoadError(true));
   }, [country]);
 
-  const root = countries?.find((c) => c.country === country);
   const shown = (areas ?? []).filter((a) => !level || a.level === level);
   const represented = shown.filter((a) => a.leaders.length > 0);
   const vacant = shown.filter((a) => a.leaders.length === 0 && a.level !== 'NATIONAL');
@@ -94,16 +88,11 @@ export function GeographicDirectory() {
     <div className="space-y-4">
       <p className="text-sm text-slate-600">{t('leadershipDirectory.intro')}</p>
 
-      {/* Always there, even before any place or leader has been set up: then the member types their place. */}
-      {(root || countries !== null) && (
-        <RepresentRequestForm
-          country={country}
-          rootId={root?.id ?? ''}
-          fixedArea={fixedArea}
-          onClearFixedArea={() => setFixedArea(null)}
-          startOpen={openForm}
-        />
-      )}
+      {/* Asking to represent your area is a page of its own. */}
+      <Link to="/member/represent" className="flex items-center justify-center gap-2 rounded-xl bg-gold-400 px-3 py-2.5 text-sm font-semibold text-brand-950 no-underline hover:bg-gold-500">
+        <span aria-hidden>🙋</span>
+        {t('people.represent_button')}
+      </Link>
 
       {countries !== null && countries.length === 0 && team.length === 0 && (
         <p className="card text-sm text-slate-600">{t('leadershipDirectory.nobody_yet')}</p>
@@ -208,10 +197,7 @@ export function GeographicDirectory() {
                     <button
                       type="button"
                       className="shrink-0 text-xs font-semibold text-brand-700 underline"
-                      onClick={() => {
-                        setFixedArea({ id: a.id, label: `${a.title} — ${a.path}` });
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
+                      onClick={() => navigate(`/member/represent?areaId=${encodeURIComponent(a.id)}&label=${encodeURIComponent(`${a.title} — ${a.path}`)}`)}
                     >
                       {t('leadershipDirectory.represent_this')}
                     </button>

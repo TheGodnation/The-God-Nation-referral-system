@@ -557,6 +557,32 @@ describe('Area Representation Requests — only subdivisions and quarters', () =
   });
 });
 
+describe('Leadership Directory — the wall of representatives', () => {
+  it('shows the people appointed to a place with their photo, position and place, those in the viewer\'s own place first', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-wall@test.local');
+    const path = await buildCameroonPath(adminAgent, adminCsrf);
+    const near = await member('Near Representative');
+    const far = await member('Far Representative');
+    const viewer = await member('Wall Viewer');
+    await prisma.person.update({ where: { id: viewer.id }, data: { locationRegion: 'Littoral', locationDivision: 'Wouri', locationSubdivision: 'Douala V' } });
+    // A second subdivision elsewhere with its own representative.
+    const other = await send(adminAgent, adminCsrf, 'post', '/api/admin/geographic-areas', { parentId: path.division.id, name: 'Douala III' });
+    await send(adminAgent, adminCsrf, 'post', '/api/admin/area-leadership-assignments', { personId: far.id, areaId: other.body.id });
+    await send(adminAgent, adminCsrf, 'post', '/api/admin/area-leadership-assignments', { personId: near.id, areaId: path.subdivision.id, title: 'Subdivision Coordinator' });
+
+    const wall = await viewer.agent.get('/api/member/leadership-directory/representatives');
+    expect(wall.status).toBe(200);
+    expect(wall.body.inYourArea.map((r: any) => r.name)).toEqual(['Near Representative']);
+    expect(wall.body.inYourArea[0]).toMatchObject({ title: 'Subdivision Coordinator', level: 'SUBDIVISION', place: 'Douala V, Wouri, Littoral, Cameroon' });
+    expect(wall.body.elsewhere.map((r: any) => r.name)).toEqual(['Far Representative']);
+    expect(wall.body.elsewhere[0].title).toBe('Subdivisional Leader');
+    // A member with no place set sees everyone in "elsewhere"; the wall needs a signed-in member.
+    const stranger = await member('Stranger');
+    expect((await stranger.agent.get('/api/member/leadership-directory/representatives')).body.inYourArea).toEqual([]);
+    expect((await request.agent(app).get('/api/member/leadership-directory/representatives')).status).toBe(401);
+  });
+});
+
 describe('Leadership Directory — a member whose request is approved becomes visible', () => {
   it('shows the new representative in the directory and among the faces on the People page card', async () => {
     const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-faces@test.local');

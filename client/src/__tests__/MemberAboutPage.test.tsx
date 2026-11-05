@@ -104,7 +104,7 @@ describe('About the God Nation', () => {
     const header = container.querySelector('header.rounded-xl');
     expect(header?.className).toMatch(/from-brand-900/);
     expect(header?.className).not.toMatch(/amber|orange/);
-    expect(screen.getByRole('link', { name: 'Represent The God Nation in your area' })).toHaveAttribute('href', '/member/leadership');
+    expect(screen.getByRole('link', { name: 'Represent The God Nation in your area' })).toHaveAttribute('href', '/member/represent');
   });
 
   it('has Home and About tabs, and the Home tab goes back to the Home page', async () => {

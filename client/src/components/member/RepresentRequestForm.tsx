@@ -41,6 +41,7 @@ export function RepresentRequestForm({
   onClearFixedArea,
   onChanged,
   startOpen = false,
+  onCancel,
 }: {
   country: string;
   /** The country's own area (the top of the lists). */
@@ -51,6 +52,8 @@ export function RepresentRequestForm({
   onChanged?: () => void;
   /** Opens the form at once (the "Request to represent your area" button on the People page). */
   startOpen?: boolean;
+  /** On a page of its own, Cancel goes back instead of just closing the form. */
+  onCancel?: () => void;
 }) {
   const { t } = useTranslation();
   // With no places set up yet (no list to pick from) the member types their place.
@@ -323,6 +326,7 @@ export function RepresentRequestForm({
               onClick={() => {
                 setOpen(false);
                 onClearFixedArea?.();
+                onCancel?.();
               }}
             >
               {t('chatActions.cancel')}

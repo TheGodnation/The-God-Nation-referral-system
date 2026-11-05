@@ -132,6 +132,51 @@ router.get('/leadership-directory/national-team', requireMember, asyncHandler(as
   });
 }));
 
+// GET /api/member/leadership-directory/representatives — the wall of representatives: the people appointed
+// to represent a place (and the National Team), each with their photo, position and place. The ones that
+// represent the viewer's own place (their quarter, subdivision, division or region) come first, marked
+// `inYourArea`, so a person meets the people near them.
+router.get('/leadership-directory/representatives', requireMember, asyncHandler(async (req, res) => {
+  const personSelect = { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } as const;
+  const me = await prisma.person.findUnique({
+    where: { id: req.member!.personId },
+    select: { locationRegion: true, locationDivision: true, locationSubdivision: true, locationQuarter: true },
+  });
+  const assignments = await prisma.areaLeadershipAssignment.findMany({
+    where: { status: 'ACTIVE' },
+    include: { person: { select: personSelect }, area: { select: { id: true, name: true, level: true } } },
+    orderBy: { createdAt: 'asc' },
+    take: 300,
+  });
+  const key = (n: string | null | undefined) => (n ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[-_']/g, ' ').replace(/\s+/g, ' ').trim();
+  const mine: Record<string, string> = { REGION: key(me?.locationRegion), DIVISION: key(me?.locationDivision), SUBDIVISION: key(me?.locationSubdivision), QUARTER: key(me?.locationQuarter) };
+  const rank: Record<string, number> = { QUARTER: 0, SUBDIVISION: 1, DIVISION: 2, REGION: 3, NATIONAL: 4 };
+  const items = await Promise.all(
+    assignments.map(async (a) => {
+      const ancestors = await getAreaAncestors(a.area.id);
+      return {
+        personId: a.person.id,
+        name: a.person.name,
+        photoUrl: profilePhotoPath(a.person),
+        title: a.title || titleForLevel(a.area.level),
+        level: a.area.level,
+        place: formatAreaPath(a.area, ancestors),
+        inYourArea: Boolean(mine[a.area.level]) && key(a.area.name) === mine[a.area.level],
+      };
+    }),
+  );
+  items.sort((x, y) => Number(y.inYourArea) - Number(x.inYourArea) || (rank[x.level] ?? 9) - (rank[y.level] ?? 9) || x.name.localeCompare(y.name));
+  const team = await prisma.nationalTeamMember.findMany({
+    include: { person: { select: personSelect } },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+  res.json({
+    inYourArea: items.filter((i) => i.inYourArea),
+    elsewhere: items.filter((i) => !i.inYourArea),
+    nationalTeam: team.map((m) => ({ personId: m.person.id, name: m.person.name, photoUrl: profilePhotoPath(m.person), title: m.title })),
+  });
+}));
+
 // GET /api/member/leadership-directory/faces — a few faces for the "Our
 // Leaders" card on the People page: the National Team first, then people
 // appointed to represent a place (including those whose request was approved).

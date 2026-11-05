@@ -31,28 +31,30 @@ export function OurLeadersCard() {
 
   return (
     <section className="card space-y-2.5 py-3" aria-labelledby="our-leaders-title">
-      <Link to="/member/leadership" className="flex items-center gap-3 no-underline">
-        <span aria-hidden className="text-2xl">🧭</span>
-        <span className="min-w-0 flex-1">
-          <span id="our-leaders-title" className="block font-semibold text-brand-900">{t('leadershipDirectory.title')}</span>
-          <span className="block truncate text-sm text-slate-600">{faces.length > 0 ? t('people.our_leaders_help') : t('people.our_leaders_none')}</span>
+      <Link to="/member/representatives" className="block space-y-2 no-underline">
+        <span className="flex items-start gap-3">
+          <span aria-hidden className="text-2xl">🧭</span>
+          <span className="min-w-0 flex-1">
+            <span id="our-leaders-title" className="block text-[15px] font-semibold leading-snug text-brand-900">{t('representatives.title')}</span>
+            <span className="mt-0.5 block text-sm leading-snug text-slate-600">{faces.length > 0 ? t('representatives.card_help') : t('people.our_leaders_none')}</span>
+          </span>
+          <span aria-hidden className="pt-1 text-brand-700">›</span>
         </span>
         {faces.length > 0 && (
-          <span className="flex -space-x-2" aria-hidden>
+          <span className="flex -space-x-2 pl-9" aria-hidden>
             {faces.map((f) => (
               <span key={f.personId} className="rounded-full ring-2 ring-white">
-                <Avatar name={f.name} photoUrl={f.photoUrl} size={32} />
+                <Avatar name={f.name} photoUrl={f.photoUrl} size={40} />
               </span>
             ))}
             {total > faces.length && (
-              <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-slate-200 px-1.5 text-xs font-semibold text-slate-700 ring-2 ring-white">+{total - faces.length}</span>
+              <span className="flex h-10 min-w-10 items-center justify-center rounded-full bg-slate-200 px-1.5 text-xs font-semibold text-slate-700 ring-2 ring-white">+{total - faces.length}</span>
             )}
           </span>
         )}
-        <span aria-hidden className="text-brand-700">›</span>
       </Link>
       <Link
-        to="/member/leadership#represent"
+        to="/member/represent"
         className="flex items-center justify-center gap-2 rounded-xl bg-gold-400 px-3 py-2 text-sm font-semibold text-brand-950 no-underline hover:bg-gold-500"
       >
         <span aria-hidden>🙋</span>

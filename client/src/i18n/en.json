@@ -4119,5 +4119,15 @@
     "author_bio_fr": "Short biography (French)",
     "add_author": "Add the author",
     "author_delete_confirm": "Delete this author? Their articles stay, without an author."
+  },
+  "representatives": {
+    "title": "Meet The God Nation representatives in your area",
+    "in_your_area": "In your area",
+    "none_in_area": "No representative has been appointed in your area yet. You could be the first: ask to represent your area.",
+    "elsewhere": "Across The God Nation",
+    "full_directory": "See the full directory of places",
+    "load_failed": "The representatives could not be loaded.",
+    "request_title": "Request to represent your area",
+    "card_help": "See the faces of the people who represent The God Nation near you."
   }
 }

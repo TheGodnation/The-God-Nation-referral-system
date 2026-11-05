@@ -4119,5 +4119,15 @@
     "author_bio_fr": "Courte biographie (français)",
     "add_author": "Ajouter l'auteur",
     "author_delete_confirm": "Supprimer cet auteur ? Ses articles restent, sans auteur."
+  },
+  "representatives": {
+    "title": "Rencontrez les représentants de The God Nation dans votre région",
+    "in_your_area": "Dans votre région",
+    "none_in_area": "Aucun représentant n'a encore été nommé dans votre région. Vous pourriez être le premier : demandez à représenter votre région.",
+    "elsewhere": "Partout dans The God Nation",
+    "full_directory": "Voir l'annuaire complet des lieux",
+    "load_failed": "Les représentants n'ont pas pu être chargés.",
+    "request_title": "Demander à représenter votre région",
+    "card_help": "Voyez les visages de ceux qui représentent The God Nation près de chez vous."
   }
 }
