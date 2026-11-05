@@ -670,7 +670,9 @@
       "community_heading": "Community places",
       "community_help": "Where people can join us. Fill in only the ones you have created; a blank one is not shown. People pick the place they prefer after signing up, and which one they choose is counted in the Growth tab.",
       "not_set_up": "Not set up yet",
-      "catch_all_automatic": "(automatic: the central admin's own member profile)"
+      "catch_all_automatic": "(automatic: the central admin's own member profile)",
+      "catch_all_change": "Change who catches new joiners",
+      "catch_all_cancel": "Cancel"
     },
     "content": {
       "title": "Website Content",

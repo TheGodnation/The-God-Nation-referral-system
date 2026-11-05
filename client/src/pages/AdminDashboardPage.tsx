@@ -833,12 +833,14 @@ export function SettingsTab() {
   // Section 14: the catch-all Person is a standalone action (saved
   // immediately on pick/clear), independent of the main form's Save button.
   const [catchAllError, setCatchAllError] = useState<string | null>(null);
+  const [changingCatchAll, setChangingCatchAll] = useState(false);
 
   async function setCatchAllPerson(person: { id: string; name: string } | null) {
     setCatchAllError(null);
     try {
       const res = await api.patch<SettingsData>('/api/admin/settings', { defaultReferrerPersonId: person?.id ?? null });
       setSettings(res);
+      setChangingCatchAll(false);
     } catch (err) {
       setCatchAllError(err instanceof ApiError ? err.message : t('admin.settings.catch_all_failed'));
     }
@@ -946,20 +948,27 @@ export function SettingsTab() {
                 </>
               )
               : <span className="text-slate-400">{t('admin.settings.catch_all_none')}</span>}
+          </p>
+          <div className="mb-2 flex flex-wrap gap-2">
+            <button type="button" className="btn-secondary" data-testid="catch-all-change" onClick={() => setChangingCatchAll((v) => !v)}>
+              {changingCatchAll ? t('admin.settings.catch_all_cancel') : t('admin.settings.catch_all_change')}
+            </button>
             {settings.defaultReferrerPersonId && (
-              <button type="button" className="ml-3 text-xs text-red-700 hover:underline" onClick={() => setCatchAllPerson(null)}>
+              <button type="button" className="btn-secondary" data-testid="catch-all-automatic" onClick={() => setCatchAllPerson(null)}>
                 {t('admin.settings.catch_all_clear')}
               </button>
             )}
-          </p>
-          <SearchPicker
-            placeholder={t('admin.leaders.assign_search_placeholder') ?? ''}
-            searchPath="/api/admin/people?includeTestData=true&search="
-            renderLabel={(p) => `${p.name} (${p.whatsappNumber})`}
-            actionLabel={t('admin.settings.catch_all_set')}
-            searchButtonLabel={t('admin.people.search_button')}
-            onPick={(p) => setCatchAllPerson({ id: p.id, name: p.name })}
-          />
+          </div>
+          {changingCatchAll && (
+            <SearchPicker
+              placeholder={t('admin.leaders.assign_search_placeholder') ?? ''}
+              searchPath="/api/admin/people?includeTestData=true&search="
+              renderLabel={(p) => `${p.name} (${p.whatsappNumber})`}
+              actionLabel={t('admin.settings.catch_all_set')}
+              searchButtonLabel={t('admin.people.search_button')}
+              onPick={(p) => setCatchAllPerson({ id: p.id, name: p.name })}
+            />
+          )}
           {catchAllError && <p className="mt-1 text-sm text-red-700">{catchAllError}</p>}
         </div>
       </div>
