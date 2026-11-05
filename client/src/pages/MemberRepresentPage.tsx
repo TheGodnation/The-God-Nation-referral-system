@@ -47,7 +47,6 @@ export function MemberRepresentPage() {
         {countries !== null && (
           <RepresentRequestForm
             country={root?.country ?? ''}
-            rootId={root?.id ?? ''}
             fixedArea={fixedArea}
             onClearFixedArea={() => setFixedArea(null)}
             onChanged={() => undefined}

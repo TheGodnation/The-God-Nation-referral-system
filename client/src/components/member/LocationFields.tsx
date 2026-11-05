@@ -77,6 +77,7 @@ export function LocationFields({
   idPrefix,
   errors = {},
   hints = {},
+  hideQuarter = false,
 }: {
   value: LocationValue;
   onChange: (next: LocationValue) => void;
@@ -84,6 +85,8 @@ export function LocationFields({
   errors?: LocationErrors;
   /** A few words shown right under a field (the form that asks to represent a place explains subdivision and quarter this way). */
   hints?: Partial<Record<'subdivision' | 'quarter', ReactNode>>;
+  /** Leave the quarter out (the form that asks to represent a place shows it only when a quarter is wanted). */
+  hideQuarter?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const country = locationCountry(value);
@@ -169,13 +172,13 @@ export function LocationFields({
         <>
           {pick('division', t('memberCompleteProfile.division_label'), t('memberCompleteProfile.choose_division'), divisionsOf(value.region).map((d) => d.name))}
           {pick('subdivision', t('memberCompleteProfile.subdivision_label'), t('memberCompleteProfile.choose_subdivision'), subdivisionsOf(value.region, value.division))}
-          {pick('quarter', t('memberCompleteProfile.quarter_label'), t('memberCompleteProfile.choose_quarter'), quartersOf(value.subdivision))}
+          {!hideQuarter && pick('quarter', t('memberCompleteProfile.quarter_label'), t('memberCompleteProfile.choose_quarter'), quartersOf(value.subdivision))}
         </>
       ) : (
         <>
           {text('division', t('memberCompleteProfile.division_label'), inCameroon ? 'Mfoundi' : undefined)}
           {text('subdivision', t('memberCompleteProfile.subdivision_label'), inCameroon ? 'Yaoundé III' : undefined)}
-          {text('quarter', t('memberCompleteProfile.quarter_label'), inCameroon ? 'Efoulan' : undefined)}
+          {!hideQuarter && text('quarter', t('memberCompleteProfile.quarter_label'), inCameroon ? 'Efoulan' : undefined)}
         </>
       )}
     </>

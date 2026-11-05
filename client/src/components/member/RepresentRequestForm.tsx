@@ -3,20 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { LocationFields, locationFrom, locationCountry, type LocationValue } from './LocationFields';
 
-type Level = 'NATIONAL' | 'REGION' | 'DIVISION' | 'SUBDIVISION' | 'QUARTER';
-
-interface AreaOption {
-  id: string;
-  name: string;
-  level: Level;
-}
-
 interface MyRequestRow {
   id: string;
   note: string | null;
   status: 'PENDING' | 'APPROVED' | 'DECLINED';
   decisionNote: string | null;
-  area: AreaOption | null;
+  area: { id: string; name: string; level: string } | null;
   typedCountry?: string | null;
   typedRegion?: string | null;
   typedDivision?: string | null;
@@ -24,19 +16,16 @@ interface MyRequestRow {
   typedQuarter?: string | null;
 }
 
-// The steps a member walks down to name their place, one list after another.
-const STEPS: Exclude<Level, 'NATIONAL'>[] = ['REGION', 'DIVISION', 'SUBDIVISION', 'QUARTER'];
-
 const requestPlace = (r: MyRequestRow) =>
   r.area ? r.area.name : [r.typedQuarter, r.typedSubdivision, r.typedDivision, r.typedRegion, r.typedCountry].filter(Boolean).join(', ');
 
-// "Represent The God Nation in your area": the member picks their place from
-// the lists (region, then division, then subdivision, then quarter), or — when
-// their place is not listed yet — types it in. The central authority reviews
-// the request and contacts them; nothing is granted by sending it.
+// "Represent The God Nation in your area". The member names where they live from the lists (country, region,
+// division, then the exact subdivision) and says what they want to represent: the subdivision itself, or a
+// quarter within it. If the subdivision already has a representative, only a quarter within it can be asked
+// for. Regions and divisions are appointed by the central authority. The central authority reviews the request
+// and contacts them; nothing is granted by sending it.
 export function RepresentRequestForm({
   country,
-  rootId,
   fixedArea,
   onClearFixedArea,
   onChanged,
@@ -44,31 +33,25 @@ export function RepresentRequestForm({
   onCancel,
 }: {
   country: string;
-  /** The country's own area (the top of the lists). */
-  rootId: string;
-  /** A place chosen elsewhere on the page ("Represent this place"). */
+  /** A place chosen elsewhere ("Represent this place" in the directory). */
   fixedArea?: { id: string; label: string } | null;
   onClearFixedArea?: () => void;
   onChanged?: () => void;
-  /** Opens the form at once (the "Request to represent your area" button on the People page). */
+  /** Opens the form at once. */
   startOpen?: boolean;
   /** On a page of its own, Cancel goes back instead of just closing the form. */
   onCancel?: () => void;
 }) {
   const { t } = useTranslation();
-  // With no places set up yet (no list to pick from) the member types their place.
-  const noList = !rootId;
   const [open, setOpen] = useState(startOpen);
-  const [options, setOptions] = useState<AreaOption[][]>([]);
-  const [picked, setPicked] = useState<string[]>([]);
-  const [notListed, setNotListed] = useState(noList);
-  // A place that is not on the lists: the same pick-lists as the profile (country, then region, division, subdivision, quarter).
   const [loc, setLoc] = useState<LocationValue>(() => locationFrom({ country }));
+  const [scope, setScope] = useState<'SUBDIVISION' | 'QUARTER'>('SUBDIVISION');
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [myRequests, setMyRequests] = useState<MyRequestRow[] | null>(null);
+  const [taken, setTaken] = useState<{ represented: boolean; representatives: string[] } | null>(null);
 
   function loadMine() {
     api
@@ -78,113 +61,66 @@ export function RepresentRequestForm({
   }
   useEffect(loadMine, []);
 
-  // A place chosen on the page opens the form with that place already set.
+  // A place chosen elsewhere opens the form with that place already set.
   useEffect(() => {
-    if (fixedArea) {
-      setOpen(true);
-      setNotListed(false);
-    }
+    if (fixedArea) setOpen(true);
   }, [fixedArea]);
 
-  // The first list (regions) loads when the form opens; each choice loads the
-  // next list down.
-  useEffect(() => {
-    if (!open || fixedArea || notListed || options.length > 0 || !rootId) return;
-    api
-      .get<{ items: AreaOption[] }>(`/api/member/geographic-areas?parentId=${encodeURIComponent(rootId)}`)
-      .then((res) => setOptions([res.items]))
-      .catch(() => setOptions([[]]));
-  }, [open, fixedArea, notListed, options.length, rootId]);
-
-  function choose(step: number, id: string) {
-    const next = picked.slice(0, step);
-    if (id) next.push(id);
-    setPicked(next);
-    setOptions((cur) => cur.slice(0, step + 1));
-    if (id && step < STEPS.length - 1) {
-      api
-        .get<{ items: AreaOption[] }>(`/api/member/geographic-areas?parentId=${encodeURIComponent(id)}`)
-        .then((res) => setOptions((cur) => [...cur.slice(0, step + 1), res.items]))
-        .catch(() => undefined);
-    }
-  }
-
   const pending = myRequests?.find((r) => r.status === 'PENDING') ?? null;
-  const areaId = fixedArea?.id ?? (picked.length > 0 ? picked[picked.length - 1] : '');
+  const subdivision = loc.subdivision.trim();
+  const ready = loc.region.trim().length > 0 && loc.division.trim().length > 0 && subdivision.length > 0;
 
-  // Members ask to represent a subdivision or a quarter within one; regions and divisions are appointed by
-  // the central authority. If the subdivision already has a representative, only a quarter can be asked for.
-  const [taken, setTaken] = useState<{ represented: boolean; representatives: string[] } | null>(null);
-  const subdivisionAreaId = !notListed && !fixedArea ? (picked[2] ?? '') : '';
-  const typedSubdivision = notListed ? loc.subdivision.trim() : '';
+  // Does this subdivision already have a representative? Then only a quarter within it can be asked for.
   useEffect(() => {
     setTaken(null);
+    if (fixedArea || !ready) return;
     let live = true;
-    const query = subdivisionAreaId
-      ? `areaId=${encodeURIComponent(subdivisionAreaId)}`
-      : typedSubdivision && loc.division.trim() && loc.region.trim()
-        ? `country=${encodeURIComponent(locationCountry(loc))}&region=${encodeURIComponent(loc.region.trim())}&division=${encodeURIComponent(loc.division.trim())}&subdivision=${encodeURIComponent(typedSubdivision)}`
-        : '';
-    if (!query) return;
+    const q = `country=${encodeURIComponent(locationCountry(loc))}&region=${encodeURIComponent(loc.region.trim())}&division=${encodeURIComponent(loc.division.trim())}&subdivision=${encodeURIComponent(subdivision)}`;
     api
-      .get<{ represented: boolean; representatives: string[] }>(`/api/member/leadership-directory/subdivision-status?${query}`)
+      .get<{ represented: boolean; representatives: string[] }>(`/api/member/leadership-directory/subdivision-status?${q}`)
       .then((r) => live && setTaken(r))
       .catch(() => undefined);
     return () => {
       live = false;
     };
-  }, [subdivisionAreaId, typedSubdivision, loc.division, loc.region]); // eslint-disable-line react-hooks/exhaustive-deps
-  const quarterNeeded = Boolean(taken?.represented);
-  const canSend = fixedArea
-    ? Boolean(areaId)
-    : notListed
-      ? loc.region.trim().length > 0 && loc.division.trim().length > 0 && typedSubdivision.length > 0 && (!quarterNeeded || loc.quarter.trim().length > 0)
-      : picked.length >= (quarterNeeded ? 4 : 3);
+  }, [fixedArea, ready, subdivision, loc.division, loc.region]); // eslint-disable-line react-hooks/exhaustive-deps
+  const takenAlready = Boolean(taken?.represented);
+  const wantsQuarter = scope === 'QUARTER' || takenAlready;
 
-  // What the person is asking to represent: their subdivision, or a quarter within it.
-  const asking: { level: 'SUBDIVISION' | 'QUARTER'; name: string } | null = (() => {
-    if (fixedArea) return null;
-    if (notListed) {
-      if (loc.quarter.trim()) return { level: 'QUARTER', name: loc.quarter.trim() };
-      return typedSubdivision ? { level: 'SUBDIVISION', name: typedSubdivision } : null;
-    }
-    const i = picked.length - 1;
-    const name = i >= 0 ? options[i]?.find((a) => a.id === picked[i])?.name : undefined;
-    return i >= 2 && name ? { level: i >= 3 ? 'QUARTER' : 'SUBDIVISION', name } : null;
-  })();
-  const takenNotice = quarterNeeded ? (
-    <p className="mt-1 rounded-lg bg-amber-50 p-2 text-sm text-amber-900" role="status" data-testid="subdivision-taken">
-      {t('leadershipDirectory.subdivision_taken', { names: taken!.representatives.join(', ') })}
-    </p>
-  ) : null;
+  const canSend = fixedArea ? true : ready && (!wantsQuarter || loc.quarter.trim().length > 0);
 
   async function submit() {
     setError(null);
     setSubmitting(true);
     try {
       await api.post('/api/member/area-representation-requests', {
-        ...(notListed
-          ? {
+        ...(fixedArea
+          ? { areaId: fixedArea.id }
+          : {
               typedCountry: locationCountry(loc),
               typedRegion: loc.region.trim(),
-              typedDivision: loc.division.trim() || undefined,
-              typedSubdivision: loc.subdivision.trim() || undefined,
-              typedQuarter: loc.quarter.trim() || undefined,
-            }
-          : { areaId }),
+              typedDivision: loc.division.trim(),
+              typedSubdivision: subdivision,
+              typedQuarter: wantsQuarter ? loc.quarter.trim() : undefined,
+            }),
         note: note.trim() || undefined,
       });
       setSent(true);
       setOpen(false);
-      setPicked([]);
-      setOptions([]);
       setLoc(locationFrom({ country }));
+      setScope('SUBDIVISION');
       setNote('');
       onClearFixedArea?.();
       loadMine();
       onChanged?.();
     } catch (err) {
-      setError(err instanceof ApiError && err.status === 409 ? t('leadershipDirectory.already_pending') : t('leadershipDirectory.geo_submit_failed'));
+      setError(
+        err instanceof ApiError && err.code === 'SUBDIVISION_TAKEN'
+          ? t('leadershipDirectory.taken_refused')
+          : err instanceof ApiError && err.status === 409
+            ? t('leadershipDirectory.already_pending')
+            : t('leadershipDirectory.geo_submit_failed'),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -201,7 +137,26 @@ export function RepresentRequestForm({
     }
   }
 
-  const stepLabel = (i: number) => t(`leadershipDirectory.pick_${STEPS[i].toLowerCase()}`);
+  const takenNotice = takenAlready ? (
+    <p className="mt-1 rounded-lg bg-amber-50 p-2 text-sm text-amber-900" role="status" data-testid="subdivision-taken">
+      {t('leadershipDirectory.subdivision_taken', { names: taken!.representatives.join(', ') })}
+    </p>
+  ) : null;
+
+  // What to represent: asked right under the subdivision, before the quarter.
+  const scopeBox = ready ? (
+    <fieldset className="mt-2 space-y-1.5 rounded-lg border border-slate-200 p-3" data-testid="scope">
+      <legend className="px-1 text-sm font-semibold text-slate-800">{t('leadershipDirectory.scope_title')}</legend>
+      <label className={`flex items-start gap-2 text-sm ${takenAlready ? 'text-slate-400' : 'text-slate-800'}`}>
+        <input type="radio" name="scope" className="mt-1 h-4 w-4 accent-emerald-600" checked={!wantsQuarter} disabled={takenAlready} onChange={() => setScope('SUBDIVISION')} />
+        <span>{t('leadershipDirectory.scope_subdivision', { name: subdivision })}</span>
+      </label>
+      <label className="flex items-start gap-2 text-sm text-slate-800">
+        <input type="radio" name="scope" className="mt-1 h-4 w-4 accent-emerald-600" checked={wantsQuarter} onChange={() => setScope('QUARTER')} />
+        <span>{t('leadershipDirectory.scope_quarter', { name: subdivision })}</span>
+      </label>
+    </fieldset>
+  ) : null;
 
   return (
     <section id="represent" className="card space-y-3" aria-labelledby="represent-title">
@@ -233,6 +188,8 @@ export function RepresentRequestForm({
         </button>
       ) : (
         <div className="space-y-3">
+          <p className="rounded-lg bg-slate-50 p-2 text-xs text-slate-600">{t('leadershipDirectory.level_help')}</p>
+
           {fixedArea ? (
             <p className="rounded-lg bg-brand-50 p-2 text-sm text-brand-900">
               {fixedArea.label}{' '}
@@ -240,70 +197,36 @@ export function RepresentRequestForm({
                 {t('admin.roleAssignments.change')}
               </button>
             </p>
-          ) : notListed ? (
+          ) : (
             <div className="space-y-2">
-              <p className="text-sm text-slate-600">{t('leadershipDirectory.typed_help')}</p>
               <LocationFields
                 value={loc}
-                onChange={setLoc}
+                onChange={(next) => setLoc(next)}
                 idPrefix="typed"
+                hideQuarter={!wantsQuarter}
                 hints={{
                   subdivision: (
                     <>
                       <p className="mt-1 text-xs text-slate-600">{t('leadershipDirectory.subdivision_hint')}</p>
                       {takenNotice}
+                      {scopeBox}
                     </>
                   ),
                   quarter: <p className="mt-1 text-xs text-slate-600">{t('leadershipDirectory.quarter_hint')}</p>,
                 }}
               />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {options.map((list, i) =>
-                list.length === 0 && i > 0 ? null : (
-                  <div key={i}>
-                    <label className="label" htmlFor={`pick-${i}`}>
-                      {stepLabel(i)}
-                    </label>
-                    <select id={`pick-${i}`} className="input" value={picked[i] ?? ''} onChange={(e) => choose(i, e.target.value)}>
-                      <option value="">{t('leadershipDirectory.choose')}</option>
-                      {list.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
-                    {i === 2 && (
-                      <>
-                        <p className="mt-1 text-xs text-slate-600">{t('leadershipDirectory.subdivision_hint')}</p>
-                        {takenNotice}
-                      </>
-                    )}
-                    {i === 3 && <p className="mt-1 text-xs text-slate-600">{t('leadershipDirectory.quarter_hint')}</p>}
-                  </div>
-                ),
+
+              {ready && (
+                <p className="rounded-lg bg-brand-50 p-2 text-sm text-brand-900" data-testid="asking-for">
+                  {t('leadershipDirectory.asking_for')}{' '}
+                  <strong>
+                    {wantsQuarter
+                      ? `${t('leadershipDirectory.level_quarter')} — ${loc.quarter.trim() || '…'} (${subdivision})`
+                      : `${t('leadershipDirectory.level_subdivision')} — ${subdivision}`}
+                  </strong>
+                </p>
               )}
-              {options.length === 0 && <p className="text-sm text-slate-400">{t('memberDashboard.loading')}</p>}
-              <p className="text-xs text-slate-500">{t('leadershipDirectory.pick_help')}</p>
             </div>
-          )}
-
-          {!fixedArea && <p className="rounded-lg bg-slate-50 p-2 text-xs text-slate-600">{t('leadershipDirectory.level_help')}</p>}
-          {asking && (
-            <p className="rounded-lg bg-brand-50 p-2 text-sm text-brand-900" data-testid="asking-for">
-              {t('leadershipDirectory.asking_for')}{' '}
-              <strong>
-                {t(`leadershipDirectory.level_${asking.level.toLowerCase()}`)} — {asking.name}
-              </strong>
-            </p>
-          )}
-
-          {!fixedArea && !noList && (
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input type="checkbox" className="h-4 w-4 accent-emerald-600" checked={notListed} onChange={(e) => setNotListed(e.target.checked)} />
-              {t('leadershipDirectory.not_listed')}
-            </label>
           )}
 
           <textarea

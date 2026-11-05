@@ -69,26 +69,36 @@ const SUBDIVISION_OPTIONS = { items: [{ id: 's1', name: 'Douala V', level: 'SUBD
 const QUARTER_OPTIONS = { items: [{ id: 'q1', name: 'Bonamoussadi', level: 'QUARTER' }] };
 
 describe('GeographicDirectory (Member)', () => {
-  it('with no places or leaders set up yet, the member can still ask to represent their area (typing their place)', async () => {
+  it('asks for the country, region, division and exact subdivision, then what to represent: the subdivision or a quarter within it', async () => {
     mockFetchByUrl({
       '/geographic-areas/countries': { status: 200, body: { items: [] } },
       '/area-representation-requests/mine': { status: 200, body: { items: [] } },
-      '/leadership-directory/national-team': { status: 200, body: { items: [] } },
+      '/leadership-directory/subdivision-status': { status: 200, body: { represented: false, representatives: [] } },
       'POST /area-representation-requests': { status: 201, body: { id: 'r1' } },
     });
     renderRepresent();
     expect(await screen.findByText('Represent The God Nation in your area')).toBeInTheDocument();
-    // There is no list to pick from, so the place is typed, with the country.
     const send = screen.getByRole('button', { name: 'Submit request' });
     expect(send).toBeDisabled();
-    fireEvent.change(screen.getByLabelText(/Country/), { target: { value: 'Cameroon' } });
-    fireEvent.change(screen.getByLabelText(/Region/), { target: { value: 'Littoral' } });
-    // Only the region: not enough. The exact subdivision (with its division) is what a member asks for.
+    expect((screen.getByLabelText('Country') as HTMLSelectElement).value).toBe('Cameroon');
+    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'Littoral' } });
+    // A region or a division alone is not enough: the exact subdivision is needed.
     expect(send).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Wouri' } });
+    expect(send).toBeDisabled();
     fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Douala V' } });
     expect(screen.getByText(/Write or choose the exact subdivision/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Bonamoussadi' } });
+    // The choice appears: the whole subdivision, or a quarter within it.
+    const scope = await screen.findByTestId('scope');
+    expect(scope).toHaveTextContent('What do you want to represent?');
+    expect(scope).toHaveTextContent('The whole subdivision: Douala V');
+    expect(screen.queryByLabelText('Quarter')).toBeNull();
+    await waitFor(() => expect(send).toBeEnabled());
+    // Wanting a quarter brings the quarter field, and it must be filled.
+    fireEvent.click(screen.getByLabelText('A quarter within Douala V'));
+    expect(send).toBeDisabled();
+    fireEvent.change(await screen.findByLabelText('Quarter'), { target: { value: 'Bonamoussadi' } });
+    expect(screen.getByTestId('asking-for')).toHaveTextContent('Quarter — Bonamoussadi (Douala V)');
     await waitFor(() => expect(send).toBeEnabled());
     fireEvent.click(send);
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ typedCountry: 'Cameroon', typedRegion: 'Littoral', typedDivision: 'Wouri', typedSubdivision: 'Douala V', typedQuarter: 'Bonamoussadi' }));
@@ -185,86 +195,47 @@ describe('GeographicDirectory (Member)', () => {
     expect(await screen.findByText('Person Profile Page')).toBeInTheDocument();
   });
 
-  it('requests the subdivision by choosing region, division, then subdivision, from the lists; a division alone is not enough', async () => {
+  it('asking for the whole subdivision sends the subdivision with no quarter', async () => {
     mockFetchByUrl({
       ...BASE_ROUTES,
-      '/leadership-directory/areas': { status: 200, body: { items: [] } },
       '/leadership-directory/subdivision-status': { status: 200, body: { represented: false, representatives: [] } },
-      '/geographic-areas?parentId=c1': { status: 200, body: REGION_OPTIONS },
-      '/geographic-areas?parentId=r1': { status: 200, body: DIVISION_OPTIONS },
-      '/geographic-areas?parentId=d1': { status: 200, body: SUBDIVISION_OPTIONS },
-      '/geographic-areas?parentId=s1': { status: 200, body: QUARTER_OPTIONS },
       'POST /area-representation-requests': { status: 201, body: { id: 'req-1', status: 'PENDING' } },
     });
     renderRepresent();
-    fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'r1' } });
-    fireEvent.change(await screen.findByLabelText('Division'), { target: { value: 'd1' } });
-    // Regions and divisions are appointed by the central authority: a division alone cannot be sent.
-    expect(screen.getByRole('button', { name: 'Submit request' })).toBeDisabled();
-    fireEvent.change(await screen.findByLabelText('Subdivision'), { target: { value: 's1' } });
-    expect(screen.getByText(/Write or choose the exact subdivision/)).toBeInTheDocument();
-    expect(screen.getByTestId('asking-for')).toHaveTextContent('Subdivision — Douala V');
+    fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'South-West' } });
+    fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
+    expect(Array.from((screen.getByLabelText('Subdivision') as HTMLSelectElement).options).map((o) => o.value)).toContain('Buea');
+    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Submit request' })).toBeEnabled());
+    expect(screen.getByTestId('asking-for')).toHaveTextContent('Subdivision — Buea');
     fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
-
-    await waitFor(() => {
-      expect(calls.some((c) => c.method === 'POST' && c.url.includes('/area-representation-requests') && (c.body as any)?.areaId === 's1')).toBe(true);
-    });
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url.includes('/area-representation-requests'))).toBe(true));
+    const post = calls.find((c) => c.method === 'POST' && c.url.includes('/area-representation-requests'))!;
+    expect(post.body).toMatchObject({ typedCountry: 'Cameroon', typedRegion: 'South-West', typedDivision: 'Fako', typedSubdivision: 'Buea' });
+    expect((post.body as any).typedQuarter).toBeUndefined();
+    expect((post.body as any).areaId).toBeUndefined();
     expect(await screen.findByText('Thank you!')).toBeInTheDocument();
   });
 
   it('when the subdivision already has a representative, it says so and only a quarter within it can be sent', async () => {
     mockFetchByUrl({
       ...BASE_ROUTES,
-      '/leadership-directory/areas': { status: 200, body: { items: [] } },
       '/leadership-directory/subdivision-status': { status: 200, body: { represented: true, representatives: ['Grace Leader'] } },
-      '/geographic-areas?parentId=c1': { status: 200, body: REGION_OPTIONS },
-      '/geographic-areas?parentId=r1': { status: 200, body: DIVISION_OPTIONS },
-      '/geographic-areas?parentId=d1': { status: 200, body: SUBDIVISION_OPTIONS },
-      '/geographic-areas?parentId=s1': { status: 200, body: QUARTER_OPTIONS },
       'POST /area-representation-requests': { status: 201, body: { id: 'req-9', status: 'PENDING' } },
     });
     renderRepresent();
-    fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'r1' } });
-    fireEvent.change(await screen.findByLabelText('Division'), { target: { value: 'd1' } });
-    fireEvent.change(await screen.findByLabelText('Subdivision'), { target: { value: 's1' } });
+    fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'South-West' } });
+    fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
+    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
     expect(await screen.findByTestId('subdivision-taken')).toHaveTextContent('Grace Leader already represents this subdivision');
+    // The "whole subdivision" choice is closed; the quarter is asked for, and must be given.
+    expect(screen.getByLabelText('The whole subdivision: Buea')).toBeDisabled();
+    expect(screen.getByLabelText('A quarter within Buea')).toBeChecked();
     expect(screen.getByRole('button', { name: 'Submit request' })).toBeDisabled();
-    fireEvent.change(await screen.findByLabelText(/Quarter/), { target: { value: 'q1' } });
+    fireEvent.change(await screen.findByLabelText('Quarter'), { target: { value: 'Molyko' } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Submit request' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
-    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && (c.body as any)?.areaId === 'q1')).toBe(true));
-  });
-
-  it('lets the member type their place when it is not on the list', async () => {
-    mockFetchByUrl({
-      ...BASE_ROUTES,
-      '/leadership-directory/areas': { status: 200, body: { items: [] } },
-      '/geographic-areas?parentId=c1': { status: 200, body: REGION_OPTIONS },
-      'POST /area-representation-requests': { status: 201, body: { id: 'req-2', status: 'PENDING' } },
-    });
-    renderRepresent();
-    fireEvent.click(await screen.findByLabelText("My place isn't listed"));
-    expect(screen.getByRole('button', { name: 'Submit request' })).toBeDisabled(); // needs the exact subdivision
-    // Country, region, division, subdivision and quarter are picked from lists that follow each other.
-    expect((screen.getByLabelText('Country') as HTMLSelectElement).value).toBe('Cameroon');
-    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'South-West' } });
-    fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
-    // Region and division alone are not enough: nothing to send yet.
-    expect(screen.queryByTestId('asking-for')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Submit request' })).toBeDisabled();
-    expect(Array.from((screen.getByLabelText('Subdivision') as HTMLSelectElement).options).map((o) => o.value)).toContain('Buea');
-    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
-    expect(screen.getByTestId('asking-for')).toHaveTextContent('Subdivision — Buea');
-    fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Molyko' } });
-    expect(screen.getByTestId('asking-for')).toHaveTextContent('Quarter — Molyko');
-    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
-
-    await waitFor(() => {
-      const post = calls.find((c) => c.method === 'POST' && c.url.includes('/area-representation-requests'));
-      expect(post?.body).toMatchObject({ typedCountry: 'Cameroon', typedRegion: 'South-West', typedDivision: 'Fako', typedSubdivision: 'Buea', typedQuarter: 'Molyko' });
-      expect((post?.body as any).areaId).toBeUndefined();
-    });
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && (c.body as any)?.typedQuarter === 'Molyko' && (c.body as any)?.typedSubdivision === 'Buea')).toBe(true));
   });
 
   it('"Represent this place" on a vacant area opens the request for exactly that place', async () => {

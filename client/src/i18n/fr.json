@@ -1742,8 +1742,12 @@
     "level_subdivision": "Arrondissement",
     "level_quarter": "Quartier",
     "subdivision_hint": "Écrivez ou choisissez l'arrondissement exact où vous vivez et que vous voulez représenter.",
-    "quarter_hint": "Ou un quartier de cet arrondissement. Si votre arrondissement a déjà un représentant, vous pouvez seulement demander un quartier à l'intérieur.",
-    "subdivision_taken": "{{names}} représente déjà cet arrondissement. Vous pouvez seulement demander à représenter un quartier à l'intérieur."
+    "quarter_hint": "Écrivez ou choisissez le quartier de votre arrondissement que vous voulez représenter.",
+    "subdivision_taken": "{{names}} représente déjà cet arrondissement. Vous pouvez seulement demander à représenter un quartier à l'intérieur.",
+    "scope_title": "Que voulez-vous représenter ?",
+    "scope_subdivision": "Tout l'arrondissement : {{name}}",
+    "scope_quarter": "Un quartier de {{name}}",
+    "taken_refused": "Cet arrondissement a déjà un représentant. Choisissez un quartier à l'intérieur."
   },
   "myReferrals": {
     "title": "Mon tableau d'ambassadeur",

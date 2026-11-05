@@ -1742,8 +1742,12 @@
     "level_subdivision": "Subdivision",
     "level_quarter": "Quarter",
     "subdivision_hint": "Write or choose the exact subdivision where you live and want to represent.",
-    "quarter_hint": "Or a quarter within that subdivision. If your subdivision already has a representative, you can only ask for a quarter within it.",
-    "subdivision_taken": "{{names}} already represents this subdivision. You can only ask to represent a quarter within it."
+    "quarter_hint": "Write or choose the quarter within your subdivision that you want to represent.",
+    "subdivision_taken": "{{names}} already represents this subdivision. You can only ask to represent a quarter within it.",
+    "scope_title": "What do you want to represent?",
+    "scope_subdivision": "The whole subdivision: {{name}}",
+    "scope_quarter": "A quarter within {{name}}",
+    "taken_refused": "This subdivision already has a representative. Choose a quarter within it."
   },
   "myReferrals": {
     "title": "My Ambassador Dashboard",
