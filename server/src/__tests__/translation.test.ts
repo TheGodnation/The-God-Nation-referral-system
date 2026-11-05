@@ -222,6 +222,23 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
     expect(urls[0]).toContain('strong-model');
   });
 
+  it('by default asks the best model (Pro) first, then Flash, then Flash-Lite, moving on whenever one is not available', async () => {
+    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key', GEMINI_QUALITY_MODEL: undefined });
+    const urls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url);
+        if (url.includes('gemini-pro-latest') || url.includes('gemini-flash-latest')) return { ok: false, status: 429, text: async () => 'quota' };
+        return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'en', translated: 'Bonjour' }) }] } }] }) };
+      }),
+    );
+    expect(await translation.translateText('Hello')).toEqual({ detectedLanguage: 'en', translatedBody: 'Bonjour' });
+    expect(urls[0]).toContain('gemini-pro-latest');
+    expect(urls[1]).toContain('gemini-flash-latest');
+    expect(urls[2]).toContain('gemini-flash-lite-latest');
+  });
+
   it('tells the translator who is speaking and asks for natural French with Louis Segond verses', async () => {
     const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key' });
     const fetchSpy = vi.fn(async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'en', translated: 'x' }) }] } }] }) }));
