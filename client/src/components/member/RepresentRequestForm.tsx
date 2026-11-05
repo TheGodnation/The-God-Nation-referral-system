@@ -110,6 +110,22 @@ export function RepresentRequestForm({
   const areaId = fixedArea?.id ?? (picked.length > 0 ? picked[picked.length - 1] : '');
   const canSend = notListed ? loc.region.trim().length > 0 && locationCountry(loc).length > 0 : Boolean(areaId);
 
+  // What the person is asking to represent: the deepest level they have chosen (a whole region, a division,
+  // a subdivision or a quarter). Said out loud so that stopping at a region or a division is clear.
+  const LEVELS = ['REGION', 'DIVISION', 'SUBDIVISION', 'QUARTER'] as const;
+  const asking: { level: (typeof LEVELS)[number]; name: string } | null = (() => {
+    if (fixedArea) return null;
+    if (notListed) {
+      const names = [loc.region, loc.division, loc.subdivision, loc.quarter].map((n) => n.trim());
+      let deepest = -1;
+      for (let i = 0; i < names.length && names[i]; i++) deepest = i;
+      return deepest >= 0 ? { level: LEVELS[deepest], name: names[deepest] } : null;
+    }
+    const i = picked.length - 1;
+    const name = i >= 0 ? options[i]?.find((a) => a.id === picked[i])?.name : undefined;
+    return i >= 0 && name ? { level: LEVELS[Math.min(i, LEVELS.length - 1)], name } : null;
+  })();
+
   async function submit() {
     setError(null);
     setSubmitting(true);
@@ -219,6 +235,16 @@ export function RepresentRequestForm({
               {options.length === 0 && <p className="text-sm text-slate-400">{t('memberDashboard.loading')}</p>}
               <p className="text-xs text-slate-500">{t('leadershipDirectory.pick_help')}</p>
             </div>
+          )}
+
+          {!fixedArea && <p className="rounded-lg bg-slate-50 p-2 text-xs text-slate-600">{t('leadershipDirectory.level_help')}</p>}
+          {asking && (
+            <p className="rounded-lg bg-brand-50 p-2 text-sm text-brand-900" data-testid="asking-for">
+              {t('leadershipDirectory.asking_for')}{' '}
+              <strong>
+                {t(`leadershipDirectory.level_${asking.level.toLowerCase()}`)} — {asking.name}
+              </strong>
+            </p>
           )}
 
           {!fixedArea && !noList && (

@@ -81,3 +81,54 @@ export async function getAreaAncestors(areaId: string): Promise<AreaAncestor[]> 
 export function formatAreaPath(area: { name: string }, ancestors: AreaAncestor[]): string {
   return [area.name, ...ancestors.slice().reverse().map((a) => a.name)].join(', ');
 }
+
+/** For comparing place names: no accents, no capitals, "South-West" = "South West". */
+function placeKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[-_']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * The area for a place a member typed or picked from the lists (country, region, division, subdivision, quarter):
+ * each level is looked up under the one above (names compared without accents, capitals or hyphens), and any
+ * level that is not there yet is added, so approving a request for an unlisted place just works. Levels are
+ * followed in order and stop at the first one left empty. Returns the deepest area and what was added.
+ */
+export async function ensureAreaPath(place: {
+  country?: string | null;
+  region?: string | null;
+  division?: string | null;
+  subdivision?: string | null;
+  quarter?: string | null;
+}): Promise<{ area: { id: string; level: GeographicLevel; name: string } | null; created: string[] }> {
+  const names = [place.country, place.region, place.division, place.subdivision, place.quarter].map((n) => (n ?? '').trim());
+  if (!names[0] || !names[1]) return { area: null, created: [] };
+  const created: string[] = [];
+  let parent: { id: string; level: GeographicLevel; name: string; country: string } | null = null;
+  for (let i = 0; i < names.length; i++) {
+    const name = names[i];
+    if (!name) break;
+    const level = LEVEL_ORDER[i];
+    const candidates: { id: string; level: GeographicLevel; name: string; country: string }[] = await prisma.geographicArea.findMany({
+      where: parent ? { parentId: parent.id } : { parentId: null, level: 'NATIONAL' },
+      select: { id: true, level: true, name: true, country: true },
+    });
+    const found = candidates.find((c) => placeKey(c.name) === placeKey(name));
+    if (found) {
+      parent = found;
+    } else {
+      const row: { id: string; level: GeographicLevel; name: string; country: string } = await prisma.geographicArea.create({
+        data: { parentId: parent?.id ?? null, level, name, country: parent ? parent.country : name },
+        select: { id: true, level: true, name: true, country: true },
+      });
+      created.push(`${name} (${level})`);
+      parent = row;
+    }
+  }
+  return { area: parent ? { id: parent.id, level: parent.level, name: parent.name } : null, created };
+}

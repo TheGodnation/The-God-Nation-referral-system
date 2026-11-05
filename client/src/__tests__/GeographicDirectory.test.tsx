@@ -208,7 +208,10 @@ describe('GeographicDirectory (Member)', () => {
     // Country, region, division, subdivision and quarter are picked from lists that follow each other.
     expect((screen.getByLabelText('Country') as HTMLSelectElement).value).toBe('Cameroon');
     fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'South-West' } });
+    // The level asked for is said out loud: stopping at the region means the whole region.
+    expect(screen.getByTestId('asking-for')).toHaveTextContent('Region — South-West');
     fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
+    expect(screen.getByTestId('asking-for')).toHaveTextContent('Division — Fako');
     expect(Array.from((screen.getByLabelText('Subdivision') as HTMLSelectElement).options).map((o) => o.value)).toContain('Buea');
     fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
     fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Molyko' } });

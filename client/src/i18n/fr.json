@@ -1348,7 +1348,25 @@
       "not_on_list": "Pas encore dans la liste",
       "choose_area_help": "Ajoutez d’abord ce lieu dans Zones géographiques, puis cherchez-le ici.",
       "search_area_placeholder": "Cherchez le lieu que vous avez ajouté",
-      "position_placeholder": "Poste (facultatif)"
+      "position_placeholder": "Poste (facultatif)",
+      "tab_pending": "En attente",
+      "tab_approved": "Approuvées",
+      "tab_declined": "Refusées",
+      "tab_all": "Toutes",
+      "sent_on": "Envoyée le {{date}}",
+      "wants_to_represent": "Veut représenter",
+      "added_on_approval": "Ce lieu n'est pas encore sur la liste. Il sera ajouté à l'approbation.",
+      "decided_approved": "Approuvée le {{date}}",
+      "decided_declined": "Refusée le {{date}}",
+      "change_decision": "Changer la décision",
+      "approve_instead": "Approuver finalement",
+      "turn_down": "Retirer",
+      "turn_down_help": "Retirer met fin à la responsabilité de cette personne pour ce lieu et la prévient.",
+      "level_national": "Pays",
+      "level_region": "Région",
+      "level_division": "Département",
+      "level_subdivision": "Arrondissement",
+      "level_quarter": "Quartier"
     },
     "signInTrouble": {
       "title": "Personnes qui n'ont pas pu entrer",
@@ -1716,7 +1734,13 @@
     "country": "Pays",
     "represent_this": "Représenter ce lieu",
     "nobody_yet": "Aucun responsable n'a encore été nommé. Vous pouvez être le premier : envoyez votre demande ci-dessus et l'autorité centrale vous contactera.",
-    "field_country": "Pays"
+    "field_country": "Pays",
+    "level_help": "Vous pouvez demander à représenter toute une région, un département, un arrondissement ou un quartier. Descendez dans les listes jusqu'au lieu que vous voulez représenter, et arrêtez-vous là.",
+    "asking_for": "Vous demandez à représenter :",
+    "level_region": "Région",
+    "level_division": "Département",
+    "level_subdivision": "Arrondissement",
+    "level_quarter": "Quartier"
   },
   "myReferrals": {
     "title": "Mon tableau d'ambassadeur",

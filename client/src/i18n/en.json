@@ -1348,7 +1348,25 @@
       "not_on_list": "Not on the list yet",
       "choose_area_help": "Add this place under Geographic areas first, then search for it here.",
       "search_area_placeholder": "Search for the place you added",
-      "position_placeholder": "Position (optional)"
+      "position_placeholder": "Position (optional)",
+      "tab_pending": "Waiting",
+      "tab_approved": "Approved",
+      "tab_declined": "Declined",
+      "tab_all": "All",
+      "sent_on": "Sent on {{date}}",
+      "wants_to_represent": "Wants to represent",
+      "added_on_approval": "This place is not on the list yet. It will be added when you approve.",
+      "decided_approved": "Approved on {{date}}",
+      "decided_declined": "Declined on {{date}}",
+      "change_decision": "Change decision",
+      "approve_instead": "Approve instead",
+      "turn_down": "Turn down",
+      "turn_down_help": "Turning down ends this person's leadership of the place and tells them.",
+      "level_national": "Country",
+      "level_region": "Region",
+      "level_division": "Division",
+      "level_subdivision": "Subdivision",
+      "level_quarter": "Quarter"
     },
     "signInTrouble": {
       "title": "People who couldn't get in",
@@ -1716,7 +1734,13 @@
     "country": "Country",
     "represent_this": "Represent this place",
     "nobody_yet": "No leaders have been appointed yet. You can be the first: send your request above and the central authority will contact you.",
-    "field_country": "Country"
+    "field_country": "Country",
+    "level_help": "You can ask to represent a whole region, a division, a subdivision or a quarter. Choose as far down the lists as the place you want to represent, and stop there.",
+    "asking_for": "You are asking to represent:",
+    "level_region": "Region",
+    "level_division": "Division",
+    "level_subdivision": "Subdivision",
+    "level_quarter": "Quarter"
   },
   "myReferrals": {
     "title": "My Ambassador Dashboard",

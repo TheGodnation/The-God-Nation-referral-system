@@ -8,7 +8,7 @@ import { recordAudit } from '../lib/audit';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { parsePagination, paginatedResult } from '../lib/pagination';
-import { titleForLevel, getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
+import { titleForLevel, getAreaAncestors, formatAreaPath, ensureAreaPath } from '../lib/geographicAreas';
 import { notifyAreaLeadershipAssigned, notifyAreaRepresentationRequestDeclined } from '../lib/notifications';
 
 const router = Router();
@@ -69,13 +69,19 @@ router.patch('/area-representation-requests/:id/approve', leadershipMutationLimi
 
   const existing = await prisma.areaRepresentationRequest.findUnique({ where: { id } });
   if (!existing) return res.status(404).json({ error: 'Representation request not found.' });
-  if (existing.status !== 'PENDING') return res.status(409).json({ error: 'This request has already been decided.' });
+  // A decision can be changed: a declined request can still be approved (an approved one is already approved).
+  if (existing.status === 'APPROVED') return res.status(409).json({ error: 'This request has already been approved.' });
+  const previousStatus = existing.status;
 
-  // A request for a place on the list carries its area; one for a typed-in
-  // place needs the admin to pick (or first add) the area.
-  const areaId = parsed.data.areaId ?? existing.areaId;
+  // A request for a place on the list carries its area. One for a place that is not on the list yet is
+  // added now (region, division, subdivision, quarter, each under the one above), unless the admin picked an area.
+  let areaId = parsed.data.areaId ?? existing.areaId;
+  let addedPlaces: string[] = [];
   if (!areaId) {
-    return res.status(400).json({ error: `This place is not on the list yet (${typedPlaceText(existing)}). Add it under Geographic areas, then approve with that area chosen.` });
+    const ensured = await ensureAreaPath({ country: existing.typedCountry, region: existing.typedRegion, division: existing.typedDivision, subdivision: existing.typedSubdivision, quarter: existing.typedQuarter });
+    if (!ensured.area) return res.status(400).json({ error: `This place cannot be added (${typedPlaceText(existing)}): the country and region are needed.` });
+    areaId = ensured.area.id;
+    addedPlaces = ensured.created;
   }
   const area = await prisma.geographicArea.findUnique({ where: { id: areaId } });
   if (!area) return res.status(400).json({ error: 'Area not found.' });
@@ -93,7 +99,7 @@ router.patch('/area-representation-requests/:id/approve', leadershipMutationLimi
   }
 
   const result = await prisma.areaRepresentationRequest.updateMany({
-    where: { id, status: 'PENDING' },
+    where: { id, status: previousStatus },
     data: { status: 'APPROVED', areaId, decidedAt: new Date(), decidedByUserId: req.user!.id, decisionNote: parsed.data.decisionNote ?? null },
   });
   if (result.count === 0) return res.status(409).json({ error: 'This request has already been decided.' });
@@ -104,7 +110,7 @@ router.patch('/area-representation-requests/:id/approve', leadershipMutationLimi
     action: 'AREA_REPRESENTATION_REQUEST_APPROVED',
     targetType: 'AreaRepresentationRequest',
     targetId: id,
-    metadata: { personId: existing.personId, areaId, areaLeadershipAssignmentId: assignment.id },
+    metadata: { personId: existing.personId, areaId, areaLeadershipAssignmentId: assignment.id, previousStatus, addedPlaces },
   });
 
   const ancestors = await getAreaAncestors(areaId);
@@ -126,14 +132,24 @@ router.patch('/area-representation-requests/:id/decline', leadershipMutationLimi
 
   const existing = await prisma.areaRepresentationRequest.findUnique({ where: { id }, include: { area: true } });
   if (!existing) return res.status(404).json({ error: 'Representation request not found.' });
+  // A decision can be changed: an approved request can be turned down again (the person's leadership of
+  // that place ends); one already declined stays as it is.
+  if (existing.status === 'DECLINED') return res.status(409).json({ error: 'This request has already been declined.' });
+  const previousStatus = existing.status;
 
   const result = await prisma.areaRepresentationRequest.updateMany({
-    where: { id, status: 'PENDING' },
+    where: { id, status: previousStatus },
     data: { status: 'DECLINED', decidedAt: new Date(), decidedByUserId: req.user!.id, decisionNote: parsed.data.decisionNote ?? null },
   });
   if (result.count === 0) return res.status(409).json({ error: 'This request has already been decided.' });
+  if (previousStatus === 'APPROVED' && existing.areaId) {
+    await prisma.areaLeadershipAssignment.updateMany({
+      where: { personId: existing.personId, areaId: existing.areaId, status: 'ACTIVE' },
+      data: { status: 'ENDED', endedAt: new Date() },
+    });
+  }
 
-  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'AREA_REPRESENTATION_REQUEST_DECLINED', targetType: 'AreaRepresentationRequest', targetId: id });
+  await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'AREA_REPRESENTATION_REQUEST_DECLINED', targetType: 'AreaRepresentationRequest', targetId: id, metadata: { previousStatus } });
 
   const areaPath = existing.area ? formatAreaPath(existing.area, await getAreaAncestors(existing.area.id)) : typedPlaceText(existing);
   await notifyAreaRepresentationRequestDeclined({ id, personId: existing.personId, areaPath });

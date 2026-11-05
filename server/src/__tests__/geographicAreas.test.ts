@@ -324,14 +324,66 @@ describe('Area Representation Requests — Admin review', () => {
     expect(note).not.toBeNull();
   });
 
-  it('a second decision on an already-decided request is rejected', async () => {
+  it('a decision can be changed: a declined request can still be approved, and an approved one turned down (ending the leadership)', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-req-change@test.local');
+    const path = await buildCameroonPath(adminAgent, adminCsrf);
+    const m = await member('Area Requester Changed Mind');
+    const created = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.quarter.id });
+    const url = (action: string) => `/api/admin/area-representation-requests/${created.body.id}/${action}`;
+
+    expect((await send(adminAgent, adminCsrf, 'patch', url('decline'), { decisionNote: 'Not yet.' })).status).toBe(200);
+    expect(await prisma.areaLeadershipAssignment.count({ where: { personId: m.id } })).toBe(0);
+    // Declined again: nothing to change.
+    expect((await send(adminAgent, adminCsrf, 'patch', url('decline'))).status).toBe(409);
+
+    // The admin changes their mind.
+    const approved = await send(adminAgent, adminCsrf, 'patch', url('approve'), { decisionNote: 'On reflection, yes.', title: 'Quarter Coordinator' });
+    expect(approved.status).toBe(200);
+    expect(approved.body).toMatchObject({ status: 'APPROVED', decisionNote: 'On reflection, yes.' });
+    expect(await prisma.areaLeadershipAssignment.count({ where: { personId: m.id, areaId: path.quarter.id, status: 'ACTIVE' } })).toBe(1);
+    // Approved twice: refused.
+    expect((await send(adminAgent, adminCsrf, 'patch', url('approve'))).status).toBe(409);
+
+    // And turned down again: the leadership ends.
+    const turnedDown = await send(adminAgent, adminCsrf, 'patch', url('decline'), { decisionNote: 'Changed again.' });
+    expect(turnedDown.status).toBe(200);
+    expect(turnedDown.body.status).toBe('DECLINED');
+    expect(await prisma.areaLeadershipAssignment.count({ where: { personId: m.id, areaId: path.quarter.id, status: 'ACTIVE' } })).toBe(0);
+    expect(await prisma.areaLeadershipAssignment.count({ where: { personId: m.id, areaId: path.quarter.id, status: 'ENDED' } })).toBe(1);
+    // ...and approved once more: a new leadership starts.
+    expect((await send(adminAgent, adminCsrf, 'patch', url('approve'))).status).toBe(200);
+    expect(await prisma.areaLeadershipAssignment.count({ where: { personId: m.id, areaId: path.quarter.id, status: 'ACTIVE' } })).toBe(1);
+  });
+
+  it('approving a request for a place that is not on the list adds the place (region, division, subdivision) and appoints the person', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-req-autoadd@test.local');
+    const m = await member('Division Requester');
+    // A division is asked for, not a quarter: the appointment is to that division.
+    const created = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { typedCountry: 'Cameroon', typedRegion: 'Adamawa', typedDivision: 'Vina' });
+    const approved = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/approve`);
+    expect(approved.status).toBe(200);
+    expect(approved.body.area).toMatchObject({ name: 'Vina', level: 'DIVISION' });
+    const vina = await prisma.geographicArea.findFirstOrThrow({ where: { name: 'Vina' }, include: { parent: { include: { parent: true } } } });
+    expect(vina.parent?.name).toBe('Adamawa');
+    expect(vina.parent?.parent).toMatchObject({ name: 'Cameroon', level: 'NATIONAL' });
+    // A second request for the same division finds the places already there (spelling and hyphens aside).
+    const m2 = await member('Division Requester Two');
+    const again = await send(m2.agent, m2.csrf, 'post', '/api/member/area-representation-requests', { typedCountry: 'Cameroon', typedRegion: 'ADAMAWA', typedDivision: 'vina', typedSubdivision: 'Ngaoundéré I' });
+    const second = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${again.body.id}/approve`);
+    expect(second.status).toBe(200);
+    expect(second.body.area).toMatchObject({ name: 'Ngaoundéré I', level: 'SUBDIVISION' });
+    expect(await prisma.geographicArea.count({ where: { name: 'Vina' } })).toBe(1);
+    expect(await prisma.geographicArea.count({ where: { name: 'Adamawa' } })).toBe(1);
+  });
+
+  it('a second decision of the same kind is rejected', async () => {
     const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-req-twice@test.local');
     const path = await buildCameroonPath(adminAgent, adminCsrf);
     const m = await member('Area Requester Six');
     const created = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.quarter.id });
 
     await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/approve`);
-    const second = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/decline`);
+    const second = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/approve`);
     expect(second.status).toBe(409);
   });
 
@@ -417,7 +469,7 @@ describe('Leadership Directory — position titles, National Team, places not on
     expect((await anon.get('/api/member/leadership-directory/national-team')).status).toBe(401);
   });
 
-  it('takes a request for a place that is not on the list, then needs the admin to choose the area', async () => {
+  it('takes a request for a place that is not on the list, and lets the admin approve it with an area of their choosing', async () => {
     const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-typed@test.local');
     const path = await buildCameroonPath(adminAgent, adminCsrf);
     const m = await member('Typed Place Requester');
@@ -443,11 +495,6 @@ describe('Leadership Directory — position titles, National Team, places not on
     // The admin sees the typed place in the list of requests.
     const list = await adminAgent.get('/api/admin/area-representation-requests?status=PENDING');
     expect(list.body.items.find((r: any) => r.id === created.body.id)).toMatchObject({ area: null, typedSubdivision: 'Buea' });
-
-    // Approving without choosing an area is refused, and says why.
-    const refused = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/approve`);
-    expect(refused.status).toBe(400);
-    expect(refused.body.error).toMatch(/not on the list yet.*Mile 17/);
 
     // Choosing an area (and naming the position) approves it.
     const approved = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/approve`, { areaId: path.quarter.id, title: 'Quarter Coordinator' });
