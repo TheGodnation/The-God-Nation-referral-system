@@ -165,8 +165,13 @@ describe('MemberCompleteProfilePage', () => {
 
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Jean Ngono' } });
     fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'Centre' } });
+    // On joining, division, subdivision and quarter are pick-lists that follow the region.
+    const listed = (label: string) => Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((o) => o.value);
+    expect(listed('Division')).toContain('Mfoundi');
     fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Mfoundi' } });
+    expect(listed('Subdivision')).toContain('Yaoundé III');
     fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Yaoundé III' } });
+    expect(listed('Quarter')).toContain('Efoulan');
     fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Efoulan' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enter the community' }));
 
