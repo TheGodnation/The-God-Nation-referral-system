@@ -1420,6 +1420,10 @@
       "no_earnings": "No earnings yet.",
       "reverse": "Take back",
       "reverse_confirm": "Take back {{amount}} from {{name}}?"
+    },
+    "search": {
+      "none": "Nobody found. Try one word of the name, or the phone number or email.",
+      "failed": "The search could not be done. Try again."
     }
   },
   "communityConversation": {

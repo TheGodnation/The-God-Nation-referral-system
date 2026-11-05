@@ -37,13 +37,22 @@ router.get('/people', asyncHandler(async (req, res) => {
     ...testFilter,
     // The empty placeholders left in chats by deleted accounts are nobody.
     erasedAt: null,
+    // Every word typed must match somewhere (name, WhatsApp number, or the email of the person or of their
+    // member account), in any order: "Etabu Gertrude" finds "Gertrude Etabu" and "Gertrude Ayuk Etabu".
     ...(q.search
       ? {
-          OR: [
-            { name: { contains: q.search, mode: 'insensitive' } },
-            { whatsappNumber: { contains: q.search } },
-            { email: { contains: q.search, mode: 'insensitive' } },
-          ],
+          AND: q.search
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 6)
+            .map((word) => ({
+              OR: [
+                { name: { contains: word, mode: 'insensitive' as const } },
+                { whatsappNumber: { contains: word } },
+                { email: { contains: word, mode: 'insensitive' as const } },
+                { memberAccount: { is: { email: { contains: word, mode: 'insensitive' as const } } } },
+              ],
+            })),
         }
       : {}),
   };

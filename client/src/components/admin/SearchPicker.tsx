@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 
 // Small search-then-pick control shared across Phase 3A/3B admin flows
@@ -21,15 +22,25 @@ export function SearchPicker({
   searchButtonLabel: string;
   onPick: (item: any) => void;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState('');
+  // After a search: how it ended, so an empty result is said out loud, not left as a silent blank.
+  const [outcome, setOutcome] = useState<'none' | 'failed' | null>(null);
 
   async function search() {
     if (!query.trim()) return;
-    const res = await api.get<{ items: any[] }>(`${searchPath}${encodeURIComponent(query)}`);
-    setResults(res.items);
-    setSelectedId('');
+    setOutcome(null);
+    try {
+      const res = await api.get<{ items: any[] }>(`${searchPath}${encodeURIComponent(query)}`);
+      setResults(res.items);
+      setSelectedId('');
+      if (res.items.length === 0) setOutcome('none');
+    } catch {
+      setResults([]);
+      setOutcome('failed');
+    }
   }
 
   return (
@@ -49,6 +60,11 @@ export function SearchPicker({
       <button type="button" className="btn-secondary sm:w-32" onClick={search}>
         {searchButtonLabel}
       </button>
+      {outcome && (
+        <p className={`text-sm ${outcome === 'failed' ? 'text-red-700' : 'text-slate-600'}`} role="status">
+          {outcome === 'failed' ? t('admin.search.failed') : t('admin.search.none')}
+        </p>
+      )}
       {results.length > 0 && (
         <>
           <select className="input" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>

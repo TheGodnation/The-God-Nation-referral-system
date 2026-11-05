@@ -1420,6 +1420,10 @@
       "no_earnings": "Aucun gain pour le moment.",
       "reverse": "Retirer",
       "reverse_confirm": "Retirer {{amount}} à {{name}} ?"
+    },
+    "search": {
+      "none": "Personne trouvé. Essayez un seul mot du nom, ou le numéro de téléphone ou l'e-mail.",
+      "failed": "La recherche n'a pas pu être faite. Réessayez."
     }
   },
   "communityConversation": {

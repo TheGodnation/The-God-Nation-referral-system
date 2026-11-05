@@ -184,4 +184,22 @@ describe('Phase 3A — Admin People management', () => {
     const secondDelete = await agent.delete(`/api/admin/people/${person.id}`).set('X-CSRF-Token', csrf);
     expect(secondDelete.status).toBe(404);
   });
+  it('search finds a person whatever the order of the words, and by the email of their member account', async () => {
+    const { agent } = await loginAsAdmin('admin-people-search@test.local');
+    const gertrude = await prisma.person.create({ data: { name: 'Gertrude Ayuk Etabu', whatsappNumber: '+237670009911' } });
+    await prisma.memberAccount.create({ data: { personId: gertrude.id, email: 'gertrude.leader@example.com' } });
+    await prisma.person.create({ data: { name: 'Etabu Samuel', whatsappNumber: '+237670009912' } });
+
+    const ids = async (q: string) => ((await agent.get(`/api/admin/people?search=${encodeURIComponent(q)}`)).body.items as { id: string }[]).map((p) => p.id);
+    // The words typed in a different order from the stored name.
+    expect(await ids('Etabu Gertrude')).toEqual([gertrude.id]);
+    expect(await ids('gertrude etabu')).toEqual([gertrude.id]);
+    expect(await ids('Ayuk')).toEqual([gertrude.id]);
+    // One word still finds every match.
+    expect((await ids('Etabu')).length).toBe(2);
+    // The email of the member account (a member's email is not on the person row).
+    expect(await ids('gertrude.leader@example.com')).toEqual([gertrude.id]);
+    // A word that matches nobody finds nobody.
+    expect(await ids('Etabu Zzzz')).toEqual([]);
+  });
 });
