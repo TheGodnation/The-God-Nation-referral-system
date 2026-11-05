@@ -118,9 +118,8 @@ export function MemberSchoolPage() {
                   return (
                     <li key={b.id}>
                       <Link to={`/member/school/${b.id}`} className="group block" aria-label={`${t('learn.book', { number })}: ${title} — ${badge.text}`}>
-                        <span className={`block ${b.unlocked ? '' : 'grayscale-[60%]'}`}>
-                          <BookCover number={number} title={title} coverUrl={b.coverUrl ?? null} coverUrlFr={b.coverUrlFr ?? null} className="transition group-hover:-translate-y-0.5" />
-                        </span>
+                        {/* Every book shows in its own colours; the badge below says whether it is open or locked. */}
+                        <BookCover number={number} title={title} coverUrl={b.coverUrl ?? null} coverUrlFr={b.coverUrlFr ?? null} className="transition group-hover:-translate-y-0.5" />
                         <span className="mt-1 flex flex-wrap items-center gap-1">
                           <span className="text-xs font-semibold text-brand-800">{t('learn.book', { number })}</span>
                           <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold ${badge.cls}`}>{badge.text}</span>
