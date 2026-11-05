@@ -670,7 +670,9 @@
       "community_heading": "Lieux de la communauté",
       "community_help": "Les endroits où l’on peut nous rejoindre. Remplissez seulement ceux que vous avez créés ; un champ vide n’est pas affiché. Après l’inscription, chacun choisit l’endroit qu’il préfère, et le choix est compté dans l’onglet Croissance.",
       "not_set_up": "Pas encore configuré",
-      "catch_all_automatic": "(automatique : le profil membre de l'administrateur central)"
+      "catch_all_automatic": "(automatique : le profil membre de l'administrateur central)",
+      "catch_all_change": "Changer la personne qui accueille les nouveaux",
+      "catch_all_cancel": "Annuler"
     },
     "content": {
       "title": "Contenu du site",
