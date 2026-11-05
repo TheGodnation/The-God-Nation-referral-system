@@ -15,6 +15,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { getOrCreatePersonReferralCode } from '../lib/referralCode';
 import { notifyLeaderDashboardMovedIfNeeded } from '../lib/notifications';
 import { leaderSignInHelpLink, memberSignInHelpLink } from '../lib/signInHelp';
+import { bridgeUserToMemberProfile, MemberBridgeError } from '../lib/memberBridge';
 
 const router = Router();
 
@@ -592,6 +593,28 @@ router.patch('/leaders/:id/link-person', requireCsrf, asyncHandler(async (req, r
 // above. Deactivating (already available) remains the right choice for a
 // real, active Leader you just want to pause — this is for removing an
 // account that should never have existed as a Leader in the first place.
+// POST /api/admin/leaders/:id/create-profile — for a Leader account that was created before member profiles existed
+// and so has no person profile: the Admin creates the profile from the leader's name and email and the WhatsApp
+// number typed here, and links it (the leader's referral code carries over). The leader gets in with "Help them sign
+// in" (a one-time link to choose a password); until then no one knows the temporary password set here.
+const createProfileSchema = z.object({ whatsapp: z.string().trim().min(5).max(32), language: z.enum(['en', 'fr']).default('en') });
+router.post('/leaders/:id/create-profile', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = createProfileSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.' });
+  const leader = await prisma.user.findUnique({ where: { id: req.params.id } });
+  if (!leader) return res.status(404).json({ error: 'Leader not found.' });
+  if (leader.role !== 'LEADER') return res.status(400).json({ error: 'Only a Leader account can be given a profile here.' });
+  try {
+    const { person } = await bridgeUserToMemberProfile(leader, { whatsapp: parsed.data.whatsapp, language: parsed.data.language, password: crypto.randomBytes(24).toString('base64url') });
+    await recordAudit({ actorId: req.user!.id, actorEmail: req.user!.email, action: 'LEADER_PROFILE_CREATED_BY_ADMIN', targetType: 'User', targetId: leader.id, metadata: { personId: person.id } });
+    await notifyLeaderDashboardMovedIfNeeded({ id: leader.id, role: leader.role, personId: person.id, personLinkNotifiedAt: leader.personLinkNotifiedAt });
+    res.status(201).json({ id: leader.id, personId: person.id, personName: person.name });
+  } catch (err) {
+    if (err instanceof MemberBridgeError) return res.status(err.status).json({ error: err.message });
+    throw err;
+  }
+}));
+
 router.delete('/leaders/:id', adminSensitiveLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const { id } = req.params;
 

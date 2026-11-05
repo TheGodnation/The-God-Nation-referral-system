@@ -139,3 +139,33 @@ describe('Member emails carry only a code', () => {
     expect(renderMemberCodeEmailForTest('fr')).not.toContain('{{link}}');
   });
 });
+
+describe('The admin creates the profile of a leader who has none', () => {
+  it('gives an old leader account a person profile from a WhatsApp number, keeps the referral code, and refuses a second time', async () => {
+    const adminA = await admin('admin-create-profile@test.local');
+    const { user, oldCode } = await formerLeader('etabu.old@example.com');
+    const url = `/api/admin/leaders/${user.id}/create-profile`;
+    const post = (body: object) => adminA.agent.post(url).set('X-CSRF-Token', adminA.csrf).send(body);
+
+    expect((await post({ whatsapp: '12' })).status).toBe(400);
+    const phoneNumber = freshPhone();
+    const made = await post({ whatsapp: phoneNumber, language: 'en' });
+    expect(made.status).toBe(201);
+    expect(made.body.personName).toBe('Papa Former Leader');
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.personId).toBe(made.body.personId);
+    const person = await prisma.person.findUniqueOrThrow({ where: { id: made.body.personId }, include: { memberAccount: true } });
+    expect(person.whatsappNumber).toBe(phoneNumber);
+    expect(person.memberAccount?.email).toBe('etabu.old@example.com');
+    // The old referral code now belongs to the person too.
+    expect((await prisma.referralCode.findUniqueOrThrow({ where: { id: oldCode.id } })).personId).toBe(person.id);
+    // Now the person can be found and given an assembly role.
+    const found = await adminA.agent.get('/api/admin/people?search=Former');
+    expect(found.body.items.map((p: { id: string }) => p.id)).toContain(person.id);
+
+    // A leader who already has a profile is not given another.
+    expect((await post({ whatsapp: freshPhone() })).status).toBe(409);
+    expect((await adminA.agent.post('/api/admin/leaders/nobody/create-profile').set('X-CSRF-Token', adminA.csrf).send({ whatsapp: freshPhone() })).status).toBe(404);
+  });
+});

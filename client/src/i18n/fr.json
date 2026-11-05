@@ -461,7 +461,13 @@
       "email_typo": "⚠ Semble mal écrit — vouliez-vous dire {{fix}} ? Corrigez avec Modifier.",
       "deactivate_confirm": "Désactiver le compte responsable de {{name}} ? La personne ne pourra plus se connecter comme responsable. Vous pourrez le réactiver avec Activer.",
       "suggested_member": "Un membre avec cet e-mail a rejoint : {{name}} ({{phone}}). Est-ce la même personne ?",
-      "suggested_link": "Oui, les relier"
+      "suggested_link": "Oui, les relier",
+      "create_profile_action": "Créer le profil",
+      "create_profile_title": "Créer un profil pour {{name}}",
+      "create_profile_help": "Ce responsable n'a pas encore de profil de personne, donc on ne peut pas lui donner un rôle d'assemblée. Écrivez son numéro WhatsApp (avec l'indicatif du pays). Un profil est créé à partir de son nom et de son e-mail, lié à son compte Responsable, et son code de parrainage est conservé. Appuyez ensuite sur « Aider à se connecter » sur sa ligne pour lui envoyer un lien pour choisir un mot de passe.",
+      "create_profile_whatsapp": "Numéro WhatsApp, ex. +2376…",
+      "create_profile_submit": "Créer le profil",
+      "create_profile_failed": "Le profil n'a pas pu être créé."
     },
     "roleAssignments": {
       "title": "Attributions de rôles",

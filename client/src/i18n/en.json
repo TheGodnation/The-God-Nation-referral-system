@@ -461,7 +461,13 @@
       "email_typo": "⚠ Looks misspelled — did they mean {{fix}}? Fix it with Edit.",
       "deactivate_confirm": "Turn off {{name}}’s leader account? They will no longer be able to sign in as a leader. You can turn it back on with Activate.",
       "suggested_member": "A member with this email has joined: {{name}} ({{phone}}). Is this the same person?",
-      "suggested_link": "Yes, link them"
+      "suggested_link": "Yes, link them",
+      "create_profile_action": "Create profile",
+      "create_profile_title": "Create a profile for {{name}}",
+      "create_profile_help": "This leader has no person profile yet, so they cannot be given an assembly role. Type their WhatsApp number (with the country code). A profile is made from their name and email, linked to their Leader account, and their referral code is kept. Then press “Help them sign in” on their row to send them a link to choose a password.",
+      "create_profile_whatsapp": "WhatsApp number, e.g. +2376…",
+      "create_profile_submit": "Create profile",
+      "create_profile_failed": "The profile could not be created."
     },
     "roleAssignments": {
       "title": "Role Assignments",

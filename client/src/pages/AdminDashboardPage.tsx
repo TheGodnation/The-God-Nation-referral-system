@@ -180,6 +180,11 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
   // panel is open; linkError surfaces a 409 (already linked elsewhere) etc.
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+  // A Leader account with no person profile at all: the Admin creates the profile from a WhatsApp number.
+  const [profileFor, setProfileFor] = useState<LeaderRow | null>(null);
+  const [profileWhatsapp, setProfileWhatsapp] = useState('');
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileBusy, setProfileBusy] = useState(false);
 
   function load() {
     api
@@ -283,6 +288,22 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
     setEditingId(null);
     setLinkError(null);
     setLinkingId(leader.id);
+  }
+
+  async function createProfile() {
+    if (!profileFor || profileBusy) return;
+    setProfileBusy(true);
+    setProfileError(null);
+    try {
+      await api.post(`/api/admin/leaders/${profileFor.id}/create-profile`, { whatsapp: profileWhatsapp.trim() });
+      setProfileFor(null);
+      setProfileWhatsapp('');
+      load();
+    } catch (err) {
+      setProfileError(err instanceof ApiError ? err.message : t('admin.leaders.create_profile_failed'));
+    } finally {
+      setProfileBusy(false);
+    }
   }
 
   async function linkSuggested(leader: LeaderRow) {
@@ -426,6 +447,30 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
         </div>
       )}
 
+      {profileFor && (
+        <div className="card mb-4 space-y-3" data-testid="create-profile">
+          <h3 className="font-semibold text-brand-900">{t('admin.leaders.create_profile_title', { name: profileFor.name })}</h3>
+          <p className="text-sm text-slate-500">{t('admin.leaders.create_profile_help')}</p>
+          <input
+            className="input"
+            inputMode="tel"
+            aria-label={t('admin.leaders.create_profile_whatsapp') ?? ''}
+            placeholder={t('admin.leaders.create_profile_whatsapp') ?? ''}
+            value={profileWhatsapp}
+            onChange={(e) => setProfileWhatsapp(e.target.value)}
+          />
+          {profileError && <p className="text-sm text-red-700">{profileError}</p>}
+          <div className="flex gap-3">
+            <button type="button" className="btn-primary px-4 py-2" disabled={profileBusy || profileWhatsapp.trim().length < 5} onClick={() => void createProfile()}>
+              {t('admin.leaders.create_profile_submit')}
+            </button>
+            <button type="button" className="text-sm text-slate-500 hover:underline" onClick={() => setProfileFor(null)}>
+              {t('admin.leaders.cancel')}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[880px] text-left text-sm">
           <thead>
@@ -478,6 +523,18 @@ export function LeadersTab({ includeTestData }: { includeTestData: boolean }) {
                   {!l.personId && (
                     <button className="text-brand-700 hover:underline" onClick={() => startLinkPerson(l)}>
                       {t('admin.leaders.link_person_action')}
+                    </button>
+                  )}
+                  {!l.personId && (
+                    <button
+                      className="text-brand-700 hover:underline"
+                      onClick={() => {
+                        setLinkingId(null);
+                        setProfileError(null);
+                        setProfileFor(l);
+                      }}
+                    >
+                      {t('admin.leaders.create_profile_action')}
                     </button>
                   )}
                 </td>

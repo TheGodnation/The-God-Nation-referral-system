@@ -218,3 +218,35 @@ describe('A former leader who joined as a member', () => {
     await waitFor(() => expect(screen.queryByTestId('suggested-lead7')).toBeNull());
   });
 });
+
+describe('A leader with no person profile at all', () => {
+  it('lets the admin create the profile from a WhatsApp number', async () => {
+    let made = false;
+    mockFetch({
+      'GET /api/admin/leaders': () => ({
+        body: {
+          items: [
+            {
+              id: 'lead8', name: 'Etabu Gertrude', email: 'etabu@example.com', active: true, isTestData: false, selfRegistered: false,
+              referralCode: 'ETA123', referredCount: 0, createdAt: '2026-01-01T00:00:00Z',
+              personId: made ? 'p20' : null, personName: made ? 'Etabu Gertrude' : null, suggestedPerson: null,
+            },
+          ],
+          pagination: { totalPages: 1 },
+        },
+      }),
+      'POST /api/admin/leaders/lead8/create-profile': () => {
+        made = true;
+        return { status: 201, body: { id: 'lead8', personId: 'p20', personName: 'Etabu Gertrude' } };
+      },
+    });
+    render(<LeadersTab includeTestData={false} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Create profile' }));
+    const panel = await screen.findByTestId('create-profile');
+    expect(panel).toHaveTextContent('Create a profile for Etabu Gertrude');
+    fireEvent.change(screen.getByLabelText(/WhatsApp number/), { target: { value: '+237 670 123 456' } });
+    fireEvent.click(panel.querySelector('button.btn-primary')!);
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ whatsapp: '+237 670 123 456' }));
+    await waitFor(() => expect(screen.queryByTestId('create-profile')).toBeNull());
+  });
+});
