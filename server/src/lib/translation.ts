@@ -64,6 +64,8 @@ export interface GeminiCallOptions {
    * translationRetry.ts pass 1 — they are already the "try again"). */
   attempts?: number;
   timeoutMs?: number;
+  /** Told the HTTP status when Gemini answers with an error (used to notice a model whose allowance is used up). */
+  onStatus?: (status: number) => void;
 }
 
 /** What one try at translating/transcribing an item came to:
@@ -147,6 +149,7 @@ export async function callGemini(contents: unknown[], schema: unknown, opts: Gem
     }, opts);
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
+      opts.onStatus?.(res.status);
       console.error('[translation] Gemini responded with a non-OK status', { status: res.status, body: bodyText.slice(0, 500) });
       if (res.status === 404) {
         void logAvailableModels();
@@ -196,7 +199,7 @@ export async function callGeminiPersistent(
   opts: GeminiCallOptions & { tries?: number; pauseMs?: number; budgetMs?: number } = {},
 ): Promise<any | null> {
   if (!GEMINI_API_KEY) return callGemini(contents, schema, opts);
-  const tries = opts.tries ?? 5;
+  const tries = opts.tries ?? 8;
   const pauseMs = opts.pauseMs ?? 2000;
   // The person waiting is never kept longer than this in total, whatever Google does.
   const budgetMs = opts.budgetMs ?? 70000;
@@ -204,18 +207,23 @@ export async function callGeminiPersistent(
   // Each model is a separate pool of capacity on Google's side, so when the Flash ones are overloaded
   // the Pro one may still answer (GEMINI_DRAFT_MODELS can list others, comma separated).
   const extra = (process.env.GEMINI_DRAFT_MODELS ?? 'gemini-pro-latest').split(',').map((m) => m.trim());
-  const models = [QUALITY_MODEL, GEMINI_MODEL, ...extra].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
+  let models = [QUALITY_MODEL, GEMINI_MODEL, ...extra].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
   for (let i = 0; i < tries; i++) {
     const remaining = budgetMs - (Date.now() - started);
     if (remaining < 4000) break;
+    const model = models[i % models.length];
+    let status = 0;
     const result = await callGemini(contents, schema, {
       ...opts,
-      model: models[i % models.length],
+      model,
       attempts: 1,
       timeoutMs: Math.min(opts.timeoutMs ?? TEXT_TIMEOUT_MS, remaining),
+      onStatus: (code) => { status = code; },
     });
     if (result) return result;
-    if (i < tries - 1) await sleep(pauseMs * (i + 1));
+    // 429 = this model's allowance (free tier) is used up: asking it again only wastes the time, so use the others.
+    if (status === 429 && models.length > 1) models = models.filter((m) => m !== model);
+    if (i < tries - 1) await sleep(pauseMs * Math.min(i + 1, 4));
   }
   return null;
 }
