@@ -488,7 +488,8 @@
       "table_status": "Statut",
       "table_assigned_by": "Attribué par",
       "table_assigned_at": "Attribué le",
-      "no_assignments": "Aucune attribution de rôle trouvée."
+      "no_assignments": "Aucune attribution de rôle trouvée.",
+      "unlinked_leader": "{{name}} ({{email}}) a un compte Leader qui n'est pas encore lié à un profil de personne, donc on ne peut pas le choisir ici. Ouvrez l'onglet Leaders, appuyez sur « Lier une personne » sur sa ligne, puis cherchez à nouveau. S'il n'a aucun profil de membre, il doit d'abord rejoindre l'application comme membre."
     },
     "followUps": {
       "title": "Suivis",

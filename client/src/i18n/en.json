@@ -488,7 +488,8 @@
       "table_status": "Status",
       "table_assigned_by": "Assigned By",
       "table_assigned_at": "Assigned",
-      "no_assignments": "No role assignments found."
+      "no_assignments": "No role assignments found.",
+      "unlinked_leader": "{{name}} ({{email}}) has a Leader account that is not linked to a person profile yet, so they cannot be picked here. Open the Leaders tab, press “Link Person” on their row, then search again. If they have no member profile at all, they first need to join the app as a member."
     },
     "followUps": {
       "title": "Follow-Ups",

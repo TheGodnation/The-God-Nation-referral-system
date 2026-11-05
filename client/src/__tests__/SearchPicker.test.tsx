@@ -33,3 +33,14 @@ describe('SearchPicker', () => {
     await waitFor(() => expect(screen.getByText(/could not be done/)).toBeInTheDocument());
   });
 });
+
+describe('SearchPicker — extra information', () => {
+  it('shows what the screen says about the whole answer, such as leader accounts that cannot be picked yet', async () => {
+    mock(200, { items: [], unlinkedLeaders: [{ id: 'u1', name: 'Mercy Unlinked', email: 'mercy@example.com' }] });
+    render(<SearchPicker placeholder="Search person" searchPath="/api/admin/people?search=" renderLabel={(p) => p.name} actionLabel="Select" searchButtonLabel="Search" onPick={() => {}} renderExtra={(r) => (r.unlinkedLeaders?.length ? <p>Not linked: {r.unlinkedLeaders[0].name}</p> : null)} />);
+    fireEvent.change(screen.getByPlaceholderText('Search person'), { target: { value: 'Mercy' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('Not linked: Mercy Unlinked')).toBeInTheDocument();
+    expect(screen.getByText(/Nobody found/)).toBeInTheDocument();
+  });
+});

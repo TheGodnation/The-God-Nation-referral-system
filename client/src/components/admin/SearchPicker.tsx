@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 
@@ -14,6 +14,7 @@ export function SearchPicker({
   actionLabel,
   searchButtonLabel,
   onPick,
+  renderExtra,
 }: {
   placeholder: string;
   searchPath: string;
@@ -21,11 +22,14 @@ export function SearchPicker({
   actionLabel: string;
   searchButtonLabel: string;
   onPick: (item: any) => void;
+  /** Something to say about the whole answer (for example, matches that cannot be picked yet). */
+  renderExtra?: (response: any) => ReactNode;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState('');
+  const [response, setResponse] = useState<any>(null);
   // After a search: how it ended, so an empty result is said out loud, not left as a silent blank.
   const [outcome, setOutcome] = useState<'none' | 'failed' | null>(null);
 
@@ -34,10 +38,12 @@ export function SearchPicker({
     setOutcome(null);
     try {
       const res = await api.get<{ items: any[] }>(`${searchPath}${encodeURIComponent(query)}`);
+      setResponse(res);
       setResults(res.items);
       setSelectedId('');
       if (res.items.length === 0) setOutcome('none');
     } catch {
+      setResponse(null);
       setResults([]);
       setOutcome('failed');
     }
@@ -65,6 +71,7 @@ export function SearchPicker({
           {outcome === 'failed' ? t('admin.search.failed') : t('admin.search.none')}
         </p>
       )}
+      {renderExtra && response ? renderExtra(response) : null}
       {results.length > 0 && (
         <>
           <select className="input" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>

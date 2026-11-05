@@ -111,6 +111,15 @@ export function RoleAssignmentsTab() {
                 actionLabel={t('admin.roleAssignments.select')}
                 searchButtonLabel={t('admin.people.search_button')}
                 onPick={(p) => setSelectedPerson({ id: p.id, name: p.name })}
+                renderExtra={(res: { unlinkedLeaders?: { id: string; name: string; email: string }[] }) =>
+                  res.unlinkedLeaders && res.unlinkedLeaders.length > 0 ? (
+                    <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status" data-testid="unlinked-leaders">
+                      {res.unlinkedLeaders.map((u) => (
+                        <p key={u.id}>{t('admin.roleAssignments.unlinked_leader', { name: u.name, email: u.email })}</p>
+                      ))}
+                    </div>
+                  ) : null
+                }
               />
             )}
           </div>

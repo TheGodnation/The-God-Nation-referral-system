@@ -51,6 +51,8 @@ router.get('/people', asyncHandler(async (req, res) => {
                 { whatsappNumber: { contains: word } },
                 { email: { contains: word, mode: 'insensitive' as const } },
                 { memberAccount: { is: { email: { contains: word, mode: 'insensitive' as const } } } },
+                // A leader account linked to this person, found by the name or email it was created with.
+                { users: { some: { OR: [{ name: { contains: word, mode: 'insensitive' as const } }, { email: { contains: word, mode: 'insensitive' as const } }] } } },
               ],
             })),
         }
@@ -70,7 +72,25 @@ router.get('/people', asyncHandler(async (req, res) => {
     }),
   ]);
 
-  res.json(paginatedResult(people, total, page, pageSize));
+  // Leader accounts that match the search but are not linked to any person profile yet: they cannot be
+  // picked for a role until they are linked, so the page says so instead of showing an empty list.
+  const unlinkedLeaders = q.search
+    ? await prisma.user.findMany({
+        where: {
+          role: 'LEADER',
+          personId: null,
+          AND: q.search
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 6)
+            .map((word) => ({ OR: [{ name: { contains: word, mode: 'insensitive' as const } }, { email: { contains: word, mode: 'insensitive' as const } }] })),
+        },
+        select: { id: true, name: true, email: true },
+        take: 5,
+      })
+    : [];
+
+  res.json({ ...paginatedResult(people, total, page, pageSize), unlinkedLeaders });
 }));
 
 // GET /api/admin/people/:id — full detail for one Person.

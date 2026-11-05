@@ -202,4 +202,21 @@ describe('Phase 3A — Admin People management', () => {
     // A word that matches nobody finds nobody.
     expect(await ids('Etabu Zzzz')).toEqual([]);
   });
+  it('finds a person through the name of their leader account, and names leader accounts that are not linked to anyone yet', async () => {
+    const { agent } = await loginAsAdmin('admin-people-leaders@test.local');
+    // A person whose name on the profile differs from the name on their leader account.
+    const linked = await prisma.person.create({ data: { name: 'G. A. Etabu', whatsappNumber: '+237670009921' } });
+    const { user: leader } = await createLeader('Gertrude Etabu Linked', 'etabu.linked@test.local', 'ETABULINK1');
+    await prisma.user.update({ where: { id: leader.id }, data: { personId: linked.id } });
+    // A leader account with no person profile at all.
+    await createLeader('Mercy Unlinked', 'mercy.unlinked@test.local', 'MERCYUNL1');
+
+    const res = await agent.get('/api/admin/people?search=Gertrude%20Etabu');
+    expect(res.body.items.map((p: { id: string }) => p.id)).toEqual([linked.id]);
+    expect(res.body.unlinkedLeaders).toEqual([]);
+
+    const none = await agent.get('/api/admin/people?search=Mercy');
+    expect(none.body.items).toEqual([]);
+    expect(none.body.unlinkedLeaders).toEqual([expect.objectContaining({ name: 'Mercy Unlinked', email: 'mercy.unlinked@test.local' })]);
+  });
 });
