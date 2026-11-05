@@ -649,10 +649,10 @@
       "author_title_placeholder": "e.g. Founder & Lead Pastor",
       "author_title_hint": "Shown alongside your photo and name whenever you choose \"post as myself\" on an Announcement, Headquarters Post, or Live session.",
       "catch_all_label": "Catch-all Person",
-      "catch_all_hint": "Every joiner with no real referral attribution is automatically made a \"Referred\" friend of this Person, so nobody is ever left without someone responsible for following up with them. Usually your own bridged profile below.",
-      "catch_all_none": "Not set — unattributed joiners have no auto-friend.",
+      "catch_all_hint": "Everyone who joins without anyone's link automatically becomes a \"Referred\" friend of this person, so nobody is left without someone to follow them up. By default this is the central admin's own member profile — nothing to set. Choose someone else below only if you want to change it.",
+      "catch_all_none": "Nobody yet — create your member profile first (Admin → My member profile).",
       "catch_all_set": "Set as Catch-all",
-      "catch_all_clear": "Clear",
+      "catch_all_clear": "Go back to automatic",
       "catch_all_failed": "Failed to update the catch-all Person.",
       "bridge_title": "Create your Member profile",
       "bridge_help": "Link your Admin account to a Member profile — the same social app every member uses — so you gain a Person, friends list, and your own personal referral code (useful for ad campaigns), just like every other member.",
@@ -669,7 +669,8 @@
       "save_failed": "Failed to save settings.",
       "community_heading": "Community places",
       "community_help": "Where people can join us. Fill in only the ones you have created; a blank one is not shown. People pick the place they prefer after signing up, and which one they choose is counted in the Growth tab.",
-      "not_set_up": "Not set up yet"
+      "not_set_up": "Not set up yet",
+      "catch_all_automatic": "(automatic: the central admin's own member profile)"
     },
     "content": {
       "title": "Website Content",

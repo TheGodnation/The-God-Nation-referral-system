@@ -713,6 +713,7 @@ interface SettingsData {
   // Announcement/HeadquartersPost/Live session.
   defaultReferrerPersonId: string | null;
   defaultReferrerPersonName: string | null;
+  catchAll?: { id: string; name: string; automatic: boolean } | null;
   authorTitle: string | null;
   content: Record<string, string>;
 }
@@ -847,11 +848,11 @@ export function SettingsTab() {
     api.get<SettingsData>('/api/admin/settings').then(setSettings);
   }, []);
 
-  function field(key: keyof Omit<SettingsData, 'content'>) {
+  function field(key: keyof Omit<SettingsData, 'content' | 'catchAll'>) {
     return settings[key] ?? '';
   }
 
-  function setField(key: keyof Omit<SettingsData, 'content'>, value: string) {
+  function setField(key: keyof Omit<SettingsData, 'content' | 'catchAll'>, value: string) {
     setSettings((s) => ({ ...s, [key]: value }));
   }
 
@@ -937,7 +938,14 @@ export function SettingsTab() {
           <label className="label">{t('admin.settings.catch_all_label')}</label>
           <p className="mb-2 text-xs text-slate-400">{t('admin.settings.catch_all_hint')}</p>
           <p className="mb-2 text-sm text-slate-700">
-            {settings.defaultReferrerPersonName ?? <span className="text-slate-400">{t('admin.settings.catch_all_none')}</span>}
+            {settings.catchAll
+              ? (
+                <>
+                  <strong>{settings.catchAll.name}</strong>
+                  {settings.catchAll.automatic && <span className="ml-2 text-xs text-slate-500">{t('admin.settings.catch_all_automatic')}</span>}
+                </>
+              )
+              : <span className="text-slate-400">{t('admin.settings.catch_all_none')}</span>}
             {settings.defaultReferrerPersonId && (
               <button type="button" className="ml-3 text-xs text-red-700 hover:underline" onClick={() => setCatchAllPerson(null)}>
                 {t('admin.settings.catch_all_clear')}
@@ -946,7 +954,7 @@ export function SettingsTab() {
           </p>
           <SearchPicker
             placeholder={t('admin.leaders.assign_search_placeholder') ?? ''}
-            searchPath="/api/admin/people?search="
+            searchPath="/api/admin/people?includeTestData=true&search="
             renderLabel={(p) => `${p.name} (${p.whatsappNumber})`}
             actionLabel={t('admin.settings.catch_all_set')}
             searchButtonLabel={t('admin.people.search_button')}

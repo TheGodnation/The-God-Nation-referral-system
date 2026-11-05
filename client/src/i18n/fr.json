@@ -649,10 +649,10 @@
       "author_title_placeholder": "ex. Fondateur et Pasteur Principal",
       "author_title_hint": "Affiché à côté de votre photo et de votre nom chaque fois que vous choisissez « publier en mon nom » sur une Annonce, une Publication du Siège ou une session en direct.",
       "catch_all_label": "Personne de secours",
-      "catch_all_hint": "Chaque nouvel arrivant sans véritable parrainage est automatiquement rendu « Parrainé » ami de cette Personne, afin que personne ne soit jamais laissé sans responsable de suivi. Habituellement votre propre profil relié ci-dessous.",
-      "catch_all_none": "Non défini — les nouveaux arrivants non parrainés n'ont aucun ami automatique.",
+      "catch_all_hint": "Toute personne qui arrive sans le lien de personne devient automatiquement un ami « Parrainé » de cette personne, afin que personne ne soit laissé sans suivi. Par défaut, c'est le profil membre de l'administrateur central — rien à régler. Choisissez quelqu'un d'autre ci-dessous seulement si vous voulez changer.",
+      "catch_all_none": "Personne pour l'instant — créez d'abord votre profil membre.",
       "catch_all_set": "Définir comme secours",
-      "catch_all_clear": "Effacer",
+      "catch_all_clear": "Revenir à l'automatique",
       "catch_all_failed": "Échec de la mise à jour de la Personne de secours.",
       "bridge_title": "Créez votre profil Membre",
       "bridge_help": "Reliez votre compte Admin à un profil Membre — la même application sociale que chaque membre utilise — afin d'obtenir une Personne, une liste d'amis et votre propre code de parrainage personnel (utile pour les campagnes publicitaires), comme tout autre membre.",
@@ -669,7 +669,8 @@
       "save_failed": "Échec de l'enregistrement des paramètres.",
       "community_heading": "Lieux de la communauté",
       "community_help": "Les endroits où l’on peut nous rejoindre. Remplissez seulement ceux que vous avez créés ; un champ vide n’est pas affiché. Après l’inscription, chacun choisit l’endroit qu’il préfère, et le choix est compté dans l’onglet Croissance.",
-      "not_set_up": "Pas encore configuré"
+      "not_set_up": "Pas encore configuré",
+      "catch_all_automatic": "(automatique : le profil membre de l'administrateur central)"
     },
     "content": {
       "title": "Contenu du site",

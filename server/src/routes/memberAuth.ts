@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { hashToken, autoPairLeaderSession, destroySession, SESSION_COOKIE_NAME } from '../lib/auth';
 import { createMemberSession, destroyMemberSession, requireMember, MEMBER_SESSION_COOKIE_NAME } from '../lib/memberAuth';
+import { catchAllPersonId as resolveCatchAllPersonId } from '../lib/catchAll';
 import { normalizeToE164 } from '../lib/phone';
 import { recordAudit, isBruteForced, recordLoginAttempt } from '../lib/audit';
 import { requireCsrf } from '../lib/csrf';
@@ -332,8 +333,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
   // unattributed (Settings.defaultReferrerPersonId).
   const catchAllPersonId = referralCode
     ? null
-    : (await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { defaultReferrerPersonId: true } }))
-        ?.defaultReferrerPersonId ?? null;
+    : await resolveCatchAllPersonId();
   // Placeholder until the member gives their real name on the details form.
   const placeholderName = normalizedEmail;
 
