@@ -6,7 +6,7 @@ import { requireCsrf } from '../lib/csrf';
 import { asyncHandler } from '../lib/asyncHandler';
 import { profilePhotoPath } from '../lib/profilePhoto';
 import { socialMutationLimiter } from '../lib/rateLimit';
-import { titleForLevel, getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
+import { titleForLevel, getAreaAncestors, formatAreaPath, findAreaPath } from '../lib/geographicAreas';
 
 // ---------------------------------------------------------------------------
 // /api/member — browsing the Geographical Leadership Directory, and a
@@ -171,7 +171,45 @@ const createSchema = z
     typedQuarter: typedPlace,
     note: z.string().trim().max(500).optional(),
   })
-  .refine((v) => Boolean(v.areaId) !== Boolean(v.typedRegion), { message: 'Choose your place from the list, or type your region.' });
+  .refine((v) => Boolean(v.areaId) !== Boolean(v.typedRegion), { message: 'Choose your place from the list, or type your region.' })
+  // Members ask to represent a subdivision, or a quarter within one. Regions and divisions are appointed
+  // by the central authority, so the exact subdivision (with its division) is always needed.
+  .refine((v) => Boolean(v.areaId) || (Boolean(v.typedDivision) && Boolean(v.typedSubdivision)), {
+    message: 'Write the exact subdivision where you live (with its division). You can also add a quarter within it.',
+  });
+
+const ONLY_SUBDIVISION_OR_QUARTER = 'You can ask to represent a subdivision or a quarter within it. Regions and divisions are appointed by the central authority.';
+const SUBDIVISION_TAKEN = 'This subdivision already has a representative. You can ask to represent a quarter within it.';
+
+/** Who already represents this exact area (active only). */
+async function activeRepresentatives(areaId: string) {
+  const rows = await prisma.areaLeadershipAssignment.findMany({ where: { areaId, status: 'ACTIVE' }, include: { person: { select: { name: true } } } });
+  return rows.map((r) => r.person.name);
+}
+
+// GET /api/member/leadership-directory/subdivision-status?areaId= (or the typed country, region, division,
+// subdivision) — whether this subdivision already has a representative. If it does, a new person can only
+// ask for a quarter within it.
+const statusQuerySchema = z.object({
+  areaId: z.string().min(1).optional(),
+  country: z.string().trim().max(120).optional(),
+  region: z.string().trim().max(120).optional(),
+  division: z.string().trim().max(120).optional(),
+  subdivision: z.string().trim().max(120).optional(),
+});
+router.get('/leadership-directory/subdivision-status', requireMember, asyncHandler(async (req, res) => {
+  const q = statusQuerySchema.parse(req.query);
+  let area: { id: string; level: string } | null = null;
+  if (q.areaId) {
+    area = await prisma.geographicArea.findUnique({ where: { id: q.areaId }, select: { id: true, level: true } });
+  } else {
+    const found = await findAreaPath({ country: q.country, region: q.region, division: q.division, subdivision: q.subdivision });
+    area = found.complete ? found.area : null;
+  }
+  if (!area || area.level !== 'SUBDIVISION') return res.json({ represented: false, representatives: [] });
+  const representatives = await activeRepresentatives(area.id);
+  res.json({ represented: representatives.length > 0, representatives });
+}));
 
 // GET /api/member/area-representation-requests/mine — the signed-in
 // member's own request history, newest first.
@@ -196,6 +234,14 @@ router.post('/area-representation-requests', socialMutationLimiter, requireCsrf,
   if (parsed.data.areaId) {
     const area = await prisma.geographicArea.findUnique({ where: { id: parsed.data.areaId } });
     if (!area) return res.status(400).json({ error: 'Area not found.' });
+    if (area.level !== 'SUBDIVISION' && area.level !== 'QUARTER') return res.status(400).json({ error: ONLY_SUBDIVISION_OR_QUARTER });
+    if (area.level === 'SUBDIVISION' && (await activeRepresentatives(area.id)).length > 0) return res.status(409).json({ error: SUBDIVISION_TAKEN, code: 'SUBDIVISION_TAKEN' });
+  } else if (!parsed.data.typedQuarter) {
+    // A typed subdivision that is already on the list, and already has its representative: only a quarter can be asked for.
+    const found = await findAreaPath({ country: parsed.data.typedCountry, region: parsed.data.typedRegion, division: parsed.data.typedDivision, subdivision: parsed.data.typedSubdivision });
+    if (found.complete && found.area?.level === 'SUBDIVISION' && (await activeRepresentatives(found.area.id)).length > 0) {
+      return res.status(409).json({ error: SUBDIVISION_TAKEN, code: 'SUBDIVISION_TAKEN' });
+    }
   }
 
   const me = req.member!.personId;

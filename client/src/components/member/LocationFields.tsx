@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../../lib/locations';
 import { divisionsOf, quartersOf, subdivisionsOf } from '../../lib/cameroonPlaces';
@@ -76,11 +76,14 @@ export function LocationFields({
   onChange,
   idPrefix,
   errors = {},
+  hints = {},
 }: {
   value: LocationValue;
   onChange: (next: LocationValue) => void;
   idPrefix: string;
   errors?: LocationErrors;
+  /** A few words shown right under a field (the form that asks to represent a place explains subdivision and quarter this way). */
+  hints?: Partial<Record<'subdivision' | 'quarter', ReactNode>>;
 }) {
   const { t, i18n } = useTranslation();
   const country = locationCountry(value);
@@ -99,6 +102,7 @@ export function LocationFields({
       </label>
       <input id={`${idPrefix}-${field}`} className="input" placeholder={placeholder} maxLength={100} value={value[field]} onChange={(e) => set({ [field]: e.target.value })} />
       {err(field)}
+      {field === 'subdivision' || field === 'quarter' ? hints[field] : null}
     </div>
   );
   // A level picked from a list, with "Other — type it" for a place that is not on it.
@@ -112,6 +116,7 @@ export function LocationFields({
       value={value[field]}
       onChange={(v) => set(field === 'division' ? { division: v, subdivision: '', quarter: '' } : field === 'subdivision' ? { subdivision: v, quarter: '' } : { quarter: v })}
       error={errors[field]}
+      hint={field === 'subdivision' || field === 'quarter' ? hints[field] : undefined}
     />
   );
 
@@ -190,6 +195,7 @@ function PlaceSelect({
   value,
   onChange,
   error,
+  hint,
 }: {
   id: string;
   label: string;
@@ -198,6 +204,7 @@ function PlaceSelect({
   value: string;
   onChange: (v: string) => void;
   error?: string;
+  hint?: ReactNode;
 }) {
   const { t } = useTranslation();
   const [typing, setTyping] = useState(Boolean(value) && !options.includes(value));
@@ -214,6 +221,7 @@ function PlaceSelect({
         </label>
         <input id={id} className="input" maxLength={100} value={value} onChange={(e) => onChange(e.target.value)} />
         {err}
+        {hint}
       </div>
     );
   }
@@ -246,6 +254,7 @@ function PlaceSelect({
       </select>
       {typing && <input aria-label={`${label}: ${t('memberCompleteProfile.type_place')}`} className="input mt-2" placeholder={t('memberCompleteProfile.type_place') ?? ''} maxLength={100} value={value} onChange={(e) => onChange(e.target.value)} />}
       {err}
+      {hint}
     </div>
   );
 }

@@ -108,23 +108,52 @@ export function RepresentRequestForm({
 
   const pending = myRequests?.find((r) => r.status === 'PENDING') ?? null;
   const areaId = fixedArea?.id ?? (picked.length > 0 ? picked[picked.length - 1] : '');
-  const canSend = notListed ? loc.region.trim().length > 0 && locationCountry(loc).length > 0 : Boolean(areaId);
 
-  // What the person is asking to represent: the deepest level they have chosen (a whole region, a division,
-  // a subdivision or a quarter). Said out loud so that stopping at a region or a division is clear.
-  const LEVELS = ['REGION', 'DIVISION', 'SUBDIVISION', 'QUARTER'] as const;
-  const asking: { level: (typeof LEVELS)[number]; name: string } | null = (() => {
+  // Members ask to represent a subdivision or a quarter within one; regions and divisions are appointed by
+  // the central authority. If the subdivision already has a representative, only a quarter can be asked for.
+  const [taken, setTaken] = useState<{ represented: boolean; representatives: string[] } | null>(null);
+  const subdivisionAreaId = !notListed && !fixedArea ? (picked[2] ?? '') : '';
+  const typedSubdivision = notListed ? loc.subdivision.trim() : '';
+  useEffect(() => {
+    setTaken(null);
+    let live = true;
+    const query = subdivisionAreaId
+      ? `areaId=${encodeURIComponent(subdivisionAreaId)}`
+      : typedSubdivision && loc.division.trim() && loc.region.trim()
+        ? `country=${encodeURIComponent(locationCountry(loc))}&region=${encodeURIComponent(loc.region.trim())}&division=${encodeURIComponent(loc.division.trim())}&subdivision=${encodeURIComponent(typedSubdivision)}`
+        : '';
+    if (!query) return;
+    api
+      .get<{ represented: boolean; representatives: string[] }>(`/api/member/leadership-directory/subdivision-status?${query}`)
+      .then((r) => live && setTaken(r))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [subdivisionAreaId, typedSubdivision, loc.division, loc.region]); // eslint-disable-line react-hooks/exhaustive-deps
+  const quarterNeeded = Boolean(taken?.represented);
+  const canSend = fixedArea
+    ? Boolean(areaId)
+    : notListed
+      ? loc.region.trim().length > 0 && loc.division.trim().length > 0 && typedSubdivision.length > 0 && (!quarterNeeded || loc.quarter.trim().length > 0)
+      : picked.length >= (quarterNeeded ? 4 : 3);
+
+  // What the person is asking to represent: their subdivision, or a quarter within it.
+  const asking: { level: 'SUBDIVISION' | 'QUARTER'; name: string } | null = (() => {
     if (fixedArea) return null;
     if (notListed) {
-      const names = [loc.region, loc.division, loc.subdivision, loc.quarter].map((n) => n.trim());
-      let deepest = -1;
-      for (let i = 0; i < names.length && names[i]; i++) deepest = i;
-      return deepest >= 0 ? { level: LEVELS[deepest], name: names[deepest] } : null;
+      if (loc.quarter.trim()) return { level: 'QUARTER', name: loc.quarter.trim() };
+      return typedSubdivision ? { level: 'SUBDIVISION', name: typedSubdivision } : null;
     }
     const i = picked.length - 1;
     const name = i >= 0 ? options[i]?.find((a) => a.id === picked[i])?.name : undefined;
-    return i >= 0 && name ? { level: LEVELS[Math.min(i, LEVELS.length - 1)], name } : null;
+    return i >= 2 && name ? { level: i >= 3 ? 'QUARTER' : 'SUBDIVISION', name } : null;
   })();
+  const takenNotice = quarterNeeded ? (
+    <p className="mt-1 rounded-lg bg-amber-50 p-2 text-sm text-amber-900" role="status" data-testid="subdivision-taken">
+      {t('leadershipDirectory.subdivision_taken', { names: taken!.representatives.join(', ') })}
+    </p>
+  ) : null;
 
   async function submit() {
     setError(null);
@@ -211,7 +240,20 @@ export function RepresentRequestForm({
           ) : notListed ? (
             <div className="space-y-2">
               <p className="text-sm text-slate-600">{t('leadershipDirectory.typed_help')}</p>
-              <LocationFields value={loc} onChange={setLoc} idPrefix="typed" />
+              <LocationFields
+                value={loc}
+                onChange={setLoc}
+                idPrefix="typed"
+                hints={{
+                  subdivision: (
+                    <>
+                      <p className="mt-1 text-xs text-slate-600">{t('leadershipDirectory.subdivision_hint')}</p>
+                      {takenNotice}
+                    </>
+                  ),
+                  quarter: <p className="mt-1 text-xs text-slate-600">{t('leadershipDirectory.quarter_hint')}</p>,
+                }}
+              />
             </div>
           ) : (
             <div className="space-y-2">
@@ -229,6 +271,13 @@ export function RepresentRequestForm({
                         </option>
                       ))}
                     </select>
+                    {i === 2 && (
+                      <>
+                        <p className="mt-1 text-xs text-slate-600">{t('leadershipDirectory.subdivision_hint')}</p>
+                        {takenNotice}
+                      </>
+                    )}
+                    {i === 3 && <p className="mt-1 text-xs text-slate-600">{t('leadershipDirectory.quarter_hint')}</p>}
                   </div>
                 ),
               )}

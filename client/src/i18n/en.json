@@ -1735,12 +1735,15 @@
     "represent_this": "Represent this place",
     "nobody_yet": "No leaders have been appointed yet. You can be the first: send your request above and the central authority will contact you.",
     "field_country": "Country",
-    "level_help": "You can ask to represent a whole region, a division, a subdivision or a quarter. Choose as far down the lists as the place you want to represent, and stop there.",
+    "level_help": "You can ask to represent the exact subdivision where you live, or a quarter within it. Regions and divisions are appointed by the central authority.",
     "asking_for": "You are asking to represent:",
     "level_region": "Region",
     "level_division": "Division",
     "level_subdivision": "Subdivision",
-    "level_quarter": "Quarter"
+    "level_quarter": "Quarter",
+    "subdivision_hint": "Write or choose the exact subdivision where you live and want to represent.",
+    "quarter_hint": "Or a quarter within that subdivision. If your subdivision already has a representative, you can only ask for a quarter within it.",
+    "subdivision_taken": "{{names}} already represents this subdivision. You can only ask to represent a quarter within it."
   },
   "myReferrals": {
     "title": "My Ambassador Dashboard",

@@ -203,16 +203,19 @@ export function GeographicDirectory() {
                   <span>
                     {a.title} — {a.path}
                   </span>
-                  <button
-                    type="button"
-                    className="shrink-0 text-xs font-semibold text-brand-700 underline"
-                    onClick={() => {
-                      setFixedArea({ id: a.id, label: `${a.title} — ${a.path}` });
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                  >
-                    {t('leadershipDirectory.represent_this')}
-                  </button>
+                  {/* Members can ask for a subdivision or a quarter; regions and divisions are appointed by the central authority. */}
+                  {(a.level === 'SUBDIVISION' || a.level === 'QUARTER') && (
+                    <button
+                      type="button"
+                      className="shrink-0 text-xs font-semibold text-brand-700 underline"
+                      onClick={() => {
+                        setFixedArea({ id: a.id, label: `${a.title} — ${a.path}` });
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      {t('leadershipDirectory.represent_this')}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

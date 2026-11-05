@@ -1735,12 +1735,15 @@
     "represent_this": "Représenter ce lieu",
     "nobody_yet": "Aucun responsable n'a encore été nommé. Vous pouvez être le premier : envoyez votre demande ci-dessus et l'autorité centrale vous contactera.",
     "field_country": "Pays",
-    "level_help": "Vous pouvez demander à représenter toute une région, un département, un arrondissement ou un quartier. Descendez dans les listes jusqu'au lieu que vous voulez représenter, et arrêtez-vous là.",
+    "level_help": "Vous pouvez demander à représenter l'arrondissement exact où vous vivez, ou un quartier de cet arrondissement. Les régions et les départements sont nommés par l'autorité centrale.",
     "asking_for": "Vous demandez à représenter :",
     "level_region": "Région",
     "level_division": "Département",
     "level_subdivision": "Arrondissement",
-    "level_quarter": "Quartier"
+    "level_quarter": "Quartier",
+    "subdivision_hint": "Écrivez ou choisissez l'arrondissement exact où vous vivez et que vous voulez représenter.",
+    "quarter_hint": "Ou un quartier de cet arrondissement. Si votre arrondissement a déjà un représentant, vous pouvez seulement demander un quartier à l'intérieur.",
+    "subdivision_taken": "{{names}} représente déjà cet arrondissement. Vous pouvez seulement demander à représenter un quartier à l'intérieur."
   },
   "myReferrals": {
     "title": "Mon tableau d'ambassadeur",

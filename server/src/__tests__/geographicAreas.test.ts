@@ -274,7 +274,7 @@ describe('Area Representation Requests — member submission', () => {
 
     const first = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.quarter.id });
     expect(first.status).toBe(201);
-    const second = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.region.id });
+    const second = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
     expect(second.status).toBe(409);
   });
 
@@ -357,21 +357,22 @@ describe('Area Representation Requests — Admin review', () => {
 
   it('approving a request for a place that is not on the list adds the place (region, division, subdivision) and appoints the person', async () => {
     const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-req-autoadd@test.local');
-    const m = await member('Division Requester');
-    // A division is asked for, not a quarter: the appointment is to that division.
-    const created = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { typedCountry: 'Cameroon', typedRegion: 'Adamawa', typedDivision: 'Vina' });
+    const m = await member('Subdivision Requester');
+    // A subdivision is asked for: the appointment is to that subdivision, and the places above it are added.
+    const created = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { typedCountry: 'Cameroon', typedRegion: 'Adamawa', typedDivision: 'Vina', typedSubdivision: 'Belel' });
     const approved = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/approve`);
     expect(approved.status).toBe(200);
-    expect(approved.body.area).toMatchObject({ name: 'Vina', level: 'DIVISION' });
-    const vina = await prisma.geographicArea.findFirstOrThrow({ where: { name: 'Vina' }, include: { parent: { include: { parent: true } } } });
-    expect(vina.parent?.name).toBe('Adamawa');
-    expect(vina.parent?.parent).toMatchObject({ name: 'Cameroon', level: 'NATIONAL' });
+    expect(approved.body.area).toMatchObject({ name: 'Belel', level: 'SUBDIVISION' });
+    const belel = await prisma.geographicArea.findFirstOrThrow({ where: { name: 'Belel' }, include: { parent: { include: { parent: { include: { parent: true } } } } } });
+    expect(belel.parent?.name).toBe('Vina');
+    expect(belel.parent?.parent?.name).toBe('Adamawa');
+    expect(belel.parent?.parent?.parent).toMatchObject({ name: 'Cameroon', level: 'NATIONAL' });
     // A second request for the same division finds the places already there (spelling and hyphens aside).
     const m2 = await member('Division Requester Two');
-    const again = await send(m2.agent, m2.csrf, 'post', '/api/member/area-representation-requests', { typedCountry: 'Cameroon', typedRegion: 'ADAMAWA', typedDivision: 'vina', typedSubdivision: 'Ngaoundéré I' });
+    const again = await send(m2.agent, m2.csrf, 'post', '/api/member/area-representation-requests', { typedCountry: 'Cameroon', typedRegion: 'ADAMAWA', typedDivision: 'vina', typedSubdivision: 'Mbé' });
     const second = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${again.body.id}/approve`);
     expect(second.status).toBe(200);
-    expect(second.body.area).toMatchObject({ name: 'Ngaoundéré I', level: 'SUBDIVISION' });
+    expect(second.body.area).toMatchObject({ name: 'Mbé', level: 'SUBDIVISION' });
     expect(await prisma.geographicArea.count({ where: { name: 'Vina' } })).toBe(1);
     expect(await prisma.geographicArea.count({ where: { name: 'Adamawa' } })).toBe(1);
   });
@@ -507,11 +508,52 @@ describe('Leadership Directory — position titles, National Team, places not on
   it('declining a typed-in place works and tells the member which place', async () => {
     const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-typed-decline@test.local');
     const m = await member('Typed Decline Requester');
-    const created = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { typedRegion: 'Adamawa', typedDivision: 'Vina' });
+    const created = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { typedRegion: 'Adamawa', typedDivision: 'Vina', typedSubdivision: 'Belel' });
     const declined = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${created.body.id}/decline`, { decisionNote: 'Not yet.' });
     expect(declined.status).toBe(200);
     expect(declined.body.status).toBe('DECLINED');
     expect(await prisma.areaLeadershipAssignment.count({ where: { personId: m.id } })).toBe(0);
+  });
+});
+
+describe('Area Representation Requests — only subdivisions and quarters', () => {
+  it('members cannot ask for a region or a division (the central authority appoints those), nor type a place without its subdivision', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-only-sub@test.local');
+    const path = await buildCameroonPath(adminAgent, adminCsrf);
+    const m = await member('Only Sub Requester');
+    const post = (body: object) => send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', body);
+    const region = await post({ areaId: path.region.id });
+    expect(region.status).toBe(400);
+    expect(region.body.error).toMatch(/subdivision or a quarter/);
+    expect((await post({ areaId: path.division.id })).status).toBe(400);
+    // Typed: the region alone, or the division without the subdivision, is not enough.
+    expect((await post({ typedCountry: 'Cameroon', typedRegion: 'Littoral' })).status).toBe(400);
+    expect((await post({ typedCountry: 'Cameroon', typedRegion: 'Littoral', typedDivision: 'Wouri' })).status).toBe(400);
+    expect((await post({ typedCountry: 'Cameroon', typedRegion: 'Littoral', typedDivision: 'Wouri', typedSubdivision: 'Douala V' })).status).toBe(201);
+  });
+
+  it('when a subdivision already has its representative, only a quarter within it can be asked for', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-taken@test.local');
+    const path = await buildCameroonPath(adminAgent, adminCsrf);
+    const first = await member('First Representative');
+    const sent = await send(first.agent, first.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
+    await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${sent.body.id}/approve`);
+
+    const second = await member('Second Person');
+    // The app can say so beforehand, by the list or by the typed names.
+    const byId = await second.agent.get(`/api/member/leadership-directory/subdivision-status?areaId=${path.subdivision.id}`);
+    expect(byId.body).toEqual({ represented: true, representatives: ['First Representative'] });
+    const byName = await second.agent.get('/api/member/leadership-directory/subdivision-status?country=Cameroon&region=Littoral&division=Wouri&subdivision=Douala%20V');
+    expect(byName.body.represented).toBe(true);
+    expect((await second.agent.get('/api/member/leadership-directory/subdivision-status?country=Cameroon&region=Littoral&division=Wouri&subdivision=Douala%20III')).body.represented).toBe(false);
+
+    // The subdivision itself is refused (listed or typed)...
+    const refused = await send(second.agent, second.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatch(/already has a representative.*quarter/);
+    expect((await send(second.agent, second.csrf, 'post', '/api/member/area-representation-requests', { typedCountry: 'Cameroon', typedRegion: 'Littoral', typedDivision: 'Wouri', typedSubdivision: 'Douala V' })).status).toBe(409);
+    // ...but a quarter within it is welcome.
+    expect((await send(second.agent, second.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.quarter.id })).status).toBe(201);
   });
 });
 
@@ -524,7 +566,7 @@ describe('Leadership Directory — a member whose request is approved becomes vi
     expect((await viewer.agent.get('/api/member/leadership-directory/faces')).body).toEqual({ items: [], total: 0 });
 
     const rep = await member('New Representative');
-    const sent = await send(rep.agent, rep.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.region.id });
+    const sent = await send(rep.agent, rep.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
     expect(sent.status).toBe(201);
     // Asking changes nothing by itself.
     expect((await viewer.agent.get('/api/member/leadership-directory/faces')).body.total).toBe(0);
@@ -532,7 +574,7 @@ describe('Leadership Directory — a member whose request is approved becomes vi
     const approved = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${sent.body.id}/approve`, { title: 'Regional Coordinator' });
     expect(approved.status).toBe(200);
 
-    const dir = await viewer.agent.get('/api/member/leadership-directory/areas?country=Cameroon&level=REGION');
+    const dir = await viewer.agent.get('/api/member/leadership-directory/areas?country=Cameroon&level=SUBDIVISION');
     expect(dir.body.items[0].leaders).toEqual([expect.objectContaining({ name: 'New Representative', title: 'Regional Coordinator' })]);
     const faces = await viewer.agent.get('/api/member/leadership-directory/faces');
     expect(faces.body.items.map((f: any) => f.name)).toEqual(['New Representative']);
@@ -556,7 +598,7 @@ describe('Leadership Directory — a member whose request is approved becomes vi
       await send(adminAgent, adminCsrf, 'post', '/api/admin/national-team', { personId: t.id, title: `Role ${i}`, sortOrder: i });
     }
     const rep = await member('Late Representative');
-    const sent = await send(rep.agent, rep.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.division.id });
+    const sent = await send(rep.agent, rep.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
     await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${sent.body.id}/approve`);
     const faces = await viewer.agent.get('/api/member/leadership-directory/faces');
     expect(faces.body.items.length).toBeLessThanOrEqual(8);

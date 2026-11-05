@@ -132,3 +132,29 @@ export async function ensureAreaPath(place: {
   }
   return { area: parent ? { id: parent.id, level: parent.level, name: parent.name } : null, created };
 }
+
+/** The same walk as ensureAreaPath, but only looking: nothing is added. `complete` is false when a level is not there yet. */
+export async function findAreaPath(place: {
+  country?: string | null;
+  region?: string | null;
+  division?: string | null;
+  subdivision?: string | null;
+  quarter?: string | null;
+}): Promise<{ area: { id: string; level: GeographicLevel; name: string } | null; complete: boolean }> {
+  const names = [place.country, place.region, place.division, place.subdivision, place.quarter].map((n) => (n ?? '').trim());
+  let parent: { id: string; level: GeographicLevel; name: string } | null = null;
+  let last = -1;
+  for (let i = 0; i < names.length; i++) {
+    if (!names[i]) break;
+    const candidates: { id: string; level: GeographicLevel; name: string }[] = await prisma.geographicArea.findMany({
+      where: parent ? { parentId: parent.id } : { parentId: null, level: 'NATIONAL' },
+      select: { id: true, level: true, name: true },
+    });
+    const found = candidates.find((c) => placeKey(c.name) === placeKey(names[i]));
+    if (!found) return { area: parent, complete: false };
+    parent = found;
+    last = i;
+  }
+  const asked = names.filter(Boolean).length;
+  return { area: parent, complete: last >= 0 && last === asked - 1 };
+}
