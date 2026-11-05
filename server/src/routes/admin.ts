@@ -17,6 +17,7 @@ import { notifyLeaderDashboardMovedIfNeeded } from '../lib/notifications';
 import { leaderSignInHelpLink, memberSignInHelpLink } from '../lib/signInHelp';
 import { bridgeUserToMemberProfile, MemberBridgeError } from '../lib/memberBridge';
 import { ensureLeaderAccount } from '../lib/leaderAccounts';
+import { resolveCatchAllPerson } from '../lib/catchAll';
 
 const router = Router();
 
@@ -824,7 +825,7 @@ const contentSchema = z
   >)
   .partial();
 
-function settingsResponse(settings: {
+function settingsResponse(catchAll: { id: string; name: string; automatic: boolean } | null, settings: {
   supportWhatsappUrl: string | null;
   whatsappGroupEnUrl: string | null;
   whatsappGroupFrUrl: string | null;
@@ -863,6 +864,8 @@ function settingsResponse(settings: {
     // Settings field, never hardcoded (see memberAuth.ts's /signup/finish).
     defaultReferrerPersonId: settings?.defaultReferrerPersonId ?? null,
     defaultReferrerPersonName: settings?.defaultReferrerPerson?.name ?? null,
+    // Who actually catches joiners without a link: the chosen person, or automatically the central admin's own profile.
+    catchAll,
     authorTitle: settings?.authorTitle ?? null,
   };
 }
@@ -872,7 +875,7 @@ router.get('/settings', asyncHandler(async (_req, res) => {
     where: { id: 'singleton' },
     include: { defaultReferrerPerson: { select: { id: true, name: true } } },
   });
-  res.json(settingsResponse(settings));
+  res.json(settingsResponse(await resolveCatchAllPerson(), settings));
 }));
 
 const settingsSchema = z.object({
@@ -965,7 +968,7 @@ router.patch('/settings', requireCsrf, asyncHandler(async (req, res) => {
     metadata: { changedKeys: Object.keys(req.body ?? {}) },
   });
 
-  res.json(settingsResponse(settings));
+  res.json(settingsResponse(await resolveCatchAllPerson(), settings));
 }));
 
 // ---------------------------------------------------------------------------

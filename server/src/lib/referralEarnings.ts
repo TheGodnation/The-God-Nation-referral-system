@@ -1,5 +1,6 @@
 import { Prisma, type BookPayment } from '@prisma/client';
 import { prisma } from './prisma';
+import { catchAllPersonId } from './catchAll';
 import { recordAudit } from './audit';
 import { isCentralAdminPerson } from './centralAdmin';
 import { notifyReferralEarning } from './notifications';
@@ -19,13 +20,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export async function commissionSettings() {
   const s = await prisma.settings.findUnique({
     where: { id: 'singleton' },
-    select: { referralCommission: true, commissionHoldDays: true, payoutMinimum: true, defaultReferrerPersonId: true },
+    select: { referralCommission: true, commissionHoldDays: true, payoutMinimum: true },
   });
   return {
     commission: s?.referralCommission ?? 500,
     holdDays: s?.commissionHoldDays ?? 3,
     minimum: s?.payoutMinimum ?? 5000,
-    catchAllPersonId: s?.defaultReferrerPersonId ?? null,
+    catchAllPersonId: await catchAllPersonId(),
   };
 }
 
