@@ -222,18 +222,25 @@ describe('lib/translation — Gemini-backed text translation and voice-note tran
     expect(urls[0]).toContain('strong-model');
   });
 
-  it('by default asks the best model (Pro) first, then Flash, then Flash-Lite, moving on whenever one is not available', async () => {
-    const translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key', GEMINI_QUALITY_MODEL: undefined });
-    const urls: string[] = [];
-    vi.stubGlobal(
-      'fetch',
+  it('by default asks Flash (the best model the free tier allows) then Flash-Lite, and Pro first when it is listed', async () => {
+    const respond = (urls: string[]) =>
       vi.fn(async (url: string) => {
         urls.push(url);
         if (url.includes('gemini-pro-latest') || url.includes('gemini-flash-latest')) return { ok: false, status: 429, text: async () => 'quota' };
         return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ detectedLanguage: 'en', translated: 'Bonjour' }) }] } }] }) };
-      }),
-    );
+      });
+    let translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key', GEMINI_QUALITY_MODEL: undefined });
+    let urls: string[] = [];
+    vi.stubGlobal('fetch', respond(urls));
     expect(await translation.translateText('Hello')).toEqual({ detectedLanguage: 'en', translatedBody: 'Bonjour' });
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain('gemini-flash-latest');
+    expect(urls[1]).toContain('gemini-flash-lite-latest');
+
+    translation = await freshTranslationModule({ GEMINI_API_KEY: 'test-key', GEMINI_QUALITY_MODEL: 'gemini-pro-latest,gemini-flash-latest' });
+    urls = [];
+    vi.stubGlobal('fetch', respond(urls));
+    await translation.translateText('Hello');
     expect(urls[0]).toContain('gemini-pro-latest');
     expect(urls[1]).toContain('gemini-flash-latest');
     expect(urls[2]).toContain('gemini-flash-lite-latest');

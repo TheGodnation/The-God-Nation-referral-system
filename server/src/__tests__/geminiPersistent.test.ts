@@ -8,6 +8,7 @@ afterEach(() => {
   vi.resetModules();
   delete process.env.GEMINI_API_KEY;
   delete process.env.GEMINI_QUALITY_MODEL;
+  delete process.env.GEMINI_DRAFT_MODELS;
 });
 
 function ok(json: unknown) {
@@ -19,6 +20,7 @@ describe('callGeminiPersistent', () => {
   it('keeps asking, on both models, until Gemini answers', async () => {
     process.env.GEMINI_API_KEY = 'test-key';
     process.env.GEMINI_QUALITY_MODEL = 'gemini-flash-latest';
+    process.env.GEMINI_DRAFT_MODELS = 'gemini-pro-latest';
     vi.resetModules();
     const urls: string[] = [];
     const fetchMock = vi.fn(async (url: string) => {
@@ -40,6 +42,7 @@ describe('callGeminiPersistent', () => {
   it('gives up with null only after every try failed', async () => {
     process.env.GEMINI_API_KEY = 'test-key';
     process.env.GEMINI_QUALITY_MODEL = 'gemini-flash-latest';
+    process.env.GEMINI_DRAFT_MODELS = 'gemini-pro-latest';
     vi.resetModules();
     const fetchMock = vi.fn(async () => busy);
     vi.stubGlobal('fetch', fetchMock);
@@ -55,6 +58,7 @@ describe('callGeminiPersistent', () => {
   it('stops asking a model whose allowance is used up (429) and keeps trying the others', async () => {
     process.env.GEMINI_API_KEY = 'test-key';
     process.env.GEMINI_QUALITY_MODEL = 'gemini-flash-latest';
+    process.env.GEMINI_DRAFT_MODELS = 'gemini-pro-latest';
     vi.resetModules();
     const urls: string[] = [];
     const fetchMock = vi.fn(async (url: string) => {

@@ -34,10 +34,11 @@ const GEMINI_MODEL = 'gemini-flash-lite-latest';
 // Google busy) the same job falls back to Flash-Lite, so translation never
 // stops. Set GEMINI_QUALITY_MODEL to try another (e.g. gemini-pro-latest),
 // or to an empty value to use Flash-Lite only.
-// A comma-separated list, best first. By default the strongest model (Pro) is asked first, then Flash, then
-// Flash-Lite. A model that is not available to the key (free tier: no Pro) answers at once with an error and
-// the next one is tried, so this never slows translation down noticeably.
-const QUALITY_MODELS = (process.env.GEMINI_QUALITY_MODEL ?? 'gemini-pro-latest,gemini-flash-latest')
+// A comma-separated list, best first, then Flash-Lite as the last backup. On the free tier the best model that
+// answers is Flash (Pro has no free allowance at all: "limit: 0"), so that is the default. Once billing is on,
+// set GEMINI_QUALITY_MODEL=gemini-pro-latest,gemini-flash-latest on Render to ask Pro first. A model that is not
+// available to the key answers at once with an error and the next one is tried.
+const QUALITY_MODELS = (process.env.GEMINI_QUALITY_MODEL ?? 'gemini-flash-latest')
   .split(',')
   .map((m) => m.trim())
   .filter((m, i, all) => m && m !== 'gemini-flash-lite-latest' && all.indexOf(m) === i);
@@ -227,9 +228,9 @@ export async function callGeminiPersistent(
   // The person waiting is never kept longer than this in total, whatever Google does.
   const budgetMs = opts.budgetMs ?? 70000;
   const started = Date.now();
-  // Each model is a separate pool of capacity on Google's side, so when the Flash ones are overloaded
-  // the Pro one may still answer (GEMINI_DRAFT_MODELS can list others, comma separated).
-  const extra = (process.env.GEMINI_DRAFT_MODELS ?? 'gemini-pro-latest').split(',').map((m) => m.trim());
+  // Each model is a separate pool of capacity on Google's side. GEMINI_DRAFT_MODELS can add others, comma
+  // separated (for example gemini-pro-latest once billing is on; the free tier gives Pro no allowance).
+  const extra = (process.env.GEMINI_DRAFT_MODELS ?? '').split(',').map((m) => m.trim());
   let models = [...QUALITY_MODELS, GEMINI_MODEL, ...extra].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
   for (let i = 0; i < tries; i++) {
     const remaining = budgetMs - (Date.now() - started);
