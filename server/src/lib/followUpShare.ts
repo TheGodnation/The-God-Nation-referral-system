@@ -1,5 +1,5 @@
 import { prisma } from './prisma';
-import { notifyFollowUpAssigned } from './notifications';
+import { notifyFollowUpAssigned, notifyFollowUpBatch } from './notifications';
 import { isCentralAdminPerson } from './centralAdmin';
 
 // ---------------------------------------------------------------------------
@@ -63,24 +63,89 @@ export async function unassignedMembers(communityId: string): Promise<{ id: stri
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Give every member nobody follows to the lightest leader, one at a time, so loads end up even. */
-export async function shareUnassigned(communityId: string, actorUserId: string) {
-  const loads = await leaderLoads(communityId);
-  if (loads.length === 0) return { assigned: 0, noLeaders: true, perLeader: [] as { personId: string; name: string; added: number }[] };
+export interface ShareOptions {
+  /** Only these leaders (default: every leader of the assembly). */
+  leaderPersonIds?: string[];
+  /** Each chosen leader gets up to this many new people (default: share evenly by headcount). */
+  perLeader?: number;
+  /** Work out who would get whom, and change nothing. */
+  dryRun?: boolean;
+}
+
+export interface ShareResult {
+  assigned: number;
+  noLeaders: boolean;
+  remaining: number;
+  dryRun: boolean;
+  perLeader: { personId: string; name: string; added: number }[];
+}
+
+/**
+ * Give the members nobody follows to the leaders. By default every one goes to the lightest leader in turn, so loads
+ * end up even. With `leaderPersonIds` only those leaders are used; with `perLeader` each of them takes up to that many
+ * people (so 500 people and 20 leaders at 25 each is exactly 500). People left over stay unassigned and are counted.
+ * With `dryRun` nothing is written: it is the preview.
+ */
+export async function shareUnassigned(communityId: string, actorUserId: string, opts: ShareOptions = {}): Promise<ShareResult> {
+  let loads = await leaderLoads(communityId);
+  if (opts.leaderPersonIds && opts.leaderPersonIds.length > 0) {
+    const wanted = new Set(opts.leaderPersonIds);
+    loads = loads.filter((l) => wanted.has(l.personId));
+  }
+  const dryRun = Boolean(opts.dryRun);
+  if (loads.length === 0) return { assigned: 0, noLeaders: true, remaining: 0, dryRun, perLeader: [] };
+
   const people = await unassignedMembers(communityId);
+  const plan: { leaderId: string; personId: string }[] = [];
+  if (opts.perLeader && opts.perLeader > 0) {
+    let next = 0;
+    for (const leader of loads) {
+      for (let k = 0; k < opts.perLeader && next < people.length; k += 1) {
+        plan.push({ leaderId: leader.personId, personId: people[next].id });
+        next += 1;
+      }
+    }
+  } else {
+    const working = loads.map((l) => ({ ...l }));
+    for (const person of people) {
+      const target = lightest(working)!;
+      plan.push({ leaderId: target.personId, personId: person.id });
+      target.headcount += 1;
+    }
+  }
+
   const added = new Map<string, number>();
-  for (const person of people) {
-    const target = lightest(loads)!;
-    const created = await prisma.followUpAssignment.create({
-      data: { followerId: target.personId, followedPersonId: person.id, contextType: 'COMMUNITY', contextId: communityId, assignedByUserId: actorUserId },
-    });
-    target.headcount += 1;
-    added.set(target.personId, (added.get(target.personId) ?? 0) + 1);
-    await notifyFollowUpAssigned(created);
+  for (const step of plan) added.set(step.leaderId, (added.get(step.leaderId) ?? 0) + 1);
+
+  if (!dryRun) {
+    const created: { id: string; followerId: string; followedPersonId: string }[] = [];
+    for (const step of plan) {
+      created.push(
+        await prisma.followUpAssignment.create({
+          data: { followerId: step.leaderId, followedPersonId: step.personId, contextType: 'COMMUNITY', contextId: communityId, assignedByUserId: actorUserId },
+          select: { id: true, followerId: true, followedPersonId: true },
+        }),
+      );
+    }
+    // A few people: tell the leader about each. Many at once: one message to the leader, not a flood.
+    const BATCH = 3;
+    const summarised = new Set<string>();
+    for (const a of created) {
+      if ((added.get(a.followerId) ?? 0) > BATCH) {
+        if (!summarised.has(a.followerId)) {
+          summarised.add(a.followerId);
+          await notifyFollowUpBatch(a.followerId, added.get(a.followerId) ?? 0);
+        }
+      } else {
+        await notifyFollowUpAssigned(a);
+      }
+    }
   }
   return {
-    assigned: people.length,
+    assigned: plan.length,
     noLeaders: false,
+    remaining: people.length - plan.length,
+    dryRun,
     perLeader: loads.map((l) => ({ personId: l.personId, name: l.name, added: added.get(l.personId) ?? 0 })),
   };
 }

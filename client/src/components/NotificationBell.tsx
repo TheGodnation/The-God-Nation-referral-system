@@ -122,7 +122,7 @@ export function NotificationBell() {
     const metadata = n.metadata ?? {};
     switch (n.type) {
       case 'FOLLOW_UP_ASSIGNED':
-        return t('notifications.follow_up_assigned', { name: metadata.followedPersonName ?? '' });
+        return metadata.count ? t('notifications.follow_up_batch', { count: Number(metadata.count) }) : t('notifications.follow_up_assigned', { name: metadata.followedPersonName ?? '' });
       case 'PRIVATE_MESSAGE_RECEIVED': {
         const senderName = metadata.senderName as string | null | undefined;
         return t('notifications.private_message_received', {

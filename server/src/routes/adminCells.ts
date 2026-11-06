@@ -47,14 +47,25 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     res.status(201).json({ id: result.id });
   }));
 
-  // Give the people nobody follows yet to the assembly's leaders, evenly by headcount.
+  // Give the people nobody follows yet to the assembly's leaders: evenly by headcount, or to the leaders chosen and
+  // up to a number each. `dryRun` only shows who would get how many.
   router.post('/share', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
-    const parsed = z.object({ communityId: z.string().min(1) }).safeParse(req.body);
+    const parsed = z
+      .object({
+        communityId: z.string().min(1),
+        leaderPersonIds: z.array(z.string().min(1)).max(500).optional(),
+        perLeader: z.number().int().min(1).max(2000).optional(),
+        dryRun: z.boolean().optional(),
+      })
+      .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'communityId is required.' });
     const actor = await resolveActor(req);
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
-    const result = await shareUnassigned(parsed.data.communityId, actor.id);
-    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_BULK_DISTRIBUTED', targetType: 'Community', targetId: parsed.data.communityId, metadata: { totalAssigned: result.assigned, via: 'share-by-headcount' } });
+    const { communityId, ...options } = parsed.data;
+    const result = await shareUnassigned(communityId, actor.id, options);
+    if (!result.dryRun) {
+      await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_BULK_DISTRIBUTED', targetType: 'Community', targetId: communityId, metadata: { totalAssigned: result.assigned, remaining: result.remaining, perLeader: options.perLeader ?? null, chosenLeaders: options.leaderPersonIds?.length ?? null, via: 'share-by-headcount' } });
+    }
     res.json(result);
   }));
 

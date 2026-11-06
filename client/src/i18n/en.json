@@ -1719,7 +1719,8 @@
     "notif_new": "New event in {{community}}: {{title}} — {{when}}.",
     "notif_soon": "Starting soon: {{title}} ({{community}}) — {{when}}.",
     "instruction_received": "📌 New instruction from the National Coordinator.",
-    "instruction_reminder": "⏰ Reminder: an instruction from the National Coordinator is waiting for you."
+    "instruction_reminder": "⏰ Reminder: an instruction from the National Coordinator is waiting for you.",
+    "follow_up_batch": "{{count}} people were assigned to you to follow up."
   },
   "memberHome": {
     "title": "Home",
@@ -3644,7 +3645,21 @@
     "appoint_failed": "Could not appoint. Please try again.",
     "load_failed": "Could not load. Please try again.",
     "loading": "Loading…",
-    "tab": "Assemblies"
+    "tab": "Assemblies",
+    "assign_open": "Assign them to leaders…",
+    "assign_close": "Close",
+    "assign_which": "Which leaders?",
+    "assign_follows": "follows {{count}} now",
+    "assign_away": "away",
+    "assign_each": "How many people for each leader?",
+    "assign_even": "Even",
+    "assign_each_help": "Leave empty to share evenly. For example, 25 gives each chosen leader 25 people.",
+    "assign_number_invalid": "Enter a whole number from 1 to 2000, or leave it empty.",
+    "assign_preview": "Show me who would get whom",
+    "assign_confirm": "Assign {{count}} people",
+    "assign_plan": "{{count}} people would be assigned:",
+    "assign_left": "{{count}} people would stay unassigned (more leaders or a bigger number are needed).",
+    "assign_done": "{{count}} people assigned. {{left}} still unassigned."
   },
   "privacy": {
     "title": "Privacy Policy",

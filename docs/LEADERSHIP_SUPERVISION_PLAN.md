@@ -14,6 +14,7 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 | 7 | Sanction of a member (3 days, 1 week, 2 weeks, 3 weeks, 1 month, until further notice) by the leaders of that assembly and by the representative of that generation. Only in the assembly the person leads. Reason required and shown to the member. The member can still read but cannot write, comment or react. Ends by itself, can be lifted early, the central admin can lift or change any. Every sanction is recorded. Leaders cannot sanction leaders or the central admin. |
 | 8 | Removing a member from the community for good: only the central admin. A leader sends a "please remove this person" request with a reason. |
 | 9 | A leader can message all the people they look after in one step (each gets a private message with their name). |
+| 10 | Assign people to leaders in bulk: choose the assembly, choose which leaders, set how many people each (or share evenly), preview, then assign. Built for the central admin (6 Nov 2026); the generation representatives get the same tool, limited to their generation, when representatives are built. |
 
 ## Order proposed
 1. Rooms and instructions with Seen/Done.

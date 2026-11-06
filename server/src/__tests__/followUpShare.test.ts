@@ -92,6 +92,58 @@ describe('share the people nobody follows, evenly by headcount', () => {
   });
 });
 
+describe('assign people to chosen leaders, a number each', () => {
+  it('previews without changing anything, then gives each chosen leader the number asked for and counts who is left', async () => {
+    const w = await world();
+    const leaders = [await w.leader('Lea'), await w.leader('Lou'), await w.leader('Liz'), await w.leader('Not Chosen')];
+    for (let i = 0; i < 10; i++) await w.member(`Person ${i}`);
+    const { agent, csrf } = await login('share-admin@test.local', 'AdminPass123!');
+    const chosen = leaders.slice(0, 3).map((l) => l.p.id);
+    const body = { communityId: w.hq.id, leaderPersonIds: chosen, perLeader: 3 };
+
+    const preview = await agent.post('/api/admin/cells/share').set('X-CSRF-Token', csrf).send({ ...body, dryRun: true });
+    expect(preview.body).toMatchObject({ assigned: 9, remaining: 1, dryRun: true, noLeaders: false });
+    expect(preview.body.perLeader.map((l: any) => l.added).sort()).toEqual([3, 3, 3]);
+    expect(await prisma.followUpAssignment.count()).toBe(0);
+
+    const done = await agent.post('/api/admin/cells/share').set('X-CSRF-Token', csrf).send(body);
+    expect(done.body).toMatchObject({ assigned: 9, remaining: 1, dryRun: false });
+    for (const id of chosen) expect(await w.count(id)).toBe(3);
+    expect(await w.count(leaders[3].p.id)).toBe(0);
+    expect((await agent.get('/api/admin/cells/overview')).body.items.find((r: any) => r.id === w.hq.id).unassigned).toBe(1);
+    // Nobody is given twice.
+    expect(await prisma.followUpAssignment.count({ where: { status: 'ACTIVE' } })).toBe(9);
+  });
+
+  it('with no number, shares evenly among only the chosen leaders', async () => {
+    const w = await world();
+    const a = await w.leader('Ann');
+    const b = await w.leader('Ben');
+    const c = await w.leader('Cat');
+    for (let i = 0; i < 6; i++) await w.member(`P ${i}`);
+    const { agent, csrf } = await login('share-admin@test.local', 'AdminPass123!');
+    const res = await agent.post('/api/admin/cells/share').set('X-CSRF-Token', csrf).send({ communityId: w.hq.id, leaderPersonIds: [a.p.id, b.p.id] });
+    expect(res.body).toMatchObject({ assigned: 6, remaining: 0 });
+    expect(await w.count(a.p.id)).toBe(3);
+    expect(await w.count(b.p.id)).toBe(3);
+    expect(await w.count(c.p.id)).toBe(0);
+  });
+
+  it('tells a leader who gets many people in one message, not one message per person', async () => {
+    const w = await world();
+    const a = await w.leader('Ann');
+    const b = await w.leader('Ben');
+    for (let i = 0; i < 6; i++) await w.member(`P ${i}`);
+    const { agent, csrf } = await login('share-admin@test.local', 'AdminPass123!');
+    await agent.post('/api/admin/cells/share').set('X-CSRF-Token', csrf).send({ communityId: w.hq.id, leaderPersonIds: [a.p.id], perLeader: 5 });
+    expect(await prisma.notification.count({ where: { recipientPersonId: a.p.id, type: 'FOLLOW_UP_ASSIGNED', targetType: 'FollowUpBatch' } })).toBe(1);
+    expect(await prisma.notification.count({ where: { recipientPersonId: a.p.id, targetType: 'FollowUpAssignment' } })).toBe(0);
+    // Up to three people: one message each, as before.
+    await agent.post('/api/admin/cells/share').set('X-CSRF-Token', csrf).send({ communityId: w.hq.id, leaderPersonIds: [b.p.id], perLeader: 5 });
+    expect(await prisma.notification.count({ where: { recipientPersonId: b.p.id, targetType: 'FollowUpAssignment' } })).toBe(1);
+  });
+});
+
 describe('handing people to another leader', () => {
   it('when a leader stops leading, their people, notes and chat go to the other leaders', async () => {
     const w = await world();

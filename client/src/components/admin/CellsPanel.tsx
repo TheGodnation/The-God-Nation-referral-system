@@ -54,6 +54,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
   const [sizeDraft, setSizeDraft] = useState('');
   const [onlyWithReady, setOnlyWithReady] = useState(false);
   const [health, setHealth] = useState<Map<string, HealthRow>>(new Map());
+  const [assigning, setAssigning] = useState(false);
 
   function load() {
     api
@@ -95,22 +96,6 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       setMessage(t('cells.appointed'));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('cells.appoint_failed'));
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function shareOut() {
-    if (!open) return;
-    setBusyId('share');
-    setError(null);
-    setMessage(null);
-    try {
-      const r = await api.post<{ assigned: number; noLeaders: boolean }>(`${base}/share`, { communityId: open.id });
-      setMessage(r.noLeaders ? t('cells.share_no_leaders') : t('cells.share_done', { count: r.assigned }));
-      load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('cells.share_failed'));
     } finally {
       setBusyId(null);
     }
@@ -231,11 +216,23 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
             const row = data.items.find((r) => r.id === open.id);
             if (!row || row.unassigned === 0) return null;
             return (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                <span>{t('cells.unassigned_help', { count: row.unassigned })}</span>
-                <button type="button" className="btn-secondary px-3 py-1.5 text-sm" disabled={busyId === 'share'} onClick={shareOut}>
-                  {t('cells.share_button')}
-                </button>
+              <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{t('cells.unassigned_help', { count: row.unassigned })}</span>
+                  <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setAssigning((v) => !v)} data-testid="assign-toggle">
+                    {assigning ? t('cells.assign_close') : t('cells.assign_open')}
+                  </button>
+                </div>
+                {assigning && (
+                  <AssignPeople
+                    base={base}
+                    communityId={open.id}
+                    onDone={(text) => {
+                      setMessage(text);
+                      load();
+                    }}
+                  />
+                )}
               </div>
             );
           })()}
@@ -271,6 +268,129 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
             <LeadersOversight base={base} communityId={open.id} />
           </div>
         </section>
+      )}
+    </div>
+  );
+}
+
+interface LeaderLoad {
+  personId: string;
+  name: string;
+  away: boolean;
+  headcount: number;
+}
+interface SharePlan {
+  assigned: number;
+  remaining: number;
+  noLeaders: boolean;
+  perLeader: { personId: string; name: string; added: number }[];
+}
+
+// Give the people nobody follows to the leaders: choose which leaders, and how many people each (leave the number
+// empty to share evenly). "Preview" shows who would get how many, and changes nothing; "Assign" does it.
+function AssignPeople({ base, communityId, onDone }: { base: string; communityId: string; onDone: (message: string) => void }) {
+  const { t } = useTranslation();
+  const [leaders, setLeaders] = useState<LeaderLoad[] | null>(null);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [perLeader, setPerLeader] = useState('');
+  const [plan, setPlan] = useState<SharePlan | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<{ items: LeaderLoad[] }>(`${base}/leaders?communityId=${encodeURIComponent(communityId)}`)
+      .then((r) => {
+        setLeaders(r.items);
+        setChosen(r.items.filter((l) => !l.away).map((l) => l.personId));
+      })
+      .catch(() => setError(t('cells.load_failed')));
+  }, [base, communityId]);
+
+  const number = perLeader.trim() === '' ? undefined : Number(perLeader);
+  const numberOk = number === undefined || (Number.isInteger(number) && number >= 1 && number <= 2000);
+  const body = (dryRun: boolean) => ({ communityId, leaderPersonIds: chosen, ...(number ? { perLeader: number } : {}), dryRun });
+
+  async function run(dryRun: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.post<SharePlan>(`${base}/share`, body(dryRun));
+      if (dryRun) {
+        setPlan(r);
+      } else {
+        setPlan(null);
+        onDone(r.noLeaders ? t('cells.share_no_leaders') : t('cells.assign_done', { count: r.assigned, left: r.remaining }));
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('cells.share_failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!leaders) return <p className="text-slate-500">{error ?? t('cells.loading')}</p>;
+  if (leaders.length === 0) return <p className="text-slate-600">{t('cells.share_no_leaders')}</p>;
+  const toggle = (id: string) => {
+    setPlan(null);
+    setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
+  };
+  return (
+    <div className="space-y-3" data-testid="assign-people">
+      <p className="font-semibold text-slate-800">{t('cells.assign_which')}</p>
+      <ul className="max-h-60 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2">
+        {leaders.map((l) => (
+          <li key={l.personId}>
+            <label className="flex items-start gap-2">
+              <input type="checkbox" className="mt-1" checked={chosen.includes(l.personId)} onChange={() => toggle(l.personId)} />
+              <span>
+                <span className="font-medium">{l.name}</span>
+                <span className="block text-xs text-slate-500">
+                  {t('cells.assign_follows', { count: l.headcount })}
+                  {l.away ? ` · ${t('cells.assign_away')}` : ''}
+                </span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <label className="block">
+        <span className="font-semibold text-slate-800">{t('cells.assign_each')}</span>
+        <input
+          className="input mt-1 w-40"
+          inputMode="numeric"
+          value={perLeader}
+          placeholder={t('cells.assign_even') ?? ''}
+          onChange={(e) => {
+            setPlan(null);
+            setPerLeader(e.target.value.replace(/\D/g, ''));
+          }}
+          data-testid="assign-each"
+        />
+        <span className="block text-xs text-slate-500">{t('cells.assign_each_help')}</span>
+      </label>
+      {error && <p className="text-red-700">{error}</p>}
+      {!numberOk && <p className="text-red-700">{t('cells.assign_number_invalid')}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn-secondary px-3 py-1.5" disabled={busy || chosen.length === 0 || !numberOk} onClick={() => void run(true)} data-testid="assign-preview">
+          {t('cells.assign_preview')}
+        </button>
+        {plan && plan.assigned > 0 && (
+          <button type="button" className="btn-primary px-3 py-1.5" disabled={busy} onClick={() => void run(false)} data-testid="assign-confirm">
+            {t('cells.assign_confirm', { count: plan.assigned })}
+          </button>
+        )}
+      </div>
+      {plan && (
+        <div className="rounded-lg border border-slate-200 bg-white p-2" data-testid="assign-plan">
+          <p className="font-semibold text-slate-800">{t('cells.assign_plan', { count: plan.assigned })}</p>
+          <ul className="mt-1 space-y-0.5 text-slate-700">
+            {plan.perLeader.filter((l) => l.added > 0).map((l) => (
+              <li key={l.personId}>{l.name}: +{l.added}</li>
+            ))}
+          </ul>
+          {plan.remaining > 0 && <p className="mt-1 text-xs text-amber-800">{t('cells.assign_left', { count: plan.remaining })}</p>}
+        </div>
       )}
     </div>
   );

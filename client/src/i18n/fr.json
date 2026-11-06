@@ -1719,7 +1719,8 @@
     "notif_new": "Nouvel événement à {{community}} : {{title}} — {{when}}.",
     "notif_soon": "Bientôt : {{title}} ({{community}}) — {{when}}.",
     "instruction_received": "📌 Nouvelle instruction du Coordinateur national.",
-    "instruction_reminder": "⏰ Rappel : une instruction du Coordinateur national vous attend."
+    "instruction_reminder": "⏰ Rappel : une instruction du Coordinateur national vous attend.",
+    "follow_up_batch": "{{count}} personnes vous ont été confiées à suivre."
   },
   "memberHome": {
     "title": "Accueil",
@@ -3644,7 +3645,21 @@
     "appoint_failed": "Impossible de nommer. Réessayez.",
     "load_failed": "Impossible de charger. Réessayez.",
     "loading": "Chargement…",
-    "tab": "Assemblées"
+    "tab": "Assemblées",
+    "assign_open": "Les confier aux responsables…",
+    "assign_close": "Fermer",
+    "assign_which": "Quels responsables ?",
+    "assign_follows": "suit {{count}} personne(s)",
+    "assign_away": "absent",
+    "assign_each": "Combien de personnes pour chaque responsable ?",
+    "assign_even": "Équitable",
+    "assign_each_help": "Laissez vide pour partager équitablement. Par exemple, 25 donne 25 personnes à chaque responsable choisi.",
+    "assign_number_invalid": "Entrez un nombre entier de 1 à 2000, ou laissez vide.",
+    "assign_preview": "Montrez-moi qui aurait qui",
+    "assign_confirm": "Confier {{count}} personnes",
+    "assign_plan": "{{count}} personnes seraient confiées :",
+    "assign_left": "{{count}} personnes resteraient sans suivi (il faut plus de responsables ou un nombre plus grand).",
+    "assign_done": "{{count}} personnes confiées. {{left}} sans suivi."
   },
   "privacy": {
     "title": "Politique de confidentialité",
