@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { getHeadquartersCommunityId, getCommunityGeneration } from './tree';
+import { centralAdminAmong } from './centralAdmin';
 
 // Phase 2B — Same-Generation Leader Collaboration. Deliberately its own
 // module, exactly like lib/leaderPeers.ts (Phase 2A) — never touching
@@ -21,6 +22,15 @@ import { getHeadquartersCommunityId, getCommunityGeneration } from './tree';
 // eligible for each generation independently — this module never collapses
 // them into one, and eligibility for one generation never implies or grants
 // eligibility for any other.
+
+/** The room for every leader of every generation. It is stored like a generation, with this number. */
+export const ALL_LEADERS_ROOM = -1;
+
+/** The rooms a leader can enter: the "All leaders" room first, then each generation they lead in. */
+export async function getRoomsForLeader(personId: string): Promise<number[]> {
+  const generations = await getEligibleLeadershipCollaborationGenerations(personId);
+  return generations.length > 0 ? [ALL_LEADERS_ROOM, ...generations] : [];
+}
 
 /**
  * Every distinct generation for which requestingPersonId currently holds at
@@ -62,6 +72,8 @@ export async function getEligibleLeadershipCollaborationGenerations(requestingPe
  */
 export async function canAccessLeadershipCollaboration(requestingPersonId: string, generation: number): Promise<boolean> {
   const eligible = await getEligibleLeadershipCollaborationGenerations(requestingPersonId);
+  // The "All leaders" room (generation -1) is open to every leader who leads in at least one generation.
+  if (generation === ALL_LEADERS_ROOM) return eligible.length > 0;
   return eligible.includes(generation);
 }
 
@@ -115,4 +127,60 @@ export async function getLeadershipCollaborationUnreadCount(personId: string, co
       ...(read ? { createdAt: { gt: read.lastReadAt } } : {}),
     },
   });
+}
+
+
+// ---------------------------------------------------------------------------
+// Reading and writing a room. Used by the leaders' own routes and by the National Coordinator's (the central admin's)
+// routes, so the two always behave the same. Who may enter a room is decided by the caller, never here.
+// ---------------------------------------------------------------------------
+const DEFAULT_PAGE = 30;
+const MAX_PAGE = 50;
+
+/** "National Coordinator" next to a name: the central admin's own member profile. */
+export async function roomSenderBadges(personIds: string[]): Promise<Map<string, 'NATIONAL_COORDINATOR'>> {
+  const admins = await centralAdminAmong(personIds);
+  return new Map(Array.from(admins).map((id) => [id, 'NATIONAL_COORDINATOR' as const]));
+}
+
+export async function listRoomMessages(generation: number, personId: string, opts: { before?: string; limit?: number }) {
+  const limit = Math.min(opts.limit ?? DEFAULT_PAGE, MAX_PAGE);
+  const conversation = await getOrCreateLeadershipCollaborationConversation(generation);
+  let cursor: { createdAt: Date; id: string } | null = null;
+  if (opts.before) {
+    const cursorMessage = await prisma.leadershipCollaborationMessage.findUnique({ where: { id: opts.before } });
+    if (!cursorMessage || cursorMessage.conversationId !== conversation.id) return { error: 'Invalid pagination cursor.' as const };
+    cursor = { createdAt: cursorMessage.createdAt, id: cursorMessage.id };
+  }
+  const rows = await prisma.leadershipCollaborationMessage.findMany({
+    where: {
+      conversationId: conversation.id,
+      ...(cursor ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] } : {}),
+    },
+    include: { sender: { select: { name: true } } },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: limit + 1,
+  });
+  const hasMore = rows.length > limit;
+  const page = rows.slice(0, limit).reverse();
+  const badges = await roomSenderBadges(page.map((m) => m.senderPersonId));
+  const unreadCount = await getLeadershipCollaborationUnreadCount(personId, conversation.id);
+  return {
+    items: page.map((m) => ({ id: m.id, senderName: m.sender.name, senderBadge: badges.get(m.senderPersonId) ?? null, body: m.body, createdAt: m.createdAt })),
+    hasMore,
+    unreadCount,
+  };
+}
+
+export async function postRoomMessage(generation: number, senderPersonId: string, body: string) {
+  const conversation = await getOrCreateLeadershipCollaborationConversation(generation);
+  return prisma.leadershipCollaborationMessage.create({ data: { conversationId: conversation.id, senderPersonId, body } });
+}
+
+export async function markRoomRead(generation: number, personId: string, messageId: string) {
+  const conversation = await getOrCreateLeadershipCollaborationConversation(generation);
+  const message = await prisma.leadershipCollaborationMessage.findUnique({ where: { id: messageId } });
+  if (!message || message.conversationId !== conversation.id) return null;
+  await markLeadershipCollaborationConversationRead(personId, conversation.id, message.createdAt);
+  return { unreadCount: await getLeadershipCollaborationUnreadCount(personId, conversation.id) };
 }

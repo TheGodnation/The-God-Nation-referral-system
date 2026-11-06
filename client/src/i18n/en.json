@@ -400,7 +400,8 @@
       "signInTrouble": "Sign-in trouble",
       "growth": "Growth",
       "knowledge": "Knowledge Centre",
-      "instructions": "Instructions"
+      "instructions": "Instructions",
+      "leaderRooms": "Leaders' rooms"
     },
     "overview": {
       "total_visits": "Total Visits",
@@ -1516,7 +1517,9 @@
     "composer_placeholder": "Write a message…",
     "send": "Send message",
     "sending": "Sending…",
-    "send_failed": "Failed to send message."
+    "send_failed": "Failed to send message.",
+    "all_title": "All leaders",
+    "badge_nc": "National Coordinator"
   },
   "announcements": {
     "title": "Announcements",
@@ -4285,5 +4288,13 @@
     "note_placeholder": "A short note (optional): what you did, or what is still needed.",
     "mark_done": "Mark as done",
     "your_note": "Your note"
+  },
+  "leaderRooms": {
+    "tab": "Leaders' rooms",
+    "title": "The leaders' rooms",
+    "help": "One room for all leaders and one for each generation of the assembly tree. Write once, and every leader of that level reads it.",
+    "need_profile": "To write here, create your member profile first. You can read the rooms meanwhile.",
+    "none": "No leader yet, so no room yet.",
+    "leaders": "{{count}} leader(s)"
   }
 }

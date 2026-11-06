@@ -400,7 +400,8 @@
       "signInTrouble": "Problèmes de connexion",
       "growth": "Croissance",
       "knowledge": "Centre de connaissance",
-      "instructions": "Instructions"
+      "instructions": "Instructions",
+      "leaderRooms": "Salles des responsables"
     },
     "overview": {
       "total_visits": "Visites totales",
@@ -1516,7 +1517,9 @@
     "composer_placeholder": "Écrire un message…",
     "send": "Envoyer le message",
     "sending": "Envoi…",
-    "send_failed": "Échec de l'envoi du message."
+    "send_failed": "Échec de l'envoi du message.",
+    "all_title": "Tous les responsables",
+    "badge_nc": "Coordinateur national"
   },
   "announcements": {
     "title": "Annonces",
@@ -4285,5 +4288,13 @@
     "note_placeholder": "Une courte note (facultatif) : ce que vous avez fait, ou ce qu’il reste à faire.",
     "mark_done": "Marquer comme terminé",
     "your_note": "Votre note"
+  },
+  "leaderRooms": {
+    "tab": "Salles des responsables",
+    "title": "Les salles des responsables",
+    "help": "Une salle pour tous les responsables et une pour chaque génération de l’arbre des assemblées. Écrivez une fois, et chaque responsable de ce niveau le lit.",
+    "need_profile": "Pour écrire ici, créez d’abord votre profil membre. Vous pouvez lire les salles en attendant.",
+    "none": "Pas encore de responsable, donc pas encore de salle.",
+    "leaders": "{{count}} responsable(s)"
   }
 }
