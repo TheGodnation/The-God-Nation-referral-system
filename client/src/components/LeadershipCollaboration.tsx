@@ -7,6 +7,7 @@ import { api, ApiError } from '../lib/api';
 interface MessageRow {
   id: string;
   senderName: string;
+  senderBadge?: 'NATIONAL_COORDINATOR' | null;
   body: string;
   createdAt: string;
 }
@@ -25,7 +26,7 @@ interface MessageRow {
 // genuine, side-effect-free GET; once it succeeds and there is at least one
 // unread message, this component fires POST .../read once with the newest
 // visible message — never from loadOlder().
-export function LeadershipCollaboration({ generation }: { generation: number }) {
+export function LeadershipCollaboration({ generation, base = '/api/leader/leadership-collaboration' }: { generation: number; base?: string }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<MessageRow[]>([]);
@@ -40,7 +41,7 @@ export function LeadershipCollaboration({ generation }: { generation: number }) 
 
   function markRead(latestMessageId: string) {
     api
-      .post<{ unreadCount: number }>(`/api/leader/leadership-collaboration/${generation}/read`, { messageId: latestMessageId })
+      .post<{ unreadCount: number }>(`${base}/${generation}/read`, { messageId: latestMessageId })
       .then((res) => setUnreadCount(res.unreadCount))
       .catch(() => {});
   }
@@ -49,7 +50,7 @@ export function LeadershipCollaboration({ generation }: { generation: number }) 
     setError(null);
     api
       .get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number }>(
-        `/api/leader/leadership-collaboration/${generation}/messages`,
+        `${base}/${generation}/messages`,
       )
       .then((res) => {
         setMessages(res.items);
@@ -63,7 +64,7 @@ export function LeadershipCollaboration({ generation }: { generation: number }) 
       .finally(() => setLoading(false));
   }
 
-  useEffect(loadLatest, [generation]);
+  useEffect(loadLatest, [generation, base]);
 
   function loadOlder() {
     if (messages.length === 0 || loadingOlder) return;
@@ -71,7 +72,7 @@ export function LeadershipCollaboration({ generation }: { generation: number }) 
     const oldestId = messages[0].id;
     api
       .get<{ items: MessageRow[]; hasMore: boolean }>(
-        `/api/leader/leadership-collaboration/${generation}/messages?before=${oldestId}`,
+        `${base}/${generation}/messages?before=${oldestId}`,
       )
       .then((res) => {
         setMessages((prev) => [...res.items, ...prev]);
@@ -87,7 +88,7 @@ export function LeadershipCollaboration({ generation }: { generation: number }) 
     setSending(true);
     setSendError(null);
     try {
-      await api.post(`/api/leader/leadership-collaboration/${generation}/messages`, { body: trimmed });
+      await api.post(`${base}/${generation}/messages`, { body: trimmed });
       setBody('');
       loadLatest();
     } catch (err) {
@@ -100,7 +101,7 @@ export function LeadershipCollaboration({ generation }: { generation: number }) 
   return (
     <div className="card mt-6">
       <h2 className="mb-3 flex items-center gap-2 font-semibold text-brand-900">
-        {t('leadershipCollaboration.title', { generation })}
+        {generation === -1 ? t('leadershipCollaboration.all_title') : t('leadershipCollaboration.title', { generation })}
         {unreadCount > 0 && (
           <span className="rounded-full bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white">{unreadCount}</span>
         )}
@@ -131,6 +132,9 @@ export function LeadershipCollaboration({ generation }: { generation: number }) 
                 <div key={m.id} className="text-sm">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="font-medium text-brand-900">{m.senderName}</span>
+                    {m.senderBadge === 'NATIONAL_COORDINATOR' && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">{t('leadershipCollaboration.badge_nc')}</span>
+                    )}
                     <span className="text-xs text-slate-400">{new Date(m.createdAt).toLocaleString()}</span>
                   </div>
                   <p className="whitespace-pre-wrap text-slate-700">{m.body}</p>

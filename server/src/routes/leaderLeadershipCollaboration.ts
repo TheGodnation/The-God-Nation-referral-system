@@ -8,11 +8,13 @@ import { leadershipCollaborationMessageSendLimiter, leadershipCollaborationReadL
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireLinkedPerson } from '../lib/leadership';
 import {
-  getEligibleLeadershipCollaborationGenerations,
+  getRoomsForLeader,
   canAccessLeadershipCollaboration,
   getOrCreateLeadershipCollaborationConversation,
-  markLeadershipCollaborationConversationRead,
   getLeadershipCollaborationUnreadCount,
+  listRoomMessages,
+  postRoomMessage,
+  markRoomRead,
 } from '../lib/leadershipCollaboration';
 
 const router = Router();
@@ -31,7 +33,7 @@ router.use(requireAuth, requireRole('LEADER'), requireLinkedPerson);
 // eligible for it". A probed generation must never be distinguishable from
 // one the caller is simply ineligible for.
 async function requireLeadershipCollaborationAccess(generation: number, personId: string): Promise<boolean> {
-  if (!Number.isInteger(generation) || generation < 0) return false;
+  if (!Number.isInteger(generation) || generation < -1) return false;
   return canAccessLeadershipCollaboration(personId, generation);
 }
 
@@ -44,7 +46,7 @@ async function requireLeadershipCollaborationAccess(generation: number, personId
 // unbounded message history below.
 router.get('/leadership-collaboration', asyncHandler(async (req, res) => {
   const personId = req.leaderPersonId!;
-  const generations = await getEligibleLeadershipCollaborationGenerations(personId);
+  const generations = await getRoomsForLeader(personId);
 
   const items = await Promise.all(
     generations.map(async (generation) => {
@@ -57,7 +59,7 @@ router.get('/leadership-collaboration', asyncHandler(async (req, res) => {
   res.json({ items });
 }));
 
-const generationParamSchema = z.object({ generation: z.coerce.number().int().min(0) });
+const generationParamSchema = z.object({ generation: z.coerce.number().int().min(-1) });
 
 const DEFAULT_MESSAGE_PAGE_SIZE = 30;
 const MAX_MESSAGE_PAGE_SIZE = 50;
@@ -90,40 +92,9 @@ router.get('/leadership-collaboration/:generation/messages', asyncHandler(async 
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid pagination parameters.' });
   }
-  const limit = Math.min(parsed.data.limit ?? DEFAULT_MESSAGE_PAGE_SIZE, MAX_MESSAGE_PAGE_SIZE);
-
-  const conversation = await getOrCreateLeadershipCollaborationConversation(generation);
-
-  let cursor: { createdAt: Date; id: string } | null = null;
-  if (parsed.data.before) {
-    const cursorMessage = await prisma.leadershipCollaborationMessage.findUnique({ where: { id: parsed.data.before } });
-    if (!cursorMessage || cursorMessage.conversationId !== conversation.id) {
-      return res.status(400).json({ error: 'Invalid pagination cursor.' });
-    }
-    cursor = { createdAt: cursorMessage.createdAt, id: cursorMessage.id };
-  }
-
-  const rows = await prisma.leadershipCollaborationMessage.findMany({
-    where: {
-      conversationId: conversation.id,
-      ...(cursor
-        ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
-        : {}),
-    },
-    include: { sender: { select: { name: true } } },
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    take: limit + 1,
-  });
-
-  const hasMore = rows.length > limit;
-  const page = rows.slice(0, limit).reverse();
-  const unreadCount = await getLeadershipCollaborationUnreadCount(personId, conversation.id);
-
-  res.json({
-    items: page.map((m) => ({ id: m.id, senderName: m.sender.name, body: m.body, createdAt: m.createdAt })),
-    hasMore,
-    unreadCount,
-  });
+  const result = await listRoomMessages(generation, personId, { before: parsed.data.before, limit: parsed.data.limit });
+  if ('error' in result) return res.status(400).json({ error: result.error });
+  res.json(result);
 }));
 
 const sendMessageSchema = z.object({
@@ -157,15 +128,7 @@ router.post(
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid message.' });
     }
 
-    const conversation = await getOrCreateLeadershipCollaborationConversation(generation);
-
-    const created = await prisma.leadershipCollaborationMessage.create({
-      data: {
-        conversationId: conversation.id,
-        senderPersonId: personId,
-        body: parsed.data.body,
-      },
-    });
+    const created = await postRoomMessage(generation, personId, parsed.data.body);
 
     res.status(201).json({ id: created.id, body: created.body, createdAt: created.createdAt });
   }),
@@ -200,17 +163,9 @@ router.post(
       return res.status(400).json({ error: 'A messageId is required.' });
     }
 
-    const conversation = await getOrCreateLeadershipCollaborationConversation(generation);
-
-    const message = await prisma.leadershipCollaborationMessage.findUnique({ where: { id: parsed.data.messageId } });
-    if (!message || message.conversationId !== conversation.id) {
-      return res.status(400).json({ error: 'Invalid message reference.' });
-    }
-
-    await markLeadershipCollaborationConversationRead(personId, conversation.id, message.createdAt);
-    const unreadCount = await getLeadershipCollaborationUnreadCount(personId, conversation.id);
-
-    res.json({ unreadCount });
+    const result = await markRoomRead(generation, personId, parsed.data.messageId);
+    if (!result) return res.status(400).json({ error: 'Invalid message reference.' });
+    res.json(result);
   }),
 );
 

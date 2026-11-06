@@ -203,7 +203,8 @@ describe('Phase 2B — multi-generation leadership', () => {
 
     const list = await agent.get('/api/leader/leadership-collaboration');
     expect(list.status).toBe(200);
-    expect(list.body.items.map((i: any) => i.generation).sort()).toEqual([1, 2]);
+    // -1 is the "All leaders" room, open to every leader; then each generation they lead in.
+    expect(list.body.items.map((i: any) => i.generation).sort((a: number, b: number) => a - b)).toEqual([-1, 1, 2]);
 
     expect((await agent.get('/api/leader/leadership-collaboration/1/messages')).status).toBe(200);
     expect((await agent.get('/api/leader/leadership-collaboration/2/messages')).status).toBe(200);
@@ -455,6 +456,7 @@ describe('Phase 2B — data minimization', () => {
     expect(res.body.items[0]).toEqual({
       id: expect.any(String),
       senderName: expect.any(String),
+      senderBadge: null,
       body: 'Hi.',
       createdAt: expect.any(String),
     });
