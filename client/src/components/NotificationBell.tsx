@@ -38,6 +38,8 @@ type NotificationType =
   | 'POST_REPLIED'
   | 'ASSEMBLY_OPENED'
   | 'ESCALATION_RECEIVED'
+  | 'INSTRUCTION_RECEIVED'
+  | 'INSTRUCTION_REMINDER'
   | 'ESCALATION_ANSWERED'
   | 'ESCALATION_BYPASSED'
   | 'CLINIC_EXAM_OPEN'
@@ -184,6 +186,10 @@ export function NotificationBell() {
       case 'GIFT_CONFIRMED':
       case 'GIFT_REJECTED':
         return t(n.type === 'GIFT_CONFIRMED' ? 'notifications.gift_confirmed' : 'notifications.gift_rejected', { amount: `${Number(metadata.amount ?? 0).toLocaleString('fr-FR')} FCFA` });
+      case 'INSTRUCTION_RECEIVED':
+        return t('notifications.instruction_received');
+      case 'INSTRUCTION_REMINDER':
+        return t('notifications.instruction_reminder');
       case 'ESCALATION_RECEIVED':
         return t(metadata.passedOn ? 'notifications.escalation_passed_on' : metadata.urgent ? 'notifications.escalation_urgent' : 'notifications.escalation_received', { asker: metadata.askerName ?? '', about: metadata.aboutName ?? '' });
       case 'ESCALATION_ANSWERED':
