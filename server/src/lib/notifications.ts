@@ -109,6 +109,17 @@ export async function notifyFollowUpAssigned(assignment: { id: string; followerI
   });
 }
 
+/** Many people were given to a leader at once: one message, not one per person. */
+export async function notifyFollowUpBatch(leaderPersonId: string, count: number) {
+  await createNotification({
+    recipientPersonId: leaderPersonId,
+    type: 'FOLLOW_UP_ASSIGNED',
+    metadata: { count },
+    targetType: 'FollowUpBatch',
+    push: { title: 'New people to follow up', body: `${count} people were assigned to you to follow up.`, url: '/member/leadership-dashboard?section=people' },
+  });
+}
+
 /** Event 4 — a Leader receives a new Community leadership assignment.
  * Fires only when communityId is set (it always is for a newly created
  * RoleAssignment — see adminLeadership.ts's own createRoleAssignmentSchema —

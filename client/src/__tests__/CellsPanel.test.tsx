@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { CellsPanel } from '../components/admin/CellsPanel';
 
 // The central admin's assemblies panel: how full each assembly is, who is
@@ -88,19 +88,33 @@ describe('CellsPanel', () => {
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ assemblyCapacity: 150 });
   });
 
-  it('shows how many people nobody follows and shares them among the leaders', async () => {
+  it('shows how many people nobody follows, lets you choose the leaders and a number each, previews, then assigns', async () => {
     mockFetch({
       '/api/admin/cells/overview': () => ({ status: 200, body: overview }),
       '/api/admin/cells/ready-to-lead': () => ({ status: 200, body: { requiredBooks: 15, items: [] } }),
-      '/api/admin/cells/share': () => ({ status: 200, body: { assigned: 5, noLeaders: false } }),
+      '/api/admin/cells/leaders': () => ({ status: 200, body: { items: [
+        { personId: 'l1', name: 'Anna', away: false, headcount: 2 },
+        { personId: 'l2', name: 'Boris', away: false, headcount: 0 },
+        { personId: 'l3', name: 'Away Alice', away: true, headcount: 0 },
+      ] } }),
+      '/api/admin/cells/share': () => ({ status: 200, body: { assigned: 4, remaining: 1, noLeaders: false, dryRun: false, perLeader: [{ personId: 'l1', name: 'Anna', added: 2 }, { personId: 'l2', name: 'Boris', added: 2 }] } }),
     });
     render(<CellsPanel base="/api/admin/cells" />);
     expect(await screen.findByText('5 not followed yet')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Headquarters · 1'));
     expect(await screen.findByText('5 people in this assembly are not followed by any leader yet.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Share them among the leaders' }));
-    expect(await screen.findByText('5 people shared among the leaders, evenly.')).toBeInTheDocument();
-    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ communityId: 'a2' });
+    fireEvent.click(screen.getByTestId('assign-toggle'));
+    const tool = await screen.findByTestId('assign-people');
+    // Everyone who is present is ticked; the leader who is away is not.
+    expect(within(tool).getByRole('checkbox', { name: /Anna/ })).toBeChecked();
+    expect(within(tool).getByRole('checkbox', { name: /Away Alice/ })).not.toBeChecked();
+    fireEvent.change(screen.getByTestId('assign-each'), { target: { value: '2' } });
+    fireEvent.click(screen.getByTestId('assign-preview'));
+    expect(await screen.findByTestId('assign-plan')).toHaveTextContent('Anna: +2');
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ communityId: 'a2', leaderPersonIds: ['l1', 'l2'], perLeader: 2, dryRun: true });
+    fireEvent.click(screen.getByTestId('assign-confirm'));
+    expect(await screen.findByText('4 people assigned. 1 still unassigned.')).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === 'POST').pop()?.body).toEqual({ communityId: 'a2', leaderPersonIds: ['l1', 'l2'], perLeader: 2, dryRun: false });
   });
 
   it('shows each assembly\'s health as a coloured dot', async () => {
