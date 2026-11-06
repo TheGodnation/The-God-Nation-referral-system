@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
@@ -182,6 +182,9 @@ enum UpdateReactionType {
 }
 
 enum NotificationType {
+  // The National Coordinator's instructions to leaders (and reminders about them).
+  INSTRUCTION_RECEIVED
+  INSTRUCTION_REMINDER
   FOLLOW_UP_ASSIGNED
   PRIVATE_MESSAGE_RECEIVED
   RESOURCE_GRANTED
@@ -303,19 +306,19 @@ enum ReportStatus {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                 String   @id @default(uuid())
-  name               String
-  email              String   @unique
-  passwordHash       String
-  role               Role
-  active             Boolean  @default(true)
-  isTestData         Boolean  @default(false)
-  mustChangePassword Boolean  @default(false)
+  id                   String    @id @default(uuid())
+  name                 String
+  email                String    @unique
+  passwordHash         String
+  role                 Role
+  active               Boolean   @default(true)
+  isTestData           Boolean   @default(false)
+  mustChangePassword   Boolean   @default(false)
   // True for a Leader who created their own account via the public
   // self-signup link (POST /api/auth/leader-signup), as opposed to one an
   // Admin created by hand in Admin > Leaders. Admin retains full control
   // either way — this is purely informational, shown as a badge.
-  selfRegistered     Boolean  @default(false)
+  selfRegistered       Boolean   @default(false)
   // Phase 3A: optional link to the person's unified God Nation identity.
   // Left null for every existing User by the Phase 3A backfill — a User's
   // email alone is never treated as proof of identity with a Person (see
@@ -324,49 +327,49 @@ model User {
   // and makes this column unique: at most one User may ever be linked to a
   // given Person. An Admin is never required to have one; a Leader must
   // have one before performing any scoped-leadership/follow-up action.
-  personId           String?  @unique
+  personId             String?   @unique
   // Set the one time a "your Leadership Dashboard moved" notice is sent to
   // this account after personId is newly linked to an active LEADER User
   // (via the self-serve bridge or Admin's Assign-as-Leader action) — never
   // sent again afterward, and never set for an ADMIN account (which has no
   // such notice). Null means not yet sent.
   personLinkNotifiedAt DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  person                                         Person?                                  @relation(fields: [personId], references: [id], onDelete: SetNull)
-  sessions                                       Session[]
-  referralCodes                                  ReferralCode[]
-  referralRelationships                          ReferralRelationship[]
-  setupTokens                                    LeaderSetupToken[]
-  passwordResetTokens                            PasswordResetToken[]
-  roleAssignmentsAssigned                        RoleAssignment[]                         @relation("RoleAssignmentAssignedBy")
-  followUpAssignmentsCreated                     FollowUpAssignment[]                     @relation("FollowUpAssignedBy")
-  followUpAssignmentsClosed                      FollowUpAssignment[]                     @relation("FollowUpClosedBy")
-  followUpContactsLogged                         FollowUpContact[]
-  announcementsCreated                           Announcement[]
-  headquartersPostsCreated                       HeadquartersPost[]
-  privateConversationsInitiated                  PrivateConversation[]
-  privateMessagesSent                            PrivateMessage[]
-  privateConversationReads                       PrivateConversationRead[]
-  privateMessageReactions                        PrivateMessageReaction[]
-  resourceAccessGrantsGiven                      ResourceAccessGrant[]                    @relation("ResourceAccessGrantGrantedBy")
-  resourceAccessGrantsRevoked                    ResourceAccessGrant[]                    @relation("ResourceAccessGrantRevokedBy")
-  notifications                                  Notification[]
-  pushSubscriptions                              PushSubscription[]
-  updatePostsDeleted                             UpdatePost[]                             @relation("UpdatePostDeletedByUser")
-  updateCommentsDeleted                          UpdateComment[]                          @relation("UpdateCommentDeletedByUser")
-  memberReportsResolved                          MemberReport[]                           @relation("MemberReportResolvedByUser")
-  trainingEnrollmentsActivated                   TrainingEnrollment[]                     @relation("TrainingEnrollmentActivatedBy")
-  examRetakesDecided                             ExamRetakeRequest[]                      @relation("ExamRetakeDecidedBy")
-  bookPaymentsDecided                            BookPayment[]                            @relation("BookPaymentDecidedBy")
-  trainingGraceDecided                           TrainingGraceRequest[]                   @relation("TrainingGraceDecidedBy")
-  areaLeadershipAssignmentsAssigned              AreaLeadershipAssignment[]               @relation("AreaLeadershipAssignedBy")
-  nationalTeamAssigned                           NationalTeamMember[]                     @relation("NationalTeamAssignedBy")
-  referralPayoutsDecided                         ReferralPayout[]                         @relation("PayoutDecidedBy")
-  areaRepresentationRequestsDecided              AreaRepresentationRequest[]
-  prayerRequestsDeleted                          PrayerRequest[]                          @relation("PrayerRequestDeletedByUser")
-  prayerRequestCommentsDeleted                   PrayerRequestComment[]                   @relation("PrayerRequestCommentDeletedByUser")
+  person                            Person?                     @relation(fields: [personId], references: [id], onDelete: SetNull)
+  sessions                          Session[]
+  referralCodes                     ReferralCode[]
+  referralRelationships             ReferralRelationship[]
+  setupTokens                       LeaderSetupToken[]
+  passwordResetTokens               PasswordResetToken[]
+  roleAssignmentsAssigned           RoleAssignment[]            @relation("RoleAssignmentAssignedBy")
+  followUpAssignmentsCreated        FollowUpAssignment[]        @relation("FollowUpAssignedBy")
+  followUpAssignmentsClosed         FollowUpAssignment[]        @relation("FollowUpClosedBy")
+  followUpContactsLogged            FollowUpContact[]
+  announcementsCreated              Announcement[]
+  headquartersPostsCreated          HeadquartersPost[]
+  privateConversationsInitiated     PrivateConversation[]
+  privateMessagesSent               PrivateMessage[]
+  privateConversationReads          PrivateConversationRead[]
+  privateMessageReactions           PrivateMessageReaction[]
+  resourceAccessGrantsGiven         ResourceAccessGrant[]       @relation("ResourceAccessGrantGrantedBy")
+  resourceAccessGrantsRevoked       ResourceAccessGrant[]       @relation("ResourceAccessGrantRevokedBy")
+  notifications                     Notification[]
+  pushSubscriptions                 PushSubscription[]
+  updatePostsDeleted                UpdatePost[]                @relation("UpdatePostDeletedByUser")
+  updateCommentsDeleted             UpdateComment[]             @relation("UpdateCommentDeletedByUser")
+  memberReportsResolved             MemberReport[]              @relation("MemberReportResolvedByUser")
+  trainingEnrollmentsActivated      TrainingEnrollment[]        @relation("TrainingEnrollmentActivatedBy")
+  examRetakesDecided                ExamRetakeRequest[]         @relation("ExamRetakeDecidedBy")
+  bookPaymentsDecided               BookPayment[]               @relation("BookPaymentDecidedBy")
+  trainingGraceDecided              TrainingGraceRequest[]      @relation("TrainingGraceDecidedBy")
+  areaLeadershipAssignmentsAssigned AreaLeadershipAssignment[]  @relation("AreaLeadershipAssignedBy")
+  nationalTeamAssigned              NationalTeamMember[]        @relation("NationalTeamAssignedBy")
+  referralPayoutsDecided            ReferralPayout[]            @relation("PayoutDecidedBy")
+  areaRepresentationRequestsDecided AreaRepresentationRequest[]
+  prayerRequestsDeleted             PrayerRequest[]             @relation("PrayerRequestDeletedByUser")
+  prayerRequestCommentsDeleted      PrayerRequestComment[]      @relation("PrayerRequestCommentDeletedByUser")
 
   @@index([role])
 }
@@ -580,39 +583,39 @@ model Event {
 // keys — deliberately not a full CMS; missing keys fall back to built-in
 // defaults on the client.
 model Settings {
-  id                      String        @id @default("singleton")
+  id                            String            @id @default("singleton")
   // Members who joined an assembly after this moment see only the last 30
   // messages from before they joined, plus everything since (see
   // lib/communityConversation.ts historyCutoffFor). Set to the moment the rule
   // was introduced, so current members keep their full history.
-  newMemberHistoryFrom    DateTime      @default(now())
-  supportWhatsappUrl      String?
+  newMemberHistoryFrom          DateTime          @default(now())
+  supportWhatsappUrl            String?
   // The ministry's WhatsApp community groups, one for each language (shown on the About page).
-  whatsappGroupEnUrl      String?
-  whatsappGroupFrUrl      String?
+  whatsappGroupEnUrl            String?
+  whatsappGroupFrUrl            String?
   // More places people can join, beside the two WhatsApp groups: the WhatsApp channel
   // (one-way updates), a Telegram group (telegramUrl is the Telegram channel), and a
   // Facebook group (facebookUrl is the Facebook page; messengerUrl the Messenger group).
-  whatsappChannelUrl      String?
-  telegramGroupUrl        String?
-  facebookGroupUrl        String?
-  facebookUrl             String?
-  instagramUrl            String?
-  tiktokUrl               String?
-  youtubeUrl              String?
-  telegramUrl             String?
-  messengerUrl            String?
+  whatsappChannelUrl            String?
+  telegramGroupUrl              String?
+  facebookGroupUrl              String?
+  facebookUrl                   String?
+  instagramUrl                  String?
+  tiktokUrl                     String?
+  youtubeUrl                    String?
+  telegramUrl                   String?
+  messengerUrl                  String?
   // Ad-platform connections (public identifiers only; the secret access tokens live in
   // server environment variables and never in the database). Empty = switched off.
-  metaPixelId             String?
-  tiktokPixelId           String?
-  googleTagId             String?
-  googleLeadSendTo        String?
-  googleSignupSendTo      String?
-  content                 Json?
+  metaPixelId                   String?
+  tiktokPixelId                 String?
+  googleTagId                   String?
+  googleLeadSendTo              String?
+  googleSignupSendTo            String?
+  content                       Json?
   // Recipient address for the public Contact form (Phase 2). Admin-editable;
   // never sent to the client. Null/blank means the contact form is disabled.
-  contactEmail            String?
+  contactEmail                  String?
   // National Headquarters designation — the single Community that is the
   // root of the organizational Community tree and the operational home of
   // Central Administration. Exactly one Settings row exists (id:
@@ -625,59 +628,59 @@ model Settings {
   // (MonthlyDevotional.communityId, AnnouncementTarget.communityId).
   // Server-side validation (adminCommunities.ts) is what actually enforces
   // "must be a root Community" — this column itself accepts any Community id.
-  headquartersCommunityId String?
-  headquartersCommunity   Community?    @relation("SettingsHeadquarters", fields: [headquartersCommunityId], references: [id], onDelete: SetNull)
-  placementMode           PlacementMode @default(SMALLEST_GROUP)
+  headquartersCommunityId       String?
+  headquartersCommunity         Community?        @relation("SettingsHeadquarters", fields: [headquartersCommunityId], references: [id], onDelete: SetNull)
+  placementMode                 PlacementMode     @default(SMALLEST_GROUP)
   // How many active members an assembly holds before newcomers are placed
   // in a new child assembly instead (see lib/cells.ts). Adjustable by the
   // central admin.
-  assemblyCapacity        Int           @default(200)
+  assemblyCapacity              Int               @default(200)
   // When the weekly "Leadership School progress" post last went out to the groups.
-  lastSchoolProgressPostAt DateTime?
+  lastSchoolProgressPostAt      DateTime?
   // Whether the central admin can read the follow-up chats between leaders and
   // their people (read-only, nobody is told). On from the beginning, so he can
   // see that leaders are doing the work; he can switch it off.
-  adminReadsFollowUpChats Boolean @default(true)
+  adminReadsFollowUpChats       Boolean           @default(true)
   // Giving: how to give (Mobile Money numbers...), shown to members; and the
   // weekly invitation to give, posted in the groups by the central admin's profile.
-  givingInstructionsEn    String?
-  givingInstructionsFr    String?
-  givingWeeklyPost        Boolean   @default(true)
-  lastGivingPostAt        DateTime?
+  givingInstructionsEn          String?
+  givingInstructionsFr          String?
+  givingWeeklyPost              Boolean           @default(true)
+  lastGivingPostAt              DateTime?
   // Dominion Clinic rhythm, set by the central admin: how often a new topic is
   // taught, how many days between exams, and how many questions an exam draws
   // from the month's book.
-  clinicTopicRhythm       ClinicTopicRhythm @default(DAILY)
-  clinicExamEveryDays     Int       @default(10)
-  clinicExamQuestions     Int       @default(10)
+  clinicTopicRhythm             ClinicTopicRhythm @default(DAILY)
+  clinicExamEveryDays           Int               @default(10)
+  clinicExamQuestions           Int               @default(10)
   // King's Token: the day tokens start counting (year 1 of the rate schedule).
   // Null = not started. Set once from the central admin's panel; locked once it has arrived.
-  tokensStartAt           DateTime?
+  tokensStartAt                 DateTime?
   // Spending Earned tokens toward a book: off until the central admin announces it;
   // how many francs one token takes off the price; the most of a price tokens can pay.
-  tokenSpendEnabled       Boolean   @default(false)
-  tokenValueFcfa          Decimal   @default(1) @db.Decimal(12, 6)
-  tokenSpendMaxPercent    Int       @default(30)
+  tokenSpendEnabled             Boolean           @default(false)
+  tokenValueFcfa                Decimal           @default(1) @db.Decimal(12, 6)
+  tokenSpendMaxPercent          Int               @default(30)
   // Reminder emails to members (finish your sign-up, we miss you). Off until the central admin
   // switches them on; "quiet" means this many days since the member was last seen; never more
   // than the daily cap in one day (the email service has a daily sending limit).
-  remindersEnabled        Boolean   @default(false)
-  reminderQuietDays       Int       @default(7)
-  reminderDailyCap        Int       @default(40)
+  remindersEnabled              Boolean           @default(false)
+  reminderQuietDays             Int               @default(7)
+  reminderDailyCap              Int               @default(40)
   // "Live now" slot on the Updates page: the YouTube video id of the live
   // (video or audio-only) the central admin is streaming, or null when
   // nothing is live. Set/cleared from the admin Updates tab.
-  liveYoutubeVideoId      String?
-  liveTitle               String?
-  liveStartedAt           DateTime?
+  liveYoutubeVideoId            String?
+  liveTitle                     String?
+  liveStartedAt                 DateTime?
   // When Admin chooses to post a live session "as themselves" rather than
   // as the plain institutional "Central Authority" voice, this names their
   // own bridged Member profile so the Updates page can show their photo and
   // name alongside it. Null means the plain institutional voice. Cleared
   // automatically if that Person is ever removed (onDelete SetNull), never
   // silently falling back to a different Person.
-  liveAuthorPersonId      String?
-  liveAuthorPerson        Person?       @relation("SettingsLiveAuthor", fields: [liveAuthorPersonId], references: [id], onDelete: SetNull)
+  liveAuthorPersonId            String?
+  liveAuthorPerson              Person?           @relation("SettingsLiveAuthor", fields: [liveAuthorPersonId], references: [id], onDelete: SetNull)
   // Shared short title/role shown alongside the author's photo and name
   // whenever Announcements, HeadquartersPosts, or a Live session are posted
   // "as themselves" (Announcement.authorPersonId, HeadquartersPost.
@@ -685,7 +688,7 @@ model Settings {
   // Pastor". One shared field, not per-post text: today there is exactly
   // one Person who ever posts this way (see defaultReferrerPersonId's own
   // comment on that same "just one for now" convention).
-  authorTitle             String?
+  authorTitle                   String?
   // The single Person every stray/organic joiner (nobody's real referral at
   // all) is automatically made a "Referred" friend of, so no one is ever
   // left without someone responsible for following up with them — see
@@ -694,37 +697,37 @@ model Settings {
   // later, by simply changing this one field. Null means no fallback is
   // configured yet (a stray joiner then has no referrer at all, exactly the
   // pre-existing behavior before this field was introduced).
-  defaultReferrerPersonId String?
-  defaultReferrerPerson   Person?       @relation("SettingsDefaultReferrer", fields: [defaultReferrerPersonId], references: [id], onDelete: SetNull)
+  defaultReferrerPersonId       String?
+  defaultReferrerPerson         Person?           @relation("SettingsDefaultReferrer", fields: [defaultReferrerPersonId], references: [id], onDelete: SetNull)
   // Free-will offering instructions shown beside the monthly devotional
   // (e.g. Mobile Money numbers). Giving is never required.
-  offeringInstructionsEn  String?
-  offeringInstructionsFr  String?
+  offeringInstructionsEn        String?
+  offeringInstructionsFr        String?
   // Leadership training: the price of each book (FCFA), and how to pay it
   // by Mobile Money (numbers, account name), shown to trainees.
-  trainingBookPrice              Int     @default(1200)
+  trainingBookPrice             Int               @default(1200)
   // What a referrer earns when someone they invited pays for a book, how many
   // days it waits before counting, and the balance from which a payout can be
   // requested (all in FCFA / days; changed by the central admin).
-  referralCommission             Int     @default(500)
-  commissionHoldDays             Int     @default(3)
-  payoutMinimum                  Int     @default(5000)
-  trainingPaymentInstructionsEn  String?
-  trainingPaymentInstructionsFr  String?
+  referralCommission            Int               @default(500)
+  commissionHoldDays            Int               @default(3)
+  payoutMinimum                 Int               @default(5000)
+  trainingPaymentInstructionsEn String?
+  trainingPaymentInstructionsFr String?
   // Home page and chat background, Admin-set for everyone (never
   // per-member). `*WallpaperPreset` names one of the client's own
   // built-in, zero-download patterns (client/src/lib/wallpaper.ts); a
   // `*WallpaperStorageKey` upload always takes precedence when set, and
   // setting one clears the other (see appBranding.ts) — a single
   // background per surface, never both at once.
-  homeWallpaperPreset     String?
-  homeWallpaperStorageKey String?
-  homeWallpaperUpdatedAt  DateTime?
-  chatWallpaperPreset     String?
-  chatWallpaperStorageKey String?
-  chatWallpaperUpdatedAt  DateTime?
-  updatedAt               DateTime      @updatedAt
-  updatedByUserId         String?
+  homeWallpaperPreset           String?
+  homeWallpaperStorageKey       String?
+  homeWallpaperUpdatedAt        DateTime?
+  chatWallpaperPreset           String?
+  chatWallpaperStorageKey       String?
+  chatWallpaperUpdatedAt        DateTime?
+  updatedAt                     DateTime          @updatedAt
+  updatedByUserId               String?
 }
 
 // ---------------------------------------------------------------------------
@@ -792,35 +795,36 @@ model ContactMessage {
 // birth, address fields, care fields, payment fields, leadership fields,
 // follow-up fields.
 model Person {
-  id                  String              @id @default(uuid())
-  name                String
-  bookDeliveries      BookDelivery[]
+  id                       String                       @id @default(uuid())
+  name                     String
+  leaderInstructions       LeaderInstructionRecipient[]
+  bookDeliveries           BookDelivery[]
   // Set when the member chose to stop receiving the monthly Dominion Clinic book; cleared when they subscribe again.
   clinicBookUnsubscribedAt DateTime?
-  gifts               Gift[]
-  tokenEntries        TokenEntry[]
-  contactConsents     ContactConsent[]
-  reminders           MemberReminder[]
-  adEvents            AdEventLog[]
-  leadsConverted      Lead[]
-  pinsMade            MessagePin[]      @relation("MessagePinnedBy")
-  pinsSeen            MessagePinSeen[]  @relation("MessagePinSeenBy")
+  gifts                    Gift[]
+  tokenEntries             TokenEntry[]
+  contactConsents          ContactConsent[]
+  reminders                MemberReminder[]
+  adEvents                 AdEventLog[]
+  leadsConverted           Lead[]
+  pinsMade                 MessagePin[]                 @relation("MessagePinnedBy")
+  pinsSeen                 MessagePinSeen[]             @relation("MessagePinSeenBy")
   // A leader who is away (travelling, ill...) until this moment: new people
   // are not shared with them, and anything urgent goes past them.
-  awayUntil           DateTime?
-  escalationsAsked    FollowUpEscalation[] @relation("EscalationAsker")
-  escalationsAbout    FollowUpEscalation[] @relation("EscalationAbout")
+  awayUntil                DateTime?
+  escalationsAsked         FollowUpEscalation[]         @relation("EscalationAsker")
+  escalationsAbout         FollowUpEscalation[]         @relation("EscalationAbout")
   // Share-into-app: a Leader allowed to forward posts in from WhatsApp,
   // TikTok, Facebook, Instagram. Off for everyone by default; the Central
   // Admin can always share and never needs this.
-  canShareIntoApp     Boolean             @default(false)
-  whatsappNumber      String              @unique
-  email               String?
-  preferredLanguage   Language            @default(en)
+  canShareIntoApp          Boolean                      @default(false)
+  whatsappNumber           String                       @unique
+  email                    String?
+  preferredLanguage        Language                     @default(en)
   // Mirrors the originating Registration's isTestData flag (when a Person
   // is created via the registration flow) so the Admin People list can use
   // the same "include test data" filter as every other list in the app.
-  isTestData          Boolean             @default(false)
+  isTestData               Boolean                      @default(false)
   // Member-provided descriptive location — a Person may set any, all, or
   // none of these via PATCH /api/member/me/profile. Deliberately plain,
   // free-text, optional strings with NO relationship to Geography/
@@ -833,122 +837,122 @@ model Person {
   // schema's existing convention of never adding a speculative index ahead
   // of a demonstrated need (e.g. the unindexed name/whatsapp/email search
   // already used by GET /api/admin/people).
-  locationCountry     String?
-  locationCity        String?
-  locationArea        String?
+  locationCountry          String?
+  locationCity             String?
+  locationArea             String?
   // Cameroon administrative location (filled during sign-up when the
   // country is Cameroon). Same "descriptive only, no authority" rule as
   // the fields above; also used by BY_LOCATION group placement.
-  locationRegion      String?
-  locationDivision    String?
-  locationSubdivision String?
-  locationQuarter     String?
+  locationRegion           String?
+  locationDivision         String?
+  locationSubdivision      String?
+  locationQuarter          String?
   // Set when the member finishes the sign-up details form. Null means the
   // member still has to complete their details before entering the app.
-  profileCompletedAt  DateTime?
+  profileCompletedAt       DateTime?
   // Profile picture: the key of the image in object storage (never a public
   // URL — pictures are served through GET /api/people/:id/photo, which
   // checks the viewer is signed in). photoUpdatedAt changes on every new
   // picture so browsers fetch the new one instead of a cached old one.
-  photoStorageKey     String?
-  photoUpdatedAt      DateTime?
+  photoStorageKey          String?
+  photoUpdatedAt           DateTime?
   // The wide "cover" picture at the top of a member's profile wall, and a
   // short line about themselves. Same viewing rules as photoStorageKey.
-  coverStorageKey     String?
-  coverUpdatedAt      DateTime?
-  bio                 String?
+  coverStorageKey          String?
+  coverUpdatedAt           DateTime?
+  bio                      String?
   // When the person's app last talked to the server — for "online" and
   // "last seen" (see lib/presence.ts).
-  lastSeenAt          DateTime?
-  friendRequestPolicy FriendRequestPolicy @default(EVERYONE)
+  lastSeenAt               DateTime?
+  friendRequestPolicy      FriendRequestPolicy          @default(EVERYONE)
   // "Delete my account" (lib/accountDeletion.ts): set when the member asks.
   // For a month the account is hidden and signed out everywhere; signing
   // in again cancels the deletion. Null = not asked (or came back).
-  deletionRequestedAt DateTime?
+  deletionRequestedAt      DateTime?
   // Set only on the placeholder that replaces a deleted account in other
   // people's chats: it keeps only the name, shown on its messages (all
   // "This message was deleted"). No account, no other details, never
   // listed anywhere.
-  erasedAt            DateTime?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  erasedAt                 DateTime?
+  createdAt                DateTime                     @default(now())
+  updatedAt                DateTime                     @updatedAt
 
-  users                                           User[]
-  deletionRequests                                AccountDeletionRequest[]
-  registrations                                   Registration[]
-  communityMemberships                            CommunityMembership[]
-  attempts                                        Attempt[]
-  examRetakeRequests                              ExamRetakeRequest[]
-  participationEvents                             ParticipationEvent[]
-  memberAccount                                   MemberAccount?
-  roleAssignments                                 RoleAssignment[]
-  followingAssignments                            FollowUpAssignment[]                      @relation("FollowUpFollower")
-  followedByAssignments                           FollowUpAssignment[]                      @relation("FollowUpFollowedPerson")
-  messages                                        Message[]
-  deletedMessages                                 Message[]                                 @relation("MessageDeletedBy")
-  hiddenMessages                                  MessageHiddenForPerson[]
-  messageReactions                                MessageReaction[]
-  updateCommentReactions                          UpdateCommentReaction[]
-  uploadedAttachments                             MessageAttachment[]                       @relation("MessageAttachmentUploadedBy")
-  followUpMessages                                FollowUpMessage[]
-  announcementReads                               AnnouncementRead[]
-  communityConversationReads                      CommunityConversationRead[]
-  followUpConversationReads                       FollowUpConversationRead[]
-  leadershipCollaborationMessages                 LeadershipCollaborationMessage[]
-  leadershipCollaborationConversationReads        LeadershipCollaborationConversationRead[]
-  headquartersPostComments                        HeadquartersPostComment[]
-  headquartersPostReactions                       HeadquartersPostReaction[]
-  announcementsAuthored                           Announcement[]                            @relation("AnnouncementAuthor")
-  headquartersPostsAuthored                       HeadquartersPost[]                         @relation("HeadquartersPostAuthor")
-  settingsAsLiveAuthor                            Settings[]                                 @relation("SettingsLiveAuthor")
-  settingsAsDefaultReferrer                       Settings[]                                 @relation("SettingsDefaultReferrer")
-  privateConversationsAsMember                    PrivateConversation[]                     @relation("PrivateConversationMember")
-  privateConversationsInitiated                   PrivateConversation[]                     @relation("PrivateConversationInitiator")
-  privateMessagesSent                             PrivateMessage[]
-  privateConversationReads                        PrivateConversationRead[]
-  privateMessageReactions                         PrivateMessageReaction[]
-  resourceAccessGrants                            ResourceAccessGrant[]
-  notifications                                   Notification[]
-  pushSubscriptions                               PushSubscription[]
-  updatePosts                                     UpdatePost[]                              @relation("UpdatePostAuthor")
-  updatePostsDeleted                              UpdatePost[]                              @relation("UpdatePostDeletedByPerson")
-  updateComments                                  UpdateComment[]                           @relation("UpdateCommentAuthor")
-  updateCommentsDeleted                           UpdateComment[]                           @relation("UpdateCommentDeletedByPerson")
-  updateReactions                                 UpdateReaction[]
-  trainingEnrollment                              TrainingEnrollment?
-  devotionalOfferings                             DevotionalOffering[]
-  bookPayments                                    BookPayment[]
-  paymentAgent                                    PaymentAgent?
-  eventsCreated                                   AssemblyEvent[]                          @relation("EventCreator")
-  eventRsvps                                      EventRsvp[]
-  eventAttendances                                EventAttendance[]
-  paymentOrdersBought                             PaymentOrder[]                           @relation("PaymentOrderBuyer")
-  paymentOrderMessages                            PaymentOrderMessage[]
-  trainingBookOpens                               TrainingBookOpen[]
-  readingProgress                                 ReadingProgress[]
-  trainingGraceRequests                           TrainingGraceRequest[]
-  friendRequestsSent                              Friendship[]                              @relation("FriendshipRequester")
-  friendRequestsReceived                          Friendship[]                              @relation("FriendshipAddressee")
-  blocksMade                                      PersonBlock[]                             @relation("PersonBlockBlocker")
-  blocksReceived                                  PersonBlock[]                             @relation("PersonBlockBlocked")
-  following                                       Follow[]                                  @relation("FollowFollower")
-  followedBy                                      Follow[]                                  @relation("FollowFollowing")
-  reportsMade                                     MemberReport[]                            @relation("MemberReportReporter")
-  reportsAbout                                    MemberReport[]                            @relation("MemberReportReported")
-  areaLeadershipAssignments                       AreaLeadershipAssignment[]
-  nationalTeamMember                              NationalTeamMember?                      @relation("PersonNationalTeam")
-  referralEarningsEarned                          ReferralEarning[]                        @relation("ReferrerEarnings")
-  referralEarningsFromPurchases                   ReferralEarning[]                        @relation("BuyerEarnings")
-  referralPayouts                                 ReferralPayout[]                         @relation("PersonPayouts")
-  areaRepresentationRequests                      AreaRepresentationRequest[]
-  referralCode                                    ReferralCode?
-  referralsMade                                   Registration[]                            @relation("RegistrationReferredBy")
-  prayerRequests                                  PrayerRequest[]                           @relation("PrayerRequestAuthor")
-  prayerRequestsDeleted                           PrayerRequest[]                           @relation("PrayerRequestDeletedByPerson")
-  prayerRequestComments                           PrayerRequestComment[]                    @relation("PrayerRequestCommentAuthor")
-  prayerRequestCommentsDeleted                    PrayerRequestComment[]                    @relation("PrayerRequestCommentDeletedByPerson")
-  teachingsAuthored                               Teaching[]                                @relation("TeachingAuthor")
-  teachingProgress                                TeachingProgress[]
+  users                                    User[]
+  deletionRequests                         AccountDeletionRequest[]
+  registrations                            Registration[]
+  communityMemberships                     CommunityMembership[]
+  attempts                                 Attempt[]
+  examRetakeRequests                       ExamRetakeRequest[]
+  participationEvents                      ParticipationEvent[]
+  memberAccount                            MemberAccount?
+  roleAssignments                          RoleAssignment[]
+  followingAssignments                     FollowUpAssignment[]                      @relation("FollowUpFollower")
+  followedByAssignments                    FollowUpAssignment[]                      @relation("FollowUpFollowedPerson")
+  messages                                 Message[]
+  deletedMessages                          Message[]                                 @relation("MessageDeletedBy")
+  hiddenMessages                           MessageHiddenForPerson[]
+  messageReactions                         MessageReaction[]
+  updateCommentReactions                   UpdateCommentReaction[]
+  uploadedAttachments                      MessageAttachment[]                       @relation("MessageAttachmentUploadedBy")
+  followUpMessages                         FollowUpMessage[]
+  announcementReads                        AnnouncementRead[]
+  communityConversationReads               CommunityConversationRead[]
+  followUpConversationReads                FollowUpConversationRead[]
+  leadershipCollaborationMessages          LeadershipCollaborationMessage[]
+  leadershipCollaborationConversationReads LeadershipCollaborationConversationRead[]
+  headquartersPostComments                 HeadquartersPostComment[]
+  headquartersPostReactions                HeadquartersPostReaction[]
+  announcementsAuthored                    Announcement[]                            @relation("AnnouncementAuthor")
+  headquartersPostsAuthored                HeadquartersPost[]                        @relation("HeadquartersPostAuthor")
+  settingsAsLiveAuthor                     Settings[]                                @relation("SettingsLiveAuthor")
+  settingsAsDefaultReferrer                Settings[]                                @relation("SettingsDefaultReferrer")
+  privateConversationsAsMember             PrivateConversation[]                     @relation("PrivateConversationMember")
+  privateConversationsInitiated            PrivateConversation[]                     @relation("PrivateConversationInitiator")
+  privateMessagesSent                      PrivateMessage[]
+  privateConversationReads                 PrivateConversationRead[]
+  privateMessageReactions                  PrivateMessageReaction[]
+  resourceAccessGrants                     ResourceAccessGrant[]
+  notifications                            Notification[]
+  pushSubscriptions                        PushSubscription[]
+  updatePosts                              UpdatePost[]                              @relation("UpdatePostAuthor")
+  updatePostsDeleted                       UpdatePost[]                              @relation("UpdatePostDeletedByPerson")
+  updateComments                           UpdateComment[]                           @relation("UpdateCommentAuthor")
+  updateCommentsDeleted                    UpdateComment[]                           @relation("UpdateCommentDeletedByPerson")
+  updateReactions                          UpdateReaction[]
+  trainingEnrollment                       TrainingEnrollment?
+  devotionalOfferings                      DevotionalOffering[]
+  bookPayments                             BookPayment[]
+  paymentAgent                             PaymentAgent?
+  eventsCreated                            AssemblyEvent[]                           @relation("EventCreator")
+  eventRsvps                               EventRsvp[]
+  eventAttendances                         EventAttendance[]
+  paymentOrdersBought                      PaymentOrder[]                            @relation("PaymentOrderBuyer")
+  paymentOrderMessages                     PaymentOrderMessage[]
+  trainingBookOpens                        TrainingBookOpen[]
+  readingProgress                          ReadingProgress[]
+  trainingGraceRequests                    TrainingGraceRequest[]
+  friendRequestsSent                       Friendship[]                              @relation("FriendshipRequester")
+  friendRequestsReceived                   Friendship[]                              @relation("FriendshipAddressee")
+  blocksMade                               PersonBlock[]                             @relation("PersonBlockBlocker")
+  blocksReceived                           PersonBlock[]                             @relation("PersonBlockBlocked")
+  following                                Follow[]                                  @relation("FollowFollower")
+  followedBy                               Follow[]                                  @relation("FollowFollowing")
+  reportsMade                              MemberReport[]                            @relation("MemberReportReporter")
+  reportsAbout                             MemberReport[]                            @relation("MemberReportReported")
+  areaLeadershipAssignments                AreaLeadershipAssignment[]
+  nationalTeamMember                       NationalTeamMember?                       @relation("PersonNationalTeam")
+  referralEarningsEarned                   ReferralEarning[]                         @relation("ReferrerEarnings")
+  referralEarningsFromPurchases            ReferralEarning[]                         @relation("BuyerEarnings")
+  referralPayouts                          ReferralPayout[]                          @relation("PersonPayouts")
+  areaRepresentationRequests               AreaRepresentationRequest[]
+  referralCode                             ReferralCode?
+  referralsMade                            Registration[]                            @relation("RegistrationReferredBy")
+  prayerRequests                           PrayerRequest[]                           @relation("PrayerRequestAuthor")
+  prayerRequestsDeleted                    PrayerRequest[]                           @relation("PrayerRequestDeletedByPerson")
+  prayerRequestComments                    PrayerRequestComment[]                    @relation("PrayerRequestCommentAuthor")
+  prayerRequestCommentsDeleted             PrayerRequestComment[]                    @relation("PrayerRequestCommentDeletedByPerson")
+  teachingsAuthored                        Teaching[]                                @relation("TeachingAuthor")
+  teachingProgress                         TeachingProgress[]
 
   @@index([isTestData])
 }
@@ -960,10 +964,10 @@ model Person {
 // deep Mother -> Child -> Grandchild hierarchy with no hard-coded depth
 // limit. No leadership/capacity logic yet — that is a later phase.
 model Community {
-  id               String                 @id @default(uuid())
-  parentId         String?
-  name             String
-  active           Boolean                @default(true)
+  id                    String                 @id @default(uuid())
+  parentId              String?
+  name                  String
+  active                Boolean                @default(true)
   // Community Posting Policy — who may create a new local Community
   // message/post (see lib/communityConversation.ts's canPostCommunityMessage,
   // the sole consumer of this field). Defaults to EVERYONE so every existing
@@ -972,7 +976,7 @@ model Community {
   // see that function's own comment. Deliberately not applied to
   // HeadquartersPost (a wholly separate model family with its own
   // Admin-only authorization).
-  postingPolicy    CommunityPostingPolicy @default(EVERYONE)
+  postingPolicy         CommunityPostingPolicy @default(EVERYONE)
   // Whether this group currently accepts automatically-placed newcomers —
   // set explicitly by Admin, completely independent of whether the group
   // has children (see lib/placement.ts's findOpenGroups, the sole
@@ -982,38 +986,38 @@ model Community {
   // community behaves as an open group unless Admin explicitly turns this
   // off when creating a special-purpose sub-group (Leaders only, Prayer,
   // etc.) that should never receive automatic placements.
-  autoPlacementEligible Boolean             @default(true)
+  autoPlacementEligible Boolean                @default(true)
   // True for an assembly the app opened by itself because its parent was
   // full ("one brings two": at most two such children per assembly).
-  autoCreated      Boolean                @default(false)
+  autoCreated           Boolean                @default(false)
   // Optional location tag used only by BY_LOCATION placement: newcomers
   // whose country (and region, when set) match go to this group first.
-  placementCountry String?
-  placementRegion  String?
+  placementCountry      String?
+  placementRegion       String?
   // The group's picture and its purpose / vision, shown in the chat list and
   // on the group info page. Only the admin changes these.
-  photoStorageKey  String?
-  photoUpdatedAt   DateTime?
-  aboutEn          String?
-  aboutFr          String?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  photoStorageKey       String?
+  photoUpdatedAt        DateTime?
+  aboutEn               String?
+  aboutFr               String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
-  parent                                  Community?                               @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children                                Community[]                              @relation("CommunityHierarchy")
-  memberships                             CommunityMembership[]
-  devotionals                             MonthlyDevotional[]
-  roleAssignments                         RoleAssignment[]
-  conversation                            Conversation?
-  announcementTargets                     AnnouncementTarget[]
-  headquartersSettings                    Settings[]                               @relation("SettingsHeadquarters")
-  headquartersPostTargets                 HeadquartersPostTarget[]
-  prayerRequests                          PrayerRequest[]
-  teachings                               Teaching[]
+  parent                  Community?               @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children                Community[]              @relation("CommunityHierarchy")
+  memberships             CommunityMembership[]
+  devotionals             MonthlyDevotional[]
+  roleAssignments         RoleAssignment[]
+  conversation            Conversation?
+  announcementTargets     AnnouncementTarget[]
+  headquartersSettings    Settings[]               @relation("SettingsHeadquarters")
+  headquartersPostTargets HeadquartersPostTarget[]
+  prayerRequests          PrayerRequest[]
+  teachings               Teaching[]
+  events                  AssemblyEvent[]
 
   @@index([parentId])
   @@index([active])
-  events AssemblyEvent[]
 }
 
 // Person <-> Community relationship. A given person can have at most one
@@ -1106,13 +1110,13 @@ model Assessment {
 
   // Exam World: a devotional's weekly exam (Week 1, 2, 3...) has a
   // weekNumber; a leadership-training book's exam has trainingBookId.
-  weekNumber     Int?
-  trainingBookId String? @unique
+  weekNumber         Int?
+  trainingBookId     String?   @unique
   // Dominion Clinic: members were told once that this exam has opened.
   openReminderSentAt DateTime?
 
-  devotional   MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
-  trainingBook LibraryBook?       @relation(fields: [trainingBookId], references: [id], onDelete: SetNull)
+  devotional     MonthlyDevotional?  @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
+  trainingBook   LibraryBook?        @relation(fields: [trainingBookId], references: [id], onDelete: SetNull)
   questions      Question[]
   attempts       Attempt[]
   retakeRequests ExamRetakeRequest[]
@@ -1284,9 +1288,9 @@ model ParticipationEvent {
 // Person.whatsappNumber. Ownership of the email is only established once
 // proven via a successfully consumed MemberLoginToken.
 model MemberAccount {
-  id          String    @id @default(uuid())
-  personId    String    @unique
-  email       String    @unique
+  id           String    @id @default(uuid())
+  personId     String    @unique
+  email        String    @unique
   // Null for any account created before password sign-in existed (and never
   // backfilled — there is nothing to hash). POST /login refuses such an
   // account exactly like a wrong password, never revealing the difference;
@@ -1294,10 +1298,10 @@ model MemberAccount {
   // password" (POST /verify-code with newPassword), which works whether
   // this is null or already set.
   passwordHash String?
-  createdAt   DateTime  @default(now())
-  lastLoginAt DateTime?
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
 
-  person         Person                @relation(fields: [personId], references: [id], onDelete: Cascade)
+  person         Person                   @relation(fields: [personId], references: [id], onDelete: Cascade)
   loginTokens    MemberLoginToken[]
   sessions       MemberSession[]
   trustedDevices TrustedMemberDevice[]
@@ -1589,28 +1593,28 @@ enum AreaRepresentationRequestStatus {
 // in favor of this one). Submitting a request still never grants anything
 // by itself, only Admin's approval does.
 model AreaRepresentationRequest {
-  id              String                          @id @default(uuid())
-  personId        String
+  id               String                          @id @default(uuid())
+  personId         String
   // Either a place already on the list (areaId) or, when the member's place
   // is not listed yet, the place they typed in (the typed* fields). The
   // admin adds the place and approves with it, or declines.
-  areaId          String?
+  areaId           String?
   typedCountry     String?
   typedRegion      String?
   typedDivision    String?
   typedSubdivision String?
   typedQuarter     String?
-  note            String?
-  status          AreaRepresentationRequestStatus @default(PENDING)
-  createdAt       DateTime                        @default(now())
-  updatedAt       DateTime                        @updatedAt
-  decidedAt       DateTime?
-  decidedByUserId String?
-  decisionNote    String?
+  note             String?
+  status           AreaRepresentationRequestStatus @default(PENDING)
+  createdAt        DateTime                        @default(now())
+  updatedAt        DateTime                        @updatedAt
+  decidedAt        DateTime?
+  decidedByUserId  String?
+  decisionNote     String?
 
-  person        Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  person        Person          @relation(fields: [personId], references: [id], onDelete: Cascade)
   area          GeographicArea? @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  decidedByUser User?          @relation(fields: [decidedByUserId], references: [id])
+  decidedByUser User?           @relation(fields: [decidedByUserId], references: [id])
 
   @@index([personId, status])
   @@index([areaId, status])
@@ -1699,9 +1703,9 @@ model Message {
   // degrade to showing just `body`, same as today). The app only ever has two languages, so
   // there is only ever one translation to produce: whichever of en/fr
   // `detectedLanguage` is NOT.
-  detectedLanguage  Language?
-  translatedBody    String?
-  translatedAt      DateTime?
+  detectedLanguage     Language?
+  translatedBody       String?
+  translatedAt         DateTime?
   // Voice-note transcription + translation, same lazy/background/best-effort
   // rule. transcribedBody is the plain transcript, in whatever language was
   // spoken (transcribedLanguage); translatedTranscript is that same
@@ -1711,7 +1715,7 @@ model Message {
   translatedTranscript String?
   transcribedAt        DateTime?
   // Marked by the central admin as a live teaching (shown on the message, said in the notification).
-  liveTeaching         Boolean @default(false)
+  liveTeaching         Boolean   @default(false)
 
   conversation Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       Person                   @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
@@ -1789,9 +1793,9 @@ model MessageHiddenForPerson {
 // ordinary participants via the existing route-level checks — this table
 // itself carries no visibility flag of its own.
 model MessageAttachment {
-  id                 String   @id @default(uuid())
+  id                 String    @id @default(uuid())
   messageId          String
-  storageKey         String   @unique
+  storageKey         String    @unique
   originalFilename   String
   mimeType           String
   byteSize           Int
@@ -1805,7 +1809,7 @@ model MessageAttachment {
   // everything else.
   language           Language?
   uploadedByPersonId String
-  createdAt          DateTime @default(now())
+  createdAt          DateTime  @default(now())
 
   message    Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
   uploadedBy Person  @relation("MessageAttachmentUploadedBy", fields: [uploadedByPersonId], references: [id], onDelete: Cascade)
@@ -1987,29 +1991,29 @@ model LeadershipCollaborationConversationRead {
 // record whether a given Person has opened a given Announcement; it is
 // not a recipient list and never influences eligibility.
 model Announcement {
-  id              String    @id @default(uuid())
-  titleEn         String
-  titleFr         String?
-  bodyEn          String
-  bodyFr          String?
-  createdByUserId String
+  id               String    @id @default(uuid())
+  titleEn          String
+  titleFr          String?
+  bodyEn           String
+  bodyFr           String?
+  createdByUserId  String
   // When set, this Announcement is shown with this Person's photo and name
   // (always Central Admin's own bridged profile — never an arbitrary
   // Person) instead of the plain institutional "Central Authority" voice.
   // Editable only while still a draft, same as every other field here.
   // Purely a display choice: pinning/prominence/eligibility are completely
   // unaffected either way. Null means the institutional voice.
-  authorPersonId  String?
+  authorPersonId   String?
   // True while the French was filled in by the automatic translation (see HeadquartersPost).
-  frAutoTranslated Boolean  @default(false)
-  createdAt       DateTime  @default(now())
-  publishedAt     DateTime?
-  archivedAt      DateTime?
+  frAutoTranslated Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  publishedAt      DateTime?
+  archivedAt       DateTime?
 
-  createdBy  User                 @relation(fields: [createdByUserId], references: [id])
-  authorPerson Person?            @relation("AnnouncementAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
-  targets    AnnouncementTarget[]
-  reads      AnnouncementRead[]
+  createdBy    User                 @relation(fields: [createdByUserId], references: [id])
+  authorPerson Person?              @relation("AnnouncementAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
+  targets      AnnouncementTarget[]
+  reads        AnnouncementRead[]
 
   @@index([publishedAt, archivedAt])
   @@index([createdAt])
@@ -2086,32 +2090,32 @@ model AnnouncementRead {
 // publishing is immediate; archiving is the only "deletion" path (no
 // hard-delete), from either draft or published state.
 model HeadquartersPost {
-  id              String    @id @default(uuid())
-  titleEn         String
-  titleFr         String?
-  bodyEn          String
-  bodyFr          String?
-  networkWide     Boolean   @default(false)
-  createdByUserId String
+  id               String                @id @default(uuid())
+  titleEn          String
+  titleFr          String?
+  bodyEn           String
+  bodyFr           String?
+  networkWide      Boolean               @default(false)
+  createdByUserId  String
   // Same personal-voice choice as Announcement.authorPersonId above — see
   // its comment. Draft-only editable; never affects pinning/prominence/
   // eligibility.
-  authorPersonId  String?
+  authorPersonId   String?
   // Share-into-app: which official name the post shows (the plain
   // Headquarters voice, or the God's Nation Communication Department page).
   // The real person who shared it is still createdByUserId, kept private.
-  voice           HeadquartersPostVoice @default(CENTRAL_AUTHORITY)
+  voice            HeadquartersPostVoice @default(CENTRAL_AUTHORITY)
   // True while the French was filled in by the automatic translation (so it is redone when the
   // English is edited, and left alone once a person has written or changed the French).
-  frAutoTranslated Boolean  @default(false)
+  frAutoTranslated Boolean               @default(false)
   // A TikTok / Instagram / Facebook / YouTube link shown as a player right
   // in the feed (see lib/socialEmbed.ts). Only ever a link we parsed and
   // normalized ourselves; the embed address is rebuilt from it on read.
-  linkUrl         String?
-  linkProvider    SocialLinkProvider?
-  createdAt       DateTime  @default(now())
-  publishedAt     DateTime?
-  archivedAt      DateTime?
+  linkUrl          String?
+  linkProvider     SocialLinkProvider?
+  createdAt        DateTime              @default(now())
+  publishedAt      DateTime?
+  archivedAt       DateTime?
 
   createdBy    User                       @relation(fields: [createdByUserId], references: [id])
   authorPerson Person?                    @relation("HeadquartersPostAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
@@ -2625,14 +2629,14 @@ enum UpdateAudience {
 }
 
 model UpdatePost {
-  id                String    @id @default(uuid())
+  id                String         @id @default(uuid())
   authorPersonId    String
   body              String
   audience          UpdateAudience @default(EVERYONE)
   // YouTube video id (never a raw URL) when the author attached a video.
   youtubeVideoId    String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
   deletedAt         DateTime?
   deletedByPersonId String?
   deletedByUserId   String?
@@ -2819,42 +2823,42 @@ model MemberReport {
 // ---------------------------------------------------------------------------
 
 model LibraryBook {
-  id            String          @id @default(uuid())
-  kind          LibraryBookKind
-  titleEn       String
-  titleFr       String?
-  descriptionEn String?
-  descriptionFr String?
+  id             String          @id @default(uuid())
+  kind           LibraryBookKind
+  titleEn        String
+  titleFr        String?
+  descriptionEn  String?
+  descriptionFr  String?
   // The PDF in object storage (null until the admin uploads it).
-  storageKey    String?
-  byteSize      Int?
+  storageKey     String?
+  byteSize       Int?
   // Pages in the PDF, read in the admin's browser when it is uploaded.
-  pageCount     Int?
+  pageCount      Int?
   // The French copy of the same book (the English one is storageKey above).
-  storageKeyFr  String?
-  byteSizeFr    Int?
-  pageCountFr   Int?
+  storageKeyFr   String?
+  byteSizeFr     Int?
+  pageCountFr    Int?
   // Changes whenever the cover changes, so phones fetch the new picture
   // (the cover link carries it; null = no cover yet, a drawn one is shown).
-  coverVersion  String?
+  coverVersion   String?
   // The same for the French cover (drawn from the French PDF); null = readers
   // in French see the English cover.
   coverFrVersion String?
-  trainingOrder Int?            @unique
-  devotionalId  String?         @unique
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  trainingOrder  Int?            @unique
+  devotionalId   String?         @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  devotional MonthlyDevotional? @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
-  exam       Assessment?
-  payments   BookPayment[]
+  devotional    MonthlyDevotional?  @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
+  exam          Assessment?
+  payments      BookPayment[]
   paymentOrders PaymentOrder[]
-  opens      TrainingBookOpen[]
-  reading    ReadingProgress[]
-  cover      LibraryBookCover?
-  coverFr    LibraryBookCoverFr?
-  chapters   BookChapter[]
-  deliveries BookDelivery[]
+  opens         TrainingBookOpen[]
+  reading       ReadingProgress[]
+  cover         LibraryBookCover?
+  coverFr       LibraryBookCoverFr?
+  chapters      BookChapter[]
+  deliveries    BookDelivery[]
 
   @@index([kind])
 }
@@ -2984,23 +2988,23 @@ enum BookPaymentStatus {
 }
 
 model BookPayment {
-  id              String            @id @default(uuid())
-  personId        String?
-  bookId          String?
+  id                String            @id @default(uuid())
+  personId          String?
+  bookId            String?
   // Kept even if the book is later removed.
-  bookNumber      Int?
-  amount          Int
-  method          BookPaymentMethod
-  status          BookPaymentStatus
+  bookNumber        Int?
+  amount            Int
+  method            BookPaymentMethod
+  status            BookPaymentStatus
   // Mobile Money transaction ID typed by the member, and the number used.
-  reference       String?
-  payerPhone      String?
-  provider        String?
-  providerRef     String?           @unique
-  note            String?
-  createdAt       DateTime          @default(now())
-  decidedAt       DateTime?
-  decidedByUserId String?
+  reference         String?
+  payerPhone        String?
+  provider          String?
+  providerRef       String?           @unique
+  note              String?
+  createdAt         DateTime          @default(now())
+  decidedAt         DateTime?
+  decidedByUserId   String?
   // Paid through a payment agent: the order, and the agent who decided it
   // (agents are members, so decidedByUserId stays empty for them).
   orderId           String?
@@ -3012,10 +3016,10 @@ model BookPayment {
   tokensApplied     Int               @default(0)
   tokenFrancs       Int               @default(0)
 
-  person    Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
-  book      LibraryBook? @relation(fields: [bookId], references: [id], onDelete: SetNull)
-  decidedBy User?        @relation("BookPaymentDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
-  order     PaymentOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  person          Person?          @relation(fields: [personId], references: [id], onDelete: SetNull)
+  book            LibraryBook?     @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  decidedBy       User?            @relation("BookPaymentDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  order           PaymentOrder?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
   referralEarning ReferralEarning?
 
   @@index([personId, bookId])
@@ -3199,20 +3203,20 @@ model AccountDeletionCode {
 // Everyone in the assembly sees who finished and each person's score.
 // ---------------------------------------------------------------------------
 model Teaching {
-  id             String    @id @default(uuid())
-  communityId    String
-  messageId      String    @unique
-  assessmentId   String    @unique
-  authorPersonId String?
-  title          String
+  id               String    @id @default(uuid())
+  communityId      String
+  messageId        String    @unique
+  assessmentId     String    @unique
+  authorPersonId   String?
+  title            String
   // The written teaching (optional when there is audio/video/PDF).
-  text           String?
+  text             String?
   // What the attached file is: AUDIO, VIDEO or PDF (null: text only).
-  mediaKind      String?
+  mediaKind        String?
   // The quiz can be started until then (results stay visible afterwards).
-  closesAt       DateTime
-  lastRemindedAt DateTime?
-  createdAt      DateTime  @default(now())
+  closesAt         DateTime
+  lastRemindedAt   DateTime?
+  createdAt        DateTime  @default(now())
   // Auto-translation (lib/translation.ts): the title and text in whichever
   // of English/French they were NOT written in. The quiz is translated into
   // the questions' own textEn/textFr columns.
@@ -3231,9 +3235,9 @@ model Teaching {
   assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   author     Person?            @relation("TeachingAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
   progress   TeachingProgress[]
+  events     AssemblyEvent[]    @relation("EventReplay")
 
   @@index([communityId, createdAt])
-  events AssemblyEvent[] @relation("EventReplay")
 }
 
 // One row per member per teaching: what the system has seen them do.
@@ -3258,7 +3262,6 @@ model TeachingProgress {
   @@unique([teachingId, personId])
   @@index([personId])
 }
-
 
 // ---------------------------------------------------------------------------
 // Payment agents — the ministry's own staff who receive book payments for the
@@ -3296,21 +3299,21 @@ enum PaymentOrderStatus {
 }
 
 model PaymentOrder {
-  id            String             @id @default(uuid())
-  buyerPersonId String
-  agentId       String
-  bookId        String?
-  bookNumber    Int?
-  amount        Int
+  id             String             @id @default(uuid())
+  buyerPersonId  String
+  agentId        String
+  bookId         String?
+  bookNumber     Int?
+  amount         Int
   // How many books this order pays for (the next unpaid ones, in order).
-  bookCount     Int                @default(1)
+  bookCount      Int                @default(1)
   // Earned tokens the buyer chose to use toward this order, and the francs they take off.
-  tokensApplied Int                @default(0)
-  tokenFrancs   Int                @default(0)
-  status        PaymentOrderStatus @default(OPEN)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  decidedAt     DateTime?
+  tokensApplied  Int                @default(0)
+  tokenFrancs    Int                @default(0)
+  status         PaymentOrderStatus @default(OPEN)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  decidedAt      DateTime?
   // When the representative was last reminded that the member is waiting for a reply.
   reminderSentAt DateTime?
 
@@ -3325,24 +3328,23 @@ model PaymentOrder {
 }
 
 model PaymentOrderMessage {
-  id             String   @id @default(uuid())
-  orderId        String
-  senderPersonId String
-  body           String
+  id              String   @id @default(uuid())
+  orderId         String
+  senderPersonId  String
+  body            String
   // The agent's automatic first message (the payment instructions).
-  auto           Boolean  @default(false)
+  auto            Boolean  @default(false)
   // A screenshot of the payment, in private storage.
-  proofStorageKey String? @unique
+  proofStorageKey String?  @unique
   proofMimeType   String?
   proofByteSize   Int?
-  createdAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   order  PaymentOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   sender Person       @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
 
   @@index([orderId, createdAt])
 }
-
 
 // ---------------------------------------------------------------------------
 // Events and attendance. A leader (or the central admin) puts a gathering in
@@ -3392,11 +3394,11 @@ model EventRsvp {
 }
 
 model EventAttendance {
-  id                String                @id @default(uuid())
-  eventId           String
-  personId          String
-  markedByPersonId  String?
-  createdAt         DateTime              @default(now())
+  id               String   @id @default(uuid())
+  eventId          String
+  personId         String
+  markedByPersonId String?
+  createdAt        DateTime @default(now())
 
   event  AssemblyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
   person Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
@@ -3404,7 +3406,6 @@ model EventAttendance {
   @@unique([eventId, personId])
   @@index([personId])
 }
-
 
 // ---------------------------------------------------------------------------
 // Escalation: a leader's hard question about one of their people, sent to the
@@ -3466,7 +3467,6 @@ model FollowUpEscalationMessage {
   @@index([escalationId, createdAt])
 }
 
-
 // ---------------------------------------------------------------------------
 // Giving. Gifts go straight to the central administration (the member gives by
 // Mobile Money and says so; the central admin confirms). Leaders never see who
@@ -3499,17 +3499,17 @@ enum GiftCampaignStatus {
 }
 
 model GiftCampaign {
-  id               String             @id @default(uuid())
-  titleEn          String
-  titleFr          String?
-  descriptionEn    String?
-  descriptionFr    String?
+  id              String             @id @default(uuid())
+  titleEn         String
+  titleFr         String?
+  descriptionEn   String?
+  descriptionFr   String?
   // FCFA the campaign hopes to gather (optional).
-  targetAmount     Int?
-  status           GiftCampaignStatus @default(OPEN)
-  createdByUserId  String?
-  createdAt        DateTime           @default(now())
-  closedAt         DateTime?
+  targetAmount    Int?
+  status          GiftCampaignStatus @default(OPEN)
+  createdByUserId String?
+  createdAt       DateTime           @default(now())
+  closedAt        DateTime?
 
   gifts Gift[]
 
@@ -3517,7 +3517,7 @@ model GiftCampaign {
 }
 
 model Gift {
-  id              String      @id @default(uuid())
+  id              String     @id @default(uuid())
   // Cleared (record kept for the accounts) when the giver deletes their account.
   personId        String?
   // The assembly the giver belonged to when giving: for the totals per assembly.
@@ -3529,10 +3529,10 @@ model Gift {
   reference       String?
   payerPhone      String?
   // Campaign gifts only: show the giver as "Anonymous" in the public report.
-  anonymous       Boolean     @default(false)
-  status          GiftStatus  @default(CLAIMED)
+  anonymous       Boolean    @default(false)
+  status          GiftStatus @default(CLAIMED)
   note            String?
-  createdAt       DateTime    @default(now())
+  createdAt       DateTime   @default(now())
   decidedAt       DateTime?
   decidedByUserId String?
 
@@ -3544,7 +3544,6 @@ model Gift {
   @@index([communityId, status])
   @@index([campaignId, status])
 }
-
 
 // ---------------------------------------------------------------------------
 // Dominion Clinic delivery: a monthly book is "sent" to a member — by their
@@ -3771,22 +3770,22 @@ model KnowledgeAuthor {
 }
 
 model KnowledgeArticle {
-  id               String        @id @default(uuid())
+  id                 String        @id @default(uuid())
   // One of the six knowledge areas (the keys in lib/publicSite/content.ts).
-  divisionKey      String
-  status           ArticleStatus @default(DRAFT)
-  authorId         String?
-  featuredImageUrl String?
+  divisionKey        String
+  status             ArticleStatus @default(DRAFT)
+  authorId           String?
+  featuredImageUrl   String?
   featuredImageAltEn String?
   featuredImageAltFr String?
-  publishedAt      DateTime?
-  scheduledFor     DateTime?
+  publishedAt        DateTime?
+  scheduledFor       DateTime?
   // Whether AI helped produce it, and what it came from (kept for tracing). The
   // publish step refuses AI-assisted items nobody has approved (Phase 5).
-  aiAssisted       Boolean       @default(false)
-  sourceNote       String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  aiAssisted         Boolean       @default(false)
+  sourceNote         String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   author       KnowledgeAuthor?              @relation(fields: [authorId], references: [id], onDelete: SetNull)
   translations KnowledgeArticleTranslation[]
@@ -3797,7 +3796,7 @@ model KnowledgeArticle {
 }
 
 model KnowledgeArticleTranslation {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   articleId      String
   lang           Language
   slug           String
@@ -3807,14 +3806,14 @@ model KnowledgeArticleTranslation {
   body           String
   seoTitle       String?
   seoDescription String?
-  readingMinutes Int      @default(1)
+  readingMinutes Int       @default(1)
   // Questions and answers shown at the end: [{ "q": "...", "a": "..." }].
   faq            Json?
   // A French (or English) version is public only when a person has reviewed it.
   reviewedAt     DateTime?
   reviewedBy     String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   article KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
 
@@ -3846,4 +3845,56 @@ model KnowledgeMedia {
   altFr      String?
   uploadedBy String?
   createdAt  DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Instructions from the National Coordinator (the central admin) to leaders: to
+// every leader, to the leaders of chosen generations, or to hand-picked leaders.
+// The people it goes to are written down when it is sent (one recipient row
+// each), so "who has seen it, who is done, who is late" stays exact even when
+// leaders change later. The title and text are kept as written, with the
+// other-language version beside them.
+// ---------------------------------------------------------------------------
+enum InstructionAudience {
+  ALL_LEADERS
+  GENERATIONS
+  PICKED
+}
+
+model LeaderInstruction {
+  id                String              @id @default(uuid())
+  title             String
+  body              String
+  language          Language?
+  titleTr           String?
+  bodyTr            String?
+  audience          InstructionAudience
+  generations       Int[]
+  dueAt             DateTime?
+  // Whether the leaders it went to can read each other's "done" notes.
+  repliesVisible    Boolean             @default(false)
+  createdByUserId   String?
+  createdByPersonId String?
+  createdAt         DateTime            @default(now())
+
+  recipients LeaderInstructionRecipient[]
+
+  @@index([createdAt])
+}
+
+model LeaderInstructionRecipient {
+  id            String    @id @default(uuid())
+  instructionId String
+  personId      String
+  seenAt        DateTime?
+  doneAt        DateTime?
+  note          String?
+  remindedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  instruction LeaderInstruction @relation(fields: [instructionId], references: [id], onDelete: Cascade)
+  person      Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([instructionId, personId])
+  @@index([personId])
 }

@@ -20,6 +20,7 @@ import { MyMembers } from './MyMembers';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
 import { LeaderLeadershipCollaboration } from './LeaderLeadershipCollaboration';
 import { LeaderCommunityConversations } from './LeaderCommunityConversations';
+import { LeaderInstructions, type MyInstruction } from './LeaderInstructions';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
 import { usePublicSettings } from '../../lib/usePublicSettings';
@@ -188,7 +189,7 @@ function LeaderEscalations() {
   );
 }
 
-type SectionKey = 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources';
+type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources';
 
 interface MyPeopleSummary {
   total: number;
@@ -217,6 +218,12 @@ export function LeadershipDashboardBody() {
   const [copied, setCopied] = useState<string | null>(null);
   const [assemblies, setAssemblies] = useState<string[] | null>(null);
   const [people, setPeople] = useState<MyPeopleSummary | null>(null);
+  const [pendingInstructions, setPendingInstructions] = useState(0);
+  const loadPendingInstructions = () =>
+    api
+      .get<{ items: MyInstruction[] }>('/api/member/instructions/')
+      .then((r) => setPendingInstructions(r.items.filter((i) => i.status !== 'DONE').length))
+      .catch(() => {});
 
   useEffect(() => {
     api
@@ -234,6 +241,7 @@ export function LeadershipDashboardBody() {
       .get<{ items: { community: { name: string } | null }[] }>('/api/leader/role-assignments')
       .then((res) => setAssemblies(res.items.flatMap((r) => (r.community ? [r.community.name] : []))))
       .catch(() => setAssemblies([]));
+    void loadPendingInstructions();
     api
       .get<MyPeopleSummary>('/api/leader/my-people')
       .then((res) => setPeople({ total: res.total, needingAttention: res.needingAttention }))
@@ -261,6 +269,7 @@ export function LeadershipDashboardBody() {
   }
 
   const sections: { key: SectionKey; icon: string; render: () => ReactNode }[] = [
+    { key: 'instructions', icon: '📌', render: () => <LeaderInstructions onChanged={() => void loadPendingInstructions()} /> },
     {
       key: 'people',
       icon: '👥',
@@ -459,6 +468,18 @@ export function LeadershipDashboardBody() {
             {needing > 0 ? t('leaderHome.attention_some', { count: needing }) : people.total > 0 ? t('leaderHome.attention_none') : t('leaderHome.attention_nobody')}
           </span>
           <span className="mt-0.5 block text-sm text-slate-600">{needing > 0 ? t('leaderHome.attention_tap') : t('leaderHome.people_total', { count: people.total })}</span>
+        </button>
+      )}
+
+      {pendingInstructions > 0 && (
+        <button
+          type="button"
+          onClick={() => setParams({ section: 'instructions' })}
+          className="block w-full rounded-xl border border-brand-300 bg-brand-50 p-4 text-left"
+          data-testid="leader-instructions-banner"
+        >
+          <span className="block font-semibold text-brand-900">📌 {t('leaderHome.instructions_waiting', { count: pendingInstructions })}</span>
+          <span className="mt-0.5 block text-sm text-slate-600">{t('leaderHome.instructions_tap')}</span>
         </button>
       )}
 
