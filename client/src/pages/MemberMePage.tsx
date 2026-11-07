@@ -23,6 +23,7 @@ import { GivingPanel } from '../components/admin/GivingPanel';
 import { InstructionsPanel } from '../components/admin/InstructionsPanel';
 import { LeaderRoomsPanel } from '../components/admin/LeaderRoomsPanel';
 import { TeachingCompletionPanel } from '../components/admin/TeachingCompletionPanel';
+import { LeaderReferralReportPanel } from '../components/admin/LeaderReferralReportPanel';
 
 interface ExamWorld {
   devotionals: {
@@ -43,10 +44,10 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-type Tab = 'posts' | 'photos' | 'progress' | 'instructions' | 'rooms' | 'teachingDone' | 'cells' | 'giving' | 'growth' | 'knowledge';
+type Tab = 'posts' | 'photos' | 'progress' | 'instructions' | 'rooms' | 'teachingDone' | 'refReport' | 'cells' | 'giving' | 'growth' | 'knowledge';
 // Two layers: everyone has "My space"; the central admin also has "Admin tools" (each with its own tabs).
 const ME_TABS: Tab[] = ['posts', 'photos', 'progress'];
-const ADMIN_TABS: Tab[] = ['instructions', 'rooms', 'teachingDone', 'cells', 'giving', 'growth', 'knowledge'];
+const ADMIN_TABS: Tab[] = ['instructions', 'rooms', 'teachingDone', 'refReport', 'cells', 'giving', 'growth', 'knowledge'];
 
 // "My progress" tab: this month's devotional exam scores, leadership
 // training books passed, and the member's group(s).
@@ -382,7 +383,7 @@ export function MemberMePage() {
           ) : (
             // The administrator's tools: four pills in a tidy block (two by two on a phone), each name fully readable.
             <div role="tablist" aria-label={t('wall.section_admin') ?? ''} className="grid grid-cols-2 gap-2 border-b border-slate-200 bg-white px-4 pb-3 sm:grid-cols-4 sm:px-2" data-testid="admin-tabs">
-              {([['instructions', t('instructions.tab')], ['rooms', t('leaderRooms.tab')], ['teachingDone', t('teachingDone.tab')], ['cells', t('cells.tab')], ['giving', t('givingAdmin.tab')], ['growth', t('growth.tab')], ['knowledge', t('knowledgeAdmin.tab')]] as [Tab, string][]).map(([id, label]) => (
+              {([['instructions', t('instructions.tab')], ['rooms', t('leaderRooms.tab')], ['teachingDone', t('teachingDone.tab')], ['refReport', t('refReport.tab')], ['cells', t('cells.tab')], ['giving', t('givingAdmin.tab')], ['growth', t('growth.tab')], ['knowledge', t('knowledgeAdmin.tab')]] as [Tab, string][]).map(([id, label]) => (
                 <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
                   className={`rounded-full border px-3 py-2.5 text-center text-sm font-semibold ${tab === id ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>
                   {label}
@@ -397,6 +398,7 @@ export function MemberMePage() {
           {tab === 'photos' && member.personId && <PhotoGrid personId={member.personId} />}
           {tab === 'progress' && <Progress groups={groups} />}
           {tab === 'instructions' && member.isCentralAdmin && <InstructionsPanel base="/api/member/central-instructions" />}
+          {tab === 'refReport' && member.isCentralAdmin && <LeaderReferralReportPanel base="/api/member/central-leader-referral-report" />}
           {tab === 'teachingDone' && member.isCentralAdmin && <TeachingCompletionPanel base="/api/member/central-teaching-completion" />}
           {tab === 'rooms' && member.isCentralAdmin && <LeaderRoomsPanel base="/api/member/central-leader-rooms" />}
           {tab === 'cells' && member.isCentralAdmin && <CellsPanel base="/api/member/central-cells" />}
