@@ -44,6 +44,7 @@ import memberAuthRoutes from './routes/memberAuth';
 import memberAssessmentsRoutes from './routes/memberAssessments';
 import memberGivingRoutes from './routes/memberGiving';
 import { adminGivingRoutes, memberCentralGivingRoutes } from './routes/adminGiving';
+import { adminTeachingCompletionRoutes, memberCentralTeachingCompletionRoutes } from './routes/adminTeachingCompletion';
 import { adminLeaderRoomsRoutes, memberCentralLeaderRoomsRoutes } from './routes/adminLeaderRooms';
 import { adminInstructionsRoutes, memberCentralInstructionsRoutes, memberInstructionsRoutes } from './routes/adminInstructions';
 import memberClinicRoutes from './routes/memberClinic';
@@ -181,6 +182,8 @@ export function createApp() {
   app.use('/api/admin/giving', adminGivingRoutes);
   app.use('/api/admin/instructions', adminInstructionsRoutes);
   app.use('/api/admin/leader-rooms', adminLeaderRoomsRoutes);
+  app.use('/api/admin/teaching-completion', adminTeachingCompletionRoutes);
+  app.use('/api/member/central-teaching-completion', memberCentralTeachingCompletionRoutes);
   app.use('/api/member/central-leader-rooms', memberCentralLeaderRoomsRoutes);
   app.use('/api/member/central-instructions', memberCentralInstructionsRoutes);
   app.use('/api/member/instructions', memberInstructionsRoutes);
