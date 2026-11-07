@@ -402,7 +402,8 @@
       "knowledge": "Knowledge Centre",
       "instructions": "Instructions",
       "leaderRooms": "Leaders' rooms",
-      "teachingDone": "Who did the teachings"
+      "teachingDone": "Who did the teachings",
+      "refReport": "Leaders' referral report"
     },
     "overview": {
       "total_visits": "Total Visits",
@@ -4327,5 +4328,25 @@
     "appoint_failed": "Could not make this person a leader.",
     "nobody": "Nobody matches this choice yet.",
     "load_failed": "Could not load the list."
+  },
+  "refReport": {
+    "tab": "Leaders' referral report",
+    "title": "Leaders' referral report (first system)",
+    "help": "How each leader did with their own link before the new friends system: who clicked, who signed up, who tapped to join the WhatsApp group, and who is now in the app.",
+    "all_leaders": "All {{count}} leaders together",
+    "signed_up": "Signed up",
+    "tapped_group": "Tapped join group",
+    "in_app": "Now in the app",
+    "in_assembly": "In an assembly",
+    "clicks": "Link clicks",
+    "conversion": "Signed up / visitors",
+    "search": "Find a leader…",
+    "download": "Download (spreadsheet)",
+    "include_test": "Include test accounts",
+    "turned_off": "Turned off",
+    "dates": "First sign-up {{first}} · latest {{last}} · {{visitors}} different visitors",
+    "none": "No leader matches.",
+    "note": "\"Tapped join group\" counts people who pressed the WhatsApp join button. WhatsApp does not tell the app who actually joined.",
+    "load_failed": "Could not load the report."
   }
 }

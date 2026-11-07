@@ -21,6 +21,7 @@ import { GivingPanel } from '../components/admin/GivingPanel';
 import { InstructionsPanel } from '../components/admin/InstructionsPanel';
 import { LeaderRoomsPanel } from '../components/admin/LeaderRoomsPanel';
 import { TeachingCompletionPanel } from '../components/admin/TeachingCompletionPanel';
+import { LeaderReferralReportPanel } from '../components/admin/LeaderReferralReportPanel';
 import { GeographicAreasTab } from '../components/admin/GeographicAreasTab';
 import { AreaRepresentationRequestsTab } from '../components/admin/AreaRepresentationRequestsTab';
 import { FollowUpsTab } from '../components/admin/FollowUpsTab';
@@ -62,6 +63,7 @@ type Tab =
   | 'instructions'
   | 'leaderRooms'
   | 'teachingDone'
+  | 'refReport'
   | 'geographicAreas'
   | 'areaRepresentationRequests'
   | 'followUps'
@@ -1803,6 +1805,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'teachingDone'} onClick={() => setTab('teachingDone')}>
               {t('admin.tabs.teachingDone')}
             </TabButton>
+            <TabButton active={tab === 'refReport'} onClick={() => setTab('refReport')}>
+              {t('admin.tabs.refReport')}
+            </TabButton>
             <TabButton active={tab === 'giving'} onClick={() => setTab('giving')}>
               {t('admin.tabs.giving')}
             </TabButton>
@@ -1887,6 +1892,7 @@ export function AdminDashboardPage() {
         {tab === 'instructions' && <InstructionsPanel base="/api/admin/instructions" />}
         {tab === 'leaderRooms' && <LeaderRoomsPanel base="/api/admin/leader-rooms" />}
         {tab === 'teachingDone' && <TeachingCompletionPanel base="/api/admin/teaching-completion" />}
+        {tab === 'refReport' && <LeaderReferralReportPanel base="/api/admin/leader-referral-report" />}
         {tab === 'growth' && <GrowthPanel base="/api/admin/growth" />}
         {tab === 'knowledge' && <KnowledgePanel base="/api/admin/knowledge" />}
         {tab === 'geographicAreas' && <GeographicAreasTab />}

@@ -402,7 +402,8 @@
       "knowledge": "Centre de connaissance",
       "instructions": "Instructions",
       "leaderRooms": "Salles des responsables",
-      "teachingDone": "Qui a fait les enseignements"
+      "teachingDone": "Qui a fait les enseignements",
+      "refReport": "Rapport de parrainage des responsables"
     },
     "overview": {
       "total_visits": "Visites totales",
@@ -4327,5 +4328,25 @@
     "appoint_failed": "Impossible de nommer cette personne responsable.",
     "nobody": "Personne ne correspond encore à ce choix.",
     "load_failed": "Impossible de charger la liste."
+  },
+  "refReport": {
+    "tab": "Rapport de parrainage des responsables",
+    "title": "Rapport de parrainage des responsables (premier système)",
+    "help": "Ce que chaque responsable a obtenu avec son lien avant le nouveau système d’amis : qui a cliqué, qui s’est inscrit, qui a touché pour rejoindre le groupe WhatsApp, et qui est maintenant dans l’application.",
+    "all_leaders": "Les {{count}} responsables ensemble",
+    "signed_up": "Inscrits",
+    "tapped_group": "Ont touché « rejoindre le groupe »",
+    "in_app": "Maintenant dans l’appli",
+    "in_assembly": "Dans une assemblée",
+    "clicks": "Clics sur le lien",
+    "conversion": "Inscrits / visiteurs",
+    "search": "Chercher un responsable…",
+    "download": "Télécharger (tableur)",
+    "include_test": "Inclure les comptes de test",
+    "turned_off": "Désactivé",
+    "dates": "Première inscription {{first}} · dernière {{last}} · {{visitors}} visiteurs différents",
+    "none": "Aucun responsable ne correspond.",
+    "note": "« Ont touché rejoindre le groupe » compte les personnes qui ont appuyé sur le bouton WhatsApp. WhatsApp ne dit pas à l’application qui a vraiment rejoint.",
+    "load_failed": "Impossible de charger le rapport."
   }
 }
