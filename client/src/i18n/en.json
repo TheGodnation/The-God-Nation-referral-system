@@ -4327,7 +4327,18 @@
     "appointed": "{{name}} is now a leader.",
     "appoint_failed": "Could not make this person a leader.",
     "nobody": "Nobody matches this choice yet.",
-    "load_failed": "Could not load the list."
+    "load_failed": "Could not load the list.",
+    "closing_title": "Closing dates of the teachings",
+    "closing_help": "A quiz can only be started until the teaching closes. Reopen the teachings so people who came late can take them. They need to have read or listened first.",
+    "closed_on": "Closed on {{date}}",
+    "open_until": "Open until {{date}}",
+    "reopen_one": "Reopen",
+    "reopen_for": "Reopen for",
+    "days": "days",
+    "days_invalid": "Enter a number of days from 1 to 60.",
+    "reopen_all": "Reopen all {{total}} teachings",
+    "reopened": "Done. The teachings that were closed are open for {{days}} days from now.",
+    "reopen_failed": "Could not reopen. Please try again."
   },
   "refReport": {
     "tab": "Leaders' referral report",

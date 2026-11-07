@@ -10,6 +10,7 @@ interface Teaching {
   detectedLanguage: 'en' | 'fr' | null;
   assemblyName: string;
   passMark: number;
+  closesAt: string;
 }
 interface Person {
   personId: string;
@@ -48,6 +49,8 @@ export function TeachingCompletionPanel({ base }: { base: string }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [reopenDays, setReopenDays] = useState('7');
+  const [reopenMessage, setReopenMessage] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -92,6 +95,23 @@ export function TeachingCompletionPanel({ base }: { base: string }) {
     }
   }
 
+  const daysOk = Number.isInteger(Number(reopenDays)) && Number(reopenDays) >= 1 && Number(reopenDays) <= 60;
+  async function reopen(teachingIds?: string[]) {
+    if (!daysOk) return;
+    setBusyId('reopen');
+    setError(null);
+    setReopenMessage(null);
+    try {
+      await api.post(`${base}/reopen`, { ...(teachingIds ? { teachingIds } : { communityId }), days: Number(reopenDays) });
+      setReopenMessage(t('teachingDone.reopened', { days: Number(reopenDays) }));
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('teachingDone.reopen_failed'));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const selectedName = assemblies?.find((a) => a.id === communityId)?.name;
   return (
     <div className="space-y-4" data-testid="teaching-completion">
@@ -117,6 +137,41 @@ export function TeachingCompletionPanel({ base }: { base: string }) {
           <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-900" data-testid="completion-summary">
             {t('teachingDone.summary', { all: data.tookAll, total, any: data.tookAny })}
           </p>
+
+          <section className="card space-y-2" data-testid="teaching-closing">
+            <h3 className="font-semibold text-slate-800">{t('teachingDone.closing_title')}</h3>
+            <p className="text-xs text-slate-600">{t('teachingDone.closing_help')}</p>
+            <ul className="divide-y divide-slate-100 text-sm">
+              {data.teachings.map((tg) => {
+                const closed = new Date(tg.closesAt) < new Date();
+                return (
+                  <li key={tg.id} className="flex items-center justify-between gap-2 py-1.5">
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-slate-800">{pickText(i18n.language, tg.detectedLanguage, tg.title, tg.titleTranslated)}</span>
+                      <span className={`block text-xs ${closed ? 'text-red-700' : 'text-green-700'}`}>
+                        {closed ? t('teachingDone.closed_on', { date: new Date(tg.closesAt).toLocaleDateString(i18n.language) }) : t('teachingDone.open_until', { date: new Date(tg.closesAt).toLocaleDateString(i18n.language) })}
+                      </span>
+                    </span>
+                    <button type="button" className="btn-secondary shrink-0 px-2 py-1 text-xs" disabled={busyId === 'reopen' || !daysOk} onClick={() => void reopen([tg.id])} data-testid={`reopen-${tg.id}`}>
+                      {t('teachingDone.reopen_one')}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 pt-2 text-sm">
+              <label className="flex items-center gap-2">
+                {t('teachingDone.reopen_for')}
+                <input className="input w-16" inputMode="numeric" value={reopenDays} onChange={(e) => setReopenDays(e.target.value.replace(/\D/g, ''))} data-testid="reopen-days" />
+                {t('teachingDone.days')}
+              </label>
+              <button type="button" className="btn-primary px-3 py-1.5 text-sm" disabled={busyId === 'reopen' || !daysOk} onClick={() => void reopen()} data-testid="reopen-all">
+                {t('teachingDone.reopen_all', { total })}
+              </button>
+            </div>
+            {!daysOk && <p className="text-xs text-red-700">{t('teachingDone.days_invalid')}</p>}
+            {reopenMessage && <p className="text-sm font-semibold text-green-800">{reopenMessage}</p>}
+          </section>
 
           <fieldset className="space-y-1 text-sm">
             <legend className="font-semibold text-slate-700">{t('teachingDone.show')}</legend>
