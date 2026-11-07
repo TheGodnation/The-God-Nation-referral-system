@@ -401,7 +401,8 @@
       "growth": "Croissance",
       "knowledge": "Centre de connaissance",
       "instructions": "Instructions",
-      "leaderRooms": "Salles des responsables"
+      "leaderRooms": "Salles des responsables",
+      "teachingDone": "Qui a fait les enseignements"
     },
     "overview": {
       "total_visits": "Visites totales",
@@ -4296,5 +4297,35 @@
     "need_profile": "Pour écrire ici, créez d’abord votre profil membre. Vous pouvez lire les salles en attendant.",
     "none": "Pas encore de responsable, donc pas encore de salle.",
     "leaders": "{{count}} responsable(s)"
+  },
+  "teachingDone": {
+    "tab": "Qui a fait les enseignements",
+    "title": "Qui a fait les enseignements",
+    "help": "Toutes les personnes qui ont rendu le quiz des enseignements, qu’elles aient réussi ou non. Pour choisir des responsables.",
+    "none": "Aucun enseignement n’a encore été publié.",
+    "assembly": "Assemblée",
+    "n_teachings": "{{count}} enseignements",
+    "summary": "{{all}} ont fait les {{total}} enseignements. {{any}} en ont fait au moins un.",
+    "show": "Afficher",
+    "mode_all": "Seulement ceux qui ont fait les {{total}}",
+    "mode_atleast": "Ceux qui en ont fait au moins",
+    "of_total": "sur {{total}}",
+    "mode_any": "Tous ceux qui en ont fait un",
+    "shown": "{{count}} personnes affichées",
+    "download": "Télécharger la liste (tableur)",
+    "did_of": "A fait {{took}} sur {{total}}",
+    "passed_n": "réussi {{count}}",
+    "dots_label": "Chaque cercle est un enseignement, dans l’ordre",
+    "not_done": "non fait",
+    "passed": "réussi",
+    "not_passed": "non réussi",
+    "leads": "Responsable de : {{list}}",
+    "already_leader": "Responsable ici",
+    "make_leader": "Nommer responsable",
+    "confirm_appoint": "Oui, nommer responsable de {{assembly}}",
+    "appointed": "{{name}} est maintenant responsable.",
+    "appoint_failed": "Impossible de nommer cette personne responsable.",
+    "nobody": "Personne ne correspond encore à ce choix.",
+    "load_failed": "Impossible de charger la liste."
   }
 }

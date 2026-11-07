@@ -401,7 +401,8 @@
       "growth": "Growth",
       "knowledge": "Knowledge Centre",
       "instructions": "Instructions",
-      "leaderRooms": "Leaders' rooms"
+      "leaderRooms": "Leaders' rooms",
+      "teachingDone": "Who did the teachings"
     },
     "overview": {
       "total_visits": "Total Visits",
@@ -4296,5 +4297,35 @@
     "need_profile": "To write here, create your member profile first. You can read the rooms meanwhile.",
     "none": "No leader yet, so no room yet.",
     "leaders": "{{count}} leader(s)"
+  },
+  "teachingDone": {
+    "tab": "Who did the teachings",
+    "title": "Who did the teachings",
+    "help": "Everyone who handed in the quiz of the teachings, whether they passed or not. Use it to choose leaders.",
+    "none": "No teaching has been posted yet.",
+    "assembly": "Assembly",
+    "n_teachings": "{{count}} teachings",
+    "summary": "{{all}} did all {{total}} teachings. {{any}} did at least one.",
+    "show": "Show",
+    "mode_all": "Only those who did all {{total}}",
+    "mode_atleast": "Those who did at least",
+    "of_total": "of {{total}}",
+    "mode_any": "Everyone who did any",
+    "shown": "{{count}} people shown",
+    "download": "Download the list (spreadsheet)",
+    "did_of": "Did {{took}} of {{total}}",
+    "passed_n": "passed {{count}}",
+    "dots_label": "Each circle is one teaching, in order",
+    "not_done": "not done",
+    "passed": "passed",
+    "not_passed": "not passed",
+    "leads": "Leads: {{list}}",
+    "already_leader": "Leader here",
+    "make_leader": "Make leader",
+    "confirm_appoint": "Yes, make leader of {{assembly}}",
+    "appointed": "{{name}} is now a leader.",
+    "appoint_failed": "Could not make this person a leader.",
+    "nobody": "Nobody matches this choice yet.",
+    "load_failed": "Could not load the list."
   }
 }
