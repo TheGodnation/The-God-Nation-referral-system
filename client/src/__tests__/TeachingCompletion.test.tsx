@@ -7,7 +7,7 @@ import { TeachingCompletionPanel } from '../components/admin/TeachingCompletionP
 const json = (body: unknown, status = 200) => Promise.resolve({ ok: status < 300, status, headers: { get: () => 'application/json' }, json: async () => body });
 afterEach(() => vi.unstubAllGlobals());
 
-const T = ['t1', 't2', 't3'].map((id, i) => ({ id, title: `Teaching ${i + 1}`, titleTranslated: null, detectedLanguage: 'en', assemblyName: 'HQ', passMark: 70 }));
+const T = ['t1', 't2', 't3'].map((id, i) => ({ id, title: `Teaching ${i + 1}`, titleTranslated: null, detectedLanguage: 'en', assemblyName: 'HQ', passMark: 70, closesAt: i === 0 ? '2020-01-01T00:00:00Z' : '2099-01-01T00:00:00Z' }));
 const completion = {
   teachings: T,
   tookAll: 1,
@@ -69,5 +69,28 @@ describe('Who did the teachings', () => {
     fireEvent.click(screen.getByTestId('completion-appoint-confirm'));
     await waitFor(() => expect(calls.find((c) => c.url.endsWith('/appoint'))?.body).toEqual({ personId: 'p1', communityId: 'a1' }));
     expect(await screen.findByText('Did All is now a leader.')).toBeInTheDocument();
+  });
+
+  it('shows which teachings are closed and reopens one, or all of them, for a number of days', async () => {
+    const calls: { url: string; method: string; body?: any }[] = [];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? 'GET', body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      if (url.includes('/assemblies')) return json({ items: [{ id: 'a1', name: 'HQ', teachings: 3 }] });
+      if (init?.method === 'POST' && url.endsWith('/reopen')) return json({ reopened: 1, closesAt: '2026-11-20T00:00:00Z' });
+      return json(completion);
+    }));
+    render(<TeachingCompletionPanel base="/api/member/central-teaching-completion" />);
+    const closing = await screen.findByTestId('teaching-closing');
+    expect(closing).toHaveTextContent('Closed on');
+    expect(closing).toHaveTextContent('Open until');
+    fireEvent.change(screen.getByTestId('reopen-days'), { target: { value: '10' } });
+    fireEvent.click(screen.getByTestId('reopen-t1'));
+    await waitFor(() => expect(calls.find((c) => c.url.endsWith('/reopen'))?.body).toEqual({ teachingIds: ['t1'], days: 10 }));
+    fireEvent.click(screen.getByTestId('reopen-all'));
+    await waitFor(() => expect(calls.filter((c) => c.url.endsWith('/reopen')).pop()?.body).toEqual({ communityId: 'a1', days: 10 }));
+    expect(await screen.findByText('Done. The teachings that were closed are open for 10 days from now.')).toBeInTheDocument();
+    // A number outside 1 to 60 cannot be sent.
+    fireEvent.change(screen.getByTestId('reopen-days'), { target: { value: '90' } });
+    expect(screen.getByTestId('reopen-all')).toBeDisabled();
   });
 });

@@ -17,6 +17,8 @@ export interface CompletionTeaching {
   assemblyName: string;
   createdAt: Date;
   passMark: number;
+  /** The quiz can be started until then; after it the teaching is closed. */
+  closesAt: Date;
 }
 
 export interface CompletionPerson {
@@ -52,6 +54,7 @@ export async function teachingCompletion(filter: CompletionFilter): Promise<Comp
       titleTranslated: true,
       detectedLanguage: true,
       createdAt: true,
+      closesAt: true,
       assessmentId: true,
       community: { select: { name: true } },
       assessment: { select: { passMark: true } },
@@ -105,11 +108,32 @@ export async function teachingCompletion(filter: CompletionFilter): Promise<Comp
       assemblyName: t.community.name,
       createdAt: t.createdAt,
       passMark: t.assessment.passMark,
+      closesAt: t.closesAt,
     })),
     people: list,
     tookAll: list.filter((p) => p.took === teachings.length).length,
     tookAny: list.length,
   };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Open teachings again (or longer): their quiz can be started until `days` days from now. Everyone who has read or
+ * listened can then take it, including people who came late. Never shortens a closing date that is already later.
+ */
+export async function reopenTeachings(opts: { teachingIds?: string[]; communityId?: string; days: number }): Promise<{ reopened: number; closesAt: Date }> {
+  const closesAt = new Date(Date.now() + opts.days * DAY_MS);
+  const result = await prisma.teaching.updateMany({
+    where: {
+      message: { deletedAt: null },
+      closesAt: { lt: closesAt },
+      ...(opts.teachingIds ? { id: { in: opts.teachingIds } } : {}),
+      ...(opts.communityId ? { communityId: opts.communityId } : {}),
+    },
+    data: { closesAt },
+  });
+  return { reopened: result.count, closesAt };
 }
 
 const csvCell = (v: unknown) => {

@@ -143,6 +143,46 @@ describe('who did the teachings', () => {
     expect(await prisma.auditLog.count({ where: { action: 'TEACHING_COMPLETION_EXPORTED' } })).toBe(1);
   });
 
+  it('reopens the teachings for people who came late, for the whole assembly or chosen teachings, and never shortens a later date', async () => {
+    const w = await world();
+    const past = new Date(Date.now() - 3 * 86_400_000);
+    await prisma.teaching.updateMany({ where: { id: { in: w.teachings.map((t) => t.id) } }, data: { closesAt: past } });
+    const before = (await w.central.agent.get(`/api/admin/teaching-completion?communityId=${w.community.id}`)).body;
+    expect(before.teachings.every((t: any) => new Date(t.closesAt) < new Date())).toBe(true);
+
+    // One teaching, then the whole assembly.
+    const one = await w.central.agent.post('/api/admin/teaching-completion/reopen').set('X-CSRF-Token', w.central.csrf).send({ teachingIds: [w.teachings[0].id], days: 5 });
+    expect(one.body.reopened).toBe(1);
+    const all = await w.central.agent.post('/api/admin/teaching-completion/reopen').set('X-CSRF-Token', w.central.csrf).send({ communityId: w.community.id, days: 3 });
+    expect(all.body.reopened).toBe(2); // the first is already open for longer, so it is left as it is
+    const after = (await w.central.agent.get(`/api/admin/teaching-completion?communityId=${w.community.id}`)).body;
+    const days = after.teachings.map((t: any) => Math.round((new Date(t.closesAt).getTime() - Date.now()) / 86_400_000));
+    expect(days).toEqual([5, 3, 3]);
+    // The other assembly's teaching is untouched.
+    expect((await prisma.teaching.findUniqueOrThrow({ where: { id: w.elsewhere.id } })).closesAt.getTime()).toBeGreaterThan(Date.now());
+    expect(await prisma.auditLog.count({ where: { action: 'TEACHINGS_REOPENED' } })).toBe(2);
+    // Bad requests are refused.
+    expect((await w.central.agent.post('/api/admin/teaching-completion/reopen').set('X-CSRF-Token', w.central.csrf).send({ days: 3 })).status).toBe(400);
+    expect((await w.central.agent.post('/api/admin/teaching-completion/reopen').set('X-CSRF-Token', w.central.csrf).send({ communityId: w.community.id, days: 0 })).status).toBe(400);
+    expect((await w.central.agent.post('/api/admin/teaching-completion/reopen').set('X-CSRF-Token', w.central.csrf).send({ communityId: w.community.id, days: 90 })).status).toBe(400);
+  });
+
+  it('a member who came late can take the quiz once it is reopened', async () => {
+    const w = await world();
+    const late = await person('Late Joiner');
+    const { agent } = await memberLogin(late);
+    const teaching = w.teachings[0];
+    await prisma.communityMembership.create({ data: { personId: late.id, communityId: w.community.id, status: 'ACTIVE' } });
+    await prisma.teaching.update({ where: { id: teaching.id }, data: { closesAt: new Date(Date.now() - 86_400_000) } });
+    await prisma.teachingProgress.create({ data: { teachingId: teaching.id, personId: late.id, completedAt: new Date() } });
+    const closed = await agent.get(`/api/teachings/${teaching.id}`);
+    expect(closed.status).toBe(200);
+    expect(closed.body.quiz.state).toBe('CLOSED');
+    await w.central.agent.post('/api/admin/teaching-completion/reopen').set('X-CSRF-Token', w.central.csrf).send({ teachingIds: [teaching.id], days: 7 });
+    const open = await agent.get(`/api/teachings/${teaching.id}`);
+    expect(open.body.quiz.state).toBe('AVAILABLE');
+  });
+
   it('is for the central admin only, in the dashboard and in the member profile', async () => {
     const w = await world();
     const leader = await person('Some Leader');

@@ -9,7 +9,7 @@ import { adminSensitiveLimiter, leadershipMutationLimiter } from '../lib/rateLim
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { appointLeader } from '../lib/cells';
-import { completionCsv, teachingCompletion } from '../lib/teachingCompletion';
+import { completionCsv, reopenTeachings, teachingCompletion } from '../lib/teachingCompletion';
 
 // For the central admin: who did the teachings (handed in the quiz), whether they passed, as a list and a spreadsheet,
 // and a one-tap "make leader" for the people on it. Offered twice — in the admin dashboard and in the central admin's
@@ -48,6 +48,25 @@ function buildRouter(resolveActor: (req: Request) => Promise<Actor | null>) {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="who-did-the-teachings.csv"');
     res.send(`﻿${completionCsv(completion)}`);
+  }));
+
+  // Open teachings again, for people who came late: their quiz can be started until `days` days from now. For the
+  // chosen teachings, or for every teaching of the assembly. A closing date that is already later is never shortened.
+  router.post('/reopen', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z
+      .object({
+        communityId: z.string().min(1).optional(),
+        teachingIds: z.array(z.string().min(1)).min(1).max(100).optional(),
+        days: z.number().int().min(1).max(60),
+      })
+      .refine((v) => v.communityId || v.teachingIds, { message: 'Choose the teachings.' })
+      .safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Choose the teachings and the number of days (1 to 60).' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const result = await reopenTeachings(parsed.data);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHINGS_REOPENED', targetType: 'Teaching', metadata: { count: result.reopened, days: parsed.data.days, communityId: parsed.data.communityId ?? null } });
+    res.json({ reopened: result.reopened, closesAt: result.closesAt });
   }));
 
   // Make a person on the list a leader of an assembly (the same appointment as everywhere else).

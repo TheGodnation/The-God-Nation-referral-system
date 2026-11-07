@@ -4327,7 +4327,18 @@
     "appointed": "{{name}} est maintenant responsable.",
     "appoint_failed": "Impossible de nommer cette personne responsable.",
     "nobody": "Personne ne correspond encore à ce choix.",
-    "load_failed": "Impossible de charger la liste."
+    "load_failed": "Impossible de charger la liste.",
+    "closing_title": "Dates de clôture des enseignements",
+    "closing_help": "Un quiz ne peut être commencé que jusqu’à la clôture de l’enseignement. Rouvrez les enseignements pour que ceux qui sont arrivés en retard puissent les faire. Ils doivent d’abord les avoir lus ou écoutés.",
+    "closed_on": "Clôturé le {{date}}",
+    "open_until": "Ouvert jusqu’au {{date}}",
+    "reopen_one": "Rouvrir",
+    "reopen_for": "Rouvrir pour",
+    "days": "jours",
+    "days_invalid": "Entrez un nombre de jours de 1 à 60.",
+    "reopen_all": "Rouvrir les {{total}} enseignements",
+    "reopened": "C’est fait. Les enseignements qui étaient clôturés sont ouverts pour {{days}} jours à partir de maintenant.",
+    "reopen_failed": "Impossible de rouvrir. Veuillez réessayer."
   },
   "refReport": {
     "tab": "Rapport de parrainage des responsables",
