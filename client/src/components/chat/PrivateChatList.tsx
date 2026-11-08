@@ -38,7 +38,7 @@ function PrivatePreview({ chatId, fallback }: { chatId: string; fallback: React.
 
 // Private chats as WhatsApp-style rows: photo, name, the last message and
 // its time, and the number of new messages. Newest chats on top.
-export function PrivateChatList() {
+export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats: number) => void } = {}) {
   const { t, i18n } = useTranslation();
   const [items, setItems] = useState<ConversationRow[] | null>(null);
 
@@ -57,6 +57,11 @@ export function PrivateChatList() {
       window.clearInterval(timer);
     };
   }, []);
+
+  const unreadTotal = (items ?? []).reduce((n, c) => n + (c.unreadCount ?? 0), 0);
+  useEffect(() => {
+    if (items) onUnread?.(unreadTotal, items.length);
+  }, [items, unreadTotal, onUnread]);
 
   if (!items || items.length === 0) return null;
 

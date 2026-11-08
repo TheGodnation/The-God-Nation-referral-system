@@ -264,6 +264,8 @@ describe('Chats list', () => {
     );
     const link = await screen.findByRole('link', { name: /Buea Group/ });
     expect(link).toHaveAttribute('href', `/member/chats/group/${G}`);
-    expect(await screen.findByLabelText('3 new messages')).toBeInTheDocument();
+    expect(await within(link).findByLabelText('3 new messages')).toBeInTheDocument();
+    // The Assemblies tab carries the total too.
+    expect(await screen.findAllByLabelText('3 new messages')).toHaveLength(2);
   });
 });

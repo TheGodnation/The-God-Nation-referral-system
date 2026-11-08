@@ -54,6 +54,7 @@ interface CreateNotificationParams {
     | 'POST_LIKED'
     | 'POST_REPLIED'
     | 'ASSEMBLY_OPENED'
+    | 'ADDED_TO_ASSEMBLY'
     | 'ESCALATION_RECEIVED'
     | 'ESCALATION_ANSWERED'
     | 'ESCALATION_BYPASSED'
@@ -727,6 +728,21 @@ export async function notifyAssemblyOpened(assembly: { id: string; name: string;
       }),
     ),
   );
+}
+
+/** The central admin added many people to an assembly: one short notice each, with a single push. */
+export async function notifyAddedToAssembly(personIds: string[], assembly: { id: string; name: string }) {
+  if (personIds.length === 0) return;
+  await prisma.notification.createMany({
+    data: personIds.map((recipientPersonId) => ({
+      recipientPersonId,
+      type: 'ADDED_TO_ASSEMBLY' as const,
+      metadata: { assemblyName: assembly.name } as any,
+      targetType: 'Community',
+      targetId: assembly.id,
+    })),
+  });
+  pushToPersons(personIds, { title: '🙏 ' + assembly.name, body: `You were added to ${assembly.name}.`, url: `/member/chats/group/${assembly.id}` }).catch(() => {});
 }
 
 /** A notification to the central admin: to their member profile, or to their admin account when it has none. */

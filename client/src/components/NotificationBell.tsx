@@ -37,6 +37,7 @@ type NotificationType =
   | 'POST_LIKED'
   | 'POST_REPLIED'
   | 'ASSEMBLY_OPENED'
+  | 'ADDED_TO_ASSEMBLY'
   | 'ESCALATION_RECEIVED'
   | 'INSTRUCTION_RECEIVED'
   | 'INSTRUCTION_REMINDER'
@@ -196,6 +197,8 @@ export function NotificationBell() {
         return t('notifications.escalation_answered', { name: metadata.answererName ?? '', about: metadata.aboutName ?? '' });
       case 'ESCALATION_BYPASSED':
         return t(metadata.role === 'ASKER' ? 'notifications.escalation_bypassed_asker' : metadata.reason === 'AWAY' ? 'notifications.escalation_bypassed_away' : 'notifications.escalation_bypassed_skipped', { asker: metadata.askerName ?? '', about: metadata.aboutName ?? '' });
+      case 'ADDED_TO_ASSEMBLY':
+        return t('notifications.added_to_assembly', { name: metadata.assemblyName ?? '' });
       case 'ASSEMBLY_OPENED':
         return t('notifications.assembly_opened', { name: metadata.assemblyName ?? '', parent: metadata.parentName ?? '' });
       case 'POST_PUBLISHED':

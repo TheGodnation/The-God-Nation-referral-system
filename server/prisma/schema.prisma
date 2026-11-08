@@ -249,6 +249,8 @@ enum NotificationType {
   // The app opened a new assembly because the previous one was full; sent
   // to the central admin so leaders can be appointed.
   ASSEMBLY_OPENED
+  // The central admin added you to an assembly (one notice per assembly, not per person).
+  ADDED_TO_ASSEMBLY
   // A leader's hard question: sent to you, answered, or passed on past you.
   ESCALATION_RECEIVED
   ESCALATION_ANSWERED
