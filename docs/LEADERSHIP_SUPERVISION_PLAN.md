@@ -63,3 +63,18 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   representative" on their instructions. Their tools are in My Leadership Dashboard.
 - Not yet: the assign-people tool limited to their generation, and receiving their generation's weekly reports (they come with the
   weekly report step).
+
+## Weekly report and "My leaders" (approved rules, done)
+
+- **Week**: Monday to Sunday, Cameroon time (UTC+1). A report is **on time** if sent by **Monday 23:59** after the week ends; it can
+  be sent any time that week, edited until the deadline, and filed late for last week (shown as late). First reporting week:
+  9 November 2026; a leader's first report is due when the week they became a leader ends.
+- **Report**: people contacted, people who need help, prayer needs, free note; the app shows a hint of how many people the leader
+  followed up that week ("Use this number").
+- **My leaders** (profile admin tools and admin dashboard): every leader with a colour for the report now due — **green** sent on
+  time, **yellow** not sent yet before the deadline or sent late, **red** deadline missed and still not sent, **grey** first report
+  not due yet; counts, a generation filter, reports week by week, "missed N of the last 4".
+- **Reminders**: Sunday from 18:00 a reminder to leaders with no report that week; Tuesday from 08:00 a "late" notice to those who
+  missed Monday's deadline (each once); the central admin can also remind one leader or everyone late.
+- **Who sees what**: the central admin sees every report and the representatives' summaries; a representative sees only the leaders
+  of their generation (including prayer needs) and writes one summary a week for the central admin; a leader sees only their own.

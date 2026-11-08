@@ -264,6 +264,9 @@ enum NotificationType {
   // The central admin appointed you representative of a generation, or ended it.
   REPRESENTATIVE_APPOINTED
   REPRESENTATIVE_ENDED
+  // Weekly leader reports: the Sunday-evening reminder, and the "your report is late" notice.
+  REPORT_REMINDER
+  REPORT_LATE
   // A leader's hard question: sent to you, answered, or passed on past you.
   ESCALATION_RECEIVED
   ESCALATION_ANSWERED
@@ -971,6 +974,7 @@ model Person {
   teachingsAuthored                        Teaching[]                                @relation("TeachingAuthor")
   teachingProgress                         TeachingProgress[]
   GenerationRepresentative                 GenerationRepresentative[]
+  LeaderWeeklyReport                       LeaderWeeklyReport[]
 
   @@index([isTestData])
 }
@@ -4000,4 +4004,49 @@ model GenerationRepresentative {
 
   @@index([personId, endedAt])
   @@index([generation, endedAt])
+}
+
+// A leader's report to the central admin for one week (Monday to Sunday, Cameroon time). weekStart is the
+// Monday's date. On time = sent by Monday 23:59 after the week ends; `late` records a report sent after that.
+model LeaderWeeklyReport {
+  id          String   @id @default(uuid())
+  personId    String
+  weekStart   DateTime @db.Date
+  contacted   Int
+  needHelp    Int
+  prayerNeeds String?
+  note        String?
+  late        Boolean  @default(false)
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, weekStart])
+  @@index([weekStart])
+}
+
+// One short summary a representative sends the central admin for their generation and a week.
+model RepresentativeWeeklySummary {
+  id          String   @id @default(uuid())
+  generation  Int
+  weekStart   DateTime @db.Date
+  personId    String
+  summary     String
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([generation, weekStart])
+  @@index([weekStart])
+}
+
+// Which automatic reminders were already sent (so each goes out once): kind is SUNDAY or LATE.
+model WeeklyReportReminder {
+  id        String   @id @default(uuid())
+  personId  String
+  weekStart DateTime @db.Date
+  kind      String
+  sentAt    DateTime @default(now())
+
+  @@unique([personId, weekStart, kind])
 }

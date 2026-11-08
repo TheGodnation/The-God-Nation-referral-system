@@ -13,6 +13,7 @@ import { startClinicAutoSendLoop } from './lib/clinic';
 import { startClinicExamLoop } from './lib/clinicExams';
 import { startMemberReminderLoop } from './lib/memberReminders';
 import { startSanctionLoop } from './lib/sanctions';
+import { startWeeklyReportLoop } from './lib/weeklyReports';
 
 // Last-resort safety net. Every route handler is wrapped in asyncHandler
 // (see lib/asyncHandler.ts) specifically so a failed database call — the
@@ -47,3 +48,4 @@ startClinicAutoSendLoop();
 startClinicExamLoop();
 startMemberReminderLoop();
 startSanctionLoop();
+startWeeklyReportLoop();

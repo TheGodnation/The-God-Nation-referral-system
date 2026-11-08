@@ -64,6 +64,8 @@ interface CreateNotificationParams {
     | 'REMOVED_FROM_ASSEMBLY'
     | 'REPRESENTATIVE_APPOINTED'
     | 'REPRESENTATIVE_ENDED'
+    | 'REPORT_REMINDER'
+    | 'REPORT_LATE'
     | 'ESCALATION_RECEIVED'
     | 'ESCALATION_ANSWERED'
     | 'ESCALATION_BYPASSED'
@@ -856,6 +858,22 @@ export async function notifyRepresentativeEnded(personId: string, generation: nu
     metadata: { generation },
     targetType: 'GenerationRepresentative',
     push: { title: '🧭 Representative', body: `You are no longer the representative of generation ${generation}.`, url: '/member/leadership-dashboard' },
+  });
+}
+
+/** The weekly report is still to be sent (Sunday evening / a manual reminder) or is late. */
+export async function notifyWeeklyReport(personId: string, kind: 'REPORT_REMINDER' | 'REPORT_LATE', weekStart: Date) {
+  const day = weekStart.toISOString().slice(0, 10);
+  await createNotification({
+    recipientPersonId: personId,
+    type: kind,
+    metadata: { weekStart: day },
+    targetType: 'LeaderWeeklyReport',
+    push: {
+      title: kind === 'REPORT_LATE' ? '⏰ Your weekly report is late' : '📝 Your weekly report',
+      body: kind === 'REPORT_LATE' ? 'Please send it today.' : 'It takes a minute: how many people you contacted, who needs help, prayer needs.',
+      url: '/member/leadership-dashboard?section=weeklyReport',
+    },
   });
 }
 
