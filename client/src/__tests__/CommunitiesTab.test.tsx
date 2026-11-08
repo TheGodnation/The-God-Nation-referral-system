@@ -601,7 +601,7 @@ describe('CommunitiesTab — Community Posting Policy', () => {
 
 describe('CommunitiesTab — delete an assembly', () => {
   const list = {
-    items: [{ id: 'c-9', parentId: null, name: 'Test Assembly', active: true, autoPlacementEligible: true, postingPolicy: 'EVERYONE', _count: { memberships: 2, children: 1 } }],
+    items: [{ id: 'c-9', parentId: 'p-1', parent: { id: 'p-1', name: 'Mother Assembly' }, name: 'Test Assembly', active: true, autoPlacementEligible: true, postingPolicy: 'EVERYONE', _count: { memberships: 2, children: 1 } }],
     pagination: { totalPages: 1 },
   };
 
@@ -617,6 +617,8 @@ describe('CommunitiesTab — delete an assembly', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText(/5 messages/)).toBeInTheDocument();
+    // Members go to the assembly it sits under unless told otherwise.
+    expect(screen.getByLabelText(/Move them to Mother Assembly/)).toBeChecked();
     const confirmBtn = screen.getByRole('button', { name: /Yes, delete permanently/ });
     expect(confirmBtn).toBeDisabled();
     fireEvent.change(screen.getByLabelText(/Type the assembly name/), { target: { value: 'test assembly' } });
@@ -625,7 +627,25 @@ describe('CommunitiesTab — delete an assembly', () => {
 
     expect(await screen.findByText(/“?"?Test Assembly"? has been deleted|has been deleted/)).toBeInTheDocument();
     const del = calls.find((c) => c.method === 'DELETE' && c.url === '/api/admin/communities/c-9');
-    expect(del?.body).toEqual({ confirmName: 'test assembly', subAssemblies: 'moveUp' });
+    expect(del?.body).toEqual({ confirmName: 'test assembly', subAssemblies: 'moveUp', moveMembersTo: 'p-1' });
+  });
+
+  it('lets the admin choose not to move the members', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities/c-9/delete-impact': { status: 200, body: { id: 'c-9', name: 'Test Assembly', isHeadquarters: false, members: 2, subAssemblies: 0, messages: 0, teachings: 0, events: 0 } },
+      '/api/admin/communities/c-9': { status: 200, body: { deleted: true } },
+      '/api/admin/communities?&page=': { status: 200, body: list },
+    });
+    render(<CommunitiesTab />);
+    await screen.findByText('Test Assembly');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByLabelText(/Don't move them/));
+    fireEvent.change(screen.getByLabelText(/Type the assembly name/), { target: { value: 'Test Assembly' } });
+    fireEvent.click(screen.getByRole('button', { name: /Yes, delete permanently/ }));
+    await screen.findByText(/has been deleted/);
+    const del = calls.find((c) => c.method === 'DELETE' && c.url === '/api/admin/communities/c-9');
+    expect(del?.body).toEqual({ confirmName: 'Test Assembly' });
   });
 
   it('will not offer deletion of the Headquarters', async () => {

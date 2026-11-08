@@ -18,6 +18,7 @@ import { ExamResults } from '../components/admin/ExamResults';
 import { OpenMemberProfileButton } from '../components/OpenMemberProfileButton';
 import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
 import { GivingPanel } from '../components/admin/GivingPanel';
+import { BulkMembersPanel } from '../components/admin/BulkMembersPanel';
 import { InstructionsPanel } from '../components/admin/InstructionsPanel';
 import { LeaderRoomsPanel } from '../components/admin/LeaderRoomsPanel';
 import { TeachingCompletionPanel } from '../components/admin/TeachingCompletionPanel';
@@ -61,6 +62,7 @@ type Tab =
   | 'roleAssignments'
   | 'giving'
   | 'instructions'
+  | 'bulkMembers'
   | 'leaderRooms'
   | 'teachingDone'
   | 'refReport'
@@ -1799,6 +1801,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'instructions'} onClick={() => setTab('instructions')}>
               {t('admin.tabs.instructions')}
             </TabButton>
+            <TabButton active={tab === 'bulkMembers'} onClick={() => setTab('bulkMembers')}>
+              {t('bulkMembers.tab')}
+            </TabButton>
             <TabButton active={tab === 'leaderRooms'} onClick={() => setTab('leaderRooms')}>
               {t('admin.tabs.leaderRooms')}
             </TabButton>
@@ -1890,6 +1895,7 @@ export function AdminDashboardPage() {
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
         {tab === 'giving' && <GivingPanel base="/api/admin/giving" />}
         {tab === 'instructions' && <InstructionsPanel base="/api/admin/instructions" />}
+        {tab === 'bulkMembers' && <BulkMembersPanel base="/api/admin/bulk-members" />}
         {tab === 'leaderRooms' && <LeaderRoomsPanel base="/api/admin/leader-rooms" />}
         {tab === 'teachingDone' && <TeachingCompletionPanel base="/api/admin/teaching-completion" />}
         {tab === 'refReport' && <LeaderReferralReportPanel base="/api/admin/leader-referral-report" />}

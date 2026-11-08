@@ -140,3 +140,22 @@ describe('Powers of the central admin’s member profile', () => {
     expect((await admin.agent.get(`/api/communities/${assembly.id}/conversation/messages`)).status).toBe(403);
   });
 });
+
+describe('Chats list order data', () => {
+  it('tells each assembly its generation so the Chats page can keep a fixed order', async () => {
+    const member = await signedIn('Ordered');
+    const hq = await prisma.community.create({ data: { name: `OrdHQ ${n}` } });
+    const child = await prisma.community.create({ data: { name: `OrdChild ${n}`, parentId: hq.id } });
+    await prisma.communityMembership.createMany({ data: [{ personId: member.person.id, communityId: hq.id }, { personId: member.person.id, communityId: child.id }] });
+    const before = await prisma.settings.findUnique({ where: { id: 'singleton' } });
+    await prisma.settings.upsert({ where: { id: 'singleton' }, update: { headquartersCommunityId: hq.id }, create: { id: 'singleton', headquartersCommunityId: hq.id } as any });
+    try {
+      const res = await member.agent.get('/api/member/me/community-memberships');
+      const byId = Object.fromEntries(res.body.items.map((i: any) => [i.communityId, i.generation]));
+      expect(byId[hq.id]).toBe(0);
+      expect(byId[child.id]).toBe(1);
+    } finally {
+      await prisma.settings.update({ where: { id: 'singleton' }, data: { headquartersCommunityId: before?.headquartersCommunityId ?? null } });
+    }
+  });
+});

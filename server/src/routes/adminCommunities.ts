@@ -8,6 +8,8 @@ import { recordAudit } from '../lib/audit';
 import { wouldCreateCycle, getCommunityGeneration, getHeadquartersCommunityId, getDescendantCommunityIds } from '../lib/tree';
 import { communityMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
+import { addPeopleToCommunity } from '../lib/bulkMembers';
+import { notifyAddedToAssembly } from '../lib/notifications';
 
 const router = Router();
 
@@ -455,6 +457,8 @@ const deleteSchema = z.object({
   confirmName: z.string().trim().min(1, 'Type the assembly name to confirm.'),
   // What to do with assemblies directly under it. Required when there are any.
   subAssemblies: z.enum(['moveUp']).optional(),
+  // Where its members go. Without it they simply leave this assembly (and stay in any others).
+  moveMembersTo: z.string().min(1).optional(),
 });
 
 // DELETE /api/admin/communities/:id — permanently removes one assembly with
@@ -487,6 +491,17 @@ router.delete('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async 
     });
   }
 
+  let membersMoved: { destinationName: string; added: number; alreadyIn: number } | undefined;
+  if (parsed.data.moveMembersTo) {
+    if (parsed.data.moveMembersTo === id) return res.status(400).json({ error: 'Members cannot be moved into the assembly being deleted.' });
+    const destination = await prisma.community.findUnique({ where: { id: parsed.data.moveMembersTo }, select: { id: true, name: true } });
+    if (!destination) return res.status(400).json({ error: 'The assembly to move the members to was not found.' });
+    const members = await prisma.communityMembership.findMany({ where: { communityId: id, status: 'ACTIVE' }, select: { personId: true } });
+    const moved = await addPeopleToCommunity(members.map((m) => m.personId), destination.id);
+    await notifyAddedToAssembly(moved.addedIds, destination).catch(() => {});
+    membersMoved = { destinationName: destination.name, added: moved.added, alreadyIn: moved.alreadyIn };
+  }
+
   await prisma.$transaction(async (tx) => {
     // Assemblies under it step up to its own parent (or become top-level).
     if (impact.subAssemblies > 0) {
@@ -501,10 +516,10 @@ router.delete('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async 
     action: 'COMMUNITY_DELETED',
     targetType: 'Community',
     targetId: id,
-    metadata: { name: existing.name, ...impact, movedSubAssembliesTo: impact.subAssemblies > 0 ? existing.parentId : undefined },
+    metadata: { name: existing.name, ...impact, membersMoved, movedSubAssembliesTo: impact.subAssemblies > 0 ? existing.parentId : undefined },
   });
 
-  res.json({ deleted: true, name: existing.name, ...impact });
+  res.json({ deleted: true, name: existing.name, ...impact, membersMoved });
 }));
 
 export default router;

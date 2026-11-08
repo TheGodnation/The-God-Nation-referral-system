@@ -4,7 +4,9 @@ import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { LeadershipDashboardBody } from '../components/leader/LeadershipDashboardBody';
+import { LeadershipLockedPage } from '../components/member/LeadershipLockedPage';
 import { useAuth } from '../lib/AuthContext';
+import { useMemberAuth } from '../lib/MemberAuthContext';
 
 // Section 8/9: "My Leadership Dashboard" — every Leader tool (referral
 // link + stats, Your Referrals, Follow-Ups, Exam Results, Leadership
@@ -17,12 +19,18 @@ import { useAuth } from '../lib/AuthContext';
 export function MyLeadershipDashboardPage() {
   const { t } = useTranslation();
   const { user, loading } = useAuth();
+  const { member } = useMemberAuth();
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-slate-500">{t('common.loading')}</div>;
   }
-  if (user?.role !== 'LEADER') {
+  // The central admin's tools are on their own profile.
+  if (member?.isCentralAdmin && user?.role !== 'LEADER') {
     return <Navigate to="/member/me" replace />;
+  }
+  // Everyone else may open it; until they are a leader it shows the road to leadership.
+  if (user?.role !== 'LEADER') {
+    return <LeadershipLockedPage />;
   }
 
   return (

@@ -993,7 +993,13 @@
       "deleting": "Suppression…",
       "delete_cancel": "Annuler",
       "delete_done": "« {{name}} » a été supprimée.",
-      "delete_failed": "Impossible de supprimer l'assemblée."
+      "delete_failed": "Impossible de supprimer l'assemblée.",
+      "delete_members_where": "Où doivent aller ses membres ?",
+      "delete_members_parent": "Les déplacer vers {{name}} (l'assemblée au-dessus)",
+      "delete_members_other": "Les déplacer vers une autre assemblée",
+      "delete_members_none": "Ne pas les déplacer — ils quittent simplement (ils restent dans leurs autres assemblées)",
+      "delete_members_search": "Rechercher une assemblée par nom",
+      "delete_members_choose": "Choisir"
     },
     "devotionals": {
       "title": "Dévotions",
@@ -1740,7 +1746,8 @@
     "notif_soon": "Bientôt : {{title}} ({{community}}) — {{when}}.",
     "instruction_received": "📌 Nouvelle instruction du Coordinateur national.",
     "instruction_reminder": "⏰ Rappel : une instruction du Coordinateur national vous attend.",
-    "follow_up_batch": "{{count}} personnes vous ont été confiées à suivre."
+    "follow_up_batch": "{{count}} personnes vous ont été confiées à suivre.",
+    "added_to_assembly": "Vous avez été ajouté à l'assemblée « {{name}} »."
   },
   "memberHome": {
     "title": "Accueil",
@@ -4374,5 +4381,73 @@
     "none": "Aucun responsable ne correspond.",
     "note": "« Ont touché rejoindre le groupe » compte les personnes qui ont appuyé sur le bouton WhatsApp. WhatsApp ne dit pas à l’application qui a vraiment rejoint.",
     "load_failed": "Impossible de charger le rapport."
+  },
+  "leadershipCard": {
+    "title": "Mon tableau de bord de leader",
+    "sub_leader": "Vos personnes, enseignements, rapports et outils",
+    "sub_admin": "Ouvrir vos outils d'administration",
+    "sub_member": "Touchez pour voir comment devenir leader"
+  },
+  "leadershipLocked": {
+    "badge": "Réservé aux leaders — pour l'instant",
+    "title": "Vous n'êtes pas encore leader",
+    "intro": "C'est ici que les leaders prennent soin de leurs personnes et de leurs assemblées. Vous pouvez le devenir : étudiez à l'École du Leadership, réussissez ses examens, et le tableau de bord s'ouvre pour vous.",
+    "what_heading": "Ce qui s'ouvre pour vous en tant que leader",
+    "tool_people": "Votre propre lien de parrainage et les personnes que vous amenez",
+    "tool_followups": "Les personnes dont vous prenez soin, et leur progression",
+    "tool_teachings": "Les enseignements pour vos personnes, et qui les a terminés",
+    "tool_rooms": "Le salon des leaders et les instructions de l'équipe centrale",
+    "tool_reports": "Les rapports sur votre assemblée",
+    "how_heading": "Comment devenir leader",
+    "step_study": "Étudiez les {{count}} livres de l'École du Leadership.",
+    "step_exams": "Réussissez l'examen de chaque livre.",
+    "step_appointed": "Quand vous les avez tous réussis, vous pouvez être nommé leader et ce tableau de bord s'ouvre.",
+    "start_cta": "Commencer l'École du Leadership",
+    "continue_cta": "Continuer mes études"
+  },
+  "chatsTabs": {
+    "assemblies": "Assemblées",
+    "private": "Messages privés",
+    "private_hint": "Vos messages privés apparaissent ici, les plus récents en premier."
+  },
+  "bulkMembers": {
+    "tab": "Ajouter plusieurs",
+    "help": "Faites entrer plusieurs personnes dans une assemblée en une fois. Choisissez où elles sont aujourd'hui, cochez qui doit partir (seul ce groupe est affiché), puis choisissez où elles vont.",
+    "load_failed": "Chargement impossible. Réessayez.",
+    "add_failed": "Impossible de les ajouter. Réessayez.",
+    "capped": "Seules les 5 000 premières ont été sélectionnées.",
+    "headquarters": "Quartier général",
+    "generation_n": "Génération {{n}}",
+    "people_count_one": "{{count}} personne",
+    "people_count_other": "{{count}} personnes",
+    "no_assembly": "Sans assemblée",
+    "one_assembly": "Une assemblée…",
+    "no_headquarters": "Aucun Quartier général n'est défini, les générations ne peuvent donc pas être affichées. Vous pouvez choisir une assemblée ou les personnes sans assemblée.",
+    "step_from": "Où sont-elles aujourd'hui ?",
+    "step_who": "Qui de {{from}} doit partir ?",
+    "step_to": "Où doivent-elles aller ?",
+    "assembly_placeholder": "Rechercher une assemblée par nom",
+    "choose": "Choisir",
+    "search": "Rechercher",
+    "search_people": "Rechercher par nom ou numéro",
+    "select_all_one": "Tout sélectionner ({{count}})",
+    "select_all_other": "Tout sélectionner ({{count}})",
+    "clear": "Effacer",
+    "selected_one": "{{count}} sélectionnée",
+    "selected_other": "{{count}} sélectionnées",
+    "nobody": "Personne ici.",
+    "show_more": "Afficher plus ({{shown}} sur {{total}})",
+    "dest_existing": "Une assemblée existante",
+    "dest_new": "Une nouvelle assemblée",
+    "new_name": "Nom de la nouvelle assemblée",
+    "new_parent": "Sous :",
+    "new_parent_none": "(niveau supérieur — recherchez pour la placer sous une autre)",
+    "remove_from_source": "Les retirer aussi de {{from}} (elles quittent leur ancienne assemblée).",
+    "adding": "Ajout…",
+    "add_button_one": "Ajouter {{count}} personne",
+    "add_button_other": "Ajouter {{count}} personnes",
+    "result": "{{added}} ajoutées à « {{assembly}} ». {{already}} y étaient déjà.",
+    "result_removed_one": "{{count}} appartenance terminée dans l'ancienne assemblée.",
+    "result_removed_other": "{{count}} appartenances terminées dans les anciennes assemblées."
   }
 }

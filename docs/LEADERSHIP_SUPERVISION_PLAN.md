@@ -22,3 +22,17 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 3. Weekly report and "My leaders".
 4. Representatives.
 5. "Message all my people".
+
+## Chats page, Leadership card and bulk adding (done)
+
+- **Leadership card** on the Chats page beside Events, shown to everyone. Leaders open their dashboard; everyone else sees a
+  "You are not yet a leader" page (what opens for leaders, how to become one, button to the Leadership School with progress).
+  The central admin's card goes to their profile tools. The old profile link was removed.
+- **Chats page**: assemblies in a fixed order (Headquarters, then each generation, name breaks ties), unread number on each row,
+  never reordered by messages. Two tabs, Assemblies and Private messages, each with a red unread number; opens on Private when
+  there are new private messages. Rows refresh every minute. `GET /api/member/me/community-memberships` now returns `generation`.
+- **Add many people** (`/api/admin/bulk-members`, `/api/member/central-bulk-members`; tab "Add many people" in the admin
+  dashboard and the central admin's profile): choose generation / one assembly / "no assembly yet", tick who goes (Select all
+  covers the whole list, up to 5,000), add to an existing assembly or a new one (with its chat), optionally take them out of
+  the old assembly (off by default; memberships become INACTIVE). One `ADDED_TO_ASSEMBLY` notification each, one push.
+- **Delete an assembly** now asks where its members go (default: the assembly above it; or another; or nowhere).

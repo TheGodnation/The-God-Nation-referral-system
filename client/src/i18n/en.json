@@ -993,7 +993,13 @@
       "deleting": "Deleting…",
       "delete_cancel": "Cancel",
       "delete_done": "\"{{name}}\" has been deleted.",
-      "delete_failed": "Could not delete the assembly."
+      "delete_failed": "Could not delete the assembly.",
+      "delete_members_where": "Where should its members go?",
+      "delete_members_parent": "Move them to {{name}} (the assembly it sits under)",
+      "delete_members_other": "Move them to another assembly",
+      "delete_members_none": "Don't move them — they just leave (they stay in their other assemblies)",
+      "delete_members_search": "Search an assembly by name",
+      "delete_members_choose": "Choose"
     },
     "devotionals": {
       "title": "Devotionals",
@@ -1740,7 +1746,8 @@
     "notif_soon": "Starting soon: {{title}} ({{community}}) — {{when}}.",
     "instruction_received": "📌 New instruction from the National Coordinator.",
     "instruction_reminder": "⏰ Reminder: an instruction from the National Coordinator is waiting for you.",
-    "follow_up_batch": "{{count}} people were assigned to you to follow up."
+    "follow_up_batch": "{{count}} people were assigned to you to follow up.",
+    "added_to_assembly": "You were added to the assembly “{{name}}”."
   },
   "memberHome": {
     "title": "Home",
@@ -4374,5 +4381,73 @@
     "none": "No leader matches.",
     "note": "\"Tapped join group\" counts people who pressed the WhatsApp join button. WhatsApp does not tell the app who actually joined.",
     "load_failed": "Could not load the report."
+  },
+  "leadershipCard": {
+    "title": "My Leadership Dashboard",
+    "sub_leader": "Your people, teachings, reports and tools",
+    "sub_admin": "Open your admin tools",
+    "sub_member": "Tap to see how to become a leader"
+  },
+  "leadershipLocked": {
+    "badge": "Leaders only — for now",
+    "title": "You are not yet a leader",
+    "intro": "This is where leaders look after their people and their assemblies. You can become one: study in the Leadership School, pass its exams, and the dashboard opens for you.",
+    "what_heading": "What opens for you as a leader",
+    "tool_people": "Your own referral link and the people you bring",
+    "tool_followups": "The people you look after, and their progress",
+    "tool_teachings": "Teachings for your people, and who completed them",
+    "tool_rooms": "Your leaders' room, and instructions from the central team",
+    "tool_reports": "Reports on your assembly",
+    "how_heading": "How to become a leader",
+    "step_study": "Study the {{count}} books of the Leadership School.",
+    "step_exams": "Pass the exam of each book.",
+    "step_appointed": "When you have passed them all, you can be made a leader and this dashboard opens.",
+    "start_cta": "Start the Leadership School",
+    "continue_cta": "Continue my studies"
+  },
+  "chatsTabs": {
+    "assemblies": "Assemblies",
+    "private": "Private messages",
+    "private_hint": "Your private messages appear here, newest first."
+  },
+  "bulkMembers": {
+    "tab": "Add many people",
+    "help": "Bring many people into an assembly at once. Choose where they are now, tick who should go (only that group is shown), then choose where they go.",
+    "load_failed": "Could not load. Please try again.",
+    "add_failed": "Could not add them. Please try again.",
+    "capped": "Only the first 5,000 were selected.",
+    "headquarters": "Headquarters",
+    "generation_n": "Generation {{n}}",
+    "people_count_one": "{{count}} person",
+    "people_count_other": "{{count}} people",
+    "no_assembly": "No assembly yet",
+    "one_assembly": "One assembly…",
+    "no_headquarters": "No Headquarters has been set yet, so generations cannot be shown. You can still choose one assembly or people with no assembly.",
+    "step_from": "Where are they now?",
+    "step_who": "Who from {{from}} should go?",
+    "step_to": "Where should they go?",
+    "assembly_placeholder": "Search an assembly by name",
+    "choose": "Choose",
+    "search": "Search",
+    "search_people": "Search by name or number",
+    "select_all_one": "Select all ({{count}})",
+    "select_all_other": "Select all ({{count}})",
+    "clear": "Clear",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "nobody": "Nobody here.",
+    "show_more": "Show more ({{shown}} of {{total}})",
+    "dest_existing": "An existing assembly",
+    "dest_new": "A new assembly",
+    "new_name": "Name of the new assembly",
+    "new_parent": "Under:",
+    "new_parent_none": "(top level — search to put it under another)",
+    "remove_from_source": "Also take them out of {{from}} (they leave their old assembly).",
+    "adding": "Adding…",
+    "add_button_one": "Add {{count}} person",
+    "add_button_other": "Add {{count}} people",
+    "result": "{{added}} added to “{{assembly}}”. {{already}} were already in it.",
+    "result_removed_one": "{{count}} membership ended in the old assembly.",
+    "result_removed_other": "{{count}} memberships ended in the old assemblies."
   }
 }
