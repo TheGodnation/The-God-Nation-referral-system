@@ -978,7 +978,9 @@
       "add_people": "Add people",
       "add_people_title": "Add people to {{name}}",
       "add_people_help": "Search by name, WhatsApp number or email, then tap Add. They see it in their chats straight away.",
-      "add_people_added": "Added {{name}} to {{assembly}}."
+      "add_people_added": "Added {{name}} to {{assembly}}.",
+      "replace_move_up": "Put the assemblies that are under “{{old}}” directly under the new Headquarters, beside it (their own sub-assemblies go with them).",
+      "replace_close_others": "Place new people only in the new Headquarters, until it is full and the app opens assemblies under it. The other assemblies keep their members but stop receiving new people."
     },
     "devotionals": {
       "title": "Devotionals",

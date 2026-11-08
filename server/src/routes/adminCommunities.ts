@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from '../lib/auth';
 import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
-import { wouldCreateCycle, getCommunityGeneration, getHeadquartersCommunityId } from '../lib/tree';
+import { wouldCreateCycle, getCommunityGeneration, getHeadquartersCommunityId, getDescendantCommunityIds } from '../lib/tree';
 import { communityMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 
@@ -127,6 +127,12 @@ const replaceHeadquartersSchema = z.object({
   // Whether the new top assembly itself receives automatically-placed
   // newcomers (the old Headquarters and everything under it are untouched).
   autoPlacementEligible: z.boolean().default(false),
+  // The assemblies that sit directly under the old Headquarters move up, to sit directly under the new one beside it
+  // (their own sub-assemblies go with them), instead of staying under the old Headquarters.
+  moveSubAssembliesUp: z.boolean().default(false),
+  // Newcomers are placed only in the new Headquarters (until it is full and the app opens assemblies under it): every
+  // other assembly keeps its members but stops receiving newcomers. Implies the new assembly receives them.
+  closeOthersToNewcomers: z.boolean().default(false),
 });
 
 // POST /api/admin/communities/headquarters/replace — one step for "a new
@@ -147,13 +153,21 @@ router.post('/headquarters/replace', communityMutationLimiter, requireCsrf, asyn
   const old = await prisma.community.findUnique({ where: { id: oldId }, select: { id: true, name: true } });
   if (!old) return res.status(400).json({ error: 'The current Headquarters could not be found.' });
 
+  const { moveSubAssembliesUp, closeOthersToNewcomers } = parsed.data;
+  // Worked out before anything changes: the old Headquarters and everything under it.
+  const oldTree = closeOthersToNewcomers ? await getDescendantCommunityIds(old.id) : [];
+  const eligible = parsed.data.autoPlacementEligible || closeOthersToNewcomers;
+
   const created = await prisma.$transaction(async (tx) => {
     const community = await tx.community.create({
-      data: { name: parsed.data.name, parentId: null, autoPlacementEligible: parsed.data.autoPlacementEligible },
+      data: { name: parsed.data.name, parentId: null, autoPlacementEligible: eligible },
     });
     await tx.conversation.create({ data: { communityId: community.id } });
+    // The assemblies directly under the old Headquarters, taken before it moves.
+    if (moveSubAssembliesUp) await tx.community.updateMany({ where: { parentId: old.id }, data: { parentId: community.id } });
     await tx.community.update({ where: { id: old.id }, data: { parentId: community.id } });
     await tx.settings.update({ where: { id: 'singleton' }, data: { headquartersCommunityId: community.id } });
+    if (closeOthersToNewcomers && oldTree.length > 0) await tx.community.updateMany({ where: { id: { in: oldTree } }, data: { autoPlacementEligible: false } });
     return community;
   });
 
@@ -163,7 +177,7 @@ router.post('/headquarters/replace', communityMutationLimiter, requireCsrf, asyn
     action: 'HEADQUARTERS_COMMUNITY_REPLACED',
     targetType: 'Community',
     targetId: created.id,
-    metadata: { name: created.name, previousHeadquartersId: old.id, previousHeadquartersName: old.name, autoPlacementEligible: created.autoPlacementEligible },
+    metadata: { name: created.name, previousHeadquartersId: old.id, previousHeadquartersName: old.name, autoPlacementEligible: created.autoPlacementEligible, moveSubAssembliesUp, closeOthersToNewcomers },
   });
 
   res.status(201).json({ community: { id: created.id, name: created.name }, previous: old });

@@ -53,7 +53,28 @@ describe('CommunitiesTab — replace the Headquarters in one click', () => {
     expect(await screen.findByText(/“World HQ” is now the National Headquarters, and “National HQ” is its sub-assembly/)).toBeInTheDocument();
     expect(screen.getByText('Current Headquarters: World HQ')).toBeInTheDocument();
     const post = calls.find((c) => c.method === 'POST' && c.url === '/api/admin/communities/headquarters/replace');
-    expect(post?.body).toEqual({ name: 'World HQ', autoPlacementEligible: false });
+    expect(post?.body).toEqual({ name: 'World HQ', autoPlacementEligible: false, moveSubAssembliesUp: true, closeOthersToNewcomers: false });
+  });
+
+  it('can also keep the old assemblies under the old Headquarters, or send newcomers only to the new Headquarters', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters/replace': { status: 201, body: { community: { id: 'new-1', name: 'World HQ' }, previous: { id: 'hq-1', name: 'National HQ' } } },
+      '/api/admin/communities/headquarters': { status: 200, body: { community: { id: 'hq-1', name: 'National HQ' } } },
+      '/api/admin/communities?&page=': { status: 200, body: emptyList },
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<CommunitiesTab />);
+    fireEvent.click(await screen.findByRole('button', { name: /Make a new assembly the Headquarters/ }));
+    const form = screen.getByTestId('replace-hq-form');
+    // The assemblies move up by default; turn that off, and choose to send newcomers only to the new Headquarters.
+    expect(within(form).getByTestId('replace-move-up')).toBeChecked();
+    fireEvent.click(within(form).getByTestId('replace-move-up'));
+    fireEvent.click(within(form).getByTestId('replace-close-others'));
+    fireEvent.change(within(form).getByLabelText('Name of the new Headquarters assembly'), { target: { value: 'World HQ' } });
+    fireEvent.click(within(form).getByRole('button', { name: /Create it and make it the Headquarters/ }));
+    await screen.findByText(/is now the National Headquarters/);
+    const post = calls.find((c) => c.method === 'POST' && c.url === '/api/admin/communities/headquarters/replace');
+    expect(post?.body).toEqual({ name: 'World HQ', autoPlacementEligible: false, moveSubAssembliesUp: false, closeOthersToNewcomers: true });
   });
 
   it('does nothing when the confirmation is declined', async () => {
