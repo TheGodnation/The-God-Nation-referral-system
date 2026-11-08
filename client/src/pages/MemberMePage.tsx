@@ -19,6 +19,7 @@ import { ImageCropper } from '../components/ImageCropper';
 import { CellsPanel } from '../components/admin/CellsPanel';
 import { useStoreApp } from '../lib/storeApp';
 import { GivingPanel } from '../components/admin/GivingPanel';
+import { RepresentativesPanel } from '../components/admin/RepresentativesPanel';
 import { SanctionsPanel } from '../components/admin/SanctionsPanel';
 import { BulkMembersPanel } from '../components/admin/BulkMembersPanel';
 import { InstructionsPanel } from '../components/admin/InstructionsPanel';
@@ -45,10 +46,10 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-type Tab = 'posts' | 'photos' | 'progress' | 'instructions' | 'bulk' | 'sanctions' | 'rooms' | 'teachingDone' | 'refReport' | 'cells' | 'giving' | 'growth' | 'knowledge';
+type Tab = 'posts' | 'photos' | 'progress' | 'instructions' | 'bulk' | 'sanctions' | 'representatives' | 'rooms' | 'teachingDone' | 'refReport' | 'cells' | 'giving' | 'growth' | 'knowledge';
 // Two layers: everyone has "My space"; the central admin also has "Admin tools" (each with its own tabs).
 const ME_TABS: Tab[] = ['posts', 'photos', 'progress'];
-const ADMIN_TABS: Tab[] = ['instructions', 'bulk', 'sanctions', 'rooms', 'teachingDone', 'refReport', 'cells', 'giving', 'growth', 'knowledge'];
+const ADMIN_TABS: Tab[] = ['instructions', 'bulk', 'sanctions', 'representatives', 'rooms', 'teachingDone', 'refReport', 'cells', 'giving', 'growth', 'knowledge'];
 
 // "My progress" tab: this month's devotional exam scores, leadership
 // training books passed, and the member's group(s).
@@ -374,7 +375,7 @@ export function MemberMePage() {
           ) : (
             // The administrator's tools: four pills in a tidy block (two by two on a phone), each name fully readable.
             <div role="tablist" aria-label={t('wall.section_admin') ?? ''} className="grid grid-cols-2 gap-2 border-b border-slate-200 bg-white px-4 pb-3 sm:grid-cols-4 sm:px-2" data-testid="admin-tabs">
-              {([['instructions', t('instructions.tab')], ['bulk', t('bulkMembers.tab')], ['sanctions', t('sanctions.tab')], ['rooms', t('leaderRooms.tab')], ['teachingDone', t('teachingDone.tab')], ['refReport', t('refReport.tab')], ['cells', t('cells.tab')], ['giving', t('givingAdmin.tab')], ['growth', t('growth.tab')], ['knowledge', t('knowledgeAdmin.tab')]] as [Tab, string][]).map(([id, label]) => (
+              {([['instructions', t('instructions.tab')], ['bulk', t('bulkMembers.tab')], ['sanctions', t('sanctions.tab')], ['representatives', t('repAdmin.tab')], ['rooms', t('leaderRooms.tab')], ['teachingDone', t('teachingDone.tab')], ['refReport', t('refReport.tab')], ['cells', t('cells.tab')], ['giving', t('givingAdmin.tab')], ['growth', t('growth.tab')], ['knowledge', t('knowledgeAdmin.tab')]] as [Tab, string][]).map(([id, label]) => (
                 <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
                   className={`rounded-full border px-3 py-2.5 text-center text-sm font-semibold ${tab === id ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>
                   {label}
@@ -391,6 +392,7 @@ export function MemberMePage() {
           {tab === 'instructions' && member.isCentralAdmin && <InstructionsPanel base="/api/member/central-instructions" />}
           {tab === 'bulk' && member.isCentralAdmin && <BulkMembersPanel base="/api/member/central-bulk-members" />}
           {tab === 'sanctions' && member.isCentralAdmin && <SanctionsPanel base="/api/member/sanctions" />}
+          {tab === 'representatives' && member.isCentralAdmin && <RepresentativesPanel base="/api/member/central-representatives" />}
           {tab === 'refReport' && member.isCentralAdmin && <LeaderReferralReportPanel base="/api/member/central-leader-referral-report" />}
           {tab === 'teachingDone' && member.isCentralAdmin && <TeachingCompletionPanel base="/api/member/central-teaching-completion" />}
           {tab === 'rooms' && member.isCentralAdmin && <LeaderRoomsPanel base="/api/member/central-leader-rooms" />}

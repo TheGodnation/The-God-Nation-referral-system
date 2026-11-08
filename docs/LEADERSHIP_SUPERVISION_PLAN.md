@@ -50,3 +50,16 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   (the person leaves that assembly) or declines. The central admin can also remove directly.
 - Everything is recorded in the audit log. Where: leaders' dashboard tile "Sanctions", the central admin's profile tab and the
   admin dashboard tab. The Chats page keeps the Leadership Team (former Headquarters) directly under the Headquarters.
+
+## Representatives per generation (done)
+
+- One representative per generation (1 = directly under the Headquarters), chosen **from the leaders** and ended **only by the
+  central admin** (tab "Representatives" in the profile's admin tools and the admin dashboard). One leader represents at most
+  one generation; remove the current one before appointing another. Notified when appointed or ended.
+- A representative: writes **instructions to the leaders of their own generation** (all of them, or hand-picked ones among them;
+  never "all leaders") and follows who has seen / is done / is late and reminds, for their own instructions only; **mutes members
+  and sends removal requests in every assembly of their generation** (cannot lift a mute the central admin placed, cannot remove
+  directly); is in that generation's leaders' room, labelled "Representing the central team". Leaders see "From your
+  representative" on their instructions. Their tools are in My Leadership Dashboard.
+- Not yet: the assign-people tool limited to their generation, and receiving their generation's weekly reports (they come with the
+  weekly report step).

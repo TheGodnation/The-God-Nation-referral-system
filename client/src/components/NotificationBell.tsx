@@ -45,6 +45,8 @@ type NotificationType =
   | 'REMOVAL_REQUESTED'
   | 'REMOVAL_DECIDED'
   | 'REMOVED_FROM_ASSEMBLY'
+  | 'REPRESENTATIVE_APPOINTED'
+  | 'REPRESENTATIVE_ENDED'
   | 'ESCALATION_RECEIVED'
   | 'INSTRUCTION_RECEIVED'
   | 'INSTRUCTION_REMINDER'
@@ -218,6 +220,10 @@ export function NotificationBell() {
         return t('notifications.removal_requested', { requester: metadata.requesterName ?? '', name: metadata.personName ?? '', assembly: metadata.assemblyName ?? '' });
       case 'REMOVAL_DECIDED':
         return t(metadata.approved ? 'notifications.removal_decided_yes' : 'notifications.removal_decided_no', { name: metadata.personName ?? '', assembly: metadata.assemblyName ?? '' });
+      case 'REPRESENTATIVE_APPOINTED':
+        return t('notifications.representative_appointed', { generation: metadata.generation ?? '' });
+      case 'REPRESENTATIVE_ENDED':
+        return t('notifications.representative_ended', { generation: metadata.generation ?? '' });
       case 'REMOVED_FROM_ASSEMBLY':
         return t('notifications.removed_from_assembly', { assembly: metadata.assemblyName ?? '' });
       case 'ADDED_TO_ASSEMBLY':

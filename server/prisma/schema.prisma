@@ -261,6 +261,9 @@ enum NotificationType {
   REMOVAL_REQUESTED
   REMOVAL_DECIDED
   REMOVED_FROM_ASSEMBLY
+  // The central admin appointed you representative of a generation, or ended it.
+  REPRESENTATIVE_APPOINTED
+  REPRESENTATIVE_ENDED
   // A leader's hard question: sent to you, answered, or passed on past you.
   ESCALATION_RECEIVED
   ESCALATION_ANSWERED
@@ -967,6 +970,7 @@ model Person {
   prayerRequestCommentsDeleted             PrayerRequestComment[]                    @relation("PrayerRequestCommentDeletedByPerson")
   teachingsAuthored                        Teaching[]                                @relation("TeachingAuthor")
   teachingProgress                         TeachingProgress[]
+  GenerationRepresentative                 GenerationRepresentative[]
 
   @@index([isTestData])
 }
@@ -3979,4 +3983,21 @@ model RemovalRequest {
 
   @@index([status, createdAt])
   @@index([communityId])
+}
+
+// One representative per generation of the assembly tree ("Representing the central team"), chosen by the
+// central admin from the leaders. Active while endedAt is null. Only the central admin appoints or ends it.
+model GenerationRepresentative {
+  id                String    @id @default(uuid())
+  personId          String
+  generation        Int
+  appointedByUserId String?
+  appointedAt       DateTime  @default(now())
+  endedAt           DateTime?
+  endedByUserId     String?
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId, endedAt])
+  @@index([generation, endedAt])
 }

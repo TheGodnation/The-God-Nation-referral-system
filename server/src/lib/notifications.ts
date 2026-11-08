@@ -62,6 +62,8 @@ interface CreateNotificationParams {
     | 'REMOVAL_REQUESTED'
     | 'REMOVAL_DECIDED'
     | 'REMOVED_FROM_ASSEMBLY'
+    | 'REPRESENTATIVE_APPOINTED'
+    | 'REPRESENTATIVE_ENDED'
     | 'ESCALATION_RECEIVED'
     | 'ESCALATION_ANSWERED'
     | 'ESCALATION_BYPASSED'
@@ -832,6 +834,28 @@ export async function notifyRemovedFromAssembly(personId: string, s: { id: strin
     targetType: 'Community',
     targetId: s.id,
     push: { title: s.assemblyName, body: `You were removed from ${s.assemblyName}.`, url: '/member/chats' },
+  });
+}
+
+/** The central admin appointed you representative of a generation. */
+export async function notifyRepresentativeAppointed(personId: string, generation: number) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'REPRESENTATIVE_APPOINTED',
+    metadata: { generation },
+    targetType: 'GenerationRepresentative',
+    push: { title: '🧭 Representative', body: `You are now the representative of generation ${generation}.`, url: '/member/leadership-dashboard' },
+  });
+}
+
+/** Your time as representative of a generation ended. */
+export async function notifyRepresentativeEnded(personId: string, generation: number) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'REPRESENTATIVE_ENDED',
+    metadata: { generation },
+    targetType: 'GenerationRepresentative',
+    push: { title: '🧭 Representative', body: `You are no longer the representative of generation ${generation}.`, url: '/member/leadership-dashboard' },
   });
 }
 
