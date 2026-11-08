@@ -429,4 +429,82 @@ router.patch('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (
   res.json(updated);
 }));
 
+// What deleting this assembly would remove — shown to the admin before they
+// confirm. Counts only; nothing changes.
+async function deletionImpact(id: string) {
+  const [members, subAssemblies, messages, teachings, events] = await Promise.all([
+    prisma.communityMembership.count({ where: { communityId: id } }),
+    prisma.community.count({ where: { parentId: id } }),
+    prisma.message.count({ where: { conversation: { communityId: id } } }),
+    prisma.teaching.count({ where: { communityId: id } }),
+    prisma.assemblyEvent.count({ where: { communityId: id } }),
+  ]);
+  return { members, subAssemblies, messages, teachings, events };
+}
+
+// GET /api/admin/communities/:id/delete-impact
+router.get('/:id/delete-impact', asyncHandler(async (req, res) => {
+  const node = await prisma.community.findUnique({ where: { id: req.params.id }, select: { id: true, name: true } });
+  if (!node) return res.status(404).json({ error: 'Community not found.' });
+  const headquartersId = await getHeadquartersCommunityId();
+  res.json({ id: node.id, name: node.name, isHeadquarters: node.id === headquartersId, ...(await deletionImpact(node.id)) });
+}));
+
+const deleteSchema = z.object({
+  // The admin must type the assembly's name to confirm.
+  confirmName: z.string().trim().min(1, 'Type the assembly name to confirm.'),
+  // What to do with assemblies directly under it. Required when there are any.
+  subAssemblies: z.enum(['moveUp']).optional(),
+});
+
+// DELETE /api/admin/communities/:id — permanently removes one assembly with
+// its group chat, memberships, teachings and events. The people themselves
+// are never deleted (they only leave this assembly). The Headquarters cannot
+// be deleted, and assemblies under it must be moved up first.
+router.delete('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const parsed = deleteSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
+  }
+  const existing = await prisma.community.findUnique({ where: { id }, select: { id: true, name: true, parentId: true } });
+  if (!existing) return res.status(404).json({ error: 'Community not found.' });
+
+  const headquartersId = await getHeadquartersCommunityId();
+  if (existing.id === headquartersId) {
+    return res.status(400).json({ error: 'This is the Headquarters and cannot be deleted. Replace the Headquarters first if you need a different one.' });
+  }
+  if (parsed.data.confirmName.trim().toLowerCase() !== existing.name.trim().toLowerCase()) {
+    return res.status(400).json({ error: 'The name you typed does not match this assembly.' });
+  }
+
+  const impact = await deletionImpact(id);
+  if (impact.subAssemblies > 0 && parsed.data.subAssemblies !== 'moveUp') {
+    return res.status(409).json({
+      error: `This assembly has ${impact.subAssemblies} assembl${impact.subAssemblies === 1 ? 'y' : 'ies'} under it. Choose what happens to them first.`,
+      code: 'HAS_SUB_ASSEMBLIES',
+      subAssemblies: impact.subAssemblies,
+    });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Assemblies under it step up to its own parent (or become top-level).
+    if (impact.subAssemblies > 0) {
+      await tx.community.updateMany({ where: { parentId: id }, data: { parentId: existing.parentId } });
+    }
+    await tx.community.delete({ where: { id } });
+  });
+
+  await recordAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email,
+    action: 'COMMUNITY_DELETED',
+    targetType: 'Community',
+    targetId: id,
+    metadata: { name: existing.name, ...impact, movedSubAssembliesTo: impact.subAssemblies > 0 ? existing.parentId : undefined },
+  });
+
+  res.json({ deleted: true, name: existing.name, ...impact });
+}));
+
 export default router;

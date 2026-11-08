@@ -9,6 +9,15 @@ import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../../lib/lo
 type PostingPolicy = 'EVERYONE' | 'LEADERS_ONLY';
 type PlacementMode = 'SMALLEST_GROUP' | 'BY_LOCATION';
 
+interface DeleteImpact {
+  isHeadquarters: boolean;
+  members: number;
+  subAssemblies: number;
+  messages: number;
+  teachings: number;
+  events: number;
+}
+
 interface CommunityNode {
   id: string;
   parentId: string | null;
@@ -73,6 +82,13 @@ export function CommunitiesTab() {
   const [capacitySaved, setCapacitySaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oversightId, setOversightId] = useState<string | null>(null);
+  const [deleteFor, setDeleteFor] = useState<{ id: string; name: string } | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<DeleteImpact | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteMoveUp, setDeleteMoveUp] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteDone, setDeleteDone] = useState<string | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
 
   const [savingPolicyId, setSavingPolicyId] = useState<string | null>(null);
@@ -282,6 +298,43 @@ export function CommunitiesTab() {
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('admin.communities.save_failed'));
+    }
+  }
+
+  function startDelete(node: CommunityNode) {
+    setShowForm(false);
+    setEditingId(null);
+    setAddingFor(null);
+    setDeleteDone(null);
+    setDeleteError(null);
+    setDeleteConfirm('');
+    setDeleteMoveUp(true);
+    setDeleteImpact(null);
+    setDeleteFor({ id: node.id, name: node.name });
+    api
+      .get<DeleteImpact>(`/api/admin/communities/${node.id}/delete-impact`)
+      .then(setDeleteImpact)
+      .catch((err) => setDeleteError(err instanceof ApiError ? err.message : t('admin.communities.delete_failed')));
+  }
+
+  async function confirmDelete(e: React.FormEvent) {
+    e.preventDefault();
+    if (!deleteFor || !deleteImpact) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.delete(`/api/admin/communities/${deleteFor.id}`, {
+        confirmName: deleteConfirm,
+        ...(deleteImpact.subAssemblies > 0 && deleteMoveUp ? { subAssemblies: 'moveUp' } : {}),
+      });
+      setDeleteDone(t('admin.communities.delete_done', { name: deleteFor.name }));
+      setDeleteFor(null);
+      setDeleteImpact(null);
+      load();
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : t('admin.communities.delete_failed'));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -628,6 +681,7 @@ export function CommunitiesTab() {
       )}
 
       <div className="card overflow-x-auto">
+        {deleteDone && <p className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{deleteDone}</p>}
         <table className="w-full min-w-[600px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400">
@@ -666,6 +720,9 @@ export function CommunitiesTab() {
                     </button>
                     <button className="text-brand-700 hover:underline" onClick={() => toggleActive(node)}>
                       {node.active ? t('admin.communities.deactivate') : t('admin.communities.activate')}
+                    </button>
+                    <button className="text-red-600 hover:underline" onClick={() => startDelete(node)}>
+                      {t('admin.communities.delete')}
                     </button>
                     <button
                       className="text-brand-700 hover:underline"
@@ -727,6 +784,70 @@ export function CommunitiesTab() {
                   <td className="py-2 pr-4">{node._count?.memberships ?? 0}</td>
                   <td className="py-2 pr-4">{node._count?.children ?? 0}</td>
                 </tr>
+                {deleteFor?.id === node.id && (
+                  <tr key={`${node.id}-delete`} className="border-b border-slate-50">
+                    <td colSpan={8} className="p-3">
+                      <form onSubmit={confirmDelete} className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm">
+                        <p className="font-semibold text-red-800">{t('admin.communities.delete_heading', { name: node.name })}</p>
+                        {!deleteImpact && !deleteError && <p className="text-slate-500">{t('admin.communities.delete_loading')}</p>}
+                        {deleteImpact?.isHeadquarters && (
+                          <p className="text-red-700">{t('admin.communities.delete_is_headquarters')}</p>
+                        )}
+                        {deleteImpact && !deleteImpact.isHeadquarters && (
+                          <>
+                            <p className="text-slate-700">
+                              {t('admin.communities.delete_warning', {
+                                members: deleteImpact.members,
+                                messages: deleteImpact.messages,
+                                teachings: deleteImpact.teachings,
+                              })}
+                            </p>
+                            <p className="text-slate-600">{t('admin.communities.delete_people_kept')}</p>
+                            {deleteImpact.subAssemblies > 0 && (
+                              <label className="flex items-start gap-2 text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={deleteMoveUp}
+                                  onChange={(e) => setDeleteMoveUp(e.target.checked)}
+                                  className="mt-1"
+                                />
+                                <span>{t('admin.communities.delete_move_up', { count: deleteImpact.subAssemblies })}</span>
+                              </label>
+                            )}
+                            <label className="block">
+                              <span className="text-slate-700">{t('admin.communities.delete_type_name', { name: node.name })}</span>
+                              <input
+                                className="input mt-1"
+                                value={deleteConfirm}
+                                onChange={(e) => setDeleteConfirm(e.target.value)}
+                                autoComplete="off"
+                              />
+                            </label>
+                          </>
+                        )}
+                        {deleteError && <p className="text-red-700">{deleteError}</p>}
+                        <div className="flex gap-3">
+                          {deleteImpact && !deleteImpact.isHeadquarters && (
+                            <button
+                              type="submit"
+                              className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
+                              disabled={
+                                deleting ||
+                                deleteConfirm.trim().toLowerCase() !== node.name.trim().toLowerCase() ||
+                                (deleteImpact.subAssemblies > 0 && !deleteMoveUp)
+                              }
+                            >
+                              {deleting ? t('admin.communities.deleting') : t('admin.communities.delete_confirm_button')}
+                            </button>
+                          )}
+                          <button type="button" className="btn-secondary px-4 py-2" onClick={() => setDeleteFor(null)}>
+                            {t('admin.communities.delete_cancel')}
+                          </button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                )}
                 {detailsId === node.id && (
                   <tr key={`${node.id}-details`} className="border-b border-slate-50">
                     <td colSpan={8} className="p-3">

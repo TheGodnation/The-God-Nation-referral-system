@@ -980,7 +980,20 @@
       "add_people_help": "Cherchez par nom, numéro WhatsApp ou e-mail, puis touchez Ajouter. Elles la voient tout de suite dans leurs discussions.",
       "add_people_added": "{{name}} a été ajouté à {{assembly}}.",
       "replace_move_up": "Placer les assemblées qui sont sous « {{old}} » directement sous le nouveau Siège, à côté de lui (leurs sous-assemblées les suivent).",
-      "replace_close_others": "Placer les nouveaux uniquement dans le nouveau Siège, jusqu’à ce qu’il soit plein et que l’application ouvre des assemblées en dessous. Les autres assemblées gardent leurs membres mais ne reçoivent plus de nouveaux."
+      "replace_close_others": "Placer les nouveaux uniquement dans le nouveau Siège, jusqu’à ce qu’il soit plein et que l’application ouvre des assemblées en dessous. Les autres assemblées gardent leurs membres mais ne reçoivent plus de nouveaux.",
+      "delete": "Supprimer",
+      "delete_heading": "Supprimer l'assemblée « {{name}} » ?",
+      "delete_loading": "Vérification du contenu…",
+      "delete_is_headquarters": "C'est le Quartier général, il ne peut pas être supprimé. Remplacez d'abord le Quartier général si vous en voulez un autre.",
+      "delete_warning": "Cela supprime définitivement l'assemblée, son groupe de discussion ({{messages}} messages), ses {{teachings}} enseignements et ses événements. {{members}} personnes en font partie actuellement.",
+      "delete_people_kept": "Les personnes ne sont PAS supprimées — elles quittent seulement cette assemblée. Action irréversible. Pour simplement la masquer, utilisez Désactiver.",
+      "delete_move_up": "Elle contient {{count}} assemblée(s). Elles remontent d'un niveau pour prendre sa place (obligatoire pour continuer).",
+      "delete_type_name": "Tapez le nom de l'assemblée ({{name}}) pour confirmer :",
+      "delete_confirm_button": "Oui, supprimer définitivement",
+      "deleting": "Suppression…",
+      "delete_cancel": "Annuler",
+      "delete_done": "« {{name}} » a été supprimée.",
+      "delete_failed": "Impossible de supprimer l'assemblée."
     },
     "devotionals": {
       "title": "Dévotions",
