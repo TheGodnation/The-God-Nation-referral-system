@@ -47,6 +47,7 @@ import { adminGivingRoutes, memberCentralGivingRoutes } from './routes/adminGivi
 import { adminLeaderReferralReportRoutes, memberCentralLeaderReferralReportRoutes } from './routes/adminLeaderReferralReport';
 import { adminTeachingCompletionRoutes, memberCentralTeachingCompletionRoutes } from './routes/adminTeachingCompletion';
 import { adminLeaderRoomsRoutes, memberCentralLeaderRoomsRoutes } from './routes/adminLeaderRooms';
+import { adminSanctionsRoutes, memberSanctionsRoutes } from './routes/sanctions';
 import { adminBulkMembersRoutes, memberCentralBulkMembersRoutes } from './routes/adminBulkMembers';
 import { adminInstructionsRoutes, memberCentralInstructionsRoutes, memberInstructionsRoutes } from './routes/adminInstructions';
 import memberClinicRoutes from './routes/memberClinic';
@@ -184,6 +185,7 @@ export function createApp() {
   app.use('/api/admin/giving', adminGivingRoutes);
   app.use('/api/admin/instructions', adminInstructionsRoutes);
   app.use('/api/admin/bulk-members', adminBulkMembersRoutes);
+  app.use('/api/admin/sanctions', adminSanctionsRoutes);
   app.use('/api/admin/leader-rooms', adminLeaderRoomsRoutes);
   app.use('/api/admin/teaching-completion', adminTeachingCompletionRoutes);
   app.use('/api/admin/leader-referral-report', adminLeaderReferralReportRoutes);
@@ -192,6 +194,7 @@ export function createApp() {
   app.use('/api/member/central-leader-rooms', memberCentralLeaderRoomsRoutes);
   app.use('/api/member/central-instructions', memberCentralInstructionsRoutes);
   app.use('/api/member/central-bulk-members', memberCentralBulkMembersRoutes);
+  app.use('/api/member/sanctions', memberSanctionsRoutes);
   app.use('/api/member/instructions', memberInstructionsRoutes);
   app.use('/api/member/clinic', memberClinicRoutes);
   app.use('/api/leader', leaderClinicRoutes);

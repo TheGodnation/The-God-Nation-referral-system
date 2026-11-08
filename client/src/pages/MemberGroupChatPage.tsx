@@ -1,3 +1,4 @@
+import { MutedBanner, type MuteInfo } from '../components/chat/MutedBanner';
 import { ReactionsSheet, type ReactorList } from '../components/ReactionsSheet';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -23,6 +24,7 @@ interface MessagesResponse {
   unreadCount: number;
   isAdministrator: boolean;
   canPost: boolean;
+  mute?: MuteInfo | null;
   newerOverflow?: boolean;
   recent?: RecentChange[];
   memberCount?: number;
@@ -119,6 +121,7 @@ export function MemberGroupChatPage() {
   const [canPostTeaching, setCanPostTeaching] = useState(false);
   const navigate = useNavigate();
   const [canPost, setCanPost] = useState(true);
+  const [mute, setMute] = useState<MuteInfo | null>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [menuFor, setMenuFor] = useState<ChatMessage | null>(null);
   // Who reacted to a message (tapping its reactions).
@@ -251,6 +254,7 @@ export function MemberGroupChatPage() {
           setTypingNames(res.typing ?? []);
           setRecordingNow(res.recording ?? []);
           setCanPost(res.canPost !== false);
+          setMute(res.mute ?? null);
           setLoadError(false);
           markRead(res.items, res.unreadCount);
           return res.items.length > 0 || (res.typing ?? []).length > 0 || (res.recording ?? []).length > 0;
@@ -683,6 +687,8 @@ export function MemberGroupChatPage() {
             bilingual={canPostTeaching}
             onNewTeaching={canPostTeaching ? () => navigate(`/member/chats/group/${communityId}/teaching/new`) : undefined}
           />
+        ) : mute ? (
+          <MutedBanner mute={mute} onChanged={() => setMute({ ...mute, excuseSent: true })} />
         ) : (
           <p className="bg-[#f0f2f5] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 text-center text-sm text-slate-600">{t('groupChat.only_leaders')}</p>
         ))}

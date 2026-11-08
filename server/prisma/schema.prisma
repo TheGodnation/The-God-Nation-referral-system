@@ -251,6 +251,16 @@ enum NotificationType {
   ASSEMBLY_OPENED
   // The central admin added you to an assembly (one notice per assembly, not per person).
   ADDED_TO_ASSEMBLY
+  // Sanctions: a mute placed on you / lifted / ended by itself, a request for excuse sent to
+  // whoever muted you, a leader's request to remove someone (sent to the central admin), its
+  // decision, and being removed from an assembly.
+  SANCTION_PLACED
+  SANCTION_LIFTED
+  SANCTION_ENDED
+  EXCUSE_REQUESTED
+  REMOVAL_REQUESTED
+  REMOVAL_DECIDED
+  REMOVED_FROM_ASSEMBLY
   // A leader's hard question: sent to you, answered, or passed on past you.
   ESCALATION_RECEIVED
   ESCALATION_ANSWERED
@@ -800,6 +810,8 @@ model Person {
   id                       String                       @id @default(uuid())
   name                     String
   leaderInstructions       LeaderInstructionRecipient[]
+  sanctions                MemberSanction[]             @relation("SanctionedPerson")
+  removalRequests          RemovalRequest[]             @relation("RemovalRequestPerson")
   bookDeliveries           BookDelivery[]
   // Set when the member chose to stop receiving the monthly Dominion Clinic book; cleared when they subscribe again.
   clinicBookUnsubscribedAt DateTime?
@@ -1017,6 +1029,8 @@ model Community {
   prayerRequests          PrayerRequest[]
   teachings               Teaching[]
   events                  AssemblyEvent[]
+  sanctions               MemberSanction[]
+  removalRequests         RemovalRequest[]
 
   @@index([parentId])
   @@index([active])
@@ -3899,4 +3913,70 @@ model LeaderInstructionRecipient {
 
   @@unique([instructionId, personId])
   @@index([personId])
+}
+
+// Who placed or lifted a sanction. REPRESENTATIVE is for the per-generation representatives
+// (appointed by the central admin); it is part of the same rules as soon as they exist.
+enum SanctionRole {
+  ADMIN
+  LEADER
+  REPRESENTATIVE
+}
+
+enum RemovalRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+// A mute: the person can read an assembly but not write in it until endsAt (3, 7, 15 or 30 days),
+// unless lifted sooner. The reason is shown to the person. A mute placed by the central admin can
+// only be lifted by the central admin. The person may send one request for excuse.
+model MemberSanction {
+  id                String        @id @default(uuid())
+  personId          String
+  communityId       String
+  reason            String
+  days              Int
+  startsAt          DateTime      @default(now())
+  endsAt            DateTime
+  createdByPersonId String?
+  createdByRole     SanctionRole
+  liftedAt          DateTime?
+  liftedByPersonId  String?
+  liftedByRole      SanctionRole?
+  // Set once the "your mute has ended" notice went out.
+  endNoticeSentAt   DateTime?
+  excuseMessage     String?
+  excuseAt          DateTime?
+  createdAt         DateTime      @default(now())
+
+  person    Person    @relation("SanctionedPerson", fields: [personId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([personId, communityId])
+  @@index([communityId])
+  @@index([endsAt])
+}
+
+// A leader's (or representative's) request that the central admin remove someone from an assembly.
+// Only the central admin decides; approving ends the person's membership there.
+model RemovalRequest {
+  id                  String               @id @default(uuid())
+  personId            String
+  communityId         String
+  reason              String
+  requestedByPersonId String?
+  requestedByRole     SanctionRole
+  status              RemovalRequestStatus @default(PENDING)
+  decidedAt           DateTime?
+  decidedByUserId     String?
+  decisionNote        String?
+  createdAt           DateTime             @default(now())
+
+  person    Person    @relation("RemovalRequestPerson", fields: [personId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([communityId])
 }

@@ -20,6 +20,7 @@ import { MyMembers } from './MyMembers';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
 import { LeaderLeadershipCollaboration } from './LeaderLeadershipCollaboration';
 import { LeaderCommunityConversations } from './LeaderCommunityConversations';
+import { SanctionsPanel } from '../admin/SanctionsPanel';
 import { LeaderInstructions, type MyInstruction } from './LeaderInstructions';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
@@ -189,7 +190,7 @@ function LeaderEscalations() {
   );
 }
 
-type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources';
+type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions';
 
 interface MyPeopleSummary {
   total: number;
@@ -270,6 +271,7 @@ export function LeadershipDashboardBody() {
 
   const sections: { key: SectionKey; icon: string; render: () => ReactNode }[] = [
     { key: 'instructions', icon: '📌', render: () => <LeaderInstructions onChanged={() => void loadPendingInstructions()} /> },
+    { key: 'sanctions', icon: '🔇', render: () => <SanctionsPanel base="/api/member/sanctions" /> },
     {
       key: 'people',
       icon: '👥',

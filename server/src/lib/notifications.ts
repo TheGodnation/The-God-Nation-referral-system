@@ -55,6 +55,13 @@ interface CreateNotificationParams {
     | 'POST_REPLIED'
     | 'ASSEMBLY_OPENED'
     | 'ADDED_TO_ASSEMBLY'
+    | 'SANCTION_PLACED'
+    | 'SANCTION_LIFTED'
+    | 'SANCTION_ENDED'
+    | 'EXCUSE_REQUESTED'
+    | 'REMOVAL_REQUESTED'
+    | 'REMOVAL_DECIDED'
+    | 'REMOVED_FROM_ASSEMBLY'
     | 'ESCALATION_RECEIVED'
     | 'ESCALATION_ANSWERED'
     | 'ESCALATION_BYPASSED'
@@ -745,9 +752,92 @@ export async function notifyAddedToAssembly(personIds: string[], assembly: { id:
   pushToPersons(personIds, { title: '🙏 ' + assembly.name, body: `You were added to ${assembly.name}.`, url: `/member/chats/group/${assembly.id}` }).catch(() => {});
 }
 
+// ---- Sanctions (mutes and removal requests) -------------------------------------------------------
+
+/** You were muted in an assembly (the reason and the end date are shown inside the assembly). */
+export async function notifySanctionPlaced(personId: string, s: { id: string; assemblyName: string; endsAt: Date; reason: string }) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'SANCTION_PLACED',
+    metadata: { assemblyName: s.assemblyName, endsAt: s.endsAt.toISOString(), reason: s.reason },
+    targetType: 'MemberSanction',
+    targetId: s.id,
+    push: { title: `🔇 ${s.assemblyName}`, body: `You are muted until ${s.endsAt.toISOString().slice(0, 10)}. Reason: ${s.reason}`, url: '/member/chats' },
+  });
+}
+
+/** A mute was lifted early. */
+export async function notifySanctionLifted(personId: string, s: { id: string; assemblyName: string }) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'SANCTION_LIFTED',
+    metadata: { assemblyName: s.assemblyName },
+    targetType: 'MemberSanction',
+    targetId: s.id,
+    push: { title: `✅ ${s.assemblyName}`, body: 'Your mute was lifted. You can write again.', url: '/member/chats' },
+  });
+}
+
+/** A mute ended by itself. */
+export async function notifySanctionEnded(personId: string, s: { id: string; assemblyName: string }) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'SANCTION_ENDED',
+    metadata: { assemblyName: s.assemblyName },
+    targetType: 'MemberSanction',
+    targetId: s.id,
+    push: { title: `✅ ${s.assemblyName}`, body: 'Your mute has ended. You can write again.', url: '/member/chats' },
+  });
+}
+
+/** A muted person asked for excuse: goes to whoever muted them. */
+export async function notifyExcuseRequested(recipientPersonId: string, s: { id: string; personName: string; assemblyName: string }) {
+  await createNotification({
+    recipientPersonId,
+    type: 'EXCUSE_REQUESTED',
+    metadata: { personName: s.personName, assemblyName: s.assemblyName },
+    targetType: 'MemberSanction',
+    targetId: s.id,
+    push: { title: `🙏 ${s.personName}`, body: `Asks for excuse (${s.assemblyName}).`, url: '/member/leadership-dashboard' },
+  });
+}
+
+/** A leader asks the central admin to remove someone from an assembly. */
+export async function notifyRemovalRequested(r: { id: string; personName: string; assemblyName: string; requesterName: string }) {
+  await notifyCentralAdmins('REMOVAL_REQUESTED', { targetType: 'RemovalRequest', targetId: r.id }, { personName: r.personName, assemblyName: r.assemblyName, requesterName: r.requesterName }, {
+    title: '⚠️ Removal request',
+    body: `${r.requesterName} asks to remove ${r.personName} from ${r.assemblyName}.`,
+    url: '/member/me',
+  });
+}
+
+/** The central admin's decision, sent to whoever asked. */
+export async function notifyRemovalDecided(recipientPersonId: string, r: { id: string; personName: string; assemblyName: string; approved: boolean; note: string | null }) {
+  await createNotification({
+    recipientPersonId,
+    type: 'REMOVAL_DECIDED',
+    metadata: { personName: r.personName, assemblyName: r.assemblyName, approved: r.approved, note: r.note },
+    targetType: 'RemovalRequest',
+    targetId: r.id,
+    push: { title: r.approved ? '✅ Removal approved' : 'Removal declined', body: `${r.personName} — ${r.assemblyName}`, url: '/member/leadership-dashboard' },
+  });
+}
+
+/** You were removed from an assembly by the central admin. */
+export async function notifyRemovedFromAssembly(personId: string, s: { id: string; assemblyName: string }) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'REMOVED_FROM_ASSEMBLY',
+    metadata: { assemblyName: s.assemblyName },
+    targetType: 'Community',
+    targetId: s.id,
+    push: { title: s.assemblyName, body: `You were removed from ${s.assemblyName}.`, url: '/member/chats' },
+  });
+}
+
 /** A notification to the central admin: to their member profile, or to their admin account when it has none. */
 async function notifyCentralAdmins(
-  type: 'ESCALATION_RECEIVED' | 'ESCALATION_ANSWERED' | 'ESCALATION_BYPASSED' | 'READ_REQUESTED',
+  type: 'ESCALATION_RECEIVED' | 'ESCALATION_ANSWERED' | 'ESCALATION_BYPASSED' | 'READ_REQUESTED' | 'REMOVAL_REQUESTED',
   target: { targetType: string; targetId: string },
   metadata: Record<string, unknown>,
   push: PushPayload,

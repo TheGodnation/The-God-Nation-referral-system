@@ -46,6 +46,26 @@ describe('Chats page', () => {
     expect(rows).toEqual(['/member/chats/group/hq', '/member/chats/group/g1a', '/member/chats/group/g1b', '/member/chats/group/g2']);
   });
 
+  it('keeps the Leadership Team (the former Headquarters) right under the Headquarters', async () => {
+    mockFetch({
+      'GET /api/member/me/community-memberships': () => ({
+        body: {
+          items: [
+            { communityId: 'g1a', communityName: 'Alpha Assembly', status: 'ACTIVE', generation: 1 },
+            { communityId: 'lt', communityName: 'Zeta Leadership Team', status: 'ACTIVE', generation: 1, isLeadershipTeam: true },
+            { communityId: 'hq', communityName: 'The God Nation HQ', status: 'ACTIVE', generation: 0 },
+          ],
+        },
+      }),
+      'GET /api/communities/': () => ({ body: { unreadCount: 0 } }),
+      'GET /api/private-messages/conversations': () => ({ body: { items: [] } }),
+    });
+    render(<MemoryRouter><MemberChatsPage /></MemoryRouter>);
+    await screen.findByRole('link', { name: /Zeta Leadership Team/ });
+    const rows = screen.getAllByRole('link').map((l) => l.getAttribute('href')).filter((h) => h?.startsWith('/member/chats/group/'));
+    expect(rows).toEqual(['/member/chats/group/hq', '/member/chats/group/lt', '/member/chats/group/g1a']);
+  });
+
   it('opens on the Private messages tab when there are new private messages, with red numbers on both tabs', async () => {
     mockFetch({
       'GET /api/member/me/community-memberships': () => ({ body: memberships }),

@@ -1,6 +1,7 @@
 import { isCentralAdminPerson } from './centralAdmin';
 import { prisma } from './prisma';
 import { findActiveScopedRole, personBelongsToContext, isCommunityAdministrator } from './leadership';
+import { activeMute } from './sanctions';
 
 /**
  * Phase 3M.1: a person has access to a Community's conversation if EITHER
@@ -42,6 +43,8 @@ export async function hasConversationAccess(personId: string, communityId: strin
 export async function canPostCommunityMessage(personId: string, communityId: string): Promise<boolean> {
   const community = await prisma.community.findUnique({ where: { id: communityId }, select: { postingPolicy: true } });
   if (!community) return false;
+  // A muted person can read but not write (see lib/sanctions.ts).
+  if (await activeMute(personId, communityId)) return false;
   if (community.postingPolicy === 'LEADERS_ONLY') {
     return isCommunityAdministrator(personId, communityId);
   }

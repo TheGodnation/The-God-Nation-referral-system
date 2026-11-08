@@ -36,3 +36,17 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   covers the whole list, up to 5,000), add to an existing assembly or a new one (with its chat), optionally take them out of
   the old assembly (off by default; memberships become INACTIVE). One `ADDED_TO_ASSEMBLY` notification each, one push.
 - **Delete an assembly** now asks where its members go (default: the assembly above it; or another; or nowhere).
+
+## Sanctions (approved rules, done)
+
+- **Mute**: the person can read an assembly but not write in it, for **3, 7, 15 or 30 days**; it ends by itself. A reason is
+  required and shown to the person with the end date. They are notified when muted, lifted and when it ends.
+- **Who can mute**: the central admin anywhere; a leader only in an assembly they lead (representatives join as a third
+  authority in their own step). Nobody can sanction the central admin; leaders cannot sanction other leaders.
+- **Lifting**: the central admin can lift any mute; a leader can lift mutes in their assembly **except ones the central admin
+  placed**.
+- **Ask for excuse**: the muted person can send one short request for excuse (not an appeal); it goes to whoever muted them.
+- **Removal**: leaders cannot remove anyone. They send a **removal request** with a reason; **only the central admin** approves
+  (the person leaves that assembly) or declines. The central admin can also remove directly.
+- Everything is recorded in the audit log. Where: leaders' dashboard tile "Sanctions", the central admin's profile tab and the
+  admin dashboard tab. The Chats page keeps the Leadership Team (former Headquarters) directly under the Headquarters.
