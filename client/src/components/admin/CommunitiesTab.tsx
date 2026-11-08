@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
+import { DeleteCommunityPanel } from './DeleteCommunityPanel';
 import { CentralAuthorityConversationOversight } from './CentralAuthorityConversationOversight';
 import { GroupDetailsEditor } from './GroupDetailsEditor';
 import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../../lib/locations';
@@ -9,17 +10,10 @@ import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../../lib/lo
 type PostingPolicy = 'EVERYONE' | 'LEADERS_ONLY';
 type PlacementMode = 'SMALLEST_GROUP' | 'BY_LOCATION';
 
-interface DeleteImpact {
-  isHeadquarters: boolean;
-  members: number;
-  subAssemblies: number;
-  messages: number;
-  teachings: number;
-  events: number;
-}
-
 interface CommunityNode {
   id: string;
+  /** ASSEMBLY counts as a generation; GROUP (women, youth, prayer…) never does. */
+  kind?: 'ASSEMBLY' | 'GROUP';
   parentId: string | null;
   name: string;
   active: boolean;
@@ -60,6 +54,8 @@ export function CommunitiesTab() {
   const [name, setName] = useState('');
   // Private by default: putting people in an assembly automatically is the exception.
   const [autoPlacementEligible, setAutoPlacementEligible] = useState(false);
+  const [newKind, setNewKind] = useState<'ASSEMBLY' | 'GROUP'>('ASSEMBLY');
+  const [editKind, setEditKind] = useState<'ASSEMBLY' | 'GROUP'>('ASSEMBLY');
   // Where the new assembly goes: inside the one currently open (the default),
   // or another one picked here, or the top level.
   const [newParent, setNewParent] = useState<{ id: string; name: string } | null>(null);
@@ -83,14 +79,6 @@ export function CommunitiesTab() {
   const [error, setError] = useState<string | null>(null);
   const [oversightId, setOversightId] = useState<string | null>(null);
   const [deleteFor, setDeleteFor] = useState<{ id: string; name: string } | null>(null);
-  const [deleteImpact, setDeleteImpact] = useState<DeleteImpact | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState('');
-  const [deleteMoveUp, setDeleteMoveUp] = useState(true);
-  // Where the members go: the assembly it sits under (default), nowhere (they just leave), or another one.
-  const [deleteMove, setDeleteMove] = useState<'parent' | 'none' | 'other'>('parent');
-  const [deleteOther, setDeleteOther] = useState<{ id: string; name: string } | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDone, setDeleteDone] = useState<string | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
 
@@ -245,8 +233,9 @@ export function CommunitiesTab() {
     e.preventDefault();
     setError(null);
     try {
-      await api.post('/api/admin/communities', { name, parentId: newParent?.id ?? undefined, autoPlacementEligible });
+      await api.post('/api/admin/communities', { name, kind: newKind, parentId: newParent?.id ?? undefined, autoPlacementEligible: newKind === 'GROUP' ? false : autoPlacementEligible });
       setName('');
+      setNewKind('ASSEMBLY');
       setAutoPlacementEligible(false);
       setShowForm(false);
       load();
@@ -280,6 +269,7 @@ export function CommunitiesTab() {
     setEditName(node.name);
     setEditParentId(node.parentId);
     setEditParentName(node.parent?.name ?? '');
+    setEditKind(node.kind ?? 'ASSEMBLY');
     setEditAutoPlacementEligible(node.autoPlacementEligible);
     setEditPlacementCountry(node.placementCountry ?? '');
     setEditPlacementRegion(node.placementRegion ?? '');
@@ -292,8 +282,9 @@ export function CommunitiesTab() {
     try {
       await api.patch(`/api/admin/communities/${editingId}`, {
         name: editName,
+        kind: editKind,
         parentId: editParentId,
-        autoPlacementEligible: editAutoPlacementEligible,
+        autoPlacementEligible: editKind === 'GROUP' ? false : editAutoPlacementEligible,
         placementCountry: editPlacementCountry,
         placementRegion: editPlacementRegion,
       });
@@ -305,45 +296,11 @@ export function CommunitiesTab() {
   }
 
   function startDelete(node: CommunityNode) {
-    setDeleteMove(node.parentId ? 'parent' : 'none');
-    setDeleteOther(null);
     setShowForm(false);
     setEditingId(null);
     setAddingFor(null);
     setDeleteDone(null);
-    setDeleteError(null);
-    setDeleteConfirm('');
-    setDeleteMoveUp(true);
-    setDeleteImpact(null);
     setDeleteFor({ id: node.id, name: node.name });
-    api
-      .get<DeleteImpact>(`/api/admin/communities/${node.id}/delete-impact`)
-      .then(setDeleteImpact)
-      .catch((err) => setDeleteError(err instanceof ApiError ? err.message : t('admin.communities.delete_failed')));
-  }
-
-  async function confirmDelete(e: React.FormEvent) {
-    e.preventDefault();
-    if (!deleteFor || !deleteImpact) return;
-    const node = items.find((i) => i.id === deleteFor.id);
-    const moveTo = deleteImpact.members === 0 ? null : deleteMove === 'parent' ? node?.parentId ?? null : deleteMove === 'other' ? deleteOther?.id ?? null : null;
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      await api.delete(`/api/admin/communities/${deleteFor.id}`, {
-        confirmName: deleteConfirm,
-        ...(deleteImpact.subAssemblies > 0 && deleteMoveUp ? { subAssemblies: 'moveUp' } : {}),
-        ...(moveTo ? { moveMembersTo: moveTo } : {}),
-      });
-      setDeleteDone(t('admin.communities.delete_done', { name: deleteFor.name }));
-      setDeleteFor(null);
-      setDeleteImpact(null);
-      load();
-    } catch (err) {
-      setDeleteError(err instanceof ApiError ? err.message : t('admin.communities.delete_failed'));
-    } finally {
-      setDeleting(false);
-    }
   }
 
   async function toggleActive(node: CommunityNode) {
@@ -548,6 +505,24 @@ export function CommunitiesTab() {
               </button>
             )}
           </div>
+          <fieldset className="space-y-2 text-sm" data-testid="new-kind">
+            <legend className="label">{t('admin.communities.kind_legend')}</legend>
+            <label className="flex items-start gap-2">
+              <input type="radio" name="new-kind" className="mt-1" checked={newKind === 'ASSEMBLY'} onChange={() => setNewKind('ASSEMBLY')} />
+              <span>
+                <span className="font-medium text-slate-800">{t('admin.communities.kind_assembly')}</span>
+                <span className="block text-slate-500">{t('admin.communities.kind_assembly_help')}</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input type="radio" name="new-kind" className="mt-1" checked={newKind === 'GROUP'} onChange={() => setNewKind('GROUP')} />
+              <span>
+                <span className="font-medium text-slate-800">{t('admin.communities.kind_group')}</span>
+                <span className="block text-slate-500">{t('admin.communities.kind_group_help')}</span>
+              </span>
+            </label>
+          </fieldset>
+          {newKind === 'ASSEMBLY' && (
           <fieldset className="space-y-2 text-sm">
             <legend className="label">{t('admin.communities.new_who_joins')}</legend>
             <label className="flex items-start gap-2">
@@ -565,6 +540,7 @@ export function CommunitiesTab() {
               </span>
             </label>
           </fieldset>
+          )}
           {error && <p className="text-sm text-red-700">{error}</p>}
           <button className="btn-primary" type="submit">
             {t('admin.communities.create')}
@@ -624,6 +600,24 @@ export function CommunitiesTab() {
               </button>
             )}
           </div>
+          <fieldset className="space-y-2 text-sm" data-testid="edit-kind">
+            <legend className="label">{t('admin.communities.kind_legend')}</legend>
+            <label className="flex items-start gap-2">
+              <input type="radio" name="edit-kind" className="mt-1" checked={editKind === 'ASSEMBLY'} onChange={() => setEditKind('ASSEMBLY')} />
+              <span>
+                <span className="font-medium text-slate-800">{t('admin.communities.kind_assembly')}</span>
+                <span className="block text-slate-500">{t('admin.communities.kind_assembly_help')}</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input type="radio" name="edit-kind" className="mt-1" checked={editKind === 'GROUP'} onChange={() => setEditKind('GROUP')} />
+              <span>
+                <span className="font-medium text-slate-800">{t('admin.communities.kind_group')}</span>
+                <span className="block text-slate-500">{t('admin.communities.kind_group_help')}</span>
+              </span>
+            </label>
+          </fieldset>
+          {editKind === 'ASSEMBLY' && (
           <label className="flex items-start gap-2 text-sm">
             <input
               type="checkbox"
@@ -636,6 +630,7 @@ export function CommunitiesTab() {
               <span className="block text-slate-500">{t('admin.communities.auto_placement_help')}</span>
             </span>
           </label>
+          )}
           <div>
             <label className="label">{t('admin.communities.placement_tag_label')}</label>
             <p className="mb-2 text-xs text-slate-500">{t('admin.communities.placement_tag_help')}</p>
@@ -747,6 +742,7 @@ export function CommunitiesTab() {
                   </td>
                   <td className="py-2 pr-4">
                     {node.name}
+                    {node.kind === 'GROUP' && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{t('admin.communities.group_badge')}</span>}
                     {node.placementCountry && (
                       <span className="block text-xs text-slate-500">
                         {t('admin.communities.placement_tag_shown', {
@@ -759,7 +755,7 @@ export function CommunitiesTab() {
                     {node.generation === null || node.generation === undefined
                       ? '—'
                       : node.generation === 0
-                        ? t('admin.communities.generation_headquarters')
+                        ? t('admin.communities.generation_founding')
                         : t('admin.communities.generation_n', { generation: node.generation })}
                   </td>
                   <td className="py-2 pr-4">
@@ -795,97 +791,16 @@ export function CommunitiesTab() {
                 {deleteFor?.id === node.id && (
                   <tr key={`${node.id}-delete`} className="border-b border-slate-50">
                     <td colSpan={8} className="p-3">
-                      <form onSubmit={confirmDelete} className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm">
-                        <p className="font-semibold text-red-800">{t('admin.communities.delete_heading', { name: node.name })}</p>
-                        {!deleteImpact && !deleteError && <p className="text-slate-500">{t('admin.communities.delete_loading')}</p>}
-                        {deleteImpact?.isHeadquarters && (
-                          <p className="text-red-700">{t('admin.communities.delete_is_headquarters')}</p>
-                        )}
-                        {deleteImpact && !deleteImpact.isHeadquarters && (
-                          <>
-                            <p className="text-slate-700">
-                              {t('admin.communities.delete_warning', {
-                                members: deleteImpact.members,
-                                messages: deleteImpact.messages,
-                                teachings: deleteImpact.teachings,
-                              })}
-                            </p>
-                            <p className="text-slate-600">{t('admin.communities.delete_people_kept')}</p>
-                            {deleteImpact.members > 0 && (
-                              <fieldset className="space-y-2 rounded-lg bg-white p-3" data-testid="delete-members-move">
-                                <legend className="px-1 font-semibold text-slate-800">{t('admin.communities.delete_members_where')}</legend>
-                                {node.parentId && (
-                                  <label className="flex items-center gap-2 text-slate-700">
-                                    <input type="radio" name="delete-move" checked={deleteMove === 'parent'} onChange={() => setDeleteMove('parent')} />
-                                    {t('admin.communities.delete_members_parent', { name: node.parent?.name ?? '' })}
-                                  </label>
-                                )}
-                                <label className="flex items-center gap-2 text-slate-700">
-                                  <input type="radio" name="delete-move" checked={deleteMove === 'other'} onChange={() => setDeleteMove('other')} />
-                                  {t('admin.communities.delete_members_other')}
-                                </label>
-                                {deleteMove === 'other' && (
-                                  <div className="pl-6">
-                                    {deleteOther && <p className="mb-1 font-semibold text-brand-900">✔ {deleteOther.name}</p>}
-                                    <SearchPicker
-                                      placeholder={t('admin.communities.delete_members_search')}
-                                      searchPath="/api/admin/communities?search="
-                                      renderLabel={(c) => c.name}
-                                      actionLabel={t('admin.communities.delete_members_choose')}
-                                      searchButtonLabel={t('admin.people.search_button')}
-                                      onPick={(c) => setDeleteOther({ id: c.id, name: c.name })}
-                                    />
-                                  </div>
-                                )}
-                                <label className="flex items-center gap-2 text-slate-700">
-                                  <input type="radio" name="delete-move" checked={deleteMove === 'none'} onChange={() => setDeleteMove('none')} />
-                                  {t('admin.communities.delete_members_none')}
-                                </label>
-                              </fieldset>
-                            )}
-                            {deleteImpact.subAssemblies > 0 && (
-                              <label className="flex items-start gap-2 text-slate-700">
-                                <input
-                                  type="checkbox"
-                                  checked={deleteMoveUp}
-                                  onChange={(e) => setDeleteMoveUp(e.target.checked)}
-                                  className="mt-1"
-                                />
-                                <span>{t('admin.communities.delete_move_up', { count: deleteImpact.subAssemblies })}</span>
-                              </label>
-                            )}
-                            <label className="block">
-                              <span className="text-slate-700">{t('admin.communities.delete_type_name', { name: node.name })}</span>
-                              <input
-                                className="input mt-1"
-                                value={deleteConfirm}
-                                onChange={(e) => setDeleteConfirm(e.target.value)}
-                                autoComplete="off"
-                              />
-                            </label>
-                          </>
-                        )}
-                        {deleteError && <p className="text-red-700">{deleteError}</p>}
-                        <div className="flex gap-3">
-                          {deleteImpact && !deleteImpact.isHeadquarters && (
-                            <button
-                              type="submit"
-                              className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
-                              disabled={
-                                deleting ||
-                                (deleteImpact.members > 0 && deleteMove === 'other' && !deleteOther) ||
-                                deleteConfirm.trim().toLowerCase() !== node.name.trim().toLowerCase() ||
-                                (deleteImpact.subAssemblies > 0 && !deleteMoveUp)
-                              }
-                            >
-                              {deleting ? t('admin.communities.deleting') : t('admin.communities.delete_confirm_button')}
-                            </button>
-                          )}
-                          <button type="button" className="btn-secondary px-4 py-2" onClick={() => setDeleteFor(null)}>
-                            {t('admin.communities.delete_cancel')}
-                          </button>
-                        </div>
-                      </form>
+                      <DeleteCommunityPanel
+                        base="/api/admin/communities"
+                        node={node}
+                        onCancel={() => setDeleteFor(null)}
+                        onDone={(message) => {
+                          setDeleteDone(message);
+                          setDeleteFor(null);
+                          load();
+                        }}
+                      />
                     </td>
                   </tr>
                 )}

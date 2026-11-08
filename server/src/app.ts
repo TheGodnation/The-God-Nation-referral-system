@@ -34,7 +34,7 @@ import adminPeopleRoutes from './routes/adminPeople';
 import adminSignInTroubleRoutes from './routes/adminSignInTrouble';
 import teachingsRoutes from './routes/teachings';
 import communityManageRoutes from './routes/communityManage';
-import adminCommunitiesRoutes from './routes/adminCommunities';
+import adminCommunitiesRoutes, { memberCentralCommunitiesRoutes } from './routes/adminCommunities';
 import adminDevotionalsRoutes from './routes/adminDevotionals';
 import adminAssessmentsRoutes from './routes/adminAssessments';
 import adminResultsRoutes from './routes/adminResults';
@@ -48,6 +48,7 @@ import { adminLeaderReferralReportRoutes, memberCentralLeaderReferralReportRoute
 import { adminTeachingCompletionRoutes, memberCentralTeachingCompletionRoutes } from './routes/adminTeachingCompletion';
 import { adminLeaderRoomsRoutes, memberCentralLeaderRoomsRoutes } from './routes/adminLeaderRooms';
 import { memberRepCellsRoutes } from './routes/repCells';
+import { memberCentralGroupsRoutes, memberRepGroupsRoutes } from './routes/groupLeaders';
 import { adminBroadcastLogRoutes, memberBroadcastRoutes, memberCentralBroadcastLogRoutes, memberRepBroadcastLogRoutes } from './routes/broadcast';
 import { adminWeeklyReportsRoutes, memberCentralWeeklyReportsRoutes, memberRepWeeklyReportsRoutes, memberWeeklyReportRoutes } from './routes/weeklyReports';
 import { adminRepresentativesRoutes, memberCentralRepresentativesRoutes, memberRepresentativeRoutes } from './routes/representatives';
@@ -167,6 +168,7 @@ export function createApp() {
   app.use('/api/admin', adminPeopleRoutes);
   app.use('/api/admin/presence', adminPresenceRoutes);
   app.use('/api/admin/communities', adminCommunitiesRoutes);
+  app.use('/api/member/central-communities', memberCentralCommunitiesRoutes);
   app.use('/api/admin/devotionals', adminDevotionalsRoutes);
   app.use('/api/admin/assessments', adminAssessmentsRoutes);
   app.use('/api/admin/results', adminResultsRoutes);
@@ -206,6 +208,8 @@ export function createApp() {
   app.use('/api/member/representative', memberRepresentativeRoutes);
   app.use('/api/member/rep-instructions', memberRepresentativeInstructionsRoutes);
   app.use('/api/member/rep-cells', memberRepCellsRoutes);
+  app.use('/api/member/central-groups', memberCentralGroupsRoutes);
+  app.use('/api/member/rep-groups', memberRepGroupsRoutes);
   app.use('/api/member/weekly-report', memberWeeklyReportRoutes);
   app.use('/api/member/broadcast', memberBroadcastRoutes);
   app.use('/api/member/central-broadcast-log', memberCentralBroadcastLogRoutes);

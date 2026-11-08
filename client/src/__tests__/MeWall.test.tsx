@@ -117,11 +117,11 @@ describe('Me wall', () => {
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Posts', 'Photos', 'My progress']);
 
     fireEvent.click(within(switcher).getByRole('button', { name: /Admin tools/ }));
-    const names = ['Instructions', 'Add many people', 'Sanctions', 'Representatives', 'My leaders', 'Group messages', "Leaders' rooms", 'Who did the teachings', "Leaders' referral report", 'Assemblies and leaders', 'Giving', 'Growth', 'Knowledge Centre'];
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toHaveLength(13);
+    const names = ['Instructions', 'Add many people', 'Sanctions', 'Representatives', 'My leaders', 'Group messages', 'Groups', "Leaders' rooms", 'Who did the teachings', "Leaders' referral report", 'Assemblies and leaders', 'Giving', 'Growth', 'Knowledge Centre'];
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toHaveLength(14);
     expect(screen.getByRole('tab', { name: 'Knowledge Centre' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Posts' })).not.toBeInTheDocument();
-    expect(names.length).toBe(13);
+    expect(names.length).toBe(14);
     fireEvent.click(screen.getByRole('tab', { name: 'Growth' }));
 
     // Back to My space: the Photos tab you left is not forgotten, and the admin layer remembers Growth.

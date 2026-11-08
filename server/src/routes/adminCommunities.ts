@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../lib/auth';
 import { requireCsrf } from '../lib/csrf';
+import { requireMember } from '../lib/memberAuth';
+import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
 import { wouldCreateCycle, getCommunityGeneration, getHeadquartersCommunityId, getDescendantCommunityIds } from '../lib/tree';
@@ -11,9 +13,11 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { addPeopleToCommunity } from '../lib/bulkMembers';
 import { notifyAddedToAssembly } from '../lib/notifications';
 
+// The community tools (list, create, rename, assembly-or-group, move, delete…) are offered twice with the same rules:
+// in the admin dashboard (admin sign-in) and in the central admin's own member profile (member sign-in). Both doors
+// mount this one router; the handlers only need `req.user` (the acting admin account) for the audit record.
+export function buildCommunitiesRouter() {
 const router = Router();
-
-router.use(requireAuth, requireRole('ADMIN'));
 
 const listQuerySchema = z.object({
   parentId: z.string().optional(),
@@ -167,7 +171,8 @@ router.post('/headquarters/replace', communityMutationLimiter, requireCsrf, asyn
     await tx.conversation.create({ data: { communityId: community.id } });
     // The assemblies directly under the old Headquarters, taken before it moves.
     if (moveSubAssembliesUp) await tx.community.updateMany({ where: { parentId: old.id }, data: { parentId: community.id } });
-    await tx.community.update({ where: { id: old.id }, data: { parentId: community.id } });
+    // The old Headquarters becomes a group of the new one (the Leadership Team): not a generation, no newcomers.
+    await tx.community.update({ where: { id: old.id }, data: { parentId: community.id, kind: 'GROUP', autoPlacementEligible: false } });
     await tx.settings.update({ where: { id: 'singleton' }, data: { headquartersCommunityId: community.id } });
     if (closeOthersToNewcomers && oldTree.length > 0) await tx.community.updateMany({ where: { id: { in: oldTree } }, data: { autoPlacementEligible: false } });
     return community;
@@ -313,6 +318,8 @@ router.get('/:id/members', asyncHandler(async (req, res) => {
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(200),
+  // ASSEMBLY (default) counts as a generation; GROUP (women, youth, prayer…) belongs to an assembly and never does.
+  kind: z.enum(['ASSEMBLY', 'GROUP']).optional(),
   parentId: z.string().optional().nullable(),
   active: z.boolean().optional(),
   // Whether this new group should receive automatically-placed newcomers.
@@ -331,9 +338,14 @@ router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req,
   }
   const d = parsed.data;
 
+  const kind = d.kind ?? 'ASSEMBLY';
+  if (kind === 'GROUP' && !d.parentId) return res.status(400).json({ error: 'A group belongs to an assembly: choose which one.' });
   if (d.parentId) {
-    const parent = await prisma.community.findUnique({ where: { id: d.parentId } });
+    const parent = await prisma.community.findUnique({ where: { id: d.parentId }, select: { id: true, kind: true } });
     if (!parent) return res.status(400).json({ error: 'Parent community not found.' });
+    if (kind === 'ASSEMBLY' && parent.kind === 'GROUP') {
+      return res.status(400).json({ error: 'An assembly of the next generation must sit under an assembly, not under a group.' });
+    }
   }
 
   // Phase 3M.1: every Community gets its one Conversation eagerly, in the
@@ -343,9 +355,11 @@ router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req,
     const community = await tx.community.create({
       data: {
         name: d.name,
+        kind,
         parentId: d.parentId ?? null,
         active: d.active ?? true,
-        autoPlacementEligible: d.autoPlacementEligible ?? true,
+        // A group never receives newcomers automatically.
+        autoPlacementEligible: kind === 'GROUP' ? false : d.autoPlacementEligible ?? true,
         placementCountry: d.placementCountry ?? null,
         placementRegion: d.placementRegion ?? null,
       },
@@ -360,7 +374,7 @@ router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req,
     action: 'COMMUNITY_CREATED',
     targetType: 'Community',
     targetId: created.id,
-    metadata: { name: created.name, parentId: created.parentId },
+    metadata: { name: created.name, parentId: created.parentId, kind: created.kind },
   });
 
   res.status(201).json(created);
@@ -368,6 +382,7 @@ router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req,
 
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
+  kind: z.enum(['ASSEMBLY', 'GROUP']).optional(),
   parentId: z.string().optional().nullable(),
   active: z.boolean().optional(),
   autoPlacementEligible: z.boolean().optional(),
@@ -390,6 +405,21 @@ router.patch('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (
   const existing = await prisma.community.findUnique({ where: { id } });
   if (!existing) return res.status(404).json({ error: 'Community not found.' });
 
+  // Assembly or group: only assemblies count as generations.
+  const newKind = d.kind ?? existing.kind;
+  const newParentId = d.parentId !== undefined ? d.parentId : existing.parentId;
+  const headquartersId = await getHeadquartersCommunityId();
+  if (newKind === 'GROUP') {
+    if (id === headquartersId) return res.status(400).json({ error: 'The Headquarters is an assembly, not a group.' });
+    if (!newParentId) return res.status(400).json({ error: 'A group belongs to an assembly: choose which one.' });
+    if (d.kind === 'GROUP' && existing.kind === 'ASSEMBLY' && (await prisma.community.count({ where: { parentId: id, kind: 'ASSEMBLY' } })) > 0) {
+      return res.status(400).json({ error: 'This assembly has assemblies of the next generation under it, so it cannot become a group.' });
+    }
+  } else if (newParentId) {
+    const parentKind = (await prisma.community.findUnique({ where: { id: newParentId }, select: { kind: true } }))?.kind;
+    if (parentKind === 'GROUP') return res.status(400).json({ error: 'An assembly of the next generation must sit under an assembly, not under a group.' });
+  }
+
   if (d.parentId !== undefined && d.parentId !== null) {
     if (d.parentId === id) {
       return res.status(400).json({ error: 'A community cannot be its own parent.' });
@@ -410,6 +440,7 @@ router.patch('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (
     where: { id },
     data: {
       ...(d.name !== undefined ? { name: d.name } : {}),
+      ...(d.kind !== undefined ? { kind: d.kind, ...(d.kind === 'GROUP' ? { autoPlacementEligible: false } : {}) } : {}),
       ...(d.parentId !== undefined ? { parentId: d.parentId } : {}),
       ...(d.active !== undefined ? { active: d.active } : {}),
       ...(d.autoPlacementEligible !== undefined ? { autoPlacementEligible: d.autoPlacementEligible } : {}),
@@ -522,4 +553,27 @@ router.delete('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async 
   res.json({ deleted: true, name: existing.name, ...impact, membersMoved });
 }));
 
-export default router;
+return router;
+}
+
+const adminRouter = Router();
+adminRouter.use(requireAuth, requireRole('ADMIN'), buildCommunitiesRouter());
+
+export default adminRouter;
+
+// The central admin's member profile: the same tools, signed in as the member profile linked to the admin account.
+export const memberCentralCommunitiesRoutes = (() => {
+  const router = Router();
+  router.use(requireMember);
+  router.use(
+    asyncHandler(async (req, res, next) => {
+      if (!(await isCentralAdminPerson(req.member!.personId))) return res.status(403).json({ error: 'Forbidden.' });
+      const user = await prisma.user.findUnique({ where: { personId: req.member!.personId }, select: { id: true, email: true, role: true, active: true, personId: true, name: true } });
+      if (!user || user.role !== 'ADMIN' || !user.active) return res.status(403).json({ error: 'Forbidden.' });
+      (req as any).user = user;
+      next();
+    }),
+  );
+  router.use(buildCommunitiesRouter());
+  return router;
+})();

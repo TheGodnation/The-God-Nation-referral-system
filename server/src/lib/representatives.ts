@@ -87,3 +87,17 @@ export async function end(id: string, adminUserId: string | null) {
   await notifyRepresentativeEnded(row.personId, row.generation).catch(() => {});
   return row;
 }
+
+/**
+ * The account a representative's action is recorded under (follow-up and role records need an account): their own, or
+ * the central admin who appointed them, or any active central admin.
+ */
+export async function actingUserFor(personId: string): Promise<{ id: string; email: string | null }> {
+  const own = await prisma.user.findUnique({ where: { personId }, select: { id: true, email: true, active: true } });
+  if (own?.active) return own;
+  const rep = await prisma.generationRepresentative.findFirst({ where: { personId, endedAt: null }, select: { appointedByUserId: true } });
+  const appointer = rep?.appointedByUserId ? await prisma.user.findUnique({ where: { id: rep.appointedByUserId }, select: { id: true, email: true } }) : null;
+  const fallback = appointer ?? (await prisma.user.findFirst({ where: { role: 'ADMIN', active: true }, select: { id: true, email: true } }));
+  if (!fallback) throw new Error('No account available to record this action.');
+  return fallback;
+}

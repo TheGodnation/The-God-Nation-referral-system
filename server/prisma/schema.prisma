@@ -986,8 +986,17 @@ model Person {
 // Phase 3A spec). Self-referencing parent/child supports an arbitrarily
 // deep Mother -> Child -> Grandchild hierarchy with no hard-coded depth
 // limit. No leadership/capacity logic yet — that is a later phase.
+// An ASSEMBLY is part of the growth tree: the Headquarters is the founding generation (0), the assemblies it brings are
+// generation 1, theirs generation 2, and so on. A GROUP (women, youth, prayer, leadership team…) belongs to an assembly
+// and is never counted as a generation: it simply has its assembly's generation.
+enum CommunityKind {
+  ASSEMBLY
+  GROUP
+}
+
 model Community {
   id                    String                 @id @default(uuid())
+  kind                  CommunityKind          @default(ASSEMBLY)
   parentId              String?
   name                  String
   active                Boolean                @default(true)

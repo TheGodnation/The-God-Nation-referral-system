@@ -20,6 +20,7 @@ import { MyMembers } from './MyMembers';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
 import { LeaderLeadershipCollaboration } from './LeaderLeadershipCollaboration';
 import { LeaderCommunityConversations } from './LeaderCommunityConversations';
+import { GroupLeadersPanel } from '../admin/GroupLeadersPanel';
 import { RepAssignPanel } from '../admin/RepAssignPanel';
 import { BroadcastComposer } from './BroadcastComposer';
 import { BroadcastLogPanel } from '../admin/BroadcastLogPanel';
@@ -196,7 +197,7 @@ function LeaderEscalations() {
   );
 }
 
-type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions' | 'repInstructions' | 'weeklyReport' | 'repReports' | 'broadcast' | 'repBroadcastLog' | 'repAssign';
+type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions' | 'repInstructions' | 'weeklyReport' | 'repReports' | 'broadcast' | 'repBroadcastLog' | 'repAssign' | 'repGroups';
 
 interface MyPeopleSummary {
   total: number;
@@ -289,6 +290,7 @@ export function LeadershipDashboardBody() {
       ? [
           { key: 'repInstructions' as SectionKey, icon: '🧭', render: () => <InstructionsPanel base="/api/member/rep-instructions" representative /> },
           { key: 'repReports' as SectionKey, icon: '📊', render: () => <LeadersReportPanel base="/api/member/rep-weekly-reports" mode="rep" /> },
+          { key: 'repGroups' as SectionKey, icon: '🏷️', render: () => <GroupLeadersPanel base="/api/member/rep-groups" /> },
           { key: 'repAssign' as SectionKey, icon: '🧑‍🤝‍🧑', render: () => <RepAssignPanel /> },
           { key: 'repBroadcastLog' as SectionKey, icon: '📣', render: () => <BroadcastLogPanel base="/api/member/rep-broadcast-log" /> },
         ]

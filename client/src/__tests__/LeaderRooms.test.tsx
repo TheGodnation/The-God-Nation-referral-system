@@ -30,7 +30,7 @@ describe('The leaders\' rooms for the National Coordinator', () => {
     expect(await screen.findByTestId('room--1')).toHaveTextContent('All leaders');
     expect(screen.getByTestId('room--1')).toHaveTextContent('4 leader(s)');
     expect(screen.getByTestId('room--1')).toHaveTextContent('2');
-    expect(screen.getByTestId('room-0')).toHaveTextContent('Headquarters');
+    expect(screen.getByTestId('room-0')).toHaveTextContent('Founding generation (0)');
     expect(screen.getByTestId('room-1')).toHaveTextContent('Generation 1');
 
     fireEvent.click(screen.getByTestId('room--1'));

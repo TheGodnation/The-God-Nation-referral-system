@@ -307,9 +307,13 @@ describe('National Headquarters designation and derived generation', () => {
     expect((await prisma.community.findUniqueOrThrow({ where: { id: sub.body.id } })).parentId).toBe(oldHq.body.id);
     expect((await agent.get('/api/admin/communities/headquarters')).body.community.id).toBe(created.id);
 
-    // The levels shift by one; nobody is moved or removed.
-    expect((await agent.get(`/api/admin/communities/${oldHq.body.id}`)).body.generation).toBe(1);
-    expect((await agent.get(`/api/admin/communities/${sub.body.id}`)).body.generation).toBe(2);
+    // The old Headquarters becomes a group of the new one (not a generation: it shares the founding generation, 0);
+    // the assembly under it is the first generation. Nobody is moved or removed.
+    const old = await prisma.community.findUniqueOrThrow({ where: { id: oldHq.body.id } });
+    expect(old.kind).toBe('GROUP');
+    expect(old.autoPlacementEligible).toBe(false);
+    expect((await agent.get(`/api/admin/communities/${oldHq.body.id}`)).body.generation).toBe(0);
+    expect((await agent.get(`/api/admin/communities/${sub.body.id}`)).body.generation).toBe(1);
     expect(await prisma.communityMembership.count({ where: { personId: member.id, communityId: oldHq.body.id, status: 'ACTIVE' } })).toBe(1);
     expect(await prisma.auditLog.count({ where: { action: 'HEADQUARTERS_COMMUNITY_REPLACED', targetId: created.id } })).toBe(1);
   });
@@ -330,8 +334,8 @@ describe('National Headquarters designation and derived generation', () => {
     expect(await parentOf(a.body.id)).toBe(newId); // and so do the assemblies that were under it
     expect(await parentOf(b.body.id)).toBe(newId);
     expect(await parentOf(aa.body.id)).toBe(a.body.id); // their own sub-assemblies stay with them
-    // Generations: the old Headquarters and the assemblies are all generation 1; the sub-assembly is 2.
-    expect((await agent.get(`/api/admin/communities/${oldHq.body.id}`)).body.generation).toBe(1);
+    // Generations: the old Headquarters is now a group (founding generation, 0); the assemblies are generation 1; theirs 2.
+    expect((await agent.get(`/api/admin/communities/${oldHq.body.id}`)).body.generation).toBe(0);
     expect((await agent.get(`/api/admin/communities/${a.body.id}`)).body.generation).toBe(1);
     expect((await agent.get(`/api/admin/communities/${aa.body.id}`)).body.generation).toBe(2);
   });
@@ -425,5 +429,52 @@ describe('National Headquarters designation and derived generation', () => {
     const { agent } = await loginAsAdmin('admin-hq-csrf@test.local');
     const res = await agent.put('/api/admin/communities/headquarters').send({ communityId: 'x' });
     expect(res.status).toBe(403);
+  });
+});
+
+describe('Groups are not generations', () => {
+  it('a group takes its assembly’s generation; only assemblies count', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-kind1@test.local');
+    const make = (body: Record<string, unknown>) => agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send(body);
+    const hq = await make({ name: 'Kind HQ' });
+    await agent.put('/api/admin/communities/headquarters').set('X-CSRF-Token', csrf).send({ communityId: hq.body.id });
+    const women = await make({ name: 'Kind Women', kind: 'GROUP', parentId: hq.body.id });
+    const prayer = await make({ name: 'Kind Prayer', kind: 'GROUP', parentId: hq.body.id });
+    const a = await make({ name: 'Kind A', parentId: hq.body.id });
+    const youthA = await make({ name: 'Kind Youth A', kind: 'GROUP', parentId: a.body.id });
+    const a1 = await make({ name: 'Kind A1', parentId: a.body.id });
+    expect(women.status).toBe(201);
+    expect(women.body.kind).toBe('GROUP');
+    expect(women.body.autoPlacementEligible).toBe(false); // groups never receive newcomers
+    const gen = async (id: string) => (await agent.get(`/api/admin/communities/${id}`)).body.generation;
+    expect(await gen(hq.body.id)).toBe(0);
+    expect(await gen(women.body.id)).toBe(0); // five groups under the Headquarters do not make five generations
+    expect(await gen(prayer.body.id)).toBe(0);
+    expect(await gen(a.body.id)).toBe(1);
+    expect(await gen(youthA.body.id)).toBe(1);
+    expect(await gen(a1.body.id)).toBe(2);
+  });
+
+  it('refuses a group with no assembly, an assembly under a group, and an assembly that still has assemblies under it becoming a group', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-kind2@test.local');
+    const make = (body: Record<string, unknown>) => agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send(body);
+    const patch = (id: string, body: Record<string, unknown>) => agent.patch(`/api/admin/communities/${id}`).set('X-CSRF-Token', csrf).send(body);
+    const hq = await make({ name: 'Kind2 HQ' });
+    await agent.put('/api/admin/communities/headquarters').set('X-CSRF-Token', csrf).send({ communityId: hq.body.id });
+    expect((await make({ name: 'No Parent', kind: 'GROUP' })).status).toBe(400);
+    const group = await make({ name: 'Kind2 Group', kind: 'GROUP', parentId: hq.body.id });
+    expect((await make({ name: 'Under Group', parentId: group.body.id })).status).toBe(400);
+    const a = await make({ name: 'Kind2 A', parentId: hq.body.id });
+    await make({ name: 'Kind2 A1', parentId: a.body.id });
+    expect((await patch(a.body.id, { kind: 'GROUP' })).status).toBe(400);
+    expect((await patch(hq.body.id, { kind: 'GROUP' })).status).toBe(400); // the Headquarters is an assembly
+    // A plain assembly can become a group, and a group an assembly, by editing.
+    const lone = await make({ name: 'Kind2 Lone', parentId: hq.body.id });
+    const toGroup = await patch(lone.body.id, { kind: 'GROUP' });
+    expect(toGroup.status).toBe(200);
+    expect(toGroup.body).toMatchObject({ kind: 'GROUP', autoPlacementEligible: false });
+    expect((await agent.get(`/api/admin/communities/${lone.body.id}`)).body.generation).toBe(0);
+    expect((await patch(lone.body.id, { kind: 'ASSEMBLY' })).status).toBe(200);
+    expect((await agent.get(`/api/admin/communities/${lone.body.id}`)).body.generation).toBe(1);
   });
 });

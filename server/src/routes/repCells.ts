@@ -8,7 +8,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { assembliesOverview } from '../lib/cells';
 import { leaderLoads, shareUnassigned } from '../lib/followUpShare';
-import { representedCommunityIds, representedGeneration } from '../lib/representatives';
+import { actingUserFor, representedCommunityIds, representedGeneration } from '../lib/representatives';
 
 // The representative of a generation gives the people nobody follows yet to the leaders of an assembly of THEIR
 // generation — the same tool the central admin has (same rules, same preview), limited to that generation.
@@ -24,17 +24,6 @@ async function scope(req: Request, res: Response): Promise<{ generation: number;
     return null;
   }
   return { generation, ids: new Set(await representedCommunityIds(req.member!.personId)) };
-}
-
-// The follow-up record needs an account that assigned it: the representative's own, or the central admin who appointed them.
-async function actingUser(personId: string): Promise<{ id: string; email: string | null }> {
-  const own = await prisma.user.findUnique({ where: { personId }, select: { id: true, email: true, active: true } });
-  if (own?.active) return own;
-  const rep = await prisma.generationRepresentative.findFirst({ where: { personId, endedAt: null }, select: { appointedByUserId: true } });
-  const appointer = rep?.appointedByUserId ? await prisma.user.findUnique({ where: { id: rep.appointedByUserId }, select: { id: true, email: true } }) : null;
-  const fallback = appointer ?? (await prisma.user.findFirst({ where: { role: 'ADMIN', active: true }, select: { id: true, email: true } }));
-  if (!fallback) throw new Error('No account available to record the assignment.');
-  return fallback;
 }
 
 router.get('/overview', asyncHandler(async (req, res) => {
@@ -67,7 +56,7 @@ router.post('/share', leadershipMutationLimiter, requireCsrf, asyncHandler(async
   if (!parsed.success) return res.status(400).json({ error: 'communityId is required.' });
   const { communityId, ...options } = parsed.data;
   if (!s.ids.has(communityId)) return res.status(403).json({ error: 'This assembly is not in your generation.' });
-  const user = await actingUser(req.member!.personId);
+  const user = await actingUserFor(req.member!.personId);
   const result = await shareUnassigned(communityId, user.id, options);
   if (!result.dryRun) {
     await recordAudit({
