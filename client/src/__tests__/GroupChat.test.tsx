@@ -236,6 +236,22 @@ describe('WhatsApp-style group chat', () => {
     await waitFor(() => expect(screen.queryByText('Replying to Ada Nkem')).not.toBeInTheDocument());
   });
 
+  it('replaces the message box with the mute notice (reason, end date, ask for excuse) while muted', async () => {
+    mockFetch(
+      baseRoutes({
+        [`GET /api/communities/${G}/conversation/messages`]: () => ({
+          body: { items: messages, hasMore: false, unreadCount: 0, isAdministrator: false, canPost: false, mute: { id: 's1', reason: 'Too many links', endsAt: new Date(Date.now() + 3 * 86400000).toISOString(), excuseSent: false } },
+        }),
+      }),
+    );
+    renderChat();
+    await screen.findByText('I am coming');
+    const banner = await screen.findByTestId('muted-banner');
+    expect(within(banner).getByText(/Reason: Too many links/)).toBeInTheDocument();
+    expect(within(banner).getByRole('button', { name: 'Ask for excuse' })).toBeInTheDocument();
+    expect(screen.queryByTestId('chat-gallery-input')).toBeNull();
+  });
+
   it('says clearly when photos and voice notes are switched off', async () => {
     mockFetch(
       baseRoutes({

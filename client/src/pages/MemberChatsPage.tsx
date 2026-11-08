@@ -24,6 +24,8 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
   /** 0 = Headquarters, 1 = directly under it, … (null = outside the tree). */
   generation?: number | null;
+  /** The former Headquarters, kept right under the new one. */
+  isLeadershipTeam?: boolean;
   /** Opened by the National Coordinator without being a member there. */
   asCoordinator?: boolean;
 }
@@ -130,9 +132,9 @@ export function MemberChatsPage() {
   }, []);
 
   // Fixed order, so a row is always where you expect it: the Headquarters first,
-  // then each generation in turn (its name breaks ties). Messages never reorder this.
-  const byPlace = (x: MembershipRow, y: MembershipRow) =>
-    (x.generation ?? 999) - (y.generation ?? 999) || x.communityName.localeCompare(y.communityName);
+  // then the Leadership Team, then each generation in turn (its name breaks ties). Messages never reorder this.
+  const rank = (m: MembershipRow) => (m.generation === 0 ? 0 : m.isLeadershipTeam ? 1 : 2 + (m.generation ?? 999));
+  const byPlace = (x: MembershipRow, y: MembershipRow) => rank(x) - rank(y) || x.communityName.localeCompare(y.communityName);
   const active = useMemo(() => (memberships?.filter((m) => m.status === 'ACTIVE' && !m.asCoordinator) ?? []).sort(byPlace), [memberships]);
   const coordinatorOnly = useMemo(() => (memberships?.filter((m) => m.asCoordinator) ?? []).sort(byPlace), [memberships]);
 

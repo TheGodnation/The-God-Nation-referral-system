@@ -1,3 +1,4 @@
+import { muteNotice } from '../lib/sanctions';
 import { appLanguage } from '../lib/appLanguage';
 import { cardStatesFor, cardTotalsFor } from '../lib/teachings';
 import { badgeOf, centralAdminAmong, isCentralAdminPerson } from '../lib/centralAdmin';
@@ -469,6 +470,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     unreadCount,
     isAdministrator,
     canPost,
+    // Set when the viewer is muted here: why, until when, and whether they already asked for excuse.
+    mute: await muteNotice(personId, communityId),
   });
 }));
 
@@ -522,6 +525,8 @@ router.post(
     // unchanged; under LEADERS_ONLY it additionally requires an active
     // exact-Community SCOPED_LEADER. Read routes above are untouched.
     if (!(await canPostCommunityMessage(personId, communityId))) {
+      const mute = await muteNotice(personId, communityId);
+      if (mute) return res.status(403).json({ error: 'You are muted in this assembly and cannot write until the mute ends.', code: 'MUTED', mute });
       return res.status(403).json({ error: 'You do not have permission to post in this community.' });
     }
 

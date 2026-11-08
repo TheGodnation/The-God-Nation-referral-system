@@ -144,3 +144,19 @@ export async function getCommunityIdsAtGeneration(
   }
   return frontier;
 }
+
+/**
+ * The Leadership Team: the assembly that used to be the Headquarters before the current one replaced it
+ * (read from the latest "Headquarters replaced" record). Null if the Headquarters was never replaced, or
+ * that assembly no longer sits directly under the current Headquarters. Used only to keep it right under
+ * the Headquarters in the Chats list.
+ */
+export async function getLeadershipTeamCommunityId(): Promise<string | null> {
+  const hqId = await getHeadquartersCommunityId();
+  if (!hqId) return null;
+  const log = await prisma.auditLog.findFirst({ where: { action: 'HEADQUARTERS_COMMUNITY_REPLACED' }, orderBy: { createdAt: 'desc' }, select: { metadata: true } });
+  const previousId = (log?.metadata as { previousHeadquartersId?: string } | null)?.previousHeadquartersId;
+  if (!previousId) return null;
+  const previous = await prisma.community.findUnique({ where: { id: previousId }, select: { parentId: true } });
+  return previous?.parentId === hqId ? previousId : null;
+}

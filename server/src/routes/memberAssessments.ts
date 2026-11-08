@@ -1,5 +1,5 @@
 import { isCentralAdminPerson } from '../lib/centralAdmin';
-import { getCommunityGeneration, getHeadquartersCommunityId } from '../lib/tree';
+import { getCommunityGeneration, getHeadquartersCommunityId, getLeadershipTeamCommunityId } from '../lib/tree';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -351,6 +351,7 @@ router.get('/me/community-memberships', asyncHandler(async (req, res) => {
     : [];
   // Generation (0 = Headquarters) so the Chats list can keep a fixed order.
   const hqId = await getHeadquartersCommunityId();
+  const leadershipTeamId = await getLeadershipTeamCommunityId();
   const generationOf = async (id: string) => (hqId ? await getCommunityGeneration(id, hqId) : null);
   const generations = new Map<string, number | null>();
   for (const id of [...memberships.map((m) => m.community.id), ...others.map((c) => c.id)]) {
@@ -360,6 +361,7 @@ router.get('/me/community-memberships', asyncHandler(async (req, res) => {
     items: [
       ...memberships.map((m) => ({
         generation: generations.get(m.community.id) ?? null,
+        isLeadershipTeam: m.community.id === leadershipTeamId,
         // Phase 3M.1: communityId is additive — needed so the client can
         // address this Community's conversation. Every existing field is
         // unchanged.
@@ -368,7 +370,7 @@ router.get('/me/community-memberships', asyncHandler(async (req, res) => {
         status: m.status,
         joinedAt: m.joinedAt,
       })),
-      ...others.map((c) => ({ communityId: c.id, communityName: c.name, status: 'ACTIVE' as const, joinedAt: c.createdAt, asCoordinator: true, generation: generations.get(c.id) ?? null })),
+      ...others.map((c) => ({ communityId: c.id, communityName: c.name, status: 'ACTIVE' as const, joinedAt: c.createdAt, asCoordinator: true, generation: generations.get(c.id) ?? null, isLeadershipTeam: c.id === leadershipTeamId })),
     ],
   });
 }));

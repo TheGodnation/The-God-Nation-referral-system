@@ -159,3 +159,25 @@ describe('Chats list order data', () => {
     }
   });
 });
+
+describe('Leadership Team position in the Chats list', () => {
+  it('flags the former Headquarters, now directly under the new one', async () => {
+    const member = await signedIn('Pinned');
+    const oldHq = await prisma.community.create({ data: { name: `OldHQ ${n}` } });
+    const newHq = await prisma.community.create({ data: { name: `NewHQ ${n}` } });
+    await prisma.community.update({ where: { id: oldHq.id }, data: { parentId: newHq.id } });
+    await prisma.communityMembership.createMany({ data: [{ personId: member.person.id, communityId: oldHq.id }, { personId: member.person.id, communityId: newHq.id }] });
+    const before = await prisma.settings.findUnique({ where: { id: 'singleton' } });
+    await prisma.settings.upsert({ where: { id: 'singleton' }, update: { headquartersCommunityId: newHq.id }, create: { id: 'singleton', headquartersCommunityId: newHq.id } as any });
+    const log = await prisma.auditLog.create({ data: { action: 'HEADQUARTERS_COMMUNITY_REPLACED', targetType: 'Community', targetId: newHq.id, metadata: { previousHeadquartersId: oldHq.id } } });
+    try {
+      const res = await member.agent.get('/api/member/me/community-memberships');
+      const flags = Object.fromEntries(res.body.items.map((i: any) => [i.communityId, i.isLeadershipTeam]));
+      expect(flags[oldHq.id]).toBe(true);
+      expect(flags[newHq.id]).toBe(false);
+    } finally {
+      await prisma.auditLog.delete({ where: { id: log.id } });
+      await prisma.settings.update({ where: { id: 'singleton' }, data: { headquartersCommunityId: before?.headquartersCommunityId ?? null } });
+    }
+  });
+});

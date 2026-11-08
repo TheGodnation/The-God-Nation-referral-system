@@ -38,6 +38,13 @@ type NotificationType =
   | 'POST_REPLIED'
   | 'ASSEMBLY_OPENED'
   | 'ADDED_TO_ASSEMBLY'
+  | 'SANCTION_PLACED'
+  | 'SANCTION_LIFTED'
+  | 'SANCTION_ENDED'
+  | 'EXCUSE_REQUESTED'
+  | 'REMOVAL_REQUESTED'
+  | 'REMOVAL_DECIDED'
+  | 'REMOVED_FROM_ASSEMBLY'
   | 'ESCALATION_RECEIVED'
   | 'INSTRUCTION_RECEIVED'
   | 'INSTRUCTION_REMINDER'
@@ -197,6 +204,22 @@ export function NotificationBell() {
         return t('notifications.escalation_answered', { name: metadata.answererName ?? '', about: metadata.aboutName ?? '' });
       case 'ESCALATION_BYPASSED':
         return t(metadata.role === 'ASKER' ? 'notifications.escalation_bypassed_asker' : metadata.reason === 'AWAY' ? 'notifications.escalation_bypassed_away' : 'notifications.escalation_bypassed_skipped', { asker: metadata.askerName ?? '', about: metadata.aboutName ?? '' });
+      case 'SANCTION_PLACED': {
+        const date = metadata.endsAt ? new Date(String(metadata.endsAt)).toLocaleDateString(isFr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long' }) : '';
+        return t('notifications.sanction_placed', { assembly: metadata.assemblyName ?? '', date, reason: metadata.reason ?? '' });
+      }
+      case 'SANCTION_LIFTED':
+        return t('notifications.sanction_lifted', { assembly: metadata.assemblyName ?? '' });
+      case 'SANCTION_ENDED':
+        return t('notifications.sanction_ended', { assembly: metadata.assemblyName ?? '' });
+      case 'EXCUSE_REQUESTED':
+        return t('notifications.excuse_requested', { name: metadata.personName ?? '', assembly: metadata.assemblyName ?? '' });
+      case 'REMOVAL_REQUESTED':
+        return t('notifications.removal_requested', { requester: metadata.requesterName ?? '', name: metadata.personName ?? '', assembly: metadata.assemblyName ?? '' });
+      case 'REMOVAL_DECIDED':
+        return t(metadata.approved ? 'notifications.removal_decided_yes' : 'notifications.removal_decided_no', { name: metadata.personName ?? '', assembly: metadata.assemblyName ?? '' });
+      case 'REMOVED_FROM_ASSEMBLY':
+        return t('notifications.removed_from_assembly', { assembly: metadata.assemblyName ?? '' });
       case 'ADDED_TO_ASSEMBLY':
         return t('notifications.added_to_assembly', { name: metadata.assemblyName ?? '' });
       case 'ASSEMBLY_OPENED':
