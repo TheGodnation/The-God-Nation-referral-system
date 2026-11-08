@@ -4288,7 +4288,9 @@
     "broadcast_title": "Message à toutes mes personnes",
     "broadcast_tile": "Écrivez une fois à toutes les personnes dont vous prenez soin.",
     "repBroadcastLog_title": "Messages groupés de ma génération",
-    "repBroadcastLog_tile": "Ce que les leaders de votre génération ont envoyé à leurs personnes."
+    "repBroadcastLog_tile": "Ce que les leaders de votre génération ont envoyé à leurs personnes.",
+    "repAssign_title": "Représentant : confier des personnes",
+    "repAssign_tile": "Confiez des personnes aux leaders de votre génération."
   },
   "instructions": {
     "tab": "Instructions",
@@ -4655,5 +4657,15 @@
     "log_title": "Messages groupés des leaders",
     "log_help": "Chaque message qu'un leader a envoyé à toutes ses personnes : qui l'a envoyé, quand, à combien, et ce qu'il disait.",
     "log_none": "Aucun message groupé pour le moment."
+  },
+  "repAssign": {
+    "title": "Confier des personnes aux leaders",
+    "help": "Confiez les personnes que personne ne suit encore aux leaders d'une assemblée de la génération {{n}}. Choisissez l'assemblée, puis les leaders et combien chacun (ou répartissez à parts égales), prévisualisez, puis confiez.",
+    "loading": "Chargement…",
+    "load_failed": "Chargement impossible. Réessayez.",
+    "none": "Il n'y a pas encore d'assemblées dans votre génération.",
+    "counts": "{{members}} membres · {{leaders}} leaders · {{unassigned}} pas encore suivis",
+    "open": "Confier des personnes",
+    "close": "Fermer"
   }
 }

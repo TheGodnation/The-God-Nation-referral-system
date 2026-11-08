@@ -288,7 +288,7 @@ interface SharePlan {
 
 // Give the people nobody follows to the leaders: choose which leaders, and how many people each (leave the number
 // empty to share evenly). "Preview" shows who would get how many, and changes nothing; "Assign" does it.
-function AssignPeople({ base, communityId, onDone }: { base: string; communityId: string; onDone: (message: string) => void }) {
+export function AssignPeople({ base, communityId, onDone }: { base: string; communityId: string; onDone: (message: string) => void }) {
   const { t } = useTranslation();
   const [leaders, setLeaders] = useState<LeaderLoad[] | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);

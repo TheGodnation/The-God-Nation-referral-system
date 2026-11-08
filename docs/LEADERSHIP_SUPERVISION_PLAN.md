@@ -91,3 +91,10 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **Who cannot be blocked** (everywhere in the app): the central admin and their member profile; the leaders of your own
   assembly or generation; the leader who looks after you; the representative of your generation. Older blocks of such people
   are ignored, so they can always message each other. Ordinary members and leaders far from you can still be blocked.
+
+## Representatives: assign people to leaders (done)
+
+- The representative of a generation has the same "assign people to leaders" tool as the central admin — choose an assembly, the
+  leaders, how many each (or share evenly), preview, then assign — **limited to the assemblies of their generation** (a tile
+  "Representative: assign people" in My Leadership Dashboard; `/api/member/rep-cells`). Any other assembly is refused; it stops
+  the moment they are no longer the representative. Each assignment is recorded in the audit log as made by the representative.

@@ -47,6 +47,7 @@ import { adminGivingRoutes, memberCentralGivingRoutes } from './routes/adminGivi
 import { adminLeaderReferralReportRoutes, memberCentralLeaderReferralReportRoutes } from './routes/adminLeaderReferralReport';
 import { adminTeachingCompletionRoutes, memberCentralTeachingCompletionRoutes } from './routes/adminTeachingCompletion';
 import { adminLeaderRoomsRoutes, memberCentralLeaderRoomsRoutes } from './routes/adminLeaderRooms';
+import { memberRepCellsRoutes } from './routes/repCells';
 import { adminBroadcastLogRoutes, memberBroadcastRoutes, memberCentralBroadcastLogRoutes, memberRepBroadcastLogRoutes } from './routes/broadcast';
 import { adminWeeklyReportsRoutes, memberCentralWeeklyReportsRoutes, memberRepWeeklyReportsRoutes, memberWeeklyReportRoutes } from './routes/weeklyReports';
 import { adminRepresentativesRoutes, memberCentralRepresentativesRoutes, memberRepresentativeRoutes } from './routes/representatives';
@@ -204,6 +205,7 @@ export function createApp() {
   app.use('/api/member/central-representatives', memberCentralRepresentativesRoutes);
   app.use('/api/member/representative', memberRepresentativeRoutes);
   app.use('/api/member/rep-instructions', memberRepresentativeInstructionsRoutes);
+  app.use('/api/member/rep-cells', memberRepCellsRoutes);
   app.use('/api/member/weekly-report', memberWeeklyReportRoutes);
   app.use('/api/member/broadcast', memberBroadcastRoutes);
   app.use('/api/member/central-broadcast-log', memberCentralBroadcastLogRoutes);
