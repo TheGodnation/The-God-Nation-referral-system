@@ -205,9 +205,9 @@ describe('CommunitiesTab — National Headquarters designation', () => {
     render(<CommunitiesTab />);
 
     await waitFor(() => expect(screen.getByText('HQ')).toBeInTheDocument());
-    // "National Headquarters" appears twice: the heading above the table,
-    // and the generation-0 label on the HQ row itself.
-    expect(screen.getAllByText('National Headquarters')).toHaveLength(2);
+    // "National Headquarters" is the heading above the table; generation 0 on the HQ row reads "Founding generation (0)".
+    expect(screen.getAllByText('National Headquarters')).toHaveLength(1);
+    expect(screen.getByText('Founding generation (0)')).toBeInTheDocument();
     expect(screen.getByText('Generation 1')).toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
   });
@@ -283,7 +283,7 @@ describe('CommunitiesTab — automatic-placement eligibility', () => {
 
     await waitFor(() => {
       const postCall = calls.find((c) => c.method === 'POST' && c.url.includes('/api/admin/communities'));
-      expect(postCall!.body).toEqual({ name: 'Welcome group', autoPlacementEligible: true });
+      expect(postCall!.body).toEqual({ name: 'Welcome group', kind: 'ASSEMBLY', autoPlacementEligible: true });
     });
   });
 
@@ -304,7 +304,7 @@ describe('CommunitiesTab — automatic-placement eligibility', () => {
     fireEvent.click(screen.getByText('Create'));
     await waitFor(() => {
       const postCall = calls.find((c) => c.method === 'POST' && c.url.includes('/api/admin/communities'));
-      expect(postCall!.body).toEqual({ name: 'HQ Leaders', parentId: 'hq1', autoPlacementEligible: false });
+      expect(postCall!.body).toEqual({ name: 'HQ Leaders', kind: 'ASSEMBLY', parentId: 'hq1', autoPlacementEligible: false });
     });
   });
 
@@ -659,5 +659,44 @@ describe('CommunitiesTab — delete an assembly', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(await screen.findByText(/cannot be deleted/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Yes, delete permanently/ })).toBeNull();
+  });
+});
+
+
+describe('CommunitiesTab — assembly or group', () => {
+  it('creates a group inside an assembly: never counted as a generation, never open to newcomers', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: { id: 'hq1', name: 'HQ' } } },
+      '/api/admin/communities?&page=': { status: 200, body: emptyList },
+      '/api/admin/communities': { status: 201, body: { id: 'g1' } },
+    });
+    render(<CommunitiesTab />);
+    await screen.findByText('Current Headquarters: HQ');
+    fireEvent.click(screen.getByText('+ New Community'));
+    const kind = await screen.findByTestId('new-kind');
+    // Newcomer choices only make sense for assemblies.
+    expect(screen.getByText(/Who joins it/i)).toBeInTheDocument();
+    fireEvent.click(within(kind).getByLabelText(/A group inside an assembly/));
+    expect(screen.queryByText(/Who joins it/i)).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText('Community name'), { target: { value: 'Women' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => {
+      const post = calls.find((c) => c.method === 'POST' && c.url === '/api/admin/communities');
+      expect(post?.body).toMatchObject({ name: 'Women', kind: 'GROUP', autoPlacementEligible: false });
+    });
+  });
+
+  it('shows which rows are groups', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: { id: 'hq1', name: 'HQ' } } },
+      '/api/admin/communities?&page=': {
+        status: 200,
+        body: { items: [{ id: 'g1', name: 'Prayer Group', kind: 'GROUP', active: true, parentId: 'hq1', generation: 0, autoPlacementEligible: false, postingPolicy: 'EVERYONE', _count: { children: 0, memberships: 3 } }], pagination: { totalPages: 1 } },
+      },
+    });
+    render(<CommunitiesTab />);
+    await screen.findByText('Prayer Group');
+    expect(screen.getByText('Group')).toBeInTheDocument();
+    expect(screen.getByText('Founding generation (0)')).toBeInTheDocument();
   });
 });

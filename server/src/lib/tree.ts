@@ -73,6 +73,8 @@ export async function getCommunityGeneration(
   communityId: string,
   headquartersCommunityId: string,
 ): Promise<number | null> {
+  // Only ASSEMBLIES count as a step down in generation. A GROUP (women, youth, prayer, leadership team…) has the
+  // generation of the assembly it belongs to.
   let currentId: string | null = communityId;
   let depth = 0;
   const seen = new Set<string>();
@@ -80,13 +82,13 @@ export async function getCommunityGeneration(
     if (currentId === headquartersCommunityId) return depth;
     if (seen.has(currentId)) return null; // defensive: an existing cycle
     seen.add(currentId);
-    const node: { parentId: string | null } | null = await prisma.community.findUnique({
+    const node: { parentId: string | null; kind: 'ASSEMBLY' | 'GROUP' } | null = await prisma.community.findUnique({
       where: { id: currentId },
-      select: { parentId: true },
+      select: { parentId: true, kind: true },
     });
     if (!node) return null;
+    if (node.kind === 'ASSEMBLY') depth += 1;
     currentId = node.parentId;
-    depth += 1;
   }
   return null; // walked to a root without ever reaching Headquarters
 }
@@ -123,26 +125,33 @@ export async function getCommunityIdsAtGeneration(
   generation: number,
 ): Promise<string[]> {
   if (generation < 0) return [];
-
-  let frontier = [headquartersCommunityId];
-  const seen = new Set<string>(frontier);
-
-  for (let level = 0; level < generation; level++) {
-    if (frontier.length === 0) return [];
-    const children = await prisma.community.findMany({
-      where: { parentId: { in: frontier } },
-      select: { id: true },
-    });
-    const next: string[] = [];
-    for (const child of children) {
-      if (!seen.has(child.id)) {
-        seen.add(child.id);
-        next.push(child.id);
+  // Every community in the Headquarters tree whose generation is this one: the assemblies of that generation and
+  // their groups (groups never count as a generation of their own).
+  const all = await prisma.community.findMany({ select: { id: true, parentId: true, kind: true }, orderBy: { createdAt: 'asc' } });
+  const byId = new Map(all.map((c) => [c.id, c]));
+  const memo = new Map<string, number | null>();
+  const generationOf = (id: string): number | null => {
+    if (memo.has(id)) return memo.get(id)!;
+    let cur: string | null = id;
+    let depth = 0;
+    const seen = new Set<string>();
+    let result: number | null = null;
+    while (cur) {
+      if (cur === headquartersCommunityId) {
+        result = depth;
+        break;
       }
+      if (seen.has(cur)) break;
+      seen.add(cur);
+      const node = byId.get(cur);
+      if (!node) break;
+      if (node.kind === 'ASSEMBLY') depth += 1;
+      cur = node.parentId;
     }
-    frontier = next;
-  }
-  return frontier;
+    memo.set(id, result);
+    return result;
+  };
+  return all.filter((c) => generationOf(c.id) === generation).map((c) => c.id);
 }
 
 /**

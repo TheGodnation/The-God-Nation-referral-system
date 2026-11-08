@@ -59,7 +59,7 @@ function norm(value: string | null | undefined): string {
 async function findOpenGroups(headquartersId: string): Promise<OpenGroup[]> {
   const treeIds = await getDescendantCommunityIds(headquartersId);
   const groups = await prisma.community.findMany({
-    where: { id: { in: treeIds }, active: true, autoPlacementEligible: true },
+    where: { id: { in: treeIds }, active: true, autoPlacementEligible: true, kind: 'ASSEMBLY' },
     select: {
       id: true,
       name: true,

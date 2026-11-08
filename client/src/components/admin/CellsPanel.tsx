@@ -13,6 +13,7 @@ interface Row {
   parentId: string | null;
   parentName: string | null;
   autoCreated: boolean;
+  kind?: 'ASSEMBLY' | 'GROUP';
   createdAt: string;
   members: number;
   leaders: number;
@@ -188,6 +189,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
                     />
                   )}
                   <span className="font-medium text-slate-800">{r.name}</span>
+                  {r.kind === 'GROUP' && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{t('admin.communities.group_badge')}</span>}
                   {r.autoCreated && <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-700">{t('cells.opened_automatically')}</span>}
                   {r.parentName && <span className="block text-xs text-slate-500">{t('cells.under', { name: r.parentName })}</span>}
                 </span>

@@ -98,3 +98,21 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   leaders, how many each (or share evenly), preview, then assign — **limited to the assemblies of their generation** (a tile
   "Representative: assign people" in My Leadership Dashboard; `/api/member/rep-cells`). Any other assembly is refused; it stops
   the moment they are no longer the representative. Each assignment is recorded in the audit log as made by the representative.
+
+## Assemblies and groups: only assemblies are generations (done)
+
+- **Assembly** = part of the growth tree: the National Headquarters is the **founding generation (0)**; the assemblies it brings
+  ("one brings two") are generation 1, theirs generation 2, and so on. **Group** (women, men, youth, children, prayer, leadership
+  team…) = belongs to an assembly, **takes its assembly's generation and is never counted as a generation**. New field
+  `Community.kind` (ASSEMBLY or GROUP); the counting in `lib/tree.ts` (`getCommunityGeneration`, `getCommunityIdsAtGeneration`)
+  only steps down through assemblies, so leaders' rooms, representatives, instructions, sanctions, reports and block protection
+  all follow it. Groups never receive newcomers; people are followed up in assemblies, not groups.
+- The assembly that used to be the Headquarters (the **Leadership Team**) became a group automatically (migration
+  `20261206090000`, and "replace Headquarters" now does it too). Anything else can be switched in Edit.
+- **Rules**: a group must sit inside an assembly; an assembly of the next generation cannot sit under a group; an assembly that still
+  has assemblies under it cannot become a group; the Headquarters cannot be a group.
+- **Central admin's profile, tab "Groups"**: leaders of groups (any member of the group or its assembly) and "Assemblies and
+  groups" (open, add, rename, change type, delete with the members' destination) — the same tools and rules as the admin
+  dashboard's Communities tab (`/api/member/central-communities`, `/api/member/central-groups`).
+- **Representatives** can make a member of a group (or its assembly) the leader of a group of their own generation
+  (`/api/member/rep-groups`); removing leaders stays with the central admin.

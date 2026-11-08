@@ -95,6 +95,8 @@ export interface AssemblyOverviewRow {
   parentId: string | null;
   parentName: string | null;
   autoCreated: boolean;
+  /** ASSEMBLY counts as a generation; GROUP (women, youth, prayer, leadership team…) never does. */
+  kind: 'ASSEMBLY' | 'GROUP';
   createdAt: string;
   members: number;
   leaders: number;
@@ -108,7 +110,7 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
   const [communities, memberships, roles, settings, examIds, followed, admins] = await Promise.all([
     prisma.community.findMany({
       where: { active: true },
-      select: { id: true, name: true, parentId: true, autoCreated: true, createdAt: true },
+      select: { id: true, name: true, parentId: true, autoCreated: true, createdAt: true, kind: true },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.communityMembership.findMany({ where: { status: 'ACTIVE' }, select: { personId: true, communityId: true } }),
@@ -123,6 +125,7 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
 
   const graduates = await graduatesAmong([...new Set(memberships.map((m) => m.personId))]);
   const nameOf = new Map(communities.map((c) => [c.id, c.name]));
+  const isGroup = new Set(communities.filter((c) => c.kind === 'GROUP').map((c) => c.id));
   const leaderKey = new Set(roles.map((r) => `${r.communityId}:${r.personId}`));
   const members = new Map<string, number>();
   const ready = new Map<string, number>();
@@ -130,7 +133,8 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
   for (const m of memberships) {
     members.set(m.communityId, (members.get(m.communityId) ?? 0) + 1);
     const key = `${m.communityId}:${m.personId}`;
-    if (!leaderKey.has(key) && !followedKey.has(key) && !adminIds.has(m.personId)) {
+    // Following people up happens in assemblies, not in groups.
+    if (!isGroup.has(m.communityId) && !leaderKey.has(key) && !followedKey.has(key) && !adminIds.has(m.personId)) {
       unassigned.set(m.communityId, (unassigned.get(m.communityId) ?? 0) + 1);
     }
     if (graduates.has(m.personId) && !leaderKey.has(`${m.communityId}:${m.personId}`)) {
@@ -149,6 +153,7 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
       parentId: c.parentId,
       parentName: c.parentId ? (nameOf.get(c.parentId) ?? null) : null,
       autoCreated: c.autoCreated,
+      kind: c.kind,
       createdAt: c.createdAt.toISOString(),
       members: members.get(c.id) ?? 0,
       leaders: leaders.get(c.id) ?? 0,

@@ -78,6 +78,7 @@ describe('CommunitiesTab — Phase 3G reparenting', () => {
       // form (empty string means "no tag"), part of this PR's own addition.
       expect(patchCall!.body).toEqual({
         name: 'Child Community',
+        kind: 'ASSEMBLY',
         parentId: 'community-2',
         placementCountry: '',
         placementRegion: '',
