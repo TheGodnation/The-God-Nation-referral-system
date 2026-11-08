@@ -4732,5 +4732,30 @@
     "appoint": "Nommer leader",
     "nobody": "Personne trouvé.",
     "appointed": "{{name}} dirige maintenant {{group}}."
+  },
+  "makeLeaders": {
+    "open": "Nommer des leaders de {{name}}",
+    "close": "Fermer",
+    "help": "Nommez des personnes leaders de {{name}} en une seule étape. Si elles n'en sont pas encore membres, elles y sont ajoutées ; chacune reçoit aussi le compte Leader, pour que Mon tableau de bord de leader la suive.",
+    "from_title": "Amener les leaders d'un autre groupe",
+    "from_search": "Rechercher un groupe ou une assemblée par nom (par exemple l'équipe de leadership)",
+    "choose": "Choisir",
+    "search": "Rechercher",
+    "leaders_of": "Leaders de {{name}}",
+    "no_leaders_there": "Personne ne la dirige encore.",
+    "make_these": "Nommer {{count}} leaders de {{name}}",
+    "find_title": "Ou trouver une personne",
+    "find_placeholder": "Nom ou numéro WhatsApp",
+    "nobody_found": "Personne trouvé. Si elle n'est pas listée, elle n'a pas encore rejoint l'application : envoyez-lui le lien d'inscription, et dès son inscription elle apparaîtra ici.",
+    "not_joined": "n'a pas rejoint l'application",
+    "make_leader": "Nommer leader",
+    "failed": "Action impossible. Réessayez.",
+    "not_found": "Cette personne est introuvable.",
+    "now_leader": "{{name}} est maintenant leader.",
+    "already": "{{name}} est déjà leader ici.",
+    "added": "Elle a été ajoutée à l'assemblée.",
+    "dashboard_ready": "Son tableau de bord de leader est prêt.",
+    "no_app": "Elle n'a pas encore rejoint l'application comme membre ; son tableau de bord s'ouvrira dès qu'elle l'aura fait et que vous l'aurez refait.",
+    "email_taken": "Un compte Leader n'a pas pu être créé car un autre compte utilise son email."
   }
 }

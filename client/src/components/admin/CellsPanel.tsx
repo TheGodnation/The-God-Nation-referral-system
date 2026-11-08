@@ -1,3 +1,4 @@
+import { MakeLeadersPanel } from './MakeLeadersPanel';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -56,6 +57,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
   const [onlyWithReady, setOnlyWithReady] = useState(false);
   const [health, setHealth] = useState<Map<string, HealthRow>>(new Map());
   const [assigning, setAssigning] = useState(false);
+  const [makingLeaders, setMakingLeaders] = useState(false);
 
   function load() {
     api
@@ -214,6 +216,16 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       {open && (
         <section className="card space-y-3" aria-label={t('cells.ready_title', { name: open.name })}>
           <h3 className="font-semibold text-brand-900">{t('cells.ready_title', { name: open.name })}</h3>
+          <div>
+            <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setMakingLeaders((v) => !v)} data-testid="make-leaders-toggle">
+              {makingLeaders ? t('makeLeaders.close') : t('makeLeaders.open', { name: open.name })}
+            </button>
+            {makingLeaders && (
+              <div className="mt-2">
+                <MakeLeadersPanel base={base} communityId={open.id} communityName={open.name} />
+              </div>
+            )}
+          </div>
           {(() => {
             const row = data.items.find((r) => r.id === open.id);
             if (!row || row.unassigned === 0) return null;
