@@ -314,6 +314,46 @@ describe('National Headquarters designation and derived generation', () => {
     expect(await prisma.auditLog.count({ where: { action: 'HEADQUARTERS_COMMUNITY_REPLACED', targetId: created.id } })).toBe(1);
   });
 
+  it('can put the existing assemblies directly under the new Headquarters, beside the old one, taking their own sub-assemblies along', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-hq-replace-up@test.local');
+    const oldHq = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Up Old HQ' });
+    const a = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Up A', parentId: oldHq.body.id });
+    const b = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Up B', parentId: oldHq.body.id });
+    const aa = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Up A-A', parentId: a.body.id });
+    await agent.put('/api/admin/communities/headquarters').set('X-CSRF-Token', csrf).send({ communityId: oldHq.body.id });
+
+    const res = await agent.post('/api/admin/communities/headquarters/replace').set('X-CSRF-Token', csrf).send({ name: 'Up New HQ', moveSubAssembliesUp: true });
+    expect(res.status).toBe(201);
+    const newId = res.body.community.id as string;
+    const parentOf = async (id: string) => (await prisma.community.findUniqueOrThrow({ where: { id } })).parentId;
+    expect(await parentOf(oldHq.body.id)).toBe(newId); // the old Headquarters (now a team) sits under the new one
+    expect(await parentOf(a.body.id)).toBe(newId); // and so do the assemblies that were under it
+    expect(await parentOf(b.body.id)).toBe(newId);
+    expect(await parentOf(aa.body.id)).toBe(a.body.id); // their own sub-assemblies stay with them
+    // Generations: the old Headquarters and the assemblies are all generation 1; the sub-assembly is 2.
+    expect((await agent.get(`/api/admin/communities/${oldHq.body.id}`)).body.generation).toBe(1);
+    expect((await agent.get(`/api/admin/communities/${a.body.id}`)).body.generation).toBe(1);
+    expect((await agent.get(`/api/admin/communities/${aa.body.id}`)).body.generation).toBe(2);
+  });
+
+  it('can make the new Headquarters the only assembly that receives newcomers, without touching anyone\'s members', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-hq-replace-close@test.local');
+    const oldHq = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Close Old HQ' });
+    const a = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Close A', parentId: oldHq.body.id });
+    await agent.put('/api/admin/communities/headquarters').set('X-CSRF-Token', csrf).send({ communityId: oldHq.body.id });
+    const member = await makePerson('+237680100200', 'Close Member');
+    await prisma.communityMembership.create({ data: { personId: member.id, communityId: a.body.id, status: 'ACTIVE' } });
+
+    const res = await agent.post('/api/admin/communities/headquarters/replace').set('X-CSRF-Token', csrf).send({ name: 'Close New HQ', moveSubAssembliesUp: true, closeOthersToNewcomers: true });
+    expect(res.status).toBe(201);
+    const flag = async (id: string) => (await prisma.community.findUniqueOrThrow({ where: { id } })).autoPlacementEligible;
+    expect(await flag(res.body.community.id)).toBe(true); // implied
+    expect(await flag(oldHq.body.id)).toBe(false);
+    expect(await flag(a.body.id)).toBe(false);
+    expect(await prisma.communityMembership.count({ where: { personId: member.id, communityId: a.body.id, status: 'ACTIVE' } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { action: 'HEADQUARTERS_COMMUNITY_REPLACED', targetId: res.body.community.id } })).toBe(1);
+  });
+
   it('cannot replace Headquarters when none is designated, or without a name', async () => {
     const { agent, csrf } = await loginAsAdmin('admin-hq-replace-bad@test.local');
     expect((await agent.post('/api/admin/communities/headquarters/replace').set('X-CSRF-Token', csrf).send({})).status).toBe(400);

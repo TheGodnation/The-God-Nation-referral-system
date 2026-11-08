@@ -85,6 +85,8 @@ export function CommunitiesTab() {
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [replaceName, setReplaceName] = useState('');
   const [replaceAutoPlacement, setReplaceAutoPlacement] = useState(false);
+  const [replaceMoveUp, setReplaceMoveUp] = useState(true);
+  const [replaceCloseOthers, setReplaceCloseOthers] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [replaceError, setReplaceError] = useState<string | null>(null);
   const [replaceDone, setReplaceDone] = useState<string | null>(null);
@@ -162,6 +164,8 @@ export function CommunitiesTab() {
       const res = await api.post<{ community: HeadquartersCommunity; previous: HeadquartersCommunity }>('/api/admin/communities/headquarters/replace', {
         name: replaceName.trim(),
         autoPlacementEligible: replaceAutoPlacement,
+        moveSubAssembliesUp: replaceMoveUp,
+        closeOthersToNewcomers: replaceCloseOthers,
       });
       setHeadquarters(res.community);
       setReplaceDone(t('admin.communities.replace_done', { name: res.community.name, old: res.previous.name }));
@@ -338,8 +342,16 @@ export function CommunitiesTab() {
                 <p className="text-xs text-slate-600">{t('admin.communities.replace_explain', { old: headquarters.name })}</p>
                 <input className="input" placeholder={t('admin.communities.replace_name_placeholder') ?? ''} aria-label={t('admin.communities.replace_name_placeholder') ?? ''} value={replaceName} onChange={(e) => setReplaceName(e.target.value)} maxLength={200} />
                 <label className="flex items-start gap-2 text-sm text-slate-700">
-                  <input type="checkbox" className="mt-1" checked={replaceAutoPlacement} onChange={(e) => setReplaceAutoPlacement(e.target.checked)} />
+                  <input type="checkbox" className="mt-1" checked={replaceMoveUp} onChange={(e) => setReplaceMoveUp(e.target.checked)} data-testid="replace-move-up" />
+                  <span>{t('admin.communities.replace_move_up', { old: headquarters.name })}</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm text-slate-700">
+                  <input type="checkbox" className="mt-1" checked={replaceAutoPlacement || replaceCloseOthers} disabled={replaceCloseOthers} onChange={(e) => setReplaceAutoPlacement(e.target.checked)} />
                   <span>{t('admin.communities.replace_auto_placement')}</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm text-slate-700">
+                  <input type="checkbox" className="mt-1" checked={replaceCloseOthers} onChange={(e) => setReplaceCloseOthers(e.target.checked)} data-testid="replace-close-others" />
+                  <span>{t('admin.communities.replace_close_others')}</span>
                 </label>
                 {replaceError && <p className="text-sm text-red-700">{replaceError}</p>}
                 <div className="flex gap-2">

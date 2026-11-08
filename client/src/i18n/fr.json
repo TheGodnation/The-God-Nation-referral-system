@@ -978,7 +978,9 @@
       "add_people": "Ajouter des personnes",
       "add_people_title": "Ajouter des personnes à {{name}}",
       "add_people_help": "Cherchez par nom, numéro WhatsApp ou e-mail, puis touchez Ajouter. Elles la voient tout de suite dans leurs discussions.",
-      "add_people_added": "{{name}} a été ajouté à {{assembly}}."
+      "add_people_added": "{{name}} a été ajouté à {{assembly}}.",
+      "replace_move_up": "Placer les assemblées qui sont sous « {{old}} » directement sous le nouveau Siège, à côté de lui (leurs sous-assemblées les suivent).",
+      "replace_close_others": "Placer les nouveaux uniquement dans le nouveau Siège, jusqu’à ce qu’il soit plein et que l’application ouvre des assemblées en dessous. Les autres assemblées gardent leurs membres mais ne reçoivent plus de nouveaux."
     },
     "devotionals": {
       "title": "Dévotions",
