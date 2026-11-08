@@ -598,3 +598,46 @@ describe('CommunitiesTab — Community Posting Policy', () => {
     expect(screen.getByText('Définir sur Leaders uniquement')).toBeInTheDocument();
   });
 });
+
+describe('CommunitiesTab — delete an assembly', () => {
+  const list = {
+    items: [{ id: 'c-9', parentId: null, name: 'Test Assembly', active: true, autoPlacementEligible: true, postingPolicy: 'EVERYONE', _count: { memberships: 2, children: 1 } }],
+    pagination: { totalPages: 1 },
+  };
+
+  it('shows what will be removed, needs the name typed, then deletes and moves sub-assemblies up', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities/c-9/delete-impact': { status: 200, body: { id: 'c-9', name: 'Test Assembly', isHeadquarters: false, members: 2, subAssemblies: 1, messages: 5, teachings: 1, events: 0 } },
+      '/api/admin/communities/c-9': { status: 200, body: { deleted: true } },
+      '/api/admin/communities?&page=': { status: 200, body: list },
+    });
+    render(<CommunitiesTab />);
+    await screen.findByText('Test Assembly');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByText(/5 messages/)).toBeInTheDocument();
+    const confirmBtn = screen.getByRole('button', { name: /Yes, delete permanently/ });
+    expect(confirmBtn).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Type the assembly name/), { target: { value: 'test assembly' } });
+    expect(confirmBtn).toBeEnabled();
+    fireEvent.click(confirmBtn);
+
+    expect(await screen.findByText(/“?"?Test Assembly"? has been deleted|has been deleted/)).toBeInTheDocument();
+    const del = calls.find((c) => c.method === 'DELETE' && c.url === '/api/admin/communities/c-9');
+    expect(del?.body).toEqual({ confirmName: 'test assembly', subAssemblies: 'moveUp' });
+  });
+
+  it('will not offer deletion of the Headquarters', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: null } },
+      '/api/admin/communities/c-9/delete-impact': { status: 200, body: { id: 'c-9', name: 'Test Assembly', isHeadquarters: true, members: 2, subAssemblies: 0, messages: 0, teachings: 0, events: 0 } },
+      '/api/admin/communities?&page=': { status: 200, body: list },
+    });
+    render(<CommunitiesTab />);
+    await screen.findByText('Test Assembly');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(await screen.findByText(/cannot be deleted/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Yes, delete permanently/ })).toBeNull();
+  });
+});

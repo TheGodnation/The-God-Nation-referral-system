@@ -980,7 +980,20 @@
       "add_people_help": "Search by name, WhatsApp number or email, then tap Add. They see it in their chats straight away.",
       "add_people_added": "Added {{name}} to {{assembly}}.",
       "replace_move_up": "Put the assemblies that are under “{{old}}” directly under the new Headquarters, beside it (their own sub-assemblies go with them).",
-      "replace_close_others": "Place new people only in the new Headquarters, until it is full and the app opens assemblies under it. The other assemblies keep their members but stop receiving new people."
+      "replace_close_others": "Place new people only in the new Headquarters, until it is full and the app opens assemblies under it. The other assemblies keep their members but stop receiving new people.",
+      "delete": "Delete",
+      "delete_heading": "Delete the assembly \"{{name}}\"?",
+      "delete_loading": "Checking what is inside…",
+      "delete_is_headquarters": "This is the Headquarters, so it cannot be deleted. Replace the Headquarters first if you want a different one.",
+      "delete_warning": "This permanently removes the assembly, its group chat ({{messages}} messages), its {{teachings}} teachings and its events. {{members}} people are in it right now.",
+      "delete_people_kept": "The people themselves are NOT deleted — they only leave this assembly. This cannot be undone. If you only want to hide it, use Deactivate instead.",
+      "delete_move_up": "It has {{count}} assembly(ies) under it. They will move up one level to take its place (required to continue).",
+      "delete_type_name": "Type the assembly name ({{name}}) to confirm:",
+      "delete_confirm_button": "Yes, delete permanently",
+      "deleting": "Deleting…",
+      "delete_cancel": "Cancel",
+      "delete_done": "\"{{name}}\" has been deleted.",
+      "delete_failed": "Could not delete the assembly."
     },
     "devotionals": {
       "title": "Devotionals",

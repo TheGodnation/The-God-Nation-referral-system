@@ -145,3 +145,65 @@ describe('Phase 3G — existing authorization/CSRF boundaries remain intact', ()
     expect(res.status).toBe(403);
   });
 });
+
+describe('Delete assembly', () => {
+  it('deletes a plain assembly only when its name is typed, keeps the people, and audits it', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-del1@test.local');
+    const created = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Test Assembly Delete' });
+    const id = created.body.id;
+    const person = await prisma.person.create({ data: { name: 'Del Member', email: 'del-member@test.local', whatsappNumber: '+2348000000991' } as any });
+    await prisma.communityMembership.create({ data: { personId: person.id, communityId: id } });
+
+    const impact = await agent.get(`/api/admin/communities/${id}/delete-impact`);
+    expect(impact.status).toBe(200);
+    expect(impact.body.members).toBe(1);
+    expect(impact.body.isHeadquarters).toBe(false);
+
+    const wrong = await agent.delete(`/api/admin/communities/${id}`).set('X-CSRF-Token', csrf).send({ confirmName: 'Something else' });
+    expect(wrong.status).toBe(400);
+    expect(await prisma.community.findUnique({ where: { id } })).toBeTruthy();
+
+    const ok = await agent.delete(`/api/admin/communities/${id}`).set('X-CSRF-Token', csrf).send({ confirmName: ' test assembly delete ' });
+    expect(ok.status).toBe(200);
+    expect(await prisma.community.findUnique({ where: { id } })).toBeNull();
+    expect(await prisma.communityMembership.count({ where: { communityId: id } })).toBe(0);
+    expect(await prisma.person.findUnique({ where: { id: person.id } })).toBeTruthy();
+    expect(await prisma.auditLog.findFirst({ where: { action: 'COMMUNITY_DELETED', targetId: id } })).toBeTruthy();
+  });
+
+  it('refuses to delete the Headquarters', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-del2@test.local');
+    const hq = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Del HQ' });
+    await prisma.settings.upsert({ where: { id: 'singleton' }, update: { headquartersCommunityId: hq.body.id }, create: { id: 'singleton', headquartersCommunityId: hq.body.id } as any });
+    const res = await agent.delete(`/api/admin/communities/${hq.body.id}`).set('X-CSRF-Token', csrf).send({ confirmName: 'Del HQ' });
+    expect(res.status).toBe(400);
+    expect(await prisma.community.findUnique({ where: { id: hq.body.id } })).toBeTruthy();
+    await prisma.settings.update({ where: { id: 'singleton' }, data: { headquartersCommunityId: null } });
+  });
+
+  it('asks what to do with sub-assemblies, then moves them up', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-del3@test.local');
+    const top = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Del Top' });
+    const mid = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Del Mid', parentId: top.body.id });
+    const leaf = await agent.post('/api/admin/communities').set('X-CSRF-Token', csrf).send({ name: 'Del Leaf', parentId: mid.body.id });
+
+    const blocked = await agent.delete(`/api/admin/communities/${mid.body.id}`).set('X-CSRF-Token', csrf).send({ confirmName: 'Del Mid' });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.code).toBe('HAS_SUB_ASSEMBLIES');
+
+    const ok = await agent.delete(`/api/admin/communities/${mid.body.id}`).set('X-CSRF-Token', csrf).send({ confirmName: 'Del Mid', subAssemblies: 'moveUp' });
+    expect(ok.status).toBe(200);
+    const moved = await prisma.community.findUnique({ where: { id: leaf.body.id } });
+    expect(moved?.parentId).toBe(top.body.id);
+  });
+
+  it('returns 404 for an unknown assembly and rejects non-admins', async () => {
+    const { agent, csrf } = await loginAsAdmin('admin-del4@test.local');
+    const res = await agent.delete('/api/admin/communities/does-not-exist').set('X-CSRF-Token', csrf).send({ confirmName: 'x' });
+    expect(res.status).toBe(404);
+    const anon = agentWithUniqueIp();
+    const { csrf: c2 } = await bootstrap(anon as any);
+    const res2 = await anon.delete('/api/admin/communities/anything').set('X-CSRF-Token', c2).send({ confirmName: 'x' });
+    expect(res2.status).toBe(401);
+  });
+});
