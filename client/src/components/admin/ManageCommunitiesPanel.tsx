@@ -6,6 +6,7 @@ import { DeleteCommunityPanel } from './DeleteCommunityPanel';
 interface Node {
   id: string;
   name: string;
+  nameFr?: string | null;
   kind: 'ASSEMBLY' | 'GROUP';
   parentId: string | null;
   parent?: { id: string; name: string } | null;
@@ -23,6 +24,8 @@ export function ManageCommunitiesPanel({ base }: { base: string }) {
   const [search, setSearch] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editNameFr, setEditNameFr] = useState('');
+  const [newNameFr, setNewNameFr] = useState('');
   const [editKind, setEditKind] = useState<'ASSEMBLY' | 'GROUP'>('ASSEMBLY');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -94,10 +97,11 @@ export function ManageCommunitiesPanel({ base }: { base: string }) {
           data-testid="manage-add"
           onSubmit={(e) => {
             e.preventDefault();
-            void run(() => api.post(base, { name: newName, kind: newKind, ...(parent ? { parentId: parent.id } : {}), autoPlacementEligible: false }).then(() => { setNewName(''); setAdding(false); }), t('manageGroups.added'));
+            void run(() => api.post(base, { name: newName, ...(newNameFr.trim() ? { nameFr: newNameFr.trim() } : {}), kind: newKind, ...(parent ? { parentId: parent.id } : {}), autoPlacementEligible: false }).then(() => { setNewName(''); setNewNameFr(''); setAdding(false); }), t('manageGroups.added'));
           }}
         >
           <input className="input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={t('manageGroups.name') ?? ''} aria-label={t('manageGroups.name') ?? ''} maxLength={200} />
+          <input className="input" value={newNameFr} onChange={(e) => setNewNameFr(e.target.value)} placeholder={t('manageGroups.name_fr_placeholder') ?? ''} aria-label={t('manageGroups.name_fr') ?? ''} maxLength={200} />
           <fieldset className="space-y-1 text-sm">
             <label className="flex items-center gap-2"><input type="radio" name="manage-new-kind" checked={newKind === 'GROUP'} disabled={!parent} onChange={() => setNewKind('GROUP')} /> {t('manageGroups.kind_group')}</label>
             <label className="flex items-center gap-2"><input type="radio" name="manage-new-kind" checked={newKind === 'ASSEMBLY'} onChange={() => setNewKind('ASSEMBLY')} /> {t('manageGroups.kind_assembly')}</label>
@@ -119,6 +123,7 @@ export function ManageCommunitiesPanel({ base }: { base: string }) {
               <span className="min-w-0">
                 <span className="block font-semibold text-brand-900">
                   {n.name}
+                  {n.nameFr && <span className="block text-xs font-normal text-slate-500" data-testid="manage-name-fr">🇫🇷 {n.nameFr}</span>}
                   <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${n.kind === 'GROUP' ? 'bg-slate-100 text-slate-600' : 'bg-brand-50 text-brand-800'}`}>{n.kind === 'GROUP' ? t('manageGroups.badge_group') : t('manageGroups.badge_assembly')}</span>
                 </span>
                 <span className="block text-xs text-slate-500">
@@ -127,7 +132,7 @@ export function ManageCommunitiesPanel({ base }: { base: string }) {
               </span>
               <span className="flex flex-wrap gap-3 text-sm font-semibold">
                 <button type="button" className="text-brand-700 underline" onClick={() => { setSearch(''); setTrail([...trail, { id: n.id, name: n.name }]); }}>{t('manageGroups.open')}</button>
-                <button type="button" className="text-brand-700 underline" onClick={() => { setEditId(editId === n.id ? null : n.id); setEditName(n.name); setEditKind(n.kind); setDeleteId(null); }}>{t('manageGroups.edit')}</button>
+                <button type="button" className="text-brand-700 underline" onClick={() => { setEditId(editId === n.id ? null : n.id); setEditName(n.name); setEditNameFr(n.nameFr ?? ''); setEditKind(n.kind); setDeleteId(null); }}>{t('manageGroups.edit')}</button>
                 <button type="button" className="text-red-600 underline" onClick={() => { setDeleteId(deleteId === n.id ? null : n.id); setEditId(null); }}>{t('manageGroups.delete')}</button>
               </span>
             </div>
@@ -137,10 +142,11 @@ export function ManageCommunitiesPanel({ base }: { base: string }) {
                 data-testid="manage-edit"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void run(() => api.patch(`${base}/${n.id}`, { name: editName, kind: editKind }).then(() => setEditId(null)), t('manageGroups.saved'));
+                  void run(() => api.patch(`${base}/${n.id}`, { name: editName, nameFr: editNameFr.trim(), kind: editKind }).then(() => setEditId(null)), t('manageGroups.saved'));
                 }}
               >
                 <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} aria-label={t('manageGroups.name') ?? ''} maxLength={200} />
+                <input className="input" value={editNameFr} onChange={(e) => setEditNameFr(e.target.value)} placeholder={t('manageGroups.name_fr_placeholder') ?? ''} aria-label={t('manageGroups.name_fr') ?? ''} maxLength={200} />
                 {n.parentId && (
                   <fieldset className="space-y-1">
                     <label className="flex items-center gap-2"><input type="radio" name={`edit-kind-${n.id}`} checked={editKind === 'GROUP'} onChange={() => setEditKind('GROUP')} /> {t('manageGroups.kind_group')}</label>

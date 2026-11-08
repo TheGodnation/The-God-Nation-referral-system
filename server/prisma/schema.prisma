@@ -997,6 +997,9 @@ enum CommunityKind {
 model Community {
   id                    String                 @id @default(uuid())
   kind                  CommunityKind          @default(ASSEMBLY)
+  // The French name, written by the admin next to the English one (`name`). French speakers see it where the name
+  // is shown; when empty they see the English name.
+  nameFr                String?
   parentId              String?
   name                  String
   active                Boolean                @default(true)

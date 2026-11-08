@@ -63,7 +63,7 @@ describe('ManageCommunitiesPanel (the central admin’s profile)', () => {
     fireEvent.change(within(form).getByLabelText('Name'), { target: { value: 'Leadership Team' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Saved.');
-    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ name: 'Leadership Team', kind: 'GROUP' });
+    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ name: 'Leadership Team', nameFr: '', kind: 'GROUP' });
   });
 
   it('adds a group inside an assembly, and offers only assemblies at the top level', async () => {
@@ -99,6 +99,40 @@ describe('ManageCommunitiesPanel (the central admin’s profile)', () => {
     fireEvent.change(within(row).getByLabelText(/Type the assembly name/), { target: { value: 'Prayer Group' } });
     fireEvent.click(within(row).getByRole('button', { name: /Yes, delete permanently/ }));
     await waitFor(() => expect(calls.find((c) => c.method === 'DELETE')?.body).toEqual({ confirmName: 'Prayer Group', moveMembersTo: 'hq' }));
+  });
+});
+
+describe('French names in the profile tools', () => {
+  it('shows the French name, and saves the English and French names together', async () => {
+    mockFetch({
+      [`GET ${C}?&page`]: () => ({ body: { items: [{ ...hq, nameFr: 'Siège national' }] } }),
+      [`PATCH ${C}/hq`]: () => ({ body: { id: 'hq' } }),
+    });
+    render(<ManageCommunitiesPanel base={C} />);
+    const row = (await screen.findAllByTestId('manage-row'))[0];
+    expect(within(row).getByTestId('manage-name-fr')).toHaveTextContent('Siège national');
+    fireEvent.click(within(row).getByRole('button', { name: 'Rename or change type' }));
+    const form = within(row).getByTestId('manage-edit');
+    expect((within(form).getByLabelText('French name (shown to French speakers)') as HTMLInputElement).value).toBe('Siège national');
+    fireEvent.change(within(form).getByLabelText('Name'), { target: { value: 'Headquarters Assembly' } });
+    fireEvent.change(within(form).getByLabelText('French name (shown to French speakers)'), { target: { value: 'Assemblée du Siège' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({ name: 'Headquarters Assembly', nameFr: 'Assemblée du Siège' }));
+  });
+
+  it('creates a group with its French name', async () => {
+    mockFetch({
+      [`GET ${C}?parentId=hq`]: () => ({ body: { items: [] } }),
+      [`GET ${C}?&page`]: () => ({ body: { items: [hq] } }),
+      [`POST ${C}`]: () => ({ status: 201, body: { id: 'new' } }),
+    });
+    render(<ManageCommunitiesPanel base={C} />);
+    fireEvent.click(within((await screen.findAllByTestId('manage-row'))[0]).getByRole('button', { name: 'Open' }));
+    fireEvent.click(await screen.findByRole('button', { name: /New in National HQ/ }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Prayer Group' } });
+    fireEvent.change(screen.getByLabelText('French name (shown to French speakers)'), { target: { value: 'Groupe de prière' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST' && c.url === C)?.body).toMatchObject({ name: 'Prayer Group', nameFr: 'Groupe de prière', kind: 'GROUP', parentId: 'hq' }));
   });
 });
 

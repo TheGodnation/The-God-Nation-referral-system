@@ -1,3 +1,4 @@
+import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -47,7 +48,7 @@ async function loadEvent(req: Request, res: Response) {
   const personId = req.member!.personId;
   const event = await prisma.assemblyEvent.findUnique({
     where: { id: req.params.id },
-    include: { community: { select: { id: true, name: true } }, replayTeaching: { select: { id: true, title: true, mediaKind: true, communityId: true } } },
+    include: { community: { select: { id: true, name: true, nameFr: true } }, replayTeaching: { select: { id: true, title: true, mediaKind: true, communityId: true } } },
   });
   if (!event || !(await canSeeEvents(personId, event.communityId))) {
     res.status(404).json({ error: 'Event not found.' });
@@ -62,13 +63,13 @@ async function checkReplay(communityId: string, teachingId: string | null | unde
   return Boolean(t && t.communityId === communityId);
 }
 
-type EventRow = Awaited<ReturnType<typeof prisma.assemblyEvent.findMany<{ include: { community: { select: { name: true } } } }>>>[number];
+type EventRow = Awaited<ReturnType<typeof prisma.assemblyEvent.findMany<{ include: { community: { select: { name: true; nameFr: true } } } }>>>[number];
 
-function item(e: EventRow, mine: { going: boolean; presence: 'LIVE' | 'REPLAY' | null }, goingCount: number) {
+function item(e: EventRow, mine: { going: boolean; presence: 'LIVE' | 'REPLAY' | null }, goingCount: number, french = false) {
   return {
     id: e.id,
     communityId: e.communityId,
-    communityName: e.community.name,
+    communityName: communityNameFor(e.community, french),
     title: e.title,
     startsAt: e.startsAt,
     endsAt: e.endsAt,
@@ -89,12 +90,12 @@ router.get('/', asyncHandler(async (req, res) => {
   const visible = await visibleCommunityIds(personId);
   const where = visible === 'ALL' ? {} : { communityId: { in: visible } };
   const [upcoming, past] = await Promise.all([
-    prisma.assemblyEvent.findMany({ where: { ...where, endsAt: { gte: now } }, orderBy: { startsAt: 'asc' }, take: 60, include: { community: { select: { name: true } } } }),
+    prisma.assemblyEvent.findMany({ where: { ...where, endsAt: { gte: now } }, orderBy: { startsAt: 'asc' }, take: 60, include: { community: { select: { name: true, nameFr: true } } } }),
     prisma.assemblyEvent.findMany({
       where: { ...where, endsAt: { lt: now, gte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000) } },
       orderBy: { startsAt: 'desc' },
       take: 40,
-      include: { community: { select: { name: true } } },
+      include: { community: { select: { name: true, nameFr: true } } },
     }),
   ]);
   const all = [...upcoming, ...past];
@@ -107,7 +108,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const counts = new Map(goingCounts.map((g) => [g.eventId, g._count._all]));
   const shape = (e: EventRow) => {
     const c = presence.get(e.id)?.get(personId);
-    return item(e, { going: going.has(e.id), presence: c?.live ? 'LIVE' : c?.replay ? 'REPLAY' : null }, counts.get(e.id) ?? 0);
+    return item(e, { going: going.has(e.id), presence: c?.live ? 'LIVE' : c?.replay ? 'REPLAY' : null }, counts.get(e.id) ?? 0, wantsFrench(req));
   };
   res.json({ upcoming: upcoming.map(shape), past: past.map(shape), creatable: await creatableCommunities(personId) });
 }));
@@ -196,7 +197,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json({
     id: event.id,
     communityId: event.communityId,
-    communityName: event.community.name,
+    communityName: communityNameFor(event.community, wantsFrench(req)),
     title: event.title,
     description: event.description,
     startsAt: event.startsAt,

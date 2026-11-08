@@ -1,3 +1,4 @@
+import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { getCommunityGeneration, getHeadquartersCommunityId, getLeadershipTeamCommunityId } from '../lib/tree';
 import { Router } from 'express';
@@ -337,7 +338,7 @@ router.get('/me/community-memberships', asyncHandler(async (req, res) => {
   const personId = req.member!.personId;
   const memberships = await prisma.communityMembership.findMany({
     where: { personId },
-    include: { community: { select: { id: true, name: true } } },
+    include: { community: { select: { id: true, name: true, nameFr: true } } },
     orderBy: { joinedAt: 'desc' },
   });
   // The central admin's own member profile also sees every other active
@@ -345,7 +346,7 @@ router.get('/me/community-memberships', asyncHandler(async (req, res) => {
   const others = (await isCentralAdminPerson(personId))
     ? await prisma.community.findMany({
         where: { active: true, id: { notIn: memberships.map((m) => m.communityId) } },
-        select: { id: true, name: true, createdAt: true },
+        select: { id: true, name: true, nameFr: true, createdAt: true },
         orderBy: { name: 'asc' },
       })
     : [];
@@ -366,11 +367,11 @@ router.get('/me/community-memberships', asyncHandler(async (req, res) => {
         // address this Community's conversation. Every existing field is
         // unchanged.
         communityId: m.community.id,
-        communityName: m.community.name,
+        communityName: communityNameFor(m.community, wantsFrench(req)),
         status: m.status,
         joinedAt: m.joinedAt,
       })),
-      ...others.map((c) => ({ communityId: c.id, communityName: c.name, status: 'ACTIVE' as const, joinedAt: c.createdAt, asCoordinator: true, generation: generations.get(c.id) ?? null, isLeadershipTeam: c.id === leadershipTeamId })),
+      ...others.map((c) => ({ communityId: c.id, communityName: communityNameFor(c, wantsFrench(req)), status: 'ACTIVE' as const, joinedAt: c.createdAt, asCoordinator: true, generation: generations.get(c.id) ?? null, isLeadershipTeam: c.id === leadershipTeamId })),
     ],
   });
 }));

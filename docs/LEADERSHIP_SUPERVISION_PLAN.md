@@ -116,3 +116,12 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   dashboard's Communities tab (`/api/member/central-communities`, `/api/member/central-groups`).
 - **Representatives** can make a member of a group (or its assembly) the leader of a group of their own generation
   (`/api/member/rep-groups`); removing leaders stays with the central admin.
+
+## French names of assemblies and groups (done)
+
+- Each assembly or group has its English name and, **written by the admin next to it**, a French name (`Community.nameFr`, migration
+  `20261207090000`; no automatic translation). French speakers (the app sends `X-App-Language`) see the French name where one
+  exists, everyone else — and French speakers when it is empty — the English one. Set in the admin dashboard's Communities tab
+  (create and Edit) and in the profile's Groups tab ("Assemblies and groups"). Shown in: the Chats list and group chat header,
+  Me/progress lists, events, teachings, prayer requests, a person's page (assemblies they belong to or lead), leader colleagues.
+  Notifications and admin screens keep the English name.

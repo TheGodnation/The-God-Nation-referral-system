@@ -1,3 +1,4 @@
+import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type { Prisma } from '@prisma/client';
@@ -97,7 +98,7 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
     take: pageSize + 1,
     include: {
       author: { select: authorSelect },
-      community: { select: { id: true, name: true } },
+      community: { select: { id: true, name: true, nameFr: true } },
       _count: { select: { comments: { where: { deletedAt: null } } } },
     },
   });
@@ -112,7 +113,7 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
       author: { personId: r.author.id, name: r.author.name, photoUrl: profilePhotoPath(r.author), badge: badgeOf(coordinators, r.author.id) },
       body: r.body,
       visibility: r.visibility,
-      community: r.community ? { id: r.community.id, name: r.community.name } : null,
+      community: r.community ? { id: r.community.id, name: communityNameFor(r.community, wantsFrench(req)) } : null,
       createdAt: r.createdAt,
       commentCount: r._count.comments,
       canDelete: viewer.isAdmin || (viewer.personId !== null && r.author.id === viewer.personId),

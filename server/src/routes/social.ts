@@ -1,3 +1,4 @@
+import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { isProtectedFromBlock } from '../lib/blockProtection';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
@@ -254,11 +255,11 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
     canMessage(me, other),
     shareActiveGroup(me, other),
     prisma.roleAssignment
-      .findMany({ where: { personId: other, roleType: 'SCOPED_LEADER', status: 'ACTIVE' }, include: { community: { select: { name: true } } } })
-      .then((rows) => rows.map((r) => r.community?.name).filter((name): name is string => Boolean(name))),
+      .findMany({ where: { personId: other, roleType: 'SCOPED_LEADER', status: 'ACTIVE' }, include: { community: { select: { name: true, nameFr: true } } } })
+      .then((rows) => rows.map((r) => (r.community ? communityNameFor(r.community, wantsFrench(req)) : null)).filter((name): name is string => Boolean(name))),
     prisma.communityMembership
-      .findMany({ where: { personId: other, status: 'ACTIVE' }, include: { community: { select: { name: true } } } })
-      .then((rows) => rows.map((r) => r.community.name)),
+      .findMany({ where: { personId: other, status: 'ACTIVE' }, include: { community: { select: { name: true, nameFr: true } } } })
+      .then((rows) => rows.map((r) => communityNameFor(r.community, wantsFrench(req)))),
     prisma.areaLeadershipAssignment.findMany({ where: { personId: other, status: 'ACTIVE' }, include: { area: true } }),
     getFollowerCount(other),
     getFollowingCount(other),

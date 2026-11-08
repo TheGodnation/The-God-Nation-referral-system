@@ -1,3 +1,4 @@
+import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { muteNotice } from '../lib/sanctions';
 import { appLanguage } from '../lib/appLanguage';
 import { cardStatesFor, cardTotalsFor } from '../lib/teachings';
@@ -201,7 +202,7 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
     isCommunityAdministrator(personId, communityId),
     prisma.community.findUnique({
       where: { id: communityId },
-      select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true, aboutEn: true, aboutFr: true },
+      select: { id: true, name: true, nameFr: true, photoStorageKey: true, photoUpdatedAt: true, aboutEn: true, aboutFr: true },
     }),
     prisma.message.findFirst({
       where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } }, ...(cutoff ? { createdAt: { gte: cutoff } } : {}) },
@@ -225,7 +226,7 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
     canPin: await isCentralAdminPerson(personId),
     pins,
     // For the WhatsApp-style chat list and chat header.
-    name: community?.name ?? null,
+    name: community ? communityNameFor(community, wantsFrench(req)) : null,
     photoUrl: community ? groupPhotoPath(community) : null,
     aboutEn: community?.aboutEn ?? null,
     aboutFr: community?.aboutFr ?? null,

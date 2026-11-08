@@ -1,3 +1,4 @@
+import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -127,13 +128,13 @@ router.put('/my-people/away', leadershipMutationLimiter, requireCsrf, asyncHandl
 router.get('/my-people/colleagues', asyncHandler(async (req, res) => {
   const roles = await prisma.roleAssignment.findMany({
     where: { personId: req.leaderPersonId, status: 'ACTIVE', communityId: { not: null } },
-    select: { community: { select: { id: true, name: true } } },
+    select: { community: { select: { id: true, name: true, nameFr: true } } },
   });
   const items = [];
   for (const r of roles) {
     if (!r.community) continue;
     const leaders = (await leaderLoads(r.community.id)).filter((l) => l.personId !== req.leaderPersonId);
-    items.push({ communityId: r.community.id, communityName: r.community.name, leaders });
+    items.push({ communityId: r.community.id, communityName: communityNameFor(r.community, wantsFrench(req)), leaders });
   }
   res.json({ items });
 }));

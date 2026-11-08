@@ -1006,7 +1006,9 @@
       "kind_group": "Un groupe dans une assemblée",
       "kind_group_help": "Femmes, hommes, jeunes, enfants, prière, équipe de leadership… Il appartient à une assemblée, a la génération de cette assemblée et n'est jamais compté comme une génération. Choisissez ci-dessus l'assemblée à laquelle il appartient.",
       "group_badge": "Groupe",
-      "generation_founding": "Génération fondatrice (0)"
+      "generation_founding": "Génération fondatrice (0)",
+      "name_fr_label": "Nom en français (affiché aux francophones)",
+      "name_fr_placeholder": "Nom en français (facultatif)"
     },
     "devotionals": {
       "title": "Dévotions",
@@ -4707,7 +4709,9 @@
     "delete": "Supprimer",
     "save": "Enregistrer",
     "saved": "Enregistré.",
-    "tab": "Groupes"
+    "tab": "Groupes",
+    "name_fr": "Nom en français (affiché aux francophones)",
+    "name_fr_placeholder": "Nom en français (facultatif)"
   },
   "groupLeaders": {
     "title": "Groupes et leurs leaders",

@@ -318,6 +318,9 @@ router.get('/:id/members', asyncHandler(async (req, res) => {
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(200),
+  // The French name, written next to the English one. Blank clears it.
+  nameFr: z.string().trim().max(200).optional().nullable().transform((v) => (v === undefined ? undefined : v ? v : null)),
+
   // ASSEMBLY (default) counts as a generation; GROUP (women, youth, prayer…) belongs to an assembly and never does.
   kind: z.enum(['ASSEMBLY', 'GROUP']).optional(),
   parentId: z.string().optional().nullable(),
@@ -355,6 +358,7 @@ router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req,
     const community = await tx.community.create({
       data: {
         name: d.name,
+        nameFr: d.nameFr ?? null,
         kind,
         parentId: d.parentId ?? null,
         active: d.active ?? true,
@@ -382,6 +386,9 @@ router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req,
 
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
+  // The French name, written next to the English one. Blank clears it.
+  nameFr: z.string().trim().max(200).optional().nullable().transform((v) => (v === undefined ? undefined : v ? v : null)),
+
   kind: z.enum(['ASSEMBLY', 'GROUP']).optional(),
   parentId: z.string().optional().nullable(),
   active: z.boolean().optional(),
@@ -440,6 +447,7 @@ router.patch('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (
     where: { id },
     data: {
       ...(d.name !== undefined ? { name: d.name } : {}),
+      ...(d.nameFr !== undefined ? { nameFr: d.nameFr } : {}),
       ...(d.kind !== undefined ? { kind: d.kind, ...(d.kind === 'GROUP' ? { autoPlacementEligible: false } : {}) } : {}),
       ...(d.parentId !== undefined ? { parentId: d.parentId } : {}),
       ...(d.active !== undefined ? { active: d.active } : {}),
