@@ -1,3 +1,4 @@
+import { isProtectedFromBlock } from '../lib/blockProtection';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { Router } from 'express';
@@ -513,6 +514,11 @@ router.post('/blocks', socialMutationLimiter, requireCsrf, requireMember, asyncH
   if (other === me) return res.status(400).json({ error: 'You cannot block yourself.' });
   const exists = await prisma.person.findUnique({ where: { id: other }, select: { id: true } });
   if (!exists) return res.status(404).json({ error: 'Not found.' });
+  // Leaders of your assembly or generation, your own leader, the representative of your generation and the
+  // central admin cannot be blocked.
+  if (await isProtectedFromBlock(me, other)) {
+    return res.status(403).json({ error: 'This person looks after your community, so they cannot be blocked.', code: 'CANNOT_BLOCK' });
+  }
 
   await prisma.$transaction([
     prisma.personBlock.upsert({

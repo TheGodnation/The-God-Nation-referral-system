@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { isProtectedFromBlock } from './blockProtection';
 
 // ---------------------------------------------------------------------------
 // Friends, blocking and the "who may message whom" rule (Option B):
@@ -13,16 +14,21 @@ import { prisma } from './prisma';
 export type FriendStatus = 'SELF' | 'NONE' | 'FRIENDS' | 'REQUEST_SENT' | 'REQUEST_RECEIVED' | 'BLOCKED';
 
 export async function isBlockedEitherWay(a: string, b: string): Promise<boolean> {
-  const block = await prisma.personBlock.findFirst({
+  const blocks = await prisma.personBlock.findMany({
     where: {
       OR: [
         { blockerPersonId: a, blockedPersonId: b },
         { blockerPersonId: b, blockedPersonId: a },
       ],
     },
-    select: { id: true },
+    select: { blockerPersonId: true, blockedPersonId: true },
   });
-  return Boolean(block);
+  // A block of someone who cannot be blocked (a leader of your assembly or generation, the leader who looks after
+  // you, a representative of your generation, the central admin) no longer counts, even one made earlier.
+  for (const block of blocks) {
+    if (!(await isProtectedFromBlock(block.blockerPersonId, block.blockedPersonId))) return true;
+  }
+  return false;
 }
 
 /** The single friendship row between two people, whichever way it was asked. */

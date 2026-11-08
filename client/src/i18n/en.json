@@ -4284,7 +4284,11 @@
     "weeklyReport_title": "Weekly report",
     "weeklyReport_tile": "Tell the central team how your week went.",
     "repReports_title": "Representative: my leaders",
-    "repReports_tile": "See your generation's reports and send your summary."
+    "repReports_tile": "See your generation's reports and send your summary.",
+    "broadcast_title": "Message all my people",
+    "broadcast_tile": "Write once to everyone you look after.",
+    "repBroadcastLog_title": "Group messages of my generation",
+    "repBroadcastLog_tile": "What the leaders of your generation sent to their people."
   },
   "instructions": {
     "tab": "Instructions",
@@ -4623,5 +4627,33 @@
     "summary_send": "Send my summary",
     "summary_update": "Update my summary",
     "summary_saved": "Summary saved."
+  },
+  "broadcast": {
+    "title": "Message all my people",
+    "help": "Write once — text, a photo or a voice message — and everyone you look after receives it as a private message from you, with their first name in front. They can answer you privately.",
+    "loading": "Loading…",
+    "load_failed": "Could not load. Please try again.",
+    "send_failed": "Could not send. Please try again.",
+    "nobody": "You do not look after anyone yet. People assigned to you appear here.",
+    "nobody_selected": "Choose at least one person.",
+    "will_go": "This will go to {{count}} people.",
+    "choose_people": "Choose who gets it",
+    "hide_people": "Hide the list",
+    "select_all": "Select all",
+    "select_none": "Select none",
+    "greeting_note": "Each person's message starts with “Hello” and their first name.",
+    "sent": "Sent to {{count}} people.",
+    "skipped": "{{count}} could not be reached.",
+    "my_history": "What I sent",
+    "to_people_one": "to {{count}} person",
+    "to_people_other": "to {{count}} people",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "not_delivered_one": "{{count}} not delivered",
+    "not_delivered_other": "{{count}} not delivered",
+    "tab": "Group messages",
+    "log_title": "Group messages from leaders",
+    "log_help": "Every message a leader sent to all their people: who sent it, when, to how many, and what it said.",
+    "log_none": "No group messages yet."
   }
 }

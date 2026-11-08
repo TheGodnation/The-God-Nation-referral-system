@@ -46,6 +46,7 @@ export function MemberPersonPage() {
   const { personId = '' } = useParams();
   const { member } = useMemberAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [blockError, setBlockError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [tab, setTab] = useState<'posts' | 'photos'>('posts');
   const [bucket, setBucket] = useState<'referred' | 'community' | null>(null);
@@ -101,7 +102,13 @@ export function MemberPersonPage() {
       await api.delete(`/api/member/blocks/${personId}`).catch(() => {});
     } else {
       if (!window.confirm(t('people.confirm_block', { name: profile.name }) ?? '')) return;
-      await api.post('/api/member/blocks', { personId }).catch(() => {});
+      setBlockError(null);
+      try {
+        await api.post('/api/member/blocks', { personId });
+      } catch (err) {
+        // Leaders of your assembly or generation, your own leader and the central admin cannot be blocked.
+        if (err instanceof ApiError && err.status === 403) setBlockError(err.message);
+      }
     }
     load();
   }
@@ -244,6 +251,7 @@ export function MemberPersonPage() {
                   <button type="button" className="text-red-700 underline" onClick={() => setReporting((v) => !v)}>
                     {t('people.report')}
                   </button>
+                  {blockError && <span role="alert" className="text-red-700">{blockError}</span>}
                 </div>
               )}
 
