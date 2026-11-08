@@ -14,7 +14,7 @@ import { assemblyHealth, leadersHealthIn } from '../lib/assemblyHealth';
 import { adminReadsEnabled, chatsOfLeader, readLeaderChat, setAdminReads } from '../lib/chatOversight';
 import { addEscalationMessage, escalationViewFor, escalationsForAdmin, type EscalationActor } from '../lib/escalations';
 import { handOverPeople, leaderLoads, shareUnassigned } from '../lib/followUpShare';
-import { appointLeader, assembliesOverview, readyToLeadIn } from '../lib/cells';
+import { appointLeader, assembliesOverview, findPeople, leadersOf, makeLeaders, readyToLeadIn } from '../lib/cells';
 
 // Cells for the central admin: every assembly with its size, leaders and
 // how many are ready to lead; the "Ready to lead" list of one assembly; and
@@ -44,7 +44,29 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
     const result = await appointLeader(parsed.data.personId, parsed.data.communityId, actor);
     if (!result.ok) return res.status(result.status).json({ error: result.error });
-    res.status(201).json({ id: result.id });
+    res.status(201).json({ id: result.id, leaderAccount: result.leaderAccount });
+  }));
+
+  // Make people leaders of an assembly in one step: adds them if needed, appoints them and gives them the Leader
+  // account that opens their dashboard. People are found by name or number, or brought from another group's leaders.
+  router.get('/people', asyncHandler(async (req, res) => {
+    res.json({ items: await findPeople(String(req.query.search ?? '')) });
+  }));
+
+  router.get('/leaders-of', asyncHandler(async (req, res) => {
+    const communityId = z.string().min(1).safeParse(req.query.communityId);
+    if (!communityId.success) return res.status(400).json({ error: 'communityId is required.' });
+    res.json({ items: await leadersOf(communityId.data) });
+  }));
+
+  router.post('/make-leaders', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ communityId: z.string().min(1), personIds: z.array(z.string().min(1)).min(1).max(200) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Choose the assembly and at least one person.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const results = await makeLeaders(parsed.data.communityId, parsed.data.personIds, actor);
+    if (!results) return res.status(404).json({ error: 'Assembly not found.' });
+    res.status(201).json({ results });
   }));
 
   // Give the people nobody follows yet to the assembly's leaders: evenly by headcount, or to the leaders chosen and

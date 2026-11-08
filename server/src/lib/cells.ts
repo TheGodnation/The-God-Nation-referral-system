@@ -2,6 +2,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { recordAudit } from './audit';
 import { notifyRoleAssigned } from './notifications';
+import { ensureLeaderAccount, type LeaderAccountResult } from './leaderAccounts';
+import { addPeopleToCommunity } from './bulkMembers';
 
 // ---------------------------------------------------------------------------
 // Cells — the central admin's view of the assemblies and who is ready to lead.
@@ -163,7 +165,7 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
   };
 }
 
-export type AppointResult = { ok: true; id: string } | { ok: false; status: 400 | 409; error: string };
+export type AppointResult = { ok: true; id: string; leaderAccount: LeaderAccountResult['status'] } | { ok: false; status: 400 | 409; error: string };
 
 /**
  * Makes a person a leader of an assembly (the same record the older
@@ -202,5 +204,78 @@ export async function appointLeader(
     metadata: { personId, roleType: 'SCOPED_LEADER', communityId, via: 'ready-to-lead' },
   });
   await notifyRoleAssigned(created);
-  return { ok: true, id: created.id };
+  // Leading an assembly also needs the Leader account that opens the "My Leadership Dashboard".
+  const leaderAccount = await ensureLeaderAccount(personId, actor);
+  return { ok: true, id: created.id, leaderAccount: leaderAccount.status };
+}
+
+
+export interface MakeLeaderOutcome {
+  personId: string;
+  name: string;
+  /** APPOINTED now, ALREADY_LEADER of this assembly, or NOT_FOUND. */
+  status: 'APPOINTED' | 'ALREADY_LEADER' | 'NOT_FOUND';
+  /** They were not a member of the assembly, so they were added to it. */
+  addedToAssembly: boolean;
+  /** Their Leader account (what opens the leadership dashboard): CREATED, ALREADY, NO_MEMBER_ACCOUNT (not joined the app yet) or EMAIL_TAKEN. */
+  leaderAccount: LeaderAccountResult['status'] | null;
+}
+
+/**
+ * Makes these people leaders of an assembly (or group) in one step: adds them to it if they are not members yet,
+ * appoints them, and gives each the Leader account so their leadership dashboard follows them. Anyone already a leader
+ * there is left as they are (but still gets the account if they lack it). Anyone who has not joined the app as a member
+ * can be appointed but cannot have a dashboard yet; that is reported, not hidden.
+ */
+export async function makeLeaders(communityId: string, personIds: string[], actor: { id: string; email: string }): Promise<MakeLeaderOutcome[] | null> {
+  const community = await prisma.community.findUnique({ where: { id: communityId }, select: { id: true } });
+  if (!community) return null;
+  const out: MakeLeaderOutcome[] = [];
+  for (const personId of [...new Set(personIds)]) {
+    const person = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true, erasedAt: true } });
+    if (!person || person.erasedAt) {
+      out.push({ personId, name: '', status: 'NOT_FOUND', addedToAssembly: false, leaderAccount: null });
+      continue;
+    }
+    const member = await prisma.communityMembership.findUnique({ where: { personId_communityId: { personId, communityId } }, select: { status: true } });
+    let addedToAssembly = false;
+    if (member?.status !== 'ACTIVE') {
+      await addPeopleToCommunity([personId], communityId);
+      addedToAssembly = true;
+    }
+    let status: MakeLeaderOutcome['status'] = 'APPOINTED';
+    try {
+      const created = await prisma.roleAssignment.create({ data: { personId, roleType: 'SCOPED_LEADER', communityId, assignedByUserId: actor.id } });
+      await notifyRoleAssigned(created);
+      await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'ROLE_ASSIGNMENT_CREATED', targetType: 'RoleAssignment', targetId: created.id, metadata: { personId, roleType: 'SCOPED_LEADER', communityId, via: 'make-leaders', addedToAssembly } });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') status = 'ALREADY_LEADER';
+      else throw err;
+    }
+    const leaderAccount = await ensureLeaderAccount(personId, actor);
+    out.push({ personId, name: person.name, status, addedToAssembly, leaderAccount: leaderAccount.status });
+  }
+  return out;
+}
+
+/** The people who currently lead this assembly or group (to bring them, in one step, to another). */
+export async function leadersOf(communityId: string) {
+  const rows = await prisma.roleAssignment.findMany({
+    where: { communityId, roleType: 'SCOPED_LEADER', status: 'ACTIVE', person: { erasedAt: null } },
+    select: { person: { select: { id: true, name: true } } },
+  });
+  return rows.map((r) => r.person).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Find people by name or phone number (for choosing who to make a leader). */
+export async function findPeople(search: string) {
+  const q = search.trim();
+  if (q.length < 2) return [];
+  const rows = await prisma.person.findMany({
+    where: { erasedAt: null, OR: [{ name: { contains: q, mode: 'insensitive' } }, { whatsappNumber: { contains: q } }] },
+    select: { id: true, name: true, whatsappNumber: true, memberAccount: { select: { id: true } } },
+    orderBy: { name: 'asc' },
+    take: 20,
+  });
+  return rows.map((r) => ({ id: r.id, name: r.name, whatsappNumber: r.whatsappNumber, hasMemberAccount: Boolean(r.memberAccount) }));
 }

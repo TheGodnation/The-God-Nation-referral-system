@@ -4732,5 +4732,30 @@
     "appoint": "Make leader",
     "nobody": "Nobody found.",
     "appointed": "{{name}} now leads {{group}}."
+  },
+  "makeLeaders": {
+    "open": "Make leaders of {{name}}",
+    "close": "Close",
+    "help": "Make people leaders of {{name}} in one step. If they are not members of it yet they are added; each one also gets the Leader account, so the My Leadership Dashboard follows them.",
+    "from_title": "Bring leaders from another group",
+    "from_search": "Search a group or assembly by name (for example the Leadership Team)",
+    "choose": "Choose",
+    "search": "Search",
+    "leaders_of": "Leaders of {{name}}",
+    "no_leaders_there": "Nobody leads it yet.",
+    "make_these": "Make {{count}} leaders of {{name}}",
+    "find_title": "Or find a person",
+    "find_placeholder": "Name or WhatsApp number",
+    "nobody_found": "Nobody found. If they are not listed, they have not joined the app yet: send them the joining link, and once they have signed up they will appear here.",
+    "not_joined": "has not joined the app",
+    "make_leader": "Make leader",
+    "failed": "Could not do this. Please try again.",
+    "not_found": "This person could not be found.",
+    "now_leader": "{{name}} is now a leader.",
+    "already": "{{name}} already leads here.",
+    "added": "They were added to the assembly.",
+    "dashboard_ready": "Their leadership dashboard is ready.",
+    "no_app": "They have not joined the app as a member yet, so their dashboard will open once they have joined and you have done this again.",
+    "email_taken": "A Leader account could not be made because another account uses their email."
   }
 }

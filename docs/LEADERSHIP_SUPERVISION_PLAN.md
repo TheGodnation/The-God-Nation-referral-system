@@ -125,3 +125,13 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   (create and Edit) and in the profile's Groups tab ("Assemblies and groups"). Shown in: the Chats list and group chat header,
   Me/progress lists, events, teachings, prayer requests, a person's page (assemblies they belong to or lead), leader colleagues.
   Notifications and admin screens keep the English name.
+
+## Making leaders of an assembly in one step (done)
+
+- In the profile's "Assemblies and leaders" (and the admin dashboard's), each assembly has **"Make leaders of …"**: bring the leaders of
+  another group or assembly (for example the old Headquarters, now the Leadership Team) in one step, or find any person by name or
+  number. Each person is **added to the assembly if not a member, appointed leader, and given the Leader account** that opens their
+  leadership dashboard (the same thing the old "New assignment" form did). Anyone who has not joined the app as a member can be
+  appointed but has no dashboard until they join; the result says so, and an empty search explains it. The older "Ready to lead"
+  appointment now also gives the Leader account. Endpoints: `GET /people`, `GET /leaders-of`, `POST /make-leaders` under
+  `/api/admin/cells` and `/api/member/central-cells`.
