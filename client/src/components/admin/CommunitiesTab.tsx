@@ -12,6 +12,7 @@ type PlacementMode = 'SMALLEST_GROUP' | 'BY_LOCATION';
 
 interface CommunityNode {
   id: string;
+  nameFr?: string | null;
   /** ASSEMBLY counts as a generation; GROUP (women, youth, prayer…) never does. */
   kind?: 'ASSEMBLY' | 'GROUP';
   parentId: string | null;
@@ -55,6 +56,9 @@ export function CommunitiesTab() {
   // Private by default: putting people in an assembly automatically is the exception.
   const [autoPlacementEligible, setAutoPlacementEligible] = useState(false);
   const [newKind, setNewKind] = useState<'ASSEMBLY' | 'GROUP'>('ASSEMBLY');
+  const [newNameFr, setNewNameFr] = useState('');
+  const [editNameFr, setEditNameFr] = useState('');
+  const [editNameFrBefore, setEditNameFrBefore] = useState('');
   const [editKind, setEditKind] = useState<'ASSEMBLY' | 'GROUP'>('ASSEMBLY');
   // Where the new assembly goes: inside the one currently open (the default),
   // or another one picked here, or the top level.
@@ -233,8 +237,9 @@ export function CommunitiesTab() {
     e.preventDefault();
     setError(null);
     try {
-      await api.post('/api/admin/communities', { name, kind: newKind, parentId: newParent?.id ?? undefined, autoPlacementEligible: newKind === 'GROUP' ? false : autoPlacementEligible });
+      await api.post('/api/admin/communities', { name, ...(newNameFr.trim() ? { nameFr: newNameFr.trim() } : {}), kind: newKind, parentId: newParent?.id ?? undefined, autoPlacementEligible: newKind === 'GROUP' ? false : autoPlacementEligible });
       setName('');
+      setNewNameFr('');
       setNewKind('ASSEMBLY');
       setAutoPlacementEligible(false);
       setShowForm(false);
@@ -269,6 +274,8 @@ export function CommunitiesTab() {
     setEditName(node.name);
     setEditParentId(node.parentId);
     setEditParentName(node.parent?.name ?? '');
+    setEditNameFr(node.nameFr ?? '');
+    setEditNameFrBefore(node.nameFr ?? '');
     setEditKind(node.kind ?? 'ASSEMBLY');
     setEditAutoPlacementEligible(node.autoPlacementEligible);
     setEditPlacementCountry(node.placementCountry ?? '');
@@ -282,6 +289,7 @@ export function CommunitiesTab() {
     try {
       await api.patch(`/api/admin/communities/${editingId}`, {
         name: editName,
+        ...(editNameFr.trim() !== editNameFrBefore.trim() ? { nameFr: editNameFr.trim() } : {}),
         kind: editKind,
         parentId: editParentId,
         autoPlacementEligible: editKind === 'GROUP' ? false : editAutoPlacementEligible,
@@ -486,6 +494,14 @@ export function CommunitiesTab() {
             onChange={(e) => setName(e.target.value)}
             required
           />
+          <input
+            className="input"
+            placeholder={t('admin.communities.name_fr_placeholder') ?? ''}
+            aria-label={t('admin.communities.name_fr_label') ?? ''}
+            value={newNameFr}
+            onChange={(e) => setNewNameFr(e.target.value)}
+            maxLength={200}
+          />
           <div>
             <label className="label">{t('admin.communities.new_inside')}</label>
             <p className="mb-2 text-sm font-medium text-slate-800" data-testid="new-parent">
@@ -571,6 +587,7 @@ export function CommunitiesTab() {
       {editingId && (
         <form onSubmit={saveEdit} className="card mb-4 space-y-3">
           <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+          <input className="input" value={editNameFr} onChange={(e) => setEditNameFr(e.target.value)} placeholder={t('admin.communities.name_fr_placeholder') ?? ''} aria-label={t('admin.communities.name_fr_label') ?? ''} maxLength={200} />
           <div>
             <label className="label">{t('admin.communities.parent_label')}</label>
             <p className="mb-2 text-sm text-slate-600">
@@ -742,6 +759,7 @@ export function CommunitiesTab() {
                   </td>
                   <td className="py-2 pr-4">
                     {node.name}
+                    {node.nameFr && <span className="block text-xs text-slate-500" data-testid="name-fr">🇫🇷 {node.nameFr}</span>}
                     {node.kind === 'GROUP' && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{t('admin.communities.group_badge')}</span>}
                     {node.placementCountry && (
                       <span className="block text-xs text-slate-500">

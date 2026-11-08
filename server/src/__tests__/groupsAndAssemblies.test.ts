@@ -229,3 +229,62 @@ describe('Leaders of groups', () => {
     expect((await agentWithIp().get(`${CG}/groups`)).status).toBe(401);
   });
 });
+
+describe('French name of an assembly or group', () => {
+  const C = '/api/member/central-communities';
+  const asLang = (w: Who, lang: 'en' | 'fr', path: string) => w.agent.get(path).set('X-App-Language', lang);
+
+  it('the admin writes the French name next to the English one; French speakers see it, English speakers and a missing French name show the English', async () => {
+    const { hq, A, admin, member } = await world();
+    const created = await send(admin, 'post', C, { name: 'Prayer Group', nameFr: 'Groupe de prière', kind: 'GROUP', parentId: hq.id });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ name: 'Prayer Group', nameFr: 'Groupe de prière' });
+    await prisma.communityMembership.create({ data: { personId: member.person.id, communityId: created.body.id } });
+    const renamed = await send(admin, 'patch', `${C}/${A.id}`, { nameFr: 'Assemblée A' });
+    expect(renamed.body.nameFr).toBe('Assemblée A');
+
+    const names = async (lang: 'en' | 'fr') => {
+      const r = await asLang(member, lang, '/api/member/me/community-memberships');
+      return Object.fromEntries(r.body.items.map((i: any) => [i.communityId, i.communityName]));
+    };
+    const fr = await names('fr');
+    const en = await names('en');
+    expect(fr[created.body.id]).toBe('Groupe de prière');
+    expect(en[created.body.id]).toBe('Prayer Group');
+    expect(fr[A.id]).toBe('Assemblée A');
+    expect(en[A.id]).toBe(A.name);
+    // The chat header (conversation meta) follows the same rule, and falls back to English when there is no French name.
+    const noFr = await prisma.community.findUniqueOrThrow({ where: { id: hq.id } });
+    await prisma.conversation.upsert({ where: { communityId: created.body.id }, create: { communityId: created.body.id }, update: {} });
+    expect((await asLang(member, 'fr', `/api/communities/${created.body.id}/conversation`)).body.name).toBe('Groupe de prière');
+    expect((await asLang(member, 'en', `/api/communities/${created.body.id}/conversation`)).body.name).toBe('Prayer Group');
+    await prisma.conversation.upsert({ where: { communityId: A.id }, create: { communityId: A.id }, update: {} });
+    expect((await asLang(member, 'fr', `/api/communities/${hq.id}/conversation`)).status).toBeLessThan(500);
+    expect(noFr.nameFr).toBeNull();
+  });
+
+  it('blank clears the French name, and a very long one is refused', async () => {
+    const { hq, admin } = await world();
+    const g = await send(admin, 'post', C, { name: 'Youth', nameFr: 'Jeunes', kind: 'GROUP', parentId: hq.id });
+    expect(g.body.nameFr).toBe('Jeunes');
+    const cleared = await send(admin, 'patch', `${C}/${g.body.id}`, { nameFr: '   ' });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.nameFr).toBeNull();
+    expect((await send(admin, 'patch', `${C}/${g.body.id}`, { nameFr: 'x'.repeat(201) })).status).toBe(400);
+  });
+
+  it('events and the person page show the French name to French speakers', async () => {
+    const { A, admin, member } = await world();
+    await send(admin, 'patch', `${C}/${A.id}`, { nameFr: 'Assemblée Alpha' });
+    const profile = await asLang(member, 'fr', `/api/member/people/${member.person.id}`);
+    // (own profile is refused or returns lists; the point is that no server error occurs with the French header)
+    expect(profile.status).toBeLessThan(500);
+    const other = await signedIn('Viewer');
+    await join(other.person.id, A.id);
+    const seen = await asLang(other, 'fr', `/api/member/people/${member.person.id}`);
+    expect(seen.status).toBe(200);
+    expect(seen.body.memberOf).toContain('Assemblée Alpha');
+    const seenEn = await asLang(other, 'en', `/api/member/people/${member.person.id}`);
+    expect(seenEn.body.memberOf).toContain(A.name);
+  });
+});

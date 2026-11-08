@@ -700,3 +700,27 @@ describe('CommunitiesTab — assembly or group', () => {
     expect(screen.getByText('Founding generation (0)')).toBeInTheDocument();
   });
 });
+
+
+describe('CommunitiesTab — French name', () => {
+  it('creates with the English and the French name, and shows the French name under the English one', async () => {
+    mockFetchByUrl({
+      '/api/admin/communities/headquarters': { status: 200, body: { community: { id: 'hq1', name: 'HQ' } } },
+      '/api/admin/communities?&page=': {
+        status: 200,
+        body: { items: [{ id: 'a1', name: 'Headquarters Assembly', nameFr: 'Assemblée du Siège', active: true, parentId: null, generation: 0, autoPlacementEligible: false, postingPolicy: 'EVERYONE', _count: { children: 0, memberships: 1 } }], pagination: { totalPages: 1 } },
+      },
+      '/api/admin/communities': { status: 201, body: { id: 'n1' } },
+    });
+    render(<CommunitiesTab />);
+    expect(await screen.findByTestId('name-fr')).toHaveTextContent('Assemblée du Siège');
+    fireEvent.click(screen.getByText('+ New Community'));
+    fireEvent.change(screen.getByPlaceholderText('Community name'), { target: { value: 'Prayer Group' } });
+    fireEvent.change(screen.getByLabelText('French name (shown to French speakers)'), { target: { value: 'Groupe de prière' } });
+    fireEvent.click(screen.getByText('Create'));
+    await waitFor(() => {
+      const post = calls.find((c) => c.method === 'POST' && c.url === '/api/admin/communities');
+      expect(post?.body).toMatchObject({ name: 'Prayer Group', nameFr: 'Groupe de prière' });
+    });
+  });
+});

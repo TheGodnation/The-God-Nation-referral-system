@@ -1,3 +1,4 @@
+import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -275,7 +276,7 @@ async function loadTeaching(req: any, res: any) {
     where: { id: req.params.id },
     include: {
       message: { select: { deletedAt: true, attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, pageCount: true } } } },
-      community: { select: { name: true } },
+      community: { select: { name: true, nameFr: true } },
       author: { select: { name: true } },
       // The quiz's own questions (the first set); a retake's fresh set is not counted here.
       assessment: { select: { passMark: true, _count: { select: { questions: { where: { setNumber: 1 } } } } } },
@@ -342,7 +343,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     titleTranslated: teaching.titleTranslated,
     textTranslated: teaching.textTranslated,
     communityId: teaching.communityId,
-    communityName: teaching.community.name,
+    communityName: communityNameFor(teaching.community, wantsFrench(req)),
     messageId: teaching.messageId,
     authorName: teaching.author?.name ?? null,
     isAuthor: teaching.authorPersonId === personId,
