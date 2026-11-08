@@ -20,6 +20,8 @@ import { MyMembers } from './MyMembers';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
 import { LeaderLeadershipCollaboration } from './LeaderLeadershipCollaboration';
 import { LeaderCommunityConversations } from './LeaderCommunityConversations';
+import { WeeklyReportForm } from './WeeklyReportForm';
+import { LeadersReportPanel } from '../admin/LeadersReportPanel';
 import { InstructionsPanel } from '../admin/InstructionsPanel';
 import { SanctionsPanel } from '../admin/SanctionsPanel';
 import { LeaderInstructions, type MyInstruction } from './LeaderInstructions';
@@ -191,7 +193,7 @@ function LeaderEscalations() {
   );
 }
 
-type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions' | 'repInstructions';
+type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions' | 'repInstructions' | 'weeklyReport' | 'repReports';
 
 interface MyPeopleSummary {
   total: number;
@@ -278,8 +280,12 @@ export function LeadershipDashboardBody() {
 
   const sections: { key: SectionKey; icon: string; render: () => ReactNode }[] = [
     { key: 'instructions', icon: '📌', render: () => <LeaderInstructions onChanged={() => void loadPendingInstructions()} /> },
+    { key: 'weeklyReport', icon: '📝', render: () => <WeeklyReportForm /> },
     ...(repGeneration !== null
-      ? [{ key: 'repInstructions' as SectionKey, icon: '🧭', render: () => <InstructionsPanel base="/api/member/rep-instructions" representative /> }]
+      ? [
+          { key: 'repInstructions' as SectionKey, icon: '🧭', render: () => <InstructionsPanel base="/api/member/rep-instructions" representative /> },
+          { key: 'repReports' as SectionKey, icon: '📊', render: () => <LeadersReportPanel base="/api/member/rep-weekly-reports" mode="rep" /> },
+        ]
       : []),
     { key: 'sanctions', icon: '🔇', render: () => <SanctionsPanel base="/api/member/sanctions" /> },
     {
