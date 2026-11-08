@@ -46,7 +46,7 @@ const STATUS_STYLE: Record<Status, string> = {
 // The National Coordinator's desk for instructions to leaders: write one (to every leader, to chosen generations,
 // or to hand-picked leaders), then follow it up — who has seen it, who is done, who is late — and remind. Offered in
 // the admin dashboard and in the central admin's member profile (base says which set of routes to use).
-export function InstructionsPanel({ base }: { base: string }) {
+export function InstructionsPanel({ base, representative = false }: { base: string; representative?: boolean }) {
   const { t, i18n } = useTranslation();
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [generations, setGenerations] = useState<number[]>([]);
@@ -82,6 +82,7 @@ export function InstructionsPanel({ base }: { base: string }) {
           base={base}
           leaders={leaders}
           generations={generations}
+          representative={representative}
           onCancel={() => setComposing(false)}
           onSent={() => {
             setComposing(false);
@@ -115,12 +116,16 @@ export function InstructionsPanel({ base }: { base: string }) {
   );
 }
 
-function Compose({ base, leaders, generations, onCancel, onSent }: { base: string; leaders: Leader[]; generations: number[]; onCancel: () => void; onSent: () => void }) {
+function Compose({ base, leaders, generations, representative, onCancel, onSent }: { base: string; leaders: Leader[]; generations: number[]; representative: boolean; onCancel: () => void; onSent: () => void }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [audience, setAudience] = useState<'ALL_LEADERS' | 'GENERATIONS' | 'PICKED'>('ALL_LEADERS');
-  const [gens, setGens] = useState<number[]>([]);
+  // A representative writes only to their own generation (its leaders, or hand-picked ones among them).
+  const [audience, setAudience] = useState<'ALL_LEADERS' | 'GENERATIONS' | 'PICKED'>(representative ? 'GENERATIONS' : 'ALL_LEADERS');
+  const [gens, setGens] = useState<number[]>(representative ? generations : []);
+  useEffect(() => {
+    if (representative) setGens(generations);
+  }, [representative, generations]);
   const [picked, setPicked] = useState<string[]>([]);
   const [filter, setFilter] = useState('');
   const [due, setDue] = useState('');
@@ -172,14 +177,14 @@ function Compose({ base, leaders, generations, onCancel, onSent }: { base: strin
 
       <fieldset className="space-y-1.5">
         <legend className="text-sm font-semibold text-slate-700">{t('instructions.f_to')}</legend>
-        {(['ALL_LEADERS', 'GENERATIONS', 'PICKED'] as const).map((a) => (
+        {(representative ? (['GENERATIONS', 'PICKED'] as const) : (['ALL_LEADERS', 'GENERATIONS', 'PICKED'] as const)).map((a) => (
           <label key={a} className="flex items-center gap-2 text-sm">
             <input type="radio" name="aud" checked={audience === a} onChange={() => setAudience(a)} />
             {t(`instructions.to_${a}`)}
           </label>
         ))}
       </fieldset>
-      {audience === 'GENERATIONS' && (
+      {audience === 'GENERATIONS' && !representative && (
         <div className="flex flex-wrap gap-2">
           {generations.map((g) => (
             <button key={g} type="button" onClick={() => setGens(toggle(gens, g))} aria-pressed={gens.includes(g)}

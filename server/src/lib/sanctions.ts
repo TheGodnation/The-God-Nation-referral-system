@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { isCentralAdminPerson } from './centralAdmin';
 import { findActiveScopedRole } from './leadership';
+import { representedCommunityIds } from './representatives';
 import {
   notifyExcuseRequested,
   notifyRemovalDecided,
@@ -12,8 +13,7 @@ import {
 } from './notifications';
 
 // Sanctions. A MUTE lets a person read an assembly but not write in it for 3, 7, 15 or 30 days (it ends by
-// itself). Who may mute: the central admin anywhere; a leader only in an assembly they lead (the per-generation
-// representatives join as a third kind of authority). Leaders cannot lift a mute the central admin placed.
+// itself). Who may mute: the central admin anywhere; a leader only in an assembly they lead; the representative of a generation in every assembly of that generation. Leaders cannot lift a mute the central admin placed.
 // Leaders cannot remove anyone: they send a removal request, and only the central admin decides.
 
 export const MUTE_DAYS = [3, 7, 15, 30] as const;
@@ -30,6 +30,8 @@ export class SanctionError extends Error {
 export async function authorityFor(personId: string, communityId: string): Promise<SanctionRoleName | null> {
   if (await isCentralAdminPerson(personId)) return 'ADMIN';
   if (await findActiveScopedRole(personId, 'COMMUNITY', communityId)) return 'LEADER';
+  // The representative of a generation acts in every assembly of that generation.
+  if ((await representedCommunityIds(personId)).includes(communityId)) return 'REPRESENTATIVE';
   return null;
 }
 
@@ -184,17 +186,16 @@ export async function adminRemove(actorPersonId: string, communityId: string, pe
 
 const RECENT = 30 * DAY;
 
-/** Assemblies this person may sanction in: all (found by name) for the central admin, otherwise those they lead. */
+/** Assemblies this person may sanction in: all (found by name) for the central admin, otherwise the ones they lead plus every assembly of the generation they represent. */
 export async function assembliesFor(personId: string, search: string) {
+  const q = search.trim();
   if (await isCentralAdminPerson(personId)) {
-    const q = search.trim();
     if (!q) return [];
     return prisma.community.findMany({ where: { name: { contains: q, mode: 'insensitive' } }, select: { id: true, name: true }, orderBy: { name: 'asc' }, take: 20 });
   }
   const roles = await prisma.roleAssignment.findMany({ where: { personId, roleType: 'SCOPED_LEADER', status: 'ACTIVE', communityId: { not: null } }, select: { communityId: true } });
-  const ids = roles.map((r) => r.communityId!) ;
-  const q = search.trim();
-  return prisma.community.findMany({ where: { id: { in: ids }, ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}) }, select: { id: true, name: true }, orderBy: { name: 'asc' }, take: 50 });
+  const ids = [...new Set([...roles.map((r) => r.communityId!), ...(await representedCommunityIds(personId))])];
+  return prisma.community.findMany({ where: { id: { in: ids }, ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}) }, select: { id: true, name: true }, orderBy: { name: 'asc' }, take: 500 });
 }
 
 /** Members of an assembly the actor has authority over (for choosing whom to mute). */

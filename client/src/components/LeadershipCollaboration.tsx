@@ -7,7 +7,7 @@ import { api, ApiError } from '../lib/api';
 interface MessageRow {
   id: string;
   senderName: string;
-  senderBadge?: 'NATIONAL_COORDINATOR' | null;
+  senderBadge?: 'NATIONAL_COORDINATOR' | 'REPRESENTATIVE' | null;
   body: string;
   createdAt: string;
 }
@@ -134,6 +134,9 @@ export function LeadershipCollaboration({ generation, base = '/api/leader/leader
                     <span className="font-medium text-brand-900">{m.senderName}</span>
                     {m.senderBadge === 'NATIONAL_COORDINATOR' && (
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">{t('leadershipCollaboration.badge_nc')}</span>
+                    )}
+                    {m.senderBadge === 'REPRESENTATIVE' && (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">{t('leadershipCollaboration.badge_rep')}</span>
                     )}
                     <span className="text-xs text-slate-400">{new Date(m.createdAt).toLocaleString()}</span>
                   </div>

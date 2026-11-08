@@ -20,6 +20,7 @@ import { MyMembers } from './MyMembers';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
 import { LeaderLeadershipCollaboration } from './LeaderLeadershipCollaboration';
 import { LeaderCommunityConversations } from './LeaderCommunityConversations';
+import { InstructionsPanel } from '../admin/InstructionsPanel';
 import { SanctionsPanel } from '../admin/SanctionsPanel';
 import { LeaderInstructions, type MyInstruction } from './LeaderInstructions';
 import { api } from '../../lib/api';
@@ -190,7 +191,7 @@ function LeaderEscalations() {
   );
 }
 
-type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions';
+type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions' | 'repInstructions';
 
 interface MyPeopleSummary {
   total: number;
@@ -220,6 +221,8 @@ export function LeadershipDashboardBody() {
   const [assemblies, setAssemblies] = useState<string[] | null>(null);
   const [people, setPeople] = useState<MyPeopleSummary | null>(null);
   const [pendingInstructions, setPendingInstructions] = useState(0);
+  // Set when this leader is also the representative of a generation.
+  const [repGeneration, setRepGeneration] = useState<number | null>(null);
   const loadPendingInstructions = () =>
     api
       .get<{ items: MyInstruction[] }>('/api/member/instructions/')
@@ -243,6 +246,10 @@ export function LeadershipDashboardBody() {
       .then((res) => setAssemblies(res.items.flatMap((r) => (r.community ? [r.community.name] : []))))
       .catch(() => setAssemblies([]));
     void loadPendingInstructions();
+    api
+      .get<{ generation: number | null }>('/api/member/representative/me')
+      .then((r) => setRepGeneration(typeof r.generation === 'number' ? r.generation : null))
+      .catch(() => {});
     api
       .get<MyPeopleSummary>('/api/leader/my-people')
       .then((res) => setPeople({ total: res.total, needingAttention: res.needingAttention }))
@@ -271,6 +278,9 @@ export function LeadershipDashboardBody() {
 
   const sections: { key: SectionKey; icon: string; render: () => ReactNode }[] = [
     { key: 'instructions', icon: '📌', render: () => <LeaderInstructions onChanged={() => void loadPendingInstructions()} /> },
+    ...(repGeneration !== null
+      ? [{ key: 'repInstructions' as SectionKey, icon: '🧭', render: () => <InstructionsPanel base="/api/member/rep-instructions" representative /> }]
+      : []),
     { key: 'sanctions', icon: '🔇', render: () => <SanctionsPanel base="/api/member/sanctions" /> },
     {
       key: 'people',

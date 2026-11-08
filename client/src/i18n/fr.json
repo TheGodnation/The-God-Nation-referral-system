@@ -1542,7 +1542,8 @@
     "sending": "Envoi…",
     "send_failed": "Échec de l'envoi du message.",
     "all_title": "Tous les responsables",
-    "badge_nc": "Coordinateur national"
+    "badge_nc": "Coordinateur national",
+    "badge_rep": "Représentant l'équipe centrale"
   },
   "announcements": {
     "title": "Annonces",
@@ -1755,7 +1756,9 @@
     "removal_requested": "{{requester}} demande de retirer {{name}} de « {{assembly}} ».",
     "removal_decided_yes": "Retrait approuvé : {{name}} a été retiré de « {{assembly}} ».",
     "removal_decided_no": "Retrait refusé pour {{name}} dans « {{assembly}} ».",
-    "removed_from_assembly": "Vous avez été retiré de l'assemblée « {{assembly}} »."
+    "removed_from_assembly": "Vous avez été retiré de l'assemblée « {{assembly}} ».",
+    "representative_appointed": "Vous êtes maintenant le représentant de la génération {{generation}}. Vos outils sont dans Mon tableau de bord de leader.",
+    "representative_ended": "Vous n'êtes plus le représentant de la génération {{generation}}."
   },
   "memberHome": {
     "title": "Accueil",
@@ -4273,7 +4276,9 @@
     "instructions_waiting": "{{count}} instruction(s) vous attendent",
     "instructions_tap": "Touchez pour les lire.",
     "sanctions_title": "Sanctions",
-    "sanctions_tile": "Mettre en sourdine, demander un retrait, voir les demandes de pardon."
+    "sanctions_tile": "Mettre en sourdine, demander un retrait, voir les demandes de pardon.",
+    "repInstructions_title": "Représentant : instructions",
+    "repInstructions_tile": "Écrivez aux leaders de votre génération et suivez qui a terminé."
   },
   "instructions": {
     "tab": "Instructions",
@@ -4321,7 +4326,8 @@
     "others_notes": "Notes des autres responsables",
     "note_placeholder": "Une courte note (facultatif) : ce que vous avez fait, ou ce qu’il reste à faire.",
     "mark_done": "Marquer comme terminé",
-    "your_note": "Votre note"
+    "your_note": "Votre note",
+    "from_rep": "De votre représentant"
   },
   "leaderRooms": {
     "tab": "Salles des responsables",
@@ -4516,5 +4522,28 @@
     "req_DECLINED": "Refusée",
     "loading": "Chargement…",
     "load_failed": "Chargement impossible. Réessayez."
+  },
+  "repAdmin": {
+    "tab": "Représentants",
+    "title": "Représentants des générations",
+    "help": "Un représentant par génération, choisi parmi les leaders. Il écrit des instructions aux leaders de sa génération et suit qui a terminé, met des membres en sourdine et envoie des demandes de retrait dans sa génération, et apparaît dans le salon des leaders de cette génération comme « Représentant l'équipe centrale ». Vous seul le nommez ou le retirez.",
+    "loading": "Chargement…",
+    "load_failed": "Chargement impossible. Réessayez.",
+    "action_failed": "Action impossible. Réessayez.",
+    "no_generations": "Il n'y a pas encore de générations : définissez d'abord le Quartier général et ouvrez des assemblées en dessous.",
+    "generation": "Génération {{n}}",
+    "assemblies_one": "{{count}} assemblée",
+    "assemblies_other": "{{count}} assemblées",
+    "none": "Pas encore de représentant.",
+    "choose": "Choisir un représentant",
+    "search_leader": "Rechercher un leader par nom",
+    "search": "Rechercher",
+    "no_leaders": "Aucun leader trouvé.",
+    "appoint": "Nommer",
+    "appointed": "{{name}} est maintenant le représentant.",
+    "remove": "Retirer",
+    "remove_confirm": "Retirer {{name}} comme représentant ?",
+    "removed": "Représentant retiré.",
+    "since": "depuis le {{date}}"
   }
 }

@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { getHeadquartersCommunityId, getCommunityGeneration } from './tree';
 import { centralAdminAmong } from './centralAdmin';
+import { representedGeneration } from './representatives';
 
 // Phase 2B — Same-Generation Leader Collaboration. Deliberately its own
 // module, exactly like lib/leaderPeers.ts (Phase 2A) — never touching
@@ -50,6 +51,9 @@ export async function getEligibleLeadershipCollaborationGenerations(requestingPe
   if (ownRoles.length === 0) return [];
 
   const generations = new Set<number>();
+  // The representative of a generation is also in that generation's room.
+  const represented = await representedGeneration(requestingPersonId);
+  if (represented !== null) generations.add(represented);
   for (const role of ownRoles) {
     const generation = await getCommunityGeneration(role.communityId!, headquartersId);
     // null means this Community isn't actually part of the Headquarters
@@ -137,10 +141,13 @@ export async function getLeadershipCollaborationUnreadCount(personId: string, co
 const DEFAULT_PAGE = 30;
 const MAX_PAGE = 50;
 
-/** "National Coordinator" next to a name: the central admin's own member profile. */
-export async function roomSenderBadges(personIds: string[]): Promise<Map<string, 'NATIONAL_COORDINATOR'>> {
+/** "National Coordinator" next to the central admin's name; "Representing the central team" next to a representative's. */
+export async function roomSenderBadges(personIds: string[]): Promise<Map<string, 'NATIONAL_COORDINATOR' | 'REPRESENTATIVE'>> {
   const admins = await centralAdminAmong(personIds);
-  return new Map(Array.from(admins).map((id) => [id, 'NATIONAL_COORDINATOR' as const]));
+  const reps = await prisma.generationRepresentative.findMany({ where: { personId: { in: personIds }, endedAt: null }, select: { personId: true } });
+  const badges = new Map<string, 'NATIONAL_COORDINATOR' | 'REPRESENTATIVE'>(reps.map((r) => [r.personId, 'REPRESENTATIVE' as const]));
+  for (const id of admins) badges.set(id, 'NATIONAL_COORDINATOR');
+  return badges;
 }
 
 export async function listRoomMessages(generation: number, personId: string, opts: { before?: string; limit?: number }) {

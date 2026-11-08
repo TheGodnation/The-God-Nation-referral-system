@@ -67,6 +67,8 @@ export interface CreateInstructionInput {
   repliesVisible: boolean;
   createdByUserId: string | null;
   createdByPersonId: string | null;
+  /** Sent by a generation's representative rather than the National Coordinator. */
+  fromRepresentative?: boolean;
 }
 
 async function translatedBoth(title: string, body: string): Promise<{ language: Language | null; titleTr: string | null; bodyTr: string | null }> {
@@ -110,7 +112,7 @@ export async function createInstruction(input: CreateInstructionInput): Promise<
       targetId: instruction.id,
     })),
   });
-  pushToPersons(personIds, { title: '📌 Instruction from the National Coordinator', body: input.title, url: '/member/me?section=instructions' }).catch(() => {});
+  pushToPersons(personIds, { title: input.fromRepresentative ? '📌 Instruction from your representative' : '📌 Instruction from the National Coordinator', body: input.title, url: '/member/me?section=instructions' }).catch(() => {});
   return { ok: true, id: instruction.id, recipients: personIds.length };
 }
 
@@ -121,8 +123,9 @@ function statusOf(r: { seenAt: Date | null; doneAt: Date | null }, dueAt: Date |
 }
 
 /** The central admin's list: each instruction with how many people it went to, have seen it, are done, are late. */
-export async function listInstructions() {
+export async function listInstructions(onlyCreatedByPersonId?: string) {
   const rows = await prisma.leaderInstruction.findMany({
+    where: onlyCreatedByPersonId ? { createdByPersonId: onlyCreatedByPersonId } : {},
     orderBy: { createdAt: 'desc' },
     take: 100,
     include: { recipients: { select: { seenAt: true, doneAt: true } } },
@@ -213,6 +216,8 @@ export async function instructionsFor(personId: string) {
   const now = new Date();
   return mine.map((r) => ({
     id: r.instruction.id,
+    // Sent by the central admin (an admin account) or by a generation's representative.
+    sender: r.instruction.createdByUserId ? ('NATIONAL_COORDINATOR' as const) : ('REPRESENTATIVE' as const),
     title: r.instruction.title,
     body: r.instruction.body,
     language: r.instruction.language,

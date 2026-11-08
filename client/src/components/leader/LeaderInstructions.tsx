@@ -6,6 +6,7 @@ import { pickText } from '../../lib/instructionText';
 type Status = 'DONE' | 'LATE' | 'SEEN' | 'WAITING';
 export interface MyInstruction {
   id: string;
+  sender?: 'NATIONAL_COORDINATOR' | 'REPRESENTATIVE';
   title: string;
   body: string;
   language: 'en' | 'fr' | null;
@@ -70,7 +71,7 @@ export function LeaderInstructions({ onChanged }: { onChanged?: () => void }) {
               </span>
             </span>
             <span className="block text-xs text-slate-500">
-              {t('instructions.from_nc')} · {new Date(i.createdAt).toLocaleDateString(i18n.language)}
+              {i.sender === 'REPRESENTATIVE' ? t('instructions.from_rep') : t('instructions.from_nc')} · {new Date(i.createdAt).toLocaleDateString(i18n.language)}
               {i.dueAt ? ` · ${t('instructions.due')} ${new Date(i.dueAt).toLocaleDateString(i18n.language)}` : ''}
             </span>
           </button>

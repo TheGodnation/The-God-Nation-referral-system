@@ -1542,7 +1542,8 @@
     "sending": "Sending…",
     "send_failed": "Failed to send message.",
     "all_title": "All leaders",
-    "badge_nc": "National Coordinator"
+    "badge_nc": "National Coordinator",
+    "badge_rep": "Representing the central team"
   },
   "announcements": {
     "title": "Announcements",
@@ -1755,7 +1756,9 @@
     "removal_requested": "{{requester}} asks to remove {{name}} from “{{assembly}}”.",
     "removal_decided_yes": "Removal approved: {{name}} was removed from “{{assembly}}”.",
     "removal_decided_no": "Removal declined for {{name}} in “{{assembly}}”.",
-    "removed_from_assembly": "You were removed from the assembly “{{assembly}}”."
+    "removed_from_assembly": "You were removed from the assembly “{{assembly}}”.",
+    "representative_appointed": "You are now the representative of generation {{generation}}. Your tools are in My Leadership Dashboard.",
+    "representative_ended": "You are no longer the representative of generation {{generation}}."
   },
   "memberHome": {
     "title": "Home",
@@ -4273,7 +4276,9 @@
     "instructions_waiting": "{{count}} instruction(s) waiting for you",
     "instructions_tap": "Tap to read them.",
     "sanctions_title": "Sanctions",
-    "sanctions_tile": "Mute someone, ask for a removal, and see requests for excuse."
+    "sanctions_tile": "Mute someone, ask for a removal, and see requests for excuse.",
+    "repInstructions_title": "Representative: instructions",
+    "repInstructions_tile": "Write to the leaders of your generation and follow who is done."
   },
   "instructions": {
     "tab": "Instructions",
@@ -4321,7 +4326,8 @@
     "others_notes": "Notes from other leaders",
     "note_placeholder": "A short note (optional): what you did, or what is still needed.",
     "mark_done": "Mark as done",
-    "your_note": "Your note"
+    "your_note": "Your note",
+    "from_rep": "From your representative"
   },
   "leaderRooms": {
     "tab": "Leaders' rooms",
@@ -4516,5 +4522,28 @@
     "req_DECLINED": "Declined",
     "loading": "Loading…",
     "load_failed": "Could not load. Please try again."
+  },
+  "repAdmin": {
+    "tab": "Representatives",
+    "title": "Representatives of the generations",
+    "help": "One representative per generation, chosen from the leaders. They write instructions to the leaders of their generation and follow who is done, mute members and send removal requests in their generation, and appear in that generation's leaders' room as “Representing the central team”. Only you appoint or remove them.",
+    "loading": "Loading…",
+    "load_failed": "Could not load. Please try again.",
+    "action_failed": "Could not do this. Please try again.",
+    "no_generations": "There are no generations yet: set the Headquarters and open assemblies under it first.",
+    "generation": "Generation {{n}}",
+    "assemblies_one": "{{count}} assembly",
+    "assemblies_other": "{{count}} assemblies",
+    "none": "No representative yet.",
+    "choose": "Choose a representative",
+    "search_leader": "Search a leader by name",
+    "search": "Search",
+    "no_leaders": "No leader found.",
+    "appoint": "Appoint",
+    "appointed": "{{name}} is now the representative.",
+    "remove": "Remove",
+    "remove_confirm": "Remove {{name}} as representative?",
+    "removed": "Representative removed.",
+    "since": "since {{date}}"
   }
 }
