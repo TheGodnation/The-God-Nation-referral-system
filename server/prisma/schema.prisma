@@ -975,6 +975,7 @@ model Person {
   teachingProgress                         TeachingProgress[]
   GenerationRepresentative                 GenerationRepresentative[]
   LeaderWeeklyReport                       LeaderWeeklyReport[]
+  LeaderBroadcast                          LeaderBroadcast[]
 
   @@index([isTestData])
 }
@@ -4049,4 +4050,21 @@ model WeeklyReportReminder {
   sentAt    DateTime @default(now())
 
   @@unique([personId, weekStart, kind])
+}
+
+// A leader's message to all the people they look after, sent as an ordinary private message to each (with the
+// person's first name in front). This is the record of it: who sent it, when, to how many, and what it said.
+model LeaderBroadcast {
+  id              String   @id @default(uuid())
+  senderPersonId  String
+  body            String   @default("")
+  recipientCount  Int
+  skippedCount    Int      @default(0)
+  attachmentCount Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  sender Person @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
+
+  @@index([senderPersonId, createdAt])
+  @@index([createdAt])
 }

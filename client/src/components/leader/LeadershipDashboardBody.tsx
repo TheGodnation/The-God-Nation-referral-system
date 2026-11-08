@@ -20,6 +20,8 @@ import { MyMembers } from './MyMembers';
 import { MyLeadershipPeers } from './MyLeadershipPeers';
 import { LeaderLeadershipCollaboration } from './LeaderLeadershipCollaboration';
 import { LeaderCommunityConversations } from './LeaderCommunityConversations';
+import { BroadcastComposer } from './BroadcastComposer';
+import { BroadcastLogPanel } from '../admin/BroadcastLogPanel';
 import { WeeklyReportForm } from './WeeklyReportForm';
 import { LeadersReportPanel } from '../admin/LeadersReportPanel';
 import { InstructionsPanel } from '../admin/InstructionsPanel';
@@ -193,7 +195,7 @@ function LeaderEscalations() {
   );
 }
 
-type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions' | 'repInstructions' | 'weeklyReport' | 'repReports';
+type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions' | 'repInstructions' | 'weeklyReport' | 'repReports' | 'broadcast' | 'repBroadcastLog';
 
 interface MyPeopleSummary {
   total: number;
@@ -280,11 +282,13 @@ export function LeadershipDashboardBody() {
 
   const sections: { key: SectionKey; icon: string; render: () => ReactNode }[] = [
     { key: 'instructions', icon: '📌', render: () => <LeaderInstructions onChanged={() => void loadPendingInstructions()} /> },
+    { key: 'broadcast', icon: '📣', render: () => <BroadcastComposer /> },
     { key: 'weeklyReport', icon: '📝', render: () => <WeeklyReportForm /> },
     ...(repGeneration !== null
       ? [
           { key: 'repInstructions' as SectionKey, icon: '🧭', render: () => <InstructionsPanel base="/api/member/rep-instructions" representative /> },
           { key: 'repReports' as SectionKey, icon: '📊', render: () => <LeadersReportPanel base="/api/member/rep-weekly-reports" mode="rep" /> },
+          { key: 'repBroadcastLog' as SectionKey, icon: '📣', render: () => <BroadcastLogPanel base="/api/member/rep-broadcast-log" /> },
         ]
       : []),
     { key: 'sanctions', icon: '🔇', render: () => <SanctionsPanel base="/api/member/sanctions" /> },
@@ -293,6 +297,9 @@ export function LeadershipDashboardBody() {
       icon: '👥',
       render: () => (
         <>
+          <button type="button" className="btn-primary mb-3" onClick={() => setParams({ section: 'broadcast' })} data-testid="people-broadcast-button">
+            📣 {t('leaderHome.broadcast_title')}
+          </button>
           <MyPeople />
           <MyFollowUp />
           <MyMembers />

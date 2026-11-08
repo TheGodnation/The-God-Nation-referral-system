@@ -78,3 +78,16 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   missed Monday's deadline (each once); the central admin can also remind one leader or everyone late.
 - **Who sees what**: the central admin sees every report and the representatives' summaries; a representative sees only the leaders
   of their generation (including prayer needs) and writes one summary a week for the central admin; a leader sees only their own.
+
+## Message all my people (approved rules, done)
+
+- A leader writes once — **text, photos and/or a voice message** — and everyone they look after (their active follow-ups, "My people")
+  gets it as an **ordinary private message** from the leader, in their normal private chat, starting with "Hello {first name},"
+  ("Bonjour" for French speakers). They can reply privately. Same text limit as any private message. **No limit** on how many
+  a leader sends. The leader can leave some people out; accounts that were deleted are skipped (the leader is told how many).
+  Photos/voice are uploaded once and copied into each private chat.
+- **Record**: who sent it, when, to how many, what it said. The leader sees their own list; **the central admin** reads all
+  (profile "Group messages" tab and admin dashboard); **a representative** reads those of the leaders of their own generation.
+- **Who cannot be blocked** (everywhere in the app): the central admin and their member profile; the leaders of your own
+  assembly or generation; the leader who looks after you; the representative of your generation. Older blocks of such people
+  are ignored, so they can always message each other. Ordinary members and leaders far from you can still be blocked.

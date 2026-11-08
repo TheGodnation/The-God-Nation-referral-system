@@ -47,6 +47,7 @@ import { adminGivingRoutes, memberCentralGivingRoutes } from './routes/adminGivi
 import { adminLeaderReferralReportRoutes, memberCentralLeaderReferralReportRoutes } from './routes/adminLeaderReferralReport';
 import { adminTeachingCompletionRoutes, memberCentralTeachingCompletionRoutes } from './routes/adminTeachingCompletion';
 import { adminLeaderRoomsRoutes, memberCentralLeaderRoomsRoutes } from './routes/adminLeaderRooms';
+import { adminBroadcastLogRoutes, memberBroadcastRoutes, memberCentralBroadcastLogRoutes, memberRepBroadcastLogRoutes } from './routes/broadcast';
 import { adminWeeklyReportsRoutes, memberCentralWeeklyReportsRoutes, memberRepWeeklyReportsRoutes, memberWeeklyReportRoutes } from './routes/weeklyReports';
 import { adminRepresentativesRoutes, memberCentralRepresentativesRoutes, memberRepresentativeRoutes } from './routes/representatives';
 import { adminSanctionsRoutes, memberSanctionsRoutes } from './routes/sanctions';
@@ -190,6 +191,7 @@ export function createApp() {
   app.use('/api/admin/sanctions', adminSanctionsRoutes);
   app.use('/api/admin/representatives', adminRepresentativesRoutes);
   app.use('/api/admin/weekly-reports', adminWeeklyReportsRoutes);
+  app.use('/api/admin/broadcast-log', adminBroadcastLogRoutes);
   app.use('/api/admin/leader-rooms', adminLeaderRoomsRoutes);
   app.use('/api/admin/teaching-completion', adminTeachingCompletionRoutes);
   app.use('/api/admin/leader-referral-report', adminLeaderReferralReportRoutes);
@@ -203,6 +205,9 @@ export function createApp() {
   app.use('/api/member/representative', memberRepresentativeRoutes);
   app.use('/api/member/rep-instructions', memberRepresentativeInstructionsRoutes);
   app.use('/api/member/weekly-report', memberWeeklyReportRoutes);
+  app.use('/api/member/broadcast', memberBroadcastRoutes);
+  app.use('/api/member/central-broadcast-log', memberCentralBroadcastLogRoutes);
+  app.use('/api/member/rep-broadcast-log', memberRepBroadcastLogRoutes);
   app.use('/api/member/central-weekly-reports', memberCentralWeeklyReportsRoutes);
   app.use('/api/member/rep-weekly-reports', memberRepWeeklyReportsRoutes);
   app.use('/api/member/instructions', memberInstructionsRoutes);
