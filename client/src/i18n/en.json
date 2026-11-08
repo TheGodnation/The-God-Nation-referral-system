@@ -4288,7 +4288,9 @@
     "broadcast_title": "Message all my people",
     "broadcast_tile": "Write once to everyone you look after.",
     "repBroadcastLog_title": "Group messages of my generation",
-    "repBroadcastLog_tile": "What the leaders of your generation sent to their people."
+    "repBroadcastLog_tile": "What the leaders of your generation sent to their people.",
+    "repAssign_title": "Representative: assign people",
+    "repAssign_tile": "Give people to the leaders of your generation."
   },
   "instructions": {
     "tab": "Instructions",
@@ -4655,5 +4657,15 @@
     "log_title": "Group messages from leaders",
     "log_help": "Every message a leader sent to all their people: who sent it, when, to how many, and what it said.",
     "log_none": "No group messages yet."
+  },
+  "repAssign": {
+    "title": "Assign people to leaders",
+    "help": "Give the people nobody follows yet to the leaders of an assembly of generation {{n}}. Choose the assembly, then the leaders and how many each (or share evenly), preview, and assign.",
+    "loading": "Loading…",
+    "load_failed": "Could not load. Please try again.",
+    "none": "There are no assemblies in your generation yet.",
+    "counts": "{{members}} members · {{leaders}} leaders · {{unassigned}} not followed yet",
+    "open": "Assign people",
+    "close": "Close"
   }
 }
