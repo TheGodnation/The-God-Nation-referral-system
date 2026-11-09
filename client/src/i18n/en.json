@@ -2367,7 +2367,7 @@
     "exam_warn_options": "Question {{n}} does not have four choices.",
     "exam_warn_no_guide": "A personal question has no teacher guide in the key.",
     "exam_same_section": "Use the same personal questions in every set",
-    "exam_same_section_help": "The personal questions (Section C) of Set {{number}} are used in all the sets you paste, so everyone is asked the same things whichever set they get. The marked questions stay different.",
+    "exam_same_section_help": "The personal questions (Section C) are the same in every set. With several sets pasted, the first one's are used for all of them; when you add a set to an exam that already has some, the exam's existing personal questions are kept. The marked questions stay different.",
     "exam_same_as": "Personal questions: the same as Set {{number}}."
   },
   "memberCode": {
@@ -4858,7 +4858,10 @@
     "note_save": "Save the note",
     "card_title": "Faith journey",
     "card_open": "What this person answered about Christ",
-    "notification_open": "Open the faith journey"
+    "notification_open": "Open the faith journey",
+    "filter_FOLLOW_UP": "To follow up",
+    "empty_FOLLOW_UP": "Nothing to follow up right now.",
+    "flagged_chip": "{{count}} to follow up"
   },
   "examPersonal": {
     "title": "My personal response",

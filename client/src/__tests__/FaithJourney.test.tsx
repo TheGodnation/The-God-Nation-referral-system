@@ -264,6 +264,20 @@ describe('Faith journeys (central admin)', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
+  it('marks answers that call for a conversation even for someone born again, with a "To follow up" list', async () => {
+    mockFetch({
+      'GET /api/member/faith/access': () => ({ body: { role: 'ADMIN', leadersSee: false, canRead: true } }),
+      'GET /api/member/faith?filter=FOLLOW_UP': () => ({ body: { items: [{ personId: 'p3', name: 'Not yet baptized', status: 'BORN_AGAIN', lastAnsweredAt: '2026-11-09T10:00:00Z', confirmedAt: null, confirmedByName: null, flagged: 2 }] } }),
+      'GET /api/member/faith': () => ({ body: { items: [] } }),
+    });
+    render(<FaithJourneysPanel base="/api/member/faith" />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'To follow up' }));
+    const row = await screen.findByTestId('faith-row');
+    expect(within(row).getByText('Not yet baptized')).toBeInTheDocument();
+    expect(within(row).getByTestId('faith-status')).toHaveTextContent('Born again');
+    expect(within(row).getByTestId('faith-flagged')).toHaveTextContent('⚑ 2 to follow up');
+  });
+
   it('says so when nobody needs a conversation', async () => {
     mockFetch({
       'GET /api/member/faith/access': () => ({ body: { role: 'ADMIN', leadersSee: false, canRead: true } }),

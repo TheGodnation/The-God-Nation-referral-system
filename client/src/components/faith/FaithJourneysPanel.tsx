@@ -16,10 +16,12 @@ interface Row {
   lastAnsweredAt: string;
   confirmedAt: string | null;
   confirmedByName: string | null;
+  /** Answers of the latest try that call for a conversation. */
+  flagged: number;
 }
 
-type Filter = 'NEEDS' | 'BORN_AGAIN' | 'CONFIRMED' | 'ALL';
-const FILTERS: Filter[] = ['NEEDS', 'BORN_AGAIN', 'CONFIRMED', 'ALL'];
+type Filter = 'NEEDS' | 'FOLLOW_UP' | 'BORN_AGAIN' | 'CONFIRMED' | 'ALL';
+const FILTERS: Filter[] = ['NEEDS', 'FOLLOW_UP', 'BORN_AGAIN', 'CONFIRMED', 'ALL'];
 
 export function FaithJourneysPanel({ base, initialPersonId }: { base: string; initialPersonId?: string }) {
   const { t, i18n } = useTranslation();
@@ -113,7 +115,14 @@ export function FaithJourneysPanel({ base, initialPersonId }: { base: string; in
                 <span className="block truncate font-semibold text-slate-900">{r.name}</span>
                 <span className="block text-xs text-slate-500">{t('faith.answered_on', { date: when(r.lastAnsweredAt) })}</span>
               </span>
-              <StatusChip status={r.status} confirmed={Boolean(r.confirmedAt)} />
+              <span className="flex flex-col items-end gap-1">
+                <StatusChip status={r.status} confirmed={Boolean(r.confirmedAt)} />
+                {r.flagged > 0 && !r.confirmedAt && (
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900" data-testid="faith-flagged">
+                    ⚑ {t('faith.flagged_chip', { count: r.flagged })}
+                  </span>
+                )}
+              </span>
             </button>
           </li>
         ))}

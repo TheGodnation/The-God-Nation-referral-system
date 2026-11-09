@@ -58,6 +58,7 @@ export function PasteExamPanel({
         `/api/admin/library/books/${bookId}/exam-import`,
         {
           language,
+          samePersonal: sameSection,
           sets: sets.map((s) => {
             const source = shared ? sets[0] : s;
             return {
@@ -193,7 +194,7 @@ export function PasteExamPanel({
           <p className="text-sm font-medium text-slate-700">
             {t("library.exam_found", { count: sets.length })}
           </p>
-          {sets.length > 1 && (
+          {
             <label className="flex items-start gap-2 rounded-lg bg-white px-3 py-2 text-sm">
               <input
                 type="checkbox"
@@ -212,7 +213,7 @@ export function PasteExamPanel({
                 </span>
               </span>
             </label>
-          )}
+          }
           {sets.map((s) => {
             const choice = s.questions.filter(
               (q) => q.kind === "CHOICE",

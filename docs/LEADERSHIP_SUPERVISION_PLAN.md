@@ -158,3 +158,19 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **Leaders** read the journeys of the people of their own assembly only when the central admin switches `Settings.leadersSeeFaithJourney` on
   (checkbox in the Faith journeys tab); they are notified too, see it as a tile on the leadership dashboard, and every view by a leader is
   audited (`FAITH_VIEWED_BY_LEADER`). Endpoints: `/api/member/faith` (central admin on his profile, and leaders) and `/api/admin/faith`.
+- **Book 2's exam** (Sets 1 and 2, English + French) is loaded by migration `20261213090000` (draft only; Section C = Set 1's in every set; Set 3 to come).
+  In Book 2, only the repentance question and the confession decide the "born again" status; baptism, the Holy Spirit, what changed and
+  "what holds you back" are flagged (⚑) and counted in the **To follow up** list (`flagged` on each row) without changing the status.
+  "Paste an exam" keeps the exam's existing personal questions when a set is added later (`samePersonal`).
+- **Book 2's Section C** is one combined set of personal questions, identical in all three sets (migration `20261214090000`, which also loads Set 3):
+  repentance, baptism by immersion (+ when/where/who), the Holy Spirit with other tongues (+ when/how), what has changed, "would you like the team to
+  help with the next step?" (+ best way to reach you), what holds you back, and the confession. **Repentance, baptism, the Holy Spirit and the
+  confession decide the status** (born again = all clear); the other questions are flagged (⚑) in the journey and the "To follow up" list.
+- **Book 2's page** (pitch, "Three steps. One door.", seven chapters starting with "From the Author", closing words), English and French, is loaded by
+  migration `20261215090000` (only when Book 2 has no chapters). The page reader also learned: an author label, short taglines at the top, a very
+  short slogan as a heading, a line ending with ":" as the introduction of the list under it, and a chapter-list heading with one sentence under it.
+- **Book 3's page** ("Kingdom Keys, Volume 1: The Foundation": pitch, "Foreword and Introduction" + six chapters, closing), English and French, is loaded by
+  migration `20261216090000` onto the book numbered 3 (only when it has no chapters). The page reader also keeps a headline that follows a short
+  line as the headline, and puts a closing sentence after a list ("Find which one is yours...") back in a paragraph.
+- **Book 3's exam, Set 1** (English + French, marked questions only: Books 3 to 15 have no personal section) is loaded by migration `20261217090000`
+  (draft only). Sets 2 and 3 come later, through "Paste an exam" or the same kind of migration.

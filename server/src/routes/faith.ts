@@ -52,7 +52,7 @@ function buildFaithRouter(resolve: Resolve) {
   router.get('/', asyncHandler(async (req, res) => {
     const viewer = await resolve(req);
     if (!viewer) return res.status(403).json({ error: 'Forbidden.' });
-    const filter = (['ALL', 'NEEDS', 'BORN_AGAIN', 'CONFIRMED'] as const).includes(req.query.filter as FaithFilter) ? (req.query.filter as FaithFilter) : 'ALL';
+    const filter = (['ALL', 'NEEDS', 'FOLLOW_UP', 'BORN_AGAIN', 'CONFIRMED'] as const).includes(req.query.filter as FaithFilter) ? (req.query.filter as FaithFilter) : 'ALL';
     const search = typeof req.query.search === 'string' ? req.query.search.slice(0, 80) : undefined;
     res.json({ items: await listFaith(viewer, { filter, search }) });
   }));

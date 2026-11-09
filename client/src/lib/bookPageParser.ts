@@ -36,7 +36,9 @@ const NUMBER_WORDS =
 
 const CHAPTER_LINE = new RegExp(
   '^(' +
+    "(?:FOREWORD|PREFACE) AND INTRODUCTION|(?:AVANT-PROPOS|PRÉFACE) ET INTRODUCTION|" +
     'INTRODUCTION|PREFACE|PRÉFACE|FOREWORD|AVANT-PROPOS|PROLOGUE|CONCLUSION|EPILOGUE|ÉPILOGUE|AFTERWORD|POSTFACE|' +
+    "FROM THE AUTHOR|THE AUTHOR['’]S WORD|AUTHOR['’]S WORD|MOT DE L['’]AUTEUR|DE L['’]AUTEUR|" +
     `(?:CHAPTER|CHAPITRE|PART|PARTIE)\\s+(?:${NUMBER_WORDS})|` +
     '(?:APPENDIX|ANNEXE|APPENDICE)(?:\\s+[A-Z0-9])?' +
     ')(?:\\s*[:.\\-–—|]\\s*|\\s+)(.+)$',
@@ -53,6 +55,8 @@ function niceLabel(label: string): string {
     .map((w, i) => {
       // Roman numerals, single letters and digits stay in capitals ("Chapter IV", "Appendix A").
       if (i > 0 && (/^[IVXL]{1,6}$/i.test(w) || /^[A-Za-z0-9]$/.test(w) || /^\d+$/.test(w))) return w.toUpperCase();
+      // "From the Author", "Mot de l'auteur": the little words stay small.
+      if (i > 0 && /^(the|of|and|de|du|des|et|la|le|les|l['’]\p{L}+)$/iu.test(w)) return w.toLowerCase();
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     })
     .join(' ');
@@ -70,6 +74,8 @@ function headingLike(line: string): boolean {
   if (line.length > 60) return false;
   if (line.split(/\s+/).length > 9) return false;
   if (/(\.{3}|…)$/.test(line)) return true;
+  // "Three Steps. One Door.": a very short slogan is a heading too.
+  if (/\.$/.test(line) && line.length <= 32 && line.split(/\s+/).length <= 6) return true;
   return !/[.!,;:]$/.test(line);
 }
 
@@ -90,7 +96,8 @@ function toMarkup(lines: string[], opts: { leading?: boolean; title?: string } =
   if (opts.leading) {
     // The title and byline lines at the very top.
     const top: string[] = [];
-    while (i < lines.length && lines[i].length <= 100 && !/[.!?]$/.test(lines[i])) {
+    // (a short tagline such as "Repent. Be Baptized. Receive the Spirit." belongs here too)
+    while (i < lines.length && lines[i].length <= 100 && (!/[.!?]$/.test(lines[i]) || (i <= 3 && lines[i].length <= 50 && i + 1 < lines.length && lines[i + 1].length <= 100))) {
       top.push(lines[i]);
       i += 1;
     }
@@ -108,8 +115,22 @@ function toMarkup(lines: string[], opts: { leading?: boolean; title?: string } =
   const flush = () => {
     if (heading !== null) blocks.push(`## ${heading}`);
     if (body.length) {
-      const allShort = body.every((l) => l.length <= 170);
-      if (allShort && body.length >= 2) {
+      const allShort = body.every((l) => l.length <= 220);
+      const introduced = body.length >= 3 && /:$/.test(body[0]) && body.slice(1).every((l) => l.length <= 220);
+      if (introduced) {
+        blocks.push(stripBullet(body[0]));
+        let items = body.slice(1);
+        // "The gap of identity... / The gap of knowledge... / The gap of application... / Find which one is yours...":
+        // when every item but the last starts with the same word and the last does not, the last is a closing sentence.
+        const first = (l: string) => l.split(/\s+/)[0].toLowerCase();
+        let closing: string | null = null;
+        if (items.length >= 4 && items.slice(0, -2).every((l) => first(l) === first(items[0])) && first(items[items.length - 2]) === first(items[0]) && first(items[items.length - 1]) !== first(items[0])) {
+          closing = items[items.length - 1];
+          items = items.slice(0, -1);
+        }
+        blocks.push(items.map((l) => `- ${stripBullet(l)}`).join('\n'));
+        if (closing) blocks.push(stripBullet(closing));
+      } else if (allShort && body.length >= 2) {
         blocks.push(body.map((l) => `- ${stripBullet(l)}`).join('\n'));
       } else {
         const hasLong = body.some((l) => l.length > 70);
@@ -157,6 +178,11 @@ export function parseBookPage(raw: string, bookTitle?: string): ParsedBookPage {
   if (pre.length && headingLike(pre[pre.length - 1])) {
     chaptersHeading = pre[pre.length - 1];
     pre = pre.slice(0, -1);
+  } else if (pre.length >= 2 && headingLike(pre[pre.length - 2]) && pre[pre.length - 1].length > 40) {
+    // A heading with one sentence under it ("Inside the Book: Chapter by Chapter" / "Here is what you will find..."):
+    // both go above the chapter list, the sentence on a second line.
+    chaptersHeading = `${pre[pre.length - 2]}\n${pre[pre.length - 1]}`;
+    pre = pre.slice(0, -2);
   }
 
   const chapters: ParsedChapter[] = [];

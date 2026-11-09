@@ -30,7 +30,10 @@ export function BookPageBody({
       {description && <RichText text={description} headings comfort className="text-[15px] leading-relaxed text-slate-700 [&_em]:text-slate-500" data-testid="book-description" />}
 
       <section>
-        <h2 className="mb-2 text-lg font-semibold text-brand-900">{chaptersHeading || t('school.chapters_heading')}</h2>
+        {/* The heading may carry one sentence under it, on a second line ("Inside the Book" / "Here is what you will find..."). */}
+        <h2 className="text-lg font-semibold text-brand-900">{(chaptersHeading || t('school.chapters_heading')).split('\n')[0]}</h2>
+        {chaptersHeading && chaptersHeading.includes('\n') && <p className="mt-1 text-[15px] leading-relaxed text-slate-700">{chaptersHeading.split('\n').slice(1).join(' ')}</p>}
+        <div className="mb-2" />
         {chapters.length === 0 ? (
           <p className="card text-sm text-slate-500">{t('school.chapters_soon')}</p>
         ) : (

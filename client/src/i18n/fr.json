@@ -2367,7 +2367,7 @@
     "exam_warn_options": "La question {{n}} n'a pas quatre choix.",
     "exam_warn_no_guide": "Une question personnelle n'a pas de guide de l'enseignant dans le corrigé.",
     "exam_same_section": "Utiliser les mêmes questions personnelles dans tous les jeux",
-    "exam_same_section_help": "Les questions personnelles (section C) du jeu {{number}} sont utilisées dans tous les jeux collés, pour que tout le monde reçoive les mêmes questions quel que soit son jeu. Les questions notées restent différentes.",
+    "exam_same_section_help": "Les questions personnelles (section C) sont les mêmes dans tous les jeux. Si vous collez plusieurs jeux, celles du premier servent pour tous ; si vous ajoutez un jeu à un examen qui en a déjà, les questions personnelles existantes de l'examen sont conservées. Les questions notées restent différentes.",
     "exam_same_as": "Questions personnelles : les mêmes que le jeu {{number}}."
   },
   "memberCode": {
@@ -4858,7 +4858,10 @@
     "note_save": "Enregistrer la note",
     "card_title": "Parcours de foi",
     "card_open": "Ce que cette personne a répondu au sujet de Christ",
-    "notification_open": "Ouvrir le parcours de foi"
+    "notification_open": "Ouvrir le parcours de foi",
+    "filter_FOLLOW_UP": "À suivre",
+    "empty_FOLLOW_UP": "Rien à suivre pour le moment.",
+    "flagged_chip": "{{count}} à suivre"
   },
   "examPersonal": {
     "title": "Ma réponse personnelle",

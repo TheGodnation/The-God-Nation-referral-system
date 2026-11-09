@@ -355,6 +355,27 @@ describe('Faith journey: who may read it', () => {
     expect((await leader.agent.get(`/api/member/faith/${needs.id}`)).status).toBe(404);
   });
 
+  it('shows how many answers call for a conversation even for someone born again, and lists them under "to follow up" until confirmed', async () => {
+    const a = await admin();
+    const s = await bookOneExam(a);
+    const m = await student(a, 'Saved but not reading');
+    await takeExam(m, s, [
+      { questionId: s.ids.born, optionId: s.options.born[0] },
+      { questionId: s.ids.reading, optionId: s.options.reading[1] }, // flagged, does not decide the status
+      { questionId: s.ids.holdingBack, text: 'nothing' },
+      { questionId: s.ids.confession, optionId: s.options.confession[0] },
+    ]);
+    const clean = await student(a, 'Nothing to follow up');
+    await takeExam(clean, s, goodAnswers(s));
+
+    const all = (await a.agent.get('/api/admin/faith?filter=ALL')).body.items;
+    expect(all.map((i: any) => [i.name, i.status, i.flagged]).sort()).toEqual([['Nothing to follow up', 'BORN_AGAIN', 0], ['Saved but not reading', 'BORN_AGAIN', 1]]);
+    expect((await a.agent.get('/api/admin/faith?filter=NEEDS')).body.items).toHaveLength(0);
+    expect((await a.agent.get('/api/admin/faith?filter=FOLLOW_UP')).body.items.map((i: any) => i.name)).toEqual(['Saved but not reading']);
+    await post(a, `/api/admin/faith/${m.id}/confirm`, { confirmed: true });
+    expect((await a.agent.get('/api/admin/faith?filter=FOLLOW_UP')).body.items).toHaveLength(0);
+  });
+
   it('the central admin sees the personal questions of each set, with signals and guide, in the exam editor', async () => {
     const a = await admin();
     const s = await bookOneExam(a);
@@ -463,6 +484,31 @@ describe('Exam import (central admin pastes a book exam)', () => {
     expect(pq.map((x) => [x.textEn, x.textFr, x.guideFr])).toEqual([['Born again?', 'Né de nouveau ?', 'Guide: Né de nouveau ?'], ['Anything holding you back?', 'Quelque chose vous retient ?', 'Lisez avec soin']]);
     // English stays as it was.
     expect(pq[0].guideEn).toBe('Guide: Born again?');
+  });
+
+  it('a set added later takes the exam\'s existing personal questions, English and French; French for it only lines up the marked questions', async () => {
+    const a = await admin();
+    const { bookId, examId } = await bookWithoutQuestions(a);
+    const url = `/api/admin/library/books/${bookId}/exam-import`;
+    await post(a, url, { language: 'EN', sets: [{ setNumber: 1, questions: [q('Q1')], personal: [personal('Born again?'), typed] }] });
+    await post(a, url, { language: 'FR', sets: [{ setNumber: 1, questions: [q('Q1 fr')], personal: [personal('Né de nouveau ?'), { ...typed, text: 'Quelque chose vous retient ?' }] }] });
+
+    // Set 2 arrives alone, with a Section C of its own that must not be used.
+    const added = await post(a, url, { language: 'EN', samePersonal: true, sets: [{ setNumber: 2, questions: [q('Q2')], personal: [personal('A different question?')] }] });
+    expect(added.body).toEqual({ ok: true, saved: [2], skipped: [] });
+    const pq = await prisma.personalQuestion.findMany({ where: { assessmentId: examId, setNumber: 2 }, orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } });
+    expect(pq.map((x) => [x.textEn, x.textFr, x.guideEn])).toEqual([['Born again?', 'Né de nouveau ?', 'Guide: Born again?'], ['Anything holding you back?', 'Quelque chose vous retient ?', 'Read with care']]);
+    expect(pq[0].options.map((o) => [o.textEn, o.signal])).toEqual([['Yes, I do', 'POSITIVE'], ['Not sure', 'NEEDS_TALK']]);
+
+    // French for set 2: only the marked questions are lined up; the shared personal French stays.
+    const fr = await post(a, url, { language: 'FR', samePersonal: true, sets: [{ setNumber: 2, questions: [q('Q2 fr')], personal: [] }] });
+    expect(fr.body).toEqual({ ok: true, saved: [2], skipped: [] });
+    expect((await prisma.question.findFirst({ where: { assessmentId: examId, setNumber: 2 } }))!.textFr).toBe('Q2 fr');
+    expect((await prisma.personalQuestion.findMany({ where: { assessmentId: examId, setNumber: 2 }, orderBy: { order: 'asc' } })).map((x) => x.textFr)).toEqual(['Né de nouveau ?', 'Quelque chose vous retient ?']);
+
+    // Without the option, a set keeps the personal questions it was pasted with.
+    await post(a, url, { language: 'EN', sets: [{ setNumber: 3, questions: [q('Q3')], personal: [personal('Own question?')] }] });
+    expect((await prisma.personalQuestion.findMany({ where: { assessmentId: examId, setNumber: 3 } })).map((x) => x.textEn)).toEqual(['Own question?']);
   });
 
   it('refuses a question without exactly one right answer, a missing exam, and anyone who is not the central admin', async () => {

@@ -110,6 +110,22 @@ describe('parseExamSets', () => {
     expect(w.warnings).toEqual(expect.arrayContaining(['KEY_DIFFERS:1', 'NO_ANSWER:2', 'OPTIONS:2']));
   });
 
+  it('takes the source off the end of a key line whatever it is called: "(Avant-propos)", "(Author\'s Word)", "(Chapter 1)"', () => {
+    for (const source of ['Avant-propos', "Author's Word", 'Chapter 1', 'Mot de l\'auteur']) {
+      const [w] = parseExamSets(PAPER.replace('1. B. First right (with brackets) (Preface)', `1. B. First right (with brackets) (${source})`));
+      expect(w.warnings).toEqual([]);
+      expect(w.questions[0].correct).toBe(1);
+    }
+  });
+
+  it('a paper without personal questions (Books 3 to 15) reads with none, whatever the key says', () => {
+    const noC = PAPER.split('Section C: My Personal Response')[0] + PAPER.slice(PAPER.indexOf("THE RESTORATION OF DOMINION\nTeacher's Answer Key"));
+    const [w] = parseExamSets(noC);
+    expect(w.personal).toEqual([]);
+    expect(w.warnings).toEqual([]);
+    expect(w.questions).toHaveLength(4);
+  });
+
   it('warns when there is no key at all', () => {
     const [w] = parseExamSets(PAPER.split("THE RESTORATION OF DOMINION\nTeacher's Answer Key")[0]);
     expect(w.warnings).toContain('NO_KEY');

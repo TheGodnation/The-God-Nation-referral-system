@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseBookPage } from '../lib/bookPageParser';
 import { BOOK1_PAGE } from './fixtures/book1Page';
+import { BOOK2_PAGE } from './fixtures/book2Page';
+import { BOOK3_PAGE } from './fixtures/book3Page';
 
 describe('parseBookPage — Book One as the founder sent it', () => {
   const page = parseBookPage(BOOK1_PAGE, 'The Restoration of Dominion');
@@ -90,5 +92,85 @@ describe('parseBookPage — other layouts', () => {
     );
     expect(p.chapters).toHaveLength(1);
     expect(p.chapters[0].summary).toMatch(/^Introduction to the idea/);
+  });
+});
+
+describe('parseBookPage — Book Two as the founder sent it', () => {
+  const page = parseBookPage(BOOK2_PAGE, 'The Doorway Into the Kingdom');
+
+  it('finds the seven chapters, with "From the Author" as the first, labelled as written', () => {
+    expect(page.chapters.map((c) => [c.label, c.title])).toEqual([
+      ['From the Author', 'This Is Not Just Information. It Is a Summons.'],
+      ['Introduction', 'Three Foundations. One Doorway.'],
+      ['Chapter One', 'A World Operating Without Heaven'],
+      ['Chapter Two', 'The Turn: Repentance'],
+      ['Chapter Three', 'The Burial: Water Baptism'],
+      ['Chapter Four', 'The Filling: The Holy Spirit'],
+      ['Chapter Five', 'Through the Door: What Now?'],
+    ]);
+    expect(page.warnings).toEqual([]);
+    expect(page.chapters[6].summary).toMatch(/how do I use it\?$/);
+  });
+
+  it('keeps the chapter-list title with the sentence under it', () => {
+    expect(page.chaptersHeading).toBe('Inside the Book: Chapter by Chapter\nHere is what you will find as you move from outside the door to inside the Kingdom.');
+  });
+
+  it('writes the pitch: tagline and byline, big headline, a heading for the short slogan, the three steps as a list after their introduction', () => {
+    const d = page.description;
+    expect(d.startsWith('_Repent. Be Baptized. Receive the Spirit._\n\n_Book Two of the Kingdom Series_\n\n_Evangelist Stanley A. Ndoh | The God Nation Media & Leadership Academy_')).toBe(true);
+    expect(d).toContain('# There Is a Door. And You Were Made to Walk Through It.');
+    expect(d).toContain('## Three Steps. One Door.\n\nHere is the doorway, and where this book takes you through each part of it:\n\n- Step One: Repentance, the Turn.');
+    expect(d).toContain('## What Waits for You on the Other Side\n\nAs you walk through each step, this book will:\n\n- Show you why money');
+    expect(d.match(/^- /gm)).toHaveLength(8);
+    expect(d).not.toContain('Inside the Book');
+  });
+
+  it('writes the closing words: the list, the heading, paragraphs, and the two slogan lines in bold', () => {
+    const c = page.closing;
+    expect(c.startsWith('## This Book Is For You If...\n\n- You feel an emptiness')).toBe(true);
+    expect(c.match(/^- /gm)).toHaveLength(5);
+    expect(c).toContain('## Do Not Stay Outside Any Longer\n\nEvery strong house');
+    expect(c).toContain('*The door is open. Walk through it today.*');
+    expect(c).toContain('*Walk in it. Grow in it. Then help us bring others to it.*');
+  });
+
+  it('reads French author labels and keeps small words small', () => {
+    const body = 'Un résumé assez long pour être un paragraphe complet et non un titre de section dans la page du livre.';
+    const p = parseBookPage(`MOT DE L'AUTEUR Un titre\n${body}\nCHAPITRE UN Autre titre\n${body}`);
+    expect(p.chapters.map((c) => c.label)).toEqual(["Mot de l'auteur", 'Chapitre Un']);
+  });
+});
+
+describe('parseBookPage — Kingdom Keys, Volume 1 as the founder sent it', () => {
+  const page = parseBookPage(BOOK3_PAGE, 'Kingdom Keys, Volume 1: The Foundation');
+
+  it('finds "Foreword and Introduction" and the six chapters', () => {
+    expect(page.chapters.map((c) => [c.label, c.title])).toEqual([
+      ['Foreword and Introduction', 'The Problem Every Kingdom Citizen Must Solve'],
+      ['Chapter One', 'You Are Already Rich. So Why Are You Still Poor?'],
+      ['Chapter Two', 'The Finished Work and the Open Door'],
+      ['Chapter Three', 'Rights Without Keys: The Tragedy of the Uninformed Heir'],
+      ['Chapter Four', 'Understanding Kingdom Systems'],
+      ['Chapter Five', 'What Are the Keys of the Kingdom?'],
+      ['Chapter Six', 'The Key of the New Birth'],
+    ]);
+    expect(page.warnings).toEqual([]);
+    expect(page.chaptersHeading).toBe('Inside the Book: Chapter by Chapter\nHere is how the book carries you from the gap in your life to the first key in your hand.');
+  });
+
+  it('keeps the headline as the headline (not as a tagline), the three gaps as a list with their closing sentence after it', () => {
+    const d = page.description;
+    expect(d.startsWith('_Unlocking the Rights of Kingdom Citizens for Visible Dominion on Earth_\n\n_Evangelist Stanley A. Ndoh | The God Nation Media & Leadership Academy_\n\n# You Already Own It. Now Learn How to Walk In It.')).toBe(true);
+    expect(d).toContain('## Three Gaps. One Set of Keys.\n\nBefore you can close the gap');
+    expect(d).toContain('- The gap of application: knowing the truth, but never putting it to work.\n\nFind which one is yours, and you will finally know what to do about it.');
+    expect(d).toContain('## What You Will Walk Away With\n\n- A clear answer');
+    expect(d.match(/^- /gm)).toHaveLength(8);
+  });
+
+  it('writes the closing words with the slogan in bold', () => {
+    expect(page.closing).toContain('## The Keys Are Already in Your Hand\n\nEverything you need was settled at the Cross.');
+    expect(page.closing).toContain('*The Kingdom is yours. The keys are in your hand. Now open the door.*');
+    expect(page.closing.match(/^- /gm)).toHaveLength(5);
   });
 });
