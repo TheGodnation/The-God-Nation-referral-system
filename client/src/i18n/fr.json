@@ -2365,7 +2365,10 @@
     "exam_warn_no_answer": "Question {{n}} : aucune bonne réponse trouvée dans le corrigé.",
     "exam_warn_no_key": "Le corrigé de ce jeu est introuvable.",
     "exam_warn_options": "La question {{n}} n'a pas quatre choix.",
-    "exam_warn_no_guide": "Une question personnelle n'a pas de guide de l'enseignant dans le corrigé."
+    "exam_warn_no_guide": "Une question personnelle n'a pas de guide de l'enseignant dans le corrigé.",
+    "exam_same_section": "Utiliser les mêmes questions personnelles dans tous les jeux",
+    "exam_same_section_help": "Les questions personnelles (section C) du jeu {{number}} sont utilisées dans tous les jeux collés, pour que tout le monde reçoive les mêmes questions quel que soit son jeu. Les questions notées restent différentes.",
+    "exam_same_as": "Questions personnelles : les mêmes que le jeu {{number}}."
   },
   "memberCode": {
     "sent_to": "Nous avons envoyé un code à 6 chiffres à {{email}}. Tapez-le ci-dessous.",

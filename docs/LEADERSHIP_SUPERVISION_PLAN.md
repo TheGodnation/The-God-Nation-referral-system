@@ -147,6 +147,8 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   `POST /api/admin/library/books/:id/exam-import` (English replaces sets nobody has taken; French fills the same sets in order).
   Book 1's three sets (English + French) were loaded by migration `20261211090000` — only while the exam is a draft; **it stays a draft until the
   central admin publishes it**.
+- **Section C is the same in every set** of an exam (the founder's rule; Book 1 uses Set 1's, copied by migration `20261212090000`); only the
+  marked questions differ between sets. "Paste an exam" ticks "Use the same personal questions in every set" by default.
 - **Faith journey**: Section C is never marked and never changes pass/fail, but **every personal question must be answered before the exam can be
   submitted** (`PERSONAL_REQUIRED`). Answers are copied word for word (`PersonalAnswer`), with the teacher's guide beside them. Status per person
   (`FaithRecord`): *born again* only if every question that decides status (`affectsStatus`) got a clear yes (option signal `POSITIVE`) and

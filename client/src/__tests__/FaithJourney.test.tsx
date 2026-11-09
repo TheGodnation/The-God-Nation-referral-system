@@ -392,6 +392,35 @@ C3 (Confession). Agree: rejoice.`;
     expect(sent.sets[0].personal[2].body).toBe('Read slowly.\n\nI confess Jesus Christ as my Lord.');
   });
 
+  it('with several sets, the personal questions of the first set are used for every set (unless unticked)', async () => {
+    const SET2 = PAPER.replace(/Exam Set 1 of 1/g, 'Exam Set 2 of 2').replace(/The right one/g, 'The other right one').replace(/Not yet/g, 'Not at all').replace(/Not sure/g, 'Maybe');
+    const TWO = PAPER.replace(/Exam Set 1 of 1/g, 'Exam Set 1 of 2') + '\n' + SET2;
+    mockFetch({ 'POST /api/admin/library/books/b1/exam-import': () => ({ body: { ok: true, saved: [1, 2], skipped: [] } }) });
+    render(<PasteExamPanel bookId="b1" onSaved={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Paste an exam/ }));
+    fireEvent.change(screen.getByLabelText('The exam'), { target: { value: TWO } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it and show me' }));
+    const box = await screen.findByRole('checkbox', { name: /Use the same personal questions in every set/ });
+    expect(box).toBeChecked();
+    expect(screen.getByText('Personal questions: the same as Set 1.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save these sets' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
+    const sent = calls.find((c) => c.method === 'POST')!.body;
+    expect(sent.sets.map((x: any) => x.questions[0].options[1].text)).toEqual(['The right one', 'The other right one']);
+    expect(sent.sets[1].personal).toEqual(sent.sets[0].personal);
+    expect(sent.sets[1].personal[0].options[1].text).toBe('Not sure');
+
+    // Unticked: each set keeps its own.
+    calls.length = 0;
+    fireEvent.change(screen.getByLabelText('The exam'), { target: { value: TWO } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it and show me' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Use the same personal questions in every set/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save these sets' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
+    const own = calls.find((c) => c.method === 'POST')!.body;
+    expect(own.sets[1].personal[0].options[1].text).toBe('Maybe');
+  });
+
   it('will not save a set whose key does not match, and says which question', async () => {
     mockFetch({});
     render(<PasteExamPanel bookId="b1" onSaved={vi.fn()} />);

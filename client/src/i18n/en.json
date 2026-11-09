@@ -2365,7 +2365,10 @@
     "exam_warn_no_answer": "Question {{n}}: no right answer was found in the key.",
     "exam_warn_no_key": "The answer key for this set was not found.",
     "exam_warn_options": "Question {{n}} does not have four choices.",
-    "exam_warn_no_guide": "A personal question has no teacher guide in the key."
+    "exam_warn_no_guide": "A personal question has no teacher guide in the key.",
+    "exam_same_section": "Use the same personal questions in every set",
+    "exam_same_section_help": "The personal questions (Section C) of Set {{number}} are used in all the sets you paste, so everyone is asked the same things whichever set they get. The marked questions stay different.",
+    "exam_same_as": "Personal questions: the same as Set {{number}}."
   },
   "memberCode": {
     "sent_to": "We sent a 6-digit code to {{email}}. Type it below.",
