@@ -108,7 +108,7 @@ describe('parseBookPage — Book Two as the founder sent it', () => {
       ['Chapter Five', 'Through the Door: What Now?'],
     ]);
     expect(page.warnings).toEqual([]);
-    expect(page.chapters[6].summary).toMatch(/How do I use it\?$/);
+    expect(page.chapters[6].summary).toMatch(/how do I use it\?$/);
   });
 
   it('keeps the chapter-list title with the sentence under it', () => {
