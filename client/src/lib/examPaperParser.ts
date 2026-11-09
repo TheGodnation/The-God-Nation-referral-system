@@ -73,7 +73,7 @@ function norm(s: string): string {
 
 /** The "(Chapter 1)" at the end of a key line, taken off. */
 function withoutSource(text: string): string {
-  return text.replace(/\s+\([A-Za-zÀ-ÿ'’]+(?:\s+[A-Za-zÀ-ÿ'’]+){0,3}(?:\s+\d+)?\)\.?\s*$/u, '').trim();
+  return text.replace(/\s+\([A-Za-zÀ-ÿ'’-]+(?:\s+[A-Za-zÀ-ÿ'’-]+){0,3}(?:\s+\d+)?\)\.?\s*$/u, '').trim();
 }
 
 function isPositive(option: string): boolean {

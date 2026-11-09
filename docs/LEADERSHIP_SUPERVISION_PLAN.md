@@ -172,3 +172,5 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **Book 3's page** ("Kingdom Keys, Volume 1: The Foundation": pitch, "Foreword and Introduction" + six chapters, closing), English and French, is loaded by
   migration `20261216090000` onto the book numbered 3 (only when it has no chapters). The page reader also keeps a headline that follows a short
   line as the headline, and puts a closing sentence after a list ("Find which one is yours...") back in a paragraph.
+- **Book 3's exam, Set 1** (English + French, marked questions only: Books 3 to 15 have no personal section) is loaded by migration `20261217090000`
+  (draft only). Sets 2 and 3 come later, through "Paste an exam" or the same kind of migration.
