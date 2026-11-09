@@ -182,6 +182,8 @@ enum UpdateReactionType {
 }
 
 enum NotificationType {
+  // Someone finished the Book 1 / Book 2 exam with personal answers that call for a conversation.
+  FAITH_NEEDS_CONVERSATION
   // The National Coordinator's instructions to leaders (and reminders about them).
   INSTRUCTION_RECEIVED
   INSTRUCTION_REMINDER
@@ -724,6 +726,8 @@ model Settings {
   // Leadership training: the price of each book (FCFA), and how to pay it
   // by Mobile Money (numbers, account name), shown to trainees.
   trainingBookPrice             Int               @default(1200)
+  // Whether leaders may read the faith journey of the people in their own assembly (the central admin always can).
+  leadersSeeFaithJourney        Boolean           @default(false)
   // What a referrer earns when someone they invited pays for a book, how many
   // days it waits before counting, and the balance from which a payout can be
   // requested (all in FCFA / days; changed by the central admin).
@@ -816,6 +820,10 @@ model Person {
   id                       String                       @id @default(uuid())
   name                     String
   leaderInstructions       LeaderInstructionRecipient[]
+  // What the person answered about their walk with Christ in the Book 1 and 2 exams (never shown to them or to other members).
+  faithRecord              FaithRecord?
+  faithNotes               FaithNote[]
+  personalAnswers          PersonalAnswer[]
   sanctions                MemberSanction[]             @relation("SanctionedPerson")
   removalRequests          RemovalRequest[]             @relation("RemovalRequestPerson")
   bookDeliveries           BookDelivery[]
@@ -1152,12 +1160,13 @@ model Assessment {
   // Dominion Clinic: members were told once that this exam has opened.
   openReminderSentAt DateTime?
 
-  devotional     MonthlyDevotional?  @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
-  trainingBook   LibraryBook?        @relation(fields: [trainingBookId], references: [id], onDelete: SetNull)
-  questions      Question[]
-  attempts       Attempt[]
-  retakeRequests ExamRetakeRequest[]
-  teaching       Teaching?
+  devotional        MonthlyDevotional?  @relation(fields: [devotionalId], references: [id], onDelete: SetNull)
+  trainingBook      LibraryBook?        @relation(fields: [trainingBookId], references: [id], onDelete: SetNull)
+  questions         Question[]
+  personalQuestions PersonalQuestion[]
+  attempts          Attempt[]
+  retakeRequests    ExamRetakeRequest[]
+  teaching          Teaching?
 
   @@index([devotionalId])
 }
@@ -1231,10 +1240,11 @@ model Attempt {
   setNumber         Int?
   questionOrder     String[]      @default([])
 
-  person     Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
-  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  answers    Answer[]
-  retakeUsed ExamRetakeRequest? @relation("ExamRetakeUsedBy")
+  person          Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
+  assessment      Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers         Answer[]
+  personalAnswers PersonalAnswer[]
+  retakeUsed      ExamRetakeRequest? @relation("ExamRetakeUsedBy")
 
   @@unique([personId, assessmentId, attemptNumber])
   @@index([personId])
@@ -4090,4 +4100,128 @@ model LeaderBroadcast {
 
   @@index([senderPersonId, createdAt])
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Faith journey (Book 1 and Book 2 exams). "Section C" is not marked: it asks
+// where the person stands with Christ, so the central admin (and, when he
+// allows it, the person's own leaders) can talk with them. Members never see
+// anyone's answers, and never see the guide lines.
+// ---------------------------------------------------------------------------
+
+enum PersonalQuestionKind {
+  CHOICE
+  TEXT
+}
+
+// CHOICE options: POSITIVE = a clear "yes"; NEEDS_TALK = anything else (not yet, not sure, doubts...).
+enum FaithSignal {
+  POSITIVE
+  NEEDS_TALK
+}
+
+enum FaithStatus {
+  BORN_AGAIN
+  NEEDS_CONVERSATION
+}
+
+// A personal question of one question set of an exam (written like the marked questions, but never scored).
+model PersonalQuestion {
+  id             String               @id @default(uuid())
+  assessmentId   String
+  setNumber      Int                  @default(1)
+  order          Int                  @default(0)
+  kind           PersonalQuestionKind
+  textEn         String
+  textFr         String?
+  // Words shown in a box above the choices (the confession itself).
+  bodyEn         String?
+  bodyFr         String?
+  // The teacher's guide: what to say to the person. Never shown to members.
+  guideEn        String?
+  guideFr        String?
+  required       Boolean              @default(true)
+  // TEXT only: anything other than "nothing" / "none" means the person needs a conversation.
+  flagUnlessNone Boolean              @default(false)
+  // Whether this question decides the person's status (a question about salvation); others are only shown, flagged, in their journey.
+  affectsStatus  Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+
+  assessment Assessment       @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  options    PersonalOption[]
+  answers    PersonalAnswer[]
+
+  @@index([assessmentId, setNumber])
+}
+
+model PersonalOption {
+  id         String      @id @default(uuid())
+  questionId String
+  order      Int         @default(0)
+  textEn     String
+  textFr     String?
+  signal     FaithSignal @default(NEEDS_TALK)
+
+  question PersonalQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  PersonalAnswer[]
+
+  @@index([questionId])
+}
+
+// One answer to one personal question on one try. The question and answer
+// words are copied here, so the history stays true if a question is edited later.
+model PersonalAnswer {
+  id         String      @id @default(uuid())
+  attemptId  String
+  personId   String
+  questionId String?
+  optionId   String?
+  order      Int         @default(0)
+  setNumber  Int         @default(1)
+  signal     FaithSignal
+  questionEn String
+  questionFr String?
+  answerEn   String
+  answerFr   String?
+  guideEn    String?
+  guideFr    String?
+  createdAt  DateTime    @default(now())
+
+  attempt  Attempt           @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  person   Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  question PersonalQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  option   PersonalOption?   @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@index([personId])
+  @@index([attemptId, order])
+}
+
+// Where a person stands now, from their latest personal answers; "confirmed" is the central admin's (or a leader's) own word after speaking with them.
+model FaithRecord {
+  personId        String      @id
+  status          FaithStatus
+  lastAttemptId   String?
+  lastAnsweredAt  DateTime
+  confirmedAt     DateTime?
+  confirmedByName String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// A private note about a conversation, written by the central admin or a leader.
+model FaithNote {
+  id             String   @id @default(uuid())
+  personId       String
+  authorPersonId String?
+  authorName     String
+  text           String
+  createdAt      DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId, createdAt])
 }

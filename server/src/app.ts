@@ -50,6 +50,7 @@ import { adminLeaderRoomsRoutes, memberCentralLeaderRoomsRoutes } from './routes
 import { memberRepCellsRoutes } from './routes/repCells';
 import { memberCentralGroupsRoutes, memberRepGroupsRoutes } from './routes/groupLeaders';
 import { adminBroadcastLogRoutes, memberBroadcastRoutes, memberCentralBroadcastLogRoutes, memberRepBroadcastLogRoutes } from './routes/broadcast';
+import { adminFaithRoutes, memberFaithRoutes } from './routes/faith';
 import { adminWeeklyReportsRoutes, memberCentralWeeklyReportsRoutes, memberRepWeeklyReportsRoutes, memberWeeklyReportRoutes } from './routes/weeklyReports';
 import { adminRepresentativesRoutes, memberCentralRepresentativesRoutes, memberRepresentativeRoutes } from './routes/representatives';
 import { adminSanctionsRoutes, memberSanctionsRoutes } from './routes/sanctions';
@@ -194,6 +195,7 @@ export function createApp() {
   app.use('/api/admin/sanctions', adminSanctionsRoutes);
   app.use('/api/admin/representatives', adminRepresentativesRoutes);
   app.use('/api/admin/weekly-reports', adminWeeklyReportsRoutes);
+  app.use('/api/admin/faith', adminFaithRoutes);
   app.use('/api/admin/broadcast-log', adminBroadcastLogRoutes);
   app.use('/api/admin/leader-rooms', adminLeaderRoomsRoutes);
   app.use('/api/admin/teaching-completion', adminTeachingCompletionRoutes);
@@ -215,6 +217,7 @@ export function createApp() {
   app.use('/api/member/central-broadcast-log', memberCentralBroadcastLogRoutes);
   app.use('/api/member/rep-broadcast-log', memberRepBroadcastLogRoutes);
   app.use('/api/member/central-weekly-reports', memberCentralWeeklyReportsRoutes);
+  app.use('/api/member/faith', memberFaithRoutes);
   app.use('/api/member/rep-weekly-reports', memberRepWeeklyReportsRoutes);
   app.use('/api/member/instructions', memberInstructionsRoutes);
   app.use('/api/member/clinic', memberClinicRoutes);

@@ -2,6 +2,7 @@ import { CoordinatorBadge } from '../components/CoordinatorBadge';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { PersonFaithCard } from '../components/faith/PersonFaithCard';
 import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { WallHeader } from '../components/wall/WallHeader';
@@ -212,6 +213,8 @@ export function MemberPersonPage() {
                   )}
                 </div>
               )}
+
+              {!isMe && <PersonFaithCard personId={profile.personId} />}
 
               {!isMe && (
                 <div className="flex flex-wrap gap-2">
