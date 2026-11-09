@@ -812,6 +812,87 @@ describe('Leadership School: covers, pages and chapter summaries', () => {
     // Members cannot write chapters.
     expect((await post(m, `/api/admin/library/books/${b1.bookId}/chapters`, { titleEn: 'Mine' })).status).toBe(401);
   });
+
+  it('a whole book page at once: pitch, labelled chapters, chapter-list title and closing words; French fills in the same chapters', async () => {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1);
+    const url = `/api/admin/library/books/${b1.bookId}/page-import`;
+    // A chapter written by hand first: the English import replaces it.
+    await post(a, `/api/admin/library/books/${b1.bookId}/chapters`, { titleEn: 'Old one', labelEn: 'Chapter Zero' });
+
+    const en = await post(a, url, {
+      language: 'EN',
+      description: '# Stop Being Pushed Around\n\nYou were made to govern.\n\n- one\n- two',
+      chaptersHeading: 'Chapter by Chapter',
+      closing: '## Why Read It Now?\n\nBecause *today*.',
+      chapters: [
+        { label: 'Introduction', title: 'Why Are We Still Not Free?', summary: 'You work hard.' },
+        { label: 'Chapter One', title: 'Born to Rule', summary: 'A design.' },
+        { label: 'Appendix A', title: 'Quick guide' },
+      ],
+    });
+    expect(en.status).toBe(200);
+    expect(en.body.chapters).toBe(3);
+
+    const m = await member('Reader of the page');
+    const page = await m.agent.get(`/api/member/school/books/${b1.bookId}`);
+    expect(page.body.chapters.map((c: any) => [c.order, c.labelEn, c.titleEn, c.summaryEn])).toEqual([
+      [1, 'Introduction', 'Why Are We Still Not Free?', 'You work hard.'],
+      [2, 'Chapter One', 'Born to Rule', 'A design.'],
+      [3, 'Appendix A', 'Quick guide', null],
+    ]);
+    expect(page.body.book).toMatchObject({ chaptersHeadingEn: 'Chapter by Chapter', closingEn: '## Why Read It Now?\n\nBecause *today*.', chapterCount: 3 });
+    expect(page.body.book.descriptionEn).toContain('# Stop Being Pushed Around');
+
+    // The admin's list carries the new fields too.
+    const list = await a.agent.get('/api/admin/library/books');
+    expect(list.body.items.find((b: any) => b.id === b1.bookId)).toMatchObject({ chaptersHeadingEn: 'Chapter by Chapter', chapterCount: 3 });
+
+    // French: must have the same number of chapters; then it is added in order.
+    const wrong = await post(a, url, { language: 'FR', chapters: [{ title: 'Seulement un' }] });
+    expect(wrong.status).toBe(409);
+    expect(wrong.body.code).toBe('CHAPTER_COUNT_DIFFERS');
+    const fr = await post(a, url, {
+      language: 'FR',
+      description: 'Vous êtes fait pour régner.',
+      chaptersHeading: 'Chapitre par chapitre',
+      closing: '## Pourquoi maintenant ?',
+      chapters: [
+        { label: 'Introduction', title: 'Pourquoi ne sommes-nous pas libres ?', summary: 'Vous travaillez dur.' },
+        { label: 'Chapitre Un', title: 'Né pour régner', summary: 'Un dessein.' },
+        { label: 'Annexe A', title: 'Guide rapide' },
+      ],
+    });
+    expect(fr.status).toBe(200);
+    const after = await m.agent.get(`/api/member/school/books/${b1.bookId}`);
+    expect(after.body.chapters.map((c: any) => [c.titleEn, c.labelFr, c.titleFr])).toEqual([
+      ['Why Are We Still Not Free?', 'Introduction', 'Pourquoi ne sommes-nous pas libres ?'],
+      ['Born to Rule', 'Chapitre Un', 'Né pour régner'],
+      ['Quick guide', 'Annexe A', 'Guide rapide'],
+    ]);
+    expect(after.body.book).toMatchObject({ chaptersHeadingFr: 'Chapitre par chapitre', closingFr: '## Pourquoi maintenant ?' });
+    // English stays as it was.
+    expect(after.body.book.chaptersHeadingEn).toBe('Chapter by Chapter');
+
+    // A chapter with no title is refused; members cannot import; unknown book.
+    expect((await post(a, url, { language: 'EN', chapters: [{ title: '' }] })).status).toBe(400);
+    expect((await post(m, url, { language: 'EN', chapters: [{ title: 'Mine' }] })).status).toBe(401);
+    expect((await post(a, '/api/admin/library/books/00000000-0000-0000-0000-000000000000/page-import', { language: 'EN', chapters: [] })).status).toBe(404);
+  });
+
+  it('a book\'s long page text (up to 8,000 characters) can be saved; a chapter label can be set and changed', async () => {
+    const a = await admin();
+    const b1 = await trainingBook(a, 1);
+    const long = 'word '.repeat(1500).trim();
+    const patch = await a.agent.patch(`/api/admin/library/books/${b1.bookId}`).set('X-CSRF-Token', a.csrf).send({ descriptionEn: long, closingEn: 'The end.', chaptersHeadingEn: 'Chapters' });
+    expect(patch.status).toBe(200);
+    const c = await post(a, `/api/admin/library/books/${b1.bookId}/chapters`, { titleEn: 'First', labelEn: 'Chapter One' });
+    expect(c.body.labelEn).toBe('Chapter One');
+    const renamed = await a.agent.patch(`/api/admin/library/chapters/${c.body.id}`).set('X-CSRF-Token', a.csrf).send({ labelEn: '' });
+    expect(renamed.body.labelEn).toBeNull();
+    const list = await a.agent.get('/api/admin/library/books');
+    expect(list.body.items.find((b: any) => b.id === b1.bookId)).toMatchObject({ closingEn: 'The end.', chaptersHeadingEn: 'Chapters' });
+  });
 });
 
 describe('Reading bookmark and downloaded copies', () => {

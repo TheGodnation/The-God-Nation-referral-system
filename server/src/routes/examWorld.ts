@@ -206,9 +206,14 @@ router.get('/school/books/:id', requireMember, asyncHandler(async (req, res) => 
   const chapters = await prisma.bookChapter.findMany({
     where: { bookId: book.id },
     orderBy: { order: 'asc' },
-    select: { id: true, order: true, titleEn: true, titleFr: true, summaryEn: true, summaryFr: true },
+    select: { id: true, order: true, labelEn: true, labelFr: true, titleEn: true, titleFr: true, summaryEn: true, summaryFr: true },
   });
-  res.json({ ...summary, book, chapters });
+  // The words around the chapter list (only this one book's page needs them).
+  const page = await prisma.libraryBook.findUnique({
+    where: { id: book.id },
+    select: { closingEn: true, closingFr: true, chaptersHeadingEn: true, chaptersHeadingFr: true },
+  });
+  res.json({ ...summary, book: { ...book, ...page }, chapters });
 }));
 
 // POST /api/member/training/request — "Begin my training": starts at once

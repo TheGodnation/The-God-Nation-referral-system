@@ -132,6 +132,34 @@ describe("A book's page", () => {
     expect(screen.queryByRole('button', { name: /Pay 1\s100 FCFA/ })).not.toBeInTheDocument();
   });
 
+  it("shows the founder's page as written: headline, bullets, labelled chapters, closing words, and the Read button above the pitch", async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: ME }),
+      'GET /api/member/school/books/b1': () => ({
+        body: {
+          ...SUMMARY,
+          book: {
+            ...BOOKS[0],
+            descriptionEn: '# Stop Being Pushed Around by Life.\n\nYou were made to govern.\n\n## What This Book Will Do For You\n\n- Show you the reason\n- Give you a picture',
+            chaptersHeadingEn: 'Chapter by Chapter: Your Journey',
+            closingEn: '## Why Read It Now?\n\nBecause *every day* you wait.',
+            closingFr: null,
+          },
+          chapters: [{ id: 'c1', order: 1, labelEn: 'Chapter One', labelFr: null, titleEn: 'Born to Rule', titleFr: null, summaryEn: 'Before the stress there was a design.', summaryFr: null }],
+        },
+      }),
+    });
+    renderAt('/member/school/b1');
+    expect(await screen.findByText('Stop Being Pushed Around by Life.')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(expect.arrayContaining(['Show you the reason', 'Give you a picture']));
+    expect(screen.getByRole('heading', { name: 'Chapter by Chapter: Your Journey' })).toBeInTheDocument();
+    expect(screen.getByText('Chapter One')).toBeInTheDocument();
+    expect(screen.getByText('Born to Rule')).toBeInTheDocument();
+    expect(screen.getByText('every day').tagName).toBe('STRONG');
+    expect(screen.getByRole('link', { name: /Read the book/ }).compareDocumentPosition(screen.getByText('You were made to govern.')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'What this book teaches' })).not.toBeInTheDocument();
+  });
+
   describe('tapping the cover opens it big, like a profile photo', () => {
     const open = async (book: Record<string, unknown>) => {
       mockFetch({

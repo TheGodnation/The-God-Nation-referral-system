@@ -65,6 +65,10 @@ router.get('/books', asyncHandler(async (_req, res) => {
       titleFr: b.titleFr,
       descriptionEn: b.descriptionEn,
       descriptionFr: b.descriptionFr,
+      closingEn: b.closingEn,
+      closingFr: b.closingFr,
+      chaptersHeadingEn: b.chaptersHeadingEn,
+      chaptersHeadingFr: b.chaptersHeadingFr,
       trainingOrder: b.trainingOrder,
       devotional: b.devotional,
       hasFile: Boolean(b.storageKey),
@@ -100,16 +104,16 @@ const createBookSchema = z.discriminatedUnion('kind', [
     kind: z.literal('TRAINING'),
     titleEn: z.string().trim().min(1).max(200),
     titleFr: z.string().trim().max(200).optional(),
-    descriptionEn: z.string().trim().max(2000).optional(),
-    descriptionFr: z.string().trim().max(2000).optional(),
+    descriptionEn: z.string().trim().max(8000).optional(),
+    descriptionFr: z.string().trim().max(8000).optional(),
     trainingOrder: z.number().int().min(1).max(100),
   }),
   z.object({
     kind: z.literal('DEVOTIONAL'),
     titleEn: z.string().trim().min(1).max(200),
     titleFr: z.string().trim().max(200).optional(),
-    descriptionEn: z.string().trim().max(2000).optional(),
-    descriptionFr: z.string().trim().max(2000).optional(),
+    descriptionEn: z.string().trim().max(8000).optional(),
+    descriptionFr: z.string().trim().max(8000).optional(),
     devotionalId: z.string().min(1),
   }),
 ]);
@@ -164,11 +168,18 @@ router.post('/books', communityMutationLimiter, requireCsrf, asyncHandler(async 
   }
 }));
 
+// A book's page text can be long (the pitch, "what this book will do for you"...).
+const PAGE_TEXT_MAX = 8000;
+
 const patchBookSchema = z.object({
   titleEn: z.string().trim().min(1).max(200).optional(),
   titleFr: z.string().trim().max(200).optional(),
-  descriptionEn: z.string().trim().max(2000).optional(),
-  descriptionFr: z.string().trim().max(2000).optional(),
+  descriptionEn: z.string().trim().max(PAGE_TEXT_MAX).optional(),
+  descriptionFr: z.string().trim().max(PAGE_TEXT_MAX).optional(),
+  closingEn: z.string().trim().max(PAGE_TEXT_MAX).optional(),
+  closingFr: z.string().trim().max(PAGE_TEXT_MAX).optional(),
+  chaptersHeadingEn: z.string().trim().max(200).optional(),
+  chaptersHeadingFr: z.string().trim().max(200).optional(),
 });
 
 router.patch('/books/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -184,6 +195,10 @@ router.patch('/books/:id', communityMutationLimiter, requireCsrf, asyncHandler(a
       ...(d.titleFr !== undefined ? { titleFr: d.titleFr || null } : {}),
       ...(d.descriptionEn !== undefined ? { descriptionEn: d.descriptionEn || null } : {}),
       ...(d.descriptionFr !== undefined ? { descriptionFr: d.descriptionFr || null } : {}),
+      ...(d.closingEn !== undefined ? { closingEn: d.closingEn || null } : {}),
+      ...(d.closingFr !== undefined ? { closingFr: d.closingFr || null } : {}),
+      ...(d.chaptersHeadingEn !== undefined ? { chaptersHeadingEn: d.chaptersHeadingEn || null } : {}),
+      ...(d.chaptersHeadingFr !== undefined ? { chaptersHeadingFr: d.chaptersHeadingFr || null } : {}),
     },
   });
   await audit(req, 'LIBRARY_BOOK_UPDATED', 'LibraryBook', req.params.id);
@@ -290,13 +305,15 @@ router.get('/books/:id/cover', asyncHandler(async (req, res) => {
 // ----------------------------- Chapters -------------------------------------
 
 const chapterSchema = z.object({
+  labelEn: z.string().trim().max(60).optional(),
+  labelFr: z.string().trim().max(60).optional(),
   titleEn: z.string().trim().min(1).max(200),
   titleFr: z.string().trim().max(200).optional(),
   summaryEn: z.string().trim().max(3000).optional(),
   summaryFr: z.string().trim().max(3000).optional(),
 });
 
-const chapterView = { id: true, order: true, titleEn: true, titleFr: true, summaryEn: true, summaryFr: true } as const;
+const chapterView = { id: true, order: true, labelEn: true, labelFr: true, titleEn: true, titleFr: true, summaryEn: true, summaryFr: true } as const;
 
 router.get('/books/:id/chapters', asyncHandler(async (req, res) => {
   const items = await prisma.bookChapter.findMany({ where: { bookId: req.params.id }, orderBy: { order: 'asc' }, select: chapterView });
@@ -315,6 +332,8 @@ router.post('/books/:id/chapters', communityMutationLimiter, requireCsrf, asyncH
     data: {
       bookId: book.id,
       order: (last._max.order ?? 0) + 1,
+      labelEn: d.labelEn || null,
+      labelFr: d.labelFr || null,
       titleEn: d.titleEn,
       titleFr: d.titleFr || null,
       summaryEn: d.summaryEn || null,
@@ -335,6 +354,8 @@ router.patch('/chapters/:id', communityMutationLimiter, requireCsrf, asyncHandle
   const chapter = await prisma.bookChapter.update({
     where: { id: req.params.id },
     data: {
+      ...(d.labelEn !== undefined ? { labelEn: d.labelEn || null } : {}),
+      ...(d.labelFr !== undefined ? { labelFr: d.labelFr || null } : {}),
       ...(d.titleEn !== undefined ? { titleEn: d.titleEn } : {}),
       ...(d.titleFr !== undefined ? { titleFr: d.titleFr || null } : {}),
       ...(d.summaryEn !== undefined ? { summaryEn: d.summaryEn || null } : {}),
@@ -365,6 +386,88 @@ router.post('/chapters/:id/move', communityMutationLimiter, requireCsrf, asyncHa
     ]);
   }
   res.json({ ok: true });
+}));
+
+// POST /api/admin/library/books/:id/page-import — the whole book page at once
+// (what the admin pastes and checks in the preview): the pitch, the chapters
+// with their labels and summaries, the closing words and the chapter-list
+// title, in ONE language.
+//   EN: replaces the book's chapters with these (the admin confirms first).
+//   FR: adds the French words to the chapters that are already there, so it
+//       needs the same number of chapters (matched in order).
+const pageImportSchema = z.object({
+  language: z.enum(['EN', 'FR']),
+  description: z.string().trim().max(PAGE_TEXT_MAX).optional(),
+  closing: z.string().trim().max(PAGE_TEXT_MAX).optional(),
+  chaptersHeading: z.string().trim().max(200).optional(),
+  chapters: z
+    .array(
+      z.object({
+        label: z.string().trim().max(60).optional(),
+        title: z.string().trim().min(1).max(200),
+        summary: z.string().trim().max(3000).optional(),
+      }),
+    )
+    .max(60),
+});
+
+router.post('/books/:id/page-import', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = pageImportSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'This page could not be read. Check that every chapter has a title.', code: 'INVALID' });
+  const book = await prisma.libraryBook.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!book) return res.status(404).json({ error: 'Book not found.' });
+  const d = parsed.data;
+  const fr = d.language === 'FR';
+
+  if (fr) {
+    const existing = await prisma.bookChapter.findMany({ where: { bookId: book.id }, orderBy: { order: 'asc' }, select: { id: true } });
+    if (existing.length !== d.chapters.length) {
+      return res.status(409).json({
+        error: `The English page has ${existing.length} chapters but this French page has ${d.chapters.length}. Load the English page first, with the same chapters.`,
+        code: 'CHAPTER_COUNT_DIFFERS',
+        existing: existing.length,
+      });
+    }
+    await prisma.$transaction([
+      prisma.libraryBook.update({
+        where: { id: book.id },
+        data: {
+          descriptionFr: d.description || null,
+          closingFr: d.closing || null,
+          chaptersHeadingFr: d.chaptersHeading || null,
+        },
+      }),
+      ...existing.map((c, i) =>
+        prisma.bookChapter.update({
+          where: { id: c.id },
+          data: { labelFr: d.chapters[i].label || null, titleFr: d.chapters[i].title, summaryFr: d.chapters[i].summary || null },
+        }),
+      ),
+    ]);
+  } else {
+    await prisma.$transaction([
+      prisma.libraryBook.update({
+        where: { id: book.id },
+        data: {
+          descriptionEn: d.description || null,
+          closingEn: d.closing || null,
+          chaptersHeadingEn: d.chaptersHeading || null,
+        },
+      }),
+      prisma.bookChapter.deleteMany({ where: { bookId: book.id } }),
+      prisma.bookChapter.createMany({
+        data: d.chapters.map((c, i) => ({
+          bookId: book.id,
+          order: i + 1,
+          labelEn: c.label || null,
+          titleEn: c.title,
+          summaryEn: c.summary || null,
+        })),
+      }),
+    ]);
+  }
+  await audit(req, 'LIBRARY_BOOK_PAGE_IMPORTED', 'LibraryBook', book.id, { language: d.language, chapters: d.chapters.length });
+  res.json({ ok: true, chapters: d.chapters.length });
 }));
 
 router.delete('/chapters/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
