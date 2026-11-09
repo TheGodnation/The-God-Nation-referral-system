@@ -36,6 +36,7 @@ const NUMBER_WORDS =
 
 const CHAPTER_LINE = new RegExp(
   '^(' +
+    "(?:FOREWORD|PREFACE) AND INTRODUCTION|(?:AVANT-PROPOS|PRÉFACE) ET INTRODUCTION|" +
     'INTRODUCTION|PREFACE|PRÉFACE|FOREWORD|AVANT-PROPOS|PROLOGUE|CONCLUSION|EPILOGUE|ÉPILOGUE|AFTERWORD|POSTFACE|' +
     "FROM THE AUTHOR|THE AUTHOR['’]S WORD|AUTHOR['’]S WORD|MOT DE L['’]AUTEUR|DE L['’]AUTEUR|" +
     `(?:CHAPTER|CHAPITRE|PART|PARTIE)\\s+(?:${NUMBER_WORDS})|` +
@@ -55,7 +56,7 @@ function niceLabel(label: string): string {
       // Roman numerals, single letters and digits stay in capitals ("Chapter IV", "Appendix A").
       if (i > 0 && (/^[IVXL]{1,6}$/i.test(w) || /^[A-Za-z0-9]$/.test(w) || /^\d+$/.test(w))) return w.toUpperCase();
       // "From the Author", "Mot de l'auteur": the little words stay small.
-      if (i > 0 && /^(the|of|de|du|des|la|le|les|l['’]\p{L}+)$/iu.test(w)) return w.toLowerCase();
+      if (i > 0 && /^(the|of|and|de|du|des|et|la|le|les|l['’]\p{L}+)$/iu.test(w)) return w.toLowerCase();
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     })
     .join(' ');
@@ -74,7 +75,7 @@ function headingLike(line: string): boolean {
   if (line.split(/\s+/).length > 9) return false;
   if (/(\.{3}|…)$/.test(line)) return true;
   // "Three Steps. One Door.": a very short slogan is a heading too.
-  if (/\.$/.test(line) && line.length <= 26 && line.split(/\s+/).length <= 5) return true;
+  if (/\.$/.test(line) && line.length <= 32 && line.split(/\s+/).length <= 6) return true;
   return !/[.!,;:]$/.test(line);
 }
 
@@ -96,7 +97,7 @@ function toMarkup(lines: string[], opts: { leading?: boolean; title?: string } =
     // The title and byline lines at the very top.
     const top: string[] = [];
     // (a short tagline such as "Repent. Be Baptized. Receive the Spirit." belongs here too)
-    while (i < lines.length && lines[i].length <= 100 && (!/[.!?]$/.test(lines[i]) || (i <= 3 && lines[i].length <= 50))) {
+    while (i < lines.length && lines[i].length <= 100 && (!/[.!?]$/.test(lines[i]) || (i <= 3 && lines[i].length <= 50 && i + 1 < lines.length && lines[i + 1].length <= 100))) {
       top.push(lines[i]);
       i += 1;
     }
@@ -118,7 +119,17 @@ function toMarkup(lines: string[], opts: { leading?: boolean; title?: string } =
       const introduced = body.length >= 3 && /:$/.test(body[0]) && body.slice(1).every((l) => l.length <= 220);
       if (introduced) {
         blocks.push(stripBullet(body[0]));
-        blocks.push(body.slice(1).map((l) => `- ${stripBullet(l)}`).join('\n'));
+        let items = body.slice(1);
+        // "The gap of identity... / The gap of knowledge... / The gap of application... / Find which one is yours...":
+        // when every item but the last starts with the same word and the last does not, the last is a closing sentence.
+        const first = (l: string) => l.split(/\s+/)[0].toLowerCase();
+        let closing: string | null = null;
+        if (items.length >= 4 && items.slice(0, -2).every((l) => first(l) === first(items[0])) && first(items[items.length - 2]) === first(items[0]) && first(items[items.length - 1]) !== first(items[0])) {
+          closing = items[items.length - 1];
+          items = items.slice(0, -1);
+        }
+        blocks.push(items.map((l) => `- ${stripBullet(l)}`).join('\n'));
+        if (closing) blocks.push(stripBullet(closing));
       } else if (allShort && body.length >= 2) {
         blocks.push(body.map((l) => `- ${stripBullet(l)}`).join('\n'));
       } else {

@@ -169,3 +169,6 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **Book 2's page** (pitch, "Three steps. One door.", seven chapters starting with "From the Author", closing words), English and French, is loaded by
   migration `20261215090000` (only when Book 2 has no chapters). The page reader also learned: an author label, short taglines at the top, a very
   short slogan as a heading, a line ending with ":" as the introduction of the list under it, and a chapter-list heading with one sentence under it.
+- **Book 3's page** ("Kingdom Keys, Volume 1: The Foundation": pitch, "Foreword and Introduction" + six chapters, closing), English and French, is loaded by
+  migration `20261216090000` onto the book numbered 3 (only when it has no chapters). The page reader also keeps a headline that follows a short
+  line as the headline, and puts a closing sentence after a list ("Find which one is yours...") back in a paragraph.

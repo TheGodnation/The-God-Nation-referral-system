@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseBookPage } from '../lib/bookPageParser';
 import { BOOK1_PAGE } from './fixtures/book1Page';
 import { BOOK2_PAGE } from './fixtures/book2Page';
+import { BOOK3_PAGE } from './fixtures/book3Page';
 
 describe('parseBookPage — Book One as the founder sent it', () => {
   const page = parseBookPage(BOOK1_PAGE, 'The Restoration of Dominion');
@@ -138,5 +139,38 @@ describe('parseBookPage — Book Two as the founder sent it', () => {
     const body = 'Un résumé assez long pour être un paragraphe complet et non un titre de section dans la page du livre.';
     const p = parseBookPage(`MOT DE L'AUTEUR Un titre\n${body}\nCHAPITRE UN Autre titre\n${body}`);
     expect(p.chapters.map((c) => c.label)).toEqual(["Mot de l'auteur", 'Chapitre Un']);
+  });
+});
+
+describe('parseBookPage — Kingdom Keys, Volume 1 as the founder sent it', () => {
+  const page = parseBookPage(BOOK3_PAGE, 'Kingdom Keys, Volume 1: The Foundation');
+
+  it('finds "Foreword and Introduction" and the six chapters', () => {
+    expect(page.chapters.map((c) => [c.label, c.title])).toEqual([
+      ['Foreword and Introduction', 'The Problem Every Kingdom Citizen Must Solve'],
+      ['Chapter One', 'You Are Already Rich. So Why Are You Still Poor?'],
+      ['Chapter Two', 'The Finished Work and the Open Door'],
+      ['Chapter Three', 'Rights Without Keys: The Tragedy of the Uninformed Heir'],
+      ['Chapter Four', 'Understanding Kingdom Systems'],
+      ['Chapter Five', 'What Are the Keys of the Kingdom?'],
+      ['Chapter Six', 'The Key of the New Birth'],
+    ]);
+    expect(page.warnings).toEqual([]);
+    expect(page.chaptersHeading).toBe('Inside the Book: Chapter by Chapter\nHere is how the book carries you from the gap in your life to the first key in your hand.');
+  });
+
+  it('keeps the headline as the headline (not as a tagline), the three gaps as a list with their closing sentence after it', () => {
+    const d = page.description;
+    expect(d.startsWith('_Unlocking the Rights of Kingdom Citizens for Visible Dominion on Earth_\n\n_Evangelist Stanley A. Ndoh | The God Nation Media & Leadership Academy_\n\n# You Already Own It. Now Learn How to Walk In It.')).toBe(true);
+    expect(d).toContain('## Three Gaps. One Set of Keys.\n\nBefore you can close the gap');
+    expect(d).toContain('- The gap of application: knowing the truth, but never putting it to work.\n\nFind which one is yours, and you will finally know what to do about it.');
+    expect(d).toContain('## What You Will Walk Away With\n\n- A clear answer');
+    expect(d.match(/^- /gm)).toHaveLength(8);
+  });
+
+  it('writes the closing words with the slogan in bold', () => {
+    expect(page.closing).toContain('## The Keys Are Already in Your Hand\n\nEverything you need was settled at the Cross.');
+    expect(page.closing).toContain('*The Kingdom is yours. The keys are in your hand. Now open the door.*');
+    expect(page.closing.match(/^- /gm)).toHaveLength(5);
   });
 });
