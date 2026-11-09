@@ -174,3 +174,5 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   line as the headline, and puts a closing sentence after a list ("Find which one is yours...") back in a paragraph.
 - **Book 3's exam, Set 1** (English + French, marked questions only: Books 3 to 15 have no personal section) is loaded by migration `20261217090000`
   (draft only). Sets 2 and 3 come later, through "Paste an exam" or the same kind of migration.
+- **Book 3's exam, Set 2** (English + French, 25 marked questions; draft only, loads only if that set is still empty) is loaded by migration
+  `20261218090000`. Set 3 comes later.
