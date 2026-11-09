@@ -256,7 +256,7 @@ export async function faithJourney(personId: string) {
   };
 }
 
-export type FaithFilter = 'ALL' | 'NEEDS' | 'BORN_AGAIN' | 'CONFIRMED';
+export type FaithFilter = 'ALL' | 'NEEDS' | 'FOLLOW_UP' | 'BORN_AGAIN' | 'CONFIRMED';
 
 /** The people who have answered, for the central admin (all of them) or a leader (those of their assemblies). */
 export async function listFaith(viewer: FaithViewer, opts: { filter: FaithFilter; search?: string; limit?: number }) {
@@ -280,17 +280,27 @@ export async function listFaith(viewer: FaithViewer, opts: { filter: FaithFilter
       ...(opts.search?.trim() ? { person: { name: { contains: opts.search.trim(), mode: 'insensitive' as const } } } : {}),
     },
     orderBy: [{ lastAnsweredAt: 'desc' }],
-    take: Math.min(opts.limit ?? 100, 200),
+    take: opts.filter === 'FOLLOW_UP' ? 200 : Math.min(opts.limit ?? 100, 200),
     include: { person: { select: { id: true, name: true } } },
   });
-  return rows.map((r) => ({
+  // How many answers of their latest try call for a conversation (baptism not yet, the Holy Spirit not yet...),
+  // even for someone whose status is "born again".
+  const attemptIds = rows.map((r) => r.lastAttemptId).filter((id): id is string => Boolean(id));
+  const flaggedBy = new Map<string, number>();
+  if (attemptIds.length) {
+    const grouped = await prisma.personalAnswer.groupBy({ by: ['attemptId'], where: { attemptId: { in: attemptIds }, signal: 'NEEDS_TALK' }, _count: { _all: true } });
+    for (const g of grouped) flaggedBy.set(g.attemptId, g._count._all);
+  }
+  const items = rows.map((r) => ({
     personId: r.personId,
     name: r.person.name,
     status: r.status,
     lastAnsweredAt: r.lastAnsweredAt,
     confirmedAt: r.confirmedAt,
     confirmedByName: r.confirmedByName,
+    flagged: r.lastAttemptId ? (flaggedBy.get(r.lastAttemptId) ?? 0) : 0,
   }));
+  return opts.filter === 'FOLLOW_UP' ? items.filter((i) => i.flagged > 0 && !i.confirmedAt).slice(0, Math.min(opts.limit ?? 100, 200)) : items;
 }
 
 export async function setConfirmed(personId: string, viewer: FaithViewer, confirmed: boolean) {

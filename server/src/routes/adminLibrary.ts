@@ -479,6 +479,8 @@ router.post('/books/:id/page-import', communityMutationLimiter, requireCsrf, asy
 // The exam is never published or unpublished here.
 const examImportSchema = z.object({
   language: z.enum(['EN', 'FR']),
+  // The personal questions are the same in every set: a set added later takes the ones the exam's other sets already have.
+  samePersonal: z.boolean().optional(),
   sets: z
     .array(
       z.object({
@@ -511,6 +513,10 @@ const examImportSchema = z.object({
     .max(20),
 });
 
+async function loadPersonalReference(assessmentId: string, setNumber: number) {
+  return prisma.personalQuestion.findMany({ where: { assessmentId, setNumber }, orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } });
+}
+
 router.post('/books/:id/exam-import', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = examImportSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'This exam could not be read. Check every question and its choices.', code: 'INVALID' });
@@ -524,6 +530,14 @@ router.post('/books/:id/exam-import', communityMutationLimiter, requireCsrf, asy
     for (const p of set.personal) {
       if (p.kind === 'CHOICE' && p.options.length < 2) return res.status(400).json({ error: `Set ${set.setNumber}: a personal question with choices needs at least two.`, code: 'INVALID' });
     }
+  }
+
+  // The reference: the personal questions of the lowest set that is not being replaced by this import.
+  const pasted = new Set(d.sets.map((x) => x.setNumber));
+  let reference: Awaited<ReturnType<typeof loadPersonalReference>> = [];
+  if (d.samePersonal) {
+    const others = await prisma.personalQuestion.findMany({ where: { assessmentId: exam.id, setNumber: { notIn: [...pasted] } }, distinct: ['setNumber'], orderBy: { setNumber: 'asc' }, select: { setNumber: true }, take: 1 });
+    if (others[0]) reference = await loadPersonalReference(exam.id, others[0].setNumber);
   }
 
   if (d.language === 'EN') {
@@ -550,22 +564,46 @@ router.post('/books/:id/exam-import', communityMutationLimiter, requireCsrf, asy
             },
           });
         }
-        for (const [pi, p] of set.personal.entries()) {
-          await tx.personalQuestion.create({
-            data: {
-              assessmentId: exam.id,
-              setNumber: set.setNumber,
-              order: pi,
-              kind: p.kind,
-              textEn: p.text,
-              bodyEn: p.body || null,
-              guideEn: p.guide || null,
-              required: p.required,
-              flagUnlessNone: p.flagUnlessNone,
-              affectsStatus: p.affectsStatus,
-              options: { create: p.options.map((o, oi) => ({ textEn: o.text, signal: o.signal, order: oi })) },
-            },
-          });
+        if (reference.length > 0) {
+          // Same words, choices and guide as the exam's other sets (English and French).
+          for (const r of reference) {
+            await tx.personalQuestion.create({
+              data: {
+                assessmentId: exam.id,
+                setNumber: set.setNumber,
+                order: r.order,
+                kind: r.kind,
+                textEn: r.textEn,
+                textFr: r.textFr,
+                bodyEn: r.bodyEn,
+                bodyFr: r.bodyFr,
+                guideEn: r.guideEn,
+                guideFr: r.guideFr,
+                required: r.required,
+                flagUnlessNone: r.flagUnlessNone,
+                affectsStatus: r.affectsStatus,
+                options: { create: r.options.map((o) => ({ textEn: o.textEn, textFr: o.textFr, signal: o.signal, order: o.order })) },
+              },
+            });
+          }
+        } else {
+          for (const [pi, p] of set.personal.entries()) {
+            await tx.personalQuestion.create({
+              data: {
+                assessmentId: exam.id,
+                setNumber: set.setNumber,
+                order: pi,
+                kind: p.kind,
+                textEn: p.text,
+                bodyEn: p.body || null,
+                guideEn: p.guide || null,
+                required: p.required,
+                flagUnlessNone: p.flagUnlessNone,
+                affectsStatus: p.affectsStatus,
+                options: { create: p.options.map((o, oi) => ({ textEn: o.text, signal: o.signal, order: oi })) },
+              },
+            });
+          }
         }
       });
       saved.push(set.setNumber);
@@ -579,11 +617,12 @@ router.post('/books/:id/exam-import', communityMutationLimiter, requireCsrf, asy
   for (const set of d.sets) {
     const questions = await prisma.question.findMany({ where: { assessmentId: exam.id, setNumber: set.setNumber }, orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } });
     const personal = await prisma.personalQuestion.findMany({ where: { assessmentId: exam.id, setNumber: set.setNumber }, orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } });
+    // With "same personal questions" the personal part of a set already carries the exam's shared words: only the marked questions are lined up.
+    const skipPersonal = Boolean(d.samePersonal) && personal.length > 0;
     const same =
       questions.length === set.questions.length &&
-      personal.length === set.personal.length &&
-      questions.every((q, i) => q.options.length === set.questions[i].options.length && q.options.findIndex((o) => o.isCorrect) === set.questions[i].options.findIndex((o) => o.isCorrect)) &&
-      personal.every((p, i) => p.kind === set.personal[i].kind && p.options.length === set.personal[i].options.length);
+      (skipPersonal || (personal.length === set.personal.length && personal.every((p, i) => p.kind === set.personal[i].kind && p.options.length === set.personal[i].options.length))) &&
+      questions.every((q, i) => q.options.length === set.questions[i].options.length && q.options.findIndex((o) => o.isCorrect) === set.questions[i].options.findIndex((o) => o.isCorrect));
     if (!same) {
       return res.status(409).json({
         error: `Set ${set.setNumber}: the French exam must have the same questions, choices and right answers as the English one. Load the English set first.`,
@@ -600,6 +639,7 @@ router.post('/books/:id/exam-import', communityMutationLimiter, requireCsrf, asy
         await tx.question.update({ where: { id: plan.questions[qi].id }, data: { textFr: q.text } });
         for (const [oi, o] of q.options.entries()) await tx.option.update({ where: { id: plan.questions[qi].optionIds[oi] }, data: { textFr: o.text } });
       }
+      if (d.samePersonal && plan.personal.length > 0) continue;
       for (const [pi, p] of set.personal.entries()) {
         await tx.personalQuestion.update({ where: { id: plan.personal[pi].id }, data: { textFr: p.text, bodyFr: p.body || null, guideFr: p.guide || null } });
         for (const [oi, o] of p.options.entries()) await tx.personalOption.update({ where: { id: plan.personal[pi].optionIds[oi] }, data: { textFr: o.text } });

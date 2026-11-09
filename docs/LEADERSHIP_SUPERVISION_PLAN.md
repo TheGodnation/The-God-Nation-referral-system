@@ -158,3 +158,7 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **Leaders** read the journeys of the people of their own assembly only when the central admin switches `Settings.leadersSeeFaithJourney` on
   (checkbox in the Faith journeys tab); they are notified too, see it as a tile on the leadership dashboard, and every view by a leader is
   audited (`FAITH_VIEWED_BY_LEADER`). Endpoints: `/api/member/faith` (central admin on his profile, and leaders) and `/api/admin/faith`.
+- **Book 2's exam** (Sets 1 and 2, English + French) is loaded by migration `20261213090000` (draft only; Section C = Set 1's in every set; Set 3 to come).
+  In Book 2, only the repentance question and the confession decide the "born again" status; baptism, the Holy Spirit, what changed and
+  "what holds you back" are flagged (⚑) and counted in the **To follow up** list (`flagged` on each row) without changing the status.
+  "Paste an exam" keeps the exam's existing personal questions when a set is added later (`samePersonal`).

@@ -52,7 +52,8 @@ const MY_ANSWER = /^(?:My|Ma|Mon|Mes)\s/i;
 const KEY_CHOICE = /^(\d{1,3})\.\s+([A-D])\.\s+(.+)$/;
 const KEY_TF = /^(\d{1,3})\.\s+(TRUE|FALSE|VRAI|FAUX)\.\s*(.*)$/i;
 const KEY_PERSONAL = /^C(\d{1,2})(?:\s*\([^)]*\))?\.\s+(.+)$/;
-const WRITE_NOTHING = /(?:write|[ée]crivez)\s+[«"“'‘]?\s*(?:nothing|none|rien|aucun|aucune)/i;
+// "write \"nothing\"" (the word, then the closing quote): "nothing yet" is a different kind of answer and is not matched.
+const WRITE_NOTHING = /(?:write|[ée]crivez)\s+[«"“'‘]\s*(?:nothing|none|rien|aucun|aucune)\s*[.»"”'’]/i;
 const POSITIVE_START = /^(?:yes\b|i\s+agree\b|oui\b|je\s+suis\s+d['’]accord\b)/i;
 const HEDGE = /\bbut\b|not\s+sure|\bdoubt|\bmais\b|pas\s+s[ûu]r|\bdoute/i;
 
@@ -72,7 +73,7 @@ function norm(s: string): string {
 
 /** The "(Chapter 1)" at the end of a key line, taken off. */
 function withoutSource(text: string): string {
-  return text.replace(/\s+\([A-Za-zÀ-ÿ]+(?:\s+\d+)?\)\.?\s*$/u, '').trim();
+  return text.replace(/\s+\([A-Za-zÀ-ÿ'’]+(?:\s+[A-Za-zÀ-ÿ'’]+){0,3}(?:\s+\d+)?\)\.?\s*$/u, '').trim();
 }
 
 function isPositive(option: string): boolean {
