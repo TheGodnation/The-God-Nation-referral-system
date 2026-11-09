@@ -6,6 +6,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { BookCover } from '../components/learn/BookCover';
 import { BookCoverViewer } from '../components/learn/BookCoverViewer';
+import { BookPageBody } from '../components/learn/BookPageBody';
 import { PayBookPanel, PayManyPanel } from '../components/learn/TrainingPayments';
 import { WaitingOrderLink } from '../components/learn/PayWithAgent';
 import { BookStatusLines, SchoolBook, SchoolSummary, TrainingStatusCard, useTr } from '../components/learn/schoolBits';
@@ -18,13 +19,18 @@ import { useStoreApp } from '../lib/storeApp';
 interface Chapter {
   id: string;
   order: number;
+  labelEn: string | null;
+  labelFr: string | null;
   titleEn: string;
   titleFr: string | null;
   summaryEn: string | null;
   summaryFr: string | null;
 }
 
-type BookPage = SchoolSummary & { book: SchoolBook; chapters: Chapter[] };
+type BookPage = SchoolSummary & {
+  book: SchoolBook & { closingEn?: string | null; closingFr?: string | null; chaptersHeadingEn?: string | null; chaptersHeadingFr?: string | null };
+  chapters: Chapter[];
+};
 
 // One Leadership School book: its cover, what it teaches chapter by
 // chapter (shown before it opens too), and — once open — Read, the exam
@@ -117,8 +123,6 @@ export function MemberSchoolBookPage() {
               </div>
             </div>
 
-            {description && <p className="whitespace-pre-wrap text-slate-700">{description}</p>}
-
             {b.unlocked ? (
               <div className="card space-y-3">
                 <div className="flex flex-wrap gap-2">
@@ -161,32 +165,12 @@ export function MemberSchoolBookPage() {
               b.lockedBecause === 'NOT_STARTED' && <TrainingStatusCard summary={data} onChanged={load} />
             )}
 
-            <section>
-              <h2 className="mb-2 text-lg font-semibold text-brand-900">{t('school.chapters_heading')}</h2>
-              {data.chapters.length === 0 ? (
-                <p className="card text-sm text-slate-500">{t('school.chapters_soon')}</p>
-              ) : (
-                <ol className="card divide-y divide-slate-100 p-0">
-                  {data.chapters.map((c, i) => {
-                    const summary = tr(c.summaryEn ?? '', c.summaryFr);
-                    return (
-                      <li key={c.id}>
-                        <details open={i === 0} className="group px-4 py-3">
-                          <summary className="flex cursor-pointer list-none items-start gap-3">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-800">{i + 1}</span>
-                            <span className="flex-1 font-semibold text-slate-800">{tr(c.titleEn, c.titleFr)}</span>
-                            <span aria-hidden="true" className="text-slate-400 transition group-open:rotate-90">
-                              ›
-                            </span>
-                          </summary>
-                          <p className="mt-2 whitespace-pre-wrap pl-9 text-sm text-slate-700">{summary || t('school.summary_soon')}</p>
-                        </details>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </section>
+            <BookPageBody
+              description={description}
+              chaptersHeading={tr(b.chaptersHeadingEn ?? '', b.chaptersHeadingFr)}
+              chapters={data.chapters.map((c) => ({ id: c.id, label: tr(c.labelEn ?? '', c.labelFr) || null, title: tr(c.titleEn, c.titleFr), summary: tr(c.summaryEn ?? '', c.summaryFr) }))}
+              closing={tr(b.closingEn ?? '', b.closingFr)}
+            />
           </div>
         )}
         <MemberNav />

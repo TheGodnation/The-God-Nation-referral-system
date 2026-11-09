@@ -2860,31 +2860,39 @@ model MemberReport {
 // ---------------------------------------------------------------------------
 
 model LibraryBook {
-  id             String          @id @default(uuid())
-  kind           LibraryBookKind
-  titleEn        String
-  titleFr        String?
-  descriptionEn  String?
-  descriptionFr  String?
+  id                String          @id @default(uuid())
+  kind              LibraryBookKind
+  titleEn           String
+  titleFr           String?
+  descriptionEn     String?
+  descriptionFr     String?
+  // The words after the chapter list on the book's page ("This book is for
+  // you if...", "Why read it now?"), written with the same light formatting
+  // as the description (see client lib/richText).
+  closingEn         String?
+  closingFr         String?
+  // The title above the chapter list (null = the app's own "What you will learn").
+  chaptersHeadingEn String?
+  chaptersHeadingFr String?
   // The PDF in object storage (null until the admin uploads it).
-  storageKey     String?
-  byteSize       Int?
+  storageKey        String?
+  byteSize          Int?
   // Pages in the PDF, read in the admin's browser when it is uploaded.
-  pageCount      Int?
+  pageCount         Int?
   // The French copy of the same book (the English one is storageKey above).
-  storageKeyFr   String?
-  byteSizeFr     Int?
-  pageCountFr    Int?
+  storageKeyFr      String?
+  byteSizeFr        Int?
+  pageCountFr       Int?
   // Changes whenever the cover changes, so phones fetch the new picture
   // (the cover link carries it; null = no cover yet, a drawn one is shown).
-  coverVersion   String?
+  coverVersion      String?
   // The same for the French cover (drawn from the French PDF); null = readers
   // in French see the English cover.
-  coverFrVersion String?
-  trainingOrder  Int?            @unique
-  devotionalId   String?         @unique
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  coverFrVersion    String?
+  trainingOrder     Int?            @unique
+  devotionalId      String?         @unique
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   devotional    MonthlyDevotional?  @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
   exam          Assessment?
@@ -2954,6 +2962,9 @@ model BookChapter {
   id        String   @id @default(uuid())
   bookId    String
   order     Int
+  // The small line above the title: "Introduction", "Chapter One", "Appendix A".
+  labelEn   String?
+  labelFr   String?
   titleEn   String
   titleFr   String?
   summaryEn String?

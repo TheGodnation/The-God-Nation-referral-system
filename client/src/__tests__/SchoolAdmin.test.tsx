@@ -8,6 +8,7 @@ vi.mock('../lib/bookCover', () => ({
 
 import { BookDetailsAdmin } from '../components/admin/BookDetailsAdmin';
 import { LibraryTab } from '../components/admin/LibraryTab';
+import { BOOK1_PAGE } from './fixtures/book1Page';
 
 // Central admin: a leadership book's cover, description and chapters
 // (what members see on the book's page in the Leadership School).
@@ -71,7 +72,7 @@ describe('Leadership book details (admin)', () => {
     fireEvent.change(within(addForm).getByLabelText('Summary (English)'), { target: { value: 'Small things first.' } });
     fireEvent.click(within(addForm).getByRole('button', { name: '＋ Add a chapter' }));
     expect(await screen.findByText('Chapter 2: Faithful in little')).toBeInTheDocument();
-    expect(calls.find((c) => c.method === 'POST' && c.url.endsWith('/chapters'))?.body).toEqual({ titleEn: 'Faithful in little', titleFr: '', summaryEn: 'Small things first.', summaryFr: '' });
+    expect(calls.find((c) => c.method === 'POST' && c.url.endsWith('/chapters'))?.body).toEqual({ labelEn: '', labelFr: '', titleEn: 'Faithful in little', titleFr: '', summaryEn: 'Small things first.', summaryFr: '' });
     expect(onChanged).toHaveBeenCalled();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]);
@@ -85,6 +86,63 @@ describe('Leadership book details (admin)', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[1]);
     await waitFor(() => expect(screen.queryByText('Chapter 2: Faithful in little')).not.toBeInTheDocument());
+  });
+
+  it('pastes a whole book page, shows how it will look, and saves it only when told to', async () => {
+    mockFetch({
+      'GET /api/admin/library/books/b1/chapters': () => ({ body: { items: [] } }),
+      'POST /api/admin/library/books/b1/page-import': () => ({ body: { ok: true, chapters: 8 } }),
+    });
+    const onChanged = vi.fn();
+    render(<BookDetailsAdmin book={{ ...BOOK, titleEn: 'The Restoration of Dominion' }} onChanged={onChanged} />);
+    fireEvent.click(screen.getByRole('button', { name: /Paste a whole book page/ }));
+    const box = screen.getByLabelText('The book page');
+    fireEvent.change(box, { target: { value: BOOK1_PAGE } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it and show how it will look' }));
+
+    const preview = await screen.findByTestId('paste-preview');
+    expect(screen.getByText('8 chapters found. This is how members will see it:')).toBeInTheDocument();
+    // As he wrote it: big headline, labels above the titles, bullets, the closing words.
+    expect(within(preview).getByText('Stop Being Pushed Around by Life. Start Ruling Over It.')).toBeInTheDocument();
+    expect(within(preview).getByRole('heading', { name: 'Chapter by Chapter: Your Journey to Dominion' })).toBeInTheDocument();
+    expect(within(preview).getByText('Chapter Three')).toBeInTheDocument();
+    expect(within(preview).getByText('A Kingdom Bigger Than Any Problem You Face')).toBeInTheDocument();
+    expect(within(preview).getByText('Appendix A')).toBeInTheDocument();
+    expect(within(preview).getAllByRole('listitem').length).toBeGreaterThanOrEqual(8 + 5 + 5);
+    expect(within(preview).getByText('This Book Is For You If...')).toBeInTheDocument();
+    expect(within(preview).getByText('Your restoration begins on page one.').tagName).toBe('STRONG');
+    // Nothing is saved until he says so.
+    expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/page-import'))).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save this page to the book' }));
+    expect(await screen.findByText('Saved. The book now has 8 chapters.')).toBeInTheDocument();
+    const sent = calls.find((c) => c.url.endsWith('/page-import'))!.body;
+    expect(sent.language).toBe('EN');
+    expect(sent.chapters).toHaveLength(8);
+    expect(sent.chapters[1]).toMatchObject({ label: 'Chapter One', title: 'You Were Born to Rule, Not to Struggle' });
+    expect(sent.chaptersHeading).toBe('Chapter by Chapter: Your Journey to Dominion');
+    expect(sent.description).toContain('# Stop Being Pushed Around');
+    expect(sent.closing).toContain('## Why Read It Now?');
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it('asks before replacing chapters the book already has, and says when no chapters were found', async () => {
+    mockFetch({
+      'GET /api/admin/library/books/b1/chapters': () => ({ body: { items: [] } }),
+      'POST /api/admin/library/books/b1/page-import': () => ({ body: { ok: true } }),
+    });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<BookDetailsAdmin book={{ ...BOOK, chapterCount: 3 }} onChanged={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Paste a whole book page/ }));
+    fireEvent.change(screen.getByLabelText('The book page'), { target: { value: 'Just a paragraph with no chapters in it at all.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it and show how it will look' }));
+    expect(screen.getByText(/No chapters were found/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('The book page'), { target: { value: BOOK1_PAGE } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it and show how it will look' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save this page to the book' }));
+    expect(confirm).toHaveBeenCalled();
+    expect(calls.some((c) => c.url.endsWith('/page-import'))).toBe(false);
   });
 
   it('saves a chosen cover picture as the admin\'s own', async () => {
