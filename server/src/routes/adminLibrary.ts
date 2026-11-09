@@ -470,6 +470,146 @@ router.post('/books/:id/page-import', communityMutationLimiter, requireCsrf, asy
   res.json({ ok: true, chapters: d.chapters.length });
 }));
 
+// POST /api/admin/library/books/:id/exam-import — a leadership book's exam
+// question sets, as the admin pasted and checked them in the preview.
+//   EN: each set replaces the set of the same number, unless someone has already
+//       taken it (a set already given never changes); new numbers are added.
+//   FR: adds the French words to sets that are already there; each set must have
+//       the same questions, choices and personal questions as the English one.
+// The exam is never published or unpublished here.
+const examImportSchema = z.object({
+  language: z.enum(['EN', 'FR']),
+  sets: z
+    .array(
+      z.object({
+        setNumber: z.number().int().min(1).max(20),
+        questions: z
+          .array(
+            z.object({
+              text: z.string().trim().min(1).max(1000),
+              options: z.array(z.object({ text: z.string().trim().min(1).max(600), isCorrect: z.boolean() })).min(2).max(6),
+            }),
+          )
+          .max(60),
+        personal: z
+          .array(
+            z.object({
+              kind: z.enum(['CHOICE', 'TEXT']),
+              text: z.string().trim().min(1).max(1000),
+              body: z.string().trim().max(4000).nullable().optional(),
+              guide: z.string().trim().max(4000).nullable().optional(),
+              required: z.boolean().default(true),
+              flagUnlessNone: z.boolean().default(false),
+              affectsStatus: z.boolean().default(true),
+              options: z.array(z.object({ text: z.string().trim().min(1).max(600), signal: z.enum(['POSITIVE', 'NEEDS_TALK']) })).max(8),
+            }),
+          )
+          .max(20),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+
+router.post('/books/:id/exam-import', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = examImportSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'This exam could not be read. Check every question and its choices.', code: 'INVALID' });
+  const exam = await prisma.assessment.findUnique({ where: { trainingBookId: req.params.id }, select: { id: true } });
+  if (!exam) return res.status(404).json({ error: 'This book has no exam.' });
+  const d = parsed.data;
+  for (const set of d.sets) {
+    for (const q of set.questions) {
+      if (q.options.filter((o) => o.isCorrect).length !== 1) return res.status(400).json({ error: `Set ${set.setNumber}: every question needs exactly one right answer.`, code: 'ONE_CORRECT' });
+    }
+    for (const p of set.personal) {
+      if (p.kind === 'CHOICE' && p.options.length < 2) return res.status(400).json({ error: `Set ${set.setNumber}: a personal question with choices needs at least two.`, code: 'INVALID' });
+    }
+  }
+
+  if (d.language === 'EN') {
+    const skipped: number[] = [];
+    const saved: number[] = [];
+    for (const set of d.sets) {
+      const used = (await prisma.attempt.count({ where: { assessmentId: exam.id, setNumber: set.setNumber } })) > 0;
+      if (used) {
+        skipped.push(set.setNumber);
+        continue;
+      }
+      await prisma.$transaction(async (tx) => {
+        await tx.question.deleteMany({ where: { assessmentId: exam.id, setNumber: set.setNumber } });
+        await tx.personalQuestion.deleteMany({ where: { assessmentId: exam.id, setNumber: set.setNumber } });
+        for (const [qi, q] of set.questions.entries()) {
+          await tx.question.create({
+            data: {
+              assessmentId: exam.id,
+              textEn: q.text,
+              order: qi,
+              points: 1,
+              setNumber: set.setNumber,
+              options: { create: q.options.map((o, oi) => ({ textEn: o.text, isCorrect: o.isCorrect, order: oi })) },
+            },
+          });
+        }
+        for (const [pi, p] of set.personal.entries()) {
+          await tx.personalQuestion.create({
+            data: {
+              assessmentId: exam.id,
+              setNumber: set.setNumber,
+              order: pi,
+              kind: p.kind,
+              textEn: p.text,
+              bodyEn: p.body || null,
+              guideEn: p.guide || null,
+              required: p.required,
+              flagUnlessNone: p.flagUnlessNone,
+              affectsStatus: p.affectsStatus,
+              options: { create: p.options.map((o, oi) => ({ textEn: o.text, signal: o.signal, order: oi })) },
+            },
+          });
+        }
+      });
+      saved.push(set.setNumber);
+    }
+    await audit(req, 'LIBRARY_EXAM_IMPORTED', 'Assessment', exam.id, { language: 'EN', saved, skipped });
+    return res.json({ ok: true, saved, skipped });
+  }
+
+  // French: line it up with what is already there, set by set.
+  const plans: { setNumber: number; questions: { id: string; optionIds: string[] }[]; personal: { id: string; optionIds: string[] }[] }[] = [];
+  for (const set of d.sets) {
+    const questions = await prisma.question.findMany({ where: { assessmentId: exam.id, setNumber: set.setNumber }, orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } });
+    const personal = await prisma.personalQuestion.findMany({ where: { assessmentId: exam.id, setNumber: set.setNumber }, orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } });
+    const same =
+      questions.length === set.questions.length &&
+      personal.length === set.personal.length &&
+      questions.every((q, i) => q.options.length === set.questions[i].options.length && q.options.findIndex((o) => o.isCorrect) === set.questions[i].options.findIndex((o) => o.isCorrect)) &&
+      personal.every((p, i) => p.kind === set.personal[i].kind && p.options.length === set.personal[i].options.length);
+    if (!same) {
+      return res.status(409).json({
+        error: `Set ${set.setNumber}: the French exam must have the same questions, choices and right answers as the English one. Load the English set first.`,
+        code: 'SET_DIFFERS',
+        setNumber: set.setNumber,
+      });
+    }
+    plans.push({ setNumber: set.setNumber, questions: questions.map((q) => ({ id: q.id, optionIds: q.options.map((o) => o.id) })), personal: personal.map((p) => ({ id: p.id, optionIds: p.options.map((o) => o.id) })) });
+  }
+  await prisma.$transaction(async (tx) => {
+    for (const [si, set] of d.sets.entries()) {
+      const plan = plans[si];
+      for (const [qi, q] of set.questions.entries()) {
+        await tx.question.update({ where: { id: plan.questions[qi].id }, data: { textFr: q.text } });
+        for (const [oi, o] of q.options.entries()) await tx.option.update({ where: { id: plan.questions[qi].optionIds[oi] }, data: { textFr: o.text } });
+      }
+      for (const [pi, p] of set.personal.entries()) {
+        await tx.personalQuestion.update({ where: { id: plan.personal[pi].id }, data: { textFr: p.text, bodyFr: p.body || null, guideFr: p.guide || null } });
+        for (const [oi, o] of p.options.entries()) await tx.personalOption.update({ where: { id: plan.personal[pi].optionIds[oi] }, data: { textFr: o.text } });
+      }
+    }
+  });
+  await audit(req, 'LIBRARY_EXAM_IMPORTED', 'Assessment', exam.id, { language: 'FR', saved: d.sets.map((x) => x.setNumber) });
+  res.json({ ok: true, saved: d.sets.map((x) => x.setNumber), skipped: [] });
+}));
+
 router.delete('/chapters/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const deleted = await prisma.bookChapter.deleteMany({ where: { id: req.params.id } });
   if (deleted.count === 0) return res.status(404).json({ error: 'Chapter not found.' });

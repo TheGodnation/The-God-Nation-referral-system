@@ -5,6 +5,7 @@ import { MemberAssessmentPage } from '../pages/MemberAssessmentPage';
 import { FaithJourneysPanel } from '../components/faith/FaithJourneysPanel';
 import { PersonFaithCard } from '../components/faith/PersonFaithCard';
 import { PersonalQuestionsView, type PersonalDetail } from '../components/admin/AssessmentsTab';
+import { PasteExamPanel } from '../components/admin/PasteExamPanel';
 
 // Faith journey: the personal section of the Book 1 / Book 2 exams (required,
 // never marked), and the central admin's list of what people answered.
@@ -321,5 +322,98 @@ describe('The exam editor: the personal questions of a set (read-only)', () => {
   it('shows nothing for a set without personal questions', () => {
     const { container } = render(<PersonalQuestionsView questions={[]} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('Paste an exam (central admin)', () => {
+  const PAPER = `THE RESTORATION OF DOMINION
+Kingdom Series Book One: Exam Set 1 of 1
+Section A: Choose the Best Answer (1 mark)
+1. What does the Preface say?
+A. Wrong one
+B. The right one
+C. Wrong two
+D. Wrong three
+Section B: True or False (1 mark)
+2. The book teaches something true. ________
+Section C: My Personal Response (not marked)
+C1. Do you know that you are born again?
+( ) Yes, I know I am born again
+( ) Not sure
+C2. How do you read the Word?
+( ) Every day
+( ) Not yet
+C3. My Confession of Faith
+Read slowly.
+I confess Jesus Christ as my Lord.
+( ) I agree with this confession
+( ) I do not agree with this confession
+Signed: ______
+THE RESTORATION OF DOMINION
+Teacher's Answer Key: Exam Set 1 of 1
+Section A: Multiple Choice (1 mark each)
+1. B. The right one (Preface)
+Section B: True or False (1 mark each)
+2. TRUE. Because it is. (Chapter 1)
+Section C: Personal Response Guide (not marked)
+C1. Not sure: pray with them.
+C2. Help them start a plan.
+C3 (Confession). Agree: rejoice.`;
+
+  function open() {
+    render(<PasteExamPanel bookId="b1" onSaved={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Paste an exam/ }));
+    fireEvent.change(screen.getByLabelText('The exam'), { target: { value: PAPER } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it and show me' }));
+  }
+
+  it('shows every set as it was read, with right answers, signals and guide, and saves only when told to', async () => {
+    mockFetch({ 'POST /api/admin/library/books/b1/exam-import': () => ({ body: { ok: true, saved: [1], skipped: [] } }) });
+    open();
+    const preview = await screen.findByTestId('exam-set-preview');
+    expect(within(preview).getByText('Set 1: 2 marked questions (1 choice, 1 true or false) and 3 personal questions')).toBeInTheDocument();
+    expect(within(preview).getByText('✓ The right one')).toBeInTheDocument();
+    expect(within(preview).getByText('✓ Yes, I know I am born again')).toBeInTheDocument();
+    expect(within(preview).getByText('⚑ Not sure')).toBeInTheDocument();
+    expect(within(preview).getByText('Not sure: pray with them.')).toBeInTheDocument();
+    expect(calls.some((c) => c.method === 'POST')).toBe(false);
+
+    // The Bible-reading question does not decide the status.
+    fireEvent.click(within(preview).getAllByLabelText('This question does not decide whether the person is born again')[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Save these sets' }));
+    expect(await screen.findByTestId('exam-saved')).toHaveTextContent('Saved: set 1.');
+    const sent = calls.find((c) => c.method === 'POST')!.body;
+    expect(sent.language).toBe('EN');
+    expect(sent.sets).toHaveLength(1);
+    expect(sent.sets[0].questions[0]).toEqual({ text: 'What does the Preface say?', options: [{ text: 'Wrong one', isCorrect: false }, { text: 'The right one', isCorrect: true }, { text: 'Wrong two', isCorrect: false }, { text: 'Wrong three', isCorrect: false }] });
+    expect(sent.sets[0].questions[1].options).toEqual([{ text: 'TRUE', isCorrect: true }, { text: 'FALSE', isCorrect: false }]);
+    expect(sent.sets[0].personal.map((p: any) => [p.text, p.affectsStatus])).toEqual([['Do you know that you are born again?', true], ['How do you read the Word?', false], ['My Confession of Faith', true]]);
+    expect(sent.sets[0].personal[0].guide).toBe('Not sure: pray with them.');
+    expect(sent.sets[0].personal[2].body).toBe('Read slowly.\n\nI confess Jesus Christ as my Lord.');
+  });
+
+  it('will not save a set whose key does not match, and says which question', async () => {
+    mockFetch({});
+    render(<PasteExamPanel bookId="b1" onSaved={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Paste an exam/ }));
+    fireEvent.change(screen.getByLabelText('The exam'), { target: { value: PAPER.replace('1. B. The right one (Preface)', '1. B. Something else (Preface)') } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it and show me' }));
+    expect(await screen.findByText('Question 1: the answer key does not match any of its choices.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save these sets' })).toBeDisabled();
+    expect(screen.getByText('Fix the lines marked in red before saving.')).toBeInTheDocument();
+  });
+
+  it('says so when no exam is found in the text, and tells which sets were left alone', async () => {
+    mockFetch({ 'POST /api/admin/library/books/b1/exam-import': () => ({ body: { ok: true, saved: [2], skipped: [1] } }) });
+    render(<PasteExamPanel bookId="b1" onSaved={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Paste an exam/ }));
+    fireEvent.change(screen.getByLabelText('The exam'), { target: { value: 'Just some words.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it and show me' }));
+    expect(screen.getByText(/No questions were found/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('The exam'), { target: { value: PAPER } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it and show me' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save these sets' }));
+    expect(await screen.findByText(/Not changed \(someone already took them\): set 1\./)).toBeInTheDocument();
   });
 });

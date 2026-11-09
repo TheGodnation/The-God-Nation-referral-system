@@ -135,3 +135,24 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   appointed but has no dashboard until they join; the result says so, and an empty search explains it. The older "Ready to lead"
   appointment now also gives the Leader account. Endpoints: `GET /people`, `GET /leaders-of`, `POST /make-leaders` under
   `/api/admin/cells` and `/api/member/central-cells`.
+
+## Book pages, exams and the faith journey (done)
+
+- **Book page** (Leadership School): the founder's pitch (headline, bold, bullets), the chapter list (small label above each title: Introduction,
+  Chapter One, Appendix A), and closing words, written with the app's chat formatting (`lib/richText`). Admin: "Paste a whole book page"
+  (English or French, preview first) → `POST /api/admin/library/books/:id/page-import`. Book One was loaded by migration `20261209090000`
+  (only when Book 1 had no chapters).
+- **Book exams**: each set is 25 marked questions (A: 20 choices, B: 5 true/false; 70% pass = 18) plus **personal questions ("Section C")** on the Book 1
+  and Book 2 exams. Admin: "Paste an exam" (question paper + teacher key, English or French, preview first) →
+  `POST /api/admin/library/books/:id/exam-import` (English replaces sets nobody has taken; French fills the same sets in order).
+  Book 1's three sets (English + French) were loaded by migration `20261211090000` — only while the exam is a draft; **it stays a draft until the
+  central admin publishes it**.
+- **Faith journey**: Section C is never marked and never changes pass/fail, but **every personal question must be answered before the exam can be
+  submitted** (`PERSONAL_REQUIRED`). Answers are copied word for word (`PersonalAnswer`), with the teacher's guide beside them. Status per person
+  (`FaithRecord`): *born again* only if every question that decides status (`affectsStatus`) got a clear yes (option signal `POSITIVE`) and
+  nothing typed after "holding back" was flagged; otherwise *needs a conversation*. The central admin is notified
+  (`FAITH_NEEDS_CONVERSATION`), reads everything under Me → Admin tools → **Faith journeys** (and the admin dashboard tab, and a card on the
+  person's profile), writes private notes and marks "confirmed". Members never see any of it.
+- **Leaders** read the journeys of the people of their own assembly only when the central admin switches `Settings.leadersSeeFaithJourney` on
+  (checkbox in the Faith journeys tab); they are notified too, see it as a tile on the leadership dashboard, and every view by a leader is
+  audited (`FAITH_VIEWED_BY_LEADER`). Endpoints: `/api/member/faith` (central admin on his profile, and leaders) and `/api/admin/faith`.

@@ -398,3 +398,82 @@ describe('Faith journey: who may read it', () => {
     expect(await prisma.faithRecord.count({ where: { personId: m.id } })).toBe(0);
   });
 });
+
+describe('Exam import (central admin pastes a book exam)', () => {
+  const q = (text: string, right = 1) => ({ text, options: ['A one', 'B two', 'C three', 'D four'].map((o, i) => ({ text: o, isCorrect: i === right })) });
+  const personal = (text: string) => ({ kind: 'CHOICE', text, body: null, guide: `Guide: ${text}`, required: true, flagUnlessNone: false, affectsStatus: true, options: [{ text: 'Yes, I do', signal: 'POSITIVE' }, { text: 'Not sure', signal: 'NEEDS_TALK' }] });
+  const typed = { kind: 'TEXT', text: 'Anything holding you back?', body: null, guide: 'Read with care', required: true, flagUnlessNone: true, affectsStatus: true, options: [] };
+
+  async function bookWithoutQuestions(a: { agent: Agent; csrf: string }, order = 1) {
+    const res = await post(a, '/api/admin/library/books', { kind: 'TRAINING', titleEn: `Book ${order}`, trainingOrder: order });
+    return { bookId: res.body.id as string, examId: (await prisma.assessment.findUnique({ where: { trainingBookId: res.body.id } }))!.id };
+  }
+
+  it('English: adds each set with its personal questions, and replaces a set that nobody has taken', async () => {
+    const a = await admin();
+    const { bookId, examId } = await bookWithoutQuestions(a);
+    const url = `/api/admin/library/books/${bookId}/exam-import`;
+    const first = await post(a, url, { language: 'EN', sets: [{ setNumber: 1, questions: [q('Q1'), q('Q2', 3)], personal: [personal('Born again?'), typed] }, { setNumber: 2, questions: [q('Other')], personal: [] }] });
+    expect(first.body).toEqual({ ok: true, saved: [1, 2], skipped: [] });
+    const questions = await prisma.question.findMany({ where: { assessmentId: examId }, orderBy: [{ setNumber: 'asc' }, { order: 'asc' }], include: { options: { orderBy: { order: 'asc' } } } });
+    expect(questions.map((x) => [x.setNumber, x.order, x.textEn, x.options.findIndex((o) => o.isCorrect)])).toEqual([[1, 0, 'Q1', 1], [1, 1, 'Q2', 3], [2, 0, 'Other', 1]]);
+    const pq = await prisma.personalQuestion.findMany({ where: { assessmentId: examId }, orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } });
+    expect(pq.map((x) => [x.kind, x.textEn, x.flagUnlessNone, x.guideEn])).toEqual([['CHOICE', 'Born again?', false, 'Guide: Born again?'], ['TEXT', 'Anything holding you back?', true, 'Read with care']]);
+    expect(pq[0].options.map((o) => o.signal)).toEqual(['POSITIVE', 'NEEDS_TALK']);
+    expect((await prisma.assessment.findUnique({ where: { id: examId } }))!.status).toBe('DRAFT');
+
+    // Pasting set 1 again replaces it (no duplicates); set 2 is left as it was.
+    const again = await post(a, url, { language: 'EN', sets: [{ setNumber: 1, questions: [q('Q1 new')], personal: [personal('Born again?')] }] });
+    expect(again.body.saved).toEqual([1]);
+    expect((await prisma.question.findMany({ where: { assessmentId: examId, setNumber: 1 } })).map((x) => x.textEn)).toEqual(['Q1 new']);
+    expect(await prisma.personalQuestion.count({ where: { assessmentId: examId, setNumber: 1 } })).toBe(1);
+    expect(await prisma.question.count({ where: { assessmentId: examId, setNumber: 2 } })).toBe(1);
+    expect(await prisma.auditLog.findFirst({ where: { action: 'LIBRARY_EXAM_IMPORTED' } })).not.toBeNull();
+  });
+
+  it('a set someone already took is never changed', async () => {
+    const a = await admin();
+    const s = await bookOneExam(a);
+    const m = await student(a, 'Took set 1');
+    await takeExam(m, s, goodAnswers(s));
+    const res = await post(a, `/api/admin/library/books/${s.bookId}/exam-import`, { language: 'EN', sets: [{ setNumber: 1, questions: [q('Replaced')], personal: [] }, { setNumber: 2, questions: [q('New set')], personal: [] }] });
+    expect(res.body).toEqual({ ok: true, saved: [2], skipped: [1] });
+    expect((await prisma.question.findMany({ where: { assessmentId: s.examId, setNumber: 1 } })).map((x) => x.textEn)).toEqual(['Marked']);
+    expect(await prisma.personalQuestion.count({ where: { assessmentId: s.examId, setNumber: 1 } })).toBe(4);
+  });
+
+  it('French: fills in the same sets in order; a set that differs is refused and nothing changes', async () => {
+    const a = await admin();
+    const { bookId, examId } = await bookWithoutQuestions(a);
+    const url = `/api/admin/library/books/${bookId}/exam-import`;
+    await post(a, url, { language: 'EN', sets: [{ setNumber: 1, questions: [q('Q1'), q('Q2', 2)], personal: [personal('Born again?'), typed] }] });
+
+    const differs = await post(a, url, { language: 'FR', sets: [{ setNumber: 1, questions: [q('Q1 fr'), q('Q2 fr', 0)], personal: [personal('Né de nouveau ?'), typed] }] });
+    expect(differs.status).toBe(409);
+    expect(differs.body).toMatchObject({ code: 'SET_DIFFERS', setNumber: 1 });
+    expect(await prisma.question.count({ where: { assessmentId: examId, textFr: { not: null } } })).toBe(0);
+    expect((await post(a, url, { language: 'FR', sets: [{ setNumber: 1, questions: [q('Q1 fr')], personal: [] }] })).status).toBe(409);
+
+    const fr = await post(a, url, { language: 'FR', sets: [{ setNumber: 1, questions: [q('Q1 fr'), q('Q2 fr', 2)], personal: [{ ...personal('Né de nouveau ?'), body: null }, { ...typed, text: 'Quelque chose vous retient ?', guide: 'Lisez avec soin' }] }] });
+    expect(fr.body).toEqual({ ok: true, saved: [1], skipped: [] });
+    const questions = await prisma.question.findMany({ where: { assessmentId: examId }, orderBy: { order: 'asc' }, include: { options: { orderBy: { order: 'asc' } } } });
+    expect(questions.map((x) => [x.textEn, x.textFr])).toEqual([['Q1', 'Q1 fr'], ['Q2', 'Q2 fr']]);
+    expect(questions[0].options.map((o) => [o.textEn, o.textFr])[0]).toEqual(['A one', 'A one']);
+    const pq = await prisma.personalQuestion.findMany({ where: { assessmentId: examId }, orderBy: { order: 'asc' } });
+    expect(pq.map((x) => [x.textEn, x.textFr, x.guideFr])).toEqual([['Born again?', 'Né de nouveau ?', 'Guide: Né de nouveau ?'], ['Anything holding you back?', 'Quelque chose vous retient ?', 'Lisez avec soin']]);
+    // English stays as it was.
+    expect(pq[0].guideEn).toBe('Guide: Born again?');
+  });
+
+  it('refuses a question without exactly one right answer, a missing exam, and anyone who is not the central admin', async () => {
+    const a = await admin();
+    const { bookId } = await bookWithoutQuestions(a);
+    const url = `/api/admin/library/books/${bookId}/exam-import`;
+    const none = { text: 'No right answer', options: [{ text: 'A', isCorrect: false }, { text: 'B', isCorrect: false }] };
+    expect((await post(a, url, { language: 'EN', sets: [{ setNumber: 1, questions: [none], personal: [] }] })).body.code).toBe('ONE_CORRECT');
+    expect((await post(a, url, { language: 'EN', sets: [] })).status).toBe(400);
+    expect((await post(a, '/api/admin/library/books/00000000-0000-0000-0000-000000000000/exam-import', { language: 'EN', sets: [{ setNumber: 1, questions: [q('Q')], personal: [] }] })).status).toBe(404);
+    const m = await member('Not an admin');
+    expect((await post(m, url, { language: 'EN', sets: [{ setNumber: 1, questions: [q('Q')], personal: [] }] })).status).toBe(401);
+  });
+});
