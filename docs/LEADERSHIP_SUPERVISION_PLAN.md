@@ -162,3 +162,7 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   In Book 2, only the repentance question and the confession decide the "born again" status; baptism, the Holy Spirit, what changed and
   "what holds you back" are flagged (⚑) and counted in the **To follow up** list (`flagged` on each row) without changing the status.
   "Paste an exam" keeps the exam's existing personal questions when a set is added later (`samePersonal`).
+- **Book 2's Section C** is one combined set of personal questions, identical in all three sets (migration `20261214090000`, which also loads Set 3):
+  repentance, baptism by immersion (+ when/where/who), the Holy Spirit with other tongues (+ when/how), what has changed, "would you like the team to
+  help with the next step?" (+ best way to reach you), what holds you back, and the confession. **Repentance, baptism, the Holy Spirit and the
+  confession decide the status** (born again = all clear); the other questions are flagged (⚑) in the journey and the "To follow up" list.
