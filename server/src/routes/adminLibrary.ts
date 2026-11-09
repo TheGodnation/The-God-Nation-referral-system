@@ -178,8 +178,8 @@ const patchBookSchema = z.object({
   descriptionFr: z.string().trim().max(PAGE_TEXT_MAX).optional(),
   closingEn: z.string().trim().max(PAGE_TEXT_MAX).optional(),
   closingFr: z.string().trim().max(PAGE_TEXT_MAX).optional(),
-  chaptersHeadingEn: z.string().trim().max(200).optional(),
-  chaptersHeadingFr: z.string().trim().max(200).optional(),
+  chaptersHeadingEn: z.string().trim().max(600).optional(),
+  chaptersHeadingFr: z.string().trim().max(600).optional(),
 });
 
 router.patch('/books/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -399,7 +399,7 @@ const pageImportSchema = z.object({
   language: z.enum(['EN', 'FR']),
   description: z.string().trim().max(PAGE_TEXT_MAX).optional(),
   closing: z.string().trim().max(PAGE_TEXT_MAX).optional(),
-  chaptersHeading: z.string().trim().max(200).optional(),
+  chaptersHeading: z.string().trim().max(600).optional(),
   chapters: z
     .array(
       z.object({

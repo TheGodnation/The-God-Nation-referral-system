@@ -141,7 +141,7 @@ describe("A book's page", () => {
           book: {
             ...BOOKS[0],
             descriptionEn: '# Stop Being Pushed Around by Life.\n\nYou were made to govern.\n\n## What This Book Will Do For You\n\n- Show you the reason\n- Give you a picture',
-            chaptersHeadingEn: 'Chapter by Chapter: Your Journey',
+            chaptersHeadingEn: 'Chapter by Chapter: Your Journey\nHere is what you will find inside.',
             closingEn: '## Why Read It Now?\n\nBecause *every day* you wait.',
             closingFr: null,
           },
@@ -153,6 +153,7 @@ describe("A book's page", () => {
     expect(await screen.findByText('Stop Being Pushed Around by Life.')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(expect.arrayContaining(['Show you the reason', 'Give you a picture']));
     expect(screen.getByRole('heading', { name: 'Chapter by Chapter: Your Journey' })).toBeInTheDocument();
+    expect(screen.getByText('Here is what you will find inside.')).toBeInTheDocument();
     expect(screen.getByText('Chapter One')).toBeInTheDocument();
     expect(screen.getByText('Born to Rule')).toBeInTheDocument();
     expect(screen.getByText('every day').tagName).toBe('STRONG');

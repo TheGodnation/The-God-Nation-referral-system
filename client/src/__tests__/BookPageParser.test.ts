@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseBookPage } from '../lib/bookPageParser';
 import { BOOK1_PAGE } from './fixtures/book1Page';
+import { BOOK2_PAGE } from './fixtures/book2Page';
 
 describe('parseBookPage — Book One as the founder sent it', () => {
   const page = parseBookPage(BOOK1_PAGE, 'The Restoration of Dominion');
@@ -90,5 +91,52 @@ describe('parseBookPage — other layouts', () => {
     );
     expect(p.chapters).toHaveLength(1);
     expect(p.chapters[0].summary).toMatch(/^Introduction to the idea/);
+  });
+});
+
+describe('parseBookPage — Book Two as the founder sent it', () => {
+  const page = parseBookPage(BOOK2_PAGE, 'The Doorway Into the Kingdom');
+
+  it('finds the seven chapters, with "From the Author" as the first, labelled as written', () => {
+    expect(page.chapters.map((c) => [c.label, c.title])).toEqual([
+      ['From the Author', 'This Is Not Just Information. It Is a Summons.'],
+      ['Introduction', 'Three Foundations. One Doorway.'],
+      ['Chapter One', 'A World Operating Without Heaven'],
+      ['Chapter Two', 'The Turn: Repentance'],
+      ['Chapter Three', 'The Burial: Water Baptism'],
+      ['Chapter Four', 'The Filling: The Holy Spirit'],
+      ['Chapter Five', 'Through the Door: What Now?'],
+    ]);
+    expect(page.warnings).toEqual([]);
+    expect(page.chapters[6].summary).toMatch(/How do I use it\?$/);
+  });
+
+  it('keeps the chapter-list title with the sentence under it', () => {
+    expect(page.chaptersHeading).toBe('Inside the Book: Chapter by Chapter\nHere is what you will find as you move from outside the door to inside the Kingdom.');
+  });
+
+  it('writes the pitch: tagline and byline, big headline, a heading for the short slogan, the three steps as a list after their introduction', () => {
+    const d = page.description;
+    expect(d.startsWith('_Repent. Be Baptized. Receive the Spirit._\n\n_Book Two of the Kingdom Series_\n\n_Evangelist Stanley A. Ndoh | The God Nation Media & Leadership Academy_')).toBe(true);
+    expect(d).toContain('# There Is a Door. And You Were Made to Walk Through It.');
+    expect(d).toContain('## Three Steps. One Door.\n\nHere is the doorway, and where this book takes you through each part of it:\n\n- Step One: Repentance, the Turn.');
+    expect(d).toContain('## What Waits for You on the Other Side\n\nAs you walk through each step, this book will:\n\n- Show you why money');
+    expect(d.match(/^- /gm)).toHaveLength(8);
+    expect(d).not.toContain('Inside the Book');
+  });
+
+  it('writes the closing words: the list, the heading, paragraphs, and the two slogan lines in bold', () => {
+    const c = page.closing;
+    expect(c.startsWith('## This Book Is For You If...\n\n- You feel an emptiness')).toBe(true);
+    expect(c.match(/^- /gm)).toHaveLength(5);
+    expect(c).toContain('## Do Not Stay Outside Any Longer\n\nEvery strong house');
+    expect(c).toContain('*The door is open. Walk through it today.*');
+    expect(c).toContain('*Walk in it. Grow in it. Then help us bring others to it.*');
+  });
+
+  it('reads French author labels and keeps small words small', () => {
+    const body = 'Un résumé assez long pour être un paragraphe complet et non un titre de section dans la page du livre.';
+    const p = parseBookPage(`MOT DE L'AUTEUR Un titre\n${body}\nCHAPITRE UN Autre titre\n${body}`);
+    expect(p.chapters.map((c) => c.label)).toEqual(["Mot de l'auteur", 'Chapitre Un']);
   });
 });

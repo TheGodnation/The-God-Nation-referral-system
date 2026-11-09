@@ -150,8 +150,8 @@ function DetailsForm({ book, onChanged }: { book: AdminBook; onChanged: () => vo
       <p className="text-xs text-slate-500">{t('library.format_help')}</p>
       <FormattedTextarea className="input" rows={6} headings aria-label={t('library.description_en') ?? ''} placeholder={t('library.description_en') ?? ''} value={descriptionEn} onValueChange={setDescriptionEn} />
       <FormattedTextarea className="input" rows={6} headings aria-label={t('library.description_fr') ?? ''} placeholder={t('library.description_fr') ?? ''} value={descriptionFr} onValueChange={setDescriptionFr} />
-      <input className="input" aria-label={t('library.chapters_heading_en') ?? ''} placeholder={t('library.chapters_heading_en') ?? ''} value={headingEn} onChange={(e) => setHeadingEn(e.target.value)} />
-      <input className="input" aria-label={t('library.chapters_heading_fr') ?? ''} placeholder={t('library.chapters_heading_fr') ?? ''} value={headingFr} onChange={(e) => setHeadingFr(e.target.value)} />
+      <textarea className="input" rows={2} aria-label={t('library.chapters_heading_en') ?? ''} placeholder={t('library.chapters_heading_en') ?? ''} value={headingEn} onChange={(e) => setHeadingEn(e.target.value)} />
+      <textarea className="input" rows={2} aria-label={t('library.chapters_heading_fr') ?? ''} placeholder={t('library.chapters_heading_fr') ?? ''} value={headingFr} onChange={(e) => setHeadingFr(e.target.value)} />
       <FormattedTextarea className="input" rows={6} headings aria-label={t('library.closing_en') ?? ''} placeholder={t('library.closing_en') ?? ''} value={closingEn} onValueChange={setClosingEn} />
       <FormattedTextarea className="input" rows={6} headings aria-label={t('library.closing_fr') ?? ''} placeholder={t('library.closing_fr') ?? ''} value={closingFr} onValueChange={setClosingFr} />
       {error && <p className="text-xs text-red-700">{error}</p>}

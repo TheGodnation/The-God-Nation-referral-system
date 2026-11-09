@@ -166,3 +166,6 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   repentance, baptism by immersion (+ when/where/who), the Holy Spirit with other tongues (+ when/how), what has changed, "would you like the team to
   help with the next step?" (+ best way to reach you), what holds you back, and the confession. **Repentance, baptism, the Holy Spirit and the
   confession decide the status** (born again = all clear); the other questions are flagged (⚑) in the journey and the "To follow up" list.
+- **Book 2's page** (pitch, "Three steps. One door.", seven chapters starting with "From the Author", closing words), English and French, is loaded by
+  migration `20261215090000` (only when Book 2 has no chapters). The page reader also learned: an author label, short taglines at the top, a very
+  short slogan as a heading, a line ending with ":" as the introduction of the list under it, and a chapter-list heading with one sentence under it.
