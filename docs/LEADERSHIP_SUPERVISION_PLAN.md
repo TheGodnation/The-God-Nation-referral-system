@@ -176,3 +176,5 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   (draft only). Sets 2 and 3 come later, through "Paste an exam" or the same kind of migration.
 - **Book 3's exam, Set 2** (English + French, 25 marked questions; draft only, loads only if that set is still empty) is loaded by migration
   `20261218090000`. Set 3 comes later.
+- **Book 3's exam, Set 3** (the final set; English + French, 25 marked questions; draft only, loads only if that set is still empty) is loaded by migration
+  `20261219090000`. Book 3's exam now has all three sets and stays a draft until the founder publishes it.
