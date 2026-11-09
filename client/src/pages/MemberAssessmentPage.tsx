@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
+import { PersonalSection, missingPersonal, type PersonalAnswers, type PersonalQuestion } from '../components/faith/PersonalSection';
 
 const BACK_AFTER_SECONDS = 30;
 
@@ -42,6 +43,22 @@ function readSaved(attemptId: string): Record<string, string> {
     return JSON.parse(localStorage.getItem(savedKey(attemptId)) || '{}') as Record<string, string>;
   } catch {
     return {};
+  }
+}
+const savedPersonalKey = (attemptId: string) => `exam-personal:${attemptId}`;
+function readSavedPersonal(attemptId: string): PersonalAnswers {
+  try {
+    return JSON.parse(localStorage.getItem(savedPersonalKey(attemptId)) || '{}') as PersonalAnswers;
+  } catch {
+    return {};
+  }
+}
+function writeSavedPersonal(attemptId: string, value: PersonalAnswers | null) {
+  try {
+    if (value) localStorage.setItem(savedPersonalKey(attemptId), JSON.stringify(value));
+    else localStorage.removeItem(savedPersonalKey(attemptId));
+  } catch {
+    /* not saved — the exam still works */
   }
 }
 function writeSaved(attemptId: string, value: Record<string, string> | null) {
@@ -101,6 +118,10 @@ export function MemberAssessmentPage() {
   const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<TakingQuestion[]>([]);
   const [selections, setSelections] = useState<Record<string, string>>({});
+  // Book 1 / Book 2: the personal questions after the marked ones (never scored, but all required).
+  const [personalQuestions, setPersonalQuestions] = useState<PersonalQuestion[]>([]);
+  const [personal, setPersonal] = useState<PersonalAnswers>({});
+  const [showMissing, setShowMissing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -170,9 +191,12 @@ export function MemberAssessmentPage() {
       setActiveAttemptId(attempt.id);
       setLastResult(null);
       setReview(null);
-      const q = await api.get<{ questions: TakingQuestion[] }>(`/api/member/attempts/${attempt.id}/questions`);
+      const q = await api.get<{ questions: TakingQuestion[]; personalQuestions?: PersonalQuestion[] }>(`/api/member/attempts/${attempt.id}/questions`);
       setQuestions(q.questions);
       setSelections(readSaved(attempt.id));
+      setPersonalQuestions(q.personalQuestions ?? []);
+      setPersonal(readSavedPersonal(attempt.id));
+      setShowMissing(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('memberAssessment.start_failed'));
     } finally {
@@ -182,17 +206,25 @@ export function MemberAssessmentPage() {
 
   async function submit() {
     if (!activeAttemptId) return;
+    if (missingPersonal(personalQuestions, personal).length > 0) {
+      setShowMissing(true);
+      setError(t('examPersonal.answer_all'));
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
       const answers = Object.entries(selections).map(([questionId, selectedOptionId]) => ({ questionId, selectedOptionId }));
       const submittedId = activeAttemptId;
-      const result = await api.post<AttemptSummary>(`/api/member/attempts/${submittedId}/submit`, { answers });
+      const personalAnswers = personalQuestions.map((q) => ({ questionId: q.id, ...personal[q.id] }));
+      const result = await api.post<AttemptSummary>(`/api/member/attempts/${submittedId}/submit`, personalQuestions.length ? { answers, personal: personalAnswers } : { answers });
       writeSaved(submittedId, null);
+      writeSavedPersonal(submittedId, null);
       setLastResult(result);
       if (assessment?.teaching) setBackIn(BACK_AFTER_SECONDS);
       setActiveAttemptId(null);
       setQuestions([]);
+      setPersonalQuestions([]);
       load();
       // Show the right answers so the member can correct themselves —
       // except on leadership book exams, which never show them.
@@ -368,6 +400,17 @@ export function MemberAssessmentPage() {
                 </div>
               );
             })}
+            {personalQuestions.length > 0 && (
+              <PersonalSection
+                questions={personalQuestions}
+                answers={personal}
+                showMissing={showMissing}
+                onChange={(next) => {
+                  setPersonal(next);
+                  if (activeAttemptId) writeSavedPersonal(activeAttemptId, next);
+                }}
+              />
+            )}
             {error && <p className="text-sm text-red-700">{error}</p>}
             <button className="btn-primary w-full" onClick={submit} disabled={submitting}>
               {submitting ? t('memberAssessment.submitting') : t('memberAssessment.submit')}

@@ -95,7 +95,15 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const usedSets = assessment.trainingBookId
     ? (await prisma.attempt.findMany({ where: { assessmentId: assessment.id, setNumber: { not: null } }, select: { setNumber: true }, distinct: ['setNumber'] })).map((a) => a.setNumber!)
     : [];
-  res.json({ ...assessment, usedSets });
+  // Book 1 / Book 2: the personal questions of each set, with what each choice means and the teacher's guide.
+  const personalQuestions = assessment.trainingBookId
+    ? await prisma.personalQuestion.findMany({
+        where: { assessmentId: assessment.id },
+        orderBy: [{ setNumber: 'asc' }, { order: 'asc' }],
+        include: { options: { orderBy: { order: 'asc' } } },
+      })
+    : [];
+  res.json({ ...assessment, usedSets, personalQuestions });
 }));
 
 const createSchema = z.object({

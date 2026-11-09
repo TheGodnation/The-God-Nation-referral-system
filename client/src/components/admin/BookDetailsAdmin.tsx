@@ -4,6 +4,7 @@ import { api, ApiError } from '../../lib/api';
 import { pictureToCover } from '../../lib/bookCover';
 import { BookCover } from '../learn/BookCover';
 import { BookPageBody } from '../learn/BookPageBody';
+import { PasteExamPanel } from './PasteExamPanel';
 import { FormattedTextarea } from '../FormattedTextarea';
 import { parseBookPage, type ParsedBookPage } from '../../lib/bookPageParser';
 
@@ -422,6 +423,7 @@ export function BookDetailsAdmin({ book, onChanged }: { book: AdminBook; onChang
       <CoverControl book={book} onChanged={onChanged} />
       <CoverControl book={book} language="fr" onChanged={onChanged} />
       <PastePage book={book} onChanged={onChanged} />
+      <PasteExamPanel bookId={book.id} onSaved={onChanged} />
       <DetailsForm book={book} onChanged={onChanged} />
       <Chapters bookId={book.id} onChanged={onChanged} />
     </div>

@@ -16,6 +16,7 @@ import { examAccess } from '../lib/examWorld';
 import { shuffleOptionsFor, startTrainingAttempt, trainingExamState, TrainingExamError } from '../lib/trainingExam';
 import { asyncHandler } from '../lib/asyncHandler';
 import { listResults } from '../lib/examResults';
+import { PersonalAnswersError, personalQuestionsFor, prepareAnswers, recordFaith, savePersonalAnswers } from '../lib/faith';
 
 const router = Router();
 
@@ -208,6 +209,18 @@ router.get('/attempts/:id/questions', asyncHandler(async (req, res) => {
         points: q.points,
         options: q.options.map((o, k) => ({ id: o.id, textEn: o.textEn, textFr: o.textFr, order: inSet ? k : o.order })),
       })),
+      // Book 1 / Book 2 exams: the personal questions after the marked ones (never scored; the
+      // signals and the teacher's guide stay on the server).
+      personalQuestions: inSet ? (await personalQuestionsFor(attempt.assessmentId, attempt.setNumber ?? 1)).map((q) => ({
+        id: q.id,
+        kind: q.kind,
+        textEn: q.textEn,
+        textFr: q.textFr,
+        bodyEn: q.bodyEn,
+        bodyFr: q.bodyFr,
+        required: q.required,
+        options: q.options.map((o) => ({ id: o.id, textEn: o.textEn, textFr: o.textFr })),
+      })) : [],
     });
   }
 
@@ -237,6 +250,11 @@ const submitSchema = z.object({
   answers: z
     .array(z.object({ questionId: z.string().min(1), selectedOptionId: z.string().min(1) }))
     .max(500),
+  // Book 1 / Book 2 exams: the answers to the personal questions (a chosen option, or typed words).
+  personal: z
+    .array(z.object({ questionId: z.string().min(1), optionId: z.string().min(1).optional(), text: z.string().max(4000).optional() }))
+    .max(50)
+    .optional(),
 });
 
 // POST /api/member/assessments/:id/retake-request — after failing a
@@ -285,8 +303,25 @@ router.post(
       return res.status(400).json({ error: 'answers must be an array of { questionId, selectedOptionId }.' });
     }
 
+    // Book 1 / Book 2: every personal question must be answered before the exam can be finished.
+    // They are not marked and never change pass or fail; they tell the central admin where the person stands.
+    let personal: { questions: Awaited<ReturnType<typeof personalQuestionsFor>>; answers: ReturnType<typeof prepareAnswers> } | null = null;
+    if (attempt.status === 'IN_PROGRESS' && attempt.setNumber !== null) {
+      const questions = await personalQuestionsFor(attempt.assessmentId, attempt.setNumber);
+      if (questions.length > 0) {
+        try {
+          personal = { questions, answers: prepareAnswers(questions, parsed.data.personal ?? []) };
+        } catch (err) {
+          if (err instanceof PersonalAnswersError) return res.status(400).json({ error: err.message, code: 'PERSONAL_REQUIRED', missing: err.missing });
+          throw err;
+        }
+        await savePersonalAnswers(attempt, personal.answers);
+      }
+    }
+
     try {
       const result = await submitAttempt(attempt.id, parsed.data.answers);
+      if (personal) await recordFaith(attempt, personal.questions, personal.answers).catch(() => null);
       // After passing a leadership book's exam with books still to pay: a prompt for the result screen.
       const payPrompt = await bookPassedPrompt(attempt.personId, attempt.assessmentId, attempt.id, Boolean((result as { passed?: boolean | null }).passed)).catch(() => null);
       // King's Token: what this try earned, if it was a first try at a Dominion Clinic exam.

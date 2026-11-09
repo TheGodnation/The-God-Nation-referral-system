@@ -71,7 +71,8 @@ interface CreateNotificationParams {
     | 'ESCALATION_BYPASSED'
     | 'CLINIC_EXAM_OPEN'
     | 'GIFT_CONFIRMED'
-    | 'GIFT_REJECTED';
+    | 'GIFT_REJECTED'
+    | 'FAITH_NEEDS_CONVERSATION';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -985,4 +986,30 @@ export async function notifyClinicExamOpen(personIds: string[], info: { assessme
     })),
   });
   pushToPersons(personIds, { title: 'Dominion Clinic exam', body: `Exam ${info.number} is open: ${info.questions} questions from the book.`, url: '/member/learn' }).catch(() => {});
+}
+
+/**
+ * Someone finished the Book 1 / Book 2 exam and their personal answers call
+ * for a conversation. Goes to the central admin (and, when he has allowed it,
+ * the person's leaders), with a link to the person's faith journey.
+ */
+export async function notifyFaithNeedsConversation(
+  recipient: { personId?: string | null; userId?: string | null },
+  person: { id: string; name: string },
+  bookNumber: number | null,
+) {
+  if (!recipient.personId && !recipient.userId) return;
+  await createNotification({
+    recipientPersonId: recipient.personId ?? undefined,
+    recipientUserId: recipient.personId ? undefined : (recipient.userId ?? undefined),
+    type: 'FAITH_NEEDS_CONVERSATION',
+    metadata: { personName: person.name, bookNumber },
+    targetType: 'FaithJourney',
+    targetId: person.id,
+    push: {
+      title: 'A conversation is needed',
+      body: `${person.name} finished the ${bookNumber ? `Book ${bookNumber}` : 'book'} exam and would be helped by a conversation.`,
+      url: `/member/faith/${person.id}`,
+    },
+  });
 }

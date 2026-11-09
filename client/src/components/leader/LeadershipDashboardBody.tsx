@@ -22,6 +22,7 @@ import { LeaderLeadershipCollaboration } from './LeaderLeadershipCollaboration';
 import { LeaderCommunityConversations } from './LeaderCommunityConversations';
 import { GroupLeadersPanel } from '../admin/GroupLeadersPanel';
 import { RepAssignPanel } from '../admin/RepAssignPanel';
+import { FaithJourneysPanel } from '../faith/FaithJourneysPanel';
 import { BroadcastComposer } from './BroadcastComposer';
 import { BroadcastLogPanel } from '../admin/BroadcastLogPanel';
 import { WeeklyReportForm } from './WeeklyReportForm';
@@ -197,7 +198,7 @@ function LeaderEscalations() {
   );
 }
 
-type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions' | 'repInstructions' | 'weeklyReport' | 'repReports' | 'broadcast' | 'repBroadcastLog' | 'repAssign' | 'repGroups';
+type SectionKey = 'instructions' | 'people' | 'messages' | 'assembly' | 'news' | 'prayer' | 'results' | 'invite' | 'together' | 'reports' | 'resources' | 'sanctions' | 'repInstructions' | 'weeklyReport' | 'repReports' | 'broadcast' | 'repBroadcastLog' | 'repAssign' | 'repGroups' | 'faith';
 
 interface MyPeopleSummary {
   total: number;
@@ -229,6 +230,8 @@ export function LeadershipDashboardBody() {
   const [pendingInstructions, setPendingInstructions] = useState(0);
   // Set when this leader is also the representative of a generation.
   const [repGeneration, setRepGeneration] = useState<number | null>(null);
+  // Whether the central admin has let leaders read the faith journey of their own people.
+  const [faithOpen, setFaithOpen] = useState(false);
   const loadPendingInstructions = () =>
     api
       .get<{ items: MyInstruction[] }>('/api/member/instructions/')
@@ -255,6 +258,10 @@ export function LeadershipDashboardBody() {
     api
       .get<{ generation: number | null }>('/api/member/representative/me')
       .then((r) => setRepGeneration(typeof r.generation === 'number' ? r.generation : null))
+      .catch(() => {});
+    api
+      .get<{ role: string; canRead: boolean }>('/api/member/faith/access')
+      .then((r) => setFaithOpen(r.role === 'LEADER' && r.canRead))
       .catch(() => {});
     api
       .get<MyPeopleSummary>('/api/leader/my-people')
@@ -295,6 +302,7 @@ export function LeadershipDashboardBody() {
           { key: 'repBroadcastLog' as SectionKey, icon: '📣', render: () => <BroadcastLogPanel base="/api/member/rep-broadcast-log" /> },
         ]
       : []),
+    ...(faithOpen ? [{ key: 'faith' as SectionKey, icon: '🕊️', render: () => <FaithJourneysPanel base="/api/member/faith" /> }] : []),
     { key: 'sanctions', icon: '🔇', render: () => <SanctionsPanel base="/api/member/sanctions" /> },
     {
       key: 'people',

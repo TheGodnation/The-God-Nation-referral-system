@@ -56,7 +56,8 @@ type NotificationType =
   | 'ESCALATION_BYPASSED'
   | 'CLINIC_EXAM_OPEN'
   | 'GIFT_CONFIRMED'
-  | 'GIFT_REJECTED';
+  | 'GIFT_REJECTED'
+  | 'FAITH_NEEDS_CONVERSATION';
 
 interface NotificationRow {
   id: string;
@@ -198,6 +199,8 @@ export function NotificationBell() {
       case 'GIFT_CONFIRMED':
       case 'GIFT_REJECTED':
         return t(n.type === 'GIFT_CONFIRMED' ? 'notifications.gift_confirmed' : 'notifications.gift_rejected', { amount: `${Number(metadata.amount ?? 0).toLocaleString('fr-FR')} FCFA` });
+      case 'FAITH_NEEDS_CONVERSATION':
+        return t(metadata.bookNumber ? 'notifications.faith_needs_conversation' : 'notifications.faith_needs_conversation_plain', { name: metadata.personName ?? '', number: metadata.bookNumber ?? '' });
       case 'INSTRUCTION_RECEIVED':
         return t('notifications.instruction_received');
       case 'INSTRUCTION_REMINDER':
@@ -296,6 +299,11 @@ export function NotificationBell() {
                   className={`cursor-pointer rounded p-2 text-sm ${n.readAt ? 'text-slate-500' : 'bg-brand-50 font-medium text-brand-900'}`}
                 >
                   <p>{renderMessage(n)}</p>
+                  {n.type === 'FAITH_NEEDS_CONVERSATION' && n.targetId && (
+                    <a href={`/member/faith/${n.targetId}`} className="text-xs font-semibold text-brand-700 underline">
+                      {t('faith.notification_open')}
+                    </a>
+                  )}
                   <p className="mt-0.5 text-xs text-slate-400">{new Date(n.createdAt).toLocaleString()}</p>
                 </li>
               ))}

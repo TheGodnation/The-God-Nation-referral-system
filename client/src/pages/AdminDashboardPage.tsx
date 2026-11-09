@@ -18,6 +18,7 @@ import { ExamResults } from '../components/admin/ExamResults';
 import { OpenMemberProfileButton } from '../components/OpenMemberProfileButton';
 import { RoleAssignmentsTab } from '../components/admin/RoleAssignmentsTab';
 import { GivingPanel } from '../components/admin/GivingPanel';
+import { FaithJourneysPanel } from '../components/faith/FaithJourneysPanel';
 import { BroadcastLogPanel } from '../components/admin/BroadcastLogPanel';
 import { LeadersReportPanel } from '../components/admin/LeadersReportPanel';
 import { RepresentativesPanel } from '../components/admin/RepresentativesPanel';
@@ -71,6 +72,7 @@ type Tab =
   | 'representatives'
   | 'myLeaders'
   | 'broadcastLog'
+  | 'faith'
   | 'leaderRooms'
   | 'teachingDone'
   | 'refReport'
@@ -1824,6 +1826,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'broadcastLog'} onClick={() => setTab('broadcastLog')}>
               {t('broadcast.tab')}
             </TabButton>
+            <TabButton active={tab === 'faith'} onClick={() => setTab('faith')}>
+              {t('faith.tab')}
+            </TabButton>
             <TabButton active={tab === 'leaderRooms'} onClick={() => setTab('leaderRooms')}>
               {t('admin.tabs.leaderRooms')}
             </TabButton>
@@ -1920,6 +1925,7 @@ export function AdminDashboardPage() {
         {tab === 'representatives' && <RepresentativesPanel base="/api/admin/representatives" />}
         {tab === 'myLeaders' && <LeadersReportPanel base="/api/admin/weekly-reports" mode="admin" />}
         {tab === 'broadcastLog' && <BroadcastLogPanel base="/api/admin/broadcast-log" />}
+        {tab === 'faith' && <FaithJourneysPanel base="/api/admin/faith" />}
         {tab === 'leaderRooms' && <LeaderRoomsPanel base="/api/admin/leader-rooms" />}
         {tab === 'teachingDone' && <TeachingCompletionPanel base="/api/admin/teaching-completion" />}
         {tab === 'refReport' && <LeaderReferralReportPanel base="/api/admin/leader-referral-report" />}

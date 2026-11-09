@@ -32,8 +32,25 @@ interface QuestionDetail {
   options: OptionDetail[];
 }
 
+export interface PersonalDetail {
+  id: string;
+  setNumber: number;
+  order: number;
+  kind: 'CHOICE' | 'TEXT';
+  textEn: string;
+  textFr: string | null;
+  bodyEn: string | null;
+  guideEn: string | null;
+  required: boolean;
+  flagUnlessNone: boolean;
+  affectsStatus: boolean;
+  options: { id: string; textEn: string; textFr: string | null; signal: 'POSITIVE' | 'NEEDS_TALK' }[];
+}
+
 interface AssessmentDetail extends AssessmentRow {
   questions: QuestionDetail[];
+  /** Book 1 / Book 2 exams: the personal (never marked) questions of every set. */
+  personalQuestions?: PersonalDetail[];
   // Leadership book exams: several question sets; a set already given to
   // someone can't change (server: lib/trainingExam.ts).
   trainingBookId: string | null;
@@ -41,9 +58,47 @@ interface AssessmentDetail extends AssessmentRow {
 }
 
 // A leadership book exam's set holds this many questions.
-const QUESTIONS_PER_SET = 20;
+const QUESTIONS_PER_SET = 25;
 
 const EMPTY_CREATE_FORM = { titleEn: '', titleFr: '', passMark: 50, maxAttempts: '' };
+
+// The personal questions of one set (Book 1 / Book 2), read-only: what each choice counts as, and the teacher's guide.
+export function PersonalQuestionsView({ questions }: { questions: PersonalDetail[] }) {
+  const { t } = useTranslation();
+  if (questions.length === 0) return null;
+  return (
+    <details className="mt-2 rounded-lg border border-brand-200 bg-brand-50/40 p-3" data-testid="personal-questions-view">
+      <summary className="cursor-pointer text-sm font-semibold text-brand-900">{t('admin.assessments.personal_heading', { count: questions.length })}</summary>
+      <p className="mt-2 text-xs text-slate-600">{t('admin.assessments.personal_help')}</p>
+      <ol className="mt-2 space-y-3">
+        {questions.map((q, i) => (
+          <li key={q.id} className="text-sm">
+            <p className="font-medium text-slate-800">
+              {i + 1}. {q.textEn}
+              {!q.affectsStatus && <span className="ml-2 text-xs font-normal text-slate-500">({t('admin.assessments.personal_not_status')})</span>}
+              {!q.required && <span className="ml-2 text-xs font-normal text-slate-500">({t('admin.assessments.personal_optional')})</span>}
+            </p>
+            {q.textFr && <p className="text-xs italic text-slate-500">{q.textFr}</p>}
+            {q.bodyEn && <p className="my-1 whitespace-pre-wrap border-l-4 border-brand-300 pl-2 text-xs italic text-slate-600">{q.bodyEn}</p>}
+            {q.kind === 'TEXT' ? (
+              <p className="text-xs text-slate-600">{q.flagUnlessNone ? t('admin.assessments.personal_typed_flag') : t('admin.assessments.personal_typed')}</p>
+            ) : (
+              <ul className="ml-4 list-disc text-xs">
+                {q.options.map((o) => (
+                  <li key={o.id} className={o.signal === 'POSITIVE' ? 'font-semibold text-green-700' : 'text-slate-600'}>
+                    {o.signal === 'POSITIVE' ? '✓ ' : '⚑ '}
+                    {o.textEn}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {q.guideEn && <p className="mt-1 rounded bg-white px-2 py-1 text-xs text-slate-600">{q.guideEn}</p>}
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
 
 function StatusBadge({ status }: { status: string }) {
   const color =
@@ -470,6 +525,7 @@ function AssessmentManager({ assessmentId, onBack }: { assessmentId: string; onB
                   .map((q) => (
                     <QuestionCard key={q.id} question={q} locked={x.used} onChanged={load} />
                   ))}
+                <PersonalQuestionsView questions={(assessment.personalQuestions ?? []).filter((p) => p.setNumber === x.setNumber)} />
               </section>
             ))
           : assessment.questions.map((q) => <QuestionCard key={q.id} question={q} locked={locked} onChanged={load} />)}
