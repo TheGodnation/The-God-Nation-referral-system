@@ -18,6 +18,89 @@ export const VISION: Record<Lang, string> = {
   fr: 'Notre vision est d’équiper des citoyens du Royaume qui font des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.',
 };
 
+/** The About page, in the founder's own words (sent 10 November 2026). The French was translated by the developer and is for the founder to read. */
+export interface AboutText {
+  who: { title: string; paras: string[] };
+  calling: { title: string; paras: string[] };
+  vision: { title: string; paras: string[] };
+  action: { title: string; intro: string; list: string[]; closing: string };
+  mission: { title: string; text: string };
+  motto: { title: string; lead: string; text: string };
+  scripture: { title: string; quote: string; ref: string };
+}
+export const ABOUT: Record<Lang, AboutText> = {
+  en: {
+    who: {
+      title: 'Who we are',
+      paras: [
+        'The God Nation exists to bring together citizens of the Kingdom of God and equip them spiritually and technically to become effective carriers of the Gospel of the Kingdom through modern media.',
+        'We are building a community of trained and equipped Kingdom ambassadors who work together to take this message to people everywhere.',
+        'Through spiritual formation, leadership development and practical digital media training, we prepare believers to use modern communication platforms to reach lives, spread the Gospel and advance God’s Kingdom to the ends of the earth.',
+      ],
+    },
+    calling: {
+      title: 'Our calling',
+      paras: [
+        'This work grew out of many years of personal encounters with Christ, spiritual visitations and divine dealings with my family. Through these encounters, a clear mandate emerged: to provoke a spiritual revival in Cameroon that will spread throughout Africa and ultimately reach the nations of the world.',
+        'We believe that God has destined a generation of believers in Cameroon to play a significant role in spearheading this revival. Our vision is to identify, gather, teach and prepare this generation to fulfil its part in God’s purpose.',
+        'We are committed to bringing this revival army together, grounding its members in the truths of the Kingdom of God, equipping them with spiritual understanding and practical skills, and mobilizing them to carry the Gospel beyond the walls of traditional church gatherings.',
+      ],
+    },
+    vision: {
+      title: 'Our vision',
+      paras: [
+        'We envision a united, spiritually grounded and technically equipped generation of Kingdom Citizens, gathered and mobilized to take the Gospel of the Kingdom to the ends of the earth through modern media.',
+        'We believe that modern media provides an unprecedented opportunity to reach people, influence lives and spread the message of the Kingdom across geographical boundaries.',
+        'From Cameroon to Africa and to the nations of the world, we are preparing and mobilizing Kingdom ambassadors to work together in fulfilling this mandate.',
+      ],
+    },
+    action: {
+      title: 'Our vision in action',
+      intro: 'To fulfil this vision, we are building our own digital community—a place where citizens of the Kingdom of God can learn, grow, connect, receive training and prepare for effective service. Through spiritual training, leadership development and digital media systems, we equip Kingdom ambassadors to use:',
+      list: ['Social media platforms.', 'Videos and online teachings.', 'Digital books and publications.', 'Modern communication technologies.', 'Other digital tools for spreading the Gospel.'],
+      closing: 'Our goal is not simply to build a media team. We are preparing people, developing leaders and building a united community of Kingdom ambassadors committed to taking the Gospel to the nations.',
+    },
+    mission: { title: 'Our mission', text: 'To gather, train, equip and mobilize citizens of the Kingdom of God spiritually and technically to become effective carriers of the Gospel of the Kingdom through modern media.' },
+    motto: { title: 'Our motto', lead: 'Go into the digital media spaces where billions gather.', text: 'Make disciples who make disciples, thereby taking the Gospel of the Kingdom to the ends of the earth.' },
+    scripture: { title: 'Our scriptural foundation', quote: '“Go ye therefore, and teach all nations…”', ref: 'Matthew 28:19' },
+  },
+  fr: {
+    who: {
+      title: 'Qui nous sommes',
+      paras: [
+        'The God Nation existe pour rassembler les citoyens du Royaume de Dieu et les équiper, spirituellement et techniquement, afin qu’ils deviennent des porteurs efficaces de l’Évangile du Royaume par les médias modernes.',
+        'Nous bâtissons une communauté d’ambassadeurs du Royaume formés et équipés, qui travaillent ensemble pour porter ce message aux gens partout.',
+        'Par la formation spirituelle, le développement du leadership et la formation pratique aux médias numériques, nous préparons les croyants à utiliser les plateformes de communication modernes pour toucher des vies, répandre l’Évangile et faire avancer le Royaume de Dieu jusqu’aux extrémités de la terre.',
+      ],
+    },
+    calling: {
+      title: 'Notre appel',
+      paras: [
+        'Cette œuvre est née de nombreuses années de rencontres personnelles avec Christ, de visitations spirituelles et d’interventions divines dans ma famille. De ces rencontres s’est dégagé un mandat clair : provoquer un réveil spirituel au Cameroun, qui se répandra dans toute l’Afrique et atteindra finalement les nations du monde.',
+        'Nous croyons que Dieu a destiné une génération de croyants au Cameroun à jouer un rôle important à la tête de ce réveil. Notre vision est d’identifier, de rassembler, d’enseigner et de préparer cette génération afin qu’elle accomplisse sa part dans le dessein de Dieu.',
+        'Nous nous engageons à rassembler cette armée du réveil, à enraciner ses membres dans les vérités du Royaume de Dieu, à les équiper d’une compréhension spirituelle et de compétences pratiques, et à les mobiliser pour porter l’Évangile au-delà des murs des rassemblements d’église traditionnels.',
+      ],
+    },
+    vision: {
+      title: 'Notre vision',
+      paras: [
+        'Nous envisageons une génération de citoyens du Royaume unie, solidement ancrée spirituellement et équipée techniquement, rassemblée et mobilisée pour porter l’Évangile du Royaume jusqu’aux extrémités de la terre par les médias modernes.',
+        'Nous croyons que les médias modernes offrent une occasion sans précédent de toucher les gens, d’influencer des vies et de répandre le message du Royaume au-delà des frontières géographiques.',
+        'Du Cameroun à l’Afrique et aux nations du monde, nous préparons et mobilisons des ambassadeurs du Royaume pour qu’ils travaillent ensemble à accomplir ce mandat.',
+      ],
+    },
+    action: {
+      title: 'Notre vision en action',
+      intro: 'Pour accomplir cette vision, nous bâtissons notre propre communauté numérique, un lieu où les citoyens du Royaume de Dieu peuvent apprendre, grandir, se connecter, recevoir une formation et se préparer à un service efficace. Par la formation spirituelle, le développement du leadership et des systèmes de médias numériques, nous équipons les ambassadeurs du Royaume pour qu’ils utilisent :',
+      list: ['Les plateformes de réseaux sociaux.', 'Les vidéos et les enseignements en ligne.', 'Les livres et publications numériques.', 'Les technologies de communication modernes.', 'D’autres outils numériques pour répandre l’Évangile.'],
+      closing: 'Notre but n’est pas simplement de bâtir une équipe médias. Nous préparons des personnes, nous formons des leaders et nous bâtissons une communauté unie d’ambassadeurs du Royaume engagés à porter l’Évangile aux nations.',
+    },
+    mission: { title: 'Notre mission', text: 'Rassembler, former, équiper et mobiliser les citoyens du Royaume de Dieu, spirituellement et techniquement, afin qu’ils deviennent des porteurs efficaces de l’Évangile du Royaume par les médias modernes.' },
+    motto: { title: 'Notre devise', lead: 'Allez dans les espaces des médias numériques où des milliards de personnes se rassemblent.', text: 'Faites des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.' },
+    scripture: { title: 'Notre fondement biblique', quote: '« Allez, faites de toutes les nations des disciples… »', ref: 'Matthieu 28.19' },
+  },
+};
+
 export const WHAT_WE_DO: Record<Lang, string[]> = {
   en: ['Kingdom education', 'Kingdom citizenship and identity', 'Christian leadership development', 'Spiritual growth and discipleship', 'Books and educational publications', 'Digital media and evangelism', 'Equipping believers to become effective ambassadors of the Kingdom', 'Building a community that supports, teaches and develops its members'],
   fr: ['L’éducation du Royaume', 'La citoyenneté et l’identité du Royaume', 'Le développement du leadership chrétien', 'La croissance spirituelle et le discipulat', 'Les livres et publications éducatives', 'Les médias numériques et l’évangélisation', 'Équiper les croyants pour qu’ils deviennent des ambassadeurs efficaces du Royaume', 'Bâtir une communauté qui soutient, enseigne et fait grandir ses membres'],
@@ -369,7 +452,7 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
     division: { title: '', description: '' },
     article: { title: '', description: '' },
     book: { title: '', description: '' },
-    about: { title: 'About The God Nation', description: 'Our purpose, our vision and what The God Nation Media and Leadership Academy does.' },
+    about: { title: 'About The God Nation', description: 'Who we are, our calling, our vision and our mission: gathering and equipping citizens of the Kingdom to carry the Gospel through modern media.' },
     contact: { title: 'Contact — The God Nation', description: 'How to contact The God Nation.' },
   },
   fr: {
@@ -378,7 +461,7 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
     division: { title: '', description: '' },
     article: { title: '', description: '' },
     book: { title: '', description: '' },
-    about: { title: 'À propos de The God Nation', description: 'Notre raison d’être, notre vision et ce que fait The God Nation Media and Leadership Academy.' },
+    about: { title: 'À propos de The God Nation', description: 'Qui nous sommes, notre appel, notre vision et notre mission : rassembler et équiper les citoyens du Royaume pour porter l’Évangile par les médias modernes.' },
     contact: { title: 'Contact — The God Nation', description: 'Comment contacter The God Nation.' },
   },
 };
