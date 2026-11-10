@@ -218,6 +218,8 @@ export async function releasePeople(opts: { fromLeaderId: string; communityId: s
 
 /** Let a second leader follow a person too (the first keeps them): "shared". */
 export async function shareWithLeader(opts: { personId: string; toLeaderId: string; communityId: string; actorUserId: string }) {
+  // The central admin is never followed up by a leader.
+  if (await isCentralAdminPerson(opts.personId)) return { created: false };
   const existing = await prisma.followUpAssignment.findFirst({
     where: { followerId: opts.toLeaderId, followedPersonId: opts.personId, status: 'ACTIVE' },
     select: { id: true },

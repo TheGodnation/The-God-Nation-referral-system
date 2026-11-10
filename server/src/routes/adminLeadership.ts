@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { centralAdminAmong, isCentralAdminPerson } from '../lib/centralAdmin';
 import { requireAuth, requireRole } from '../lib/auth';
 import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
@@ -262,6 +263,10 @@ router.post('/follow-ups', leadershipMutationLimiter, requireCsrf, asyncHandler(
   if (followerId === followedPersonId) {
     return res.status(400).json({ error: 'A Person cannot follow themselves.' });
   }
+  // The central admin follows up the leaders, never the other way round.
+  if (await isCentralAdminPerson(followedPersonId)) {
+    return res.status(400).json({ error: 'The central admin is not followed up by leaders: the central admin follows up the leaders.', code: 'CENTRAL_ADMIN_NOT_FOLLOWED' });
+  }
 
   const [follower, followedPerson, targetExists] = await Promise.all([
     prisma.person.findUnique({ where: { id: followerId } }),
@@ -368,7 +373,8 @@ router.post('/follow-ups/bulk-distribute', leadershipMutationLimiter, requireCsr
   // The pool to split: every active member here, except the Leaders doing
   // the following themselves, and anyone already actively followed by
   // anyone (never double-assigned, never silently reassigned).
-  const pool = members.map((m) => m.person).filter((p) => !followerSet.has(p.id) && !alreadyFollowedSet.has(p.id));
+  const admins = await centralAdminAmong(members.map((m) => m.person.id));
+  const pool = members.map((m) => m.person).filter((p) => !followerSet.has(p.id) && !alreadyFollowedSet.has(p.id) && !admins.has(p.id));
 
   if (pool.length === 0) {
     return res.json({

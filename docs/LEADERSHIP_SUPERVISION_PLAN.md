@@ -225,3 +225,9 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 
 - To undo a mistaken or test assignment: in the central admin's "Assign people" tool (profile tab "Cells" / the admin dashboard), each leader who follows people has **"Take back everyone (N)"**. After a confirmation, all that leader's active follow-ups **in that assembly** are closed ("Taken back by the central admin"); nothing is deleted (history and chats stay), the people become unassigned and can be assigned again, and they no longer show that leader as theirs. `POST /api/admin/cells/release` and `/api/member/central-cells/release` (central admin only).
 - What cannot be undone: if the leader had already opened their Leadership page, the people were told once (a notification and a first message); those stay.
+
+## The central admin is never followed up by a leader (done)
+
+- The central admin follows up the leaders; leaders never follow up the central admin. Every way of making a follow-up now refuses or skips the central admin's own member profile: the admin's "add a follow-up" (`POST /api/admin/follow-ups`), a leader adding a person to their own follow-ups (`POST /api/leader/follow-ups`), "split between leaders" (`bulk-distribute`), "Assign people" (already skipped them) and sharing a person with another leader. Before this, the three manual ways did not check, and "Assign people" only skipped leaders of that same assembly.
+- A migration (`20261223090000`) closes any active follow-up whose followed person is an admin's member profile (nothing is deleted). As a second safety, the "Your leader" card, the introduction message and the notification are never shown for the central admin.
+- Not decided yet: whether leaders may be followed up by other leaders (today the assign tool skips only the leaders of the same assembly).

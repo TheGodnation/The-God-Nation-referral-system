@@ -2,6 +2,7 @@ import { prisma } from './prisma';
 import { sendPrivateNotice, isFrench, languagesOf } from './privateNotice';
 import { pushToPersons } from './push';
 import { profilePhotoPath } from './profilePhoto';
+import { isCentralAdminPerson } from './centralAdmin';
 
 // "Your leader": when a person is assigned to a leader, the person is told who it is: a notification and a first
 // private message from the leader. This happens once the leader has opened their dashboard (so somebody is ready to
@@ -32,6 +33,8 @@ export async function introducePendingAssignments(leaderPersonId: string): Promi
 
   let told = 0;
   for (const a of pending) {
+    // The central admin is never told about a leader (they follow up the leaders, not the other way round).
+    if (await isCentralAdminPerson(a.followedPersonId)) continue;
     // Claim it first: if two requests arrive together, only one of them goes on to send.
     const claimed = await prisma.followUpAssignment.updateMany({ where: { id: a.id, introducedAt: null }, data: { introducedAt: new Date() } });
     if (claimed.count !== 1) continue;
@@ -52,6 +55,7 @@ export async function introducePendingAssignments(leaderPersonId: string): Promi
 
 /** The leader a person has been told about (the most recent active assignment that has been introduced), or null. */
 export async function myLeaderOf(personId: string) {
+  if (await isCentralAdminPerson(personId)) return null;
   const a = await prisma.followUpAssignment.findFirst({
     where: { followedPersonId: personId, status: 'ACTIVE', introducedAt: { not: null }, follower: { erasedAt: null } },
     orderBy: { assignedAt: 'desc' },

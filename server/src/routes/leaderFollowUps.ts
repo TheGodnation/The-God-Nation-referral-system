@@ -1,3 +1,4 @@
+import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
@@ -238,6 +239,10 @@ router.post('/follow-ups', leadershipMutationLimiter, requireCsrf, asyncHandler(
 
   if (followedPersonId === followerId) {
     return res.status(400).json({ error: 'A Person cannot follow themselves.' });
+  }
+  // The central admin follows up the leaders, never the other way round.
+  if (await isCentralAdminPerson(followedPersonId)) {
+    return res.status(400).json({ error: 'The central admin is not followed up by leaders.', code: 'CENTRAL_ADMIN_NOT_FOLLOWED' });
   }
 
   const role = await findActiveScopedRole(followerId, contextType, contextId);
