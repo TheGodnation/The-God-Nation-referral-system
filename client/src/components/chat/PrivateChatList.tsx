@@ -1,3 +1,5 @@
+import { useMyLeader } from '../../lib/useMyLeader';
+import { YourLeaderBadge } from '../member/MyLeaderCard';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +15,7 @@ interface ConversationRow {
   createdAt: string;
   otherPartyType: 'CENTRAL_AUTHORITY' | 'LEADER' | 'MEMBER';
   otherPartyName?: string | null;
+  otherPartyPersonId?: string;
   otherPartyPhotoUrl?: string | null;
   unreadCount: number;
   lastMessage?: { body: string | null; deleted?: boolean; attachmentMimeType: string | null; isOwn: boolean; createdAt: string; status?: 'sent' | 'delivered' | 'read' } | null;
@@ -40,6 +43,7 @@ function PrivatePreview({ chatId, fallback }: { chatId: string; fallback: React.
 // its time, and the number of new messages. Newest chats on top.
 export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats: number) => void } = {}) {
   const { t, i18n } = useTranslation();
+  const myLeader = useMyLeader();
   const [items, setItems] = useState<ConversationRow[] | null>(null);
 
   useEffect(() => {
@@ -103,7 +107,10 @@ export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">
-                    <span className="truncate font-semibold text-slate-900">{name}</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate font-semibold text-slate-900">{name}</span>
+                      {myLeader && c.otherPartyPersonId === myLeader.personId && <YourLeaderBadge />}
+                    </span>
                     {c.lastMessage && (
                       <span className={`shrink-0 text-xs ${c.unreadCount > 0 ? 'font-semibold text-emerald-600' : 'text-slate-400'}`}>
                         {chatListTime(c.lastMessage.createdAt, i18n.language)}

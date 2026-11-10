@@ -1,5 +1,5 @@
 import { RichText } from '../../lib/richText';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { pickText } from '../../lib/instructionText';
@@ -30,9 +30,21 @@ export function LeaderInstructions({ onChanged }: { onChanged?: () => void }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const wanted = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('instruction');
+  const opened = useRef(false);
 
   const load = () => api.get<{ items: MyInstruction[] }>('/api/member/instructions/').then((r) => setItems(r.items)).catch(() => setItems([]));
   useEffect(() => { void load(); }, []);
+  // A link in a private message opens that instruction straight away (and marks it Seen).
+  useEffect(() => {
+    if (!wanted || opened.current || !items) return;
+    const found = items.find((x) => x.id === wanted);
+    if (found) {
+      opened.current = true;
+      void open(found);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wanted, items]);
 
   async function open(i: MyInstruction) {
     const next = openId === i.id ? null : i.id;

@@ -1777,7 +1777,8 @@
     "report_reminder": "Your weekly report is waiting. It takes a minute.",
     "report_late": "Your weekly report is late. Please send it today.",
     "faith_needs_conversation": "{{name}} finished the Book {{number}} exam and would be helped by a conversation.",
-    "faith_needs_conversation_plain": "{{name}} finished a book exam and would be helped by a conversation."
+    "faith_needs_conversation_plain": "{{name}} finished a book exam and would be helped by a conversation.",
+    "leader_assigned": "{{name}}, from the Leadership Team, has been assigned to follow you up."
   },
   "memberHome": {
     "title": "Home",
@@ -3016,6 +3017,13 @@
     "assembly_help": "An assembly inside {{name}}, one generation further. Each assembly can have only two. Nobody is placed in it automatically; you add the people.",
     "group_name": "Name of the group",
     "assembly_name": "Name of the assembly"
+  },
+  "myLeader": {
+    "title": "Your leader",
+    "from_team": "From the Leadership Team",
+    "help": "Assigned to walk with you and follow you up. You can write to your leader at any time.",
+    "message": "Write to your leader",
+    "badge": "Your leader · Leadership Team"
   },
   "manageAssembly": {
     "title": "Manage this assembly",

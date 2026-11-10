@@ -194,7 +194,7 @@ export async function handOverPeople(opts: {
       // The new leader already follows them: just stop mine.
       await prisma.followUpAssignment.update({ where: { id: a.id }, data: { status: 'CLOSED', closedAt: new Date(), closedByUserId: opts.actorUserId, closeReason: 'Handed over' } });
     } else {
-      const updated = await prisma.followUpAssignment.update({ where: { id: a.id }, data: { followerId: target.personId } });
+      const updated = await prisma.followUpAssignment.update({ where: { id: a.id }, data: { followerId: target.personId, introducedAt: null } });
       await moveChat(a.followedPersonId, fromLeaderId, target.personId);
       await notifyFollowUpAssigned(updated);
     }

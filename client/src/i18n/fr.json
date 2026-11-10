@@ -1777,7 +1777,8 @@
     "report_reminder": "Votre rapport hebdomadaire vous attend. Cela prend une minute.",
     "report_late": "Votre rapport hebdomadaire est en retard. Merci de l'envoyer aujourd'hui.",
     "faith_needs_conversation": "{{name}} a terminé l'examen du livre {{number}} et aurait besoin d'une conversation.",
-    "faith_needs_conversation_plain": "{{name}} a terminé un examen de livre et aurait besoin d'une conversation."
+    "faith_needs_conversation_plain": "{{name}} a terminé un examen de livre et aurait besoin d'une conversation.",
+    "leader_assigned": "{{name}}, de l’équipe de leadership, a été désigné(e) pour vous suivre."
   },
   "memberHome": {
     "title": "Accueil",
@@ -3016,6 +3017,13 @@
     "assembly_help": "Une assemblée dans {{name}}, une génération plus loin. Chaque assemblée ne peut en avoir que deux. Personne n’y est placé automatiquement ; vous ajoutez les personnes.",
     "group_name": "Nom du groupe",
     "assembly_name": "Nom de l’assemblée"
+  },
+  "myLeader": {
+    "title": "Votre responsable",
+    "from_team": "De l’équipe de leadership",
+    "help": "Désigné(e) pour marcher avec vous et vous suivre. Vous pouvez écrire à votre responsable à tout moment.",
+    "message": "Écrire à votre responsable",
+    "badge": "Votre responsable · Équipe de leadership"
   },
   "manageAssembly": {
     "title": "Gérer cette assemblée",
