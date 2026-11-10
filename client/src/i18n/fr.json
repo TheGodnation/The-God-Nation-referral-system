@@ -1845,6 +1845,25 @@
     "scope_quarter": "Un quartier de {{name}}",
     "taken_refused": "Cet arrondissement a déjà un représentant. Choisissez un quartier à l'intérieur."
   },
+  "followUp": {
+    "hello": "Bonjour, salutations de The God Nation 🙏",
+    "links_intro": "Bonjour, salutations de The God Nation 🙏 Voici les endroits où vous pouvez nous rejoindre :",
+    "apps_question": "Bonjour, salutations de The God Nation 🙏 Sur lesquelles de ces applications êtes-vous ? Touchez celle que vous utilisez et rejoignez-nous :",
+    "place_whatsapp": "Groupe WhatsApp",
+    "place_telegram_group": "Groupe Telegram",
+    "place_messenger": "Groupe Messenger",
+    "place_facebook_group": "Groupe Facebook",
+    "place_facebook": "Page Facebook",
+    "place_instagram": "Page Instagram",
+    "btn_hello": "Dire bonjour",
+    "btn_links": "Envoyer nos liens",
+    "btn_apps": "Quelles applications utilisez-vous ?",
+    "pick_help": "Choisissez les endroits à envoyer. WhatsApp s’ouvre avec le message prêt ; vous appuyez sur envoyer.",
+    "send_links": "Ouvrir WhatsApp avec ces liens",
+    "none_ticked": "Cochez au moins un endroit.",
+    "no_links_yet": "Aucun lien de groupe n’a encore été ajouté (Admin, Paramètres).",
+    "not_joined": "N’a pas encore touché le lien du groupe"
+  },
   "myReferrals": {
     "title": "Mon tableau d'ambassadeur",
     "tagline": "Représenter le Roi. Atteindre le peuple. Multiplier la mission.",
@@ -1871,11 +1890,7 @@
     "status_QUIET_one": "Silencieux depuis {{count}} jour",
     "status_QUIET_other": "Silencieux depuis {{count}} jours",
     "status_ACTIVE": "Actif",
-    "nudge_whatsapp": "WhatsApp",
-    "nudge_in_app": "Message dans l’application",
-    "nudge_not_confirmed": "Bonjour, c’est {{me}} de The God Nation. J’ai vu que vous avez commencé à nous rejoindre. Il suffit d’une minute pour terminer : ouvrez l’application et connectez-vous avec l’adresse e-mail et le mot de passe que vous avez choisis. Je suis là si vous avez besoin d’aide.",
-    "nudge_profile": "Bonjour, c’est {{me}} de The God Nation. Vous y êtes presque ! Dites simplement à l’application votre nom et où vous habitez, et vous serez placé dans votre groupe. Je suis là si vous avez besoin d’aide.",
-    "nudge_quiet": "Bonjour, c’est {{me}} de The God Nation. Vous nous manquez ! Venez voir les nouveautés dans votre groupe et dans la Clinique de la Domination."
+    "nudge_in_app": "Message dans l’application"
   },
   "updates": {
     "report": "Signaler cette publication",

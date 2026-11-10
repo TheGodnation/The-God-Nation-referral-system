@@ -178,3 +178,11 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   `20261218090000`. Set 3 comes later.
 - **Book 3's exam, Set 3** (the final set; English + French, 25 marked questions; draft only, loads only if that set is still empty) is loaded by migration
   `20261219090000`. Book 3's exam now has all three sets and stays a draft until the founder publishes it.
+
+## Leader follow-up on WhatsApp (links and greeting)
+
+- On "My referrals", a leader sees, for each person who has a WhatsApp number, three buttons: **Say hello** (a plain greeting, no names, in the person's language),
+  **Send our links** (a tick list of our places; WhatsApp opens with the message typed, the leader presses send) and **Which apps do you use?** (a question with every link under it).
+- The places, in order: WhatsApp group (the person's language first), Telegram group, Messenger group, Facebook group, Facebook page, Instagram page. Channels are left out. Only links the admin has filled in are shown.
+- A leader is also told who has not yet tapped "join our WhatsApp group" (`tappedGroup` on `GET /api/member/referrals/mine`, leaders only).
+- Nothing is sent by the app and nothing new is asked of people. Telegram usernames and Messenger links are not collected (many people do not know them); people are sent our links to join instead.

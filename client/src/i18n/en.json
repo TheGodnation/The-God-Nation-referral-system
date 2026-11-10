@@ -1845,6 +1845,25 @@
     "scope_quarter": "A quarter within {{name}}",
     "taken_refused": "This subdivision already has a representative. Choose a quarter within it."
   },
+  "followUp": {
+    "hello": "Hello, greetings from The God Nation 🙏",
+    "links_intro": "Hello, greetings from The God Nation 🙏 Here are the places where you can join us:",
+    "apps_question": "Hello, greetings from The God Nation 🙏 Which of these are you on? Tap the one you use and join us there:",
+    "place_whatsapp": "WhatsApp group",
+    "place_telegram_group": "Telegram group",
+    "place_messenger": "Messenger group",
+    "place_facebook_group": "Facebook group",
+    "place_facebook": "Facebook page",
+    "place_instagram": "Instagram page",
+    "btn_hello": "Say hello",
+    "btn_links": "Send our links",
+    "btn_apps": "Which apps do you use?",
+    "pick_help": "Choose the places to send. WhatsApp opens with the message ready; you press send.",
+    "send_links": "Open WhatsApp with these links",
+    "none_ticked": "Tick at least one place.",
+    "no_links_yet": "No group links have been added yet (Admin, Settings).",
+    "not_joined": "Has not tapped the group link yet"
+  },
   "myReferrals": {
     "title": "My Ambassador Dashboard",
     "tagline": "Represent the King. Reach the People. Multiply the Mission.",
@@ -1871,11 +1890,7 @@
     "status_QUIET_one": "Quiet {{count}} day",
     "status_QUIET_other": "Quiet {{count}} days",
     "status_ACTIVE": "Active",
-    "nudge_whatsapp": "WhatsApp",
-    "nudge_in_app": "Message in the app",
-    "nudge_not_confirmed": "Hi, this is {{me}} from The God Nation. I saw you started joining. It only takes a minute to finish: open the app and sign in with the email and password you chose. I am here if you need help.",
-    "nudge_profile": "Hi, this is {{me}} from The God Nation. You are almost in! Please tell the app your name and where you live, and you will be placed in your group. I am here if you need help.",
-    "nudge_quiet": "Hi, this is {{me}} from The God Nation. We miss you! Come and see what is new in your group and in the Dominion Clinic."
+    "nudge_in_app": "Message in the app"
   },
   "updates": {
     "report": "Report this post",

@@ -79,6 +79,16 @@ router.get('/referrals/mine', requireMember, asyncHandler(async (req, res) => {
   const summary: Record<InviteeStatus, number> = { NOT_CONFIRMED: 0, PROFILE_INCOMPLETE: 0, QUIET: 0, ACTIVE: 0 };
   for (const r of everyone) if (r.person) summary[statusOf(r.person, quietBefore)] += 1;
 
+  // A leader is also told who has not yet tapped "join our WhatsApp group", so they know who to send the links to first.
+  const tapped = new Set<string>();
+  if (leader && registrations.length) {
+    const events = await prisma.event.findMany({
+      where: { type: { in: ['WHATSAPP_CLICKED', 'GROUP_LINK_CLICKED'] }, registrationId: { in: registrations.map((r) => r.id) } },
+      select: { registrationId: true },
+    });
+    for (const e of events) if (e.registrationId) tapped.add(e.registrationId);
+  }
+
   const items = registrations
     .filter((r) => r.person)
     .map((r) => {
@@ -86,6 +96,7 @@ router.get('/referrals/mine', requireMember, asyncHandler(async (req, res) => {
       const status = statusOf(p, quietBefore);
       const last = p.lastSeenAt ?? p.profileCompletedAt;
       return {
+        ...(leader ? { tappedGroup: tapped.has(r.id) } : {}),
         personId: p.id,
         name: p.name,
         photoUrl: profilePhotoPath(p),

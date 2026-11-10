@@ -6,7 +6,7 @@ import { MemberNav } from '../components/member/MemberNav';
 import { Avatar } from '../components/Avatar';
 import { api } from '../lib/api';
 import { useStoreApp } from '../lib/storeApp';
-import { useMemberAuth } from '../lib/MemberAuthContext';
+import { FollowUpButtons } from '../components/leader/FollowUpButtons';
 
 type Status = 'NOT_CONFIRMED' | 'PROFILE_INCOMPLETE' | 'QUIET' | 'ACTIVE';
 
@@ -18,8 +18,9 @@ interface ReferredPerson {
   status?: Status;
   language?: 'en' | 'fr';
   daysQuiet?: number | null;
-  /** Only leaders are given the number. */
+  /** Only leaders are given the number, and whether the person has tapped "join our WhatsApp group". */
   whatsapp?: string;
+  tappedGroup?: boolean;
 }
 
 const STATUS_STYLE: Record<Status, string> = {
@@ -38,7 +39,6 @@ const STATUS_STYLE: Record<Status, string> = {
 export function MemberReferralsPage() {
   const { t, i18n } = useTranslation();
   const store = useStoreApp();
-  const { member } = useMemberAuth();
   const [filter, setFilter] = useState<'all' | 'nudge'>('all');
   const [links, setLinks] = useState<{ en: string; fr: string } | null>(null);
   const [items, setItems] = useState<ReferredPerson[] | null>(null);
@@ -51,14 +51,6 @@ export function MemberReferralsPage() {
 
   const needNudge = (items ?? []).filter((p) => p.status && p.status !== 'ACTIVE');
   const shown = filter === 'nudge' ? needNudge : items ?? [];
-
-  // A first message to send them on WhatsApp, in their own language.
-  function nudgeLink(p: ReferredPerson): string | null {
-    if (!p.whatsapp || !p.status || p.status === 'ACTIVE') return null;
-    const key = p.status === 'NOT_CONFIRMED' ? 'nudge_not_confirmed' : p.status === 'PROFILE_INCOMPLETE' ? 'nudge_profile' : 'nudge_quiet';
-    const text = t(`myReferrals.${key}`, { lng: p.language ?? 'en', me: member?.name ?? '' });
-    return `https://wa.me/${p.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
-  }
 
   const primaryLink = links ? (i18n.language.startsWith('fr') ? links.fr : links.en) : null;
 
@@ -166,7 +158,6 @@ export function MemberReferralsPage() {
                 {shown.length === 0 && <p className="text-sm text-slate-500">{t('myReferrals.nudge_none')}</p>}
                 <ul className="divide-y divide-slate-100">
                   {shown.map((p) => {
-                    const wa = nudgeLink(p);
                     return (
                       <li key={p.personId} data-testid={`referred-${p.personId}`}>
                         <Link to={`/member/people/${p.personId}`} className="flex items-center gap-3 py-2">
@@ -183,18 +174,19 @@ export function MemberReferralsPage() {
                             </span>
                           )}
                         </Link>
-                        {p.status && p.status !== 'ACTIVE' && (
-                          <div className="flex flex-wrap gap-2 pb-3 pl-14">
-                            {wa && (
-                              <a href={wa} target="_blank" rel="noreferrer" className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white no-underline hover:bg-green-700" data-testid={`nudge-whatsapp-${p.personId}`}>
-                                {t('myReferrals.nudge_whatsapp')}
-                              </a>
-                            )}
-                            <Link to={`/member/people/${p.personId}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 no-underline hover:bg-brand-50">
+                        <div className="space-y-2 pb-3 pl-14">
+                          {p.tappedGroup === false && (
+                            <p className="text-xs font-medium text-amber-700" data-testid={`not-joined-${p.personId}`}>
+                              {t('followUp.not_joined')}
+                            </p>
+                          )}
+                          {p.whatsapp && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language ?? 'en'} />}
+                          {p.status && p.status !== 'ACTIVE' && (
+                            <Link to={`/member/people/${p.personId}`} className="inline-block rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 no-underline hover:bg-brand-50">
                               {t('myReferrals.nudge_in_app')}
                             </Link>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </li>
                     );
                   })}

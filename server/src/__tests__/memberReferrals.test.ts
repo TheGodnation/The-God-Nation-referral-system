@@ -215,6 +215,28 @@ describe('My Referrals — who needs a word of encouragement', () => {
     expect(res.body.items.find((i: any) => i.personId === p.id).whatsapp).toBe(p.whatsappNumber);
   });
 
+  it('tells a leader (and only a leader) who has not yet tapped "join our WhatsApp group"', async () => {
+    const leader = await member('Inviter Tapper');
+    await prisma.user.create({ data: { name: 'Inviter Tapper', email: 'inviter-tapper@test.local', passwordHash: 'x', role: 'LEADER', active: true, personId: leader.id } });
+    const tapped = await invited(leader.id, {});
+    const tappedOld = await invited(leader.id, {});
+    const notYet = await invited(leader.id, {});
+    const reg = async (personId: string) => (await prisma.registration.findFirstOrThrow({ where: { personId } })).id;
+    await prisma.event.create({ data: { type: 'WHATSAPP_CLICKED', registrationId: await reg(tapped.id) } });
+    await prisma.event.create({ data: { type: 'GROUP_LINK_CLICKED', registrationId: await reg(tappedOld.id) } });
+
+    const res = await leader.agent.get('/api/member/referrals/mine?pageSize=50');
+    const byId = Object.fromEntries(res.body.items.map((i: any) => [i.personId, i]));
+    expect(byId[tapped.id].tappedGroup).toBe(true);
+    expect(byId[tappedOld.id].tappedGroup).toBe(true);
+    expect(byId[notYet.id].tappedGroup).toBe(false);
+
+    const ordinary = await member('Inviter Plain');
+    await invited(ordinary.id, {});
+    const plain = await ordinary.agent.get('/api/member/referrals/mine');
+    expect(plain.body.items.every((i: any) => i.tappedGroup === undefined)).toBe(true);
+  });
+
   it('uses the admin’s "quiet" days for what counts as quiet', async () => {
     const referrer = await member('Inviter Bob');
     const p = await invited(referrer.id, { confirmed: true, profileDone: true, lastSeenDaysAgo: 5 });

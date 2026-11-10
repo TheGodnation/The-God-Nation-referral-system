@@ -127,20 +127,79 @@ describe('My Referrals — who needs a word', () => {
     expect(screen.queryByTestId('referred-c')).toBeNull();
     expect(screen.getByTestId('referred-a')).toBeInTheDocument();
 
-    const waA = screen.getByTestId('nudge-whatsapp-a') as HTMLAnchorElement;
-    expect(waA.href).toContain('https://wa.me/237670000001?text=');
-    expect(decodeURIComponent(waA.href)).toContain('this is Pastor Ben from The God Nation');
-    // Beau reads French: the message is in French.
-    expect(decodeURIComponent((screen.getByTestId('nudge-whatsapp-b') as HTMLAnchorElement).href)).toContain('Vous nous manquez');
-    // Nobody who is active gets a button.
-    expect(screen.queryByTestId('nudge-whatsapp-c')).toBeNull();
+    // The same plain hello for everyone, with no name in it, in the person's own language.
+    const hello = (id: string) => decodeURIComponent((screen.getByTestId(`followup-hello-${id}`) as HTMLAnchorElement).href);
+    expect(hello('a')).toContain('https://wa.me/237670000001?text=Hello, greetings from The God Nation');
+    expect(hello('a')).not.toContain('Ada');
+    expect(hello('a')).not.toContain('Pastor Ben');
+    expect(hello('b')).toContain('Bonjour, salutations de The God Nation');
+    // Nobody who is active is in this list.
+    expect(screen.queryByTestId('followup-hello-c')).toBeNull();
+  });
+
+  it('lets a leader send our links (the person’s language first, the ones they untick left out) or ask which apps they use', async () => {
+    const settings = {
+      supportWhatsappUrl: null, whatsappGroupEnUrl: 'https://chat.whatsapp.com/EN', whatsappGroupFrUrl: 'https://chat.whatsapp.com/FR', whatsappChannelUrl: 'https://whatsapp.com/channel/X',
+      telegramGroupUrl: 'https://t.me/+grp', telegramUrl: 'https://t.me/chan', messengerUrl: 'https://m.me/j/abc', facebookGroupUrl: 'https://facebook.com/groups/g',
+      facebookUrl: 'https://facebook.com/page', instagramUrl: 'https://instagram.com/tgn', tiktokUrl: 'https://tiktok.com/@tgn', youtubeUrl: null, content: {},
+    };
+    mockFetch({ ...base, '/api/settings/public': { body: settings }, '/api/member/referrals/mine': { body: { items: ITEMS, summary: { NOT_CONFIRMED: 1, PROFILE_INCOMPLETE: 0, QUIET: 1, ACTIVE: 1 }, canSeeWhatsapp: true, quietDays: 7 } } });
+    renderPage();
+    const open = async (id: string) => {
+      const toggle = await screen.findByTestId(`followup-links-${id}`);
+      fireEvent.click(toggle);
+      return screen.getByTestId(`followup-picker-${id}`);
+    };
+    const picker = await open('b');
+    // Six places, no channels, no TikTok; Beau reads French so it is the French group.
+    expect(within(picker).getAllByRole('checkbox')).toHaveLength(6);
+    fireEvent.click(within(picker).getByLabelText('Facebook group'));
+    const text = decodeURIComponent((screen.getByTestId('followup-send-b') as HTMLAnchorElement).href);
+    expect(text).toContain('Groupe WhatsApp: https://chat.whatsapp.com/FR');
+    expect(text).toContain('Groupe Telegram: https://t.me/+grp');
+    expect(text).toContain('Groupe Messenger: https://m.me/j/abc');
+    expect(text).toContain('Page Facebook: https://facebook.com/page');
+    expect(text).toContain('Page Instagram: https://instagram.com/tgn');
+    expect(text).not.toContain('facebook.com/groups');
+    expect(text).not.toContain('channel');
+    expect(text).not.toContain('chat.whatsapp.com/EN');
+    // The English speaker gets the English group.
+    const pickerA = await open('a');
+    expect(within(pickerA).getAllByRole('checkbox')).toHaveLength(6);
+    expect(decodeURIComponent((screen.getByTestId('followup-send-a') as HTMLAnchorElement).href)).toContain('WhatsApp group: https://chat.whatsapp.com/EN');
+    // "Which apps do you use?" asks, then lists every place.
+    const apps = decodeURIComponent((screen.getByTestId('followup-apps-a') as HTMLAnchorElement).href);
+    expect(apps).toContain('Which of these are you on?');
+    expect(apps).toContain('Facebook group: https://facebook.com/groups/g');
+  });
+
+  it('with only some links added, shows only those, and with none says so instead of offering empty buttons', async () => {
+    mockFetch({ ...base, '/api/settings/public': { body: { supportWhatsappUrl: null, whatsappGroupEnUrl: 'https://chat.whatsapp.com/EN', whatsappGroupFrUrl: null, facebookUrl: null, instagramUrl: null, tiktokUrl: null, youtubeUrl: null, telegramUrl: null, messengerUrl: null, content: {} } }, '/api/member/referrals/mine': { body: { items: ITEMS, summary: { NOT_CONFIRMED: 1, PROFILE_INCOMPLETE: 0, QUIET: 1, ACTIVE: 1 }, canSeeWhatsapp: true, quietDays: 7 } } });
+    renderPage();
+    fireEvent.click(await screen.findByTestId('followup-links-b'));
+    const picker = screen.getByTestId('followup-picker-b');
+    expect(within(picker).getAllByRole('checkbox')).toHaveLength(1);
+    // The French group is not added yet, so Beau is given the English one rather than nothing.
+    expect(decodeURIComponent((screen.getByTestId('followup-send-b') as HTMLAnchorElement).href)).toContain('chat.whatsapp.com/EN');
+    fireEvent.click(within(picker).getByRole('checkbox'));
+    expect(screen.queryByTestId('followup-send-b')).toBeNull();
+    expect(screen.getByText('Tick at least one place.')).toBeInTheDocument();
+  });
+
+  it('marks the people who have not yet tapped the group link', async () => {
+    const items = ITEMS.map((p) => ({ ...p, tappedGroup: p.personId === 'c' }));
+    mockFetch({ ...base, '/api/member/referrals/mine': { body: { items, summary: { NOT_CONFIRMED: 1, PROFILE_INCOMPLETE: 0, QUIET: 1, ACTIVE: 1 }, canSeeWhatsapp: true, quietDays: 7 } } });
+    renderPage();
+    expect(await screen.findByTestId('not-joined-a')).toHaveTextContent('Has not tapped the group link yet');
+    expect(screen.getByTestId('not-joined-b')).toBeInTheDocument();
+    expect(screen.queryByTestId('not-joined-c')).toBeNull();
   });
 
   it('for an ordinary member there is no WhatsApp button, only the in-app message', async () => {
     mockFetch({ ...base, '/api/member/referrals/mine': { body: { items: ITEMS.map(({ whatsapp, ...p }) => p), summary: { NOT_CONFIRMED: 1, PROFILE_INCOMPLETE: 0, QUIET: 1, ACTIVE: 1 }, canSeeWhatsapp: false, quietDays: 7 } } });
     renderPage();
     await screen.findByTestId('referred-a');
-    expect(screen.queryByTestId('nudge-whatsapp-a')).toBeNull();
+    expect(screen.queryByTestId('followup-hello-a')).toBeNull();
     expect(within(screen.getByTestId('referred-a')).getByRole('link', { name: 'Message in the app' })).toHaveAttribute('href', '/member/people/a');
   });
 });
