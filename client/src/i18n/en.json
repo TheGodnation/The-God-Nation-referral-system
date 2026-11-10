@@ -4872,7 +4872,7 @@
   },
   "broadcast": {
     "title": "Message all my people",
-    "help": "Write once — text, a photo or a voice message — and everyone you look after receives it as a private message from you, with their first name in front. They can answer you privately.",
+    "help": "Write once — text, a photo or a voice message — and everyone you look after receives it as a private message from you. They can answer you privately.",
     "loading": "Loading…",
     "load_failed": "Could not load. Please try again.",
     "send_failed": "Could not send. Please try again.",
@@ -4883,7 +4883,7 @@
     "hide_people": "Hide the list",
     "select_all": "Select all",
     "select_none": "Select none",
-    "greeting_note": "Each person's message starts with “Hello” and their first name.",
+    "greeting_note": "Each message opens with “Hello, greetings from The God Nation”. No names are added; the rest is what you write.",
     "sent": "Sent to {{count}} people.",
     "skipped": "{{count}} could not be reached.",
     "my_history": "What I sent",

@@ -4872,7 +4872,7 @@
   },
   "broadcast": {
     "title": "Message à toutes mes personnes",
-    "help": "Écrivez une fois — texte, photo ou message vocal — et toutes les personnes dont vous prenez soin le reçoivent en message privé de votre part, avec leur prénom en tête. Elles peuvent vous répondre en privé.",
+    "help": "Écrivez une fois — texte, photo ou message vocal — et toutes les personnes dont vous prenez soin le reçoivent en message privé de votre part. Elles peuvent vous répondre en privé.",
     "loading": "Chargement…",
     "load_failed": "Chargement impossible. Réessayez.",
     "send_failed": "Envoi impossible. Réessayez.",
@@ -4883,7 +4883,7 @@
     "hide_people": "Masquer la liste",
     "select_all": "Tout sélectionner",
     "select_none": "Tout désélectionner",
-    "greeting_note": "Le message de chaque personne commence par « Bonjour » et son prénom.",
+    "greeting_note": "Chaque message commence par « Bonjour, salutations de The God Nation ». Aucun nom n’est ajouté ; le reste est ce que vous écrivez.",
     "sent": "Envoyé à {{count}} personnes.",
     "skipped": "{{count}} n'ont pas pu être jointes.",
     "my_history": "Ce que j'ai envoyé",

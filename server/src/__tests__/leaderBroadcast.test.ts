@@ -94,12 +94,14 @@ describe('Message all my people', () => {
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ recipients: 2, skipped: 0 });
 
-    for (const [who, greeting] of [[ada, 'Hello Ada,'], [marie, 'Bonjour Marie,']] as const) {
+    // The same greeting for everyone, in their own language, with no name in it.
+    for (const [who, greeting] of [[ada, 'Hello, greetings from The God Nation 🙏'], [marie, 'Bonjour, salutations de The God Nation 🙏']] as const) {
       const convo = await prisma.privateConversation.findUnique({ where: { memberPersonId_initiatorPersonId: { memberPersonId: who.person.id, initiatorPersonId: leader.person.id } } });
       expect(convo).toBeTruthy();
       const messages = await prisma.privateMessage.findMany({ where: { conversationId: convo!.id } });
       expect(messages).toHaveLength(1);
       expect(messages[0].body).toBe(`${greeting}\n\nGod is faithful. See you Sunday.`);
+      expect(messages[0].body).not.toMatch(/Ada|Marie/);
       expect(messages[0].senderPersonId).toBe(leader.person.id);
       expect(await prisma.notification.count({ where: { recipientPersonId: who.person.id, type: 'PRIVATE_MESSAGE_RECEIVED' } })).toBeGreaterThanOrEqual(1);
       // It is a normal conversation: the person sees it in their private chats and can reply.

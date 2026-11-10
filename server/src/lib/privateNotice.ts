@@ -27,5 +27,3 @@ export async function languagesOf(personIds: string[]): Promise<Map<string, stri
   const rows = await prisma.person.findMany({ where: { id: { in: personIds } }, select: { id: true, preferredLanguage: true } });
   return new Map(rows.map((r) => [r.id, r.preferredLanguage as string | null]));
 }
-
-export const firstNameOf = (name: string): string => name.trim().split(/\s+/)[0] || name;
