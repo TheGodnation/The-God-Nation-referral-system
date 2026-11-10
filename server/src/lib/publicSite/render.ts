@@ -2,7 +2,7 @@ import { APP_URL } from '../env';
 import { CSS, CSS_ARTICLES } from './style';
 import { headingsOf, renderBody } from './text';
 import {
-  BOOKS, DIVISIONS, FOUNDER, founderName, FR_REVIEWED, LANGS, MISSION, MOTTO, PAGE_META, PHOTOS, SECTION, UI, VISION, WHAT_WE_DO,
+  ABOUT, BOOKS, DIVISIONS, FOUNDER, founderName, FR_REVIEWED, LANGS, MISSION, MOTTO, PAGE_META, PHOTOS, SECTION, UI, VISION, WHAT_WE_DO,
   type Division, type Lang, type PageKey, type SiteBook,
 } from './content';
 
@@ -41,6 +41,13 @@ export function articlesOf(ctx: Ctx, lang: Lang, divisionKey?: string): PublicAr
 
 export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const other = (l: Lang): Lang => (l === 'en' ? 'fr' : 'en');
+
+/** The About page in the founder's own words: who we are, calling, vision, vision in action, mission, motto and scripture. */
+function aboutBody(l: Lang): string {
+  const a = ABOUT[l];
+  const paras = (xs: string[]) => xs.map((x) => `<p>${esc(x)}</p>`).join('');
+  return `<h2>${esc(a.who.title)}</h2>${paras(a.who.paras)}<h2>${esc(a.calling.title)}</h2>${paras(a.calling.paras)}<h2>${esc(a.vision.title)}</h2>${paras(a.vision.paras)}<h2>${esc(a.action.title)}</h2><p>${esc(a.action.intro)}</p><ul class="list">${a.action.list.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><p>${esc(a.action.closing)}</p><h2>${esc(a.mission.title)}</h2><p class="lead">${esc(a.mission.text)}</p><h2>${esc(a.motto.title)}</h2><p class="lead"><b>${esc(a.motto.lead)}</b></p><p>${esc(a.motto.text)}</p><h2>${esc(a.scripture.title)}</h2><div class="prose"><blockquote><p>${esc(a.scripture.quote)} — ${esc(a.scripture.ref)}</p></blockquote></div>`;
+}
 
 export function pathOf(p: PageRef): string {
   const { key, lang: l, division } = p;
@@ -217,7 +224,7 @@ function footer(p: PageRef): string {
   const areas = DIVISIONS.map((d) => `<a href="${pathOf({ key: 'division', lang: l, division: d })}">${esc(d.name[l])}</a>`).join('');
   return `<footer class="site"><div class="fcols"><div><div class="fbrand"><img src="/icons/icon-192.png" width="34" height="34" alt="">${esc(t.siteName)}</div><p>${esc(MISSION[l])}</p></div>
 <div><b>${esc(t.navKnowledge)}</b>${areas}</div>
-<div><b>${esc(t.footerMore)}</b><a href="${pathOf({ key: 'about', lang: l })}">${esc(t.navAbout)}</a><a href="${pathOf({ key: 'contact', lang: l })}">${esc(t.navContact)}</a><a href="/privacy">${esc(t.footerPrivacy)}</a><a href="${joinHref(l, campaignOf(p))}">${esc(t.navJoin)}</a><a href="/member/login">${esc(t.footerMembers)}</a></div></div>
+<div><b>${esc(t.footerMore)}</b><a href="${pathOf({ key: 'about', lang: l })}">${esc(t.navAbout)}</a><a href="${pathOf({ key: 'contact', lang: l })}">${esc(t.navContact)}</a><a href="/privacy">${esc(t.footerPrivacy)}</a><a href="/terms">${esc(t.footerTerms)}</a><a href="${joinHref(l, campaignOf(p))}">${esc(t.navJoin)}</a><a href="/member/login">${esc(t.footerMembers)}</a></div></div>
 <div class="fbase"><span>© ${esc(t.rights)}</span></div></footer>`;
 }
 
@@ -318,8 +325,7 @@ ${b.inSchool ? `<div class="callout read"><p>${esc(t.bookMembers)}</p></div>` : 
 <p><a href="${pathOf({ key: 'division', lang: l, division: DIVISIONS.find((d) => d.key === 'books-publications')! })}">← ${esc(t.bookAll)}</a></p></section></main>`;
     }
     case 'about':
-      return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1>${PHOTOS.founderOffice ? `<div class="about-photo">${photo(PHOTOS.founderOffice, l, { caption: `<b>${esc(founderName(l))}</b><span>${esc(t.founderRole)}</span>` })}</div>` : ''}<h2>${esc(t.aboutMission)}</h2><p class="lead">${esc(MISSION[l])}</p><h2>${esc(t.aboutVision)}</h2><p class="lead">${esc(VISION[l])}</p>
-<h2>${esc(t.aboutWhat)}</h2><ul class="list">${WHAT_WE_DO[l].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.aboutTitle)}</h1>${PHOTOS.founderOffice ? `<div class="about-photo">${photo(PHOTOS.founderOffice, l, { caption: `<b>${esc(founderName(l))}</b><span>${esc(t.founderRole)}</span>` })}</div>` : ''}${aboutBody(l)}
 <h2 style="margin-top:28px">${esc(t.aboutHow)}</h2><p>${esc(t.aboutHowText1)}</p><p>${esc(t.aboutHowText2)}</p><p>${esc(t.aboutHowText3)}</p>${PHOTOS.group ? photo(PHOTOS.group, l) : ''}</section></main>`;
     case 'contact':
       return `${crumbHtml(p)}<main id="content"><section class="blk wrap read"><h1>${esc(t.contactTitle)}</h1><p class="lead">${esc(t.contactIntro)}</p>

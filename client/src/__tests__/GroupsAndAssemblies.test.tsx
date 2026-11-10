@@ -85,6 +85,30 @@ describe('ManageCommunitiesPanel (the central admin’s profile)', () => {
     await waitFor(() => expect(calls.find((c) => c.method === 'POST' && c.url === C)?.body).toEqual({ name: 'Women', kind: 'GROUP', parentId: 'hq', autoPlacementEligible: false }));
   });
 
+  it('says the generation before saving, and will not make a third assembly when the two places are taken', async () => {
+    const preview = (kind: string, full: boolean) => ({ body: kind === 'GROUP' ? { kind, generation: 0, used: 2, max: 2, full: false, parentName: 'National HQ' } : { kind, generation: 1, used: full ? 2 : 1, max: 2, full, parentName: 'National HQ' } });
+    mockFetch({
+      [`GET ${C}?parentId=hq`]: () => ({ body: { items: [] } }),
+      [`GET ${C}?&page`]: () => ({ body: { items: [hq] } }),
+      [`GET ${C}/hq/new-child-preview?kind=GROUP`]: () => preview('GROUP', false),
+      [`GET ${C}/hq/new-child-preview?kind=ASSEMBLY`]: () => preview('ASSEMBLY', true),
+    });
+    render(<ManageCommunitiesPanel base={C} />);
+    fireEvent.click(within((await screen.findAllByTestId('manage-row'))[0]).getByRole('button', { name: 'Open' }));
+    fireEvent.click(await screen.findByRole('button', { name: /New in National HQ/ }));
+    // The group is the default, and stays in the founding generation.
+    expect(await screen.findByText('This stays in generation 0 (founding).')).toBeInTheDocument();
+    // Choosing an assembly says generation 1, and that the two places are taken, so Create is off.
+    fireEvent.click(screen.getByLabelText(/An assembly of the next generation/));
+    expect(await screen.findByText('This will be generation 1.')).toBeInTheDocument();
+    expect(screen.getByText(/National HQ already has its 2 assemblies/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Third' } });
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+    // Back to a group: Create is on again.
+    fireEvent.click(screen.getByLabelText(/A group inside this assembly/));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled());
+  });
+
   it('deletes with the typed name and says where the members go', async () => {
     mockFetch({
       [`GET ${C}?&page`]: () => ({ body: { items: [prayer] } }),

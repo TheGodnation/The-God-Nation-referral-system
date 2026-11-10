@@ -1,3 +1,5 @@
+import { RichText } from '../../lib/richText';
+import { FormattedTextarea } from '../FormattedTextarea';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -171,7 +173,7 @@ function Compose({ base, leaders, generations, representative, onCancel, onSent 
       </label>
       <label className="block text-sm font-semibold text-slate-700">
         {t('instructions.f_body')}
-        <textarea className="input mt-1 min-h-[8rem]" value={body} maxLength={20000} onChange={(e) => setBody(e.target.value)} />
+        <FormattedTextarea className="input mt-1 min-h-[8rem]" rows={10} headings value={body} maxLength={20000} onValueChange={setBody} />
       </label>
       <p className="text-xs text-slate-500">{t('instructions.translated_note')}</p>
 
@@ -261,7 +263,7 @@ function TrackerView({ base, id, onChanged }: { base: string; id: string; onChan
   const unfinished = data.recipients.filter((r) => r.status !== 'DONE').length;
   return (
     <div className="space-y-3 border-t border-slate-200 pt-3" data-testid="instruction-tracker">
-      <p className="whitespace-pre-wrap text-sm text-slate-800">{pickText(i18n.language, data.language, data.body, data.bodyTr)}</p>
+      <RichText text={pickText(i18n.language, data.language, data.body, data.bodyTr)} headings comfort className="text-[15px] leading-relaxed text-slate-800" />
       {unfinished > 0 && (
         <button type="button" className="btn-secondary text-sm" disabled={busy} onClick={() => void remind()} data-testid="instruction-remind">
           ⏰ {t('instructions.remind', { count: unfinished })}

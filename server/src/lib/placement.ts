@@ -48,6 +48,8 @@ interface OpenGroup {
   memberCount: number;
   /** How many assemblies the app has already opened under this one. */
   autoChildCount: number;
+  /** How many assemblies of any kind of origin sit directly under this one (at most MAX_CHILD_ASSEMBLIES). */
+  assemblyChildCount?: number;
   createdAt: Date;
 }
 
@@ -78,6 +80,13 @@ async function findOpenGroups(headquartersId: string): Promise<OpenGroup[]> {
   });
   const childCountById = new Map(childCounts.map((c) => [c.parentId as string, c._count._all]));
 
+  const allChildCounts = await prisma.community.groupBy({
+    by: ['parentId'],
+    where: { parentId: { in: groups.map((g) => g.id) }, kind: 'ASSEMBLY' },
+    _count: { _all: true },
+  });
+  const allChildCountById = new Map(allChildCounts.map((c) => [c.parentId as string, c._count._all]));
+
   const counts = await prisma.communityMembership.groupBy({
     by: ['communityId'],
     where: { communityId: { in: groups.map((g) => g.id) }, status: 'ACTIVE' },
@@ -92,6 +101,7 @@ async function findOpenGroups(headquartersId: string): Promise<OpenGroup[]> {
     placementRegion: g.placementRegion,
     memberCount: countById.get(g.id) ?? 0,
     autoChildCount: childCountById.get(g.id) ?? 0,
+    assemblyChildCount: allChildCountById.get(g.id) ?? 0,
     createdAt: g.createdAt,
   }));
 }
@@ -155,7 +165,8 @@ export function planPlacement(
   const withRoom = groups.filter((g) => g.memberCount < capacity);
   if (withRoom.length > 0) return { kind: 'place', groupId: chooseGroup(withRoom, mode, location)! };
 
-  const canHostChild = groups.filter((g) => g.autoChildCount < MAX_AUTO_CHILDREN);
+  // Counting every assembly under it, the ones made by hand as well, never more than two.
+  const canHostChild = groups.filter((g) => g.autoChildCount < MAX_AUTO_CHILDREN && (g.assemblyChildCount ?? g.autoChildCount) < MAX_AUTO_CHILDREN);
   if (canHostChild.length > 0) return { kind: 'split', parentId: chooseGroup(canHostChild, mode, location)! };
 
   return { kind: 'place', groupId: smallest(groups)!.id };

@@ -81,6 +81,29 @@ describe('Public pages', () => {
     expect(res.text).toContain('make disciples who make disciples');
   });
 
+  it('the About page carries the founder\'s seven sections in order, in English and in French', async () => {
+    const en = (await request(appOn).get('/en/about/')).text;
+    const heads = ['Who we are', 'Our calling', 'Our vision', 'Our vision in action', 'Our mission', 'Our motto', 'Our scriptural foundation'];
+    const at = heads.map((h) => en.indexOf(`<h2>${h}</h2>`));
+    expect(at.every((i) => i > 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    expect(en).toContain('spiritual visitations and divine dealings with my family');
+    expect(en).toContain('Go into the digital media spaces where billions gather.');
+    expect(en).toContain('Matthew 28:19');
+    expect(en).toContain('<li>Digital books and publications.</li>');
+    const fr = (await request(appOn).get('/fr/a-propos/')).text;
+    for (const h of ['Qui nous sommes', 'Notre appel', 'Notre vision', 'Notre vision en action', 'Notre mission', 'Notre devise', 'Notre fondement biblique']) expect(fr).toContain(`<h2>${h}</h2>`);
+    expect(fr).toContain('Matthieu 28.19');
+  });
+
+  it('every public page footer links to the Terms of Use (and the Privacy page), in the page\'s own language', async () => {
+    const en = (await request(appOn).get('/en/')).text;
+    expect(en).toContain('<a href="/terms">Terms of Use</a>');
+    expect(en).toContain('<a href="/privacy">Privacy</a>');
+    const fr = (await request(appOn).get('/fr/a-propos/')).text;
+    expect(fr).toContain('<a href="/terms">Conditions d’utilisation</a>');
+  });
+
   it('home carries Organization and WebSite data; inner pages carry a breadcrumb; the data parses and claims nothing extra', async () => {
     const home = await request(appOn).get('/en/');
     const ld = JSON.parse(/application\/ld\+json">(.*?)<\/script>/s.exec(home.text)![1]);
@@ -110,7 +133,7 @@ describe('Public pages', () => {
   });
 
   it('every link on every page leads somewhere that exists', async () => {
-    const outside = new Set(['/privacy', '/contact', '/member/login']);
+    const outside = new Set(['/privacy', '/terms', '/contact', '/member/login']);
     const checked = new Set<string>();
     for (const p of everyPath()) {
       const res = await request(appOn).get(p);

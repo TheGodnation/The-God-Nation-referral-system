@@ -77,6 +77,7 @@ const MemberTeachingPage = lazy(() => import('./pages/MemberTeachingPage').then(
 const MemberTeachingComposePage = lazy(() => import('./pages/MemberTeachingComposePage').then((m) => ({ default: m.MemberTeachingComposePage })));
 const MemberPasswordHelpPage = lazy(() => import('./pages/MemberPasswordHelpPage').then((m) => ({ default: m.MemberPasswordHelpPage })));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import('./pages/TermsPage').then((m) => ({ default: m.TermsPage })));
 const DeleteAccountPage = lazy(() => import('./pages/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })));
 const MemberDeleteAccountPage = lazy(() => import('./pages/MemberDeleteAccountPage').then((m) => ({ default: m.MemberDeleteAccountPage })));
 const MemberDownloadsPage = lazy(() => import('./pages/MemberDownloadsPage').then((m) => ({ default: m.MemberDownloadsPage })));
@@ -128,6 +129,7 @@ export default function App() {
             <Route path="/announcements" element={<AnnouncementsPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
             <Route path="/delete-account" element={<DeleteAccountPage />} />
             <Route path="/member/login" element={<MemberLoginPage />} />
             <Route path="/member/login/confirm" element={<MemberLoginConfirmPage />} />

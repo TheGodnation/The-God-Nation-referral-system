@@ -9,6 +9,7 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { contextTargetExists } from '../lib/leadership';
 import { recordAudit } from '../lib/audit';
 import { profilePhotoPath } from '../lib/profilePhoto';
+import { limitError, previewNewChild } from '../lib/assemblyLimit';
 
 // ---------------------------------------------------------------------------
 // Running an assembly from the app, for the central admin's member profile
@@ -36,6 +37,8 @@ async function requireCoordinator(req: any, res: any): Promise<string | null> {
 const subSchema = z.object({
   name: z.string().trim().min(1, 'Please type a name.').max(200),
   aboutEn: z.string().trim().max(1000).optional(),
+  // A group (women, youth, prayer…) stays in this assembly's generation; an assembly is the next generation.
+  kind: z.enum(['ASSEMBLY', 'GROUP']).optional(),
 });
 
 // POST /api/communities/:communityId/sub-assemblies — a new assembly inside
@@ -47,9 +50,17 @@ router.post('/:communityId/sub-assemblies', communityMutationLimiter, requireCsr
   const parsed = subSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid name.' });
 
+  const kind = parsed.data.kind ?? 'ASSEMBLY';
+  const parent = await prisma.community.findUnique({ where: { id: req.params.communityId }, select: { kind: true } });
+  if (parent?.kind === 'GROUP') return res.status(400).json({ error: 'A group or an assembly must be created inside an assembly, not inside a group.' });
+  if (kind === 'ASSEMBLY') {
+    const full = await limitError(prisma, req.params.communityId);
+    if (full) return res.status(400).json({ error: full, code: 'ASSEMBLY_LIMIT' });
+  }
+
   const created = await prisma.$transaction(async (tx) => {
     const community = await tx.community.create({
-      data: { name: parsed.data.name, parentId: req.params.communityId, autoPlacementEligible: false, aboutEn: parsed.data.aboutEn || null },
+      data: { name: parsed.data.name, kind, parentId: req.params.communityId, autoPlacementEligible: false, aboutEn: parsed.data.aboutEn || null },
     });
     await tx.conversation.create({ data: { communityId: community.id } });
     return community;
@@ -59,9 +70,18 @@ router.post('/:communityId/sub-assemblies', communityMutationLimiter, requireCsr
     action: 'COMMUNITY_CREATED',
     targetType: 'Community',
     targetId: created.id,
-    metadata: { name: created.name, parentId: created.parentId, byPersonId: personId, via: 'app' },
+    metadata: { name: created.name, parentId: created.parentId, kind: created.kind, byPersonId: personId, via: 'app' },
   });
   res.status(201).json({ id: created.id, name: created.name });
+}));
+
+// GET /api/communities/:communityId/new-child-preview?kind= — the generation a new group or assembly here would
+// get, and how many of the 2 assembly places are used.
+router.get('/:communityId/new-child-preview', asyncHandler(async (req, res) => {
+  if (!(await requireCoordinator(req, res))) return;
+  const preview = await previewNewChild(req.params.communityId, req.query.kind === 'GROUP' ? 'GROUP' : 'ASSEMBLY');
+  if (!preview) return res.status(404).json({ error: 'Assembly not found.' });
+  res.json(preview);
 }));
 
 const searchSchema = z.object({ q: z.string().trim().min(2).max(100) });

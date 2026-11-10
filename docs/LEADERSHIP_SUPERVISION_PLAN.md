@@ -178,3 +178,26 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   `20261218090000`. Set 3 comes later.
 - **Book 3's exam, Set 3** (the final set; English + French, 25 marked questions; draft only, loads only if that set is still empty) is loaded by migration
   `20261219090000`. Book 3's exam now has all three sets and stays a draft until the founder publishes it.
+
+## Leader follow-up on WhatsApp (links and greeting)
+
+- On "My referrals", a leader sees, for each person who has a WhatsApp number, three buttons: **Say hello** (a plain greeting, no names, in the person's language),
+  **Send our links** (a tick list of our places; WhatsApp opens with the message typed, the leader presses send) and **Which apps do you use?** (a question with every link under it).
+- The places, in order: WhatsApp group (the person's language first), Telegram group, Messenger group, Facebook group, Facebook page, Instagram page. Channels are left out. Only links the admin has filled in are shown.
+- A leader is also told who has not yet tapped "join our WhatsApp group" (`tappedGroup` on `GET /api/member/referrals/mine`, leaders only).
+- Nothing is sent by the app and nothing new is asked of people. Telegram usernames and Messenger links are not collected (many people do not know them); people are sent our links to join instead.
+
+## Public About page and Terms of Use
+
+- The public About page (`/en/about/`, `/fr/a-propos/`) carries the founder's seven sections as he wrote them (10 November 2026). The app's own About page keeps its earlier wording on purpose (no separate "Our mission", short name "The God Nation") until the founder says to change it.
+- **Terms of Use** at `/terms` (English and French, from the language of the app), linked in the footer of the app pages and of every public page. It was drafted for the founder to review: community rules, what happens when they are broken, content and materials, exams, payments, ambassador links, spiritual guidance, law and contact.
+
+## "One brings two": at most two assemblies under each assembly (done)
+
+- **Limit**: an assembly can have at most **2 assemblies directly under it** (`lib/assemblyLimit.ts`, `MAX_CHILD_ASSEMBLIES`), so the generations grow 2, 4, 8, 16… Groups are not generations and are never limited or counted. The limit holds for every way of making an assembly: creating one (admin dashboard, the central admin's profile, Assembly info), a group changed into an assembly, an assembly moved under another, deleting an assembly whose sub-assemblies would step up to a full parent, replacing the Headquarters with "move sub-assemblies up", the add-many-people tool's new assembly, and the app's automatic opening of a new assembly when one is full (which now counts every assembly under a parent, including those made by hand). Refusals say "<name> already has its 2 assemblies" (`code: ASSEMBLY_LIMIT`). Nothing that already exists is changed.
+- **Two choices on Assembly info**: "New group here" (stays in the same generation, group by default) and "New next-generation assembly" (generation + 1). The old single "New sub-assembly" button always made an assembly, which is why an assembly made inside the Headquarters became generation 1.
+- **Preview before saving**: "This will be generation N. <parent> has x of 2 assembly places used." For a group: "This stays in generation N. A group is not a new generation and has no limit." Create is switched off when the two places are taken. Endpoints: `GET /api/communities/:id/new-child-preview`, `/api/admin/communities/:id/new-child-preview` and `/api/member/central-communities/:id/new-child-preview`.
+
+## Instructions read professionally (done)
+
+- An instruction is shown to leaders (and in the central admin's tracker) with the same formatting as posts and book pages: `# Heading`, `## Sub-heading`, `*bold*`, `_italic_`, `- bullets`, `1. steps`, `> quote`, with roomy spacing for long reading. The writing box has the same formatting bar. Older instructions written as plain text still show correctly (paragraphs, lists).
