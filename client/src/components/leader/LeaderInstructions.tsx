@@ -1,3 +1,4 @@
+import { RichText } from '../../lib/richText';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
@@ -77,7 +78,7 @@ export function LeaderInstructions({ onChanged }: { onChanged?: () => void }) {
           </button>
           {openId === i.id && (
             <div className="space-y-3 border-t border-slate-200 pt-3">
-              <p className="whitespace-pre-wrap text-sm text-slate-800">{pickText(i18n.language, i.language, i.body, i.bodyTr)}</p>
+              <RichText text={pickText(i18n.language, i.language, i.body, i.bodyTr)} headings comfort className="text-[15px] leading-relaxed text-slate-800" data-testid={`instruction-body-${i.id}`} />
               {i.replies.length > 0 && (
                 <div className="rounded-lg bg-slate-50 p-2 text-xs text-slate-700">
                   <p className="mb-1 font-semibold">{t('instructions.others_notes')}</p>

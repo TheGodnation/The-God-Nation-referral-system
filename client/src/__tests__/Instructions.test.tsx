@@ -120,6 +120,20 @@ describe('A leader\'s instructions', () => {
     expect(calls.find((c) => c.url.endsWith('/i1/done'))!.body).toEqual({ note: 'Done, 12 contacted' });
   });
 
+  it('shows the instruction as it was written: headings, bold, bullets and numbered steps, not raw symbols', async () => {
+    const body = '# Your first week\n\nGreetings, and *thank you* for saying yes.\n\n## What to do\n\n- Contact each person you look after\n- Send your weekly report\n\n1. Open the Leadership home\n2. Tap My people';
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => (init?.method === 'POST' ? json({ ok: true }) : json({ items: [item({ id: 'f', body, bodyTr: null })] }))));
+    render(<LeaderInstructions />);
+    fireEvent.click(await screen.findByTestId('leader-instruction-f'));
+    const text = await screen.findByTestId('instruction-body-f');
+    expect(within(text).getByText('Your first week')).toBeInTheDocument();
+    expect(within(text).getByText('What to do')).toBeInTheDocument();
+    expect(text.querySelector('strong, b')?.textContent).toBe('thank you');
+    expect(within(text).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Contact each person you look after', 'Send your weekly report', 'Open the Leadership home', 'Tap My people']);
+    expect(text.textContent).not.toContain('# ');
+    expect(text.textContent).not.toContain('*thank you*');
+  });
+
   it('shows others\' notes when allowed, and puts finished instructions after the ones to do', async () => {
     vi.stubGlobal('fetch', vi.fn(() => json({ items: [
       item({ id: 'a', title: 'Old one', status: 'DONE', doneAt: 'x', seenAt: 'x' }),
