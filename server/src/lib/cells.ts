@@ -1,3 +1,4 @@
+import { closeFollowUpsOfNewLeader } from './followRules';
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { recordAudit } from './audit';
@@ -204,6 +205,7 @@ export async function appointLeader(
     metadata: { personId, roleType: 'SCOPED_LEADER', communityId, via: 'ready-to-lead' },
   });
   await notifyRoleAssigned(created);
+  await closeFollowUpsOfNewLeader(personId);
   // Leading an assembly also needs the Leader account that opens the "My Leadership Dashboard".
   const leaderAccount = await ensureLeaderAccount(personId, actor);
   return { ok: true, id: created.id, leaderAccount: leaderAccount.status };
@@ -247,6 +249,7 @@ export async function makeLeaders(communityId: string, personIds: string[], acto
     try {
       const created = await prisma.roleAssignment.create({ data: { personId, roleType: 'SCOPED_LEADER', communityId, assignedByUserId: actor.id } });
       await notifyRoleAssigned(created);
+      await closeFollowUpsOfNewLeader(personId);
       await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'ROLE_ASSIGNMENT_CREATED', targetType: 'RoleAssignment', targetId: created.id, metadata: { personId, roleType: 'SCOPED_LEADER', communityId, via: 'make-leaders', addedToAssembly } });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') status = 'ALREADY_LEADER';

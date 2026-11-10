@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { centralAdminAmong, isCentralAdminPerson } from '../lib/centralAdmin';
+import { followBlock, followBlockMessage, neverAssignedAmong, closeFollowUpsOfNewLeader } from '../lib/followRules';
 import { requireAuth, requireRole } from '../lib/auth';
 import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
@@ -114,6 +114,7 @@ router.post('/role-assignments', leadershipMutationLimiter, requireCsrf, asyncHa
   });
 
   await notifyRoleAssigned(created);
+  await closeFollowUpsOfNewLeader(personId);
 
   // One step for the admin: leading an assembly also needs the Leader account that opens the "My Leadership
   // Dashboard", so a member who has none gets it now. (Someone with no member account yet cannot; the page says so.)
@@ -263,10 +264,9 @@ router.post('/follow-ups', leadershipMutationLimiter, requireCsrf, asyncHandler(
   if (followerId === followedPersonId) {
     return res.status(400).json({ error: 'A Person cannot follow themselves.' });
   }
-  // The central admin follows up the leaders, never the other way round.
-  if (await isCentralAdminPerson(followedPersonId)) {
-    return res.status(400).json({ error: 'The central admin is not followed up by leaders: the central admin follows up the leaders.', code: 'CENTRAL_ADMIN_NOT_FOLLOWED' });
-  }
+  // The central admin follows up the leaders, never the other way round; leaders only by the central admin and the representatives.
+  const block = await followBlock(followerId, followedPersonId);
+  if (block) return res.status(400).json({ error: followBlockMessage(block), code: block === 'CENTRAL_ADMIN' ? 'CENTRAL_ADMIN_NOT_FOLLOWED' : 'LEADER_NOT_FOLLOWED_BY_LEADERS' });
 
   const [follower, followedPerson, targetExists] = await Promise.all([
     prisma.person.findUnique({ where: { id: followerId } }),
@@ -373,8 +373,8 @@ router.post('/follow-ups/bulk-distribute', leadershipMutationLimiter, requireCsr
   // The pool to split: every active member here, except the Leaders doing
   // the following themselves, and anyone already actively followed by
   // anyone (never double-assigned, never silently reassigned).
-  const admins = await centralAdminAmong(members.map((m) => m.person.id));
-  const pool = members.map((m) => m.person).filter((p) => !followerSet.has(p.id) && !alreadyFollowedSet.has(p.id) && !admins.has(p.id));
+  const never = await neverAssignedAmong(members.map((m) => m.person.id));
+  const pool = members.map((m) => m.person).filter((p) => !followerSet.has(p.id) && !alreadyFollowedSet.has(p.id) && !never.has(p.id));
 
   if (pool.length === 0) {
     return res.json({
