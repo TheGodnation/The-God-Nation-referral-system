@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { limitError } from './assemblyLimit';
 import { getCommunityGeneration, getCommunityIdsAtGeneration, getHeadquartersCommunityId } from './tree';
 import { notifyAddedToAssembly } from './notifications';
 
@@ -130,6 +131,8 @@ export async function bulkAdd(input: BulkAddInput) {
     if (input.newAssembly.parentId) {
       const parent = await prisma.community.findUnique({ where: { id: input.newAssembly.parentId }, select: { id: true } });
       if (!parent) throw new BulkError('The assembly to put it under was not found.');
+      const full = await limitError(prisma, input.newAssembly.parentId);
+      if (full) throw new BulkError(full);
     }
     destination = await prisma.$transaction(async (tx) => {
       const community = await tx.community.create({ data: { name: input.newAssembly!.name, parentId: input.newAssembly!.parentId ?? null } });

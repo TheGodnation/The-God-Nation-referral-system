@@ -61,15 +61,53 @@ describe('Manage this assembly (central admin profile)', () => {
     expect(changed).toHaveBeenCalled();
   });
 
-  it('makes a private sub-assembly and offers to open it', async () => {
-    mockFetch({ 'POST /api/communities/c1/sub-assemblies': () => ({ status: 201, body: { id: 'c2', name: 'HQ Leaders' } }) });
+  const previewOf = (kind: string, used = 0, full = false) => () => ({
+    body: kind === 'GROUP'
+      ? { kind, generation: 0, used, max: 2, full: false, parentName: 'HQ' }
+      : { kind, generation: 1, used, max: 2, full, parentName: 'HQ' },
+  });
+
+  it('makes a group here: it stays in this generation, says so before saving, and offers to open it', async () => {
+    mockFetch({
+      'GET /api/communities/c1/new-child-preview?kind=GROUP': previewOf('GROUP', 1),
+      'POST /api/communities/c1/sub-assemblies': () => ({ status: 201, body: { id: 'c2', name: 'HQ Leaders' } }),
+    });
     renderIt();
-    fireEvent.click(screen.getByRole('button', { name: /New sub-assembly/ }));
-    expect(screen.getByText(/A private assembly inside HQ/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Name of the sub-assembly'), { target: { value: 'HQ Leaders' } });
+    fireEvent.click(screen.getByRole('button', { name: /New group here/ }));
+    expect(screen.getByText(/A group inside HQ/)).toBeInTheDocument();
+    expect(await screen.findByText('This stays in generation 0 (founding).')).toBeInTheDocument();
+    expect(screen.getByText('A group is not a new generation and has no limit.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Name of the group'), { target: { value: 'HQ Leaders' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
     expect(await screen.findByText('✓ HQ Leaders is ready')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open it' })).toHaveAttribute('href', '/member/chats/group/c2/info');
-    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ name: 'HQ Leaders' });
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ name: 'HQ Leaders', kind: 'GROUP' });
+  });
+
+  it('makes a next-generation assembly: says "generation 1" and how many of the 2 places are used before saving', async () => {
+    mockFetch({
+      'GET /api/communities/c1/new-child-preview?kind=ASSEMBLY': previewOf('ASSEMBLY', 1),
+      'POST /api/communities/c1/sub-assemblies': () => ({ status: 201, body: { id: 'c3', name: 'North' } }),
+    });
+    renderIt();
+    fireEvent.click(screen.getByRole('button', { name: /New next-generation assembly/ }));
+    expect(await screen.findByText('This will be generation 1.')).toBeInTheDocument();
+    expect(screen.getByText('HQ has 1 of 2 assembly places used.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Name of the assembly'), { target: { value: 'North' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(await screen.findByText('✓ North is ready')).toBeInTheDocument();
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ name: 'North', kind: 'ASSEMBLY' });
+  });
+
+  it('when the assembly already has its two assemblies, says so and does not let you create another (a group is still fine)', async () => {
+    mockFetch({
+      'GET /api/communities/c1/new-child-preview?kind=ASSEMBLY': previewOf('ASSEMBLY', 2, true),
+      'GET /api/communities/c1/new-child-preview?kind=GROUP': previewOf('GROUP', 2),
+    });
+    renderIt();
+    fireEvent.click(screen.getByRole('button', { name: /New next-generation assembly/ }));
+    expect(await screen.findByText(/HQ already has its 2 assemblies\. Make a group instead/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Name of the assembly'), { target: { value: 'Third' } });
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
   });
 });

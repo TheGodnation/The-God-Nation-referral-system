@@ -11,6 +11,7 @@ import { wouldCreateCycle, getCommunityGeneration, getHeadquartersCommunityId, g
 import { communityMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { addPeopleToCommunity } from '../lib/bulkMembers';
+import { childAssemblyCount, limitError, previewNewChild } from '../lib/assemblyLimit';
 import { notifyAddedToAssembly } from '../lib/notifications';
 
 // The community tools (list, create, rename, assembly-or-group, move, delete…) are offered twice with the same rules:
@@ -160,6 +161,10 @@ router.post('/headquarters/replace', communityMutationLimiter, requireCsrf, asyn
   if (!old) return res.status(400).json({ error: 'The current Headquarters could not be found.' });
 
   const { moveSubAssembliesUp, closeOthersToNewcomers } = parsed.data;
+  if (moveSubAssembliesUp) {
+    const stepping = await childAssemblyCount(prisma, old.id);
+    if (stepping > 2) return res.status(400).json({ error: `The current Headquarters has ${stepping} assemblies under it, but the new Headquarters can have only 2. Do not move them up, or reduce them to 2 first.`, code: 'ASSEMBLY_LIMIT' });
+  }
   // Worked out before anything changes: the old Headquarters and everything under it.
   const oldTree = closeOthersToNewcomers ? await getDescendantCommunityIds(old.id) : [];
   const eligible = parsed.data.autoPlacementEligible || closeOthersToNewcomers;
@@ -349,6 +354,10 @@ router.post('/', communityMutationLimiter, requireCsrf, asyncHandler(async (req,
     if (kind === 'ASSEMBLY' && parent.kind === 'GROUP') {
       return res.status(400).json({ error: 'An assembly of the next generation must sit under an assembly, not under a group.' });
     }
+    if (kind === 'ASSEMBLY') {
+      const full = await limitError(prisma, d.parentId);
+      if (full) return res.status(400).json({ error: full, code: 'ASSEMBLY_LIMIT' });
+    }
   }
 
   // Phase 3M.1: every Community gets its one Conversation eagerly, in the
@@ -427,6 +436,13 @@ router.patch('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (
     if (parentKind === 'GROUP') return res.status(400).json({ error: 'An assembly of the next generation must sit under an assembly, not under a group.' });
   }
 
+  // Each assembly has at most two assemblies under it: a group becoming an assembly, or an assembly moving under
+  // another one, needs a free place there.
+  if (newKind === 'ASSEMBLY' && newParentId && (existing.kind === 'GROUP' || newParentId !== existing.parentId)) {
+    const full = await limitError(prisma, newParentId);
+    if (full) return res.status(400).json({ error: full, code: 'ASSEMBLY_LIMIT' });
+  }
+
   if (d.parentId !== undefined && d.parentId !== null) {
     if (d.parentId === id) {
       return res.status(400).json({ error: 'A community cannot be its own parent.' });
@@ -483,6 +499,15 @@ async function deletionImpact(id: string) {
   return { members, subAssemblies, messages, teachings, events };
 }
 
+// GET /api/admin/communities/:id/new-child-preview?kind=ASSEMBLY|GROUP — what creating a group or an assembly inside
+// this one would do: the generation it gets and how many of the 2 places are used.
+router.get('/:id/new-child-preview', asyncHandler(async (req, res) => {
+  const kind = req.query.kind === 'GROUP' ? 'GROUP' : 'ASSEMBLY';
+  const preview = await previewNewChild(req.params.id, kind);
+  if (!preview) return res.status(404).json({ error: 'Community not found.' });
+  res.json(preview);
+}));
+
 // GET /api/admin/communities/:id/delete-impact
 router.get('/:id/delete-impact', asyncHandler(async (req, res) => {
   const node = await prisma.community.findUnique({ where: { id: req.params.id }, select: { id: true, name: true } });
@@ -510,7 +535,7 @@ router.delete('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async 
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
   }
-  const existing = await prisma.community.findUnique({ where: { id }, select: { id: true, name: true, parentId: true } });
+  const existing = await prisma.community.findUnique({ where: { id }, select: { id: true, name: true, parentId: true, kind: true } });
   if (!existing) return res.status(404).json({ error: 'Community not found.' });
 
   const headquartersId = await getHeadquartersCommunityId();
@@ -528,6 +553,15 @@ router.delete('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async 
       code: 'HAS_SUB_ASSEMBLIES',
       subAssemblies: impact.subAssemblies,
     });
+  }
+
+  // The assemblies under it step up to its parent, which can hold only two assemblies in all.
+  if (impact.subAssemblies > 0 && existing.parentId) {
+    const stepping = await childAssemblyCount(prisma, id);
+    const full = await limitError(prisma, existing.parentId, stepping, existing.kind === 'ASSEMBLY' ? [id] : []);
+    if (full) {
+      return res.status(400).json({ error: `${full} The assemblies under “${existing.name}” would have nowhere to go: move or delete one of them first.`, code: 'ASSEMBLY_LIMIT' });
+    }
   }
 
   let membersMoved: { destinationName: string; added: number; alreadyIn: number } | undefined;

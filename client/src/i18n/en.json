@@ -3001,6 +3001,22 @@
     "stay_here": "Stay to read the correct answers",
     "pending_note": "These brethren have not finished yet."
   },
+  "newChild": {
+    "founding": "0 (founding)",
+    "assembly_generation": "This will be generation {{generation}}.",
+    "places_used": "{{parent}} has {{used}} of {{max}} assembly places used.",
+    "full": "{{parent}} already has its {{max}} assemblies. Make a group instead, or choose another assembly.",
+    "group_generation": "This stays in generation {{generation}}.",
+    "group_note": "A group is not a new generation and has no limit.",
+    "btn_group": "New group here",
+    "btn_assembly": "New next-generation assembly",
+    "group_title": "New group",
+    "assembly_title": "New next-generation assembly",
+    "group_help": "A group inside {{name}} (women, youth, prayer, leadership…). It stays in the same generation. Nobody is placed in it automatically; you add the people.",
+    "assembly_help": "An assembly inside {{name}}, one generation further. Each assembly can have only two. Nobody is placed in it automatically; you add the people.",
+    "group_name": "Name of the group",
+    "assembly_name": "Name of the assembly"
+  },
   "manageAssembly": {
     "title": "Manage this assembly",
     "add_people": "Add people",

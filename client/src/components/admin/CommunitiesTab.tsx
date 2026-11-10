@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
 import { DeleteCommunityPanel } from './DeleteCommunityPanel';
+import { NewChildPreview } from '../assembly/NewChildPreview';
 import { CentralAuthorityConversationOversight } from './CentralAuthorityConversationOversight';
 import { GroupDetailsEditor } from './GroupDetailsEditor';
 import { CAMEROON, CAMEROON_REGIONS, COUNTRIES, optionLabel } from '../../lib/locations';
@@ -63,6 +64,7 @@ export function CommunitiesTab() {
   // Where the new assembly goes: inside the one currently open (the default),
   // or another one picked here, or the top level.
   const [newParent, setNewParent] = useState<{ id: string; name: string } | null>(null);
+  const [newFull, setNewFull] = useState(false);
   // "Add people" panel for one assembly.
   const [addingFor, setAddingFor] = useState<{ id: string; name: string } | null>(null);
   const [addedNote, setAddedNote] = useState<string | null>(null);
@@ -538,6 +540,7 @@ export function CommunitiesTab() {
               </span>
             </label>
           </fieldset>
+          {newParent && <NewChildPreview base="/api/admin/communities" parentId={newParent.id} kind={newKind} onFull={setNewFull} />}
           {newKind === 'ASSEMBLY' && (
           <fieldset className="space-y-2 text-sm">
             <legend className="label">{t('admin.communities.new_who_joins')}</legend>
@@ -558,7 +561,7 @@ export function CommunitiesTab() {
           </fieldset>
           )}
           {error && <p className="text-sm text-red-700">{error}</p>}
-          <button className="btn-primary" type="submit">
+          <button className="btn-primary" type="submit" disabled={newKind === 'ASSEMBLY' && Boolean(newParent) && newFull}>
             {t('admin.communities.create')}
           </button>
         </form>

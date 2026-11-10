@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Avatar } from '../Avatar';
+import { NewChildPreview } from './NewChildPreview';
 
 // For the central admin's member profile ("National Coordinator"), on an
 // assembly's info page: add people to it by name, and make a private
@@ -109,21 +110,23 @@ function AddPeopleSheet({ communityId, communityName, onClose, onChanged }: { co
   );
 }
 
-function NewSubAssemblySheet({ communityId, communityName, onClose }: { communityId: string; communityName: string; onClose: () => void }) {
+function NewSubAssemblySheet({ communityId, communityName, kind, onClose }: { communityId: string; communityName: string; kind: 'ASSEMBLY' | 'GROUP'; onClose: () => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [about, setAbout] = useState('');
   const [busy, setBusy] = useState(false);
+  const [full, setFull] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: string; name: string } | null>(null);
+  const group = kind === 'GROUP';
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    if (busy || !name.trim()) return;
+    if (busy || !name.trim() || (!group && full)) return;
     setBusy(true);
     setError(null);
     try {
-      setCreated(await api.post<{ id: string; name: string }>(`/api/communities/${communityId}/sub-assemblies`, { name: name.trim(), aboutEn: about.trim() || undefined }));
+      setCreated(await api.post<{ id: string; name: string }>(`/api/communities/${communityId}/sub-assemblies`, { name: name.trim(), kind, aboutEn: about.trim() || undefined }));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('manageAssembly.create_failed'));
     } finally {
@@ -132,7 +135,7 @@ function NewSubAssemblySheet({ communityId, communityName, onClose }: { communit
   }
 
   return (
-    <Sheet label={t('manageAssembly.new_title') ?? ''} onClose={onClose}>
+    <Sheet label={t(group ? 'newChild.group_title' : 'newChild.assembly_title') ?? ''} onClose={onClose}>
       {created ? (
         <div className="space-y-3 text-center">
           <p className="text-lg font-semibold text-slate-900">✓ {t('manageAssembly.created', { name: created.name })}</p>
@@ -146,12 +149,13 @@ function NewSubAssemblySheet({ communityId, communityName, onClose }: { communit
         </div>
       ) : (
         <form onSubmit={create} className="space-y-3">
-          <h2 className="font-semibold text-slate-900">{t('manageAssembly.new_title')}</h2>
-          <p className="text-xs text-slate-500">{t('manageAssembly.new_help', { name: communityName })}</p>
-          <input className="input" aria-label={t('manageAssembly.new_name') ?? ''} placeholder={t('manageAssembly.new_name') ?? ''} value={name} maxLength={200} onChange={(e) => setName(e.target.value)} autoFocus required />
+          <h2 className="font-semibold text-slate-900">{t(group ? 'newChild.group_title' : 'newChild.assembly_title')}</h2>
+          <p className="text-xs text-slate-500">{t(group ? 'newChild.group_help' : 'newChild.assembly_help', { name: communityName })}</p>
+          <input className="input" aria-label={t(group ? 'newChild.group_name' : 'newChild.assembly_name') ?? ''} placeholder={t(group ? 'newChild.group_name' : 'newChild.assembly_name') ?? ''} value={name} maxLength={200} onChange={(e) => setName(e.target.value)} autoFocus required />
           <textarea className="input min-h-[4.5rem]" aria-label={t('manageAssembly.new_about') ?? ''} placeholder={t('manageAssembly.new_about') ?? ''} value={about} maxLength={1000} onChange={(e) => setAbout(e.target.value)} />
+          <NewChildPreview base="/api/communities" parentId={communityId} kind={kind} onFull={setFull} />
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-          <button type="submit" className="btn-primary w-full" disabled={busy || !name.trim()}>
+          <button type="submit" className="btn-primary w-full" disabled={busy || !name.trim() || (!group && full)}>
             {busy ? t('manageAssembly.creating') : t('manageAssembly.create')}
           </button>
           <button type="button" className="btn-secondary w-full" onClick={onClose}>
@@ -165,20 +169,23 @@ function NewSubAssemblySheet({ communityId, communityName, onClose }: { communit
 
 export function ManageAssembly({ communityId, communityName, onMembersChanged }: { communityId: string; communityName: string; onMembersChanged: () => void }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState<'add' | 'sub' | null>(null);
+  const [open, setOpen] = useState<'add' | 'group' | 'assembly' | null>(null);
   return (
     <section className="space-y-2 bg-white px-4 py-4 shadow-sm sm:rounded-xl" data-testid="manage-assembly">
       <h3 className="text-sm font-semibold uppercase tracking-wide text-brand-700">⚙️ {t('manageAssembly.title')}</h3>
       <div className="grid grid-cols-2 gap-2">
-        <button type="button" className="btn-secondary px-3 py-2 text-sm" onClick={() => setOpen('add')}>
+        <button type="button" className="btn-secondary col-span-2 px-3 py-2 text-sm" onClick={() => setOpen('add')}>
           ＋ {t('manageAssembly.add_people')}
         </button>
-        <button type="button" className="btn-secondary px-3 py-2 text-sm" onClick={() => setOpen('sub')}>
-          ＋ {t('manageAssembly.new_sub')}
+        <button type="button" className="btn-secondary px-3 py-2 text-sm" onClick={() => setOpen('group')}>
+          ＋ {t('newChild.btn_group')}
+        </button>
+        <button type="button" className="btn-secondary px-3 py-2 text-sm" onClick={() => setOpen('assembly')}>
+          ＋ {t('newChild.btn_assembly')}
         </button>
       </div>
       {open === 'add' && <AddPeopleSheet communityId={communityId} communityName={communityName} onClose={() => setOpen(null)} onChanged={onMembersChanged} />}
-      {open === 'sub' && <NewSubAssemblySheet communityId={communityId} communityName={communityName} onClose={() => setOpen(null)} />}
+      {(open === 'group' || open === 'assembly') && <NewSubAssemblySheet communityId={communityId} communityName={communityName} kind={open === 'group' ? 'GROUP' : 'ASSEMBLY'} onClose={() => setOpen(null)} />}
     </section>
   );
 }

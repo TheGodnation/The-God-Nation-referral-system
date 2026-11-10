@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { DeleteCommunityPanel } from './DeleteCommunityPanel';
+import { NewChildPreview } from '../assembly/NewChildPreview';
 
 interface Node {
   id: string;
@@ -31,6 +32,7 @@ export function ManageCommunitiesPanel({ base }: { base: string }) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newKind, setNewKind] = useState<'ASSEMBLY' | 'GROUP'>('GROUP');
+  const [newFull, setNewFull] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,8 +109,9 @@ export function ManageCommunitiesPanel({ base }: { base: string }) {
             <label className="flex items-center gap-2"><input type="radio" name="manage-new-kind" checked={newKind === 'ASSEMBLY'} onChange={() => setNewKind('ASSEMBLY')} /> {t('manageGroups.kind_assembly')}</label>
             {!parent && <p className="text-xs text-slate-500">{t('manageGroups.group_needs_assembly')}</p>}
           </fieldset>
+          {parent && <NewChildPreview base={base} parentId={parent.id} kind={newKind} onFull={setNewFull} />}
           <div className="flex gap-2">
-            <button type="submit" className="btn-primary" disabled={newName.trim().length === 0 || (newKind === 'GROUP' && !parent)}>{t('manageGroups.create')}</button>
+            <button type="submit" className="btn-primary" disabled={newName.trim().length === 0 || (newKind === 'GROUP' && !parent) || (newKind === 'ASSEMBLY' && Boolean(parent) && newFull)}>{t('manageGroups.create')}</button>
             <button type="button" className="btn-secondary" onClick={() => setAdding(false)}>{t('manageGroups.cancel')}</button>
           </div>
         </form>
