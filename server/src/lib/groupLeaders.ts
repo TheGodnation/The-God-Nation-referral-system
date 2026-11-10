@@ -1,3 +1,4 @@
+import { closeFollowUpsOfNewLeader } from './followRules';
 import { prisma } from './prisma';
 import { recordAudit } from './audit';
 import { isCentralAdminPerson } from './centralAdmin';
@@ -101,6 +102,7 @@ export async function appointGroupLeader(actorPersonId: string, authority: Autho
   const user = await actingUserFor(actorPersonId);
   const created = await prisma.roleAssignment.create({ data: { personId, roleType: 'SCOPED_LEADER', communityId: groupId, assignedByUserId: user.id } });
   await notifyRoleAssigned(created).catch(() => {});
+  await closeFollowUpsOfNewLeader(personId);
   await recordAudit({
     actorId: user.id,
     actorEmail: user.email,

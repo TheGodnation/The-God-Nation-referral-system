@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { notifyFollowUpAssigned, notifyFollowUpBatch } from './notifications';
 import { isCentralAdminPerson } from './centralAdmin';
+import { followBlock, neverAssignedAmong } from './followRules';
 
 // ---------------------------------------------------------------------------
 // Sharing the people of an assembly among its leaders, evenly by headcount,
@@ -43,7 +44,7 @@ function lightest(loads: LeaderLoad[]): LeaderLoad | null {
   return pool.length ? [...pool].sort((a, b) => a.headcount - b.headcount || a.name.localeCompare(b.name))[0] : null;
 }
 
-/** Members of an assembly nobody follows yet (never leaders, never the central admin). */
+/** Members of an assembly nobody follows yet (never the central admin, never anyone who leads an assembly or a group). */
 export async function unassignedMembers(communityId: string): Promise<{ id: string; name: string }[]> {
   const [members, followed, leaders] = await Promise.all([
     prisma.communityMembership.findMany({
@@ -54,10 +55,12 @@ export async function unassignedMembers(communityId: string): Promise<{ id: stri
     prisma.roleAssignment.findMany({ where: { communityId, status: 'ACTIVE' }, select: { personId: true } }),
   ]);
   const skip = new Set([...followed.map((f) => f.followedPersonId), ...leaders.map((l) => l.personId)]);
+  // Never the central admin, and never anyone who leads an assembly or a group anywhere (leaders are followed up by
+  // the central admin and the representatives).
+  const never = await neverAssignedAmong(members.map((m) => m.person.id));
   const out: { id: string; name: string }[] = [];
   for (const m of members) {
-    if (skip.has(m.person.id)) continue;
-    if (await isCentralAdminPerson(m.person.id)) continue;
+    if (skip.has(m.person.id) || never.has(m.person.id)) continue;
     out.push(m.person);
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
@@ -218,6 +221,8 @@ export async function releasePeople(opts: { fromLeaderId: string; communityId: s
 
 /** Let a second leader follow a person too (the first keeps them): "shared". */
 export async function shareWithLeader(opts: { personId: string; toLeaderId: string; communityId: string; actorUserId: string }) {
+  // The central admin is never followed up by a leader, and leaders only by the central admin and the representatives.
+  if (await followBlock(opts.toLeaderId, opts.personId)) return { created: false };
   const existing = await prisma.followUpAssignment.findFirst({
     where: { followerId: opts.toLeaderId, followedPersonId: opts.personId, status: 'ACTIVE' },
     select: { id: true },
