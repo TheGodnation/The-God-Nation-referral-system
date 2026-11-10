@@ -3783,6 +3783,136 @@
     "assign_left": "{{count}} personnes resteraient sans suivi (il faut plus de responsables ou un nombre plus grand).",
     "assign_done": "{{count}} personnes confiées. {{left}} sans suivi."
   },
+  "terms": {
+    "title": "Conditions d’utilisation",
+    "nav": "Conditions d’utilisation",
+    "updated": "Dernière mise à jour : 10 novembre 2026",
+    "intro": "Ces conditions expliquent les règles d’utilisation de l’application The God Nation et du site thegodnationacademy.org. Elles existent pour garder notre communauté sûre, respectueuse et centrée sur le Royaume. En créant un compte ou en utilisant l’application, vous les acceptez. Si vous ne les acceptez pas, merci de ne pas utiliser l’application.",
+    "contact_link": "Nous contacter",
+    "privacy_link": "Lire notre politique de confidentialité",
+    "sections": [
+      {
+        "h": "1. Qui nous sommes et qui peut utiliser l’application",
+        "p": [
+          "L’application est gérée par The God Nation (« nous », « le ministère »).",
+          "Elle est destinée aux adultes, et aux jeunes qui l’utilisent avec la permission de leurs parents ou tuteurs.",
+          "Utilisez-la pour ce pour quoi elle a été conçue : apprendre, grandir, se connecter, prier et servir ensemble avec les autres citoyens du Royaume."
+        ]
+      },
+      {
+        "h": "2. Votre compte",
+        "p": [
+          "Donnez des informations exactes à l’inscription (votre nom, votre numéro WhatsApp, votre adresse e-mail et votre lieu de résidence), et tenez-les à jour.",
+          "Une personne, un compte. Ne créez pas de faux comptes ni de doublons, et ne vous faites pas passer pour quelqu’un d’autre.",
+          "Gardez votre mot de passe et vos codes de connexion secrets. Vous êtes responsable de ce qui est fait avec votre compte. Prévenez-nous aussitôt si quelqu’un d’autre y est entré. Nous ne vous demanderons jamais votre mot de passe ni vos codes de connexion."
+        ]
+      },
+      {
+        "h": "3. Les règles de notre communauté",
+        "p": [
+          "Ces règles s’appliquent partout dans l’application : discussions, commentaires, publications, demandes de prière, messages privés et messages vocaux. Merci de ne pas :",
+          "• Insulter, moquer, menacer, harceler, intimider ou humilier qui que ce soit, ni attaquer quelqu’un à cause de sa famille, de sa tribu, de sa région, de sa langue, de son sexe ou de son église d’origine.",
+          "• Publier ou envoyer quoi que ce soit de sexuel, d’obscène ou de violent, ni rien qui nuise à un enfant ou l’exploite.",
+          "• Promouvoir la haine, la violence, la sorcellerie ou les pratiques occultes, ni des enseignements qui se moquent de l’Évangile de Jésus-Christ ou s’y opposent.",
+          "• Répandre des mensonges, des rumeurs ou des accusations contre une personne, un responsable ou le ministère, ni vous faire passer pour un responsable ou parler au nom du ministère.",
+          "• Envoyer du spam, faire de la publicité, vendre, demander des prêts, proposer des placements ou des systèmes d’argent, ni promouvoir d’autres entreprises ou ministères sans l’autorisation écrite de l’équipe centrale.",
+          "• Demander de l’argent, des cadeaux ou des faveurs personnelles aux autres membres, ni faire pression sur quiconque pour qu’il donne.",
+          "• Partager les affaires privées des autres en dehors de l’endroit où elles ont été partagées : messages privés, demandes de prière, réponses personnelles, photos ou captures d’écran.",
+          "• Faire de la campagne politique partisane ou de la propagande électorale.",
+          "• Enfreindre la loi, tenter de pénétrer dans l’application ou de la surcharger, ni collecter les coordonnées des membres pour un autre usage."
+        ]
+      },
+      {
+        "h": "4. Les responsables et l’équipe centrale",
+        "p": [
+          "Les responsables donnent de leur temps pour prendre soin de vous. Merci de les respecter. À leur tour, ils doivent vous traiter avec respect, garder privé ce que vous leur confiez et ne jamais vous demander d’argent pour eux-mêmes.",
+          "Un responsable peut rendre muet un membre dans l’assemblée qu’il dirige. Seule l’équipe centrale peut retirer définitivement un membre de la communauté.",
+          "Si vous avez une inquiétude au sujet d’un responsable, écrivez-nous par la page de contact, ou signalez le message ou la publication dans l’application."
+        ]
+      },
+      {
+        "h": "5. Quand les règles ne sont pas respectées",
+        "p": [
+          "Nous pouvons supprimer une publication, un commentaire ou un message qui enfreint ces règles.",
+          "Un membre peut être rendu muet pour 3, 7, 15 ou 30 jours. Un membre muet peut toujours lire, mais ne peut ni écrire, ni commenter, ni réagir. Le motif et la date de fin lui sont montrés, et il peut envoyer une courte demande d’excuse à la personne qui l’a rendu muet.",
+          "En cas de manquement grave ou répété, l’équipe centrale peut retirer un membre d’une assemblée, ou suspendre ou fermer son compte, avec ou sans avertissement.",
+          "Chaque sanction est enregistrée, et l’équipe centrale prend la décision finale. Nous voulons être justes, patients et bienveillants, et restaurer les personnes, pas seulement les corriger."
+        ]
+      },
+      {
+        "h": "6. Ce que vous publiez",
+        "p": [
+          "Vous restez propriétaire de ce que vous écrivez et partagez. Vous nous autorisez à le conserver, à le montrer aux personnes avec qui vous l’avez partagé dans l’application, et, pour les discussions de groupe et les enseignements, à le traduire entre l’anglais et le français avec des outils automatiques.",
+          "Ne partagez que ce que vous avez le droit de partager. Nous pouvons supprimer un contenu à tout moment s’il enfreint ces conditions."
+        ]
+      },
+      {
+        "h": "7. Nos enseignements, livres et documents",
+        "p": [
+          "Les enseignements, livres, questions d’examen, vidéos et autres documents de l’application appartiennent au ministère et à ses auteurs.",
+          "Vous pouvez les utiliser pour votre propre apprentissage, et partager de courts extraits en citant la source. Ne copiez pas, ne vendez pas, ne republiez pas et ne publiez pas ailleurs des livres, des examens ou des corrigés entiers sans notre autorisation écrite.",
+          "Un livre que vous avez payé est pour vous seul. Ne partagez pas votre connexion ni les fichiers avec d’autres."
+        ]
+      },
+      {
+        "h": "8. L’École de leadership et les examens",
+        "p": [
+          "Soyez honnête. Passez vos propres examens, ne partagez ni les questions ni les réponses, et n’utilisez pas le compte de quelqu’un d’autre.",
+          "Les examens sont là pour votre croissance. Les réussir montre que vous avez terminé un programme de formation du ministère. Ce n’est ni un diplôme universitaire reconnu ni une qualification professionnelle.",
+          "Certains examens se terminent par des questions personnelles qui ne sont pas notées. Vos réponses restent privées et ne sont vues que par l’équipe centrale et, si elle l’autorise, par le responsable qui prend soin de vous, afin que nous puissions vous aider dans votre marche avec Christ."
+        ]
+      },
+      {
+        "h": "9. Paiements et dons",
+        "p": [
+          "Donner est volontaire et se fait comme pour le Seigneur. Personne n’est obligé de donner, sauf pour payer un livre ou un article mis en vente.",
+          "Les paiements se font par les services indiqués dans l’application. Gardez votre preuve de paiement. Si vous pensez qu’un paiement a été prélevé par erreur, contactez-nous rapidement et nous examinerons la situation. Une fois l’accès accordé, les paiements ne sont autrement pas remboursables.",
+          "Ne payez jamais une personne qui n’est pas indiquée dans l’application comme moyen de paiement."
+        ]
+      },
+      {
+        "h": "10. Liens d’ambassadeur et récompenses",
+        "p": [
+          "Vous pouvez partager votre propre lien honnêtement. Ne faites pas de fausses promesses, ne l’envoyez pas en masse à des inconnus, ne créez pas de fausses inscriptions, et ne payez pas ni ne trompez les gens pour qu’ils s’inscrivent.",
+          "Les récompenses ou gains affichés dans l’application suivent les règles indiquées dans l’application. Ils peuvent être retenus ou retirés si ces conditions ne sont pas respectées."
+        ]
+      },
+      {
+        "h": "11. Accompagnement spirituel, pas conseil professionnel",
+        "p": [
+          "Les enseignements, les prières, les conseils des responsables et les services d’accompagnement comme la Clinique de la Domination sont de nature spirituelle. Ils ne constituent pas un avis médical, psychologique, juridique ou financier et ne remplacent pas un médecin ou un autre professionnel.",
+          "En cas d’urgence, contactez aussitôt les services d’urgence ou un professionnel qualifié."
+        ]
+      },
+      {
+        "h": "12. L’application telle que nous la fournissons",
+        "p": [
+          "Nous nous efforçons de faire fonctionner l’application correctement, mais nous ne pouvons pas promettre qu’elle ne sera jamais interrompue ni exempte d’erreurs. Les fonctionnalités peuvent changer. Les traductions automatiques peuvent contenir des erreurs.",
+          "Dans la mesure permise par la loi, le ministère n’est pas responsable des pertes causées par l’utilisation de l’application, ni de ce que d’autres membres disent ou font. Rien dans ces conditions ne retire les droits que la loi vous donne."
+        ]
+      },
+      {
+        "h": "13. Mettre fin à votre utilisation",
+        "p": [
+          "Vous pouvez arrêter à tout moment et nous demander de supprimer votre compte (Moi → Modifier le profil → Supprimer mon compte, ou sur la page web thegodnationacademy.org/delete-account).",
+          "Nous pouvons suspendre ou fermer un compte qui enfreint ces conditions. Les règles sur le contenu, les enseignements et le respect continuent de s’appliquer à tout ce que vous avez publié."
+        ]
+      },
+      {
+        "h": "14. Modifications de ces conditions",
+        "p": [
+          "Nous pouvons mettre à jour ces conditions. Nous changerons la date ci-dessus et, pour les changements importants, nous vous préviendrons dans l’application. Si vous continuez à utiliser l’application après un changement, vous acceptez les nouvelles conditions."
+        ]
+      },
+      {
+        "h": "15. Droit applicable et contact",
+        "p": [
+          "Ces conditions sont régies par les lois de la République du Cameroun.",
+          "Pour toute question sur ces conditions, écrivez à contact@thegodnationacademy.org ou utilisez notre page de contact."
+        ]
+      }
+    ]
+  },
   "privacy": {
     "title": "Politique de confidentialité",
     "nav": "Confidentialité",

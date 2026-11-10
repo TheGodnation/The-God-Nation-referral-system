@@ -186,3 +186,8 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - The places, in order: WhatsApp group (the person's language first), Telegram group, Messenger group, Facebook group, Facebook page, Instagram page. Channels are left out. Only links the admin has filled in are shown.
 - A leader is also told who has not yet tapped "join our WhatsApp group" (`tappedGroup` on `GET /api/member/referrals/mine`, leaders only).
 - Nothing is sent by the app and nothing new is asked of people. Telegram usernames and Messenger links are not collected (many people do not know them); people are sent our links to join instead.
+
+## Public About page and Terms of Use
+
+- The public About page (`/en/about/`, `/fr/a-propos/`) carries the founder's seven sections as he wrote them (10 November 2026). The app's own About page keeps its earlier wording on purpose (no separate "Our mission", short name "The God Nation") until the founder says to change it.
+- **Terms of Use** at `/terms` (English and French, from the language of the app), linked in the footer of the app pages and of every public page. It was drafted for the founder to review: community rules, what happens when they are broken, content and materials, exams, payments, ambassador links, spiritual guidance, law and contact.

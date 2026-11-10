@@ -3783,6 +3783,136 @@
     "assign_left": "{{count}} people would stay unassigned (more leaders or a bigger number are needed).",
     "assign_done": "{{count}} people assigned. {{left}} still unassigned."
   },
+  "terms": {
+    "title": "Terms of Use",
+    "nav": "Terms of Use",
+    "updated": "Last updated: 10 November 2026",
+    "intro": "These terms explain the rules for using The God Nation app and the website thegodnationacademy.org. They exist to keep our community safe, respectful and focused on the Kingdom. By creating an account or using the app, you agree to them. If you do not agree, please do not use the app.",
+    "contact_link": "Contact us",
+    "privacy_link": "Read our Privacy Policy",
+    "sections": [
+      {
+        "h": "1. Who we are and who may use the app",
+        "p": [
+          "The app is run by The God Nation (“we”, “the ministry”).",
+          "It is meant for adults, and for young people who use it with the permission of their parents or guardians.",
+          "Use it for what it was built for: to learn, grow, connect, pray and serve together with other citizens of the Kingdom."
+        ]
+      },
+      {
+        "h": "2. Your account",
+        "p": [
+          "Give true information when you sign up (your name, WhatsApp number, email address and where you live), and keep it up to date.",
+          "One person, one account. Do not create fake or duplicate accounts, and do not pretend to be someone else.",
+          "Keep your password and sign-in codes private. You are responsible for what is done with your account. Tell us at once if someone else has entered it. We will never ask you for your password or sign-in codes."
+        ]
+      },
+      {
+        "h": "3. The rules of our community",
+        "p": [
+          "These rules apply everywhere in the app: chats, comments, posts, prayer requests, private messages and voice notes. Please do not:",
+          "• Insult, mock, threaten, harass, bully or humiliate anyone, or attack anyone because of their family, tribe, region, language, gender or church background.",
+          "• Post or send anything sexual, obscene or violent, or anything that harms or exploits a child.",
+          "• Promote hatred, violence, witchcraft or occult practices, or teachings that mock or oppose the Gospel of Jesus Christ.",
+          "• Spread lies, rumours or accusations against any person, leader or the ministry, or pretend to be a leader or to speak for the ministry.",
+          "• Send spam, advertise, sell, ask for loans, run investment or money schemes, or promote other businesses or ministries without written permission from the central team.",
+          "• Ask other members for money, gifts or personal favours, or pressure anyone to give.",
+          "• Share other people’s private matters outside the place where they were shared: private messages, prayer requests, personal answers, photos or screenshots.",
+          "• Carry out party-political campaigning or election propaganda.",
+          "• Break the law, try to break into or overload the app, or collect members’ details to use for any other purpose."
+        ]
+      },
+      {
+        "h": "4. Leaders and the central team",
+        "p": [
+          "Leaders give their time to care for you. Please respect them. They must in turn treat you with respect, keep what you share with them private, and never ask you for money for themselves.",
+          "A leader may mute a member in the assembly they lead. Only the central team can remove a member from the community for good.",
+          "If you have a concern about a leader, write to us through the contact page, or report the message or post in the app."
+        ]
+      },
+      {
+        "h": "5. When the rules are broken",
+        "p": [
+          "We may remove a post, comment or message that breaks these rules.",
+          "A member may be muted for 3, 7, 15 or 30 days. A muted member can still read, but cannot write, comment or react. The reason and the end date are shown to the member, who may send a short request for excuse to the person who muted them.",
+          "For serious or repeated breaches, the central team may remove a member from an assembly, or suspend or close their account, with or without warning.",
+          "Every sanction is recorded, and the central team makes the final decision. We aim to be fair, patient and kind, and to restore people, not only to correct them."
+        ]
+      },
+      {
+        "h": "6. What you post",
+        "p": [
+          "You remain the owner of what you write and share. You allow us to store it, to show it to the people you shared it with in the app, and, for group chats and teachings, to translate it between English and French with automatic tools.",
+          "Only share what you have the right to share. We may remove content at any time if it breaks these terms."
+        ]
+      },
+      {
+        "h": "7. Our teachings, books and materials",
+        "p": [
+          "The teachings, books, exam questions, videos and other materials in the app belong to the ministry and its authors.",
+          "You may use them for your own learning, and share short extracts with credit. Do not copy, sell, republish or post whole books, exams or answer keys elsewhere without our written permission.",
+          "A book you have paid for is for you alone. Do not share your sign-in or the files with others."
+        ]
+      },
+      {
+        "h": "8. The Leadership School and exams",
+        "p": [
+          "Be honest. Take your own exams, do not share questions or answers, and do not use someone else’s account.",
+          "Exams are for your growth. Passing shows that you have completed a ministry training programme. It is not an accredited academic degree or a professional qualification.",
+          "Some exams end with personal questions that are not marked. Your answers are kept private and are seen only by the central team and, if the central team allows it, by the leader who cares for you, so that we can help you in your walk with Christ."
+        ]
+      },
+      {
+        "h": "9. Payments and giving",
+        "p": [
+          "Giving is voluntary and done as to the Lord. Nobody is required to give, except to pay for a book or item that is offered for sale.",
+          "Payments are made through the services shown in the app. Keep your proof of payment. If you think a payment was taken in error, contact us quickly and we will look into it. Once access has been given, payments are otherwise not refundable.",
+          "Never pay anyone who is not shown in the app as a way to pay."
+        ]
+      },
+      {
+        "h": "10. Ambassador links and rewards",
+        "p": [
+          "You may share your own link honestly. Do not make false promises, send it to strangers in bulk, create fake sign-ups, or pay or trick people into signing up.",
+          "Any rewards or earnings shown in the app follow the rules shown in the app. They may be withheld or removed if these terms are broken."
+        ]
+      },
+      {
+        "h": "11. Spiritual guidance, not professional advice",
+        "p": [
+          "Teachings, prayers, counsel from leaders and care features such as the Dominion Clinic are spiritual. They are not medical, mental-health, legal or financial advice and do not replace a doctor or other professional.",
+          "In an emergency, contact the emergency services or a qualified professional at once."
+        ]
+      },
+      {
+        "h": "12. The app as we provide it",
+        "p": [
+          "We work to keep the app running well, but we cannot promise that it will never be interrupted or free from errors. Features may change. Automatic translations may contain mistakes.",
+          "As far as the law allows, the ministry is not responsible for loss caused by using the app, or by what other members say or do. Nothing in these terms takes away rights that the law gives you."
+        ]
+      },
+      {
+        "h": "13. Ending your use",
+        "p": [
+          "You can stop at any time and ask us to delete your account (Me → Edit profile → Delete my account, or on the web page thegodnationacademy.org/delete-account).",
+          "We may suspend or close an account that breaks these terms. The rules about content, teachings and respect continue to apply to anything you posted."
+        ]
+      },
+      {
+        "h": "14. Changes to these terms",
+        "p": [
+          "We may update these terms. We will change the date above, and for important changes we will tell you in the app. If you keep using the app after a change, you accept the new terms."
+        ]
+      },
+      {
+        "h": "15. Law and contact",
+        "p": [
+          "These terms are governed by the laws of the Republic of Cameroon.",
+          "For any question about these terms, write to contact@thegodnationacademy.org or use our contact page."
+        ]
+      }
+    ]
+  },
   "privacy": {
     "title": "Privacy Policy",
     "nav": "Privacy",

@@ -224,7 +224,7 @@ function footer(p: PageRef): string {
   const areas = DIVISIONS.map((d) => `<a href="${pathOf({ key: 'division', lang: l, division: d })}">${esc(d.name[l])}</a>`).join('');
   return `<footer class="site"><div class="fcols"><div><div class="fbrand"><img src="/icons/icon-192.png" width="34" height="34" alt="">${esc(t.siteName)}</div><p>${esc(MISSION[l])}</p></div>
 <div><b>${esc(t.navKnowledge)}</b>${areas}</div>
-<div><b>${esc(t.footerMore)}</b><a href="${pathOf({ key: 'about', lang: l })}">${esc(t.navAbout)}</a><a href="${pathOf({ key: 'contact', lang: l })}">${esc(t.navContact)}</a><a href="/privacy">${esc(t.footerPrivacy)}</a><a href="${joinHref(l, campaignOf(p))}">${esc(t.navJoin)}</a><a href="/member/login">${esc(t.footerMembers)}</a></div></div>
+<div><b>${esc(t.footerMore)}</b><a href="${pathOf({ key: 'about', lang: l })}">${esc(t.navAbout)}</a><a href="${pathOf({ key: 'contact', lang: l })}">${esc(t.navContact)}</a><a href="/privacy">${esc(t.footerPrivacy)}</a><a href="/terms">${esc(t.footerTerms)}</a><a href="${joinHref(l, campaignOf(p))}">${esc(t.navJoin)}</a><a href="/member/login">${esc(t.footerMembers)}</a></div></div>
 <div class="fbase"><span>© ${esc(t.rights)}</span></div></footer>`;
 }
 

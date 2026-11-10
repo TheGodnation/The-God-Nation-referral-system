@@ -81,6 +81,9 @@ export function PageShell({ children, minimal = false, homeNav = false }: { chil
           <Link to="/privacy" className="hover:text-brand-700 hover:underline">
             {t('privacy.nav')}
           </Link>
+          <Link to="/terms" className="hover:text-brand-700 hover:underline">
+            {t('terms.nav')}
+          </Link>
           {member ? (
             <Link to="/member/chats" className="hover:text-brand-700 hover:underline">
               {t('nav.openApp')}

@@ -96,6 +96,14 @@ describe('Public pages', () => {
     expect(fr).toContain('Matthieu 28.19');
   });
 
+  it('every public page footer links to the Terms of Use (and the Privacy page), in the page\'s own language', async () => {
+    const en = (await request(appOn).get('/en/')).text;
+    expect(en).toContain('<a href="/terms">Terms of Use</a>');
+    expect(en).toContain('<a href="/privacy">Privacy</a>');
+    const fr = (await request(appOn).get('/fr/a-propos/')).text;
+    expect(fr).toContain('<a href="/terms">Conditions d’utilisation</a>');
+  });
+
   it('home carries Organization and WebSite data; inner pages carry a breadcrumb; the data parses and claims nothing extra', async () => {
     const home = await request(appOn).get('/en/');
     const ld = JSON.parse(/application\/ld\+json">(.*?)<\/script>/s.exec(home.text)![1]);
@@ -125,7 +133,7 @@ describe('Public pages', () => {
   });
 
   it('every link on every page leads somewhere that exists', async () => {
-    const outside = new Set(['/privacy', '/contact', '/member/login']);
+    const outside = new Set(['/privacy', '/terms', '/contact', '/member/login']);
     const checked = new Set<string>();
     for (const p of everyPath()) {
       const res = await request(appOn).get(p);
