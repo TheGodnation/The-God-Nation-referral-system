@@ -272,3 +272,60 @@ describe('Uploading a leadership book PDF (admin)', () => {
     await waitFor(() => expect(calls.some((c) => c.url === '/api/client-errors' && c.body?.kind === 'upload')).toBe(true));
   });
 });
+
+describe('Trainees: message, WhatsApp, and emailing the website link (admin)', () => {
+  const trainee = (over: Record<string, unknown> = {}) => ({ personId: 'p1', name: 'Ada Obi', whatsappNumber: '+237670000001', status: 'ACTIVE', language: 'en', websiteInvitedAt: null, approvedByAdmin: true, requestedAt: null, activatedAt: '2026-11-10T10:00:00Z', note: null, graceBooks: 0, owedBooks: 0, ...over });
+
+  it('writes to a trainee from the founder\'s own name, and opens WhatsApp with the website link in their language', async () => {
+    mockFetch({
+      ...LIBRARY_ROUTES,
+      'GET /api/admin/library/trainees': () => ({ body: { items: [trainee(), trainee({ personId: 'p2', name: 'Beau Fils', whatsappNumber: '+237670000002', language: 'fr' })] } }),
+      'GET /api/admin/library/website-invites': () => ({ body: { waiting: 0 } }),
+      'POST /api/admin/library/trainees/p1/message': () => ({ body: { sent: true } }),
+    });
+    render(<LibraryTab />);
+    fireEvent.click(await screen.findByTestId('trainee-message-p1'));
+    fireEvent.change(screen.getByLabelText(/Write to Ada Obi/), { target: { value: 'Welcome, sister.' } });
+    fireEvent.click(screen.getByTestId('trainee-message-send-p1'));
+    expect(await screen.findByText('Sent.')).toBeInTheDocument();
+    expect(calls.find((c) => c.method === 'POST' && c.url.endsWith('/trainees/p1/message'))?.body).toEqual({ body: 'Welcome, sister.' });
+    // WhatsApp: the right number, the website page, the person's own language.
+    const en = decodeURIComponent((screen.getByTestId('trainee-whatsapp-p1') as HTMLAnchorElement).href);
+    expect(en).toContain('https://wa.me/237670000001?text=Hello, greetings from The God Nation');
+    expect(en).toContain(`${window.location.origin}/member/school`);
+    expect(en).not.toContain('lang=fr');
+    const fr = decodeURIComponent((screen.getByTestId('trainee-whatsapp-p2') as HTMLAnchorElement).href);
+    expect(fr).toContain('Votre demande à l’École de leadership est approuvée');
+    expect(fr).toContain('/member/school?lang=fr');
+  });
+
+  it('shows how many approved people have not been emailed, sends the next batch, and says what happened', async () => {
+    let waiting = 130;
+    mockFetch({
+      ...LIBRARY_ROUTES,
+      'GET /api/admin/library/website-invites': () => ({ body: { waiting } }),
+      'POST /api/admin/library/website-invites/send': () => { waiting -= 100; return { body: { sent: 100, failed: 0, remaining: waiting, notConfigured: false } }; },
+    });
+    render(<LibraryTab />);
+    expect(await screen.findByTestId('invites-waiting')).toHaveTextContent('130 approved people have not been emailed yet.');
+    fireEvent.click(screen.getByTestId('invites-send'));
+    expect(await screen.findByText('100 emailed, 0 failed, 30 still waiting.')).toBeInTheDocument();
+    expect(calls.find((c) => c.url.endsWith('/website-invites/send'))?.body).toEqual({ limit: 100 });
+    expect(await screen.findByText('30 approved people have not been emailed yet.')).toBeInTheDocument();
+  });
+
+  it('says so when email is not set up, and when everyone has been emailed', async () => {
+    mockFetch({
+      ...LIBRARY_ROUTES,
+      'GET /api/admin/library/website-invites': () => ({ body: { waiting: 3 } }),
+      'POST /api/admin/library/website-invites/send': () => ({ body: { sent: 0, failed: 0, remaining: 3, notConfigured: true } }),
+    });
+    render(<LibraryTab />);
+    fireEvent.click(await screen.findByTestId('invites-send'));
+    expect(await screen.findByText('Email is not set up yet, so nothing was sent.')).toBeInTheDocument();
+    vi.unstubAllGlobals();
+    mockFetch({ ...LIBRARY_ROUTES, 'GET /api/admin/library/website-invites': () => ({ body: { waiting: 0 } }) });
+    render(<LibraryTab />);
+    expect(await screen.findAllByText('Everyone you approved has been emailed.')).not.toHaveLength(0);
+  });
+});

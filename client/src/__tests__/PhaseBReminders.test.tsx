@@ -151,8 +151,9 @@ describe('My Referrals — who needs a word', () => {
       return screen.getByTestId(`followup-picker-${id}`);
     };
     const picker = await open('b');
-    // Six places, no channels, no TikTok; Beau reads French so it is the French group.
-    expect(within(picker).getAllByRole('checkbox')).toHaveLength(6);
+    // Six places and "Continue on our website" (not ticked), no channels, no TikTok; Beau reads French so it is the French group.
+    expect(within(picker).getAllByRole('checkbox')).toHaveLength(7);
+    expect((within(picker).getByLabelText('Continue your study on our website') as HTMLInputElement).checked).toBe(false);
     fireEvent.click(within(picker).getByLabelText('Facebook group'));
     const text = decodeURIComponent((screen.getByTestId('followup-send-b') as HTMLAnchorElement).href);
     expect(text).toContain('Groupe WhatsApp: https://chat.whatsapp.com/FR');
@@ -163,14 +164,21 @@ describe('My Referrals — who needs a word', () => {
     expect(text).not.toContain('facebook.com/groups');
     expect(text).not.toContain('channel');
     expect(text).not.toContain('chat.whatsapp.com/EN');
+    // The website link is only there when it is ticked, and then in the person's language.
+    expect(text).not.toContain('/member/school');
+    fireEvent.click(within(picker).getByLabelText('Continue your study on our website'));
+    const withSite = decodeURIComponent((screen.getByTestId('followup-send-b') as HTMLAnchorElement).href);
+    expect(withSite).toContain('Continuez votre étude sur notre site: http://localhost:3000/member/school?lang=fr'.replace('http://localhost:3000', window.location.origin));
     // The English speaker gets the English group.
     const pickerA = await open('a');
-    expect(within(pickerA).getAllByRole('checkbox')).toHaveLength(6);
+    expect(within(pickerA).getAllByRole('checkbox')).toHaveLength(7);
     expect(decodeURIComponent((screen.getByTestId('followup-send-a') as HTMLAnchorElement).href)).toContain('WhatsApp group: https://chat.whatsapp.com/EN');
     // "Which apps do you use?" asks, then lists every place.
     const apps = decodeURIComponent((screen.getByTestId('followup-apps-a') as HTMLAnchorElement).href);
     expect(apps).toContain('Which of these are you on?');
     expect(apps).toContain('Facebook group: https://facebook.com/groups/g');
+    // Asking which apps they use never includes the website link.
+    expect(apps).not.toContain('/member/school');
   });
 
   it('with only some links added, shows only those, and with none says so instead of offering empty buttons', async () => {
@@ -178,10 +186,10 @@ describe('My Referrals — who needs a word', () => {
     renderPage();
     fireEvent.click(await screen.findByTestId('followup-links-b'));
     const picker = screen.getByTestId('followup-picker-b');
-    expect(within(picker).getAllByRole('checkbox')).toHaveLength(1);
+    expect(within(picker).getAllByRole('checkbox')).toHaveLength(2);
     // The French group is not added yet, so Beau is given the English one rather than nothing.
     expect(decodeURIComponent((screen.getByTestId('followup-send-b') as HTMLAnchorElement).href)).toContain('chat.whatsapp.com/EN');
-    fireEvent.click(within(picker).getByRole('checkbox'));
+    fireEvent.click(within(picker).getByLabelText('WhatsApp group'));
     expect(screen.queryByTestId('followup-send-b')).toBeNull();
     expect(screen.getByText('Tick at least one place.')).toBeInTheDocument();
   });

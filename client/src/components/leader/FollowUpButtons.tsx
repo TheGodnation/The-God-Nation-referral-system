@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePublicSettings } from '../../lib/usePublicSettings';
-import { followUpPlaces, whatsappChatUrl, withLinks, type FollowUpId } from '../../lib/followUp';
+import { followUpPlaces, schoolWebsiteUrl, whatsappChatUrl, withLinks, type FollowUpId } from '../../lib/followUp';
 
 const btn = 'rounded-lg px-3 py-1.5 text-sm font-semibold no-underline';
 
@@ -13,9 +13,10 @@ const btn = 'rounded-lg px-3 py-1.5 text-sm font-semibold no-underline';
 export function FollowUpButtons({ personId, whatsapp, language }: { personId: string; whatsapp: string; language: 'en' | 'fr' }) {
   const { t } = useTranslation();
   const settings = usePublicSettings();
-  const places = followUpPlaces(settings, language);
+  const places = followUpPlaces(settings, language, schoolWebsiteUrl(language));
   const [picking, setPicking] = useState(false);
-  const [unticked, setUnticked] = useState<Set<FollowUpId>>(new Set());
+  // "Continue on our website" is there to tick when it is needed; everything else starts ticked.
+  const [unticked, setUnticked] = useState<Set<FollowUpId>>(new Set(['website']));
 
   // The words are in the person's language, not the leader's.
   const say = (key: string) => t(`followUp.${key}`, { lng: language });
@@ -24,7 +25,7 @@ export function FollowUpButtons({ personId, whatsapp, language }: { personId: st
 
   const hello = whatsappChatUrl(whatsapp, say('hello'));
   const links = whatsappChatUrl(whatsapp, withLinks(say('links_intro'), labelled(chosen)));
-  const apps = whatsappChatUrl(whatsapp, withLinks(say('apps_question'), labelled(places)));
+  const apps = whatsappChatUrl(whatsapp, withLinks(say('apps_question'), labelled(places.filter((p) => p.id !== 'website'))));
 
   function toggle(id: FollowUpId) {
     setUnticked((prev) => {
@@ -74,7 +75,7 @@ export function FollowUpButtons({ personId, whatsapp, language }: { personId: st
           )}
         </div>
       )}
-      {places.length === 0 && settings.loaded && <p className="text-xs text-slate-500">{t('followUp.no_links_yet')}</p>}
+      {places.every((p) => p.id === 'website') && settings.loaded && <p className="text-xs text-slate-500">{t('followUp.no_links_yet')}</p>}
     </div>
   );
 }

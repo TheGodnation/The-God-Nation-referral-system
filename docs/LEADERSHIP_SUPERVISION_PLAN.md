@@ -210,3 +210,13 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 ## Group messages carry no names (done)
 
 - "Message all my people" no longer puts the person's first name in front. Every message opens with the same greeting from the ministry, in the person's own language ("Hello, greetings from The God Nation 🙏" / "Bonjour, salutations de The God Nation 🙏"), then what the leader wrote. The same wording is used by the leaders' WhatsApp "Say hello" button.
+
+## Starting the Leadership School: welcome, website email, WhatsApp (done)
+
+- **Welcome** from the central admin's own member profile (the founder, by name; `centralAdminPerson` = the oldest active admin with a linked member profile) in the person's private chat, once, when training starts (website: at once; Play Store app: when the admin approves). It says nothing about prices, payment or the website, because the Play Store version shows this chat too (`lib/trainingWelcome.ts`). Replies come to the founder.
+- **The Play Store version** (`isStoreApp`) shows no prices or payment screens: the person asks to read, the admin approves in Library > Trainees, and the person then continues **on the website** with the same account. That link goes **outside the app**:
+  - an **email** sent automatically on approval ("Your Leadership School request is approved", button to `/member/school`), and **"Email the next 100"** in the Library for everyone the admin approved who has not been emailed (`TrainingEnrollment.websiteInvitedAt`; people who started by themselves are not included);
+  - a **WhatsApp** button on each trainee row (the website link in the person's language, the leader presses send);
+  - leaders' **"Send our links"** has "Continue your study on our website" (not ticked by default; never in "Which apps do you use?").
+- **Message** button on each trainee row: a private message from the founder's own name (`POST /api/admin/library/trainees/:id/message`).
+- **Rule kept for Google Play**: nothing automatic or sent to many people inside the app (welcome, notifications, group messages) mentions the website or payment; a message a person writes by hand to one person is a judgement call. Ask Google Play support about payments in Cameroon.

@@ -3007,6 +3007,9 @@ model TrainingEnrollment {
   // "Study now, pay later": how many books may be owed at once (0 = none;
   // at most 5), set when the central admin grants a grace request.
   graceBooks        Int                      @default(0)
+  // When the "continue on the website" email was sent to someone the central admin approved (the Play Store app
+  // shows no prices or payment, so the website link goes by email, never inside the app).
+  websiteInvitedAt  DateTime?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 

@@ -1,3 +1,4 @@
+import { schoolWebsiteUrl, whatsappChatUrl } from '../../lib/followUp';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -72,6 +73,9 @@ interface TraineeRow {
   note: string | null;
   graceBooks?: number;
   owedBooks?: number;
+  language?: 'en' | 'fr';
+  websiteInvitedAt?: string | null;
+  approvedByAdmin?: boolean;
 }
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
@@ -227,6 +231,12 @@ export function LibraryTab() {
   const [error, setError] = useState<string | null>(null);
   const [openOfferings, setOpenOfferings] = useState<string | null>(null);
   const [openDetails, setOpenDetails] = useState<string | null>(null);
+  const [invitesWaiting, setInvitesWaiting] = useState<number | null>(null);
+  const [inviteNote, setInviteNote] = useState<string | null>(null);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [messageOpen, setMessageOpen] = useState<string | null>(null);
+  const [messageText, setMessageText] = useState('');
+  const [messageNote, setMessageNote] = useState<string | null>(null);
 
   const trainingBooks = books.filter((b) => b.kind === 'TRAINING');
   const nextOrder = trainingBooks.reduce((max, b) => Math.max(max, b.trainingOrder ?? 0), 0) + 1;
@@ -248,8 +258,39 @@ export function LibraryTab() {
       })
       .catch(() => setError(t('library.load_failed')));
   }
+  function loadInvites() {
+    api.get<{ waiting: number }>('/api/admin/library/website-invites').then((r) => setInvitesWaiting(r.waiting)).catch(() => {});
+  }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
+  useEffect(loadInvites, []);
+
+  async function sendInvites() {
+    setInviteBusy(true);
+    setInviteNote(null);
+    try {
+      const r = await api.post<{ sent: number; failed: number; remaining: number; notConfigured: boolean }>('/api/admin/library/website-invites/send', { limit: 100 });
+      setInviteNote(r.notConfigured ? t('library.invites_not_configured') : t('library.invites_result', { sent: r.sent, failed: r.failed, remaining: r.remaining }));
+      setInvitesWaiting(r.remaining);
+      load();
+    } catch (err) {
+      setInviteNote(err instanceof ApiError ? err.message : t('library.action_failed'));
+    } finally {
+      setInviteBusy(false);
+    }
+  }
+
+  async function sendMessage(personId: string) {
+    setMessageNote(null);
+    try {
+      await api.post(`/api/admin/library/trainees/${personId}/message`, { body: messageText });
+      setMessageText('');
+      setMessageOpen(null);
+      setMessageNote(t('library.trainee_message_sent'));
+    } catch (err) {
+      setMessageNote(err instanceof ApiError ? err.message : t('library.action_failed'));
+    }
+  }
 
   async function act(fn: () => Promise<unknown>) {
     setError(null);
@@ -428,6 +469,22 @@ export function LibraryTab() {
           searchButtonLabel={t('library.search')}
           onPick={(p) => act(() => api.post('/api/admin/library/trainees', { personId: p.id }))}
         />
+        <div className="space-y-2 rounded-lg bg-slate-50 p-3" data-testid="website-invites">
+          <p className="text-sm font-semibold text-slate-800">{t('library.invites_title')}</p>
+          <p className="text-xs text-slate-600">{t('library.invites_help')}</p>
+          {invitesWaiting !== null && (
+            <p className="text-sm text-slate-700" data-testid="invites-waiting">
+              {invitesWaiting > 0 ? t('library.invites_waiting', { count: invitesWaiting }) : t('library.invites_none')}
+            </p>
+          )}
+          {invitesWaiting !== null && invitesWaiting > 0 && (
+            <button type="button" className="btn-secondary px-3 py-1.5 text-sm" disabled={inviteBusy} onClick={() => void sendInvites()} data-testid="invites-send">
+              {t('library.invites_send', { count: Math.min(100, invitesWaiting) })}
+            </button>
+          )}
+          {inviteNote && <p className="text-sm text-slate-700" role="status">{inviteNote}</p>}
+        </div>
+        {messageNote && <p className="text-sm text-slate-700" role="status">{messageNote}</p>}
         <ul className="divide-y divide-slate-100">
           {trainees.map((tr) => (
             <li key={tr.personId} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
@@ -465,6 +522,28 @@ export function LibraryTab() {
                 <button type="button" className="btn-primary px-3 py-1 text-xs" onClick={() => act(() => api.post('/api/admin/library/trainees', { personId: tr.personId }))}>
                   {t('library.mark_paid')}
                 </button>
+              )}
+              <span className="flex w-full flex-wrap items-center gap-2">
+                <button type="button" className="btn-secondary px-3 py-1 text-xs" onClick={() => { setMessageOpen(messageOpen === tr.personId ? null : tr.personId); setMessageText(''); setMessageNote(null); }} data-testid={`trainee-message-${tr.personId}`}>
+                  {t('library.trainee_message')}
+                </button>
+                <a
+                  href={whatsappChatUrl(tr.whatsappNumber, t('library.wa_continue_text', { lng: tr.language ?? 'en', url: schoolWebsiteUrl(tr.language ?? 'en') }))}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg bg-green-600 px-3 py-1 text-xs font-semibold text-white no-underline hover:bg-green-700"
+                  data-testid={`trainee-whatsapp-${tr.personId}`}
+                >
+                  {t('library.trainee_whatsapp')}
+                </a>
+              </span>
+              {messageOpen === tr.personId && (
+                <span className="flex w-full flex-col gap-2">
+                  <textarea className="input min-h-[4rem]" value={messageText} maxLength={4000} placeholder={t('library.trainee_message_placeholder', { name: tr.name }) ?? ''} aria-label={t('library.trainee_message_placeholder', { name: tr.name }) ?? ''} onChange={(e) => setMessageText(e.target.value)} />
+                  <button type="button" className="btn-primary self-start px-3 py-1 text-xs" disabled={!messageText.trim()} onClick={() => void sendMessage(tr.personId)} data-testid={`trainee-message-send-${tr.personId}`}>
+                    {t('library.trainee_message_send')}
+                  </button>
+                </span>
               )}
             </li>
           ))}

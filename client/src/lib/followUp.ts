@@ -5,14 +5,14 @@ import { configuredSocials, type SocialUrls } from '../components/socialPlatform
  * person's own language), the Telegram group, the Messenger group, the Facebook group, the Facebook page and the
  * Instagram page. Only the ones with a link are returned. Channels are left out on purpose.
  */
-export type FollowUpId = 'whatsapp' | 'telegram_group' | 'messenger' | 'facebook_group' | 'facebook' | 'instagram';
+export type FollowUpId = 'whatsapp' | 'telegram_group' | 'messenger' | 'facebook_group' | 'facebook' | 'instagram' | 'website';
 
 export interface FollowUpPlace {
   id: FollowUpId;
   url: string;
 }
 
-export function followUpPlaces(s: SocialUrls, lang: 'en' | 'fr'): FollowUpPlace[] {
+export function followUpPlaces(s: SocialUrls, lang: 'en' | 'fr', websiteUrl?: string): FollowUpPlace[] {
   const all = configuredSocials(s);
   const find = (key: string) => all.find((x) => x.key === key)?.url;
   // The group in their language; the other language only when that one has no link yet.
@@ -24,8 +24,16 @@ export function followUpPlaces(s: SocialUrls, lang: 'en' | 'fr'): FollowUpPlace[
     ['facebook_group', find('facebook_group')],
     ['facebook', find('facebook')],
     ['instagram', find('instagram')],
+    // Where someone continues their study on the website (the Play Store app shows no prices or payment).
+    ['website', websiteUrl],
   ];
   return rows.filter((r): r is [FollowUpId, string] => Boolean(r[1])).map(([id, url]) => ({ id, url }));
+}
+
+/** The page that opens the Leadership School on the website (after signing in with the same account). */
+export function schoolWebsiteUrl(lang: 'en' | 'fr'): string {
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  return `${origin}/member/school${lang === 'fr' ? '?lang=fr' : ''}`;
 }
 
 /** A WhatsApp chat with this number, the message already typed (the leader reads it and presses send). */
