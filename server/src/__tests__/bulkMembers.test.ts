@@ -144,15 +144,32 @@ describe('Add many people — adding', () => {
       const res = await agent
         .post('/api/admin/bulk-members/add')
         .set('X-CSRF-Token', csrf)
-        .send({ personIds: [p1.id], newAssembly: { name: 'Brand New Assembly', parentId: hq.id }, removeFromSource: 'gen:1' });
+        .send({ personIds: [p1.id], newAssembly: { name: 'Brand New Assembly', parentId: g1.id }, removeFromSource: 'gen:1' });
       expect(res.status).toBe(201);
       expect(res.body.created).toBe(true);
       expect(res.body.removed).toBe(2);
       const created = await prisma.community.findUnique({ where: { id: res.body.destination.id }, include: { conversation: true } });
-      expect(created?.parentId).toBe(hq.id);
+      // Under the first generation-1 assembly (the Headquarters already has its two assemblies).
+      expect(created?.parentId).toBe(g1.id);
       expect(created?.conversation).toBeTruthy();
       const active = await prisma.communityMembership.findMany({ where: { personId: p1.id, status: 'ACTIVE' } });
       expect(active.map((m) => m.communityId)).toEqual([created!.id]);
+    });
+  });
+
+  it('will not make a third assembly under an assembly that already has two', async () => {
+    const { agent, csrf } = await admin();
+    const hq = await assembly('BulkFullHQ');
+    await assembly('BulkFullA', hq.id);
+    await assembly('BulkFullB', hq.id);
+    const p1 = await member('NoRoom');
+    await withHeadquarters(hq.id, async () => {
+      const res = await agent
+        .post('/api/admin/bulk-members/add')
+        .set('X-CSRF-Token', csrf)
+        .send({ personIds: [p1.id], newAssembly: { name: 'Third Assembly', parentId: hq.id } });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/already has its 2 assemblies/);
     });
   });
 
