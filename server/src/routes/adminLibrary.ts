@@ -16,6 +16,9 @@ import { activePaymentProvider } from '../lib/payments';
 import { coverFrUrl, coverUrl, newCoverVersion, readCoverDataUrl, sendCover } from '../lib/bookCovers';
 import { creditReferralEarning } from '../lib/referralEarnings';
 import { closeOrdersForBook, decideBookPayment } from '../lib/bookPayments';
+import { centralAdminPerson, sendContinueEmail, sendTrainingWelcome, sendWebsiteInvites, websiteInvitesWaiting } from '../lib/trainingWelcome';
+import { sendPrivateNotice } from '../lib/privateNotice';
+import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 
 // ---------------------------------------------------------------------------
 // /api/admin/library — central admin side of Exam World:
@@ -783,7 +786,7 @@ router.get('/trainees', asyncHandler(async (req, res) => {
     where: status.success ? { status: status.data } : {},
     orderBy: { updatedAt: 'desc' },
     take: 500,
-    include: { person: { select: { id: true, name: true, whatsappNumber: true } } },
+    include: { person: { select: { id: true, name: true, whatsappNumber: true, preferredLanguage: true } } },
   });
   // Books opened and not yet paid, per trainee.
   const personIds = rows.map((r) => r.personId);
@@ -799,6 +802,9 @@ router.get('/trainees', asyncHandler(async (req, res) => {
       name: r.person.name,
       whatsappNumber: r.person.whatsappNumber,
       status: r.status,
+      language: r.person.preferredLanguage === 'fr' ? 'fr' : 'en',
+      websiteInvitedAt: r.websiteInvitedAt,
+      approvedByAdmin: Boolean(r.activatedByUserId),
       requestedAt: r.requestedAt,
       activatedAt: r.activatedAt,
       note: r.note,
@@ -821,9 +827,42 @@ router.post('/trainees', communityMutationLimiter, requireCsrf, asyncHandler(asy
   const before = await prisma.trainingEnrollment.findUnique({ where: { personId: person.id }, select: { status: true } });
   await prisma.trainingEnrollment.upsert({ where: { personId: person.id }, create: { personId: person.id, ...data }, update: data });
   await audit(req, 'TRAINING_ACTIVATED', 'Person', person.id);
-  // Someone who asked to read (the Play Store app) is told they can start.
-  if (before?.status === 'REQUESTED') await notifyReadApproved(person.id).catch(() => {});
+  // Someone who asked to read (the Play Store app) is told they can start, and is emailed that they continue on the website.
+  if (before?.status === 'REQUESTED') {
+    await notifyReadApproved(person.id).catch(() => {});
+    await sendContinueEmail(person.id).catch(() => {});
+  }
+  // The founder's welcome in their private chat (once: not when training is simply started again).
+  if (!before || before.status === 'REQUESTED') await sendTrainingWelcome(person.id).catch(() => {});
   res.json({ status: 'ACTIVE' });
+}));
+
+// POST /api/admin/library/trainees/:personId/message — a private message to a trainee from the central admin's own
+// member profile (the founder, by name), not from "Headquarters".
+router.post('/trainees/:personId/message', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = z.object({ body: z.string().trim().min(1, 'Write a message.').max(MAX_MESSAGE_CHARS) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Write a message.' });
+  const person = await prisma.person.findUnique({ where: { id: req.params.personId }, select: { id: true, erasedAt: true } });
+  if (!person || person.erasedAt) return res.status(404).json({ error: 'Person not found.' });
+  const from = await centralAdminPerson();
+  if (!from) return res.status(409).json({ error: 'Link your admin account to your member profile first, so the message can come from your name.', code: 'NO_PROFILE' });
+  if (!(await sendPrivateNotice(from.id, person.id, parsed.data.body))) return res.status(502).json({ error: 'The message could not be sent. Please try again.' });
+  await audit(req, 'TRAINEE_MESSAGED', 'Person', person.id);
+  res.json({ sent: true });
+}));
+
+// GET /api/admin/library/website-invites — how many approved people have not yet been emailed the website link.
+router.get('/website-invites', asyncHandler(async (_req, res) => {
+  res.json({ waiting: await websiteInvitesWaiting() });
+}));
+
+// POST /api/admin/library/website-invites/send — emails the next batch (100 by default) of approved people the
+// "continue on the website" message. The Play Store app shows no prices or payment, so this goes by email.
+router.post('/website-invites/send', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const limit = z.coerce.number().int().min(1).max(200).catch(100).parse(req.body?.limit ?? 100);
+  const result = await sendWebsiteInvites(limit);
+  await audit(req, 'TRAINING_WEBSITE_INVITES_SENT', 'Person', 'batch', { sent: result.sent, failed: result.failed });
+  res.json(result);
 }));
 
 router.post('/trainees/:personId/revoke', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {

@@ -1777,7 +1777,8 @@
     "report_reminder": "Your weekly report is waiting. It takes a minute.",
     "report_late": "Your weekly report is late. Please send it today.",
     "faith_needs_conversation": "{{name}} finished the Book {{number}} exam and would be helped by a conversation.",
-    "faith_needs_conversation_plain": "{{name}} finished a book exam and would be helped by a conversation."
+    "faith_needs_conversation_plain": "{{name}} finished a book exam and would be helped by a conversation.",
+    "leader_assigned": "{{name}}, from the Leadership Team, has been assigned to follow you up."
   },
   "memberHome": {
     "title": "Home",
@@ -1855,6 +1856,7 @@
     "place_facebook_group": "Facebook group",
     "place_facebook": "Facebook page",
     "place_instagram": "Instagram page",
+    "place_website": "Continue your study on our website",
     "btn_hello": "Say hello",
     "btn_links": "Send our links",
     "btn_apps": "Which apps do you use?",
@@ -2383,7 +2385,20 @@
     "exam_warn_no_guide": "A personal question has no teacher guide in the key.",
     "exam_same_section": "Use the same personal questions in every set",
     "exam_same_section_help": "The personal questions (Section C) are the same in every set. With several sets pasted, the first one's are used for all of them; when you add a set to an exam that already has some, the exam's existing personal questions are kept. The marked questions stay different.",
-    "exam_same_as": "Personal questions: the same as Set {{number}}."
+    "exam_same_as": "Personal questions: the same as Set {{number}}.",
+    "invites_title": "Send the website link by email",
+    "invites_help": "The Play Store app shows no prices or payment, so people you approve continue on the website. This emails them the link and says to sign in with the same email.",
+    "invites_waiting": "{{count}} approved people have not been emailed yet.",
+    "invites_none": "Everyone you approved has been emailed.",
+    "invites_send": "Email the next {{count}}",
+    "invites_result": "{{sent}} emailed, {{failed}} failed, {{remaining}} still waiting.",
+    "invites_not_configured": "Email is not set up yet, so nothing was sent.",
+    "trainee_message": "Message",
+    "trainee_message_placeholder": "Write to {{name}}. It comes from your own name.",
+    "trainee_message_send": "Send",
+    "trainee_message_sent": "Sent.",
+    "trainee_whatsapp": "WhatsApp",
+    "wa_continue_text": "Hello, greetings from The God Nation 🙏 Your Leadership School request is approved. To continue, open {{url}} in your phone’s browser, sign in with the same email you use in the app, and open the Leadership School."
   },
   "memberCode": {
     "sent_to": "We sent a 6-digit code to {{email}}. Type it below.",
@@ -3016,6 +3031,13 @@
     "assembly_help": "An assembly inside {{name}}, one generation further. Each assembly can have only two. Nobody is placed in it automatically; you add the people.",
     "group_name": "Name of the group",
     "assembly_name": "Name of the assembly"
+  },
+  "myLeader": {
+    "title": "Your leader",
+    "from_team": "From the Leadership Team",
+    "help": "Assigned to walk with you and follow you up. You can write to your leader at any time.",
+    "message": "Write to your leader",
+    "badge": "Your leader · Leadership Team"
   },
   "manageAssembly": {
     "title": "Manage this assembly",
@@ -3797,7 +3819,10 @@
     "assign_confirm": "Assign {{count}} people",
     "assign_plan": "{{count}} people would be assigned:",
     "assign_left": "{{count}} people would stay unassigned (more leaders or a bigger number are needed).",
-    "assign_done": "{{count}} people assigned. {{left}} still unassigned."
+    "assign_done": "{{count}} people assigned. {{left}} still unassigned.",
+    "take_back": "Take back everyone ({{count}})",
+    "take_back_confirm": "Take back all {{count}} people from {{name}}? They will no longer be followed by this leader and can be assigned again. Nothing is deleted.",
+    "take_back_done": "{{count}} people taken back from {{name}}. They can be assigned again."
   },
   "terms": {
     "title": "Terms of Use",
@@ -4864,7 +4889,7 @@
   },
   "broadcast": {
     "title": "Message all my people",
-    "help": "Write once — text, a photo or a voice message — and everyone you look after receives it as a private message from you, with their first name in front. They can answer you privately.",
+    "help": "Write once — text, a photo or a voice message — and everyone you look after receives it as a private message from you. They can answer you privately.",
     "loading": "Loading…",
     "load_failed": "Could not load. Please try again.",
     "send_failed": "Could not send. Please try again.",
@@ -4875,7 +4900,7 @@
     "hide_people": "Hide the list",
     "select_all": "Select all",
     "select_none": "Select none",
-    "greeting_note": "Each person's message starts with “Hello” and their first name.",
+    "greeting_note": "Each message opens with “Hello, greetings from The God Nation”. No names are added; the rest is what you write.",
     "sent": "Sent to {{count}} people.",
     "skipped": "{{count}} could not be reached.",
     "my_history": "What I sent",

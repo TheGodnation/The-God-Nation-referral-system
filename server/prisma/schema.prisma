@@ -182,6 +182,8 @@ enum UpdateReactionType {
 }
 
 enum NotificationType {
+  // A leader from the Leadership Team has been assigned to follow this person up.
+  LEADER_ASSIGNED
   // Someone finished the Book 1 / Book 2 exam with personal answers that call for a conversation.
   FAITH_NEEDS_CONVERSATION
   // The National Coordinator's instructions to leaders (and reminders about them).
@@ -1498,6 +1500,9 @@ model FollowUpAssignment {
   closedAt         DateTime?
   closedByUserId   String?
   closeReason      String?
+  // When the person was told who their leader is (notification and first message), which happens once the leader has
+  // opened their dashboard. Null until then; reset when the person is handed to another leader.
+  introducedAt     DateTime?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
@@ -3002,6 +3007,9 @@ model TrainingEnrollment {
   // "Study now, pay later": how many books may be owed at once (0 = none;
   // at most 5), set when the central admin grants a grace request.
   graceBooks        Int                      @default(0)
+  // When the "continue on the website" email was sent to someone the central admin approved (the Play Store app
+  // shows no prices or payment, so the website link goes by email, never inside the app).
+  websiteInvitedAt  DateTime?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 

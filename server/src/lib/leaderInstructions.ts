@@ -3,6 +3,8 @@ import { prisma } from './prisma';
 import { getHeadquartersCommunityId, getCommunityGeneration } from './tree';
 import { isTranslationConfigured, translateText } from './translation';
 import { pushToPersons } from './push';
+import { sendPrivateNotice, isFrench, languagesOf } from './privateNotice';
+import { CLIENT_URL } from './env';
 
 // Instructions from the National Coordinator (the central admin) to leaders. See schema.prisma's
 // LeaderInstruction: to every leader, to the leaders of chosen generations, or to hand-picked leaders. The
@@ -78,6 +80,35 @@ async function translatedBoth(title: string, body: string): Promise<{ language: 
   return { language: b?.detectedLanguage ?? t?.detectedLanguage ?? null, titleTr: t?.translatedBody ?? null, bodyTr: b?.translatedBody ?? null };
 }
 
+/** The person an instruction's private message comes from: whoever sent it (the National Coordinator's own profile, or the representative). */
+async function senderPersonOf(createdByPersonId: string | null, createdByUserId: string | null): Promise<string | null> {
+  if (createdByPersonId) return createdByPersonId;
+  if (!createdByUserId) return null;
+  const user = await prisma.user.findUnique({ where: { id: createdByUserId }, select: { personId: true } });
+  return user?.personId ?? null;
+}
+
+export const instructionLink = (id: string): string => `${CLIENT_URL}/member/leadership-dashboard?section=instructions&instruction=${id}`;
+
+/** The short private message a leader receives about an instruction (or a reminder), in their own language. */
+export function instructionNotice(kind: 'new' | 'reminder', title: string, dueAt: Date | null, id: string, french: boolean): string {
+  const due = dueAt ? dueAt.toLocaleDateString(french ? 'fr-FR' : 'en-GB', { timeZone: 'Africa/Douala', day: 'numeric', month: 'long', year: 'numeric' }) : null;
+  const link = instructionLink(id);
+  if (french) {
+    return `${kind === 'new' ? '📌 Nouvelle instruction' : '⏰ Rappel'} : ${title}\n${due ? `Pour le : ${due}\n` : ''}${kind === 'new' ? 'Touchez pour la lire et la marquer comme faite' : 'Merci de la lire et de la marquer comme faite'} :\n${link}`;
+  }
+  return `${kind === 'new' ? '📌 New instruction' : '⏰ Reminder'}: ${title}\n${due ? `Due: ${due}\n` : ''}${kind === 'new' ? 'Tap to read it and mark it done' : 'Please read it and mark it done'}:\n${link}`;
+}
+
+/** Sends the private message to each leader (a few at a time). Never throws. */
+async function sendInstructionNotices(kind: 'new' | 'reminder', fromPersonId: string | null, personIds: string[], title: string, dueAt: Date | null, id: string): Promise<void> {
+  if (!fromPersonId || personIds.length === 0) return;
+  const langs = await languagesOf(personIds);
+  for (let i = 0; i < personIds.length; i += 10) {
+    await Promise.all(personIds.slice(i, i + 10).map((pid) => sendPrivateNotice(fromPersonId, pid, instructionNotice(kind, title, dueAt, id, isFrench(langs.get(pid))))));
+  }
+}
+
 export type CreateInstructionResult = { ok: true; id: string; recipients: number } | { ok: false; status: number; error: string };
 
 export async function createInstruction(input: CreateInstructionInput): Promise<CreateInstructionResult> {
@@ -113,6 +144,8 @@ export async function createInstruction(input: CreateInstructionInput): Promise<
     })),
   });
   pushToPersons(personIds, { title: input.fromRepresentative ? '📌 Instruction from your representative' : '📌 Instruction from the National Coordinator', body: input.title, url: '/member/me?section=instructions' }).catch(() => {});
+  // Also as a short private message from the sender, with a link that opens the instruction (it is marked Seen then).
+  await sendInstructionNotices('new', await senderPersonOf(input.createdByPersonId, input.createdByUserId), personIds, input.title, input.dueAt, instruction.id).catch(() => {});
   return { ok: true, id: instruction.id, recipients: personIds.length };
 }
 
@@ -198,6 +231,7 @@ export async function remindUnfinished(id: string): Promise<{ reminded: number }
     })),
   });
   pushToPersons(personIds, { title: '⏰ Reminder from the National Coordinator', body: i.title, url: '/member/me?section=instructions' }).catch(() => {});
+  await sendInstructionNotices('reminder', await senderPersonOf(i.createdByPersonId, i.createdByUserId), personIds, i.title, i.dueAt, i.id).catch(() => {});
   return { reminded: personIds.length };
 }
 

@@ -201,3 +201,27 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 ## Instructions read professionally (done)
 
 - An instruction is shown to leaders (and in the central admin's tracker) with the same formatting as posts and book pages: `# Heading`, `## Sub-heading`, `*bold*`, `_italic_`, `- bullets`, `1. steps`, `> quote`, with roomy spacing for long reading. The writing box has the same formatting bar. Older instructions written as plain text still show correctly (paragraphs, lists).
+
+## Instructions in private messages, and "Your leader" (done)
+
+- **Instructions**: when the National Coordinator (or a representative) sends an instruction, each leader also gets a short private message from the sender, in the leader's language: "📌 New instruction: Title, Due: date, Tap to read it and mark it done", with a link that opens the Instructions card on the leader's dashboard at that instruction and marks it Seen. A reminder sends "⏰ Reminder: …" the same way. The full instruction stays in the Instructions tracker (Seen / Done / late, notes). If the sender has no member profile linked, only the in-app notice goes. Code: `lib/leaderInstructions.ts`, `lib/privateNotice.ts`.
+- **Your leader**: when a person is assigned to a leader, the person is told who it is **once the leader has opened their dashboard** (`POST /api/member/my-leader/introduce`, called when the dashboard opens): a notification (`LEADER_ASSIGNED`, "<Name>, from the Leadership Team, has been assigned to follow you up"), a push, and a first private message from the leader in the person's language. Each assignment is introduced once (`FollowUpAssignment.introducedAt`); a hand-over to another leader resets it so the new leader introduces themselves. Assignments that existed before this feature were marked as done by the migration (`20261221090000`), so nobody got a message out of the blue; their card still shows. The person sees a **"Your leader" card** on Home (photo, name, "From the Leadership Team", a button to write), and a **"Your leader · Leadership Team" label** beside that leader's name in the private chat and the chat list (`GET /api/member/my-leader`).
+
+## Group messages carry no names (done)
+
+- "Message all my people" no longer puts the person's first name in front. Every message opens with the same greeting from the ministry, in the person's own language ("Hello, greetings from The God Nation 🙏" / "Bonjour, salutations de The God Nation 🙏"), then what the leader wrote. The same wording is used by the leaders' WhatsApp "Say hello" button.
+
+## Starting the Leadership School: welcome, website email, WhatsApp (done)
+
+- **Welcome** from the central admin's own member profile (the founder, by name; `centralAdminPerson` = the oldest active admin with a linked member profile) in the person's private chat, once, when training starts (website: at once; Play Store app: when the admin approves). It says nothing about prices, payment or the website, because the Play Store version shows this chat too (`lib/trainingWelcome.ts`). Replies come to the founder.
+- **The Play Store version** (`isStoreApp`) shows no prices or payment screens: the person asks to read, the admin approves in Library > Trainees, and the person then continues **on the website** with the same account. That link goes **outside the app**:
+  - an **email** sent automatically on approval ("Your Leadership School request is approved", button to `/member/school`), and **"Email the next 100"** in the Library for everyone the admin approved who has not been emailed (`TrainingEnrollment.websiteInvitedAt`; people who started by themselves are not included);
+  - a **WhatsApp** button on each trainee row (the website link in the person's language, the leader presses send);
+  - leaders' **"Send our links"** has "Continue your study on our website" (not ticked by default; never in "Which apps do you use?").
+- **Message** button on each trainee row: a private message from the founder's own name (`POST /api/admin/library/trainees/:id/message`).
+- **Rule kept for Google Play**: nothing automatic or sent to many people inside the app (welcome, notifications, group messages) mentions the website or payment; a message a person writes by hand to one person is a judgement call. Ask Google Play support about payments in Cameroon.
+
+## Take back everyone a leader follows (done)
+
+- To undo a mistaken or test assignment: in the central admin's "Assign people" tool (profile tab "Cells" / the admin dashboard), each leader who follows people has **"Take back everyone (N)"**. After a confirmation, all that leader's active follow-ups **in that assembly** are closed ("Taken back by the central admin"); nothing is deleted (history and chats stay), the people become unassigned and can be assigned again, and they no longer show that leader as theirs. `POST /api/admin/cells/release` and `/api/member/central-cells/release` (central admin only).
+- What cannot be undone: if the leader had already opened their Leadership page, the people were told once (a notification and a first message); those stay.

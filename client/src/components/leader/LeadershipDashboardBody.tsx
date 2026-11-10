@@ -238,6 +238,11 @@ export function LeadershipDashboardBody() {
       .then((r) => setPendingInstructions(r.items.filter((i) => i.status !== 'DONE').length))
       .catch(() => {});
 
+  // Opening the dashboard is what tells the people newly assigned to this leader who their leader is (once each).
+  useEffect(() => {
+    api.post('/api/member/my-leader/introduce', {}).catch(() => {});
+  }, []);
+
   useEffect(() => {
     api
       .get<{ referralCode: string | null; stats: DashboardStats }>('/api/leader/dashboard')

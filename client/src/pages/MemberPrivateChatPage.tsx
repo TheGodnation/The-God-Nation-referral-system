@@ -1,3 +1,5 @@
+import { useMyLeader } from '../lib/useMyLeader';
+import { YourLeaderBadge } from '../components/member/MyLeaderCard';
 import { ReactionsSheet, type ReactorList } from '../components/ReactionsSheet';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -102,6 +104,8 @@ export function MemberPrivateChatPage() {
   const lastReadId = useRef<string | null>(null);
   const otherNameRef = useRef('');
 
+  const myLeader = useMyLeader();
+  const isMyLeader = Boolean(myLeader && other?.otherPartyPersonId && other.otherPartyPersonId === myLeader.personId);
   const otherName =
     other?.otherPartyType === 'CENTRAL_AUTHORITY' ? t('privateChat.headquarters') : other?.otherPartyName || t('privateChat.someone');
   otherNameRef.current = otherName;
@@ -464,6 +468,7 @@ export function MemberPrivateChatPage() {
       )}
       <span className="min-w-0">
         <h1 className="truncate font-semibold">{other ? otherName : t('groupChat.loading')}</h1>
+        {isMyLeader && <YourLeaderBadge className="mb-0.5" />}
         {other && (
           <p className={`truncate text-xs ${otherTyping || otherRecording || presence?.online ? 'font-semibold text-emerald-600' : 'text-slate-500'}`}>{subtitle}</p>
         )}

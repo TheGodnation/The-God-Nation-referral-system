@@ -7,8 +7,11 @@ import { copyObject, deleteObject, headObject, isStorageConfigured } from './sto
 import { MAX_MESSAGE_CHARS } from './textLimits';
 
 // "Message all my people": a leader writes once (text, photos, a voice message) and each person they look after gets
-// it as an ordinary private message from the leader, in their normal private chat, with their first name in front.
+// it as an ordinary private message from the leader, in their normal private chat, opening with a greeting from The God Nation (no names).
 // There is no limit on how many a leader sends. A record is kept for the central admin and the representatives.
+
+export const BROADCAST_GREETING_EN = 'Hello, greetings from The God Nation 🙏';
+export const BROADCAST_GREETING_FR = 'Bonjour, salutations de The God Nation 🙏';
 
 export class BroadcastError extends Error {
   constructor(message: string, public status = 400) {
@@ -54,8 +57,6 @@ export interface BroadcastInput {
   attachments?: AttachmentInput[];
 }
 
-const firstNameOf = (name: string) => name.trim().split(/\s+/)[0] || name;
-
 export async function sendBroadcast(leaderPersonId: string, input: BroadcastInput) {
   await requireLeaderPerson(leaderPersonId);
   const text = (input.body ?? '').trim();
@@ -100,7 +101,8 @@ export async function sendBroadcast(leaderPersonId: string, input: BroadcastInpu
   for (const person of chosen) {
     try {
       const conversation = await getOrCreatePrivateConversation(person.id, { type: 'PERSON', personId: leaderPersonId });
-      const greeting = `${String(langOf.get(person.id)).startsWith('fr') ? 'Bonjour' : 'Hello'} ${firstNameOf(person.name)},`;
+      // The same greeting for everyone, with no name in it, in the person's own language.
+      const greeting = String(langOf.get(person.id)).startsWith('fr') ? BROADCAST_GREETING_FR : BROADCAST_GREETING_EN;
       const copies: { storageKey: string; a: AttachmentInput }[] = [];
       for (const a of attachments) {
         const destKey = generatePrivateAttachmentStorageKey(conversation.id);

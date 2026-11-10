@@ -16,6 +16,7 @@ import { activePaymentProvider } from '../lib/payments';
 import { trainingExamState } from '../lib/trainingExam';
 import { coverFrUrl, coverUrl, sendCover } from '../lib/bookCovers';
 import { notifyReadRequested } from '../lib/notifications';
+import { sendTrainingWelcome } from '../lib/trainingWelcome';
 
 // ---------------------------------------------------------------------------
 // /api/member — Exam World for members: the summary page (this month's
@@ -244,6 +245,8 @@ router.post('/training/request', socialMutationLimiter, requireCsrf, requireMemb
     update: { status: 'ACTIVE', requestedAt: existing?.requestedAt ?? now, activatedAt: now },
   });
   await recordAudit({ action: 'TRAINING_STARTED', targetType: 'Person', targetId: personId });
+  // The founder's welcome in their private chat (a first start, or one that was waiting for approval).
+  if (!existing || existing.status === 'REQUESTED') await sendTrainingWelcome(personId).catch(() => {});
   res.status(201).json({ enrollment: e.status });
 }));
 

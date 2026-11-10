@@ -13,7 +13,7 @@ import { clinicRhythm } from '../lib/examWorld';
 import { assemblyHealth, leadersHealthIn } from '../lib/assemblyHealth';
 import { adminReadsEnabled, chatsOfLeader, readLeaderChat, setAdminReads } from '../lib/chatOversight';
 import { addEscalationMessage, escalationViewFor, escalationsForAdmin, type EscalationActor } from '../lib/escalations';
-import { handOverPeople, leaderLoads, shareUnassigned } from '../lib/followUpShare';
+import { handOverPeople, leaderLoads, releasePeople, shareUnassigned } from '../lib/followUpShare';
 import { appointLeader, assembliesOverview, findPeople, leadersOf, makeLeaders, readyToLeadIn } from '../lib/cells';
 
 // Cells for the central admin: every assembly with its size, leaders and
@@ -108,6 +108,17 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
     const result = await handOverPeople({ ...parsed.data, fromLeaderId: parsed.data.fromLeaderPersonId, toLeaderId: parsed.data.toLeaderPersonId, actorUserId: actor.id });
     await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_REASSIGNED', targetType: 'Community', targetId: parsed.data.communityId, metadata: { ...result, fromLeaderPersonId: parsed.data.fromLeaderPersonId, via: 'handover' } });
+    res.json(result);
+  }));
+
+  // Take back everyone a leader follows in one assembly (to undo a mistaken or test assignment). Nothing is deleted.
+  router.post('/release', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ fromLeaderPersonId: z.string().min(1), communityId: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'fromLeaderPersonId and communityId are required.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const result = await releasePeople({ fromLeaderId: parsed.data.fromLeaderPersonId, communityId: parsed.data.communityId, actorUserId: actor.id });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_CLOSED', targetType: 'Community', targetId: parsed.data.communityId, metadata: { ...result, fromLeaderPersonId: parsed.data.fromLeaderPersonId, bulk: true, via: 'take-back' } });
     res.json(result);
   }));
 

@@ -7,6 +7,7 @@ import { MemberPhotoSlider } from '../components/member/MemberPhotoSlider';
 import { HomeAboutTabs } from '../components/member/HomeAboutTabs';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { LiveBanner } from '../components/updates/LiveBanner';
+import { MyLeaderCard } from '../components/member/MyLeaderCard';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { resolveWallpaperStyle } from '../lib/wallpaper';
 import { usePublicSettings } from '../lib/usePublicSettings';
@@ -28,6 +29,7 @@ export function MemberUpdatesPage() {
             <div className="px-4 empty:hidden sm:px-0">
               <EnableNotificationsBanner className="" />
             </div>
+            <MyLeaderCard />
             <MemberPhotoSlider />
             <div className="px-4 empty:hidden sm:px-0">
               <LiveBanner />

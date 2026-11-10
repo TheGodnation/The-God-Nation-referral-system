@@ -194,7 +194,7 @@ export async function handOverPeople(opts: {
       // The new leader already follows them: just stop mine.
       await prisma.followUpAssignment.update({ where: { id: a.id }, data: { status: 'CLOSED', closedAt: new Date(), closedByUserId: opts.actorUserId, closeReason: 'Handed over' } });
     } else {
-      const updated = await prisma.followUpAssignment.update({ where: { id: a.id }, data: { followerId: target.personId } });
+      const updated = await prisma.followUpAssignment.update({ where: { id: a.id }, data: { followerId: target.personId, introducedAt: null } });
       await moveChat(a.followedPersonId, fromLeaderId, target.personId);
       await notifyFollowUpAssigned(updated);
     }
@@ -202,6 +202,18 @@ export async function handOverPeople(opts: {
     moved += 1;
   }
   return { moved, skipped };
+}
+
+/**
+ * Take back everyone a leader follows in one assembly: their follow-ups are closed (nothing is deleted; the history
+ * and the chats stay) and the people are free to be assigned again. Used to undo a mistaken or test assignment.
+ */
+export async function releasePeople(opts: { fromLeaderId: string; communityId: string; actorUserId: string }): Promise<{ released: number }> {
+  const closed = await prisma.followUpAssignment.updateMany({
+    where: { followerId: opts.fromLeaderId, contextType: 'COMMUNITY', contextId: opts.communityId, status: 'ACTIVE' },
+    data: { status: 'CLOSED', closedAt: new Date(), closedByUserId: opts.actorUserId, closeReason: 'Taken back by the central admin' },
+  });
+  return { released: closed.count };
 }
 
 /** Let a second leader follow a person too (the first keeps them): "shared". */

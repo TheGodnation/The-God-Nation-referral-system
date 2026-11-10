@@ -1777,7 +1777,8 @@
     "report_reminder": "Votre rapport hebdomadaire vous attend. Cela prend une minute.",
     "report_late": "Votre rapport hebdomadaire est en retard. Merci de l'envoyer aujourd'hui.",
     "faith_needs_conversation": "{{name}} a terminé l'examen du livre {{number}} et aurait besoin d'une conversation.",
-    "faith_needs_conversation_plain": "{{name}} a terminé un examen de livre et aurait besoin d'une conversation."
+    "faith_needs_conversation_plain": "{{name}} a terminé un examen de livre et aurait besoin d'une conversation.",
+    "leader_assigned": "{{name}}, de l’équipe de leadership, a été désigné(e) pour vous suivre."
   },
   "memberHome": {
     "title": "Accueil",
@@ -1855,6 +1856,7 @@
     "place_facebook_group": "Groupe Facebook",
     "place_facebook": "Page Facebook",
     "place_instagram": "Page Instagram",
+    "place_website": "Continuez votre étude sur notre site",
     "btn_hello": "Dire bonjour",
     "btn_links": "Envoyer nos liens",
     "btn_apps": "Quelles applications utilisez-vous ?",
@@ -2383,7 +2385,20 @@
     "exam_warn_no_guide": "Une question personnelle n'a pas de guide de l'enseignant dans le corrigé.",
     "exam_same_section": "Utiliser les mêmes questions personnelles dans tous les jeux",
     "exam_same_section_help": "Les questions personnelles (section C) sont les mêmes dans tous les jeux. Si vous collez plusieurs jeux, celles du premier servent pour tous ; si vous ajoutez un jeu à un examen qui en a déjà, les questions personnelles existantes de l'examen sont conservées. Les questions notées restent différentes.",
-    "exam_same_as": "Questions personnelles : les mêmes que le jeu {{number}}."
+    "exam_same_as": "Questions personnelles : les mêmes que le jeu {{number}}.",
+    "invites_title": "Envoyer le lien du site par e-mail",
+    "invites_help": "L’application du Play Store n’affiche ni prix ni paiement : les personnes que vous approuvez continuent donc sur le site. Ceci leur envoie le lien et leur dit de se connecter avec la même adresse e-mail.",
+    "invites_waiting": "{{count}} personnes approuvées n’ont pas encore reçu l’e-mail.",
+    "invites_none": "Toutes les personnes approuvées ont reçu l’e-mail.",
+    "invites_send": "Envoyer aux {{count}} suivantes",
+    "invites_result": "{{sent}} envoyés, {{failed}} échecs, {{remaining}} en attente.",
+    "invites_not_configured": "L’e-mail n’est pas encore configuré : rien n’a été envoyé.",
+    "trainee_message": "Message",
+    "trainee_message_placeholder": "Écrire à {{name}}. Le message vient de votre propre nom.",
+    "trainee_message_send": "Envoyer",
+    "trainee_message_sent": "Envoyé.",
+    "trainee_whatsapp": "WhatsApp",
+    "wa_continue_text": "Bonjour, salutations de The God Nation 🙏 Votre demande à l’École de leadership est approuvée. Pour continuer, ouvrez {{url}} dans le navigateur de votre téléphone, connectez-vous avec la même adresse e-mail que dans l’application, puis ouvrez l’École de leadership."
   },
   "memberCode": {
     "sent_to": "Nous avons envoyé un code à 6 chiffres à {{email}}. Tapez-le ci-dessous.",
@@ -3016,6 +3031,13 @@
     "assembly_help": "Une assemblée dans {{name}}, une génération plus loin. Chaque assemblée ne peut en avoir que deux. Personne n’y est placé automatiquement ; vous ajoutez les personnes.",
     "group_name": "Nom du groupe",
     "assembly_name": "Nom de l’assemblée"
+  },
+  "myLeader": {
+    "title": "Votre responsable",
+    "from_team": "De l’équipe de leadership",
+    "help": "Désigné(e) pour marcher avec vous et vous suivre. Vous pouvez écrire à votre responsable à tout moment.",
+    "message": "Écrire à votre responsable",
+    "badge": "Votre responsable · Équipe de leadership"
   },
   "manageAssembly": {
     "title": "Gérer cette assemblée",
@@ -3797,7 +3819,10 @@
     "assign_confirm": "Confier {{count}} personnes",
     "assign_plan": "{{count}} personnes seraient confiées :",
     "assign_left": "{{count}} personnes resteraient sans suivi (il faut plus de responsables ou un nombre plus grand).",
-    "assign_done": "{{count}} personnes confiées. {{left}} sans suivi."
+    "assign_done": "{{count}} personnes confiées. {{left}} sans suivi.",
+    "take_back": "Reprendre tout le monde ({{count}})",
+    "take_back_confirm": "Reprendre les {{count}} personnes de {{name}} ? Elles ne seront plus suivies par ce responsable et pourront être réassignées. Rien n’est supprimé.",
+    "take_back_done": "{{count}} personnes reprises à {{name}}. Elles peuvent être réassignées."
   },
   "terms": {
     "title": "Conditions d’utilisation",
@@ -4864,7 +4889,7 @@
   },
   "broadcast": {
     "title": "Message à toutes mes personnes",
-    "help": "Écrivez une fois — texte, photo ou message vocal — et toutes les personnes dont vous prenez soin le reçoivent en message privé de votre part, avec leur prénom en tête. Elles peuvent vous répondre en privé.",
+    "help": "Écrivez une fois — texte, photo ou message vocal — et toutes les personnes dont vous prenez soin le reçoivent en message privé de votre part. Elles peuvent vous répondre en privé.",
     "loading": "Chargement…",
     "load_failed": "Chargement impossible. Réessayez.",
     "send_failed": "Envoi impossible. Réessayez.",
@@ -4875,7 +4900,7 @@
     "hide_people": "Masquer la liste",
     "select_all": "Tout sélectionner",
     "select_none": "Tout désélectionner",
-    "greeting_note": "Le message de chaque personne commence par « Bonjour » et son prénom.",
+    "greeting_note": "Chaque message commence par « Bonjour, salutations de The God Nation ». Aucun nom n’est ajouté ; le reste est ce que vous écrivez.",
     "sent": "Envoyé à {{count}} personnes.",
     "skipped": "{{count}} n'ont pas pu être jointes.",
     "my_history": "Ce que j'ai envoyé",

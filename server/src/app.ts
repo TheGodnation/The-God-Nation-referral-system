@@ -34,6 +34,7 @@ import adminPeopleRoutes from './routes/adminPeople';
 import adminSignInTroubleRoutes from './routes/adminSignInTrouble';
 import teachingsRoutes from './routes/teachings';
 import communityManageRoutes from './routes/communityManage';
+import memberMyLeaderRoutes from './routes/memberMyLeader';
 import adminCommunitiesRoutes, { memberCentralCommunitiesRoutes } from './routes/adminCommunities';
 import adminDevotionalsRoutes from './routes/adminDevotionals';
 import adminAssessmentsRoutes from './routes/adminAssessments';
@@ -250,6 +251,7 @@ export function createApp() {
   // routes per role.
   app.use('/api/communities', communityConversationsRoutes);
   app.use('/api/communities', communityManageRoutes);
+  app.use('/api/member/my-leader', memberMyLeaderRoutes);
   // Phase 3M.2: one shared resource family for a FollowUpAssignment's
   // conversation, reachable by its follower (Leader) or followed Person
   // (Member, only if they have a MemberAccount) — structurally separate
