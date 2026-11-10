@@ -204,6 +204,18 @@ export async function handOverPeople(opts: {
   return { moved, skipped };
 }
 
+/**
+ * Take back everyone a leader follows in one assembly: their follow-ups are closed (nothing is deleted; the history
+ * and the chats stay) and the people are free to be assigned again. Used to undo a mistaken or test assignment.
+ */
+export async function releasePeople(opts: { fromLeaderId: string; communityId: string; actorUserId: string }): Promise<{ released: number }> {
+  const closed = await prisma.followUpAssignment.updateMany({
+    where: { followerId: opts.fromLeaderId, contextType: 'COMMUNITY', contextId: opts.communityId, status: 'ACTIVE' },
+    data: { status: 'CLOSED', closedAt: new Date(), closedByUserId: opts.actorUserId, closeReason: 'Taken back by the central admin' },
+  });
+  return { released: closed.count };
+}
+
 /** Let a second leader follow a person too (the first keeps them): "shared". */
 export async function shareWithLeader(opts: { personId: string; toLeaderId: string; communityId: string; actorUserId: string }) {
   const existing = await prisma.followUpAssignment.findFirst({

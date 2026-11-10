@@ -220,3 +220,8 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   - leaders' **"Send our links"** has "Continue your study on our website" (not ticked by default; never in "Which apps do you use?").
 - **Message** button on each trainee row: a private message from the founder's own name (`POST /api/admin/library/trainees/:id/message`).
 - **Rule kept for Google Play**: nothing automatic or sent to many people inside the app (welcome, notifications, group messages) mentions the website or payment; a message a person writes by hand to one person is a judgement call. Ask Google Play support about payments in Cameroon.
+
+## Take back everyone a leader follows (done)
+
+- To undo a mistaken or test assignment: in the central admin's "Assign people" tool (profile tab "Cells" / the admin dashboard), each leader who follows people has **"Take back everyone (N)"**. After a confirmation, all that leader's active follow-ups **in that assembly** are closed ("Taken back by the central admin"); nothing is deleted (history and chats stay), the people become unassigned and can be assigned again, and they no longer show that leader as theirs. `POST /api/admin/cells/release` and `/api/member/central-cells/release` (central admin only).
+- What cannot be undone: if the leader had already opened their Leadership page, the people were told once (a notification and a first message); those stay.

@@ -240,6 +240,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
                 {assigning && (
                   <AssignPeople
                     base={base}
+                    canTakeBack
                     communityId={open.id}
                     onDone={(text) => {
                       setMessage(text);
@@ -302,7 +303,7 @@ interface SharePlan {
 
 // Give the people nobody follows to the leaders: choose which leaders, and how many people each (leave the number
 // empty to share evenly). "Preview" shows who would get how many, and changes nothing; "Assign" does it.
-export function AssignPeople({ base, communityId, onDone }: { base: string; communityId: string; onDone: (message: string) => void }) {
+export function AssignPeople({ base, communityId, onDone, canTakeBack = false }: { base: string; communityId: string; onDone: (message: string) => void; canTakeBack?: boolean }) {
   const { t } = useTranslation();
   const [leaders, setLeaders] = useState<LeaderLoad[] | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
@@ -311,7 +312,7 @@ export function AssignPeople({ base, communityId, onDone }: { base: string; comm
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function loadLeaders() {
     api
       .get<{ items: LeaderLoad[] }>(`${base}/leaders?communityId=${encodeURIComponent(communityId)}`)
       .then((r) => {
@@ -319,7 +320,25 @@ export function AssignPeople({ base, communityId, onDone }: { base: string; comm
         setChosen(r.items.filter((l) => !l.away).map((l) => l.personId));
       })
       .catch(() => setError(t('cells.load_failed')));
-  }, [base, communityId]);
+  }
+  useEffect(loadLeaders, [base, communityId]);
+
+  // Undo a mistaken or test assignment: everyone this leader follows here is taken back (nothing is deleted).
+  async function takeBack(l: LeaderLoad) {
+    if (!window.confirm(t('cells.take_back_confirm', { count: l.headcount, name: l.name }) ?? '')) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.post<{ released: number }>(`${base}/release`, { fromLeaderPersonId: l.personId, communityId });
+      setPlan(null);
+      loadLeaders();
+      onDone(t('cells.take_back_done', { count: r.released, name: l.name }));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('cells.share_failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const number = perLeader.trim() === '' ? undefined : Number(perLeader);
   const numberOk = number === undefined || (Number.isInteger(number) && number >= 1 && number <= 2000);
@@ -365,6 +384,11 @@ export function AssignPeople({ base, communityId, onDone }: { base: string; comm
                 </span>
               </span>
             </label>
+            {canTakeBack && l.headcount > 0 && (
+              <button type="button" className="ml-6 mt-1 text-xs text-red-700 underline" disabled={busy} onClick={() => void takeBack(l)} data-testid={`take-back-${l.personId}`}>
+                {t('cells.take_back', { count: l.headcount })}
+              </button>
+            )}
           </li>
         ))}
       </ul>

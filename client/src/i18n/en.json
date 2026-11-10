@@ -3819,7 +3819,10 @@
     "assign_confirm": "Assign {{count}} people",
     "assign_plan": "{{count}} people would be assigned:",
     "assign_left": "{{count}} people would stay unassigned (more leaders or a bigger number are needed).",
-    "assign_done": "{{count}} people assigned. {{left}} still unassigned."
+    "assign_done": "{{count}} people assigned. {{left}} still unassigned.",
+    "take_back": "Take back everyone ({{count}})",
+    "take_back_confirm": "Take back all {{count}} people from {{name}}? They will no longer be followed by this leader and can be assigned again. Nothing is deleted.",
+    "take_back_done": "{{count}} people taken back from {{name}}. They can be assigned again."
   },
   "terms": {
     "title": "Terms of Use",

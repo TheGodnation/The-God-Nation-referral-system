@@ -3819,7 +3819,10 @@
     "assign_confirm": "Confier {{count}} personnes",
     "assign_plan": "{{count}} personnes seraient confiées :",
     "assign_left": "{{count}} personnes resteraient sans suivi (il faut plus de responsables ou un nombre plus grand).",
-    "assign_done": "{{count}} personnes confiées. {{left}} sans suivi."
+    "assign_done": "{{count}} personnes confiées. {{left}} sans suivi.",
+    "take_back": "Reprendre tout le monde ({{count}})",
+    "take_back_confirm": "Reprendre les {{count}} personnes de {{name}} ? Elles ne seront plus suivies par ce responsable et pourront être réassignées. Rien n’est supprimé.",
+    "take_back_done": "{{count}} personnes reprises à {{name}}. Elles peuvent être réassignées."
   },
   "terms": {
     "title": "Conditions d’utilisation",

@@ -117,6 +117,31 @@ describe('CellsPanel', () => {
     expect(calls.filter((c) => c.method === 'POST').pop()?.body).toEqual({ communityId: 'a2', leaderPersonIds: ['l1', 'l2'], perLeader: 2, dryRun: false });
   });
 
+  it('takes back everyone a leader follows (to undo a test), after asking, and offers it only for leaders who follow people', async () => {
+    let anna = 5;
+    mockFetch({
+      '/api/admin/cells/overview': () => ({ status: 200, body: overview }),
+      '/api/admin/cells/ready-to-lead': () => ({ status: 200, body: { requiredBooks: 15, items: [] } }),
+      '/api/admin/cells/leaders': () => ({ status: 200, body: { items: [
+        { personId: 'l1', name: 'Anna', away: false, headcount: anna },
+        { personId: 'l2', name: 'Boris', away: false, headcount: 0 },
+      ] } }),
+      '/api/admin/cells/release': () => { anna = 0; return { status: 200, body: { released: 5 } }; },
+    });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<CellsPanel base="/api/admin/cells" />);
+    fireEvent.click(await screen.findByText('Headquarters · 1'));
+    fireEvent.click(await screen.findByTestId('assign-toggle'));
+    await screen.findByTestId('assign-people');
+    expect(screen.queryByTestId('take-back-l2')).toBeNull();
+    fireEvent.click(screen.getByTestId('take-back-l1'));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Take back all 5 people from Anna'));
+    expect(await screen.findByText('5 people taken back from Anna. They can be assigned again.')).toBeInTheDocument();
+    expect(calls.find((c) => c.url.endsWith('/cells/release'))?.body).toEqual({ fromLeaderPersonId: 'l1', communityId: 'a2' });
+    await waitFor(() => expect(screen.queryByTestId('take-back-l1')).toBeNull());
+    confirm.mockRestore();
+  });
+
   it('shows each assembly\'s health as a coloured dot', async () => {
     mockFetch({
       '/api/admin/cells/overview': () => ({ status: 200, body: overview }),
