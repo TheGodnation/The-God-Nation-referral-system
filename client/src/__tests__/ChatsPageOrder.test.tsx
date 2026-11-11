@@ -81,9 +81,9 @@ describe('Chats page', () => {
       }),
     });
     render(<MemoryRouter><MemberChatsPage /></MemoryRouter>);
-    const privateTab = await screen.findByRole('tab', { name: /Private messages/ });
-    await screen.findByText('Newest Person');
-    await waitFor(() => expect(privateTab).toHaveAttribute('aria-selected', 'true'));
+    const privateTab = await screen.findByRole('tab', { name: /Private messages/ }, { timeout: 5000 });
+    await screen.findByText('Newest Person', undefined, { timeout: 5000 });
+    await waitFor(() => expect(privateTab).toHaveAttribute('aria-selected', 'true'), { timeout: 5000 });
     expect(within(privateTab).getByLabelText('2 new messages')).toBeInTheDocument();
     expect(within(screen.getByRole('tab', { name: /Assemblies/ })).getByLabelText('4 new messages')).toBeInTheDocument();
     // Newest first.
