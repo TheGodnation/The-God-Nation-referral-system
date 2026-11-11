@@ -2573,6 +2573,7 @@ enum TranslationRetryKind {
   TEACHING
   HEADQUARTERS_POST
   ANNOUNCEMENT
+  INSTRUCTION
 }
 
 // A translation (or voice-note transcription) whose first attempt failed,
