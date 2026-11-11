@@ -342,6 +342,8 @@
 </div>
 
 <script>
+  // Shown inside the app (a panel over the page): no "back" link, the app's own Close button does that.
+  try { if (window.self !== window.top) { var back = document.querySelector('.back'); if (back) back.hidden = true; } } catch (e) {}
   function setLang(lang) {
     document.querySelectorAll('.en').forEach(function (el) { el.hidden = lang !== 'en'; });
     document.querySelectorAll('.fr').forEach(function (el) { el.hidden = lang !== 'fr'; });

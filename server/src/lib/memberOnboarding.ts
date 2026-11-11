@@ -105,6 +105,8 @@ export interface OnboardingStatus {
   profileDone: boolean;
   notificationsOn: boolean;
   communityTapped: boolean;
+  /** The member said, themselves, that they joined (a tap on a link alone is never counted as joining). */
+  communityConfirmed: boolean;
   firstTeachingOpened: boolean;
   /** Signed up before the Assembly Agreement started: asked for nothing about community or rules. */
   existingMember: boolean;
@@ -119,7 +121,7 @@ export async function onboardingStatus(personId: string): Promise<OnboardingStat
   const [person, account, onboarding, push, teaching, registration, settings, pending] = await Promise.all([
     prisma.person.findUnique({ where: { id: personId }, select: { profileCompletedAt: true } }),
     prisma.memberAccount.findUnique({ where: { personId }, select: { firstLoginAt: true, createdAt: true } }),
-    prisma.memberOnboarding.findUnique({ where: { personId }, select: { dismissedAt: true, installedAt: true } }),
+    prisma.memberOnboarding.findUnique({ where: { personId }, select: { dismissedAt: true, installedAt: true, communityConfirmedAt: true } }),
     prisma.pushSubscription.count({ where: { personId } }),
     prisma.teachingProgress.count({ where: { personId } }),
     prisma.registration.findFirst({ where: { personId }, select: { id: true } }),
@@ -132,6 +134,7 @@ export async function onboardingStatus(personId: string): Promise<OnboardingStat
     profileDone: !!person?.profileCompletedAt,
     notificationsOn: push > 0,
     communityTapped: taps > 0,
+    communityConfirmed: !!onboarding?.communityConfirmedAt,
     firstTeachingOpened: teaching > 0,
     existingMember: existing,
     agreementCommunityId: pending[0]?.communityId ?? null,

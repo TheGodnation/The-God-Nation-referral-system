@@ -14,6 +14,8 @@ export interface FunnelCounts {
   confirmed: number;
   profileCompleted: number;
   joinedGroup: number;
+  /** Said, themselves, that they joined (self-reported; a tap on a link is `joinedGroup`). */
+  saysJoined: number;
   firstChat: number;
   firstExam: number;
   returned7: number;
@@ -39,7 +41,7 @@ export interface AmbassadorRow {
   returned7: number;
 }
 
-const empty = (): FunnelCounts => ({ visitors: 0, leads: 0, registered: 0, confirmed: 0, profileCompleted: 0, joinedGroup: 0, firstChat: 0, firstExam: 0, returned7: 0, returned30: 0 });
+const empty = (): FunnelCounts => ({ visitors: 0, leads: 0, registered: 0, confirmed: 0, profileCompleted: 0, joinedGroup: 0, saysJoined: 0, firstChat: 0, firstExam: 0, returned7: 0, returned30: 0 });
 
 interface Origin {
   utmSource: string | null;
@@ -89,16 +91,18 @@ export async function growthReport(days: number, now = new Date()) {
 
   const regIds = registrations.map((r) => r.id);
   const personIds = registrations.map((r) => r.personId!).filter(Boolean);
-  const [groupClicks, chatters, examTakers, platformTaps] = await Promise.all([
+  const [groupClicks, chatters, examTakers, platformTaps, selfConfirmed] = await Promise.all([
     prisma.event.findMany({ where: { type: 'GROUP_LINK_CLICKED', registrationId: { in: regIds } }, select: { registrationId: true }, distinct: ['registrationId'] }),
     prisma.message.findMany({ where: { senderPersonId: { in: personIds }, deletedAt: null, kind: 'USER' }, select: { senderPersonId: true }, distinct: ['senderPersonId'] }),
     prisma.attempt.findMany({ where: { personId: { in: personIds }, status: 'SUBMITTED' }, select: { personId: true }, distinct: ['personId'] }),
     // Every tap in the period on a group, channel or page (members and visitors who left a number).
     prisma.event.groupBy({ by: ['detail'], where: { type: 'GROUP_LINK_CLICKED', timestamp: { gte: since }, isTestData: false }, _count: { _all: true } }),
+    prisma.memberOnboarding.findMany({ where: { personId: { in: personIds }, communityConfirmedAt: { not: null } }, select: { personId: true } }),
   ]);
   const clicked = new Set(groupClicks.map((e) => e.registrationId));
   const chatted = new Set(chatters.map((m) => m.senderPersonId));
   const examined = new Set(examTakers.map((a) => a.personId));
+  const saidJoined = new Set(selfConfirmed.map((m) => m.personId));
 
   const rows = new Map<string, GrowthRow>();
   const totals = empty();
@@ -142,6 +146,7 @@ export async function growthReport(days: number, now = new Date()) {
       confirmed: confirmed ? 1 : 0,
       profileCompleted: completed ? 1 : 0,
       joinedGroup: clicked.has(reg.id) ? 1 : 0,
+      saysJoined: saidJoined.has(reg.personId!) ? 1 : 0,
       firstChat: chatted.has(reg.personId!) ? 1 : 0,
       firstExam: examined.has(reg.personId!) ? 1 : 0,
       returned7: returnedAfter(7) ? 1 : 0,

@@ -58,6 +58,19 @@ describe('sourceOf', () => {
   });
 });
 
+describe('growthReport: tapped a link versus says they joined', () => {
+  it('counts a tap and the member’s own "I have joined" separately', async () => {
+    const tapOnly = await joiner({ utmSource: 'saysjoinedtest', group: true });
+    const said = await joiner({ utmSource: 'saysjoinedtest', group: true });
+    await joiner({ utmSource: 'saysjoinedtest' });
+    await prisma.memberOnboarding.create({ data: { personId: said.person.id, communityConfirmedAt: new Date() } });
+    await prisma.memberOnboarding.create({ data: { personId: tapOnly.person.id } });
+    const r = await growthReport(30);
+    const row = r.bySource.find((x) => x.source === 'saysjoinedtest')!;
+    expect(row).toMatchObject({ registered: 3, joinedGroup: 2, saysJoined: 1 });
+  });
+});
+
 describe('growthReport', () => {
   it('counts how far each person got, by source and campaign, and by ambassador', async () => {
     const owner = await prisma.person.create({ data: { name: 'Ambassador Ann', whatsappNumber: '+237674099999' } });

@@ -299,3 +299,9 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **Agreeing counts as joining:** the "just joined" line is held back at placement and appears when they agree (`joinNotice` skips people who still have to agree), and the National Coordinator's profile sends them a private message "You are now part of …" with a link into the assembly (`lib/assemblyAgreeing.ts`, EN/FR).
 - The rules text (five rules, EN/FR) lives in the app's translations (`assemblyAgreement.*`). Changing it later only affects people who have not agreed yet (agreements are recorded once and never asked again).
 - The welcome checklist's last step is now "Read the rules and join your assembly" (replaces "open your first teaching"). Existing members have it, and the community step, ticked automatically.
+
+## Community step: a tap is not joining (onboarding Phase B)
+
+- A new member's community step (welcome page and a card on Chats) lists the places to join (YouTube left out). Tapping a link only records "tapped a group link" (`GROUP_LINK_CLICKED`). The links open other apps, so we cannot see whether they really joined; the app then asks "I have joined?" and the step ticks only on their own answer (`MemberOnboarding.communityConfirmedAt`, `POST /api/member/onboarding/community-joined`).
+- Existing members (accounts older than the Assembly Agreement start) are not asked: the step is ticked for them and the card is never shown.
+- Growth report: the old "WhatsApp group" column is now **Tapped a group link**, and a new column **Says they joined** counts the self-reports. Neither is ever shown as confirmed membership.

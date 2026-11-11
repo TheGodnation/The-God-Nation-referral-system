@@ -33,4 +33,13 @@ router.post('/onboarding/installed', socialMutationLimiter, requireCsrf, asyncHa
   res.json({ ok: true });
 }));
 
+// The member says they have joined the welcome community. We cannot see this ourselves (the links open other apps), so it
+// is their own word, recorded once and shown as "says they joined", never as confirmed membership.
+router.post('/onboarding/community-joined', socialMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const personId = req.member!.personId;
+  await prisma.memberOnboarding.upsert({ where: { personId }, create: { personId }, update: {} });
+  await prisma.memberOnboarding.updateMany({ where: { personId, communityConfirmedAt: null }, data: { communityConfirmedAt: new Date() } });
+  res.json({ ok: true });
+}));
+
 export default router;

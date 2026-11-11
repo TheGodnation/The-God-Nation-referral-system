@@ -7,7 +7,7 @@ import { MemberNav } from '../components/member/MemberNav';
 import { InstallAppBanner } from '../components/member/InstallAppBanner';
 import { AssistanceButton } from '../components/member/AssistanceButton';
 import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
-import { GetStartedCard } from '../components/member/OnboardingChecklist';
+import { CommunityJoinCard, GetStartedCard } from '../components/member/OnboardingChecklist';
 import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { EventsCard } from '../components/member/EventsCard';
@@ -167,6 +167,7 @@ export function MemberChatsPage() {
           <NotificationBell />
         </div>
         <GetStartedCard />
+        <CommunityJoinCard />
         <InstallAppBanner />
         <EnableNotificationsBanner />
         <PaymentDeskCard />

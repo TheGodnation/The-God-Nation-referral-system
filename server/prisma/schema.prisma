@@ -1373,6 +1373,8 @@ model MemberOnboarding {
   dismissedAt          DateTime?
   // The first time the app was seen running as an installed app (opened from the home screen, or just installed).
   installedAt          DateTime?
+  // The member said, themselves, that they have joined the welcome community. A link tap alone never sets this.
+  communityConfirmedAt DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

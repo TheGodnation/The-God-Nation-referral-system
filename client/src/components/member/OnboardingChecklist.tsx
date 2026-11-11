@@ -14,6 +14,8 @@ export interface OnboardingStatus {
   profileDone: boolean;
   notificationsOn: boolean;
   communityTapped: boolean;
+  /** The member said, themselves, that they have joined (a link tap alone is never counted as joining). */
+  communityConfirmed?: boolean;
   existingMember?: boolean;
   agreementCommunityId?: string | null;
   dismissed: boolean;
@@ -31,6 +33,7 @@ function useOnboarding() {
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [deviceHasPush, setDeviceHasPush] = useState(false);
   const [tapped, setTapped] = useState(false);
+  const [confirmedLocal, setConfirmedLocal] = useState(false);
   const install = useInstallPrompt();
 
   const reload = useCallback(() => {
@@ -54,17 +57,52 @@ function useOnboarding() {
   const done: Record<StepKey, boolean> = {
     notifications: deviceHasPush || !!status?.notificationsOn,
     install: install.installed || !!status?.installed,
-    // People who were already here (most came from WhatsApp) are not asked to join the community again.
-    community: tapped || !!status?.communityTapped || !!status?.existingMember,
+    // People who were already here (most came from WhatsApp) are not asked to join the community again. For everyone
+    // else the step is done only when they say they have joined: tapping a link proves nothing about joining.
+    community: confirmedLocal || !!status?.communityConfirmed || !!status?.existingMember,
     // Nothing waiting (they agreed, or they were here before the rules started) counts as done.
     agreement: !!status && !status.agreementCommunityId,
   };
   const total = 4;
   const count = Object.values(done).filter(Boolean).length;
-  return { status, done, count, total, install, markTapped: () => setTapped(true), reload };
+  const tappedAny = tapped || !!status?.communityTapped;
+  const confirmJoined = useCallback(() => {
+    setConfirmedLocal(true);
+    void api.post('/api/member/onboarding/community-joined', {}).then(reload).catch(() => {});
+  }, [reload]);
+  return { status, done, count, total, install, markTapped: () => setTapped(true), tappedAny, confirmJoined, reload };
 }
 
 const STEP_ORDER: StepKey[] = ['notifications', 'install', 'community', 'agreement'];
+
+/**
+ * The community places to join, and, once one was tapped, an honest question: we cannot see whether they really joined
+ * (the link opens another app), so they tell us.
+ */
+export function JoinCommunity({ tappedAny, confirmed, onTap, onConfirm, hideWhenEmpty = false }: { tappedAny: boolean; confirmed: boolean; onTap: (platform: string) => void; onConfirm: () => void; hideWhenEmpty?: boolean }) {
+  const { t, i18n } = useTranslation();
+  const settings = usePublicSettings();
+  const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en';
+  const visible = (x: { platform: string }) => !HIDDEN_PLACES.includes(x.platform);
+  const anyPlace = communityPlaces(settings, lang).filter(visible).length + followPlaces(settings).filter(visible).length > 0;
+  if (!anyPlace && hideWhenEmpty) return null;
+  if (!anyPlace) return <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600" data-testid="no-places">{t('onboarding.no_places')}</p>;
+  return (
+    <div>
+      <CommunityChoices settings={settings} onTap={onTap} hide={HIDDEN_PLACES} />
+      {confirmed ? (
+        <p role="status" className="mt-2 text-xs text-emerald-700">{t('onboarding.joined_thanks')}</p>
+      ) : tappedAny ? (
+        <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2" data-testid="confirm-joined-box">
+          <p className="text-xs text-slate-600">{t('onboarding.joined_ask')}</p>
+          <button type="button" className="btn-primary mt-1.5 px-3 py-1.5 text-sm" onClick={onConfirm} data-testid="confirm-joined">
+            {t('onboarding.joined_button')}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function Tick({ on }: { on: boolean }) {
   return (
@@ -129,13 +167,9 @@ function InstallRoadmap({ install }: { install: ReturnType<typeof useInstallProm
 const i18nHas = (t: (k: string) => string, key: string) => t(key) !== key;
 
 export function OnboardingPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const settings = usePublicSettings();
-  const { status, done, count, total, install, markTapped } = useOnboarding();
-  const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en';
-  const visible = (x: { platform: string }) => !HIDDEN_PLACES.includes(x.platform);
-  const anyPlace = communityPlaces(settings, lang).filter(visible).length + followPlaces(settings).filter(visible).length > 0;
+  const { status, done, count, total, install, markTapped, tappedAny, confirmJoined } = useOnboarding();
 
   function onTap(platform: string) {
     markTapped();
@@ -175,13 +209,11 @@ export function OnboardingPage() {
           <Tick on={done.community} />
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-slate-900">{t('onboarding.step_community')}</p>
-            <p className="mb-2 text-xs text-slate-600">{t('onboarding.community_body')}</p>
-            {anyPlace ? (
-              <CommunityChoices settings={settings} onTap={onTap} hide={HIDDEN_PLACES} />
+            {done.community && status?.existingMember ? (
+              <p className="text-xs text-emerald-700">{t('onboarding.done')}</p>
             ) : (
-              <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600" data-testid="no-places">{t('onboarding.no_places')}</p>
+              <JoinCommunity tappedAny={tappedAny} confirmed={done.community} onTap={onTap} onConfirm={confirmJoined} />
             )}
-            {done.community && <p role="status" className="mt-2 text-xs text-slate-500">{t('joinGroup.joined_note')}</p>}
           </div>
         </li>
 
@@ -207,7 +239,7 @@ export function OnboardingPage() {
 
       <div className="mt-8 text-center">
         <button type="button" onClick={() => navigate('/member/chats', { replace: true })} className="btn-primary px-5 py-2" data-testid="join-group-continue">
-          {count > 0 ? t('joinGroup.continue') : t('joinGroup.skip')}
+          {count > 0 || tappedAny ? t('joinGroup.continue') : t('joinGroup.skip')}
         </button>
         <p className="mt-2 text-xs text-slate-500">{t('onboarding.anytime')}</p>
       </div>
@@ -250,6 +282,59 @@ export function GetStartedCard() {
       <Link to="/member/welcome-group" className="btn-primary mt-3 inline-block px-4 py-1.5 text-sm no-underline" data-testid="get-started-continue">
         {t('onboarding.card_button')}
       </Link>
+    </div>
+  );
+}
+
+/**
+ * A card on Chats for a new member who has not yet said they joined the welcome community: the places to join, and an
+ * honest "tell us when you have joined". Never shown to existing members, once they confirm, or after they close it.
+ */
+export function CommunityJoinCard() {
+  const { t, i18n } = useTranslation();
+  const settings = usePublicSettings();
+  const { status, done, tappedAny, markTapped, confirmJoined } = useOnboarding();
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem('communityCardHidden') === '1';
+    } catch {
+      return false;
+    }
+  });
+  if (!status || hidden || status.existingMember || done.community || !settings.loaded) return null;
+  const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en';
+  if (communityPlaces(settings, lang).filter((x) => !HIDDEN_PLACES.includes(x.platform)).length === 0) return null;
+
+  function close() {
+    setHidden(true);
+    try {
+      localStorage.setItem('communityCardHidden', '1');
+    } catch {
+      /* private mode */
+    }
+  }
+
+  return (
+    <div className="mb-4 rounded-xl border border-brand-100 bg-white p-3 shadow-sm" data-testid="community-join-card">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-brand-900">{t('onboarding.step_community')}</p>
+          <div className="mb-2" />
+        </div>
+        <button type="button" aria-label={t('onboarding.close') ?? ''} className="px-1 leading-6 text-slate-500" onClick={close} data-testid="community-card-close">
+          ✕
+        </button>
+      </div>
+      <JoinCommunity
+        tappedAny={tappedAny}
+        confirmed={done.community}
+        onTap={(platform) => {
+          markTapped();
+          void api.post('/api/member/group-link-click', { platform }).catch(() => {});
+        }}
+        onConfirm={confirmJoined}
+        hideWhenEmpty
+      />
     </div>
   );
 }

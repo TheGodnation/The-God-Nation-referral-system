@@ -8,7 +8,7 @@ import { LinkBuilder } from './LinkBuilder';
 
 interface Counts {
   visitors: number; leads: number; registered: number; confirmed: number; profileCompleted: number;
-  joinedGroup: number; firstChat: number; firstExam: number; returned7: number; returned30: number;
+  joinedGroup: number; saysJoined?: number; firstChat: number; firstExam: number; returned7: number; returned30: number;
 }
 interface Row extends Counts { key: string; source: string; campaign: string | null }
 interface Ambassador { name: string; registered: number; confirmed: number; profileCompleted: number; returned7: number }
@@ -60,6 +60,7 @@ export function GrowthPanel({ base }: { base: string }) {
     { key: 'confirmed', label: t('growth.col_confirmed') },
     { key: 'profileCompleted', label: t('growth.col_profile') },
     { key: 'joinedGroup', label: t('growth.col_group') },
+    { key: 'saysJoined', label: t('growth.col_says_joined') },
     { key: 'firstChat', label: t('growth.col_chat') },
     { key: 'firstExam', label: t('growth.col_exam') },
     { key: 'returned7', label: t('growth.col_back7') },
@@ -99,7 +100,7 @@ export function GrowthPanel({ base }: { base: string }) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {cols.map((c) => (
                 <div key={c.key} className="rounded-lg bg-slate-50 p-3 text-center">
-                  <p className="text-2xl font-bold text-brand-900" data-testid={`growth-total-${c.key}`}>{report.totals[c.key]}</p>
+                  <p className="text-2xl font-bold text-brand-900" data-testid={`growth-total-${c.key}`}>{report.totals[c.key] ?? 0}</p>
                   <p className="text-xs text-slate-500">{c.label}</p>
                 </div>
               ))}
@@ -126,7 +127,7 @@ export function GrowthPanel({ base }: { base: string }) {
                     <tr key={r.key} className="border-b border-slate-50">
                       <td className="py-2 pr-3 font-medium">{r.source}</td>
                       <td className="py-2 pr-3">{r.campaign ?? t('growth.no_campaign')}</td>
-                      {cols.map((c) => <td key={c.key} className="py-2 pr-3">{r[c.key]}</td>)}
+                      {cols.map((c) => <td key={c.key} className="py-2 pr-3">{r[c.key] ?? 0}</td>)}
                     </tr>
                   ))}
                 </tbody>

@@ -4303,7 +4303,7 @@
   },
   "onboarding": {
     "title": "Bienvenue à The God Nation",
-    "intro": "Quatre petites étapes vous aideront beaucoup. Aucune n’est obligatoire, et vous pouvez y revenir à tout moment.",
+    "intro": "Quatre petites étapes que vous pouvez faire.",
     "progress": "{{done}} sur {{total}} terminées",
     "done": "Terminé",
     "step_notifications": "Activer les notifications",
@@ -4324,8 +4324,10 @@
     "install_desktop_2": "Sur ordinateur, dans Chrome ou Edge, cliquez sur l’icône d’installation à droite de la barre d’adresse, puis « Installer ».",
     "install_recorded": "Quand vous ouvrez l’application depuis votre écran d’accueil, cette étape est cochée pour vous.",
     "install_pictures": "Voir les étapes avec des images",
-    "step_community": "Rejoindre notre communauté d’accueil",
-    "community_body": "Rencontrez vos frères et sœurs. C’est votre choix, sans aucune pression.",
+    "step_community": "Rejoignez-nous sur WhatsApp et les autres plateformes ci-dessous",
+    "joined_ask": "Nous ne pouvons pas voir si vous avez rejoint, car le lien ouvre une autre application. Quand vous aurez rejoint, dites-le-nous s’il vous plaît.",
+    "joined_button": "J’ai rejoint",
+    "joined_thanks": "Merci. Nous sommes heureux de vous avoir avec nous.",
     "no_places": "Les liens de notre communauté arrivent bientôt. Vous les trouverez ici quand ils seront prêts.",
     "step_agreement": "Lire les règles et rejoindre votre assemblée",
     "agreement_body": "Vous êtes déjà dans votre assemblée et pouvez tout lire. Pour écrire et répondre, vous acceptez d’abord ses règles.",
@@ -4336,7 +4338,7 @@
     "close": "Fermer",
     "next_notifications": "Ensuite : activez les notifications pour ne manquer aucun enseignement.",
     "next_install": "Ensuite : installez l’application pour que nous soyons toujours à un clic.",
-    "next_community": "Ensuite : rejoignez notre communauté d’accueil, si vous le souhaitez.",
+    "next_community": "Ensuite : rejoignez-nous sur WhatsApp et les autres plateformes.",
     "next_agreement": "Ensuite : lisez les règles de votre assemblée et acceptez-les, pour pouvoir écrire."
   },
   "assemblyAgreement": {
@@ -4355,6 +4357,11 @@
     "agree": "J’accepte",
     "working": "Un instant…",
     "failed": "Une erreur est survenue. Veuillez réessayer."
+  },
+  "guideViewer": {
+    "title": "Guide pas à pas",
+    "close": "Retour à l’application",
+    "new_tab": "Ouvrir dans un nouvel onglet"
   },
   "contactPrefs": {
     "title": "Comment nous pouvons vous contacter",
@@ -4383,7 +4390,8 @@
     "col_registered": "Inscrits",
     "col_confirmed": "Confirmés",
     "col_profile": "Profil terminé",
-    "col_group": "Groupe WhatsApp",
+    "col_group": "A touché un lien de groupe",
+    "col_says_joined": "Dit avoir rejoint",
     "col_chat": "A écrit dans un chat",
     "col_exam": "A passé un examen",
     "col_back7": "De retour après 7 jours",
@@ -4827,7 +4835,7 @@
   "refReport": {
     "tab": "Rapport de parrainage des responsables",
     "title": "Rapport de parrainage des responsables (premier système)",
-    "help": "Ce que chaque responsable a obtenu avec son lien avant le nouveau système d’amis : qui a cliqué, qui s’est inscrit, qui a touché pour rejoindre le groupe WhatsApp, et qui est maintenant dans l’application.",
+    "help": "Ce que chaque responsable a obtenu avec son lien avant le nouveau système d’amis : qui a cliqué, qui s’est inscrit, qui a touché un lien de groupe, et qui est maintenant dans l’application.",
     "all_leaders": "Les {{count}} responsables ensemble",
     "signed_up": "Inscrits",
     "tapped_group": "Ont touché « rejoindre le groupe »",
