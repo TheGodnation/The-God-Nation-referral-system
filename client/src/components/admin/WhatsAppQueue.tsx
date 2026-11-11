@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { api } from '../../lib/api';
 import { whatsappChatUrl } from '../../lib/followUp';
 
 export interface QueuePerson {
@@ -15,7 +14,7 @@ export interface QueuePerson {
  * each, WhatsApp opens with the words ready in their own language; you press send there, come back and press "Done,
  * next". Nothing is sent by the app, so it is safe for the phone number (no bulk sending), and takes a few seconds a person.
  */
-export function WhatsAppQueue({ people, base, onClose }: { people: QueuePerson[]; base: string; onClose: () => void }) {
+export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = 'needsMe.queue_signature' }: { people: QueuePerson[]; onClose: () => void; recordContact: (p: QueuePerson) => Promise<unknown> | void; signatureKey?: string }) {
   const { t } = useTranslation();
   const withNumber = useMemo(() => people.filter((p) => p.whatsapp), [people]);
   const [text, setText] = useState<{ en: string; fr: string }>({ en: '', fr: '' });
@@ -30,12 +29,12 @@ export function WhatsAppQueue({ people, base, onClose }: { people: QueuePerson[]
   const current = withNumber[index];
   const finished = started && index >= withNumber.length;
 
-  const message = (p: QueuePerson) => `${text[p.language].trim()}\n\n— ${t('needsMe.queue_signature', { lng: p.language })}`;
+  const message = (p: QueuePerson) => `${text[p.language].trim()}\n\n— ${t(signatureKey, { lng: p.language })}`;
 
   function next(didContact: boolean) {
     if (didContact) {
       setContacted((n) => n + 1);
-      if (record && current) api.post(`${base}/contacted`, { personId: current.personId, wellbeing: 'GOOD', note: 'WhatsApp' }).catch(() => {});
+      if (record && current) Promise.resolve(recordContact(current)).catch(() => {});
     } else setSkipped((n) => n + 1);
     setIndex((i) => i + 1);
   }

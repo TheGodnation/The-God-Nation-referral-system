@@ -3473,6 +3473,7 @@
     "send": "Send Reset Link"
   },
   "myPeople": {
+    "queue_signature": "The God Nation Leadership Team",
     "title": "Today: my people",
     "summary": "{{total}} people you follow, {{count}} need you today.",
     "only_attention": "Only those who need me",

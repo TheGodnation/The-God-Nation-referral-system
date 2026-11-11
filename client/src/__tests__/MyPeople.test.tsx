@@ -141,4 +141,39 @@ describe('MyPeople', () => {
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
     expect(container.querySelector('[data-testid="my-people"]')).toBeNull();
   });
+
+  it('shows each person\'s language and WhatsApp buttons, and goes through them on WhatsApp one by one, logging each contact', async () => {
+    const withNumbers = {
+      ...data,
+      items: [
+        card({ followUpAssignmentId: 'a1', personId: 'p1', name: 'Marie Ngono', whatsapp: '+237600000011', language: 'fr' }),
+        card({ followUpAssignmentId: 'a2', personId: 'p2', name: 'Paul Biya', whatsapp: '+237600000012', language: 'en' }),
+      ],
+    };
+    const posts: { url: string; body: any }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') posts.push({ url, body: JSON.parse(String(init.body)) });
+        const body = url.includes('/api/leader/my-people') ? withNumbers : {};
+        return Promise.resolve({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => body });
+      }),
+    );
+    show();
+    await screen.findByText('Marie Ngono');
+    expect(screen.getByTestId('my-people-language-p1')).toHaveTextContent('French speaker');
+    expect(screen.getByTestId('my-people-language-p2')).toHaveTextContent('English speaker');
+    expect(screen.getByTestId('followup-hello-p1')).toHaveAttribute('href', expect.stringContaining('wa.me/237600000011'));
+
+    fireEvent.click(screen.getByTestId('my-people-queue'));
+    fireEvent.change(screen.getByTestId('queue-text-en'), { target: { value: 'God bless you' } });
+    fireEvent.change(screen.getByTestId('queue-text-fr'), { target: { value: 'Que Dieu vous bénisse' } });
+    fireEvent.click(screen.getByTestId('queue-start'));
+    expect(decodeURIComponent(screen.getByTestId('queue-open').getAttribute('href')!)).toContain('— L’équipe de leadership de The God Nation');
+    fireEvent.click(screen.getByTestId('queue-next'));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    // The contact is logged on the person's follow-up, like any contact a leader records.
+    expect(posts[0].url).toBe('/api/leader/follow-ups/a1/contacts');
+    expect(posts[0].body).toEqual({ wellbeingStatus: 'GOOD', note: 'WhatsApp' });
+  });
 });

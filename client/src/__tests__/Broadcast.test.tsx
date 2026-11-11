@@ -49,6 +49,20 @@ describe('BroadcastComposer (a leader)', () => {
     expect(post?.body.personIds).toBeUndefined(); // everyone: no list needed
   });
 
+  it('tells a leader how many of their people read English and French, and warns about a mix', async () => {
+    mockFetch({
+      [`GET ${B}/people`]: () => ({ body: { items: [{ id: 'a', name: 'Ada Nkem', language: 'en' }, { id: 'm', name: 'Marie Claire', language: 'fr' }, { id: 'p', name: 'Paul Eto', language: 'fr' }] } }),
+      [`GET ${B}/mine`]: () => ({ body: { items: [] } }),
+    });
+    render(<BroadcastComposer />);
+    await screen.findByTestId('broadcast-count');
+    expect(screen.getByTestId('broadcast-languages')).toHaveTextContent('1 English speakers, 2 French speakers');
+    expect(screen.getByTestId('broadcast-mixed-warning')).toHaveTextContent('private messages are not translated');
+    fireEvent.click(screen.getByRole('button', { name: 'Choose who gets it' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Ada Nkem' }));
+    expect(screen.queryByTestId('broadcast-mixed-warning')).toBeNull();
+  });
+
   it('can leave some people out, and refuses to send to nobody', async () => {
     mockFetch({
       [`GET ${B}/people`]: () => ({ body: { items: people } }),

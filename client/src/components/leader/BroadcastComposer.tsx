@@ -12,7 +12,7 @@ const BASE = '/api/member/broadcast';
 // gets it as an ordinary private message from them, with their first name in front.
 export function BroadcastComposer() {
   const { t } = useTranslation();
-  const [people, setPeople] = useState<{ id: string; name: string }[] | null>(null);
+  const [people, setPeople] = useState<{ id: string; name: string; language?: 'en' | 'fr' }[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [history, setHistory] = useState<BroadcastItem[]>([]);
   const [note, setNote] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export function BroadcastComposer() {
   const loadHistory = useCallback(() => api.get<{ items: BroadcastItem[] }>(`${BASE}/mine`).then((r) => setHistory(r.items)).catch(() => {}), []);
   useEffect(() => {
     api
-      .get<{ items: { id: string; name: string }[] }>(`${BASE}/people`)
+      .get<{ items: { id: string; name: string; language?: 'en' | 'fr' }[] }>(`${BASE}/people`)
       .then((r) => {
         setPeople(r.items);
         setSelected(new Set(r.items.map((p) => p.id)));
@@ -58,6 +58,9 @@ export function BroadcastComposer() {
   );
   const media = useMediaUploads(`${BASE}/attachments/authorize`, send);
 
+  const selectedFrench = (people ?? []).filter((p) => selected.has(p.id) && p.language === 'fr').length;
+  const selectedEnglish = (people ?? []).filter((p) => selected.has(p.id) && p.language === 'en').length;
+
   const toggle = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -80,6 +83,13 @@ export function BroadcastComposer() {
         <>
           <section className="card space-y-2">
             <p className="font-semibold text-brand-900" data-testid="broadcast-count">{t('broadcast.will_go', { count: selected.size })}</p>
+            {selected.size > 0 && (selectedFrench > 0 || selectedEnglish > 0) && (
+              <p className="text-sm text-slate-600" data-testid="broadcast-languages">{t('needsMe.selected_languages', { en: selectedEnglish, fr: selectedFrench })}</p>
+            )}
+            {selectedFrench > 0 && selectedEnglish > 0 && (
+              <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900" data-testid="broadcast-mixed-warning">{t('needsMe.mixed_warning', { en: selectedEnglish, fr: selectedFrench })}</p>
+            )}
+            {selectedFrench > 0 && selectedEnglish === 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{t('needsMe.french_only_warning')}</p>}
             <button type="button" className="text-sm font-semibold text-brand-700 underline" onClick={() => setShowPeople((v) => !v)}>
               {showPeople ? t('broadcast.hide_people') : t('broadcast.choose_people')}
             </button>

@@ -172,4 +172,24 @@ describe('PrivateMessages (shared Member/Leader/Admin participant view)', () => 
     });
     expect(screen.getByText('Messages privés')).toBeInTheDocument();
   });
+
+  it('lets a leader translate a message they received (once), and shows the person\'s language', async () => {
+    mockFetchByUrl({
+      '/api/private-messages/conversations/c1/messages/m1/translate': { status: 200, body: { detectedLanguage: 'fr', translation: { sourceLanguage: 'fr', translatedBody: 'Are you coming to the meeting?' } } },
+      '/api/private-messages/conversations/c1/messages': {
+        status: 200,
+        body: { items: [{ id: 'm1', isOwn: false, body: 'Venez-vous à la réunion ?', createdAt: '2026-01-02T00:00:00Z' }], hasMore: false, unreadCount: 0, otherPartyType: 'MEMBER', otherPartyName: 'Marie Claire', otherPartyLanguage: 'fr' },
+      },
+      '/api/private-messages/conversations': { status: 200, body: { items: [{ id: 'c1', createdAt: '2026-01-01T00:00:00Z', otherPartyType: 'MEMBER', otherPartyName: 'Marie Claire', unreadCount: 0 }], pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 } } },
+    });
+    render(<PrivateMessages />);
+    fireEvent.click(await screen.findByText('Open'));
+    expect(await screen.findByTestId('pm-language')).toHaveTextContent('French speaker');
+    fireEvent.click(await screen.findByTestId('pm-translate-m1'));
+    expect(await screen.findByText('Are you coming to the meeting?')).toBeInTheDocument();
+    expect(screen.queryByTestId('pm-translate-m1')).toBeNull();
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/messages/m1/translate'))).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: /Show original/ }));
+    expect(screen.getByText('Venez-vous à la réunion ?')).toBeInTheDocument();
+  });
 });

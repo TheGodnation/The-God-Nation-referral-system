@@ -254,7 +254,7 @@ export function NeedsMePanel({ base }: { base: string }) {
         </section>
       )}
 
-      {queueOpen && <WhatsAppQueue key={[...selected].join(',')} people={queuePeople} base={base} onClose={() => setQueueOpen(false)} />}
+      {queueOpen && <WhatsAppQueue key={[...selected].join(',')} people={queuePeople} onClose={() => setQueueOpen(false)} recordContact={(p) => api.post(`${base}/contacted`, { personId: p.personId, wellbeing: 'GOOD', note: 'WhatsApp' })} />}
 
       {data === null && !error && <p className="text-sm text-slate-400">{t('needsMe.loading')}</p>}
       {data && items.length === 0 && <p className="card text-sm text-slate-600">{t('needsMe.nobody')}</p>}

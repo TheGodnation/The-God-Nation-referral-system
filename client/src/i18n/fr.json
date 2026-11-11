@@ -3473,6 +3473,7 @@
     "send": "Envoyer le lien de réinitialisation"
   },
   "myPeople": {
+    "queue_signature": "L’équipe de leadership de The God Nation",
     "title": "Aujourd'hui : mes personnes",
     "summary": "{{total}} personnes suivies, {{count}} ont besoin de vous aujourd'hui.",
     "only_attention": "Seulement celles qui ont besoin de moi",
