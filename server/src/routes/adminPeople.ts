@@ -456,7 +456,7 @@ router.post('/people/:id/community-memberships', requireCsrf, asyncHandler(async
         include: { community: { select: { id: true, name: true } } },
       });
 
-  void announceJoined(community.id, [id]);
+  await announceJoined(community.id, [id]);
   await recordAudit({
     actorId: req.user!.id,
     actorEmail: req.user!.email,
@@ -634,7 +634,7 @@ router.post('/people/:id/community-memberships/move', requireCsrf, asyncHandler(
     metadata: { fromCommunityId, toCommunityId },
   });
 
-  void announceJoined(toCommunityId, [id]);
+  await announceJoined(toCommunityId, [id]);
   res.json(moved);
 }));
 

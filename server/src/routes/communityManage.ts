@@ -142,7 +142,7 @@ router.post('/:communityId/members', communityMutationLimiter, requireCsrf, asyn
   } else {
     await prisma.communityMembership.create({ data: { personId: person.id, communityId } });
   }
-  void announceJoined(communityId, [person.id]);
+  await announceJoined(communityId, [person.id]);
   await recordAudit({
     actorId: req.user?.id ?? null,
     action: 'COMMUNITY_MEMBERSHIP_ADDED',

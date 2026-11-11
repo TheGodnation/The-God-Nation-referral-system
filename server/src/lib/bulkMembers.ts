@@ -110,7 +110,7 @@ export async function addPeopleToCommunity(personIds: string[], communityId: str
     prisma.communityMembership.updateMany({ where: { communityId, personId: { in: inactive } }, data: { status: 'ACTIVE', joinedAt: now } }),
   ]);
   const addedIds = [...real.map((p) => p.id), ...inactive];
-  void announceJoined(communityId, addedIds);
+  await announceJoined(communityId, addedIds);
   return { addedIds, added: addedIds.length, alreadyIn: active.size };
 }
 

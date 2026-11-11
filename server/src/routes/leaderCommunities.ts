@@ -78,7 +78,7 @@ router.post(
           data: { personId: person.id, communityId },
         });
 
-    void announceJoined(communityId, [person.id]);
+    await announceJoined(communityId, [person.id]);
     await recordAudit({
       actorId: req.user!.id,
       actorEmail: req.user!.email,

@@ -246,7 +246,7 @@ export async function placePersonInGroup(personId: string, location: PlacementLo
   );
 
   // The assembly's chat shows that this person just joined.
-  void announceJoined(result.communityId, [personId]);
+  await announceJoined(result.communityId, [personId]);
   if (result.opened) {
     // Tell the central admin; a failure here must never undo the signup.
     notifyAssemblyOpened(result.opened).catch(() => {});
