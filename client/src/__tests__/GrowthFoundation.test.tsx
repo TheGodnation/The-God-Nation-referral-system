@@ -198,9 +198,14 @@ describe('Join us where you prefer (the step after sign-up)', () => {
     expect(await screen.findByText('Chats page')).toBeInTheDocument();
   });
 
-  it('goes straight into the app when nothing is set up', async () => {
+  it('still shows the welcome steps when no community links are set up, with a friendly note, and lets them continue', async () => {
     mockFetch({ '/api/settings/public': { body: { content: {} } } });
     renderStep();
+    expect(await screen.findByTestId('no-places')).toBeInTheDocument();
+    expect(screen.queryByTestId('community-choices')).toBeNull();
+    expect(screen.getByTestId('step-notifications')).toBeInTheDocument();
+    expect(screen.getByTestId('step-install')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
     expect(await screen.findByText('Chats page')).toBeInTheDocument();
   });
 });

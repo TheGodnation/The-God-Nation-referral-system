@@ -922,6 +922,7 @@ model Person {
   examRetakeRequests                       ExamRetakeRequest[]
   participationEvents                      ParticipationEvent[]
   memberAccount                            MemberAccount?
+  onboarding                               MemberOnboarding?
   roleAssignments                          RoleAssignment[]
   followingAssignments                     FollowUpAssignment[]                      @relation("FollowUpFollower")
   followedByAssignments                    FollowUpAssignment[]                      @relation("FollowUpFollowedPerson")
@@ -1343,6 +1344,19 @@ model ParticipationEvent {
 // matching key: the platform's one identity anchor remains
 // Person.whatsappNumber. Ownership of the email is only established once
 // proven via a successfully consumed MemberLoginToken.
+// What we know about a member's first steps, besides what other tables already show (profile, push, first teaching).
+model MemberOnboarding {
+  personId             String    @id
+  // The founder's welcome message reached their private chat (sent once, ever).
+  welcomeMessageSentAt DateTime?
+  // They closed the "Get started" card.
+  dismissedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+}
+
 model MemberAccount {
   id           String    @id @default(uuid())
   personId     String    @unique
@@ -1356,6 +1370,9 @@ model MemberAccount {
   passwordHash String?
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
+  // The first time they ever signed in (lastLoginAt is overwritten each time). Null for accounts that signed in
+  // before this was recorded.
+  firstLoginAt DateTime?
 
   person         Person                   @relation(fields: [personId], references: [id], onDelete: Cascade)
   loginTokens    MemberLoginToken[]
@@ -4133,16 +4150,16 @@ model WeeklyReportReminder {
 // A leader's message to all the people they look after, sent as an ordinary private message to each (with the
 // person's first name in front). This is the record of it: who sent it, when, to how many, and what it said.
 model LeaderBroadcast {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   senderPersonId  String
-  body            String   @default("")
+  body            String    @default("")
   recipientCount  Int
-  skippedCount    Int      @default(0)
-  attachmentCount Int      @default(0)
+  skippedCount    Int       @default(0)
+  attachmentCount Int       @default(0)
   // When the sender had the message translated: the other-language text actually sent, and the language `body` is in.
   translatedBody  String?
   bodyLanguage    Language?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   sender Person @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
 

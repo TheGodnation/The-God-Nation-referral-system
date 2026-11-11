@@ -283,3 +283,11 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - In the WhatsApp queue, one box filled and the other empty offers "Translate my message into the other language".
 - Leaders' "My people" cards now carry each person's language and WhatsApp number (WhatsApp buttons and queue), and the broadcast people list carries the language.
 - Phone alerts that name the National Coordinator (private message from the coordinator, post in the leaders' rooms, leaders-not-following-up alert) are written in each reader's own language.
+
+## New-member welcome (onboarding Phase A)
+
+- **Welcome page** (`/member/welcome-group`, also `/member/welcome`): shown right after the details form. It always appears, even when no community links are set. Four optional steps: notifications, install the app, the welcome community, first teaching. Each shows done / not yet; nothing is compulsory.
+- **Founder welcome message**: sent once, from the National Coordinator's own profile, to the member's private chat the first time their profile is completed (`sendFounderWelcome` in `server/src/lib/memberOnboarding.ts`; EN/FR by the member's language; no prices, payment or links). Skipped for test data, erased/deleting people, the founder, and anyone the founder already wrote to (e.g. trainees who got the training welcome). The claim is stored in `MemberOnboarding.welcomeMessageSentAt` before sending, so it can never go twice.
+- **First sign-in date**: `MemberAccount.firstLoginAt`, stamped the first time (`lastLoginAt` is overwritten on each sign-in). Accounts that signed in before this existed stay empty.
+- **Get started card** on Chats and Home: progress, the next step, Continue, and ✕ (stored server-side in `MemberOnboarding.dismissedAt`). It reaches existing members too, and disappears when all steps are done or it is closed. Status comes from `GET /api/member/onboarding`; closing is `POST /api/member/onboarding/dismiss`.
+- Link taps are shown only as "tapped a community link", never as confirmed membership.
