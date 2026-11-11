@@ -2625,6 +2625,7 @@
     "save_failed": "Vos changements n'ont pas été enregistrés. Veuillez réessayer."
   },
   "privateChat": {
+    "offline_copy": "Pas d’internet. Vous lisez les derniers messages gardés sur ce téléphone. Les nouveaux messages apparaîtront quand vous serez de nouveau en ligne.",
     "lang_fr": "🇫🇷 Francophone : écrivez en français",
     "lang_en": "🇬🇧 Anglophone : écrivez en anglais",
     "title": "Messages privés",
@@ -2782,6 +2783,12 @@
     "cover_zoom_out": "Réduire"
   },
   "downloads": {
+    "media": "Photos et messages vocaux des discussions",
+    "media_note": "Gardés sur ce téléphone après que vous les avez vus ou écoutés, pour s’afficher sans internet. Jamais plus de {{limit}} au total : quand c’est plein, les plus anciens sont retirés en premier. Les vidéos ne sont pas gardées.",
+    "media_none": "Rien de gardé pour l’instant.",
+    "media_using": "{{count}} gardés, {{size}} utilisés.",
+    "media_clear": "Effacer les photos et messages vocaux",
+    "media_confirm": "Retirer les photos et messages vocaux gardés sur ce téléphone ? Ils se rechargeront depuis internet quand vous les ouvrirez.",
     "title": "Téléchargements",
     "back": "Moi",
     "intro": "Livres et documents gardés sur ce téléphone. Ils s'ouvrent même sans internet. Se déconnecter les supprime.",

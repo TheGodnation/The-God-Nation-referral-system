@@ -2625,6 +2625,7 @@
     "save_failed": "Your changes were not saved. Please try again."
   },
   "privateChat": {
+    "offline_copy": "No internet. You are reading the last messages kept on this phone. New messages will appear when you are back online.",
     "lang_fr": "🇫🇷 French speaker: write in French",
     "lang_en": "🇬🇧 English speaker: write in English",
     "title": "Private messages",
@@ -2782,6 +2783,12 @@
     "cover_zoom_out": "Zoom out"
   },
   "downloads": {
+    "media": "Photos and voice notes from chats",
+    "media_note": "Kept on this phone after you have seen or heard them, so they show without internet. Never more than {{limit}} in all: when it is full, the oldest are removed first. Videos are not kept.",
+    "media_none": "None kept yet.",
+    "media_using": "{{count}} kept, using {{size}}.",
+    "media_clear": "Clear photos and voice notes",
+    "media_confirm": "Remove the photos and voice notes kept on this phone? They will load again from the internet when you open them.",
     "title": "Downloads",
     "back": "Me",
     "intro": "Books and documents kept on this phone. They open even without internet. Signing out removes them.",
