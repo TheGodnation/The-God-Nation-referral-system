@@ -3,6 +3,7 @@ import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireCsrf } from '../lib/csrf';
 import {
@@ -77,6 +78,8 @@ type OtherParty =
       otherPartyName: string | null;
       otherPartyPersonId: string;
       otherPartyPhotoUrl: string | null;
+      /** "NATIONAL_COORDINATOR" when the other side is the central admin. */
+      otherPartyBadge?: 'NATIONAL_COORDINATOR' | null;
     };
 
 const photoSelect = { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } as const;
@@ -159,6 +162,7 @@ async function resolveOtherParty(
       otherPartyName: person?.name ?? null,
       otherPartyPersonId: initiatorId,
       otherPartyPhotoUrl: person ? profilePhotoPath(person) : null,
+      otherPartyBadge: badgeOf(await centralAdminAmong([initiatorId]), initiatorId),
     };
   }
   const person = await prisma.person.findUnique({ where: { id: conversation.memberPersonId }, select: photoSelect });

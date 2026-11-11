@@ -1,5 +1,6 @@
 import { useMyLeader } from '../lib/useMyLeader';
 import { YourLeaderBadge } from '../components/member/YourLeaderBadge';
+import { CoordinatorBadge } from '../components/CoordinatorBadge';
 import { ReactionsSheet, type ReactorList } from '../components/ReactionsSheet';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -43,6 +44,7 @@ interface PrivateResponse {
   otherPartyName?: string | null;
   otherPartyPersonId?: string;
   otherPartyPhotoUrl?: string | null;
+  otherPartyBadge?: 'NATIONAL_COORDINATOR' | null;
   otherPartyPresence?: { online: boolean; lastSeenAt: string | null } | null;
   typing?: boolean;
   recording?: boolean;
@@ -75,7 +77,7 @@ export function MemberPrivateChatPage() {
   const base = `/api/private-messages/conversations/${conversationId}`;
   const draftKey = draftKeyFor(member?.personId, `private:${conversationId}`);
 
-  const [other, setOther] = useState<Pick<PrivateResponse, 'otherPartyType' | 'otherPartyName' | 'otherPartyPersonId' | 'otherPartyPhotoUrl'> | null>(null);
+  const [other, setOther] = useState<Pick<PrivateResponse, 'otherPartyType' | 'otherPartyName' | 'otherPartyPersonId' | 'otherPartyPhotoUrl' | 'otherPartyBadge'> | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -182,6 +184,7 @@ export function MemberPrivateChatPage() {
             otherPartyName: res.otherPartyName,
             otherPartyPersonId: res.otherPartyPersonId,
             otherPartyPhotoUrl: res.otherPartyPhotoUrl,
+            otherPartyBadge: res.otherPartyBadge,
           });
           setPresence(res.otherPartyPresence ?? null);
           setOtherTyping(Boolean(res.typing));
@@ -469,6 +472,7 @@ export function MemberPrivateChatPage() {
       <span className="min-w-0">
         <h1 className="truncate font-semibold">{other ? otherName : t('groupChat.loading')}</h1>
         {isMyLeader && <YourLeaderBadge className="mb-0.5" />}
+        <CoordinatorBadge badge={other?.otherPartyBadge} className="mb-0.5 ml-0" />
         {other && (
           <p className={`truncate text-xs ${otherTyping || otherRecording || presence?.online ? 'font-semibold text-emerald-600' : 'text-slate-500'}`}>{subtitle}</p>
         )}

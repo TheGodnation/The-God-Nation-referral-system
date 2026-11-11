@@ -28,6 +28,7 @@ import { RepresentativesPanel } from '../components/admin/RepresentativesPanel';
 import { SanctionsPanel } from '../components/admin/SanctionsPanel';
 import { BulkMembersPanel } from '../components/admin/BulkMembersPanel';
 import { InstructionsPanel } from '../components/admin/InstructionsPanel';
+import { NeedsMePanel } from '../components/admin/NeedsMePanel';
 import { LeaderRoomsPanel } from '../components/admin/LeaderRoomsPanel';
 import { TeachingCompletionPanel } from '../components/admin/TeachingCompletionPanel';
 import { LeaderReferralReportPanel } from '../components/admin/LeaderReferralReportPanel';
@@ -51,7 +52,7 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-type Tab = 'posts' | 'photos' | 'progress' | 'instructions' | 'bulk' | 'sanctions' | 'representatives' | 'myLeaders' | 'broadcastLog' | 'groups' | 'rooms' | 'teachingDone' | 'refReport' | 'cells' | 'faith' | 'giving' | 'growth' | 'knowledge';
+type Tab = 'posts' | 'photos' | 'progress' | 'needsMe' | 'instructions' | 'bulk' | 'sanctions' | 'representatives' | 'myLeaders' | 'broadcastLog' | 'groups' | 'rooms' | 'teachingDone' | 'refReport' | 'cells' | 'faith' | 'giving' | 'growth' | 'knowledge';
 // Two layers: everyone has "My space"; the central admin also has "Admin tools" (each with its own tabs).
 const ME_TABS: Tab[] = ['posts', 'photos', 'progress'];
 const ADMIN_TABS: Tab[] = ['instructions', 'bulk', 'sanctions', 'representatives', 'myLeaders', 'broadcastLog', 'groups', 'rooms', 'teachingDone', 'refReport', 'cells', 'faith', 'giving', 'growth', 'knowledge'];
@@ -380,7 +381,7 @@ export function MemberMePage() {
           ) : (
             // The administrator's tools: four pills in a tidy block (two by two on a phone), each name fully readable.
             <div role="tablist" aria-label={t('wall.section_admin') ?? ''} className="grid grid-cols-2 gap-2 border-b border-slate-200 bg-white px-4 pb-3 sm:grid-cols-4 sm:px-2" data-testid="admin-tabs">
-              {([['instructions', t('instructions.tab')], ['bulk', t('bulkMembers.tab')], ['sanctions', t('sanctions.tab')], ['representatives', t('repAdmin.tab')], ['myLeaders', t('myLeaders.tab')], ['broadcastLog', t('broadcast.tab')], ['groups', t('manageGroups.tab')], ['rooms', t('leaderRooms.tab')], ['teachingDone', t('teachingDone.tab')], ['refReport', t('refReport.tab')], ['cells', t('cells.tab')], ['faith', t('faith.tab')], ['giving', t('givingAdmin.tab')], ['growth', t('growth.tab')], ['knowledge', t('knowledgeAdmin.tab')]] as [Tab, string][]).map(([id, label]) => (
+              {([['needsMe', t('needsMe.tab')], ['instructions', t('instructions.tab')], ['bulk', t('bulkMembers.tab')], ['sanctions', t('sanctions.tab')], ['representatives', t('repAdmin.tab')], ['myLeaders', t('myLeaders.tab')], ['broadcastLog', t('broadcast.tab')], ['groups', t('manageGroups.tab')], ['rooms', t('leaderRooms.tab')], ['teachingDone', t('teachingDone.tab')], ['refReport', t('refReport.tab')], ['cells', t('cells.tab')], ['faith', t('faith.tab')], ['giving', t('givingAdmin.tab')], ['growth', t('growth.tab')], ['knowledge', t('knowledgeAdmin.tab')]] as [Tab, string][]).map(([id, label]) => (
                 <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
                   className={`rounded-full border px-3 py-2.5 text-center text-sm font-semibold ${tab === id ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>
                   {label}
@@ -394,6 +395,7 @@ export function MemberMePage() {
           {tab === 'posts' && member.personId && <UpdatesFeed authorPersonId={member.personId} linkAuthors />}
           {tab === 'photos' && member.personId && <PhotoGrid personId={member.personId} />}
           {tab === 'progress' && <Progress groups={groups} />}
+          {tab === 'needsMe' && member.isCentralAdmin && <NeedsMePanel base="/api/member/central-needs-me" />}
           {tab === 'instructions' && member.isCentralAdmin && <InstructionsPanel base="/api/member/central-instructions" />}
           {tab === 'bulk' && member.isCentralAdmin && <BulkMembersPanel base="/api/member/central-bulk-members" />}
           {tab === 'sanctions' && member.isCentralAdmin && <SanctionsPanel base="/api/member/sanctions" />}

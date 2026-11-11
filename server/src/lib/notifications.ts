@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { isCentralAdminPerson } from './centralAdmin';
 import type { PrivateMessagingActor } from './privateMessaging';
 import { pushToPerson, pushToUser, pushToPersons, type PushPayload } from './push';
 
@@ -287,6 +288,7 @@ export async function notifyPrivateMessageReceived(
   let recipientPersonId: string | undefined;
   let recipientUserId: string | undefined;
   let senderName: string | null;
+  let senderBadge: 'NATIONAL_COORDINATOR' | null = null;
 
   if (senderIsMember) {
     if (conversation.initiatorPersonId) {
@@ -303,6 +305,8 @@ export async function notifyPrivateMessageReceived(
     if (sender.type === 'PERSON') {
       const leader = await prisma.person.findUnique({ where: { id: sender.personId }, select: { name: true } });
       senderName = leader?.name ?? '';
+      // The National Coordinator's messages say so.
+      if (await isCentralAdminPerson(sender.personId)) senderBadge = 'NATIONAL_COORDINATOR';
     } else {
       senderName = null; // Central Authority — client shows its own generic label.
     }
@@ -312,11 +316,11 @@ export async function notifyPrivateMessageReceived(
     recipientPersonId,
     recipientUserId,
     type: 'PRIVATE_MESSAGE_RECEIVED',
-    metadata: { senderName },
+    metadata: { senderName, ...(senderBadge ? { senderBadge } : {}) },
     targetType: 'PrivateConversation',
     targetId: conversation.id,
     push: {
-      title: senderName || 'New message',
+      title: senderBadge ? `${senderName} · National Coordinator` : senderName || 'New message',
       body: 'Sent you a message.',
       // Only the Member side has a known, single chat route for this
       // conversation id today — a Leader/Admin recipient opens their own

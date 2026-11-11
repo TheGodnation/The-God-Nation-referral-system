@@ -117,8 +117,8 @@ describe('Me wall', () => {
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Posts', 'Photos', 'My progress']);
 
     fireEvent.click(within(switcher).getByRole('button', { name: /Admin tools/ }));
-    const names = ['Instructions', 'Add many people', 'Sanctions', 'Representatives', 'My leaders', 'Group messages', 'Groups', "Leaders' rooms", 'Who did the teachings', "Leaders' referral report", 'Assemblies and leaders', 'Faith journeys', 'Giving', 'Growth', 'Knowledge Centre'];
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toHaveLength(15);
+    const names = ['People who need me', 'Instructions', 'Add many people', 'Sanctions', 'Representatives', 'My leaders', 'Group messages', 'Groups', "Leaders' rooms", 'Who did the teachings', "Leaders' referral report", 'Assemblies and leaders', 'Faith journeys', 'Giving', 'Growth', 'Knowledge Centre'];
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toHaveLength(16);
     expect(screen.getByRole('tab', { name: 'Knowledge Centre' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Posts' })).not.toBeInTheDocument();
     expect(names.length).toBe(15);

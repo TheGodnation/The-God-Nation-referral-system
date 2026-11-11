@@ -9,6 +9,7 @@ import { mediaKind } from './types';
 import { Ticks } from './MessageBubble';
 import { DraftPreview, useChatDraft } from './DraftTag';
 import { plainPreview } from '../../lib/richText';
+import { CoordinatorBadge } from '../CoordinatorBadge';
 
 interface ConversationRow {
   id: string;
@@ -17,6 +18,7 @@ interface ConversationRow {
   otherPartyName?: string | null;
   otherPartyPersonId?: string;
   otherPartyPhotoUrl?: string | null;
+  otherPartyBadge?: 'NATIONAL_COORDINATOR' | null;
   unreadCount: number;
   lastMessage?: { body: string | null; deleted?: boolean; attachmentMimeType: string | null; isOwn: boolean; createdAt: string; status?: 'sent' | 'delivered' | 'read' } | null;
 }
@@ -110,6 +112,7 @@ export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate font-semibold text-slate-900">{name}</span>
                       {myLeader && c.otherPartyPersonId === myLeader.personId && <YourLeaderBadge />}
+                      <CoordinatorBadge badge={c.otherPartyBadge} className="ml-0" />
                     </span>
                     {c.lastMessage && (
                       <span className={`shrink-0 text-xs ${c.unreadCount > 0 ? 'font-semibold text-emerald-600' : 'text-slate-400'}`}>
