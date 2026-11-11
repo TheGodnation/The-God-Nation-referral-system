@@ -264,3 +264,8 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 
 - Language: every person in "People who need me" shows 🇫🇷 French speaker or 🇬🇧 English speaker (from the language they chose when joining); the selection bar counts English and French readers and warns when the message will go to a mix, because private messages are not translated (only group chats, posts, announcements and instructions are). In a private chat the leader or coordinator sees the person's language under their name (the person is never shown this about the other side).
 - Proposed, not built: translating a message to many people once, with a preview (each person receives their own language), and a "Translate" tap in one-to-one private chats.
+
+## Tap to translate in private chats
+
+- Private (one-to-one) messages are never translated by themselves. A small "🌐 Translate" under the other person's text message translates it when tapped. The translation is made once (English <-> French), stored on the message, and both people then read the same stored copy: no second request to the translator, however often anyone taps. Once translated it shows with "Translated from … / Show original".
+- If the translator is down the person is told and can tap again; nothing is stored. Correcting a message clears its old translation. Only the two people in the chat can use it.

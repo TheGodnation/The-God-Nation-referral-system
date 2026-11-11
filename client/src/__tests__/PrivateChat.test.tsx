@@ -138,4 +138,40 @@ describe('Private chats in the Chats list', () => {
     expect(within(links[0]).getByLabelText('2 new messages')).toBeInTheDocument();
     expect(links[1]).toHaveTextContent('You: Hello');
   });
+
+  it('offers "Translate" on the other person\'s message only, translates it on tap, and then shows the translation with the original one tap away', async () => {
+    mockFetch({
+      [`GET ${BASE}/messages`]: () => ({ body: MESSAGES }),
+      [`POST ${BASE}/messages/m1/translate`]: () => ({ body: { detectedLanguage: 'en', translation: { sourceLanguage: 'en', translatedBody: 'Venez-vous à la prière ?' } } }),
+    });
+    renderChat();
+    await screen.findByText('Yes, I will');
+    // Not on my own message.
+    expect(screen.queryByTestId('translate-m2')).toBeNull();
+    fireEvent.click(await screen.findByTestId('translate-m1'));
+    expect(await screen.findByText('Venez-vous à la prière ?')).toBeInTheDocument();
+    expect(screen.queryByTestId('translate-m1')).toBeNull();
+    expect(calls.filter((c) => c.method === 'POST' && c.url === `${BASE}/messages/m1/translate`)).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: /Show original/ }));
+    expect(await screen.findAllByText('Are you coming to the prayer?')).not.toHaveLength(0);
+  });
+
+  it('does not offer "Translate" again once it was checked, and says so when the translator is unavailable', async () => {
+    const checked = { ...MESSAGES, items: [{ ...MESSAGES.items[0], detectedLanguage: 'en', translation: null }, MESSAGES.items[1]] };
+    mockFetch({ [`GET ${BASE}/messages`]: () => ({ body: checked }) });
+    renderChat();
+    await screen.findByText('Yes, I will');
+    expect(screen.queryByTestId('translate-m1')).toBeNull();
+  });
+
+  it('shows the reason, and lets the person tap again, when the translation could not be made', async () => {
+    mockFetch({
+      [`GET ${BASE}/messages`]: () => ({ body: MESSAGES }),
+      [`POST ${BASE}/messages/m1/translate`]: () => ({ status: 502, body: { error: 'The translation could not be made right now. Please try again in a moment.' } }),
+    });
+    renderChat();
+    fireEvent.click(await screen.findByTestId('translate-m1'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be made right now');
+    expect(screen.getByTestId('translate-m1')).toBeEnabled();
+  });
 });

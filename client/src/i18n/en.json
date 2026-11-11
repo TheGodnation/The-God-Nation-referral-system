@@ -1602,6 +1602,9 @@
     "bigger": "Bigger text"
   },
   "translation": {
+    "translate": "Translate",
+    "translating": "Translating…",
+    "failed": "Could not translate. Try again.",
     "translated_from": "Translated from {{language}}",
     "show_original": "Show original",
     "show_translation": "Show translation",

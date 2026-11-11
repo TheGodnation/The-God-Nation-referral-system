@@ -32,6 +32,9 @@ interface PrivateRow {
   replyTo?: { id: string; isOwn: boolean; body: string | null; deleted?: boolean; attachmentMimeType: string | null } | null;
   reactions?: ChatReaction[];
   status?: 'sent' | 'delivered' | 'read';
+  /** Set once "Translate" has been tapped on the message (by either person). */
+  detectedLanguage?: 'en' | 'fr';
+  translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null;
 }
 
 interface PrivateResponse {
@@ -133,6 +136,8 @@ export function MemberPrivateChatPage() {
       attachments: r.attachments ?? [],
       reactions: r.reactions ?? [],
       status: r.status,
+      translation: r.translation ?? null,
+      translationChecked: Boolean(r.detectedLanguage),
       replyTo: r.replyTo
         ? {
             id: r.replyTo.id,
@@ -152,6 +157,15 @@ export function MemberPrivateChatPage() {
     lastReadId.current = latest.id;
     api.post(`${base}/read`, { messageId: latest.id }).catch(() => {});
   }
+
+  // "Translate" tapped on someone's message: made once, then stored for both people (the server decides).
+  const translateMessage = useCallback(
+    async (m: ChatMessage) => {
+      const res = await api.post<{ detectedLanguage: 'en' | 'fr'; translation: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null }>(`${base}/messages/${m.id}/translate`, {});
+      setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, translation: res.translation, translationChecked: true } : x)));
+    },
+    [base],
+  );
 
   const messagesRef = useRef<ChatMessage[]>([]);
   messagesRef.current = messages;
@@ -568,6 +582,7 @@ export function MemberPrivateChatPage() {
                   selecting={selected.length > 0}
                   selected={selected.includes(m.id)}
                   onToggleSelect={toggleSelect}
+                  onTranslate={translateMessage}
                 />
               </div>
             );

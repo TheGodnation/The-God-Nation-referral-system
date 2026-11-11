@@ -2384,6 +2384,11 @@ model PrivateMessage {
   editedAt         DateTime?
   // Shown as "↪ Forwarded" (copied from another chat).
   forwarded        Boolean   @default(false)
+  // Tap-to-translate (lib/privateTranslation.ts): private messages are translated only when someone taps "Translate",
+  // once, and both people then read the same stored translation (the other of English/French).
+  detectedLanguage Language?
+  translatedBody   String?
+  translatedAt     DateTime?
 
   conversation PrivateConversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderPerson Person?                    @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)

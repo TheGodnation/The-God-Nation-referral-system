@@ -237,6 +237,8 @@ interface BubbleProps {
   selecting?: boolean;
   selected?: boolean;
   onToggleSelect?: (m: ChatMessage) => void;
+  /** One-to-one chats: translate this message when tapped (made once, then shown to both people). Throws on failure. */
+  onTranslate?: (m: ChatMessage) => Promise<void>;
 }
 
 // The central admin's voice message in two languages: both clips in one
@@ -264,7 +266,7 @@ const LONG_PRESS_MS = 450;
 
 // One chat bubble. Swipe it right to reply, press and hold (or right-click)
 // for reactions and options — the same gestures as WhatsApp.
-export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto, onShowReactions, privateChat = false, selecting = false, selected = false, onToggleSelect }: BubbleProps) {
+export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto, onShowReactions, privateChat = false, selecting = false, selected = false, onToggleSelect, onTranslate }: BubbleProps) {
   const showSender = showSenderProp && !privateChat;
   const { t, i18n } = useTranslation();
   const [dx, setDx] = useState(0);
@@ -273,6 +275,8 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
   // first), so a long message never pushes the whole chat screen out of
   // view. Collapsed by default; one toggle per bubble.
   const [expanded, setExpanded] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState<string | null>(null);
   const [comfort, setComfort] = useState<string | null>(null);
   // Auto-translation — shows the translated text by default, with a
   // "Translated from X / Show original" toggle (Facebook-style); the
@@ -515,6 +519,31 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                     )}
                     {m.translation && (
                       <TranslationNote sourceLanguage={m.translation.sourceLanguage} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />
+                    )}
+                    {onTranslate && !m.isOwn && m.body && !m.translation && !m.translationChecked && !m.pending && (
+                      <div className="mt-0.5">
+                        <button
+                          type="button"
+                          disabled={translating}
+                          data-testid={`translate-${m.id}`}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setTranslating(true);
+                            setTranslateError(null);
+                            try {
+                              await onTranslate(m);
+                            } catch (err) {
+                              setTranslateError(err instanceof Error && err.message ? err.message : t('translation.failed'));
+                            } finally {
+                              setTranslating(false);
+                            }
+                          }}
+                          className="text-xs font-semibold text-emerald-700 disabled:opacity-60"
+                        >
+                          🌐 {translating ? t('translation.translating') : t('translation.translate')}
+                        </button>
+                        {translateError && <p className="text-xs text-red-700" role="alert">{translateError}</p>}
+                      </div>
                     )}
                   </div>
                 </>
