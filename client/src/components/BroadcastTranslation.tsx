@@ -66,6 +66,11 @@ export function useTranslationPreview({
         const r = await translate(text);
         setPending({ out, original: text, translated: r.translated, language: r.language });
       } catch (err) {
+        // A server that does not offer translation yet (404): send as written, as before, rather than blocking the sender.
+        if (err instanceof ApiError && err.status === 404) {
+          setBusy(false);
+          return sendFinal(out, null);
+        }
         setFailed({ out, message: err instanceof ApiError && err.message ? err.message : t('translatePreview.failed') });
       } finally {
         setBusy(false);
