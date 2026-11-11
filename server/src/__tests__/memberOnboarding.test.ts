@@ -159,6 +159,22 @@ describe('Install recorded', () => {
   });
 });
 
+describe('Community: a tap is not joining', () => {
+  it('only the member’s own word sets "joined", once', async () => {
+    const { person, agent, csrf } = await signedIn();
+    expect((await agent.get('/api/member/onboarding')).body.communityConfirmed).toBe(false);
+    expect((await agent.post('/api/member/onboarding/community-joined').send({})).status).toBeGreaterThanOrEqual(400);
+    expect((await agent.post('/api/member/onboarding/community-joined').set('X-CSRF-Token', csrf).send({})).status).toBe(200);
+    const first = await prisma.memberOnboarding.findUnique({ where: { personId: person.id } });
+    expect(first?.communityConfirmedAt).not.toBeNull();
+    await new Promise((r) => setTimeout(r, 20));
+    await agent.post('/api/member/onboarding/community-joined').set('X-CSRF-Token', csrf).send({});
+    const again = await prisma.memberOnboarding.findUnique({ where: { personId: person.id } });
+    expect(again?.communityConfirmedAt?.getTime()).toBe(first?.communityConfirmedAt?.getTime());
+    expect((await agent.get('/api/member/onboarding')).body.communityConfirmed).toBe(true);
+  });
+});
+
 describe('Completing the profile', () => {
   it('sends the welcome once, the first time only', async () => {
     const from = await ensureFounder();

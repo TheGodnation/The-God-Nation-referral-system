@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { GetStartedCard, OnboardingPage } from '../components/member/OnboardingChecklist';
+import { CommunityJoinCard, GetStartedCard, OnboardingPage } from '../components/member/OnboardingChecklist';
 import { resetPublicSettingsCacheForTests } from '../lib/usePublicSettings';
 import i18n from '../i18n';
 
@@ -48,7 +48,7 @@ const card = () =>
 
 describe('Get started card', () => {
   it('shows progress and the next step, and continues to the welcome steps', async () => {
-    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, communityTapped: true } } });
+    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, communityConfirmed: true } } });
     card();
     expect(await screen.findByTestId('get-started-card')).toBeInTheDocument();
     expect(screen.getByTestId('get-started-progress')).toHaveTextContent('1 of 4 done');
@@ -74,7 +74,7 @@ describe('Get started card', () => {
 
     vi.unstubAllGlobals();
     Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
-    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, notificationsOn: true, communityTapped: true, agreementCommunityId: null } } });
+    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, notificationsOn: true, communityConfirmed: true, agreementCommunityId: null } } });
     const b = card();
     await waitFor(() => expect(calls.length).toBeGreaterThan(1));
     expect(screen.queryByTestId('get-started-card')).toBeNull();
@@ -116,7 +116,7 @@ describe('Existing members and the rules step', () => {
   });
 
   it('the card tells a new member to read the rules next, once the other steps are done', async () => {
-    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, notificationsOn: true, communityTapped: true } } });
+    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, notificationsOn: true, communityConfirmed: true } } });
     Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
     card();
     expect(await screen.findByText(/Next: read your assembly’s rules/)).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe('Welcome steps page', () => {
   });
 
   it('marks a step done from what the server knows', async () => {
-    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: { ...STATUS, agreementCommunityId: null, communityTapped: true } } });
+    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: { ...STATUS, agreementCommunityId: null, communityConfirmed: true } } });
     render(
       <MemoryRouter>
         <OnboardingPage />
@@ -213,3 +213,63 @@ describe('Install step roadmap', () => {
   });
 });
 
+
+describe('Joining the community: a tap is not joining', () => {
+  const PLACES = { content: {}, whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENG', telegramGroupUrl: 'https://t.me/g' };
+  const page = () => render(<MemoryRouter><OnboardingPage /></MemoryRouter>);
+
+  it('a tap alone does not tick the step; it asks, and "I have joined" does', async () => {
+    mockFetch({
+      '/api/settings/public': { body: PLACES },
+      '/api/member/onboarding': { body: STATUS },
+      'POST /api/member/group-link-click': { body: { ok: true } },
+      'POST /api/member/onboarding/community-joined': { body: { ok: true } },
+    });
+    page();
+    expect(screen.queryByTestId('confirm-joined-box')).toBeNull();
+    fireEvent.click(await screen.findByTestId('place-whatsapp_group_en'));
+    expect(await screen.findByTestId('confirm-joined-box')).toHaveTextContent('We cannot see whether you joined');
+    expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('0 of 4 done');
+    fireEvent.click(screen.getByTestId('confirm-joined'));
+    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('1 of 4 done'));
+    expect(calls.some((c) => c.method === 'POST' && c.url.includes('/onboarding/community-joined'))).toBe(true);
+    expect(screen.queryByTestId('confirm-joined-box')).toBeNull();
+  });
+
+  it('a link tapped earlier (another visit) still gets the question', async () => {
+    mockFetch({ '/api/settings/public': { body: PLACES }, '/api/member/onboarding': { body: { ...STATUS, communityTapped: true } } });
+    page();
+    expect(await screen.findByTestId('confirm-joined-box')).toBeInTheDocument();
+  });
+
+  it('shows the places on Chats for a new member, until they say they joined or close it', async () => {
+    mockFetch({ '/api/settings/public': { body: PLACES }, '/api/member/onboarding': { body: STATUS } });
+    const a = render(<MemoryRouter><CommunityJoinCard /></MemoryRouter>);
+    expect(await screen.findByTestId('community-join-card')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('community-card-close'));
+    expect(screen.queryByTestId('community-join-card')).toBeNull();
+    a.unmount();
+    localStorage.clear();
+    vi.unstubAllGlobals();
+    calls.length = 0;
+    mockFetch({ '/api/settings/public': { body: PLACES }, '/api/member/onboarding': { body: { ...STATUS, communityConfirmed: true } } });
+    render(<MemoryRouter><CommunityJoinCard /></MemoryRouter>);
+    await waitFor(() => expect(calls.some((c) => c.url.includes('/api/member/onboarding'))).toBe(true));
+    expect(screen.queryByTestId('community-join-card')).toBeNull();
+  });
+
+  it('is not shown to existing members, or when no places are set up', async () => {
+    mockFetch({ '/api/settings/public': { body: PLACES }, '/api/member/onboarding': { body: { ...STATUS, existingMember: true, agreementCommunityId: null } } });
+    const a = render(<MemoryRouter><CommunityJoinCard /></MemoryRouter>);
+    await waitFor(() => expect(calls.length).toBeGreaterThan(1));
+    expect(screen.queryByTestId('community-join-card')).toBeNull();
+    a.unmount();
+    vi.unstubAllGlobals();
+    resetPublicSettingsCacheForTests();
+    calls.length = 0;
+    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: STATUS } });
+    render(<MemoryRouter><CommunityJoinCard /></MemoryRouter>);
+    await waitFor(() => expect(calls.some((c) => c.url.includes('/api/member/onboarding'))).toBe(true));
+    expect(screen.queryByTestId('community-join-card')).toBeNull();
+  });
+});
