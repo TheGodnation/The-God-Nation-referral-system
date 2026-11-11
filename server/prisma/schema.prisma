@@ -182,6 +182,7 @@ enum UpdateReactionType {
 }
 
 enum NotificationType {
+  LEADERS_NOT_FOLLOWING_UP
   // A leader from the Leadership Team has been assigned to follow this person up.
   LEADER_ASSIGNED
   // Someone finished the Book 1 / Book 2 exam with personal answers that call for a conversation.
@@ -392,6 +393,7 @@ model User {
   areaRepresentationRequestsDecided AreaRepresentationRequest[]
   prayerRequestsDeleted             PrayerRequest[]             @relation("PrayerRequestDeletedByUser")
   prayerRequestCommentsDeleted      PrayerRequestComment[]      @relation("PrayerRequestCommentDeletedByUser")
+  coordinatorContactsMade           CoordinatorContact[]        @relation("CoordinatorContactAdmin")
 
   @@index([role])
 }
@@ -614,6 +616,8 @@ model Settings {
   supportWhatsappUrl            String?
   // When the start-up check for untranslated instructions last ran (it runs at most once a day).
   instructionTranslationSweptAt DateTime?
+  // When the central admin was last told about leaders who are not following up (at most once a day).
+  leaderAlertSentAt             DateTime?
   // The ministry's WhatsApp community groups, one for each language (shown on the About page).
   whatsappGroupEnUrl            String?
   whatsappGroupFrUrl            String?
@@ -910,6 +914,7 @@ model Person {
   updatedAt                DateTime                     @updatedAt
 
   users                                    User[]
+  coordinatorContacts                      CoordinatorContact[]                      @relation("CoordinatorContactPerson")
   deletionRequests                         AccountDeletionRequest[]
   registrations                            Registration[]
   communityMemberships                     CommunityMembership[]
@@ -1522,6 +1527,23 @@ model FollowUpAssignment {
   @@index([assignedByUserId])
 }
 
+// The central admin's own record that they reached out to a person (WhatsApp, a call, a message), whoever follows the
+// person up. It counts as contact in the "People who need me" desk. Nothing here changes who follows whom.
+model CoordinatorContact {
+  id              String          @id @default(uuid())
+  personId        String
+  adminUserId     String
+  wellbeingStatus WellbeingStatus @default(GOOD)
+  note            String?
+  contactedAt     DateTime        @default(now())
+
+  person    Person @relation("CoordinatorContactPerson", fields: [personId], references: [id], onDelete: Cascade)
+  adminUser User   @relation("CoordinatorContactAdmin", fields: [adminUserId], references: [id])
+
+  @@index([personId, contactedAt])
+  @@index([adminUserId, contactedAt])
+}
+
 // A single, minimal, append-only contact record. Current wellbeing/last
 // contact/next follow-up are deliberately NOT duplicated onto
 // FollowUpAssignment — they are derived by reading the latest row here.
@@ -1742,12 +1764,12 @@ enum MessageKind {
 }
 
 model Message {
-  id                String    @id @default(uuid())
+  id                String      @id @default(uuid())
   kind              MessageKind @default(USER)
   conversationId    String
   senderPersonId    String
   body              String?
-  createdAt         DateTime  @default(now())
+  createdAt         DateTime    @default(now())
   deletedAt         DateTime?
   deletedByPersonId String?
   // WhatsApp-style "reply": the message this one answers (same conversation).
@@ -1755,7 +1777,7 @@ model Message {
   // Set when the sender corrected the text (within 15 minutes).
   editedAt          DateTime?
   // Shown as "↪ Forwarded" (copied from another chat).
-  forwarded         Boolean   @default(false)
+  forwarded         Boolean     @default(false)
 
   // Community-chat auto-translation (lib/translation.ts) — Group chats only,
   // never PrivateMessage. Populated once, in the background, right after the

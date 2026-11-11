@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 const B = '/api/member/central-needs-me';
-const counts = { needs: 2, all: 5, not_confirmed: 1, profile_incomplete: 0, quiet: 0, no_leader: 1, leader_silent: 1, not_in_group: 0, mine: 0 };
+const counts = { today: 2, needs: 2, all: 5, not_confirmed: 1, profile_incomplete: 0, quiet: 0, no_leader: 1, leader_silent: 1, not_in_group: 0, mine: 0 };
 const person = (over: Record<string, unknown>) => ({
   personId: 'p1', name: 'Ada Nkem', photoUrl: null, whatsapp: '+237600000001', language: 'en', joinedAt: '2026-11-01T10:00:00Z', status: 'ACTIVE', daysQuiet: null,
   leader: null, mine: false, lastContactAt: null, leaderSilent: false, noLeader: true, notInGroup: false, ...over,
@@ -104,6 +104,84 @@ describe('People who need me (the National Coordinator)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Sent to 2 people.');
     expect(calls.find((c) => c.method === 'POST' && c.url === `${B}/message`)?.body).toMatchObject({ personIds: ['p1', 'p2'], body: 'God bless you' });
+  });
+});
+
+describe('Today\'s 20, the WhatsApp queue and the leader alerts', () => {
+  it('opens on Today\'s 20, says how many were reached today, and lets the coordinator record a contact on anyone', async () => {
+    mockFetch({
+      ...listRoute,
+      [`GET ${B}?`]: () => ({ body: { items, total: 2, page: 1, pageSize: 30, capped: false, counts, contactedToday: 3 } }),
+      [`POST ${B}/contacted`]: () => ({ status: 201, body: { id: 'c' } }),
+    });
+    renderPanel();
+    await screen.findByTestId('needs-p1');
+    expect(calls.some((c) => c.method === 'GET' && c.url.includes('filter=today'))).toBe(true);
+    expect(screen.getByTestId('needs-filter-today')).toHaveTextContent("Today's 20 (2)");
+    expect(screen.getByTestId('needs-today-done')).toHaveTextContent('You have reached out to 3 people today.');
+    // "I contacted" is there for someone nobody follows up yet (no take over needed first).
+    fireEvent.click(screen.getByTestId('needs-contacted-p1'));
+    fireEvent.click(screen.getByTestId('needs-save-contact-p1'));
+    expect(await screen.findByRole('status')).toHaveTextContent('Contact with Ada Nkem saved.');
+    expect(calls.find((c) => c.method === 'POST' && c.url === `${B}/contacted`)?.body).toMatchObject({ personId: 'p1', wellbeing: 'GOOD' });
+  });
+
+  it('goes through the selected people one by one on WhatsApp, in each person\'s language, recording each contact', async () => {
+    window.open = vi.fn();
+    mockFetch({
+      ...listRoute,
+      [`GET ${B}/ids`]: () => ({ body: { ids: ['p1', 'p2'], total: 2, people: [
+        { personId: 'p1', name: 'Ada Nkem', whatsapp: '+237600000001', language: 'en' },
+        { personId: 'p2', name: 'Ben Tabe', whatsapp: '+237600000002', language: 'fr' },
+        ] } }),
+      [`POST ${B}/contacted`]: () => ({ status: 201, body: { id: 'c' } }),
+    });
+    renderPanel();
+    await screen.findByTestId('needs-p1');
+    fireEvent.click(screen.getByTestId('needs-select-all'));
+    await waitFor(() => expect(screen.getByTestId('needs-selected')).toHaveTextContent('2 selected'));
+    fireEvent.click(screen.getByTestId('needs-queue'));
+    // Both languages need a message before starting.
+    expect(screen.getByTestId('queue-start')).toBeDisabled();
+    fireEvent.change(screen.getByTestId('queue-text-en'), { target: { value: 'God bless you, how are you?' } });
+    expect(screen.getByTestId('queue-start')).toBeDisabled();
+    fireEvent.change(screen.getByTestId('queue-text-fr'), { target: { value: 'Que Dieu vous bénisse, comment allez-vous ?' } });
+    fireEvent.click(screen.getByTestId('queue-start'));
+
+    expect(screen.getByTestId('queue-progress')).toHaveTextContent('1 of 2');
+    let href = decodeURIComponent(screen.getByTestId('queue-open').getAttribute('href')!);
+    expect(href).toContain('wa.me/237600000001');
+    expect(href).toContain('God bless you, how are you?');
+    expect(href).toContain('— National Coordinator, The God Nation');
+    fireEvent.click(screen.getByTestId('queue-next'));
+    expect(screen.getByTestId('queue-progress')).toHaveTextContent('2 of 2');
+    href = decodeURIComponent(screen.getByTestId('queue-open').getAttribute('href')!);
+    expect(href).toContain('wa.me/237600000002');
+    expect(href).toContain('Que Dieu vous bénisse');
+    expect(href).toContain('— Coordinateur national, The God Nation');
+    fireEvent.click(screen.getByTestId('queue-skip'));
+    expect(await screen.findByTestId('queue-finished')).toHaveTextContent('All done: 1 contacted, 1 skipped.');
+    const recorded = calls.filter((c) => c.method === 'POST' && c.url === `${B}/contacted`);
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0].body).toMatchObject({ personId: 'p1', note: 'WhatsApp' });
+  });
+
+  it('warns about leaders who are not following up, and takes over all their people on request', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    mockFetch({
+      ...listRoute,
+      [`GET ${B}/leader-alerts`]: () => ({ body: { items: [{ personId: 'l1', name: 'Grace Mbah', peopleCount: 4, silentDays: 12 }, { personId: 'l2', name: 'Paul Eto', peopleCount: 1, silentDays: null }] } }),
+      [`POST ${B}/take-over-leader`]: () => ({ body: { taken: 4 } }),
+    });
+    renderPanel();
+    const box = await screen.findByTestId('leader-alerts');
+    expect(box).toHaveTextContent('Leaders not following up (2)');
+    fireEvent.click(within(box).getByRole('button', { name: /Leaders not following up/ }));
+    expect(screen.getByTestId('alert-l1')).toHaveTextContent('4 people to look after · no contact for 12 days');
+    expect(screen.getByTestId('alert-l2')).toHaveTextContent('has not contacted anyone');
+    fireEvent.click(screen.getByTestId('alert-take-l1'));
+    expect(await screen.findByText('4 people taken over from Grace Mbah.')).toBeInTheDocument();
+    expect(calls.find((c) => c.method === 'POST' && c.url === `${B}/take-over-leader`)?.body).toEqual({ leaderPersonId: 'l1' });
   });
 });
 

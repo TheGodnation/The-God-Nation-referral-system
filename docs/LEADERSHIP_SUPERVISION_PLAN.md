@@ -269,3 +269,10 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 
 - Private (one-to-one) messages are never translated by themselves. A small "🌐 Translate" under the other person's text message translates it when tapped. The translation is made once (English <-> French), stored on the message, and both people then read the same stored copy: no second request to the translator, however often anyone taps. Once translated it shows with "Translated from … / Show original".
 - If the translator is down the person is told and can tap again; nothing is stored. Correcting a message clears its old translation. Only the two people in the chat can use it.
+
+## Today's 20, the WhatsApp queue and leader alerts
+
+- **Today's 20** is the desk's opening view: the 20 people who most need the coordinator today, ranked by urgency (a worrying last contact such as an emergency or needs-attention, no leader, leader not following up, not signed in or not finished joining, quiet, not in our group, and how long since anyone contacted them; the coordinator's own people count when overdue). Someone reached in the last 20 hours is not listed. A line says how many people were reached today.
+- **"I contacted"** now works for anyone, without taking them over. It is the coordinator's own record (CoordinatorContact: wellbeing and a note) and counts as contact; nobody's follow-up changes.
+- **WhatsApp queue**: select people, write the message once in English and once in French, then go through them one by one: WhatsApp opens with the words ready in each person's language, signed "— National Coordinator, The God Nation"; press send there, come back, "Done, next" (records the contact, optionally). The app sends nothing itself, so it cannot get the number banned.
+- **Leader alerts**: a card at the top of the desk lists leaders who have people but have not logged a contact or sent a message for 7 days (or ever), with "Message the leader" and "Take over their people". Once a day in the daytime (Cameroon), if any, the central admin gets a notification and phone alert; nothing is sent when all is well.

@@ -4,6 +4,7 @@ dotenv.config();
 import { createApp } from './app';
 import { PORT } from './lib/env';
 import { startTranslationRetryLoop } from './lib/translationRetry';
+import { startLeaderAlertLoop } from './lib/leaderAlertLoop';
 import { startPaymentReminderLoop } from './lib/paymentReminders';
 import { startEventReminderLoop } from './lib/eventReminders';
 import { startEscalationLoop } from './lib/escalations';
@@ -39,6 +40,7 @@ app.listen(PORT, () => {
 });
 
 startTranslationRetryLoop();
+startLeaderAlertLoop();
 startPaymentReminderLoop();
 startEventReminderLoop();
 startEscalationLoop();

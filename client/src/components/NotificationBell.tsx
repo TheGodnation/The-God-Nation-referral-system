@@ -52,6 +52,7 @@ type NotificationType =
   | 'ESCALATION_RECEIVED'
   | 'INSTRUCTION_RECEIVED'
   | 'INSTRUCTION_REMINDER'
+  | 'LEADERS_NOT_FOLLOWING_UP'
   | 'ESCALATION_ANSWERED'
   | 'ESCALATION_BYPASSED'
   | 'CLINIC_EXAM_OPEN'
@@ -235,6 +236,8 @@ export function NotificationBell() {
         return t('notifications.instruction_received');
       case 'INSTRUCTION_REMINDER':
         return t('notifications.instruction_reminder');
+      case 'LEADERS_NOT_FOLLOWING_UP':
+        return t('notifications.leaders_not_following_up', { count: Number(metadata.count ?? 0) });
       case 'ESCALATION_RECEIVED':
         return t(metadata.passedOn ? 'notifications.escalation_passed_on' : metadata.urgent ? 'notifications.escalation_urgent' : 'notifications.escalation_received', { asker: metadata.askerName ?? '', about: metadata.aboutName ?? '' });
       case 'ESCALATION_ANSWERED':
