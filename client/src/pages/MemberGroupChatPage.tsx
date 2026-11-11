@@ -17,6 +17,7 @@ import { PinnedMessages, type ChatPin } from '../components/chat/PinnedMessages'
 import { ChatSearch, EditSheet, ForwardSheet, SelectionBar, copyableText, findAndJump } from '../components/chat/ChatActions';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { draftKeyFor } from '../lib/drafts';
+import { AssemblyAgreementCard } from '../components/chat/AssemblyAgreementCard';
 
 interface MessagesResponse {
   items: ChatMessage[];
@@ -24,6 +25,7 @@ interface MessagesResponse {
   unreadCount: number;
   isAdministrator: boolean;
   canPost: boolean;
+  agreementRequired?: boolean;
   mute?: MuteInfo | null;
   newerOverflow?: boolean;
   recent?: RecentChange[];
@@ -122,6 +124,8 @@ export function MemberGroupChatPage() {
   const navigate = useNavigate();
   const [canPost, setCanPost] = useState(true);
   const [mute, setMute] = useState<MuteInfo | null>(null);
+  // A new member who has not agreed to this assembly's rules yet: reading and reacting only.
+  const [mustAgree, setMustAgree] = useState(false);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [menuFor, setMenuFor] = useState<ChatMessage | null>(null);
   // Who reacted to a message (tapping its reactions).
@@ -255,6 +259,7 @@ export function MemberGroupChatPage() {
           setRecordingNow(res.recording ?? []);
           setCanPost(res.canPost !== false);
           setMute(res.mute ?? null);
+          setMustAgree(res.agreementRequired === true);
           setLoadError(false);
           markRead(res.items, res.unreadCount);
           return res.items.length > 0 || (res.typing ?? []).length > 0 || (res.recording ?? []).length > 0;
@@ -414,7 +419,10 @@ export function MemberGroupChatPage() {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setReplyTo(reply);
       if (err instanceof ApiError && err.status === 503) showToast(t('groupChat.storage_off'));
-      else if (err instanceof ApiError && err.status === 403) showToast(t('groupChat.only_leaders'));
+      else if (err instanceof ApiError && err.status === 403 && err.code === 'AGREEMENT_REQUIRED') {
+        setMustAgree(true);
+        setCanPost(false);
+      } else if (err instanceof ApiError && err.status === 403) showToast(t('groupChat.only_leaders'));
       else showToast(t('groupChat.send_failed'));
       return false;
     }
@@ -708,6 +716,15 @@ export function MemberGroupChatPage() {
           />
         ) : mute ? (
           <MutedBanner mute={mute} onChanged={() => setMute({ ...mute, excuseSent: true })} />
+        ) : mustAgree ? (
+          <AssemblyAgreementCard
+            communityId={communityId}
+            onAgreed={() => {
+              setMustAgree(false);
+              setCanPost(true);
+              void fetchLatest(false);
+            }}
+          />
         ) : (
           <p className="bg-[#f0f2f5] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 text-center text-sm text-slate-600">{t('groupChat.only_leaders')}</p>
         ))}

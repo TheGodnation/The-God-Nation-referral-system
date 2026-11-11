@@ -613,6 +613,10 @@ model Settings {
   // lib/communityConversation.ts historyCutoffFor). Set to the moment the rule
   // was introduced, so current members keep their full history.
   newMemberHistoryFrom          DateTime          @default(now())
+  // The Assembly Agreement: people whose account was created after this moment must agree to an assembly's rules
+  // before they can post or reply in it (reading and reactions stay open). Set to the moment the rule was introduced,
+  // so current members are left alone. Empty = the rule is off.
+  assemblyAgreementFrom         DateTime?
   supportWhatsappUrl            String?
   // When the start-up check for untranslated instructions last ran (it runs at most once a day).
   instructionTranslationSweptAt DateTime?
@@ -918,6 +922,7 @@ model Person {
   deletionRequests                         AccountDeletionRequest[]
   registrations                            Registration[]
   communityMemberships                     CommunityMembership[]
+  assemblyAgreements                       AssemblyAgreement[]
   attempts                                 Attempt[]
   examRetakeRequests                       ExamRetakeRequest[]
   participationEvents                      ParticipationEvent[]
@@ -1059,6 +1064,7 @@ model Community {
   parent                  Community?               @relation("CommunityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children                Community[]              @relation("CommunityHierarchy")
   memberships             CommunityMembership[]
+  agreements              AssemblyAgreement[]
   devotionals             MonthlyDevotional[]
   roleAssignments         RoleAssignment[]
   conversation            Conversation?
@@ -1079,6 +1085,20 @@ model Community {
 // membership row per community (re-joining after leaving reactivates the
 // same row via `status` rather than creating a duplicate), which is what
 // prevents duplicate active memberships in the same community.
+// A new member agreed to the rules of one assembly or group. Agreeing counts as having joined it.
+model AssemblyAgreement {
+  id          String   @id @default(uuid())
+  personId    String
+  communityId String
+  agreedAt    DateTime @default(now())
+
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, communityId])
+  @@index([communityId])
+}
+
 model CommunityMembership {
   id          String           @id @default(uuid())
   personId    String

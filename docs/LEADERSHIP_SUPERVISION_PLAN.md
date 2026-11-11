@@ -291,3 +291,11 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **First sign-in date**: `MemberAccount.firstLoginAt`, stamped the first time (`lastLoginAt` is overwritten on each sign-in). Accounts that signed in before this existed stay empty.
 - **Get started card** on Chats and Home: progress, the next step, Continue, and ✕ (stored server-side in `MemberOnboarding.dismissedAt`). It reaches existing members too, and disappears when all steps are done or it is closed. Status comes from `GET /api/member/onboarding`; closing is `POST /api/member/onboarding/dismiss`.
 - Link taps are shown only as "tapped a community link", never as confirmed membership.
+
+## The Assembly Agreement (rules before writing)
+
+- A person who signs up **after** `Settings.assemblyAgreementFrom` (set by the migration to the moment the rule started; empty = rule off) is already in their assembly and can **read everything and react** to messages, but cannot **post or reply** until they tap **I agree** (there is no "disagree"). Everyone who already had an account is left alone, and so are the central admin, leaders of the assembly and the representative of its generation.
+- Server: `lib/assemblyAgreement.ts` (`agreementRequired`, `pendingAgreements`) is checked inside `canPostCommunityMessage`, so posting, replying, typing, editing and forwarding into the assembly are all refused with `403 AGREEMENT_REQUIRED`. `GET .../conversation/messages` returns `agreementRequired`. `POST /api/communities/:id/agreement` records it (`AssemblyAgreement`, one row per person per assembly, once).
+- **Agreeing counts as joining:** the "just joined" line is held back at placement and appears when they agree (`joinNotice` skips people who still have to agree), and the National Coordinator's profile sends them a private message "You are now part of …" with a link into the assembly (`lib/assemblyAgreeing.ts`, EN/FR).
+- The rules text (five rules, EN/FR) lives in the app's translations (`assemblyAgreement.*`). Changing it later only affects people who have not agreed yet (agreements are recorded once and never asked again).
+- The welcome checklist's last step is now "Read the rules and join your assembly" (replaces "open your first teaching"). Existing members have it, and the community step, ticked automatically.

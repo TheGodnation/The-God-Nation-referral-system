@@ -1,3 +1,5 @@
+import { agreementRequired } from '../lib/assemblyAgreement';
+import { agreeToAssembly } from '../lib/assemblyAgreeing';
 import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { muteNotice } from '../lib/sanctions';
 import { appLanguage } from '../lib/appLanguage';
@@ -473,6 +475,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     unreadCount,
     isAdministrator,
     canPost,
+    // True while a new member has not yet agreed to this assembly's rules: they can read and react, not post or reply.
+    agreementRequired: await agreementRequired(personId, communityId),
     // Set when the viewer is muted here: why, until when, and whether they already asked for excuse.
     mute: await muteNotice(personId, communityId),
   });
@@ -530,6 +534,7 @@ router.post(
     if (!(await canPostCommunityMessage(personId, communityId))) {
       const mute = await muteNotice(personId, communityId);
       if (mute) return res.status(403).json({ error: 'You are muted in this assembly and cannot write until the mute ends.', code: 'MUTED', mute });
+      if (await agreementRequired(personId, communityId)) return res.status(403).json({ error: 'Please agree to the assembly rules before you write.', code: 'AGREEMENT_REQUIRED' });
       return res.status(403).json({ error: 'You do not have permission to post in this community.' });
     }
 
@@ -1443,5 +1448,20 @@ router.get('/:communityId/conversation/search', chatSearchLimiter, asyncHandler(
     items: rows.map((m) => ({ id: m.id, senderName: m.sender.name, isOwn: m.senderPersonId === personId, body: m.body, createdAt: m.createdAt })),
   });
 }));
+
+// POST /api/communities/:communityId/agreement — the member agrees to this assembly's rules (once). Agreeing counts as
+// having joined it.
+router.post(
+  '/:communityId/agreement',
+  communityModerationLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const { communityId } = req.params;
+    if (!(await contextTargetExists('COMMUNITY', communityId))) return res.status(404).json({ error: 'Community not found.' });
+    const result = await agreeToAssembly(req.conversationActorPersonId!, communityId);
+    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    res.json({ ok: true, alreadyAgreed: result.alreadyAgreed });
+  }),
+);
 
 export default router;
