@@ -439,6 +439,14 @@ export default function App() {
               }
             />
             <Route
+              path="/member/welcome"
+              element={
+                <RequireMember>
+                  <MemberJoinGroupPage />
+                </RequireMember>
+              }
+            />
+            <Route
               path="/member/about"
               element={
                 <RequireMember>

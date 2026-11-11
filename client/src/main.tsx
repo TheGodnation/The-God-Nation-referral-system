@@ -7,9 +7,11 @@ import './i18n';
 import './index.css';
 import { reloadOnceForNewVersion, reportClientError } from './lib/reportError';
 import { isStoreApp } from './lib/storeApp';
+import { captureInstallPrompt } from './lib/installPrompt';
 
 // Notice the Play Store version at the very start (see lib/storeApp.ts).
 isStoreApp();
+captureInstallPrompt();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

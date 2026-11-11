@@ -4301,6 +4301,28 @@
     "skip": "Pas maintenant",
     "joined_note": "Ouverture en cours. Revenez ici quand vous êtes prêt."
   },
+  "onboarding": {
+    "title": "Bienvenue à The God Nation",
+    "intro": "Quatre petites étapes vous aideront beaucoup. Aucune n’est obligatoire, et vous pouvez y revenir à tout moment.",
+    "progress": "{{done}} sur {{total}} terminées",
+    "done": "Terminé",
+    "step_notifications": "Activer les notifications",
+    "step_install": "Installer l’application sur votre téléphone",
+    "install_menu": "Ouvrez le menu de votre navigateur et choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».",
+    "step_community": "Rejoindre notre communauté d’accueil",
+    "community_body": "Rencontrez vos frères et sœurs. C’est votre choix, sans aucune pression.",
+    "no_places": "Les liens de notre communauté arrivent bientôt. Vous les trouverez ici quand ils seront prêts.",
+    "step_teaching": "Ouvrir votre premier enseignement",
+    "teaching_body": "Trouvez les enseignements dans vos discussions et touchez-en un pour le lire ou l’écouter.",
+    "anytime": "Vous pourrez terminer cela plus tard depuis votre page Discussions.",
+    "card_title": "Pour bien commencer",
+    "card_button": "Continuer",
+    "close": "Fermer",
+    "next_notifications": "Ensuite : activez les notifications pour ne manquer aucun enseignement.",
+    "next_install": "Ensuite : installez l’application pour que nous soyons toujours à un clic.",
+    "next_community": "Ensuite : rejoignez notre communauté d’accueil, si vous le souhaitez.",
+    "next_teaching": "Ensuite : ouvrez votre premier enseignement."
+  },
   "contactPrefs": {
     "title": "Comment nous pouvons vous contacter",
     "help": "Choisissez comment The God Nation peut vous envoyer des nouvelles et des encouragements. Vous pouvez changer cela à tout moment.",

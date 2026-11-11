@@ -7,6 +7,7 @@ import { Prisma, type MemberAccount, type Person } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { hashToken, autoPairLeaderSession, destroySession, SESSION_COOKIE_NAME } from '../lib/auth';
+import { markFirstLogin, sendFounderWelcome } from '../lib/memberOnboarding';
 import { createMemberSession, destroyMemberSession, requireMember, MEMBER_SESSION_COOKIE_NAME } from '../lib/memberAuth';
 import { catchAllPersonId as resolveCatchAllPersonId } from '../lib/catchAll';
 import { normalizeToE164 } from '../lib/phone';
@@ -499,6 +500,7 @@ router.post('/login', memberPasswordLoginLimiter, requireCsrf, asyncHandler(asyn
   }
 
   await prisma.memberAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
+  await markFirstLogin(account.id);
   await recordLoginAttempt(bruteForceId, true, ip, userAgent);
   await createMemberSession(account.id, res);
   const deletionCancelled = await comeBack(account.person);
@@ -624,6 +626,7 @@ router.post('/verify-code', memberLoginConsumeLimiter, requireCsrf, asyncHandler
     where: { id: account.id },
     data: { lastLoginAt: new Date(), ...(newPasswordHash ? { passwordHash: newPasswordHash } : {}) },
   });
+  await markFirstLogin(account.id);
   await createMemberSession(account.id, res);
   await trustThisDevice(account.id, account.personId, res);
   const deletionCancelled = await comeBack(account.person);
@@ -679,6 +682,7 @@ router.post('/consume', memberLoginConsumeLimiter, requireCsrf, asyncHandler(asy
   }
 
   await prisma.memberAccount.update({ where: { id: memberAccount.id }, data: { lastLoginAt: new Date() } });
+  await markFirstLogin(memberAccount.id);
   await createMemberSession(memberAccount.id, res);
   await trustThisDevice(memberAccount.id, memberAccount.personId, res);
   const deletionCancelled = await comeBack(memberAccount.person);
@@ -763,6 +767,7 @@ router.post('/password-help', memberPasswordHelpLimiter, requireCsrf, asyncHandl
   const account = link.memberAccount;
   await prisma.$transaction([
     prisma.memberAccount.update({ where: { id: account.id }, data: { passwordHash, lastLoginAt: new Date() } }),
+    prisma.memberAccount.updateMany({ where: { id: account.id, firstLoginAt: null }, data: { firstLoginAt: new Date() } }),
     prisma.memberSession.deleteMany({ where: { memberAccountId: account.id } }),
     // Any other help link sent to them stops working now.
     prisma.memberPasswordHelpLink.updateMany({ where: { memberAccountId: account.id, usedAt: null }, data: { usedAt: new Date() } }),
@@ -942,6 +947,10 @@ router.post('/complete-profile', memberCompleteProfileLimiter, requireCsrf, requ
       clickedAt: registration?.createdAt,
     });
   }
+
+  // The founder's welcome in their private chat: once, the first time the profile is completed. Sent before we
+  // answer, so it is already waiting when they land on their chats.
+  if (!req.member!.profileCompletedAt) await sendFounderWelcome(personId);
 
   res.json({ profileComplete: true, community });
 }));

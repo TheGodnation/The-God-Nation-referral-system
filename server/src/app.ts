@@ -24,6 +24,7 @@ import { publicSiteRouter } from './lib/publicSite/router';
 import { spaHandler } from './lib/ogMeta';
 import { adminGrowthRoutes, memberCentralGrowthRoutes } from './routes/adminGrowth';
 import memberContactConsentRoutes from './routes/memberContactConsent';
+import memberOnboardingRoutes from './routes/memberOnboarding';
 import leaderRoutes from './routes/leader';
 import adminRoutes from './routes/admin';
 import adminMemberBridgeRoutes from './routes/adminMemberBridge';
@@ -241,6 +242,7 @@ export function createApp() {
   app.use('/api/member/central-knowledge', memberCentralKnowledgeRoutes);
   app.use('/api/member/tokens', memberTokensRoutes);
   app.use('/api/member', memberContactConsentRoutes);
+  app.use('/api/member', memberOnboardingRoutes);
   app.use('/api/admin', adminLeadershipRoutes);
   app.use('/api/leader', leaderFollowUpsRoutes);
   // Phase 3M.8A: leaderCommunitiesRoutes defines '/communities/:communityId/members',
