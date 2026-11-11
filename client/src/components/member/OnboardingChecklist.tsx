@@ -8,6 +8,7 @@ import { usePublicSettings } from '../../lib/usePublicSettings';
 import { communityPlaces, followPlaces } from '../socialPlatforms';
 import { CommunityChoices } from '../CommunityChoices';
 import { EnableNotificationsBanner } from './EnableNotificationsBanner';
+import { GuideLink } from './GuideLink';
 
 export interface OnboardingStatus {
   profileDone: boolean;
@@ -115,9 +116,9 @@ function InstallRoadmap({ install }: { install: ReturnType<typeof useInstallProm
         ))}
       </ol>
       <p className="mt-2 text-xs text-slate-500">{t('onboarding.install_recorded')}</p>
-      <a href="/notifications-guide/" target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand-700 underline">
+      <GuideLink href="/notifications-guide/" className="mt-1 inline-block text-xs font-semibold text-brand-700 underline">
         {t('onboarding.install_pictures')}
-      </a>
+      </GuideLink>
     </div>
   );
 }

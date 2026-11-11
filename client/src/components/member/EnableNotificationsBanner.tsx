@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { GuideLink } from './GuideLink';
 import { enablePushNotifications, checkPushOnThisDevice, prefetchPushKey, type PushDeviceStatus } from '../../lib/push';
 
 const DISMISS_KEY = 'notifyBannerDismissed';
@@ -93,9 +94,9 @@ export function EnableNotificationsBanner({ className = 'mb-4' }: { className?: 
               {busy ? t('notifications.enabling') : t('notifications.enable_button')}
             </button>
           )}
-          <a href={status === 'denied' ? '/phone-settings-guide/' : '/notifications-guide/'} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand-700 underline">
+          <GuideLink href={status === 'denied' ? '/phone-settings-guide/' : '/notifications-guide/'} className="text-xs font-semibold text-brand-700 underline">
             {t('notifications.need_help')}
-          </a>
+          </GuideLink>
         </div>
       </div>
       <button type="button" aria-label={t('notifications.dismiss') ?? ''} className="px-1 leading-6 text-brand-700" onClick={close}>

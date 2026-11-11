@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInstallPrompt } from '../../lib/installPrompt';
+import { GuideLink } from './GuideLink';
 
 // "Install the app": puts a God Nation icon on the phone's home screen that
 // opens straight into the community. Android/Chrome offer a real install
@@ -40,9 +41,9 @@ export function InstallAppBanner() {
               {t('installApp.button')}
             </button>
           )}
-          <a href="/notifications-guide/" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand-700 underline">
+          <GuideLink href="/notifications-guide/" className="text-xs font-semibold text-brand-700 underline">
             {t('installApp.need_help')}
-          </a>
+          </GuideLink>
         </div>
       </div>
       <button type="button" aria-label={t('installApp.close') ?? ''} className="text-brand-700" onClick={close}>
