@@ -573,6 +573,85 @@ async function fillMissingFrench(kind: FrenchFillKind, id: string, opts: GeminiC
   return done.count === 1 ? 'done' : 'skip';
 }
 
+/**
+ * One try at translating a leader instruction (title and text, each on its own, so one long text never holds up the
+ * other). Whatever succeeds is saved straight away and an empty side is the only thing ever filled in; if a part
+ * failed the outcome is 'retry' and the next try only does what is still missing.
+ */
+export async function attemptInstructionTranslation(id: string, opts: GeminiCallOptions = {}): Promise<TranslationOutcome> {
+  if (!isTranslationConfigured()) return 'skip';
+  const i = await prisma.leaderInstruction.findUnique({ where: { id }, select: { title: true, body: true, titleTr: true, bodyTr: true, language: true } });
+  if (!i) return 'skip';
+  const needBody = !i.bodyTr?.trim() && i.body.trim() !== '';
+  const needTitle = !i.titleTr?.trim() && i.title.trim() !== '';
+  if (!needBody && !needTitle) return 'skip';
+  const [b, t] = await Promise.all([
+    needBody ? translateText(i.body, opts).catch(() => null) : Promise.resolve(null),
+    needTitle ? translateText(i.title, opts).catch(() => null) : Promise.resolve(null),
+  ]);
+  const language = i.language ?? b?.detectedLanguage ?? t?.detectedLanguage ?? null;
+  try {
+    if (b?.translatedBody?.trim()) await prisma.leaderInstruction.updateMany({ where: { id, bodyTr: null }, data: { bodyTr: b.translatedBody, ...(language ? { language } : {}) } });
+    if (t?.translatedBody?.trim()) await prisma.leaderInstruction.updateMany({ where: { id, titleTr: null }, data: { titleTr: t.translatedBody, ...(language ? { language } : {}) } });
+  } catch {
+    return 'retry';
+  }
+  const bodyOk = !needBody || !!b?.translatedBody?.trim();
+  const titleOk = !needTitle || !!t?.translatedBody?.trim();
+  return bodyOk && titleOk ? 'done' : 'retry';
+}
+
+/**
+ * Right after an instruction is saved: gives the translation a few seconds so it goes out already in both languages.
+ * A part that is not ready by then keeps going in the background and is retried on the usual schedule (5 min, 15 min,
+ * 1 hour), so a slow or busy translator never loses it. Never throws.
+ */
+export async function translateInstructionBeforeSending(id: string, waitMs = 20000): Promise<void> {
+  const work = (async () => {
+    try {
+      if ((await attemptInstructionTranslation(id, {})) === 'retry') await scheduleTranslationRetry('INSTRUCTION', id);
+    } catch {
+      await scheduleTranslationRetry('INSTRUCTION', id);
+    }
+  })();
+  await Promise.race([work, new Promise<void>((resolve) => setTimeout(resolve, waitMs))]);
+}
+
+/**
+ * Safety net: queues the recent instructions that still lack a translation (older ones that failed before this
+ * existed, or a retry that gave up while the translator was down). Run when the server starts. Returns how many were queued.
+ */
+export async function queueUntranslatedInstructions(limit = 50): Promise<number> {
+  if (!isTranslationConfigured()) return 0;
+  // At most once a day, however many times the app restarts. The day is claimed first, so two servers starting together do not both run it.
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton' }, update: {} }).catch(() => {});
+  const claimed = await prisma.settings.updateMany({
+    where: { id: 'singleton', OR: [{ instructionTranslationSweptAt: null }, { instructionTranslationSweptAt: { lt: dayAgo } }] },
+    data: { instructionTranslationSweptAt: new Date() },
+  });
+  if (claimed.count !== 1) return 0;
+  const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+  const rows = await prisma.leaderInstruction.findMany({
+    where: { createdAt: { gte: since }, OR: [{ titleTr: null }, { bodyTr: null }] },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    select: { id: true },
+  });
+  let k = 0;
+  for (const r of rows) {
+    await prisma.translationRetry
+      .upsert({
+        where: { kind_targetId: { kind: 'INSTRUCTION', targetId: r.id } },
+        create: { kind: 'INSTRUCTION', targetId: r.id, nextAttemptAt: new Date(Date.now() + 30_000 + k * 20_000) },
+        update: {},
+      })
+      .catch(() => {});
+    k++;
+  }
+  return rows.length;
+}
+
 export const attemptHeadquartersPostTranslation = (postId: string, opts: GeminiCallOptions = {}) => fillMissingFrench('HEADQUARTERS_POST', postId, opts);
 export const attemptAnnouncementTranslation = (announcementId: string, opts: GeminiCallOptions = {}) => fillMissingFrench('ANNOUNCEMENT', announcementId, opts);
 

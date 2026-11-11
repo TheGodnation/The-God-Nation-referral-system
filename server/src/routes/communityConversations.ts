@@ -656,6 +656,7 @@ router.post(
         title: `${sender?.name ?? 'Someone'} • ${community?.name ?? 'Group'}`,
         body: preview.length > 120 ? `${preview.slice(0, 120)}…` : preview,
         url: `/member/chats/group/${communityId}`,
+        tag: `group-${communityId}`,
       });
     })().catch(() => {});
 

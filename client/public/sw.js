@@ -257,8 +257,32 @@ self.addEventListener('push', (event) => {
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     data: { url: data.url || '/' },
+    // Made to be noticed: a strong vibration, never silent, and a new alert (sound + vibration) even when an earlier one
+    // from the same conversation is still showing. The sound itself is the phone's own notification sound.
+    vibrate: [300, 150, 300, 150, 300],
+    silent: false,
+    tag: data.tag || data.url || 'god-nation',
+    renotify: true,
+    timestamp: Date.now(),
+    // Important ones (instructions, private messages) stay on screen until they are tapped.
+    requireInteraction: data.urgent === true,
   };
-  event.waitUntil(self.registration.showNotification(title, options).catch(() => {}));
+  event.waitUntil(
+    (async () => {
+      try {
+        await self.registration.showNotification(title, options);
+      } catch {
+        // Nothing more we can do.
+      }
+      try {
+        // If the app is open, refresh its bell at once.
+        const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const c of open) c.postMessage({ type: 'push-received' });
+      } catch {
+        // ignore
+      }
+    })(),
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

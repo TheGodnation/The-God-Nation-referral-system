@@ -1,7 +1,7 @@
 import type { InstructionAudience, Language } from '@prisma/client';
 import { prisma } from './prisma';
 import { getHeadquartersCommunityId, getCommunityGeneration } from './tree';
-import { isTranslationConfigured, translateText } from './translation';
+import { translateInstructionBeforeSending } from './translation';
 import { pushToPersons } from './push';
 import { sendPrivateNotice, isFrench, languagesOf } from './privateNotice';
 import { CLIENT_URL } from './env';
@@ -73,11 +73,23 @@ export interface CreateInstructionInput {
   fromRepresentative?: boolean;
 }
 
-async function translatedBoth(title: string, body: string): Promise<{ language: Language | null; titleTr: string | null; bodyTr: string | null }> {
-  if (!isTranslationConfigured()) return { language: null, titleTr: null, bodyTr: null };
-  const limit = <T>(p: Promise<T>) => Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), 15000))]);
-  const [t, b] = await Promise.all([limit(translateText(title)), limit(translateText(body))]);
-  return { language: b?.detectedLanguage ?? t?.detectedLanguage ?? null, titleTr: t?.translatedBody ?? null, bodyTr: b?.translatedBody ?? null };
+/** An instruction's title in the reader's language (the translation when it is ready, otherwise the original). */
+export function titleIn(i: { title: string; titleTr: string | null; language: Language | null }, french: boolean): string {
+  if (!i.language || !i.titleTr) return i.title;
+  return (i.language === 'fr') === french ? i.title : i.titleTr;
+}
+
+/** Pushes to each leader in their own language. Never throws. */
+async function pushInstruction(personIds: string[], i: { title: string; titleTr: string | null; language: Language | null }, heading: { en: string; fr: string }): Promise<void> {
+  try {
+    const langs = await languagesOf(personIds);
+    const fr = personIds.filter((p) => isFrench(langs.get(p)));
+    const en = personIds.filter((p) => !isFrench(langs.get(p)));
+    if (en.length) await pushToPersons(en, { title: heading.en, body: titleIn(i, false), url: '/member/me?section=instructions', urgent: true });
+    if (fr.length) await pushToPersons(fr, { title: heading.fr, body: titleIn(i, true), url: '/member/me?section=instructions', urgent: true });
+  } catch {
+    // best effort
+  }
 }
 
 /** The person an instruction's private message comes from: whoever sent it (the National Coordinator's own profile, or the representative). */
@@ -101,11 +113,11 @@ export function instructionNotice(kind: 'new' | 'reminder', title: string, dueAt
 }
 
 /** Sends the private message to each leader (a few at a time). Never throws. */
-async function sendInstructionNotices(kind: 'new' | 'reminder', fromPersonId: string | null, personIds: string[], title: string, dueAt: Date | null, id: string): Promise<void> {
+async function sendInstructionNotices(kind: 'new' | 'reminder', fromPersonId: string | null, personIds: string[], ins: { id: string; title: string; titleTr: string | null; language: Language | null }, dueAt: Date | null): Promise<void> {
   if (!fromPersonId || personIds.length === 0) return;
   const langs = await languagesOf(personIds);
   for (let i = 0; i < personIds.length; i += 10) {
-    await Promise.all(personIds.slice(i, i + 10).map((pid) => sendPrivateNotice(fromPersonId, pid, instructionNotice(kind, title, dueAt, id, isFrench(langs.get(pid))))));
+    await Promise.all(personIds.slice(i, i + 10).map((pid) => sendPrivateNotice(fromPersonId, pid, instructionNotice(kind, titleIn(ins, isFrench(langs.get(pid))), dueAt, ins.id, isFrench(langs.get(pid))))));
   }
 }
 
@@ -116,14 +128,11 @@ export async function createInstruction(input: CreateInstructionInput): Promise<
   const personIds = recipientsFor(leaders, input.audience, input.generations, input.personIds);
   if (personIds.length === 0) return { ok: false, status: 400, error: 'No leader matches this choice, so nobody would receive it.' };
 
-  const translated = await translatedBoth(input.title, input.body);
+  // Saved first, so a slow or busy translator can never lose it.
   const instruction = await prisma.leaderInstruction.create({
     data: {
       title: input.title,
       body: input.body,
-      language: translated.language,
-      titleTr: translated.titleTr,
-      bodyTr: translated.bodyTr,
       audience: input.audience,
       generations: input.audience === 'GENERATIONS' ? input.generations : [],
       dueAt: input.dueAt,
@@ -134,6 +143,10 @@ export async function createInstruction(input: CreateInstructionInput): Promise<
     },
     select: { id: true },
   });
+  // Translated into the other language (title and text apart). Given a few seconds so it usually goes out in both
+  // languages; whatever is not ready then carries on in the background and is retried (5 min, 15 min, 1 hour).
+  await translateInstructionBeforeSending(instruction.id);
+  const saved = await prisma.leaderInstruction.findUniqueOrThrow({ where: { id: instruction.id }, select: { id: true, title: true, titleTr: true, language: true } });
   await prisma.notification.createMany({
     data: personIds.map((recipientPersonId) => ({
       recipientPersonId,
@@ -143,9 +156,15 @@ export async function createInstruction(input: CreateInstructionInput): Promise<
       targetId: instruction.id,
     })),
   });
-  pushToPersons(personIds, { title: input.fromRepresentative ? '📌 Instruction from your representative' : '📌 Instruction from the National Coordinator', body: input.title, url: '/member/me?section=instructions' }).catch(() => {});
+  await pushInstruction(
+    personIds,
+    saved,
+    input.fromRepresentative
+      ? { en: '📌 Instruction from your representative', fr: '📌 Instruction de votre représentant' }
+      : { en: '📌 Instruction from the National Coordinator', fr: '📌 Instruction du Coordinateur national' },
+  );
   // Also as a short private message from the sender, with a link that opens the instruction (it is marked Seen then).
-  await sendInstructionNotices('new', await senderPersonOf(input.createdByPersonId, input.createdByUserId), personIds, input.title, input.dueAt, instruction.id).catch(() => {});
+  await sendInstructionNotices('new', await senderPersonOf(input.createdByPersonId, input.createdByUserId), personIds, saved, input.dueAt).catch(() => {});
   return { ok: true, id: instruction.id, recipients: personIds.length };
 }
 
@@ -230,8 +249,8 @@ export async function remindUnfinished(id: string): Promise<{ reminded: number }
       targetId: i.id,
     })),
   });
-  pushToPersons(personIds, { title: '⏰ Reminder from the National Coordinator', body: i.title, url: '/member/me?section=instructions' }).catch(() => {});
-  await sendInstructionNotices('reminder', await senderPersonOf(i.createdByPersonId, i.createdByUserId), personIds, i.title, i.dueAt, i.id).catch(() => {});
+  await pushInstruction(personIds, i, { en: '⏰ Reminder from the National Coordinator', fr: '⏰ Rappel du Coordinateur national' });
+  await sendInstructionNotices('reminder', await senderPersonOf(i.createdByPersonId, i.createdByUserId), personIds, i, i.dueAt).catch(() => {});
   return { reminded: personIds.length };
 }
 

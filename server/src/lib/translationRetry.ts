@@ -6,6 +6,8 @@ import {
   attemptMessageTranslation,
   attemptAnnouncementTranslation,
   attemptHeadquartersPostTranslation,
+  attemptInstructionTranslation,
+  queueUntranslatedInstructions,
   attemptTeachingTranslation,
   attemptUpdatePostTranslation,
   isTranslationConfigured,
@@ -38,6 +40,7 @@ async function runOne(job: TranslationRetry): Promise<TranslationOutcome> {
   if (job.kind === 'TEACHING') return attemptTeachingTranslation(job.targetId, { attempts: 1 });
   if (job.kind === 'HEADQUARTERS_POST') return attemptHeadquartersPostTranslation(job.targetId, { attempts: 1 });
   if (job.kind === 'ANNOUNCEMENT') return attemptAnnouncementTranslation(job.targetId, { attempts: 1 });
+  if (job.kind === 'INSTRUCTION') return attemptInstructionTranslation(job.targetId, { attempts: 1 });
   const message = await prisma.message.findUnique({
     where: { id: job.targetId },
     include: { attachments: { select: { storageKey: true, mimeType: true } } },
@@ -95,6 +98,10 @@ export async function processDueTranslationRetries(now: Date = new Date()): Prom
 
 /** Checks for due retries (every minute while the app is in use, every 30 minutes when quiet); never overlaps, never throws. */
 export function startTranslationRetryLoop(): void {
+  // Instructions that never got their translation (older ones, or a retry that gave up) are queued again at start-up.
+  queueUntranslatedInstructions().catch((err) => {
+    console.error('[translation] could not queue untranslated instructions', { error: err instanceof Error ? err.message : String(err) });
+  });
   startAdaptiveLoop(() => processDueTranslationRetries(), (err) => {
     console.error('[translation] retry tick failed', { error: err instanceof Error ? err.message : String(err) });
   });

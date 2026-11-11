@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isStoreApp } from '../lib/storeApp';
 import { api } from '../lib/api';
@@ -96,6 +96,32 @@ export function NotificationBell() {
   }
 
   useEffect(loadUnreadCount, []);
+
+  // Keeps the badge fresh while the app is open: every 30 seconds, the moment the app comes back to the front, and the
+  // instant a push arrives (the service worker tells the open page). Nothing is fetched while the app is hidden.
+  const openRef = useRef(false);
+  openRef.current = open;
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      loadUnreadCount();
+      if (openRef.current) load();
+    };
+    const timer = window.setInterval(refresh, 30000);
+    const onMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'push-received') refresh();
+    };
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    navigator.serviceWorker?.addEventListener('message', onMessage);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+      navigator.serviceWorker?.removeEventListener('message', onMessage);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function load() {
     setLoading(true);

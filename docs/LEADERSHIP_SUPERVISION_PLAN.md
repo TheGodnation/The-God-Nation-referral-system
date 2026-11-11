@@ -231,3 +231,12 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - The central admin follows up the leaders; leaders never follow up the central admin. Every way of making a follow-up now refuses or skips the central admin's own member profile: the admin's "add a follow-up" (`POST /api/admin/follow-ups`), a leader adding a person to their own follow-ups (`POST /api/leader/follow-ups`), "split between leaders" (`bulk-distribute`), "Assign people" (already skipped them) and sharing a person with another leader. Before this, the three manual ways did not check, and "Assign people" only skipped leaders of that same assembly.
 - A migration (`20261223090000`) closes any active follow-up whose followed person is an admin's member profile (nothing is deleted). As a second safety, the "Your leader" card, the introduction message and the notification are never shown for the central admin.
 - **Leaders are followed up only by the central admin and the generation representatives** (decided 10 November 2026), never by other leaders (`lib/followRules.ts`). Every way of making a follow-up refuses a leader following a leader (the admin may follow any leader, and so may a representative); the automatic tools ("Assign people", "split between leaders", sharing) never hand a leader to a leader, wherever that leader leads; and when someone becomes a leader, any follow-up of them by an ordinary leader ends (nothing is deleted). Migration `20261224090000` closes the ones that already exist.
+
+## Instruction translation (EN <-> FR) made reliable
+
+- Cause found: an instruction was translated once, at the moment it was sent, and given up after 15 seconds. The live logs show the translator
+  timing out ("This operation was aborted") and refusing at busy moments, so some instructions were saved with no translation, and nothing ever tried again.
+- Now: the instruction is saved first, then title and text are translated separately (a long text no longer blocks the title). A few seconds are given so it
+  usually goes out in both languages; anything not ready is retried automatically after 5 minutes, 15 minutes and 1 hour (same queue as posts and messages).
+- Push notifications and the private message are written in each leader's language, with the translated title when it is ready.
+- At every server start, recent instructions (last 60 days) still without a translation are queued again, so the ones people complained about get fixed.
