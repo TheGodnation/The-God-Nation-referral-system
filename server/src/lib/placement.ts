@@ -1,3 +1,4 @@
+import { announceJoined } from './joinNotice';
 import { prisma } from './prisma';
 import { getDescendantCommunityIds, getHeadquartersCommunityId } from './tree';
 import { notifyAssemblyOpened } from './notifications';
@@ -244,6 +245,8 @@ export async function placePersonInGroup(personId: string, location: PlacementLo
     { timeout: 20000, maxWait: 20000 },
   );
 
+  // The assembly's chat shows that this person just joined.
+  void announceJoined(result.communityId, [personId]);
   if (result.opened) {
     // Tell the central admin; a failure here must never undo the signup.
     notifyAssemblyOpened(result.opened).catch(() => {});

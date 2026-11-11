@@ -634,6 +634,24 @@ export function MemberGroupChatPage() {
                     <span className="rounded-md bg-white/90 px-3 py-1 text-xs text-slate-600 shadow-sm">{dayLabel(m.createdAt)}</span>
                   </div>
                 )}
+                {m.kind === 'JOINED' ? (
+                  <div className="my-2 text-center" data-testid={`joined-${m.id}`}>
+                    <span className="inline-block max-w-[90%] rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-900 shadow-sm">
+                      {m.body && /^\d+$/.test(m.body) ? (
+                        t('groupChat.joined_many', { count: Number(m.body) })
+                      ) : m.senderPersonId ? (
+                        <>
+                          <Link to={`/member/people/${m.senderPersonId}`} className="font-semibold underline">
+                            {m.senderName}
+                          </Link>{' '}
+                          {t('groupChat.joined_one', { name: '' }).trim()}
+                        </>
+                      ) : (
+                        t('groupChat.joined_one', { name: m.senderName })
+                      )}
+                    </span>
+                  </div>
+                ) : (
                 <MessageBubble
                   m={m}
                   mediaBase={`/api/communities/${communityId}/conversation`}
@@ -649,6 +667,7 @@ export function MemberGroupChatPage() {
                   selected={selected.includes(m.id)}
                   onToggleSelect={toggleSelect}
                 />
+                )}
               </div>
             );
           })}

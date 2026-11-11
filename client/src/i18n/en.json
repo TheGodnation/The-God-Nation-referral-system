@@ -2432,6 +2432,8 @@
     "need_help": "Need help?"
   },
   "groupChat": {
+    "joined_one": "{{name}} has just joined us. Welcome them! 👋",
+    "joined_many": "{{count}} people have just joined us. Welcome them! 👋",
     "group": "Assembly",
     "groups": "My assemblies",
     "subtitle": "Assembly chat",

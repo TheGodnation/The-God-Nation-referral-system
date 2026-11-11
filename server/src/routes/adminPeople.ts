@@ -1,3 +1,4 @@
+import { announceJoined } from '../lib/joinNotice';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -455,6 +456,7 @@ router.post('/people/:id/community-memberships', requireCsrf, asyncHandler(async
         include: { community: { select: { id: true, name: true } } },
       });
 
+  void announceJoined(community.id, [id]);
   await recordAudit({
     actorId: req.user!.id,
     actorEmail: req.user!.email,
@@ -632,6 +634,7 @@ router.post('/people/:id/community-memberships/move', requireCsrf, asyncHandler(
     metadata: { fromCommunityId, toCommunityId },
   });
 
+  void announceJoined(toCommunityId, [id]);
   res.json(moved);
 }));
 

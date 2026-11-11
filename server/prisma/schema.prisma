@@ -1735,8 +1735,15 @@ model Conversation {
 // both empty": a message must have a non-empty trimmed body OR at least one
 // attachment. This column's own nullability says nothing about that rule by
 // itself.
+// USER: written by a person. JOINED: the line shown in an assembly or group chat when someone joins it (see lib/joinNotice.ts).
+enum MessageKind {
+  USER
+  JOINED
+}
+
 model Message {
   id                String    @id @default(uuid())
+  kind              MessageKind @default(USER)
   conversationId    String
   senderPersonId    String
   body              String?

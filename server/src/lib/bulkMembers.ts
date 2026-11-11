@@ -1,3 +1,4 @@
+import { announceJoined } from './joinNotice';
 import { prisma } from './prisma';
 import { limitError } from './assemblyLimit';
 import { getCommunityGeneration, getCommunityIdsAtGeneration, getHeadquartersCommunityId } from './tree';
@@ -109,6 +110,7 @@ export async function addPeopleToCommunity(personIds: string[], communityId: str
     prisma.communityMembership.updateMany({ where: { communityId, personId: { in: inactive } }, data: { status: 'ACTIVE', joinedAt: now } }),
   ]);
   const addedIds = [...real.map((p) => p.id), ...inactive];
+  void announceJoined(communityId, addedIds);
   return { addedIds, added: addedIds.length, alreadyIn: active.size };
 }
 
