@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 const B = '/api/member/central-needs-me';
-const counts = { today: 2, needs: 2, all: 5, not_confirmed: 1, profile_incomplete: 0, quiet: 0, no_leader: 1, leader_silent: 1, not_in_group: 0, mine: 0 };
+const counts = { today: 2, needs: 2, all: 5, not_confirmed: 1, profile_incomplete: 0, never_back: 0, quiet: 0, no_leader: 1, leader_silent: 1, not_in_group: 0, mine: 0 };
 const person = (over: Record<string, unknown>) => ({
   personId: 'p1', name: 'Ada Nkem', photoUrl: null, whatsapp: '+237600000001', language: 'en', joinedAt: '2026-11-01T10:00:00Z', status: 'ACTIVE', daysQuiet: null,
   leader: null, mine: false, lastContactAt: null, leaderSilent: false, noLeader: true, notInGroup: false, ...over,
@@ -141,6 +141,7 @@ describe('Today\'s 20, the WhatsApp queue and the leader alerts', () => {
     fireEvent.click(screen.getByTestId('needs-select-all'));
     await waitFor(() => expect(screen.getByTestId('needs-selected')).toHaveTextContent('2 selected'));
     fireEvent.click(screen.getByTestId('needs-queue'));
+    fireEvent.click(screen.getByTestId('queue-kind-help'));
     // Both languages need a message before starting.
     expect(screen.getByTestId('queue-start')).toBeDisabled();
     fireEvent.change(screen.getByTestId('queue-text-en'), { target: { value: 'God bless you, how are you?' } });
@@ -204,6 +205,7 @@ describe('Today\'s 20, the WhatsApp queue and the leader alerts', () => {
     fireEvent.click(screen.getByTestId('needs-select-all'));
     await waitFor(() => expect(screen.getByTestId('needs-selected')).toHaveTextContent('2 selected'));
     fireEvent.click(screen.getByTestId('needs-queue'));
+    fireEvent.click(screen.getByTestId('queue-kind-help'));
     expect(screen.queryByTestId('queue-translate')).toBeNull();
     fireEvent.change(screen.getByTestId('queue-text-en'), { target: { value: 'God bless you' } });
     fireEvent.click(screen.getByTestId('queue-translate'));

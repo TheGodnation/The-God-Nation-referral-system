@@ -1,3 +1,4 @@
+import { whatsappConsentOf, type WhatsAppConsentState } from './whatsappConsent';
 import { prisma } from './prisma';
 import { requiredLeadershipExamIds, schoolProgressAmong } from './cells';
 
@@ -35,6 +36,8 @@ export interface FollowUpCard {
   /** What a leader may see about the people they look after: their WhatsApp number and the language they read. */
   whatsapp: string | null;
   language: 'en' | 'fr';
+  /** Their WhatsApp consent: AGREED, NONE (never ticked) or OPTED_OUT (asked us to stop). */
+  whatsappConsent: WhatsAppConsentState;
   assignedAt: string;
   /** Last time the leader was in touch (a logged contact or a message). */
   lastContactAt: string | null;
@@ -73,6 +76,7 @@ export async function followUpCardsFor(followerId: string, now = new Date()): Pr
   const monthAgo = new Date(now.getTime() - 30 * DAY);
   const twoMonthsAgo = new Date(now.getTime() - 60 * DAY);
   const communityIds = [...new Set(assignments.map((a) => a.contextId))];
+  const consentByPerson = await whatsappConsentOf(personIds);
 
   const [contacts, conversations, prayers, attendances, events, teachings, school, opens, payments, enrollments] = await Promise.all([
     prisma.followUpContact.findMany({
@@ -199,6 +203,7 @@ export async function followUpCardsFor(followerId: string, now = new Date()): Pr
       name: a.followedPerson.name,
       whatsapp: a.followedPerson.whatsappNumber,
       language: a.followedPerson.preferredLanguage === 'fr' ? ('fr' as const) : ('en' as const),
+      whatsappConsent: consentByPerson.get(personId) ?? ('NONE' as const),
       assignedAt: a.assignedAt.toISOString(),
       lastContactAt: lastContactAt?.toISOString() ?? null,
       contactDaysThisWeek: contactDays.size,

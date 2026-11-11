@@ -11,8 +11,8 @@ import { WhatsAppQueue, type QueuePerson } from './WhatsAppQueue';
 import { LeaderAlerts } from './LeaderAlerts';
 import { TranslateToggle, useTranslationPreview, type SentTranslation } from '../BroadcastTranslation';
 
-type Filter = 'today' | 'needs' | 'all' | 'not_confirmed' | 'profile_incomplete' | 'quiet' | 'no_leader' | 'leader_silent' | 'not_in_group' | 'mine';
-const FILTERS: Filter[] = ['today', 'needs', 'not_confirmed', 'profile_incomplete', 'quiet', 'no_leader', 'leader_silent', 'not_in_group', 'mine', 'all'];
+type Filter = 'today' | 'needs' | 'all' | 'not_confirmed' | 'profile_incomplete' | 'never_back' | 'quiet' | 'no_leader' | 'leader_silent' | 'not_in_group' | 'mine';
+const FILTERS: Filter[] = ['today', 'needs', 'not_confirmed', 'profile_incomplete', 'never_back', 'quiet', 'no_leader', 'leader_silent', 'not_in_group', 'mine', 'all'];
 type Wellbeing = 'GOOD' | 'NEEDS_ATTENTION' | 'EMERGENCY' | 'UNABLE_TO_REACH';
 
 interface Person {
@@ -31,6 +31,7 @@ interface Person {
   leaderSilent: boolean;
   noLeader: boolean;
   notInGroup: boolean;
+  whatsappConsent?: 'AGREED' | 'NONE' | 'OPTED_OUT';
 }
 interface Result {
   items: Person[];
@@ -90,7 +91,7 @@ export function NeedsMePanel({ base }: { base: string }) {
       .get<Result>(`${base}?${p.toString()}`)
       .then((r) => {
         setData(r);
-        setKnown((prev) => ({ ...prev, ...Object.fromEntries(r.items.map((i) => [i.personId, { personId: i.personId, name: i.name, whatsapp: i.whatsapp, language: i.language }])) }));
+        setKnown((prev) => ({ ...prev, ...Object.fromEntries(r.items.map((i) => [i.personId, { personId: i.personId, name: i.name, whatsapp: i.whatsapp, language: i.language, consent: i.whatsappConsent }])) }));
         setError(null);
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : t('needsMe.load_failed')));
@@ -125,6 +126,22 @@ export function NeedsMePanel({ base }: { base: string }) {
       if (r.total > r.ids.length) setNote(t('needsMe.select_capped', { count: r.ids.length }));
     } catch {
       setError(t('needsMe.load_failed'));
+    }
+  }
+
+  // They asked to stop being written to on WhatsApp ("Opted out"): recorded, and they are left out of every WhatsApp queue.
+  async function stopWhatsApp(p: { personId: string; name: string }, quiet = false) {
+    setError(null);
+    try {
+      await api.post(`${base}/whatsapp-stop`, { personId: p.personId });
+      setKnown((prev) => (prev[p.personId] ? { ...prev, [p.personId]: { ...prev[p.personId], consent: 'OPTED_OUT' } } : prev));
+      if (!quiet) {
+        setNote(t('needsMe.stopped', { name: p.name }));
+        await load();
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('needsMe.action_failed'));
+      throw e;
     }
   }
 
@@ -263,7 +280,7 @@ export function NeedsMePanel({ base }: { base: string }) {
         </section>
       )}
 
-      {queueOpen && <WhatsAppQueue key={[...selected].join(',')} people={queuePeople} translateUrl={`${base}/translate-preview`} onClose={() => setQueueOpen(false)} recordContact={(p) => api.post(`${base}/contacted`, { personId: p.personId, wellbeing: 'GOOD', note: 'WhatsApp' })} />}
+      {queueOpen && <WhatsAppQueue key={[...selected].join(',')} people={queuePeople} defaultKind={filter === 'not_confirmed' || filter === 'profile_incomplete' ? 'help' : 'nudge'} onStop={(p) => stopWhatsApp(p, true)} translateUrl={`${base}/translate-preview`} onClose={() => setQueueOpen(false)} recordContact={(p) => api.post(`${base}/contacted`, { personId: p.personId, wellbeing: 'GOOD', note: 'WhatsApp' })} />}
 
       {data === null && !error && <p className="text-sm text-slate-400">{t('needsMe.loading')}</p>}
       {data && items.length === 0 && <p className="card text-sm text-slate-600">{t('needsMe.nobody')}</p>}
@@ -299,7 +316,16 @@ export function NeedsMePanel({ base }: { base: string }) {
                 {p.notInGroup && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">{t('followUp.not_joined')}</span>}
                 {p.lastWellbeing && p.lastWellbeing !== 'GOOD' && <span className="rounded-full bg-orange-100 px-2 py-0.5 font-medium text-orange-800" data-testid={`needs-wellbeing-${p.personId}`}>{t('needsMe.last_time', { status: t(`needsMe.wellbeing_${p.lastWellbeing}`) })}</span>}
               </div>
-              {p.whatsapp && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language} />}
+              <p className="text-xs" data-testid={`needs-consent-${p.personId}`}>
+                {p.whatsappConsent === 'AGREED' ? (
+                  <span className="text-green-700">✓ {t('needsMe.consent_agreed')}</span>
+                ) : p.whatsappConsent === 'OPTED_OUT' ? (
+                  <span className="font-semibold text-red-700">{t('needsMe.consent_optedout')}</span>
+                ) : (
+                  <span className="text-slate-500">{t('needsMe.consent_none')}</span>
+                )}
+              </p>
+              {p.whatsapp && p.whatsappConsent !== 'OPTED_OUT' && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language} />}
               <div className="flex flex-wrap gap-2">
                 <Link to={`/member/people/${p.personId}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 no-underline hover:bg-brand-50">
                   {t('myReferrals.nudge_in_app')}
@@ -307,6 +333,11 @@ export function NeedsMePanel({ base }: { base: string }) {
                 {!p.mine && (
                   <button type="button" onClick={() => void takeOver(p)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 hover:bg-brand-50" data-testid={`needs-takeover-${p.personId}`}>
                     {t('needsMe.take_over')}
+                  </button>
+                )}
+                {p.whatsappConsent !== 'OPTED_OUT' && (
+                  <button type="button" onClick={() => void stopWhatsApp(p).catch(() => {})} className="rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50" data-testid={`needs-stop-${p.personId}`}>
+                    {t('needsMe.opted_out_button')}
                   </button>
                 )}
                 <button type="button" onClick={() => setContactFor(contactFor === p.personId ? null : p.personId)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 hover:bg-brand-50" data-testid={`needs-contacted-${p.personId}`}>

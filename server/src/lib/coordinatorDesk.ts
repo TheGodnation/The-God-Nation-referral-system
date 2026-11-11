@@ -1,3 +1,4 @@
+import { whatsappConsentOf, recordWhatsAppStop, type WhatsAppConsentState } from './whatsappConsent';
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { centralAdminAmong, isCentralAdminPerson } from './centralAdmin';
@@ -14,6 +15,8 @@ const MAX_PEOPLE = 2000;
 const PAGE_SIZE = 30;
 /** A leader who has not contacted a person for this long is "not following up". */
 export const LEADER_SILENT_DAYS = 7;
+/** Someone who joined this long ago and never came back after their first day is "never came back". */
+const NEVER_BACK_AFTER_DAYS = 3;
 
 export type InviteeStatus = 'NOT_CONFIRMED' | 'PROFILE_INCOMPLETE' | 'QUIET' | 'ACTIVE';
 
@@ -28,8 +31,8 @@ export function inviteeStatusOf(
   return last < quietBefore ? 'QUIET' : 'ACTIVE';
 }
 
-export type DeskFilter = 'today' | 'needs' | 'all' | 'not_confirmed' | 'profile_incomplete' | 'quiet' | 'no_leader' | 'leader_silent' | 'not_in_group' | 'mine';
-export const DESK_FILTERS: DeskFilter[] = ['today', 'needs', 'all', 'not_confirmed', 'profile_incomplete', 'quiet', 'no_leader', 'leader_silent', 'not_in_group', 'mine'];
+export type DeskFilter = 'today' | 'needs' | 'all' | 'not_confirmed' | 'profile_incomplete' | 'never_back' | 'quiet' | 'no_leader' | 'leader_silent' | 'not_in_group' | 'mine';
+export const DESK_FILTERS: DeskFilter[] = ['today', 'needs', 'all', 'not_confirmed', 'profile_incomplete', 'never_back', 'quiet', 'no_leader', 'leader_silent', 'not_in_group', 'mine'];
 
 export interface DeskQuery {
   filter?: DeskFilter;
@@ -58,6 +61,10 @@ export interface DeskPerson {
   leaderSilent: boolean;
   noLeader: boolean;
   notInGroup: boolean;
+  /** Signed in and finished setup, but has not been back since their first day (and joined at least 3 days ago). */
+  neverBack: boolean;
+  /** Their WhatsApp consent (see lib/whatsappConsent.ts). */
+  whatsappConsent: WhatsAppConsentState;
 }
 
 const needsMe = (p: DeskPerson) => p.status !== 'ACTIVE' || p.noLeader || p.leaderSilent || p.notInGroup;
@@ -68,6 +75,7 @@ const FILTERS: Record<Exclude<DeskFilter, 'today'>, (p: DeskPerson) => boolean> 
   needs: (p) => !p.mine && needsMe(p),
   not_confirmed: (p) => p.status === 'NOT_CONFIRMED',
   profile_incomplete: (p) => p.status === 'PROFILE_INCOMPLETE',
+  never_back: (p) => p.neverBack,
   quiet: (p) => p.status === 'QUIET',
   no_leader: (p) => p.noLeader,
   leader_silent: (p) => p.leaderSilent,
@@ -101,6 +109,7 @@ async function loadDesk(adminPersonId: string, query: Pick<DeskQuery, 'q' | 'com
   const ids = persons.map((p) => p.id);
   if (ids.length === 0) return { people: [], capped };
 
+  const consents = await whatsappConsentOf(ids);
   const [assignments, contacts, messages, registrations] = await Promise.all([
     prisma.followUpAssignment.findMany({
       where: { followedPersonId: { in: ids } },
@@ -176,6 +185,12 @@ async function loadDesk(adminPersonId: string, query: Pick<DeskQuery, 'q' | 'com
       leaderSilent: Boolean(lead) && !mine && (last ? last.getTime() < silentBefore : lead!.assignedAt.getTime() < silentBefore),
       // Only people who came through the sign-up page can be known to have (or not have) tapped the group link.
       notInGroup: hasRegistration.has(p.id) && !tapped.has(p.id),
+      neverBack:
+        status !== 'NOT_CONFIRMED' &&
+        status !== 'PROFILE_INCOMPLETE' &&
+        Date.now() - p.createdAt.getTime() > NEVER_BACK_AFTER_DAYS * DAY &&
+        (!p.lastSeenAt || p.lastSeenAt.getTime() - p.createdAt.getTime() < DAY),
+      whatsappConsent: consents.get(p.id) ?? 'NONE',
     };
   });
   // Those who have waited longest for any contact come first; people never contacted lead.
@@ -253,8 +268,17 @@ export async function deskPersonIds(adminPersonId: string, query: DeskQuery, lim
     ids: chosen.map((p) => p.personId),
     total: list.length,
     languages: Object.fromEntries(chosen.map((p) => [p.personId, p.language])) as Record<string, 'en' | 'fr'>,
-    people: chosen.map((p) => ({ personId: p.personId, name: p.name, whatsapp: p.whatsapp, language: p.language })),
+    people: chosen.map((p) => ({ personId: p.personId, name: p.name, whatsapp: p.whatsapp, language: p.language, whatsappConsent: p.whatsappConsent })),
   };
+}
+
+/** They asked to stop being written to on WhatsApp: recorded, and they are left out of every WhatsApp queue from now on. */
+export async function stopWhatsApp(adminPersonId: string, personId: string): Promise<{ ok: true }> {
+  await requireDeskOwner(adminPersonId);
+  const person = await prisma.person.findUnique({ where: { id: personId }, select: { id: true } });
+  if (!person) throw new DeskError('Person not found.', 404);
+  await recordWhatsAppStop(personId);
+  return { ok: true };
 }
 
 export class DeskError extends Error {

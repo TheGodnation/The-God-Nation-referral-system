@@ -305,3 +305,12 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - A new member's community step (welcome page and a card on Chats) lists the places to join (YouTube left out). Tapping a link only records "tapped a group link" (`GROUP_LINK_CLICKED`). The links open other apps, so we cannot see whether they really joined; the app then asks "I have joined?" and the step ticks only on their own answer (`MemberOnboarding.communityConfirmedAt`, `POST /api/member/onboarding/community-joined`).
 - Existing members (accounts older than the Assembly Agreement start) are not asked: the step is ticked for them and the card is never shown.
 - Growth report: the old "WhatsApp group" column is now **Tapped a group link**, and a new column **Says they joined** counts the self-reports. Neither is ever shown as confirmed membership.
+
+## WhatsApp follow-up with consent (onboarding Phase C)
+
+- **Three levels of consent** (`server/src/lib/whatsappConsent.ts`, from the latest recorded WhatsApp choice): **AGREED** (ticked the box), **NONE** (never ticked, or declined at sign-up) and **OPTED_OUT** (asked us to stop: the "Opted out of WhatsApp" button records a `ContactConsent` row with source `whatsapp-stop`; ticking the box again later wins).
+- Shown on the coordinator's desk rows and in the WhatsApp queue (and carried on leaders' cards). The WhatsApp buttons are hidden for someone who opted out.
+- **The queue asks what kind of message it is.** *Welcome, help to sign in or finish setting up, or a reply* may go to anyone who has not opted out. *We miss you, a reminder or an update* goes only to people who agreed, unless the sender ticks "Also include those who never ticked". People who opted out are never included, whatever the message. The queue starts on "help" for the "Not signed in" and "Not finished joining" lists, and on "nudge" otherwise.
+- Ready-made welcome/help and "we miss you" texts (EN/FR); `{name}` becomes each person's first name. Inside the queue, "They asked us to stop" records the opt-out and drops the person at once (leaders have the same button, `POST /api/leader/follow-ups/:id/whatsapp-stop`; the desk uses `POST /api/admin/needs-me/whatsapp-stop`).
+- New desk list **Never came back**: finished setting up, joined at least 3 days ago, and never seen again after the first day (alongside "Not signed in", "Not finished joining" and "Quiet").
+- The app still sends nothing itself: the person presses send in WhatsApp.
