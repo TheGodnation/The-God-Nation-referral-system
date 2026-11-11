@@ -25,6 +25,7 @@ import { RepresentativesPanel } from '../components/admin/RepresentativesPanel';
 import { SanctionsPanel } from '../components/admin/SanctionsPanel';
 import { BulkMembersPanel } from '../components/admin/BulkMembersPanel';
 import { InstructionsPanel } from '../components/admin/InstructionsPanel';
+import { NeedsMePanel } from '../components/admin/NeedsMePanel';
 import { LeaderRoomsPanel } from '../components/admin/LeaderRoomsPanel';
 import { TeachingCompletionPanel } from '../components/admin/TeachingCompletionPanel';
 import { LeaderReferralReportPanel } from '../components/admin/LeaderReferralReportPanel';
@@ -67,6 +68,7 @@ type Tab =
   | 'roleAssignments'
   | 'giving'
   | 'instructions'
+  | 'needsMe'
   | 'bulkMembers'
   | 'sanctions'
   | 'representatives'
@@ -1808,6 +1810,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'areaRepresentationRequests'} onClick={() => setTab('areaRepresentationRequests')}>
               {t('admin.tabs.areaRepresentationRequests')}
             </TabButton>
+            <TabButton active={tab === 'needsMe'} onClick={() => setTab('needsMe')}>
+              {t('needsMe.tab')}
+            </TabButton>
             <TabButton active={tab === 'instructions'} onClick={() => setTab('instructions')}>
               {t('admin.tabs.instructions')}
             </TabButton>
@@ -1919,6 +1924,7 @@ export function AdminDashboardPage() {
         {tab === 'library' && <LibraryTab />}
         {tab === 'roleAssignments' && <RoleAssignmentsTab />}
         {tab === 'giving' && <GivingPanel base="/api/admin/giving" />}
+        {tab === 'needsMe' && <NeedsMePanel base="/api/admin/needs-me" />}
         {tab === 'instructions' && <InstructionsPanel base="/api/admin/instructions" />}
         {tab === 'bulkMembers' && <BulkMembersPanel base="/api/admin/bulk-members" />}
         {tab === 'sanctions' && <SanctionsPanel base="/api/admin/sanctions" />}

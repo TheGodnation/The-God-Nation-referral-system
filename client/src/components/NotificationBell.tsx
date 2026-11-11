@@ -165,8 +165,9 @@ export function NotificationBell() {
         return metadata.count ? t('notifications.follow_up_batch', { count: Number(metadata.count) }) : t('notifications.follow_up_assigned', { name: metadata.followedPersonName ?? '' });
       case 'PRIVATE_MESSAGE_RECEIVED': {
         const senderName = metadata.senderName as string | null | undefined;
+        const badge = metadata.senderBadge === 'NATIONAL_COORDINATOR' ? ` · ${t('badges.national_coordinator')}` : '';
         return t('notifications.private_message_received', {
-          name: senderName || t('privateMessages.from_central_authority'),
+          name: (senderName || t('privateMessages.from_central_authority')) + badge,
         });
       }
       case 'RESOURCE_GRANTED': {

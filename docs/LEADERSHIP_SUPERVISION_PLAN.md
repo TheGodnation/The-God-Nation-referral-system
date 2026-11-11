@@ -253,3 +253,14 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - The "Your leader" card on a person's Home page is removed. Nothing now sits on the home page.
 - The person is told by the leader's private message (sent once the leader has opened their dashboard), a notification (bell and phone), and the "Your leader" label on that conversation in their private chats.
 - No phone number is shared automatically: the person replies in the app, and the leader may share a WhatsApp number themselves.
+
+## The National Coordinator's desk: "People who need me"
+
+- The central admin can do everything a leader can, and more. The WhatsApp number and the three WhatsApp buttons (Say hello, Send our links, Which apps do you use?) now show on the people who joined through the coordinator's own link, as they do for leaders. Ordinary ambassadors still do not see numbers.
+- New admin tab "People who need me" (admin dashboard and the central admin's profile, Admin tools). It lists everyone who has joined (except the central admin), newest contact last: how far each has got, their leader, the days since anyone last contacted them (a leader's contact note or private message, or the coordinator's), whether they tapped the group link. Filters: need me, not signed in, not finished joining, quiet, no leader, leader not following up (7 days), not in our group, my people, everyone; plus search, assembly and language.
+- Each person has the WhatsApp buttons, a message in the app, "Take over" (the current leader stops following them; the coordinator follows them directly; nothing is deleted) and, for people taken over, "I contacted" (wellbeing and a note, recorded like a leader's contact).
+- Writing to many: tick people (or "select all" for the whole filter, up to 1,000) and write one message with text, photo or voice. Each person gets it as a private message from the coordinator, who shows with the "National Coordinator" label in their private chats, in the chat header, in the notification bell and in the phone alert. It is kept in the group-message record.
+- Not built yet (proposed): the WhatsApp queue (one tap per person), "Today's 20", leader alerts.
+
+- Language: every person in "People who need me" shows 🇫🇷 French speaker or 🇬🇧 English speaker (from the language they chose when joining); the selection bar counts English and French readers and warns when the message will go to a mix, because private messages are not translated (only group chats, posts, announcements and instructions are). In a private chat the leader or coordinator sees the person's language under their name (the person is never shown this about the other side).
+- Proposed, not built: translating a message to many people once, with a preview (each person receives their own language), and a "Translate" tap in one-to-one private chats.

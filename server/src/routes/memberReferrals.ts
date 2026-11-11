@@ -6,6 +6,8 @@ import { parsePagination, paginatedResult } from '../lib/pagination';
 import { profilePhotoPath } from '../lib/profilePhoto';
 import { getOrCreatePersonReferralCode } from '../lib/referralCode';
 import { CLIENT_URL } from '../lib/env';
+import { isCentralAdminPerson } from '../lib/centralAdmin';
+import { inviteeStatusOf as statusOf, type InviteeStatus } from '../lib/coordinatorDesk';
 
 const router = Router();
 
@@ -37,23 +39,10 @@ router.get('/referrals/links', requireMember, asyncHandler(async (req, res) => {
 // "joined" step to track here.
 const DAY = 24 * 60 * 60 * 1000;
 
-type InviteeStatus = 'NOT_CONFIRMED' | 'PROFILE_INCOMPLETE' | 'QUIET' | 'ACTIVE';
-
-/** How far someone who joined through this link has got, so their inviter knows who to encourage. */
-function statusOf(
-  p: { profileCompletedAt: Date | null; lastSeenAt: Date | null; memberAccount: { lastLoginAt: Date | null } | null },
-  quietBefore: Date,
-): InviteeStatus {
-  if (!p.memberAccount?.lastLoginAt) return 'NOT_CONFIRMED';
-  if (!p.profileCompletedAt) return 'PROFILE_INCOMPLETE';
-  const last = p.lastSeenAt ?? p.profileCompletedAt;
-  return last < quietBefore ? 'QUIET' : 'ACTIVE';
-}
-
 // GET /api/member/referrals/mine — everyone who joined the app through this
 // Member's link, and how far each one has got: not signed in yet, still to give
 // their name and place, quiet for a while, or active. A leader also gets the
-// WhatsApp number (leaders may already see member details, see the privacy page);
+// WhatsApp number (leaders may already see member details, see the privacy page), and so does the central admin;
 // everyone else reaches them through the app's own messages.
 router.get('/referrals/mine', requireMember, asyncHandler(async (req, res) => {
   const me = req.member!.personId;
@@ -66,13 +55,16 @@ router.get('/referrals/mine', requireMember, asyncHandler(async (req, res) => {
     },
   } as const;
 
-  const [settings, leader, total, registrations, everyone] = await Promise.all([
+  const [settings, leaderAccount, centralAdmin, total, registrations, everyone] = await Promise.all([
     prisma.settings.findUnique({ where: { id: 'singleton' }, select: { reminderQuietDays: true } }),
     prisma.user.findFirst({ where: { personId: me, role: 'LEADER', active: true }, select: { id: true } }),
+    isCentralAdminPerson(me),
     prisma.registration.count({ where }),
     prisma.registration.findMany({ where, include: { person }, orderBy: { createdAt: 'desc' }, skip, take }),
     prisma.registration.findMany({ where, take: 2000, select: { person: { select: { profileCompletedAt: true, lastSeenAt: true, memberAccount: { select: { lastLoginAt: true } } } } } }),
   ]);
+  // The central admin can do everything a leader can here, and more.
+  const leader = Boolean(leaderAccount) || centralAdmin;
   const quietDays = settings?.reminderQuietDays ?? 7;
   const quietBefore = new Date(Date.now() - quietDays * DAY);
 
@@ -108,7 +100,7 @@ router.get('/referrals/mine', requireMember, asyncHandler(async (req, res) => {
       };
     });
 
-  res.json({ ...paginatedResult(items, total, page, pageSize), summary, quietDays, canSeeWhatsapp: Boolean(leader) });
+  res.json({ ...paginatedResult(items, total, page, pageSize), summary, quietDays, canSeeWhatsapp: leader });
 }));
 
 export default router;
