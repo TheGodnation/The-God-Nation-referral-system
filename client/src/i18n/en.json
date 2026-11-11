@@ -3042,6 +3042,10 @@
     "assembly_name": "Name of the assembly"
   },
   "needsMe": {
+    "queue_translate_to_fr": "Translate my English message into French",
+    "queue_translate_to_en": "Translate my French message into English",
+    "queue_translating": "Translating…",
+    "queue_translate_failed": "The translation could not be made. Write it yourself or try again.",
     "filter_today": "Today's 20",
     "today_done": "You have reached out to {{count}} people today.",
     "last_time": "Last time: {{status}}",
@@ -3135,6 +3139,22 @@
     "next": "Next",
     "page_of": "Page {{page}} of {{pages}}",
     "capped": "Only the newest 2,000 people are shown. Use the search or a filter to narrow down."
+  },
+  "translatePreview": {
+    "title": "Check before sending",
+    "hint": "Your message was translated once. Read both, correct a word if you need to, then send. Each person gets the version in their own language.",
+    "written": "{{language}}: what you wrote",
+    "translation": "{{language}}: translation",
+    "goes_to_one": "goes to {{count}} person",
+    "goes_to_other": "goes to {{count}} people",
+    "same_language": "Everyone here reads {{language}}, so only your message is sent.",
+    "send": "Send",
+    "translate_again": "Translate again",
+    "cancel": "Cancel",
+    "toggle": "Translate for each person's language (you check it first)",
+    "failed": "The translation could not be made right now.",
+    "failed_help": "You can send your message as you wrote it to everyone, or cancel and try again in a moment.",
+    "send_as_written": "Send as written to everyone"
   },
   "myLeader": {
     "message": "Write to your leader",

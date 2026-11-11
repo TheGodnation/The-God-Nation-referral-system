@@ -3042,6 +3042,10 @@
     "assembly_name": "Nom de l’assemblée"
   },
   "needsMe": {
+    "queue_translate_to_fr": "Traduire mon message anglais en français",
+    "queue_translate_to_en": "Traduire mon message français en anglais",
+    "queue_translating": "Traduction…",
+    "queue_translate_failed": "La traduction n’a pas pu être faite. Écrivez-la vous-même ou réessayez.",
     "filter_today": "Les 20 du jour",
     "today_done": "Vous avez contacté {{count}} personnes aujourd’hui.",
     "last_time": "La dernière fois : {{status}}",
@@ -3135,6 +3139,22 @@
     "next": "Suivant",
     "page_of": "Page {{page}} sur {{pages}}",
     "capped": "Seules les 2 000 personnes les plus récentes sont affichées. Utilisez la recherche ou un filtre pour affiner."
+  },
+  "translatePreview": {
+    "title": "Vérifiez avant d’envoyer",
+    "hint": "Votre message a été traduit une fois. Lisez les deux, corrigez un mot si besoin, puis envoyez. Chaque personne reçoit la version dans sa propre langue.",
+    "written": "{{language}} : ce que vous avez écrit",
+    "translation": "{{language}} : traduction",
+    "goes_to_one": "part à {{count}} personne",
+    "goes_to_other": "part à {{count}} personnes",
+    "same_language": "Tout le monde ici lit le {{language}} : seul votre message est envoyé.",
+    "send": "Envoyer",
+    "translate_again": "Traduire à nouveau",
+    "cancel": "Annuler",
+    "toggle": "Traduire pour la langue de chaque personne (vous vérifiez d’abord)",
+    "failed": "La traduction n’a pas pu être faite pour le moment.",
+    "failed_help": "Vous pouvez envoyer votre message tel que vous l’avez écrit à tout le monde, ou annuler et réessayer dans un instant.",
+    "send_as_written": "Envoyer tel quel à tout le monde"
   },
   "myLeader": {
     "message": "Écrire à votre responsable",

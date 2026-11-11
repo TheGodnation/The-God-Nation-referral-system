@@ -166,6 +166,52 @@ describe('Today\'s 20, the WhatsApp queue and the leader alerts', () => {
     expect(recorded[0].body).toMatchObject({ personId: 'p1', note: 'WhatsApp' });
   });
 
+  it('for a mix of languages the coordinator checks the translation first, then each person gets their own language', async () => {
+    mockFetch({
+      ...listRoute,
+      [`GET ${B}/ids`]: () => ({ body: { ids: ['p1', 'p2'], total: 2, people: [
+        { personId: 'p1', name: 'Ada Nkem', whatsapp: '+237600000001', language: 'en' },
+        { personId: 'p2', name: 'Ben Tabe', whatsapp: '+237600000002', language: 'fr' },
+        ] } }),
+      [`POST ${B}/translate-preview`]: () => ({ body: { detectedLanguage: 'en', translatedBody: 'Dieu vous bénisse' } }),
+      [`POST ${B}/message`]: () => ({ status: 201, body: { id: 'b', recipients: 2, skipped: 0 } }),
+    });
+    renderPanel();
+    await screen.findByTestId('needs-p1');
+    fireEvent.click(screen.getByTestId('needs-select-all'));
+    await waitFor(() => expect(screen.getByTestId('needs-selected-languages')).toHaveTextContent('1 English speakers, 1 French speakers'));
+    fireEvent.click(screen.getByTestId('needs-write'));
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'God bless you' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByTestId('translation-preview')).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === 'POST' && c.url === `${B}/message`)).toHaveLength(0);
+    fireEvent.click(screen.getByTestId('preview-send'));
+    expect(await screen.findByRole('status')).toHaveTextContent('Sent to 2 people.');
+    expect(calls.find((c) => c.method === 'POST' && c.url === `${B}/message`)?.body).toMatchObject({ personIds: ['p1', 'p2'], body: 'God bless you', translation: { language: 'en', body: 'Dieu vous bénisse' } });
+  });
+
+  it('in the WhatsApp queue, one message can be translated into the other language box', async () => {
+    mockFetch({
+      ...listRoute,
+      [`GET ${B}/ids`]: () => ({ body: { ids: ['p1', 'p2'], total: 2, people: [
+        { personId: 'p1', name: 'Ada Nkem', whatsapp: '+237600000001', language: 'en' },
+        { personId: 'p2', name: 'Ben Tabe', whatsapp: '+237600000002', language: 'fr' },
+        ] } }),
+      [`POST ${B}/translate-preview`]: () => ({ body: { detectedLanguage: 'en', translatedBody: 'Dieu vous bénisse' } }),
+    });
+    renderPanel();
+    await screen.findByTestId('needs-p1');
+    fireEvent.click(screen.getByTestId('needs-select-all'));
+    await waitFor(() => expect(screen.getByTestId('needs-selected')).toHaveTextContent('2 selected'));
+    fireEvent.click(screen.getByTestId('needs-queue'));
+    expect(screen.queryByTestId('queue-translate')).toBeNull();
+    fireEvent.change(screen.getByTestId('queue-text-en'), { target: { value: 'God bless you' } });
+    fireEvent.click(screen.getByTestId('queue-translate'));
+    await waitFor(() => expect(screen.getByTestId('queue-text-fr')).toHaveValue('Dieu vous bénisse'));
+    expect(screen.queryByTestId('queue-translate')).toBeNull(); // both boxes filled now
+    expect(screen.getByTestId('queue-start')).toBeEnabled();
+  });
+
   it('warns about leaders who are not following up, and takes over all their people on request', async () => {
     vi.stubGlobal('confirm', vi.fn(() => true));
     mockFetch({

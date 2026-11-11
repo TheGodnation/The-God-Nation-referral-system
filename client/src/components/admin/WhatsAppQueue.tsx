@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { api, ApiError } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
 import { whatsappChatUrl } from '../../lib/followUp';
 
@@ -14,7 +15,7 @@ export interface QueuePerson {
  * each, WhatsApp opens with the words ready in their own language; you press send there, come back and press "Done,
  * next". Nothing is sent by the app, so it is safe for the phone number (no bulk sending), and takes a few seconds a person.
  */
-export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = 'needsMe.queue_signature' }: { people: QueuePerson[]; onClose: () => void; recordContact: (p: QueuePerson) => Promise<unknown> | void; signatureKey?: string }) {
+export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = 'needsMe.queue_signature', translateUrl }: { people: QueuePerson[]; onClose: () => void; recordContact: (p: QueuePerson) => Promise<unknown> | void; signatureKey?: string; translateUrl?: string }) {
   const { t } = useTranslation();
   const withNumber = useMemo(() => people.filter((p) => p.whatsapp), [people]);
   const [text, setText] = useState<{ en: string; fr: string }>({ en: '', fr: '' });
@@ -23,11 +24,33 @@ export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = '
   const [index, setIndex] = useState(0);
   const [contacted, setContacted] = useState(0);
   const [skipped, setSkipped] = useState(0);
+  const [translating, setTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState<string | null>(null);
 
   const needs = { en: withNumber.some((p) => p.language === 'en'), fr: withNumber.some((p) => p.language === 'fr') };
   const ready = (!needs.en || text.en.trim() !== '') && (!needs.fr || text.fr.trim() !== '');
   const current = withNumber[index];
   const finished = started && index >= withNumber.length;
+
+  // One box filled and the other empty: offer to translate the filled one into the other (the sender can still edit it).
+  const filled = { en: text.en.trim() !== '', fr: text.fr.trim() !== '' };
+  const canTranslate = Boolean(translateUrl) && needs.en && needs.fr && filled.en !== filled.fr;
+  async function translateOther() {
+    if (!translateUrl) return;
+    const from: 'en' | 'fr' = filled.en ? 'en' : 'fr';
+    const to: 'en' | 'fr' = from === 'en' ? 'fr' : 'en';
+    setTranslating(true);
+    setTranslateError(null);
+    try {
+      const r = await api.post<{ detectedLanguage: 'en' | 'fr'; translatedBody: string }>(translateUrl, { text: text[from] });
+      // If the sender wrote it in the other language than the box it was in, the boxes are swapped to match.
+      setText(r.detectedLanguage === from ? { ...text, [to]: r.translatedBody } : { [from]: r.translatedBody, [to]: text[from] } as { en: string; fr: string });
+    } catch (e) {
+      setTranslateError(e instanceof ApiError && e.message ? e.message : t('needsMe.queue_translate_failed'));
+    } finally {
+      setTranslating(false);
+    }
+  }
 
   const message = (p: QueuePerson) => `${text[p.language].trim()}\n\n— ${t(signatureKey, { lng: p.language })}`;
 
@@ -65,6 +88,14 @@ export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = '
               {t('needsMe.queue_fr_label', { count: withNumber.filter((p) => p.language === 'fr').length })}
               <textarea value={text.fr} onChange={(e) => setText({ ...text, fr: e.target.value })} rows={3} maxLength={1500} className="input mt-1" data-testid="queue-text-fr" />
             </label>
+          )}
+          {canTranslate && (
+            <div>
+              <button type="button" disabled={translating} onClick={() => void translateOther()} className="btn-secondary" data-testid="queue-translate">
+                🌐 {translating ? t('needsMe.queue_translating') : t(filled.en ? 'needsMe.queue_translate_to_fr' : 'needsMe.queue_translate_to_en')}
+              </button>
+              {translateError && <p className="mt-1 text-xs text-red-700" role="alert">{translateError}</p>}
+            </div>
           )}
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} />

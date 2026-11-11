@@ -9,6 +9,7 @@ import { UploadingBubble } from '../chat/UploadingBubble';
 import { FollowUpButtons } from '../leader/FollowUpButtons';
 import { WhatsAppQueue, type QueuePerson } from './WhatsAppQueue';
 import { LeaderAlerts } from './LeaderAlerts';
+import { TranslateToggle, useTranslationPreview, type SentTranslation } from '../BroadcastTranslation';
 
 type Filter = 'today' | 'needs' | 'all' | 'not_confirmed' | 'profile_incomplete' | 'quiet' | 'no_leader' | 'leader_silent' | 'not_in_group' | 'mine';
 const FILTERS: Filter[] = ['today', 'needs', 'not_confirmed', 'profile_incomplete', 'quiet', 'no_leader', 'leader_silent', 'not_in_group', 'mine', 'all'];
@@ -152,15 +153,21 @@ export function NeedsMePanel({ base }: { base: string }) {
     }
   }
 
-  const send = useCallback(
-    async (out: OutgoingMessage): Promise<boolean> => {
+  const selectedFrench = [...selected].filter((id) => known[id]?.language === 'fr').length;
+  const selectedEnglish = [...selected].filter((id) => known[id]?.language === 'en').length;
+  const mixed = selectedFrench > 0 && selectedEnglish > 0;
+  const [wantTranslate, setWantTranslate] = useState<boolean | null>(null);
+  const translateOn = wantTranslate ?? mixed;
+
+  const sendFinal = useCallback(
+    async (out: OutgoingMessage, translation: SentTranslation | null): Promise<boolean> => {
       if (selected.size === 0) {
         setError(t('needsMe.nobody_selected'));
         return false;
       }
       setError(null);
       try {
-        const res = await api.post<{ recipients: number; skipped: number }>(`${base}/message`, { personIds: [...selected], body: out.body, attachments: out.attachments });
+        const res = await api.post<{ recipients: number; skipped: number }>(`${base}/message`, { personIds: [...selected], body: out.body, attachments: out.attachments, ...(translation ? { translation } : {}) });
         setNote(t('needsMe.sent', { count: res.recipients }) + (res.skipped > 0 ? ' ' + t('needsMe.skipped', { count: res.skipped }) : ''));
         setComposing(false);
         setSelected(new Set());
@@ -173,11 +180,11 @@ export function NeedsMePanel({ base }: { base: string }) {
     },
     [selected, base, load, t],
   );
+  const preview = useTranslationPreview({ translateUrl: `${base}/translate-preview`, english: selectedEnglish, french: selectedFrench, enabled: translateOn, sendFinal });
+  const send = preview.intercept;
   const media = useMediaUploads(`${base}/attachments/authorize`, send);
 
   const items = data?.items ?? [];
-  const selectedFrench = [...selected].filter((id) => known[id]?.language === 'fr').length;
-  const selectedEnglish = [...selected].filter((id) => known[id]?.language === 'en').length;
   const queuePeople = [...selected].map((id) => known[id]).filter((p): p is QueuePerson => Boolean(p));
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
@@ -241,8 +248,10 @@ export function NeedsMePanel({ base }: { base: string }) {
           {composing && (
             <div className="space-y-2">
               <p className="text-xs text-slate-500">{t('needsMe.sent_as')}</p>
-              {selectedFrench > 0 && selectedEnglish > 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900" data-testid="needs-mixed-warning">{t('needsMe.mixed_warning', { en: selectedEnglish, fr: selectedFrench })}</p>}
-              {selectedFrench > 0 && selectedEnglish === 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{t('needsMe.french_only_warning')}</p>}
+              <TranslateToggle mixed={mixed} value={wantTranslate} onChange={setWantTranslate} />
+              {!translateOn && mixed && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900" data-testid="needs-mixed-warning">{t('needsMe.mixed_warning', { en: selectedEnglish, fr: selectedFrench })}</p>}
+              {!translateOn && selectedFrench > 0 && selectedEnglish === 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{t('needsMe.french_only_warning')}</p>}
+              {preview.panel}
               {media.jobs.map((job) => (
                 <UploadingBubble key={job.id} job={job} onCancel={() => media.cancel(job.id)} onRetry={() => media.retry(job.id)} />
               ))}
@@ -254,7 +263,7 @@ export function NeedsMePanel({ base }: { base: string }) {
         </section>
       )}
 
-      {queueOpen && <WhatsAppQueue key={[...selected].join(',')} people={queuePeople} onClose={() => setQueueOpen(false)} recordContact={(p) => api.post(`${base}/contacted`, { personId: p.personId, wellbeing: 'GOOD', note: 'WhatsApp' })} />}
+      {queueOpen && <WhatsAppQueue key={[...selected].join(',')} people={queuePeople} translateUrl={`${base}/translate-preview`} onClose={() => setQueueOpen(false)} recordContact={(p) => api.post(`${base}/contacted`, { personId: p.personId, wellbeing: 'GOOD', note: 'WhatsApp' })} />}
 
       {data === null && !error && <p className="text-sm text-slate-400">{t('needsMe.loading')}</p>}
       {data && items.length === 0 && <p className="card text-sm text-slate-600">{t('needsMe.nobody')}</p>}

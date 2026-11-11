@@ -5,6 +5,7 @@ import { useMediaUploads } from '../../lib/useMediaUploads';
 import { ChatComposer, type OutgoingMessage } from '../chat/ChatComposer';
 import { UploadingBubble } from '../chat/UploadingBubble';
 import { BroadcastLog, type BroadcastItem } from '../admin/BroadcastLogPanel';
+import { TranslateToggle, useTranslationPreview, type SentTranslation } from '../BroadcastTranslation';
 
 const BASE = '/api/member/broadcast';
 
@@ -31,8 +32,14 @@ export function BroadcastComposer() {
     void loadHistory();
   }, [loadHistory, t]);
 
-  const send = useCallback(
-    async (out: OutgoingMessage): Promise<boolean> => {
+  const selectedFrench = (people ?? []).filter((p) => selected.has(p.id) && p.language === 'fr').length;
+  const selectedEnglish = (people ?? []).filter((p) => selected.has(p.id) && p.language === 'en').length;
+  const mixed = selectedFrench > 0 && selectedEnglish > 0;
+  const [wantTranslate, setWantTranslate] = useState<boolean | null>(null);
+  const translateOn = wantTranslate ?? mixed;
+
+  const sendFinal = useCallback(
+    async (out: OutgoingMessage, translation: SentTranslation | null): Promise<boolean> => {
       if (!people) return false;
       if (selected.size === 0) {
         setError(t('broadcast.nobody_selected'));
@@ -45,6 +52,7 @@ export function BroadcastComposer() {
           ...(selected.size === people.length ? {} : { personIds: [...selected] }),
           body: out.body,
           attachments: out.attachments,
+          ...(translation ? { translation } : {}),
         });
         setNote(t('broadcast.sent', { count: res.recipients }) + (res.skipped > 0 ? ' ' + t('broadcast.skipped', { count: res.skipped }) : ''));
         void loadHistory();
@@ -56,10 +64,9 @@ export function BroadcastComposer() {
     },
     [people, selected, loadHistory, t],
   );
+  const preview = useTranslationPreview({ translateUrl: `${BASE}/translate-preview`, english: selectedEnglish, french: selectedFrench, enabled: translateOn, sendFinal });
+  const send = preview.intercept;
   const media = useMediaUploads(`${BASE}/attachments/authorize`, send);
-
-  const selectedFrench = (people ?? []).filter((p) => selected.has(p.id) && p.language === 'fr').length;
-  const selectedEnglish = (people ?? []).filter((p) => selected.has(p.id) && p.language === 'en').length;
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -86,10 +93,11 @@ export function BroadcastComposer() {
             {selected.size > 0 && (selectedFrench > 0 || selectedEnglish > 0) && (
               <p className="text-sm text-slate-600" data-testid="broadcast-languages">{t('needsMe.selected_languages', { en: selectedEnglish, fr: selectedFrench })}</p>
             )}
-            {selectedFrench > 0 && selectedEnglish > 0 && (
+            <TranslateToggle mixed={mixed} value={wantTranslate} onChange={setWantTranslate} />
+            {!translateOn && mixed && (
               <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900" data-testid="broadcast-mixed-warning">{t('needsMe.mixed_warning', { en: selectedEnglish, fr: selectedFrench })}</p>
             )}
-            {selectedFrench > 0 && selectedEnglish === 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{t('needsMe.french_only_warning')}</p>}
+            {!translateOn && selectedFrench > 0 && selectedEnglish === 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{t('needsMe.french_only_warning')}</p>}
             <button type="button" className="text-sm font-semibold text-brand-700 underline" onClick={() => setShowPeople((v) => !v)}>
               {showPeople ? t('broadcast.hide_people') : t('broadcast.choose_people')}
             </button>
@@ -113,6 +121,8 @@ export function BroadcastComposer() {
             )}
             <p className="text-xs text-slate-500">{t('broadcast.greeting_note')}</p>
           </section>
+
+          {preview.panel}
 
           {media.jobs.length > 0 && (
             <div className="space-y-2">
