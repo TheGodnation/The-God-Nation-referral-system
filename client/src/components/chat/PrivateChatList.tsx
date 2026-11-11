@@ -19,6 +19,7 @@ interface ConversationRow {
   otherPartyPersonId?: string;
   otherPartyPhotoUrl?: string | null;
   otherPartyBadge?: 'NATIONAL_COORDINATOR' | null;
+  otherPartyLanguage?: 'en' | 'fr' | null;
   unreadCount: number;
   lastMessage?: { body: string | null; deleted?: boolean; attachmentMimeType: string | null; isOwn: boolean; createdAt: string; status?: 'sent' | 'delivered' | 'read' } | null;
 }
@@ -113,6 +114,7 @@ export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats
                       <span className="truncate font-semibold text-slate-900">{name}</span>
                       {myLeader && c.otherPartyPersonId === myLeader.personId && <YourLeaderBadge />}
                       <CoordinatorBadge badge={c.otherPartyBadge} className="ml-0" />
+                      {c.otherPartyLanguage && <span className="shrink-0 text-xs" title={t(c.otherPartyLanguage === 'fr' ? 'privateChat.lang_fr' : 'privateChat.lang_en') ?? ''} data-testid={`row-language-${c.id}`}>{c.otherPartyLanguage === 'fr' ? '🇫🇷' : '🇬🇧'}</span>}
                     </span>
                     {c.lastMessage && (
                       <span className={`shrink-0 text-xs ${c.unreadCount > 0 ? 'font-semibold text-emerald-600' : 'text-slate-400'}`}>

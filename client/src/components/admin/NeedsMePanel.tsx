@@ -66,6 +66,8 @@ export function NeedsMePanel({ base }: { base: string }) {
   const [contactFor, setContactFor] = useState<string | null>(null);
   const [wellbeing, setWellbeing] = useState<Wellbeing>('GOOD');
   const [contactNote, setContactNote] = useState('');
+  // The language of everyone seen so far (this page and "select all"), so the coordinator knows who reads what.
+  const [langOf, setLangOf] = useState<Record<string, 'en' | 'fr'>>({});
 
   const query = useMemo(() => {
     const p = new URLSearchParams({ filter });
@@ -82,6 +84,7 @@ export function NeedsMePanel({ base }: { base: string }) {
       .get<Result>(`${base}?${p.toString()}`)
       .then((r) => {
         setData(r);
+        setLangOf((prev) => ({ ...prev, ...Object.fromEntries(r.items.map((i) => [i.personId, i.language])) }));
         setError(null);
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : t('needsMe.load_failed')));
@@ -110,8 +113,9 @@ export function NeedsMePanel({ base }: { base: string }) {
 
   async function selectEverything() {
     try {
-      const r = await api.get<{ ids: string[]; total: number }>(`${base}/ids?${query.toString()}`);
+      const r = await api.get<{ ids: string[]; total: number; languages?: Record<string, 'en' | 'fr'> }>(`${base}/ids?${query.toString()}`);
       setSelected(new Set(r.ids));
+      if (r.languages) setLangOf((prev) => ({ ...prev, ...r.languages }));
       if (r.total > r.ids.length) setNote(t('needsMe.select_capped', { count: r.ids.length }));
     } catch {
       setError(t('needsMe.load_failed'));
@@ -167,6 +171,8 @@ export function NeedsMePanel({ base }: { base: string }) {
   const media = useMediaUploads(`${base}/attachments/authorize`, send);
 
   const items = data?.items ?? [];
+  const selectedFrench = [...selected].filter((id) => langOf[id] === 'fr').length;
+  const selectedEnglish = [...selected].filter((id) => langOf[id] === 'en').length;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
@@ -210,6 +216,9 @@ export function NeedsMePanel({ base }: { base: string }) {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <p className="font-semibold text-brand-900" data-testid="needs-selected">{t('needsMe.selected', { count: selected.size })}</p>
+            {selected.size > 0 && (
+              <p className="text-sm text-slate-600" data-testid="needs-selected-languages">{t('needsMe.selected_languages', { en: selectedEnglish, fr: selectedFrench })}</p>
+            )}
             <button type="button" disabled={selected.size === 0} onClick={() => setComposing((v) => !v)} className="btn-primary disabled:opacity-50" data-testid="needs-write">
               {t('needsMe.write_selected')}
             </button>
@@ -217,6 +226,8 @@ export function NeedsMePanel({ base }: { base: string }) {
           {composing && (
             <div className="space-y-2">
               <p className="text-xs text-slate-500">{t('needsMe.sent_as')}</p>
+              {selectedFrench > 0 && selectedEnglish > 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900" data-testid="needs-mixed-warning">{t('needsMe.mixed_warning', { en: selectedEnglish, fr: selectedFrench })}</p>}
+              {selectedFrench > 0 && selectedEnglish === 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{t('needsMe.french_only_warning')}</p>}
               {media.jobs.map((job) => (
                 <UploadingBubble key={job.id} job={job} onCancel={() => media.cancel(job.id)} onRetry={() => media.retry(job.id)} />
               ))}
@@ -240,7 +251,13 @@ export function NeedsMePanel({ base }: { base: string }) {
                 <Avatar name={p.name} photoUrl={p.photoUrl} size={44} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold text-slate-800">{p.name}</span>
-                  <span className="block text-xs text-slate-500">{t('myReferrals.joined_on', { date: new Date(p.joinedAt).toLocaleDateString() })}</span>
+                  <span className="block text-xs text-slate-500">
+                    {t('myReferrals.joined_on', { date: new Date(p.joinedAt).toLocaleDateString() })}
+                    {' · '}
+                    <span className={`font-semibold ${p.language === 'fr' ? 'text-blue-800' : 'text-emerald-800'}`} data-testid={`needs-language-${p.personId}`}>
+                      {p.language === 'fr' ? t('needsMe.lang_fr') : t('needsMe.lang_en')}
+                    </span>
+                  </span>
                 </span>
               </Link>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[p.status]}`}>{t(`myReferrals.status_${p.status}`, { count: p.daysQuiet ?? 0 })}</span>

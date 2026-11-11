@@ -2620,6 +2620,8 @@
     "save_failed": "Vos changements n'ont pas été enregistrés. Veuillez réessayer."
   },
   "privateChat": {
+    "lang_fr": "🇫🇷 Francophone : écrivez en français",
+    "lang_en": "🇬🇧 Anglophone : écrivez en anglais",
     "title": "Messages privés",
     "headquarters": "Quartier général de The God Nation",
     "someone": "Quelqu'un",
@@ -3035,6 +3037,11 @@
     "assembly_name": "Nom de l’assemblée"
   },
   "needsMe": {
+    "lang_fr": "🇫🇷 Francophone",
+    "lang_en": "🇬🇧 Anglophone",
+    "selected_languages": "{{en}} anglophones, {{fr}} francophones",
+    "mixed_warning": "Votre message part exactement comme vous l’écrivez (les messages privés ne sont pas traduits). {{fr}} de ces personnes lisent le français et {{en}} lisent l’anglais. Écrivez dans la langue qu’elles lisent, ou envoyez à chaque langue séparément.",
+    "french_only_warning": "Ces personnes lisent le français. Les messages privés ne sont pas traduits : écrivez votre message en français.",
     "tab": "Personnes à suivre",
     "title": "Personnes qui ont besoin de moi",
     "help": "Toutes les personnes inscrites, où elles en sont, qui est leur responsable et quand quelqu’un les a contactées pour la dernière fois. Écrivez-leur sur WhatsApp ou dans l’application, reprenez une personne à un responsable qui ne la suit pas, ou écrivez à plusieurs à la fois.",

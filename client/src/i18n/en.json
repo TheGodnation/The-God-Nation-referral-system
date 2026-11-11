@@ -2620,6 +2620,8 @@
     "save_failed": "Your changes were not saved. Please try again."
   },
   "privateChat": {
+    "lang_fr": "🇫🇷 French speaker: write in French",
+    "lang_en": "🇬🇧 English speaker: write in English",
     "title": "Private messages",
     "headquarters": "The God Nation Headquarters",
     "someone": "Someone",
@@ -3035,6 +3037,11 @@
     "assembly_name": "Name of the assembly"
   },
   "needsMe": {
+    "lang_fr": "🇫🇷 French speaker",
+    "lang_en": "🇬🇧 English speaker",
+    "selected_languages": "{{en}} English speakers, {{fr}} French speakers",
+    "mixed_warning": "Your message goes out exactly as you write it (private messages are not translated). {{fr}} of these people read French and {{en}} read English. Write in the language they read, or send to each language separately.",
+    "french_only_warning": "These people read French. Private messages are not translated, so write your message in French.",
     "tab": "People who need me",
     "title": "People who need me",
     "help": "Everyone who has joined, how far each one has got, who their leader is and when anyone last contacted them. Reach them on WhatsApp or in the app, take a person over from a leader who is not following up, or write to many at once.",

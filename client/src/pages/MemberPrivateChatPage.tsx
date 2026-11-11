@@ -45,6 +45,8 @@ interface PrivateResponse {
   otherPartyPersonId?: string;
   otherPartyPhotoUrl?: string | null;
   otherPartyBadge?: 'NATIONAL_COORDINATOR' | null;
+  /** Only sent to the organization side (a leader or the coordinator) so they know which language to write in. */
+  otherPartyLanguage?: 'en' | 'fr' | null;
   otherPartyPresence?: { online: boolean; lastSeenAt: string | null } | null;
   typing?: boolean;
   recording?: boolean;
@@ -77,7 +79,7 @@ export function MemberPrivateChatPage() {
   const base = `/api/private-messages/conversations/${conversationId}`;
   const draftKey = draftKeyFor(member?.personId, `private:${conversationId}`);
 
-  const [other, setOther] = useState<Pick<PrivateResponse, 'otherPartyType' | 'otherPartyName' | 'otherPartyPersonId' | 'otherPartyPhotoUrl' | 'otherPartyBadge'> | null>(null);
+  const [other, setOther] = useState<Pick<PrivateResponse, 'otherPartyType' | 'otherPartyName' | 'otherPartyPersonId' | 'otherPartyPhotoUrl' | 'otherPartyBadge' | 'otherPartyLanguage'> | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -185,6 +187,7 @@ export function MemberPrivateChatPage() {
             otherPartyPersonId: res.otherPartyPersonId,
             otherPartyPhotoUrl: res.otherPartyPhotoUrl,
             otherPartyBadge: res.otherPartyBadge,
+            otherPartyLanguage: res.otherPartyLanguage,
           });
           setPresence(res.otherPartyPresence ?? null);
           setOtherTyping(Boolean(res.typing));
@@ -473,6 +476,9 @@ export function MemberPrivateChatPage() {
         <h1 className="truncate font-semibold">{other ? otherName : t('groupChat.loading')}</h1>
         {isMyLeader && <YourLeaderBadge className="mb-0.5" />}
         <CoordinatorBadge badge={other?.otherPartyBadge} className="mb-0.5 ml-0" />
+        {other?.otherPartyLanguage && (
+          <p className="text-xs font-semibold text-slate-700" data-testid="other-language">{t(other.otherPartyLanguage === 'fr' ? 'privateChat.lang_fr' : 'privateChat.lang_en')}</p>
+        )}
         {other && (
           <p className={`truncate text-xs ${otherTyping || otherRecording || presence?.online ? 'font-semibold text-emerald-600' : 'text-slate-500'}`}>{subtitle}</p>
         )}
