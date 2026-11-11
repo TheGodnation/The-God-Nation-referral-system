@@ -4303,7 +4303,7 @@
   },
   "onboarding": {
     "title": "Welcome to The God Nation",
-    "intro": "Four small steps help you the most. None of them is compulsory, and you can come back to them any time.",
+    "intro": "Four small steps you can do.",
     "progress": "{{done}} of {{total}} done",
     "done": "Done",
     "step_notifications": "Turn on notifications",
@@ -4324,8 +4324,7 @@
     "install_desktop_2": "On a computer in Chrome or Edge, click the install icon at the right end of the address bar, then “Install”.",
     "install_recorded": "When you open the app from your home screen, this step is ticked for you.",
     "install_pictures": "See the steps with pictures",
-    "step_community": "Join our welcome community",
-    "community_body": "Meet your brothers and sisters. It is your choice, and there is no pressure.",
+    "step_community": "Join us on WhatsApp and the others below",
     "joined_ask": "We cannot see whether you joined, because the link opens another app. Once you have joined, please tell us.",
     "joined_button": "I have joined",
     "joined_thanks": "Thank you. We are glad you are with us.",
@@ -4339,7 +4338,7 @@
     "close": "Close",
     "next_notifications": "Next: turn on notifications so you never miss a teaching.",
     "next_install": "Next: install the app so we are always one tap away.",
-    "next_community": "Next: join our welcome community, if you wish.",
+    "next_community": "Next: join us on WhatsApp or the other places.",
     "next_agreement": "Next: read your assembly’s rules and agree, so you can write."
   },
   "assemblyAgreement": {
@@ -4358,6 +4357,11 @@
     "agree": "I agree",
     "working": "One moment…",
     "failed": "Something went wrong. Please try again."
+  },
+  "guideViewer": {
+    "title": "Step-by-step guide",
+    "close": "Back to the app",
+    "new_tab": "Open in a new tab"
   },
   "contactPrefs": {
     "title": "How we may contact you",

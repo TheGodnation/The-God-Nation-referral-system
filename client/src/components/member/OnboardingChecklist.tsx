@@ -209,7 +209,6 @@ export function OnboardingPage() {
           <Tick on={done.community} />
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-slate-900">{t('onboarding.step_community')}</p>
-            <p className="mb-2 text-xs text-slate-600">{t('onboarding.community_body')}</p>
             {done.community && status?.existingMember ? (
               <p className="text-xs text-emerald-700">{t('onboarding.done')}</p>
             ) : (
@@ -320,7 +319,7 @@ export function CommunityJoinCard() {
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-brand-900">{t('onboarding.step_community')}</p>
-          <p className="mb-2 text-xs text-slate-600">{t('onboarding.community_body')}</p>
+          <div className="mb-2" />
         </div>
         <button type="button" aria-label={t('onboarding.close') ?? ''} className="px-1 leading-6 text-slate-500" onClick={close} data-testid="community-card-close">
           ✕
