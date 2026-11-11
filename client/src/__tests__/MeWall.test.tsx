@@ -121,7 +121,7 @@ describe('Me wall', () => {
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toHaveLength(16);
     expect(screen.getByRole('tab', { name: 'Knowledge Centre' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Posts' })).not.toBeInTheDocument();
-    expect(names.length).toBe(15);
+    expect(names.length).toBe(16);
     fireEvent.click(screen.getByRole('tab', { name: 'Growth' }));
 
     // Back to My space: the Photos tab you left is not forgotten, and the admin layer remembers Growth.
