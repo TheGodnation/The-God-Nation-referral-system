@@ -49,6 +49,69 @@ describe('BroadcastComposer (a leader)', () => {
     expect(post?.body.personIds).toBeUndefined(); // everyone: no list needed
   });
 
+  it('tells a leader how many of their people read English and French, and warns about a mix when translation is off', async () => {
+    mockFetch({
+      [`GET ${B}/people`]: () => ({ body: { items: [{ id: 'a', name: 'Ada Nkem', language: 'en' }, { id: 'm', name: 'Marie Claire', language: 'fr' }, { id: 'p', name: 'Paul Eto', language: 'fr' }] } }),
+      [`GET ${B}/mine`]: () => ({ body: { items: [] } }),
+    });
+    render(<BroadcastComposer />);
+    await screen.findByTestId('broadcast-count');
+    expect(screen.getByTestId('broadcast-languages')).toHaveTextContent('1 English speakers, 2 French speakers');
+    // With both languages chosen, translating is on by default, so no warning...
+    expect(screen.getByTestId('translate-toggle')).toBeChecked();
+    expect(screen.queryByTestId('broadcast-mixed-warning')).toBeNull();
+    // ...turn it off and the warning is back.
+    fireEvent.click(screen.getByTestId('translate-toggle'));
+    expect(screen.getByTestId('broadcast-mixed-warning')).toHaveTextContent('private messages are not translated');
+    fireEvent.click(screen.getByRole('button', { name: 'Choose who gets it' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Ada Nkem' }));
+    expect(screen.queryByTestId('broadcast-mixed-warning')).toBeNull();
+  });
+
+  it('for a mix of languages it translates once, shows both versions to check, and sends each person their own', async () => {
+    mockFetch({
+      [`GET ${B}/people`]: () => ({ body: { items: [{ id: 'a', name: 'Ada Nkem', language: 'en' }, { id: 'm', name: 'Marie Claire', language: 'fr' }, { id: 'p', name: 'Paul Eto', language: 'fr' }] } }),
+      [`GET ${B}/mine`]: () => ({ body: { items: [] } }),
+      [`POST ${B}/translate-preview`]: () => ({ body: { detectedLanguage: 'en', translatedBody: 'Que Dieu vous bénisse' } }),
+      [`POST ${B}`]: () => ({ status: 201, body: { id: 'b1', recipients: 3, skipped: 0 } }),
+    });
+    render(<BroadcastComposer />);
+    await screen.findByTestId('broadcast-count');
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'God bless you' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    // Nothing is sent yet: both versions are shown, with who gets which.
+    expect(await screen.findByTestId('translation-preview')).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === 'POST' && c.url === B)).toHaveLength(0);
+    expect(screen.getByTestId('preview-original')).toHaveValue('God bless you');
+    expect(screen.getByTestId('preview-translated')).toHaveValue('Que Dieu vous bénisse');
+    expect(screen.getByTestId('translation-preview')).toHaveTextContent('goes to 1 person');
+    expect(screen.getByTestId('translation-preview')).toHaveTextContent('goes to 2 people');
+    // A correction in the translation is what is sent.
+    fireEvent.change(screen.getByTestId('preview-translated'), { target: { value: 'Que Dieu vous bénisse tous' } });
+    fireEvent.click(screen.getByTestId('preview-send'));
+    expect(await screen.findByRole('status')).toHaveTextContent('Sent to 3 people.');
+    expect(calls.find((c) => c.method === 'POST' && c.url === B)?.body).toMatchObject({ body: 'God bless you', translation: { language: 'en', body: 'Que Dieu vous bénisse tous' } });
+  });
+
+  it('when the translator is down it says so and lets the leader send as written, or cancel', async () => {
+    mockFetch({
+      [`GET ${B}/people`]: () => ({ body: { items: [{ id: 'a', name: 'Ada Nkem', language: 'en' }, { id: 'm', name: 'Marie Claire', language: 'fr' }] } }),
+      [`GET ${B}/mine`]: () => ({ body: { items: [] } }),
+      [`POST ${B}/translate-preview`]: () => ({ status: 502, body: { error: 'The translation could not be made right now. Please try again in a moment.' } }),
+      [`POST ${B}`]: () => ({ status: 201, body: { id: 'b1', recipients: 2, skipped: 0 } }),
+    });
+    render(<BroadcastComposer />);
+    await screen.findByTestId('broadcast-count');
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'God bless you' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be made right now');
+    fireEvent.click(screen.getByTestId('preview-send-as-written'));
+    expect(await screen.findByRole('status')).toHaveTextContent('Sent to 2 people.');
+    const post = calls.find((c) => c.method === 'POST' && c.url === B);
+    expect(post?.body.body).toBe('God bless you');
+    expect(post?.body.translation).toBeUndefined();
+  });
+
   it('can leave some people out, and refuses to send to nobody', async () => {
     mockFetch({
       [`GET ${B}/people`]: () => ({ body: { items: people } }),

@@ -24,6 +24,9 @@ interface MessageRow {
   edited?: boolean;
   // Photos / voice notes / videos sent from the member app.
   attachments?: { id: string; originalFilename: string; mimeType: string }[];
+  // Tap-to-translate: set once someone has tapped "Translate" on this message.
+  detectedLanguage?: 'en' | 'fr';
+  translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null;
 }
 
 // Private Communication / Messaging — a shared authenticated participant
@@ -51,7 +54,10 @@ export function PrivateMessages({ alwaysShow = false }: { alwaysShow?: boolean }
   const [error, setError] = useState<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<{ otherPartyType: OtherPartyType; otherPartyName?: string | null } | null>(null);
+  const [detail, setDetail] = useState<{ otherPartyType: OtherPartyType; otherPartyName?: string | null; otherPartyLanguage?: 'en' | 'fr' | null } | null>(null);
+  const [showOriginalIds, setShowOriginalIds] = useState<Set<string>>(new Set());
+  const [translatingId, setTranslatingId] = useState<string | null>(null);
+  const [translateError, setTranslateError] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -86,11 +92,11 @@ export function PrivateMessages({ alwaysShow = false }: { alwaysShow?: boolean }
     setMessages([]);
     setDetailLoading(true);
     api
-      .get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number; otherPartyType: OtherPartyType; otherPartyName?: string | null }>(
+      .get<{ items: MessageRow[]; hasMore: boolean; unreadCount: number; otherPartyType: OtherPartyType; otherPartyName?: string | null; otherPartyLanguage?: 'en' | 'fr' | null }>(
         `/api/private-messages/conversations/${id}/messages`,
       )
       .then((res) => {
-        setDetail({ otherPartyType: res.otherPartyType, otherPartyName: res.otherPartyName });
+        setDetail({ otherPartyType: res.otherPartyType, otherPartyName: res.otherPartyName, otherPartyLanguage: res.otherPartyLanguage });
         setMessages(res.items);
         setDetailLoading(false);
         if (res.unreadCount > 0 && res.items.length > 0) {
@@ -111,6 +117,20 @@ export function PrivateMessages({ alwaysShow = false }: { alwaysShow?: boolean }
     setSelectedId(null);
     setDetail(null);
     setMessages([]);
+  }
+
+  async function translate(id: string) {
+    if (!selectedId) return;
+    setTranslatingId(id);
+    setTranslateError(null);
+    try {
+      const res = await api.post<{ detectedLanguage: 'en' | 'fr'; translation: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null }>(`/api/private-messages/conversations/${selectedId}/messages/${id}/translate`, {});
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, detectedLanguage: res.detectedLanguage, translation: res.translation } : m)));
+    } catch (err) {
+      setTranslateError(err instanceof ApiError && err.message ? err.message : t('translation.failed'));
+    } finally {
+      setTranslatingId(null);
+    }
   }
 
   async function send() {
@@ -142,11 +162,15 @@ export function PrivateMessages({ alwaysShow = false }: { alwaysShow?: boolean }
         {detailError && <p className="text-sm text-red-700">{detailError}</p>}
         {detail && (
           <>
-            <h2 className="mb-3 font-semibold text-brand-900">{otherPartyLabel(t, detail)}</h2>
+            <h2 className="mb-1 font-semibold text-brand-900">{otherPartyLabel(t, detail)}</h2>
+            {detail.otherPartyLanguage && (
+              <p className="mb-3 text-xs font-semibold text-slate-700" data-testid="pm-language">{t(detail.otherPartyLanguage === 'fr' ? 'privateChat.lang_fr' : 'privateChat.lang_en')}</p>
+            )}
             {messages.length === 0 ? (
               <p className="mb-3 text-sm text-slate-400">{t('privateMessages.no_messages')}</p>
             ) : (
               <div className="mb-3 max-h-96 space-y-2 overflow-y-auto rounded border border-slate-100 p-3">
+                {translateError && <p className="text-xs text-red-700" role="alert">{translateError}</p>}
                 {messages.map((m) => (
                   <div key={m.id} className={`text-sm ${m.isOwn ? 'text-right' : 'text-left'}`}>
                     <p
@@ -154,7 +178,7 @@ export function PrivateMessages({ alwaysShow = false }: { alwaysShow?: boolean }
                         m.isOwn ? 'bg-brand-50 text-brand-900' : 'bg-slate-50 text-slate-700'
                       }`}
                     >
-                      {m.deleted ? <span className="italic text-slate-400">🚫 {t('chatActions.deleted')}</span> : m.body}
+                      {m.deleted ? <span className="italic text-slate-400">🚫 {t('chatActions.deleted')}</span> : m.translation && !showOriginalIds.has(m.id) ? m.translation.translatedBody : m.body}
                       {m.edited && <span className="ml-1 text-xs italic text-slate-400">({t('chatActions.edited')})</span>}
                       {(m.attachments ?? []).map((a) => (
                         <button
@@ -172,6 +196,20 @@ export function PrivateMessages({ alwaysShow = false }: { alwaysShow?: boolean }
                         </button>
                       ))}
                     </p>
+                    {!m.isOwn && !m.deleted && m.body && m.translation && (
+                      <button
+                        type="button"
+                        className="block text-xs text-brand-700 underline"
+                        onClick={() => setShowOriginalIds((prev) => { const next = new Set(prev); if (next.has(m.id)) next.delete(m.id); else next.add(m.id); return next; })}
+                      >
+                        {showOriginalIds.has(m.id) ? t('translation.show_translation') : t('translation.show_original')}
+                      </button>
+                    )}
+                    {!m.isOwn && !m.deleted && m.body && !m.translation && !m.detectedLanguage && (
+                      <button type="button" className="block text-xs font-semibold text-emerald-700 disabled:opacity-60" disabled={translatingId === m.id} onClick={() => void translate(m.id)} data-testid={`pm-translate-${m.id}`}>
+                        🌐 {translatingId === m.id ? t('translation.translating') : t('translation.translate')}
+                      </button>
+                    )}
                     <span className="block text-xs text-slate-400">{new Date(m.createdAt).toLocaleString()}</span>
                   </div>
                 ))}

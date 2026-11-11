@@ -7,9 +7,12 @@ import { Avatar } from '../Avatar';
 import { ChatComposer, type OutgoingMessage } from '../chat/ChatComposer';
 import { UploadingBubble } from '../chat/UploadingBubble';
 import { FollowUpButtons } from '../leader/FollowUpButtons';
+import { WhatsAppQueue, type QueuePerson } from './WhatsAppQueue';
+import { LeaderAlerts } from './LeaderAlerts';
+import { TranslateToggle, useTranslationPreview, type SentTranslation } from '../BroadcastTranslation';
 
-type Filter = 'needs' | 'all' | 'not_confirmed' | 'profile_incomplete' | 'quiet' | 'no_leader' | 'leader_silent' | 'not_in_group' | 'mine';
-const FILTERS: Filter[] = ['needs', 'not_confirmed', 'profile_incomplete', 'quiet', 'no_leader', 'leader_silent', 'not_in_group', 'mine', 'all'];
+type Filter = 'today' | 'needs' | 'all' | 'not_confirmed' | 'profile_incomplete' | 'quiet' | 'no_leader' | 'leader_silent' | 'not_in_group' | 'mine';
+const FILTERS: Filter[] = ['today', 'needs', 'not_confirmed', 'profile_incomplete', 'quiet', 'no_leader', 'leader_silent', 'not_in_group', 'mine', 'all'];
 type Wellbeing = 'GOOD' | 'NEEDS_ATTENTION' | 'EMERGENCY' | 'UNABLE_TO_REACH';
 
 interface Person {
@@ -24,6 +27,7 @@ interface Person {
   leader: { personId: string; name: string } | null;
   mine: boolean;
   lastContactAt: string | null;
+  lastWellbeing?: Wellbeing | null;
   leaderSilent: boolean;
   noLeader: boolean;
   notInGroup: boolean;
@@ -35,6 +39,7 @@ interface Result {
   pageSize: number;
   capped: boolean;
   counts: Record<Filter, number>;
+  contactedToday?: number;
 }
 
 const STATUS_STYLE: Record<Person['status'], string> = {
@@ -52,7 +57,7 @@ const daysAgo = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(i
  */
 export function NeedsMePanel({ base }: { base: string }) {
   const { t } = useTranslation();
-  const [filter, setFilter] = useState<Filter>('needs');
+  const [filter, setFilter] = useState<Filter>('today');
   const [q, setQ] = useState('');
   const [language, setLanguage] = useState('');
   const [communityId, setCommunityId] = useState('');
@@ -66,8 +71,9 @@ export function NeedsMePanel({ base }: { base: string }) {
   const [contactFor, setContactFor] = useState<string | null>(null);
   const [wellbeing, setWellbeing] = useState<Wellbeing>('GOOD');
   const [contactNote, setContactNote] = useState('');
-  // The language of everyone seen so far (this page and "select all"), so the coordinator knows who reads what.
-  const [langOf, setLangOf] = useState<Record<string, 'en' | 'fr'>>({});
+  // Everyone seen so far (this page and "select all"): who reads what language, and who has a WhatsApp number.
+  const [known, setKnown] = useState<Record<string, QueuePerson>>({});
+  const [queueOpen, setQueueOpen] = useState(false);
 
   const query = useMemo(() => {
     const p = new URLSearchParams({ filter });
@@ -84,7 +90,7 @@ export function NeedsMePanel({ base }: { base: string }) {
       .get<Result>(`${base}?${p.toString()}`)
       .then((r) => {
         setData(r);
-        setLangOf((prev) => ({ ...prev, ...Object.fromEntries(r.items.map((i) => [i.personId, i.language])) }));
+        setKnown((prev) => ({ ...prev, ...Object.fromEntries(r.items.map((i) => [i.personId, { personId: i.personId, name: i.name, whatsapp: i.whatsapp, language: i.language }])) }));
         setError(null);
       })
       .catch((e) => setError(e instanceof ApiError ? e.message : t('needsMe.load_failed')));
@@ -113,9 +119,9 @@ export function NeedsMePanel({ base }: { base: string }) {
 
   async function selectEverything() {
     try {
-      const r = await api.get<{ ids: string[]; total: number; languages?: Record<string, 'en' | 'fr'> }>(`${base}/ids?${query.toString()}`);
+      const r = await api.get<{ ids: string[]; total: number; people?: QueuePerson[] }>(`${base}/ids?${query.toString()}`);
       setSelected(new Set(r.ids));
-      if (r.languages) setLangOf((prev) => ({ ...prev, ...r.languages }));
+      if (r.people) setKnown((prev) => ({ ...prev, ...Object.fromEntries(r.people!.map((p) => [p.personId, p])) }));
       if (r.total > r.ids.length) setNote(t('needsMe.select_capped', { count: r.ids.length }));
     } catch {
       setError(t('needsMe.load_failed'));
@@ -147,15 +153,21 @@ export function NeedsMePanel({ base }: { base: string }) {
     }
   }
 
-  const send = useCallback(
-    async (out: OutgoingMessage): Promise<boolean> => {
+  const selectedFrench = [...selected].filter((id) => known[id]?.language === 'fr').length;
+  const selectedEnglish = [...selected].filter((id) => known[id]?.language === 'en').length;
+  const mixed = selectedFrench > 0 && selectedEnglish > 0;
+  const [wantTranslate, setWantTranslate] = useState<boolean | null>(null);
+  const translateOn = wantTranslate ?? mixed;
+
+  const sendFinal = useCallback(
+    async (out: OutgoingMessage, translation: SentTranslation | null): Promise<boolean> => {
       if (selected.size === 0) {
         setError(t('needsMe.nobody_selected'));
         return false;
       }
       setError(null);
       try {
-        const res = await api.post<{ recipients: number; skipped: number }>(`${base}/message`, { personIds: [...selected], body: out.body, attachments: out.attachments });
+        const res = await api.post<{ recipients: number; skipped: number }>(`${base}/message`, { personIds: [...selected], body: out.body, attachments: out.attachments, ...(translation ? { translation } : {}) });
         setNote(t('needsMe.sent', { count: res.recipients }) + (res.skipped > 0 ? ' ' + t('needsMe.skipped', { count: res.skipped }) : ''));
         setComposing(false);
         setSelected(new Set());
@@ -168,11 +180,12 @@ export function NeedsMePanel({ base }: { base: string }) {
     },
     [selected, base, load, t],
   );
+  const preview = useTranslationPreview({ translateUrl: `${base}/translate-preview`, english: selectedEnglish, french: selectedFrench, enabled: translateOn, sendFinal });
+  const send = preview.intercept;
   const media = useMediaUploads(`${base}/attachments/authorize`, send);
 
   const items = data?.items ?? [];
-  const selectedFrench = [...selected].filter((id) => langOf[id] === 'fr').length;
-  const selectedEnglish = [...selected].filter((id) => langOf[id] === 'en').length;
+  const queuePeople = [...selected].map((id) => known[id]).filter((p): p is QueuePerson => Boolean(p));
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
@@ -184,6 +197,12 @@ export function NeedsMePanel({ base }: { base: string }) {
 
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
       {note && <p className="rounded-lg bg-green-50 p-3 text-sm text-green-800" role="status">{note}</p>}
+
+      <LeaderAlerts base={base} onChanged={() => void load()} />
+
+      {data && typeof data.contactedToday === 'number' && data.contactedToday > 0 && (
+        <p className="text-sm font-medium text-green-800" data-testid="needs-today-done">{t('needsMe.today_done', { count: data.contactedToday })}</p>
+      )}
 
       <div className="flex flex-wrap gap-2" role="group" aria-label={t('needsMe.filters') ?? ''}>
         {FILTERS.map((f) => (
@@ -222,12 +241,17 @@ export function NeedsMePanel({ base }: { base: string }) {
             <button type="button" disabled={selected.size === 0} onClick={() => setComposing((v) => !v)} className="btn-primary disabled:opacity-50" data-testid="needs-write">
               {t('needsMe.write_selected')}
             </button>
+            <button type="button" disabled={selected.size === 0} onClick={() => setQueueOpen((v) => !v)} className="btn-secondary disabled:opacity-50" data-testid="needs-queue">
+              {t('needsMe.queue_button')}
+            </button>
           </div>
           {composing && (
             <div className="space-y-2">
               <p className="text-xs text-slate-500">{t('needsMe.sent_as')}</p>
-              {selectedFrench > 0 && selectedEnglish > 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900" data-testid="needs-mixed-warning">{t('needsMe.mixed_warning', { en: selectedEnglish, fr: selectedFrench })}</p>}
-              {selectedFrench > 0 && selectedEnglish === 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{t('needsMe.french_only_warning')}</p>}
+              <TranslateToggle mixed={mixed} value={wantTranslate} onChange={setWantTranslate} />
+              {!translateOn && mixed && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900" data-testid="needs-mixed-warning">{t('needsMe.mixed_warning', { en: selectedEnglish, fr: selectedFrench })}</p>}
+              {!translateOn && selectedFrench > 0 && selectedEnglish === 0 && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">{t('needsMe.french_only_warning')}</p>}
+              {preview.panel}
               {media.jobs.map((job) => (
                 <UploadingBubble key={job.id} job={job} onCancel={() => media.cancel(job.id)} onRetry={() => media.retry(job.id)} />
               ))}
@@ -238,6 +262,8 @@ export function NeedsMePanel({ base }: { base: string }) {
           )}
         </section>
       )}
+
+      {queueOpen && <WhatsAppQueue key={[...selected].join(',')} people={queuePeople} translateUrl={`${base}/translate-preview`} onClose={() => setQueueOpen(false)} recordContact={(p) => api.post(`${base}/contacted`, { personId: p.personId, wellbeing: 'GOOD', note: 'WhatsApp' })} />}
 
       {data === null && !error && <p className="text-sm text-slate-400">{t('needsMe.loading')}</p>}
       {data && items.length === 0 && <p className="card text-sm text-slate-600">{t('needsMe.nobody')}</p>}
@@ -271,6 +297,7 @@ export function NeedsMePanel({ base }: { base: string }) {
               <div className="flex flex-wrap gap-1.5 text-xs">
                 {p.leaderSilent && <span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-800">{t('needsMe.flag_silent')}</span>}
                 {p.notInGroup && <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">{t('followUp.not_joined')}</span>}
+                {p.lastWellbeing && p.lastWellbeing !== 'GOOD' && <span className="rounded-full bg-orange-100 px-2 py-0.5 font-medium text-orange-800" data-testid={`needs-wellbeing-${p.personId}`}>{t('needsMe.last_time', { status: t(`needsMe.wellbeing_${p.lastWellbeing}`) })}</span>}
               </div>
               {p.whatsapp && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language} />}
               <div className="flex flex-wrap gap-2">
@@ -282,11 +309,9 @@ export function NeedsMePanel({ base }: { base: string }) {
                     {t('needsMe.take_over')}
                   </button>
                 )}
-                {p.mine && (
-                  <button type="button" onClick={() => setContactFor(contactFor === p.personId ? null : p.personId)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 hover:bg-brand-50" data-testid={`needs-contacted-${p.personId}`}>
-                    {t('needsMe.i_contacted')}
-                  </button>
-                )}
+                <button type="button" onClick={() => setContactFor(contactFor === p.personId ? null : p.personId)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 hover:bg-brand-50" data-testid={`needs-contacted-${p.personId}`}>
+                  {t('needsMe.i_contacted')}
+                </button>
               </div>
               {contactFor === p.personId && (
                 <div className="space-y-2 rounded-lg bg-slate-50 p-3">

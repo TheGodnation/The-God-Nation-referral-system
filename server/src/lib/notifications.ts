@@ -73,7 +73,8 @@ interface CreateNotificationParams {
     | 'CLINIC_EXAM_OPEN'
     | 'GIFT_CONFIRMED'
     | 'GIFT_REJECTED'
-    | 'FAITH_NEEDS_CONVERSATION';
+    | 'FAITH_NEEDS_CONVERSATION'
+    | 'LEADERS_NOT_FOLLOWING_UP';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -266,6 +267,22 @@ export async function notifyResourceGranted(grant: { id: string; personId: strin
     targetType: 'ResourceAccessGrant',
     targetId: grant.id,
     push: { title: 'New resource unlocked', body: resource?.titleEn ? `You now have access to "${resource.titleEn}".` : 'You have a new resource available.', url: '/member/learn' },
+  });
+}
+
+/** The central admin is told that leaders have not been following up (at most once a day, see lib/leaderAlertLoop.ts). */
+export async function notifyLeadersNotFollowingUp(adminPersonId: string, count: number) {
+  await createNotification({
+    recipientPersonId: adminPersonId,
+    type: 'LEADERS_NOT_FOLLOWING_UP',
+    metadata: { count },
+    push: {
+      title: '⚠️ Leaders not following up',
+      body: count === 1 ? '1 leader has not contacted anyone for a week.' : `${count} leaders have not contacted anyone for a week.`,
+      url: '/member/me',
+      tag: 'leader-alerts',
+      urgent: true,
+    },
   });
 }
 

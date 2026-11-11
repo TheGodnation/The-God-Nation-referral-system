@@ -91,6 +91,8 @@ export interface ChatMessage {
   /** A copy of a message from another chat — "↪ Forwarded". */
   forwarded?: boolean;
   translation?: ChatTranslation | null;
+  /** One-to-one chats: "Translate" was already tapped on this message (by either person), so it is not offered again. */
+  translationChecked?: boolean;
   transcript?: ChatTranscript | null;
   teaching?: ChatTeaching | null;
   /** Pinned to the top of the assembly's chat by the central admin. */

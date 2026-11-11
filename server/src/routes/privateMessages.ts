@@ -1,4 +1,6 @@
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
+import { PrivateTranslationError, translatePrivateMessage, translationFor } from '../lib/privateTranslation';
+import { appLanguage } from '../lib/appLanguage';
 import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
@@ -8,6 +10,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { requireCsrf } from '../lib/csrf';
 import {
   messageSendLimiter,
+  privateTranslateLimiter,
   communityConversationReadLimiter,
   attachmentUploadAuthorizeLimiter,
   attachmentDownloadLimiter,
@@ -318,6 +321,8 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
   const hasMore = afterCursor ? false : rows.length > limit;
   const newerOverflow = afterCursor ? rows.length > limit : undefined;
   const page = afterCursor ? rows.slice(0, limit) : rows.slice(0, limit).reverse();
+  const viewerPerson = actor.type === 'PERSON' ? await prisma.person.findUnique({ where: { id: actor.personId }, select: { preferredLanguage: true } }) : null;
+  const viewerLanguage = appLanguage(req, viewerPerson?.preferredLanguage);
   const [otherParty, unreadCount, side] = await Promise.all([
     resolveOtherParty(role, conversation),
     getPrivateConversationUnreadCount(actor, conversation),
@@ -351,6 +356,9 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
             thumb: a.thumbDataUrl ?? undefined,
             pageCount: a.pageCount ?? undefined,
           })),
+      // "Translate" was tapped on this message (by either person): the translation, when it is in the other language.
+      detectedLanguage: !m.deletedAt && m.detectedLanguage ? m.detectedLanguage : undefined,
+      translation: translationFor(m, viewerLanguage),
       replyTo:
         m.replyTo && !m.deletedAt
           ? {
@@ -772,9 +780,30 @@ router.patch(
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid message.' });
     const updated = await prisma.privateMessage.update({
       where: { id: message.id },
-      data: { body: parsed.data.body, editedAt: new Date() },
+      // A corrected text needs a fresh translation (if anyone asks for one).
+      data: { body: parsed.data.body, editedAt: new Date(), detectedLanguage: null, translatedBody: null, translatedAt: null },
     });
     res.json({ id: updated.id, body: updated.body, edited: true, editedAt: updated.editedAt });
+  }),
+);
+
+// POST .../conversations/:id/messages/:messageId/translate — "Translate" tapped on a message. Made once, then stored for both people.
+router.post(
+  '/conversations/:id/messages/:messageId/translate',
+  privateTranslateLimiter,
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const message = await loadMessageInConversation(req, res);
+    if (!message) return;
+    const actor = req.privateMessagingActor!;
+    const viewerPerson = actor.type === 'PERSON' ? await prisma.person.findUnique({ where: { id: actor.personId }, select: { preferredLanguage: true } }) : null;
+    try {
+      const stored = await translatePrivateMessage(message.id);
+      res.json({ detectedLanguage: stored.detectedLanguage, translation: translationFor({ deletedAt: null, ...stored }, appLanguage(req, viewerPerson?.preferredLanguage)) });
+    } catch (err) {
+      if (err instanceof PrivateTranslationError) return res.status(err.status).json({ error: err.message });
+      throw err;
+    }
   }),
 );
 

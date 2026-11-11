@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
+import { FollowUpButtons } from './FollowUpButtons';
+import { WhatsAppQueue, type QueuePerson } from '../admin/WhatsAppQueue';
 
 type Flag = 'EMERGENCY' | 'NEEDS_ATTENTION' | 'UNABLE_TO_REACH' | 'OVERDUE' | 'NOT_YET_CONTACTED' | 'CONTACT_TWICE_WEEK' | 'NO_REPLY' | 'SCHOOL_SLOW' | 'PAYMENT_OWED';
 
@@ -9,6 +11,9 @@ interface Card {
   followUpAssignmentId: string;
   personId: string;
   name: string;
+  /** Their WhatsApp number and the language they read (leaders see these for the people they look after). */
+  whatsapp?: string | null;
+  language?: 'en' | 'fr';
   lastContactAt: string | null;
   contactDaysThisWeek: number;
   contactTarget: number;
@@ -66,6 +71,7 @@ export function MyPeople() {
   const [askTo, setAskTo] = useState<'PARENT' | 'CENTRAL'>('PARENT');
   const [question, setQuestion] = useState('');
   const [urgent, setUrgent] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
 
   useEffect(() => {
     api
@@ -156,6 +162,7 @@ export function MyPeople() {
   if (!data || data.total === 0) return null;
 
   const items = data.items.filter((c) => !onlyAttention || c.flags.length > 0);
+  const queuePeople: QueuePerson[] = items.map((c) => ({ personId: c.followUpAssignmentId, name: c.name, whatsapp: c.whatsapp ?? null, language: c.language ?? 'en' }));
 
   return (
     <section className="card space-y-3" data-testid="my-people">
@@ -184,6 +191,21 @@ export function MyPeople() {
           </>
         )}
       </div>
+      <div>
+        <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setQueueOpen((v) => !v)} aria-expanded={queueOpen} data-testid="my-people-queue">
+          {t('needsMe.queue_button')}
+        </button>
+      </div>
+      {queueOpen && (
+        <WhatsAppQueue
+          key={queuePeople.map((p) => p.personId).join(',')}
+          people={queuePeople}
+          signatureKey="myPeople.queue_signature"
+          onClose={() => setQueueOpen(false)}
+          // Here a person's id is their follow-up's id: the contact is logged on it, like any contact a leader records.
+          recordContact={(p) => api.post(`/api/leader/follow-ups/${p.personId}/contacts`, { wellbeingStatus: 'GOOD', note: 'WhatsApp' })}
+        />
+      )}
       {note && <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{note}</p>}
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -197,6 +219,11 @@ export function MyPeople() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <button type="button" className="text-left" onClick={() => openCard(open ? null : c.followUpAssignmentId)} aria-expanded={open}>
                   <span className="font-medium text-slate-900">{c.name}</span>
+                  {c.language && (
+                    <span className={`ml-2 text-xs font-semibold ${c.language === 'fr' ? 'text-blue-800' : 'text-emerald-800'}`} data-testid={`my-people-language-${c.personId}`}>
+                      {c.language === 'fr' ? t('needsMe.lang_fr') : t('needsMe.lang_en')}
+                    </span>
+                  )}
                   <span className="block text-xs text-slate-500">
                     {since === null ? t('myPeople.never_contacted') : since === 0 ? t('myPeople.contact_today') : t('myPeople.contact_days_ago', { count: since })}
                     {' · '}
@@ -207,6 +234,12 @@ export function MyPeople() {
                   {t('myPeople.message')}
                 </button>
               </div>
+
+              {c.whatsapp && (
+                <div className="mt-2">
+                  <FollowUpButtons personId={c.personId} whatsapp={c.whatsapp} language={c.language ?? 'en'} />
+                </div>
+              )}
 
               {c.flags.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">

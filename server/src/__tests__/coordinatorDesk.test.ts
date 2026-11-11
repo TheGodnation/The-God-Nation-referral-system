@@ -5,6 +5,8 @@ import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
+import { runLeaderAlertCheck } from '../lib/leaderAlertLoop';
+import { todaysTwenty, urgencyOf, TODAY_SIZE } from '../lib/coordinatorDesk';
 
 // "People who need me": the National Coordinator's desk (list + filters, take over, mark contacted, message many)
 // and the WhatsApp number on the people who joined through the coordinator's link.
@@ -70,18 +72,19 @@ async function world() {
   return { adminPerson, adminUser, agent, csrf, community, leader, unconfirmed, neglected, cared, lonely, nAssign };
 }
 const list = async (w: Awaited<ReturnType<typeof world>>, qs = '') => (await w.agent.get(`/api/admin/needs-me${qs}`)).body;
+const day = 24 * 3600 * 1000;
 const names = (body: any) => body.items.map((i: any) => i.name);
 
 describe('People who need me — the list', () => {
   it('puts the people nobody is looking after first, leaves out healthy ones and the central admin, and counts each kind', async () => {
     const w = await world();
-    const body = await list(w, `?communityId=${w.community.id}`);
+    const body = await list(w, `?communityId=${w.community.id}&filter=needs`);
     const got = names(body);
     // (The leader is here too: nobody follows a leader up yet, and following leaders up is the coordinator's job.)
     expect(got).toEqual(expect.arrayContaining([w.unconfirmed.name, w.neglected.name, w.lonely.name, w.leader.name]));
     expect(got).not.toContain(w.cared.name);
     expect(got).not.toContain(w.adminPerson.name);
-    expect(body.counts).toMatchObject({ all: 5, needs: 4, not_confirmed: 1, profile_incomplete: 0, no_leader: 3, leader_silent: 1, mine: 0 });
+    expect(body.counts).toMatchObject({ all: 5, needs: 4, today: 4, not_confirmed: 1, profile_incomplete: 0, no_leader: 3, leader_silent: 1, mine: 0 });
     // The leader shown for each, and the WhatsApp number (the desk is the coordinator's).
     const neglected = body.items.find((i: any) => i.personId === w.neglected.id);
     expect(neglected).toMatchObject({ status: 'ACTIVE', leaderSilent: true, noLeader: false, leader: { personId: w.leader.id }, whatsapp: expect.stringMatching(/^\+237/) });
@@ -150,16 +153,17 @@ describe('People who need me — take over and mark contacted', () => {
     expect(await prisma.followUpAssignment.count({ where: { followerId: w.adminPerson.id, followedPersonId: w.lonely.id, contextId: w.community.id, status: 'ACTIVE' } })).toBe(1);
   });
 
-  it('records a contact only on people taken over, and it then counts as contact', async () => {
+  it('records a contact on anyone, without taking them over, and it then counts as contact', async () => {
     const w = await world();
-    const before = await w.agent.post('/api/admin/needs-me/contacted').set('X-CSRF-Token', w.csrf).send({ personId: w.lonely.id });
-    expect(before.status).toBe(409);
-    await w.agent.post('/api/admin/needs-me/take-over').set('X-CSRF-Token', w.csrf).send({ personId: w.lonely.id });
     const ok = await w.agent.post('/api/admin/needs-me/contacted').set('X-CSRF-Token', w.csrf).send({ personId: w.lonely.id, wellbeing: 'NEEDS_ATTENTION', note: 'Needs prayer' });
     expect(ok.status).toBe(201);
-    expect(await prisma.followUpContact.findFirst({ where: { followUpAssignment: { followedPersonId: w.lonely.id } } })).toMatchObject({ wellbeingStatus: 'NEEDS_ATTENTION', note: 'Needs prayer', loggedByUserId: w.adminUser.id });
-    const mine = (await list(w, `?communityId=${w.community.id}&filter=mine`)).items[0];
-    expect(mine.lastContactAt).not.toBeNull();
+    expect(await prisma.coordinatorContact.findFirst({ where: { personId: w.lonely.id } })).toMatchObject({ wellbeingStatus: 'NEEDS_ATTENTION', note: 'Needs prayer', adminUserId: w.adminUser.id });
+    // Nobody's follow-up changed.
+    expect(await prisma.followUpAssignment.count({ where: { followerId: w.adminPerson.id } })).toBe(0);
+    const row = (await list(w, `?communityId=${w.community.id}&filter=all`)).items.find((i: any) => i.personId === w.lonely.id);
+    expect(row.lastContactAt).not.toBeNull();
+    expect(row.lastWellbeing).toBe('NEEDS_ATTENTION');
+    expect((await w.agent.post('/api/admin/needs-me/contacted').set('X-CSRF-Token', w.csrf).send({ personId: w.adminPerson.id })).status).toBe(404);
   });
 
   it('refuses someone who does not exist or has asked to be deleted', async () => {
@@ -206,6 +210,97 @@ describe('People who need me — message many as National Coordinator', () => {
     expect((await w.agent.post('/api/admin/needs-me/message').set('X-CSRF-Token', w.csrf).send({ personIds: [], body: 'Hi' })).status).toBe(400);
     expect((await w.agent.post('/api/admin/needs-me/message').set('X-CSRF-Token', w.csrf).send({ personIds: [w.lonely.id] })).status).toBe(400);
     expect((await w.agent.post('/api/admin/needs-me/message').set('X-CSRF-Token', w.csrf).send({ personIds: [w.adminPerson.id], body: 'Hi' })).status).toBe(400);
+  });
+});
+
+describe("Today's 20", () => {
+  it('is the people who most need contact: worries first, and someone just reached leaves the list', async () => {
+    const w = await world();
+    // Lonely was last recorded as needing attention: that should put them first.
+    await prisma.coordinatorContact.create({ data: { personId: w.lonely.id, adminUserId: w.adminUser.id, wellbeingStatus: 'EMERGENCY', contactedAt: new Date(Date.now() - 2 * day) } });
+    const body = await list(w, `?communityId=${w.community.id}&filter=today`);
+    expect(body.items[0].personId).toBe(w.lonely.id);
+    expect(names(body)).toEqual(expect.arrayContaining([w.neglected.name, w.unconfirmed.name]));
+    expect(names(body)).not.toContain(w.cared.name);
+    expect(body.counts.today).toBe(body.total);
+    // Reaching out to them takes them off today's list at once and counts towards today.
+    await w.agent.post('/api/admin/needs-me/contacted').set('X-CSRF-Token', w.csrf).send({ personId: w.lonely.id });
+    const after = await list(w, `?communityId=${w.community.id}&filter=today`);
+    expect(names(after)).not.toContain(w.lonely.name);
+    expect(after.contactedToday).toBe(1);
+  });
+
+  it('is never more than 20, and ranks by urgency', () => {
+    const base = { photoStorageKey: null, photoUpdatedAt: null, whatsapp: null, language: 'en' as const, joinedAt: new Date(), lastSeenAt: null, status: 'ACTIVE' as const, daysQuiet: null, leader: null, mine: false, lastContactAt: null, lastWellbeing: null, leaderSilent: false, noLeader: true, notInGroup: false };
+    const people = Array.from({ length: 30 }, (_, i) => ({ ...base, personId: `p${i}`, name: `P${i}` }));
+    expect(todaysTwenty(people)).toHaveLength(TODAY_SIZE);
+    const worried = { ...base, personId: 'w', name: 'W', lastWellbeing: 'EMERGENCY' as const, lastContactAt: new Date(Date.now() - 3 * day) };
+    const calm = { ...base, personId: 'c', name: 'C', noLeader: false, status: 'ACTIVE' as const };
+    expect(urgencyOf(worried)).toBeGreaterThan(urgencyOf(calm));
+    // The coordinator's own overdue people are on the list too, but healthy people are not.
+    const mineOverdue = { ...base, personId: 'm', name: 'M', mine: true, noLeader: false, lastContactAt: new Date(Date.now() - 9 * day) };
+    expect(todaysTwenty([mineOverdue, calm]).map((p) => p.personId)).toEqual(['m']);
+  });
+});
+
+describe('Leaders who are not following up', () => {
+  async function leaderWith(w: Awaited<ReturnType<typeof world>>, name: string, assignedDaysAgo: number) {
+    const leader = await signedUp(name);
+    await prisma.roleAssignment.create({ data: { personId: leader.id, roleType: 'SCOPED_LEADER', communityId: w.community.id, assignedByUserId: w.adminUser.id } });
+    const followed = await signedUp(`${name} Follower`);
+    await prisma.communityMembership.create({ data: { personId: followed.id, communityId: w.community.id } });
+    const a = await prisma.followUpAssignment.create({ data: { followerId: leader.id, followedPersonId: followed.id, contextType: 'COMMUNITY', contextId: w.community.id, assignedByUserId: w.adminUser.id, assignedAt: new Date(Date.now() - assignedDaysAgo * day) } });
+    return { leader, followed, assignment: a };
+  }
+
+  it('lists leaders with people but no contact for a week, never-contacting ones first, and leaves the active ones out', async () => {
+    const w = await world();
+    await prisma.followUpAssignment.deleteMany({}); // start clean: only the leaders made below have people
+    const idle = await leaderWith(w, 'Idle', 12);
+    const slow = await leaderWith(w, 'Slow', 12);
+    await prisma.followUpContact.create({ data: { followUpAssignmentId: slow.assignment.id, wellbeingStatus: 'GOOD', loggedByUserId: w.adminUser.id, contactedAt: new Date(Date.now() - 9 * day) } });
+    const busy = await leaderWith(w, 'Busy', 12);
+    await prisma.followUpContact.create({ data: { followUpAssignmentId: busy.assignment.id, wellbeingStatus: 'GOOD', loggedByUserId: w.adminUser.id, contactedAt: new Date(Date.now() - day) } });
+    const fresh = await leaderWith(w, 'Fresh', 2); // only just given people: no alert yet
+    const res = await w.agent.get('/api/admin/needs-me/leader-alerts');
+    expect(res.status).toBe(200);
+    const got = res.body.items.map((a: any) => [a.personId, a.silentDays, a.peopleCount]);
+    expect(got).toEqual([[idle.leader.id, null, 1], [slow.leader.id, 9, 1]]);
+    expect(res.body.items.map((a: any) => a.personId)).not.toContain(busy.leader.id);
+    expect(res.body.items.map((a: any) => a.personId)).not.toContain(fresh.leader.id);
+  });
+
+  it('takes over all of a leader\'s people in one go', async () => {
+    const w = await world();
+    const idle = await leaderWith(w, 'Idle2', 12);
+    const second = await signedUp('Idle2 Second');
+    await prisma.communityMembership.create({ data: { personId: second.id, communityId: w.community.id } });
+    await prisma.followUpAssignment.create({ data: { followerId: idle.leader.id, followedPersonId: second.id, contextType: 'COMMUNITY', contextId: w.community.id, assignedByUserId: w.adminUser.id } });
+    const res = await w.agent.post('/api/admin/needs-me/take-over-leader').set('X-CSRF-Token', w.csrf).send({ leaderPersonId: idle.leader.id });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ taken: 2 });
+    expect(await prisma.followUpAssignment.count({ where: { followerId: idle.leader.id, status: 'ACTIVE' } })).toBe(0);
+    expect(await prisma.followUpAssignment.count({ where: { followerId: w.adminPerson.id, status: 'ACTIVE' } })).toBe(2);
+  });
+
+  it('tells the central admin once a day, in the daytime, and only when there is something to say', async () => {
+    const w = await world();
+    await prisma.followUpAssignment.deleteMany({});
+    await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton' }, update: { leaderAlertSentAt: null } });
+    const noon = new Date(); noon.setUTCHours(11, 0, 0, 0); // 12:00 in Cameroon
+    const night = new Date(noon); night.setUTCHours(1, 0, 0, 0);
+    // Nothing wrong: nothing is sent (and the day is not used up).
+    expect(await runLeaderAlertCheck(noon)).toBe(0);
+    await leaderWith(w, 'Silent', 12);
+    // At night: not now.
+    expect(await runLeaderAlertCheck(night)).toBe(0);
+    expect(await prisma.notification.count({ where: { recipientPersonId: w.adminPerson.id, type: 'LEADERS_NOT_FOLLOWING_UP' } })).toBe(0);
+    // In the daytime: told, once.
+    expect(await runLeaderAlertCheck(noon)).toBe(1);
+    const note = await prisma.notification.findFirstOrThrow({ where: { recipientPersonId: w.adminPerson.id, type: 'LEADERS_NOT_FOLLOWING_UP' } });
+    expect((note.metadata as any).count).toBe(1);
+    expect(await runLeaderAlertCheck(new Date(noon.getTime() + 3600_000))).toBe(0);
+    expect(await prisma.notification.count({ where: { recipientPersonId: w.adminPerson.id, type: 'LEADERS_NOT_FOLLOWING_UP' } })).toBe(1);
   });
 });
 

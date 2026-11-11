@@ -559,6 +559,15 @@ export const chatSearchLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
+// Tapping "Translate" on a private message (each tap may use the translator once).
+export const privateTranslateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many translations. Please wait a few minutes.' },
+});
+
 export const chatForwardLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 60,

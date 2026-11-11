@@ -28,8 +28,8 @@ export function inviteeStatusOf(
   return last < quietBefore ? 'QUIET' : 'ACTIVE';
 }
 
-export type DeskFilter = 'needs' | 'all' | 'not_confirmed' | 'profile_incomplete' | 'quiet' | 'no_leader' | 'leader_silent' | 'not_in_group' | 'mine';
-export const DESK_FILTERS: DeskFilter[] = ['needs', 'all', 'not_confirmed', 'profile_incomplete', 'quiet', 'no_leader', 'leader_silent', 'not_in_group', 'mine'];
+export type DeskFilter = 'today' | 'needs' | 'all' | 'not_confirmed' | 'profile_incomplete' | 'quiet' | 'no_leader' | 'leader_silent' | 'not_in_group' | 'mine';
+export const DESK_FILTERS: DeskFilter[] = ['today', 'needs', 'all', 'not_confirmed', 'profile_incomplete', 'quiet', 'no_leader', 'leader_silent', 'not_in_group', 'mine'];
 
 export interface DeskQuery {
   filter?: DeskFilter;
@@ -53,6 +53,8 @@ export interface DeskPerson {
   leader: { personId: string; name: string } | null;
   mine: boolean;
   lastContactAt: Date | null;
+  /** How that last contact went (a leader's or the coordinator's record), when one was recorded. */
+  lastWellbeing: Wellbeing | null;
   leaderSilent: boolean;
   noLeader: boolean;
   notInGroup: boolean;
@@ -60,7 +62,8 @@ export interface DeskPerson {
 
 const needsMe = (p: DeskPerson) => p.status !== 'ACTIVE' || p.noLeader || p.leaderSilent || p.notInGroup;
 
-const FILTERS: Record<DeskFilter, (p: DeskPerson) => boolean> = {
+// "Today's 20" is worked out over everyone (see todaysTwenty), so it has no simple test of its own.
+const FILTERS: Record<Exclude<DeskFilter, 'today'>, (p: DeskPerson) => boolean> = {
   all: () => true,
   needs: (p) => !p.mine && needsMe(p),
   not_confirmed: (p) => p.status === 'NOT_CONFIRMED',
@@ -103,7 +106,15 @@ async function loadDesk(adminPersonId: string, query: Pick<DeskQuery, 'q' | 'com
       where: { followedPersonId: { in: ids } },
       select: { id: true, followedPersonId: true, followerId: true, status: true, assignedAt: true, follower: { select: { name: true } } },
     }),
-    prisma.followUpContact.groupBy({ by: ['followUpAssignmentId'], where: { followUpAssignment: { followedPersonId: { in: ids } } }, _max: { contactedAt: true } }),
+    // The newest recorded contact per person, from a leader's notes or the coordinator's own record, and how it went.
+    prisma.$queryRaw<{ pid: string; status: Wellbeing; at: Date }[]>(Prisma.sql`
+      SELECT DISTINCT ON (x.pid) x.pid, x.status, x.at FROM (
+        SELECT a."followedPersonId" AS pid, c."wellbeingStatus"::text AS status, c."contactedAt" AS at
+          FROM "FollowUpContact" c JOIN "FollowUpAssignment" a ON a.id = c."followUpAssignmentId"
+          WHERE a."followedPersonId" = ANY(${ids}::text[])
+        UNION ALL
+        SELECT "personId" AS pid, "wellbeingStatus"::text AS status, "contactedAt" AS at FROM "CoordinatorContact" WHERE "personId" = ANY(${ids}::text[])
+      ) x ORDER BY x.pid, x.at DESC`),
     // The newest private message anyone from the organization side sent them (a leader or the coordinator).
     prisma.$queryRaw<{ pid: string; last: Date }[]>(Prisma.sql`
       SELECT c."memberPersonId" AS pid, MAX(m."createdAt") AS last
@@ -124,12 +135,15 @@ async function loadDesk(adminPersonId: string, query: Pick<DeskQuery, 'q' | 'com
     if (tappedRegs.has(r.id)) tapped.add(r.personId);
   }
 
-  const assignmentPerson = new Map(assignments.map((a) => [a.id, a.followedPersonId]));
   const lastContact = new Map<string, Date>();
+  const wellbeing = new Map<string, Wellbeing>();
   const bump = (pid: string, at: Date | null | undefined) => {
     if (at && (!lastContact.get(pid) || at > lastContact.get(pid)!)) lastContact.set(pid, at);
   };
-  for (const c of contacts) bump(assignmentPerson.get(c.followUpAssignmentId) ?? '', c._max.contactedAt);
+  for (const c of contacts) {
+    bump(c.pid, c.at);
+    wellbeing.set(c.pid, c.status);
+  }
   for (const m of messages) bump(m.pid, m.last);
 
   const byPerson = new Map<string, typeof assignments>();
@@ -157,6 +171,7 @@ async function loadDesk(adminPersonId: string, query: Pick<DeskQuery, 'q' | 'com
       leader: lead ? { personId: lead.followerId, name: lead.follower.name } : null,
       mine,
       lastContactAt: last,
+      lastWellbeing: wellbeing.get(p.id) ?? null,
       noLeader: !lead && !mine,
       leaderSilent: Boolean(lead) && !mine && (last ? last.getTime() < silentBefore : lead!.assignedAt.getTime() < silentBefore),
       // Only people who came through the sign-up page can be known to have (or not have) tapped the group link.
@@ -175,22 +190,71 @@ export interface DeskResult {
   pageSize: number;
   capped: boolean;
   counts: Record<DeskFilter, number>;
+  /** How many different people the coordinator has recorded reaching out to today. */
+  contactedToday: number;
 }
+
+export const TODAY_SIZE = 20;
+/** Someone reached in the last 20 hours is not on today's list again. */
+const RECENT_CONTACT_MS = 20 * 60 * 60 * 1000;
+const WELLBEING_WEIGHT: Record<Wellbeing, number> = { EMERGENCY: 12, NEEDS_ATTENTION: 5, UNABLE_TO_REACH: 3, GOOD: 0 };
+
+/** How much a person needs the coordinator today: the higher, the sooner. */
+export function urgencyOf(p: DeskPerson, now = Date.now()): number {
+  const days = p.lastContactAt ? (now - p.lastContactAt.getTime()) / DAY : null;
+  return (
+    (p.lastWellbeing ? WELLBEING_WEIGHT[p.lastWellbeing] : 0) +
+    (p.noLeader ? 3 : 0) +
+    (p.leaderSilent ? 3 : 0) +
+    (p.status === 'NOT_CONFIRMED' || p.status === 'PROFILE_INCOMPLETE' ? 2 : p.status === 'QUIET' ? 1 + Math.min(p.daysQuiet ?? 0, 30) / 15 : 0) +
+    (p.notInGroup ? 1 : 0) +
+    (days === null ? 3 : Math.min(days / 7, 3))
+  );
+}
+
+/** The short list for today: the people who most need contact and have not just been reached. */
+export function todaysTwenty(people: DeskPerson[], now = Date.now()): DeskPerson[] {
+  return people
+    .filter((p) => {
+      const days = p.lastContactAt ? (now - p.lastContactAt.getTime()) / DAY : null;
+      if (p.lastContactAt && now - p.lastContactAt.getTime() < RECENT_CONTACT_MS) return false;
+      const overdueMine = p.mine && (days === null || days >= LEADER_SILENT_DAYS);
+      const worried = (p.lastWellbeing === 'EMERGENCY' || p.lastWellbeing === 'NEEDS_ATTENTION') && (days === null || days >= 1);
+      return needsMe(p) || overdueMine || worried;
+    })
+    .map((p) => ({ p, score: urgencyOf(p, now) }))
+    .sort((a, b) => b.score - a.score || (a.p.lastContactAt?.getTime() ?? 0) - (b.p.lastContactAt?.getTime() ?? 0))
+    .slice(0, TODAY_SIZE)
+    .map((x) => x.p);
+}
+
+function matching(people: DeskPerson[], filter: DeskFilter): DeskPerson[] {
+  return filter === 'today' ? todaysTwenty(people) : people.filter(FILTERS[filter]);
+}
+
+/** Midnight (Cameroon time, UTC+1) that started today. */
+const startOfToday = (now = Date.now()) => new Date(Math.floor((now + 3600_000) / DAY) * DAY - 3600_000);
 
 export async function peopleNeedingMe(adminPersonId: string, query: DeskQuery = {}): Promise<DeskResult> {
   const { people, capped } = await loadDesk(adminPersonId, query);
-  const counts = Object.fromEntries(DESK_FILTERS.map((f) => [f, people.filter(FILTERS[f]).length])) as Record<DeskFilter, number>;
-  const matching = people.filter(FILTERS[query.filter ?? 'needs']);
+  const counts = Object.fromEntries(DESK_FILTERS.map((f) => [f, matching(people, f).length])) as Record<DeskFilter, number>;
+  const list = matching(people, query.filter ?? 'today');
   const page = Math.max(1, query.page ?? 1);
-  return { items: matching.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), total: matching.length, page, pageSize: PAGE_SIZE, capped, counts };
+  const today = await prisma.coordinatorContact.findMany({ where: { contactedAt: { gte: startOfToday() } }, select: { personId: true }, distinct: ['personId'] });
+  return { items: list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), total: list.length, page, pageSize: PAGE_SIZE, capped, counts, contactedToday: today.length };
 }
 
-/** Everyone matching, for "select all" (at most `limit`). */
-export async function deskPersonIds(adminPersonId: string, query: DeskQuery, limit = 1000): Promise<{ ids: string[]; total: number; languages: Record<string, 'en' | 'fr'> }> {
+/** Everyone matching, for "select all" (at most `limit`), with what is needed to message or WhatsApp them. */
+export async function deskPersonIds(adminPersonId: string, query: DeskQuery, limit = 1000) {
   const { people } = await loadDesk(adminPersonId, query);
-  const matching = people.filter(FILTERS[query.filter ?? 'needs']);
-  const chosen = matching.slice(0, limit);
-  return { ids: chosen.map((p) => p.personId), total: matching.length, languages: Object.fromEntries(chosen.map((p) => [p.personId, p.language])) };
+  const list = matching(people, query.filter ?? 'today');
+  const chosen = list.slice(0, limit);
+  return {
+    ids: chosen.map((p) => p.personId),
+    total: list.length,
+    languages: Object.fromEntries(chosen.map((p) => [p.personId, p.language])) as Record<string, 'en' | 'fr'>,
+    people: chosen.map((p) => ({ personId: p.personId, name: p.name, whatsapp: p.whatsapp, language: p.language })),
+  };
 }
 
 export class DeskError extends Error {
@@ -241,14 +305,78 @@ export async function takeOver(adminPersonId: string, personId: string): Promise
 
 export type Wellbeing = 'GOOD' | 'NEEDS_ATTENTION' | 'EMERGENCY' | 'UNABLE_TO_REACH';
 
-/** Records that the central admin contacted a person they follow up. */
+/**
+ * Records that the central admin reached out to a person: by WhatsApp, a call or a message. Works for anyone, whoever
+ * follows them up; it counts as contact (so they leave today's list) and changes nobody's follow-up.
+ */
 export async function markContacted(adminPersonId: string, personId: string, input: { wellbeing?: Wellbeing; note?: string | null } = {}): Promise<{ id: string }> {
   const admin = await requireDeskOwner(adminPersonId);
-  const mine = await prisma.followUpAssignment.findFirst({ where: { followerId: adminPersonId, followedPersonId: personId, status: 'ACTIVE' }, select: { id: true } });
-  if (!mine) throw new DeskError('Take this person over first, then you can record your contact.', 409);
+  const person = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, erasedAt: true } });
+  if (!person || person.erasedAt || (await isCentralAdminPerson(personId))) throw new DeskError('Person not found.', 404);
   const note = input.note?.trim() ? input.note.trim().slice(0, 2000) : null;
-  const contact = await prisma.followUpContact.create({ data: { followUpAssignmentId: mine.id, wellbeingStatus: input.wellbeing ?? 'GOOD', note, loggedByUserId: admin.id }, select: { id: true } });
-  return contact;
+  return prisma.coordinatorContact.create({ data: { personId, adminUserId: admin.id, wellbeingStatus: input.wellbeing ?? 'GOOD', note }, select: { id: true } });
+}
+
+// ---- Leaders who are not following up ---------------------------------------------------------------------------
+
+export interface LeaderAlert {
+  personId: string;
+  name: string;
+  photoStorageKey: string | null;
+  photoUpdatedAt: Date | null;
+  peopleCount: number;
+  /** Days since the leader last logged a contact or sent a message; null when they never have. */
+  silentDays: number | null;
+}
+
+/** Leaders who look after people but have not contacted anyone for a week or more (never-contacting leaders first). */
+export async function leaderAlerts(now = Date.now()): Promise<LeaderAlert[]> {
+  const roles = await prisma.roleAssignment.findMany({
+    where: { roleType: 'SCOPED_LEADER', status: 'ACTIVE', person: { erasedAt: null, users: { none: { role: 'ADMIN' } } } },
+    select: { personId: true, person: { select: { name: true, photoStorageKey: true, photoUpdatedAt: true } } },
+    distinct: ['personId'],
+  });
+  if (roles.length === 0) return [];
+  const ids = roles.map((r) => r.personId);
+  const [counts, oldest, activity] = await Promise.all([
+    prisma.followUpAssignment.groupBy({ by: ['followerId'], where: { followerId: { in: ids }, status: 'ACTIVE', followedPerson: { erasedAt: null } }, _count: { _all: true } }),
+    prisma.followUpAssignment.groupBy({ by: ['followerId'], where: { followerId: { in: ids }, status: 'ACTIVE' }, _min: { assignedAt: true } }),
+    prisma.$queryRaw<{ pid: string; at: Date }[]>(Prisma.sql`
+      SELECT x.pid, MAX(x.at) AS at FROM (
+        SELECT a."followerId" AS pid, c."contactedAt" AS at FROM "FollowUpContact" c JOIN "FollowUpAssignment" a ON a.id = c."followUpAssignmentId" WHERE a."followerId" = ANY(${ids}::text[])
+        UNION ALL
+        SELECT "senderPersonId" AS pid, "createdAt" AS at FROM "PrivateMessage" WHERE "senderPersonId" = ANY(${ids}::text[]) AND "deletedAt" IS NULL
+      ) x GROUP BY x.pid`),
+  ]);
+  const count = new Map(counts.map((c) => [c.followerId, c._count._all]));
+  const since = new Map(oldest.map((o) => [o.followerId, o._min.assignedAt]));
+  const last = new Map(activity.map((a) => [a.pid, a.at]));
+  const cutoff = now - LEADER_SILENT_DAYS * DAY;
+  const out: LeaderAlert[] = [];
+  for (const r of roles) {
+    const people = count.get(r.personId) ?? 0;
+    if (people === 0) continue;
+    const at = last.get(r.personId) ?? null;
+    const flagged = at ? at.getTime() < cutoff : (since.get(r.personId)?.getTime() ?? now) < cutoff;
+    if (!flagged) continue;
+    out.push({ personId: r.personId, name: r.person.name, photoStorageKey: r.person.photoStorageKey, photoUpdatedAt: r.person.photoUpdatedAt, peopleCount: people, silentDays: at ? Math.floor((now - at.getTime()) / DAY) : null });
+  }
+  return out.sort((a, b) => (a.silentDays === null ? 1 : 0) !== (b.silentDays === null ? 1 : 0) ? (a.silentDays === null ? -1 : 1) : (b.silentDays ?? 0) - (a.silentDays ?? 0));
+}
+
+/** Takes over every person a leader follows up (the coordinator now follows them directly; nothing is deleted). */
+export async function takeOverLeader(adminPersonId: string, leaderPersonId: string): Promise<{ taken: number }> {
+  await requireDeskOwner(adminPersonId);
+  const rows = await prisma.followUpAssignment.findMany({ where: { followerId: leaderPersonId, status: 'ACTIVE' }, select: { followedPersonId: true }, distinct: ['followedPersonId'], take: 500 });
+  let taken = 0;
+  for (const r of rows) {
+    try {
+      if ((await takeOver(adminPersonId, r.followedPersonId)).changed) taken++;
+    } catch {
+      // Someone who cannot be taken over (erased, or the central admin) is simply left out.
+    }
+  }
+  return { taken };
 }
 
 /** Ids of the central admin among these people (never messaged or listed). */

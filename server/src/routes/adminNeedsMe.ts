@@ -12,7 +12,7 @@ import { createUploadUrl, isStorageConfigured } from '../lib/storage';
 import { MAX_ORIGINAL_FILENAME_LENGTH, MAX_PDF_PAGE_COUNT, MAX_THUMB_DATA_URL_LENGTH, THUMB_DATA_URL_PATTERN, isAllowedAttachmentMime, isValidOriginalFilename, maxBytesForMime } from '../lib/attachmentPolicy';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { BroadcastError, generateStagingKey, sendCoordinatorMessage } from '../lib/leaderBroadcast';
-import { DESK_FILTERS, DeskError, deskPersonIds, markContacted, peopleNeedingMe, requireDeskOwner, takeOver, type DeskFilter } from '../lib/coordinatorDesk';
+import { DESK_FILTERS, DeskError, deskPersonIds, leaderAlerts, markContacted, peopleNeedingMe, requireDeskOwner, takeOver, takeOverLeader, type DeskFilter } from '../lib/coordinatorDesk';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 
 // "People who need me": the National Coordinator's own desk. Offered twice, with the same rules: in the admin dashboard
@@ -26,6 +26,7 @@ const querySchema = z.object({
   page: z.coerce.number().int().min(1).max(1000).optional(),
 });
 const personSchema = z.object({ personId: z.string().min(1) });
+const leaderSchema = z.object({ leaderPersonId: z.string().min(1) });
 const contactedSchema = z.object({
   personId: z.string().min(1),
   wellbeing: z.enum(['GOOD', 'NEEDS_ATTENTION', 'EMERGENCY', 'UNABLE_TO_REACH']).optional(),
@@ -76,6 +77,21 @@ function buildRouter(resolvePersonId: (req: Request) => Promise<string | null>) 
     const parsed = querySchema.safeParse(req.query);
     if (!parsed.success) return res.status(400).json({ error: 'Invalid filter.' });
     res.json(await deskPersonIds(await who(req), parsed.data));
+  }));
+
+  // Leaders who have people to look after but have not contacted anyone for a week or more.
+  router.get('/leader-alerts', asyncHandler(async (req, res) => {
+    await who(req);
+    const items = await leaderAlerts();
+    res.json({ items: items.map(({ photoStorageKey, photoUpdatedAt, ...a }) => ({ ...a, photoUrl: profilePhotoPath({ id: a.personId, photoStorageKey, photoUpdatedAt }) })) });
+  }));
+
+  // Takes over every person one leader follows up.
+  router.post('/take-over-leader', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = leaderSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'leaderPersonId is required.' });
+    const result = await takeOverLeader(await who(req), parsed.data.leaderPersonId);
+    res.json(result);
   }));
 
   router.post('/take-over', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
