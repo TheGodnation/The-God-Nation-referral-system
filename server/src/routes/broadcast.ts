@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from '../lib/auth';
 import { requireMember } from '../lib/memberAuth';
 import { requireCsrf } from '../lib/csrf';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
-import { attachmentUploadAuthorizeLimiter, leadershipMutationLimiter } from '../lib/rateLimit';
+import { attachmentUploadAuthorizeLimiter, leadershipMutationLimiter, privateTranslateLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { prisma } from '../lib/prisma';
@@ -13,6 +13,7 @@ import { createUploadUrl, isStorageConfigured } from '../lib/storage';
 import { MAX_ORIGINAL_FILENAME_LENGTH, MAX_PDF_PAGE_COUNT, MAX_THUMB_DATA_URL_LENGTH, THUMB_DATA_URL_PATTERN, isAllowedAttachmentMime, isValidOriginalFilename, maxBytesForMime } from '../lib/attachmentPolicy';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { BroadcastError, broadcastLog, generateStagingKey, leaderIdsOfGeneration, peopleOf, requireLeaderPerson, sendBroadcast } from '../lib/leaderBroadcast';
+import { previewTranslation } from '../lib/broadcastTranslation';
 
 // "Message all my people" — a leader's door (/api/member/broadcast) and the log for the central admin and for
 // representatives (limited to the leaders of their own generation).
@@ -29,6 +30,7 @@ const sendSchema = z.object({
   personIds: z.array(z.string().min(1)).max(1000).optional(),
   body: z.string().max(MAX_MESSAGE_CHARS).optional(),
   attachments: z.array(attachmentSchema).max(10).optional(),
+  translation: z.object({ language: z.enum(['en', 'fr']), body: z.string().max(MAX_MESSAGE_CHARS) }).optional(),
 });
 const authorizeSchema = z.object({
   originalFilename: z.string().trim().min(1).max(MAX_ORIGINAL_FILENAME_LENGTH),
@@ -69,6 +71,13 @@ export const memberBroadcastRoutes = (() => {
     const storageKey = generateStagingKey(req.member!.personId);
     const { url, expiresAt } = await createUploadUrl({ storageKey, mimeType });
     res.json({ storageKey, uploadUrl: url, expiresAt, maxBytes });
+  }));
+
+  // The preview step: the message translated once, to read and correct before sending to people of both languages.
+  router.post('/translate-preview', privateTranslateLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    await requireLeaderPerson(req.member!.personId);
+    const text = typeof req.body?.text === 'string' ? req.body.text : '';
+    res.json(await previewTranslation(text));
   }));
 
   router.post('/', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {

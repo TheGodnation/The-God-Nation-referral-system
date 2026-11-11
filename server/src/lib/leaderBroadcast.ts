@@ -36,11 +36,11 @@ export async function requireLeaderPerson(personId: string) {
 export async function peopleOf(leaderPersonId: string) {
   const rows = await prisma.followUpAssignment.findMany({
     where: { followerId: leaderPersonId, status: 'ACTIVE', followedPerson: { erasedAt: null } },
-    select: { followedPerson: { select: { id: true, name: true } } },
+    select: { followedPerson: { select: { id: true, name: true, preferredLanguage: true } } },
     distinct: ['followedPersonId'],
     orderBy: { followedPerson: { name: 'asc' } },
   });
-  return rows.map((r) => r.followedPerson);
+  return rows.map((r) => ({ id: r.followedPerson.id, name: r.followedPerson.name, language: r.followedPerson.preferredLanguage === 'fr' ? ('fr' as const) : ('en' as const) }));
 }
 
 export interface AttachmentInput {
@@ -56,6 +56,8 @@ export interface BroadcastInput {
   personIds?: string[];
   body?: string;
   attachments?: AttachmentInput[];
+  /** The same message in the other language, checked by the sender: `language` is the one `body` is written in. */
+  translation?: { language: 'en' | 'fr'; body: string };
 }
 
 function cleanText(input: BroadcastInput): { text: string; attachments: AttachmentInput[] } {
@@ -87,7 +89,19 @@ async function checkAttachments(senderPersonId: string, attachments: AttachmentI
 }
 
 /** Sends the message to each person as an ordinary private message from the sender, and keeps the record. */
-async function deliver(senderPersonId: string, chosenIds: string[], text: string, attachments: AttachmentInput[], via?: string) {
+type Translation = { language: 'en' | 'fr'; body: string } | null;
+
+/** The translation, when there is a usable one (text, within the length limit). */
+function cleanTranslation(input: BroadcastInput): Translation {
+  const t = input.translation;
+  if (!t) return null;
+  const body = t.body.trim();
+  if (!body) return null;
+  if (body.length > MAX_MESSAGE_CHARS) throw new BroadcastError('The translation is too long.');
+  return { language: t.language, body };
+}
+
+async function deliver(senderPersonId: string, chosenIds: string[], text: string, attachments: AttachmentInput[], via?: string, translation: Translation = null) {
   const languages = await prisma.person.findMany({ where: { id: { in: chosenIds } }, select: { id: true, preferredLanguage: true } });
   const langOf = new Map(languages.map((l) => [l.id, l.preferredLanguage]));
 
@@ -97,7 +111,10 @@ async function deliver(senderPersonId: string, chosenIds: string[], text: string
     try {
       const conversation = await getOrCreatePrivateConversation(personId, { type: 'PERSON', personId: senderPersonId });
       // The same greeting for everyone, with no name in it, in the person's own language.
-      const greeting = String(langOf.get(personId)).startsWith('fr') ? BROADCAST_GREETING_FR : BROADCAST_GREETING_EN;
+      const french = String(langOf.get(personId)).startsWith('fr');
+      const greeting = french ? BROADCAST_GREETING_FR : BROADCAST_GREETING_EN;
+      // Each person gets the version in their own language when the sender has provided both.
+      const theirText = text && translation && (french ? 'fr' : 'en') !== translation.language ? translation.body : text;
       const copies: { storageKey: string; a: AttachmentInput }[] = [];
       for (const a of attachments) {
         const destKey = generatePrivateAttachmentStorageKey(conversation.id);
@@ -108,7 +125,7 @@ async function deliver(senderPersonId: string, chosenIds: string[], text: string
         data: {
           conversationId: conversation.id,
           senderPersonId,
-          body: text ? `${greeting}\n\n${text}` : greeting,
+          body: theirText ? `${greeting}\n\n${theirText}` : greeting,
           attachments: copies.length
             ? { create: copies.map(({ storageKey, a }) => ({ storageKey, originalFilename: a.originalFilename, mimeType: a.mimeType, byteSize: a.byteSize, thumbDataUrl: a.thumb ?? null, pageCount: a.pageCount ?? null })) }
             : undefined,
@@ -123,7 +140,9 @@ async function deliver(senderPersonId: string, chosenIds: string[], text: string
   }
   for (const a of attachments) await deleteObject({ storageKey: a.storageKey }).catch(() => {});
 
-  const record = await prisma.leaderBroadcast.create({ data: { senderPersonId, body: text, recipientCount: sent, skippedCount: skipped, attachmentCount: attachments.length } });
+  const record = await prisma.leaderBroadcast.create({
+    data: { senderPersonId, body: text, recipientCount: sent, skippedCount: skipped, attachmentCount: attachments.length, ...(translation ? { translatedBody: translation.body, bodyLanguage: translation.language } : {}) },
+  });
   return { id: record.id, recipients: sent, skipped };
 }
 
@@ -141,7 +160,7 @@ export async function sendBroadcast(leaderPersonId: string, input: BroadcastInpu
   if (chosen.length === 0) throw new BroadcastError('There is nobody to send this to.');
   if (chosen.length > MAX_PEOPLE) throw new BroadcastError(`Too many people at once (${MAX_PEOPLE} at most).`);
   await checkAttachments(leaderPersonId, attachments);
-  return deliver(leaderPersonId, chosen.map((p) => p.id), text, attachments);
+  return deliver(leaderPersonId, chosen.map((p) => p.id), text, attachments, undefined, cleanTranslation(input));
 }
 
 /**
@@ -158,7 +177,7 @@ export async function sendCoordinatorMessage(adminPersonId: string, input: Broad
   const chosen = real.map((p) => p.id);
   if (chosen.length === 0) throw new BroadcastError('There is nobody to send this to.');
   await checkAttachments(adminPersonId, attachments);
-  return deliver(adminPersonId, chosen, text, attachments, 'coordinator');
+  return deliver(adminPersonId, chosen, text, attachments, 'coordinator', cleanTranslation(input));
 }
 
 /** The record of group messages: a leader's own, a generation's leaders', or everyone's (central admin). */

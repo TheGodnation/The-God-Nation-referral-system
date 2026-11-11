@@ -4139,6 +4139,9 @@ model LeaderBroadcast {
   recipientCount  Int
   skippedCount    Int      @default(0)
   attachmentCount Int      @default(0)
+  // When the sender had the message translated: the other-language text actually sent, and the language `body` is in.
+  translatedBody  String?
+  bodyLanguage    Language?
   createdAt       DateTime @default(now())
 
   sender Person @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)

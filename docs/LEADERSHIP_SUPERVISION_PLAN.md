@@ -276,3 +276,10 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **"I contacted"** now works for anyone, without taking them over. It is the coordinator's own record (CoordinatorContact: wellbeing and a note) and counts as contact; nobody's follow-up changes.
 - **WhatsApp queue**: select people, write the message once in English and once in French, then go through them one by one: WhatsApp opens with the words ready in each person's language, signed "— National Coordinator, The God Nation"; press send there, come back, "Done, next" (records the contact, optionally). The app sends nothing itself, so it cannot get the number banned.
 - **Leader alerts**: a card at the top of the desk lists leaders who have people but have not logged a contact or sent a message for 7 days (or ever), with "Message the leader" and "Take over their people". Once a day in the daytime (Cameroon), if any, the central admin gets a notification and phone alert; nothing is sent when all is well.
+
+## Writing to many people in two languages (translate once, with a preview)
+
+- When the people chosen read both languages, "Send" (coordinator desk and leaders' "Message all my people") first translates the message once, shows it in both languages with how many people get each, lets the sender correct either, and sends only on confirmation. Each person then receives the version in their own language (greeting included); the group-message record keeps both versions. If the translator is down the sender is told and can send as written to everyone or cancel. A switch turns translation on or off.
+- In the WhatsApp queue, one box filled and the other empty offers "Translate my message into the other language".
+- Leaders' "My people" cards now carry each person's language and WhatsApp number (WhatsApp buttons and queue), and the broadcast people list carries the language.
+- Phone alerts that name the National Coordinator (private message from the coordinator, post in the leaders' rooms, leaders-not-following-up alert) are written in each reader's own language.

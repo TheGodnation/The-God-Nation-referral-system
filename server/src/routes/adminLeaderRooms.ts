@@ -8,7 +8,7 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
-import { pushToPersons } from '../lib/push';
+import { pushToPersonsLocalized } from '../lib/pushLocalized';
 import { listLeaders, generationsOf } from '../lib/leaderInstructions';
 import {
   ALL_LEADERS_ROOM,
@@ -76,11 +76,12 @@ function buildRoomsRouter(resolvePersonId: (req: Request) => Promise<string | nu
     const leaders = await listLeaders();
     const recipients = leaders.filter((l) => l.personId !== personId && (g.data.generation === ALL_LEADERS_ROOM || l.generations.includes(g.data.generation))).map((l) => l.personId);
     if (recipients.length > 0) {
-      pushToPersons(recipients, {
-        title: '💬 National Coordinator',
-        body: body.data.body.length > 100 ? `${body.data.body.slice(0, 100)}…` : body.data.body,
+      const preview = body.data.body.length > 100 ? `${body.data.body.slice(0, 100)}…` : body.data.body;
+      void pushToPersonsLocalized(recipients, (french) => ({
+        title: french ? '💬 Coordinateur national' : '💬 National Coordinator',
+        body: preview,
         url: '/member/leadership-dashboard?section=together',
-      }).catch(() => {});
+      }));
     }
     res.status(201).json({ id: created.id, createdAt: created.createdAt, notified: recipients.length });
   }));
