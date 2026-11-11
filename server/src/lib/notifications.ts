@@ -322,6 +322,8 @@ export async function notifyPrivateMessageReceived(
       // conversation id today — a Leader/Admin recipient opens their own
       // private-messages surface instead, so no deep link is included.
       url: recipientPersonId === conversation.memberPersonId ? `/member/chats/private/${conversation.id}` : undefined,
+      tag: `private-${conversation.id}`,
+      urgent: true,
     },
   });
 }

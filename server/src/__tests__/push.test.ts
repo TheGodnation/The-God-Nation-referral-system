@@ -111,4 +111,42 @@ describe('lib/push — Web Push (background/closed-app delivery)', () => {
     await push.pushToPersons([], { title: 'T', body: 'B' });
     expect(sendSpy).not.toHaveBeenCalled();
   });
+
+  it('sends at high urgency (so phones in battery-saving still get it at once), with a keep time and a time limit', async () => {
+    const push = await freshPushModule({ VAPID_PUBLIC_KEY: VAPID_KEYS.publicKey, VAPID_PRIVATE_KEY: VAPID_KEYS.privateKey });
+    const webpush = await import('web-push');
+    const sendSpy = vi.spyOn(webpush.default, 'sendNotification').mockResolvedValue({} as any);
+    const a = await prisma.person.create({ data: { name: 'Urgent A', whatsappNumber: '+237699200021' } });
+    await prisma.pushSubscription.create({ data: { personId: a.id, endpoint: 'https://push.example/ep-urgent', p256dh: 'p', auth: 'a' } });
+    await push.pushToPerson(a.id, { title: 'T', body: 'B', urgent: true, tag: 'x' });
+    const opts = sendSpy.mock.calls[0][2] as any;
+    expect(opts).toMatchObject({ urgency: 'high', TTL: 3 * 24 * 60 * 60, timeout: 15000 });
+    expect(JSON.parse(sendSpy.mock.calls[0][1] as string)).toMatchObject({ urgent: true, tag: 'x' });
+  });
+
+  it('a large group is sent in controlled batches, every device is reached, and failures are logged by status', async () => {
+    const push = await freshPushModule({ VAPID_PUBLIC_KEY: VAPID_KEYS.publicKey, VAPID_PRIVATE_KEY: VAPID_KEYS.privateKey });
+    const webpush = await import('web-push');
+    let running = 0;
+    let peak = 0;
+    const sendSpy = vi.spyOn(webpush.default, 'sendNotification').mockImplementation((async (sub: any) => {
+      running++;
+      peak = Math.max(peak, running);
+      await new Promise((r) => setTimeout(r, 5));
+      running--;
+      if (String(sub.endpoint).endsWith('-7')) throw Object.assign(new Error('rate'), { statusCode: 429 });
+      return {} as any;
+    }) as any);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ids: string[] = [];
+    for (let k = 0; k < 60; k++) {
+      const p = await prisma.person.create({ data: { name: `Batch ${k}`, whatsappNumber: `+2376992${String(5000 + k)}` } });
+      ids.push(p.id);
+      await prisma.pushSubscription.create({ data: { personId: p.id, endpoint: `https://push.example/ep-batch-${k}`, p256dh: 'p', auth: 'a' } });
+    }
+    await push.pushToPersons(ids, { title: 'Big', body: 'Group' });
+    expect(sendSpy).toHaveBeenCalledTimes(60);
+    expect(peak).toBeLessThanOrEqual(25);
+    expect(warn).toHaveBeenCalledWith('[push] delivery problem', expect.objectContaining({ devices: 60, sent: 59, failed: 1, failedByStatus: { '429': 1 } }));
+  });
 });

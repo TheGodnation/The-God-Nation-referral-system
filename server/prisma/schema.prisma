@@ -612,6 +612,8 @@ model Settings {
   // was introduced, so current members keep their full history.
   newMemberHistoryFrom          DateTime          @default(now())
   supportWhatsappUrl            String?
+  // When the start-up check for untranslated instructions last ran (it runs at most once a day).
+  instructionTranslationSweptAt DateTime?
   // The ministry's WhatsApp community groups, one for each language (shown on the About page).
   whatsappGroupEnUrl            String?
   whatsappGroupFrUrl            String?

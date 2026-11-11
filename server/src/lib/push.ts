@@ -1,3 +1,4 @@
+import https from 'node:https';
 import webpush from 'web-push';
 import { prisma } from './prisma';
 
@@ -40,13 +41,27 @@ export interface PushPayload {
   body: string;
   /** App-relative path the client opens on notificationclick, e.g. "/member/chats". */
   url?: string;
+  /** Same tag = a newer alert replaces (and re-alerts over) the older one from the same conversation. */
+  tag?: string;
+  /** Stays on screen until tapped (instructions, private messages). */
+  urgent?: boolean;
 }
 
 type SubscriptionRow = { id: string; endpoint: string; p256dh: string; auth: string };
 
-async function sendToSubscription(sub: SubscriptionRow, payload: PushPayload): Promise<void> {
+// How a push is sent. HIGH urgency is what makes Android deliver at once, even when the phone is dozing or saving
+// battery (normal-urgency messages can be held back for minutes or hours). It is kept for 3 days if the phone is off.
+// One shared connection pool avoids a fresh secure handshake for every single phone, and no send may hang for long.
+const SEND_OPTIONS = { urgency: 'high' as const, TTL: 3 * 24 * 60 * 60, timeout: 15000, agent: new https.Agent({ keepAlive: true, maxSockets: 40 }) };
+// This server is small: sending to thousands at the same instant only makes everyone slower, so it goes in controlled batches.
+const SEND_AT_ONCE = 25;
+
+type SendResult = 'sent' | 'gone' | 'failed';
+
+async function sendToSubscription(sub: SubscriptionRow, payload: PushPayload): Promise<{ result: SendResult; status?: number }> {
   try {
-    await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload));
+    await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload), SEND_OPTIONS);
+    return { result: 'sent' };
   } catch (err: any) {
     // 404/410: the push service has permanently invalidated this
     // subscription (browser uninstalled, permission revoked, endpoint
@@ -54,16 +69,35 @@ async function sendToSubscription(sub: SubscriptionRow, payload: PushPayload): P
     // quota, a momentary service outage) and left alone for the next try.
     if (err?.statusCode === 404 || err?.statusCode === 410) {
       await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+      return { result: 'gone', status: err.statusCode };
     }
+    return { result: 'failed', status: err?.statusCode };
   }
 }
 
 async function pushToWhere(where: { personId?: string; personId_in?: string[]; userId?: string }, payload: PushPayload): Promise<void> {
   if (!configured) return;
+  const started = Date.now();
   const subs = await prisma.pushSubscription.findMany({
     where: where.personId_in ? { personId: { in: where.personId_in } } : where.personId ? { personId: where.personId } : { userId: where.userId },
   });
-  await Promise.all(subs.map((s) => sendToSubscription(s, payload)));
+  const failures = new Map<string, number>();
+  let sent = 0;
+  let gone = 0;
+  for (let i = 0; i < subs.length; i += SEND_AT_ONCE) {
+    const results = await Promise.all(subs.slice(i, i + SEND_AT_ONCE).map((s) => sendToSubscription(s, payload)));
+    for (const r of results) {
+      if (r.result === 'sent') sent++;
+      else if (r.result === 'gone') gone++;
+      else failures.set(String(r.status ?? 'network'), (failures.get(String(r.status ?? 'network')) ?? 0) + 1);
+    }
+  }
+  const failed = [...failures.values()].reduce((a, b) => a + b, 0);
+  const ms = Date.now() - started;
+  // Silent when all is well and quick; says so when pushes fail or a send is slow, so problems can be seen in the logs.
+  if (failed > 0 || ms > 5000) {
+    console.warn('[push] delivery problem', { devices: subs.length, sent, expired: gone, failed, failedByStatus: Object.fromEntries(failures), ms });
+  }
 }
 
 /** Best-effort push to every device a Person has subscribed from. */

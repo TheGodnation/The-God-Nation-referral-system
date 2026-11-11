@@ -623,6 +623,14 @@ export async function translateInstructionBeforeSending(id: string, waitMs = 200
  */
 export async function queueUntranslatedInstructions(limit = 50): Promise<number> {
   if (!isTranslationConfigured()) return 0;
+  // At most once a day, however many times the app restarts. The day is claimed first, so two servers starting together do not both run it.
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton' }, update: {} }).catch(() => {});
+  const claimed = await prisma.settings.updateMany({
+    where: { id: 'singleton', OR: [{ instructionTranslationSweptAt: null }, { instructionTranslationSweptAt: { lt: dayAgo } }] },
+    data: { instructionTranslationSweptAt: new Date() },
+  });
+  if (claimed.count !== 1) return 0;
   const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
   const rows = await prisma.leaderInstruction.findMany({
     where: { createdAt: { gte: since }, OR: [{ titleTr: null }, { bodyTr: null }] },

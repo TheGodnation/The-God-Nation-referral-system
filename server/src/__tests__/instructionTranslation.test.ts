@@ -103,6 +103,7 @@ describe('Instruction translation', () => {
     const missing = await makeInstruction();
     const done = await prisma.leaderInstruction.create({ data: { title: 'A', body: 'B', titleTr: 'a', bodyTr: 'b', language: 'en', audience: 'ALL_LEADERS' } });
     const old = await prisma.leaderInstruction.create({ data: { title: 'Old', body: 'Old', audience: 'ALL_LEADERS', createdAt: new Date(Date.now() - 90 * 24 * 3600 * 1000) } });
+    await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton' }, update: { instructionTranslationSweptAt: null } });
     await translation.queueUntranslatedInstructions();
     const queued = (await prisma.translationRetry.findMany({ where: { kind: 'INSTRUCTION' } })).map((r) => r.targetId);
     expect(queued).toContain(missing.id);
@@ -119,5 +120,18 @@ describe('Instruction translation', () => {
     expect(titleIn(fr, true)).toBe('Appel hebdomadaire');
     expect(titleIn({ title: 'Weekly call', titleTr: null, language: null }, true)).toBe('Weekly call');
     expect(instructionNotice('new', titleIn(en, true), null, 'x', true)).toContain('Nouvelle instruction : Appel hebdomadaire');
+  });
+
+  it('the start-up check runs at most once a day, however often the app restarts', async () => {
+    const { translation } = await fresh({ GEMINI_API_KEY: 'test-key' });
+    await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton' }, update: { instructionTranslationSweptAt: null } });
+    const missing = await makeInstruction();
+    expect(await translation.queueUntranslatedInstructions()).toBeGreaterThanOrEqual(1);
+    await prisma.translationRetry.deleteMany({ where: { targetId: missing.id } });
+    expect(await translation.queueUntranslatedInstructions()).toBe(0);
+    expect(await prisma.translationRetry.count({ where: { targetId: missing.id } })).toBe(0);
+    await prisma.settings.update({ where: { id: 'singleton' }, data: { instructionTranslationSweptAt: new Date(Date.now() - 25 * 3600 * 1000) } });
+    expect(await translation.queueUntranslatedInstructions()).toBeGreaterThanOrEqual(1);
+    expect(await prisma.translationRetry.count({ where: { targetId: missing.id } })).toBe(1);
   });
 });

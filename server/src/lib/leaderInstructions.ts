@@ -85,8 +85,8 @@ async function pushInstruction(personIds: string[], i: { title: string; titleTr:
     const langs = await languagesOf(personIds);
     const fr = personIds.filter((p) => isFrench(langs.get(p)));
     const en = personIds.filter((p) => !isFrench(langs.get(p)));
-    if (en.length) await pushToPersons(en, { title: heading.en, body: titleIn(i, false), url: '/member/me?section=instructions' });
-    if (fr.length) await pushToPersons(fr, { title: heading.fr, body: titleIn(i, true), url: '/member/me?section=instructions' });
+    if (en.length) await pushToPersons(en, { title: heading.en, body: titleIn(i, false), url: '/member/me?section=instructions', urgent: true });
+    if (fr.length) await pushToPersons(fr, { title: heading.fr, body: titleIn(i, true), url: '/member/me?section=instructions', urgent: true });
   } catch {
     // best effort
   }
