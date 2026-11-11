@@ -24,4 +24,13 @@ router.post('/onboarding/dismiss', socialMutationLimiter, requireCsrf, asyncHand
   res.json({ ok: true });
 }));
 
+// The app was seen running as an installed app (opened from the home screen, or the browser says it was just
+// installed). Recorded once; later calls change nothing.
+router.post('/onboarding/installed', socialMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const personId = req.member!.personId;
+  await prisma.memberOnboarding.upsert({ where: { personId }, create: { personId }, update: {} });
+  await prisma.memberOnboarding.updateMany({ where: { personId, installedAt: null }, data: { installedAt: new Date() } });
+  res.json({ ok: true });
+}));
+
 export default router;

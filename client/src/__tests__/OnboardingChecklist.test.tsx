@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { GetStartedCard, OnboardingPage } from '../components/member/OnboardingChecklist';
+import { resetPublicSettingsCacheForTests } from '../lib/usePublicSettings';
 import i18n from '../i18n';
 
 // The welcome checklist and the "Get started" card: they always appear, show real progress, never block, and the
@@ -118,3 +119,70 @@ describe('Welcome steps page', () => {
     await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('2 of 4 done'));
   });
 });
+
+describe('YouTube is left out of the welcome step', () => {
+  it('shows the other places but not YouTube, and treats YouTube alone as "no places"', async () => {
+    mockFetch({ '/api/settings/public': { body: { content: {}, telegramGroupUrl: 'https://t.me/g', youtubeUrl: 'https://youtube.com/@gn', facebookUrl: 'https://facebook.com/gn' } } });
+    const a = render(<MemoryRouter><OnboardingPage /></MemoryRouter>);
+    expect(await screen.findByTestId('place-telegram_group')).toBeInTheDocument();
+    expect(screen.getByTestId('place-facebook')).toBeInTheDocument();
+    expect(screen.queryByTestId('place-youtube')).toBeNull();
+    a.unmount();
+    vi.unstubAllGlobals();
+    resetPublicSettingsCacheForTests();
+    mockFetch({ '/api/settings/public': { body: { content: {}, youtubeUrl: 'https://youtube.com/@gn' } } });
+    render(<MemoryRouter><OnboardingPage /></MemoryRouter>);
+    expect(await screen.findByTestId('no-places')).toBeInTheDocument();
+    expect(screen.queryByTestId('place-youtube')).toBeNull();
+  });
+});
+
+describe('Install step roadmap', () => {
+  const setUa = (ua: string) => Object.defineProperty(window.navigator, 'userAgent', { value: ua, configurable: true });
+  const ORIGINAL = window.navigator.userAgent;
+  afterEach(() => setUa(ORIGINAL));
+  const page = () => render(<MemoryRouter><OnboardingPage /></MemoryRouter>);
+
+  it('gives numbered steps for an Android phone', async () => {
+    setUa('Mozilla/5.0 (Linux; Android 13; SM-A135F) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36');
+    mockFetch({ '/api/settings/public': { body: { content: {} } } });
+    page();
+    const steps = await screen.findByTestId('install-steps-android');
+    expect(steps.querySelectorAll('li')).toHaveLength(4);
+    expect(steps.textContent).toMatch(/three dots/);
+    expect(screen.queryByTestId('install-inapp')).toBeNull();
+  });
+
+  it('gives Safari steps for an iPhone', async () => {
+    setUa('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1');
+    mockFetch({ '/api/settings/public': { body: { content: {} } } });
+    page();
+    const steps = await screen.findByTestId('install-steps-ios');
+    expect(steps.querySelectorAll('li')).toHaveLength(5);
+    expect(steps.textContent).toMatch(/Add to Home Screen/);
+  });
+
+  it('warns when opened inside another app, and speaks French', async () => {
+    await i18n.changeLanguage('fr');
+    setUa('Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/430.0]');
+    mockFetch({ '/api/settings/public': { body: { content: {} } } });
+    page();
+    expect(await screen.findByTestId('install-inapp')).toHaveTextContent('Ouvrir dans Chrome');
+    expect(screen.getByTestId('install-steps-android').textContent).toMatch(/trois points/);
+  });
+
+  it('tells the server once when the app is seen installed, and ticks the step from the server on any device', async () => {
+    Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
+    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: STATUS }, 'POST /api/member/onboarding/installed': { body: { ok: true } } });
+    page();
+    await waitFor(() => expect(calls.filter((c) => c.method === 'POST' && c.url.includes('/onboarding/installed'))).toHaveLength(1));
+    Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: undefined });
+    vi.unstubAllGlobals();
+    calls.length = 0;
+    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: { ...STATUS, installed: true } } });
+    page();
+    await waitFor(() => expect(screen.getAllByTestId('onboarding-progress').pop()).toHaveTextContent('1 of 4 done'));
+    expect(calls.some((c) => c.method === 'POST' && c.url.includes('/onboarding/installed'))).toBe(false);
+  });
+});
+

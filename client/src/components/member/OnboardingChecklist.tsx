@@ -8,6 +8,7 @@ import { usePublicSettings } from '../../lib/usePublicSettings';
 import { communityPlaces, followPlaces } from '../socialPlatforms';
 import { CommunityChoices } from '../CommunityChoices';
 import { EnableNotificationsBanner } from './EnableNotificationsBanner';
+import { GuideLink } from './GuideLink';
 
 export interface OnboardingStatus {
   profileDone: boolean;
@@ -15,8 +16,12 @@ export interface OnboardingStatus {
   communityTapped: boolean;
   firstTeachingOpened: boolean;
   dismissed: boolean;
+  installed: boolean;
   firstSignInAt: string | null;
 }
+
+// Places left out of the welcome step (YouTube is a channel to watch, not a place to join).
+const HIDDEN_PLACES = ['youtube'];
 
 type StepKey = 'notifications' | 'install' | 'community' | 'teaching';
 
@@ -35,9 +40,19 @@ function useOnboarding() {
     void checkPushOnThisDevice().then((s) => setDeviceHasPush(s === 'subscribed')).catch(() => {});
   }, [reload]);
 
+  // Seen running as an installed app (or just installed): tell the server once, so the step stays ticked on every device.
+  const installSeen = install.installed;
+  const alreadyRecorded = !!status?.installed;
+  const statusLoaded = !!status;
+  useEffect(() => {
+    if (installSeen && statusLoaded && !alreadyRecorded) {
+      void api.post('/api/member/onboarding/installed', {}).then(reload).catch(() => {});
+    }
+  }, [installSeen, statusLoaded, alreadyRecorded, reload]);
+
   const done: Record<StepKey, boolean> = {
     notifications: deviceHasPush || !!status?.notificationsOn,
-    install: install.installed,
+    install: install.installed || !!status?.installed,
     community: tapped || !!status?.communityTapped,
     teaching: !!status?.firstTeachingOpened,
   };
@@ -63,14 +78,61 @@ function Tick({ on }: { on: boolean }) {
  * The welcome page right after the details form: a few small steps, none of them compulsory. It always appears,
  * whether or not community links are set up. Each step shows done or not yet, and the member goes on whenever they like.
  */
+/** The install step as a short roadmap for this phone: one tap where the browser allows it, numbered steps where not. */
+function InstallRoadmap({ install }: { install: ReturnType<typeof useInstallPrompt> }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const device = install.ios ? 'ios' : install.android ? 'android' : 'desktop';
+  const steps = [1, 2, 3, 4, 5].map((n) => ({ n, key: `onboarding.install_${device}_${n}` })).filter((s) => i18nHas(t, s.key));
+  return (
+    <div data-testid="install-roadmap">
+      {install.inAppBrowser && (
+        <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="install-inapp">{t('onboarding.install_inapp')}</p>
+      )}
+      {install.canPrompt && (
+        <div className="mb-2">
+          <p className="text-xs text-slate-600">{t('installApp.body')}</p>
+          <button
+            type="button"
+            disabled={busy}
+            className="btn-primary mt-1.5 px-3 py-1.5 text-sm disabled:opacity-60"
+            onClick={() => {
+              setBusy(true);
+              void install.install().finally(() => setBusy(false));
+            }}
+            data-testid="install-now"
+          >
+            {t('installApp.button')}
+          </button>
+          <p className="mt-2 text-xs text-slate-500">{t('onboarding.install_or_manual')}</p>
+        </div>
+      )}
+      <ol className="space-y-1.5 text-xs text-slate-700" data-testid={`install-steps-${device}`}>
+        {steps.map((s, i) => (
+          <li key={s.n} className="flex gap-2">
+            <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-800">{i + 1}</span>
+            <span>{t(s.key)}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-2 text-xs text-slate-500">{t('onboarding.install_recorded')}</p>
+      <GuideLink href="/notifications-guide/" className="mt-1 inline-block text-xs font-semibold text-brand-700 underline">
+        {t('onboarding.install_pictures')}
+      </GuideLink>
+    </div>
+  );
+}
+
+const i18nHas = (t: (k: string) => string, key: string) => t(key) !== key;
+
 export function OnboardingPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const settings = usePublicSettings();
   const { done, count, total, install, markTapped } = useOnboarding();
   const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en';
-  const anyPlace = communityPlaces(settings, lang).length + followPlaces(settings).length > 0;
-  const [installing, setInstalling] = useState(false);
+  const visible = (x: { platform: string }) => !HIDDEN_PLACES.includes(x.platform);
+  const anyPlace = communityPlaces(settings, lang).filter(visible).length + followPlaces(settings).filter(visible).length > 0;
 
   function onTap(platform: string) {
     markTapped();
@@ -100,22 +162,8 @@ export function OnboardingPage() {
             <p className="font-semibold text-slate-900">{t('onboarding.step_install')}</p>
             {done.install ? (
               <p className="text-xs text-emerald-700">{t('onboarding.done')}</p>
-            ) : install.canPrompt ? (
-              <>
-                <p className="text-xs text-slate-600">{t('installApp.body')}</p>
-                <button type="button" disabled={installing} className="btn-primary mt-1.5 px-3 py-1.5 text-sm disabled:opacity-60" onClick={() => { setInstalling(true); void install.install().finally(() => setInstalling(false)); }}>
-                  {t('installApp.button')}
-                </button>
-              </>
-            ) : install.ios ? (
-              <p className="text-xs text-slate-600">{t('installApp.ios')}</p>
             ) : (
-              <p className="text-xs text-slate-600">{t('onboarding.install_menu')}</p>
-            )}
-            {!done.install && (
-              <a href="/notifications-guide/" target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand-700 underline">
-                {t('installApp.need_help')}
-              </a>
+              <InstallRoadmap install={install} />
             )}
           </div>
         </li>
@@ -126,7 +174,7 @@ export function OnboardingPage() {
             <p className="font-semibold text-slate-900">{t('onboarding.step_community')}</p>
             <p className="mb-2 text-xs text-slate-600">{t('onboarding.community_body')}</p>
             {anyPlace ? (
-              <CommunityChoices settings={settings} onTap={onTap} />
+              <CommunityChoices settings={settings} onTap={onTap} hide={HIDDEN_PLACES} />
             ) : (
               <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600" data-testid="no-places">{t('onboarding.no_places')}</p>
             )}

@@ -9,16 +9,19 @@ export function CommunityChoices({
   onTap,
   showFollow = true,
   titleKeyPrefix = 'joinGroup',
+  hide = [],
 }: {
   settings: SocialUrls;
   onTap: (platform: string) => void;
   showFollow?: boolean;
   titleKeyPrefix?: string;
+  /** Places to leave out (by platform key, e.g. 'youtube'). */
+  hide?: string[];
 }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en';
-  const community = communityPlaces(settings, lang);
-  const follow = showFollow ? followPlaces(settings) : [];
+  const community = communityPlaces(settings, lang).filter((x) => !hide.includes(x.platform));
+  const follow = showFollow ? followPlaces(settings).filter((x) => !hide.includes(x.platform)) : [];
   if (community.length === 0 && follow.length === 0) return null;
 
   const row = (s: SocialLink, big: boolean) => {
