@@ -14,6 +14,7 @@ interface Card {
   /** Their WhatsApp number and the language they read (leaders see these for the people they look after). */
   whatsapp?: string | null;
   language?: 'en' | 'fr';
+  whatsappConsent?: 'AGREED' | 'NONE' | 'OPTED_OUT';
   lastContactAt: string | null;
   contactDaysThisWeek: number;
   contactTarget: number;
@@ -162,7 +163,7 @@ export function MyPeople() {
   if (!data || data.total === 0) return null;
 
   const items = data.items.filter((c) => !onlyAttention || c.flags.length > 0);
-  const queuePeople: QueuePerson[] = items.map((c) => ({ personId: c.followUpAssignmentId, name: c.name, whatsapp: c.whatsapp ?? null, language: c.language ?? 'en' }));
+  const queuePeople: QueuePerson[] = items.map((c) => ({ personId: c.followUpAssignmentId, name: c.name, whatsapp: c.whatsapp ?? null, language: c.language ?? 'en', consent: c.whatsappConsent }));
 
   return (
     <section className="card space-y-3" data-testid="my-people">
@@ -201,6 +202,7 @@ export function MyPeople() {
           key={queuePeople.map((p) => p.personId).join(',')}
           people={queuePeople}
           signatureKey="myPeople.queue_signature"
+          onStop={(p) => api.post(`/api/leader/follow-ups/${p.personId}/whatsapp-stop`, {})}
           onClose={() => setQueueOpen(false)}
           // Here a person's id is their follow-up's id: the contact is logged on it, like any contact a leader records.
           recordContact={(p) => api.post(`/api/leader/follow-ups/${p.personId}/contacts`, { wellbeingStatus: 'GOOD', note: 'WhatsApp' })}

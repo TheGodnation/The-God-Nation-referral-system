@@ -1,3 +1,4 @@
+import { recordWhatsAppStop } from '../lib/whatsappConsent';
 import { followBlock, followBlockMessage } from '../lib/followRules';
 import { communityNameFor, wantsFrench } from '../lib/communityName';
 import { Router } from 'express';
@@ -307,6 +308,18 @@ router.get('/follow-ups/:id/contacts', asyncHandler(async (req, res) => {
     orderBy: { contactedAt: 'desc' },
   });
   res.json({ items: contacts });
+}));
+
+// "Opted out": the person asked this leader to stop writing to them on WhatsApp. Recorded, and they are left out of every
+// WhatsApp queue from then on (the leader's and the coordinator's).
+router.post('/follow-ups/:id/whatsapp-stop', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const assignment = await prisma.followUpAssignment.findUnique({ where: { id } });
+  if (!assignment || assignment.followerId !== req.leaderPersonId) {
+    return res.status(404).json({ error: 'Follow-up assignment not found.' });
+  }
+  await recordWhatsAppStop(assignment.followedPersonId);
+  res.json({ ok: true });
 }));
 
 const contactSchema = z.object({

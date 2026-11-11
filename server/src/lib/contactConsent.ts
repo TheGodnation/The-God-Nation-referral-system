@@ -23,7 +23,7 @@ export const CONSENT_WORDING: Record<ConsentChannel, Record<Lang, string>> = {
   },
 };
 
-export type ConsentSource = 'signup' | 'stay-connected' | 'profile' | 'unsubscribe-link';
+export type ConsentSource = 'signup' | 'stay-connected' | 'profile' | 'unsubscribe-link' | 'whatsapp-stop';
 
 export async function recordConsent(
   db: Db,

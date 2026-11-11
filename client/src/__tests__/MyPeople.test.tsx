@@ -166,6 +166,7 @@ describe('MyPeople', () => {
     expect(screen.getByTestId('followup-hello-p1')).toHaveAttribute('href', expect.stringContaining('wa.me/237600000011'));
 
     fireEvent.click(screen.getByTestId('my-people-queue'));
+    fireEvent.click(screen.getByTestId('queue-kind-help'));
     fireEvent.change(screen.getByTestId('queue-text-en'), { target: { value: 'God bless you' } });
     fireEvent.change(screen.getByTestId('queue-text-fr'), { target: { value: 'Que Dieu vous bénisse' } });
     fireEvent.click(screen.getByTestId('queue-start'));

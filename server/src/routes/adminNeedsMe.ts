@@ -14,7 +14,7 @@ import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { BroadcastError, generateStagingKey, sendCoordinatorMessage } from '../lib/leaderBroadcast';
 import { previewTranslation } from '../lib/broadcastTranslation';
 import { privateTranslateLimiter } from '../lib/rateLimit';
-import { DESK_FILTERS, DeskError, deskPersonIds, leaderAlerts, markContacted, peopleNeedingMe, requireDeskOwner, takeOver, takeOverLeader, type DeskFilter } from '../lib/coordinatorDesk';
+import { DESK_FILTERS, DeskError, deskPersonIds, leaderAlerts, markContacted, peopleNeedingMe, requireDeskOwner, stopWhatsApp, takeOver, takeOverLeader, type DeskFilter } from '../lib/coordinatorDesk';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 
 // "People who need me": the National Coordinator's own desk. Offered twice, with the same rules: in the admin dashboard
@@ -102,6 +102,13 @@ function buildRouter(resolvePersonId: (req: Request) => Promise<string | null>) 
     const parsed = personSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'personId is required.' });
     res.json(await takeOver(await who(req), parsed.data.personId));
+  }));
+
+  // They asked us to stop writing to them on WhatsApp (the "Opted out" button).
+  router.post('/whatsapp-stop', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = personSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'personId is required.' });
+    res.json(await stopWhatsApp(await who(req), parsed.data.personId));
   }));
 
   router.post('/contacted', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
