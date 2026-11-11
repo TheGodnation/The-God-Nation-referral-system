@@ -91,7 +91,7 @@ export async function growthReport(days: number, now = new Date()) {
   const personIds = registrations.map((r) => r.personId!).filter(Boolean);
   const [groupClicks, chatters, examTakers, platformTaps] = await Promise.all([
     prisma.event.findMany({ where: { type: 'GROUP_LINK_CLICKED', registrationId: { in: regIds } }, select: { registrationId: true }, distinct: ['registrationId'] }),
-    prisma.message.findMany({ where: { senderPersonId: { in: personIds }, deletedAt: null }, select: { senderPersonId: true }, distinct: ['senderPersonId'] }),
+    prisma.message.findMany({ where: { senderPersonId: { in: personIds }, deletedAt: null, kind: 'USER' }, select: { senderPersonId: true }, distinct: ['senderPersonId'] }),
     prisma.attempt.findMany({ where: { personId: { in: personIds }, status: 'SUBMITTED' }, select: { personId: true }, distinct: ['personId'] }),
     // Every tap in the period on a group, channel or page (members and visitors who left a number).
     prisma.event.groupBy({ by: ['detail'], where: { type: 'GROUP_LINK_CLICKED', timestamp: { gte: since }, isTestData: false }, _count: { _all: true } }),

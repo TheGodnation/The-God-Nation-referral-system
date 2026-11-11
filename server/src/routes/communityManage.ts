@@ -1,3 +1,4 @@
+import { announceJoined } from '../lib/joinNotice';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -141,6 +142,7 @@ router.post('/:communityId/members', communityMutationLimiter, requireCsrf, asyn
   } else {
     await prisma.communityMembership.create({ data: { personId: person.id, communityId } });
   }
+  await announceJoined(communityId, [person.id]);
   await recordAudit({
     actorId: req.user?.id ?? null,
     action: 'COMMUNITY_MEMBERSHIP_ADDED',

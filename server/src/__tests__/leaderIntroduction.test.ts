@@ -119,7 +119,7 @@ describe('Your leader', () => {
 
     expect(await introducePendingAssignments(leader.p.id)).toBe(2);
     const [hi] = await messagesFrom(leader.p.id, en.id);
-    expect(hi.body).toBe(`Hello, I'm ${leader.p.name}, from the Leadership Team. I've been assigned to walk with you. You can write to me here any time.`);
+    expect(hi.body).toBe(`Hello, I'm ${leader.p.name}, from the Leadership Team. I've been assigned as your leader, to follow you up and walk with you. You can write to me here any time.`);
     const [salut] = await messagesFrom(leader.p.id, fr.id);
     expect(salut.body).toContain('de l’équipe de leadership');
     const note = await prisma.notification.findFirstOrThrow({ where: { recipientPersonId: en.id, type: 'LEADER_ASSIGNED' } });

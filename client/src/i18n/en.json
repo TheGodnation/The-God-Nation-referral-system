@@ -2432,6 +2432,8 @@
     "need_help": "Need help?"
   },
   "groupChat": {
+    "joined_one": "{{name}} has just joined us. Welcome them! 👋",
+    "joined_many": "{{count}} people have just joined us. Welcome them! 👋",
     "group": "Assembly",
     "groups": "My assemblies",
     "subtitle": "Assembly chat",
@@ -3033,9 +3035,6 @@
     "assembly_name": "Name of the assembly"
   },
   "myLeader": {
-    "title": "Your leader",
-    "from_team": "From the Leadership Team",
-    "help": "Assigned to walk with you and follow you up. You can write to your leader at any time.",
     "message": "Write to your leader",
     "badge": "Your leader · Leadership Team"
   },

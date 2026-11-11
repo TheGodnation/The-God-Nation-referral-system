@@ -68,6 +68,8 @@ export interface ChatMessage {
   /** Tapping the sender's photo/name opens /member/people/:id — absent for your own messages. */
   senderPersonId?: string | null;
   isOwn: boolean;
+  /** "JOINED": the welcome line shown when someone joins (body, when set, is how many joined together). */
+  kind?: 'JOINED';
   body: string | null;
   createdAt: string;
   deleted: boolean;

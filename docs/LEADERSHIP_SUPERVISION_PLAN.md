@@ -240,3 +240,16 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
   usually goes out in both languages; anything not ready is retried automatically after 5 minutes, 15 minutes and 1 hour (same queue as posts and messages).
 - Push notifications and the private message are written in each leader's language, with the translated title when it is ready.
 - At every server start, recent instructions (last 60 days) still without a translation are queued again, so the ones people complained about get fixed.
+
+## "Just joined" line in assembly and group chats
+
+- When someone joins an assembly or group (signup placement, the admin or a leader adding them, the central admin's add tool, moving someone in, or the "add many people" tool),
+  its chat shows a line with their name (a link to their profile): "Name has just joined us. Welcome them!" (EN/FR). Nothing is shown when someone leaves; coming back counts as joining again.
+- It is a message of kind JOINED written by the person who joined. It sends no push, is never counted as unread, is not shown as the chat's last message, is not found by search, and does not count as the person having written anything.
+- More than 10 people added at once show as one line with the number ("42 people have just joined us"). The same person is not announced twice within a minute. The central admin is never announced.
+
+## "Your leader" is a message, not a Home card
+
+- The "Your leader" card on a person's Home page is removed. Nothing now sits on the home page.
+- The person is told by the leader's private message (sent once the leader has opened their dashboard), a notification (bell and phone), and the "Your leader" label on that conversation in their private chats.
+- No phone number is shared automatically: the person replies in the app, and the leader may share a WhatsApp number themselves.

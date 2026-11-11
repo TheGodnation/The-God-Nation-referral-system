@@ -1,3 +1,4 @@
+import { announceJoined } from '../lib/joinNotice';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
@@ -77,6 +78,7 @@ router.post(
           data: { personId: person.id, communityId },
         });
 
+    await announceJoined(communityId, [person.id]);
     await recordAudit({
       actorId: req.user!.id,
       actorEmail: req.user!.email,

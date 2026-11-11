@@ -205,7 +205,7 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
       select: { id: true, name: true, nameFr: true, photoStorageKey: true, photoUpdatedAt: true, aboutEn: true, aboutFr: true },
     }),
     prisma.message.findFirst({
-      where: { conversationId: conversation.id, NOT: { hiddenFor: { some: { personId } } }, ...(cutoff ? { createdAt: { gte: cutoff } } : {}) },
+      where: { conversationId: conversation.id, kind: 'USER', NOT: { hiddenFor: { some: { personId } } }, ...(cutoff ? { createdAt: { gte: cutoff } } : {}) },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: { sender: { select: { name: true } }, attachments: { select: { mimeType: true }, take: 1 } },
     }),
@@ -381,6 +381,8 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       // only on the caller's own messages, mirroring isCommunityAdministrator
       // being resolved server-side rather than trusted from the client.
       isOwn: m.senderPersonId === personId,
+      // "JOINED" is the welcome line (its body, when present, is how many people joined together).
+      kind: m.kind === 'JOINED' ? ('JOINED' as const) : undefined,
       body: m.deletedAt ? null : m.body,
       teaching:
         m.deletedAt || !m.teaching
@@ -1428,6 +1430,7 @@ router.get('/:communityId/conversation/search', chatSearchLimiter, asyncHandler(
     where: {
       conversationId: conversation.id,
       deletedAt: null,
+      kind: 'USER',
       body: { contains: parsed.data.q, mode: 'insensitive' },
       NOT: { hiddenFor: { some: { personId } } },
       ...(cutoff ? { createdAt: { gte: cutoff } } : {}),

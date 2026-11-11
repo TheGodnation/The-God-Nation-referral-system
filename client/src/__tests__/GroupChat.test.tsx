@@ -113,6 +113,26 @@ describe('WhatsApp-style group chat', () => {
     expect(screen.getByRole('button', { name: /Tap to record a voice note/ })).toBeInTheDocument();
   });
 
+  it('shows a welcome line with the name when someone joins (a link to their profile), and a count when many join together', async () => {
+    const joinedMessages = [
+      ...messages,
+      { id: 'j1', kind: 'JOINED', senderName: 'Chantal Mbah', senderPersonId: 'p-chantal', isOwn: false, body: null, createdAt: now, deleted: false, attachments: [] },
+      { id: 'j2', kind: 'JOINED', senderName: 'Paul Eto', senderPersonId: 'p-paul', isOwn: false, body: '42', createdAt: now, deleted: false, attachments: [] },
+    ];
+    mockFetch(
+      baseRoutes({
+        [`GET /api/communities/${G}/conversation/messages`]: () => ({ body: { items: joinedMessages, hasMore: false, unreadCount: 0, isAdministrator: false, canPost: true } }),
+      }),
+    );
+    renderChat();
+    const line = await screen.findByTestId('joined-j1');
+    expect(within(line).getByRole('link', { name: 'Chantal Mbah' })).toHaveAttribute('href', '/member/people/p-chantal');
+    expect(line.textContent).toContain('has just joined us. Welcome them!');
+    expect(screen.getByTestId('joined-j2').textContent).toContain('42 people have just joined us');
+    // It is a line, not a chat bubble: nothing to reply to or react on.
+    expect(screen.queryByText('Paul Eto')).not.toBeInTheDocument();
+  });
+
   it('shows a translated message with the original one tap away', async () => {
     const translatedMessages = messages.map((m) =>
       m.id === 'm1' ? { ...m, translation: { sourceLanguage: 'fr' as const, translatedBody: 'Who is coming on Sunday? (EN)' } } : m,

@@ -10,8 +10,8 @@ import { isCentralAdminPerson } from './centralAdmin';
 
 export const introMessage = (leaderName: string, french: boolean): string =>
   french
-    ? `Bonjour, je suis ${leaderName}, de l’équipe de leadership. J’ai été désigné(e) pour marcher avec vous. Vous pouvez m’écrire ici à tout moment.`
-    : `Hello, I'm ${leaderName}, from the Leadership Team. I've been assigned to walk with you. You can write to me here any time.`;
+    ? `Bonjour, je suis ${leaderName}, de l’équipe de leadership. J’ai été désigné(e) comme votre responsable, pour vous suivre et marcher avec vous. Vous pouvez m’écrire ici à tout moment.`
+    : `Hello, I'm ${leaderName}, from the Leadership Team. I've been assigned as your leader, to follow you up and walk with you. You can write to me here any time.`;
 
 /**
  * Tells the people who were assigned to this leader and have not yet been told. Safe to call every time the leader

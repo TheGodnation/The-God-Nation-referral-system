@@ -113,6 +113,7 @@ export async function getCommunityConversationUnreadCount(personId: string, conv
   return prisma.message.count({
     where: {
       conversationId,
+      kind: 'USER',
       senderPersonId: { not: personId },
       AND: [...(read ? [{ createdAt: { gt: read.lastReadAt } }] : []), ...(cutoff ? [{ createdAt: { gte: cutoff } }] : [])],
     },

@@ -2432,6 +2432,8 @@
     "need_help": "Besoin d’aide ?"
   },
   "groupChat": {
+    "joined_one": "{{name}} vient de nous rejoindre. Souhaitez-lui la bienvenue ! 👋",
+    "joined_many": "{{count}} personnes viennent de nous rejoindre. Souhaitez-leur la bienvenue ! 👋",
     "group": "Assemblée",
     "groups": "Mes assemblées",
     "subtitle": "Discussion de l’assemblée",
@@ -3033,9 +3035,6 @@
     "assembly_name": "Nom de l’assemblée"
   },
   "myLeader": {
-    "title": "Votre responsable",
-    "from_team": "De l’équipe de leadership",
-    "help": "Désigné(e) pour marcher avec vous et vous suivre. Vous pouvez écrire à votre responsable à tout moment.",
     "message": "Écrire à votre responsable",
     "badge": "Votre responsable · Équipe de leadership"
   },
