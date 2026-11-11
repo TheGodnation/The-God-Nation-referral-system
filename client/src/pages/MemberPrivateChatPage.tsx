@@ -6,6 +6,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, NetworkError } from '../lib/api';
+import { loadThread, saveThread } from '../lib/chatCache';
+import { isOfflineError } from '../lib/offlineStore';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
 import { Avatar } from '../components/Avatar';
@@ -87,6 +89,8 @@ export function MemberPrivateChatPage() {
   const [loaded, setLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // Showing the copy kept on this phone (no internet): the last messages, until the connection is back.
+  const [offlineCopy, setOfflineCopy] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
@@ -218,12 +222,24 @@ export function MemberPrivateChatPage() {
           });
           if (first) setHasMore(res.hasMore);
           setLoadError(false);
+          setOfflineCopy(false);
           markRead(res.items, res.unreadCount);
           return items.length > 0 || Boolean(res.typing) || Boolean(res.recording);
         })
         .catch((err) => {
           if (err instanceof ApiError && err.status === 404) setNotFound(true);
-          else if (first) setLoadError(true);
+          else if (first) {
+            // No internet: the last messages kept on this phone, if there are any.
+            const kept = isOfflineError(err) ? loadThread<typeof other>(member?.personId, conversationId) : null;
+            if (kept) {
+              setOther(kept.other);
+              setMessages(kept.messages);
+              setHasMore(false);
+              setLoadError(false);
+              setOfflineCopy(true);
+              otherNameRef.current = kept.other?.otherPartyType === 'CENTRAL_AUTHORITY' ? t('privateChat.headquarters') : kept.other?.otherPartyName || t('privateChat.someone');
+            } else setLoadError(true);
+          }
           return false;
         })
         .finally(() => first && setLoaded(true));
@@ -240,6 +256,13 @@ export function MemberPrivateChatPage() {
   // Checks every few seconds while chatting, up to every 30 s when quiet.
   const poke = useAdaptivePoll(() => fetchLatest(false), POLL_MS, loaded && !notFound);
   pokeRef.current = poke;
+
+  // Keep the latest messages on the phone (a moment after they change), so this chat opens without internet.
+  useEffect(() => {
+    if (!loaded || notFound || offlineCopy || !other) return;
+    const timer = window.setTimeout(() => saveThread(member?.personId, conversationId, other, messages), 1500);
+    return () => window.clearTimeout(timer);
+  }, [messages, other, loaded, notFound, offlineCopy, conversationId, member?.personId]);
 
   // Photos/videos/documents show in the chat at once with a progress
   // circle (UploadingBubble) and are posted when every file is up.
@@ -534,6 +557,11 @@ export function MemberPrivateChatPage() {
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto overscroll-contain px-2 py-3" aria-live="polite">
         {!loaded && <p className="mt-10 text-center text-sm text-slate-500">{t('groupChat.loading')}</p>}
         {notFound && <p className="mx-auto mt-10 max-w-xs rounded-lg bg-white p-4 text-center text-sm text-slate-600">{t('privateChat.not_found')}</p>}
+        {offlineCopy && (
+          <p className="mx-auto mb-2 max-w-xs rounded-lg bg-amber-50 p-2 text-center text-xs text-amber-900" data-testid="offline-copy">
+            {t('privateChat.offline_copy')}
+          </p>
+        )}
         {loadError && !notFound && (
           <div className="mx-auto mt-10 max-w-xs rounded-lg bg-white p-4 text-center text-sm">
             <p className="text-red-700">{t('groupChat.load_failed')}</p>

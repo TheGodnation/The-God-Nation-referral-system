@@ -7,8 +7,9 @@
 // still works online, it just isn't kept.
 
 import { NetworkError } from './api';
+import { clearChatCache } from './chatCache';
 
-export type SavedKind = 'BOOK' | 'DOC';
+export type SavedKind = 'BOOK' | 'DOC' | 'MEDIA';
 
 export interface SavedInfo {
   key: string;
@@ -87,6 +88,15 @@ function read<T>(req: IDBRequest<T>): Promise<T | undefined> {
 
 export const bookKey = (ownerId: string, bookId: string) => `${ownerId}:book:${bookId}`;
 export const docKey = (ownerId: string, attachmentId: string) => `${ownerId}:doc:${attachmentId}`;
+export const mediaKey = (ownerId: string, attachmentId: string) => `${ownerId}:media:${attachmentId}`;
+
+/**
+ * Photos and voice notes from chats are kept on the phone once they have been seen or heard, so they show again without
+ * internet. They are kept within limits so they never fill a basic phone: this much in total (the oldest go first), and
+ * no single file bigger than the second number. Videos are never kept. Books and PDFs are not counted here.
+ */
+export const MEDIA_LIMIT_BYTES = 100 * 1024 * 1024;
+export const MEDIA_FILE_MAX_BYTES = 10 * 1024 * 1024;
 
 /** A Blob's bytes (older browsers have no Blob.arrayBuffer). */
 export function blobBytes(blob: Blob): Promise<ArrayBuffer> {
@@ -172,7 +182,8 @@ export async function getFile(key: string): Promise<SavedFile | null> {
     const size = isBytes ? (stored as ArrayBuffer).byteLength : (stored as Blob).size;
     // A copy that came back empty or the wrong size (some browsers lose stored files) is not a copy.
     if (typeof size !== 'number' || size !== (info as SavedInfo).byteSize) return null;
-    return { ...(info as SavedInfo), blob: isBytes ? new Blob([stored as ArrayBuffer], { type: 'application/pdf' }) : (stored as Blob) };
+    const mime = typeof (info as SavedInfo).meta?.mime === 'string' ? ((info as SavedInfo).meta!.mime as string) : 'application/pdf';
+    return { ...(info as SavedInfo), blob: isBytes ? new Blob([stored as ArrayBuffer], { type: mime }) : (stored as Blob) };
   } catch {
     return null;
   }
@@ -221,8 +232,46 @@ export async function deleteSaved(keys: string[]): Promise<void> {
   }
 }
 
+/** What the kept chat photos and voice notes take up, in bytes. */
+export async function mediaUsage(ownerId: string): Promise<{ count: number; bytes: number }> {
+  const rows = (await listSaved(ownerId)).filter((r) => r.kind === 'MEDIA');
+  return { count: rows.length, bytes: rows.reduce((n, r) => n + r.byteSize, 0) };
+}
+
+/**
+ * Keeps a viewed chat photo or voice note, within the limits above: a file that is too big is not kept, and when the total
+ * would pass the limit the oldest kept ones are removed first. Never throws; false when it was not kept.
+ */
+export async function saveMedia(ownerId: string, attachmentId: string, blob: Blob, mime: string, limits: { total: number; file: number } = { total: MEDIA_LIMIT_BYTES, file: MEDIA_FILE_MAX_BYTES }): Promise<boolean> {
+  if (blob.size <= 0 || blob.size > limits.file) return false;
+  try {
+    const key = mediaKey(ownerId, attachmentId);
+    const kept = (await listSaved(ownerId)).filter((r) => r.kind === 'MEDIA' && r.key !== key);
+    let total = kept.reduce((n, r) => n + r.byteSize, 0) + blob.size;
+    if (total > limits.total) {
+      const oldestFirst = [...kept].sort((a, b) => a.savedAt - b.savedAt);
+      const drop: string[] = [];
+      for (const r of oldestFirst) {
+        if (total <= limits.total) break;
+        drop.push(r.key);
+        total -= r.byteSize;
+      }
+      await deleteSaved(drop);
+    }
+    return await saveFile({ key, ownerId, kind: 'MEDIA', title: attachmentId, meta: { mime }, blob });
+  } catch {
+    return false;
+  }
+}
+
+/** Removes the kept chat photos and voice notes (books and PDFs stay). */
+export async function clearMedia(ownerId: string): Promise<void> {
+  await deleteSaved((await listSaved(ownerId)).filter((r) => r.kind === 'MEDIA').map((r) => r.key));
+}
+
 /** Removes everything a member kept on this phone (when they sign out). */
 export async function deleteAllFor(ownerId: string): Promise<void> {
+  clearChatCache(ownerId);
   await deleteSaved((await listSaved(ownerId)).map((s) => s.key));
 }
 

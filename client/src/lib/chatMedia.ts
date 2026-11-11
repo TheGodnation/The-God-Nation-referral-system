@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
 import { isAllowedAttachmentMime, maxBytesForMime } from './attachmentLimits';
+import { useMemberAuth } from './MemberAuthContext';
+import { getFile, mediaKey, saveMedia, MEDIA_FILE_MAX_BYTES } from './offlineStore';
 
 // Helpers for the WhatsApp-style group chat: uploading photos, voice notes
 // and videos straight to storage, shrinking big photos first (so they send
@@ -275,19 +277,64 @@ export function useInView<T extends Element>(): [React.RefObject<T>, boolean] {
   return [ref, inView];
 }
 
-export function useAttachmentUrl(mediaBase: string, messageId: string, attachmentId: string, enabled: boolean) {
+/**
+ * The address to show a chat attachment from. With `keep` (photos and voice notes), a copy kept on this phone is used first,
+ * so it shows without internet; otherwise it is fetched once, shown, and kept for next time (within the size limits in
+ * lib/offlineStore). If the copy cannot be fetched or kept, the plain link is used as before.
+ */
+export function useAttachmentUrl(mediaBase: string, messageId: string, attachmentId: string, enabled: boolean, keep?: { mime: string; byteSize: number }) {
+  const { member } = useMemberAuth();
+  const ownerId = member?.personId;
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  // The in-memory address made from a kept file is let go when the picture or voice note leaves the screen.
+  const made = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      if (made.current) URL.revokeObjectURL(made.current);
+    },
+    [],
+  );
   useEffect(() => {
     if (!enabled || url) return;
     let alive = true;
-    getAttachmentUrl(mediaBase, messageId, attachmentId)
-      .then((u) => alive && setUrl(u))
-      .catch(() => alive && setFailed(true));
+    const show = (u: string, isObject = false) => {
+      if (!alive) {
+        if (isObject) URL.revokeObjectURL(u);
+        return;
+      }
+      if (isObject) made.current = u;
+      setUrl(u);
+    };
+    (async () => {
+      try {
+        if (keep && ownerId) {
+          const saved = await getFile(mediaKey(ownerId, attachmentId));
+          if (saved) return show(URL.createObjectURL(saved.blob), true);
+        }
+        const link = await getAttachmentUrl(mediaBase, messageId, attachmentId);
+        if (keep && ownerId && keep.byteSize > 0 && keep.byteSize <= MEDIA_FILE_MAX_BYTES) {
+          try {
+            const res = await fetch(link);
+            if (res.ok) {
+              const blob = await res.blob();
+              const typed = blob.type ? blob : new Blob([blob], { type: keep.mime });
+              void saveMedia(ownerId, attachmentId, typed, keep.mime);
+              return show(URL.createObjectURL(typed), true);
+            }
+          } catch {
+            // Could not fetch it as a file (for example the storage refuses it): the plain link below still works.
+          }
+        }
+        show(link);
+      } catch {
+        if (alive) setFailed(true);
+      }
+    })();
     return () => {
       alive = false;
     };
-  }, [enabled, url, mediaBase, messageId, attachmentId]);
+  }, [enabled, url, mediaBase, messageId, attachmentId, ownerId, keep?.mime, keep?.byteSize]);
   return { url, failed };
 }
 

@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
+import { cachedGet } from '../../lib/cachedGet';
+import { chatListKey } from '../../lib/chatCache';
+import { useMemberAuth } from '../../lib/MemberAuthContext';
 import { Avatar } from '../Avatar';
 import { mediaKind } from './types';
 import { Ticks } from './MessageBubble';
@@ -47,13 +50,16 @@ function PrivatePreview({ chatId, fallback }: { chatId: string; fallback: React.
 export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats: number) => void } = {}) {
   const { t, i18n } = useTranslation();
   const myLeader = useMyLeader();
+  const { member } = useMemberAuth();
+  const ownerId = member?.personId;
   const [items, setItems] = useState<ConversationRow[] | null>(null);
 
   useEffect(() => {
     let alive = true;
     function load() {
-      api
-        .get<{ items: ConversationRow[] }>('/api/private-messages/conversations?pageSize=100')
+      // The list is also kept on the phone, so the chats still show (and open) without internet.
+      const path = '/api/private-messages/conversations?pageSize=100';
+      (ownerId ? cachedGet<{ items: ConversationRow[] }>(path, chatListKey(ownerId)).then((r) => r.data) : api.get<{ items: ConversationRow[] }>(path))
         .then((r) => alive && setItems(r.items))
         .catch(() => alive && setItems((prev) => prev ?? []));
     }
@@ -63,7 +69,7 @@ export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats
       alive = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [ownerId]);
 
   const unreadTotal = (items ?? []).reduce((n, c) => n + (c.unreadCount ?? 0), 0);
   useEffect(() => {

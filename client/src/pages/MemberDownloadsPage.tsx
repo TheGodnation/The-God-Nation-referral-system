@@ -5,7 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { PdfViewer } from '../components/chat/PdfViewer';
 import { useMemberAuth } from '../lib/MemberAuthContext';
-import { deleteSaved, getFile, listSaved, storageEstimate, type SavedInfo } from '../lib/offlineStore';
+import { clearMedia, deleteSaved, getFile, listSaved, MEDIA_LIMIT_BYTES, storageEstimate, type SavedInfo } from '../lib/offlineStore';
 
 const mb = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 
@@ -34,6 +34,9 @@ export function MemberDownloadsPage() {
 
   const books = (items ?? []).filter((i) => i.kind === 'BOOK');
   const docs = (items ?? []).filter((i) => i.kind === 'DOC');
+  // Chat photos and voice notes kept after being seen or heard (listed as a total, not one by one).
+  const media = (items ?? []).filter((i) => i.kind === 'MEDIA');
+  const mediaBytes = media.reduce((sum, i) => sum + i.byteSize, 0);
   const total = (items ?? []).reduce((sum, i) => sum + i.byteSize, 0);
   const isFr = i18n.language.startsWith('fr');
   const bookTitle = (i: SavedInfo) => {
@@ -116,6 +119,24 @@ export function MemberDownloadsPage() {
                 ),
               )}
             </ul>
+          )}
+        </section>
+
+        <section className="card" data-testid="downloads-media">
+          <h2 className="mb-1 font-semibold text-brand-900">🖼️ {t('downloads.media')}</h2>
+          <p className="text-sm text-slate-600">{t('downloads.media_note', { limit: mb(MEDIA_LIMIT_BYTES) })}</p>
+          <p className="mt-1 text-sm text-slate-700" data-testid="downloads-media-usage">
+            {media.length === 0 ? t('downloads.media_none') : t('downloads.media_using', { count: media.length, size: mb(mediaBytes) })}
+          </p>
+          {media.length > 0 && (
+            <button
+              type="button"
+              className="mt-2 text-sm text-red-700 underline"
+              data-testid="downloads-media-clear"
+              onClick={() => ownerId && window.confirm(t('downloads.media_confirm') ?? '') && void clearMedia(ownerId)}
+            >
+              {t('downloads.media_clear')}
+            </button>
           )}
         </section>
 

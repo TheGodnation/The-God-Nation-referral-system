@@ -74,7 +74,7 @@ function PhotoAttachment({ mediaBase, messageId, a, onOpen }: { mediaBase: strin
   const [wanted, setWanted] = useState(false);
   const [ref, inView] = useInView<HTMLDivElement>();
   // With "Save data" on, the real photo only downloads after a tap.
-  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView && (!saver || wanted));
+  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView && (!saver || wanted), { mime: a.mimeType, byteSize: a.byteSize });
   const [loaded, setLoaded] = useState(false);
   return (
     <div ref={ref} className="relative min-h-[8rem] min-w-[12rem] overflow-hidden rounded-md bg-slate-200">
@@ -132,8 +132,9 @@ function PlayableAttachment({
   const saver = useDataSaver();
   const [wanted, setWanted] = useState(false);
   const [ref, inView] = useInView<HTMLDivElement>();
-  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView && (!saver || wanted));
   const kind = mediaKind(a.mimeType);
+  // Voice notes are kept on the phone once heard; videos are never kept (too big).
+  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView && (!saver || wanted), kind === 'voice' ? { mime: a.mimeType, byteSize: a.byteSize } : undefined);
   const waitForTap = saver && !wanted && !url;
   return (
     <div ref={ref}>
