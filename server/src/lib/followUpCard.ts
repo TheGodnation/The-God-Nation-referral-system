@@ -32,6 +32,9 @@ export interface FollowUpCard {
   followUpAssignmentId: string;
   personId: string;
   name: string;
+  /** What a leader may see about the people they look after: their WhatsApp number and the language they read. */
+  whatsapp: string | null;
+  language: 'en' | 'fr';
   assignedAt: string;
   /** Last time the leader was in touch (a logged contact or a message). */
   lastContactAt: string | null;
@@ -59,7 +62,7 @@ const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 export async function followUpCardsFor(followerId: string, now = new Date()): Promise<FollowUpCard[]> {
   const assignments = await prisma.followUpAssignment.findMany({
     where: { followerId, status: 'ACTIVE' },
-    include: { followedPerson: { select: { id: true, name: true } } },
+    include: { followedPerson: { select: { id: true, name: true, whatsappNumber: true, preferredLanguage: true } } },
     orderBy: { assignedAt: 'asc' },
   });
   if (assignments.length === 0) return [];
@@ -194,6 +197,8 @@ export async function followUpCardsFor(followerId: string, now = new Date()): Pr
       followUpAssignmentId: a.id,
       personId,
       name: a.followedPerson.name,
+      whatsapp: a.followedPerson.whatsappNumber,
+      language: a.followedPerson.preferredLanguage === 'fr' ? ('fr' as const) : ('en' as const),
       assignedAt: a.assignedAt.toISOString(),
       lastContactAt: lastContactAt?.toISOString() ?? null,
       contactDaysThisWeek: contactDays.size,

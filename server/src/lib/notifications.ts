@@ -272,13 +272,16 @@ export async function notifyResourceGranted(grant: { id: string; personId: strin
 
 /** The central admin is told that leaders have not been following up (at most once a day, see lib/leaderAlertLoop.ts). */
 export async function notifyLeadersNotFollowingUp(adminPersonId: string, count: number) {
+  const french = String((await prisma.person.findUnique({ where: { id: adminPersonId }, select: { preferredLanguage: true } }))?.preferredLanguage ?? '').startsWith('fr');
   await createNotification({
     recipientPersonId: adminPersonId,
     type: 'LEADERS_NOT_FOLLOWING_UP',
     metadata: { count },
     push: {
-      title: '⚠️ Leaders not following up',
-      body: count === 1 ? '1 leader has not contacted anyone for a week.' : `${count} leaders have not contacted anyone for a week.`,
+      title: french ? '⚠️ Responsables qui ne suivent pas' : '⚠️ Leaders not following up',
+      body: french
+        ? count === 1 ? '1 responsable n’a contacté personne depuis une semaine.' : `${count} responsables n’ont contacté personne depuis une semaine.`
+        : count === 1 ? '1 leader has not contacted anyone for a week.' : `${count} leaders have not contacted anyone for a week.`,
       url: '/member/me',
       tag: 'leader-alerts',
       urgent: true,
@@ -329,6 +332,9 @@ export async function notifyPrivateMessageReceived(
     }
   }
 
+  // The label on the phone alert is in the reader's own language.
+  const recipientFrench = senderBadge && recipientPersonId ? String((await prisma.person.findUnique({ where: { id: recipientPersonId }, select: { preferredLanguage: true } }))?.preferredLanguage ?? '').startsWith('fr') : false;
+
   await createNotification({
     recipientPersonId,
     recipientUserId,
@@ -337,7 +343,7 @@ export async function notifyPrivateMessageReceived(
     targetType: 'PrivateConversation',
     targetId: conversation.id,
     push: {
-      title: senderBadge ? `${senderName} · National Coordinator` : senderName || 'New message',
+      title: senderBadge ? `${senderName} · ${recipientFrench ? 'Coordinateur national' : 'National Coordinator'}` : senderName || 'New message',
       body: 'Sent you a message.',
       // Only the Member side has a known, single chat route for this
       // conversation id today — a Leader/Admin recipient opens their own

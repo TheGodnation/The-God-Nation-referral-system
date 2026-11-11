@@ -12,6 +12,8 @@ import { createUploadUrl, isStorageConfigured } from '../lib/storage';
 import { MAX_ORIGINAL_FILENAME_LENGTH, MAX_PDF_PAGE_COUNT, MAX_THUMB_DATA_URL_LENGTH, THUMB_DATA_URL_PATTERN, isAllowedAttachmentMime, isValidOriginalFilename, maxBytesForMime } from '../lib/attachmentPolicy';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { BroadcastError, generateStagingKey, sendCoordinatorMessage } from '../lib/leaderBroadcast';
+import { previewTranslation } from '../lib/broadcastTranslation';
+import { privateTranslateLimiter } from '../lib/rateLimit';
 import { DESK_FILTERS, DeskError, deskPersonIds, leaderAlerts, markContacted, peopleNeedingMe, requireDeskOwner, takeOver, takeOverLeader, type DeskFilter } from '../lib/coordinatorDesk';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 
@@ -44,7 +46,9 @@ const messageSchema = z.object({
   personIds: z.array(z.string().min(1)).min(1).max(1000),
   body: z.string().max(MAX_MESSAGE_CHARS).optional(),
   attachments: z.array(attachmentSchema).max(10).optional(),
+  translation: z.object({ language: z.enum(['en', 'fr']), body: z.string().max(MAX_MESSAGE_CHARS) }).optional(),
 });
+const previewSchema = z.object({ text: z.string().max(MAX_MESSAGE_CHARS) });
 const authorizeSchema = z.object({
   originalFilename: z.string().trim().min(1).max(MAX_ORIGINAL_FILENAME_LENGTH),
   mimeType: z.string().min(1),
@@ -121,6 +125,14 @@ function buildRouter(resolvePersonId: (req: Request) => Promise<string | null>) 
     const storageKey = generateStagingKey(personId);
     const { url, expiresAt } = await createUploadUrl({ storageKey, mimeType });
     res.json({ storageKey, uploadUrl: url, expiresAt, maxBytes });
+  }));
+
+  // The preview step: the message translated once, to read and correct before sending.
+  router.post('/translate-preview', privateTranslateLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    await requireDeskOwner(await who(req));
+    const parsed = previewSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Write a message first.' });
+    res.json(await previewTranslation(parsed.data.text));
   }));
 
   // One message to the people chosen, as an ordinary private message from the National Coordinator.
