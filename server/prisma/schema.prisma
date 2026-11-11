@@ -1351,6 +1351,8 @@ model MemberOnboarding {
   welcomeMessageSentAt DateTime?
   // They closed the "Get started" card.
   dismissedAt          DateTime?
+  // The first time the app was seen running as an installed app (opened from the home screen, or just installed).
+  installedAt          DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

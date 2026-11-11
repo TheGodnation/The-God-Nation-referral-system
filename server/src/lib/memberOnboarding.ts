@@ -106,6 +106,7 @@ export interface OnboardingStatus {
   communityTapped: boolean;
   firstTeachingOpened: boolean;
   dismissed: boolean;
+  installed: boolean;
   firstSignInAt: string | null;
 }
 
@@ -113,7 +114,7 @@ export async function onboardingStatus(personId: string): Promise<OnboardingStat
   const [person, account, onboarding, push, teaching, registration] = await Promise.all([
     prisma.person.findUnique({ where: { id: personId }, select: { profileCompletedAt: true } }),
     prisma.memberAccount.findUnique({ where: { personId }, select: { firstLoginAt: true } }),
-    prisma.memberOnboarding.findUnique({ where: { personId }, select: { dismissedAt: true } }),
+    prisma.memberOnboarding.findUnique({ where: { personId }, select: { dismissedAt: true, installedAt: true } }),
     prisma.pushSubscription.count({ where: { personId } }),
     prisma.teachingProgress.count({ where: { personId } }),
     prisma.registration.findFirst({ where: { personId }, select: { id: true } }),
@@ -125,6 +126,7 @@ export async function onboardingStatus(personId: string): Promise<OnboardingStat
     communityTapped: taps > 0,
     firstTeachingOpened: teaching > 0,
     dismissed: !!onboarding?.dismissedAt,
+    installed: !!onboarding?.installedAt,
     firstSignInAt: account?.firstLoginAt ? account.firstLoginAt.toISOString() : null,
   };
 }

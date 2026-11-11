@@ -143,6 +143,22 @@ describe('Onboarding endpoints', () => {
   });
 });
 
+describe('Install recorded', () => {
+  it('is recorded once, when the app is seen installed', async () => {
+    const { person, agent, csrf } = await signedIn();
+    expect((await agent.get('/api/member/onboarding')).body.installed).toBe(false);
+    expect((await agent.post('/api/member/onboarding/installed').send({})).status).toBeGreaterThanOrEqual(400);
+    expect((await agent.post('/api/member/onboarding/installed').set('X-CSRF-Token', csrf).send({})).status).toBe(200);
+    const first = await prisma.memberOnboarding.findUnique({ where: { personId: person.id } });
+    expect(first?.installedAt).not.toBeNull();
+    await new Promise((r) => setTimeout(r, 20));
+    await agent.post('/api/member/onboarding/installed').set('X-CSRF-Token', csrf).send({});
+    const again = await prisma.memberOnboarding.findUnique({ where: { personId: person.id } });
+    expect(again?.installedAt?.getTime()).toBe(first?.installedAt?.getTime());
+    expect((await agent.get('/api/member/onboarding')).body.installed).toBe(true);
+  });
+});
+
 describe('Completing the profile', () => {
   it('sends the welcome once, the first time only', async () => {
     const from = await ensureFounder();
