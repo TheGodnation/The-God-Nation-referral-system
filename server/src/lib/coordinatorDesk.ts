@@ -186,10 +186,11 @@ export async function peopleNeedingMe(adminPersonId: string, query: DeskQuery = 
 }
 
 /** Everyone matching, for "select all" (at most `limit`). */
-export async function deskPersonIds(adminPersonId: string, query: DeskQuery, limit = 1000): Promise<{ ids: string[]; total: number }> {
+export async function deskPersonIds(adminPersonId: string, query: DeskQuery, limit = 1000): Promise<{ ids: string[]; total: number; languages: Record<string, 'en' | 'fr'> }> {
   const { people } = await loadDesk(adminPersonId, query);
   const matching = people.filter(FILTERS[query.filter ?? 'needs']);
-  return { ids: matching.slice(0, limit).map((p) => p.personId), total: matching.length };
+  const chosen = matching.slice(0, limit);
+  return { ids: chosen.map((p) => p.personId), total: matching.length, languages: Object.fromEntries(chosen.map((p) => [p.personId, p.language])) };
 }
 
 export class DeskError extends Error {

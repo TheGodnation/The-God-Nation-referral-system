@@ -110,6 +110,11 @@ describe('People who need me — the list', () => {
     const res = await w.agent.get(`/api/admin/needs-me/ids?communityId=${w.community.id}&filter=needs`);
     expect(res.body.total).toBe(4);
     expect(res.body.ids.sort()).toEqual([w.unconfirmed.id, w.neglected.id, w.lonely.id, w.leader.id].sort());
+    // ...and what language each one reads, so the coordinator knows who to write to in French or English.
+    await prisma.person.update({ where: { id: w.lonely.id }, data: { preferredLanguage: 'fr' } });
+    const again = await w.agent.get(`/api/admin/needs-me/ids?communityId=${w.community.id}&filter=needs`);
+    expect(again.body.languages[w.lonely.id]).toBe('fr');
+    expect(again.body.languages[w.neglected.id]).toBe('en');
   });
 
   it('is for the central admin only', async () => {
@@ -184,6 +189,13 @@ describe('People who need me — message many as National Coordinator', () => {
     const m = await memberAgent(w.neglected.id);
     const chats = await m.agent.get('/api/private-messages/conversations');
     expect(chats.body.items[0]).toMatchObject({ otherPartyName: w.adminPerson.name, otherPartyBadge: 'NATIONAL_COORDINATOR' });
+    // The person is not told the coordinator's language (only the organization side sees it).
+    expect(chats.body.items[0].otherPartyLanguage).toBeUndefined();
+    // The coordinator, opening that chat, sees the person's language.
+    await prisma.person.update({ where: { id: w.neglected.id }, data: { preferredLanguage: 'fr' } });
+    const coordinator = await memberAgent(w.adminPerson.id);
+    const mine = await coordinator.agent.get('/api/private-messages/conversations');
+    expect(mine.body.items.find((c: any) => c.otherPartyPersonId === w.neglected.id)).toMatchObject({ otherPartyLanguage: 'fr' });
     // And it is recorded in the broadcast log, with the audit trail.
     expect(await prisma.leaderBroadcast.count({ where: { senderPersonId: w.adminPerson.id, recipientCount: 2 } })).toBe(1);
     expect(await prisma.auditLog.count({ where: { action: 'LEADER_BROADCAST_SENT', actorId: w.adminUser.id } })).toBe(1);
