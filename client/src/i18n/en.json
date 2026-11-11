@@ -4324,7 +4324,7 @@
     "install_desktop_2": "On a computer in Chrome or Edge, click the install icon at the right end of the address bar, then “Install”.",
     "install_recorded": "When you open the app from your home screen, this step is ticked for you.",
     "install_pictures": "See the steps with pictures",
-    "step_community": "Join us on WhatsApp and the others below",
+    "step_community": "Join and follow us",
     "joined_ask": "We cannot see whether you joined, because the link opens another app. Once you have joined, please tell us.",
     "joined_button": "I have joined",
     "joined_thanks": "Thank you. We are glad you are with us.",
@@ -4338,7 +4338,7 @@
     "close": "Close",
     "next_notifications": "Next: turn on notifications so you never miss a teaching.",
     "next_install": "Next: install the app so we are always one tap away.",
-    "next_community": "Next: join us on WhatsApp or the other places.",
+    "next_community": "Next: join and follow us on WhatsApp and our other pages.",
     "next_agreement": "Next: read your assembly’s rules and agree, so you can write."
   },
   "assemblyAgreement": {

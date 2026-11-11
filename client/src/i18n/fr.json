@@ -4324,7 +4324,7 @@
     "install_desktop_2": "Sur ordinateur, dans Chrome ou Edge, cliquez sur l’icône d’installation à droite de la barre d’adresse, puis « Installer ».",
     "install_recorded": "Quand vous ouvrez l’application depuis votre écran d’accueil, cette étape est cochée pour vous.",
     "install_pictures": "Voir les étapes avec des images",
-    "step_community": "Rejoignez-nous sur WhatsApp et les autres plateformes ci-dessous",
+    "step_community": "Rejoignez-nous et suivez-nous",
     "joined_ask": "Nous ne pouvons pas voir si vous avez rejoint, car le lien ouvre une autre application. Quand vous aurez rejoint, dites-le-nous s’il vous plaît.",
     "joined_button": "J’ai rejoint",
     "joined_thanks": "Merci. Nous sommes heureux de vous avoir avec nous.",
@@ -4338,7 +4338,7 @@
     "close": "Fermer",
     "next_notifications": "Ensuite : activez les notifications pour ne manquer aucun enseignement.",
     "next_install": "Ensuite : installez l’application pour que nous soyons toujours à un clic.",
-    "next_community": "Ensuite : rejoignez-nous sur WhatsApp ou les autres plateformes.",
+    "next_community": "Ensuite : rejoignez-nous et suivez-nous sur WhatsApp et nos autres pages.",
     "next_agreement": "Ensuite : lisez les règles de votre assemblée et acceptez-les, pour pouvoir écrire."
   },
   "assemblyAgreement": {
