@@ -1,5 +1,5 @@
 import { useMyLeader } from '../lib/useMyLeader';
-import { YourLeaderBadge } from '../components/member/MyLeaderCard';
+import { YourLeaderBadge } from '../components/member/YourLeaderBadge';
 import { ReactionsSheet, type ReactorList } from '../components/ReactionsSheet';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';

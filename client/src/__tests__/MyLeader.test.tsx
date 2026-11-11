@@ -1,13 +1,12 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { MyLeaderCard } from '../components/member/MyLeaderCard';
 import { PrivateChatList } from '../components/chat/PrivateChatList';
 import { LeaderInstructions } from '../components/leader/LeaderInstructions';
 import { resetMyLeaderCacheForTests } from '../lib/useMyLeader';
 
-// "Your leader": a card on the person's Home page, a label in their private chats, and a link in an instruction's
-// private message that opens that instruction.
+// "Your leader": a label in the person's private chats (there is no card on the Home page: they are told by a private
+// message and a notification), and a link in an instruction's private message that opens that instruction.
 const json = (body: unknown, status = 200) => Promise.resolve({ ok: status < 300, status, headers: { get: () => 'application/json' }, json: async () => body });
 const LEADER = { personId: 'l1', name: 'Grace Mbah', photoUrl: null };
 
@@ -15,26 +14,6 @@ beforeEach(() => resetMyLeaderCacheForTests());
 afterEach(() => {
   vi.unstubAllGlobals();
   window.history.pushState({}, '', '/');
-});
-
-describe('Your leader card', () => {
-  it('shows who from the Leadership Team follows the person up, with a way to write to them', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => json({ leader: LEADER })));
-    render(<MemoryRouter><MyLeaderCard /></MemoryRouter>);
-    const card = await screen.findByTestId('my-leader-card');
-    expect(card).toHaveTextContent('Your leader');
-    expect(card).toHaveTextContent('Grace Mbah');
-    expect(card).toHaveTextContent('From the Leadership Team');
-    expect(screen.getByTestId('my-leader-message')).toHaveAttribute('href', '/member/people/l1');
-  });
-
-  it('shows nothing when nobody has been assigned', async () => {
-    const fetchMock = vi.fn(() => json({ leader: null }));
-    vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter><MyLeaderCard /></MemoryRouter>);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(screen.queryByTestId('my-leader-card')).toBeNull();
-  });
 });
 
 describe('Your leader label in the private chats', () => {

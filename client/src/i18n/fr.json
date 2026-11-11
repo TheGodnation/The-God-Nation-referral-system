@@ -3035,9 +3035,6 @@
     "assembly_name": "Nom de l’assemblée"
   },
   "myLeader": {
-    "title": "Votre responsable",
-    "from_team": "De l’équipe de leadership",
-    "help": "Désigné(e) pour marcher avec vous et vous suivre. Vous pouvez écrire à votre responsable à tout moment.",
     "message": "Écrire à votre responsable",
     "badge": "Votre responsable · Équipe de leadership"
   },

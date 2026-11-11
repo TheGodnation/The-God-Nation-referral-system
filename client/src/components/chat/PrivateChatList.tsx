@@ -1,5 +1,5 @@
 import { useMyLeader } from '../../lib/useMyLeader';
-import { YourLeaderBadge } from '../member/MyLeaderCard';
+import { YourLeaderBadge } from '../member/YourLeaderBadge';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
