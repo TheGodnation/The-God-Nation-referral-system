@@ -42,6 +42,29 @@ describe('NotificationBell — unread count', () => {
   });
 });
 
+describe('NotificationBell — stays fresh while the app is open', () => {
+  it('re-checks when the app comes back to the front, and when the service worker reports a push', async () => {
+    let count = 1;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => ({ unreadCount: count }) })),
+    );
+    const listeners: Record<string, (e: any) => void> = {};
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: { addEventListener: (t: string, f: any) => (listeners[t] = f), removeEventListener: () => {} },
+    });
+    render(<NotificationBell />);
+    expect(await screen.findByText('1')).toBeInTheDocument();
+    count = 4;
+    listeners.message({ data: { type: 'push-received' } });
+    expect(await screen.findByText('4')).toBeInTheDocument();
+    count = 6;
+    fireEvent(window, new Event('focus'));
+    expect(await screen.findByText('6')).toBeInTheDocument();
+  });
+});
+
 describe('NotificationBell — notification display', () => {
   it('renders each of the four notification types with the correct interpolated message', async () => {
     mockFetchByUrl({
