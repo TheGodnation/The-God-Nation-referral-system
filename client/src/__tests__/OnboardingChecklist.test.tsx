@@ -8,7 +8,7 @@ import i18n from '../i18n';
 // The welcome checklist and the "Get started" card: they always appear, show real progress, never block, and the
 // card can be closed for good.
 const calls: { url: string; method: string; body: any }[] = [];
-const STATUS = { profileDone: true, notificationsOn: false, communityTapped: false, firstTeachingOpened: false, dismissed: false, firstSignInAt: '2026-01-01T00:00:00Z' };
+const STATUS = { profileDone: true, notificationsOn: false, communityTapped: false, existingMember: false, agreementCommunityId: 'c1', dismissed: false, firstSignInAt: '2026-01-01T00:00:00Z' };
 
 function mockFetch(responses: Record<string, { status?: number; body: unknown }>) {
   vi.stubGlobal(
@@ -74,7 +74,7 @@ describe('Get started card', () => {
 
     vi.unstubAllGlobals();
     Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
-    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, notificationsOn: true, communityTapped: true, firstTeachingOpened: true } } });
+    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, notificationsOn: true, communityTapped: true, agreementCommunityId: null } } });
     const b = card();
     await waitFor(() => expect(calls.length).toBeGreaterThan(1));
     expect(screen.queryByTestId('get-started-card')).toBeNull();
@@ -97,6 +97,33 @@ describe('Get started card', () => {
   });
 });
 
+describe('Existing members and the rules step', () => {
+  const page = () => render(<MemoryRouter><OnboardingPage /></MemoryRouter>);
+
+  it('a new member is sent to their assembly to read the rules and agree', async () => {
+    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: STATUS } });
+    page();
+    const link = await screen.findByTestId('open-assembly');
+    expect(link).toHaveAttribute('href', '/member/chats/group/c1');
+    expect(screen.queryByTestId('step-teaching')).toBeNull();
+  });
+
+  it('an existing member has the community step and the rules step ticked already', async () => {
+    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: { ...STATUS, existingMember: true, agreementCommunityId: null } } });
+    page();
+    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('2 of 4 done'));
+    expect(screen.queryByTestId('open-assembly')).toBeNull();
+  });
+
+  it('the card tells a new member to read the rules next, once the other steps are done', async () => {
+    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, notificationsOn: true, communityTapped: true } } });
+    Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
+    card();
+    expect(await screen.findByText(/Next: read your assembly’s rules/)).toBeInTheDocument();
+    Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: undefined });
+  });
+});
+
 describe('Welcome steps page', () => {
   it('shows every step with real progress, even when the status cannot be read', async () => {
     mockFetch({ '/api/settings/public': { body: { content: {} } } });
@@ -105,12 +132,12 @@ describe('Welcome steps page', () => {
         <OnboardingPage />
       </MemoryRouter>,
     );
-    for (const s of ['notifications', 'install', 'community', 'teaching']) expect(await screen.findByTestId(`step-${s}`)).toBeInTheDocument();
+    for (const s of ['notifications', 'install', 'community', 'agreement']) expect(await screen.findByTestId(`step-${s}`)).toBeInTheDocument();
     expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('0 of 4 done');
   });
 
   it('marks a step done from what the server knows', async () => {
-    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: { ...STATUS, firstTeachingOpened: true, communityTapped: true } } });
+    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: { ...STATUS, agreementCommunityId: null, communityTapped: true } } });
     render(
       <MemoryRouter>
         <OnboardingPage />

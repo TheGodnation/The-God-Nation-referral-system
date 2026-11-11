@@ -4327,8 +4327,9 @@
     "step_community": "Rejoindre notre communauté d’accueil",
     "community_body": "Rencontrez vos frères et sœurs. C’est votre choix, sans aucune pression.",
     "no_places": "Les liens de notre communauté arrivent bientôt. Vous les trouverez ici quand ils seront prêts.",
-    "step_teaching": "Ouvrir votre premier enseignement",
-    "teaching_body": "Trouvez les enseignements dans vos discussions et touchez-en un pour le lire ou l’écouter.",
+    "step_agreement": "Lire les règles et rejoindre votre assemblée",
+    "agreement_body": "Vous êtes déjà dans votre assemblée et pouvez tout lire. Pour écrire et répondre, vous acceptez d’abord ses règles.",
+    "agreement_button": "Ouvrir mon assemblée",
     "anytime": "Vous pourrez terminer cela plus tard depuis votre page Discussions.",
     "card_title": "Pour bien commencer",
     "card_button": "Continuer",
@@ -4336,7 +4337,24 @@
     "next_notifications": "Ensuite : activez les notifications pour ne manquer aucun enseignement.",
     "next_install": "Ensuite : installez l’application pour que nous soyons toujours à un clic.",
     "next_community": "Ensuite : rejoignez notre communauté d’accueil, si vous le souhaitez.",
-    "next_teaching": "Ensuite : ouvrez votre premier enseignement."
+    "next_agreement": "Ensuite : lisez les règles de votre assemblée et acceptez-les, pour pouvoir écrire."
+  },
+  "assemblyAgreement": {
+    "title": "Notre engagement d’assemblée",
+    "intro": "Vous faites déjà partie de cette assemblée et vous pouvez tout lire ici. Avant de pouvoir publier ou répondre, veuillez lire ces règles simples et vous y engager. Vous pouvez toujours réagir aux messages.",
+    "rule1_title": "Ceci est une assemblée du peuple de Dieu.",
+    "rule1_body": "« Là où deux ou trois sont assemblés en mon nom, je suis au milieu d’eux. » Nous nous traitons avec honneur et respect. Des enseignements, des prières et des encouragements ont lieu ici, et nous les recevons ainsi.",
+    "rule2_title": "Sachez pourquoi nous sommes ici.",
+    "rule2_body": "Avant de publier, assurez-vous de bien comprendre le but de ce groupe. Ne partagez que ce qui correspond à ce but.",
+    "rule3_title": "Pas de publicité.",
+    "rule3_body": "Pas de publication de programmes personnels, d’invitations ni de publicité d’aucune sorte, y compris pour des produits ou des services.",
+    "rule4_title": "Pas d’insultes, pas de harcèlement.",
+    "rule4_body": "Pas de paroles injurieuses, de menaces, de moqueries ni de pression sur qui que ce soit.",
+    "rule5_title": "Les responsables veillent sur l’assemblée.",
+    "rule5_body": "Un responsable peut supprimer un message ou mettre en pause une personne qui ne respecte pas ces règles.",
+    "agree": "J’accepte",
+    "working": "Un instant…",
+    "failed": "Une erreur est survenue. Veuillez réessayer."
   },
   "contactPrefs": {
     "title": "Comment nous pouvons vous contacter",

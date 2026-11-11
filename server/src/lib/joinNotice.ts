@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { getOrCreateConversation } from './communityConversation';
 import { isCentralAdminPerson } from './centralAdmin';
+import { agreementRequired } from './assemblyAgreement';
 
 // "Just joined": when someone joins an assembly or group, its chat shows a line with their name so the others can
 // welcome them. Nothing is shown when someone leaves. The line is a message of kind JOINED, written by the person who
@@ -21,7 +22,8 @@ export async function announceJoined(communityId: string, personIds: string[]): 
     if (unique.length === 0) return;
     const people = await prisma.person.findMany({ where: { id: { in: unique }, erasedAt: null, deletionRequestedAt: null }, select: { id: true } });
     const eligible: string[] = [];
-    for (const p of people) if (!(await isCentralAdminPerson(p.id))) eligible.push(p.id);
+    // Someone who still has to agree to the assembly's rules is announced when they agree, not when they are placed.
+    for (const p of people) if (!(await isCentralAdminPerson(p.id)) && !(await agreementRequired(p.id, communityId))) eligible.push(p.id);
     if (eligible.length === 0) return;
     const conversation = await getOrCreateConversation(communityId);
     const recent = await prisma.message.findMany({

@@ -4327,8 +4327,9 @@
     "step_community": "Join our welcome community",
     "community_body": "Meet your brothers and sisters. It is your choice, and there is no pressure.",
     "no_places": "Our community links are coming soon. You will find them here when they are ready.",
-    "step_teaching": "Open your first teaching",
-    "teaching_body": "Find teachings in your chats and tap one to read or listen.",
+    "step_agreement": "Read the rules and join your assembly",
+    "agreement_body": "You are already in your assembly and can read everything. To write and reply, you first agree to its rules.",
+    "agreement_button": "Open my assembly",
     "anytime": "You can finish these later from your Chats page.",
     "card_title": "Get started",
     "card_button": "Continue",
@@ -4336,7 +4337,24 @@
     "next_notifications": "Next: turn on notifications so you never miss a teaching.",
     "next_install": "Next: install the app so we are always one tap away.",
     "next_community": "Next: join our welcome community, if you wish.",
-    "next_teaching": "Next: open your first teaching."
+    "next_agreement": "Next: read your assembly’s rules and agree, so you can write."
+  },
+  "assemblyAgreement": {
+    "title": "Our Assembly Agreement",
+    "intro": "You are already part of this assembly, and you can read everything here. Before you can post or reply, please read these simple rules and agree to them. You can still react to messages.",
+    "rule1_title": "This is an assembly of God’s people.",
+    "rule1_body": "“Where two or three are gathered in my name, there am I among them.” We treat one another with honour and respect. Teachings, prayers and encouragements happen here, and we receive them that way.",
+    "rule2_title": "Know why we are here.",
+    "rule2_body": "Before you post, make sure you understand the purpose of this group. Share only what fits that purpose.",
+    "rule3_title": "No publicity.",
+    "rule3_body": "No posting of personal programs, invitations or advertising of any kind, including products or services.",
+    "rule4_title": "No insults, no harassment.",
+    "rule4_body": "No abusive words, threats, mockery or pressure on anyone.",
+    "rule5_title": "Leaders look after the assembly.",
+    "rule5_body": "A leader may remove a message or pause someone who breaks these rules.",
+    "agree": "I agree",
+    "working": "One moment…",
+    "failed": "Something went wrong. Please try again."
   },
   "contactPrefs": {
     "title": "How we may contact you",

@@ -14,7 +14,8 @@ export interface OnboardingStatus {
   profileDone: boolean;
   notificationsOn: boolean;
   communityTapped: boolean;
-  firstTeachingOpened: boolean;
+  existingMember?: boolean;
+  agreementCommunityId?: string | null;
   dismissed: boolean;
   installed: boolean;
   firstSignInAt: string | null;
@@ -23,7 +24,7 @@ export interface OnboardingStatus {
 // Places left out of the welcome step (YouTube is a channel to watch, not a place to join).
 const HIDDEN_PLACES = ['youtube'];
 
-type StepKey = 'notifications' | 'install' | 'community' | 'teaching';
+type StepKey = 'notifications' | 'install' | 'community' | 'agreement';
 
 /** What the member has done so far. Anything that can't be read counts as "not yet", never as an error. */
 function useOnboarding() {
@@ -53,15 +54,17 @@ function useOnboarding() {
   const done: Record<StepKey, boolean> = {
     notifications: deviceHasPush || !!status?.notificationsOn,
     install: install.installed || !!status?.installed,
-    community: tapped || !!status?.communityTapped,
-    teaching: !!status?.firstTeachingOpened,
+    // People who were already here (most came from WhatsApp) are not asked to join the community again.
+    community: tapped || !!status?.communityTapped || !!status?.existingMember,
+    // Nothing waiting (they agreed, or they were here before the rules started) counts as done.
+    agreement: !!status && !status.agreementCommunityId,
   };
   const total = 4;
   const count = Object.values(done).filter(Boolean).length;
   return { status, done, count, total, install, markTapped: () => setTapped(true), reload };
 }
 
-const STEP_ORDER: StepKey[] = ['notifications', 'install', 'community', 'teaching'];
+const STEP_ORDER: StepKey[] = ['notifications', 'install', 'community', 'agreement'];
 
 function Tick({ on }: { on: boolean }) {
   return (
@@ -129,7 +132,7 @@ export function OnboardingPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const settings = usePublicSettings();
-  const { done, count, total, install, markTapped } = useOnboarding();
+  const { status, done, count, total, install, markTapped } = useOnboarding();
   const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en';
   const visible = (x: { platform: string }) => !HIDDEN_PLACES.includes(x.platform);
   const anyPlace = communityPlaces(settings, lang).filter(visible).length + followPlaces(settings).filter(visible).length > 0;
@@ -182,11 +185,22 @@ export function OnboardingPage() {
           </div>
         </li>
 
-        <li className="flex gap-3" data-testid="step-teaching">
-          <Tick on={done.teaching} />
+        <li className="flex gap-3" data-testid="step-agreement">
+          <Tick on={done.agreement} />
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-slate-900">{t('onboarding.step_teaching')}</p>
-            {done.teaching ? <p className="text-xs text-emerald-700">{t('onboarding.done')}</p> : <p className="text-xs text-slate-600">{t('onboarding.teaching_body')}</p>}
+            <p className="font-semibold text-slate-900">{t('onboarding.step_agreement')}</p>
+            {done.agreement ? (
+              <p className="text-xs text-emerald-700">{t('onboarding.done')}</p>
+            ) : (
+              <>
+                <p className="text-xs text-slate-600">{t('onboarding.agreement_body')}</p>
+                {status?.agreementCommunityId && (
+                  <Link to={`/member/chats/group/${status.agreementCommunityId}`} className="btn-primary mt-1.5 inline-block px-3 py-1.5 text-sm no-underline" data-testid="open-assembly">
+                    {t('onboarding.agreement_button')}
+                  </Link>
+                )}
+              </>
+            )}
           </div>
         </li>
       </ol>
@@ -211,7 +225,7 @@ export function GetStartedCard() {
   const { status, done, count, total } = useOnboarding();
   const [closed, setClosed] = useState(false);
   if (!status || status.dismissed || closed || count >= total) return null;
-  const next = STEP_ORDER.find((k) => !done[k]) ?? 'teaching';
+  const next = STEP_ORDER.find((k) => !done[k]) ?? 'agreement';
 
   function close() {
     setClosed(true);

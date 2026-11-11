@@ -1,3 +1,4 @@
+import { agreementRequired } from './assemblyAgreement';
 import { isCentralAdminPerson } from './centralAdmin';
 import { prisma } from './prisma';
 import { findActiveScopedRole, personBelongsToContext, isCommunityAdministrator } from './leadership';
@@ -45,6 +46,8 @@ export async function canPostCommunityMessage(personId: string, communityId: str
   if (!community) return false;
   // A muted person can read but not write (see lib/sanctions.ts).
   if (await activeMute(personId, communityId)) return false;
+  // A new member who has not yet agreed to the assembly's rules can read and react, but not post or reply.
+  if (await agreementRequired(personId, communityId)) return false;
   if (community.postingPolicy === 'LEADERS_ONLY') {
     return isCommunityAdministrator(personId, communityId);
   }

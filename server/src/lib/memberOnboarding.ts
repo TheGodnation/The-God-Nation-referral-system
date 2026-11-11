@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { centralAdminPerson } from './trainingWelcome';
 import { sendPrivateNotice, isFrench } from './privateNotice';
+import { pendingAgreements } from './assemblyAgreement';
 
 // A new member's first steps: the founder's welcome in their private chat (once), and the facts the "Get started"
 // checklist shows. No prices, payment or website links here: the Google Play version of the app shows this chat too.
@@ -105,26 +106,35 @@ export interface OnboardingStatus {
   notificationsOn: boolean;
   communityTapped: boolean;
   firstTeachingOpened: boolean;
+  /** Signed up before the Assembly Agreement started: asked for nothing about community or rules. */
+  existingMember: boolean;
+  /** The assembly where this person still has to agree to the rules (null when nothing is waiting). */
+  agreementCommunityId: string | null;
   dismissed: boolean;
   installed: boolean;
   firstSignInAt: string | null;
 }
 
 export async function onboardingStatus(personId: string): Promise<OnboardingStatus> {
-  const [person, account, onboarding, push, teaching, registration] = await Promise.all([
+  const [person, account, onboarding, push, teaching, registration, settings, pending] = await Promise.all([
     prisma.person.findUnique({ where: { id: personId }, select: { profileCompletedAt: true } }),
-    prisma.memberAccount.findUnique({ where: { personId }, select: { firstLoginAt: true } }),
+    prisma.memberAccount.findUnique({ where: { personId }, select: { firstLoginAt: true, createdAt: true } }),
     prisma.memberOnboarding.findUnique({ where: { personId }, select: { dismissedAt: true, installedAt: true } }),
     prisma.pushSubscription.count({ where: { personId } }),
     prisma.teachingProgress.count({ where: { personId } }),
     prisma.registration.findFirst({ where: { personId }, select: { id: true } }),
+    prisma.settings.findUnique({ where: { id: 'singleton' }, select: { assemblyAgreementFrom: true } }),
+    pendingAgreements(personId),
   ]);
   const taps = registration ? await prisma.event.count({ where: { type: 'GROUP_LINK_CLICKED', registrationId: registration.id } }) : 0;
+  const existing = !!(settings?.assemblyAgreementFrom && account && account.createdAt < settings.assemblyAgreementFrom);
   return {
     profileDone: !!person?.profileCompletedAt,
     notificationsOn: push > 0,
     communityTapped: taps > 0,
     firstTeachingOpened: teaching > 0,
+    existingMember: existing,
+    agreementCommunityId: pending[0]?.communityId ?? null,
     dismissed: !!onboarding?.dismissedAt,
     installed: !!onboarding?.installedAt,
     firstSignInAt: account?.firstLoginAt ? account.firstLoginAt.toISOString() : null,
