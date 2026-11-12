@@ -1,6 +1,6 @@
 import { noteSignIn } from '../lib/accountDeletion';
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
@@ -28,7 +28,11 @@ function MemberLoginPageInner() {
   const navigate = useNavigate();
   const { refresh } = useMemberAuth();
 
-  const [mode, setMode] = useState<'password' | 'code-request' | 'code-entry' | 'device-code'>('password');
+  // "Continue where you stopped" link (sent on WhatsApp to someone who did not finish registering): they already have an
+  // account, so it starts on the email-code step with a welcome-back note, not on the password form.
+  const [params] = useSearchParams();
+  const continueMode = params.get('continue') === '1';
+  const [mode, setMode] = useState<'password' | 'code-request' | 'code-entry' | 'device-code'>(continueMode ? 'code-request' : 'password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [codeEmail, setCodeEmail] = useState('');
@@ -88,6 +92,11 @@ function MemberLoginPageInner() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-sm px-4 py-16">
+        {continueMode && (
+          <p role="status" className="mb-4 rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-900" data-testid="continue-banner">
+            🙏 {t('memberLogin.continue_banner')}
+          </p>
+        )}
         <h1 className="text-2xl font-bold text-brand-900">{t('memberLogin.title')}</h1>
         <p className="mt-2 text-sm text-slate-500">
           {t(mode === 'password' ? 'memberLogin.subtitle_password' : 'memberLogin.subtitle_code')}

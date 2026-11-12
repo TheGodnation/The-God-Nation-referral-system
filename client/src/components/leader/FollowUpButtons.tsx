@@ -10,7 +10,7 @@ const btn = 'rounded-lg px-3 py-1.5 text-sm font-semibold no-underline';
  * apps they use (with the links under it). Nothing is sent by the app: WhatsApp opens with the words already typed
  * and the leader presses send. No names are put in the message.
  */
-export function FollowUpButtons({ personId, whatsapp, language, name, needsToFinish = false }: { personId: string; whatsapp: string; language: 'en' | 'fr'; name?: string; needsToFinish?: boolean }) {
+export function FollowUpButtons({ personId, whatsapp, language, name, needsToFinish = false, personalLink }: { personId: string; whatsapp: string; language: 'en' | 'fr'; name?: string; needsToFinish?: boolean; personalLink?: (personId: string) => Promise<string> }) {
   const { t } = useTranslation();
   const settings = usePublicSettings();
   const places = followUpPlaces(settings, language, schoolWebsiteUrl(language));
@@ -28,6 +28,28 @@ export function FollowUpButtons({ personId, whatsapp, language, name, needsToFin
   const first = (name ?? '').trim().split(/\s+/)[0];
   const finishText = t('followUp.finish_message', { lng: language, name: first || (language === 'fr' ? 'cher ami' : 'friend'), link: finishRegistrationUrl(language), interpolation: { escapeValue: false } });
   const finish = whatsappChatUrl(whatsapp, finishText);
+  // The coordinator can also make a private, one-time link for this person (no emailed code needed): WhatsApp opens with it.
+  const [making, setMaking] = useState(false);
+  const [linkError, setLinkError] = useState(false);
+  async function sendPersonal() {
+    if (!personalLink) return;
+    setMaking(true);
+    setLinkError(false);
+    // The window is opened at once (the tap), then pointed at WhatsApp when the link is ready, so phones do not block it.
+    const win = window.open('', '_blank');
+    try {
+      const url = await personalLink(personId);
+      const text = t('followUp.personal_message', { lng: language, name: first || (language === 'fr' ? 'cher ami' : 'friend'), link: url, interpolation: { escapeValue: false } });
+      const target = whatsappChatUrl(whatsapp, text);
+      if (win) win.location.href = target;
+      else window.location.href = target;
+    } catch {
+      win?.close();
+      setLinkError(true);
+    } finally {
+      setMaking(false);
+    }
+  }
   const links = whatsappChatUrl(whatsapp, withLinks(say('links_intro'), labelled(chosen)));
   const apps = whatsappChatUrl(whatsapp, withLinks(say('apps_question'), labelled(places.filter((p) => p.id !== 'website'))));
 
@@ -48,6 +70,15 @@ export function FollowUpButtons({ personId, whatsapp, language, name, needsToFin
             {t('followUp.btn_finish')}
           </a>
           <p className="mt-1 text-xs text-slate-500">{t('followUp.finish_help')}</p>
+          {personalLink && (
+            <div className="mt-2">
+              <button type="button" disabled={making} onClick={() => void sendPersonal()} className={`${btn} border border-green-600 text-green-800 hover:bg-green-50 disabled:opacity-60`} data-testid={`followup-personal-${personId}`}>
+                {making ? t('followUp.personal_making') : t('followUp.btn_personal')}
+              </button>
+              <p className="mt-1 text-xs text-slate-500">{t('followUp.personal_help')}</p>
+              {linkError && <p role="alert" className="mt-1 text-xs text-red-700">{t('followUp.personal_failed')}</p>}
+            </div>
+          )}
         </div>
       )}
       <div className="flex flex-wrap gap-2">
