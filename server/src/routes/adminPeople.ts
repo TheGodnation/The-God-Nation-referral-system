@@ -13,6 +13,7 @@ import { requireCsrf } from '../lib/csrf';
 import { normalizeToE164 } from '../lib/phone';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
+import { DELETION_MODES, activeBlocksFor, blockContacts, eraseSignupTraces } from '../lib/contactBlocks';
 import { asyncHandler } from '../lib/asyncHandler';
 import { computeTrainingProgressForPerson } from '../lib/trainingProgress';
 
@@ -198,6 +199,10 @@ router.post('/people', requireCsrf, asyncHandler(async (req, res) => {
   const existing = await prisma.person.findUnique({ where: { whatsappNumber: normalized } });
   if (existing) {
     return res.status(409).json({ error: 'A person with this WhatsApp number already exists.', code: 'NUMBER_EXISTS' });
+  }
+  // A number or email kept out after a deletion cannot be added by hand either (allow it first, under Account deletions).
+  if ((await activeBlocksFor(normalized, email)).length > 0) {
+    return res.status(409).json({ error: 'This WhatsApp number or email was kept out after an earlier deletion. Allow it first under Account deletions.', code: 'KEPT_OUT' });
   }
 
   const created = await prisma.person.create({
@@ -397,12 +402,28 @@ router.post('/people/:id/sign-in-help', adminSensitiveLimiter, requireCsrf, asyn
 // relations in schema.prisma, all `onDelete: Cascade`). Meant for cleaning
 // up test/placeholder records an Admin created by hand; there is no undo,
 // so the client is expected to make the Admin confirm before calling this.
+const deletePersonSchema = z.object({
+  // Free to register again (the default), only with the admin's approval, or never (lib/contactBlocks.ts).
+  mode: z.enum(DELETION_MODES as [string, ...string[]]).default('FREE'),
+  note: z.string().trim().max(500).optional(),
+});
+
 router.delete('/people/:id', requireCsrf, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const person = await prisma.person.findUnique({ where: { id } });
+  const parsed = deletePersonSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid delete choice.' });
+  const { mode, note } = parsed.data;
+  const person = await prisma.person.findUnique({
+    where: { id },
+    select: { id: true, name: true, whatsappNumber: true, email: true, memberAccount: { select: { email: true } }, users: { select: { email: true } } },
+  });
   if (!person) return res.status(404).json({ error: 'Person not found.' });
 
-  await prisma.person.delete({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    await blockContacts(tx, { mode: mode as (typeof DELETION_MODES)[number], contacts: { whatsappNumber: person.whatsappNumber, emails: [person.email, person.memberAccount?.email, ...person.users.map((u) => u.email)] }, personName: person.name, note, byUserId: req.user!.id });
+    await eraseSignupTraces(tx, { personId: id, whatsappNumber: person.whatsappNumber });
+    await tx.person.delete({ where: { id } });
+  });
 
   await recordAudit({
     actorId: req.user!.id,
@@ -410,7 +431,7 @@ router.delete('/people/:id', requireCsrf, asyncHandler(async (req, res) => {
     action: 'PERSON_DELETED',
     targetType: 'Person',
     targetId: id,
-    metadata: { name: person.name, whatsappNumber: person.whatsappNumber, email: person.email },
+    metadata: { name: person.name, whatsappNumber: person.whatsappNumber, email: person.email, mode },
   });
 
   res.status(204).end();

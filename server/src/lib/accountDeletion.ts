@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { prisma } from './prisma';
 import { recordAudit } from './audit';
 import { deleteObject, isStorageConfigured } from './storage';
+import { blockContacts, eraseSignupTraces, type DeletionMode } from './contactBlocks';
 
 // ---------------------------------------------------------------------------
 // "Delete my account" (agreed with the ministry):
@@ -138,7 +139,7 @@ export async function cancelAccountDeletion(personId: string, by: 'MEMBER' | 'AD
  * everything else tied to them (see the Person relations in schema.prisma);
  * book payments and offerings keep their amount and date, without the name.
  */
-export async function completeAccountDeletion(requestId: string, adminUserId: string) {
+export async function completeAccountDeletion(requestId: string, adminUserId: string, choice: { mode: DeletionMode; note?: string | null } = { mode: 'FREE' }) {
   const request = await prisma.accountDeletionRequest.findUnique({ where: { id: requestId } });
   if (!request?.personId) throw new AccountDeletionError('NOT_FOUND');
   if (request.status !== 'PENDING') throw new AccountDeletionError('NOT_PENDING');
@@ -147,7 +148,7 @@ export async function completeAccountDeletion(requestId: string, adminUserId: st
 
   const person = await prisma.person.findUnique({
     where: { id: personId },
-    select: { name: true, whatsappNumber: true, preferredLanguage: true, photoStorageKey: true, coverStorageKey: true, users: { select: { id: true, role: true } } },
+    select: { name: true, whatsappNumber: true, email: true, preferredLanguage: true, photoStorageKey: true, coverStorageKey: true, memberAccount: { select: { email: true } }, users: { select: { id: true, role: true, email: true } } },
   });
   if (!person) throw new AccountDeletionError('NOT_FOUND');
   if (person.users.some((u) => u.role === 'ADMIN')) throw new AccountDeletionError('ADMIN_ACCOUNT');
@@ -214,6 +215,10 @@ export async function completeAccountDeletion(requestId: string, adminUserId: st
 
     // Anything kept from the "stay connected" box under this person's number goes with them.
     await tx.lead.deleteMany({ where: { OR: [{ convertedPersonId: personId }, { whatsappNumber: person.whatsappNumber }] } });
+    // The admin's choice: free to register again, only with approval, or never. Either way the number is freed
+    // from the old sign-up record (the list, if any, is what keeps it out).
+    await blockContacts(tx, { mode: choice.mode, contacts: { whatsappNumber: person.whatsappNumber, emails: [person.email, person.memberAccount?.email, ...person.users.map((u) => u.email)] }, personName: person.name, note: choice.note, byUserId: adminUserId });
+    await eraseSignupTraces(tx, { personId, whatsappNumber: person.whatsappNumber });
     await tx.person.delete({ where: { id: personId } });
     await tx.accountDeletionRequest.update({
       where: { id: request.id },
@@ -221,7 +226,7 @@ export async function completeAccountDeletion(requestId: string, adminUserId: st
     });
   });
 
-  await recordAudit({ actorId: adminUserId, action: 'ACCOUNT_DELETED', targetType: 'AccountDeletionRequest', targetId: request.id, metadata: { files: files.length } });
+  await recordAudit({ actorId: adminUserId, action: 'ACCOUNT_DELETED', targetType: 'AccountDeletionRequest', targetId: request.id, metadata: { files: files.length, mode: choice.mode } });
 
   // Best effort: a file that can't be removed now stays private (it is only
   // ever served through signed links to people allowed to see it, and no

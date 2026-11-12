@@ -139,6 +139,7 @@ describe('Account deletions (central admin)', () => {
       { id: 'r2', name: 'Paul', email: 'p@x.com', whatsappNumber: '+237670000002', source: 'WEB', requestedAt: '2026-09-01T10:00:00Z', readyAt: '2026-10-01T10:00:00Z', ready: true, returnedRoles: [] },
     ];
     mockFetch({
+      'GET /api/admin/account-deletions/kept-out': () => ({ body: { items: [] } }),
       'GET /api/admin/account-deletions': () => ({ body: { items, closed: [{ id: 'c1', status: 'COMPLETED', requestedAt: '2026-08-01T00:00:00Z', completedAt: '2026-09-05T00:00:00Z', cancelledAt: null, cancelledBy: null }] } }),
       'POST /api/admin/account-deletions/r1': () => {
         items = items.filter((i) => i.id !== 'r1');
