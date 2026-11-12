@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
-import { whatsappChatUrl } from '../../lib/followUp';
+import { finishRegistrationUrl, whatsappChatUrl } from '../../lib/followUp';
 
 export interface QueuePerson {
   personId: string;
@@ -26,6 +26,12 @@ const TEMPLATES: Record<QueueKind, { en: string; fr: string }> = {
   },
 };
 
+// For someone who has not signed in or not finished registering: where to tap, what happens, and an offer of help.
+const FINISH_TEXT: { en: string; fr: string } = {
+  en: 'Hello {name}, welcome to The God Nation! 🙏 We saw that you started to join us but did not finish. It takes about one minute. Tap this link and sign in with your email (a code is sent to you): {link}\nThen fill in your name, your country and where you live, so we can place you in your assembly. If anything is difficult, just reply here and I will help you. God bless you!',
+  fr: 'Bonjour {name}, bienvenue à The God Nation ! 🙏 Nous avons vu que vous avez commencé à nous rejoindre sans terminer. Cela prend environ une minute. Touchez ce lien et connectez-vous avec votre e-mail (un code vous est envoyé) : {link}\nPuis indiquez votre nom, votre pays et où vous habitez, pour que nous puissions vous placer dans votre assemblée. Si quelque chose est difficile, répondez simplement ici et je vous aiderai. Que Dieu vous bénisse !',
+};
+
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
 
 /**
@@ -33,7 +39,7 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
  * each, WhatsApp opens with the words ready in their own language; you press send there, come back and press "Done,
  * next". Nothing is sent by the app, so it is safe for the phone number (no bulk sending), and takes a few seconds a person.
  */
-export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = 'needsMe.queue_signature', translateUrl, onStop, defaultKind = 'nudge' }: { people: QueuePerson[]; onClose: () => void; recordContact: (p: QueuePerson) => Promise<unknown> | void; signatureKey?: string; translateUrl?: string; onStop?: (p: QueuePerson) => Promise<unknown> | void; defaultKind?: QueueKind }) {
+export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = 'needsMe.queue_signature', translateUrl, onStop, defaultKind = 'nudge', defaultTemplate }: { people: QueuePerson[]; onClose: () => void; recordContact: (p: QueuePerson) => Promise<unknown> | void; signatureKey?: string; translateUrl?: string; onStop?: (p: QueuePerson) => Promise<unknown> | void; defaultKind?: QueueKind; defaultTemplate?: 'finish' }) {
   const { t } = useTranslation();
   const [kind, setKind] = useState<QueueKind>(defaultKind);
   const [includeNoTick, setIncludeNoTick] = useState(false);
@@ -53,7 +59,8 @@ export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = '
   );
   const optedOutCount = people.filter((p) => p.whatsapp && consentOf(p) === 'OPTED_OUT').length;
   const noTickCount = people.filter((p) => p.whatsapp && consentOf(p) === 'NONE').length;
-  const [text, setText] = useState<{ en: string; fr: string }>({ en: '', fr: '' });
+  // Opened on the lists of people who have not signed in or finished registering, the "finish registering" text is already there (it can be edited).
+  const [text, setText] = useState<{ en: string; fr: string }>(defaultTemplate === 'finish' ? FINISH_TEXT : { en: '', fr: '' });
   const [record, setRecord] = useState(true);
   const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
@@ -87,8 +94,9 @@ export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = '
     }
   }
 
-  const message = (p: QueuePerson) => `${text[p.language].trim().split('{name}').join(firstName(p.name))}\n\n— ${t(signatureKey, { lng: p.language })}`;
+  const message = (p: QueuePerson) => `${text[p.language].trim().split('{name}').join(firstName(p.name)).split('{link}').join(finishRegistrationUrl(p.language))}\n\n— ${t(signatureKey, { lng: p.language })}`;
   const useTemplate = () => setText(TEMPLATES[kind]);
+  const useFinish = () => setText(FINISH_TEXT);
 
   async function stopThem() {
     if (!current) return;
@@ -173,6 +181,11 @@ export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = '
           <button type="button" onClick={useTemplate} className="btn-secondary" data-testid="queue-template">
             ✍️ {t(kind === 'help' ? 'needsMe.queue_template_help' : 'needsMe.queue_template_nudge')}
           </button>
+          {kind === 'help' && (
+            <button type="button" onClick={useFinish} className="btn-secondary" data-testid="queue-template-finish">
+              🔗 {t('needsMe.queue_template_finish')}
+            </button>
+          )}
           <p className="text-xs text-slate-500">{t('needsMe.queue_name_hint')}</p>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} />

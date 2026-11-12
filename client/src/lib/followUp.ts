@@ -36,6 +36,12 @@ export function schoolWebsiteUrl(lang: 'en' | 'fr'): string {
   return `${origin}/member/school${lang === 'fr' ? '?lang=fr' : ''}`;
 }
 
+/** The link that lets someone sign in with their email and then finish registering (name, country, place). */
+export function finishRegistrationUrl(lang: 'en' | 'fr'): string {
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  return `${origin}/member/login${lang === 'fr' ? '?lang=fr' : ''}`;
+}
+
 /** A WhatsApp chat with this number, the message already typed (the leader reads it and presses send). */
 export function whatsappChatUrl(number: string, text: string): string {
   return `https://wa.me/${number.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;

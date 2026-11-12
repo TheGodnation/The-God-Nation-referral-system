@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePublicSettings } from '../../lib/usePublicSettings';
-import { followUpPlaces, schoolWebsiteUrl, whatsappChatUrl, withLinks, type FollowUpId } from '../../lib/followUp';
+import { finishRegistrationUrl, followUpPlaces, schoolWebsiteUrl, whatsappChatUrl, withLinks, type FollowUpId } from '../../lib/followUp';
 
 const btn = 'rounded-lg px-3 py-1.5 text-sm font-semibold no-underline';
 
@@ -10,7 +10,7 @@ const btn = 'rounded-lg px-3 py-1.5 text-sm font-semibold no-underline';
  * apps they use (with the links under it). Nothing is sent by the app: WhatsApp opens with the words already typed
  * and the leader presses send. No names are put in the message.
  */
-export function FollowUpButtons({ personId, whatsapp, language }: { personId: string; whatsapp: string; language: 'en' | 'fr' }) {
+export function FollowUpButtons({ personId, whatsapp, language, name, needsToFinish = false }: { personId: string; whatsapp: string; language: 'en' | 'fr'; name?: string; needsToFinish?: boolean }) {
   const { t } = useTranslation();
   const settings = usePublicSettings();
   const places = followUpPlaces(settings, language, schoolWebsiteUrl(language));
@@ -24,6 +24,10 @@ export function FollowUpButtons({ personId, whatsapp, language }: { personId: st
   const chosen = places.filter((p) => !unticked.has(p.id));
 
   const hello = whatsappChatUrl(whatsapp, say('hello'));
+  // For someone who has not signed in or not finished registering: the right link, in their language, to finish.
+  const first = (name ?? '').trim().split(/\s+/)[0];
+  const finishText = t('followUp.finish_message', { lng: language, name: first || (language === 'fr' ? 'cher ami' : 'friend'), link: finishRegistrationUrl(language), interpolation: { escapeValue: false } });
+  const finish = whatsappChatUrl(whatsapp, finishText);
   const links = whatsappChatUrl(whatsapp, withLinks(say('links_intro'), labelled(chosen)));
   const apps = whatsappChatUrl(whatsapp, withLinks(say('apps_question'), labelled(places.filter((p) => p.id !== 'website'))));
 
@@ -38,6 +42,14 @@ export function FollowUpButtons({ personId, whatsapp, language }: { personId: st
 
   return (
     <div className="space-y-2">
+      {needsToFinish && (
+        <div>
+          <a href={finish} target="_blank" rel="noreferrer" className={`${btn} inline-block bg-green-600 text-white hover:bg-green-700`} data-testid={`followup-finish-${personId}`}>
+            {t('followUp.btn_finish')}
+          </a>
+          <p className="mt-1 text-xs text-slate-500">{t('followUp.finish_help')}</p>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <a href={hello} target="_blank" rel="noreferrer" className={`${btn} bg-green-600 text-white hover:bg-green-700`} data-testid={`followup-hello-${personId}`}>
           {t('followUp.btn_hello')}
