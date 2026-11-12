@@ -10,6 +10,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { emailConfigured } from '../lib/email';
 import { reminderPending, reminderStats } from '../lib/memberReminders';
+import { nudgePending, nudgeStats } from '../lib/memberNudges';
 
 // The central admin's reminder switch: on/off, how many quiet days before "we miss
 // you", the daily cap, and what would go out now and what went out recently.
@@ -17,8 +18,8 @@ import { reminderPending, reminderStats } from '../lib/memberReminders';
 type Actor = { id: string; email: string };
 
 async function summary() {
-  const s = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { remindersEnabled: true, reminderQuietDays: true, reminderDailyCap: true } });
-  const [stats, pending] = await Promise.all([reminderStats(), reminderPending()]);
+  const s = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { remindersEnabled: true, reminderQuietDays: true, reminderDailyCap: true, nudgesEnabled: true } });
+  const [stats, pending, nStats, nPending] = await Promise.all([reminderStats(), reminderPending(), nudgeStats(), nudgePending()]);
   return {
     enabled: s?.remindersEnabled ?? false,
     quietDays: s?.reminderQuietDays ?? 7,
@@ -27,6 +28,8 @@ async function summary() {
     sentToday: stats.sentToday,
     last7: stats.last7,
     pending,
+    // Phone and in-app nudges at 3 and 7 days, with the safety rules they always follow (lib/nudgeRules.ts).
+    nudges: { enabled: s?.nudgesEnabled ?? false, pending: nPending, last7: nStats.last7, sentToday: nStats.sentToday },
   };
 }
 
@@ -38,6 +41,7 @@ function build(resolveActor: (req: Request) => Promise<Actor | null>) {
     enabled: z.boolean(),
     quietDays: z.number().int().min(1).max(90),
     dailyCap: z.number().int().min(1).max(500),
+    nudgesEnabled: z.boolean().optional(),
   });
   router.put('/', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     const parsed = putSchema.safeParse(req.body);
@@ -45,7 +49,7 @@ function build(resolveActor: (req: Request) => Promise<Actor | null>) {
     const actor = await resolveActor(req);
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
     const d = parsed.data;
-    const data = { remindersEnabled: d.enabled, reminderQuietDays: d.quietDays, reminderDailyCap: d.dailyCap };
+    const data = { remindersEnabled: d.enabled, reminderQuietDays: d.quietDays, reminderDailyCap: d.dailyCap, ...(d.nudgesEnabled !== undefined ? { nudgesEnabled: d.nudgesEnabled } : {}) };
     await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', ...data }, update: data });
     await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'REMINDER_SETTINGS_UPDATED', targetType: 'Settings', targetId: 'singleton', metadata: { ...d } });
     res.json(await summary());

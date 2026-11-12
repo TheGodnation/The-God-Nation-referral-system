@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import request from 'supertest';
 
 // Pretend the email service is set up, so the reminders really run (nothing is
@@ -46,9 +46,23 @@ function spySend(result: { ok: boolean; skipped?: boolean } = { ok: true }) {
   return vi.spyOn(EmailService, 'sendReminder').mockResolvedValue(result);
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+// The reminder emails now obey the daytime rule (08:00-19:00 in Cameroon), so for them the clock is
+// held at 10:00 Cameroon time (09:00 UTC) today; only Date is faked, so timers and the database work normally.
+function holdDaytime() {
+  const t = new Date();
+  t.setUTCHours(9, 0, 0, 0);
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(t);
+}
 
 describe('Reminder emails', () => {
+  beforeEach(holdDaytime);
+
   it('send nothing while they are switched off (the default)', async () => {
     await member({ createdAgoMs: 5 * HOUR });
     const spy = spySend();
@@ -149,6 +163,27 @@ describe('Reminder emails', () => {
     expect(await prisma.memberReminder.count()).toBe(0);
   });
 
+  it('obey the shared safety rules: no night sends, nothing soon after being seen, one nudge in three days across every kind', async () => {
+    await setSettings({ remindersEnabled: true });
+    const { person: quiet } = await member({ createdAgoMs: 5 * HOUR });
+    const spy = spySend();
+    // At night in Cameroon (21:00 UTC is 22:00 there): nothing, whoever is waiting.
+    vi.setSystemTime(new Date(Date.now() + 12 * HOUR));
+    expect(await processMemberReminders()).toMatchObject({ sent: {}, reason: 'night' });
+    vi.setSystemTime(new Date(Date.now() - 12 * HOUR));
+    // A phone nudge yesterday counts: no email within three days of it.
+    await prisma.memberReminder.create({ data: { personId: quiet.id, kind: 'NUDGE_DAY3', sentAt: new Date(Date.now() - DAY) } });
+    expect((await processMemberReminders()).sent).toEqual({});
+    // Seen in the app a few hours ago: not yet either (and the old nudge is out of the way).
+    await prisma.memberReminder.deleteMany({ where: { personId: quiet.id } });
+    await prisma.person.update({ where: { id: quiet.id }, data: { lastSeenAt: new Date(Date.now() - 5 * HOUR) } });
+    expect((await processMemberReminders()).sent).toEqual({});
+    expect(spy).not.toHaveBeenCalled();
+    // Once the rules allow, it goes.
+    await prisma.person.update({ where: { id: quiet.id }, data: { lastSeenAt: new Date(Date.now() - 3 * DAY) } });
+    expect((await processMemberReminders()).sent).toEqual({ FINISH_SIGNUP_1: 1 });
+  });
+
   it('count who would get one now, so the admin can see before switching on', async () => {
     await member({ createdAgoMs: 5 * HOUR });
     await member({ createdAgoMs: 4 * DAY });
@@ -211,6 +246,14 @@ describe('Admin reminder settings', () => {
     expect(put.status).toBe(200);
     expect(put.body).toMatchObject({ enabled: true, quietDays: 14, dailyCap: 25 });
     expect((await agent.put('/api/admin/reminders').set('X-CSRF-Token', csrf).send({ enabled: true, quietDays: 0, dailyCap: 25 })).status).toBe(400);
+    // The phone and in-app nudges have their own switch: off by default, and not changed by a save that leaves it out.
+    expect(first.body.nudges).toMatchObject({ enabled: false, sentToday: 0 });
+    expect(Object.keys(first.body.nudges.pending).sort()).toEqual(['NUDGE_DAY3', 'NUDGE_DAY7']);
+    const on = await agent.put('/api/admin/reminders').set('X-CSRF-Token', csrf).send({ enabled: true, quietDays: 14, dailyCap: 25, nudgesEnabled: true });
+    expect(on.body.nudges.enabled).toBe(true);
+    const keep = await agent.put('/api/admin/reminders').set('X-CSRF-Token', csrf).send({ enabled: false, quietDays: 14, dailyCap: 25 });
+    expect(keep.body).toMatchObject({ enabled: false });
+    expect(keep.body.nudges.enabled).toBe(true);
     expect((await agent.put('/api/admin/reminders').set('X-CSRF-Token', csrf).send({ enabled: true, quietDays: 7, dailyCap: 9999 })).status).toBe(400);
   });
 });

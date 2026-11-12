@@ -33,6 +33,9 @@ enum ReminderKind {
   FINISH_SIGNUP_2
   FINISH_PROFILE
   WINBACK
+  // Phone and in-app nudges at 3 and 7 days (lib/memberNudges.ts); the same ledger as the emails, so the limits count both.
+  NUDGE_DAY3
+  NUDGE_DAY7
 }
 
 enum ConsentChannel {
@@ -183,6 +186,8 @@ enum UpdateReactionType {
 
 enum NotificationType {
   LEADERS_NOT_FOLLOWING_UP
+  // A gentle nudge at 3 or 7 days to someone who has not finished or has not come back (lib/memberNudges.ts).
+  MEMBER_NUDGE
   // A leader from the Leadership Team has been assigned to follow this person up.
   LEADER_ASSIGNED
   // Someone finished the Book 1 / Book 2 exam with personal answers that call for a conversation.
@@ -697,6 +702,8 @@ model Settings {
   // switches them on; "quiet" means this many days since the member was last seen; never more
   // than the daily cap in one day (the email service has a daily sending limit).
   remindersEnabled              Boolean           @default(false)
+  // Phone and in-app nudges at 3 and 7 days (separate from the reminder emails); off until the central admin switches it on.
+  nudgesEnabled                 Boolean           @default(false)
   reminderQuietDays             Int               @default(7)
   reminderDailyCap              Int               @default(40)
   // "Live now" slot on the Updates page: the YouTube video id of the live

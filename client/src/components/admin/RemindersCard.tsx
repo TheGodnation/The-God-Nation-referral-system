@@ -94,7 +94,7 @@ export function RemindersCard({ base }: { base: string }) {
           <ul className="space-y-0.5 text-sm text-slate-600">
             {NUDGES.map((k) => (
               <li key={k} data-testid={`nudge-pending-${k}`}>
-                {t(`reminders.kind_${k}`)}: {t('reminders.nudges_counts', { pending: s.nudges!.pending[k], sent: s.nudges!.last7[k] })}
+                {t(`reminders.kind_${k}`)}: {t('reminders.nudges_counts', { pending: s.nudges?.pending?.[k] ?? 0, sent: s.nudges?.last7?.[k] ?? 0 })}
               </li>
             ))}
           </ul>
