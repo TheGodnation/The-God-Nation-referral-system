@@ -16,6 +16,7 @@ import { previewTranslation } from '../lib/broadcastTranslation';
 import { privateTranslateLimiter } from '../lib/rateLimit';
 import { DESK_FILTERS, DeskError, deskPersonIds, leaderAlerts, markContacted, peopleNeedingMe, requireDeskOwner, stopWhatsApp, takeOver, takeOverLeader, type DeskFilter } from '../lib/coordinatorDesk';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
+import { memberSignInHelpLink } from '../lib/signInHelp';
 
 // "People who need me": the National Coordinator's own desk. Offered twice, with the same rules: in the admin dashboard
 // and in the central admin's own member profile.
@@ -102,6 +103,25 @@ function buildRouter(resolvePersonId: (req: Request) => Promise<string | null>) 
     const parsed = personSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'personId is required.' });
     res.json(await takeOver(await who(req), parsed.data.personId));
+  }));
+
+  // A personal link to continue: for someone who started registering but did not finish. It signs them in as themselves (one
+  // time, 24 hours, they choose their own password; no emailed code needed) and the app then takes them to the step they
+  // were on. The same private link as "Help them sign in" in Admin → People, here on the desk so it can go out on WhatsApp.
+  router.post('/continue-link', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = personSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'personId is required.' });
+    const admin = await requireDeskOwner(await who(req));
+    const person = await prisma.person.findUnique({
+      where: { id: parsed.data.personId },
+      select: { erasedAt: true, deletionRequestedAt: true, memberAccount: { select: { id: true } }, users: { select: { role: true } } },
+    });
+    if (!person || person.erasedAt || person.deletionRequestedAt) return res.status(404).json({ error: 'Person not found.' });
+    if (person.users.some((u) => u.role === 'ADMIN')) return res.status(409).json({ error: 'This is the central admin’s own profile.', code: 'CENTRAL_ADMIN' });
+    if (!person.memberAccount) return res.status(409).json({ error: 'This person has no member account yet.', code: 'NO_ACCOUNT' });
+    const link = await memberSignInHelpLink(person.memberAccount.id, admin.id);
+    await recordAudit({ action: 'MEMBER_CONTINUE_LINK_MADE', targetType: 'Person', targetId: parsed.data.personId, actorId: admin.id, actorEmail: admin.email }).catch(() => {});
+    res.json({ url: link.url, expiresAt: link.expiresAt });
   }));
 
   // They asked us to stop writing to them on WhatsApp (the "Opted out" button).

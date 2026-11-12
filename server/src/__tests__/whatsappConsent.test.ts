@@ -149,3 +149,44 @@ describe('A leader’s cards', () => {
     expect(after.body.items.find((c: any) => c.followUpAssignmentId === a.id).whatsappConsent).toBe('OPTED_OUT');
   });
 });
+
+describe('A personal link to continue registering', () => {
+  it('the desk makes a one-time private link for someone who has not finished, and refuses the central admin and people with no account', async () => {
+    const w = await desk();
+    const unfinished = await member('Unfinished', { createdDaysAgo: 3, seenDaysAfterJoin: null, confirmed: false });
+    expect((await w.agent.post('/api/admin/needs-me/continue-link').send({ personId: unfinished.id })).status).toBeGreaterThanOrEqual(400); // no CSRF token
+    const res = await w.agent.post('/api/admin/needs-me/continue-link').set('X-CSRF-Token', w.csrf).send({ personId: unfinished.id });
+    expect(res.status).toBe(200);
+    expect(res.body.url).toMatch(/\/member\/password-help\?token=[a-f0-9]{64}$/);
+    expect(new Date(res.body.expiresAt).getTime()).toBeGreaterThan(Date.now() + 20 * 3600 * 1000);
+    const account = await prisma.memberAccount.findUniqueOrThrow({ where: { personId: unfinished.id } });
+    expect(await prisma.memberPasswordHelpLink.count({ where: { memberAccountId: account.id, usedAt: null } })).toBe(1);
+
+    expect((await w.agent.post('/api/admin/needs-me/continue-link').set('X-CSRF-Token', w.csrf).send({ personId: w.adminPerson.id })).status).toBe(409);
+    const noAccount = await person('NoAccount');
+    const none = await w.agent.post('/api/admin/needs-me/continue-link').set('X-CSRF-Token', w.csrf).send({ personId: noAccount.id });
+    expect(none.status).toBe(409);
+    expect(none.body.code).toBe('NO_ACCOUNT');
+    expect((await w.agent.post('/api/admin/needs-me/continue-link').set('X-CSRF-Token', w.csrf).send({ personId: 'nobody' })).status).toBe(404);
+  });
+
+  it('the link signs them in as themselves and then the details form is the next step', async () => {
+    const w = await desk();
+    const unfinished = await prisma.person.create({ data: { name: `Halfway ${++n}`, whatsappNumber: `+23788${String(Date.now()).slice(-7)}`, profileCompletedAt: null } });
+    await prisma.memberAccount.create({ data: { personId: unfinished.id, email: `halfway${n}@example.com`, lastLoginAt: null } });
+    const made = await w.agent.post('/api/admin/needs-me/continue-link').set('X-CSRF-Token', w.csrf).send({ personId: unfinished.id });
+    const token = String(made.body.url).split('token=')[1];
+    const phone = agentWithIp();
+    const { csrf } = await bootstrap(phone as any);
+    const shown = await phone.get(`/api/member/auth/password-help?token=${token}`);
+    expect(shown.status).toBe(200);
+    expect(shown.body.name).toContain('Halfway');
+    const done = await phone.post('/api/member/auth/password-help').set('X-CSRF-Token', csrf).send({ token, newPassword: 'ChosenPass123!' });
+    expect(done.status).toBe(200);
+    const me = await phone.get('/api/member/auth/me');
+    expect(me.status).toBe(200);
+    expect(me.body.member.profileComplete).toBe(false); // the app then sends them to the details form
+    expect((await phone.post('/api/member/auth/password-help').set('X-CSRF-Token', csrf).send({ token, newPassword: 'Another123!' })).status).toBe(400); // works once
+  });
+});
+

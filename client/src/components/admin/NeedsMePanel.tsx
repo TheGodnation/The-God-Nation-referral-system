@@ -325,7 +325,7 @@ export function NeedsMePanel({ base }: { base: string }) {
                   <span className="text-slate-500">{t('needsMe.consent_none')}</span>
                 )}
               </p>
-              {p.whatsapp && p.whatsappConsent !== 'OPTED_OUT' && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language} name={p.name} needsToFinish={p.status === 'NOT_CONFIRMED' || p.status === 'PROFILE_INCOMPLETE'} />}
+              {p.whatsapp && p.whatsappConsent !== 'OPTED_OUT' && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language} name={p.name} needsToFinish={p.status === 'NOT_CONFIRMED' || p.status === 'PROFILE_INCOMPLETE'} personalLink={(id) => api.post<{ url: string }>(`${base}/continue-link`, { personId: id }).then((r) => r.url)} />}
               <div className="flex flex-wrap gap-2">
                 <Link to={`/member/people/${p.personId}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 no-underline hover:bg-brand-50">
                   {t('myReferrals.nudge_in_app')}

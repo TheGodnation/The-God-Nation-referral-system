@@ -31,6 +31,7 @@
     "error_generic": "Something went wrong. Please check your details and try again."
   },
   "memberLogin": {
+    "continue_banner": "You are already registered. Enter the email you used and we will send you a code. You will then continue where you stopped.",
     "title": "Member Sign In",
     "email_label": "Email",
     "email_placeholder": "you@example.com",
@@ -1864,7 +1865,12 @@
     "place_website": "Continue your study on our website",
     "btn_finish": "Help them finish registering",
     "finish_help": "Opens WhatsApp with the link to sign in and fill in their name and place.",
-    "finish_message": "Hello {{name}}, welcome to The God Nation! 🙏 We saw that you started to join us but did not finish. It takes about one minute. Tap this link and sign in with your email (a code is sent to you): {{link}}\nThen fill in your name, your country and where you live, so we can place you in your assembly. If anything is difficult, just reply here and I will help you. God bless you!",
+    "finish_message": "Hello {{name}}, welcome to The God Nation! 🙏 You are already registered with us. You only have to finish the last step, and it takes about one minute. Tap this link, enter the same email you used, and a code is sent to you: {{link}}\nThen you will continue where you stopped: your name, your country and where you live, so we can place you in your assembly. If anything is difficult, just reply here and I will help you. God bless you!",
+    "btn_personal": "Send a personal link (no email code needed)",
+    "personal_making": "Making the link…",
+    "personal_help": "A private link only for this person, working once for 24 hours. They choose a password and land on the step where they stopped.",
+    "personal_failed": "The link could not be made. Please try again.",
+    "personal_message": "Hello {{name}}, welcome to The God Nation! 🙏 You are already registered with us, and this is your own private link to continue where you stopped: {{link}}\nChoose a password, then fill in your name, your country and where you live, so we can place you in your assembly. This link is only for you and works once, for 24 hours. If anything is difficult, just reply here and I will help you. God bless you!",
     "btn_hello": "Say hello",
     "btn_links": "Send our links",
     "btn_apps": "Which apps do you use?",

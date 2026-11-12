@@ -28,8 +28,8 @@ const TEMPLATES: Record<QueueKind, { en: string; fr: string }> = {
 
 // For someone who has not signed in or not finished registering: where to tap, what happens, and an offer of help.
 const FINISH_TEXT: { en: string; fr: string } = {
-  en: 'Hello {name}, welcome to The God Nation! 🙏 We saw that you started to join us but did not finish. It takes about one minute. Tap this link and sign in with your email (a code is sent to you): {link}\nThen fill in your name, your country and where you live, so we can place you in your assembly. If anything is difficult, just reply here and I will help you. God bless you!',
-  fr: 'Bonjour {name}, bienvenue à The God Nation ! 🙏 Nous avons vu que vous avez commencé à nous rejoindre sans terminer. Cela prend environ une minute. Touchez ce lien et connectez-vous avec votre e-mail (un code vous est envoyé) : {link}\nPuis indiquez votre nom, votre pays et où vous habitez, pour que nous puissions vous placer dans votre assemblée. Si quelque chose est difficile, répondez simplement ici et je vous aiderai. Que Dieu vous bénisse !',
+  en: 'Hello {name}, welcome to The God Nation! 🙏 You are already registered with us. You only have to finish the last step, and it takes about one minute. Tap this link, enter the same email you used, and a code is sent to you: {link}\nThen you will continue where you stopped: your name, your country and where you live, so we can place you in your assembly. If anything is difficult, just reply here and I will help you. God bless you!',
+  fr: 'Bonjour {name}, bienvenue à The God Nation ! 🙏 Vous êtes déjà inscrit(e) chez nous. Il ne vous reste que la dernière étape, qui prend environ une minute. Touchez ce lien, entrez la même adresse e-mail que vous avez utilisée, et un code vous est envoyé : {link}\nVous continuerez ensuite là où vous vous êtes arrêté(e) : votre nom, votre pays et où vous habitez, pour que nous puissions vous placer dans votre assemblée. Si quelque chose est difficile, répondez simplement ici et je vous aiderai. Que Dieu vous bénisse !',
 };
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;

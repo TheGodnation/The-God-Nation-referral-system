@@ -31,6 +31,7 @@
     "error_generic": "Une erreur est survenue. Veuillez vérifier vos informations et réessayer."
   },
   "memberLogin": {
+    "continue_banner": "Vous êtes déjà inscrit(e). Entrez l’adresse e-mail que vous avez utilisée et nous vous enverrons un code. Vous continuerez ensuite là où vous vous êtes arrêté(e).",
     "title": "Connexion Membre",
     "email_label": "E-mail",
     "email_placeholder": "vous@example.com",
@@ -1864,7 +1865,12 @@
     "place_website": "Continuez votre étude sur notre site",
     "btn_finish": "L’aider à terminer son inscription",
     "finish_help": "Ouvre WhatsApp avec le lien pour se connecter et indiquer son nom et son lieu.",
-    "finish_message": "Bonjour {{name}}, bienvenue à The God Nation ! 🙏 Nous avons vu que vous avez commencé à nous rejoindre sans terminer. Cela prend environ une minute. Touchez ce lien et connectez-vous avec votre e-mail (un code vous est envoyé) : {{link}}\nPuis indiquez votre nom, votre pays et où vous habitez, pour que nous puissions vous placer dans votre assemblée. Si quelque chose est difficile, répondez simplement ici et je vous aiderai. Que Dieu vous bénisse !",
+    "finish_message": "Bonjour {{name}}, bienvenue à The God Nation ! 🙏 Vous êtes déjà inscrit(e) chez nous. Il ne vous reste que la dernière étape, qui prend environ une minute. Touchez ce lien, entrez la même adresse e-mail que vous avez utilisée, et un code vous est envoyé : {{link}}\nVous continuerez ensuite là où vous vous êtes arrêté(e) : votre nom, votre pays et où vous habitez, pour que nous puissions vous placer dans votre assemblée. Si quelque chose est difficile, répondez simplement ici et je vous aiderai. Que Dieu vous bénisse !",
+    "btn_personal": "Envoyer un lien personnel (sans code par e-mail)",
+    "personal_making": "Création du lien…",
+    "personal_help": "Un lien privé réservé à cette personne, valable une seule fois pendant 24 heures. Elle choisit un mot de passe et arrive à l’étape où elle s’est arrêtée.",
+    "personal_failed": "Le lien n’a pas pu être créé. Veuillez réessayer.",
+    "personal_message": "Bonjour {{name}}, bienvenue à The God Nation ! 🙏 Vous êtes déjà inscrit(e) chez nous, et voici votre lien privé pour continuer là où vous vous êtes arrêté(e) : {{link}}\nChoisissez un mot de passe, puis indiquez votre nom, votre pays et où vous habitez, pour que nous puissions vous placer dans votre assemblée. Ce lien est réservé à vous et ne fonctionne qu’une fois, pendant 24 heures. Si quelque chose est difficile, répondez simplement ici et je vous aiderai. Que Dieu vous bénisse !",
     "btn_hello": "Dire bonjour",
     "btn_links": "Envoyer nos liens",
     "btn_apps": "Quelles applications utilisez-vous ?",
