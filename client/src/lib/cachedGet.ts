@@ -6,7 +6,7 @@ import { isOfflineError } from './offlineStore';
 // shown, marked as saved, when the server can't be reached.
 export async function cachedGet<T>(path: string, cacheKey: string): Promise<{ data: T; fromCache: boolean }> {
   try {
-    const data = await api.get<T>(path);
+    const data = await api.getLive<T>(path);
     try {
       localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch {

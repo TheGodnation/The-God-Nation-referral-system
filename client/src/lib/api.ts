@@ -1,4 +1,5 @@
 import { readCookie } from './cookies';
+import { keepRead, readCacheOwner, savedRead } from './readCache';
 import i18n from '../i18n';
 
 // In dev, Vite proxies /api to the server. In production, both are served
@@ -57,7 +58,7 @@ const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 // a saved copy (books, chats, the School) show it instead of waiting for ever.
 export const GET_TIMEOUT_MS = 25000;
 
-async function request<T>(method: string, path: string, body?: unknown, options?: { keepalive?: boolean }): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, options?: { keepalive?: boolean; noSaved?: boolean }): Promise<T> {
   const headers: Record<string, string> = {};
   let payload: string | undefined;
 
@@ -91,6 +92,9 @@ async function request<T>(method: string, path: string, body?: unknown, options?
   } catch {
     if (timer) clearTimeout(timer);
     reportReachable(false);
+    // No internet: a signed-in member sees what this screen last showed (see lib/readCache.ts).
+    const saved = options?.noSaved ? null : await offlineCopy<T>(method, path);
+    if (saved !== null) return saved;
     throw new NetworkError();
   }
   reportReachable(true);
@@ -101,17 +105,37 @@ async function request<T>(method: string, path: string, body?: unknown, options?
   if (timer) clearTimeout(timer);
 
   if (!res.ok) {
+    // The server is not answering properly (502-504): the saved copy, if there is one, rather than an error.
+    if (res.status >= 502 && res.status <= 504 && !options?.noSaved) {
+      const saved = await offlineCopy<T>(method, path);
+      if (saved !== null) return saved;
+    }
     const message = (data && (data as any).error) || `Request failed (${res.status})`;
     const code = data && (data as any).code;
     const field = data && (data as any).field;
     throw new ApiError(res.status, message, code, field);
   }
 
+  // Keep the answer (a reading only) so this screen can open without internet next time.
+  if (method === 'GET' && data !== undefined && !options?.noSaved && readCacheOwner()) void keepRead(path, appLanguage(), data);
+
   return data as T;
+}
+
+const appLanguage = () => (i18n.language?.startsWith('fr') ? 'fr' : 'en');
+
+/** The saved answer for a reading when there is no internet, or null (then the usual error follows). */
+async function offlineCopy<T>(method: string, path: string): Promise<T | null> {
+  if (method !== 'GET' || !readCacheOwner()) return null;
+  const saved = await savedRead<T>(path, appLanguage());
+  if (saved !== null && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('api-served-saved', { detail: path }));
+  return saved;
 }
 
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
+  // A reading that must fail when there is no internet (the caller keeps and shows its own saved copy, with a note).
+  getLive: <T>(path: string) => request<T>('GET', path, undefined, { noSaved: true }),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
   put: <T>(path: string, body?: unknown, options?: { keepalive?: boolean }) => request<T>('PUT', path, body ?? {}, options),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body ?? {}),

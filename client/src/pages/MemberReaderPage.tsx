@@ -111,7 +111,7 @@ export function MemberReaderPage() {
       let blob: Blob | null = null;
       let usingCopy = false;
       try {
-        info = await api.get<BookInfo>(`/api/member/library/books/${bookId}?lang=${lang}`);
+        info = await api.getLive<BookInfo>(`/api/member/library/books/${bookId}?lang=${lang}`);
         key = keyFor(info.language ?? 'en');
       } catch (err) {
         if (cancelled) return;

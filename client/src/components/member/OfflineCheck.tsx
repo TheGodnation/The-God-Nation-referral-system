@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMemberAuth } from '../../lib/MemberAuthContext';
 import { savedThreadCount } from '../../lib/chatCache';
 import { listSaved } from '../../lib/offlineStore';
+import { savedReadCount } from '../../lib/readCache';
 
 // "Ready for offline?": a plain list of what this phone has saved so the app, the chats and the
 // books open without internet, and what to do about anything missing. Everything it looks at is
@@ -19,6 +20,7 @@ interface Facts {
   chats: number;
   books: number;
   docs: number;
+  screens: number;
 }
 
 async function testConnection(): Promise<'ok' | 'slow' | 'none'> {
@@ -62,11 +64,12 @@ export function OfflineCheck() {
 
   const run = useCallback(async () => {
     setChecking(true);
-    const [connection, start, saved, persisted] = await Promise.all([
+    const [connection, start, saved, persisted, screens] = await Promise.all([
       testConnection(),
       startPageSaved(),
       ownerId ? listSaved(ownerId) : Promise.resolve([]),
       navigator.storage?.persisted?.().catch(() => null) ?? Promise.resolve(null),
+      ownerId ? savedReadCount(ownerId) : Promise.resolve(0),
     ]);
     setFacts({
       connection,
@@ -76,6 +79,7 @@ export function OfflineCheck() {
       chats: savedThreadCount(ownerId),
       books: saved.filter((i) => i.kind === 'BOOK').length,
       docs: saved.filter((i) => i.kind === 'DOC').length,
+      screens,
     });
     setChecking(false);
   }, [ownerId]);
@@ -120,6 +124,12 @@ export function OfflineCheck() {
             {t('offlineCheck.safe_button')}
           </button>
         ) : undefined,
+    },
+    {
+      key: 'screens',
+      ok: facts.screens > 0,
+      text: facts.screens > 0 ? t('offlineCheck.screens_ok', { count: facts.screens }) : t('offlineCheck.screens_no'),
+      fix: facts.screens > 0 ? undefined : t('offlineCheck.screens_fix') ?? undefined,
     },
     {
       key: 'chats',

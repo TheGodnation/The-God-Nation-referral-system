@@ -2671,7 +2671,7 @@
     "show_less": "Voir moins"
   },
   "network": {
-    "connecting": "Connexion… (réseau faible ou absent)",
+    "connecting": "Connexion… (réseau faible ou absent). Vous pouvez encore lire ce qui est enregistré.",
     "waiting": "En attente du réseau",
     "tap_to_load": "Touchez pour charger",
     "tap_to_load_photo": "Touchez pour charger la photo",
@@ -5357,6 +5357,9 @@
     "books_fix": "Ouvrez chaque livre une fois avec internet et attendez la fin du chargement. Il est alors enregistré ici, sous Livres.",
     "net_ok": "En ce moment : internet fonctionne.",
     "net_slow": "En ce moment : la connexion est très lente ou ne fonctionne pas vraiment, même si le téléphone dit être connecté. L’application affichera ce qu’elle a enregistré.",
-    "net_none": "En ce moment : pas d’internet."
+    "net_none": "En ce moment : pas d’internet.",
+    "screens_ok": "{{count}} écran(s) enregistré(s) : ils s’ouvrent sans internet et montrent ce que vous avez vu en dernier.",
+    "screens_no": "Aucun écran n’est encore enregistré.",
+    "screens_fix": "Utilisez l’application en ligne une minute et touchez les pages voulues (Actualités, Apprendre, Personnes, Moi). Chaque page ouverte est alors enregistrée."
   }
 }
