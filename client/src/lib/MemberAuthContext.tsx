@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, NetworkError } from './api';
 import { deleteAllFor } from './offlineStore';
+import { setReadCacheOwner } from './readCache';
 import { clearAllDrafts, pruneDrafts } from './drafts';
 
 export interface CurrentMember {
@@ -131,6 +132,11 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
       // Storage unavailable: nothing was kept.
     }
   }
+
+  // The saved copies of what this member read are kept under their name (see lib/readCache.ts).
+  useEffect(() => {
+    setReadCacheOwner(member?.personId ?? null);
+  }, [member?.personId]);
 
   useEffect(() => {
     pruneDrafts();

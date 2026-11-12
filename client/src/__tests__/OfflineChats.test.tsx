@@ -379,10 +379,11 @@ describe('"Ready for offline?" on the Downloads page', () => {
     mockFetch({ 'GET /api/member/auth/me': () => ({ body: me() }), 'GET /api/health': () => ({ body: { ok: true } }) });
     render(withMember(<MemberDownloadsPage />));
     const summary = await screen.findByTestId('offline-summary');
-    expect(summary).toHaveTextContent('4 thing(s) to fix');
+    expect(summary).toHaveTextContent('5 thing(s) to fix');
     expect(screen.getByTestId('offline-row-start')).toHaveAttribute('data-ok', 'false');
     expect(screen.getByTestId('offline-row-start')).toHaveTextContent('Open the app once with a good internet connection');
     expect(screen.getByTestId('offline-row-installed')).toHaveTextContent('Install app');
+    expect(screen.getByTestId('offline-row-screens')).toHaveTextContent('No screens are saved yet');
     expect(screen.getByTestId('offline-row-chats')).toHaveTextContent('No chat is saved yet');
     expect(screen.getByTestId('offline-row-books')).toHaveTextContent('Open each book once while you have internet');
     expect(screen.getByTestId('offline-connection')).toHaveTextContent('the internet works');
@@ -400,6 +401,9 @@ describe('"Ready for offline?" on the Downloads page', () => {
     stubBrowser({ shell: true, persisted: true, standalone: true });
     saveThread(personId, 'c1', {}, [msg(1)]);
     await saveMedia(personId, 'ignored', new Blob([new Uint8Array(10)], { type: 'image/jpeg' }), 'image/jpeg');
+    const { setReadCacheOwner, keepRead } = await import('../lib/readCache');
+    setReadCacheOwner(personId);
+    await keepRead('/api/member/friends', 'en', { items: [] });
     const { saveFile, bookKey } = await import('../lib/offlineStore');
     await saveFile({ key: bookKey(personId, 'b1'), ownerId: personId, kind: 'BOOK', title: 'Book 1', blob: new Blob([new Uint8Array(10)]) });
     mockFetch({ 'GET /api/member/auth/me': () => ({ body: me() }), 'GET /api/health': () => ({ body: { ok: true } }) });
@@ -407,6 +411,7 @@ describe('"Ready for offline?" on the Downloads page', () => {
     await waitFor(() => expect(screen.getByTestId('offline-summary')).toHaveTextContent('Ready: the app, your chats and your books are saved'));
     expect(screen.getByTestId('offline-row-installed')).toHaveAttribute('data-ok', 'true');
     expect(screen.getByTestId('offline-row-books')).toHaveTextContent('1 book(s) saved');
+    expect(screen.getByTestId('offline-row-screens')).toHaveTextContent('1 screen(s) saved');
   });
 
   it('warns when the connection is not really working', async () => {
@@ -417,5 +422,75 @@ describe('"Ready for offline?" on the Downloads page', () => {
     }));
     render(withMember(<MemberDownloadsPage />));
     await waitFor(() => expect(screen.getByTestId('offline-connection')).toHaveTextContent('very slow or not really working'));
+  });
+});
+
+describe('Every screen opens without internet (saved reads)', () => {
+  const profile = { name: 'Mary', bio: 'Hello from Buea' };
+  it('keeps what a screen read, and shows it when the network fails; other members never see it', async () => {
+    const { setReadCacheOwner, savedRead, clearReadCache } = await import('../lib/readCache');
+    const { api } = await import('../lib/api');
+    setReadCacheOwner(personId);
+    mockFetch({ 'GET /api/member/me/profile': () => ({ body: profile }) });
+    expect(await api.get('/api/member/me/profile')).toEqual(profile);
+    await waitFor(async () => expect(await savedRead('/api/member/me/profile', 'en')).toEqual(profile));
+
+    // The network is down: the same read answers from the saved copy instead of failing.
+    const served = vi.fn();
+    window.addEventListener('api-served-saved', served);
+    offlineFetch();
+    expect(await api.get('/api/member/me/profile')).toEqual(profile);
+    expect(served).toHaveBeenCalled();
+    window.removeEventListener('api-served-saved', served);
+
+    // A server that answers 503 does the same.
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503, headers: { get: () => 'text/plain' } })));
+    expect(await api.get('/api/member/me/profile')).toEqual(profile);
+
+    // Another member on the same phone sees nothing of it; a read never made before still fails as before.
+    setReadCacheOwner('someone-else');
+    offlineFetch();
+    await expect(api.get('/api/member/me/profile')).rejects.toThrow(/Network unavailable/);
+    setReadCacheOwner(personId);
+    await expect(api.get('/api/member/never-read')).rejects.toThrow(/Network unavailable/);
+
+    // Signing out removes it.
+    await clearReadCache(personId);
+    await expect(api.get('/api/member/me/profile')).rejects.toThrow(/Network unavailable/);
+    setReadCacheOwner(null);
+  });
+
+  it('is kept per language, and never for sign-in, live chat messages, signed links or admin screens', async () => {
+    const { setReadCacheOwner, keepRead, savedRead, isKeepable } = await import('../lib/readCache');
+    setReadCacheOwner(personId);
+    await keepRead('/api/member/updates-x', 'fr', { t: 'Bonjour' });
+    expect(await savedRead('/api/member/updates-x', 'fr')).toEqual({ t: 'Bonjour' });
+    expect(await savedRead('/api/member/updates-x', 'en')).toBeNull();
+    for (const p of ['/api/member/auth/me', '/api/auth/me', '/api/communities/g1/conversation/messages?after=1', '/api/private-messages/conversations/c1/messages', '/api/x/download-url', '/api/admin/people', '/api/member/central/people', '/api/health', '/api/updates/search?q=a']) {
+      expect(isKeepable(p), p).toBe(false);
+    }
+    for (const p of ['/api/member/me/profile', '/api/updates?page=1', '/api/member/school']) expect(isKeepable(p), p).toBe(true);
+    setReadCacheOwner(null);
+  });
+
+  it('keeps nothing when no member is signed in, and nothing that is too big', async () => {
+    const { setReadCacheOwner, keepRead, savedRead, READ_ENTRY_MAX_CHARS } = await import('../lib/readCache');
+    setReadCacheOwner(null);
+    await keepRead('/api/member/a', 'en', { x: 1 });
+    setReadCacheOwner(personId);
+    expect(await savedRead('/api/member/a', 'en')).toBeNull();
+    await keepRead('/api/member/big', 'en', { x: 'y'.repeat(READ_ENTRY_MAX_CHARS) });
+    expect(await savedRead('/api/member/big', 'en')).toBeNull();
+    setReadCacheOwner(null);
+  });
+
+  it('is removed with everything else when the member signs out (deleteAllFor)', async () => {
+    const { setReadCacheOwner, keepRead, savedRead } = await import('../lib/readCache');
+    setReadCacheOwner(personId);
+    await keepRead('/api/member/b', 'en', { y: 2 });
+    expect(await savedRead('/api/member/b', 'en')).toEqual({ y: 2 });
+    await deleteAllFor(personId);
+    expect(await savedRead('/api/member/b', 'en')).toBeNull();
+    setReadCacheOwner(null);
   });
 });

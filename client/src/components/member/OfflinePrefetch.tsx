@@ -3,7 +3,22 @@ import { useMemberAuth } from '../../lib/MemberAuthContext';
 import { listSaved } from '../../lib/offlineStore';
 import { loadPdfJs, PDFJS_WORKER_URL } from '../../lib/loadPdfJs';
 import { isDataSaverOn } from '../../lib/dataSaver';
+import { api } from '../../lib/api';
 
+// The main screens' data, read once per visit (a few small answers) so those screens open offline even when this phone
+// has not opened them yet: the api keeps each answer (lib/readCache.ts). Anything else is kept when it is first opened.
+const MAIN_READS = [
+  '/api/member/me/profile',
+  '/api/member/me/community-memberships',
+  '/api/member/onboarding',
+  '/api/member/friends',
+  '/api/member/friends/requests',
+  '/api/member/referrals/links',
+  '/api/events/summary',
+  '/api/prayer-requests',
+  '/api/notifications?page=1&pageSize=20',
+];
+let readsDone = false;
 let chatDone = false;
 let filesDone = false;
 
@@ -23,6 +38,12 @@ export function OfflinePrefetch() {
       if (!chatDone && !isDataSaverOn()) {
         chatDone = true;
         void Promise.allSettled([import('../../pages/MemberPrivateChatPage'), import('../../pages/MemberDownloadsPage')]);
+      }
+      if (!readsDone && !isDataSaverOn()) {
+        readsDone = true;
+        void (async () => {
+          for (const path of MAIN_READS) await api.get(path).catch(() => {});
+        })();
       }
       if (filesDone) return;
       const saved = await listSaved(personId);

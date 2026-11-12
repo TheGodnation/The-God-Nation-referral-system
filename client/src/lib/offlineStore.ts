@@ -8,6 +8,7 @@
 
 import { NetworkError } from './api';
 import { clearChatCache } from './chatCache';
+import { clearReadCache } from './readCache';
 
 export type SavedKind = 'BOOK' | 'DOC' | 'MEDIA';
 
@@ -272,6 +273,7 @@ export async function clearMedia(ownerId: string): Promise<void> {
 /** Removes everything a member kept on this phone (when they sign out). */
 export async function deleteAllFor(ownerId: string): Promise<void> {
   clearChatCache(ownerId);
+  await clearReadCache(ownerId);
   await deleteSaved((await listSaved(ownerId)).map((s) => s.key));
 }
 

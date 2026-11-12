@@ -2671,7 +2671,7 @@
     "show_less": "Show less"
   },
   "network": {
-    "connecting": "Connecting… (weak or no network)",
+    "connecting": "Connecting… (weak or no network). You can still read what is saved.",
     "waiting": "Waiting for network",
     "tap_to_load": "Tap to load",
     "tap_to_load_photo": "Tap to load photo",
@@ -5357,6 +5357,9 @@
     "books_fix": "Open each book once while you have internet and wait until it has finished loading. It is then saved here under Books.",
     "net_ok": "Right now: the internet works.",
     "net_slow": "Right now: the connection is very slow or not really working, although the phone may say it is connected. The app will show what it has saved.",
-    "net_none": "Right now: no internet."
+    "net_none": "Right now: no internet.",
+    "screens_ok": "{{count}} screen(s) saved: they open without internet, showing what you saw last.",
+    "screens_no": "No screens are saved yet.",
+    "screens_fix": "Use the app online for a minute and tap the pages you want (Updates, Learn, People, Me). Each page you open is then saved."
   }
 }
