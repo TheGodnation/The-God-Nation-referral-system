@@ -2434,6 +2434,7 @@
     "ios": "On iPhone: tap the Share button in Safari, then \"Add to Home Screen\".",
     "button": "Install",
     "close": "Close",
+    "already": "Already installed",
     "need_help": "Need help?"
   },
   "groupChat": {
@@ -4346,6 +4347,7 @@
     "install_ios_5": "Open the God Nation icon on your home screen.",
     "install_desktop_1": "The easiest way is on your phone: open this website on your phone and follow the steps shown there.",
     "install_desktop_2": "On a computer in Chrome or Edge, click the install icon at the right end of the address bar, then “Install”.",
+    "install_already": "I have already installed it",
     "install_recorded": "When you open the app from your home screen, this step is ticked for you.",
     "install_pictures": "See the steps with pictures",
     "step_community": "Join us on WhatsApp and other platforms below",
@@ -4387,6 +4389,11 @@
     "close": "Back to the app",
     "new_tab": "Open in a new tab"
   },
+  "afterInstall": {
+    "title": "The app is installed. One last step.",
+    "body": "Turn on notifications so you never miss a teaching, a prayer request or a message.",
+    "later": "Not now"
+  },
   "contactPrefs": {
     "title": "How we may contact you",
     "help": "Choose how The God Nation may send you updates and encouragement. You can change this at any time.",
@@ -4414,6 +4421,9 @@
     "col_registered": "Joined",
     "col_confirmed": "Confirmed",
     "col_profile": "Finished profile",
+    "notifications_title": "Members with phone notifications on",
+    "notifications_of": "of {{total}} members",
+    "notifications_note": "{{phones}} phones in all. Counts members who turned notifications on at least once and whose phone has not been removed since. On iPhone, notifications only work from the installed app, so installing comes first there.",
     "col_group": "Tapped a group link",
     "col_says_joined": "Says they joined",
     "col_chat": "Wrote in a chat",

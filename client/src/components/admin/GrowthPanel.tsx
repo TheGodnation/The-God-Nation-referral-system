@@ -12,7 +12,7 @@ interface Counts {
 }
 interface Row extends Counts { key: string; source: string; campaign: string | null }
 interface Ambassador { name: string; registered: number; confirmed: number; profileCompleted: number; returned7: number }
-interface Report { days: number; totals: Counts; bySource: Row[]; byAmbassador: Ambassador[]; byPlatform?: { platform: string; taps: number }[]; truncated: boolean }
+interface Report { days: number; totals: Counts; bySource: Row[]; byAmbassador: Ambassador[]; byPlatform?: { platform: string; taps: number }[]; truncated: boolean; notifications?: { totalMembers: number; membersWithPush: number; subscriptions: number } }
 
 const DAYS = [7, 30, 90] as const;
 
@@ -95,6 +95,21 @@ export function GrowthPanel({ base }: { base: string }) {
 
       {report && (
         <>
+          {report.notifications && (
+            <div className="card" data-testid="growth-notifications">
+              <h3 className="mb-1 font-semibold text-brand-900">🔔 {t('growth.notifications_title')}</h3>
+              <p className="text-2xl font-bold text-brand-900" data-testid="growth-notifications-count">
+                {report.notifications.membersWithPush} <span className="text-base font-medium text-slate-600">{t('growth.notifications_of', { total: report.notifications.totalMembers })}</span>
+                {report.notifications.totalMembers > 0 && (
+                  <span className="ml-2 text-base font-semibold text-emerald-700" data-testid="growth-notifications-percent">
+                    {Math.round((report.notifications.membersWithPush / report.notifications.totalMembers) * 100)}%
+                  </span>
+                )}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">{t('growth.notifications_note', { phones: report.notifications.subscriptions })}</p>
+            </div>
+          )}
+
           <div className="card overflow-x-auto">
             <h3 className="mb-2 font-semibold text-brand-900">{t('growth.totals')}</h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

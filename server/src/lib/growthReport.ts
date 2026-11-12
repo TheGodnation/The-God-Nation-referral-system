@@ -64,6 +64,22 @@ export function sourceOf(o: Origin): string {
   return 'direct';
 }
 
+/**
+ * How many members will actually receive phone notifications: members who have at least one subscribed phone, out of all
+ * members. Everyone with an account counts (not only the period of the report); erased and test accounts do not.
+ * A subscription the push service says is gone is removed automatically when a send finds it (lib/push.ts), so this
+ * count only drifts from the truth by phones that were switched off or changed since the last notification.
+ */
+export async function notificationsOn() {
+  const memberWhere = { erasedAt: null, deletionRequestedAt: null, isTestData: false, memberAccount: { isNot: null } };
+  const [totalMembers, withPush, subscriptions] = await Promise.all([
+    prisma.person.count({ where: memberWhere }),
+    prisma.person.count({ where: { ...memberWhere, pushSubscriptions: { some: {} } } }),
+    prisma.pushSubscription.count({ where: { person: { is: memberWhere } } }),
+  ]);
+  return { totalMembers, membersWithPush: withPush, subscriptions };
+}
+
 export async function growthReport(days: number, now = new Date()) {
   const since = new Date(now.getTime() - days * DAY);
 
@@ -177,5 +193,6 @@ export async function growthReport(days: number, now = new Date()) {
       .map((p): PlatformRow => ({ platform: p.detail ?? 'unknown', taps: p._count._all }))
       .sort((a, b) => b.taps - a.taps),
     truncated: registrations.length >= MAX_REGISTRATIONS,
+    notifications: await notificationsOn(),
   };
 }

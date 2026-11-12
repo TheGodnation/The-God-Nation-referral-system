@@ -58,7 +58,20 @@ const SEND_AT_ONCE = 25;
 
 type SendResult = 'sent' | 'gone' | 'failed';
 
-async function sendToSubscription(sub: SubscriptionRow, payload: PushPayload): Promise<{ result: SendResult; status?: number }> {
+// A send that fails for a passing reason (no answer, a timeout, the push service busy or briefly down) is tried once more
+// after a short wait. Anything the push service refuses on purpose (404/410 gone, bad request, bad credentials) is not.
+const RETRY_DELAY_MS = Number(process.env.PUSH_RETRY_DELAY_MS ?? 1500);
+const isTransient = (status: number | undefined): boolean => status === undefined || status === 408 || status === 429 || status >= 500;
+
+async function sendToSubscription(sub: SubscriptionRow, payload: PushPayload): Promise<{ result: SendResult; status?: number; retried?: boolean }> {
+  const first = await trySend(sub, payload);
+  if (first.result !== 'failed' || !isTransient(first.status)) return first;
+  await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+  const second = await trySend(sub, payload);
+  return { ...second, retried: true };
+}
+
+async function trySend(sub: SubscriptionRow, payload: PushPayload): Promise<{ result: SendResult; status?: number }> {
   try {
     await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload), SEND_OPTIONS);
     return { result: 'sent' };
@@ -84,9 +97,15 @@ async function pushToWhere(where: { personId?: string; personId_in?: string[]; u
   const failures = new Map<string, number>();
   let sent = 0;
   let gone = 0;
+  let retried = 0;
+  let recovered = 0;
   for (let i = 0; i < subs.length; i += SEND_AT_ONCE) {
     const results = await Promise.all(subs.slice(i, i + SEND_AT_ONCE).map((s) => sendToSubscription(s, payload)));
     for (const r of results) {
+      if (r.retried) {
+        retried++;
+        if (r.result === 'sent') recovered++;
+      }
       if (r.result === 'sent') sent++;
       else if (r.result === 'gone') gone++;
       else failures.set(String(r.status ?? 'network'), (failures.get(String(r.status ?? 'network')) ?? 0) + 1);
@@ -95,8 +114,8 @@ async function pushToWhere(where: { personId?: string; personId_in?: string[]; u
   const failed = [...failures.values()].reduce((a, b) => a + b, 0);
   const ms = Date.now() - started;
   // Silent when all is well and quick; says so when pushes fail or a send is slow, so problems can be seen in the logs.
-  if (failed > 0 || ms > 5000) {
-    console.warn('[push] delivery problem', { devices: subs.length, sent, expired: gone, failed, failedByStatus: Object.fromEntries(failures), ms });
+  if (failed > 0 || retried > 0 || ms > 5000) {
+    console.warn('[push] delivery problem', { devices: subs.length, sent, expired: gone, failed, retried, recovered, failedByStatus: Object.fromEntries(failures), ms });
   }
 }
 

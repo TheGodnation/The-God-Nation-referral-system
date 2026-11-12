@@ -9,8 +9,47 @@ let justInstalled = false;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 
+// Once this phone is known to have the app installed (seen running as the app, the browser says so, or the person said so),
+// that is remembered here, so every screen stops asking. A browser tab cannot see on its own whether the app is installed.
+const INSTALLED_KEY = 'godnation:installed';
+function installedFlag(): boolean {
+  try {
+    return localStorage.getItem(INSTALLED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+export function rememberInstalled(): void {
+  try {
+    localStorage.setItem(INSTALLED_KEY, '1');
+  } catch {
+    /* private mode: it is simply not remembered */
+  }
+  notify();
+}
+
+/**
+ * Chrome on Android can say, from a normal browser tab, whether this site's app is installed on the phone (the manifest lists
+ * itself as a related "webapp"). Other browsers can't, and then the app only learns it when it is opened as the app.
+ */
+export async function checkInstalledRelatedApps(): Promise<boolean> {
+  try {
+    const get = (navigator as unknown as { getInstalledRelatedApps?: () => Promise<{ platform?: string }[]> }).getInstalledRelatedApps;
+    if (typeof get !== 'function') return false;
+    const apps = await get.call(navigator);
+    const found = Array.isArray(apps) && apps.some((a) => a?.platform === 'webapp');
+    if (found) rememberInstalled();
+    return found;
+  } catch {
+    return false;
+  }
+}
+
 export function captureInstallPrompt(): void {
   if (typeof window === 'undefined') return;
+  // Running as the installed app right now: that settles it. In a browser tab, ask the browser if it can tell.
+  if (isStandalone()) rememberInstalled();
+  else void checkInstalledRelatedApps();
   window.addEventListener('beforeinstallprompt', (e: Event) => {
     e.preventDefault();
     deferred = e;
@@ -19,7 +58,7 @@ export function captureInstallPrompt(): void {
   window.addEventListener('appinstalled', () => {
     deferred = null;
     justInstalled = true;
-    notify();
+    rememberInstalled();
   });
 }
 
@@ -61,7 +100,7 @@ export function useInstallPrompt(): InstallState {
       const choice = await e.userChoice;
       if (choice?.outcome === 'accepted') {
         justInstalled = true;
-        notify();
+        rememberInstalled();
         return true;
       }
       return false;
@@ -69,5 +108,5 @@ export function useInstallPrompt(): InstallState {
       return false;
     }
   }
-  return { installed: justInstalled || isStandalone(), canPrompt: !!deferred, ios: isIos(), android: isAndroid(), inAppBrowser: isInAppBrowser(), install };
+  return { installed: justInstalled || isStandalone() || installedFlag(), canPrompt: !!deferred, ios: isIos(), android: isAndroid(), inAppBrowser: isInAppBrowser(), install };
 }

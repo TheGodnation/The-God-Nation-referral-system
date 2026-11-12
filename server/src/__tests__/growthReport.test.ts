@@ -58,6 +58,29 @@ describe('sourceOf', () => {
   });
 });
 
+describe('growthReport: notifications on', () => {
+  it('counts members with at least one subscribed phone, out of all members (not test or erased accounts)', async () => {
+    const before = (await growthReport(30)).notifications;
+    const mk = async (name: string, extra: Record<string, unknown> = {}) => {
+      const p = await prisma.person.create({ data: { name, whatsappNumber: `+23767${String(Date.now()).slice(-6)}${Math.floor(Math.random() * 90 + 10)}`, ...extra } });
+      await prisma.memberAccount.create({ data: { personId: p.id, email: `${name.replace(/\s/g, '')}${Math.random()}@example.com`, lastLoginAt: new Date() } });
+      return p;
+    };
+    const two = await mk('Two Phones');
+    const one = await mk('One Phone');
+    await mk('No Phone');
+    const test = await mk('Test Person', { isTestData: true });
+    const erased = await mk('Erased Person', { erasedAt: new Date() });
+    for (const [p, k] of [[two, 1], [two, 2], [one, 1], [test, 1], [erased, 1]] as const) {
+      await prisma.pushSubscription.create({ data: { personId: p.id, endpoint: `https://push.example/n-${p.id}-${k}`, p256dh: 'p', auth: 'a' } });
+    }
+    const after = (await growthReport(30)).notifications;
+    expect(after.totalMembers - before.totalMembers).toBe(3);
+    expect(after.membersWithPush - before.membersWithPush).toBe(2);
+    expect(after.subscriptions - before.subscriptions).toBe(3);
+  });
+});
+
 describe('growthReport: tapped a link versus says they joined', () => {
   it('counts a tap and the member’s own "I have joined" separately', async () => {
     const tapOnly = await joiner({ utmSource: 'saysjoinedtest', group: true });
