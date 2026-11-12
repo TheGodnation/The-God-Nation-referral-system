@@ -1784,6 +1784,11 @@
     "report_late": "Your weekly report is late. Please send it today.",
     "faith_needs_conversation": "{{name}} finished the Book {{number}} exam and would be helped by a conversation.",
     "faith_needs_conversation_plain": "{{name}} finished a book exam and would be helped by a conversation.",
+    "nudge_unfinished_3": "Your registration is almost done. Finish your details to join your assembly. It takes about one minute.",
+    "nudge_unfinished_7": "We saved your place. Come back and finish your details so we can place you in your assembly. We are here to help.",
+    "nudge_return_3": "A teaching is waiting for you. Open the app to see what is new in your assembly.",
+    "nudge_return_7": "We miss you. Your brothers and sisters are asking about you. Come back and see what is new.",
+    "nudge_open": "Open",
     "leader_assigned": "{{name}}, from the Leadership Team, has been assigned to follow you up."
   },
   "memberHome": {
@@ -4467,6 +4472,17 @@
     "dismiss": "Not now"
   },
   "reminders": {
+    "nudges_title": "Phone and in-app nudges (days 3 and 7)",
+    "nudges_help": "A short message that arrives on the person's phone (if notifications are on) and in the app, for people who started but have not finished, or who joined and never came back. Off until you switch it on.",
+    "nudges_enabled": "Send nudges at 3 and 7 days",
+    "nudges_counts": "{{pending}} waiting now, {{sent}} sent in the last 7 days",
+    "nudges_rule1": "Never within 2 days of the person being in the app.",
+    "nudges_rule2": "At most one nudge in 3 days (emails count too).",
+    "nudges_rule3": "At most 4 in all for each person.",
+    "nudges_rule4": "Stops after 3 that were not answered.",
+    "nudges_rule5": "Only between 8:00 and 19:00 Cameroon time, checked when it is sent.",
+    "kind_NUDGE_DAY3": "Nudge, day 3",
+    "kind_NUDGE_DAY7": "Nudge, day 7",
     "title": "Reminder emails",
     "help": "Gentle emails to people who started joining and stopped, and to members who have been away. They are off until you switch them on. “We miss you” goes only to members who agreed to emails, and has an unsubscribe link.",
     "enabled": "Send reminder emails",

@@ -1784,6 +1784,11 @@
     "report_late": "Votre rapport hebdomadaire est en retard. Merci de l'envoyer aujourd'hui.",
     "faith_needs_conversation": "{{name}} a terminé l'examen du livre {{number}} et aurait besoin d'une conversation.",
     "faith_needs_conversation_plain": "{{name}} a terminé un examen de livre et aurait besoin d'une conversation.",
+    "nudge_unfinished_3": "Votre inscription est presque terminée. Terminez vos informations pour rejoindre votre assemblée. Cela prend environ une minute.",
+    "nudge_unfinished_7": "Nous avons gardé votre place. Revenez terminer vos informations pour que nous puissions vous placer dans votre assemblée. Nous sommes là pour vous aider.",
+    "nudge_return_3": "Un enseignement vous attend. Ouvrez l’application pour voir les nouveautés de votre assemblée.",
+    "nudge_return_7": "Vous nous manquez. Vos frères et sœurs prennent de vos nouvelles. Revenez voir les nouveautés.",
+    "nudge_open": "Ouvrir",
     "leader_assigned": "{{name}}, de l’équipe de leadership, a été désigné(e) pour vous suivre."
   },
   "memberHome": {
@@ -4467,6 +4472,17 @@
     "dismiss": "Pas maintenant"
   },
   "reminders": {
+    "nudges_title": "Rappels sur téléphone et dans l’application (jours 3 et 7)",
+    "nudges_help": "Un court message qui arrive sur le téléphone de la personne (si les notifications sont activées) et dans l’application, pour ceux qui ont commencé sans terminer, ou qui se sont inscrits et ne sont jamais revenus. Désactivé tant que vous ne l’activez pas.",
+    "nudges_enabled": "Envoyer des rappels aux jours 3 et 7",
+    "nudges_counts": "{{pending}} en attente, {{sent}} envoyés ces 7 derniers jours",
+    "nudges_rule1": "Jamais dans les 2 jours qui suivent le passage de la personne dans l’application.",
+    "nudges_rule2": "Au plus un rappel en 3 jours (les e-mails comptent aussi).",
+    "nudges_rule3": "Au plus 4 au total pour chaque personne.",
+    "nudges_rule4": "S’arrête après 3 rappels restés sans réponse.",
+    "nudges_rule5": "Seulement entre 8 h et 19 h, heure du Cameroun, vérifié au moment de l’envoi.",
+    "kind_NUDGE_DAY3": "Rappel, jour 3",
+    "kind_NUDGE_DAY7": "Rappel, jour 7",
     "title": "E-mails de rappel",
     "help": "De petits e-mails aux personnes qui ont commencé à nous rejoindre puis se sont arrêtées, et aux membres qui sont absents depuis un moment. Ils sont désactivés tant que vous ne les activez pas. « Vous nous manquez » n’est envoyé qu’aux membres qui ont accepté les e-mails, avec un lien de désabonnement.",
     "enabled": "Envoyer les e-mails de rappel",
