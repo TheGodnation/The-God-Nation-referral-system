@@ -190,22 +190,26 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Page loads: the network's answer whenever there is one (and a clean copy
-// of a good start page is kept); this phone's copy only when the network
-// can't be reached at all.
-async function networkFirstPage(request) {
-  let response;
+// of a good start page is kept); this phone's copy when the network can't be
+// reached at all, OR when it answers too slowly. A phone can show "connected"
+// while nothing really comes through (weak data, a Wi-Fi without internet):
+// the page request then just hangs and the app never opens. So when a saved
+// start page exists and the network has not answered within NAV_WAIT_MS, the
+// saved page is shown at once (the app then reads its saved books and chats),
+// and the slow request carries on in the background to refresh the saved copy.
+const NAV_WAIT_MS = 4000;
+const SLOW = Symbol('slow');
+
+async function savedShell() {
   try {
-    response = await fetch(request);
-  } catch (networkError) {
-    try {
-      const cache = await caches.open(SHELL_CACHE);
-      const shell = await cache.match(SHELL_KEY);
-      if (shell) return shell;
-    } catch {
-      // No cache available — behave as if there were no service worker.
-    }
-    throw networkError;
+    const cache = await caches.open(SHELL_CACHE);
+    return (await cache.match(SHELL_KEY)) || null;
+  } catch {
+    return null;
   }
+}
+
+async function keepShell(response) {
   try {
     const type = response.headers.get('content-type') || '';
     if (response.ok && response.status === 200 && !response.redirected && response.type === 'basic' && type.includes('text/html')) {
@@ -217,6 +221,29 @@ async function networkFirstPage(request) {
   } catch {
     // Keeping the copy is optional; the page itself is unaffected.
   }
+}
+
+async function networkFirstPage(request) {
+  const fetched = fetch(request);
+  const shell = await savedShell();
+  let response;
+  try {
+    if (shell) {
+      const timer = new Promise((resolve) => setTimeout(() => resolve(SLOW), NAV_WAIT_MS));
+      response = await Promise.race([fetched, timer]);
+      if (response === SLOW) {
+        // Slow network: the saved start page now; the real answer, if it ever comes, refreshes the copy.
+        fetched.then(keepShell).catch(() => {});
+        return shell;
+      }
+    } else {
+      response = await fetched;
+    }
+  } catch (networkError) {
+    if (shell) return shell;
+    throw networkError;
+  }
+  await keepShell(response);
   return response;
 }
 
