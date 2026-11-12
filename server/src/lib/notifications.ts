@@ -74,7 +74,8 @@ interface CreateNotificationParams {
     | 'GIFT_CONFIRMED'
     | 'GIFT_REJECTED'
     | 'FAITH_NEEDS_CONVERSATION'
-    | 'LEADERS_NOT_FOLLOWING_UP';
+    | 'LEADERS_NOT_FOLLOWING_UP'
+    | 'MEMBER_NUDGE';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -101,6 +102,16 @@ async function createNotification(params: CreateNotificationParams) {
     push?.catch(() => {});
   }
   return created;
+}
+
+/** A gentle nudge at 3 or 7 days (lib/memberNudges.ts): in the bell and as a phone alert, worded in the person's own language. */
+export async function notifyMemberNudge(personId: string, n: { stage: 'unfinished' | 'return'; day: 3 | 7; url: string; title: string; body: string }) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'MEMBER_NUDGE',
+    metadata: { stage: n.stage, day: n.day, url: n.url },
+    push: { title: n.title, body: n.body, url: n.url, tag: `nudge-${personId}` },
+  });
 }
 
 /** Event 1 — a Leader receives a new Follow-Up assignment. Fires for every

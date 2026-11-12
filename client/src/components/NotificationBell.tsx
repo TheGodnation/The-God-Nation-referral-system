@@ -59,7 +59,8 @@ type NotificationType =
   | 'GIFT_CONFIRMED'
   | 'GIFT_REJECTED'
   | 'FAITH_NEEDS_CONVERSATION'
-  | 'LEADER_ASSIGNED';
+  | 'LEADER_ASSIGNED'
+  | 'MEMBER_NUDGE';
 
 interface NotificationRow {
   id: string;
@@ -232,6 +233,9 @@ export function NotificationBell() {
         return t(metadata.bookNumber ? 'notifications.faith_needs_conversation' : 'notifications.faith_needs_conversation_plain', { name: metadata.personName ?? '', number: metadata.bookNumber ?? '' });
       case 'LEADER_ASSIGNED':
         return t('notifications.leader_assigned', { name: metadata.leaderName ?? '' });
+      case 'MEMBER_NUDGE':
+        // A gentle nudge at 3 or 7 days (see server lib/memberNudges.ts), worded for the stage the person is at.
+        return t(`notifications.nudge_${metadata.stage === 'unfinished' ? 'unfinished' : 'return'}_${metadata.day === 7 ? 7 : 3}`);
       case 'INSTRUCTION_RECEIVED':
         return t('notifications.instruction_received');
       case 'INSTRUCTION_REMINDER':
@@ -335,6 +339,11 @@ export function NotificationBell() {
                   {n.type === 'LEADER_ASSIGNED' && n.targetId && (
                     <a href={`/member/people/${n.targetId}`} className="text-xs font-semibold text-brand-700 underline">
                       {t('myLeader.message')}
+                    </a>
+                  )}
+                  {n.type === 'MEMBER_NUDGE' && typeof n.metadata?.url === 'string' && (
+                    <a href={String(n.metadata.url)} className="text-xs font-semibold text-brand-700 underline">
+                      {t('notifications.nudge_open')}
                     </a>
                   )}
                   {n.type === 'FAITH_NEEDS_CONVERSATION' && n.targetId && (

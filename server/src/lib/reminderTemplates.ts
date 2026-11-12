@@ -1,5 +1,8 @@
 import type { ReminderKind } from '@prisma/client';
 
+// Only the email kinds have email text (the NUDGE_* kinds are phone/in-app, see lib/memberNudges.ts).
+type EmailReminderKind = Exclude<ReminderKind, 'NUDGE_DAY3' | 'NUDGE_DAY7'>;
+
 // The words of the reminder emails, in English and French. Short, kind and
 // plain: what to do, one button, and how to ignore or stop them.
 type Lang = 'en' | 'fr';
@@ -13,7 +16,7 @@ export interface ReminderText {
 
 const hi = (name: string | null, lang: Lang) => (name ? (lang === 'fr' ? `Bonjour ${name},` : `Hi ${name},`) : lang === 'fr' ? 'Bonjour,' : 'Hi,');
 
-export function reminderText(kind: ReminderKind, lang: Lang, name: string | null): ReminderText {
+export function reminderText(kind: EmailReminderKind, lang: Lang, name: string | null): ReminderText {
   const fr = lang === 'fr';
   const ignore = fr ? 'Si ce n’était pas vous, vous pouvez ignorer cet e-mail.' : 'If this was not you, you can ignore this email.';
   switch (kind) {

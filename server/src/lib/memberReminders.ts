@@ -1,9 +1,10 @@
-import type { ReminderKind } from '@prisma/client';
 import { prisma } from './prisma';
 import { EmailService, emailConfigured } from './email';
 import { CLIENT_URL } from './env';
 import { reminderText } from './reminderTemplates';
 import { unsubscribeUrl } from './unsubscribe';
+import { isCameroonDaytime, nudgeBlock } from './nudgeRules';
+import { processMemberNudges } from './memberNudges';
 
 // Reminder emails to members who started joining and went quiet, and to
 // members who have been away a while. Off until the central admin switches
@@ -13,7 +14,9 @@ import { unsubscribeUrl } from './unsubscribe';
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
-const KINDS: ReminderKind[] = ['FINISH_SIGNUP_1', 'FINISH_SIGNUP_2', 'FINISH_PROFILE', 'WINBACK'];
+/** The reminder emails (phone and in-app nudges are in lib/memberNudges.ts and share the same ledger). */
+export type EmailKind = 'FINISH_SIGNUP_1' | 'FINISH_SIGNUP_2' | 'FINISH_PROFILE' | 'WINBACK';
+const KINDS: EmailKind[] = ['FINISH_SIGNUP_1', 'FINISH_SIGNUP_2', 'FINISH_PROFILE', 'WINBACK'];
 
 export interface Candidate {
   personId: string;
@@ -83,14 +86,14 @@ async function winbackCandidates(now: Date, quietDays: number, take: number): Pr
   return out;
 }
 
-async function candidatesFor(kind: ReminderKind, now: Date, quietDays: number, take: number): Promise<Candidate[]> {
+async function candidatesFor(kind: EmailKind, now: Date, quietDays: number, take: number): Promise<Candidate[]> {
   return kind === 'WINBACK' ? winbackCandidates(now, quietDays, take) : signupCandidates(kind, now, take);
 }
 
 /** How many people would get each reminder if it were sent now (for the admin, before switching on). */
-export async function reminderPending(now = new Date()): Promise<Record<ReminderKind, number>> {
+export async function reminderPending(now = new Date()): Promise<Record<EmailKind, number>> {
   const { quietDays } = await reminderSettings();
-  const out = {} as Record<ReminderKind, number>;
+  const out = {} as Record<EmailKind, number>;
   for (const k of KINDS) out[k] = (await candidatesFor(k, now, quietDays, 500)).length;
   return out;
 }
@@ -99,30 +102,36 @@ export async function reminderPending(now = new Date()): Promise<Record<Reminder
 export async function reminderStats(now = new Date()) {
   const since7 = new Date(now.getTime() - 7 * DAY);
   const since1 = new Date(now.getTime() - DAY);
-  const rows = await prisma.memberReminder.findMany({ where: { sentAt: { gte: since7 } }, select: { kind: true, sentAt: true } });
-  const last7 = {} as Record<ReminderKind, number>;
+  const rows = await prisma.memberReminder.findMany({ where: { sentAt: { gte: since7 }, kind: { in: KINDS } }, select: { kind: true, sentAt: true } });
+  const last7 = {} as Record<EmailKind, number>;
   for (const k of KINDS) last7[k] = 0;
   let sentToday = 0;
   for (const r of rows) {
-    last7[r.kind] += 1;
+    last7[r.kind as EmailKind] += 1;
     if (r.sentAt >= since1) sentToday += 1;
   }
   return { sentToday, last7 };
 }
 
-export async function processMemberReminders(now = new Date()): Promise<{ sent: Partial<Record<ReminderKind, number>>; reason?: string }> {
+export async function processMemberReminders(now = new Date()): Promise<{ sent: Partial<Record<EmailKind, number>>; reason?: string }> {
   const settings = await reminderSettings();
   if (!settings.enabled) return { sent: {}, reason: 'off' };
   if (!emailConfigured) return { sent: {}, reason: 'email-not-configured' };
+  // The safety rules (lib/nudgeRules.ts) apply to emails too: daytime in Cameroon only, checked now.
+  if (!isCameroonDaytime(now)) return { sent: {}, reason: 'night' };
 
   const { sentToday } = await reminderStats(now);
   let room = Math.max(0, settings.dailyCap - sentToday);
-  const sent: Partial<Record<ReminderKind, number>> = {};
+  const sent: Partial<Record<EmailKind, number>> = {};
 
   for (const kind of KINDS) {
     if (room <= 0) break;
     for (const c of await candidatesFor(kind, now, settings.quietDays, room)) {
       if (room <= 0) break;
+      // The person's latest facts, now: never within 2 days of being in the app, at most one nudge in 3 days (any kind),
+      // at most 4 in all, and none after 3 unanswered.
+      const fresh = await prisma.person.findUnique({ where: { id: c.personId }, select: { lastSeenAt: true, reminders: { select: { sentAt: true } } } });
+      if (!fresh || nudgeBlock({ now, lastSeenAt: fresh.lastSeenAt, sentAts: fresh.reminders.map((r) => r.sentAt) })) continue;
       // Claim first, so a slow send is never repeated by the next run; give the claim back if the send fails.
       const claim = await prisma.memberReminder.create({ data: { personId: c.personId, kind, sentAt: now } });
       const text = reminderText(kind, c.language, c.name);
@@ -149,7 +158,11 @@ export async function processMemberReminders(now = new Date()): Promise<{ sent: 
 
 /** Checks once an hour (the first check a few minutes after the server starts). */
 export function startMemberReminderLoop(): void {
-  const run = () => processMemberReminders().catch((err) => console.error('[reminders] failed', { error: err instanceof Error ? err.message : String(err) }));
+  const fail = (what: string) => (err: unknown) => console.error(`[${what}] failed`, { error: err instanceof Error ? err.message : String(err) });
+  const run = async () => {
+    await processMemberReminders().catch(fail('reminders'));
+    await processMemberNudges().catch(fail('nudges'));
+  };
   setTimeout(run, 5 * 60 * 1000).unref();
   setInterval(run, HOUR).unref();
 }

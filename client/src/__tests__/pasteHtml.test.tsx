@@ -119,19 +119,24 @@ describe('pasting into the writing box', () => {
 describe('the formatting bar on a phone', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('sits above the keyboard in big, well-spaced buttons, away from the phone’s own menu', () => {
+  it('is one small row just above the writing box, leaving room for the phone’s own menu, and never covers the box', () => {
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse'), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
     render(<Box />);
     const box = screen.getByLabelText('Text') as HTMLTextAreaElement;
+    // The writing box sits 600 px from the top of a 768 px screen.
+    box.getBoundingClientRect = () => ({ top: 600, bottom: 660, left: 0, right: 300, width: 300, height: 60, x: 0, y: 600, toJSON() {} }) as DOMRect;
     fireEvent.change(box, { target: { value: 'A heading line' } });
     box.setSelectionRange(0, 9);
     fireEvent.select(box);
     const bar = screen.getByTestId('selection-format-bar');
-    expect(bar).toHaveAttribute('data-placement', 'keyboard');
-    // Lifted out of the page, to the bottom of the screen.
-    expect(bar.closest('.fixed')?.parentElement).toBe(document.body);
-    expect(within(bar).getByRole('button', { name: 'Bold' }).className).toContain('h-12');
-    expect(bar.className).toContain('gap-3');
+    expect(bar).toHaveAttribute('data-placement', 'above-box');
+    // Lifted out of the page; its bottom edge is above the box's top edge, with 64 px kept for the phone's menu.
+    const holder = bar.closest('.fixed') as HTMLElement;
+    expect(holder.parentElement).toBe(document.body);
+    expect(holder.style.bottom).toBe(`${window.innerHeight - 600 + 64}px`);
+    // One row: small buttons, no wrapping.
+    expect(within(bar).getByRole('button', { name: 'Bold' }).className).toContain('h-10');
+    expect(bar.className).not.toContain('flex-wrap');
     fireEvent.click(within(bar).getByRole('button', { name: 'Bold' }));
     expect(box.value).toBe('*A heading* line');
   });

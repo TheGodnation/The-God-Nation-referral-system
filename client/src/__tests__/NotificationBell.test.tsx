@@ -65,6 +65,30 @@ describe('NotificationBell — stays fresh while the app is open', () => {
   });
 });
 
+describe('NotificationBell — gentle nudges at 3 and 7 days', () => {
+  it('words each nudge for the stage the person is at, with an Open link', async () => {
+    mockFetchByUrl({
+      '/api/notifications/unread-count': { status: 200, body: { unreadCount: 2 } },
+      '/api/notifications': {
+        status: 200,
+        body: {
+          items: [
+            { id: 'u3', type: 'MEMBER_NUDGE', metadata: { stage: 'unfinished', day: 3, url: '/member/complete-profile' }, targetType: null, targetId: null, readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+            { id: 'r7', type: 'MEMBER_NUDGE', metadata: { stage: 'return', day: 7, url: '/member/chats' }, targetType: null, targetId: null, readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+          ],
+          pagination: { totalPages: 1 },
+        },
+      },
+    });
+    render(<NotificationBell />);
+    fireEvent.click(await screen.findByLabelText('Notifications'));
+    expect(await screen.findByText(/Your registration is almost done\./)).toBeInTheDocument();
+    expect(screen.getByText(/We miss you\. Your brothers and sisters are asking about you/)).toBeInTheDocument();
+    const links = screen.getAllByRole('link', { name: 'Open' });
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/member/complete-profile', '/member/chats']);
+  });
+});
+
 describe('NotificationBell — notification display', () => {
   it('renders each of the four notification types with the correct interpolated message', async () => {
     mockFetchByUrl({

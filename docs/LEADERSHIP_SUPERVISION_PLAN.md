@@ -336,3 +336,17 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **Personal link (coordinator only, on the desk):** "Send a personal link (no email code needed)" makes the same private one-time, 24-hour link as "Help them sign in" in Admin → People (`POST …/needs-me/continue-link`, audited as `MEMBER_CONTINUE_LINK_MADE`) and opens WhatsApp with it. They choose a password, are signed in as themselves, and the app sends them to the details form. Use it for people who cannot get emailed codes. Not offered to leaders. Care: the link works for whoever holds the phone, so only send it when you are sure the WhatsApp number is theirs.
 - In the **WhatsApp queue**, those two lists open with the same text already in the boxes (it can be edited), as a *help* message: it goes to everyone who has not opted out, whether or not they ticked the WhatsApp box (see Phase C). A "finish registering" text button is also there for help messages.
 - The app sends nothing itself: the sender reads the message and presses send in WhatsApp.
+
+## Safety rules for every automatic nudge, and phone/in-app nudges at 3 and 7 days (onboarding Phase E)
+
+- **One set of rules** (`server/src/lib/nudgeRules.ts`), used for every automatic nudge the app sends on its own: the reminder emails and the new phone/in-app nudges (the `MemberReminder` ledger counts all of them together):
+  1. never within 48 hours of the person being seen in the app;
+  2. at most one nudge in 3 days, of any kind;
+  3. at most 4 in all per person;
+  4. stop after 3 unanswered (nudges sent since the person was last seen);
+  5. only 08:00–19:00 Cameroon time (UTC+1, no daylight saving), checked at the moment of sending, with the person's latest facts, not from an earlier list.
+  The WhatsApp messages the coordinator or a leader sends by hand are not automatic nudges and are not limited by these rules.
+- **Member stage** (`lib/memberStage.ts`): not confirmed (never signed in) / unfinished (signed in, details not given) / never back (finished, never came back) / quiet (no visit for the quiet days set in Reminders) / active.
+- **Nudges at day 3 and day 7** (`lib/memberNudges.ts`, checked hourly with the emails): for people who signed in but did not finish (opens the details form) and for people who finished but never came back or went quiet (opens their chats). Day 3 is 3 days after signing up (or after they were last seen); day 7 is 7 days later in the same spell. Someone who comes back and goes quiet again starts a fresh spell. Each arrives in the bell and as a phone alert, in the person's own language, with no price and no link to pay. At most 150 per hourly run.
+- **Admin switch:** Admin → Growth → Reminders → "Phone and in-app nudges" (`Settings.nudgesEnabled`, **off by default**, separate from the email switch). The card shows how many are waiting for each nudge and how many went out in the last 7 days. Reminder emails now also follow the daytime rule and the shared limits.
+- Migration `20261231130000_member_nudges` adds `NUDGE_DAY3`/`NUDGE_DAY7` (reminder kinds), `MEMBER_NUDGE` (notification type) and `nudgesEnabled`.
