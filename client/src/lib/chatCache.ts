@@ -17,6 +17,9 @@ export interface CachedThread<O = unknown> {
 const indexKey = (ownerId: string) => `godnation:threads:${ownerId}`;
 const threadKey = (ownerId: string, id: string) => `godnation:thread:${ownerId}:${id}`;
 export const chatListKey = (ownerId: string) => `godnation:chatlist:${ownerId}`;
+// The member's assemblies on the Chats page, and each one's row (name, picture, last message), so the page opens without internet.
+export const membershipsKey = (ownerId: string) => `godnation:memberships:${ownerId}`;
+export const groupMetaKey = (ownerId: string, communityId: string) => `godnation:groupmeta:${ownerId}:${communityId}`;
 
 function readIndex(ownerId: string): { id: string; at: number }[] {
   try {
@@ -89,7 +92,18 @@ export function clearChatCache(ownerId: string): void {
     for (const e of readIndex(ownerId)) localStorage.removeItem(threadKey(ownerId, e.id));
     localStorage.removeItem(indexKey(ownerId));
     localStorage.removeItem(chatListKey(ownerId));
+    localStorage.removeItem(membershipsKey(ownerId));
+    const prefix = groupMetaKey(ownerId, '');
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) localStorage.removeItem(k);
+    }
   } catch {
     /* ignore */
   }
+}
+
+/** How many chats (private and assembly) have their latest messages kept on this phone. */
+export function savedThreadCount(ownerId: string | undefined): number {
+  return ownerId ? readIndex(ownerId).filter((e) => !!loadThread(ownerId, e.id)).length : 0;
 }

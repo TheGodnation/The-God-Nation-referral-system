@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { PdfViewer } from '../components/chat/PdfViewer';
+import { OfflineCheck } from '../components/member/OfflineCheck';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { clearMedia, deleteSaved, getFile, listSaved, MEDIA_LIMIT_BYTES, storageEstimate, type SavedInfo } from '../lib/offlineStore';
 
@@ -77,6 +78,7 @@ export function MemberDownloadsPage() {
         </Link>
         <h1 className="text-2xl font-bold text-brand-900">📥 {t('downloads.title')}</h1>
         <p className="text-sm text-slate-600">{t('downloads.intro')}</p>
+        <OfflineCheck />
         {items !== null && (
           <p className="text-sm text-slate-700">
             {t('downloads.using', { size: mb(total) })}

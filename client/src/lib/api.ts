@@ -52,6 +52,11 @@ export function lastServerContact() {
 
 const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
+// A phone can show "connected" while nothing really comes through (weak data, a Wi-Fi without
+// internet). A read that gets no answer in this time counts as "no internet", so the pages that keep
+// a saved copy (books, chats, the School) show it instead of waiting for ever.
+export const GET_TIMEOUT_MS = 25000;
+
 async function request<T>(method: string, path: string, body?: unknown, options?: { keepalive?: boolean }): Promise<T> {
   const headers: Record<string, string> = {};
   let payload: string | undefined;
@@ -70,6 +75,8 @@ async function request<T>(method: string, path: string, body?: unknown, options?
     if (csrf) headers['X-CSRF-Token'] = csrf;
   }
 
+  const controller = method === 'GET' && typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), GET_TIMEOUT_MS) : null;
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -79,8 +86,10 @@ async function request<T>(method: string, path: string, body?: unknown, options?
       credentials: 'include',
       // keepalive: still sent if the page is closing (e.g. the reader's bookmark).
       ...(options?.keepalive ? { keepalive: true } : {}),
+      ...(controller ? { signal: controller.signal } : {}),
     });
   } catch {
+    if (timer) clearTimeout(timer);
     reportReachable(false);
     throw new NetworkError();
   }
@@ -89,6 +98,7 @@ async function request<T>(method: string, path: string, body?: unknown, options?
 
   const contentType = res.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await res.json().catch(() => ({})) : undefined;
+  if (timer) clearTimeout(timer);
 
   if (!res.ok) {
     const message = (data && (data as any).error) || `Request failed (${res.status})`;

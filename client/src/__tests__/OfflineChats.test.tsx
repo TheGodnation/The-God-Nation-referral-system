@@ -4,6 +4,8 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberAuthProvider, useMemberAuth } from '../lib/MemberAuthContext';
 import { MemberPrivateChatPage } from '../pages/MemberPrivateChatPage';
+import { MemberGroupChatPage } from '../pages/MemberGroupChatPage';
+import { MemberChatsPage } from '../pages/MemberChatsPage';
 import { MemberDownloadsPage } from '../pages/MemberDownloadsPage';
 import { PrivateChatList } from '../components/chat/PrivateChatList';
 import { useAttachmentUrl } from '../lib/chatMedia';
@@ -274,5 +276,146 @@ describe('The chat list and the Downloads page', () => {
     expect(screen.getByTestId('downloads-media')).toHaveTextContent('Never more than 100 MB');
     fireEvent.click(screen.getByTestId('downloads-media-clear'));
     await waitFor(() => expect(screen.getByTestId('downloads-media-usage')).toHaveTextContent('None kept yet.'));
+  });
+});
+
+const offlineFetch = () =>
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (String(url).includes('/api/member/auth/me')) return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => me() };
+    throw new TypeError('Failed to fetch');
+  }));
+
+describe('An assembly (group) chat opens without internet', () => {
+  const G = 'g1';
+  const ITEMS = [
+    { id: 'm1', senderName: 'Ada Nkem', isOwn: false, body: 'Who is coming on Sunday?', createdAt: new Date().toISOString(), deleted: false, attachments: [], replyTo: null, reactions: [] },
+    { id: 'm2', senderName: 'Me', isOwn: true, body: 'I am coming', createdAt: new Date().toISOString(), deleted: false, attachments: [], replyTo: null, reactions: [] },
+  ];
+  const renderGroup = () =>
+    render(
+      <MemoryRouter initialEntries={[`/member/chats/group/${G}`]}>
+        <MemberAuthProvider>
+          <Gate>
+            <Routes>
+              <Route path="/member/chats/group/:communityId" element={<MemberGroupChatPage />} />
+            </Routes>
+          </Gate>
+        </MemberAuthProvider>
+      </MemoryRouter>,
+    );
+  const online = () =>
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: me() }),
+      'GET /api/member/me/community-memberships': () => ({ body: { items: [{ communityId: G, communityName: 'Buea Assembly', status: 'ACTIVE' }] } }),
+      [`GET /api/communities/${G}/conversation/messages`]: () => ({ body: { items: ITEMS, hasMore: false, unreadCount: 0, isAdministrator: false, canPost: true } }),
+      [`GET /api/communities/${G}/conversation`]: () => ({ body: { name: 'Buea Assembly', photoUrl: null, pins: [] } }),
+    });
+
+  it('shows the last messages kept on the phone, with the name and a note, and the real ones when back online', async () => {
+    online();
+    const first = renderGroup();
+    expect(await screen.findByText('Who is coming on Sunday?')).toBeInTheDocument();
+    await waitFor(() => expect(loadThread(personId, `group:${G}`)?.messages).toHaveLength(2), { timeout: 4000 });
+    expect(loadThread<{ name: string }>(personId, `group:${G}`)?.other.name).toBe('Buea Assembly');
+    first.unmount();
+
+    offlineFetch();
+    renderGroup();
+    expect(await screen.findByText('Who is coming on Sunday?')).toBeInTheDocument();
+    expect(screen.getByText('I am coming')).toBeInTheDocument();
+    expect(screen.getByTestId('offline-copy')).toHaveTextContent('No internet');
+    expect(screen.getByText('Buea Assembly')).toBeInTheDocument();
+    expect(screen.queryByText(/could not load/i)).toBeNull();
+  });
+
+  it('shows the usual "could not load" message when nothing was kept for this assembly', async () => {
+    offlineFetch();
+    renderGroup();
+    await screen.findByRole('button', { name: /try again/i });
+    expect(screen.queryByTestId('offline-copy')).toBeNull();
+  });
+
+  it('is removed when the member signs out', async () => {
+    saveThread(personId, `group:${G}`, { name: 'Buea Assembly' }, [msg(1)]);
+    localStorage.setItem(`godnation:memberships:${personId}`, '{}');
+    localStorage.setItem(`godnation:groupmeta:${personId}:${G}`, '{}');
+    clearChatCache(personId);
+    expect(loadThread(personId, `group:${G}`)).toBeNull();
+    expect(localStorage.getItem(`godnation:memberships:${personId}`)).toBeNull();
+    expect(localStorage.getItem(`godnation:groupmeta:${personId}:${G}`)).toBeNull();
+  });
+
+  it('the Chats page still lists the assembly, with its last message, from the kept copy', async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: me() }),
+      'GET /api/member/me/community-memberships': () => ({ body: { items: [{ communityId: G, communityName: 'Buea Assembly', status: 'ACTIVE', generation: 1 }] } }),
+      [`GET /api/communities/${G}/conversation`]: () => ({ body: { name: 'Buea Assembly', photoUrl: null, unreadCount: 0, lastMessage: { senderName: 'Ada', isOwn: false, body: 'Amen 🙏', deleted: false, attachmentMimeType: null, createdAt: new Date().toISOString() } } }),
+    });
+    const renderChats = () => render(withMember(<MemberChatsPage />));
+    const first = renderChats();
+    expect(await screen.findByText('Buea Assembly')).toBeInTheDocument();
+    expect(await screen.findByText(/Amen/)).toBeInTheDocument();
+    first.unmount();
+    offlineFetch();
+    renderChats();
+    expect(await screen.findByText('Buea Assembly')).toBeInTheDocument();
+    expect(await screen.findByText(/Amen/)).toBeInTheDocument();
+  });
+});
+
+describe('"Ready for offline?" on the Downloads page', () => {
+  const stubBrowser = (opts: { shell: boolean; persisted: boolean | null; standalone?: boolean }) => {
+    vi.stubGlobal('caches', { open: async () => ({ match: async () => (opts.shell ? new Response('x') : undefined) }) });
+    Object.defineProperty(navigator, 'serviceWorker', { value: {}, configurable: true });
+    Object.defineProperty(navigator, 'storage', {
+      value: { persisted: async () => opts.persisted, persist: vi.fn(async () => true), estimate: async () => ({ usage: 0, quota: 1e9 }) },
+      configurable: true,
+    });
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: Boolean(opts.standalone) && q.includes('standalone'), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+  };
+
+  it('says what is missing, in plain words, when nothing is saved yet', async () => {
+    stubBrowser({ shell: false, persisted: false });
+    mockFetch({ 'GET /api/member/auth/me': () => ({ body: me() }), 'GET /api/health': () => ({ body: { ok: true } }) });
+    render(withMember(<MemberDownloadsPage />));
+    const summary = await screen.findByTestId('offline-summary');
+    expect(summary).toHaveTextContent('4 thing(s) to fix');
+    expect(screen.getByTestId('offline-row-start')).toHaveAttribute('data-ok', 'false');
+    expect(screen.getByTestId('offline-row-start')).toHaveTextContent('Open the app once with a good internet connection');
+    expect(screen.getByTestId('offline-row-installed')).toHaveTextContent('Install app');
+    expect(screen.getByTestId('offline-row-chats')).toHaveTextContent('No chat is saved yet');
+    expect(screen.getByTestId('offline-row-books')).toHaveTextContent('Open each book once while you have internet');
+    expect(screen.getByTestId('offline-connection')).toHaveTextContent('the internet works');
+  });
+
+  it('asks the phone to keep saved things safe when the button is pressed', async () => {
+    stubBrowser({ shell: true, persisted: false });
+    mockFetch({ 'GET /api/member/auth/me': () => ({ body: me() }), 'GET /api/health': () => ({ body: { ok: true } }) });
+    render(withMember(<MemberDownloadsPage />));
+    fireEvent.click(await screen.findByTestId('offline-protect'));
+    await waitFor(() => expect((navigator.storage as any).persist).toHaveBeenCalled());
+  });
+
+  it('says Ready when the start page, chats and a book are saved', async () => {
+    stubBrowser({ shell: true, persisted: true, standalone: true });
+    saveThread(personId, 'c1', {}, [msg(1)]);
+    await saveMedia(personId, 'ignored', new Blob([new Uint8Array(10)], { type: 'image/jpeg' }), 'image/jpeg');
+    const { saveFile, bookKey } = await import('../lib/offlineStore');
+    await saveFile({ key: bookKey(personId, 'b1'), ownerId: personId, kind: 'BOOK', title: 'Book 1', blob: new Blob([new Uint8Array(10)]) });
+    mockFetch({ 'GET /api/member/auth/me': () => ({ body: me() }), 'GET /api/health': () => ({ body: { ok: true } }) });
+    render(withMember(<MemberDownloadsPage />));
+    await waitFor(() => expect(screen.getByTestId('offline-summary')).toHaveTextContent('Ready: the app, your chats and your books are saved'));
+    expect(screen.getByTestId('offline-row-installed')).toHaveAttribute('data-ok', 'true');
+    expect(screen.getByTestId('offline-row-books')).toHaveTextContent('1 book(s) saved');
+  });
+
+  it('warns when the connection is not really working', async () => {
+    stubBrowser({ shell: true, persisted: true });
+    vi.stubGlobal('fetch', vi.fn(async (url: string): Promise<any> => {
+      if (String(url).includes('/api/member/auth/me')) return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => me() };
+      return { ok: false, status: 504, headers: { get: () => 'text/plain' } };
+    }));
+    render(withMember(<MemberDownloadsPage />));
+    await waitFor(() => expect(screen.getByTestId('offline-connection')).toHaveTextContent('very slow or not really working'));
   });
 });

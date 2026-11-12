@@ -17,6 +17,9 @@ import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatLis
 import { mediaKind } from '../components/chat/types';
 import { Announcements } from '../components/Announcements';
 import { api } from '../lib/api';
+import { cachedGet } from '../lib/cachedGet';
+import { groupMetaKey, membershipsKey } from '../lib/chatCache';
+import { useMemberAuth } from '../lib/MemberAuthContext';
 import { DraftPreview, useChatDraft } from '../components/chat/DraftTag';
 import { plainPreview } from '../lib/richText';
 
@@ -51,12 +54,14 @@ interface GroupMeta {
 // last message ("Grace: Amen 🙏") with the time, and the number of new ones.
 function GroupRow({ m, onUnread }: { m: MembershipRow; onUnread?: (communityId: string, count: number) => void }) {
   const { t, i18n } = useTranslation();
+  const { member } = useMemberAuth();
+  const ownerId = member?.personId;
   const [meta, setMeta] = useState<GroupMeta | null>(null);
   useEffect(() => {
     let alive = true;
+    // The row is kept on the phone, so the Chats page still shows the group's name and last message without internet.
     const load = () =>
-      api
-        .get<GroupMeta>(`/api/communities/${m.communityId}/conversation`)
+      (ownerId ? cachedGet<GroupMeta>(`/api/communities/${m.communityId}/conversation`, groupMetaKey(ownerId, m.communityId)).then((r) => r.data) : api.get<GroupMeta>(`/api/communities/${m.communityId}/conversation`))
         .then((r) => alive && setMeta(r))
         .catch(() => {});
     load();
@@ -66,7 +71,7 @@ function GroupRow({ m, onUnread }: { m: MembershipRow; onUnread?: (communityId: 
       alive = false;
       window.clearInterval(timer);
     };
-  }, [m.communityId]);
+  }, [m.communityId, ownerId]);
   const unread = meta?.unreadCount ?? 0;
   useEffect(() => {
     if (meta) onUnread?.(m.communityId, unread);
@@ -124,14 +129,16 @@ function GroupRow({ m, onUnread }: { m: MembershipRow; onUnread?: (communityId: 
 // the full chat screen), then announcements and private messages.
 export function MemberChatsPage() {
   const { t } = useTranslation();
+  const { member } = useMemberAuth();
+  const ownerId = member?.personId;
   const [memberships, setMemberships] = useState<MembershipRow[] | null>(null);
 
+  // The list of assemblies is kept on the phone too, so this page opens without internet.
   useEffect(() => {
-    api
-      .get<{ items: MembershipRow[] }>('/api/member/me/community-memberships')
+    (ownerId ? cachedGet<{ items: MembershipRow[] }>('/api/member/me/community-memberships', membershipsKey(ownerId)).then((r) => r.data) : api.get<{ items: MembershipRow[] }>('/api/member/me/community-memberships'))
       .then((r) => setMemberships(r.items))
       .catch(() => setMemberships([]));
-  }, []);
+  }, [ownerId]);
 
   // Fixed order, so a row is always where you expect it: the Headquarters first,
   // then the Leadership Team, then each generation in turn (its name breaks ties). Messages never reorder this.

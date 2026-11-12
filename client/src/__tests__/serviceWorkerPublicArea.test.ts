@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
@@ -14,7 +14,7 @@ const SW_SOURCE = fs.readFileSync(path.join(__dirname, '../../public/sw.js'), 'u
 const ORIGIN = 'https://thegodnationacademy.org';
 
 function makeWorker(opts: { online: boolean; html?: Record<string, string> }) {
-  const state = { online: opts.online };
+  const state = { online: opts.online, hang: false };
   const handlers: Record<string, (e: any) => void> = {};
   const stores = new Map<string, Map<string, any>>();
   const cacheOf = (name: string) => {
@@ -40,6 +40,8 @@ function makeWorker(opts: { online: boolean; html?: Record<string, string> }) {
     fetch: async (req: any) => {
       const u = new URL(typeof req === 'string' ? req : req.url);
       fetched.push(u.pathname);
+      // A network that says it is connected but never answers.
+      if (state.hang) return new Promise(() => {});
       if (!state.online) throw new TypeError('offline');
       const body = opts.html?.[u.pathname] ?? `<html><body>PAGE ${u.pathname}</body></html>`;
       const res = new Response(body, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
@@ -47,7 +49,7 @@ function makeWorker(opts: { online: boolean; html?: Record<string, string> }) {
       Object.defineProperty(res, 'type', { value: 'basic' });
       return res;
     },
-    Response, URL, Promise, console,
+    Response, URL, Promise, console, Symbol, setTimeout, clearTimeout,
   };
   vm.runInNewContext(SW_SOURCE, sandbox);
   async function navigate(pathname: string) {
@@ -60,8 +62,10 @@ function makeWorker(opts: { online: boolean; html?: Record<string, string> }) {
     const hit = await cacheOf('god-nation-shell-v1').match('/__offline-shell');
     return hit ? await hit.clone().text() : null;
   };
-  return { navigate, shell, fetched, setOnline: (v: boolean) => { state.online = v; } };
+  return { navigate, shell, fetched, setOnline: (v: boolean) => { state.online = v; }, setHang: (v: boolean) => { state.hang = v; } };
 }
+
+afterEach(() => vi.useRealTimers());
 
 describe('Service worker and the public website', () => {
   it('does not handle page loads in /en/ or /fr/ (nor /en, /fr themselves)', async () => {
@@ -110,6 +114,33 @@ describe('Service worker and the public website', () => {
     expect(app.text).toContain('PAGE /');                          // the app's start page...
     expect(app.text).not.toContain('/en/knowledge');               // ...never the article
     expect((await w.navigate('/en/knowledge/kingdom-knowledge/a/')).handled).toBe(false); // the public page is the browser's business
+  });
+
+  it('on a network that never answers, shows the saved start page after a few seconds instead of hanging', async () => {
+    vi.useFakeTimers();
+    const w = makeWorker({ online: true });
+    await w.navigate('/member/learn'); // an ordinary visit: the start page is saved
+    w.setHang(true);
+    const pending = w.navigate('/member/chats');
+    await vi.advanceTimersByTimeAsync(3900);
+    let done = false;
+    void pending.then(() => (done = true));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(done).toBe(false); // still waiting for the network, as before
+    await vi.advanceTimersByTimeAsync(300);
+    const r = await pending;
+    expect(r.handled).toBe(true);
+    expect(r.text).toContain('PAGE /member/learn'); // the saved start page
+  });
+
+  it('with no saved start page yet, it keeps waiting for the network (nothing to show instead)', async () => {
+    vi.useFakeTimers();
+    const w = makeWorker({ online: true });
+    w.setHang(true);
+    let done = false;
+    void w.navigate('/member/chats').then(() => (done = true));
+    await vi.advanceTimersByTimeAsync(20000);
+    expect(done).toBe(false);
   });
 
   it('keeps ignoring the API and the four guide folders', async () => {

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, NetworkError } from '../lib/api';
+import { loadThread, saveThread } from '../lib/chatCache';
+import { isOfflineError } from '../lib/offlineStore';
 import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/chat/MessageBubble';
@@ -115,6 +117,8 @@ export function MemberGroupChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // No internet: showing the last messages kept on this phone.
+  const [offlineCopy, setOfflineCopy] = useState(false);
   const [notAllowed, setNotAllowed] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -261,12 +265,24 @@ export function MemberGroupChatPage() {
           setMute(res.mute ?? null);
           setMustAgree(res.agreementRequired === true);
           setLoadError(false);
+          setOfflineCopy(false);
           markRead(res.items, res.unreadCount);
           return res.items.length > 0 || (res.typing ?? []).length > 0 || (res.recording ?? []).length > 0;
         })
         .catch((err) => {
           if (err instanceof ApiError && (err.status === 403 || err.status === 404)) setNotAllowed(true);
-          else if (first) setLoadError(true);
+          else if (first) {
+            // No internet: the last messages kept on this phone, if there are any.
+            const kept = isOfflineError(err) ? loadThread<{ name: string; photoUrl: string | null }>(member?.personId, `group:${communityId}`) : null;
+            if (kept) {
+              if (kept.other?.name) setGroupName((cur) => cur || kept.other.name);
+              setGroupPhoto((cur) => cur ?? kept.other?.photoUrl ?? null);
+              setMessages(kept.messages);
+              setHasMore(false);
+              setLoadError(false);
+              setOfflineCopy(true);
+            } else setLoadError(true);
+          }
           return false;
         })
         .finally(() => first && setLoaded(true));
@@ -279,6 +295,13 @@ export function MemberGroupChatPage() {
     stickToBottom.current = true;
     void fetchLatest(true);
   }, [fetchLatest]);
+
+  // Keep the latest messages on the phone (a moment after they change), so this chat opens without internet.
+  useEffect(() => {
+    if (!loaded || notAllowed || offlineCopy || messages.length === 0) return;
+    const timer = window.setTimeout(() => saveThread(member?.personId, `group:${communityId}`, { name: groupName, photoUrl: groupPhoto }, messages), 1500);
+    return () => window.clearTimeout(timer);
+  }, [messages, groupName, groupPhoto, loaded, notAllowed, offlineCopy, communityId, member?.personId]);
 
   // Switching the app's language: reload so messages come back translated
   // into the new one.
@@ -605,6 +628,11 @@ export function MemberGroupChatPage() {
       )}
 
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto overscroll-contain px-2 py-3" aria-live="polite">
+        {offlineCopy && (
+          <p className="mx-auto mb-2 max-w-xs rounded-lg bg-amber-50 p-2 text-center text-xs text-amber-900" data-testid="offline-copy">
+            {t('groupChat.offline_copy')}
+          </p>
+        )}
         {!loaded && <p className="mt-10 text-center text-sm text-slate-500">{t('groupChat.loading')}</p>}
         {notAllowed && <p className="mx-auto mt-10 max-w-xs rounded-lg bg-white p-4 text-center text-sm text-slate-600">{t('groupChat.not_allowed')}</p>}
         {loadError && !notAllowed && (

@@ -2579,7 +2579,8 @@
     "doc_cannot_show": "This document can’t be shown here.",
     "doc_open_phone": "Open it on the phone",
     "doc_back": "Back to the chat",
-    "all_assemblies": "All assemblies — as National Coordinator"
+    "all_assemblies": "All assemblies — as National Coordinator",
+    "offline_copy": "No internet. You are reading the last messages kept on this phone. New messages will appear when you are back online."
   },
   "voiceInput": {
     "start": "Speak to type",
@@ -5331,5 +5332,31 @@
     "kept_note_prefix": "Your note:",
     "delete_confirm": "Delete",
     "delete_cancel": "Cancel"
+  },
+  "offlineCheck": {
+    "title": "Ready for offline?",
+    "recheck": "Check again",
+    "summary_ok": "Ready: the app, your chats and your books are saved on this phone.",
+    "summary_fix": "{{count}} thing(s) to fix before this phone works well without internet.",
+    "start_ok": "The app’s start page is saved on this phone.",
+    "start_no": "The app’s start page is not saved yet.",
+    "start_unsupported": "This browser cannot save the app’s start page.",
+    "start_fix": "Open the app once with a good internet connection, tap a few pages, close it and open it again.",
+    "installed_ok": "The app is installed (it opens from its icon).",
+    "installed_no": "You are using it in the browser, not as an installed app.",
+    "installed_fix": "Installing makes it open from an icon like WhatsApp, and the phone is much less likely to clear what is saved. In Chrome, open the ⋮ menu and choose “Install app”.",
+    "safe_ok": "The phone keeps what is saved safe, even when space runs low.",
+    "safe_no": "The phone may clear what is saved when it runs low on space.",
+    "safe_unknown": "This browser does not say whether saved things are kept safe.",
+    "safe_button": "Keep my saved things safe",
+    "chats_ok": "{{count}} chat(s) saved: their last messages open without internet.",
+    "chats_no": "No chat is saved yet.",
+    "chats_fix": "Open each chat once while you have internet (private chats and your assemblies). The last messages are then kept.",
+    "books_ok": "{{count}} book(s) saved: they open without internet.",
+    "books_no": "No book is saved yet.",
+    "books_fix": "Open each book once while you have internet and wait until it has finished loading. It is then saved here under Books.",
+    "net_ok": "Right now: the internet works.",
+    "net_slow": "Right now: the connection is very slow or not really working, although the phone may say it is connected. The app will show what it has saved.",
+    "net_none": "Right now: no internet."
   }
 }

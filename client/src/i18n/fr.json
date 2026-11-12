@@ -2579,7 +2579,8 @@
     "doc_cannot_show": "Ce document ne peut pas être affiché ici.",
     "doc_open_phone": "L’ouvrir sur le téléphone",
     "doc_back": "Retour à la discussion",
-    "all_assemblies": "Toutes les assemblées — comme Coordinateur national"
+    "all_assemblies": "Toutes les assemblées — comme Coordinateur national",
+    "offline_copy": "Pas d’internet. Vous lisez les derniers messages gardés sur ce téléphone. Les nouveaux messages apparaîtront quand vous serez de nouveau en ligne."
   },
   "voiceInput": {
     "start": "Parler pour écrire",
@@ -5331,5 +5332,31 @@
     "kept_note_prefix": "Votre note :",
     "delete_confirm": "Supprimer",
     "delete_cancel": "Annuler"
+  },
+  "offlineCheck": {
+    "title": "Prêt pour le hors-ligne ?",
+    "recheck": "Vérifier de nouveau",
+    "summary_ok": "Prêt : l’application, vos conversations et vos livres sont enregistrés sur ce téléphone.",
+    "summary_fix": "{{count}} point(s) à corriger pour que ce téléphone fonctionne bien sans internet.",
+    "start_ok": "La page de démarrage de l’application est enregistrée sur ce téléphone.",
+    "start_no": "La page de démarrage de l’application n’est pas encore enregistrée.",
+    "start_unsupported": "Ce navigateur ne peut pas enregistrer la page de démarrage de l’application.",
+    "start_fix": "Ouvrez l’application une fois avec une bonne connexion internet, touchez quelques pages, fermez-la puis rouvrez-la.",
+    "installed_ok": "L’application est installée (elle s’ouvre depuis son icône).",
+    "installed_no": "Vous l’utilisez dans le navigateur, pas comme application installée.",
+    "installed_fix": "L’installation permet de l’ouvrir depuis une icône comme WhatsApp, et le téléphone efface beaucoup moins facilement ce qui est enregistré. Dans Chrome, ouvrez le menu ⋮ et choisissez « Installer l’application ».",
+    "safe_ok": "Le téléphone garde ce qui est enregistré, même quand la place manque.",
+    "safe_no": "Le téléphone peut effacer ce qui est enregistré quand la place manque.",
+    "safe_unknown": "Ce navigateur ne dit pas si ce qui est enregistré est protégé.",
+    "safe_button": "Protéger ce qui est enregistré",
+    "chats_ok": "{{count}} conversation(s) enregistrée(s) : leurs derniers messages s’ouvrent sans internet.",
+    "chats_no": "Aucune conversation n’est encore enregistrée.",
+    "chats_fix": "Ouvrez chaque conversation une fois avec internet (messages privés et vos assemblées). Les derniers messages sont alors gardés.",
+    "books_ok": "{{count}} livre(s) enregistré(s) : ils s’ouvrent sans internet.",
+    "books_no": "Aucun livre n’est encore enregistré.",
+    "books_fix": "Ouvrez chaque livre une fois avec internet et attendez la fin du chargement. Il est alors enregistré ici, sous Livres.",
+    "net_ok": "En ce moment : internet fonctionne.",
+    "net_slow": "En ce moment : la connexion est très lente ou ne fonctionne pas vraiment, même si le téléphone dit être connecté. L’application affichera ce qu’elle a enregistré.",
+    "net_none": "En ce moment : pas d’internet."
   }
 }
