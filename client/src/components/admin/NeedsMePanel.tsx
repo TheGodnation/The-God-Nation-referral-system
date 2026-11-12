@@ -280,7 +280,7 @@ export function NeedsMePanel({ base }: { base: string }) {
         </section>
       )}
 
-      {queueOpen && <WhatsAppQueue key={[...selected].join(',')} people={queuePeople} defaultKind={filter === 'not_confirmed' || filter === 'profile_incomplete' ? 'help' : 'nudge'} onStop={(p) => stopWhatsApp(p, true)} translateUrl={`${base}/translate-preview`} onClose={() => setQueueOpen(false)} recordContact={(p) => api.post(`${base}/contacted`, { personId: p.personId, wellbeing: 'GOOD', note: 'WhatsApp' })} />}
+      {queueOpen && <WhatsAppQueue key={[...selected].join(',')} people={queuePeople} defaultKind={filter === 'not_confirmed' || filter === 'profile_incomplete' ? 'help' : 'nudge'} defaultTemplate={filter === 'not_confirmed' || filter === 'profile_incomplete' ? 'finish' : undefined} onStop={(p) => stopWhatsApp(p, true)} translateUrl={`${base}/translate-preview`} onClose={() => setQueueOpen(false)} recordContact={(p) => api.post(`${base}/contacted`, { personId: p.personId, wellbeing: 'GOOD', note: 'WhatsApp' })} />}
 
       {data === null && !error && <p className="text-sm text-slate-400">{t('needsMe.loading')}</p>}
       {data && items.length === 0 && <p className="card text-sm text-slate-600">{t('needsMe.nobody')}</p>}
@@ -325,7 +325,7 @@ export function NeedsMePanel({ base }: { base: string }) {
                   <span className="text-slate-500">{t('needsMe.consent_none')}</span>
                 )}
               </p>
-              {p.whatsapp && p.whatsappConsent !== 'OPTED_OUT' && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language} />}
+              {p.whatsapp && p.whatsappConsent !== 'OPTED_OUT' && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language} name={p.name} needsToFinish={p.status === 'NOT_CONFIRMED' || p.status === 'PROFILE_INCOMPLETE'} />}
               <div className="flex flex-wrap gap-2">
                 <Link to={`/member/people/${p.personId}`} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 no-underline hover:bg-brand-50">
                   {t('myReferrals.nudge_in_app')}

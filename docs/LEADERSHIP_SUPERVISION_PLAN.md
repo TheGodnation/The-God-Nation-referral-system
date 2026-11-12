@@ -328,3 +328,10 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **Push: one retry** for passing failures (no answer, timeout, 408, 429, 5xx) after 1.5 s; refusals on purpose (400/401/403) are never retried; 404/410 (gone) are removed at once, as before. The delivery log now also says how many were retried and recovered (`PUSH_RETRY_DELAY_MS` changes the wait). Subscriptions are not auto-deleted for repeated 4xx errors on purpose: a wrong key would wipe everyone's.
 - **Admin count** in the growth report: members with notifications on, out of all members, with the percentage and the number of phones (`notificationsOn()` in `lib/growthReport.ts`).
 - **Ask again after install:** the first time the app is opened as the installed app and notifications can be turned on there, one clear "The app is installed. One last step" card asks once (`AfterInstallPushAsk`); closing or answering ends it, the usual banner still comes back on later visits.
+
+## Helping people finish registering (WhatsApp)
+
+- Placement is unchanged: people are placed in an assembly when they finish the details form, and the app never places someone who has not given their details. Instead, the coordinator and leaders get a one-tap way to help the people who have not finished.
+- **"Help them finish registering"** (on each person who is *not signed in* or *not finished joining*, on the desk, in "My people" and in "My friends"): opens WhatsApp with the message typed in the person's language and first name, with the link `…/member/login` (`?lang=fr` for French). They sign in with their email (a code is sent), then the app takes them to the details form (name, country, place).
+- In the **WhatsApp queue**, those two lists open with the same text already in the boxes (it can be edited), as a *help* message: it goes to everyone who has not opted out, whether or not they ticked the WhatsApp box (see Phase C). A "finish registering" text button is also there for help messages.
+- The app sends nothing itself: the sender reads the message and presses send in WhatsApp.

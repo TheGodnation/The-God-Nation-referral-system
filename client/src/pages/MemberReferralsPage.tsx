@@ -180,7 +180,7 @@ export function MemberReferralsPage() {
                               {t('followUp.not_joined')}
                             </p>
                           )}
-                          {p.whatsapp && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language ?? 'en'} />}
+                          {p.whatsapp && <FollowUpButtons personId={p.personId} whatsapp={p.whatsapp} language={p.language ?? 'en'} name={p.name} needsToFinish={p.status === 'NOT_CONFIRMED' || p.status === 'PROFILE_INCOMPLETE'} />}
                           {p.status && p.status !== 'ACTIVE' && (
                             <Link to={`/member/people/${p.personId}`} className="inline-block rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-brand-800 no-underline hover:bg-brand-50">
                               {t('myReferrals.nudge_in_app')}
