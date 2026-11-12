@@ -8,6 +8,7 @@ import { InstallAppBanner } from '../components/member/InstallAppBanner';
 import { AssistanceButton } from '../components/member/AssistanceButton';
 import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { CommunityJoinCard, GetStartedCard } from '../components/member/OnboardingChecklist';
+import { AfterInstallPushAsk } from '../components/member/AfterInstallPushAsk';
 import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { EventsCard } from '../components/member/EventsCard';
@@ -166,6 +167,7 @@ export function MemberChatsPage() {
           <h1 className="text-2xl font-bold text-brand-900">{t('memberNav.chats')}</h1>
           <NotificationBell />
         </div>
+        <AfterInstallPushAsk />
         <GetStartedCard />
         <CommunityJoinCard />
         <InstallAppBanner />

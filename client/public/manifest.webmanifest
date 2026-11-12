@@ -61,6 +61,12 @@
       ]
     }
   },
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://thegodnationacademy.org/manifest.webmanifest"
+    }
+  ],
   "categories": [
     "education",
     "lifestyle",

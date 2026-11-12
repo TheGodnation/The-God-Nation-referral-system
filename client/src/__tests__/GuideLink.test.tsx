@@ -8,14 +8,14 @@ afterEach(() => {
 });
 
 describe('Help page link', () => {
-  it('opens the guide in a panel over the app, with a way back and a new-tab fallback', () => {
+  it('opens the guide in a panel over the app, with a way back (and no new-tab link, which some phones refuse)', () => {
     render(<GuideLink href="/notifications-guide/">See the steps with pictures</GuideLink>);
     expect(screen.queryByTestId('guide-viewer')).toBeNull();
     const prevented = !fireEvent.click(screen.getByText('See the steps with pictures'));
     expect(prevented).toBe(true);
     expect(screen.getByTestId('guide-viewer')).toBeInTheDocument();
     expect(screen.getByTestId('guide-frame')).toHaveAttribute('src', '/notifications-guide/');
-    expect(screen.getByText('Open in a new tab').closest('a')).toHaveAttribute('href', '/notifications-guide/');
+    expect(screen.queryByText('Open in a new tab')).toBeNull();
     fireEvent.click(screen.getByTestId('guide-close'));
     expect(screen.queryByTestId('guide-viewer')).toBeNull();
   });

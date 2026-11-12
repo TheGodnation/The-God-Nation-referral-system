@@ -2434,6 +2434,7 @@
     "ios": "Sur iPhone : touchez le bouton Partager dans Safari, puis « Sur l’écran d’accueil ».",
     "button": "Installer",
     "close": "Fermer",
+    "already": "Déjà installée",
     "need_help": "Besoin d’aide ?"
   },
   "groupChat": {
@@ -4346,6 +4347,7 @@
     "install_ios_5": "Ouvrez l’icône God Nation sur votre écran d’accueil.",
     "install_desktop_1": "Le plus simple est sur votre téléphone : ouvrez ce site sur votre téléphone et suivez les étapes affichées.",
     "install_desktop_2": "Sur ordinateur, dans Chrome ou Edge, cliquez sur l’icône d’installation à droite de la barre d’adresse, puis « Installer ».",
+    "install_already": "J’ai déjà installé l’application",
     "install_recorded": "Quand vous ouvrez l’application depuis votre écran d’accueil, cette étape est cochée pour vous.",
     "install_pictures": "Voir les étapes avec des images",
     "step_community": "Rejoignez-nous sur WhatsApp et les autres plateformes ci-dessous",
@@ -4387,6 +4389,11 @@
     "close": "Retour à l’application",
     "new_tab": "Ouvrir dans un nouvel onglet"
   },
+  "afterInstall": {
+    "title": "L’application est installée. Une dernière étape.",
+    "body": "Activez les notifications pour ne manquer aucun enseignement, aucune demande de prière ni aucun message.",
+    "later": "Pas maintenant"
+  },
   "contactPrefs": {
     "title": "Comment nous pouvons vous contacter",
     "help": "Choisissez comment The God Nation peut vous envoyer des nouvelles et des encouragements. Vous pouvez changer cela à tout moment.",
@@ -4414,6 +4421,9 @@
     "col_registered": "Inscrits",
     "col_confirmed": "Confirmés",
     "col_profile": "Profil terminé",
+    "notifications_title": "Membres avec les notifications activées",
+    "notifications_of": "sur {{total}} membres",
+    "notifications_note": "{{phones}} téléphones au total. Compte les membres qui ont activé les notifications au moins une fois et dont le téléphone n’a pas été retiré depuis. Sur iPhone, les notifications ne marchent que depuis l’application installée : l’installation passe donc en premier.",
     "col_group": "A touché un lien de groupe",
     "col_says_joined": "Dit avoir rejoint",
     "col_chat": "A écrit dans un chat",

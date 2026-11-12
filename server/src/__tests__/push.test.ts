@@ -57,7 +57,7 @@ describe('lib/push — Web Push (background/closed-app delivery)', () => {
   });
 
   it('sends to every subscription for a Person when configured, never throwing even if one send fails', async () => {
-    const push = await freshPushModule({ VAPID_PUBLIC_KEY: VAPID_KEYS.publicKey, VAPID_PRIVATE_KEY: VAPID_KEYS.privateKey });
+    const push = await freshPushModule({ VAPID_PUBLIC_KEY: VAPID_KEYS.publicKey, VAPID_PRIVATE_KEY: VAPID_KEYS.privateKey, PUSH_RETRY_DELAY_MS: '1' });
     const webpush = await import('web-push');
     const sendSpy = vi.spyOn(webpush.default, 'sendNotification').mockRejectedValue(new Error('network blip'));
 
@@ -69,7 +69,8 @@ describe('lib/push — Web Push (background/closed-app delivery)', () => {
     });
 
     await expect(push.pushToPerson(person.id, { title: 'T', body: 'B', url: '/member/chats' })).resolves.toBeUndefined();
-    expect(sendSpy).toHaveBeenCalledTimes(1);
+    // A passing failure is tried once more (and only once).
+    expect(sendSpy).toHaveBeenCalledTimes(2);
     // A transient failure (not 404/410) never deletes the subscription.
     expect(
       await prisma.pushSubscription.findUnique({ where: { endpoint: 'https://push.example/ep-configured' } }),
@@ -125,7 +126,7 @@ describe('lib/push — Web Push (background/closed-app delivery)', () => {
   });
 
   it('a large group is sent in controlled batches, every device is reached, and failures are logged by status', async () => {
-    const push = await freshPushModule({ VAPID_PUBLIC_KEY: VAPID_KEYS.publicKey, VAPID_PRIVATE_KEY: VAPID_KEYS.privateKey });
+    const push = await freshPushModule({ VAPID_PUBLIC_KEY: VAPID_KEYS.publicKey, VAPID_PRIVATE_KEY: VAPID_KEYS.privateKey, PUSH_RETRY_DELAY_MS: '1' });
     const webpush = await import('web-push');
     let running = 0;
     let peak = 0;
@@ -145,8 +146,44 @@ describe('lib/push — Web Push (background/closed-app delivery)', () => {
       await prisma.pushSubscription.create({ data: { personId: p.id, endpoint: `https://push.example/ep-batch-${k}`, p256dh: 'p', auth: 'a' } });
     }
     await push.pushToPersons(ids, { title: 'Big', body: 'Group' });
-    expect(sendSpy).toHaveBeenCalledTimes(60);
+    expect(sendSpy).toHaveBeenCalledTimes(61); // the one that was rate-limited is tried once more
     expect(peak).toBeLessThanOrEqual(25);
-    expect(warn).toHaveBeenCalledWith('[push] delivery problem', expect.objectContaining({ devices: 60, sent: 59, failed: 1, failedByStatus: { '429': 1 } }));
+    expect(warn).toHaveBeenCalledWith('[push] delivery problem', expect.objectContaining({ devices: 60, sent: 59, failed: 1, retried: 1, recovered: 0, failedByStatus: { '429': 1 } }));
+  });
+});
+
+describe('Web Push: one retry for passing failures', () => {
+  const setup = async (name: string) => {
+    const push = await freshPushModule({ VAPID_PUBLIC_KEY: VAPID_KEYS.publicKey, VAPID_PRIVATE_KEY: VAPID_KEYS.privateKey, PUSH_RETRY_DELAY_MS: '1' });
+    const webpush = await import('web-push');
+    const person = await prisma.person.create({ data: { name, whatsappNumber: `+23769${String(Date.now()).slice(-8)}` } });
+    await prisma.pushSubscription.create({ data: { personId: person.id, endpoint: `https://push.example/retry-${person.id}`, p256dh: 'p', auth: 'a' } });
+    return { push, webpush, person };
+  };
+
+  it('a send that fails once (a timeout, a busy service) and then works is delivered, not lost', async () => {
+    const { push, webpush, person } = await setup('Retry Recovers');
+    const send = vi.spyOn(webpush.default, 'sendNotification').mockRejectedValueOnce(Object.assign(new Error('busy'), { statusCode: 503 })).mockResolvedValue({} as any);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await push.pushToPerson(person.id, { title: 'T', body: 'B' });
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith('[push] delivery problem', expect.objectContaining({ sent: 1, failed: 0, retried: 1, recovered: 1 }));
+  });
+
+  it('a refusal on purpose (bad request, bad credentials) is not retried, and nothing is deleted', async () => {
+    const { push, webpush, person } = await setup('No Retry');
+    const send = vi.spyOn(webpush.default, 'sendNotification').mockRejectedValue(Object.assign(new Error('forbidden'), { statusCode: 403 }));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await push.pushToPerson(person.id, { title: 'T', body: 'B' });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(await prisma.pushSubscription.count({ where: { personId: person.id } })).toBe(1);
+  });
+
+  it('a subscription that is gone (410) is removed at once, without a retry', async () => {
+    const { push, webpush, person } = await setup('Gone No Retry');
+    const send = vi.spyOn(webpush.default, 'sendNotification').mockRejectedValue(Object.assign(new Error('gone'), { statusCode: 410 }));
+    await push.pushToPerson(person.id, { title: 'T', body: 'B' });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(await prisma.pushSubscription.count({ where: { personId: person.id } })).toBe(0);
   });
 });

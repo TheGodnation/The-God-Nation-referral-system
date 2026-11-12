@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { checkPushOnThisDevice } from '../../lib/push';
-import { useInstallPrompt } from '../../lib/installPrompt';
+import { rememberInstalled, useInstallPrompt } from '../../lib/installPrompt';
 import { usePublicSettings } from '../../lib/usePublicSettings';
 import { communityPlaces, followPlaces } from '../socialPlatforms';
 import { CommunityChoices } from '../CommunityChoices';
@@ -65,12 +65,21 @@ function useOnboarding() {
   };
   const total = 4;
   const count = Object.values(done).filter(Boolean).length;
+  // The server already knows the app is installed (seen on any of this member's phones): this phone stops asking too.
+  useEffect(() => {
+    if (status?.installed) rememberInstalled();
+  }, [status?.installed]);
+  // "I have already installed it": a browser tab cannot see the installed app, so the member can say so.
+  const confirmInstalled = useCallback(() => {
+    rememberInstalled();
+    void api.post('/api/member/onboarding/installed', {}).then(reload).catch(() => {});
+  }, [reload]);
   const tappedAny = tapped || !!status?.communityTapped;
   const confirmJoined = useCallback(() => {
     setConfirmedLocal(true);
     void api.post('/api/member/onboarding/community-joined', {}).then(reload).catch(() => {});
   }, [reload]);
-  return { status, done, count, total, install, markTapped: () => setTapped(true), tappedAny, confirmJoined, reload };
+  return { status, done, count, total, install, markTapped: () => setTapped(true), tappedAny, confirmJoined, confirmInstalled, reload };
 }
 
 const STEP_ORDER: StepKey[] = ['notifications', 'install', 'community', 'agreement'];
@@ -120,7 +129,7 @@ function Tick({ on }: { on: boolean }) {
  * whether or not community links are set up. Each step shows done or not yet, and the member goes on whenever they like.
  */
 /** The install step as a short roadmap for this phone: one tap where the browser allows it, numbered steps where not. */
-function InstallRoadmap({ install }: { install: ReturnType<typeof useInstallPrompt> }) {
+function InstallRoadmap({ install, onAlready }: { install: ReturnType<typeof useInstallPrompt>; onAlready: () => void }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const device = install.ios ? 'ios' : install.android ? 'android' : 'desktop';
@@ -160,6 +169,11 @@ function InstallRoadmap({ install }: { install: ReturnType<typeof useInstallProm
       <GuideLink href="/notifications-guide/" className="mt-1 inline-block text-xs font-semibold text-brand-700 underline">
         {t('onboarding.install_pictures')}
       </GuideLink>
+      <div className="mt-2">
+        <button type="button" onClick={onAlready} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" data-testid="install-already">
+          {t('onboarding.install_already')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -169,7 +183,7 @@ const i18nHas = (t: (k: string) => string, key: string) => t(key) !== key;
 export function OnboardingPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { status, done, count, total, install, markTapped, tappedAny, confirmJoined } = useOnboarding();
+  const { status, done, count, total, install, markTapped, tappedAny, confirmJoined, confirmInstalled } = useOnboarding();
 
   function onTap(platform: string) {
     markTapped();
@@ -200,7 +214,7 @@ export function OnboardingPage() {
             {done.install ? (
               <p className="text-xs text-emerald-700">{t('onboarding.done')}</p>
             ) : (
-              <InstallRoadmap install={install} />
+              <InstallRoadmap install={install} onAlready={confirmInstalled} />
             )}
           </div>
         </li>

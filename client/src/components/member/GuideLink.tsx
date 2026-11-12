@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 // A link to one of the plain help pages (install, notifications, phone settings). It opens as a panel over the app, in
 // place, instead of a new window or tab: from inside the app (or with the app installed) a new window could open blank
-// or throw the person out of the app. "Open in a new tab" is kept in the panel as a last resort.
+// or throw the person out of the app, and some phone browsers refuse a new tab. So there is no new-tab link at all.
 export function GuideLink({ href, className, children }: { href: string; className?: string; children: ReactNode }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -39,9 +39,6 @@ export function GuideLink({ href, className, children }: { href: string; classNa
               <button type="button" onClick={() => setOpen(false)} className="btn-primary px-4 py-1.5 text-sm" data-testid="guide-close">
                 ← {t('guideViewer.close')}
               </button>
-              <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand-700 underline">
-                {t('guideViewer.new_tab')}
-              </a>
             </div>
             <iframe title={t('guideViewer.title') ?? ''} src={href} className="min-h-0 w-full flex-1 border-0" data-testid="guide-frame" />
           </div>,
