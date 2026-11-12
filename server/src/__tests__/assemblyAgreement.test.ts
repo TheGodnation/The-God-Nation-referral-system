@@ -62,7 +62,12 @@ async function founderId() {
 beforeEach(async () => {
   await prisma.settings.updateMany({ data: { assemblyAgreementFrom: null } });
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(async () => {
+  vi.restoreAllMocks();
+  // Posting and reacting start notifications in the background; let them finish before the next test clears the tables
+  // (otherwise the cleanup and a late background write can deadlock in the database).
+  await new Promise((r) => setTimeout(r, 400));
+});
 
 describe('Before the rule starts (or while it is off)', () => {
   it('everyone writes as before', async () => {
