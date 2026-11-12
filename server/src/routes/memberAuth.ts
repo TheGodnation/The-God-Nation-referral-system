@@ -12,6 +12,7 @@ import { createMemberSession, destroyMemberSession, requireMember, MEMBER_SESSIO
 import { catchAllPersonId as resolveCatchAllPersonId } from '../lib/catchAll';
 import { normalizeToE164 } from '../lib/phone';
 import { recordAudit, isBruteForced, recordLoginAttempt } from '../lib/audit';
+import { activeBlocksFor, recordBlockedAttempt } from '../lib/contactBlocks';
 import { requireCsrf } from '../lib/csrf';
 import {
   memberLoginRequestLimiter,
@@ -267,6 +268,14 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
   // an account) must never touch that account's existing password from an
   // unauthenticated request — see its comment below.
   const passwordHash = await bcrypt.hash(password, 12);
+
+  // A number or email the central admin kept out after deleting someone: the same ordinary reply, nothing is
+  // created and nothing is sent (the person is never told), and the attempt is counted for the admin's list.
+  const kept = await activeBlocksFor(normalizedWhatsApp, normalizedEmail);
+  if (kept.length > 0) {
+    await recordBlockedAttempt(kept, 'signup');
+    return res.json(GENERIC_SIGNUP_RESPONSE);
+  }
 
   const [personByPhone, accountByEmail] = await Promise.all([
     prisma.person.findUnique({ where: { whatsappNumber: normalizedWhatsApp }, include: { memberAccount: true } }),

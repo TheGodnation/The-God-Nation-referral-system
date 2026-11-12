@@ -862,7 +862,7 @@
       },
       "delete": {
         "title": "Delete Person",
-        "hint": "Permanently deletes this person and everything linked to them (community memberships, registrations, their sign-in account, posts and messages). This cannot be undone.",
+        "hint": "Permanently deletes this person and everything linked to them (community memberships, registrations, their sign-in account, posts and messages). This cannot be undone. Next you choose whether they may register again.",
         "button": "Delete This Person",
         "confirm_prompt": "Permanently delete {{name}}?",
         "confirm": "Yes, Delete",
@@ -4119,7 +4119,7 @@
   "privacy": {
     "title": "Privacy Policy",
     "nav": "Privacy",
-    "updated": "Last updated: 3 November 2026",
+    "updated": "Last updated: 12 November 2026",
     "intro": "The God Nation (\"we\", \"the ministry\") runs The God Nation app and the website thegodnationacademy.org. This page explains in plain words what we collect, why, who can see it, who helps us run the app, and how you can have it deleted.",
     "sections": [
       {
@@ -4187,6 +4187,7 @@
           "You can change your profile at any time in the app, and you can turn notifications off in your phone's settings.",
           "You can ask us to delete your account in the app (Me → Edit profile → Delete my account), or on the web page https://thegodnationacademy.org/delete-account. Your account is hidden at once. If you change your mind within 30 days, signing in again cancels the deletion. After that, an administrator approves the deletion and your profile, photos, posts, friends, group membership, exam results and sign-in are removed.",
           "Messages you sent in other people's chats stay in those chats, shown as \"This message was deleted\".",
+          "If the ministry has to remove someone because they harmed the ministry or its members, it may keep that person's name, WhatsApp number and email address on a private list that only the central administrator can see, so that they cannot sign up again without permission. Nothing else is kept.",
           "You may also ask us what we hold about you, or ask us to correct it, through the contact page."
         ]
       },
@@ -5300,5 +5301,35 @@
     "type_here": "Write here",
     "answer_this": "Please answer this question.",
     "answer_all": "Please answer every personal question before you finish."
+  },
+  "deleteChoice": {
+    "legend": "How should {{name}} be deleted?",
+    "FREE_title": "Delete — free to return",
+    "FREE_help": "They can register again later as a brand-new member. Nothing of the old account comes back.",
+    "APPROVAL_title": "Delete — return only with my approval",
+    "APPROVAL_help": "If they try to register again, nothing is created and you see it on the “Kept out” list. They can join only if you allow it.",
+    "NEVER_title": "Delete — never allowed back",
+    "NEVER_help": "Their WhatsApp number and email address are refused for good. They are never told.",
+    "note_label": "Your note (only you see it)",
+    "note_placeholder": "Why? For example: took money from members",
+    "kept_note": "Only the number, the email, the name and this note are kept, for your protection. Everything else is erased.",
+    "kept_title": "Kept out",
+    "kept_intro": "Numbers and emails kept out after a deletion. A person who tries to register with one of them gets the usual reply and nothing is created. The ones who tried to come back are at the top.",
+    "kept_none": "Nobody is kept out.",
+    "kept_approval": "Return only with your approval",
+    "kept_never": "Never allowed back",
+    "kept_tried": "Tried to come back {{count}} time(s), last on {{date}}",
+    "kept_not_tried": "No attempt yet",
+    "kept_decided_approved": "You allowed them back on {{date}}",
+    "kept_decided_lifted": "You lifted the block on {{date}}",
+    "kept_allow": "Allow them to register",
+    "kept_lift": "Lift the block",
+    "kept_forever": "Keep out for good",
+    "kept_confirm_allow": "Allow this person to register again? They will start as a brand-new member.",
+    "kept_confirm_forever": "Keep this person out for good?",
+    "kept_failed": "Something went wrong. Please try again.",
+    "kept_note_prefix": "Your note:",
+    "delete_confirm": "Delete",
+    "delete_cancel": "Cancel"
   }
 }

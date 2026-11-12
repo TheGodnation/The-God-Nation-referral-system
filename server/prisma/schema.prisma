@@ -3859,6 +3859,49 @@ model ContactConsent {
 }
 
 // A reminder email that was sent to a member, so none is ever sent twice.
+// A WhatsApp number or email address kept out after the central admin deleted a person
+// (lib/contactBlocks.ts). APPROVAL: may register again only if the admin allows it;
+// NEVER: refused for good. One row per number or address; rows from the same deletion share a groupId.
+// The only personal details kept after a deletion, visible to the central admin only.
+enum ContactBlockKind {
+  WHATSAPP
+  EMAIL
+}
+
+enum ContactBlockMode {
+  APPROVAL
+  NEVER
+}
+
+enum ContactBlockStatus {
+  ACTIVE
+  APPROVED
+  LIFTED
+}
+
+model ContactBlock {
+  id              String             @id @default(uuid())
+  kind            ContactBlockKind
+  // Normalized: E.164 for a number, lowercase for an email address.
+  value           String
+  mode            ContactBlockMode
+  status          ContactBlockStatus @default(ACTIVE)
+  groupId         String
+  personName      String?
+  note            String?
+  createdByUserId String?
+  createdAt       DateTime           @default(now())
+  attempts        Int                @default(0)
+  lastAttemptAt   DateTime?
+  lastAttemptVia  String?
+  decidedByUserId String?
+  decidedAt       DateTime?
+
+  @@unique([kind, value])
+  @@index([status, lastAttemptAt])
+  @@index([groupId])
+}
+
 model MemberReminder {
   id       String       @id @default(uuid())
   personId String

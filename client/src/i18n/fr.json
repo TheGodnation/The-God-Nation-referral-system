@@ -862,7 +862,7 @@
       },
       "delete": {
         "title": "Supprimer la personne",
-        "hint": "Supprime définitivement cette personne et tout ce qui lui est lié (adhésions aux communautés, inscriptions, son compte de connexion, publications et messages). Cette action est irréversible.",
+        "hint": "Supprime définitivement cette personne et tout ce qui lui est lié (groupes, inscriptions, compte de connexion, publications et messages). C’est irréversible. Vous choisissez ensuite si elle peut s’inscrire de nouveau.",
         "button": "Supprimer cette personne",
         "confirm_prompt": "Supprimer définitivement {{name}} ?",
         "confirm": "Oui, supprimer",
@@ -4119,7 +4119,7 @@
   "privacy": {
     "title": "Politique de confidentialité",
     "nav": "Confidentialité",
-    "updated": "Dernière mise à jour : 3 novembre 2026",
+    "updated": "Dernière mise à jour : 12 novembre 2026",
     "intro": "The God Nation (« nous », « le ministère ») gère l'application The God Nation et le site thegodnationacademy.org. Cette page explique en termes simples ce que nous collectons, pourquoi, qui peut le voir, qui nous aide à faire fonctionner l'application et comment vous pouvez faire supprimer vos informations.",
     "sections": [
       {
@@ -4187,6 +4187,7 @@
           "Vous pouvez modifier votre profil à tout moment dans l'application, et désactiver les notifications dans les réglages de votre téléphone.",
           "Vous pouvez demander la suppression de votre compte dans l'application (Moi → Modifier le profil → Supprimer mon compte), ou sur la page web https://thegodnationacademy.org/delete-account. Votre compte est masqué immédiatement. Si vous changez d'avis dans les 30 jours, vous reconnecter annule la suppression. Passé ce délai, un administrateur approuve la suppression et votre profil, vos photos, vos publications, vos amis, votre appartenance aux groupes, vos résultats d'examens et votre connexion sont supprimés.",
           "Les messages que vous avez envoyés dans les conversations des autres y restent, affichés comme « Ce message a été supprimé ».",
+          "Si le ministère doit exclure une personne parce qu’elle a fait du tort au ministère ou à ses membres, il peut conserver son nom, son numéro WhatsApp et son adresse e-mail sur une liste privée que seul l’administrateur central peut voir, afin qu’elle ne puisse pas s’inscrire de nouveau sans autorisation. Rien d’autre n’est conservé.",
           "Vous pouvez aussi nous demander ce que nous détenons à votre sujet, ou nous demander de le corriger, via la page de contact."
         ]
       },
@@ -5300,5 +5301,35 @@
     "type_here": "Écrivez ici",
     "answer_this": "Veuillez répondre à cette question.",
     "answer_all": "Veuillez répondre à chaque question personnelle avant de terminer."
+  },
+  "deleteChoice": {
+    "legend": "Comment supprimer {{name}} ?",
+    "FREE_title": "Supprimer — libre de revenir",
+    "FREE_help": "La personne pourra s’inscrire de nouveau plus tard comme un tout nouveau membre. Rien de l’ancien compte ne revient.",
+    "APPROVAL_title": "Supprimer — retour seulement avec mon accord",
+    "APPROVAL_help": "Si la personne essaie de s’inscrire de nouveau, rien n’est créé et vous le voyez dans la liste « Tenus à l’écart ». Elle ne peut entrer que si vous l’autorisez.",
+    "NEVER_title": "Supprimer — jamais de retour",
+    "NEVER_help": "Son numéro WhatsApp et son adresse e-mail sont refusés définitivement. La personne n’en est jamais informée.",
+    "note_label": "Votre note (vous seul la voyez)",
+    "note_placeholder": "Pourquoi ? Par exemple : a pris de l’argent aux membres",
+    "kept_note": "Seuls le numéro, l’e-mail, le nom et cette note sont conservés, pour votre protection. Tout le reste est effacé.",
+    "kept_title": "Tenus à l’écart",
+    "kept_intro": "Numéros et e-mails tenus à l’écart après une suppression. Une personne qui essaie de s’inscrire avec l’un d’eux reçoit la réponse habituelle et rien n’est créé. Ceux qui ont essayé de revenir sont en haut.",
+    "kept_none": "Personne n’est tenu à l’écart.",
+    "kept_approval": "Retour seulement avec votre accord",
+    "kept_never": "Jamais de retour",
+    "kept_tried": "A essayé de revenir {{count}} fois, la dernière le {{date}}",
+    "kept_not_tried": "Aucune tentative pour l’instant",
+    "kept_decided_approved": "Vous l’avez autorisé à revenir le {{date}}",
+    "kept_decided_lifted": "Vous avez levé le blocage le {{date}}",
+    "kept_allow": "Autoriser à s’inscrire",
+    "kept_lift": "Lever le blocage",
+    "kept_forever": "Écarter définitivement",
+    "kept_confirm_allow": "Autoriser cette personne à s’inscrire de nouveau ? Elle repartira comme un tout nouveau membre.",
+    "kept_confirm_forever": "Écarter définitivement cette personne ?",
+    "kept_failed": "Une erreur est survenue. Veuillez réessayer.",
+    "kept_note_prefix": "Votre note :",
+    "delete_confirm": "Supprimer",
+    "delete_cancel": "Annuler"
   }
 }

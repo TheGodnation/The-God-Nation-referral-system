@@ -9,6 +9,7 @@ import { requireCsrf } from '../lib/csrf';
 import { asyncHandler } from '../lib/asyncHandler';
 import { accountDeletionLimiter, communityMutationLimiter } from '../lib/rateLimit';
 import { EmailService } from '../lib/email';
+import { DELETION_MODES, allowBack, keepOutForGood, listBlockGroups } from '../lib/contactBlocks';
 import { AccountDeletionError, DELETION_WAIT_DAYS, cancelAccountDeletion, completeAccountDeletion, requestAccountDeletion } from '../lib/accountDeletion';
 
 // ---------------------------------------------------------------------------
@@ -152,7 +153,27 @@ adminRouter.get('/', asyncHandler(async (_req, res) => {
   });
 }));
 
-const decisionSchema = z.object({ decision: z.enum(['DELETE', 'KEEP']) });
+// The numbers and emails kept out after a deletion (lib/contactBlocks.ts): who tried to come back, allow back, or keep out for good.
+adminRouter.get('/kept-out', asyncHandler(async (_req, res) => {
+  res.json({ items: await listBlockGroups() });
+}));
+
+adminRouter.post('/kept-out/:groupId/allow', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  if (!(await allowBack(req.params.groupId, req.user!.id))) return res.status(404).json({ error: 'Nothing to allow: it is already decided.' });
+  res.json({ ok: true });
+}));
+
+adminRouter.post('/kept-out/:groupId/never', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  if (!(await keepOutForGood(req.params.groupId, req.user!.id))) return res.status(404).json({ error: 'Nothing to change: it is not waiting for your approval.' });
+  res.json({ ok: true });
+}));
+
+const decisionSchema = z.object({
+  decision: z.enum(['DELETE', 'KEEP']),
+  // Only for DELETE: free to register again (the default), only with the admin's approval, or never.
+  mode: z.enum(DELETION_MODES as [string, ...string[]]).default('FREE'),
+  note: z.string().trim().max(500).optional(),
+});
 
 // POST /api/admin/account-deletions/:id — DELETE (only after the month) or KEEP.
 adminRouter.post('/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -163,7 +184,7 @@ adminRouter.post('/:id', communityMutationLimiter, requireCsrf, asyncHandler(asy
   if (request.status !== 'PENDING' || !request.personId) return sendError(res, new AccountDeletionError('NOT_PENDING'));
   try {
     if (parsed.data.decision === 'KEEP') await cancelAccountDeletion(request.personId, 'ADMIN', req.user!.id);
-    else await completeAccountDeletion(request.id, req.user!.id);
+    else await completeAccountDeletion(request.id, req.user!.id, { mode: parsed.data.mode as (typeof DELETION_MODES)[number], note: parsed.data.note });
     res.json({ ok: true });
   } catch (err) {
     sendError(res, err);

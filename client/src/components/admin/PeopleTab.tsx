@@ -6,6 +6,7 @@ import { SignInHelpCard } from './SignInHelpCard';
 import { ExamResults } from './ExamResults';
 import { PersonPowers } from './PersonPowers';
 import { suggestEmailFix } from '../../lib/emailTypo';
+import { DeleteChoice, type DeletionMode } from './DeleteChoice';
 
 // Member Reassignment — the server's fixed set of machine-readable move
 // error codes (see POST .../community-memberships/move in adminPeople.ts),
@@ -106,6 +107,8 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<DeletionMode>('FREE');
+  const [deleteNote, setDeleteNote] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function load(searchOverride?: string) {
@@ -156,6 +159,8 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
     setSignInEmailError(null);
     setSignInEmailSuccess(null);
     setConfirmingDelete(false);
+    setDeleteMode('FREE');
+    setDeleteNote('');
     setDeleteError(null);
     loadDetail(id);
     // Fetched independently of the person detail — a failure here must
@@ -245,7 +250,7 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
     setDeleting(true);
     setDeleteError(null);
     try {
-      await api.delete(`/api/admin/people/${selectedId}`);
+      await api.delete(`/api/admin/people/${selectedId}`, { mode: deleteMode, ...(deleteMode !== 'FREE' && deleteNote.trim() ? { note: deleteNote.trim() } : {}) });
       backToList();
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : t('admin.people.delete_failed'));
@@ -603,6 +608,8 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
               {t('admin.people.delete.button')}
             </button>
           ) : (
+            <div className="space-y-3">
+              <DeleteChoice mode={deleteMode} note={deleteNote} onMode={setDeleteMode} onNote={setDeleteNote} name={detail.name} />
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-red-700">
                 {t('admin.people.delete.confirm_prompt', { name: detail.name })}
@@ -622,6 +629,7 @@ export function PeopleTab({ includeTestData }: { includeTestData: boolean }) {
               >
                 {t('admin.people.cancel')}
               </button>
+            </div>
             </div>
           )}
         </div>
