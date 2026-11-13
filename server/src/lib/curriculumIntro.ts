@@ -51,7 +51,7 @@ Students do not simply receive a collection of books. They study each book, take
 By the end of the programme, students should have a stronger understanding of the Kingdom, a clearer awareness of who they are in Christ, and a better foundation for living and communicating the Gospel of the Kingdom.
 
 # Purpose and Pathway
-The God Nation Leadership Academy exists to raise Kingdom leaders who carry the Gospel of the Kingdom to others.
+The God Nation Leadership Academy exists to raise Kingdom leaders who carry the Gospel of the Kingdom through modern media and on the ground.
 
 A person who speaks for the Kingdom must first know the Kingdom, understand who they are in Christ, and learn to live what they teach.
 
@@ -63,14 +63,14 @@ The development pathway has two phases:
 Students study the {{books}} books, complete {{books}} examinations, and receive the diploma certificate after meeting the graduation requirements.
 
 ## Phase 2: Leadership and Technical Development
-Graduates can join the leadership team. As they work together with the team, they receive gradual technical training that develops their ability to serve effectively in the field.
+Graduates can join the leadership team. As they work together with the team, they receive gradual technical training that develops their ability to serve effectively through modern media and on the ground.
 
-This second phase helps graduates develop practical ministry and leadership skills, including teaching, discipleship, following up new believers, and building Kingdom communities.
+This second phase helps graduates develop practical ministry and leadership skills, including teaching, discipleship, following up new believers, building Kingdom communities, and using digital platforms to communicate the Gospel.
 
 The objective is not simply to produce people who have read books, but Kingdom Citizens who can live the message, teach others, and participate in advancing the Kingdom.
 
 ## The Academy's Vision
-A multiplying generation of Kingdom Citizens and ambassadors who win souls on the ground, until cities, towns, and villages are saturated with the Gospel of the Kingdom.
+A multiplying generation of Kingdom Citizens and ambassadors who win souls through mass media and on the ground, until cities, towns, and villages are saturated with the Gospel of the Kingdom.
 
 ## The Academy's Mission
 To awaken, train, and send believers who walk in their rights, identity, authority, and dominion as Kingdom Citizens.
@@ -91,7 +91,7 @@ After successfully completing the programme, graduates should be equipped to:
 - Bring people into the Kingdom and help establish them in its principles.
 - Develop the foundations of leadership, discipleship, and Kingdom expansion.
 
-Technical skills are developed further in Phase 2. They are not presented as subjects taught and examined throughout the {{books}} books.
+Modern media and technical skills are developed further in Phase 2. They are not presented as subjects taught and examined throughout the {{books}} books.
 
 # How You Study
 The programme is delivered through the Academy's online platform. Students do not receive all the books at once. Instead, each book is unlocked after the student successfully completes the previous book and its examination.
@@ -214,15 +214,18 @@ Après avoir satisfait à ces conditions, l’étudiant sera reconnu comme ayant
 L’obtention du diplôme constitue la première grande étape du parcours de formation. Les diplômés qui souhaitent poursuivre leur engagement pourront être invités à rejoindre progressivement les équipes de leadership de The God Nation.
 
 Cette deuxième phase pourra inclure une formation technique et pratique dans des domaines tels que :
+- L’utilisation des médias modernes pour communiquer l’Évangile.
+- La création et la diffusion de contenus chrétiens.
+- L’utilisation des réseaux sociaux et des plateformes numériques.
 - Le discipulat et l’accompagnement d’autres croyants.
-- La participation aux activités d’évangélisation sur le terrain.
+- La participation aux activités d’évangélisation en ligne et sur le terrain.
 - Le travail en équipe et le développement du leadership au service du Royaume.
 
 Cette formation technique et pratique constitue une étape distincte du programme académique de {{books}} livres.
 
 # La vision et la mission de l’Académie
 ## La vision de l’Académie
-« Une génération grandissante et multiplicatrice de citoyens du Royaume et d’ambassadeurs qui gagnent des âmes sur le terrain, jusqu’à ce que les villes, les communes et les villages soient saturés par l’Évangile du Royaume. »
+« Une génération grandissante et multiplicatrice de citoyens du Royaume et d’ambassadeurs qui gagnent des âmes par les médias de masse et sur le terrain, jusqu’à ce que les villes, les communes et les villages soient saturés par l’Évangile du Royaume. »
 
 ## La mission de l’Académie
 « Réveiller, former et envoyer des croyants qui marchent dans leurs droits, leur identité, leur autorité et leur domination en tant que citoyens du Royaume. »
