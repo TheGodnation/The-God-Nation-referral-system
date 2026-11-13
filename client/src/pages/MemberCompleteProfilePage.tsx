@@ -55,7 +55,9 @@ export function MemberCompleteProfilePage() {
       });
       trackAd('CompleteRegistration', adEventId);
       await refresh();
-      navigate('/member/welcome-group', { replace: true });
+      // Straight into the app: the founder's welcome is already waiting in their private messages (it carries the way back,
+      // why to install and turn on notifications, and the community links); the steps page stays one tap away.
+      navigate('/member/chats', { replace: true });
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : t('memberCompleteProfile.error_generic'));
     } finally {

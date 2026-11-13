@@ -50,30 +50,79 @@ const founderChat = (fromId: string, toId: string) => prisma.privateMessage.find
 afterEach(() => vi.restoreAllMocks());
 
 describe('The founder welcome text', () => {
-  it('says the approved things in English, with no price, payment or website', () => {
-    const t = founderWelcomeText(false, 'Grace Mbah', 'Stanley A. Ndoh');
+  const APP = 'https://thegodnationacademy.org';
+  it('says the approved things in English, and gives the two ways back, why to install, and no price or payment', () => {
+    const t = founderWelcomeText(false, 'Grace Mbah', 'Stanley A. Ndoh', { appUrl: APP });
     expect(t).toContain('Hello Grace, welcome to The God Nation!');
     expect(t).toContain('secrets to dominate over the circumstances of life');
     expect(t).toContain('The God Nation Leadership Academy');
-    expect(t).toContain('1. Open your dashboard');
-    expect(t).toContain('2. Install the app');
-    expect(t).toContain('3. Turn on notifications');
-    expect(t).toContain('no pressure');
+    // The two ways back, with the real address.
+    expect(t).toContain('There are two ways to come back to the community at any time');
+    expect(t).toContain(`1. The web address. Open ${APP} in any browser`);
+    expect(t).toContain('find yourself inside the community');
+    expect(t).toContain('use your email and password');
+    // The app and notifications, and why.
+    expect(t).toContain('2. The app on your phone. Install it');
+    expect(t).toContain('turn on notifications');
+    expect(t).toContain('Without them, you only see messages when you remember to open the website');
+    expect(t).toContain(`${APP}/member/welcome`);
+    expect(t).toContain('you first agree to its rules');
+    expect(t).toContain('You can write to me here at any time');
     expect(t.trim().endsWith('National Coordinator, The God Nation')).toBe(true);
     expect(t).toContain('Evangelist Stanley A. Ndoh');
-    expect(t).not.toMatch(/https?:|www\.|\$|€|FCFA|price|pay/i);
+    expect(t).not.toMatch(/\$|€|FCFA|price|payment/i);
+    // No places are listed when none is set.
+    expect(t).not.toContain('join us in other places');
   });
   it('says them in French', () => {
-    const t = founderWelcomeText(true, 'Grace Mbah', 'Évangéliste Stanley A. Ndoh');
+    const t = founderWelcomeText(true, 'Grace Mbah', 'Évangéliste Stanley A. Ndoh', { appUrl: APP });
     expect(t).toContain('Bonjour Grace, bienvenue à The God Nation !');
     expect(t).toContain('les secrets pour dominer les circonstances de la vie');
+    expect(t).toContain('Il y a deux façons de revenir à la communauté');
+    expect(t).toContain(`1. L’adresse web. Ouvrez ${APP} dans n’importe quel navigateur`);
+    expect(t).toContain('votre e-mail et votre mot de passe');
+    expect(t).toContain('Discussions');
     expect(t).toContain('Coordinateur national, The God Nation');
     expect(t.match(/Évangéliste Stanley/g)?.length).toBe(1);
-    expect(t).not.toMatch(/https?:|www\./i);
+  });
+  it('lists the community places that are set, the member’s own language first, and leaves out the ones that are not', () => {
+    const links = { appUrl: APP, whatsappEn: 'https://chat.whatsapp.com/EN', whatsappFr: 'https://chat.whatsapp.com/FR', messenger: 'https://m.me/join/x', facebook: 'https://facebook.com/godnation' };
+    const en = founderWelcomeText(false, 'Grace', 'Stanley', links);
+    expect(en).toContain('If you wish, join us in other places too');
+    expect(en.indexOf('chat.whatsapp.com/EN')).toBeLessThan(en.indexOf('chat.whatsapp.com/FR'));
+    expect(en).toContain('• Messenger group: https://m.me/join/x');
+    expect(en).toContain('• Facebook page: https://facebook.com/godnation');
+    expect(en).not.toContain('Facebook group');
+    const fr = founderWelcomeText(true, 'Grace', 'Stanley', links);
+    expect(fr.indexOf('chat.whatsapp.com/FR')).toBeLessThan(fr.indexOf('chat.whatsapp.com/EN'));
+    expect(fr).toContain('• Groupe Messenger : https://m.me/join/x');
+    const onlyFr = founderWelcomeText(false, 'Grace', 'Stanley', { appUrl: APP, whatsappFr: 'https://chat.whatsapp.com/FR' });
+    expect(onlyFr).toContain('WhatsApp group (French): https://chat.whatsapp.com/FR');
+    expect(onlyFr).not.toContain('WhatsApp group (English)');
   });
 });
 
 describe('Sending the founder welcome', () => {
+  it('carries the ministry’s own address and the community places set by the admin', async () => {
+    await ensureFounder();
+    await prisma.settings.upsert({
+      where: { id: 'singleton' },
+      create: { id: 'singleton', whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENGLISH', whatsappGroupFrUrl: 'https://chat.whatsapp.com/FRENCH', messengerUrl: 'https://m.me/join/abc' },
+      update: { whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENGLISH', whatsappGroupFrUrl: 'https://chat.whatsapp.com/FRENCH', messengerUrl: 'https://m.me/join/abc', facebookUrl: null, facebookGroupUrl: null },
+    });
+    const p = await newPerson('Esther', 'en');
+    expect(await sendFounderWelcome(p.id)).toBe(true);
+    const from = (await centralAdminPerson())!;
+    const [msg] = await founderChat(from.id, p.id);
+    expect(msg.body).toContain('chat.whatsapp.com/ENGLISH');
+    expect(msg.body).toContain('chat.whatsapp.com/FRENCH');
+    expect(msg.body).toContain('https://m.me/join/abc');
+    expect(msg.body).toContain('/member/welcome');
+    expect(msg.body).not.toContain('Facebook');
+    await prisma.settings.update({ where: { id: 'singleton' }, data: { whatsappGroupEnUrl: null, whatsappGroupFrUrl: null, messengerUrl: null } });
+  });
+
+
   it('sends it once, in the member’s language, and never twice', async () => {
     const from = await ensureFounder();
     const p = await newPerson('Marie', 'fr');
