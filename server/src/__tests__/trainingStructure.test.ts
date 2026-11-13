@@ -186,7 +186,7 @@ describe('The curriculum introduction', () => {
     expect(intro.en).toContain('@web ');
     expect(intro.en).toContain('{{books}}');
     expect(intro.en).not.toMatch(/three attempts|Final Details/i);
-    expect(intro.fr).toContain('Le diplôme en un coup d’œil');
+    expect(intro.fr).toContain('Présentation du diplôme');
     expect(intro.fr).toContain('[[books]]');
     expect(intro.defaultEn).toBe(intro.en);
 
@@ -194,7 +194,7 @@ describe('The curriculum introduction', () => {
     expect(put.status).toBe(200);
     intro = (await a.agent.get('/api/admin/library/training/intro')).body;
     expect(intro).toMatchObject({ en: '# My own\n[[books]]', customEn: true, customFr: false });
-    expect(intro.fr).toContain('Le diplôme en un coup d’œil');
+    expect(intro.fr).toContain('Présentation du diplôme');
 
     // Empty text puts the standard introduction back.
     await a.agent.put('/api/admin/library/training/intro').set('X-CSRF-Token', a.csrf).send({ en: '   ' });

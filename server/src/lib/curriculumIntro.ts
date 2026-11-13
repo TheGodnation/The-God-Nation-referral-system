@@ -139,129 +139,103 @@ Graduates may also proceed to Phase 2 by joining the leadership team, where they
 
 *Know Who You Are. Know What Is Yours. Rule Your Life Under Christ. Carry the Gospel of the Kingdom to the Nations.*`;
 
-export const DEFAULT_INTRO_FR = `# Le diplôme en un coup d’œil
-Dieu a fait l’homme à Son image pour régner sur la terre sous Son autorité. L’homme a perdu cette place par la chute, et Jésus-Christ l’a rétablie. Pourtant, de nombreux croyants vivent encore dans la peur, le manque et la confusion, parce qu’on ne leur a pas suffisamment enseigné ce que Dieu leur a déjà donné en Christ.
+export const DEFAULT_INTRO_FR = `# Présentation du diplôme
+Le *Diplôme en études du Royaume et en leadership dans l’exercice de la domination* est un programme de formation biblique et spirituelle conçu pour aider les croyants à comprendre le Royaume de Dieu, à découvrir leur identité et leurs droits en Christ, et à apprendre à vivre selon les principes du Royaume.
 
-Ce diplôme est conçu pour changer cela.
+À travers {{books}} livres répartis en {{levels}} niveaux progressifs, les étudiants acquièrent une compréhension fondamentale du Royaume, des principes spirituels qui gouvernent la vie du citoyen du Royaume, ainsi que de son identité, de ses droits, de son héritage et de son autorité en Christ.
 
-Il conduit les étudiants à travers la restauration de la domination, la porte d’entrée du Royaume, les Clés qui gouvernent la vie du Royaume et les droits que Christ a déjà donnés à Ses citoyens.
-
-C’est un programme de formation spirituelle structuré qui aide les croyants à comprendre le Royaume, à découvrir leur identité et leur héritage en Christ, à grandir en maturité spirituelle et à être équipés pour communiquer l’Évangile du Royaume aux autres.
-
-## Informations sur le programme
-- *Qualification :* Diplôme en études du Royaume et leadership de domination
 - *Institution :* The God Nation Media & Leadership Academy
+- *Diplôme délivré :* Diplôme en études du Royaume et en leadership dans l’exercice de la domination
 - *Auteur et fondateur :* Évangéliste Stanley A. Ndoh
-- *Qui peut s’inscrire :* Toute personne qui désire connaître Jésus-Christ plus profondément, comprendre le Royaume de Dieu, grandir spirituellement ou apprendre à partager l’Évangile avec les autres.
-@web - *Frais du programme :* Il n’y a pas de frais généraux de programme. Les étudiants paient {{price}} FCFA par livre et passent l’examen de chaque livre.
-- *Méthode d’étude :* En ligne, sur la plateforme de l’Académie. Les étudiants peuvent lire leurs livres directement sur la plateforme ou les télécharger sur leur téléphone.
-- *Rythme :* À votre rythme. Certains étudiants peuvent terminer un livre en trois jours environ, d’autres en quatre, cinq, six jours ou plus.
-- *Examens :* Examens en ligne à choix multiples.
-- *Note de passage :* 70 %.
-- *Contenu du programme :* {{books}} livres répartis en {{levels}} niveaux progressifs.
-- *Récompense :* Un certificat intitulé _Diplôme en études du Royaume et leadership de domination_ à la réussite du programme.
+- *Nombre de livres :* {{books}}
+- *Nombre d’examens :* {{books}}
+@web - *Frais :* {{price}} FCFA par livre, avec son examen correspondant.
 
-Vous n’avez pas besoin d’être pasteur, prédicateur, théologien ou leader expérimenté pour vous inscrire. Le programme est ouvert aux croyants ordinaires et à toute personne qui veut comprendre le Royaume et grandir dans sa relation avec Dieu.
+# Pourquoi suivre ce programme ?
+Beaucoup de croyants connaissent certaines vérités bibliques sans nécessairement comprendre pleinement leur identité, leurs droits et leurs responsabilités en tant que citoyens du Royaume de Dieu.
 
-# Pourquoi étudier ce diplôme ?
-Beaucoup de croyants aiment Dieu, vont à l’église et lisent la Bible, mais n’ont jamais reçu d’enseignement systématique sur leur identité, leurs droits, leur autorité et leurs responsabilités en Christ.
+Ce programme a été conçu pour leur permettre de découvrir :
+- La nature du Royaume de Dieu et du Royaume des Cieux.
+- Le dessein originel de Dieu pour l’homme et la restauration de la domination.
+- La signification de la nouvelle naissance et de la citoyenneté du Royaume.
+- Les principes spirituels qui permettent de vivre et de fonctionner dans le Royaume.
+- Les droits, l’héritage et les privilèges que Dieu a accordés aux croyants en Christ.
+- L’autorité et les responsabilités du citoyen du Royaume.
+- Comment vivre selon les réalités du Royaume et transmettre l’Évangile du Royaume à d’autres personnes.
 
-Certains connaissent des versets bibliques mais ne comprennent pas pleinement comment fonctionne le Royaume ni comment en communiquer le message aux autres.
+Ce programme n’est pas réservé aux pasteurs, aux prédicateurs, aux théologiens ou aux responsables d’Église. Il est ouvert à toute personne qui désire mieux connaître Jésus-Christ, comprendre le Royaume de Dieu et grandir spirituellement.
 
-Ce diplôme propose un parcours progressif à travers {{books}} livres. Il va des fondements du Royaume aux principes pratiques de la vie du Royaume, puis aux droits et à l’autorité qui appartiennent aux croyants en Christ.
-
-Les étudiants ne reçoivent pas simplement une collection de livres. Ils étudient chaque livre, passent un examen et montrent leur compréhension avant de continuer.
-
-À la fin du programme, les étudiants devraient avoir une meilleure compréhension du Royaume, une conscience plus claire de qui ils sont en Christ et une meilleure base pour vivre et communiquer l’Évangile du Royaume.
-
-# Raison d’être et parcours
-The God Nation Media & Leadership Academy existe pour former des leaders du Royaume qui portent l’Évangile du Royaume à travers les médias modernes et sur le terrain.
-
-Une personne qui parle pour le Royaume doit d’abord connaître le Royaume, comprendre qui elle est en Christ et apprendre à vivre ce qu’elle enseigne.
-
-Ce diplôme apporte ce fondement spirituel.
-
-Le parcours de développement comprend deux phases :
-
-## Phase 1 : Formation spirituelle — ce diplôme
-Les étudiants étudient les {{books}} livres, passent {{books}} examens et reçoivent le certificat du diplôme après avoir rempli les conditions de fin d’études.
-
-## Phase 2 : Développement du leadership et des compétences techniques
-Les diplômés peuvent rejoindre l’équipe de leadership. En travaillant avec l’équipe, ils reçoivent progressivement une formation technique qui développe leur capacité à servir efficacement à travers les médias modernes et sur le terrain.
-
-Cette deuxième phase aide les diplômés à développer des compétences pratiques de ministère et de leadership, notamment l’enseignement, le discipulat, le suivi des nouveaux croyants, la construction de communautés du Royaume et l’utilisation des plateformes numériques pour communiquer l’Évangile.
-
-L’objectif n’est pas seulement de former des personnes qui ont lu des livres, mais des Citoyens du Royaume qui peuvent vivre le message, l’enseigner aux autres et participer à l’avancement du Royaume.
-
-## La vision de l’Académie
-Une génération multiplicatrice de Citoyens et d’ambassadeurs du Royaume qui gagnent des âmes par les médias de masse et sur le terrain, jusqu’à ce que les villes, les villages et les hameaux soient saturés de l’Évangile du Royaume.
-
-## La mission de l’Académie
-Éveiller, former et envoyer des croyants qui marchent dans leurs droits, leur identité, leur autorité et leur domination de Citoyens du Royaume.
-
-# Les livres, niveau par niveau
-Le programme est organisé en niveaux. Chaque niveau s’appuie sur les connaissances acquises dans le précédent. Les livres s’ouvrent un par un, dans l’ordre.
+# Objectif et parcours de formation
+Le programme est organisé en {{levels}} niveaux qui conduisent progressivement l’étudiant de la compréhension des fondements du Royaume à la découverte des principes spirituels, puis à la connaissance approfondie de ses droits en tant que citoyen du Royaume.
 
 [[books]]
 
-# Ce qu’un diplômé peut faire
-Après avoir terminé le programme avec succès, les diplômés devraient être équipés pour :
-- Expliquer le Royaume des cieux et le Royaume de Dieu.
-- Expliquer les fondements de la citoyenneté du Royaume et comment une personne y entre.
-- Comprendre et appliquer les Clés du Royaume dans leur vie.
-- Comprendre leur identité, leur héritage, leurs droits et leur autorité en Christ.
-- Développer la maturité spirituelle, le caractère et une compréhension plus profonde de la vie du Royaume.
-- Enseigner aux autres le Royaume de Dieu et communiquer l’Évangile sur le terrain.
-- Amener des personnes dans le Royaume et les aider à s’y établir selon ses principes.
-- Développer les fondements du leadership, du discipulat et de l’expansion du Royaume.
+# Ce qu’un diplômé sera en mesure de faire
+À l’issue de cette formation, le diplômé aura acquis une compréhension fondamentale :
+- Du Royaume de Dieu et de ses principes.
+- De son identité et de ses droits en tant que citoyen du Royaume.
+- De son autorité, de son héritage et de ses responsabilités en Christ.
+- Des principes spirituels nécessaires à une vie chrétienne fondée sur la Parole de Dieu.
+- De l’importance de partager l’Évangile du Royaume et d’aider d’autres personnes à grandir dans la foi.
 
-Les médias modernes et les compétences techniques sont développés davantage dans la phase 2. Ils ne sont pas présentés comme des matières enseignées et examinées tout au long des {{books}} livres.
+Il sera ainsi mieux préparé à vivre les réalités du Royaume, à enseigner les vérités bibliques qu’il a étudiées, à accompagner d’autres croyants dans leur croissance spirituelle et à communiquer l’Évangile du Royaume.
 
-# Comment vous étudiez
-Le programme est dispensé sur la plateforme en ligne de l’Académie. Les étudiants ne reçoivent pas tous les livres en même temps. Chaque livre s’ouvre après que l’étudiant a réussi le livre précédent et son examen.
+# Comment se déroule la formation ?
+La formation se déroule en ligne à travers la plateforme numérique de The God Nation. Chaque étudiant dispose d’un compte personnel et d’un tableau de bord qui lui permettent d’accéder à ses livres, de suivre sa progression et de passer ses examens.
 
-1. *S’inscrire.* L’étudiant s’inscrit au programme et accède à son tableau de bord personnel.
-2. *Le premier livre s’ouvre.* Le Livre 1 devient disponible. Les autres livres restent verrouillés.
-3. *Lire le livre.* L’étudiant le lit directement sur la plateforme, où sa progression peut être suivie, ou le télécharge sur son téléphone pour le lire plus facilement. Chaque étudiant étudie à son rythme.
-4. *Passer l’examen.* Une fois le livre terminé, l’examen devient disponible sur la plateforme. C’est un examen à choix multiples passé en ligne.
-5. *Atteindre la note de passage.* La note de passage requise est de 70 %.
-6. *Passer au livre suivant ou réessayer.* Un étudiant qui obtient 70 % ou plus débloque automatiquement le livre suivant. Un étudiant qui obtient moins de 70 % étudie de nouveau la matière et repasse l’examen ; chaque nouvel examen présente des questions différentes. Le livre suivant reste verrouillé tant que la note de passage n’est pas atteinte.
-7. *Répéter le processus.* L’étudiant suit le même processus à travers les {{books}} livres, dans l’ordre prescrit.
-8. *Terminer le programme.* Après avoir réussi le dernier examen et rempli les exigences finales de l’Académie, l’étudiant est admis à la remise du diplôme.
+1. *Inscription :* l’étudiant crée son compte et accède à son espace personnel.
+2. *Accès au premier livre :* le Livre 1 est disponible en premier. Les autres livres restent verrouillés jusqu’à ce que les conditions de progression soient remplies.
+@web 3. *Paiement :* chaque livre est accessible au coût de {{price}} FCFA, examen compris.
+4. *Lecture :* l’étudiant peut lire son livre directement en ligne ou le télécharger sur son téléphone pour le consulter ultérieurement.
+5. *Examen :* après avoir terminé l’étude du livre, l’examen correspondant devient accessible.
+6. *Validation :* l’étudiant doit obtenir une note minimale de 70 % pour réussir l’examen.
+7. *Déverrouillage :* après la réussite de l’examen, le livre suivant est automatiquement débloqué.
 
-@web Le prix de chaque livre est de {{price}} FCFA.
+L’étudiant avance à son propre rythme. Certains peuvent prendre environ trois jours pour étudier un livre, tandis que d’autres peuvent avoir besoin de quatre, cinq, six jours ou davantage. Il n’existe donc pas de durée globale fixe imposée pour terminer le programme.
 
-Ce système garantit que les étudiants ne se contentent pas de collectionner des livres. Ils étudient chaque livre, montrent leur compréhension et posent un fondement avant de passer à l’étape suivante.
+## Règles relatives aux examens
+Chaque livre est accompagné d’un examen en ligne.
+- La note minimale de réussite est de 70 %.
+- Chaque reprise présente des questions différentes.
+- Si l’étudiant obtient moins de 70 %, il doit revoir son enseignement et repasser l’examen.
+- Le livre suivant reste verrouillé tant que l’examen en cours n’est pas réussi.
 
-## Étudiez à votre rythme
-Il n’y a pas de nombre de jours fixe dans lequel chaque étudiant doit terminer le diplôme. Certains avancent vite, d’autres ont besoin de plus de temps.
+Ce système permet de s’assurer que chaque étudiant progresse avec une compréhension suffisante des enseignements avant de passer au livre suivant.
 
-Vous pouvez étudier en fonction de votre travail, de votre entreprise, de votre famille et de vos autres responsabilités. Vous pouvez lire en ligne ou télécharger vos livres sur votre téléphone et continuer à étudier à votre convenance.
+# Obtention du diplôme et certification
+Pour obtenir le Diplôme en études du Royaume et en leadership dans l’exercice de la domination, l’étudiant doit :
+- Étudier les {{books}} livres du programme.
+- Passer les {{books}} examens correspondants.
+- Obtenir au moins 70 % à chacun des examens.
 
-L’important est de terminer chaque livre et de réussir son examen avant d’avancer.
+Après avoir satisfait à ces conditions, l’étudiant sera reconnu comme ayant achevé avec succès le programme et recevra son diplôme délivré par The God Nation Media & Leadership Academy. Le diplôme attestera de l’achèvement du programme de formation et de la réussite des évaluations prévues par l’Académie.
 
-# Remise du diplôme et certificat
-Un étudiant est admis à la remise du diplôme après avoir :
-- Terminé les {{books}} livres.
-- Réussi les {{books}} examens avec au moins 70 % à chacun.
-- Terminé les livres dans l’ordre prescrit.
-- Rempli toute exigence finale supplémentaire établie par l’Académie.
+# Après l’obtention du diplôme : une nouvelle étape
+L’obtention du diplôme constitue la première grande étape du parcours de formation. Les diplômés qui souhaitent poursuivre leur engagement pourront être invités à rejoindre progressivement les équipes de leadership de The God Nation.
 
-The God Nation Media & Leadership Academy délivrera alors le certificat intitulé *DIPLÔME EN ÉTUDES DU ROYAUME ET LEADERSHIP DE DOMINATION*.
+Cette deuxième phase pourra inclure une formation technique et pratique dans des domaines tels que :
+- L’utilisation des médias modernes pour communiquer l’Évangile.
+- La création et la diffusion de contenus chrétiens.
+- L’utilisation des réseaux sociaux et des plateformes numériques.
+- Le discipulat et l’accompagnement d’autres croyants.
+- La participation aux activités d’évangélisation en ligne et sur le terrain.
+- Le travail en équipe et le développement du leadership au service du Royaume.
 
-Les diplômés auront suivi un cursus structuré sur les fondements du Royaume, les Clés du Royaume et les Droits des Citoyens du Royaume. Ils seront équipés et préparés pour :
-- Enseigner dans l’église.
-- Enseigner aux autres le Royaume de Dieu.
-- Partager l’Évangile et amener des personnes dans le Royaume.
-- Édifier les croyants pour qu’ils comprennent et vivent selon les principes du Royaume.
-- Participer au discipulat et à l’expansion du Royaume.
+Cette formation technique et pratique constitue une étape distincte du programme académique de {{books}} livres.
 
-Les diplômés peuvent aussi passer à la phase 2 en rejoignant l’équipe de leadership, où ils recevront progressivement une formation technique et pratique en travaillant avec l’équipe.
+# La vision et la mission de l’Académie
+## La vision de l’Académie
+« Une génération grandissante et multiplicatrice de citoyens du Royaume et d’ambassadeurs qui gagnent des âmes par les médias de masse et sur le terrain, jusqu’à ce que les villes, les communes et les villages soient saturés par l’Évangile du Royaume. »
 
-# Votre parcours commence ici
-{{books}} livres. {{books}} examens. {{levels}} niveaux progressifs. Un seul parcours de découverte, de croissance et de préparation au service du Royaume.
+## La mission de l’Académie
+« Réveiller, former et envoyer des croyants qui marchent dans leurs droits, leur identité, leur autorité et leur domination en tant que citoyens du Royaume. »
 
-*Sachez qui vous êtes. Sachez ce qui est à vous. Régnez sur votre vie sous Christ. Portez l’Évangile du Royaume aux nations.*`;
+# Conclusion
+Le Royaume de Dieu n’est pas simplement un sujet à étudier. C’est une réalité à comprendre, une vie à manifester et un message à porter aux nations.
+
+À travers ce programme, The God Nation Media & Leadership Academy souhaite former des citoyens du Royaume qui connaissent leur identité, comprennent leurs droits en Christ, vivent selon les principes du Royaume et sont prêts à transmettre l’Évangile du Royaume à d’autres personnes.
+
+*Connais qui tu es. Connais ce qui t’appartient. Règne sur ta vie sous l’autorité de Christ. Porte l’Évangile du Royaume jusqu’aux nations.*`;
 
 export interface CurriculumIntro {
   en: string;
