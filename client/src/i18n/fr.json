@@ -4397,7 +4397,10 @@
     "rule5_body": "Un responsable peut supprimer un message ou mettre en pause une personne qui ne respecte pas ces règles.",
     "agree": "J’accepte",
     "working": "Un instant…",
-    "failed": "Une erreur est survenue. Veuillez réessayer."
+    "failed": "Une erreur est survenue. Veuillez réessayer.",
+    "short": "Vous pouvez tout lire. Acceptez les règles pour écrire et répondre.",
+    "read": "Lire les règles",
+    "hide": "Masquer"
   },
   "guideViewer": {
     "title": "Guide pas à pas",
