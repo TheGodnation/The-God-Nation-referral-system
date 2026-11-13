@@ -5,8 +5,10 @@ import { sendPrivateNotice, isFrench } from './privateNotice';
 
 // When someone starts the Leadership School:
 //  - a welcome in their private chat from the central admin's own member profile (the founder, by name). It says
-//    nothing about prices, payment or the website, because the Google Play version of the app shows this chat too and
-//    must not steer anyone to a payment outside Google Play;
+//    nothing about prices or payment, because the Google Play version of the app shows this chat too and must not steer
+//    anyone to a payment outside Google Play. It does carry one link, to the Leadership School page of our own site: a
+//    link on our own address opens in the same window (inside the Play app too, where that page shows no prices), so
+//    the person can open the school with one tap;
 //  - for someone the central admin approved (the Play Store app asks, the admin approves), an EMAIL that says to
 //    continue on the website, signed in with the same email. Email and WhatsApp are outside the app.
 
@@ -20,7 +22,10 @@ export async function centralAdminPerson(): Promise<{ id: string; name: string }
   return user?.person ?? null;
 }
 
-export function welcomeText(french: boolean, signature: string): string {
+/** The page that opens the Leadership School (after signing in with the same account). */
+export const websiteSchoolUrl = (french = false): string => `${CLIENT_URL.replace(/\/+$/, '')}/member/school${french ? '?lang=fr' : ''}`;
+
+export function welcomeText(french: boolean, signature: string, schoolUrl: string = websiteSchoolUrl(french)): string {
   if (french) {
     return [
       'Bienvenue à l’École de leadership 🙏',
@@ -28,6 +33,8 @@ export function welcomeText(french: boolean, signature: string): string {
       '1. Lisez le livre à votre rythme.',
       '2. Passez son examen quand vous êtes prêt(e). La note de réussite est de 70 %.',
       '3. Quand vous réussissez, le livre suivant s’ouvre pour vous. La page de l’École de leadership indique ce qu’il faut.',
+      '',
+      `Ouvrez l’École de leadership et commencez le Livre 1 : ${schoolUrl}`,
       '',
       'Votre responsable marchera avec vous et vous suivra. Vous pouvez m’écrire ici à tout moment.',
       signature,
@@ -39,6 +46,8 @@ export function welcomeText(french: boolean, signature: string): string {
     '1. Read the book at your own pace.',
     '2. Take its exam when you are ready. The pass mark is 70%.',
     '3. When you pass, the next book opens for you. The Leadership School page shows what is needed.',
+    '',
+    `Open the Leadership School and start Book 1: ${schoolUrl}`,
     '',
     'Your leader will walk with you and follow you up. You can write to me here at any time.',
     signature,
@@ -54,8 +63,6 @@ export async function sendTrainingWelcome(personId: string): Promise<boolean> {
   return sendPrivateNotice(from.id, personId, welcomeText(isFrench(who.preferredLanguage), `— ${from.name}`));
 }
 
-/** The website page that opens the Leadership School (after signing in with the same account). */
-export const websiteSchoolUrl = (french = false): string => `${CLIENT_URL.replace(/\/+$/, '')}/member/school${french ? '?lang=fr' : ''}`;
 
 export function continueEmailText(french: boolean, name: string) {
   const first = name.trim().split(/\s+/)[0] || name;
