@@ -1,7 +1,7 @@
 // Kingdom Keys, Volume 1: The Foundation: the page exactly as the founder sent it (pasted from his document).
 export const BOOK3_PAGE = `KINGDOM KEYS, VOLUME 1: THE FOUNDATION
 Unlocking the Rights of Kingdom Citizens for Visible Dominion on Earth
-Evangelist Stanley A. Ndoh | The God Nation Media & Leadership Academy
+Evangelist Stanley A. Ndoh | The God Nation Leadership Academy
 You Already Own It. Now Learn How to Walk In It.
 You pray. You fast. You serve. You give. You know the promises of God so well that you could quote them in your sleep. And still the sickness lingers, the bills pile up, the relationships strain, and the breakthrough you keep believing for has not come.
 So you start to wonder. Is something wrong with me? Is God holding back? Is the Word really true?

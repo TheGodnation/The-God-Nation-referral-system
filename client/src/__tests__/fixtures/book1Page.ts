@@ -1,7 +1,7 @@
 // Book One's page exactly as the founder sent it (pasted from his document).
 export const BOOK1_PAGE = `THE RESTORATION OF DOMINION
 Book One of the Kingdom Series
-Evangelist Stanley A. Ndoh  |  The God Nation Media & Leadership Academy
+Evangelist Stanley A. Ndoh  |  The God Nation Leadership Academy
 
 
 Stop Being Pushed Around by Life. Start Ruling Over It.

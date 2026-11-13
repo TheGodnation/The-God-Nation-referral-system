@@ -84,7 +84,7 @@ describe('Exam World (Learn page)', () => {
     expect(within(devotional).getByText('80%')).toBeInTheDocument();
     expect(within(devotional).getByRole('link', { name: 'Take exam' })).toHaveAttribute('href', '/member/assessments/w2');
 
-    const school = screen.getByRole('link', { name: /The God Nation Media & Leadership Academy/ });
+    const school = screen.getByRole('link', { name: /The God Nation Leadership Academy/ });
     expect(school).toHaveAttribute('href', '/member/school');
     expect(within(school).getByText('1 of 3 books passed')).toBeInTheDocument();
   });
@@ -110,7 +110,7 @@ describe('Exam World (Learn page)', () => {
       'GET /api/member/exam-world': () => ({ body: { ...WORLD, training: { enrollment: 'NONE', books: [], price: 1100 } } }),
     });
     renderLearn();
-    expect(await screen.findByText('Study at The God Nation Media & Leadership Academy and grow as a leader. Book 1 opens as soon as you begin.')).toBeInTheDocument();
+    expect(await screen.findByText('Study at The God Nation Leadership Academy and grow as a leader. Book 1 opens as soon as you begin.')).toBeInTheDocument();
     expect(screen.getByText('Open the Academy')).toBeInTheDocument();
   });
 });

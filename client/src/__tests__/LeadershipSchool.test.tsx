@@ -5,7 +5,7 @@ import { MemberSchoolPage } from '../pages/MemberSchoolPage';
 import { MemberSchoolBookPage } from '../pages/MemberSchoolBookPage';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 
-// The God Nation Media & Leadership Academy: the books, level by level, as covers with their
+// The God Nation Leadership Academy: the books, level by level, as covers with their
 // status, and each book's page with what it teaches chapter by chapter.
 const calls: { url: string; method: string; body: any }[] = [];
 
@@ -76,7 +76,7 @@ describe('Leadership Academy page', () => {
   it('shows the books level by level as covers with their status, progress and where to continue', async () => {
     mockFetch({ 'GET /api/member/auth/me': () => ({ body: ME }), 'GET /api/member/school': () => ({ body: SUMMARY }) });
     renderAt('/member/school');
-    expect(await screen.findByRole('heading', { name: 'The God Nation Media & Leadership Academy' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'The God Nation Leadership Academy' })).toBeInTheDocument();
     expect(screen.getByText('1 of 3 books passed')).toBeInTheDocument();
 
     // Two level headings, each with its own books; no empty "coming soon" slots.

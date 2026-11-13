@@ -37,7 +37,7 @@ describe('parseBookPage — Book One as the founder sent it', () => {
 
   it('writes the pitch with byline, big headline, paragraphs and a bullet list', () => {
     const d = page.description;
-    expect(d.startsWith('_Book One of the Kingdom Series_\n\n_Evangelist Stanley A. Ndoh | The God Nation Media & Leadership Academy_')).toBe(true);
+    expect(d.startsWith('_Book One of the Kingdom Series_\n\n_Evangelist Stanley A. Ndoh | The God Nation Leadership Academy_')).toBe(true);
     expect(d).toContain('# Stop Being Pushed Around by Life. Start Ruling Over It.');
     expect(d).toContain('\n\nAre you tired of stress');
     expect(d).toContain('## What This Book Will Do For You\n\n- Show you the real reason');
@@ -118,7 +118,7 @@ describe('parseBookPage — Book Two as the founder sent it', () => {
 
   it('writes the pitch: tagline and byline, big headline, a heading for the short slogan, the three steps as a list after their introduction', () => {
     const d = page.description;
-    expect(d.startsWith('_Repent. Be Baptized. Receive the Spirit._\n\n_Book Two of the Kingdom Series_\n\n_Evangelist Stanley A. Ndoh | The God Nation Media & Leadership Academy_')).toBe(true);
+    expect(d.startsWith('_Repent. Be Baptized. Receive the Spirit._\n\n_Book Two of the Kingdom Series_\n\n_Evangelist Stanley A. Ndoh | The God Nation Leadership Academy_')).toBe(true);
     expect(d).toContain('# There Is a Door. And You Were Made to Walk Through It.');
     expect(d).toContain('## Three Steps. One Door.\n\nHere is the doorway, and where this book takes you through each part of it:\n\n- Step One: Repentance, the Turn.');
     expect(d).toContain('## What Waits for You on the Other Side\n\nAs you walk through each step, this book will:\n\n- Show you why money');
@@ -161,7 +161,7 @@ describe('parseBookPage — Kingdom Keys, Volume 1 as the founder sent it', () =
 
   it('keeps the headline as the headline (not as a tagline), the three gaps as a list with their closing sentence after it', () => {
     const d = page.description;
-    expect(d.startsWith('_Unlocking the Rights of Kingdom Citizens for Visible Dominion on Earth_\n\n_Evangelist Stanley A. Ndoh | The God Nation Media & Leadership Academy_\n\n# You Already Own It. Now Learn How to Walk In It.')).toBe(true);
+    expect(d.startsWith('_Unlocking the Rights of Kingdom Citizens for Visible Dominion on Earth_\n\n_Evangelist Stanley A. Ndoh | The God Nation Leadership Academy_\n\n# You Already Own It. Now Learn How to Walk In It.')).toBe(true);
     expect(d).toContain('## Three Gaps. One Set of Keys.\n\nBefore you can close the gap');
     expect(d).toContain('- The gap of application: knowing the truth, but never putting it to work.\n\nFind which one is yours, and you will finally know what to do about it.');
     expect(d).toContain('## What You Will Walk Away With\n\n- A clear answer');
