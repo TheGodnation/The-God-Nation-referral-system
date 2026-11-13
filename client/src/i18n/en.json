@@ -4397,7 +4397,10 @@
     "rule5_body": "A leader may remove a message or pause someone who breaks these rules.",
     "agree": "I agree",
     "working": "One moment…",
-    "failed": "Something went wrong. Please try again."
+    "failed": "Something went wrong. Please try again.",
+    "short": "You can read everything. Agree to the rules to write and reply.",
+    "read": "Read the rules",
+    "hide": "Hide"
   },
   "guideViewer": {
     "title": "Step-by-step guide",
