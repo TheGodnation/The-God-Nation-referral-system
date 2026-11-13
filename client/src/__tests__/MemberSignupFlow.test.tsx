@@ -75,7 +75,7 @@ describe('MemberSignupPage', () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('Please enter a valid phone number, including the country code.'),
+      expect(screen.getByRole('alert')).toHaveTextContent('Please enter a valid phone number.'),
     );
   });
 

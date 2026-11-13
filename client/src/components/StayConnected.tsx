@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PhoneInput } from './PhoneInput';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, ensureCsrfReady } from '../lib/api';
 import { CommunityChoices } from './CommunityChoices';
@@ -75,7 +76,7 @@ export function StayConnected({ className = '' }: { className?: string }) {
           </div>
           <div>
             <label className="label" htmlFor="stay-phone">{t('stayConnected.phone_label')}</label>
-            <input id="stay-phone" className="input" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+237 6XX XXX XXX" inputMode="tel" autoComplete="tel" />
+            <PhoneInput id="stay-phone" onChange={setWhatsapp} />
             <p className="mt-1 text-xs text-slate-500">{t('stayConnected.phone_hint')}</p>
           </div>
           <label className="flex items-start gap-2 text-sm text-slate-700">

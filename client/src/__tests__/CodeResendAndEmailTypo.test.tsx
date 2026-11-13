@@ -103,6 +103,12 @@ describe('"Did you mean …?" for a misspelled email provider', () => {
     }
   });
 
+  it('moves a "+tag" typed after the provider to where it belongs', () => {
+    expect(suggestEmailFix('godsnation@gmail.com+test1')).toBe('godsnation+test1@gmail.com');
+    expect(suggestEmailFix('ada@yahoo.fr+church')).toBe('ada+church@yahoo.fr');
+    expect(suggestEmailFix('godsnation+test1@gmail.com')).toBeNull();
+  });
+
   it('on "forgot password": no code is requested for a misspelled address until the visitor answers', () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: { member: null } }),

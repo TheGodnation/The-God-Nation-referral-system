@@ -55,7 +55,7 @@
     "subtitle": "Enter your email and phone number. We will email you a link to continue.",
     "email_label": "Email",
     "phone_label": "Phone number (WhatsApp)",
-    "phone_hint": "Include your country code, for example +237.",
+    "phone_hint": "Choose your country, then type your number. The country code is added for you.",
     "password_label": "Password",
     "password_hint": "At least 8 characters.",
     "submit": "Send me the link",
@@ -65,7 +65,7 @@
     "have_account": "Already a member?",
     "sign_in_link": "Sign in",
     "error_email": "Please enter a valid email address.",
-    "error_phone": "Please enter a valid phone number, including the country code.",
+    "error_phone": "Please enter a valid phone number.",
     "error_password": "Please choose a password with at least 8 characters.",
     "error_generic": "Something went wrong. Please try again.",
     "consent_whatsapp": "Yes, send me updates and encouragement from The God Nation on WhatsApp.",
@@ -4320,7 +4320,7 @@
     "body": "Not ready to make an account? Leave your name and WhatsApp number, and we will send you encouragement and news from The God Nation.",
     "name_label": "Your name",
     "phone_label": "Your WhatsApp number",
-    "phone_hint": "With the country code, for example +237 6XX XXX XXX.",
+    "phone_hint": "Choose your country, then type your number. The country code is added for you.",
     "consent": "Yes, send me updates and encouragement from The God Nation on WhatsApp.",
     "consent_note": "You can stop at any time. We never sell your details.",
     "submit": "Keep me connected",
@@ -4329,7 +4329,7 @@
     "thanks_body": "We will be in touch on WhatsApp. You can also create your account any time.",
     "error_consent": "Please tick the box to agree to receive updates on WhatsApp.",
     "error_name": "Please enter your name.",
-    "error_phone": "Please enter a valid phone number, including the country code.",
+    "error_phone": "Please enter a valid phone number.",
     "error_generic": "Something went wrong. Please try again.",
     "choose_title": "Join us where you prefer",
     "choose_body": "Choose the place you use most, or more than one.",
@@ -5361,5 +5361,8 @@
     "screens_ok": "{{count}} screen(s) saved: they open without internet, showing what you saw last.",
     "screens_no": "No screens are saved yet.",
     "screens_fix": "Use the app online for a minute and tap the pages you want (Updates, Learn, People, Me). Each page you open is then saved."
+  },
+  "phoneInput": {
+    "country": "Country"
   }
 }

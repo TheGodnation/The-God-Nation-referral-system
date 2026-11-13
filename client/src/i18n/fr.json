@@ -55,7 +55,7 @@
     "subtitle": "Entrez votre e-mail et votre numéro de téléphone. Nous vous enverrons un lien par e-mail pour continuer.",
     "email_label": "E-mail",
     "phone_label": "Numéro de téléphone (WhatsApp)",
-    "phone_hint": "Ajoutez l’indicatif du pays, par exemple +237.",
+    "phone_hint": "Choisissez votre pays, puis tapez votre numéro. L’indicatif du pays est ajouté pour vous.",
     "password_label": "Mot de passe",
     "password_hint": "Au moins 8 caractères.",
     "submit": "Envoyez-moi le lien",
@@ -65,7 +65,7 @@
     "have_account": "Déjà membre ?",
     "sign_in_link": "Se connecter",
     "error_email": "Veuillez entrer une adresse e-mail valide.",
-    "error_phone": "Veuillez entrer un numéro de téléphone valide, avec l’indicatif du pays.",
+    "error_phone": "Veuillez saisir un numéro de téléphone valide.",
     "error_password": "Veuillez choisir un mot de passe d’au moins 8 caractères.",
     "error_generic": "Une erreur s’est produite. Veuillez réessayer.",
     "consent_whatsapp": "Oui, envoyez-moi les nouvelles et les encouragements de The God Nation sur WhatsApp.",
@@ -4320,7 +4320,7 @@
     "body": "Pas encore prêt à créer un compte ? Laissez votre nom et votre numéro WhatsApp, et nous vous enverrons des encouragements et des nouvelles de The God Nation.",
     "name_label": "Votre nom",
     "phone_label": "Votre numéro WhatsApp",
-    "phone_hint": "Avec l’indicatif du pays, par exemple +237 6XX XXX XXX.",
+    "phone_hint": "Choisissez votre pays, puis tapez votre numéro. L’indicatif du pays est ajouté pour vous.",
     "consent": "Oui, envoyez-moi les nouvelles et les encouragements de The God Nation sur WhatsApp.",
     "consent_note": "Vous pouvez arrêter à tout moment. Nous ne vendons jamais vos coordonnées.",
     "submit": "Gardons le contact",
@@ -4329,7 +4329,7 @@
     "thanks_body": "Nous vous contacterons sur WhatsApp. Vous pouvez aussi créer votre compte à tout moment.",
     "error_consent": "Veuillez cocher la case pour accepter de recevoir des nouvelles sur WhatsApp.",
     "error_name": "Veuillez entrer votre nom.",
-    "error_phone": "Veuillez entrer un numéro de téléphone valide, avec l’indicatif du pays.",
+    "error_phone": "Veuillez saisir un numéro de téléphone valide.",
     "error_generic": "Un problème est survenu. Veuillez réessayer.",
     "choose_title": "Rejoignez-nous là où vous préférez",
     "choose_body": "Choisissez l’endroit que vous utilisez le plus, ou plusieurs.",
@@ -5361,5 +5361,8 @@
     "screens_ok": "{{count}} écran(s) enregistré(s) : ils s’ouvrent sans internet et montrent ce que vous avez vu en dernier.",
     "screens_no": "Aucun écran n’est encore enregistré.",
     "screens_fix": "Utilisez l’application en ligne une minute et touchez les pages voulues (Actualités, Apprendre, Personnes, Moi). Chaque page ouverte est alors enregistrée."
+  },
+  "phoneInput": {
+    "country": "Pays"
   }
 }
