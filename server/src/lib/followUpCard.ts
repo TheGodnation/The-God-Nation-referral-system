@@ -6,7 +6,7 @@ import { requiredLeadershipExamIds, schoolProgressAmong } from './cells';
 // The follow-up card: everything a leader needs to know about one of "my
 // people" on one screen. Computed fresh from the existing records (contact
 // log, the private chat between the leader and the person, prayer requests,
-// attendance, teachings, the Leadership School and book payments) — nothing
+// attendance, teachings, the Leadership Academy and book payments) — nothing
 // new is stored. The person never sees their own card; only the leaders
 // who follow them (and the central administration) do.
 // ---------------------------------------------------------------------------
@@ -118,7 +118,7 @@ export async function followUpCardsFor(followerId: string, now = new Date()): Pr
   ]);
   void enrollments;
 
-  // Slow in the Leadership School: started, not finished, and nothing passed or opened for a month.
+  // Slow in the Leadership Academy: started, not finished, and nothing passed or opened for a month.
   const examIds = await requiredLeadershipExamIds();
   const lastPasses = examIds.length
     ? await prisma.attempt.groupBy({

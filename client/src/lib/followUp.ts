@@ -30,7 +30,7 @@ export function followUpPlaces(s: SocialUrls, lang: 'en' | 'fr', websiteUrl?: st
   return rows.filter((r): r is [FollowUpId, string] => Boolean(r[1])).map(([id, url]) => ({ id, url }));
 }
 
-/** The page that opens the Leadership School on the website (after signing in with the same account). */
+/** The page that opens the Leadership Academy on the website (after signing in with the same account). */
 export function schoolWebsiteUrl(lang: 'en' | 'fr'): string {
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   return `${origin}/member/school${lang === 'fr' ? '?lang=fr' : ''}`;

@@ -76,7 +76,7 @@ function renderLearn() {
 }
 
 describe('Exam World (Learn page)', () => {
-  it('shows the devotional with Read, weekly exam scores, and the way into the Leadership School', async () => {
+  it('shows the devotional with Read, weekly exam scores, and the way into the Leadership Academy', async () => {
     mockFetch({ 'GET /api/member/auth/me': () => ({ body: ME }), 'GET /api/member/exam-world': () => ({ body: WORLD }) });
     renderLearn();
     const devotional = await screen.findByRole('article', { name: 'Walking in faith' });
@@ -84,9 +84,9 @@ describe('Exam World (Learn page)', () => {
     expect(within(devotional).getByText('80%')).toBeInTheDocument();
     expect(within(devotional).getByRole('link', { name: 'Take exam' })).toHaveAttribute('href', '/member/assessments/w2');
 
-    const school = screen.getByRole('link', { name: /The God Nation Leadership School/ });
+    const school = screen.getByRole('link', { name: /The God Nation Media & Leadership Academy/ });
     expect(school).toHaveAttribute('href', '/member/school');
-    expect(within(school).getByText('1 of 15 books passed')).toBeInTheDocument();
+    expect(within(school).getByText('1 of 3 books passed')).toBeInTheDocument();
   });
 
   it('records a free-will offering with an optional amount', async () => {
@@ -104,14 +104,14 @@ describe('Exam World (Learn page)', () => {
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ amount: 2000 });
   });
 
-  it('invites a non-trainee into the Leadership School', async () => {
+  it('invites a non-trainee into the Leadership Academy', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: ME }),
       'GET /api/member/exam-world': () => ({ body: { ...WORLD, training: { enrollment: 'NONE', books: [], price: 1100 } } }),
     });
     renderLearn();
-    expect(await screen.findByText('15 books to grow as a leader. Book 1 opens as soon as you begin.')).toBeInTheDocument();
-    expect(screen.getByText('Open the school')).toBeInTheDocument();
+    expect(await screen.findByText('Study at The God Nation Media & Leadership Academy and grow as a leader. Book 1 opens as soon as you begin.')).toBeInTheDocument();
+    expect(screen.getByText('Open the Academy')).toBeInTheDocument();
   });
 });
 

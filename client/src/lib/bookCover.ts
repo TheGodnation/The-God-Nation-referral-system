@@ -1,6 +1,6 @@
 import { loadPdfJs } from './loadPdfJs';
 
-// Leadership School covers, made in the admin's browser: page 1 of a book's
+// Leadership Academy covers, made in the admin's browser: page 1 of a book's
 // PDF drawn as a picture when the PDF is uploaded, or a picture the admin
 // chooses. Either way it is resized here first, so the server keeps (and
 // phones download) a small JPEG — the server takes up to 300 KB.

@@ -7,6 +7,7 @@ import { PaymentsAndGrace, TrainingPaymentSettings } from './TrainingPaymentsAdm
 import { PaymentAgentsAdmin } from './PaymentAgentsAdmin';
 import { ReferralPayoutsAdmin } from './ReferralPayoutsAdmin';
 import { BookDetailsAdmin } from './BookDetailsAdmin';
+import { TrainingOrganizer } from './TrainingOrganizer';
 import { putPdf, type PutResult } from '../../lib/libraryUpload';
 import { reportClientError } from '../../lib/reportError';
 import { readPdfCover } from '../../lib/bookCover';
@@ -239,9 +240,6 @@ export function LibraryTab() {
   const [messageNote, setMessageNote] = useState<string | null>(null);
 
   const trainingBooks = books.filter((b) => b.kind === 'TRAINING');
-  const nextOrder = trainingBooks.reduce((max, b) => Math.max(max, b.trainingOrder ?? 0), 0) + 1;
-  const [newTitleEn, setNewTitleEn] = useState('');
-  const [newTitleFr, setNewTitleFr] = useState('');
 
   function load() {
     Promise.all([
@@ -300,16 +298,6 @@ export function LibraryTab() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('library.action_failed'));
     }
-  }
-
-  async function addTrainingBook(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newTitleEn.trim()) return setError(t('library.need_title'));
-    await act(() =>
-      api.post('/api/admin/library/books', { kind: 'TRAINING', titleEn: newTitleEn.trim(), titleFr: newTitleFr.trim() || undefined, trainingOrder: nextOrder }),
-    );
-    setNewTitleEn('');
-    setNewTitleFr('');
   }
 
   const examLabel = (exam: { status: string; questionCount: number }) =>
@@ -378,6 +366,7 @@ export function LibraryTab() {
 
       <section className="card space-y-3">
         <h3 className="font-semibold text-brand-900">🎓 {t('library.training_heading')}</h3>
+        <TrainingOrganizer onChanged={load} />
         <ul className="divide-y divide-slate-100">
           {trainingBooks.map((b) => (
             <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
@@ -410,13 +399,6 @@ export function LibraryTab() {
             </li>
           ))}
         </ul>
-        <form onSubmit={addTrainingBook} className="flex flex-col gap-2 sm:flex-row">
-          <input className="input" aria-label={t('library.title_en') ?? ''} placeholder={t('library.new_book_placeholder', { number: nextOrder }) ?? ''} value={newTitleEn} onChange={(e) => setNewTitleEn(e.target.value)} />
-          <input className="input" aria-label={t('library.title_fr') ?? ''} placeholder={t('library.title_fr') ?? ''} value={newTitleFr} onChange={(e) => setNewTitleFr(e.target.value)} />
-          <button type="submit" className="btn-primary whitespace-nowrap">
-            ＋ {t('library.add_book', { number: nextOrder })}
-          </button>
-        </form>
         <p className="text-xs text-slate-500">{t('library.questions_hint')}</p>
       </section>
 

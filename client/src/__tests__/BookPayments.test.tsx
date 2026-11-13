@@ -5,7 +5,7 @@ import { MemberSchoolPage } from '../pages/MemberSchoolPage';
 import { MemberSchoolBookPage } from '../pages/MemberSchoolBookPage';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 
-// Paying for leadership books in the Leadership School: "I have paid" with
+// Paying for leadership books in the Leadership Academy: "I have paid" with
 // the Mobile Money transaction ID (on the book's page), what is owed, why a
 // book is closed, and asking to study now and pay later.
 const calls: { url: string; method: string; body: any }[] = [];

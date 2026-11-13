@@ -2,7 +2,7 @@ import type { Response } from 'express';
 import crypto from 'crypto';
 import { prisma } from './prisma';
 
-// Book covers for the Leadership School: small pictures kept in the
+// Book covers for the Leadership Academy: small pictures kept in the
 // database (LibraryBookCover). The admin's browser draws page 1 of each
 // uploaded PDF as the cover (AUTO), or the admin chooses a picture
 // (MANUAL); either way it arrives here already resized.

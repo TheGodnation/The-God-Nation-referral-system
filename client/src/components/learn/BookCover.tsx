@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-// A Leadership School book cover: the cover picture when there is one, or
+// A Leadership Academy book cover: the cover picture when there is one, or
 // a drawn cover (school name, book number, title) until the admin uploads
 // the book. `compact` covers (small thumbnails) draw only the number.
 export function BookCover({

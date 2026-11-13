@@ -5,13 +5,22 @@ import { api } from '../../lib/api';
 import { GraceBox, PayManyPanel } from './TrainingPayments';
 import { useStoreApp } from '../../lib/storeApp';
 
-// Shared by the Leadership School page, each book's page and the Learn page.
+// Shared by the Leadership Academy page, each book's page and the Learn page.
 
-export const SCHOOL_BOOK_COUNT = 15;
+export interface SchoolLevel {
+  id: string;
+  position: number;
+  titleEn: string;
+  titleFr: string | null;
+  summaryEn: string | null;
+  summaryFr: string | null;
+}
 
 export interface SchoolBook {
   id: string;
   trainingOrder: number;
+  /** The level this book is in (null = not placed in a level). */
+  levelId?: string | null;
   titleEn: string;
   titleFr: string | null;
   descriptionEn: string | null;
@@ -40,6 +49,9 @@ export interface SchoolBook {
 export interface SchoolSummary {
   enrollment: 'NONE' | 'REQUESTED' | 'ACTIVE' | 'REVOKED';
   books: SchoolBook[];
+  levels?: SchoolLevel[];
+  /** The Academy introduction (the founder's text, or the standard one), English and French. */
+  intro?: { en: string; fr: string };
   price?: number;
   owed?: { books: number; amount: number };
   payableCount?: number;

@@ -3,9 +3,9 @@ import { startAdaptiveLoop } from './activity';
 import { requiredLeadershipExamIds } from './cells';
 
 // ---------------------------------------------------------------------------
-// The weekly "Leadership School progress" post. Once a week, in each
+// The weekly "Leadership Academy progress" post. Once a week, in each
 // assembly's group chat, the central admin's profile congratulates the
-// members who passed a Leadership School exam that week — names only for the
+// members who passed a Leadership Academy exam that week — names only for the
 // people being celebrated. Those who are slow are never named: their leader
 // sees a flag on their card and encourages them privately.
 // ---------------------------------------------------------------------------
@@ -54,8 +54,8 @@ export function weeklyPostText(advancers: Advancer[]): string {
   const names = advancers.map((a) => (a.books.length ? `${a.name} (${a.books.sort((x, y) => x - y).map((b) => `#${b}`).join(', ')})` : a.name));
   const list = names.join(', ');
   return [
-    `Leadership School this week: congratulations to ${list}! Keep going, one book at a time.`,
-    `École de leadership cette semaine : félicitations à ${list} ! Continuez, un livre après l'autre.`,
+    `Leadership Academy this week: congratulations to ${list}! Keep going, one book at a time.`,
+    `Académie de leadership cette semaine : félicitations à ${list} ! Continuez, un livre après l'autre.`,
   ].join('\n\n');
 }
 

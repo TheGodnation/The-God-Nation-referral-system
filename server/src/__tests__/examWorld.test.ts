@@ -121,7 +121,11 @@ describe('Leadership training: paid access and books in order', () => {
     const { examId } = await trainingBook(a, 1);
     const exam = await prisma.assessment.findUnique({ where: { id: examId } });
     expect(exam).toMatchObject({ passMark: 70, status: 'DRAFT', maxAttempts: null });
-    expect((await post(a, '/api/admin/library/books', { kind: 'TRAINING', titleEn: 'Dup', trainingOrder: 1 })).body.code).toBe('DUPLICATE');
+    // A book added at an occupied number goes in at that place; the book that was there moves down one.
+    const inserted = await post(a, '/api/admin/library/books', { kind: 'TRAINING', titleEn: 'Inserted', trainingOrder: 1 });
+    expect(inserted.status).toBe(201);
+    expect(inserted.body.trainingOrder).toBe(1);
+    expect((await prisma.libraryBook.findFirst({ where: { titleEn: 'Leadership 1' } }))?.trainingOrder).toBe(2);
   });
 
   it('"Begin my training" opens Book 1 at once, on trust; a training the admin stopped stays stopped', async () => {
@@ -697,7 +701,7 @@ describe('Leader exam results', () => {
   });
 });
 
-describe('Leadership School: covers, pages and chapter summaries', () => {
+describe('Leadership Academy: covers, pages and chapter summaries', () => {
   // A real 1×1 JPEG and PNG header are enough for the picture checks.
   const JPEG = `data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]).toString('base64')}`;
   const PNG = `data:image/png;base64,${Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]).toString('base64')}`;
@@ -711,6 +715,11 @@ describe('Leadership School: covers, pages and chapter summaries', () => {
     let school = await m.agent.get('/api/member/school');
     expect(school.status).toBe(200);
     expect(school.body.books.map((b: any) => b.coverUrl)).toEqual([null, null]);
+    // The page also carries the curriculum: the levels (each book says which one it is in) and the introduction text.
+    expect(Array.isArray(school.body.levels)).toBe(true);
+    expect(school.body.books.every((b: any) => 'levelId' in b)).toBe(true);
+    expect(school.body.intro.en).toContain('The Diploma at a Glance');
+    expect(school.body.intro.fr).toContain('Le diplôme en un coup d’œil');
 
     const auto = await a.agent.put(`/api/admin/library/books/${b2.bookId}/cover`).set('X-CSRF-Token', a.csrf).send({ image: JPEG, source: 'AUTO' });
     expect(auto.status).toBe(200);

@@ -145,7 +145,7 @@ describe('Sending the founder welcome', () => {
     expect(await sendFounderWelcome(erased.id)).toBe(false);
     const known = await newPerson('Trainee');
     const { sendPrivateNotice } = await import('../lib/privateNotice');
-    await sendPrivateNotice(from.id, known.id, 'Welcome to the Leadership School');
+    await sendPrivateNotice(from.id, known.id, 'Welcome to the Leadership Academy');
     expect(await sendFounderWelcome(known.id)).toBe(false);
     expect(await founderChat(from.id, known.id)).toHaveLength(1);
   });

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { BookCover } from '../components/learn/BookCover';
-import { PayPromptCard, SCHOOL_BOOK_COUNT, SchoolSummary } from '../components/learn/schoolBits';
+import { PayPromptCard, SchoolSummary } from '../components/learn/schoolBits';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api, ApiError } from '../lib/api';
@@ -107,7 +107,7 @@ function OfferingBox({ devotional, instructions, onGiven }: { devotional: Devoti
 
 // "Learn" for members: Exam World. This month's devotional (read it in the
 // app, free-will offering, Week 1-4 exams with the first-try score), and
-// the way into the Leadership School (15 books opened one after another,
+// the way into the Leadership Academy (the books opened one after another,
 // see MemberSchoolPage).
 export function MemberLearnPage() {
   const { t, i18n } = useTranslation();
@@ -216,10 +216,10 @@ export function MemberLearnPage() {
                 <span className="block font-semibold text-brand-900">{t('school.title')}</span>
                 <span className="block text-sm text-slate-700">
                   {data.training.enrollment === 'ACTIVE'
-                    ? t('school.progress', { passed: data.training.books.filter((b) => b.exam?.passed).length, total: Math.max(SCHOOL_BOOK_COUNT, data.training.books.length) })
+                    ? t('school.progress', { passed: data.training.books.filter((b) => b.exam?.passed).length, total: data.training.books.length })
                     : data.training.enrollment === 'REVOKED'
                       ? t('learn.training_stopped')
-                      : t('school.teaser', { count: Math.max(SCHOOL_BOOK_COUNT, data.training.books.length) })}
+                      : t('school.teaser', { count: data.training.books.length })}
                 </span>
                 <span className="btn-primary inline-block">{t('school.open')}</span>
               </Link>

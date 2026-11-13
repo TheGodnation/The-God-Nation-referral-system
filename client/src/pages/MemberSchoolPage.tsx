@@ -5,15 +5,17 @@ import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { BookCover } from '../components/learn/BookCover';
-import { SCHOOL_BOOK_COUNT, SchoolSummary, TrainingStatusCard, currentBook, useTr } from '../components/learn/schoolBits';
+import { SchoolBook, SchoolSummary, TrainingStatusCard, currentBook, useTr } from '../components/learn/schoolBits';
 import { cachedGet } from '../lib/cachedGet';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { useStoreApp } from '../lib/storeApp';
+import { RichText } from '../lib/richText';
+import { prepareIntro, splitIntro } from '../lib/curriculumText';
 
-// The God Nation Leadership School: the 15 leadership books as covers, in
-// order, each showing whether it is passed, open or still closed. Tapping a
-// book opens its page (chapter summaries, Read, Exam, payment). Numbers the
-// admin hasn't added yet show as "Coming soon".
+// The God Nation Media & Leadership Academy: the introduction to the diploma, then the books level by level, each
+// showing whether it is passed, open or still closed. Someone who has not begun reads everything first and begins at
+// the end; someone studying sees their progress and the book to carry on with first, and the introduction folded below.
+// Tapping a book opens its page (Read, Exam, payment). The levels and the order of the books are arranged by the admin.
 export function MemberSchoolPage() {
   const { t } = useTranslation();
   const store = useStoreApp();
@@ -34,11 +36,63 @@ export function MemberSchoolPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
-  const total = Math.max(SCHOOL_BOOK_COUNT, data?.books.length ?? 0);
-  const byNumber = new Map((data?.books ?? []).map((b) => [b.trainingOrder, b]));
-  const numbers = Array.from({ length: Math.max(total, ...(data?.books ?? []).map((b) => b.trainingOrder)) }, (_, i) => i + 1);
-  const passed = (data?.books ?? []).filter((b) => b.exam?.passed).length;
-  const current = data?.enrollment === 'ACTIVE' ? currentBook(data.books) : null;
+  const books = data?.books ?? [];
+  const total = books.length;
+  const passed = books.filter((b) => b.exam?.passed).length;
+  const studying = data?.enrollment === 'ACTIVE';
+  const current = studying ? currentBook(books) : null;
+
+  // The books grouped by level, in order; books with no level come last, under no heading.
+  const levels = data?.levels ?? [];
+  const groups: { id: string; level: (typeof levels)[number] | null; books: SchoolBook[] }[] = levels
+    .map((l) => ({ id: l.id, level: l, books: books.filter((b) => b.levelId === l.id) }))
+    .filter((g) => g.books.length > 0);
+  const known = new Set(levels.map((l) => l.id));
+  const loose = books.filter((b) => !b.levelId || !known.has(b.levelId));
+  if (loose.length > 0) groups.push({ id: 'none', level: null, books: loose });
+
+  const introRaw = data?.intro ? tr(data.intro.en, data.intro.fr) : '';
+  const introText = introRaw ? prepareIntro(introRaw, { store, books: total, levels: levels.length, price: data?.price ?? 1200 }) : '';
+  const { before, after } = splitIntro(introText);
+
+  const booksSection = (
+    <div className="space-y-6" data-testid="academy-levels">
+      {groups.map((g) => (
+        <section key={g.id} data-testid="academy-level">
+          {g.level && (
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold text-brand-900">{tr(g.level.titleEn, g.level.titleFr)}</h2>
+              {(g.level.summaryEn || g.level.summaryFr) && <p className="text-sm text-slate-600">{tr(g.level.summaryEn ?? '', g.level.summaryFr)}</p>}
+            </div>
+          )}
+          <ul className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4">
+            {g.books.map((b) => {
+              const number = b.trainingOrder;
+              const title = tr(b.titleEn, b.titleFr);
+              const badge = b.exam?.passed
+                ? { text: `✓ ${t('school.badge_passed')}`, cls: 'bg-green-600 text-white' }
+                : b.unlocked
+                  ? { text: t('school.badge_open'), cls: 'bg-amber-400 text-amber-950' }
+                  : { text: `🔒 ${t('school.badge_locked')}`, cls: 'bg-slate-200 text-slate-700' };
+              return (
+                <li key={b.id}>
+                  <Link to={`/member/school/${b.id}`} className="group block" aria-label={`${t('learn.book', { number })}: ${title} — ${badge.text}`}>
+                    {/* Every book shows in its own colours; the badge below says whether it is open or locked. */}
+                    <BookCover number={number} title={title} coverUrl={b.coverUrl ?? null} coverUrlFr={b.coverUrlFr ?? null} className="transition group-hover:-translate-y-0.5" />
+                    <span className="mt-1 flex flex-wrap items-center gap-1">
+                      <span className="text-xs font-semibold text-brand-800">{t('learn.book', { number })}</span>
+                      <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold ${badge.cls}`}>{badge.text}</span>
+                    </span>
+                    <span className="line-clamp-2 block text-xs text-slate-700">{title}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
 
   return (
     <PageShell minimal>
@@ -58,25 +112,16 @@ export function MemberSchoolPage() {
         <div className="mb-5 rounded-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-brand-950 p-5 text-white shadow">
           <p className="text-xs font-semibold uppercase tracking-widest text-amber-300">🎓 {t('learn.training_heading')}</p>
           <h1 className="mt-1 text-2xl font-bold leading-tight">{t('school.title')}</h1>
-          <p className="mt-2 text-sm text-brand-100">{t('school.intro', { count: total })}</p>
-          {data?.enrollment === 'ACTIVE' && <p className="mt-3 text-sm font-semibold">{t('school.progress', { passed, total })}</p>}
+          <p className="mt-2 text-sm text-brand-100">{t('school.subtitle')}</p>
+          {studying && <p className="mt-3 text-sm font-semibold">{t('school.progress', { passed, total })}</p>}
         </div>
 
         {fromCache && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">📶 {t('school.offline_saved')}</p>}
         {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
         {!data && !error && <p className="text-center text-slate-400">{t('learn.loading')}</p>}
 
-        {data && (
+        {data && studying && (
           <div className="space-y-5">
-            <ol className={`grid gap-2 text-sm ${store ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`} aria-label={t('school.how_heading') ?? ''}>
-              {[t('school.step_read'), t('school.step_exam'), ...(store ? [] : [t('school.step_pay', { price: (data.price ?? 1200).toLocaleString('fr-FR') })])].map((text, i) => (
-                <li key={i} className="flex gap-2 rounded-lg bg-white p-3 shadow-sm">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-800">{i + 1}</span>
-                  <span className="text-slate-700">{text}</span>
-                </li>
-              ))}
-            </ol>
-
             <TrainingStatusCard summary={data} onChanged={load} />
 
             {current && (
@@ -96,41 +141,23 @@ export function MemberSchoolPage() {
               </Link>
             )}
 
-            <section>
-              <h2 className="mb-3 text-lg font-semibold text-brand-900">{t('school.books_heading')}</h2>
-              <ul className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4">
-                {numbers.map((number) => {
-                  const b = byNumber.get(number);
-                  if (!b) {
-                    return (
-                      <li key={`soon-${number}`} className="opacity-60">
-                        <BookCover number={number} title={t('school.coming_soon')} coverUrl={null} />
-                        <p className="mt-1 text-xs font-semibold text-slate-600">{t('learn.book', { number })}</p>
-                      </li>
-                    );
-                  }
-                  const title = tr(b.titleEn, b.titleFr);
-                  const badge = b.exam?.passed
-                    ? { text: `✓ ${t('school.badge_passed')}`, cls: 'bg-green-600 text-white' }
-                    : b.unlocked
-                      ? { text: t('school.badge_open'), cls: 'bg-amber-400 text-amber-950' }
-                      : { text: `🔒 ${t('school.badge_locked')}`, cls: 'bg-slate-200 text-slate-700' };
-                  return (
-                    <li key={b.id}>
-                      <Link to={`/member/school/${b.id}`} className="group block" aria-label={`${t('learn.book', { number })}: ${title} — ${badge.text}`}>
-                        {/* Every book shows in its own colours; the badge below says whether it is open or locked. */}
-                        <BookCover number={number} title={title} coverUrl={b.coverUrl ?? null} coverUrlFr={b.coverUrlFr ?? null} className="transition group-hover:-translate-y-0.5" />
-                        <span className="mt-1 flex flex-wrap items-center gap-1">
-                          <span className="text-xs font-semibold text-brand-800">{t('learn.book', { number })}</span>
-                          <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold ${badge.cls}`}>{badge.text}</span>
-                        </span>
-                        <span className="line-clamp-2 block text-xs text-slate-700">{title}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+            {booksSection}
+
+            {introText && (
+              <details className="card" data-testid="academy-intro-folded">
+                <summary className="cursor-pointer font-semibold text-brand-900">{t('school.read_intro')}</summary>
+                <RichText text={introText.replace(/^\s*\[\[books\]\]\s*$/m, '')} headings comfort className="mt-3 text-sm text-slate-800" />
+              </details>
+            )}
+          </div>
+        )}
+
+        {data && !studying && (
+          <div className="space-y-6">
+            {before && <RichText text={before} headings comfort className="text-sm text-slate-800" data-testid="academy-intro-before" />}
+            {booksSection}
+            {after && <RichText text={after} headings comfort className="text-sm text-slate-800" data-testid="academy-intro-after" />}
+            <TrainingStatusCard summary={data} onChanged={load} />
           </div>
         )}
         <MemberNav />

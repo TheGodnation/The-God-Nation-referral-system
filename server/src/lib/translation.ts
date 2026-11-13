@@ -279,8 +279,8 @@ const CONTEXT =
   'aloud to a congregation: natural, warm and idiomatic, never word for word, in the same register as the ' +
   'speaker (do not make it more formal or more polished than it is). Use the vocabulary the church really ' +
   'uses in the target language (for example "assembly" = "assemblée", "born again" = "né de nouveau", ' +
-  '"the anointing" = "l\'onction", "fellowship" = "communion fraternelle", "Leadership School" = ' +
-  '"École de Leadership"). In French, quote Bible verses in the Louis Segond version; in English use a ' +
+  '"the anointing" = "l\'onction", "fellowship" = "communion fraternelle", "Leadership Academy" = ' +
+  '"Académie de Leadership"). In French, quote Bible verses in the Louis Segond version; in English use a ' +
   'familiar English version. Keep names of people, places and the ministry as they are. ';
 
 // Long texts are hard to read on a phone as one block, and a spoken sermon

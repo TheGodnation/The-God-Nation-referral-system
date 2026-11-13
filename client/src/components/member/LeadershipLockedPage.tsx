@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../PageShell';
 import { MemberNav } from './MemberNav';
-import { SCHOOL_BOOK_COUNT, type SchoolSummary } from '../learn/schoolBits';
+import { type SchoolSummary } from '../learn/schoolBits';
 import { cachedGet } from '../../lib/cachedGet';
 import { useMemberAuth } from '../../lib/MemberAuthContext';
 
 // What a member who is not yet a leader sees when they open "My Leadership
 // Dashboard": it opens, but the tools are locked, and the page invites them
-// into the Leadership School — the road to becoming a leader.
+// into the Leadership Academy — the road to becoming a leader.
 export function LeadershipLockedPage() {
   const { t } = useTranslation();
   const { member } = useMemberAuth();
@@ -25,7 +25,7 @@ export function LeadershipLockedPage() {
     };
   }, [member?.personId]);
 
-  const total = Math.max(SCHOOL_BOOK_COUNT, school?.books.length ?? 0);
+  const total = school?.books.length ?? 0;
   const passed = (school?.books ?? []).filter((b) => b.exam?.passed).length;
   const started = school?.enrollment === 'ACTIVE';
 

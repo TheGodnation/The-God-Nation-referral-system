@@ -7,7 +7,7 @@ import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 import { centralAdminPerson, welcomeText, continueEmailText } from '../lib/trainingWelcome';
 
-// Starting the Leadership School: a welcome from the founder's own profile (nothing about prices, payment or the
+// Starting the Leadership Academy: a welcome from the founder's own profile (nothing about prices, payment or the
 // website, because the Play Store version shows this chat too); an EMAIL with the website link to someone the admin
 // approved; a Message button for the admin; and "email all approved" in batches.
 const app = createApp();
@@ -57,15 +57,15 @@ const chatFrom = (fromId: string, toId: string) => prisma.privateMessage.findMan
 afterEach(() => vi.restoreAllMocks());
 
 describe('The welcome text', () => {
-  it('has no price or payment wording, in English and in French, and one link to open the Leadership School', () => {
+  it('has no price or payment wording, in English and in French, and one link to open the Leadership Academy', () => {
     for (const text of [welcomeText(false, '— A', 'https://thegodnationacademy.org/member/school'), welcomeText(true, '— A', 'https://thegodnationacademy.org/member/school?lang=fr')]) {
       expect(text).not.toMatch(/FCFA|francs|pay|paie|Mobile Money|website|site web|Orange|MTN/i);
       expect(text.match(/https?:\/\/\S+/g)).toHaveLength(1);
       expect(text).toContain('thegodnationacademy.org/member/school');
       expect(text).toContain('70');
     }
-    expect(welcomeText(false, '— Evangelist Stanley A. Ndoh')).toMatch(/Welcome to the Leadership School/);
-    expect(welcomeText(true, '— X')).toMatch(/Bienvenue à l’École de leadership/);
+    expect(welcomeText(false, '— Evangelist Stanley A. Ndoh')).toMatch(/Welcome to the Leadership Academy/);
+    expect(welcomeText(true, '— X')).toMatch(/Bienvenue à l’Académie de leadership/);
   });
 
   it('the email says to continue on the website, signed in with the same email', () => {
@@ -75,7 +75,7 @@ describe('The welcome text', () => {
   });
 });
 
-describe('Starting the Leadership School on the website', () => {
+describe('Starting the Leadership Academy on the website', () => {
   it('sends the founder\'s welcome once, in the person\'s language, and nothing again on a second start', async () => {
     await founder();
     const from = (await centralAdminPerson())!;
@@ -84,9 +84,9 @@ describe('Starting the Leadership School on the website', () => {
     expect((await en.agent.post('/api/member/training/request').set('X-CSRF-Token', en.csrf).send({})).status).toBe(201);
     expect((await fr.agent.post('/api/member/training/request').set('X-CSRF-Token', fr.csrf).send({})).status).toBe(201);
     const [hi] = await chatFrom(from.id, en.person.id);
-    expect(hi.body).toContain('Welcome to the Leadership School');
+    expect(hi.body).toContain('Welcome to the Leadership Academy');
     expect(hi.body.trim().endsWith(`— ${from.name}`)).toBe(true);
-    expect((await chatFrom(from.id, fr.person.id))[0].body).toContain('Bienvenue à l’École de leadership');
+    expect((await chatFrom(from.id, fr.person.id))[0].body).toContain('Bienvenue à l’Académie de leadership');
     // Starting again changes nothing.
     await en.agent.post('/api/member/training/request').set('X-CSRF-Token', en.csrf).send({});
     expect(await chatFrom(from.id, en.person.id)).toHaveLength(1);
@@ -109,11 +109,11 @@ describe('The Play Store version: asks, the admin approves, the website link goe
     expect(sent).toHaveBeenCalledTimes(1);
     const mail = sent.mock.calls[0][0];
     expect(mail.to).toBe(m.email);
-    expect(mail.subject).toBe('Your Leadership School request is approved');
+    expect(mail.subject).toBe('Your Leadership Academy request is approved');
     expect(mail.buttonUrl).toMatch(/\/member\/school$/);
     const row = await prisma.trainingEnrollment.findUniqueOrThrow({ where: { personId: m.person.id } });
     expect(row.websiteInvitedAt).not.toBeNull();
-    // Nothing inside the app (the private chat) carries a payment; the only link is to the Leadership School page itself.
+    // Nothing inside the app (the private chat) carries a payment; the only link is to the Leadership Academy page itself.
     const body = (await chatFrom(from.id, m.person.id))[0].body as string;
     expect(body).not.toMatch(/pay|FCFA|Mobile Money/i);
     expect(body.match(/https?:\/\/\S+/g)).toHaveLength(1);

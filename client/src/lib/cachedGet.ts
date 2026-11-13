@@ -1,7 +1,7 @@
 import { api } from './api';
 import { isOfflineError } from './offlineStore';
 
-// For pages that should still open without internet (the Leadership School
+// For pages that should still open without internet (the Leadership Academy
 // and its books): the last answer from the server is kept on the phone and
 // shown, marked as saved, when the server can't be reached.
 export async function cachedGet<T>(path: string, cacheKey: string): Promise<{ data: T; fromCache: boolean }> {
