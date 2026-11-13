@@ -26,6 +26,8 @@ type NotificationType =
   | 'TRAINING_GRACE_GRANTED'
   | 'READ_REQUESTED'
   | 'READ_APPROVED'
+  | 'CERTIFICATE_REQUESTED'
+  | 'CERTIFICATE_ISSUED'
   | 'TRAINING_GRACE_DECLINED'
   | 'REFERRAL_EARNING'
   | 'REFERRAL_PAYOUT_PAID'
@@ -286,6 +288,10 @@ export function NotificationBell() {
         return t('notifications.read_requested', { name: metadata.personName ?? '' });
       case 'READ_APPROVED':
         return t('notifications.read_approved');
+      case 'CERTIFICATE_REQUESTED':
+        return t('notifications.certificate_requested', { name: metadata.personName ?? '' });
+      case 'CERTIFICATE_ISSUED':
+        return t('notifications.certificate_issued');
       case 'TRAINING_GRACE_GRANTED':
         return t('notifications.training_grace_granted', { count: Number(metadata.books ?? 0) });
       case 'TRAINING_GRACE_DECLINED':

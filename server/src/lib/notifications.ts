@@ -41,6 +41,8 @@ interface CreateNotificationParams {
     | 'TRAINING_GRACE_GRANTED'
     | 'READ_REQUESTED'
     | 'READ_APPROVED'
+    | 'CERTIFICATE_REQUESTED'
+    | 'CERTIFICATE_ISSUED'
     | 'TRAINING_GRACE_DECLINED'
     | 'REFERRAL_EARNING'
     | 'REFERRAL_PAYOUT_PAID'
@@ -245,6 +247,28 @@ export async function notifyReadApproved(personId: string) {
     targetType: 'Person',
     targetId: personId,
     push: { title: 'You can start reading', body: 'Your request was approved. Open the Leadership Academy to begin.', url: '/member/school' },
+  });
+}
+
+/** A student who passed every book asked for the Academy certificate: tell the central admin. */
+export async function notifyCertificateRequested(person: { id: string; name: string }) {
+  await notifyCentralAdmins(
+    'CERTIFICATE_REQUESTED',
+    { targetType: 'Person', targetId: person.id },
+    { personName: person.name },
+    { title: 'Certificate request', body: `${person.name} asked for the Academy certificate. See it in the Library tab.`, url: '/member/me' },
+  );
+}
+
+/** The certificate was issued: tell the student. */
+export async function notifyCertificateIssued(personId: string) {
+  await createNotification({
+    recipientPersonId: personId,
+    type: 'CERTIFICATE_ISSUED',
+    metadata: {},
+    targetType: 'Person',
+    targetId: personId,
+    push: { title: 'Your certificate is ready', body: 'Your Leadership Academy certificate has been issued. Open the Academy to see it.', url: '/member/school' },
   });
 }
 
@@ -920,7 +944,7 @@ export async function notifyWeeklyReport(personId: string, kind: 'REPORT_REMINDE
 
 /** A notification to the central admin: to their member profile, or to their admin account when it has none. */
 async function notifyCentralAdmins(
-  type: 'ESCALATION_RECEIVED' | 'ESCALATION_ANSWERED' | 'ESCALATION_BYPASSED' | 'READ_REQUESTED' | 'REMOVAL_REQUESTED',
+  type: 'ESCALATION_RECEIVED' | 'ESCALATION_ANSWERED' | 'ESCALATION_BYPASSED' | 'READ_REQUESTED' | 'REMOVAL_REQUESTED' | 'CERTIFICATE_REQUESTED',
   target: { targetType: string; targetId: string },
   metadata: Record<string, unknown>,
   push: PushPayload,

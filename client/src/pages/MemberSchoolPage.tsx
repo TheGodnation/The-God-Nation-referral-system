@@ -11,6 +11,7 @@ import { useMemberAuth } from '../lib/MemberAuthContext';
 import { useStoreApp } from '../lib/storeApp';
 import { RichText } from '../lib/richText';
 import { prepareIntro, splitIntro } from '../lib/curriculumText';
+import { CertificateInfo, MemberCertificateCard } from '../components/certificate/MemberCertificateCard';
 
 // The God Nation Leadership Academy: the introduction to the diploma, then the books level by level, each
 // showing whether it is passed, open or still closed. Someone who has not begun reads everything first and begins at
@@ -23,6 +24,7 @@ export function MemberSchoolPage() {
   const [data, setData] = useState<SchoolSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
+  const [cert, setCert] = useState<CertificateInfo | null>(null);
   const { member } = useMemberAuth();
 
   function load() {
@@ -35,6 +37,15 @@ export function MemberSchoolPage() {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
+
+  // The diploma: an example, the request once every book is passed, and where it stands.
+  function loadCertificate() {
+    cachedGet<CertificateInfo>('/api/member/certificate', `certificate:${member?.personId ?? ''}`)
+      .then((r) => setCert(r.data))
+      .catch(() => {});
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(loadCertificate, []);
 
   const books = data?.books ?? [];
   const total = books.length;
@@ -54,6 +65,10 @@ export function MemberSchoolPage() {
   const introRaw = data?.intro ? tr(data.intro.en, data.intro.fr) : '';
   const introText = introRaw ? prepareIntro(introRaw, { store, books: total, levels: levels.length, price: data?.price ?? 1200 }) : '';
   const { before, after } = splitIntro(introText);
+
+  // The certificate card comes first once it matters (every book passed, or already asked for), otherwise after the books.
+  const certificateCard = cert ? <MemberCertificateCard info={cert} onChanged={loadCertificate} /> : null;
+  const certificateFirst = Boolean(cert && (cert.eligible || cert.request));
 
   const booksSection = (
     <div className="space-y-6" data-testid="academy-levels">
@@ -124,6 +139,8 @@ export function MemberSchoolPage() {
           <div className="space-y-5">
             <TrainingStatusCard summary={data} onChanged={load} />
 
+            {certificateFirst && certificateCard}
+
             {current && (
               <Link to={`/member/school/${current.id}`} className="card flex items-center gap-3 hover:bg-brand-50">
                 <span className="w-12 shrink-0" aria-hidden="true">
@@ -142,6 +159,8 @@ export function MemberSchoolPage() {
             )}
 
             {booksSection}
+
+            {!certificateFirst && certificateCard}
 
             {introText && (
               <details className="card" data-testid="academy-intro-folded">
