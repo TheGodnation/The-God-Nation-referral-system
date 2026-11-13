@@ -17,11 +17,12 @@ import { trainingExamState } from '../lib/trainingExam';
 import { coverFrUrl, coverUrl, sendCover } from '../lib/bookCovers';
 import { notifyReadRequested } from '../lib/notifications';
 import { sendTrainingWelcome } from '../lib/trainingWelcome';
+import { getCurriculumIntro } from '../lib/curriculumIntro';
 
 // ---------------------------------------------------------------------------
 // /api/member — Exam World for members: the summary page (this month's
 // devotional with its weekly exams, and leadership training books), asking
-// to join leadership training, the Leadership School (books, covers,
+// to join leadership training, the Leadership Academy (books, covers,
 // chapter summaries), free-will offerings, and reading books inside the app.
 // ---------------------------------------------------------------------------
 
@@ -111,15 +112,15 @@ router.get('/exam-world', requireMember, asyncHandler(async (req, res) => {
   });
 }));
 
-// ----------------------------- Leadership School ----------------------------
+// ----------------------------- Leadership Academy ----------------------------
 
 /**
  * The member's leadership training: where they are, what they owe, and
  * every book in order (cover, pages, open or why not, payment, exam).
- * Shown on the Leadership School page, and in short on the Learn page.
+ * Shown on the Leadership Academy page, and in short on the Learn page.
  */
 async function trainingSummary(personId: string) {
-  const [settings, enrollment, books, chapterCounts, graceRequest, reading] = await Promise.all([
+  const [settings, enrollment, books, chapterCounts, graceRequest, reading, levels] = await Promise.all([
     prisma.settings.findUnique({
       where: { id: 'singleton' },
       select: { trainingBookPrice: true, trainingPaymentInstructionsEn: true, trainingPaymentInstructionsFr: true },
@@ -129,6 +130,7 @@ async function trainingSummary(personId: string) {
     prisma.bookChapter.groupBy({ by: ['bookId'], _count: { _all: true } }),
     prisma.trainingGraceRequest.findFirst({ where: { personId }, orderBy: { requestedAt: 'desc' }, select: { status: true, books: true } }),
     prisma.readingProgress.findMany({ where: { personId }, select: { bookId: true, page: true } }),
+    prisma.trainingLevel.findMany({ orderBy: [{ position: 'asc' }, { createdAt: 'asc' }], select: { id: true, position: true, titleEn: true, titleFr: true, summaryEn: true, summaryFr: true } }),
   ]);
   const lastPageOf = new Map(reading.map((r) => [r.bookId, r.page]));
   const price = settings?.trainingBookPrice ?? 1200;
@@ -146,6 +148,8 @@ async function trainingSummary(personId: string) {
   );
 
   return {
+    // The curriculum's levels, in order; each book says which level it is in.
+    levels,
     enrollment: enrollment?.status ?? 'NONE',
     // Payment: 1,200 FCFA a book, paid before the next book opens —
     // unless "study now, pay later" grace allows up to 5 owed.
@@ -162,6 +166,7 @@ async function trainingSummary(personId: string) {
     books: books.map((b) => ({
       id: b.id,
       trainingOrder: b.trainingOrder,
+      levelId: b.levelId,
       titleEn: b.titleEn,
       titleFr: b.titleFr,
       descriptionEn: b.descriptionEn,
@@ -192,9 +197,11 @@ async function trainingSummary(personId: string) {
   };
 }
 
-// GET /api/member/school — the Leadership School page.
+// GET /api/member/school — the Leadership Academy page.
 router.get('/school', requireMember, asyncHandler(async (req, res) => {
-  res.json(await trainingSummary(req.member!.personId));
+  // With the curriculum introduction the admin wrote (or the standard one): it is shown at the top of the page.
+  const [summary, intro] = await Promise.all([trainingSummary(req.member!.personId), getCurriculumIntro()]);
+  res.json({ ...summary, intro: { en: intro.en, fr: intro.fr } });
 }));
 
 // GET /api/member/school/books/:id — one book's page: everything above,
@@ -387,7 +394,7 @@ router.post('/training/books/:id/pay-now', socialMutationLimiter, requireCsrf, r
       amount,
       currency: 'XAF',
       phone: parsed.data.phone.replace(/\s/g, ''),
-      description: `The God Nation Leadership School — Book ${found.book.trainingOrder}`,
+      description: `The God Nation Leadership Academy — Book ${found.book.trainingOrder}`,
     });
   } catch (err) {
     console.error('[payments] request failed', { provider: provider.name, error: err instanceof Error ? err.message : String(err) });

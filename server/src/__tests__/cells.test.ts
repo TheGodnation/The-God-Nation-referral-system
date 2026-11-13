@@ -55,7 +55,7 @@ async function adminSignIn() {
   return { agent, csrf, user: (await prisma.user.findUnique({ where: { email: 'cells-admin@test.local' } }))! };
 }
 
-/** Two Leadership School books with published exams. */
+/** Two Leadership Academy books with published exams. */
 async function school() {
   const exams: string[] = [];
   for (const order of [1, 2]) {

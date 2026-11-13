@@ -161,6 +161,6 @@ describe('CellsPanel', () => {
   it('says so when no Leadership School exam is published yet', async () => {
     mockFetch({ '/api/admin/cells/overview': () => ({ status: 200, body: { ...overview, requiredBooks: 0 } }) });
     render(<CellsPanel base="/api/admin/cells" />);
-    expect(await screen.findByText(/No Leadership School exam is published yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/No Leadership Academy exam is published yet/)).toBeInTheDocument();
   });
 });

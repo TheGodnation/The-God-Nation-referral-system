@@ -4,7 +4,7 @@ import { processSchoolProgressPost, weeklyPostText } from '../lib/schoolProgress
 import { followUpCardsFor } from '../lib/followUpCard';
 import { createAdmin } from './helpers';
 
-// The weekly Leadership School progress post congratulates (by name) those who
+// The weekly Leadership Academy progress post congratulates (by name) those who
 // passed a school exam that week, in their assembly's group chat, once a week.
 // Slow members are never named: their leader sees a flag on their card.
 const DAY = 24 * 60 * 60 * 1000;

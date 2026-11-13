@@ -753,6 +753,10 @@ model Settings {
   referralCommission            Int               @default(500)
   commissionHoldDays            Int               @default(3)
   payoutMinimum                 Int               @default(5000)
+  // The introduction at the top of the Leadership Academy page (the curriculum), written by the admin; null = the standard text
+  // in lib/curriculumIntro.ts. See that file for the small markers it understands.
+  curriculumIntroEn             String?
+  curriculumIntroFr             String?
   trainingPaymentInstructionsEn String?
   trainingPaymentInstructionsFr String?
   // Home page and chat background, Admin-set for everyone (never
@@ -2989,12 +2993,17 @@ model LibraryBook {
   // The same for the French cover (drawn from the French PDF); null = readers
   // in French see the English cover.
   coverFrVersion    String?
+  // The book's number in the Leadership Academy: simply its position in the whole list (1, 2, 3...). It is never typed by
+  // hand: the admin moves books around and adds books in between (lib/trainingStructure.ts) and the numbers follow.
   trainingOrder     Int?            @unique
+  // The level the book belongs to (null = not placed in a level yet).
+  trainingLevelId   String?
   devotionalId      String?         @unique
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
   devotional    MonthlyDevotional?  @relation(fields: [devotionalId], references: [id], onDelete: Cascade)
+  trainingLevel TrainingLevel?      @relation(fields: [trainingLevelId], references: [id], onDelete: SetNull)
   exam          Assessment?
   payments      BookPayment[]
   paymentOrders PaymentOrder[]
@@ -3006,6 +3015,24 @@ model LibraryBook {
   deliveries    BookDelivery[]
 
   @@index([kind])
+  @@index([trainingLevelId])
+}
+
+// A level of the Leadership Academy curriculum (Foundations, The Kingdom Keys, The Rights of Kingdom Citizens...). Levels
+// and the books in them are arranged by the admin; the books are numbered by their place across all the levels.
+model TrainingLevel {
+  id        String   @id @default(uuid())
+  // The level's place among the levels (1, 2, 3...), kept in step by lib/trainingStructure.ts.
+  position  Int
+  titleEn   String
+  titleFr   String?
+  // A short line or paragraph under the level's title.
+  summaryEn String?
+  summaryFr String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  books LibraryBook[]
 }
 
 // A book's cover picture (JPEG/PNG/WebP, small). Kept in its own table so

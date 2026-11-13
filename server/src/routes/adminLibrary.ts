@@ -19,12 +19,14 @@ import { closeOrdersForBook, decideBookPayment } from '../lib/bookPayments';
 import { centralAdminPerson, sendContinueEmail, sendTrainingWelcome, sendWebsiteInvites, websiteInvitesWaiting } from '../lib/trainingWelcome';
 import { sendPrivateNotice } from '../lib/privateNotice';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
+import { DEFAULT_INTRO_EN, DEFAULT_INTRO_FR, getCurriculumIntro } from '../lib/curriculumIntro';
+import { insertBook, loadStructure, moveBook, moveBookToLevel, moveLevel, removeBook, saveStructure } from '../lib/trainingStructure';
 
 // ---------------------------------------------------------------------------
 // /api/admin/library — central admin side of Exam World:
 //  - books: leadership-training eBooks (1, 2, 3...) and the monthly
 //    devotional's book; upload each PDF (read in the app only), its cover,
-//    and its chapters with a short summary each (Leadership School)
+//    and its chapters with a short summary each (Leadership Academy)
 //  - weekly exams for a devotional (Week 1, 2, 3...)
 //  - trainees: requests, and marking someone as paid (opens Book 1)
 //  - free-will offerings: the giving instructions and who gave
@@ -109,7 +111,9 @@ const createBookSchema = z.discriminatedUnion('kind', [
     titleFr: z.string().trim().max(200).optional(),
     descriptionEn: z.string().trim().max(8000).optional(),
     descriptionFr: z.string().trim().max(8000).optional(),
-    trainingOrder: z.number().int().min(1).max(100),
+    // The number the new book should take: the book now there, and all after it, move down one. Left out = last in the level.
+    trainingOrder: z.number().int().min(1).max(200).optional(),
+    levelId: z.string().min(1).optional(),
   }),
   z.object({
     kind: z.literal('DEVOTIONAL'),
@@ -123,6 +127,8 @@ const createBookSchema = z.discriminatedUnion('kind', [
 
 // POST /api/admin/library/books — a training book also gets its exam
 // created (draft, 70% pass mark); add the questions on the Assessments tab.
+// A training book is placed in the list wherever the admin says (a number, or the end of a level); the books after it
+// move down one and every number and exam title follows (lib/trainingStructure.ts).
 router.post('/books', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const parsed = createBookSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid book.' });
@@ -133,6 +139,7 @@ router.post('/books', communityMutationLimiter, requireCsrf, asyncHandler(async 
         const devotional = await tx.monthlyDevotional.findUnique({ where: { id: d.devotionalId } });
         if (!devotional) throw new Error('DEVOTIONAL_NOT_FOUND');
       }
+      if (d.kind === 'TRAINING' && d.levelId && !(await tx.trainingLevel.findUnique({ where: { id: d.levelId }, select: { id: true } }))) throw new Error('LEVEL_NOT_FOUND');
       const created = await tx.libraryBook.create({
         data: {
           kind: d.kind,
@@ -140,35 +147,176 @@ router.post('/books', communityMutationLimiter, requireCsrf, asyncHandler(async 
           titleFr: d.titleFr || null,
           descriptionEn: d.descriptionEn || null,
           descriptionFr: d.descriptionFr || null,
-          trainingOrder: d.kind === 'TRAINING' ? d.trainingOrder : null,
           devotionalId: d.kind === 'DEVOTIONAL' ? d.devotionalId : null,
         },
       });
       if (d.kind === 'TRAINING') {
+        const { groups } = await loadStructure(tx);
+        const placed = insertBook(removeBook(groups, created.id), { id: created.id, titleEn: created.titleEn, titleFr: created.titleFr, trainingOrder: null }, { number: d.trainingOrder, levelId: d.levelId });
+        await saveStructure(tx, placed);
+        const number = (await tx.libraryBook.findUniqueOrThrow({ where: { id: created.id }, select: { trainingOrder: true } })).trainingOrder!;
         await tx.assessment.create({
           data: {
-            titleEn: `Book ${d.trainingOrder} exam: ${d.titleEn}`,
-            titleFr: d.titleFr ? `Examen du livre ${d.trainingOrder} : ${d.titleFr}` : null,
+            titleEn: `Book ${number} exam: ${d.titleEn}`,
+            titleFr: d.titleFr ? `Examen du livre ${number} : ${d.titleFr}` : null,
             passMark: TRAINING_PASS_MARK,
             maxAttempts: null,
             trainingBookId: created.id,
           },
         });
+        return { ...created, trainingOrder: number };
       }
       return created;
     });
     await audit(req, 'LIBRARY_BOOK_CREATED', 'LibraryBook', book.id, { kind: book.kind, trainingOrder: book.trainingOrder });
-    res.status(201).json({ id: book.id });
+    res.status(201).json({ id: book.id, trainingOrder: book.trainingOrder });
   } catch (err) {
     if (err instanceof Error && err.message === 'DEVOTIONAL_NOT_FOUND') return res.status(400).json({ error: 'Devotional not found.' });
+    if (err instanceof Error && err.message === 'LEVEL_NOT_FOUND') return res.status(400).json({ error: 'Level not found.' });
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return res.status(409).json({
-        error: d.kind === 'TRAINING' ? `There is already a Book ${d.trainingOrder}.` : 'This devotional already has a book.',
-        code: 'DUPLICATE',
-      });
+      return res.status(409).json({ error: 'This devotional already has a book.', code: 'DUPLICATE' });
     }
     throw err;
   }
+}));
+
+// ----------------------- The curriculum: levels and the order of the books -----------------------
+
+async function structureJson() {
+  const { levels, groups } = await loadStructure(prisma);
+  const books = await prisma.libraryBook.findMany({
+    where: { kind: 'TRAINING' },
+    select: { id: true, storageKey: true, exam: { select: { id: true, status: true } } },
+  });
+  const info = new Map(books.map((b) => [b.id, { hasFile: Boolean(b.storageKey), examStatus: b.exam?.status ?? null }]));
+  const shape = (b: { id: string; titleEn: string; titleFr: string | null; trainingOrder: number | null }) => ({ ...b, hasFile: info.get(b.id)?.hasFile ?? false, examStatus: info.get(b.id)?.examStatus ?? null });
+  return {
+    levels: levels.map((l) => ({ ...l, books: (groups.find((g) => g.levelId === l.id)?.books ?? []).map(shape) })),
+    unplaced: (groups.find((g) => g.levelId === null)?.books ?? []).map(shape),
+  };
+}
+
+router.get('/training/structure', asyncHandler(async (_req, res) => {
+  res.json(await structureJson());
+}));
+
+// The introduction text at the top of the Leadership Academy page: the admin's own, or the standard one.
+router.get('/training/intro', asyncHandler(async (_req, res) => {
+  const intro = await getCurriculumIntro();
+  res.json({ ...intro, defaultEn: DEFAULT_INTRO_EN, defaultFr: DEFAULT_INTRO_FR });
+}));
+
+const introSchema = z.object({ en: z.string().max(40000).optional(), fr: z.string().max(40000).optional() });
+
+// Empty text puts the standard introduction back.
+router.put('/training/intro', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = introSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'The introduction is too long.' });
+  const data = {
+    ...(parsed.data.en !== undefined ? { curriculumIntroEn: parsed.data.en.trim() || null } : {}),
+    ...(parsed.data.fr !== undefined ? { curriculumIntroFr: parsed.data.fr.trim() || null } : {}),
+  };
+  await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', ...data }, update: data });
+  await audit(req, 'CURRICULUM_INTRO_UPDATED', 'Settings', 'singleton');
+  res.json(await getCurriculumIntro());
+}));
+
+const levelSchema = z.object({
+  titleEn: z.string().trim().min(1).max(200),
+  titleFr: z.string().trim().max(200).optional(),
+  summaryEn: z.string().trim().max(2000).optional(),
+  summaryFr: z.string().trim().max(2000).optional(),
+});
+
+router.post('/training/levels', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = levelSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'A level needs a title.' });
+  const d = parsed.data;
+  const count = await prisma.trainingLevel.count();
+  const level = await prisma.trainingLevel.create({
+    data: { position: count + 1, titleEn: d.titleEn, titleFr: d.titleFr || null, summaryEn: d.summaryEn || null, summaryFr: d.summaryFr || null },
+  });
+  await audit(req, 'TRAINING_LEVEL_CREATED', 'TrainingLevel', level.id, { titleEn: level.titleEn });
+  res.status(201).json({ id: level.id });
+}));
+
+router.patch('/training/levels/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = levelSchema.partial().safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid level.' });
+  const d = parsed.data;
+  const exists = await prisma.trainingLevel.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!exists) return res.status(404).json({ error: 'Level not found.' });
+  await prisma.trainingLevel.update({
+    where: { id: req.params.id },
+    data: {
+      ...(d.titleEn !== undefined ? { titleEn: d.titleEn } : {}),
+      ...(d.titleFr !== undefined ? { titleFr: d.titleFr || null } : {}),
+      ...(d.summaryEn !== undefined ? { summaryEn: d.summaryEn || null } : {}),
+      ...(d.summaryFr !== undefined ? { summaryFr: d.summaryFr || null } : {}),
+    },
+  });
+  await audit(req, 'TRAINING_LEVEL_UPDATED', 'TrainingLevel', req.params.id);
+  res.json({ ok: true });
+}));
+
+// A level can only be removed when it holds no books (move them first).
+router.delete('/training/levels/:id', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const level = await prisma.trainingLevel.findUnique({ where: { id: req.params.id }, select: { id: true, _count: { select: { books: true } } } });
+  if (!level) return res.status(404).json({ error: 'Level not found.' });
+  if (level._count.books > 0) return res.status(409).json({ error: 'This level still has books. Move them to another level first.', code: 'LEVEL_NOT_EMPTY' });
+  await prisma.$transaction(async (tx) => {
+    await tx.trainingLevel.delete({ where: { id: level.id } });
+    const { groups } = await loadStructure(tx);
+    await saveStructure(tx, groups);
+  });
+  await audit(req, 'TRAINING_LEVEL_DELETED', 'TrainingLevel', level.id);
+  res.json({ ok: true });
+}));
+
+const directionSchema = z.object({ direction: z.enum(['up', 'down']) });
+
+router.post('/training/levels/:id/move', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = directionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid move.' });
+  const moved = await prisma.$transaction(async (tx) => {
+    const { groups } = await loadStructure(tx);
+    if (!groups.some((g) => g.levelId === req.params.id)) return false;
+    await saveStructure(tx, moveLevel(groups, req.params.id, parsed.data.direction));
+    return true;
+  });
+  if (!moved) return res.status(404).json({ error: 'Level not found.' });
+  await audit(req, 'TRAINING_LEVEL_MOVED', 'TrainingLevel', req.params.id, { direction: parsed.data.direction });
+  res.json(await structureJson());
+}));
+
+router.post('/training/books/:id/move', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = directionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid move.' });
+  const moved = await prisma.$transaction(async (tx) => {
+    const { groups } = await loadStructure(tx);
+    if (!groups.some((g) => g.books.some((b) => b.id === req.params.id))) return false;
+    await saveStructure(tx, moveBook(groups, req.params.id, parsed.data.direction));
+    return true;
+  });
+  if (!moved) return res.status(404).json({ error: 'Book not found.' });
+  await audit(req, 'TRAINING_BOOK_MOVED', 'LibraryBook', req.params.id, { direction: parsed.data.direction });
+  res.json(await structureJson());
+}));
+
+const toLevelSchema = z.object({ levelId: z.string().min(1), position: z.number().int().min(1).max(200).optional() });
+
+router.post('/training/books/:id/level', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = toLevelSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid move.' });
+  const moved = await prisma.$transaction(async (tx) => {
+    const { groups } = await loadStructure(tx);
+    if (!groups.some((g) => g.books.some((b) => b.id === req.params.id)) || !groups.some((g) => g.levelId === parsed.data.levelId)) return false;
+    await saveStructure(tx, moveBookToLevel(groups, req.params.id, parsed.data.levelId, parsed.data.position));
+    return true;
+  });
+  if (!moved) return res.status(404).json({ error: 'Book or level not found.' });
+  await audit(req, 'TRAINING_BOOK_MOVED', 'LibraryBook', req.params.id, { levelId: parsed.data.levelId, position: parsed.data.position ?? null });
+  res.json(await structureJson());
 }));
 
 // A book's page text can be long (the pitch, "what this book will do for you"...).

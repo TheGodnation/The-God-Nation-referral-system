@@ -72,14 +72,14 @@ describe('My Leadership Dashboard page', () => {
     renderPage();
     expect(await screen.findByText('You are not yet a leader')).toBeInTheDocument();
     expect(screen.queryByText('Leader tools here')).toBeNull();
-    expect(await screen.findByText('1 of 15 books passed')).toBeInTheDocument();
+    expect(await screen.findByText('1 of 2 books passed')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Continue my studies' })).toHaveAttribute('href', '/member/school');
   });
 
   it('invites someone who has not begun to start the school', async () => {
     mockSchool({ enrollment: 'NONE', books: [] });
     renderPage();
-    expect(await screen.findByRole('link', { name: 'Start the Leadership School' })).toHaveAttribute('href', '/member/school');
+    expect(await screen.findByRole('link', { name: 'Start the Leadership Academy' })).toHaveAttribute('href', '/member/school');
   });
 
   it('opens the real dashboard for a leader', async () => {

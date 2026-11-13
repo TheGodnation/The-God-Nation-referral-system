@@ -6,7 +6,7 @@ import { useMemberAuth } from '../../lib/MemberAuthContext';
 // The way into "My Leadership Dashboard", on the Chats page beside Events.
 // Everyone sees it: leaders open their tools; everyone else is shown what it
 // takes to become a leader (see LeadershipLockedPage), which draws them to
-// the Leadership School. The central admin's tools live on their own profile.
+// the Leadership Academy. The central admin's tools live on their own profile.
 export function LeadershipCard() {
   const { t } = useTranslation();
   const { user } = useAuth();

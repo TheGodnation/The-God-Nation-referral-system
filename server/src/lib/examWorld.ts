@@ -43,6 +43,8 @@ export async function isActiveTrainee(personId: string): Promise<boolean> {
 export interface TrainingBookState {
   id: string;
   trainingOrder: number;
+  /** The level this book belongs to (null = not placed in a level). */
+  levelId: string | null;
   titleEn: string;
   titleFr: string | null;
   descriptionEn: string | null;
@@ -118,6 +120,7 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
     return {
       id: b.id,
       trainingOrder: b.trainingOrder!,
+      levelId: b.trainingLevelId,
       titleEn: b.titleEn,
       titleFr: b.titleFr,
       descriptionEn: b.descriptionEn,

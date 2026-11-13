@@ -195,7 +195,7 @@ describe('Leaders of groups', () => {
     expect((await admin.agent.get(`${CG}/candidates?communityId=${youth.id}`)).body.items.map((p: any) => p.id)).not.toContain(member.person.id);
     const after = await admin.agent.get(`${CG}/groups`);
     expect(after.body.items.find((g: any) => g.id === youth.id).leaders.map((l: any) => l.id)).toContain(member.person.id);
-    // Not an assembly: those are led through the Leadership School.
+    // Not an assembly: those are led through the Leadership Academy.
     expect((await send(admin, 'post', `${CG}/leader`, { communityId: (await prisma.community.findFirstOrThrow({ where: { name: { startsWith: 'GaA ' } } })).id, personId: member.person.id })).status).toBe(404);
   });
 

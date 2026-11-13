@@ -244,7 +244,7 @@ export async function notifyReadApproved(personId: string) {
     metadata: {},
     targetType: 'Person',
     targetId: personId,
-    push: { title: 'You can start reading', body: 'Your request was approved. Open the Leadership School to begin.', url: '/member/school' },
+    push: { title: 'You can start reading', body: 'Your request was approved. Open the Leadership Academy to begin.', url: '/member/school' },
   });
 }
 

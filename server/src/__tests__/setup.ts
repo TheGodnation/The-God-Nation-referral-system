@@ -45,7 +45,7 @@ beforeEach(async () => {
       "ParticipationEvent", "Answer", "Attempt", "Option", "Question", "Assessment", "MonthlyDevotional",
       "MemberSession", "MemberLoginToken", "MemberAccount",
       "FollowUpContact", "FollowUpAssignment", "RoleAssignment", "GeographicArea",
-      "TranslationRetry", "Gift", "GiftCampaign", "TokenEntry", "Lead", "ContactConsent", "MemberReminder", "ContactBlock", "AdEventLog", "KnowledgeMedia", "KnowledgeArticleLink", "KnowledgeArticleTranslation", "KnowledgeArticle", "KnowledgeAuthor"
+      "TranslationRetry", "Gift", "GiftCampaign", "TokenEntry", "Lead", "ContactConsent", "MemberReminder", "ContactBlock", "TrainingLevel", "AdEventLog", "KnowledgeMedia", "KnowledgeArticleLink", "KnowledgeArticleTranslation", "KnowledgeArticle", "KnowledgeAuthor"
     RESTART IDENTITY CASCADE;
   `);
 });

@@ -11,7 +11,7 @@ import { LibraryTab } from '../components/admin/LibraryTab';
 import { BOOK1_PAGE } from './fixtures/book1Page';
 
 // Central admin: a leadership book's cover, description and chapters
-// (what members see on the book's page in the Leadership School).
+// (what members see on the book's page in the Leadership Academy).
 const calls: { url: string; method: string; body: any }[] = [];
 
 function mockFetch(routes: Record<string, (body: any) => { status?: number; body: unknown }>) {
@@ -295,7 +295,7 @@ describe('Trainees: message, WhatsApp, and emailing the website link (admin)', (
     expect(en).toContain(`${window.location.origin}/member/school`);
     expect(en).not.toContain('lang=fr');
     const fr = decodeURIComponent((screen.getByTestId('trainee-whatsapp-p2') as HTMLAnchorElement).href);
-    expect(fr).toContain('Votre demande à l’École de leadership est approuvée');
+    expect(fr).toContain('Votre demande à l’Académie de leadership est approuvée');
     expect(fr).toContain('/member/school?lang=fr');
   });
 

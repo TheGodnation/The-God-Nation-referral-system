@@ -32,7 +32,7 @@ type BookPage = SchoolSummary & {
   chapters: Chapter[];
 };
 
-// One Leadership School book: its cover, what it teaches chapter by
+// One Leadership Academy book: its cover, what it teaches chapter by
 // chapter (shown before it opens too), and — once open — Read, the exam
 // (one try) and paying for it.
 export function MemberSchoolBookPage() {
@@ -165,12 +165,16 @@ export function MemberSchoolBookPage() {
               b.lockedBecause === 'NOT_STARTED' && <TrainingStatusCard summary={data} onChanged={load} />
             )}
 
-            <BookPageBody
-              description={description}
-              chaptersHeading={tr(b.chaptersHeadingEn ?? '', b.chaptersHeadingFr)}
-              chapters={data.chapters.map((c) => ({ id: c.id, label: tr(c.labelEn ?? '', c.labelFr) || null, title: tr(c.titleEn, c.titleFr), summary: tr(c.summaryEn ?? '', c.summaryFr) }))}
-              closing={tr(b.closingEn ?? '', b.closingFr)}
-            />
+            {/* What the founder wrote for this book (if anything): the Academy page carries the general introduction. */}
+            {(description || data.chapters.length > 0 || tr(b.closingEn ?? '', b.closingFr)) && (
+              <BookPageBody
+                hideEmpty
+                description={description}
+                chaptersHeading={tr(b.chaptersHeadingEn ?? '', b.chaptersHeadingFr)}
+                chapters={data.chapters.map((c) => ({ id: c.id, label: tr(c.labelEn ?? '', c.labelFr) || null, title: tr(c.titleEn, c.titleFr), summary: tr(c.summaryEn ?? '', c.summaryFr) }))}
+                closing={tr(b.closingEn ?? '', b.closingFr)}
+              />
+            )}
           </div>
         )}
         <MemberNav />

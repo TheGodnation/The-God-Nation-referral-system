@@ -10,13 +10,13 @@ import { addPeopleToCommunity } from './bulkMembers';
 // Cells — the central admin's view of the assemblies and who is ready to lead.
 //
 // "Ready to lead" = an active member of the assembly who has passed the exam
-// of EVERY Leadership School book (the books that have a published exam) and
+// of EVERY Leadership Academy book (the books that have a published exam) and
 // is not already a leader of that assembly. There is no limit on how many
 // leaders an assembly can have: the central admin appoints as many as he
 // wants, himself, from this list.
 // ---------------------------------------------------------------------------
 
-/** The exams a person must pass to have finished the Leadership School. */
+/** The exams a person must pass to have finished the Leadership Academy. */
 export async function requiredLeadershipExamIds(): Promise<string[]> {
   const books = await prisma.libraryBook.findMany({
     where: { kind: 'TRAINING', trainingOrder: { not: null }, exam: { is: { status: { in: ['PUBLISHED', 'LOCKED'] } } } },
@@ -51,7 +51,7 @@ export async function graduatesAmong(personIds: string[]): Promise<Map<string, D
   return result;
 }
 
-/** How many of the required Leadership School exams each given person has passed. */
+/** How many of the required Leadership Academy exams each given person has passed. */
 export async function schoolProgressAmong(personIds: string[]): Promise<{ required: number; passed: Map<string, number> }> {
   const examIds = await requiredLeadershipExamIds();
   const passed = new Map<string, number>();

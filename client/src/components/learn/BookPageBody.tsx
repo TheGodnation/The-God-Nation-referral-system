@@ -18,17 +18,21 @@ export function BookPageBody({
   chaptersHeading,
   chapters,
   closing,
+  hideEmpty = false,
 }: {
   description?: string;
   chaptersHeading?: string;
   chapters: BookPageChapter[];
   closing?: string;
+  /** Members' view: no "will be added soon" placeholders; a book with nothing written shows nothing here. */
+  hideEmpty?: boolean;
 }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-6" data-testid="book-page-body">
       {description && <RichText text={description} headings comfort className="text-[15px] leading-relaxed text-slate-700 [&_em]:text-slate-500" data-testid="book-description" />}
 
+      {!(hideEmpty && chapters.length === 0) && (
       <section>
         {/* The heading may carry one sentence under it, on a second line ("Inside the Book" / "Here is what you will find..."). */}
         <h2 className="text-lg font-semibold text-brand-900">{(chaptersHeading || t('school.chapters_heading')).split('\n')[0]}</h2>
@@ -60,6 +64,7 @@ export function BookPageBody({
           </ol>
         )}
       </section>
+      )}
 
       {closing && <RichText text={closing} headings comfort className="text-[15px] leading-relaxed text-slate-700" data-testid="book-closing" />}
     </div>

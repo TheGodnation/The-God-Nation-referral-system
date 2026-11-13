@@ -127,7 +127,7 @@ export interface SiteBook {
   subtitle: Record<Lang, string>;
   tagline: Record<Lang, string>;
   cover: Record<Lang, BookCover>;
-  /** Only the first book is opened to registered members in the Leadership School so far; no availability is claimed for the others. */
+  /** Only the first book is opened to registered members in the Leadership Academy so far; no availability is claimed for the others. */
   inSchool: boolean;
 }
 export const BOOKS: SiteBook[] = [
@@ -280,7 +280,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     ecoRead: 'Read',
     ecoReadText: 'Original Kingdom teaching, published in English and French in the Knowledge Centre.',
     ecoLearn: 'Learn',
-    ecoLearnText: 'Training in the Leadership School: books, teachings and examinations for registered members.',
+    ecoLearnText: 'Training in the Leadership Academy: books, teachings and examinations for registered members.',
     ecoBelong: 'Belong',
     ecoBelongText: 'A community that supports, teaches and develops its members, on the phone you already use.',
     joinTitle: 'Become part of the community',
@@ -300,7 +300,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     aboutHow: 'How the pieces fit together',
     aboutHowText1: 'The public website introduces The God Nation and makes approved Kingdom knowledge available to everyone, without signing in.',
     aboutHowText2: 'The Knowledge Centre is where original teaching is organised, published and translated.',
-    aboutHowText3: 'The community platform, on your phone, equips and develops registered members through the Leadership School, teachings, books, examinations and fellowship.',
+    aboutHowText3: 'The community platform, on your phone, equips and develops registered members through the Leadership Academy, teachings, books, examinations and fellowship.',
     contactTitle: 'Contact',
     contactIntro: 'We would be glad to hear from you.',
     contactForm: 'Send us a message',
@@ -320,7 +320,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     founderCta: 'Our purpose and vision',
     bookKicker: 'The Kingdom Series',
     bookShelfTitle: 'Books by Evangelist Stanley A. Ndoh',
-    bookText: 'Registered members study Book One in the Leadership School, with reading offline on the phone and an examination.',
+    bookText: 'Registered members study Book One in the Leadership Academy, with reading offline on the phone and an examination.',
     bookBy: 'By',
     bookCta: 'Join to read it',
     bookAbout: 'About our books',
@@ -374,7 +374,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     ecoRead: 'Lire',
     ecoReadText: 'Un enseignement original sur le Royaume, publié en français et en anglais dans le Centre de connaissance.',
     ecoLearn: 'Apprendre',
-    ecoLearnText: 'La formation de l’École de leadership : livres, enseignements et examens pour les membres inscrits.',
+    ecoLearnText: 'La formation de l’Académie de leadership : livres, enseignements et examens pour les membres inscrits.',
     ecoBelong: 'Appartenir',
     ecoBelongText: 'Une communauté qui soutient, enseigne et fait grandir ses membres, sur le téléphone que vous utilisez déjà.',
     joinTitle: 'Rejoignez la communauté',
@@ -394,7 +394,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     aboutHow: 'Comment tout s’articule',
     aboutHowText1: 'Le site public présente The God Nation et met la connaissance approuvée du Royaume à la disposition de tous, sans avoir à se connecter.',
     aboutHowText2: 'Le Centre de connaissance est le lieu où l’enseignement original est organisé, publié et traduit.',
-    aboutHowText3: 'La plateforme communautaire, sur votre téléphone, équipe et fait grandir les membres inscrits par l’École de leadership, les enseignements, les livres, les examens et la communion fraternelle.',
+    aboutHowText3: 'La plateforme communautaire, sur votre téléphone, équipe et fait grandir les membres inscrits par l’Académie de leadership, les enseignements, les livres, les examens et la communion fraternelle.',
     contactTitle: 'Contact',
     contactIntro: 'Nous serons heureux de vous lire.',
     contactForm: 'Envoyez-nous un message',
@@ -414,7 +414,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     founderCta: 'Notre raison d’être et notre vision',
     bookKicker: 'La Série du Royaume',
     bookShelfTitle: 'Livres de l’évangéliste Stanley A. Ndoh',
-    bookText: 'Les membres inscrits étudient le Livre un dans l’École de leadership, avec lecture hors connexion sur le téléphone et examen.',
+    bookText: 'Les membres inscrits étudient le Livre un dans l’Académie de leadership, avec lecture hors connexion sur le téléphone et examen.',
     bookBy: 'Par',
     bookCta: 'Rejoindre pour le lire',
     bookAbout: 'À propos de nos livres',

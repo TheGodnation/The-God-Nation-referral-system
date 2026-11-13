@@ -5,7 +5,7 @@ import { MemberSchoolPage } from '../pages/MemberSchoolPage';
 import { MemberSchoolBookPage } from '../pages/MemberSchoolBookPage';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 
-// The God Nation Leadership School: the 15 books as covers with their
+// The God Nation Media & Leadership Academy: the books, level by level, as covers with their
 // status, and each book's page with what it teaches chapter by chapter.
 const calls: { url: string; method: string; body: any }[] = [];
 
@@ -51,7 +51,12 @@ const SUMMARY = {
   paymentInstructionsEn: 'Pay to MTN 6 70 00 00 00.',
   paymentInstructionsFr: null,
   automaticPayments: false,
-  books: BOOKS,
+  books: BOOKS.map((b) => ({ ...b, levelId: b.trainingOrder <= 2 ? 'l1' : 'l2' })),
+  levels: [
+    { id: 'l1', position: 1, titleEn: 'Level 1: Foundations', titleFr: 'Niveau 1 : Fondements', summaryEn: 'Where it starts.', summaryFr: null },
+    { id: 'l2', position: 2, titleEn: 'Level 2: Kingdom Keys', titleFr: null, summaryEn: null, summaryFr: null },
+  ],
+  intro: { en: '# About this diploma\n\nA journey of {{books}} books in {{levels}} levels.\n@web Each book costs {{price}} FCFA.\n\n[[books]]\n\n# Graduation\n\nPass every exam.', fr: '# À propos\n\nUn parcours de {{books}} livres.\n\n[[books]]' },
 };
 
 function renderAt(path: string) {
@@ -67,27 +72,65 @@ function renderAt(path: string) {
   );
 }
 
-describe('Leadership School page', () => {
-  it('shows all 15 books as covers with their status, and where to continue', async () => {
+describe('Leadership Academy page', () => {
+  it('shows the books level by level as covers with their status, progress and where to continue', async () => {
     mockFetch({ 'GET /api/member/auth/me': () => ({ body: ME }), 'GET /api/member/school': () => ({ body: SUMMARY }) });
     renderAt('/member/school');
-    expect(await screen.findByRole('heading', { name: "The God Nation Leadership School" })).toBeInTheDocument();
-    expect(screen.getByText('1 of 15 books passed')).toBeInTheDocument();
-    expect(screen.getByText(/Take its exam: one try, 70% to pass/)).toBeInTheDocument();
-    expect(screen.getByText(/Pay 1\s100 FCFA for the book/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'The God Nation Media & Leadership Academy' })).toBeInTheDocument();
+    expect(screen.getByText('1 of 3 books passed')).toBeInTheDocument();
 
-    const books = within(screen.getByRole('heading', { name: 'The books' }).parentElement!).getAllByRole('listitem');
-    expect(books).toHaveLength(15);
+    // Two level headings, each with its own books; no empty "coming soon" slots.
+    expect(screen.getByRole('heading', { name: 'Level 1: Foundations' })).toBeInTheDocument();
+    expect(screen.getByText('Where it starts.')).toBeInTheDocument();
+    const levels = screen.getAllByTestId('academy-level');
+    expect(levels).toHaveLength(2);
+    expect(within(levels[0]).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(levels[1]).getAllByRole('listitem')).toHaveLength(1);
+    expect(screen.queryByText('Coming soon')).toBeNull();
+
     expect(screen.getByRole('img', { name: 'Cover of Book 1: Called to serve' })).toHaveAttribute('src', '/api/member/library/books/b1/cover?v=abc');
     // No cover picture yet: a drawn cover with the title.
     expect(screen.getByRole('img', { name: 'Cover of Book 2: Faithful in little' }).tagName).toBe('DIV');
     expect(screen.getByRole('link', { name: 'Book 1: Called to serve — ✓ Passed' })).toHaveAttribute('href', '/member/school/b1');
     expect(screen.getByRole('link', { name: 'Book 2: Faithful in little — Open' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Book 3: Leading with vision — 🔒 Locked' })).toBeInTheDocument();
-    expect(screen.getAllByText('Coming soon').length).toBeGreaterThanOrEqual(12);
 
     // Book 1 is passed and paid, so Book 2 is where to carry on.
     expect(screen.getByRole('link', { name: /Continue Book 2: Faithful in little/ })).toHaveAttribute('href', '/member/school/b2');
+    // Someone already studying finds the introduction folded away, with the numbers filled in.
+    const folded = screen.getByTestId('academy-intro-folded');
+    expect(folded.tagName).toBe('DETAILS');
+    expect(within(folded).getByText(/A journey of 3 books in 2 levels\./)).toBeInTheDocument();
+    expect(within(folded).getByText(/Each book costs 1\s100 FCFA\./)).toBeInTheDocument();
+  });
+
+  it('shows someone who has not begun the whole introduction, the books, then the way to begin', async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: ME }),
+      'GET /api/member/school': () => ({ body: { ...SUMMARY, enrollment: 'NONE', books: SUMMARY.books.map((b) => ({ ...b, unlocked: false, lockedBecause: 'NOT_STARTED' })) } }),
+    });
+    renderAt('/member/school');
+    const before = await screen.findByTestId('academy-intro-before');
+    expect(within(before).getByText('About this diploma')).toBeInTheDocument();
+    const after = screen.getByTestId('academy-intro-after');
+    const levels = screen.getByTestId('academy-levels');
+    const begin = screen.getByRole('button', { name: 'Begin my training' });
+    // Order on the page: introduction, books, the rest of the introduction, then the Begin button.
+    expect(before.compareDocumentPosition(levels) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(levels.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(after.compareDocumentPosition(begin) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows no prices in the Play Store version', async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: ME }),
+      'GET /api/member/school': () => ({ body: { ...SUMMARY, enrollment: 'NONE', books: SUMMARY.books.map((b) => ({ ...b, unlocked: false, lockedBecause: 'NOT_STARTED' })) } }),
+    });
+    sessionStorage.setItem('godnation:store-app', '1');
+    renderAt('/member/school');
+    const before = await screen.findByTestId('academy-intro-before');
+    expect(before.textContent).not.toMatch(/FCFA/);
+    sessionStorage.removeItem('godnation:store-app');
   });
 
   it('lets someone who has not started begin, explaining the price first', async () => {
@@ -104,7 +147,7 @@ describe('Leadership School page', () => {
     expect(await screen.findByText(/Each book costs 1\s100 FCFA, paid before the next book opens/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Begin my training' }));
     await waitFor(() => expect(calls.some((c) => c.url === '/api/member/training/request')).toBe(true));
-    expect(await screen.findByText(/of 15 books passed/)).toBeInTheDocument();
+    expect(await screen.findByText(/of 3 books passed/)).toBeInTheDocument();
   });
 });
 
@@ -260,12 +303,13 @@ describe("A book's page", () => {
     expect(screen.getByText(/Downloaded in your phone the first time you open it/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Take the exam (one try)' })).toHaveAttribute('href', '/member/assessments/e2');
     expect(screen.getByRole('button', { name: /Pay 1\s100 FCFA/ })).toBeInTheDocument();
-    expect(screen.getByText('The chapter summaries will be added soon.')).toBeInTheDocument();
+    // No placeholder lines for a book that has no page written: the Academy page carries the introduction.
+    expect(screen.queryByText('The chapter summaries will be added soon.')).toBeNull();
   });
 
-  it('says when the book is not in the school', async () => {
+  it('says when the book is not in the Academy', async () => {
     mockFetch({ 'GET /api/member/auth/me': () => ({ body: ME }), 'GET /api/member/school/books/zz': () => ({ status: 404, body: { error: 'Book not found.' } }) });
     renderAt('/member/school/zz');
-    expect(await screen.findByText('This book is not in the school.')).toBeInTheDocument();
+    expect(await screen.findByText('This book is not in the Academy.')).toBeInTheDocument();
   });
 });

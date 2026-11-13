@@ -10,7 +10,7 @@ import { parseBookPage, type ParsedBookPage } from '../../lib/bookPageParser';
 
 // Central admin, per leadership book: its cover, title and description,
 // and its chapters with a short summary each — what members see on the
-// book's page in the Leadership School.
+// book's page in the Leadership Academy.
 
 export interface AdminBook {
   id: string;
