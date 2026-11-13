@@ -26,7 +26,7 @@ export interface OnboardingStatus {
 // Places left out of the welcome step (YouTube is a channel to watch, not a place to join).
 const HIDDEN_PLACES = ['youtube'];
 
-type StepKey = 'notifications' | 'install' | 'community' | 'agreement';
+type StepKey = 'notifications' | 'install' | 'community';
 
 /** What the member has done so far. Anything that can't be read counts as "not yet", never as an error. */
 function useOnboarding() {
@@ -60,10 +60,9 @@ function useOnboarding() {
     // People who were already here (most came from WhatsApp) are not asked to join the community again. For everyone
     // else the step is done only when they say they have joined: tapping a link proves nothing about joining.
     community: confirmedLocal || !!status?.communityConfirmed || !!status?.existingMember,
-    // Nothing waiting (they agreed, or they were here before the rules started) counts as done.
-    agreement: !!status && !status.agreementCommunityId,
+    // The assembly's rules are agreed in the assembly itself (when the member opens it); they are not a step here.
   };
-  const total = 4;
+  const total = 3;
   const count = Object.values(done).filter(Boolean).length;
   // The server already knows the app is installed (seen on any of this member's phones): this phone stops asking too.
   useEffect(() => {
@@ -82,7 +81,7 @@ function useOnboarding() {
   return { status, done, count, total, install, markTapped: () => setTapped(true), tappedAny, confirmJoined, confirmInstalled, reload };
 }
 
-const STEP_ORDER: StepKey[] = ['notifications', 'install', 'community', 'agreement'];
+const STEP_ORDER: StepKey[] = ['notifications', 'install', 'community'];
 
 /**
  * The community places to join, and, once one was tapped, an honest question: we cannot see whether they really joined
@@ -230,25 +229,6 @@ export function OnboardingPage() {
             )}
           </div>
         </li>
-
-        <li className="flex gap-3" data-testid="step-agreement">
-          <Tick on={done.agreement} />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-slate-900">{t('onboarding.step_agreement')}</p>
-            {done.agreement ? (
-              <p className="text-xs text-emerald-700">{t('onboarding.done')}</p>
-            ) : (
-              <>
-                <p className="text-xs text-slate-600">{t('onboarding.agreement_body')}</p>
-                {status?.agreementCommunityId && (
-                  <Link to={`/member/chats/group/${status.agreementCommunityId}`} className="btn-primary mt-1.5 inline-block px-3 py-1.5 text-sm no-underline" data-testid="open-assembly">
-                    {t('onboarding.agreement_button')}
-                  </Link>
-                )}
-              </>
-            )}
-          </div>
-        </li>
       </ol>
 
       <div className="mt-8 text-center">
@@ -271,7 +251,7 @@ export function GetStartedCard() {
   const { status, done, count, total } = useOnboarding();
   const [closed, setClosed] = useState(false);
   if (!status || status.dismissed || closed || count >= total) return null;
-  const next = STEP_ORDER.find((k) => !done[k]) ?? 'agreement';
+  const next = STEP_ORDER.find((k) => !done[k]) ?? 'community';
 
   function close() {
     setClosed(true);

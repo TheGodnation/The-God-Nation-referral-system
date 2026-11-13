@@ -4345,7 +4345,7 @@
   },
   "onboarding": {
     "title": "Welcome to The God Nation",
-    "intro": "Four small steps you can do.",
+    "intro": "Three small steps you can do.",
     "progress": "{{done}} of {{total}} done",
     "done": "Done",
     "step_notifications": "Turn on notifications",
@@ -4372,17 +4372,13 @@
     "joined_button": "I have joined",
     "joined_thanks": "Thank you. We are glad you are with us.",
     "no_places": "Our community links are coming soon. You will find them here when they are ready.",
-    "step_agreement": "Read the rules and join your assembly",
-    "agreement_body": "You are already in your assembly and can read everything. To write and reply, you first agree to its rules.",
-    "agreement_button": "Open my assembly",
     "anytime": "You can finish these later from your Chats page.",
     "card_title": "Get started",
     "card_button": "Continue",
     "close": "Close",
     "next_notifications": "Next: turn on notifications so you never miss a teaching.",
     "next_install": "Next: install the app so we are always one tap away.",
-    "next_community": "Next: join us on WhatsApp and other platforms.",
-    "next_agreement": "Next: read your assembly’s rules and agree, so you can write."
+    "next_community": "Next: join us on WhatsApp and other platforms."
   },
   "assemblyAgreement": {
     "title": "Our Assembly Agreement",

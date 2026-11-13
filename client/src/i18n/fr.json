@@ -4345,7 +4345,7 @@
   },
   "onboarding": {
     "title": "Bienvenue à The God Nation",
-    "intro": "Quatre petites étapes que vous pouvez faire.",
+    "intro": "Trois petites étapes que vous pouvez faire.",
     "progress": "{{done}} sur {{total}} terminées",
     "done": "Terminé",
     "step_notifications": "Activer les notifications",
@@ -4372,17 +4372,13 @@
     "joined_button": "J’ai rejoint",
     "joined_thanks": "Merci. Nous sommes heureux de vous avoir avec nous.",
     "no_places": "Les liens de notre communauté arrivent bientôt. Vous les trouverez ici quand ils seront prêts.",
-    "step_agreement": "Lire les règles et rejoindre votre assemblée",
-    "agreement_body": "Vous êtes déjà dans votre assemblée et pouvez tout lire. Pour écrire et répondre, vous acceptez d’abord ses règles.",
-    "agreement_button": "Ouvrir mon assemblée",
     "anytime": "Vous pourrez terminer cela plus tard depuis votre page Discussions.",
     "card_title": "Pour bien commencer",
     "card_button": "Continuer",
     "close": "Fermer",
     "next_notifications": "Ensuite : activez les notifications pour ne manquer aucun enseignement.",
     "next_install": "Ensuite : installez l’application pour que nous soyons toujours à un clic.",
-    "next_community": "Ensuite : rejoignez-nous sur WhatsApp et les autres plateformes.",
-    "next_agreement": "Ensuite : lisez les règles de votre assemblée et acceptez-les, pour pouvoir écrire."
+    "next_community": "Ensuite : rejoignez-nous sur WhatsApp et les autres plateformes."
   },
   "assemblyAgreement": {
     "title": "Notre engagement d’assemblée",
