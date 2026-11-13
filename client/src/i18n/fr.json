@@ -4378,7 +4378,9 @@
     "close": "Fermer",
     "next_notifications": "Ensuite : activez les notifications pour ne manquer aucun enseignement.",
     "next_install": "Ensuite : installez l’application pour que nous soyons toujours à un clic.",
-    "next_community": "Ensuite : rejoignez-nous sur WhatsApp et les autres plateformes."
+    "next_community": "Ensuite : rejoignez-nous sur WhatsApp et les autres plateformes.",
+    "notifications_already": "Je les ai déjà activées",
+    "joined_ask_any": "Déjà rejoint ? Dites-le-nous et cette étape sera terminée."
   },
   "assemblyAgreement": {
     "title": "Notre engagement d’assemblée",

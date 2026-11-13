@@ -229,7 +229,9 @@ describe('Joining the community: a tap is not joining', () => {
       'POST /api/member/onboarding/community-joined': { body: { ok: true } },
     });
     page();
-    expect(screen.queryByTestId('confirm-joined-box')).toBeNull();
+    // Offered from the start, so someone who is already in the groups just says so.
+    expect(await screen.findByTestId('confirm-joined-box')).toHaveTextContent('Already joined? Tell us');
+    expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('0 of 3 done');
     fireEvent.click(await screen.findByTestId('place-whatsapp_group_en'));
     expect(await screen.findByTestId('confirm-joined-box')).toHaveTextContent('We cannot see whether you joined');
     expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('0 of 3 done');
@@ -274,5 +276,42 @@ describe('Joining the community: a tap is not joining', () => {
     render(<MemoryRouter><CommunityJoinCard /></MemoryRouter>);
     await waitFor(() => expect(calls.some((c) => c.url.includes('/api/member/onboarding'))).toBe(true));
     expect(screen.queryByTestId('community-join-card')).toBeNull();
+  });
+});
+
+describe('"I have already done it" buttons on the steps page', () => {
+  const page = () => render(<MemoryRouter><OnboardingPage /></MemoryRouter>);
+
+  it('"I have joined" is there from the start and ticks the step in one tap, without opening any link', async () => {
+    mockFetch({
+      '/api/settings/public': { body: { content: {}, whatsappGroupEnUrl: 'https://chat.whatsapp.com/ENG' } },
+      '/api/member/onboarding': { body: STATUS },
+      'POST /api/member/onboarding/community-joined': { body: { ok: true } },
+    });
+    page();
+    fireEvent.click(await screen.findByTestId('confirm-joined'));
+    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('1 of 3 done'));
+    expect(calls.some((c) => c.method === 'POST' && c.url.includes('/onboarding/community-joined'))).toBe(true);
+    expect(screen.queryByTestId('confirm-joined-box')).toBeNull();
+  });
+
+  it('"I have already turned them on" ticks the notifications step on this phone, and is remembered', async () => {
+    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: STATUS } });
+    const first = page();
+    fireEvent.click(await screen.findByTestId('notifications-already'));
+    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('1 of 3 done'));
+    expect(screen.queryByTestId('notifications-already')).toBeNull();
+    // It tells the server nothing: it is never counted as notifications being on.
+    expect(calls.some((c) => c.method === 'POST')).toBe(false);
+    first.unmount();
+    page();
+    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('1 of 3 done'));
+  });
+
+  it('the install step keeps its "I have already installed it" button', async () => {
+    mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: STATUS }, 'POST /api/member/onboarding/installed': { body: { ok: true } } });
+    page();
+    fireEvent.click(await screen.findByTestId('install-already'));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url.includes('/onboarding/installed'))).toBe(true));
   });
 });

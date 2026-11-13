@@ -4378,7 +4378,9 @@
     "close": "Close",
     "next_notifications": "Next: turn on notifications so you never miss a teaching.",
     "next_install": "Next: install the app so we are always one tap away.",
-    "next_community": "Next: join us on WhatsApp and other platforms."
+    "next_community": "Next: join us on WhatsApp and other platforms.",
+    "notifications_already": "I have already turned them on",
+    "joined_ask_any": "Already joined? Tell us, and this step is done."
   },
   "assemblyAgreement": {
     "title": "Our Assembly Agreement",
