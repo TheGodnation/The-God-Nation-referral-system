@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
 import { PasswordInput } from '../components/PasswordInput';
+import { PhoneInput } from '../components/PhoneInput';
 import { api, ApiError } from '../lib/api';
 import { CodeEntry } from '../components/member/CodeEntry';
 import { useEmailTypoCheck } from '../components/EmailTypoHint';
@@ -115,16 +116,7 @@ function MemberSignupPageInner() {
               <label className="label" htmlFor="signup-phone">
                 {t('memberSignup.phone_label')}
               </label>
-              <input
-                id="signup-phone"
-                className="input"
-                placeholder="+237 6XX XXX XXX"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                required
-                inputMode="tel"
-                autoComplete="tel"
-              />
+              <PhoneInput id="signup-phone" onChange={setWhatsapp} required />
               <p className="mt-1 text-xs text-slate-500">{t('memberSignup.phone_hint')}</p>
             </div>
             <div>

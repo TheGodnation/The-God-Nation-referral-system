@@ -377,3 +377,8 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 - **Removed** on sign-out and account deletion (`deleteAllFor` → `clearReadCache`).
 - **"Ready for offline?"** now also counts the saved screens. The top bar says "Connecting… You can still read what is saved."
 - **Not covered:** images behind expiring links (profile and post pictures) may not show offline; only chat photos and voice notes seen once are kept. Writing offline is limited to chat messages (they wait with 🕓).
+
+## Choosing the country in the phone box (sign-up and "Stay connected")
+
+- The number box on the member sign-up page and on the public "Stay connected" box is now a country chooser (Cameroon first and selected, **+237**) plus the number, so people only type their own number (`components/PhoneInput.tsx`, `lib/countries.ts`). Country names come from the browser in the app's language; the code is added by itself, a leading 0 is dropped (Italy keeps it), and a number typed or pasted with its "+" is placed in the right country (longest code; Cameroon for +237, the US for +1). The page still sends one whole number (`+2376…`) to the same endpoints, so nothing changed on the server.
+- Email: an address typed with its "+tag" after the provider (`name@gmail.com+test1`) now gets the usual "Did you mean …?" with the fix `name+test1@gmail.com` (`lib/emailTypo.ts`). The server still rejects the wrong form.

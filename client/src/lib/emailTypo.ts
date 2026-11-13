@@ -50,6 +50,9 @@ export function suggestEmailFix(email: string): string | null {
   const typed = trimmed.slice(at + 1).toLowerCase();
   const domain = typed.replace(/\.+$/, ''); // "gmail.com." → "gmail.com"
   if (!domain) return null;
+  // "name@gmail.com+test1": the "+test1" belongs before the "@" ("name+test1@gmail.com").
+  const tagged = domain.match(/^([^+\s]+)\+([^+\s@]+)$/);
+  if (tagged) return `${local}+${tagged[2]}@${tagged[1]}`;
   if (KNOWN_DOMAINS.includes(domain) || REAL_LOOKALIKES.includes(domain)) return domain === typed ? null : `${local}@${domain}`;
 
   if (KNOWN_TYPOS[domain]) return `${local}@${KNOWN_TYPOS[domain]}`;
