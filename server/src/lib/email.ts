@@ -58,7 +58,7 @@ async function send(to: string, subject: string, html: string, text: string, hea
 const DEFAULTS = {
   leaderInvitationSubject: 'You are invited to lead on The God Nation',
   leaderInvitationBody:
-    "Hi {{name}},\n\nYou've been added as a Leader on The God Nation Referral System. Set your password to activate your account and get your referral link:\n{{setupUrl}}\n\nThis link expires in 7 days and can only be used once.\n\n— The God Nation Media & Leadership Academy",
+    "Hi {{name}},\n\nYou've been added as a Leader on The God Nation Referral System. Set your password to activate your account and get your referral link:\n{{setupUrl}}\n\nThis link expires in 7 days and can only be used once.\n\n— The God Nation Leadership Academy",
 
   passwordResetSubject: 'Reset your password',
   passwordResetBody:
@@ -91,9 +91,9 @@ const DEFAULTS = {
   accountDeletionScheduledSubjectEn: 'Your God Nation account will be deleted',
   accountDeletionScheduledSubjectFr: 'Votre compte God Nation va être supprimé',
   accountDeletionScheduledBodyEn:
-    'Hi {{name}},\n\nAs you asked, your The God Nation account is now hidden and will be deleted after {{date}}, once the central admin approves it. Everything will then be lost: your profile, photos, messages, groups, friends and exam results.\n\nChanged your mind? Simply sign in to the app before then and your account comes back as it was.\n\n— The God Nation Media & Leadership Academy',
+    'Hi {{name}},\n\nAs you asked, your The God Nation account is now hidden and will be deleted after {{date}}, once the central admin approves it. Everything will then be lost: your profile, photos, messages, groups, friends and exam results.\n\nChanged your mind? Simply sign in to the app before then and your account comes back as it was.\n\n— The God Nation Leadership Academy',
   accountDeletionScheduledBodyFr:
-    'Bonjour {{name}},\n\nComme vous l’avez demandé, votre compte The God Nation est maintenant caché et sera supprimé après le {{date}}, une fois approuvé par l’administrateur central. Tout sera alors perdu : votre profil, vos photos, vos messages, vos groupes, vos amis et vos résultats d’examens.\n\nVous avez changé d’avis ? Connectez-vous simplement à l’application avant cette date et votre compte revient comme avant.\n\n— The God Nation Media & Leadership Academy',
+    'Bonjour {{name}},\n\nComme vous l’avez demandé, votre compte The God Nation est maintenant caché et sera supprimé après le {{date}}, une fois approuvé par l’administrateur central. Tout sera alors perdu : votre profil, vos photos, vos messages, vos groupes, vos amis et vos résultats d’examens.\n\nVous avez changé d’avis ? Connectez-vous simplement à l’application avant cette date et votre compte revient comme avant.\n\n— The God Nation Leadership Academy',
 };
 
 async function getEmailContent(): Promise<Record<string, string>> {

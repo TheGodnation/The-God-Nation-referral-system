@@ -18,12 +18,12 @@ const SITE = 'The God Nation';
 
 const DEFAULT: Record<Lang, PreviewMeta> = {
   en: {
-    title: 'The God Nation — Media & Leadership Academy',
+    title: 'The God Nation — Leadership Academy',
     description: 'The God Nation: a community of disciples learning, praying and growing together. Leadership school, Dominion Clinic, chats and giving, in English and French.',
     type: 'website',
   },
   fr: {
-    title: 'The God Nation — Académie des médias et du leadership',
+    title: 'The God Nation — Académie de leadership',
     description: 'The God Nation : une communauté de disciples qui apprennent, prient et grandissent ensemble. École de leadership, Clinique de la Domination, discussions et dons, en français et en anglais.',
     type: 'website',
   },

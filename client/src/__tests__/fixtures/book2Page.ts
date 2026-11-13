@@ -2,7 +2,7 @@
 export const BOOK2_PAGE = `THE DOORWAY INTO THE KINGDOM
 Repent. Be Baptized. Receive the Spirit.
 Book Two of the Kingdom Series
-Evangelist Stanley A. Ndoh | The God Nation Media & Leadership Academy
+Evangelist Stanley A. Ndoh | The God Nation Leadership Academy
 There Is a Door. And You Were Made to Walk Through It.
 Right now, you may feel like you are standing outside of something. You work hard and try your best, and still there is worry about money, fear about tomorrow, confusion about what is right, and a quiet question at night: Is this all there is?
 You have probably tried to fix each problem one by one. But they keep coming back, because they are not the real problem. They are symptoms. The real problem is that you are cut off from the power you were built to run on. You have been standing outside, and nobody told you there was a door.

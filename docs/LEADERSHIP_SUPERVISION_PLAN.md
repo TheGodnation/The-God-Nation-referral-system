@@ -403,9 +403,9 @@ Decided with the founder, 6 November 2026. Nothing below is built until the foun
 
 - **Update — the founder's welcome is shown in full:** in a one-to-one (private) chat a long message is no longer cut with "Read more" until it passes about 3,000 characters or 60 lines (`LONG_PRIVATE_CHARS` / `LONG_PRIVATE_LINES` in `MessageBubble.tsx`), so the welcome (the two ways back, the install and notifications link, the community links) and the Leadership School welcome are read at once. Group chats keep the old limit (300 characters or 7 lines).
 
-## The God Nation Media & Leadership Academy — levels, introduction, flexible books
+## The God Nation Leadership Academy — levels, introduction, flexible books
 
-**Name.** "Leadership School" is now **The God Nation Media & Leadership Academy** (French: *Académie des médias et du leadership de The God Nation*; short form "Leadership Academy" / "Académie de leadership"). Changed in the app, the welcome messages, notifications, the public site and the payment description.
+**Name.** "Leadership School" is now **The God Nation Leadership Academy** (French: *Académie de leadership de The God Nation*; short form "Leadership Academy" / "Académie de leadership"). Changed in the app, the welcome messages, notifications, the public site and the payment description.
 
 **Levels and books (flexible).** The curriculum is a list of *levels*, each holding books in order (`TrainingLevel`, `LibraryBook.trainingLevelId`). A book's number is only its place across the whole list, so the admin never types numbers. In *Admin → Library → Arrange the curriculum* the admin can move a book up or down (crossing into the next level at the edge), move it to another level, add a book at a chosen number (the book there and all after it move down one), add/rename/reorder/delete levels (a level must be empty to be deleted). Exam titles ("Book N exam: …") follow the number. Books are tied to exams, covers, payments, downloads and "already opened" by their own id, never by number, so rearranging loses nothing. A student's next book opens when the book before it in the list is passed; a book already opened stays open. Code: `server/src/lib/trainingStructure.ts`, `routes/adminLibrary.ts` (`/training/structure`, `/training/levels…`, `/training/books/:id/move|level`), `client/src/components/admin/TrainingOrganizer.tsx`.
 

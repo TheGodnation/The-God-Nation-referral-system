@@ -18,8 +18,8 @@ Recorded from the founder's instructions on 3 November 2026. Change any line by 
 |---|---|
 | Writer | Evangelist Stanley A. Ndoh |
 | French reviewer | Evangelist Stanley A. Ndoh |
-| Editor | Evangelist Stanley A. Ndoh (and The God Nation Media and Leadership Academy) |
-| Publisher | The God Nation Media and Leadership Academy |
+| Editor | Evangelist Stanley A. Ndoh (and The God Nation Leadership Academy) |
+| Publisher | The God Nation Leadership Academy |
 
 These can be changed at any time.
 

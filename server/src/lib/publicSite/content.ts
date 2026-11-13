@@ -10,8 +10,8 @@ export type Lang = 'en' | 'fr';
 export const LANGS: Lang[] = ['en', 'fr'];
 
 export const MISSION: Record<Lang, string> = {
-  en: 'The God Nation Media and Leadership Academy exists to bring together citizens of the Kingdom of God and equip them spiritually and technically to become effective carriers of the Gospel of the Kingdom through modern media.',
-  fr: 'The God Nation Media and Leadership Academy existe pour rassembler les citoyens du Royaume de Dieu et les équiper, spirituellement et techniquement, afin qu’ils deviennent des porteurs efficaces de l’Évangile du Royaume par les médias modernes.',
+  en: 'The God Nation Leadership Academy exists to bring together citizens of the Kingdom of God and equip them spiritually and technically to become effective carriers of the Gospel of the Kingdom through modern media.',
+  fr: 'The God Nation Leadership Academy existe pour rassembler les citoyens du Royaume de Dieu et les équiper, spirituellement et techniquement, afin qu’ils deviennent des porteurs efficaces de l’Évangile du Royaume par les médias modernes.',
 };
 export const VISION: Record<Lang, string> = {
   en: 'Our vision is to equip Kingdom citizens who make disciples who make disciples, thereby taking the Gospel of the Kingdom to the ends of the earth.',
@@ -259,7 +259,7 @@ export const FR_REVIEWED: Record<PageKey, boolean> = { home: true, knowledge: tr
 export const UI: Record<Lang, Record<string, string>> = {
   en: {
     siteName: 'The God Nation',
-    tagline: 'Media & Leadership Academy',
+    tagline: 'Leadership Academy',
     skip: 'Skip to the content',
     navKnowledge: 'Knowledge Centre',
     navAbout: 'About',
@@ -269,7 +269,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     navMembers: 'Members: Sign in',
     langSwitch: 'Lire en français',
     home: 'Home',
-    heroKicker: 'Media & Leadership Academy',
+    heroKicker: 'Leadership Academy',
     heroTitle: 'Equipping citizens of the Kingdom to carry the Gospel through modern media',
     heroCta: 'Explore the Knowledge Centre',
     heroCta2: 'About The God Nation',
@@ -315,7 +315,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     mottoKicker: 'Our call',
     founderKicker: 'The founder',
     founderTitle: 'Meet the founder',
-    founderText1: 'Evangelist Stanley A. Ndoh founded The God Nation Media and Leadership Academy to equip citizens of the Kingdom of God to carry the Gospel of the Kingdom through modern media.',
+    founderText1: 'Evangelist Stanley A. Ndoh founded The God Nation Leadership Academy to equip citizens of the Kingdom of God to carry the Gospel of the Kingdom through modern media.',
     founderText2: 'He holds a B.A. in Christian Ministry and is the author of The Kingdom Series, which begins with The Restoration of Dominion.',
     founderCta: 'Our purpose and vision',
     bookKicker: 'The Kingdom Series',
@@ -329,7 +329,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     bookChapters: 'Chapter summaries',
     bookMembers: 'The full book is read inside the community. Join, and you can start reading.',
     bookAll: 'All our books',
-    rights: 'The God Nation Media & Leadership Academy',
+    rights: 'The God Nation Leadership Academy',
     notFoundTitle: 'Page not found',
     notFoundText: 'This page does not exist, or is not public.',
     notFoundHome: 'Go to the home page',
@@ -353,7 +353,7 @@ export const UI: Record<Lang, Record<string, string>> = {
   },
   fr: {
     siteName: 'The God Nation',
-    tagline: 'Académie des médias et du leadership',
+    tagline: 'Académie de leadership',
     skip: 'Aller au contenu',
     navKnowledge: 'Centre de connaissance',
     navAbout: 'À propos',
@@ -363,7 +363,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     navMembers: 'Membres : connexion',
     langSwitch: 'Read in English',
     home: 'Accueil',
-    heroKicker: 'Académie des médias et du leadership',
+    heroKicker: 'Académie de leadership',
     heroTitle: 'Équiper les citoyens du Royaume pour porter l’Évangile par les médias modernes',
     heroCta: 'Découvrir le Centre de connaissance',
     heroCta2: 'À propos de The God Nation',
@@ -409,7 +409,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     mottoKicker: 'Notre appel',
     founderKicker: 'Le fondateur',
     founderTitle: 'Faites connaissance avec le fondateur',
-    founderText1: 'L’évangéliste Stanley A. Ndoh a fondé The God Nation Media and Leadership Academy pour équiper les citoyens du Royaume de Dieu afin qu’ils portent l’Évangile du Royaume par les médias modernes.',
+    founderText1: 'L’évangéliste Stanley A. Ndoh a fondé The God Nation Leadership Academy pour équiper les citoyens du Royaume de Dieu afin qu’ils portent l’Évangile du Royaume par les médias modernes.',
     founderText2: 'Titulaire d’une licence en ministère chrétien, il est l’auteur de La Série du Royaume, qui commence par The Restoration of Dominion.',
     founderCta: 'Notre raison d’être et notre vision',
     bookKicker: 'La Série du Royaume',
@@ -423,7 +423,7 @@ export const UI: Record<Lang, Record<string, string>> = {
     bookChapters: 'Résumés des chapitres',
     bookMembers: 'Le livre complet se lit au sein de la communauté. Rejoignez-nous, et vous pourrez commencer à lire.',
     bookAll: 'Tous nos livres',
-    rights: 'The God Nation Media & Leadership Academy',
+    rights: 'The God Nation Leadership Academy',
     notFoundTitle: 'Page introuvable',
     notFoundText: 'Cette page n’existe pas, ou n’est pas publique.',
     notFoundHome: 'Aller à la page d’accueil',
@@ -449,7 +449,7 @@ export const UI: Record<Lang, Record<string, string>> = {
 
 export const PAGE_META: Record<Lang, Record<PageKey, { title: string; description: string }>> = {
   en: {
-    home: { title: 'The God Nation — Media & Leadership Academy', description: MISSION.en },
+    home: { title: 'The God Nation — Leadership Academy', description: MISSION.en },
     knowledge: { title: 'Knowledge Centre — The God Nation', description: 'An organised library of Kingdom knowledge in six areas: Kingdom knowledge, leadership, digital media and evangelism, discipleship, books and publications, and community and outreach.' },
     division: { title: '', description: '' },
     article: { title: '', description: '' },
@@ -458,7 +458,7 @@ export const PAGE_META: Record<Lang, Record<PageKey, { title: string; descriptio
     contact: { title: 'Contact — The God Nation', description: 'How to contact The God Nation.' },
   },
   fr: {
-    home: { title: 'The God Nation — Académie des médias et du leadership', description: MISSION.fr },
+    home: { title: 'The God Nation — Académie de leadership', description: MISSION.fr },
     knowledge: { title: 'Centre de connaissance — The God Nation', description: 'Une bibliothèque organisée de la connaissance du Royaume en six domaines : connaissance du Royaume, leadership, médias numériques et évangélisation, discipulat, livres et publications, communauté et rayonnement.' },
     division: { title: '', description: '' },
     article: { title: '', description: '' },
@@ -482,6 +482,6 @@ export const PHOTOS: { founder?: SitePhoto; founderOffice?: SitePhoto; group?: S
     { src: '/site/session-workshop.jpg', w: 700, h: 933, alt: { en: 'A facilitator addressing participants during a training workshop', fr: 'Une animatrice s’adresse aux participants pendant un atelier de formation' } },
   ],
   groupClose: { src: '/site/session-close.jpg', w: 700, h: 933, alt: { en: 'Participants listening and taking notes during a training session', fr: 'Des participants écoutent et prennent des notes pendant une session de formation' } },
-  founder: { src: '/site/founder.jpg', w: 760, h: 1013, alt: { en: 'Evangelist Stanley A. Ndoh, founder of The God Nation Media and Leadership Academy', fr: 'L’évangéliste Stanley A. Ndoh, fondateur de The God Nation Media and Leadership Academy' } },
+  founder: { src: '/site/founder.jpg', w: 760, h: 1013, alt: { en: 'Evangelist Stanley A. Ndoh, founder of The God Nation Leadership Academy', fr: 'L’évangéliste Stanley A. Ndoh, fondateur de The God Nation Leadership Academy' } },
   founderOffice: { src: '/site/founder-office.jpg', w: 760, h: 1013, alt: { en: 'Evangelist Stanley A. Ndoh in his office', fr: 'L’évangéliste Stanley A. Ndoh dans son bureau' } },
 };

@@ -25,7 +25,7 @@ describe('link previews', () => {
     const res = await request(app()).get('/');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/html/);
-    expect(res.text).toContain('<meta property="og:title" content="The God Nation — Media &amp; Leadership Academy" />');
+    expect(res.text).toContain('<meta property="og:title" content="The God Nation — Leadership Academy" />');
     expect(res.text).toContain(`<meta property="og:image" content="${APP}/og-image.png" />`);
     expect(res.text).toContain('<meta name="twitter:card" content="summary_large_image" />');
     expect(res.text).toContain(`<link rel="canonical" href="${APP}" />`);

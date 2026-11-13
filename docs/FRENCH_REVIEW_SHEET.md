@@ -9,7 +9,7 @@ For the ministry's French reviewer. English is the ministry's own wording (or pl
 
 | Item | English | Français |
 |---|---|---|
-| Mission | The God Nation Media and Leadership Academy exists to bring together citizens of the Kingdom of God and equip them spiritually and technically to become effective carriers of the Gospel of the Kingdom through modern media. | The God Nation Media and Leadership Academy existe pour rassembler les citoyens du Royaume de Dieu et les équiper, spirituellement et techniquement, afin qu’ils deviennent des porteurs efficaces de l’Évangile du Royaume par les médias modernes. |
+| Mission | The God Nation Leadership Academy exists to bring together citizens of the Kingdom of God and equip them spiritually and technically to become effective carriers of the Gospel of the Kingdom through modern media. | The God Nation Leadership Academy existe pour rassembler les citoyens du Royaume de Dieu et les équiper, spirituellement et techniquement, afin qu’ils deviennent des porteurs efficaces de l’Évangile du Royaume par les médias modernes. |
 | Vision | Our vision is to equip Kingdom citizens who make disciples who make disciples, thereby taking the Gospel of the Kingdom to the ends of the earth. | Notre vision est d’équiper des citoyens du Royaume qui font des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre. |
 
 ## What we do
@@ -117,12 +117,12 @@ For the ministry's French reviewer. English is the ministry's own wording (or pl
 
 | Item | English | Français |
 |---|---|---|
-| home title | The God Nation — Media & Leadership Academy | The God Nation — Académie des médias et du leadership |
-| home description | The God Nation Media and Leadership Academy exists to bring together citizens of the Kingdom of God and equip them spiritually and technically to become effective carriers of the Gospel of the Kingdom through modern media. | The God Nation Media and Leadership Academy existe pour rassembler les citoyens du Royaume de Dieu et les équiper, spirituellement et techniquement, afin qu’ils deviennent des porteurs efficaces de l’Évangile du Royaume par les médias modernes. |
+| home title | The God Nation — Leadership Academy | The God Nation — Académie de leadership |
+| home description | The God Nation Leadership Academy exists to bring together citizens of the Kingdom of God and equip them spiritually and technically to become effective carriers of the Gospel of the Kingdom through modern media. | The God Nation Leadership Academy existe pour rassembler les citoyens du Royaume de Dieu et les équiper, spirituellement et techniquement, afin qu’ils deviennent des porteurs efficaces de l’Évangile du Royaume par les médias modernes. |
 | knowledge title | Knowledge Centre — The God Nation | Centre de connaissance — The God Nation |
 | knowledge description | An organised library of Kingdom knowledge in six areas: Kingdom knowledge, leadership, digital media and evangelism, discipleship, books and publications, and community and outreach. | Une bibliothèque organisée de la connaissance du Royaume en six domaines : connaissance du Royaume, leadership, médias numériques et évangélisation, discipulat, livres et publications, communauté et rayonnement. |
 | about title | About The God Nation | À propos de The God Nation |
-| about description | Our purpose, our vision and what The God Nation Media and Leadership Academy does. | Notre raison d’être, notre vision et ce que fait The God Nation Media and Leadership Academy. |
+| about description | Our purpose, our vision and what The God Nation Leadership Academy does. | Notre raison d’être, notre vision et ce que fait The God Nation Leadership Academy. |
 | contact title | Contact — The God Nation | Contact — The God Nation |
 | contact description | How to contact The God Nation. | Comment contacter The God Nation. |
 
@@ -131,7 +131,7 @@ For the ministry's French reviewer. English is the ministry's own wording (or pl
 | Item | English | Français |
 |---|---|---|
 | siteName | The God Nation | The God Nation |
-| tagline | Media & Leadership Academy | Académie des médias et du leadership |
+| tagline | Leadership Academy | Académie de leadership |
 | skip | Skip to the content | Aller au contenu |
 | navKnowledge | Knowledge Centre | Centre de connaissance |
 | navAbout | About | À propos |
@@ -140,7 +140,7 @@ For the ministry's French reviewer. English is the ministry's own wording (or pl
 | navMembers | Members: Sign in | Membres : connexion |
 | langSwitch | Lire en français | Read in English |
 | home | Home | Accueil |
-| heroKicker | Media & Leadership Academy | Académie des médias et du leadership |
+| heroKicker | Leadership Academy | Académie de leadership |
 | heroTitle | Equipping citizens of the Kingdom to carry the Gospel through modern media | Équiper les citoyens du Royaume pour porter l’Évangile par les médias modernes |
 | heroCta | Explore the Knowledge Centre | Découvrir le Centre de connaissance |
 | heroCta2 | About The God Nation | À propos de The God Nation |
@@ -179,7 +179,7 @@ For the ministry's French reviewer. English is the ministry's own wording (or pl
 | contactPrivacy | How we handle your information | Comment nous traitons vos informations |
 | footerMembers | Members: Sign in | Membres : connexion |
 | footerPrivacy | Privacy | Confidentialité |
-| rights | The God Nation Media & Leadership Academy | The God Nation Media & Leadership Academy |
+| rights | The God Nation Leadership Academy | The God Nation Leadership Academy |
 | notFoundTitle | Page not found | Page introuvable |
 | notFoundText | This page does not exist, or is not public. | Cette page n’existe pas, ou n’est pas publique. |
 | notFoundHome | Go to the home page | Aller à la page d’accueil |

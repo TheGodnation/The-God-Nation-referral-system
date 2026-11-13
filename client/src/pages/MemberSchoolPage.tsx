@@ -12,7 +12,7 @@ import { useStoreApp } from '../lib/storeApp';
 import { RichText } from '../lib/richText';
 import { prepareIntro, splitIntro } from '../lib/curriculumText';
 
-// The God Nation Media & Leadership Academy: the introduction to the diploma, then the books level by level, each
+// The God Nation Leadership Academy: the introduction to the diploma, then the books level by level, each
 // showing whether it is passed, open or still closed. Someone who has not begun reads everything first and begins at
 // the end; someone studying sees their progress and the book to carry on with first, and the introduction folded below.
 // Tapping a book opens its page (Read, Exam, payment). The levels and the order of the books are arranged by the admin.
