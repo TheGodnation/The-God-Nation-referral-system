@@ -25,7 +25,7 @@ It takes students through the restoration of dominion, the doorway into the King
 It is a structured spiritual training programme that helps believers understand the Kingdom, discover their identity and inheritance in Christ, grow in spiritual maturity, and become equipped to communicate the Gospel of the Kingdom to others.
 
 ## Programme information
-- *Qualification:* Diploma in Kingdom Studies and Dominion Leadership
+- *Qualification:* Diploma in Kingdom Studies and Kingdom Governance
 - *Institution:* The God Nation Leadership Academy
 - *Author and Founder:* Evangelist Stanley A. Ndoh
 - *Who can join:* Anyone who desires to know Jesus Christ more deeply, understand the Kingdom of God, grow spiritually, or learn how to share the Gospel with others.
@@ -35,7 +35,7 @@ It is a structured spiritual training programme that helps believers understand 
 - *Examinations:* Online multiple-choice examinations.
 - *Pass mark:* 70%.
 - *Programme content:* {{books}} books organised into {{levels}} progressive levels.
-- *Award:* A certificate titled _Diploma in Kingdom Studies and Dominion Leadership_ upon successful completion of the programme.
+- *Award:* A certificate titled _Diploma in Kingdom Studies and Kingdom Governance_ upon successful completion of the programme.
 
 You do not need to be a pastor, preacher, theologian, or experienced leader to join. The programme is open to ordinary believers and anyone who wants to understand the Kingdom and grow in their relationship with God.
 
@@ -123,7 +123,7 @@ A student qualifies for graduation after:
 - Completing the books in the prescribed order.
 - Meeting any additional final requirements established by the Academy.
 
-The God Nation Leadership Academy will then issue the certificate titled *DIPLOMA IN KINGDOM STUDIES AND DOMINION LEADERSHIP*.
+The God Nation Leadership Academy will then issue the certificate titled *DIPLOMA IN KINGDOM STUDIES AND KINGDOM GOVERNANCE*.
 
 Graduates will have completed a structured course of study in Kingdom foundations, the Kingdom Keys, and the Rights of Kingdom Citizens. They will be equipped and prepared to:
 - Teach in the church.
@@ -140,12 +140,12 @@ Graduates may also proceed to Phase 2 by joining the leadership team, where they
 *Know Who You Are. Know What Is Yours. Rule Your Life Under Christ. Carry the Gospel of the Kingdom to the Nations.*`;
 
 export const DEFAULT_INTRO_FR = `# Présentation du diplôme
-Le *Diplôme en études du Royaume et en leadership dans l’exercice de la domination* est un programme de formation biblique et spirituelle conçu pour aider les croyants à comprendre le Royaume de Dieu, à découvrir leur identité et leurs droits en Christ, et à apprendre à vivre selon les principes du Royaume.
+Le *Diplôme en études du Royaume et en gouvernance du Royaume* est un programme de formation biblique et spirituelle conçu pour aider les croyants à comprendre le Royaume de Dieu, à découvrir leur identité et leurs droits en Christ, et à apprendre à vivre selon les principes du Royaume.
 
 À travers {{books}} livres répartis en {{levels}} niveaux progressifs, les étudiants acquièrent une compréhension fondamentale du Royaume, des principes spirituels qui gouvernent la vie du citoyen du Royaume, ainsi que de son identité, de ses droits, de son héritage et de son autorité en Christ.
 
 - *Institution :* The God Nation Leadership Academy
-- *Diplôme délivré :* Diplôme en études du Royaume et en leadership dans l’exercice de la domination
+- *Diplôme délivré :* Diplôme en études du Royaume et en gouvernance du Royaume
 - *Auteur et fondateur :* Évangéliste Stanley A. Ndoh
 - *Nombre de livres :* {{books}}
 - *Nombre d’examens :* {{books}}
@@ -203,7 +203,7 @@ Chaque livre est accompagné d’un examen en ligne.
 Ce système permet de s’assurer que chaque étudiant progresse avec une compréhension suffisante des enseignements avant de passer au livre suivant.
 
 # Obtention du diplôme et certification
-Pour obtenir le Diplôme en études du Royaume et en leadership dans l’exercice de la domination, l’étudiant doit :
+Pour obtenir le Diplôme en études du Royaume et en gouvernance du Royaume, l’étudiant doit :
 - Étudier les {{books}} livres du programme.
 - Passer les {{books}} examens correspondants.
 - Obtenir au moins 70 % à chacun des examens.
