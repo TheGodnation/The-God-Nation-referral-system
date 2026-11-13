@@ -31,6 +31,28 @@ const bubbleHandlers = {
   onOpenPhoto: noop,
 };
 
+describe('MessageBubble — one-to-one chats show a long written message in full', () => {
+  const founderWelcome = `Hello Grace, welcome to The God Nation!\n\n${'There are two ways to come back to the community at any time. '.repeat(20)}\nhttps://thegodnationacademy.org/member/welcome`;
+
+  it('shows the founder\'s welcome (about 1,500 characters) in full in a private chat, with no "Read more"', () => {
+    expect(founderWelcome.length).toBeGreaterThan(1000);
+    render(<MessageBubble m={baseMessage({ body: founderWelcome })} {...bubbleHandlers} privateChat />);
+    expect(screen.queryByRole('button', { name: 'Read more' })).toBeNull();
+    const text = screen.getByText((_, el) => el?.tagName === 'DIV' && el.className.includes('text-slate-900') && el.textContent === founderWelcome);
+    expect(text.className).not.toContain('line-clamp-6');
+  });
+
+  it('still cuts an extremely long private message, and long messages in a group are cut as before', () => {
+    render(<MessageBubble m={baseMessage({ body: 'x'.repeat(3100) })} {...bubbleHandlers} privateChat />);
+    expect(screen.getByRole('button', { name: 'Read more' })).toBeInTheDocument();
+  });
+
+  it('a message of the same length in a group chat is still cut', () => {
+    render(<MessageBubble m={baseMessage({ body: founderWelcome })} {...bubbleHandlers} />);
+    expect(screen.getByRole('button', { name: 'Read more' })).toBeInTheDocument();
+  });
+});
+
 describe('MessageBubble — long message truncation', () => {
   it('renders a short message normally, with no "Read more" control', () => {
     render(<MessageBubble m={baseMessage({ body: 'See you at the meeting tomorrow!' })} {...bubbleHandlers} />);
@@ -72,8 +94,8 @@ describe('MessageBubble — long message truncation', () => {
     expect(screen.getByRole('button', { name: 'Read more' })).toBeInTheDocument();
   });
 
-  it('works the same way in a private chat bubble (privateChat=true)', () => {
-    const longBody = 'y'.repeat(400);
+  it('works in a private chat bubble too (privateChat=true), for an extremely long message', () => {
+    const longBody = 'y'.repeat(3200);
     render(<MessageBubble m={baseMessage({ body: longBody, isOwn: true })} {...bubbleHandlers} privateChat />);
     expect(screen.getByRole('button', { name: 'Read more' })).toBeInTheDocument();
   });
