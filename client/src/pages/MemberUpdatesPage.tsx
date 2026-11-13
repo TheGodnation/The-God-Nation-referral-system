@@ -3,7 +3,6 @@ import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
-import { GetStartedCard } from '../components/member/OnboardingChecklist';
 import { MemberPhotoSlider } from '../components/member/MemberPhotoSlider';
 import { HomeAboutTabs } from '../components/member/HomeAboutTabs';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
@@ -27,7 +26,6 @@ export function MemberUpdatesPage() {
           <div className="space-y-2 sm:mt-4 sm:space-y-4">
             <HomeAboutTabs active="home" trailing={<NotificationBell />} />
             <div className="px-4 empty:hidden sm:px-0">
-              <GetStartedCard />
               <EnableNotificationsBanner className="" />
             </div>
             <MemberPhotoSlider />
