@@ -719,7 +719,7 @@ describe('Leadership Academy: covers, pages and chapter summaries', () => {
     expect(Array.isArray(school.body.levels)).toBe(true);
     expect(school.body.books.every((b: any) => 'levelId' in b)).toBe(true);
     expect(school.body.intro.en).toContain('The Diploma at a Glance');
-    expect(school.body.intro.fr).toContain('Le diplôme en un coup d’œil');
+    expect(school.body.intro.fr).toContain('Présentation du diplôme');
 
     const auto = await a.agent.put(`/api/admin/library/books/${b2.bookId}/cover`).set('X-CSRF-Token', a.csrf).send({ image: JPEG, source: 'AUTO' });
     expect(auto.status).toBe(200);
