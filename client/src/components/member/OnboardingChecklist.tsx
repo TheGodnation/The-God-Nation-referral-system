@@ -9,6 +9,7 @@ import { communityPlaces, followPlaces } from '../socialPlatforms';
 import { CommunityChoices } from '../CommunityChoices';
 import { EnableNotificationsBanner } from './EnableNotificationsBanner';
 import { GuideLink } from './GuideLink';
+import { useMemberAuth } from '../../lib/MemberAuthContext';
 
 export interface OnboardingStatus {
   profileDone: boolean;
@@ -35,6 +36,26 @@ function useOnboarding() {
   const [tapped, setTapped] = useState(false);
   const [confirmedLocal, setConfirmedLocal] = useState(false);
   const install = useInstallPrompt();
+  // "I have already turned them on": notifications set up another way (or on another phone) cannot be seen from here, so the
+  // member can say so. It only ticks the step on this phone; it is never counted as notifications being on.
+  const { member } = useMemberAuth();
+  const notifKey = `godnation:notifications-said:${member?.personId ?? ''}`;
+  const [notifSaid, setNotifSaid] = useState(false);
+  useEffect(() => {
+    try {
+      setNotifSaid(localStorage.getItem(notifKey) === '1');
+    } catch {
+      setNotifSaid(false);
+    }
+  }, [notifKey]);
+  const confirmNotifications = useCallback(() => {
+    setNotifSaid(true);
+    try {
+      localStorage.setItem(notifKey, '1');
+    } catch {
+      // Private mode: it only lasts for this visit.
+    }
+  }, [notifKey]);
 
   const reload = useCallback(() => {
     void api.get<OnboardingStatus>('/api/member/onboarding').then(setStatus).catch(() => {});
@@ -55,7 +76,7 @@ function useOnboarding() {
   }, [installSeen, statusLoaded, alreadyRecorded, reload]);
 
   const done: Record<StepKey, boolean> = {
-    notifications: deviceHasPush || !!status?.notificationsOn,
+    notifications: deviceHasPush || !!status?.notificationsOn || notifSaid,
     install: install.installed || !!status?.installed,
     // People who were already here (most came from WhatsApp) are not asked to join the community again. For everyone
     // else the step is done only when they say they have joined: tapping a link proves nothing about joining.
@@ -78,7 +99,7 @@ function useOnboarding() {
     setConfirmedLocal(true);
     void api.post('/api/member/onboarding/community-joined', {}).then(reload).catch(() => {});
   }, [reload]);
-  return { status, done, count, total, install, markTapped: () => setTapped(true), tappedAny, confirmJoined, confirmInstalled, reload };
+  return { status, done, count, total, install, markTapped: () => setTapped(true), tappedAny, confirmJoined, confirmInstalled, confirmNotifications, reload };
 }
 
 const STEP_ORDER: StepKey[] = ['notifications', 'install', 'community'];
@@ -100,14 +121,15 @@ export function JoinCommunity({ tappedAny, confirmed, onTap, onConfirm, hideWhen
       <CommunityChoices settings={settings} onTap={onTap} hide={HIDDEN_PLACES} />
       {confirmed ? (
         <p role="status" className="mt-2 text-xs text-emerald-700">{t('onboarding.joined_thanks')}</p>
-      ) : tappedAny ? (
+      ) : (
+        // Always offered: someone who is already in the groups (or joined from another phone) just says so.
         <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2" data-testid="confirm-joined-box">
-          <p className="text-xs text-slate-600">{t('onboarding.joined_ask')}</p>
+          <p className="text-xs text-slate-600">{tappedAny ? t('onboarding.joined_ask') : t('onboarding.joined_ask_any')}</p>
           <button type="button" className="btn-primary mt-1.5 px-3 py-1.5 text-sm" onClick={onConfirm} data-testid="confirm-joined">
             {t('onboarding.joined_button')}
           </button>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
@@ -182,7 +204,7 @@ const i18nHas = (t: (k: string) => string, key: string) => t(key) !== key;
 export function OnboardingPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { status, done, count, total, install, markTapped, tappedAny, confirmJoined, confirmInstalled } = useOnboarding();
+  const { status, done, count, total, install, markTapped, tappedAny, confirmJoined, confirmInstalled, confirmNotifications } = useOnboarding();
 
   function onTap(platform: string) {
     markTapped();
@@ -202,7 +224,16 @@ export function OnboardingPage() {
           <Tick on={done.notifications} />
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-slate-900">{t('onboarding.step_notifications')}</p>
-            {done.notifications ? <p className="text-xs text-emerald-700">{t('onboarding.done')}</p> : <EnableNotificationsBanner className="mt-1" />}
+            {done.notifications ? (
+              <p className="text-xs text-emerald-700">{t('onboarding.done')}</p>
+            ) : (
+              <>
+                <EnableNotificationsBanner className="mt-1" />
+                <button type="button" onClick={confirmNotifications} className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" data-testid="notifications-already">
+                  {t('onboarding.notifications_already')}
+                </button>
+              </>
+            )}
           </div>
         </li>
 
