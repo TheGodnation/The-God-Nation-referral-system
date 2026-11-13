@@ -51,7 +51,7 @@ describe('Get started card', () => {
     mockFetch({ '/api/member/onboarding': { body: { ...STATUS, communityConfirmed: true } } });
     card();
     expect(await screen.findByTestId('get-started-card')).toBeInTheDocument();
-    expect(screen.getByTestId('get-started-progress')).toHaveTextContent('1 of 4 done');
+    expect(screen.getByTestId('get-started-progress')).toHaveTextContent('1 of 3 done');
     expect(screen.getByText(/Next: turn on notifications/)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('get-started-continue'));
     expect(await screen.findByText('Welcome steps')).toBeInTheDocument();
@@ -93,34 +93,37 @@ describe('Get started card', () => {
     mockFetch({ '/api/member/onboarding': { body: STATUS } });
     card();
     expect(await screen.findByText('Pour bien commencer')).toBeInTheDocument();
-    expect(screen.getByTestId('get-started-progress')).toHaveTextContent('0 sur 4 terminées');
+    expect(screen.getByTestId('get-started-progress')).toHaveTextContent('0 sur 3 terminées');
   });
 });
 
-describe('Existing members and the rules step', () => {
+describe('Existing members and the steps', () => {
   const page = () => render(<MemoryRouter><OnboardingPage /></MemoryRouter>);
 
-  it('a new member is sent to their assembly to read the rules and agree', async () => {
+  it('has three steps only: the assembly rules are agreed inside the assembly, not here', async () => {
     mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: STATUS } });
     page();
-    const link = await screen.findByTestId('open-assembly');
-    expect(link).toHaveAttribute('href', '/member/chats/group/c1');
-    expect(screen.queryByTestId('step-teaching')).toBeNull();
+    expect(await screen.findByTestId('step-community')).toBeInTheDocument();
+    expect(screen.getByText('Three small steps you can do.')).toBeInTheDocument();
+    expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('0 of 3 done');
+    expect(screen.queryByTestId('step-agreement')).toBeNull();
+    expect(screen.queryByTestId('open-assembly')).toBeNull();
+    expect(screen.queryByText(/rules/i)).toBeNull();
   });
 
-  it('an existing member has the community step and the rules step ticked already', async () => {
+  it('an existing member has the community step ticked already', async () => {
     mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: { ...STATUS, existingMember: true, agreementCommunityId: null } } });
     page();
-    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('2 of 4 done'));
+    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('1 of 3 done'));
     expect(screen.queryByTestId('open-assembly')).toBeNull();
   });
 
-  it('the card tells a new member to read the rules next, once the other steps are done', async () => {
-    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, notificationsOn: true, communityConfirmed: true } } });
-    Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) });
+  it('the card is gone once the three steps are done (nothing about rules is left to do)', async () => {
+    mockFetch({ '/api/member/onboarding': { body: { ...STATUS, notificationsOn: true, installed: true, communityConfirmed: true } } });
     card();
-    expect(await screen.findByText(/Next: read your assembly’s rules/)).toBeInTheDocument();
-    Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: undefined });
+    await waitFor(() => expect(calls.some((c) => c.url.includes('/api/member/onboarding'))).toBe(true));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId('get-started-card')).toBeNull();
   });
 });
 
@@ -132,8 +135,8 @@ describe('Welcome steps page', () => {
         <OnboardingPage />
       </MemoryRouter>,
     );
-    for (const s of ['notifications', 'install', 'community', 'agreement']) expect(await screen.findByTestId(`step-${s}`)).toBeInTheDocument();
-    expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('0 of 4 done');
+    for (const s of ['notifications', 'install', 'community']) expect(await screen.findByTestId(`step-${s}`)).toBeInTheDocument();
+    expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('0 of 3 done');
   });
 
   it('marks a step done from what the server knows', async () => {
@@ -143,7 +146,7 @@ describe('Welcome steps page', () => {
         <OnboardingPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('2 of 4 done'));
+    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('1 of 3 done'));
   });
 });
 
@@ -208,7 +211,7 @@ describe('Install step roadmap', () => {
     calls.length = 0;
     mockFetch({ '/api/settings/public': { body: { content: {} } }, '/api/member/onboarding': { body: { ...STATUS, installed: true } } });
     page();
-    await waitFor(() => expect(screen.getAllByTestId('onboarding-progress').pop()).toHaveTextContent('1 of 4 done'));
+    await waitFor(() => expect(screen.getAllByTestId('onboarding-progress').pop()).toHaveTextContent('1 of 3 done'));
     expect(calls.some((c) => c.method === 'POST' && c.url.includes('/onboarding/installed'))).toBe(false);
   });
 });
@@ -229,9 +232,9 @@ describe('Joining the community: a tap is not joining', () => {
     expect(screen.queryByTestId('confirm-joined-box')).toBeNull();
     fireEvent.click(await screen.findByTestId('place-whatsapp_group_en'));
     expect(await screen.findByTestId('confirm-joined-box')).toHaveTextContent('We cannot see whether you joined');
-    expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('0 of 4 done');
+    expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('0 of 3 done');
     fireEvent.click(screen.getByTestId('confirm-joined'));
-    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('1 of 4 done'));
+    await waitFor(() => expect(screen.getByTestId('onboarding-progress')).toHaveTextContent('1 of 3 done'));
     expect(calls.some((c) => c.method === 'POST' && c.url.includes('/onboarding/community-joined'))).toBe(true);
     expect(screen.queryByTestId('confirm-joined-box')).toBeNull();
   });

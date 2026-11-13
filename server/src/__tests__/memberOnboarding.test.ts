@@ -66,7 +66,9 @@ describe('The founder welcome text', () => {
     expect(t).toContain('turn on notifications');
     expect(t).toContain('Without them, you only see messages when you remember to open the website');
     expect(t).toContain(`${APP}/member/welcome`);
-    expect(t).toContain('you first agree to its rules');
+    // The assembly is only pointed to: its rules are agreed inside the assembly, never made a condition here.
+    expect(t).toContain('open “Chats”, then your assembly');
+    expect(t).not.toMatch(/rules|agree/i);
     expect(t).toContain('You can write to me here at any time');
     expect(t.trim().endsWith('National Coordinator, The God Nation')).toBe(true);
     expect(t).toContain('Evangelist Stanley A. Ndoh');
@@ -82,6 +84,7 @@ describe('The founder welcome text', () => {
     expect(t).toContain(`1. L’adresse web. Ouvrez ${APP} dans n’importe quel navigateur`);
     expect(t).toContain('votre e-mail et votre mot de passe');
     expect(t).toContain('Discussions');
+    expect(t).not.toMatch(/règles|accept/i);
     expect(t).toContain('Coordinateur national, The God Nation');
     expect(t.match(/Évangéliste Stanley/g)?.length).toBe(1);
   });
