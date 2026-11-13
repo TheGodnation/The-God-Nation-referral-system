@@ -28,6 +28,10 @@ const COMFORT_MIN_CHARS = 400;
 // A pasted teaching (a heading line or a table) is shown with the roomy layout; ordinary messages stay compact.
 const STRUCTURED = /^(#{1,3}\s+\S|\|.*\|\s*$)/m;
 const LONG_MESSAGE_LINES = 7;
+// In a one-to-one chat a long message is usually one that was written to you to be read (the founder's welcome, an
+// instruction): it is shown in full, and only an extremely long one is cut with "Read more".
+const LONG_PRIVATE_CHARS = 3000;
+const LONG_PRIVATE_LINES = 60;
 
 export function nameColor(name: string): string {
   let h = 0;
@@ -286,7 +290,9 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
   const [showOriginal, setShowOriginal] = useState(false);
   const [showOriginalTranscript, setShowOriginalTranscript] = useState(false);
   const displayBody = m.translation && !showOriginal ? m.translation.translatedBody : m.body;
-  const isLongBody = Boolean(displayBody) && (displayBody!.length > LONG_MESSAGE_CHARS || displayBody!.split('\n').length > LONG_MESSAGE_LINES);
+  const longChars = privateChat ? LONG_PRIVATE_CHARS : LONG_MESSAGE_CHARS;
+  const longLines = privateChat ? LONG_PRIVATE_LINES : LONG_MESSAGE_LINES;
+  const isLongBody = Boolean(displayBody) && (displayBody!.length > longChars || displayBody!.split('\n').length > longLines);
   const touch = useRef<{ x: number; y: number; swiping: boolean; timer: number | null; longPressed: boolean } | null>(null);
   // After a long press opens the menu, the finger lifting would "tap" whatever is under it (a teaching card, a link): ignore that tap.
   const ignoreTapsUntil = useRef(0);
