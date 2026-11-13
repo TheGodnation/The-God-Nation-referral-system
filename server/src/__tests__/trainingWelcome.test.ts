@@ -57,9 +57,11 @@ const chatFrom = (fromId: string, toId: string) => prisma.privateMessage.findMan
 afterEach(() => vi.restoreAllMocks());
 
 describe('The welcome text', () => {
-  it('has no price, payment or website wording, in English and in French', () => {
-    for (const text of [welcomeText(false, '— A'), welcomeText(true, '— A')]) {
-      expect(text).not.toMatch(/FCFA|francs|pay|paie|Mobile Money|https?:|\.org|website|site web|Orange|MTN/i);
+  it('has no price or payment wording, in English and in French, and one link to open the Leadership School', () => {
+    for (const text of [welcomeText(false, '— A', 'https://thegodnationacademy.org/member/school'), welcomeText(true, '— A', 'https://thegodnationacademy.org/member/school?lang=fr')]) {
+      expect(text).not.toMatch(/FCFA|francs|pay|paie|Mobile Money|website|site web|Orange|MTN/i);
+      expect(text.match(/https?:\/\/\S+/g)).toHaveLength(1);
+      expect(text).toContain('thegodnationacademy.org/member/school');
       expect(text).toContain('70');
     }
     expect(welcomeText(false, '— Evangelist Stanley A. Ndoh')).toMatch(/Welcome to the Leadership School/);
@@ -111,8 +113,11 @@ describe('The Play Store version: asks, the admin approves, the website link goe
     expect(mail.buttonUrl).toMatch(/\/member\/school$/);
     const row = await prisma.trainingEnrollment.findUniqueOrThrow({ where: { personId: m.person.id } });
     expect(row.websiteInvitedAt).not.toBeNull();
-    // Nothing inside the app (the private chat) carries the website or a payment.
-    expect((await chatFrom(from.id, m.person.id))[0].body).not.toMatch(/https?:|pay|FCFA/i);
+    // Nothing inside the app (the private chat) carries a payment; the only link is to the Leadership School page itself.
+    const body = (await chatFrom(from.id, m.person.id))[0].body as string;
+    expect(body).not.toMatch(/pay|FCFA|Mobile Money/i);
+    expect(body.match(/https?:\/\/\S+/g)).toHaveLength(1);
+    expect(body).toContain('/member/school');
     // Approving again does not send a second welcome or email.
     await admin.agent.post('/api/admin/library/trainees').set('X-CSRF-Token', admin.csrf).send({ personId: m.person.id });
     expect(await chatFrom(from.id, m.person.id)).toHaveLength(1);
