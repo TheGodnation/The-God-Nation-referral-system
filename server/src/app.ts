@@ -103,6 +103,8 @@ import eventsRoutes from './routes/events';
 import adminPaymentAgentsRoutes from './routes/adminPaymentAgents';
 import memberReferralsRoutes from './routes/memberReferrals';
 import examWorldRoutes from './routes/examWorld';
+import memberCertificateRoutes from './routes/memberCertificate';
+import adminCertificatesRoutes from './routes/adminCertificates';
 import paymentRoutes from './routes/payments';
 import adminLibraryRoutes from './routes/adminLibrary';
 import leaderExamResultsRoutes from './routes/leaderExamResults';
@@ -363,6 +365,9 @@ export function createApp() {
   app.use('/api/admin', adminPaymentAgentsRoutes);
   // Exam World: member summary/reader, admin library & trainees, leader results.
   app.use('/api/member', examWorldRoutes);
+  // The Academy diploma: the student's request, and the central admin's list.
+  app.use('/api/member', memberCertificateRoutes);
+  app.use('/api/admin/certificates', adminCertificatesRoutes);
   // Automatic Mobile Money: the payment company's notifications (lib/payments.ts).
   app.use('/api/payments', paymentRoutes);
   app.use('/api/admin/library', adminLibraryRoutes);

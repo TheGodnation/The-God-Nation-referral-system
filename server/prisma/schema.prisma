@@ -285,6 +285,9 @@ enum NotificationType {
   // reading (sent to the central admin), and the central admin approved it (sent to the member).
   READ_REQUESTED
   READ_APPROVED
+  // The Academy certificate: a student asked for it (sent to the central admin), and it was issued (sent to the student).
+  CERTIFICATE_REQUESTED
+  CERTIFICATE_ISSUED
 }
 
 // Phase 2 — Prayer requests. The submitter chooses, per request, whether
@@ -974,6 +977,7 @@ model Person {
   updateCommentsDeleted                    UpdateComment[]                           @relation("UpdateCommentDeletedByPerson")
   updateReactions                          UpdateReaction[]
   trainingEnrollment                       TrainingEnrollment?
+  certificateRequest                       CertificateRequest?
   devotionalOfferings                      DevotionalOffering[]
   bookPayments                             BookPayment[]
   paymentAgent                             PaymentAgent?
@@ -3108,6 +3112,52 @@ model BookChapter {
 // at once, which opens Book 1 on trust (see lib/examWorld.ts for how the
 // next books open). REQUESTED is from before; REVOKED = stopped by the
 // central admin.
+enum CertificateStatus {
+  REQUESTED
+  PAID
+  ISSUED
+  DELIVERED
+  CANCELLED
+}
+
+// How the student wants to receive the certificate: posted to them, sent by email / WhatsApp to print themselves,
+// or collected in person.
+enum CertificateDelivery {
+  POST
+  EMAIL
+  COLLECT
+}
+
+// A student's request for the Academy diploma (one per person), once every book is passed. The price is agreed
+// privately by the central admin and is never stored for, or shown to, the student (adminNote is private).
+model CertificateRequest {
+  id                String              @id @default(uuid())
+  personId          String              @unique
+  // The name exactly as it should be printed.
+  nameOnCertificate String
+  // Which design the student wants: 'en' or 'fr'.
+  language          String              @default("en")
+  delivery          CertificateDelivery
+  contactPhone      String?
+  address           String?
+  status            CertificateStatus   @default(REQUESTED)
+  adminNote         String?
+  // GNLA-2026-001: given when it is issued.
+  certificateNumber String?             @unique
+  issuedAt          DateTime?
+  paidAt            DateTime?
+  deliveredAt       DateTime?
+  requestedAt       DateTime            @default(now())
+  // How many books the student had passed when asking (for the admin's list).
+  booksPassed       Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
 model TrainingEnrollment {
   id                String                   @id @default(uuid())
   personId          String                   @unique
