@@ -4,10 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
-import { InstallAppBanner } from '../components/member/InstallAppBanner';
 import { AssistanceButton } from '../components/member/AssistanceButton';
 import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
-import { CommunityJoinCard, GetStartedCard } from '../components/member/OnboardingChecklist';
 import { AfterInstallPushAsk } from '../components/member/AfterInstallPushAsk';
 import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
@@ -175,9 +173,8 @@ export function MemberChatsPage() {
           <NotificationBell />
         </div>
         <AfterInstallPushAsk />
-        <GetStartedCard />
-        <CommunityJoinCard />
-        <InstallAppBanner />
+        {/* Only the notifications bar is shown here. The steps (install, notifications, joining us elsewhere) open from the link
+            in the founder's welcome message, so a new member's first screen is not crowded. */}
         <EnableNotificationsBanner />
         <PaymentDeskCard />
         <EventsCard />
