@@ -136,7 +136,7 @@ describe('MemberCompleteProfilePage', () => {
         <MemberAuthProvider>
           <Routes>
             <Route path="/member/complete-profile" element={<MemberCompleteProfilePage />} />
-            <Route path="/member/welcome-group" element={<p>Group step</p>} />
+            <Route path="/member/chats" element={<p>Chats page</p>} />
           </Routes>
         </MemberAuthProvider>
       </MemoryRouter>,
@@ -155,7 +155,7 @@ describe('MemberCompleteProfilePage', () => {
     expect(calls.some((c) => c.url.includes('complete-profile'))).toBe(false);
   });
 
-  it('submits Cameroon details and goes to the community', async () => {
+  it('submits Cameroon details and goes straight to the chats (the welcome message is waiting there)', async () => {
     mockFetchByUrl({
       '/api/member/auth/me': { status: 200, body: { member: NEW_MEMBER } },
       '/api/member/auth/complete-profile': { status: 200, body: { profileComplete: true, community: { id: 'hq', name: 'HQ' } } },
@@ -175,7 +175,7 @@ describe('MemberCompleteProfilePage', () => {
     fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Efoulan' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enter the community' }));
 
-    await waitFor(() => expect(screen.getByText('Group step')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Chats page')).toBeInTheDocument());
     const post = calls.find((c) => c.url.includes('/api/member/auth/complete-profile'));
     expect(post?.body).toEqual({
       name: 'Jean Ngono',
@@ -203,7 +203,7 @@ describe('MemberCompleteProfilePage', () => {
       fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Yaoundé III' } });
       fireEvent.change(screen.getByLabelText('Quarter'), { target: { value: 'Efoulan' } });
       fireEvent.click(screen.getByRole('button', { name: 'Enter the community' }));
-      await waitFor(() => expect(screen.getByText('Group step')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Chats page')).toBeInTheDocument());
       const body = calls.find((c) => c.url.includes('/api/member/auth/complete-profile'))?.body;
       expect(body.adEventId).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
     } finally {
@@ -232,7 +232,7 @@ describe('MemberCompleteProfilePage', () => {
     fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Ikeja' } });
     fireEvent.click(screen.getByRole('button', { name: 'Enter the community' }));
 
-    await waitFor(() => expect(screen.getByText('Group step')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Chats page')).toBeInTheDocument());
     const post = calls.find((c) => c.url.includes('/api/member/auth/complete-profile'));
     expect(post?.body).toEqual({ name: 'Ada', preferredLanguage: 'en', country: 'Nigeria', region: 'Lagos State', division: 'Ikeja' });
   });
