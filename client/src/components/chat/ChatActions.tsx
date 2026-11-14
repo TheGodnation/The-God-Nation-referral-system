@@ -141,6 +141,8 @@ export interface ChatTarget {
   chatId: string;
   name: string;
   photoUrl: string | null;
+  /** When the chat last had a message (ms; 0 = never). */
+  activityAt: number;
 }
 
 interface PrivateRow {
@@ -148,6 +150,13 @@ interface PrivateRow {
   otherPartyType: 'CENTRAL_AUTHORITY' | 'LEADER' | 'MEMBER';
   otherPartyName?: string | null;
   otherPartyPhotoUrl?: string | null;
+  createdAt?: string;
+  lastMessage?: { createdAt: string } | null;
+}
+
+/** The chats I used most recently first; chats with no activity at all after them, by name. */
+export function byRecentActivity<T extends { name: string; activityAt: number }>(chats: T[]): T[] {
+  return [...chats].sort((a, b) => b.activityAt - a.activityAt || a.name.localeCompare(b.name));
 }
 
 const MAX_TARGETS = 5;
@@ -187,19 +196,25 @@ export function ForwardSheet({
         .get<{ items: { communityId: string; communityName: string; status?: string }[] }>('/api/member/me/community-memberships')
         .catch(() => ({ items: [] as { communityId: string; communityName: string; status?: string }[] })),
       api.get<{ items: PrivateRow[] }>('/api/private-messages/conversations?pageSize=100').catch(() => ({ items: [] as PrivateRow[] })),
-    ]).then(([groups, privates]) => {
+      api.get<{ groups: Record<string, string> }>('/api/chat/forward/activity').catch(() => ({ groups: {} as Record<string, string> })),
+    ]).then(([groups, privates, activity]) => {
       if (!alive) return;
-      setChats([
-        ...groups.items
-          .filter((g) => !g.status || g.status === 'ACTIVE')
-          .map((g) => ({ kind: 'group' as const, chatId: g.communityId, name: g.communityName, photoUrl: null })),
-        ...privates.items.map((p) => ({
-          kind: 'private' as const,
-          chatId: p.id,
-          name: p.otherPartyType === 'CENTRAL_AUTHORITY' ? t('privateChat.headquarters') : p.otherPartyName || t('privateChat.someone'),
-          photoUrl: p.otherPartyPhotoUrl ?? null,
-        })),
-      ]);
+      const at = (iso?: string | null) => (iso ? new Date(iso).getTime() || 0 : 0);
+      // The chat I wrote in most recently comes first (like the chat list), groups and private chats together.
+      setChats(
+        byRecentActivity<ChatTarget>([
+          ...groups.items
+            .filter((g) => !g.status || g.status === 'ACTIVE')
+            .map((g) => ({ kind: 'group' as const, chatId: g.communityId, name: g.communityName, photoUrl: null, activityAt: at(activity.groups[g.communityId]) })),
+          ...privates.items.map((p) => ({
+            kind: 'private' as const,
+            chatId: p.id,
+            name: p.otherPartyType === 'CENTRAL_AUTHORITY' ? t('privateChat.headquarters') : p.otherPartyName || t('privateChat.someone'),
+            photoUrl: p.otherPartyPhotoUrl ?? null,
+            activityAt: at(p.lastMessage?.createdAt ?? p.createdAt),
+          })),
+        ]),
+      );
     });
     return () => {
       alive = false;

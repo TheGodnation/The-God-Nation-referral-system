@@ -115,6 +115,33 @@ router.get(
   }),
 );
 
+// When each of my groups last had a message, so the forward list can put the chats I used most recently first (the
+// private chats carry the time of their last message in their own list). Only groups I am an active member of.
+router.get(
+  '/forward/activity',
+  asyncHandler(async (req, res) => {
+    const actor = await resolvePrivateMessagingActor(req);
+    if (!actor) return res.status(401).json({ error: 'Authentication required.' });
+    if (actor.type !== 'PERSON') return res.json({ groups: {} });
+    const memberships = await prisma.communityMembership.findMany({ where: { personId: actor.personId, status: 'ACTIVE' }, select: { communityId: true } });
+    const communityIds = memberships.map((m) => m.communityId);
+    if (communityIds.length === 0) return res.json({ groups: {} });
+    const conversations = await prisma.conversation.findMany({ where: { communityId: { in: communityIds } }, select: { id: true, communityId: true } });
+    const latest = await prisma.message.groupBy({
+      by: ['conversationId'],
+      where: { conversationId: { in: conversations.map((c) => c.id) }, kind: 'USER' },
+      _max: { createdAt: true },
+    });
+    const communityOf = new Map(conversations.map((c) => [c.id, c.communityId]));
+    const groups: Record<string, string> = {};
+    for (const row of latest) {
+      const communityId = communityOf.get(row.conversationId);
+      if (communityId && row._max.createdAt) groups[communityId] = row._max.createdAt.toISOString();
+    }
+    res.json({ groups });
+  }),
+);
+
 router.post(
   '/forward',
   chatForwardLimiter,

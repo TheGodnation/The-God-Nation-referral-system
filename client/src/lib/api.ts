@@ -24,6 +24,14 @@ export class ApiError extends Error {
   }
 }
 
+/** The person stopped a request on purpose (for example, deleted a message that was still waiting to be sent). */
+export class RequestCancelled extends Error {
+  constructor() {
+    super('Request cancelled');
+    this.name = 'RequestCancelled';
+  }
+}
+
 /** The request never reached the server (no network, or it dropped). */
 export class NetworkError extends Error {
   constructor() {
@@ -58,7 +66,7 @@ const MUTATING = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 // a saved copy (books, chats, the School) show it instead of waiting for ever.
 export const GET_TIMEOUT_MS = 25000;
 
-async function request<T>(method: string, path: string, body?: unknown, options?: { keepalive?: boolean; noSaved?: boolean }): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, options?: { keepalive?: boolean; noSaved?: boolean; signal?: AbortSignal }): Promise<T> {
   const headers: Record<string, string> = {};
   let payload: string | undefined;
 
@@ -87,10 +95,12 @@ async function request<T>(method: string, path: string, body?: unknown, options?
       credentials: 'include',
       // keepalive: still sent if the page is closing (e.g. the reader's bookmark).
       ...(options?.keepalive ? { keepalive: true } : {}),
-      ...(controller ? { signal: controller.signal } : {}),
+      ...(controller ? { signal: controller.signal } : options?.signal ? { signal: options.signal } : {}),
     });
   } catch {
     if (timer) clearTimeout(timer);
+    // Stopped by the person on purpose: not a network problem, and nothing to retry.
+    if (options?.signal?.aborted) throw new RequestCancelled();
     reportReachable(false);
     // No internet: a signed-in member sees what this screen last showed (see lib/readCache.ts).
     const saved = options?.noSaved ? null : await offlineCopy<T>(method, path);
@@ -136,7 +146,7 @@ export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   // A reading that must fail when there is no internet (the caller keeps and shows its own saved copy, with a note).
   getLive: <T>(path: string) => request<T>('GET', path, undefined, { noSaved: true }),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
+  post: <T>(path: string, body?: unknown, options?: { signal?: AbortSignal }) => request<T>('POST', path, body ?? {}, options),
   put: <T>(path: string, body?: unknown, options?: { keepalive?: boolean }) => request<T>('PUT', path, body ?? {}, options),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body ?? {}),
   delete: <T>(path: string, body?: unknown) => request<T>('DELETE', path, body),

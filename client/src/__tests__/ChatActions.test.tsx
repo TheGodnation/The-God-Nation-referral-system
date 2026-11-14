@@ -131,6 +131,31 @@ describe('Edit and delete for everyone', () => {
 });
 
 describe('Forward', () => {
+  it('lists the chat I wrote to most recently first, groups and private chats together', async () => {
+    mockFetch(
+      routes({
+        'GET /api/private-messages/conversations': () => ({
+          body: {
+            items: [
+              { id: 'c1', otherPartyType: 'MEMBER', otherPartyName: 'Grace Ngwa', otherPartyPhotoUrl: null, unreadCount: 0, createdAt: '2026-01-01T10:00:00Z', lastMessage: { createdAt: '2026-11-01T10:00:00Z' } },
+              { id: 'c2', otherPartyType: 'MEMBER', otherPartyName: 'Zed Atem', otherPartyPhotoUrl: null, unreadCount: 0, createdAt: '2026-02-01T10:00:00Z', lastMessage: { createdAt: '2026-11-10T10:00:00Z' } },
+            ],
+          },
+        }),
+        'GET /api/chat/forward/activity': () => ({ body: { groups: { g2: '2026-11-05T10:00:00Z' } } }),
+      }),
+    );
+    renderChat();
+    await screen.findByText('See the flyer');
+    openMenu('See the flyer');
+    fireEvent.click(screen.getByRole('button', { name: /Forward/ }));
+    await screen.findByRole('checkbox', { name: /Limbe Group/ });
+    const names = screen.getAllByRole('checkbox').map((c) => c.getAttribute('aria-label') ?? c.parentElement?.textContent ?? '');
+    const order = ['Zed Atem', 'Limbe Group', 'Grace Ngwa'].map((n) => names.findIndex((x) => x.includes(n)));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
   it('sends a copy to the chats I pick', async () => {
     mockFetch(routes({ 'POST /api/chat/forward': () => ({ status: 201, body: { sent: [{}, {}] } }) }));
     renderChat();

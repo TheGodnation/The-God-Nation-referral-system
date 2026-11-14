@@ -2582,7 +2582,12 @@
     "doc_open_phone": "Open it on the phone",
     "doc_back": "Back to the chat",
     "all_assemblies": "All assemblies — as National Coordinator",
-    "offline_copy": "No internet. You are reading the last messages kept on this phone. New messages will appear when you are back online."
+    "offline_copy": "No internet. You are reading the last messages kept on this phone. New messages will appear when you are back online.",
+    "cancel_sending": "Delete",
+    "cancel_sending_confirm": "Delete this message? It has not been sent yet, and it will not be sent.",
+    "cancel_sending_done": "Deleted. It was never sent.",
+    "cancel_sending_stopped": "Stopped. If it still appears, you can delete it for everyone.",
+    "cancel_sending_late": "It was already sent. Use “Delete for everyone” on the message."
   },
   "voiceInput": {
     "start": "Speak to type",

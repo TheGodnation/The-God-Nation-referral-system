@@ -2582,7 +2582,12 @@
     "doc_open_phone": "L’ouvrir sur le téléphone",
     "doc_back": "Retour à la discussion",
     "all_assemblies": "Toutes les assemblées — comme Coordinateur national",
-    "offline_copy": "Pas d’internet. Vous lisez les derniers messages gardés sur ce téléphone. Les nouveaux messages apparaîtront quand vous serez de nouveau en ligne."
+    "offline_copy": "Pas d’internet. Vous lisez les derniers messages gardés sur ce téléphone. Les nouveaux messages apparaîtront quand vous serez de nouveau en ligne.",
+    "cancel_sending": "Supprimer",
+    "cancel_sending_confirm": "Supprimer ce message ? Il n’a pas encore été envoyé et il ne le sera pas.",
+    "cancel_sending_done": "Supprimé. Il n’a jamais été envoyé.",
+    "cancel_sending_stopped": "Arrêté. S’il apparaît quand même, vous pouvez le supprimer pour tout le monde.",
+    "cancel_sending_late": "Il a déjà été envoyé. Utilisez « Supprimer pour tous » sur le message."
   },
   "voiceInput": {
     "start": "Parler pour écrire",

@@ -5,7 +5,7 @@ import { ReactionsSheet, type ReactorList } from '../components/ReactionsSheet';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { api, ApiError, NetworkError } from '../lib/api';
+import { api, ApiError, NetworkError, RequestCancelled } from '../lib/api';
 import { loadThread, saveThread } from '../lib/chatCache';
 import { isOfflineError } from '../lib/offlineStore';
 import { useMemberAuth } from '../lib/MemberAuthContext';
@@ -178,7 +178,7 @@ export function MemberPrivateChatPage() {
   // Messages typed while offline: shown with 🕓, sent when the network is back.
   const outbox = useOutbox(
     `private:${conversationId}`,
-    (out) => api.post(`${base}/messages`, out).then(() => undefined),
+    (out, signal) => api.post(`${base}/messages`, out, { signal }).then(() => undefined),
     (tempId) => {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       pokeRef.current();
@@ -190,6 +190,8 @@ export function MemberPrivateChatPage() {
   );
   const queuedRef = useRef(outbox.queued);
   queuedRef.current = outbox.queued;
+  // Messages being sent right now, so deleting one can stop it.
+  const sending = useRef(new Map<string, AbortController>());
 
   // First load: the latest page. After that, only what is new.
   const fetchLatest = useCallback(
@@ -365,13 +367,17 @@ export function MemberPrivateChatPage() {
       },
     ]);
     setReplyTo(null);
+    const controller = new AbortController();
+    sending.current.set(tempId, controller);
     try {
-      await api.post(`${base}/messages`, out);
+      await api.post(`${base}/messages`, out, { signal: controller.signal });
       await fetchLatest(false);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       poke();
       return true;
     } catch (err) {
+      // Deleted by the person while it was being sent: nothing more to do (it is already out of the list).
+      if (err instanceof RequestCancelled) return true;
       if (err instanceof NetworkError) {
         // No network: keep it with a 🕓 and send it when the network is back.
         const temp: ChatMessage = messagesRef.current.find((m) => m.id === tempId) ?? {
@@ -394,7 +400,24 @@ export function MemberPrivateChatPage() {
       else if (err instanceof ApiError && err.status === 403) showToast(t('privateChat.blocked'));
       else showToast(t('groupChat.send_failed'));
       return false;
+    } finally {
+      sending.current.delete(tempId);
     }
+  }
+
+  // Deletes a message that has not gone out yet: still being sent, or waiting for the network. It is taken out of the
+  // list (and of the saved queue) and never sent.
+  function cancelPending(m: ChatMessage) {
+    if (!window.confirm(t('groupChat.cancel_sending_confirm') ?? '')) return;
+    // It may have gone through while the question was open: then it is an ordinary message.
+    if (!messagesRef.current.some((x) => x.id === m.id && x.pending)) {
+      showToast(t('groupChat.cancel_sending_late'));
+      return;
+    }
+    outbox.cancel(m.id);
+    sending.current.get(m.id)?.abort();
+    setMessages((prev) => prev.filter((x) => x.id !== m.id));
+    showToast(t(m.queued ? 'groupChat.cancel_sending_done' : 'groupChat.cancel_sending_stopped'));
   }
 
   // Posts photos/videos/documents once they are uploaded. Their bubble is
@@ -603,6 +626,7 @@ export function MemberPrivateChatPage() {
                   highlighted={highlightId === m.id}
                   onReply={setReplyTo}
                   onMenu={setMenuFor}
+                  onCancelPending={cancelPending}
                   onReact={react}
                   onJumpTo={jumpTo}
                   onOpenPhoto={setPhotoUrl}

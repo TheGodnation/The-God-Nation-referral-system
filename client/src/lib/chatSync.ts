@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, NetworkError } from './api';
+import { ApiError, NetworkError, RequestCancelled } from './api';
 import type { ChatMessage, ChatReaction, ChatTranslation, ChatTranscript } from '../components/chat/types';
 import type { OutgoingMessage } from '../components/chat/ChatComposer';
 
@@ -161,7 +161,7 @@ function writeOutbox(key: string, items: QueuedItem[]) {
  */
 export function useOutbox(
   chatKey: string,
-  send: (out: OutgoingMessage) => Promise<void>,
+  send: (out: OutgoingMessage, signal?: AbortSignal) => Promise<void>,
   onSent: (tempId: string) => void,
   onRefused: (tempId: string, err: unknown) => void,
 ) {
@@ -169,6 +169,8 @@ export function useOutbox(
   const queueRef = useRef(queued);
   queueRef.current = queued;
   const flushing = useRef(false);
+  // Being sent right now (so a delete can stop it), and deleted while waiting.
+  const inflight = useRef(new Map<string, AbortController>());
   const sendRef = useRef(send);
   sendRef.current = send;
   const onSentRef = useRef(onSent);
@@ -190,14 +192,21 @@ export function useOutbox(
     flushing.current = true;
     try {
       for (const item of [...queueRef.current]) {
+        // Deleted by the person since this round began: never send it.
+        if (!queueRef.current.some((q) => q.tempId === item.tempId)) continue;
+        const controller = new AbortController();
+        inflight.current.set(item.tempId, controller);
         try {
-          await sendRef.current(item.out);
+          await sendRef.current(item.out, controller.signal);
           update(queueRef.current.filter((q) => q.tempId !== item.tempId));
           onSentRef.current(item.tempId);
         } catch (err) {
+          if (err instanceof RequestCancelled) continue; // deleted while being sent: already removed
           if (err instanceof NetworkError) break; // still offline — try later
           update(queueRef.current.filter((q) => q.tempId !== item.tempId));
           onRefusedRef.current(item.tempId, err instanceof ApiError ? err : null);
+        } finally {
+          inflight.current.delete(item.tempId);
         }
       }
     } finally {
@@ -208,6 +217,15 @@ export function useOutbox(
   const enqueue = useCallback(
     (tempId: string, out: OutgoingMessage, message: ChatMessage) => {
       update([...queueRef.current, { tempId, out, message: { ...message, pending: true, queued: true } }]);
+    },
+    [update],
+  );
+
+  /** Deletes a message that is still waiting for network (or being sent): it is taken out and never sent. */
+  const cancel = useCallback(
+    (tempId: string) => {
+      update(queueRef.current.filter((q) => q.tempId !== tempId));
+      inflight.current.get(tempId)?.abort();
     },
     [update],
   );
@@ -226,5 +244,5 @@ export function useOutbox(
     };
   }, [flush]);
 
-  return { queued, enqueue };
+  return { queued, enqueue, cancel };
 }

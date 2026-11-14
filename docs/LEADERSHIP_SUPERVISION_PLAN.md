@@ -434,3 +434,13 @@ When a design picture in `client/public/certificate/` is replaced, also raise `T
 ## Book descriptions (one short text per book)
 
 Each of the programme's 16 books has one short description, "After reading this book, you become…" (the founder's English, with French written by the assistant for the founder to correct): `server/src/lib/programmeDescriptions.ts`. It is the only text on a book's page besides the cover, Read, the exam and payment: the earlier pitch, chapter summaries and closing words are no longer shown, and the migration `20261231200000_book_descriptions` replaced Books 1–3's old pages with the new text and removed the chapter summaries (the old texts stay in the earlier `load_book_*_page` migrations). Books are matched by their place in their level (Foundations 1–2; Kingdom Keys 1–9; Rights 1–5), not by number, so the Rights books (now 11–15) get programme books 12–16. **Kingdom Keys Volume 9 is not on the site yet and no empty book was created for it**: a book with no passed exam would stop students from reaching the books after it. Its description is kept ready and is filled in automatically when the admin adds that book at number 11 in the Kingdom Keys level (no description typed). Adding a numbered book together with a chosen level now keeps it in that level (number 11 with level Kingdom Keys goes to the end of Kingdom Keys, not to the start of the Rights level).
+
+## Chat: delete a message that is still waiting, and forward list order
+
+- A message that shows "Sending…" or "Waiting for network" now has a **Delete** button beside it (private chats and
+  groups). Deleting it asks once, removes it from the phone's waiting list (`outbox:<chat>`) and, if the request is
+  already on its way, stops it (`RequestCancelled` in `lib/api.ts`). A message that has already reached the server is
+  deleted the normal way ("delete for everyone").
+- The forward list (`ForwardSheet`) now puts the chat used most recently first — groups and private chats together.
+  Private chats use the time of their last message; groups use `GET /api/chat/forward/activity`
+  (`{ groups: { <communityId>: <ISO time of last message> } }`).
