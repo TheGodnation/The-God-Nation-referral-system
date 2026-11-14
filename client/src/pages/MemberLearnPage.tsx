@@ -41,7 +41,7 @@ interface DevotionalRow {
 }
 
 interface ExamWorld {
-  offering: { instructionsEn: string | null; instructionsFr: string | null };
+  offering?: { instructionsEn: string | null; instructionsFr: string | null };
   devotionals: DevotionalRow[];
   training: SchoolSummary;
 }
@@ -131,7 +131,9 @@ export function MemberLearnPage() {
   useEffect(load, []);
 
   const tr = (en: string, fr: string | null) => (isFr ? fr || en : en);
-  const instructions = data ? (isFr ? data.offering.instructionsFr || data.offering.instructionsEn : data.offering.instructionsEn) : null;
+  // A saved or older answer may have no "offering" part: the page must still open.
+  const offering = data?.offering;
+  const instructions = offering ? (isFr ? offering.instructionsFr || offering.instructionsEn : offering.instructionsEn) : null;
 
   return (
     <PageShell minimal>

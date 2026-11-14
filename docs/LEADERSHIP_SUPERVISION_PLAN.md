@@ -444,3 +444,12 @@ Each of the programme's 16 books has one short description, "After reading this 
 - The forward list (`ForwardSheet`) now puts the chat used most recently first — groups and private chats together.
   Private chats use the time of their last message; groups use `GET /api/chat/forward/activity`
   (`{ groups: { <communityId>: <ISO time of last message> } }`).
+
+## Ready to lead waits for the whole programme
+
+- `graduatesAmong` / `readyToLeadIn` / `assembliesOverview` (`server/src/lib/cells.ts`) now use `programmeCompleteness()`:
+  nobody counts as "ready to lead" until every book of the programme (at least the programme total, 16) is on the site
+  with a published exam, and the person has passed all of them. While books are still to come, the lists are empty and
+  `requiredBooks` shows 16.
+- The Learn page no longer breaks when the saved/older answer has no `offering` part.
+- Merge-back commits to the deploy branch carry `[skip render]` so each change restarts the site once, not twice.

@@ -8,7 +8,8 @@ import i18n from '../i18n';
 // Offline reading, part two: the Learn page keeps its last list for use without internet,
 // signing out removes it, and the PDF engine is part of the app (not a public website).
 let online = true;
-const EXAM_WORLD = {
+let EXAM_WORLD: Record<string, unknown>;
+const DEFAULT_WORLD = {
   offering: { instructionsEn: null, instructionsFr: null },
   devotionals: [
     { id: 'd1', titleEn: 'Unveiling Kingdom Secrets', titleFr: null, descriptionEn: 'This month\'s book', descriptionFr: null, startDate: '2026-11-01', endDate: '2026-11-30', bookId: 'b1', bookSent: true, iGaveOffering: false, exams: [] },
@@ -40,7 +41,7 @@ function page() {
   return render(<MemoryRouter><MemberAuthProvider><Gate><MemberLearnPage /></Gate></MemberAuthProvider></MemoryRouter>);
 }
 
-beforeEach(() => { localStorage.clear(); online = true; i18n.changeLanguage('en'); });
+beforeEach(() => { localStorage.clear(); online = true; EXAM_WORLD = DEFAULT_WORLD; i18n.changeLanguage('en'); });
 afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
 
 describe('Learn page without internet', () => {
@@ -66,6 +67,17 @@ describe('Learn page without internet', () => {
     localStorage.setItem('member:last', JSON.stringify({ name: 'Mary', email: 'm@x.com', preferredLanguage: 'en', personId: 'p1', profileComplete: true }));
     page();
     await waitFor(() => expect(screen.getByText(/Could not load/i)).toBeInTheDocument());
+  });
+});
+
+describe('Learn page with an incomplete answer', () => {
+  it('still opens when the answer has no "offering" part (it used to show the error screen)', async () => {
+    const { offering: _unused, ...withoutOffering } = DEFAULT_WORLD;
+    void _unused;
+    EXAM_WORLD = withoutOffering;
+    mockFetch();
+    page();
+    expect(await screen.findByText('Unveiling Kingdom Secrets')).toBeInTheDocument();
   });
 });
 
