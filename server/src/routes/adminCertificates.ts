@@ -6,7 +6,7 @@ import { requireCsrf } from '../lib/csrf';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { communityMutationLimiter } from '../lib/rateLimit';
-import { CertificateError, NAME_PATTERN, cleanName, issueCertificate } from '../lib/certificates';
+import { CertificateError, NAME_PATTERN, certificateEligibility, cleanName, issueCertificate } from '../lib/certificates';
 import { notifyCertificateIssued } from '../lib/notifications';
 
 // ---------------------------------------------------------------------------
@@ -24,8 +24,12 @@ function audit(req: any, action: string, id: string, metadata?: Record<string, u
 
 const include = { person: { select: { id: true, name: true, whatsappNumber: true, preferredLanguage: true, memberAccount: { select: { email: true } } } } } as const;
 
-function shape(r: any) {
+type Progress = { eligible: boolean; passed: number; total: number } | null;
+
+function shape(r: any, progress: Progress = null) {
   return {
+    // Where the student is in the programme (only worked out for requests still open): "ready" = every book passed.
+    progress,
     id: r.id,
     personId: r.person.id,
     accountName: r.person.name,
@@ -56,7 +60,10 @@ router.get('/', asyncHandler(async (req, res) => {
     include,
   });
   const open = await prisma.certificateRequest.count({ where: { status: { in: ['REQUESTED', 'PAID'] } } });
-  res.json({ items: rows.map(shape), open });
+  // Students may ask in advance, so show for each open request how far they are in the programme.
+  const progress = new Map<string, Progress>();
+  await Promise.all(rows.filter((r) => r.status === 'REQUESTED' || r.status === 'PAID').map(async (r) => progress.set(r.id, await certificateEligibility(r.personId))));
+  res.json({ items: rows.map((r) => shape(r, progress.get(r.id) ?? null)), open });
 }));
 
 const patchSchema = z.object({
@@ -119,6 +126,11 @@ router.post('/:id/paid', communityMutationLimiter, requireCsrf, asyncHandler((re
 router.post('/:id/issue', communityMutationLimiter, requireCsrf, asyncHandler((req, res) =>
   step(req, res, 'CERTIFICATE_ISSUED', async (id) => {
     const before = await prisma.certificateRequest.findUnique({ where: { id }, select: { status: true, personId: true } });
+    // The certificate means the whole programme is done: stop if books remain, unless the admin chooses to go ahead.
+    if (before && before.status !== 'ISSUED' && before.status !== 'DELIVERED' && req.body?.override !== true) {
+      const progress = await certificateEligibility(before.personId);
+      if (!progress.eligible) throw new CertificateError('NOT_COMPLETE', `This student has passed ${progress.passed} of ${progress.total} books so far.`);
+    }
     const row = await issueCertificate(id);
     if (before && before.status !== 'ISSUED' && before.status !== 'DELIVERED') await notifyCertificateIssued(row.personId).catch(() => {});
   })));

@@ -26,6 +26,8 @@ interface OrgLevel {
 interface Structure {
   levels: OrgLevel[];
   unplaced: OrgBook[];
+  /** The number of books told to students (16), even while the last ones are not on the site yet. */
+  programTotal?: number;
 }
 
 interface IntroData {
@@ -102,6 +104,43 @@ function IntroEditor() {
         </div>
       )}
     </section>
+  );
+}
+
+// How many books the whole programme has. Students are told this number (and the certificate needs all of them) even
+// while the last books are not on the site yet.
+function ProgrammeTotal({ value, onSaved }: { value: number; onSaved: () => void }) {
+  const { t } = useTranslation();
+  const [text, setText] = useState(String(value));
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => setText(String(value)), [value]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    try {
+      await api.put('/api/admin/library/training/total', { total: Number(text) });
+      setMsg(t('organizer.total_saved'));
+      onSaved();
+    } catch (err) {
+      setMsg(err instanceof ApiError ? err.message : t('organizer.failed'));
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="space-y-1 rounded-lg border border-slate-200 p-3" data-testid="programme-total">
+      <label className="block text-sm font-semibold text-slate-800" htmlFor="programme-total-input">
+        {t('organizer.total_label')}
+      </label>
+      <p className="text-xs text-slate-600">{t('organizer.total_help')}</p>
+      <div className="flex gap-2">
+        <input id="programme-total-input" className="input w-24" inputMode="numeric" value={text} onChange={(e) => setText(e.target.value.replace(/\D/g, ''))} data-testid="programme-total-input" />
+        <button type="submit" className="btn-secondary" data-testid="programme-total-save">
+          {t('organizer.save')}
+        </button>
+      </div>
+      {msg && <p role="status" className="text-sm text-slate-700">{msg}</p>}
+    </form>
   );
 }
 
@@ -297,6 +336,7 @@ export function TrainingOrganizer({ onChanged }: { onChanged: () => void }) {
         </button>
       </form>
       <p className="text-xs text-slate-500">{t('organizer.total', { count: allBooks.length })}</p>
+      <ProgrammeTotal value={data.programTotal ?? allBooks.length} onSaved={load} />
       <IntroEditor />
     </div>
   );

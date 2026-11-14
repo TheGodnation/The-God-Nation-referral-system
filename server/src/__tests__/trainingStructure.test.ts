@@ -176,6 +176,18 @@ describe('The curriculum organizer (admin)', () => {
   });
 });
 
+describe('The number of books in the programme', () => {
+  it('is 16 until the admin changes it, shown to students even while fewer books are on the site', async () => {
+    const a = await admin();
+    expect((await structure(a) as any).programTotal).toBe(16);
+    const res = await a.agent.put('/api/admin/library/training/total').set('X-CSRF-Token', a.csrf).send({ total: 17 });
+    expect(res.status).toBe(200);
+    expect((await structure(a) as any).programTotal).toBe(17);
+    expect((await a.agent.put('/api/admin/library/training/total').set('X-CSRF-Token', a.csrf).send({ total: 0 })).status).toBe(400);
+    expect((await a.agent.put('/api/admin/library/training/total').set('X-CSRF-Token', a.csrf).send({ total: 'many' })).status).toBe(400);
+  });
+});
+
 describe('The curriculum introduction', () => {
   it('starts as the standard text (English and French), with its markers, and can be replaced and put back', async () => {
     const a = await admin();

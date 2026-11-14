@@ -748,6 +748,9 @@ model Settings {
   // Leadership training: the price of each book (FCFA), and how to pay it
   // by Mobile Money (numbers, account name), shown to trainees.
   trainingBookPrice             Int               @default(1200)
+  // How many books the whole programme has (16), shown to students even while the last ones are not on the site yet.
+  // The certificate needs every one of them.
+  trainingBooksTotal            Int               @default(16)
   // Whether leaders may read the faith journey of the people in their own assembly (the central admin always can).
   leadersSeeFaithJourney        Boolean           @default(false)
   // What a referrer earns when someone they invited pays for a book, how many

@@ -2764,6 +2764,8 @@
     "title": "The God Nation Leadership Academy",
     "subtitle": "A Diploma in Kingdom Studies and Kingdom Governance.",
     "read_intro": "Read about the diploma",
+    "more_coming_one": "The programme has {{total}} books. {{count}} more will be added to the site soon, in order.",
+    "more_coming_other": "The programme has {{total}} books. {{count}} more will be added to the site soon, in order.",
     "back_to_learn": "Learn",
     "teaser": "Study at The God Nation Leadership Academy and grow as a leader. Book 1 opens as soon as you begin.",
     "progress": "{{passed}} of {{total}} books passed",
@@ -5400,14 +5402,17 @@
     "intro_fr": "French",
     "intro_standard": "standard text",
     "intro_saved": "Saved.",
-    "intro_reset": "Bring back the standard text"
+    "intro_reset": "Bring back the standard text",
+    "total_label": "Number of books in the whole programme",
+    "total_help": "Students are told this number (16), and the certificate needs all of them, even while the last books are not on the site yet. Once every book is on the site, the number of books there takes over if it is larger.",
+    "total_saved": "Saved."
   },
   "certificate": {
     "title": "Your certificate",
     "sample_example": "See an example",
     "sample_note": "This is an example with a made-up name.",
     "sample_close": "Close",
-    "not_yet": "Pass all {{total}} books ({{passed}} passed so far) and you can ask for your Diploma in Kingdom Studies and Kingdom Governance.",
+    "not_yet": "To receive your certificate you must study and pass all {{total}} books ({{passed}} passed so far). You can fill in your request now: it will be issued once you have finished the {{total}} books.",
     "passed_all": "You have passed every book. You can now ask for your diploma.",
     "ask_button": "Ask for my certificate",
     "form_name": "Your name, exactly as it should be printed",
@@ -5441,7 +5446,8 @@
     "downloading": "Preparing…",
     "website_only": "To ask for your certificate, open thegodnationacademy.org in your phone's browser.",
     "alt": "Diploma of {{name}}",
-    "alt_sample": "Example of the diploma, with a made-up name"
+    "alt_sample": "Example of the diploma, with a made-up name",
+    "status_waiting_books": "Your request is saved. Your certificate will be issued once you have passed all {{total}} books ({{passed}} passed so far)."
   },
   "certificateAdmin": {
     "title": "🎓 Certificates",
@@ -5482,6 +5488,9 @@
     "message_failed": "The message could not be sent.",
     "failed": "Something went wrong. Please try again.",
     "number": "Number: {{number}}",
-    "issued_on": "Issued {{date}}"
+    "issued_on": "Issued {{date}}",
+    "ready": "✓ Has passed all {{total}} books: ready to issue",
+    "not_ready": "Has passed {{passed}} of {{total}} books so far (asked in advance)",
+    "issue_incomplete": "This student has passed {{passed}} of {{total}} books so far. Issue the certificate anyway?"
   }
 }

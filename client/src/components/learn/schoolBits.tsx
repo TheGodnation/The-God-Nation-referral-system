@@ -50,6 +50,8 @@ export interface SchoolSummary {
   enrollment: 'NONE' | 'REQUESTED' | 'ACTIVE' | 'REVOKED';
   books: SchoolBook[];
   levels?: SchoolLevel[];
+  /** How many books the whole programme has (16), told to students even while the last ones are not on the site yet. */
+  totalBooks?: number;
   /** The Academy introduction (the founder's text, or the standard one), English and French. */
   intro?: { en: string; fr: string };
   price?: number;
@@ -67,6 +69,11 @@ export function useTr() {
   const { i18n } = useTranslation();
   const isFr = i18n.language.startsWith('fr');
   return (en: string, fr: string | null | undefined) => (isFr ? fr || en : en);
+}
+
+/** The number of books of the programme to tell the student: never fewer than the books on the site. */
+export function programmeTotal(summary: Pick<SchoolSummary, 'books' | 'totalBooks'>): number {
+  return Math.max(summary.books.length, summary.totalBooks ?? 0);
 }
 
 /** The book to carry on with: the first open book not yet passed or not yet paid. */

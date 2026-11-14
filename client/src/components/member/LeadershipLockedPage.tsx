@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../PageShell';
 import { MemberNav } from './MemberNav';
-import { type SchoolSummary } from '../learn/schoolBits';
+import { programmeTotal, type SchoolSummary } from '../learn/schoolBits';
 import { cachedGet } from '../../lib/cachedGet';
 import { useMemberAuth } from '../../lib/MemberAuthContext';
 
@@ -25,7 +25,7 @@ export function LeadershipLockedPage() {
     };
   }, [member?.personId]);
 
-  const total = school?.books.length ?? 0;
+  const total = school ? programmeTotal(school) : 0;
   const passed = (school?.books ?? []).filter((b) => b.exam?.passed).length;
   const started = school?.enrollment === 'ACTIVE';
 

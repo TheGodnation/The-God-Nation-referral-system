@@ -1,6 +1,7 @@
 import type { Prisma, CertificateRequest } from '@prisma/client';
 import { prisma } from './prisma';
 import { getTrainingBooksFor } from './examWorld';
+import { programmeBookTotal } from './trainingTotal';
 
 // ---------------------------------------------------------------------------
 // The Academy diploma. A student who has passed every book can ask for it, typing their name exactly as it should be
@@ -11,11 +12,15 @@ import { getTrainingBooksFor } from './examWorld';
 
 export const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s'’.\-]{1,79}$/u;
 
-/** Passed every training book (and there is at least one). Adding a new book later means passing that one too. */
+/**
+ * Passed every book of the programme: all the books on the site, and all of the programme's books (16) even if the last
+ * ones are not on the site yet. Adding a new book later means passing that one too.
+ */
 export async function certificateEligibility(personId: string): Promise<{ eligible: boolean; passed: number; total: number }> {
   const books = await getTrainingBooksFor(personId);
   const passed = books.filter((b) => b.exam?.passed).length;
-  return { eligible: books.length > 0 && passed === books.length, passed, total: books.length };
+  const total = await programmeBookTotal(books.length);
+  return { eligible: books.length > 0 && passed === books.length && books.length >= total, passed, total };
 }
 
 export function cleanName(raw: string): string {

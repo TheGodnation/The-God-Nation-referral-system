@@ -5,7 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { BookCover } from '../components/learn/BookCover';
-import { SchoolBook, SchoolSummary, TrainingStatusCard, currentBook, useTr } from '../components/learn/schoolBits';
+import { SchoolBook, SchoolSummary, TrainingStatusCard, currentBook, programmeTotal, useTr } from '../components/learn/schoolBits';
 import { cachedGet } from '../lib/cachedGet';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { useStoreApp } from '../lib/storeApp';
@@ -48,7 +48,9 @@ export function MemberSchoolPage() {
   useEffect(loadCertificate, []);
 
   const books = data?.books ?? [];
-  const total = books.length;
+  // The whole programme has 16 books, even while the last one is not on the site yet.
+  const total = data ? programmeTotal(data) : books.length;
+  const stillToCome = Math.max(0, total - books.length);
   const passed = books.filter((b) => b.exam?.passed).length;
   const studying = data?.enrollment === 'ACTIVE';
   const current = studying ? currentBook(books) : null;
@@ -106,6 +108,11 @@ export function MemberSchoolPage() {
           </ul>
         </section>
       ))}
+      {stillToCome > 0 && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" data-testid="academy-more-coming">
+          {t('school.more_coming', { count: stillToCome, total })}
+        </p>
+      )}
     </div>
   );
 
@@ -177,6 +184,8 @@ export function MemberSchoolPage() {
             {booksSection}
             {after && <RichText text={after} headings comfort className="text-sm text-slate-800" data-testid="academy-intro-after" />}
             <TrainingStatusCard summary={data} onChanged={load} />
+            {/* Anyone can prepare their certificate request, even before starting to study. */}
+            {certificateCard}
           </div>
         )}
         <MemberNav />

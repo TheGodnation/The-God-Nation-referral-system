@@ -28,6 +28,8 @@ interface Item {
   paidAt: string | null;
   deliveredAt: string | null;
   requestedAt: string;
+  /** How far the student is in the programme (worked out for requests still open). */
+  progress?: { eligible: boolean; passed: number; total: number } | null;
 }
 
 export function CertificatesAdmin() {
@@ -104,6 +106,21 @@ function CertificateRow({ item, onChanged }: { item: Item; onChanged: () => void
     if (confirmText && !window.confirm(confirmText)) return;
     void run(() => api.post(`/api/admin/certificates/${item.id}/${step}`, {}));
   };
+  // Issuing before every book is passed needs a second, deliberate yes.
+  const issue = () => {
+    if (!window.confirm(t('certificateAdmin.issue_confirm', { name: item.nameOnCertificate }) ?? '')) return;
+    void run(async () => {
+      try {
+        await api.post(`/api/admin/certificates/${item.id}/issue`, {});
+      } catch (err) {
+        if (err instanceof ApiError && err.code === 'NOT_COMPLETE' && window.confirm(t('certificateAdmin.issue_incomplete', { passed: item.progress?.passed ?? '?', total: item.progress?.total ?? '?' }) ?? '')) {
+          await api.post(`/api/admin/certificates/${item.id}/issue`, { override: true });
+          return;
+        }
+        throw err;
+      }
+    });
+  };
   const save = () => run(() => api.patch(`/api/admin/certificates/${item.id}`, { adminNote: note, ...(issued ? {} : { nameOnCertificate: name }) }), t('certificateAdmin.saved'));
   const send = () => run(async () => {
     await api.post(`/api/admin/library/trainees/${item.personId}/message`, { body: message });
@@ -123,6 +140,11 @@ function CertificateRow({ item, onChanged }: { item: Item; onChanged: () => void
       <p className="text-slate-600">
         {t('certificateAdmin.account', { name: item.accountName })} · {t(`certificateAdmin.delivery_${item.delivery}`)} · {item.language.toUpperCase()} · {t('certificateAdmin.asked_on', { date: date(item.requestedAt) })}
       </p>
+      {item.progress && (
+        <p className={`text-xs font-semibold ${item.progress.eligible ? 'text-green-800' : 'text-amber-800'}`} data-testid={`certificate-progress-${item.id}`}>
+          {item.progress.eligible ? t('certificateAdmin.ready', { total: item.progress.total }) : t('certificateAdmin.not_ready', { passed: item.progress.passed, total: item.progress.total })}
+        </p>
+      )}
       {item.address && <p className="text-slate-700">{t('certificateAdmin.address', { address: item.address })}</p>}
       <p className="flex flex-wrap gap-x-3 text-slate-700">
         {item.contactPhone && <span>{t('certificateAdmin.phone', { phone: item.contactPhone })}</span>}
@@ -160,7 +182,7 @@ function CertificateRow({ item, onChanged }: { item: Item; onChanged: () => void
           </button>
         )}
         {(item.status === 'REQUESTED' || item.status === 'PAID') && (
-          <button type="button" className="btn-primary px-2 py-1 text-xs" disabled={busy} onClick={() => act('issue', t('certificateAdmin.issue_confirm', { name: item.nameOnCertificate }) ?? undefined)} data-testid={`certificate-issue-${item.id}`}>
+          <button type="button" className="btn-primary px-2 py-1 text-xs" disabled={busy} onClick={issue} data-testid={`certificate-issue-${item.id}`}>
             {t('certificateAdmin.issue')}
           </button>
         )}

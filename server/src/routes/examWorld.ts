@@ -18,6 +18,7 @@ import { coverFrUrl, coverUrl, sendCover } from '../lib/bookCovers';
 import { notifyReadRequested } from '../lib/notifications';
 import { sendTrainingWelcome } from '../lib/trainingWelcome';
 import { getCurriculumIntro } from '../lib/curriculumIntro';
+import { DEFAULT_BOOKS_TOTAL } from '../lib/trainingTotal';
 
 // ---------------------------------------------------------------------------
 // /api/member — Exam World for members: the summary page (this month's
@@ -123,7 +124,7 @@ async function trainingSummary(personId: string) {
   const [settings, enrollment, books, chapterCounts, graceRequest, reading, levels] = await Promise.all([
     prisma.settings.findUnique({
       where: { id: 'singleton' },
-      select: { trainingBookPrice: true, trainingPaymentInstructionsEn: true, trainingPaymentInstructionsFr: true },
+      select: { trainingBookPrice: true, trainingBooksTotal: true, trainingPaymentInstructionsEn: true, trainingPaymentInstructionsFr: true },
     }),
     prisma.trainingEnrollment.findUnique({ where: { personId }, select: { status: true, graceBooks: true } }),
     getTrainingBooksFor(personId),
@@ -150,6 +151,8 @@ async function trainingSummary(personId: string) {
   return {
     // The curriculum's levels, in order; each book says which level it is in.
     levels,
+    // How many books the whole programme has (16): told to students even while the last ones are not on the site yet.
+    totalBooks: Math.max(books.length, settings?.trainingBooksTotal ?? DEFAULT_BOOKS_TOTAL),
     enrollment: enrollment?.status ?? 'NONE',
     // Payment: 1,200 FCFA a book, paid before the next book opens —
     // unless "study now, pay later" grace allows up to 5 owed.
