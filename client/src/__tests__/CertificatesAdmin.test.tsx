@@ -6,6 +6,8 @@ import i18n from '../i18n';
 // The central admin's list of certificate requests: details, private note, and the steps.
 const calls: { url: string; method: string; body: any }[] = [];
 let items: any[] = [];
+// When set, the first "issue" is refused because books remain (the server's NOT_COMPLETE answer).
+let refuseIssueOnce = false;
 
 const row = (id: string, over: Record<string, unknown> = {}) => ({
   id,
@@ -35,6 +37,10 @@ function mockFetch() {
       const method = init?.method ?? 'GET';
       calls.push({ url, method, body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined });
       let out: any = {};
+      if (method === 'POST' && url.endsWith('/issue') && refuseIssueOnce && !(typeof init?.body === 'string' && JSON.parse(init.body).override)) {
+        refuseIssueOnce = false;
+        return Promise.resolve({ ok: false, status: 409, headers: { get: () => 'application/json' }, json: async () => ({ error: 'This student has passed 5 of 16 books so far.', code: 'NOT_COMPLETE' }) });
+      }
       if (method === 'GET') out = { items, open: items.filter((i) => i.status === 'REQUESTED' || i.status === 'PAID').length };
       return Promise.resolve({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => out });
     }),
@@ -45,6 +51,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   calls.length = 0;
+  refuseIssueOnce = false;
   i18n.changeLanguage('en');
 });
 
@@ -124,5 +131,39 @@ describe('Certificates (admin)', () => {
     expect(await screen.findByText('No one has asked for a certificate yet.')).toBeInTheDocument();
     fireEvent.change(screen.getByTestId('certificate-filter'), { target: { value: 'ISSUED' } });
     await waitFor(() => expect(calls.some((c) => c.url === '/api/admin/certificates?status=ISSUED')).toBe(true));
+  });
+
+  it('shows how far each open request is in the 16 books', async () => {
+    items = [row('c1', { progress: { eligible: false, passed: 5, total: 16 } }), row('c2', { nameOnCertificate: 'Ada Lovelace', progress: { eligible: true, passed: 16, total: 16 } })];
+    mockFetch();
+    render(<CertificatesAdmin />);
+    expect(await screen.findByTestId('certificate-progress-c1')).toHaveTextContent('Has passed 5 of 16 books so far (asked in advance)');
+    expect(screen.getByTestId('certificate-progress-c2')).toHaveTextContent('Has passed all 16 books: ready to issue');
+  });
+
+  it('asks a second time before issuing for someone who has not passed every book, and goes ahead only on yes', async () => {
+    items = [row('c1', { progress: { eligible: false, passed: 5, total: 16 } })];
+    refuseIssueOnce = true;
+    mockFetch();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<CertificatesAdmin />);
+    await screen.findByTestId('certificate-row-c1');
+    fireEvent.click(screen.getByTestId('certificate-issue-c1'));
+    await waitFor(() => expect(calls.filter((c) => c.url.endsWith('/issue')).length).toBe(2));
+    expect(confirm).toHaveBeenLastCalledWith('This student has passed 5 of 16 books so far. Issue the certificate anyway?');
+    expect(calls.filter((c) => c.url.endsWith('/issue'))[1].body).toEqual({ override: true });
+  });
+
+  it('does not issue when the admin says no to the second question', async () => {
+    items = [row('c1', { progress: { eligible: false, passed: 5, total: 16 } })];
+    refuseIssueOnce = true;
+    mockFetch();
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true).mockReturnValueOnce(false);
+    render(<CertificatesAdmin />);
+    await screen.findByTestId('certificate-row-c1');
+    fireEvent.click(screen.getByTestId('certificate-issue-c1'));
+    await waitFor(() => expect(calls.filter((c) => c.url.endsWith('/issue')).length).toBe(1));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(calls.filter((c) => c.url.endsWith('/issue')).length).toBe(1);
   });
 });

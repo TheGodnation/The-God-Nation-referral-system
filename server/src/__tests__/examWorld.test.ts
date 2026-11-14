@@ -717,6 +717,8 @@ describe('Leadership Academy: covers, pages and chapter summaries', () => {
     expect(school.body.books.map((b: any) => b.coverUrl)).toEqual([null, null]);
     // The page also carries the curriculum: the levels (each book says which one it is in) and the introduction text.
     expect(Array.isArray(school.body.levels)).toBe(true);
+    // And the programme's total number of books (16), told to students even while fewer are on the site.
+    expect(school.body.totalBooks).toBeGreaterThanOrEqual(16);
     expect(school.body.books.every((b: any) => 'levelId' in b)).toBe(true);
     expect(school.body.intro.en).toContain('The Diploma at a Glance');
     expect(school.body.intro.fr).toContain('Présentation du diplôme');

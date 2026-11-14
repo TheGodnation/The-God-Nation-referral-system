@@ -20,6 +20,7 @@ import { centralAdminPerson, sendContinueEmail, sendTrainingWelcome, sendWebsite
 import { sendPrivateNotice } from '../lib/privateNotice';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { DEFAULT_INTRO_EN, DEFAULT_INTRO_FR, getCurriculumIntro } from '../lib/curriculumIntro';
+import { DEFAULT_BOOKS_TOTAL, MAX_BOOKS_TOTAL, configuredBooksTotal } from '../lib/trainingTotal';
 import { insertBook, loadStructure, moveBook, moveBookToLevel, moveLevel, removeBook, saveStructure } from '../lib/trainingStructure';
 
 // ---------------------------------------------------------------------------
@@ -193,11 +194,23 @@ async function structureJson() {
   return {
     levels: levels.map((l) => ({ ...l, books: (groups.find((g) => g.levelId === l.id)?.books ?? []).map(shape) })),
     unplaced: (groups.find((g) => g.levelId === null)?.books ?? []).map(shape),
+    // The number of books told to students (16), even while the last ones are not on the site yet.
+    programTotal: await configuredBooksTotal(),
   };
 }
 
 router.get('/training/structure', asyncHandler(async (_req, res) => {
   res.json(await structureJson());
+}));
+
+// The number of books the whole programme has (16): students are told this number, and the certificate needs all of them,
+// even while the last books are not on the site yet.
+router.put('/training/total', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = z.object({ total: z.number().int().min(1).max(MAX_BOOKS_TOTAL) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: `Write a number between 1 and ${MAX_BOOKS_TOTAL}.` });
+  await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', trainingBooksTotal: parsed.data.total }, update: { trainingBooksTotal: parsed.data.total } });
+  await audit(req, 'TRAINING_TOTAL_UPDATED', 'Settings', 'singleton', { total: parsed.data.total });
+  res.json({ programTotal: parsed.data.total, default: DEFAULT_BOOKS_TOTAL });
 }));
 
 // The introduction text at the top of the Leadership Academy page: the admin's own, or the standard one.

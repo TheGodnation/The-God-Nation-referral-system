@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { MemberCertificateCard, CertificateInfo } from '../components/certificate/MemberCertificateCard';
 import i18n from '../i18n';
 
 // The student's side of the diploma: an example, asking for it once every book is passed, and where it stands.
+// Which design is asked for when the picture is drawn (the images themselves do not load in the test browser).
+const templates: string[] = [];
+vi.mock('../lib/certificateRender', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/certificateRender')>();
+  return { ...actual, loadTemplate: vi.fn((lang: string) => { templates.push(lang); return new Promise<HTMLImageElement>(() => {}); }) };
+});
+
 const calls: { url: string; method: string; body: any }[] = [];
 let response: { status: number; body: unknown } = { status: 201, body: {} };
 
@@ -17,12 +24,14 @@ function mockFetch() {
   );
 }
 
-afterEach(() => {
+afterEach(async () => {
+  cleanup(); // unmount first, so switching the language back does not redraw a leftover card
   vi.unstubAllGlobals();
   calls.length = 0;
+  templates.length = 0;
   response = { status: 201, body: {} };
   sessionStorage.clear();
-  i18n.changeLanguage('en');
+  await i18n.changeLanguage('en');
 });
 
 const info = (over: Partial<CertificateInfo> = {}): CertificateInfo => ({ eligible: false, passed: 3, total: 16, defaultName: 'Nji Clinton', defaultLanguage: 'en', request: null, ...over });
@@ -41,14 +50,57 @@ const request = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('Certificate card (student)', () => {
-  it('before every book is passed: says what is needed and shows an example with a made-up name on request', () => {
+  it('before every book is passed: says all 16 are needed, lets them ask in advance, and shows an example with a made-up name', () => {
     render(<MemberCertificateCard info={info()} onChanged={() => {}} />);
-    expect(screen.getByText(/Pass all 16 books \(3 passed so far\)/)).toBeInTheDocument();
-    expect(screen.queryByTestId('certificate-ask')).toBeNull();
+    expect(screen.getByTestId('certificate-intro')).toHaveTextContent('you must study and pass all 16 books (3 passed so far)');
+    expect(screen.getByTestId('certificate-ask')).toBeInTheDocument();
     expect(screen.queryByTestId('certificate-sample')).toBeNull();
     fireEvent.click(screen.getByTestId('certificate-sample-toggle'));
     expect(screen.getByTestId('certificate-sample')).toHaveTextContent('This is an example with a made-up name.');
     expect(screen.getByRole('img', { name: 'Example of the diploma, with a made-up name' })).toBeInTheDocument();
+  });
+
+  it('shows the example in the language the app is read in: French for a French reader, with a switch to English', async () => {
+    await i18n.changeLanguage('fr');
+    render(<MemberCertificateCard info={info({ defaultLanguage: 'en' })} onChanged={() => {}} />);
+    fireEvent.click(screen.getByTestId('certificate-sample-toggle'));
+    await waitFor(() => expect(templates).toContain('fr'));
+    expect(templates).not.toContain('en');
+    expect(screen.getByTestId('certificate-sample-fr')).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByTestId('certificate-sample-en'));
+    await waitFor(() => expect(templates).toContain('en'));
+  });
+
+  it('shows the English example to an English reader', async () => {
+    render(<MemberCertificateCard info={info({ defaultLanguage: 'fr' })} onChanged={() => {}} />);
+    fireEvent.click(screen.getByTestId('certificate-sample-toggle'));
+    await waitFor(() => expect(templates).toContain('en'));
+    expect(templates).not.toContain('fr');
+  });
+
+  it('lets someone who has not finished fill in the request in advance, reminding them of all 16 books', async () => {
+    mockFetch();
+    const onChanged = vi.fn();
+    render(<MemberCertificateCard info={info({ passed: 0 })} onChanged={onChanged} />);
+    fireEvent.click(screen.getByTestId('certificate-ask'));
+    expect(screen.getByTestId('certificate-form-notice')).toHaveTextContent('pass all 16 books (0 passed so far)');
+    fireEvent.click(screen.getByTestId('certificate-submit'));
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST')).toMatchObject({ url: '/api/member/certificate', body: { name: 'Nji Clinton', delivery: 'EMAIL', language: 'en' } }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it('starts the certificate language as the language of the app', async () => {
+    await i18n.changeLanguage('fr');
+    mockFetch();
+    render(<MemberCertificateCard info={info({ eligible: true, defaultLanguage: 'en' })} onChanged={() => {}} />);
+    fireEvent.click(screen.getByTestId('certificate-ask'));
+    fireEvent.click(screen.getByTestId('certificate-submit'));
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body.language).toBe('fr'));
+  });
+
+  it('after asking in advance: says it is saved and will be issued once all 16 books are passed', () => {
+    render(<MemberCertificateCard info={info({ request: request() as any })} onChanged={() => {}} />);
+    expect(screen.getByText('Your request is saved. Your certificate will be issued once you have passed all 16 books (3 passed so far).')).toBeInTheDocument();
   });
 
   it('never shows a price anywhere', () => {
@@ -90,13 +142,14 @@ describe('Certificate card (student)', () => {
 
   it('in the Play Store version, sends them to the website instead of taking the request', () => {
     sessionStorage.setItem('godnation:store-app', '1');
-    render(<MemberCertificateCard info={info({ eligible: true })} onChanged={() => {}} />);
+    render(<MemberCertificateCard info={info()} onChanged={() => {}} />);
+    expect(screen.getByText(/all 16 books/)).toBeInTheDocument();
     expect(screen.getByText(/open thegodnationacademy.org/)).toBeInTheDocument();
     expect(screen.queryByTestId('certificate-ask')).toBeNull();
   });
 
   it('after asking: says it was received, and lets them change it while it is only a request', () => {
-    render(<MemberCertificateCard info={info({ eligible: true, request: request() as any })} onChanged={() => {}} />);
+    render(<MemberCertificateCard info={info({ eligible: true, passed: 16, request: request() as any })} onChanged={() => {}} />);
     expect(screen.getByText('Your request was received. The Academy will contact you.')).toBeInTheDocument();
     expect(screen.getByText(/It will be sent to you by email or WhatsApp/)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('certificate-change'));
@@ -127,7 +180,7 @@ describe('Certificate card (student)', () => {
   it('speaks French', () => {
     i18n.changeLanguage('fr');
     render(<MemberCertificateCard info={info({ defaultLanguage: 'fr' })} onChanged={() => {}} />);
-    expect(screen.getByText(/Réussissez les 16 livres \(3 réussis jusqu’ici\)/)).toBeInTheDocument();
+    expect(screen.getByText(/vous devez étudier et réussir les 16 livres \(3 réussis jusqu’ici\)/)).toBeInTheDocument();
     expect(screen.getByText('Voir un exemple')).toBeInTheDocument();
   });
 });

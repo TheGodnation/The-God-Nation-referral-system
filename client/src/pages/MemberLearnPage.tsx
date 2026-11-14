@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { BookCover } from '../components/learn/BookCover';
-import { PayPromptCard, SchoolSummary } from '../components/learn/schoolBits';
+import { PayPromptCard, SchoolSummary, programmeTotal } from '../components/learn/schoolBits';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api, ApiError } from '../lib/api';
@@ -216,7 +216,7 @@ export function MemberLearnPage() {
                 <span className="block font-semibold text-brand-900">{t('school.title')}</span>
                 <span className="block text-sm text-slate-700">
                   {data.training.enrollment === 'ACTIVE'
-                    ? t('school.progress', { passed: data.training.books.filter((b) => b.exam?.passed).length, total: data.training.books.length })
+                    ? t('school.progress', { passed: data.training.books.filter((b) => b.exam?.passed).length, total: programmeTotal(data.training) })
                     : data.training.enrollment === 'REVOKED'
                       ? t('learn.training_stopped')
                       : t('school.teaser', { count: data.training.books.length })}

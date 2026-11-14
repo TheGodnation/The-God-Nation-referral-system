@@ -34,29 +34,34 @@ export interface CertificateInfo {
 const SAMPLE_NAME = 'John Doe';
 
 export function MemberCertificateCard({ info, onChanged }: { info: CertificateInfo; onChanged: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // The example and the request follow the language the student is reading the app in.
+  const appLang: CertLang = i18n.language?.startsWith('fr') ? 'fr' : 'en';
+  const [sampleLang, setSampleLang] = useState<CertLang>(appLang);
   const store = useStoreApp();
   const [showSample, setShowSample] = useState(false);
   const [editing, setEditing] = useState(false);
   const request = info.request;
   const year = new Date().getFullYear();
-  const lang: CertLang = request?.language ?? info.defaultLanguage;
-  const sample = { name: SAMPLE_NAME, number: `GNLA-${year}-001`, issuedAt: new Date(), lang };
+  const sample = { name: SAMPLE_NAME, number: `GNLA-${year}-001`, issuedAt: new Date(), lang: sampleLang };
 
   return (
     <section className="card space-y-3" data-testid="certificate-card">
       <h2 className="text-lg font-semibold text-brand-900">🎓 {t('certificate.title')}</h2>
 
-      {!request && !info.eligible && <p className="text-sm text-slate-700">{t('certificate.not_yet', { total: info.total, passed: info.passed })}</p>}
-
-      {!request && info.eligible && store && <p className="text-sm text-slate-700">{t('certificate.website_only')}</p>}
-
-      {!request && info.eligible && !store && !editing && (
+      {!request && !store && !editing && (
         <>
-          <p className="text-sm text-slate-700">{t('certificate.passed_all')}</p>
+          <p className="text-sm text-slate-700" data-testid="certificate-intro">{info.eligible ? t('certificate.passed_all') : t('certificate.not_yet', { total: info.total, passed: info.passed })}</p>
           <button type="button" className="btn-primary" onClick={() => setEditing(true)} data-testid="certificate-ask">
             {t('certificate.ask_button')}
           </button>
+        </>
+      )}
+
+      {!request && store && (
+        <>
+          <p className="text-sm text-slate-700">{t('certificate.not_yet', { total: info.total, passed: info.passed })}</p>
+          <p className="text-sm text-slate-700">{t('certificate.website_only')}</p>
         </>
       )}
 
@@ -72,7 +77,7 @@ export function MemberCertificateCard({ info, onChanged }: { info: CertificateIn
         />
       )}
 
-      {request && !editing && <RequestStatus request={request} onChange={() => setEditing(true)} />}
+      {request && !editing && <RequestStatus request={request} info={info} onChange={() => setEditing(true)} />}
 
       {!request && (
         <div>
@@ -81,6 +86,13 @@ export function MemberCertificateCard({ info, onChanged }: { info: CertificateIn
           </button>
           {showSample && (
             <div className="mt-2 space-y-1" data-testid="certificate-sample">
+              <div className="flex gap-2 text-sm" role="group" aria-label={t('certificate.form_language') ?? ''}>
+                {(['en', 'fr'] as const).map((l) => (
+                  <button key={l} type="button" aria-pressed={sampleLang === l} onClick={() => setSampleLang(l)} data-testid={`certificate-sample-${l}`} className={`rounded-full border px-3 py-1 ${sampleLang === l ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 text-slate-700'}`}>
+                    {t(`certificate.lang_${l}`)}
+                  </button>
+                ))}
+              </div>
               <CertificateCanvas data={sample} alt={t('certificate.alt_sample')} />
               <p className="text-xs text-slate-500">{t('certificate.sample_note')}</p>
             </div>
@@ -91,11 +103,13 @@ export function MemberCertificateCard({ info, onChanged }: { info: CertificateIn
   );
 }
 
-function RequestStatus({ request, onChange }: { request: CertificateRequestView; onChange: () => void }) {
+function RequestStatus({ request, info, onChange }: { request: CertificateRequestView; info: CertificateInfo; onChange: () => void }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const issued = request.status === 'ISSUED' || request.status === 'DELIVERED';
-  const statusText = { REQUESTED: 'status_requested', PAID: 'status_paid', ISSUED: 'status_issued', DELIVERED: 'status_delivered', CANCELLED: 'status_requested' }[request.status];
+  // Asked in advance: say plainly that every book must be passed first.
+  const waitingForBooks = !issued && !info.eligible && (request.status === 'REQUESTED' || request.status === 'PAID');
+  const statusText = waitingForBooks ? 'status_waiting_books' : { REQUESTED: 'status_requested', PAID: 'status_paid', ISSUED: 'status_issued', DELIVERED: 'status_delivered', CANCELLED: 'status_requested' }[request.status];
   const data = issued && request.certificateNumber && request.issuedAt ? { name: request.nameOnCertificate, number: request.certificateNumber, issuedAt: request.issuedAt, lang: request.language } : null;
 
   async function save() {
@@ -110,7 +124,7 @@ function RequestStatus({ request, onChange }: { request: CertificateRequestView;
 
   return (
     <div className="space-y-3 text-sm" data-testid="certificate-status">
-      <p className={`rounded-lg px-3 py-2 font-medium ${issued ? 'bg-green-50 text-green-900' : 'bg-amber-50 text-amber-900'}`}>{t(`certificate.${statusText}`)}</p>
+      <p className={`rounded-lg px-3 py-2 font-medium ${issued ? 'bg-green-50 text-green-900' : 'bg-amber-50 text-amber-900'}`}>{t(`certificate.${statusText}`, { total: info.total, passed: info.passed })}</p>
       <dl className="grid gap-1 text-slate-700">
         <div>
           <dt className="inline font-semibold">{t('certificate.your_name')}: </dt>
@@ -150,7 +164,9 @@ function RequestStatus({ request, onChange }: { request: CertificateRequestView;
 function CertificateForm({ info, initial, onCancel, onSaved }: { info: CertificateInfo; initial: CertificateRequestView | null; onCancel: () => void; onSaved: () => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState(initial?.nameOnCertificate ?? info.defaultName);
-  const [language, setLanguage] = useState<CertLang>(initial?.language ?? info.defaultLanguage);
+  const { i18n } = useTranslation();
+  // The language of the certificate starts as the language the student is reading the app in.
+  const [language, setLanguage] = useState<CertLang>(initial?.language ?? (i18n.language?.startsWith('fr') ? 'fr' : 'en'));
   const [delivery, setDelivery] = useState<'POST' | 'EMAIL' | 'COLLECT'>(initial?.delivery ?? 'EMAIL');
   const [phone, setPhone] = useState(initial?.contactPhone ?? '');
   const [address, setAddress] = useState(initial?.address ?? '');
@@ -174,6 +190,11 @@ function CertificateForm({ info, initial, onCancel, onSaved }: { info: Certifica
   const choice = 'flex items-start gap-2 rounded-lg border border-slate-200 p-2 text-sm';
   return (
     <form onSubmit={submit} className="space-y-3 text-sm" data-testid="certificate-form">
+      {!info.eligible && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 font-medium text-amber-900" data-testid="certificate-form-notice">
+          {t('certificate.not_yet', { total: info.total, passed: info.passed })}
+        </p>
+      )}
       <label className="block">
         <span className="font-medium text-slate-800">{t('certificate.form_name')}</span>
         <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required data-testid="certificate-name" />

@@ -66,20 +66,37 @@ async function admin(): Promise<Who> {
 const post = (w: Who, path: string, body: Record<string, unknown> = {}) => w.agent.post(path).set('X-CSRF-Token', w.csrf).send(body);
 const patch = (w: Who, path: string, body: Record<string, unknown> = {}) => w.agent.patch(path).set('X-CSRF-Token', w.csrf).send(body);
 
-beforeEach(() => {
+// The programme's total is as many books as the test student has (2), unless a test says otherwise.
+async function setProgrammeTotal(total: number) {
+  await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', trainingBooksTotal: total }, update: { trainingBooksTotal: total } });
+}
+
+beforeEach(async () => {
   state.passedAll = true;
+  await setProgrammeTotal(2);
 });
 afterEach(() => vi.restoreAllMocks());
 
 describe('Asking for the certificate (student)', () => {
-  it('is only possible once every book is passed', async () => {
+  it('can be asked for in advance, before finishing: nothing is issued and the central admin is not bothered yet', async () => {
     state.passedAll = false;
     const m = await member('Nji Clinton');
     const info = await m.agent.get('/api/member/certificate');
     expect(info.body).toMatchObject({ eligible: false, passed: 1, total: 2, request: null, defaultName: 'Nji Clinton' });
     const res = await post(m, '/api/member/certificate', { name: 'Nji Clinton', delivery: 'EMAIL' });
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe('NOT_ELIGIBLE');
+    expect(res.status).toBe(201);
+    expect(res.body.request.status).toBe('REQUESTED');
+    expect(await prisma.notification.count({ where: { type: 'CERTIFICATE_REQUESTED' } })).toBe(0);
+    expect((await m.agent.get('/api/member/certificate')).body).toMatchObject({ eligible: false, request: { status: 'REQUESTED' } });
+  });
+
+  it('tells students there are 16 books, even while only some are on the site, and needs all of them', async () => {
+    await setProgrammeTotal(16); // the test student has 2 books on the site, both passed
+    const m = await member('Sixteen');
+    const info = await m.agent.get('/api/member/certificate');
+    expect(info.body).toMatchObject({ eligible: false, passed: 2, total: 16 });
+    await setProgrammeTotal(2);
+    expect((await m.agent.get('/api/member/certificate')).body).toMatchObject({ eligible: true, passed: 2, total: 2 });
   });
 
   it('checks the name, and the address and phone that posting needs', async () => {
@@ -174,6 +191,27 @@ describe('The central admin handles requests', () => {
     // A cancelled request cannot be issued.
     await post(a, `/api/admin/certificates/${id}/cancel`);
     expect((await post(a, `/api/admin/certificates/${id}/issue`)).status).toBe(409);
+  });
+
+  it('shows how far each open request is, and will not issue before every book is passed unless the admin goes ahead', async () => {
+    state.passedAll = false;
+    const a = await admin();
+    const m = await member('Early Bird');
+    await post(m, '/api/member/certificate', { name: 'Early Bird', delivery: 'EMAIL' });
+    const list = await a.agent.get('/api/admin/certificates');
+    expect(list.body.items[0].progress).toEqual({ eligible: false, passed: 1, total: 2 });
+    const id = list.body.items[0].id;
+    const refused = await post(a, `/api/admin/certificates/${id}/issue`);
+    expect(refused.status).toBe(409);
+    expect(refused.body).toMatchObject({ code: 'NOT_COMPLETE', error: 'This student has passed 1 of 2 books so far.' });
+    expect((await prisma.certificateRequest.findUnique({ where: { id } }))!.status).toBe('REQUESTED');
+    // Once they finish it goes through; or the admin may go ahead on purpose.
+    state.passedAll = true;
+    expect((await a.agent.get('/api/admin/certificates')).body.items[0].progress.eligible).toBe(true);
+    state.passedAll = false;
+    const forced = await post(a, `/api/admin/certificates/${id}/issue`, { override: true });
+    expect(forced.status).toBe(200);
+    expect(forced.body.item.status).toBe('ISSUED');
   });
 
   it('is for the central admin only', async () => {

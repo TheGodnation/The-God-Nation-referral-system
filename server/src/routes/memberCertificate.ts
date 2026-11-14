@@ -38,7 +38,7 @@ const requestSchema = z.object({
   address: z.string().trim().max(300).optional(),
 });
 
-// POST /api/member/certificate — ask for it (or change the request while it is still only a request).
+// POST /api/member/certificate — ask for it, even before finishing the books (or change the request while it is only a request).
 router.post('/certificate', socialMutationLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
   const personId = req.member!.personId;
   const parsed = requestSchema.safeParse(req.body);
@@ -52,8 +52,9 @@ router.post('/certificate', socialMutationLimiter, requireCsrf, requireMember, a
   if (d.delivery === 'COLLECT' && (!phone || phone.replace(/\D/g, '').length < 6)) {
     return res.status(400).json({ error: 'Add a phone number so we can tell you when it is ready.', code: 'PHONE' });
   }
+  // Anyone may fill in the request in advance (even before starting to study); it is issued only once every book of the
+  // programme is passed, and the central admin is told as soon as that is true (not before).
   const eligibility = await certificateEligibility(personId);
-  if (!eligibility.eligible) return res.status(403).json({ error: 'You can ask for the certificate once you have passed every book.', code: 'NOT_ELIGIBLE' });
 
   const existing = await prisma.certificateRequest.findUnique({ where: { personId } });
   if (existing && existing.status !== 'REQUESTED' && existing.status !== 'CANCELLED') {
@@ -73,7 +74,7 @@ router.post('/certificate', socialMutationLimiter, requireCsrf, requireMember, a
     create: { personId, ...data },
     update: { ...data, requestedAt: new Date() },
   });
-  if (!existing || existing.status === 'CANCELLED') {
+  if (eligibility.eligible && (!existing || existing.status === 'CANCELLED')) {
     const person = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } });
     if (person) await notifyCertificateRequested(person).catch(() => {});
   }

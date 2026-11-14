@@ -2764,6 +2764,8 @@
     "title": "Académie de leadership de The God Nation",
     "subtitle": "Diplôme en études du Royaume et gouvernance du Royaume",
     "read_intro": "Lire la présentation du diplôme",
+    "more_coming_one": "Le programme compte {{total}} livres. {{count}} de plus sera bientôt ajouté sur le site, dans l’ordre.",
+    "more_coming_other": "Le programme compte {{total}} livres. {{count}} de plus seront bientôt ajoutés sur le site, dans l’ordre.",
     "back_to_learn": "Apprendre",
     "teaser": "Étudiez à l’Académie de leadership de The God Nation et grandissez comme leader. Le livre 1 s’ouvre dès que vous commencez.",
     "progress": "{{passed}} livres réussis sur {{total}}",
@@ -5400,14 +5402,17 @@
     "intro_fr": "Français",
     "intro_standard": "texte standard",
     "intro_saved": "Enregistré.",
-    "intro_reset": "Remettre le texte standard"
+    "intro_reset": "Remettre le texte standard",
+    "total_label": "Nombre de livres de tout le programme",
+    "total_help": "Les étudiants voient ce nombre (16) et le certificat les exige tous, même tant que les derniers livres ne sont pas sur le site. Quand tous les livres sont sur le site, c’est leur nombre qui compte s’il est plus grand.",
+    "total_saved": "Enregistré."
   },
   "certificate": {
     "title": "Votre certificat",
     "sample_example": "Voir un exemple",
     "sample_note": "Ceci est un exemple avec un nom fictif.",
     "sample_close": "Fermer",
-    "not_yet": "Réussissez les {{total}} livres ({{passed}} réussis jusqu’ici) et vous pourrez demander votre Diplôme en études du Royaume et gouvernance du Royaume.",
+    "not_yet": "Pour recevoir votre certificat, vous devez étudier et réussir les {{total}} livres ({{passed}} réussis jusqu’ici). Vous pouvez remplir votre demande dès maintenant : il sera délivré quand vous aurez terminé les {{total}} livres.",
     "passed_all": "Vous avez réussi tous les livres. Vous pouvez maintenant demander votre diplôme.",
     "ask_button": "Demander mon certificat",
     "form_name": "Votre nom, exactement comme il doit être imprimé",
@@ -5441,7 +5446,8 @@
     "downloading": "Préparation…",
     "website_only": "Pour demander votre certificat, ouvrez thegodnationacademy.org dans le navigateur de votre téléphone.",
     "alt": "Diplôme de {{name}}",
-    "alt_sample": "Exemple de diplôme, avec un nom fictif"
+    "alt_sample": "Exemple de diplôme, avec un nom fictif",
+    "status_waiting_books": "Votre demande est enregistrée. Votre certificat sera délivré quand vous aurez réussi les {{total}} livres ({{passed}} réussis jusqu’ici)."
   },
   "certificateAdmin": {
     "title": "🎓 Certificats",
@@ -5482,6 +5488,9 @@
     "message_failed": "Le message n’a pas pu être envoyé.",
     "failed": "Un problème est survenu. Veuillez réessayer.",
     "number": "Numéro : {{number}}",
-    "issued_on": "Délivré le {{date}}"
+    "issued_on": "Délivré le {{date}}",
+    "ready": "✓ A réussi les {{total}} livres : prêt à être délivré",
+    "not_ready": "A réussi {{passed}} livres sur {{total}} jusqu’ici (demandé à l’avance)",
+    "issue_incomplete": "Cet étudiant a réussi {{passed}} livres sur {{total}} jusqu’ici. Délivrer quand même le certificat ?"
   }
 }

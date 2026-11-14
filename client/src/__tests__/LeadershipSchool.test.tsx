@@ -104,6 +104,36 @@ describe('Leadership Academy page', () => {
     expect(within(folded).getByText(/Each book costs 1\s100 FCFA\./)).toBeInTheDocument();
   });
 
+  it('tells students there are 16 books even while fewer are on the site', async () => {
+    mockFetch({ 'GET /api/member/auth/me': () => ({ body: ME }), 'GET /api/member/school': () => ({ body: { ...SUMMARY, totalBooks: 16 } }) });
+    renderAt('/member/school');
+    expect(await screen.findByText('1 of 16 books passed')).toBeInTheDocument();
+    expect(screen.getByTestId('academy-more-coming')).toHaveTextContent('The programme has 16 books. 13 more will be added to the site soon, in order.');
+    // The introduction's numbers follow the programme, not the books on the site.
+    const folded = screen.getByTestId('academy-intro-folded');
+    expect(within(folded).getByText(/A journey of 16 books in 2 levels\./)).toBeInTheDocument();
+  });
+
+  it('says nothing about books to come when every book of the programme is on the site', async () => {
+    mockFetch({ 'GET /api/member/auth/me': () => ({ body: ME }), 'GET /api/member/school': () => ({ body: { ...SUMMARY, totalBooks: 3 } }) });
+    renderAt('/member/school');
+    await screen.findByText('1 of 3 books passed');
+    expect(screen.queryByTestId('academy-more-coming')).toBeNull();
+  });
+
+  it('lets someone who has not begun prepare their certificate request, below the way to begin', async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: ME }),
+      'GET /api/member/school': () => ({ body: { ...SUMMARY, enrollment: 'NONE', totalBooks: 16, books: SUMMARY.books.map((b) => ({ ...b, unlocked: false, lockedBecause: 'NOT_STARTED' })) } }),
+      'GET /api/member/certificate': () => ({ body: { eligible: false, passed: 0, total: 16, defaultName: 'Me', defaultLanguage: 'en', request: null } }),
+    });
+    renderAt('/member/school');
+    const ask = await screen.findByTestId('certificate-ask');
+    const begin = screen.getByRole('button', { name: 'Begin my training' });
+    expect(begin.compareDocumentPosition(ask) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId('certificate-intro')).toHaveTextContent('pass all 16 books (0 passed so far)');
+  });
+
   it('shows someone who has not begun the whole introduction, the books, then the way to begin', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: ME }),

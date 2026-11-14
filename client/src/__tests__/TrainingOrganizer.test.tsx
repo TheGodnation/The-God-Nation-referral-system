@@ -140,4 +140,16 @@ describe('Arrange the curriculum', () => {
     await waitFor(() => expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ en: '', fr: '' }));
     await waitFor(() => expect(screen.getByTestId('intro-en')).toHaveValue('Standard English intro'));
   });
+
+  it('shows the number of books told to students (16) and saves a change', async () => {
+    structure = { levels: [level('L1', 1, 'Foundations', [book('b1', 'One', 1)])], unplaced: [], programTotal: 16 };
+    mockFetch();
+    render(<TrainingOrganizer onChanged={() => {}} />);
+    const input = await screen.findByTestId('programme-total-input');
+    expect(input).toHaveValue('16');
+    fireEvent.change(input, { target: { value: '17' } });
+    fireEvent.click(screen.getByTestId('programme-total-save'));
+    await waitFor(() => expect(calls.find((c) => c.method === 'PUT')).toMatchObject({ url: '/api/admin/library/training/total', body: { total: 17 } }));
+    expect(await screen.findByText('Saved.')).toBeInTheDocument();
+  });
 });
