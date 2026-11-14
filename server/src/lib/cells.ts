@@ -5,12 +5,14 @@ import { recordAudit } from './audit';
 import { notifyRoleAssigned } from './notifications';
 import { ensureLeaderAccount, type LeaderAccountResult } from './leaderAccounts';
 import { addPeopleToCommunity } from './bulkMembers';
+import { programmeBookTotal } from './trainingTotal';
 
 // ---------------------------------------------------------------------------
 // Cells — the central admin's view of the assemblies and who is ready to lead.
 //
 // "Ready to lead" = an active member of the assembly who has passed the exam
-// of EVERY Leadership Academy book (the books that have a published exam) and
+// of EVERY book of the programme (all 16, even while the last ones are still to
+// be put on the site: until every book has its exam, nobody is ready) and
 // is not already a leader of that assembly. There is no limit on how many
 // leaders an assembly can have: the central admin appoints as many as he
 // wants, himself, from this list.
@@ -25,11 +27,24 @@ export async function requiredLeadershipExamIds(): Promise<string[]> {
   return books.map((b) => b.exam!.id);
 }
 
+/**
+ * Whether the whole programme is on the site: every book (and at least the programme total, 16) has a published exam.
+ * While it is not, nobody can have finished the school. `total` is the number of books students are told about.
+ */
+export async function programmeCompleteness(): Promise<{ examIds: string[]; total: number; complete: boolean }> {
+  const [examIds, booksOnSite] = await Promise.all([
+    requiredLeadershipExamIds(),
+    prisma.libraryBook.count({ where: { kind: 'TRAINING', trainingOrder: { not: null } } }),
+  ]);
+  const total = examIds.length === 0 ? 0 : await programmeBookTotal(booksOnSite);
+  return { examIds, total, complete: examIds.length > 0 && examIds.length >= total };
+}
+
 /** When each given person finished the school (null = not finished), among `personIds`. */
 export async function graduatesAmong(personIds: string[]): Promise<Map<string, Date>> {
-  const examIds = await requiredLeadershipExamIds();
+  const { examIds, complete } = await programmeCompleteness();
   const result = new Map<string, Date>();
-  if (examIds.length === 0 || personIds.length === 0) return result;
+  if (!complete || personIds.length === 0) return result;
 
   const passes = await prisma.attempt.findMany({
     where: { personId: { in: personIds }, assessmentId: { in: examIds }, status: 'SUBMITTED', passed: true },
@@ -74,8 +89,8 @@ export interface ReadyToLeadPerson {
 
 /** Members of one assembly who have finished the school and do not lead it yet. */
 export async function readyToLeadIn(communityId: string): Promise<{ requiredBooks: number; items: ReadyToLeadPerson[] }> {
-  const [examIds, members, leaders] = await Promise.all([
-    requiredLeadershipExamIds(),
+  const [{ total }, members, leaders] = await Promise.all([
+    programmeCompleteness(),
     prisma.communityMembership.findMany({
       where: { communityId, status: 'ACTIVE' },
       select: { person: { select: { id: true, name: true, whatsappNumber: true } } },
@@ -89,7 +104,7 @@ export async function readyToLeadIn(communityId: string): Promise<{ requiredBook
     .filter((p) => graduates.has(p.id))
     .map((p) => ({ personId: p.id, name: p.name, whatsappNumber: p.whatsappNumber, finishedAt: graduates.get(p.id)!.toISOString() }))
     .sort((a, b) => a.finishedAt.localeCompare(b.finishedAt));
-  return { requiredBooks: examIds.length, items };
+  return { requiredBooks: total, items };
 }
 
 export interface AssemblyOverviewRow {
@@ -110,7 +125,7 @@ export interface AssemblyOverviewRow {
 
 /** Every active assembly with its size, leaders and how many are ready to lead. */
 export async function assembliesOverview(): Promise<{ capacity: number; requiredBooks: number; items: AssemblyOverviewRow[] }> {
-  const [communities, memberships, roles, settings, examIds, followed, admins] = await Promise.all([
+  const [communities, memberships, roles, settings, { total: requiredTotal }, followed, admins] = await Promise.all([
     prisma.community.findMany({
       where: { active: true },
       select: { id: true, name: true, parentId: true, autoCreated: true, createdAt: true, kind: true },
@@ -119,7 +134,7 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
     prisma.communityMembership.findMany({ where: { status: 'ACTIVE' }, select: { personId: true, communityId: true } }),
     prisma.roleAssignment.findMany({ where: { status: 'ACTIVE', communityId: { not: null } }, select: { personId: true, communityId: true } }),
     prisma.settings.findUnique({ where: { id: 'singleton' }, select: { assemblyCapacity: true } }),
-    requiredLeadershipExamIds(),
+    programmeCompleteness(),
     prisma.followUpAssignment.findMany({ where: { status: 'ACTIVE' }, select: { contextId: true, followedPersonId: true } }),
     prisma.user.findMany({ where: { role: 'ADMIN', active: true, personId: { not: null } }, select: { personId: true } }),
   ]);
@@ -149,7 +164,7 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
 
   return {
     capacity: settings?.assemblyCapacity ?? 200,
-    requiredBooks: examIds.length,
+    requiredBooks: requiredTotal,
     items: communities.map((c) => ({
       id: c.id,
       name: c.name,

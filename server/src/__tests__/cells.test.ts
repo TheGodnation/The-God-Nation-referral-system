@@ -63,6 +63,8 @@ async function school() {
     const exam = await prisma.assessment.create({ data: { titleEn: `Exam ${order}`, passMark: 70, status: 'PUBLISHED', trainingBookId: book.id } });
     exams.push(exam.id);
   }
+  // The programme is these two books here (the real one has 16, which every book must have before anyone is "ready").
+  await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', trainingBooksTotal: 2 }, update: { trainingBooksTotal: 2 } });
   return exams;
 }
 
@@ -101,6 +103,21 @@ describe('Ready to lead — admin dashboard', () => {
     const rowA = overview.body.items.find((r: any) => r.id === a.id);
     expect(rowA).toMatchObject({ members: 3, leaders: 1, readyToLead: 1 });
     expect(overview.body.items.find((r: any) => r.id === b.id)).toMatchObject({ members: 1, leaders: 0, readyToLead: 1 });
+  });
+
+  it('shows nobody as ready until all 16 books of the programme are on the site with their exams', async () => {
+    const exams = await school();
+    // The programme is announced as 16 books, but only 2 are on the site so far.
+    await prisma.settings.update({ where: { id: 'singleton' }, data: { trainingBooksTotal: 16 } });
+    const a = await prisma.community.create({ data: { name: 'Assembly A' } });
+    const graduate = await person('Passed both', a.id);
+    await passes(graduate.id, exams);
+    const { agent } = await adminSignIn();
+    const list = await agent.get(`/api/admin/cells/ready-to-lead?communityId=${a.id}`);
+    expect(list.body).toEqual({ requiredBooks: 16, items: [] });
+    const overview = await agent.get('/api/admin/cells/overview');
+    expect(overview.body.items.find((r: any) => r.id === a.id)).toMatchObject({ readyToLead: 0 });
+    expect(overview.body.requiredBooks).toBe(16);
   });
 
   it('shows nobody as ready while no school exam exists', async () => {
