@@ -42,7 +42,7 @@ interface ExamWorld {
   }[];
   training: {
     enrollment: 'NONE' | 'REQUESTED' | 'ACTIVE' | 'REVOKED';
-    books: { id: string; trainingOrder: number; titleEn: string; titleFr: string | null; exam: { passed: boolean; bestPercentage: number | null } | null }[];
+    books: { id: string; trainingOrder: number; titleEn: string; titleFr: string | null; exam: { passed: boolean; bestPercentage: number | null } | null; credited?: boolean }[];
   };
 }
 
@@ -80,7 +80,7 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
 
   const tr = (en: string, fr: string | null) => (isFr ? fr || en : en);
   const books = data?.training.books ?? [];
-  const passed = books.filter((b) => b.exam?.passed).length;
+  const passed = books.filter((b) => b.exam?.passed || b.credited).length;
 
   return (
     <div className="space-y-4">
@@ -140,10 +140,11 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
                 </div>
                 <ul className="space-y-1 text-sm">
                   {books
-                    .filter((b) => b.exam?.passed)
+                    .filter((b) => b.exam?.passed || b.credited)
                     .map((b) => (
                       <li key={b.id} className="text-green-700">
-                        ✓ {t('learn.book', { number: b.trainingOrder })}: {tr(b.titleEn, b.titleFr)} ({Math.round(b.exam!.bestPercentage ?? 0)}%)
+                        ✓ {t('learn.book', { number: b.trainingOrder })}: {tr(b.titleEn, b.titleFr)}
+                        {b.exam!.bestPercentage !== null ? ` (${Math.round(b.exam!.bestPercentage)}%)` : ''}
                       </li>
                     ))}
                 </ul>

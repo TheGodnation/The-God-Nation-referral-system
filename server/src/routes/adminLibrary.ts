@@ -20,7 +20,7 @@ import { centralAdminPerson, sendContinueEmail, sendTrainingWelcome, sendWebsite
 import { sendPrivateNotice } from '../lib/privateNotice';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { DEFAULT_INTRO_EN, DEFAULT_INTRO_FR, getCurriculumIntro } from '../lib/curriculumIntro';
-import { DEFAULT_BOOKS_TOTAL, MAX_BOOKS_TOTAL, configuredBooksTotal } from '../lib/trainingTotal';
+import { DEFAULT_BOOKS_TOTAL, MAX_BOOKS_TOTAL, configuredBooksTotal, programmeBookTotal } from '../lib/trainingTotal';
 import { PROGRAMME_LEVEL_IDS, programmeDescription } from '../lib/programmeDescriptions';
 import { insertBook, loadStructure, moveBook, moveBookToLevel, moveLevel, removeBook, saveStructure } from '../lib/trainingStructure';
 
@@ -981,6 +981,7 @@ router.get('/trainees', asyncHandler(async (req, res) => {
       activatedAt: r.activatedAt,
       note: r.note,
       graceBooks: r.graceBooks,
+      booksCredited: r.booksCredited,
       owedBooks: owedOf(r.personId),
     })),
   });
@@ -1007,6 +1008,80 @@ router.post('/trainees', communityMutationLimiter, requireCsrf, asyncHandler(asy
   // The founder's welcome in their private chat (once: not when training is simply started again).
   if (!before || before.status === 'REQUESTED') await sendTrainingWelcome(person.id).catch(() => {});
   res.json({ status: 'ACTIVE' });
+}));
+
+// ---------------- Books already completed on WhatsApp ----------------
+// Leaders who studied on WhatsApp before the app: the central admin records, one person at a time, how many books
+// they completed. The first N books then count as done — open, nothing owed, passed for the certificate and for the
+// "ready to lead" lists — and the next book opens so they carry on from there.
+
+async function creditView(personId: string) {
+  const [person, enrollment, booksOnSite] = await Promise.all([
+    prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true, whatsappNumber: true, preferredLanguage: true, erasedAt: true } }),
+    prisma.trainingEnrollment.findUnique({ where: { personId }, select: { status: true, booksCredited: true, booksCreditedAt: true } }),
+    prisma.libraryBook.count({ where: { kind: 'TRAINING', trainingOrder: { not: null } } }),
+  ]);
+  if (!person || person.erasedAt) return null;
+  return {
+    personId: person.id,
+    name: person.name,
+    whatsappNumber: person.whatsappNumber,
+    language: person.preferredLanguage === 'fr' ? ('fr' as const) : ('en' as const),
+    enrolled: enrollment?.status === 'ACTIVE',
+    booksCredited: enrollment?.booksCredited ?? 0,
+    creditedAt: enrollment?.booksCreditedAt ?? null,
+    totalBooks: await programmeBookTotal(booksOnSite),
+    booksOnSite,
+  };
+}
+
+// GET /api/admin/library/trainees/:personId/credit — what is recorded for this person now.
+router.get('/trainees/:personId/credit', asyncHandler(async (req, res) => {
+  const view = await creditView(req.params.personId);
+  if (!view) return res.status(404).json({ error: 'Person not found.' });
+  const books = await getTrainingBooksFor(req.params.personId);
+  res.json({ ...view, passedByExam: books.filter((b) => !b.credited && b.exam?.passed).length });
+}));
+
+const creditSchema = z.object({ books: z.number().int().min(0).max(MAX_BOOKS_TOTAL), notify: z.boolean().optional() });
+
+// POST /api/admin/library/trainees/:personId/credit — set how many books were completed on WhatsApp.
+router.post('/trainees/:personId/credit', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const parsed = creditSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Enter the number of books (0 or more).' });
+  const view = await creditView(req.params.personId);
+  if (!view) return res.status(404).json({ error: 'Person not found.' });
+  const books = parsed.data.books;
+  if (books > view.totalBooks) return res.status(400).json({ error: `The programme has ${view.totalBooks} books.` });
+  const before = view.booksCredited;
+  const data = { booksCredited: books, booksCreditedAt: books > 0 ? new Date() : null };
+  if (view.enrolled) {
+    await prisma.trainingEnrollment.update({ where: { personId: view.personId }, data });
+  } else {
+    // Someone not yet in the training: they start it now (their books are already behind them).
+    const start = { status: 'ACTIVE' as const, activatedAt: new Date(), activatedByUserId: req.user!.id, note: 'Studied on WhatsApp before the app', ...data };
+    await prisma.trainingEnrollment.upsert({ where: { personId: view.personId }, create: { personId: view.personId, ...start }, update: start });
+  }
+  // Credited books are never "opened and owed": drop any open-records they already had.
+  if (books > 0) {
+    const credited = await prisma.libraryBook.findMany({ where: { kind: 'TRAINING', trainingOrder: { not: null } }, orderBy: { trainingOrder: 'asc' }, take: books, select: { id: true } });
+    await prisma.trainingBookOpen.deleteMany({ where: { personId: view.personId, bookId: { in: credited.map((b) => b.id) } } });
+  }
+  await getTrainingBooksFor(view.personId); // opens the next book if the rules allow
+  await audit(req, 'TRAINING_BOOKS_CREDITED', 'Person', view.personId, { before, after: books });
+
+  let notified = false;
+  if (books > before && parsed.data.notify !== false) {
+    const from = await centralAdminPerson();
+    if (from) {
+      const fr = view.language === 'fr';
+      const body = fr
+        ? `Bonjour ${view.name}, vos ${books} livres déjà étudiés sur WhatsApp ont été ajoutés à l’application. Ils sont ouverts pour vous (relecture et examens). ${books < view.totalBooks ? `Continuez avec le livre ${books + 1}.` : 'Vous avez terminé tous les livres.'}`
+        : `Hello ${view.name}, your ${books} books already studied on WhatsApp have been added to the app. They are open for you to read again, and the exams are there too. ${books < view.totalBooks ? `Continue with Book ${books + 1}.` : 'You have finished all the books.'}`;
+      notified = await sendPrivateNotice(from.id, view.personId, body);
+    }
+  }
+  res.json({ booksCredited: books, notified });
 }));
 
 // POST /api/admin/library/trainees/:personId/message — a private message to a trainee from the central admin's own

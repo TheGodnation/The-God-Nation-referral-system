@@ -453,3 +453,17 @@ Each of the programme's 16 books has one short description, "After reading this 
   `requiredBooks` shows 16.
 - The Learn page no longer breaks when the saved/older answer has no `offering` part.
 - Merge-back commits to the deploy branch carry `[skip render]` so each change restarts the site once, not twice.
+
+## Books already done on WhatsApp
+
+Leaders who studied on WhatsApp before the app are recorded one at a time by the central admin
+(Admin → Library → "Books already done on WhatsApp": search by name or WhatsApp number, enter the number of books).
+
+- Stored on `TrainingEnrollment.booksCredited` (+ `booksCreditedAt`). Setting it starts the training if the person has not
+  started it. Endpoints: `GET/POST /api/admin/library/trainees/:personId/credit` (audited as `TRAINING_BOOKS_CREDITED`).
+- Rule (`getTrainingBooksFor`): the first N books are open, count as passed (`credited: true`), count as paid (nothing owed,
+  cannot be paid again) and are not recorded as "opened" (so they never show as owed). The next book opens by the normal rule.
+  No exam attempts or payments are invented; the exams stay available.
+- Counts for the certificate (`certificateEligibility`) and for "ready to lead" (`graduatesAmong`, `schoolProgressAmong`).
+- Students see "Completed on WhatsApp" on those books (no score, no "Paid" line).
+- Raising the number sends the person a private message from the central admin (optional tick box); lowering asks first.

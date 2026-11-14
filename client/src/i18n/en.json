@@ -2201,7 +2201,8 @@
     "paid": "Paid",
     "payment_waiting": "Payment sent — waiting for confirmation",
     "locked_exam": "Opens when you pass the Book {{number}} exam",
-    "locked_payment": "Opens when Book {{number}} is paid"
+    "locked_payment": "Opens when Book {{number}} is paid",
+    "credited_whatsapp": "Completed on WhatsApp"
   },
   "reader": {
     "language": "Language of the book",
@@ -5497,5 +5498,23 @@
     "ready": "✓ Has passed all {{total}} books: ready to issue",
     "not_ready": "Has passed {{passed}} of {{total}} books so far (asked in advance)",
     "issue_incomplete": "This student has passed {{passed}} of {{total}} books so far. Issue the certificate anyway?"
+  },
+  "whatsappCredit": {
+    "title": "Books already done on WhatsApp",
+    "help": "For leaders who studied on WhatsApp before the app. Search the person, then enter how many books they completed there. Those books open for them (reading and exams), nothing is owed on them, they count as passed for the certificate, and the next book opens so they carry on from there.",
+    "choose": "Choose",
+    "now": "Recorded now: {{count}} books done on WhatsApp.",
+    "none_yet": "Nothing recorded yet.",
+    "by_exam": "{{count}} more passed in the app",
+    "not_started": "has not started the training in the app yet (this will start it)",
+    "label": "Books completed on WhatsApp (0 to {{total}})",
+    "tell_them": "Send them a message in the app to say so",
+    "save": "Save",
+    "saved": "Saved: {{name}} now has {{count}} books counted as done.",
+    "told": "They were told by message.",
+    "bad_number": "Enter a whole number from 0 to {{total}}.",
+    "confirm_lower": "{{name}} has {{from}} books recorded. Lower it to {{to}}? Books after number {{to}} will close again unless they passed their exams.",
+    "load_failed": "Could not load this person. Please try again.",
+    "save_failed": "Could not save. Please try again."
   }
 }
