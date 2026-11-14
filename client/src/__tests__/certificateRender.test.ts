@@ -34,7 +34,7 @@ describe('Certificate wording', () => {
   });
 
   it('has a blank design for each language', () => {
-    expect(templateUrl('en')).toBe('/certificate/blank-en.png');
-    expect(templateUrl('fr')).toBe('/certificate/blank-fr.png');
+    expect(templateUrl('en')).toMatch(/^\/certificate\/blank-en\.png\?v=\d+$/);
+    expect(templateUrl('fr')).toMatch(/^\/certificate\/blank-fr\.png\?v=\d+$/);
   });
 });

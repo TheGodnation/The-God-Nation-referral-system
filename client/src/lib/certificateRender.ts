@@ -29,8 +29,12 @@ const LAYOUT = {
   fr: { dateX: 158, dateSize: 41, numberX: 144, numberSize: 35 },
 } as const;
 
+// Raise this number whenever a design picture is replaced, so every phone and browser fetches the new picture instead of
+// showing a copy it kept.
+export const TEMPLATE_VERSION = 4;
+
 export function templateUrl(lang: CertLang): string {
-  return `/certificate/blank-${lang}.png`;
+  return `/certificate/blank-${lang}.png?v=${TEMPLATE_VERSION}`;
 }
 
 const MONTHS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
