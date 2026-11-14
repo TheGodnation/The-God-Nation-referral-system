@@ -66,6 +66,13 @@ describe('Arranging books (pure steps)', () => {
     expect(ids(moveLevel(groups, 'L2', 'up'))).toEqual(['cd', 'ab', '']);
     expect(ids(insertBook(groups, book('x'), { number: 3 }))).toEqual(['ab', 'xcd', '']);
     expect(ids(insertBook(groups, book('x'), { levelId: 'L1' }))).toEqual(['abx', 'cd', '']);
+    // A number together with a level keeps the book in that level, as near the number as the level allows: number 3 is the
+    // edge between the two levels, and the admin's choice of level decides which side it falls on.
+    expect(ids(insertBook(groups, book('x'), { number: 3, levelId: 'L1' }))).toEqual(['abx', 'cd', '']);
+    expect(ids(insertBook(groups, book('x'), { number: 3, levelId: 'L2' }))).toEqual(['ab', 'xcd', '']);
+    expect(ids(insertBook(groups, book('x'), { number: 2, levelId: 'L1' }))).toEqual(['axb', 'cd', '']);
+    expect(ids(insertBook(groups, book('x'), { number: 1, levelId: 'L2' }))).toEqual(['ab', 'xcd', '']);
+    expect(ids(insertBook(groups, book('x'), { number: 9, levelId: 'L1' }))).toEqual(['abx', 'cd', '']);
     expect(ids(insertBook(groups, book('x'), {}))).toEqual(['ab', 'cdx', '']);
     expect(ids(removeBook(groups, 'a'))).toEqual(['b', 'cd', '']);
   });

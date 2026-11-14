@@ -131,10 +131,22 @@ export function moveLevel(groups: StructGroup[], levelId: string, direction: 'up
 
 /**
  * Where a new book goes. `number` = the number it should get (the book now there, and all after it, move down one); with
- * `levelId` and no number it goes last in that level; with neither it goes last in the last level.
+ * `levelId` and no number it goes last in that level; with both, it goes into that level as near the number as the level
+ * allows; with neither it goes last in the last level.
  */
 export function insertBook(groups: StructGroup[], book: StructBook, opts: { number?: number; levelId?: string | null }): StructGroup[] {
   const next = groups.map((g) => ({ ...g, books: [...g.books] }));
+  // A number together with a chosen level: the book goes into that level, as near the number as the level allows (so a
+  // number at the edge between two levels, like 11 right after Kingdom Keys Volume 8, stays in the level that was chosen).
+  if (opts.number !== undefined && opts.levelId) {
+    const at = next.findIndex((g) => g.levelId === opts.levelId);
+    if (at >= 0) {
+      const before = next.slice(0, at).reduce((sum, g) => sum + g.books.length, 0);
+      const index = Math.max(0, Math.min(next[at].books.length, opts.number - 1 - before));
+      next[at].books.splice(index, 0, book);
+      return next;
+    }
+  }
   if (opts.number !== undefined) {
     let seen = 0;
     for (const g of next) {

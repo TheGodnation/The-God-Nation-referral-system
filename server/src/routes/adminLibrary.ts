@@ -21,6 +21,7 @@ import { sendPrivateNotice } from '../lib/privateNotice';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { DEFAULT_INTRO_EN, DEFAULT_INTRO_FR, getCurriculumIntro } from '../lib/curriculumIntro';
 import { DEFAULT_BOOKS_TOTAL, MAX_BOOKS_TOTAL, configuredBooksTotal } from '../lib/trainingTotal';
+import { PROGRAMME_LEVEL_IDS, programmeDescription } from '../lib/programmeDescriptions';
 import { insertBook, loadStructure, moveBook, moveBookToLevel, moveLevel, removeBook, saveStructure } from '../lib/trainingStructure';
 
 // ---------------------------------------------------------------------------
@@ -155,7 +156,17 @@ router.post('/books', communityMutationLimiter, requireCsrf, asyncHandler(async 
         const { groups } = await loadStructure(tx);
         const placed = insertBook(removeBook(groups, created.id), { id: created.id, titleEn: created.titleEn, titleFr: created.titleFr, trainingOrder: null }, { number: d.trainingOrder, levelId: d.levelId });
         await saveStructure(tx, placed);
-        const number = (await tx.libraryBook.findUniqueOrThrow({ where: { id: created.id }, select: { trainingOrder: true } })).trainingOrder!;
+        const placedAt = await tx.libraryBook.findUniqueOrThrow({ where: { id: created.id }, select: { trainingOrder: true, trainingLevelId: true } });
+        const number = placedAt.trainingOrder!;
+        // A book that is one of the programme's 16 and was added without a description (Kingdom Keys, Volume 9, at number 11)
+        // gets the programme's description for that place straight away (English and French).
+        if (!d.descriptionEn && !d.descriptionFr && placedAt.trainingLevelId) {
+          const planned = programmeDescription(number);
+          const rank = await tx.libraryBook.count({ where: { kind: 'TRAINING', trainingLevelId: placedAt.trainingLevelId, trainingOrder: { lte: number } } });
+          if (planned && PROGRAMME_LEVEL_IDS[planned.level] === placedAt.trainingLevelId && planned.rank === rank) {
+            await tx.libraryBook.update({ where: { id: created.id }, data: { descriptionEn: planned.en, descriptionFr: planned.fr } });
+          }
+        }
         await tx.assessment.create({
           data: {
             titleEn: `Book ${number} exam: ${d.titleEn}`,
