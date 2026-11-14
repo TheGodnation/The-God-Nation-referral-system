@@ -5391,7 +5391,7 @@
     "total": "{{count}} livres au total.",
     "level_label": "Niveau",
     "place_label": "Numéro du livre (facultatif)",
-    "place_hint": "Laissez vide pour mettre le livre en dernier dans le niveau. Un numéro le place là et fait descendre d’un rang les livres suivants.",
+    "place_hint": "Laissez vide pour mettre le livre en dernier dans le niveau. Un numéro le place là et fait descendre d’un rang les livres suivants. Si le numéro se trouve entre deux niveaux, choisissez aussi le niveau.",
     "add_book": "Ajouter un livre",
     "add_book_button": "Ajouter le livre",
     "last_level": "Niveau (le dernier si non choisi)",

@@ -111,7 +111,6 @@ export function MemberSchoolBookPage() {
                 <p className="text-sm text-slate-500">
                   {[
                     b.pageCount ? t('school.pages', { count: b.pageCount }) : null,
-                    b.chapterCount ? t('school.chapters', { count: b.chapterCount }) : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -165,16 +164,8 @@ export function MemberSchoolBookPage() {
               b.lockedBecause === 'NOT_STARTED' && <TrainingStatusCard summary={data} onChanged={load} />
             )}
 
-            {/* What the founder wrote for this book (if anything): the Academy page carries the general introduction. */}
-            {(description || data.chapters.length > 0 || tr(b.closingEn ?? '', b.closingFr)) && (
-              <BookPageBody
-                hideEmpty
-                description={description}
-                chaptersHeading={tr(b.chaptersHeadingEn ?? '', b.chaptersHeadingFr)}
-                chapters={data.chapters.map((c) => ({ id: c.id, label: tr(c.labelEn ?? '', c.labelFr) || null, title: tr(c.titleEn, c.titleFr), summary: tr(c.summaryEn ?? '', c.summaryFr) }))}
-                closing={tr(b.closingEn ?? '', b.closingFr)}
-              />
-            )}
+            {/* What the student becomes after reading this book: one short description per book (the Academy page carries the introduction). */}
+            {description && <BookPageBody hideEmpty description={description} chapters={[]} />}
           </div>
         )}
         <MemberNav />

@@ -5391,7 +5391,7 @@
     "total": "{{count}} books in all.",
     "level_label": "Level",
     "place_label": "Book number (optional)",
-    "place_hint": "Leave empty to put the book last in the level. A number puts it there and moves the books after it down by one.",
+    "place_hint": "Leave empty to put the book last in the level. A number puts it there and moves the books after it down by one. If the number is between two levels, choose the level too.",
     "add_book": "Add a book",
     "add_book_button": "Add the book",
     "last_level": "Level (last level if not chosen)",

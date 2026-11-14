@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberSchoolPage } from '../pages/MemberSchoolPage';
 import { MemberSchoolBookPage } from '../pages/MemberSchoolBookPage';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
+import i18n from '../i18n';
 
 // The God Nation Leadership Academy: the books, level by level, as covers with their
 // status, and each book's page with what it teaches chapter by chapter.
@@ -187,51 +188,57 @@ describe("A book's page", () => {
     { id: 'c2', order: 2, titleEn: 'Faithful in little things', titleFr: null, summaryEn: null, summaryFr: null },
   ];
 
-  it('shows the cover, pages, chapter summaries, Read and the exam', async () => {
+  const DESCRIPTION = '_After reading this book, you become a person who stands in the Kingdom with the right to rule._\n\nDominion belongs to citizens, and this book shows you how to become one.';
+
+  it('shows the cover, pages, Read, the exam and the short description of what the student becomes', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: ME }),
-      'GET /api/member/school/books/b1': () => ({ body: { ...SUMMARY, book: BOOKS[0], chapters: CHAPTERS } }),
+      'GET /api/member/school/books/b1': () => ({ body: { ...SUMMARY, book: { ...BOOKS[0], descriptionEn: DESCRIPTION }, chapters: CHAPTERS } }),
     });
     renderAt('/member/school/b1');
     expect(await screen.findByRole('heading', { name: 'Called to serve' })).toBeInTheDocument();
-    expect(screen.getByText('84 pages · 2 chapters')).toBeInTheDocument();
+    // Pages only: chapter counts and chapter summaries are no longer shown.
+    expect(screen.getByText('84 pages')).toBeInTheDocument();
     expect(screen.getByText('✓ Passed with 90%')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Read the book/ })).toHaveAttribute('href', '/member/read/b1');
     expect(screen.getByRole('link', { name: 'See results' })).toHaveAttribute('href', '/member/assessments/e1');
-    expect(screen.getByRole('heading', { name: 'What this book teaches' })).toBeInTheDocument();
-    expect(screen.getByText('Jesus washed the feet of His disciples.')).toBeInTheDocument();
-    expect(screen.getByText('The summary of this chapter will be added soon.')).toBeInTheDocument();
+    expect(screen.getByText('After reading this book, you become a person who stands in the Kingdom with the right to rule.').tagName).toBe('EM');
+    expect(screen.getByText('Dominion belongs to citizens, and this book shows you how to become one.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'What this book teaches' })).toBeNull();
+    expect(screen.queryByText('A leader first serves')).toBeNull();
+    expect(screen.queryByText('The summary of this chapter will be added soon.')).toBeNull();
     // Paid already: nothing to pay.
     expect(screen.queryByRole('button', { name: /Pay 1\s100 FCFA/ })).not.toBeInTheDocument();
   });
 
-  it("shows the founder's page as written: headline, bullets, labelled chapters, closing words, and the Read button above the pitch", async () => {
+  it('shows no chapters or closing words, even if some were saved earlier', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: ME }),
       'GET /api/member/school/books/b1': () => ({
         body: {
           ...SUMMARY,
-          book: {
-            ...BOOKS[0],
-            descriptionEn: '# Stop Being Pushed Around by Life.\n\nYou were made to govern.\n\n## What This Book Will Do For You\n\n- Show you the reason\n- Give you a picture',
-            chaptersHeadingEn: 'Chapter by Chapter: Your Journey\nHere is what you will find inside.',
-            closingEn: '## Why Read It Now?\n\nBecause *every day* you wait.',
-            closingFr: null,
-          },
+          book: { ...BOOKS[0], descriptionEn: DESCRIPTION, chaptersHeadingEn: 'Chapter by Chapter', closingEn: '## Why Read It Now?\n\nBecause every day you wait.' },
           chapters: [{ id: 'c1', order: 1, labelEn: 'Chapter One', labelFr: null, titleEn: 'Born to Rule', titleFr: null, summaryEn: 'Before the stress there was a design.', summaryFr: null }],
         },
       }),
     });
     renderAt('/member/school/b1');
-    expect(await screen.findByText('Stop Being Pushed Around by Life.')).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(expect.arrayContaining(['Show you the reason', 'Give you a picture']));
-    expect(screen.getByRole('heading', { name: 'Chapter by Chapter: Your Journey' })).toBeInTheDocument();
-    expect(screen.getByText('Here is what you will find inside.')).toBeInTheDocument();
-    expect(screen.getByText('Chapter One')).toBeInTheDocument();
-    expect(screen.getByText('Born to Rule')).toBeInTheDocument();
-    expect(screen.getByText('every day').tagName).toBe('STRONG');
-    expect(screen.getByRole('link', { name: /Read the book/ }).compareDocumentPosition(screen.getByText('You were made to govern.')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'What this book teaches' })).not.toBeInTheDocument();
+    expect(await screen.findByText('Dominion belongs to citizens, and this book shows you how to become one.')).toBeInTheDocument();
+    expect(screen.queryByText('Chapter by Chapter')).toBeNull();
+    expect(screen.queryByText('Born to Rule')).toBeNull();
+    expect(screen.queryByText('Why Read It Now?')).toBeNull();
+  });
+
+  it('shows the French description to a French reader', async () => {
+    await i18n.changeLanguage('fr');
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: ME }),
+      'GET /api/member/school/books/b1': () => ({ body: { ...SUMMARY, book: { ...BOOKS[0], descriptionEn: DESCRIPTION, descriptionFr: '_Après avoir lu ce livre, vous devenez une personne qui se tient dans le Royaume._\n\nLa domination appartient aux citoyens.' }, chapters: [] } }),
+    });
+    renderAt('/member/school/b1');
+    expect(await screen.findByText('La domination appartient aux citoyens.')).toBeInTheDocument();
+    expect(screen.queryByText(/Dominion belongs to citizens/)).toBeNull();
+    await i18n.changeLanguage('en');
   });
 
   describe('tapping the cover opens it big, like a profile photo', () => {
@@ -311,15 +318,15 @@ describe("A book's page", () => {
     });
   });
 
-  it('a closed book still shows what it teaches, and why it is closed', async () => {
+  it('a closed book still shows what the student becomes after reading it, and why it is closed', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: ME }),
-      'GET /api/member/school/books/b3': () => ({ body: { ...SUMMARY, book: BOOKS[2], chapters: CHAPTERS } }),
+      'GET /api/member/school/books/b3': () => ({ body: { ...SUMMARY, book: { ...BOOKS[2], descriptionEn: DESCRIPTION }, chapters: CHAPTERS } }),
     });
     renderAt('/member/school/b3');
     expect(await screen.findByText('Opens when you pass the Book 2 exam')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Read the book/ })).not.toBeInTheDocument();
-    expect(screen.getByText('A leader first serves')).toBeInTheDocument();
+    expect(screen.getByText('Dominion belongs to citizens, and this book shows you how to become one.')).toBeInTheDocument();
   });
 
   it('an open book still to pay shows the exam with its one-try label and the pay button', async () => {
