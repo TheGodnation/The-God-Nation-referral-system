@@ -140,12 +140,12 @@ Graduates may also proceed to Phase 2 by joining the leadership team, where they
 *Know Who You Are. Know What Is Yours. Rule Your Life Under Christ. Carry the Gospel of the Kingdom to the Nations.*`;
 
 export const DEFAULT_INTRO_FR = `# Présentation du diplôme
-Le *Diplôme en études du Royaume et gouvernance du Royaume* est un programme de formation biblique et spirituelle conçu pour aider les croyants à comprendre le Royaume de Dieu, à découvrir leur identité et leurs droits en Christ, et à apprendre à vivre selon les principes du Royaume.
+Le *Diplôme d’études du Royaume et de gouvernance du Royaume* est un programme de formation biblique et spirituelle conçu pour aider les croyants à comprendre le Royaume de Dieu, à découvrir leur identité et leurs droits en Christ, et à apprendre à vivre selon les principes du Royaume.
 
 À travers {{books}} livres répartis en {{levels}} niveaux progressifs, les étudiants acquièrent une compréhension fondamentale du Royaume, des principes spirituels qui gouvernent la vie du citoyen du Royaume, ainsi que de son identité, de ses droits, de son héritage et de son autorité en Christ.
 
 - *Institution :* The God Nation Leadership Academy
-- *Diplôme délivré :* Diplôme en études du Royaume et gouvernance du Royaume
+- *Diplôme délivré :* Diplôme d’études du Royaume et de gouvernance du Royaume
 - *Auteur et fondateur :* Évangéliste Stanley A. Ndoh
 - *Nombre de livres :* {{books}}
 - *Nombre d’examens :* {{books}}
@@ -203,7 +203,7 @@ Chaque livre est accompagné d’un examen en ligne.
 Ce système permet de s’assurer que chaque étudiant progresse avec une compréhension suffisante des enseignements avant de passer au livre suivant.
 
 # Obtention du diplôme et certification
-Pour obtenir le Diplôme en études du Royaume et gouvernance du Royaume, l’étudiant doit :
+Pour obtenir le Diplôme d’études du Royaume et de gouvernance du Royaume, l’étudiant doit :
 - Étudier les {{books}} livres du programme.
 - Passer les {{books}} examens correspondants.
 - Obtenir au moins 70 % à chacun des examens.
