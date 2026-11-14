@@ -18,7 +18,7 @@ export const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s'’.\-]{1,79}$/u;
  */
 export async function certificateEligibility(personId: string): Promise<{ eligible: boolean; passed: number; total: number }> {
   const books = await getTrainingBooksFor(personId);
-  const passed = books.filter((b) => b.exam?.passed).length;
+  const passed = books.filter((b) => b.credited || b.exam?.passed).length;
   const total = await programmeBookTotal(books.length);
   return { eligible: books.length > 0 && passed === books.length && books.length >= total, passed, total };
 }

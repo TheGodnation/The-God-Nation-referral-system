@@ -40,11 +40,34 @@ export async function programmeCompleteness(): Promise<{ examIds: string[]; tota
   return { examIds, total, complete: examIds.length > 0 && examIds.length >= total };
 }
 
+/**
+ * Every training book in order with its exam (null = no published exam yet). Someone with N books credited from WhatsApp
+ * has passed the first N, whatever their exams say.
+ */
+async function orderedProgrammeBooks(): Promise<{ examId: string | null }[]> {
+  const books = await prisma.libraryBook.findMany({
+    where: { kind: 'TRAINING', trainingOrder: { not: null } },
+    orderBy: { trainingOrder: 'asc' },
+    select: { exam: { select: { id: true, status: true } } },
+  });
+  return books.map((b) => ({ examId: b.exam && ['PUBLISHED', 'LOCKED'].includes(b.exam.status) ? b.exam.id : null }));
+}
+
+/** How many books each given person has credited from WhatsApp, and when it was recorded. */
+async function creditsAmong(personIds: string[]): Promise<Map<string, { books: number; at: Date }>> {
+  const rows = await prisma.trainingEnrollment.findMany({
+    where: { personId: { in: personIds }, status: 'ACTIVE', booksCredited: { gt: 0 } },
+    select: { personId: true, booksCredited: true, booksCreditedAt: true, updatedAt: true },
+  });
+  return new Map(rows.map((r) => [r.personId, { books: r.booksCredited, at: r.booksCreditedAt ?? r.updatedAt }]));
+}
+
 /** When each given person finished the school (null = not finished), among `personIds`. */
 export async function graduatesAmong(personIds: string[]): Promise<Map<string, Date>> {
   const { examIds, complete } = await programmeCompleteness();
   const result = new Map<string, Date>();
   if (!complete || personIds.length === 0) return result;
+  const [ordered, credits] = await Promise.all([orderedProgrammeBooks(), creditsAmong(personIds)]);
 
   const passes = await prisma.attempt.findMany({
     where: { personId: { in: personIds }, assessmentId: { in: examIds }, status: 'SUBMITTED', passed: true },
@@ -57,8 +80,12 @@ export async function graduatesAmong(personIds: string[]): Promise<Map<string, D
     if (prev === undefined || (a.submittedAt && (!prev || a.submittedAt < prev))) m.set(a.assessmentId, a.submittedAt);
     perPerson.set(a.personId, m);
   }
-  for (const [personId, m] of perPerson) {
-    if (m.size < examIds.length) continue;
+  for (const personId of personIds) {
+    const m = new Map(perPerson.get(personId) ?? []);
+    const credit = credits.get(personId);
+    // Books completed on WhatsApp count as passed (dated when the central admin recorded them).
+    if (credit) ordered.slice(0, credit.books).forEach((b) => b.examId && m.set(b.examId, credit.at));
+    if (m.size < examIds.length || !examIds.every((id) => m.has(id))) continue;
     // They finished when the last of the exams was first passed.
     const dates = [...m.values()].filter((d): d is Date => Boolean(d));
     result.set(personId, dates.sort((a, b) => b.getTime() - a.getTime())[0] ?? new Date(0));
@@ -71,12 +98,23 @@ export async function schoolProgressAmong(personIds: string[]): Promise<{ requir
   const examIds = await requiredLeadershipExamIds();
   const passed = new Map<string, number>();
   if (examIds.length === 0 || personIds.length === 0) return { required: examIds.length, passed };
-  const rows = await prisma.attempt.findMany({
-    where: { personId: { in: personIds }, assessmentId: { in: examIds }, status: 'SUBMITTED', passed: true },
-    select: { personId: true, assessmentId: true },
-    distinct: ['personId', 'assessmentId'],
-  });
-  for (const r of rows) passed.set(r.personId, (passed.get(r.personId) ?? 0) + 1);
+  const [ordered, credits, rows] = await Promise.all([
+    orderedProgrammeBooks(),
+    creditsAmong(personIds),
+    prisma.attempt.findMany({
+      where: { personId: { in: personIds }, assessmentId: { in: examIds }, status: 'SUBMITTED', passed: true },
+      select: { personId: true, assessmentId: true },
+      distinct: ['personId', 'assessmentId'],
+    }),
+  ]);
+  const done = new Map<string, Set<string>>();
+  for (const r of rows) done.set(r.personId, (done.get(r.personId) ?? new Set()).add(r.assessmentId));
+  for (const [personId, credit] of credits) {
+    const set = done.get(personId) ?? new Set<string>();
+    ordered.slice(0, credit.books).forEach((b) => b.examId && set.add(b.examId));
+    done.set(personId, set);
+  }
+  for (const [personId, set] of done) passed.set(personId, set.size);
   return { required: examIds.length, passed };
 }
 

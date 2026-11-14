@@ -34,6 +34,8 @@ export interface SchoolBook {
   unlocked: boolean;
   canRead: boolean;
   payment?: 'PAID' | 'CLAIMED' | 'PENDING' | null;
+  /** Completed on WhatsApp before the app. */
+  credited?: boolean;
   lockedBecause?: 'NOT_STARTED' | 'PREVIOUS_EXAM' | 'PAYMENT' | null;
   exam: {
     id: string;
@@ -88,14 +90,15 @@ export function BookStatusLines({ book: b }: { book: SchoolBook }) {
   const store = useStoreApp();
   return (
     <>
-      {b.exam?.passed && <span className="block text-green-700">✓ {t('learn.passed_with', { score: Math.round(b.exam.bestPercentage ?? 0) })}</span>}
+      {b.credited && <span className="block text-green-700">✓ {t('learn.credited_whatsapp')}</span>}
+      {b.exam?.passed && b.exam.bestPercentage !== null && <span className="block text-green-700">✓ {t('learn.passed_with', { score: Math.round(b.exam.bestPercentage) })}</span>}
       {b.exam && !b.exam.passed && b.exam.bestPercentage !== null && (
         <span className="block text-red-700">{t('learn.best_score', { score: Math.round(b.exam.bestPercentage), passMark: b.exam.passMark })}</span>
       )}
       {b.exam && (b.exam.block === 'NEEDS_RETAKE' || b.exam.block === 'RETAKE_DECLINED') && <span className="block text-amber-800">{t('learn.exam_retake_needed')}</span>}
       {b.exam?.block === 'RETAKE_REQUESTED' && <span className="block text-amber-800">{t('learn.exam_retake_requested')}</span>}
       {b.exam && !b.exam.passed && (b.exam.tries ?? 0) > 0 && b.exam.canStart && <span className="block text-green-700">{t('learn.exam_retake_granted')}</span>}
-      {!store && b.unlocked && b.payment === 'PAID' && <span className="block text-green-700">✓ {t('learn.paid')}</span>}
+      {!store && b.unlocked && b.payment === 'PAID' && !b.credited && <span className="block text-green-700">✓ {t('learn.paid')}</span>}
       {!store && b.unlocked && (b.payment === 'CLAIMED' || b.payment === 'PENDING') && <span className="block text-amber-800">{t('learn.payment_waiting')}</span>}
       {!b.unlocked && b.lockedBecause === 'PREVIOUS_EXAM' && <span className="block text-slate-600">{t('learn.locked_exam', { number: b.trainingOrder - 1 })}</span>}
       {!b.unlocked && b.lockedBecause === 'PAYMENT' && <span className="block text-slate-600">{store ? t('storeRead.next_locked') : t('learn.locked_payment', { number: b.trainingOrder - 1 })}</span>}

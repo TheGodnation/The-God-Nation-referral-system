@@ -183,6 +183,8 @@ async function trainingSummary(personId: string) {
       unlocked: b.unlocked,
       canRead: b.unlocked && b.hasFile,
       payment: b.payment,
+      // Completed on WhatsApp before the app (recorded by the central admin).
+      credited: b.credited,
       lockedBecause: b.lockedBecause,
       exam:
         b.exam && b.exam.published

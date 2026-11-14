@@ -9,6 +9,7 @@ import { ReferralPayoutsAdmin } from './ReferralPayoutsAdmin';
 import { BookDetailsAdmin } from './BookDetailsAdmin';
 import { TrainingOrganizer } from './TrainingOrganizer';
 import { CertificatesAdmin } from './CertificatesAdmin';
+import { WhatsAppCredit } from './WhatsAppCredit';
 import { putPdf, type PutResult } from '../../lib/libraryUpload';
 import { reportClientError } from '../../lib/reportError';
 import { readPdfCover } from '../../lib/bookCover';
@@ -442,6 +443,8 @@ export function LibraryTab() {
       <PaymentAgentsAdmin />
       <PaymentsAndGrace books={trainingBooks} onChanged={load} />
       <ReferralPayoutsAdmin />
+
+      <WhatsAppCredit onChanged={load} />
 
       <section className="card space-y-3">
         <h3 className="font-semibold text-brand-900">{t('library.trainees_heading')}</h3>

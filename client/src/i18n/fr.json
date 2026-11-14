@@ -2201,7 +2201,8 @@
     "paid": "Payé",
     "payment_waiting": "Paiement envoyé — en attente de confirmation",
     "locked_exam": "S’ouvre quand vous réussissez l’examen du livre {{number}}",
-    "locked_payment": "S’ouvre quand le livre {{number}} est payé"
+    "locked_payment": "S’ouvre quand le livre {{number}} est payé",
+    "credited_whatsapp": "Terminé sur WhatsApp"
   },
   "reader": {
     "language": "Langue du livre",
@@ -5497,5 +5498,23 @@
     "ready": "✓ A réussi les {{total}} livres : prêt à être délivré",
     "not_ready": "A réussi {{passed}} livres sur {{total}} jusqu’ici (demandé à l’avance)",
     "issue_incomplete": "Cet étudiant a réussi {{passed}} livres sur {{total}} jusqu’ici. Délivrer quand même le certificat ?"
+  },
+  "whatsappCredit": {
+    "title": "Livres déjà faits sur WhatsApp",
+    "help": "Pour les responsables qui ont étudié sur WhatsApp avant l’application. Cherchez la personne, puis indiquez combien de livres elle y a terminés. Ces livres s’ouvrent pour elle (lecture et examens), rien n’est dû dessus, ils comptent comme réussis pour le certificat, et le livre suivant s’ouvre pour qu’elle continue à partir de là.",
+    "choose": "Choisir",
+    "now": "Enregistré actuellement : {{count}} livres terminés sur WhatsApp.",
+    "none_yet": "Rien d’enregistré pour l’instant.",
+    "by_exam": "{{count}} de plus réussis dans l’application",
+    "not_started": "n’a pas encore commencé la formation dans l’application (cela la démarrera)",
+    "label": "Livres terminés sur WhatsApp (0 à {{total}})",
+    "tell_them": "Lui envoyer un message dans l’application pour le dire",
+    "save": "Enregistrer",
+    "saved": "Enregistré : {{name}} a maintenant {{count}} livres comptés comme terminés.",
+    "told": "La personne a été prévenue par message.",
+    "bad_number": "Entrez un nombre entier de 0 à {{total}}.",
+    "confirm_lower": "{{name}} a {{from}} livres enregistrés. Le réduire à {{to}} ? Les livres après le numéro {{to}} se fermeront de nouveau, sauf si les examens ont été réussis.",
+    "load_failed": "Impossible de charger cette personne. Réessayez.",
+    "save_failed": "Impossible d’enregistrer. Réessayez."
   }
 }
