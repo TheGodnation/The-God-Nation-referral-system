@@ -9,6 +9,8 @@ import type { ChatMessage } from '../components/chat/types';
 
 const calls: { url: string; method: string; body: any }[] = [];
 let offline = false;
+// When set, a POST never answers (a very weak network) until the request is stopped.
+let hangPosts = false;
 
 function mockFetch(routes: Record<string, (body: any) => { status?: number; body: unknown }>) {
   vi.stubGlobal(
@@ -18,6 +20,11 @@ function mockFetch(routes: Record<string, (body: any) => { status?: number; body
       const body = init?.body && typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
       calls.push({ url, method, body });
       if (offline && method === 'POST') return Promise.reject(new TypeError('Failed to fetch'));
+      if (hangPosts && method === 'POST') {
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        });
+      }
       const key = Object.keys(routes)
         .sort((a, b) => b.length - a.length)
         .find((k) => {
@@ -34,6 +41,7 @@ function mockFetch(routes: Record<string, (body: any) => { status?: number; body
 beforeEach(() => {
   localStorage.clear();
   offline = false;
+  hangPosts = false;
 });
 
 afterEach(() => {
@@ -157,6 +165,70 @@ describe('Weak network', () => {
     });
     await waitFor(() => expect(calls.filter((c) => c.method === 'POST' && c.url === `${BASE}/messages`).length).toBe(2));
     await waitFor(() => expect(localStorage.getItem('outbox:private:c1')).toBeNull());
+  });
+
+  it('lets the person delete a message that is waiting for the network: it is never sent', async () => {
+    mockFetch({
+      [`GET ${BASE}/messages`]: () => ({ body: chatBody([]) }),
+      [`POST ${BASE}/messages`]: () => ({ status: 201, body: { id: 'm9' } }),
+    });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderChat();
+    await screen.findByText(/Say hello to Grace/);
+    offline = true;
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Sent by mistake' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText(/Waiting for network/)).toBeInTheDocument();
+    expect(localStorage.getItem('outbox:private:c1')).toContain('Sent by mistake');
+
+    fireEvent.click(screen.getByTestId('cancel-pending'));
+    expect(confirm).toHaveBeenCalled();
+    expect(screen.queryByText('Sent by mistake')).not.toBeInTheDocument();
+    expect(screen.getByText('Deleted. It was never sent.')).toBeInTheDocument();
+    expect(localStorage.getItem('outbox:private:c1')).toBeNull();
+
+    // The network comes back: nothing is sent.
+    const postsBefore = calls.filter((c) => c.method === 'POST' && c.url === `${BASE}/messages`).length;
+    offline = false;
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+    await new Promise((r) => setTimeout(r, 60));
+    expect(calls.filter((c) => c.method === 'POST' && c.url === `${BASE}/messages`).length).toBe(postsBefore);
+    confirm.mockRestore();
+  });
+
+  it('keeps the message if the person says no to deleting it', async () => {
+    mockFetch({ [`GET ${BASE}/messages`]: () => ({ body: chatBody([]) }) });
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderChat();
+    await screen.findByText(/Say hello to Grace/);
+    offline = true;
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Keep me' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText(/Waiting for network/);
+    fireEvent.click(screen.getByTestId('cancel-pending'));
+    expect(screen.getByText('Keep me')).toBeInTheDocument();
+    expect(localStorage.getItem('outbox:private:c1')).toContain('Keep me');
+    vi.restoreAllMocks();
+  });
+
+  it('lets the person delete a message that is still being sent on a very weak network: the request is stopped', async () => {
+    mockFetch({ [`GET ${BASE}/messages`]: () => ({ body: chatBody([]) }) });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderChat();
+    await screen.findByText(/Say hello to Grace/);
+    hangPosts = true;
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Stuck on the way' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(await screen.findByText(/Sending…/)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('cancel-pending'));
+    await waitFor(() => expect(screen.queryByText('Stuck on the way')).not.toBeInTheDocument());
+    expect(screen.getByText(/Stopped\./)).toBeInTheDocument();
+    // Stopping it is not a network problem: nothing is saved to send later.
+    await new Promise((r) => setTimeout(r, 60));
+    expect(localStorage.getItem('outbox:private:c1')).toBeNull();
+    vi.restoreAllMocks();
   });
 
   it('shows "Connecting…" when the server cannot be reached', async () => {

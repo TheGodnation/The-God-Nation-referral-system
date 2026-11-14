@@ -231,6 +231,8 @@ interface BubbleProps {
   highlighted: boolean;
   onReply: (m: ChatMessage) => void;
   onMenu: (m: ChatMessage) => void;
+  /** Delete a message of mine that has not been sent yet (still sending, or waiting for the network). */
+  onCancelPending?: (m: ChatMessage) => void;
   onReact: (m: ChatMessage, emoji: string) => void;
   onJumpTo: (messageId: string) => void;
   onOpenPhoto: (url: string) => void;
@@ -271,7 +273,7 @@ const LONG_PRESS_MS = 450;
 
 // One chat bubble. Swipe it right to reply, press and hold (or right-click)
 // for reactions and options — the same gestures as WhatsApp.
-export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onReact, onJumpTo, onOpenPhoto, onShowReactions, privateChat = false, selecting = false, selected = false, onToggleSelect, onTranslate }: BubbleProps) {
+export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highlighted, onReply, onMenu, onCancelPending, onReact, onJumpTo, onOpenPhoto, onShowReactions, privateChat = false, selecting = false, selected = false, onToggleSelect, onTranslate }: BubbleProps) {
   const showSender = showSenderProp && !privateChat;
   const { t, i18n } = useTranslation();
   const [dx, setDx] = useState(0);
@@ -561,6 +563,11 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
           <p className="mt-0.5 flex items-center justify-end gap-1 text-[11px] text-slate-500">
             {m.edited && !m.deleted && <span className="italic">{t('chatActions.edited')}</span>}
             {m.pending ? `🕓 ${m.queued ? t('network.waiting') : t('groupChat.sending')}` : timeOf(m.createdAt)}
+            {m.pending && m.isOwn && onCancelPending && (
+              <button type="button" className="ml-1 font-semibold text-red-700 underline" onClick={() => onCancelPending(m)} data-testid="cancel-pending">
+                {t('groupChat.cancel_sending')}
+              </button>
+            )}
             {m.isOwn && !m.pending && !m.deleted && m.status && <Ticks status={m.status} />}
           </p>
 

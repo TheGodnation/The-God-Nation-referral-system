@@ -330,6 +330,23 @@ describe('Forward', () => {
     });
   });
 
+  it('tells the forward screen when each of my groups last had a message', async () => {
+    const quiet = await prisma.community.create({ data: { name: 'Quiet One' } });
+    const busy = await prisma.community.create({ data: { name: 'Busy One' } });
+    const other = await prisma.community.create({ data: { name: 'Not Mine' } });
+    const ada = await member('Ada', busy.id);
+    await prisma.communityMembership.create({ data: { personId: ada.person.id, communityId: quiet.id, status: 'ACTIVE' } });
+    const ben = await member('Ben', other.id);
+    await say(ada, busy.id, 'Hello busy');
+    await say(ben, other.id, 'Somewhere else');
+
+    const res = await ada.agent.get('/api/chat/forward/activity');
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body.groups)).toEqual([busy.id]);
+    expect(new Date(res.body.groups[busy.id]).getTime()).toBeGreaterThan(Date.now() - 60_000);
+    expect((await request(app).get('/api/chat/forward/activity')).status).toBe(401);
+  });
+
   it('forwards several selected messages together, in order, each marked forwarded', async () => {
     const g1 = await prisma.community.create({ data: { name: 'Multi From' } });
     const g2 = await prisma.community.create({ data: { name: 'Multi To' } });
