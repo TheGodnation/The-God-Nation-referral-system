@@ -8,6 +8,34 @@ export interface BookPageChapter {
   summary: string;
 }
 
+/**
+ * The book's short description as a small, tidy article: a coloured heading, the promise of the book ("After reading this
+ * book, you…", written first and in italics) lifted out as a highlighted line, then the explanation in comfortable
+ * reading type. Without a promise line, the whole text is the explanation.
+ */
+function BookDescription({ text }: { text: string }) {
+  const { t } = useTranslation();
+  const [first, ...rest] = text.trim().split(/\n\s*\n/);
+  const match = first.trim().match(/^_([\s\S]+)_$/);
+  const promise = match ? match[1].trim() : null;
+  const body = promise ? rest.join('\n\n').trim() : text.trim();
+  return (
+    <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="book-description">
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden className="h-6 w-1.5 rounded-full bg-gold-400" />
+        <h2 className="text-lg font-bold text-brand-800">{t('school.about_book')}</h2>
+      </div>
+      {promise && (
+        <div className="rounded-xl border-l-4 border-gold-400 bg-brand-50 px-4 py-3" data-testid="book-promise">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">{t('school.book_promise')}</p>
+          <RichText text={promise} className="mt-1 text-[16px] font-semibold leading-snug text-brand-900" />
+        </div>
+      )}
+      {body && <RichText text={body} headings comfort className="text-[16px] leading-7 text-slate-700" />}
+    </section>
+  );
+}
+
 // The written part of a book's page, in the order the founder lays it out:
 // the pitch, the chapter list (each chapter with its small label above its
 // title and its summary under it) and the closing words. The member's book
@@ -30,7 +58,7 @@ export function BookPageBody({
   const { t } = useTranslation();
   return (
     <div className="space-y-6" data-testid="book-page-body">
-      {description && <RichText text={description} headings comfort className="text-[15px] leading-relaxed text-slate-700 [&_em]:text-slate-500" data-testid="book-description" />}
+      {description && <BookDescription text={description} />}
 
       {!(hideEmpty && chapters.length === 0) && (
       <section>

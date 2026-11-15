@@ -2225,7 +2225,7 @@
     "not_available": "This book is not open for you yet.",
     "failed": "The book could not be opened. Check your connection and try again.",
     "page": "Page {{number}}",
-    "end": "End of the book · {{count}} pages",
+    "end": "End of the book · {{count}} pages formatted for mobile reading (≈ {{normal}} normal-size book pages)",
     "page_of": "Page {{page}} of {{count}}",
     "offline_copy": "No internet — reading the copy downloaded on this phone.",
     "downloaded": "Downloaded. This book now opens on this phone even without internet.",
@@ -2233,7 +2233,8 @@
     "from_start": "Go to the start",
     "downloading": "Downloading the book… {{percent}}%",
     "offline_missing": "No internet, and this book is not downloaded on this phone yet. Open it once with internet and it will be kept for you.",
-    "not_kept": "This book could NOT be kept on this phone, so it will need internet each time you open it. Free some space on the phone and open the book again. (Reason: {{reason}})"
+    "not_kept": "This book could NOT be kept on this phone, so it will need internet each time you open it. Free some space on the phone and open the book again. (Reason: {{reason}})",
+    "page_of_mobile": "Mobile page {{page}} of {{count}} (≈ {{normal}} normal-size pages)"
   },
   "examResults": {
     "title": "Exam World: my members",
@@ -2812,7 +2813,13 @@
     "cover_back": "Back to the book",
     "cover_close": "Close",
     "cover_zoom_in": "Zoom in",
-    "cover_zoom_out": "Zoom out"
+    "cover_zoom_out": "Zoom out",
+    "about_book": "About this book",
+    "book_promise": "What this book does for you",
+    "pages_normal_one": "About {{count}} normal book page",
+    "pages_normal_other": "About {{count}} normal book pages",
+    "pages_mobile_one": "{{count}} page, formatted for mobile reading",
+    "pages_mobile_other": "{{count}} pages, formatted for mobile reading (about 4 of these make 1 normal page)"
   },
   "downloads": {
     "media": "Photos and voice notes from chats",

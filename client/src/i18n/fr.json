@@ -2225,7 +2225,7 @@
     "not_available": "Ce livre n’est pas encore ouvert pour vous.",
     "failed": "Le livre n’a pas pu s’ouvrir. Vérifiez votre connexion et réessayez.",
     "page": "Page {{number}}",
-    "end": "Fin du livre · {{count}} pages",
+    "end": "Fin du livre · {{count}} pages mises en forme pour le mobile (≈ {{normal}} pages de livre de taille normale)",
     "page_of": "Page {{page}} sur {{count}}",
     "offline_copy": "Pas d'internet — lecture de la copie téléchargée sur ce téléphone.",
     "downloaded": "Téléchargé. Ce livre s'ouvre maintenant sur ce téléphone même sans internet.",
@@ -2233,7 +2233,8 @@
     "from_start": "Aller au début",
     "downloading": "Téléchargement du livre… {{percent}} %",
     "offline_missing": "Pas d'internet, et ce livre n'est pas encore téléchargé sur ce téléphone. Ouvrez-le une fois avec internet et il sera gardé pour vous.",
-    "not_kept": "Ce livre n'a PAS pu être gardé sur ce téléphone : il faudra internet à chaque ouverture. Libérez de l'espace sur le téléphone et rouvrez le livre. (Raison : {{reason}})"
+    "not_kept": "Ce livre n'a PAS pu être gardé sur ce téléphone : il faudra internet à chaque ouverture. Libérez de l'espace sur le téléphone et rouvrez le livre. (Raison : {{reason}})",
+    "page_of_mobile": "Page mobile {{page}} sur {{count}} (≈ {{normal}} pages de taille normale)"
   },
   "examResults": {
     "title": "Monde des examens : mes membres",
@@ -2812,7 +2813,13 @@
     "cover_back": "Retour au livre",
     "cover_close": "Fermer",
     "cover_zoom_in": "Agrandir",
-    "cover_zoom_out": "Réduire"
+    "cover_zoom_out": "Réduire",
+    "about_book": "À propos de ce livre",
+    "book_promise": "Ce que ce livre fait pour vous",
+    "pages_normal_one": "Environ {{count}} page de livre normale",
+    "pages_normal_other": "Environ {{count}} pages de livre normales",
+    "pages_mobile_one": "{{count}} page, mise en forme pour la lecture sur mobile",
+    "pages_mobile_other": "{{count}} pages, mises en forme pour la lecture sur mobile (environ 4 d’entre elles font 1 page normale)"
   },
   "downloads": {
     "media": "Photos et messages vocaux des discussions",

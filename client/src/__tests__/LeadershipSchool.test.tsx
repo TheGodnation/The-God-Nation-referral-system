@@ -198,11 +198,15 @@ describe("A book's page", () => {
     renderAt('/member/school/b1');
     expect(await screen.findByRole('heading', { name: 'Called to serve' })).toBeInTheDocument();
     // Pages only: chapter counts and chapter summaries are no longer shown.
-    expect(screen.getByText('84 pages')).toBeInTheDocument();
+    // Both numbers: about how many normal book pages, and the pages made for mobile reading (4 of them make 1 normal page).
+    expect(screen.getByTestId('book-pages')).toHaveTextContent('About 21 normal book pages');
+    expect(screen.getByTestId('book-pages')).toHaveTextContent('84 pages, formatted for mobile reading');
     expect(screen.getByText('✓ Passed with 90%')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Read the book/ })).toHaveAttribute('href', '/member/read/b1');
     expect(screen.getByRole('link', { name: 'See results' })).toHaveAttribute('href', '/member/assessments/e1');
-    expect(screen.getByText('After reading this book, you become a person who stands in the Kingdom with the right to rule.').tagName).toBe('EM');
+    // The promise is lifted out as a highlighted line under a coloured heading; the explanation follows.
+    expect(screen.getByRole('heading', { name: 'About this book' })).toBeInTheDocument();
+    expect(screen.getByTestId('book-promise')).toHaveTextContent('After reading this book, you become a person who stands in the Kingdom with the right to rule.');
     expect(screen.getByText('Dominion belongs to citizens, and this book shows you how to become one.')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'What this book teaches' })).toBeNull();
     expect(screen.queryByText('A leader first serves')).toBeNull();
