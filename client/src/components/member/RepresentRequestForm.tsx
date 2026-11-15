@@ -16,14 +16,27 @@ interface MyRequestRow {
   typedQuarter?: string | null;
 }
 
+interface SubdivisionStatus {
+  represented: boolean;
+  count?: number;
+  seats?: number;
+  full?: boolean;
+  nextSeat?: number | null;
+  representatives: string[];
+}
+
+const ORDINAL_KEYS = ['first', 'second', 'third', 'fourth', 'fifth'];
+const isQuarterRequest = (r: MyRequestRow) => (r.area ? r.area.level === 'QUARTER' : Boolean(r.typedQuarter));
+
 const requestPlace = (r: MyRequestRow) =>
   r.area ? r.area.name : [r.typedQuarter, r.typedSubdivision, r.typedDivision, r.typedRegion, r.typedCountry].filter(Boolean).join(', ');
 
 // "Represent The God Nation in your area". The member names where they live from the lists (country, region,
-// division, then the exact subdivision) and says what they want to represent: the subdivision itself, or a
-// quarter within it. If the subdivision already has a representative, only a quarter within it can be asked
-// for. Regions and divisions are appointed by the central authority. The central authority reviews the request
-// and contacts them; nothing is granted by sending it.
+// division, then the exact subdivision) and says what they want to represent: a seat in the subdivision (a
+// subdivision has five representatives: the first free seat goes to the next person approved), or one quarter
+// within it. When the five seats are taken, only a quarter can be asked for. A person can hold a seat AND one
+// quarter, never two quarters. Regions and divisions are appointed by the central authority. The central
+// authority reviews the request and contacts them; nothing is granted by sending it.
 export function RepresentRequestForm({
   country,
   fixedArea,
@@ -51,7 +64,8 @@ export function RepresentRequestForm({
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [myRequests, setMyRequests] = useState<MyRequestRow[] | null>(null);
-  const [taken, setTaken] = useState<{ represented: boolean; representatives: string[] } | null>(null);
+  const [taken, setTaken] = useState<SubdivisionStatus | null>(null);
+  const [representsQuarter, setRepresentsQuarter] = useState(false);
 
   function loadMine() {
     api
@@ -60,13 +74,23 @@ export function RepresentRequestForm({
       .catch(() => setMyRequests([]));
   }
   useEffect(loadMine, []);
+  useEffect(() => {
+    api
+      .get<{ representsQuarter: boolean }>('/api/member/leadership-directory/my-quarter')
+      .then((r) => setRepresentsQuarter(r.representsQuarter))
+      .catch(() => undefined);
+  }, []);
 
   // A place chosen elsewhere opens the form with that place already set.
   useEffect(() => {
     if (fixedArea) setOpen(true);
   }, [fixedArea]);
 
-  const pending = myRequests?.find((r) => r.status === 'PENDING') ?? null;
+  // One waiting request for a seat in a subdivision and one for a quarter: a person can hold both kinds of position.
+  const pendingSeat = myRequests?.find((r) => r.status === 'PENDING' && !isQuarterRequest(r)) ?? null;
+  const pendingQuarter = myRequests?.find((r) => r.status === 'PENDING' && isQuarterRequest(r)) ?? null;
+  const pendingList = [pendingSeat, pendingQuarter].filter((r): r is MyRequestRow => r !== null);
+  const quarterClosed = representsQuarter || Boolean(pendingQuarter);
   const subdivision = loc.subdivision.trim();
   const ready = loc.region.trim().length > 0 && loc.division.trim().length > 0 && subdivision.length > 0;
 
@@ -77,17 +101,19 @@ export function RepresentRequestForm({
     let live = true;
     const q = `country=${encodeURIComponent(locationCountry(loc))}&region=${encodeURIComponent(loc.region.trim())}&division=${encodeURIComponent(loc.division.trim())}&subdivision=${encodeURIComponent(subdivision)}`;
     api
-      .get<{ represented: boolean; representatives: string[] }>(`/api/member/leadership-directory/subdivision-status?${q}`)
+      .get<SubdivisionStatus>(`/api/member/leadership-directory/subdivision-status?${q}`)
       .then((r) => live && setTaken(r))
       .catch(() => undefined);
     return () => {
       live = false;
     };
   }, [fixedArea, ready, subdivision, loc.division, loc.region]); // eslint-disable-line react-hooks/exhaustive-deps
-  const takenAlready = Boolean(taken?.represented);
-  const wantsQuarter = scope === 'QUARTER' || takenAlready;
+  // All five seats taken (or a seat already asked for): only a quarter is left to ask for.
+  const takenAlready = Boolean(taken?.full) || Boolean(pendingSeat);
+  const wantsQuarter = (scope === 'QUARTER' || takenAlready) && !quarterClosed;
+  const nothingToAsk = takenAlready && quarterClosed;
 
-  const canSend = fixedArea ? true : ready && (!wantsQuarter || loc.quarter.trim().length > 0);
+  const canSend = fixedArea ? true : ready && !nothingToAsk && (!wantsQuarter || loc.quarter.trim().length > 0);
 
   async function submit() {
     setError(null);
@@ -115,9 +141,11 @@ export function RepresentRequestForm({
       onChanged?.();
     } catch (err) {
       setError(
-        err instanceof ApiError && err.code === 'SUBDIVISION_TAKEN'
+        err instanceof ApiError && (err.code === 'SUBDIVISION_FULL' || err.code === 'SUBDIVISION_TAKEN')
           ? t('leadershipDirectory.taken_refused')
-          : err instanceof ApiError && err.status === 409
+          : err instanceof ApiError && err.code === 'ALREADY_QUARTER'
+            ? t('leadershipDirectory.already_quarter')
+            : err instanceof ApiError && err.status === 409
             ? t('leadershipDirectory.already_pending')
             : t('leadershipDirectory.geo_submit_failed'),
       );
@@ -137,9 +165,15 @@ export function RepresentRequestForm({
     }
   }
 
-  const takenNotice = takenAlready ? (
+  const seatsTaken = taken?.count ?? 0;
+  const seatTotal = taken?.seats ?? 5;
+  const takenNotice = taken?.full ? (
     <p className="mt-1 rounded-lg bg-amber-50 p-2 text-sm text-amber-900" role="status" data-testid="subdivision-taken">
-      {t('leadershipDirectory.subdivision_taken', { names: taken!.representatives.join(', ') })}
+      {t('leadershipDirectory.seats_full', { seats: seatTotal, names: taken.representatives.join(', ') })}
+    </p>
+  ) : seatsTaken > 0 && taken?.nextSeat ? (
+    <p className="mt-1 rounded-lg bg-brand-50 p-2 text-sm text-brand-900" role="status" data-testid="subdivision-seats">
+      {t('leadershipDirectory.seats_some', { count: seatsTaken, seats: seatTotal, names: taken.representatives.join(', '), seat: t(`leadershipDirectory.ordinal_${ORDINAL_KEYS[taken.nextSeat - 1] ?? 'first'}`) })}
     </p>
   ) : null;
 
@@ -151,10 +185,15 @@ export function RepresentRequestForm({
         <input type="radio" name="scope" className="mt-1 h-4 w-4 accent-emerald-600" checked={!wantsQuarter} disabled={takenAlready} onChange={() => setScope('SUBDIVISION')} />
         <span>{t('leadershipDirectory.scope_subdivision', { name: subdivision })}</span>
       </label>
-      <label className="flex items-start gap-2 text-sm text-slate-800">
-        <input type="radio" name="scope" className="mt-1 h-4 w-4 accent-emerald-600" checked={wantsQuarter} onChange={() => setScope('QUARTER')} />
+      <label className={`flex items-start gap-2 text-sm ${quarterClosed ? 'text-slate-400' : 'text-slate-800'}`}>
+        <input type="radio" name="scope" className="mt-1 h-4 w-4 accent-emerald-600" checked={wantsQuarter} disabled={quarterClosed} onChange={() => setScope('QUARTER')} />
         <span>{t('leadershipDirectory.scope_quarter', { name: subdivision })}</span>
       </label>
+      {quarterClosed && (
+        <p className="text-xs text-slate-600" data-testid="quarter-closed">
+          {representsQuarter ? t('leadershipDirectory.already_quarter') : t('leadershipDirectory.quarter_waiting')}
+        </p>
+      )}
     </fieldset>
   ) : null;
 
@@ -174,15 +213,21 @@ export function RepresentRequestForm({
         </div>
       )}
 
-      {pending ? (
-        <div className="rounded-lg bg-amber-50 p-3 text-sm">
-          <p className="font-medium text-amber-800">{requestPlace(pending)}</p>
-          <p className="mt-1 text-amber-700">{t('leadershipDirectory.status_pending')}</p>
-          <button type="button" className="mt-2 text-xs text-red-700 underline" onClick={() => void withdraw(pending.id)}>
-            {t('leadershipDirectory.withdraw')}
-          </button>
+      {pendingList.length > 0 && (
+        <div className="space-y-2">
+          {pendingList.map((r) => (
+            <div key={r.id} className="rounded-lg bg-amber-50 p-3 text-sm">
+              <p className="font-medium text-amber-800">{requestPlace(r)}</p>
+              <p className="mt-1 text-amber-700">{t('leadershipDirectory.status_pending')}</p>
+              <button type="button" className="mt-2 text-xs text-red-700 underline" onClick={() => void withdraw(r.id)}>
+                {t('leadershipDirectory.withdraw')}
+              </button>
+            </div>
+          ))}
         </div>
-      ) : !open ? (
+      )}
+
+      {pendingList.length === 2 || (pendingList.length === 1 && representsQuarter && !pendingQuarter) ? null : !open ? (
         <button type="button" className="btn-primary px-4 py-2" onClick={() => setOpen(true)}>
           {t('leadershipDirectory.represent_cta')}
         </button>

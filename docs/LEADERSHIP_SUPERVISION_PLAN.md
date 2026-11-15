@@ -467,3 +467,21 @@ Leaders who studied on WhatsApp before the app are recorded one at a time by the
 - Counts for the certificate (`certificateEligibility`) and for "ready to lead" (`graduatesAmong`, `schoolProgressAmong`).
 - Students see "Completed on WhatsApp" on those books (no score, no "Paid" line).
 - Raising the number sends the person a private message from the central admin (optional tick box); lowering asks first.
+
+## Five representatives per subdivision, one quarter per person
+
+- A subdivision has up to **five** representatives (first to fifth). Each approval takes the first free seat
+  (`AreaLeadershipAssignment.seat`, 1–5; migration `20261231220000_subdivision_seats` numbers the existing ones by date and adds a
+  partial unique index so two active people never share a seat). When a representative steps down, the seat is free again and the
+  next person takes the lowest free one. Default title: "First … Fifth Subdivision Representative" (the admin's own position name
+  still replaces it).
+- A person can hold a seat in a subdivision **and** represent **one** quarter — never two quarters (refused when asked for and when
+  the admin appoints directly: `ALREADY_QUARTER`). A person may have one waiting request for a seat and one for a quarter.
+- All five seats taken: members can only ask for a quarter within it (`SUBDIVISION_FULL`). The admin cannot add a sixth.
+- Rules live in `server/src/lib/areaSeats.ts` (`appointToArea`), used by both the approval route and the admin's direct appointment.
+- Directory shows "Subdivisions with seats still open"; the request form says "you would be the third representative".
+
+## Profile: "N referred" opens the people
+
+- On the member's own profile, "N referred" is a link to `/member/referrals#people`: it opens the list of those people (scrolled to
+  it), each with a **Message / say hello** button (private chat) besides the leader's WhatsApp buttons.

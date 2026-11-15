@@ -12,7 +12,8 @@ import { recordAudit } from '../lib/audit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { profilePhotoPath, coverPhotoPath } from '../lib/profilePhoto';
 import { STRIP_SIZE, stripStart, stripWindow } from '../lib/memberStrip';
-import { titleForLevel, getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
+import { getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
+import { positionTitle } from '../lib/areaSeats';
 import { notifyPrivateMessageReceived } from '../lib/notifications';
 import { getOrCreatePrivateConversation } from '../lib/privateMessaging';
 import { friendRequestLimiter, socialMutationLimiter, memberReportLimiter, peopleSearchLimiter, messageSendLimiter } from '../lib/rateLimit';
@@ -271,7 +272,7 @@ router.get('/people/:personId', requireMember, asyncHandler(async (req, res) => 
   const areaLeaderOf = await Promise.all(
     areaAssignments.map(async (a) => {
       const ancestors = await getAreaAncestors(a.area.id);
-      return { title: titleForLevel(a.area.level), path: formatAreaPath(a.area, ancestors) };
+      return { title: positionTitle(a.area.level, a.seat, a.title), path: formatAreaPath(a.area, ancestors) };
     }),
   );
 

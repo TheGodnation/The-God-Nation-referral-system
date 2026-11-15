@@ -23,7 +23,7 @@ export function WallHeader({
   photoUrl?: string | null;
   coverUrl?: string | null;
   bio?: string | null;
-  subtitle?: string | null;
+  subtitle?: ReactNode;
   editable?: boolean;
   busy?: 'cover' | 'photo' | null;
   onPickCover?: (file: File) => void;

@@ -217,18 +217,18 @@ describe('GeographicDirectory (Member)', () => {
     expect(await screen.findByText('Thank you!')).toBeInTheDocument();
   });
 
-  it('when the subdivision already has a representative, it says so and only a quarter within it can be sent', async () => {
+  it('when the five seats of the subdivision are taken, it says so and only a quarter within it can be sent', async () => {
     mockFetchByUrl({
       ...BASE_ROUTES,
-      '/leadership-directory/subdivision-status': { status: 200, body: { represented: true, representatives: ['Grace Leader'] } },
+      '/leadership-directory/subdivision-status': { status: 200, body: { represented: true, count: 5, seats: 5, full: true, nextSeat: null, representatives: ['Grace Leader', 'Ben', 'Ada', 'Eve', 'Joy'] } },
       'POST /area-representation-requests': { status: 201, body: { id: 'req-9', status: 'PENDING' } },
     });
     renderRepresent();
     fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'South-West' } });
     fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
     fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
-    expect(await screen.findByTestId('subdivision-taken')).toHaveTextContent('Grace Leader already represents this subdivision');
-    // The "whole subdivision" choice is closed; the quarter is asked for, and must be given.
+    expect(await screen.findByTestId('subdivision-taken')).toHaveTextContent('All 5 representative seats of this subdivision are taken');
+    // The "seat" choice is closed; the quarter is asked for, and must be given.
     expect(screen.getByLabelText('The whole subdivision: Buea')).toBeDisabled();
     expect(screen.getByLabelText('A quarter within Buea')).toBeChecked();
     expect(screen.getByRole('button', { name: 'Submit request' })).toBeDisabled();
@@ -236,6 +236,71 @@ describe('GeographicDirectory (Member)', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Submit request' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'POST' && (c.body as any)?.typedQuarter === 'Molyko' && (c.body as any)?.typedSubdivision === 'Buea')).toBe(true));
+  });
+
+  it('with seats still free, it says which representative they would be and still lets them ask for a seat', async () => {
+    mockFetchByUrl({
+      ...BASE_ROUTES,
+      '/leadership-directory/subdivision-status': { status: 200, body: { represented: true, count: 2, seats: 5, full: false, nextSeat: 3, representatives: ['Grace Leader', 'Ben'] } },
+      'POST /area-representation-requests': { status: 201, body: { id: 'req-8', status: 'PENDING' } },
+    });
+    renderRepresent();
+    fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'South-West' } });
+    fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
+    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
+    expect(await screen.findByTestId('subdivision-seats')).toHaveTextContent('2 of 5 representatives so far');
+    expect(screen.getByTestId('subdivision-seats')).toHaveTextContent('you will be the third representative');
+    expect(screen.getByLabelText('The whole subdivision: Buea')).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Submit request' })).toBeEnabled());
+  });
+
+  it('a member who already represents a quarter cannot ask for another one, but can still ask for a seat', async () => {
+    mockFetchByUrl({
+      ...BASE_ROUTES,
+      '/leadership-directory/my-quarter': { status: 200, body: { representsQuarter: true } },
+      '/leadership-directory/subdivision-status': { status: 200, body: { represented: false, count: 0, seats: 5, full: false, nextSeat: 1, representatives: [] } },
+    });
+    renderRepresent();
+    fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'South-West' } });
+    fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
+    fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
+    expect(await screen.findByTestId('quarter-closed')).toHaveTextContent('only one quarter');
+    expect(screen.getByLabelText('A quarter within Buea')).toBeDisabled();
+    expect(screen.getByLabelText('The whole subdivision: Buea')).toBeChecked();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Submit request' })).toBeEnabled());
+  });
+
+  it('a waiting seat request and a waiting quarter request can both be shown at once', async () => {
+    mockFetchByUrl({
+      ...BASE_ROUTES,
+      '/area-representation-requests/mine': {
+        status: 200,
+        body: {
+          items: [
+            { id: 'a', status: 'PENDING', note: null, decisionNote: null, area: { id: 's1', name: 'Buea', level: 'SUBDIVISION' } },
+            { id: 'b', status: 'PENDING', note: null, decisionNote: null, area: { id: 'q1', name: 'Molyko', level: 'QUARTER' } },
+          ],
+        },
+      },
+    });
+    renderRepresent();
+    expect(await screen.findByText('Buea')).toBeInTheDocument();
+    expect(screen.getByText('Molyko')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Request to represent my area' })).toBeNull();
+  });
+
+  it('subdivisions with some seats filled are listed with the seats still open', async () => {
+    mockFetchByUrl({
+      ...BASE_ROUTES,
+      '/leadership-directory/areas': {
+        status: 200,
+        body: { items: [{ id: 'area-5', name: 'Douala V', level: 'SUBDIVISION', title: 'Subdivisional Leader', path: 'Douala V, Wouri, Littoral, Cameroon', leaders: [{ personId: 'p1', name: 'Grace Leader', photoUrl: null, title: 'First Subdivision Representative', seat: 1 }] }] },
+      },
+    });
+    renderWithRoutes();
+    const list = await screen.findByTestId('seats-open');
+    expect(list).toHaveTextContent('1 of 5 seats taken');
+    expect(screen.getByRole('button', { name: 'Represent this place' })).toBeInTheDocument();
   });
 
   it('"Represent this place" on a vacant area opens the request for exactly that place', async () => {

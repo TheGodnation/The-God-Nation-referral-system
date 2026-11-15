@@ -1701,6 +1701,9 @@ model AreaLeadershipAssignment {
   // A position name the admin chose for this person (e.g. "Regional
   // Coordinator"); empty means the usual title for the area's level.
   title            String?
+  // A subdivision has up to five representatives: seat 1 = first representative ... seat 5 = fifth. Only for
+  // subdivisions (a partial unique index keeps two active people off the same seat). Null for other levels.
+  seat             Int?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 

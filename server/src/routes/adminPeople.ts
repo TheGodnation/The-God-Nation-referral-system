@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { searchPersonIds } from '../lib/personSearch';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
-import { titleForLevel, getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
+import { getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
+import { positionTitle } from '../lib/areaSeats';
 import { requireAuth, requireRole } from '../lib/auth';
 import { adminSensitiveLimiter } from '../lib/rateLimit';
 import { leaderSignInHelpLink, memberSignInHelpLink, type SignInHelpLink } from '../lib/signInHelp';
@@ -132,7 +133,7 @@ router.get('/people/:id/powers', asyncHandler(async (req, res) => {
     areas.map(async (a) => ({
       areaId: a.area.id,
       level: a.area.level,
-      title: a.title || titleForLevel(a.area.level),
+      title: positionTitle(a.area.level, a.seat, a.title),
       place: formatAreaPath(a.area, await getAreaAncestors(a.area.id)),
       since: a.assignedAt,
     })),

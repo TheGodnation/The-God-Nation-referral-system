@@ -1853,11 +1853,21 @@
     "level_quarter": "Quartier",
     "subdivision_hint": "Écrivez ou choisissez l'arrondissement exact où vous vivez et que vous voulez représenter.",
     "quarter_hint": "Écrivez ou choisissez le quartier de votre arrondissement que vous voulez représenter.",
-    "subdivision_taken": "{{names}} représente déjà cet arrondissement. Vous pouvez seulement demander à représenter un quartier à l'intérieur.",
     "scope_title": "Que voulez-vous représenter ?",
     "scope_subdivision": "Tout l'arrondissement : {{name}}",
     "scope_quarter": "Un quartier de {{name}}",
-    "taken_refused": "Cet arrondissement a déjà un représentant. Choisissez un quartier à l'intérieur."
+    "taken_refused": "Toutes les places de représentant de cet arrondissement sont prises. Choisissez un quartier à l'intérieur.",
+    "seats_full": "Les {{seats}} places de représentant de cet arrondissement sont prises ({{names}}). Vous pouvez seulement demander à représenter un quartier à l'intérieur.",
+    "seats_some": "Cet arrondissement a déjà {{count}} représentant(s) sur {{seats}} ({{names}}). Si vous êtes approuvé(e), vous serez le {{seat}} représentant.",
+    "ordinal_first": "premier",
+    "ordinal_second": "deuxième",
+    "ordinal_third": "troisième",
+    "ordinal_fourth": "quatrième",
+    "ordinal_fifth": "cinquième",
+    "already_quarter": "Vous représentez déjà un quartier. Une personne ne peut représenter qu'un seul quartier.",
+    "quarter_waiting": "Votre demande pour un quartier attend une décision. Une personne ne peut représenter qu'un seul quartier.",
+    "seats_open_title": "Arrondissements avec des places encore libres",
+    "seats_taken": "{{count}} places sur {{seats}} prises"
   },
   "followUp": {
     "hello": "Bonjour, salutations de The God Nation 🙏",
@@ -1913,7 +1923,8 @@
     "status_QUIET_one": "Silencieux depuis {{count}} jour",
     "status_QUIET_other": "Silencieux depuis {{count}} jours",
     "status_ACTIVE": "Actif",
-    "nudge_in_app": "Message dans l’application"
+    "nudge_in_app": "Message dans l’application",
+    "message_them": "Écrire / saluer"
   },
   "updates": {
     "report": "Signaler cette publication",
