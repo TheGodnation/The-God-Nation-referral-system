@@ -11,11 +11,12 @@ import { useMemberAuth } from '../lib/MemberAuthContext';
 import { useStoreApp } from '../lib/storeApp';
 import { RichText } from '../lib/richText';
 import { prepareIntro, splitIntro } from '../lib/curriculumText';
+import { DiplomaArticle } from '../components/learn/DiplomaArticle';
 import { CertificateInfo, MemberCertificateCard } from '../components/certificate/MemberCertificateCard';
 
 // The God Nation Leadership Academy: the introduction to the diploma, then the books level by level, each
 // showing whether it is passed, open or still closed. Someone who has not begun reads everything first and begins at
-// the end; someone studying sees their progress and the book to carry on with first, and the introduction folded below.
+// the end; someone studying sees their progress and the book to carry on with first, and the introduction open below, with the way to ask for the certificate repeated at its end.
 // Tapping a book opens its page (Read, Exam, payment). The levels and the order of the books are arranged by the admin.
 export function MemberSchoolPage() {
   const { t } = useTranslation();
@@ -169,12 +170,10 @@ export function MemberSchoolPage() {
 
             {!certificateFirst && certificateCard}
 
-            {introText && (
-              <details className="card" data-testid="academy-intro-folded">
-                <summary className="cursor-pointer font-semibold text-brand-900">{t('school.read_intro')}</summary>
-                <RichText text={introText.replace(/^\s*\[\[books\]\]\s*$/m, '')} headings comfort className="mt-3 text-sm text-slate-800" />
-              </details>
-            )}
+            {introText && <DiplomaArticle text={introText} />}
+
+            {/* At the end of the introduction, the way to ask for the certificate (and the example) again, so nobody misses it. */}
+            {introText && certificateCard}
           </div>
         )}
 

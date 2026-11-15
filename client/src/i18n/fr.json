@@ -2819,7 +2819,9 @@
     "pages_normal_one": "Environ {{count}} page de livre normale",
     "pages_normal_other": "Environ {{count}} pages de livre normales",
     "pages_mobile_one": "{{count}} page, mise en forme pour la lecture sur mobile",
-    "pages_mobile_other": "{{count}} pages, mises en forme pour la lecture sur mobile (environ 4 d’entre elles font 1 page normale)"
+    "pages_mobile_other": "{{count}} pages, mises en forme pour la lecture sur mobile (environ 4 d’entre elles font 1 page normale)",
+    "diploma_label": "Le diplôme",
+    "about_diploma": "À propos du diplôme"
   },
   "downloads": {
     "media": "Photos et messages vocaux des discussions",

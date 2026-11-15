@@ -501,3 +501,10 @@ Leaders who studied on WhatsApp before the app are recorded one at a time by the
 - Page counts are shown twice, so a big number is not discouraging: "About 89 normal book pages" and "357 pages, formatted for mobile
   reading (about 4 of these make 1 normal page)" (`lib/bookPages.ts`, 4 mobile pages ≈ 1 normal page). The reader header says
   "Mobile page 351 of 357 (≈ 89 normal-size pages)", and the end of the book says the same.
+
+## The diploma introduction is open, tidy, and followed by the certificate button again
+
+- For someone already studying, "Read about the diploma" is no longer folded: `DiplomaArticle` shows a heading band ("The diploma /
+  About the diploma") and each part of the introduction (split at its `#` / `##` headings) as its own card with a coloured heading and
+  comfortable reading type.
+- After it, the certificate card (Ask for my certificate + See an example) is shown again, so nobody misses it.
