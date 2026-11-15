@@ -27,21 +27,21 @@ function sectionsOf(text: string): Section[] {
 
 /**
  * The introduction to the diploma, always open: a handsome heading band, then each part of the text as its own tidy card
- * with a coloured heading, in comfortable reading type. Used for someone who is already studying (the others read the same
- * text around the books).
+ * with a coloured heading, in comfortable reading type. Someone already studying reads it whole, below the books; someone who
+ * has not begun reads its first half above the books and the rest below them.
  */
-export function DiplomaArticle({ text }: { text: string }) {
+export function DiplomaArticle({ text, banner = true, testId = 'academy-intro' }: { text: string; /** The heading band above the parts (left out for the second half of an introduction that is split around the books). */ banner?: boolean; testId?: string }) {
   const { t } = useTranslation();
   const sections = sectionsOf(text.replace(/^\s*\[\[books\]\]\s*$/m, ''));
   if (sections.length === 0) return null;
   return (
-    <section className="space-y-3" data-testid="academy-intro" aria-labelledby="diploma-title">
-      <div className="rounded-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-brand-950 p-5 text-white shadow">
+    <section className="space-y-3" data-testid={testId} {...(banner ? { 'aria-labelledby': 'diploma-title' } : {})}>
+      {banner && <div className="rounded-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-brand-950 p-5 text-white shadow">
         <p className="text-xs font-semibold uppercase tracking-widest text-amber-300">🎓 {t('school.diploma_label')}</p>
         <h2 id="diploma-title" className="mt-1 text-xl font-bold leading-tight">
           {t('school.about_diploma')}
         </h2>
-      </div>
+      </div>}
       {sections.map((s, i) => (
         <article key={i} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="diploma-section">
           {s.title && (

@@ -179,9 +179,9 @@ export function MemberSchoolPage() {
 
         {data && !studying && (
           <div className="space-y-6">
-            {before && <RichText text={before} headings comfort className="text-sm text-slate-800" data-testid="academy-intro-before" />}
+            {before && <DiplomaArticle text={before} testId="academy-intro-before" />}
             {booksSection}
-            {after && <RichText text={after} headings comfort className="text-sm text-slate-800" data-testid="academy-intro-after" />}
+            {after && <DiplomaArticle text={after} banner={false} testId="academy-intro-after" />}
             <TrainingStatusCard summary={data} onChanged={load} />
             {/* Anyone can prepare their certificate request, even before starting to study. */}
             {certificateCard}
