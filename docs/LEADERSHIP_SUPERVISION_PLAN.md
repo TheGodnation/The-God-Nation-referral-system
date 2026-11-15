@@ -516,3 +516,7 @@ Leaders who studied on WhatsApp before the app are recorded one at a time by the
   chosen period), with the owner's name and a "got in" tag if that email signed in. This shows who is trying two emails; an unknown
   email (no account, so no name in the app) points to the person whose phone it was typed on. It is a hint ("probably the same
   person"): a shared phone or internet café can show several. Built from the existing `LoginAttempt` records (`ip`, `userAgent`).
+
+Sign-in trouble names also come from an email that cannot sign in: first a sign-in account, then a person's profile email, then the email
+given at sign-up (`ownersOfEmails` in `adminSignInTrouble.ts`, case-insensitive). The card then says whose email it is ("This email is
+on X's profile, but it is not a sign-in email"). The same lookup names the emails in "same phone also tried".

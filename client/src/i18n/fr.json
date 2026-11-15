@@ -1469,7 +1469,9 @@
       "whatsapp": "WhatsApp",
       "email": "Envoyer un e-mail",
       "same_device": "Probablement la même personne — ce même téléphone a aussi essayé :",
-      "got_in": "est entré(e)"
+      "got_in": "est entré(e)",
+      "on_profile": "Cet email est sur le profil de {{name}}, mais ce n'est pas un email de connexion. La personne l'a peut-être saisi par erreur, ou l'a utilisé pour essayer de se connecter.",
+      "on_sign_up": "{{name}} a donné cet email en s'inscrivant, mais ce n'est pas encore un email de connexion."
     },
     "nationalTeam": {
       "title": "L’équipe nationale",

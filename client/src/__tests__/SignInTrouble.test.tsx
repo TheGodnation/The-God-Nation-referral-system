@@ -72,6 +72,17 @@ describe('Sign-in trouble', () => {
     expect(boxes[0]).not.toHaveTextContent('got in');
   });
 
+  it('names the owner of an email that is on a profile or sign-up but cannot sign in', async () => {
+    mockFetch({
+      items: [
+        { email: 'second@example.com', kind: 'MEMBER_SIGN_IN', failedTries: 4, lastTriedAt: '2026-11-15T14:00:00Z', name: 'Profile Owner', nameSource: 'PROFILE', whatsappNumber: null, hasAccount: false, leaderId: null, personId: null },
+      ],
+    });
+    render(<SignInTroubleTab />);
+    expect(await screen.findByTestId('trouble-name')).toHaveTextContent('Profile Owner');
+    expect(screen.getByTestId('no-account')).toHaveTextContent("This email is on Profile Owner's profile, but it is not a sign-in email");
+  });
+
   it('says when nobody is stuck', async () => {
     mockFetch({ items: [] });
     render(<SignInTroubleTab />);

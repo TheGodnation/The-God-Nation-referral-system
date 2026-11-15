@@ -102,4 +102,22 @@ describe('Sign-in trouble', () => {
     expect(byEmail['other@example.com'].sameDevice).toEqual([]);
     expect(byEmail['neighbour@example.com'].sameDevice).toEqual([]);
   });
+
+  it('shows the name for an email that cannot sign in but is on a profile or was given when joining', async () => {
+    const agent = await adminAgent();
+    await prisma.person.create({ data: { name: 'Profile Owner', whatsappNumber: '+237670999101', email: 'Second.Email@Example.com' } });
+    await prisma.registration.create({ data: { visitorId: 'v1', normalizedWhatsApp: '237670999102', name: 'Joiner Jane', email: 'joiner.jane@example.com' } });
+    await prisma.loginAttempt.createMany({
+      data: [
+        { identifier: 'member:second.email@example.com', success: false, createdAt: ago(10), ip: '10.7.7.7', userAgent: 'UA-1' },
+        { identifier: 'member:joiner.jane@example.com', success: false, createdAt: ago(9), ip: '10.7.7.8', userAgent: 'UA-2' },
+        { identifier: 'member:nobody.knows@example.com', success: false, createdAt: ago(8), ip: '10.7.7.9', userAgent: 'UA-3' },
+      ],
+    });
+    const res = await agent.get('/api/admin/sign-in-trouble?days=30');
+    const byEmail = Object.fromEntries(res.body.items.map((i: any) => [i.email, i]));
+    expect(byEmail['second.email@example.com']).toMatchObject({ name: 'Profile Owner', nameSource: 'PROFILE', hasAccount: false });
+    expect(byEmail['joiner.jane@example.com']).toMatchObject({ name: 'Joiner Jane', nameSource: 'SIGN_UP', hasAccount: false });
+    expect(byEmail['nobody.knows@example.com']).toMatchObject({ name: null, nameSource: null });
+  });
 });
