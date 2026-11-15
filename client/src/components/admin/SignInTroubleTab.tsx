@@ -16,6 +16,8 @@ interface TroubleItem {
   name: string | null;
   whatsappNumber: string | null;
   hasAccount: boolean;
+  /** Where the name comes from when the email cannot sign in: someone's profile or sign-up. */
+  nameSource?: 'ACCOUNT' | 'PROFILE' | 'SIGN_UP' | null;
   leaderId: string | null;
   personId: string | null;
   /** Other emails tried from the same phone, with their owners' names. */
@@ -133,7 +135,13 @@ export function SignInTroubleTab() {
                 )}
                 {fix && <p className="text-sm text-amber-800">{t('admin.signInTrouble.typo', { fix })}</p>}
                 {!item.hasAccount && (
-                  <p className="text-sm text-slate-600">{t('admin.signInTrouble.no_account')}</p>
+                  <p className="text-sm text-slate-600" data-testid="no-account">
+                    {item.name && item.nameSource === 'PROFILE'
+                      ? t('admin.signInTrouble.on_profile', { name: item.name })
+                      : item.name && item.nameSource === 'SIGN_UP'
+                        ? t('admin.signInTrouble.on_sign_up', { name: item.name })
+                        : t('admin.signInTrouble.no_account')}
+                  </p>
                 )}
                 <div className="flex flex-wrap gap-3 pt-1 text-sm">
                   {(item.personId || item.leaderId) && (

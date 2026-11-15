@@ -1469,7 +1469,9 @@
       "whatsapp": "WhatsApp",
       "email": "Send an email",
       "same_device": "Probably the same person — this same phone also tried:",
-      "got_in": "got in"
+      "got_in": "got in",
+      "on_profile": "This email is on {{name}}'s profile, but it is not a sign-in email. They may have typed it by mistake, or used it to try to sign in.",
+      "on_sign_up": "{{name}} gave this email when joining, but it is not a sign-in email yet."
     },
     "nationalTeam": {
       "title": "The National Team",

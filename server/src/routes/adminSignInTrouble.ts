@@ -29,6 +29,8 @@ interface Item {
   whatsappNumber: string | null;
   /** Whether an account with this email exists (a "no" often means a misspelled email). */
   hasAccount: boolean;
+  /** Where the name comes from when there is no sign-in account: the email is on someone's profile or sign-up record. */
+  nameSource: 'ACCOUNT' | 'PROFILE' | 'SIGN_UP' | null;
   /** For "Help them sign in": the leader account and/or the person. */
   leaderId: string | null;
   personId: string | null;
@@ -38,6 +40,32 @@ interface Item {
 
 const MEMBER_PREFIX = 'member:';
 const MAX_ITEMS = 500;
+
+/**
+ * Whose email is this? First a sign-in account (leader or member), then a person's profile email, then the email someone
+ * gave when they joined. So the name shows even for an email that cannot sign in (a second email, one typed on the profile).
+ */
+async function ownersOfEmails(emails: string[]): Promise<Map<string, { name: string; source: 'ACCOUNT' | 'PROFILE' | 'SIGN_UP' }>> {
+  const owners = new Map<string, { name: string; source: 'ACCOUNT' | 'PROFILE' | 'SIGN_UP' }>();
+  const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  if (wanted.length === 0) return owners;
+  const anyCase = (field: 'email') => wanted.map((e) => ({ [field]: { equals: e, mode: 'insensitive' as const } }));
+  const [users, accounts, people, signUps] = await Promise.all([
+    prisma.user.findMany({ where: { OR: anyCase('email') }, select: { email: true, name: true, person: { select: { name: true, erasedAt: true } } } }),
+    prisma.memberAccount.findMany({ where: { OR: anyCase('email') }, select: { email: true, person: { select: { name: true, erasedAt: true } } } }),
+    prisma.person.findMany({ where: { erasedAt: null, OR: anyCase('email') }, select: { email: true, name: true } }),
+    prisma.registration.findMany({ where: { OR: anyCase('email') }, select: { email: true, name: true } }),
+  ]);
+  const put = (email: string | null, name: string | null | undefined, source: 'ACCOUNT' | 'PROFILE' | 'SIGN_UP') => {
+    const key = (email ?? '').toLowerCase();
+    if (key && name && !owners.has(key)) owners.set(key, { name, source });
+  };
+  for (const u of users) put(u.email, u.person && !u.person.erasedAt ? u.person.name : u.name, 'ACCOUNT');
+  for (const a of accounts) put(a.email, a.person.erasedAt ? null : a.person.name, 'ACCOUNT');
+  for (const p of people) put(p.email, p.name, 'PROFILE');
+  for (const r of signUps) put(r.email, r.name, 'SIGN_UP');
+  return owners;
+}
 
 const identifierOf = (item: Pick<Item, 'email' | 'kind'>) => (item.kind === 'MEMBER_SIGN_IN' ? `${MEMBER_PREFIX}${item.email}` : item.email);
 const emailOf = (identifier: string) => (identifier.startsWith(MEMBER_PREFIX) ? identifier.slice(MEMBER_PREFIX.length) : identifier);
@@ -83,18 +111,12 @@ async function addSameDevice(list: Item[], since: Date) {
   }
   const emails = [...new Set([...related.values()].flatMap((m) => [...m.keys()]))];
   if (emails.length === 0) return;
-  const [users, accounts] = await Promise.all([
-    prisma.user.findMany({ where: { email: { in: emails } }, select: { email: true, name: true, person: { select: { name: true, erasedAt: true } } } }),
-    prisma.memberAccount.findMany({ where: { email: { in: emails } }, select: { email: true, person: { select: { name: true, erasedAt: true } } } }),
-  ]);
-  const nameOf = new Map<string, string>();
-  for (const u of users) nameOf.set(u.email, (u.person && !u.person.erasedAt ? u.person.name : u.name) ?? '');
-  for (const a of accounts) if (!a.person.erasedAt) nameOf.set(a.email, a.person.name);
+  const owners = await ownersOfEmails(emails);
   for (const item of list) {
     const map = related.get(identifierOf(item));
     if (!map) continue;
     item.sameDevice = [...map.entries()]
-      .map(([email, gotIn]) => ({ email, name: nameOf.get(email) || null, gotIn }))
+      .map(([email, gotIn]) => ({ email, name: owners.get(email.toLowerCase())?.name ?? null, gotIn }))
       .sort((x, y) => Number(y.gotIn) - Number(x.gotIn) || x.email.localeCompare(y.email))
       .slice(0, 3);
   }
@@ -170,6 +192,7 @@ router.get('/', asyncHandler(async (req, res) => {
       hasAccount: true,
       leaderId: leader?.id ?? null,
       personId: account.person.id,
+      nameSource: 'ACCOUNT' as const,
       sameDevice: [] as Item['sameDevice'],
     };
   };
@@ -186,7 +209,7 @@ router.get('/', asyncHandler(async (req, res) => {
         kind: 'MEMBER_SIGN_IN',
         failedTries: f._count._all,
         lastTriedAt: last,
-        ...(account ? memberItem(account) : { name: null, whatsappNumber: null, hasAccount: false, leaderId: null, personId: null, sameDevice: [] }),
+        ...(account ? memberItem(account) : { name: null, whatsappNumber: null, hasAccount: false, leaderId: null, personId: null, nameSource: null, sameDevice: [] }),
       });
     } else {
       const user = userByEmail.get(f.identifier);
@@ -204,6 +227,7 @@ router.get('/', asyncHandler(async (req, res) => {
         hasAccount: Boolean(user),
         leaderId: user?.id ?? null,
         personId: person?.id ?? null,
+        nameSource: (person?.name ?? user?.name) ? ('ACCOUNT' as const) : null,
         sameDevice: [],
       });
     }
@@ -217,6 +241,18 @@ router.get('/', asyncHandler(async (req, res) => {
   }
 
   const list = [...items.values()].sort((a, b) => b.lastTriedAt.getTime() - a.lastTriedAt.getTime()).slice(0, MAX_ITEMS);
+  // An email with no sign-in account may still be on someone's profile or sign-up: show whose it is.
+  const nameless = list.filter((i) => !i.name);
+  if (nameless.length > 0) {
+    const owners = await ownersOfEmails(nameless.map((i) => i.email));
+    for (const item of nameless) {
+      const owner = owners.get(item.email.toLowerCase());
+      if (owner) {
+        item.name = owner.name;
+        item.nameSource = owner.source;
+      }
+    }
+  }
   await addSameDevice(list, since);
   res.json({ days, total: list.length, items: list });
 }));
