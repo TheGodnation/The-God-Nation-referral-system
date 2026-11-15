@@ -28,7 +28,7 @@ const render_ = () =>
 describe('The wall of representatives', () => {
   it('shows the photos of the representatives in my area first, then the others and the National Team', async () => {
     mock({
-      inYourArea: [{ personId: 'p1', name: 'Near Rep', photoUrl: null, title: 'Subdivision Coordinator', level: 'SUBDIVISION', place: 'Buea, Fako, South-West, Cameroon', inYourArea: true }],
+      inYourArea: [{ personId: 'p1', name: 'Near Rep', photoUrl: null, title: 'Subdivision Coordinator', level: 'SUBDIVISION', place: 'Buea, Fako, South-West, Cameroon', inYourArea: true }, { personId: 'p9', name: 'Quarter Rep', photoUrl: null, title: 'Quarter Representative', level: 'QUARTER', place: 'Bepanda, Douala V, Wouri, Littoral, Cameroon', inYourArea: true }],
       elsewhere: [{ personId: 'p2', name: 'Far Rep', photoUrl: null, title: 'Quarter Representative', level: 'QUARTER', place: 'Bepanda, Douala V, Wouri, Littoral, Cameroon', inYourArea: false }],
       nationalTeam: [{ personId: 'p3', name: 'Team Lead', photoUrl: null, title: 'National Coordinator' }],
     });
@@ -37,7 +37,9 @@ describe('The wall of representatives', () => {
     const mine = screen.getByRole('region', { name: 'In your area' });
     expect(mine).toHaveTextContent('Near Rep');
     expect(mine).toHaveTextContent('Subdivision Coordinator');
-    expect(mine).toHaveTextContent('Buea');
+    expect(mine).toHaveTextContent('Buea, Fako');
+    // A quarter is written with its subdivision and division.
+    expect(mine).toHaveTextContent('Bepanda, Douala V, Wouri');
     // The name and place are written under the picture, in bold, not over it.
     expect(within(mine).getByText('Near Rep')).toHaveClass('font-bold');
     expect(screen.getByRole('region', { name: 'Across The God Nation' })).toHaveTextContent('Far Rep');

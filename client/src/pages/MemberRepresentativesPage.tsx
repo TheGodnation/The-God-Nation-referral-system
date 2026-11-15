@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { PortraitCard } from '../components/PortraitCard';
+import { shortPlace } from '../lib/shortPlace';
 import { api } from '../lib/api';
 
 interface Rep {
@@ -56,7 +57,7 @@ export function MemberRepresentativesPage() {
           caption={
             <>
               <span className="block">{r.title}</span>
-              <span className="block text-slate-800">{r.place.split(',')[0]}</span>
+              <span className="block text-slate-800">{shortPlace(r.level, r.place)}</span>
             </>
           }
           className="w-full"
