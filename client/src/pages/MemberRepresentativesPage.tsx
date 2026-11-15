@@ -48,7 +48,20 @@ export function MemberRepresentativesPage() {
   const grid = (reps: Rep[]) => (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="reps-grid">
       {reps.map((r) => (
-        <PortraitCard key={`${r.personId}-${r.place}`} name={r.name} photoUrl={r.photoUrl} caption={`${r.title} · ${r.place.split(',')[0]}`} className="w-full" onClick={() => navigate(`/member/people/${r.personId}`)} />
+        <PortraitCard
+          key={`${r.personId}-${r.place}`}
+          name={r.name}
+          photoUrl={r.photoUrl}
+          labelBelow
+          caption={
+            <>
+              <span className="block">{r.title}</span>
+              <span className="block text-slate-800">{r.place.split(',')[0]}</span>
+            </>
+          }
+          className="w-full"
+          onClick={() => navigate(`/member/people/${r.personId}`)}
+        />
       ))}
     </div>
   );
@@ -93,7 +106,7 @@ export function MemberRepresentativesPage() {
                 </h2>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {wall.nationalTeam.map((m) => (
-                    <PortraitCard key={m.personId} name={m.name} photoUrl={m.photoUrl} caption={m.title} className="w-full" onClick={() => navigate(`/member/people/${m.personId}`)} />
+                    <PortraitCard key={m.personId} name={m.name} photoUrl={m.photoUrl} labelBelow caption={m.title} className="w-full" onClick={() => navigate(`/member/people/${m.personId}`)} />
                   ))}
                 </div>
               </section>

@@ -113,6 +113,7 @@ export function GeographicDirectory() {
                 name={m.name}
                 photoUrl={m.photoUrl}
                 caption={m.title}
+                labelBelow
                 className="w-full"
                 onClick={() => navigate(`/member/people/${m.personId}`)}
               />
@@ -171,7 +172,13 @@ export function GeographicDirectory() {
                             <PortraitCard
                               name={leader.name}
                               photoUrl={leader.photoUrl}
-                              caption={`${leader.title ?? a.title} · ${a.name}`}
+                              labelBelow
+                              caption={
+                                <>
+                                  <span className="block">{leader.title ?? a.title}</span>
+                                  <span className="block text-slate-800">{a.name}</span>
+                                </>
+                              }
                               className="w-full"
                               onClick={() => navigate(`/member/people/${leader.personId}`)}
                             />

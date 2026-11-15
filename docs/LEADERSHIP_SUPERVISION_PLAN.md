@@ -485,3 +485,10 @@ Leaders who studied on WhatsApp before the app are recorded one at a time by the
 
 - On the member's own profile, "N referred" is a link to `/member/referrals#people`: it opens the list of those people (scrolled to
   it), each with a **Message / say hello** button (private chat) besides the leader's WhatsApp buttons.
+
+## People page: clearer "meet" button; names under the photos
+
+- The "Meet The God Nation representatives in your area" card now has a solid blue **See the representatives** button, so it is not
+  confused with the gold **Request to represent your area** button (with a small "Want to represent your own area?" line above it).
+- On the representatives page (and the leadership directory) each person's name and position/place are written **under** the photo in
+  bold (`PortraitCard labelBelow`) instead of over it.
