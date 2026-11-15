@@ -32,10 +32,73 @@ interface Item {
   /** For "Help them sign in": the leader account and/or the person. */
   leaderId: string | null;
   personId: string | null;
+  /** Other emails tried from this same phone (same network and same device): often the same person with two emails. */
+  sameDevice: { email: string; name: string | null; gotIn: boolean }[];
 }
 
 const MEMBER_PREFIX = 'member:';
 const MAX_ITEMS = 500;
+
+const identifierOf = (item: Pick<Item, 'email' | 'kind'>) => (item.kind === 'MEMBER_SIGN_IN' ? `${MEMBER_PREFIX}${item.email}` : item.email);
+const emailOf = (identifier: string) => (identifier.startsWith(MEMBER_PREFIX) ? identifier.slice(MEMBER_PREFIX.length) : identifier);
+
+/**
+ * "Same phone also tried": for each person stuck, the other emails tried from the same network address AND the same
+ * device (browser/phone), in the period — with the name of whoever owns that email, and whether they got in. It helps tell
+ * who is trying two emails: a name is easier to remember than an email.
+ */
+async function addSameDevice(list: Item[], since: Date) {
+  for (const item of list) item.sameDevice = [];
+  if (list.length === 0) return;
+  const mine = await prisma.loginAttempt.groupBy({
+    by: ['identifier', 'ip', 'userAgent'],
+    where: { identifier: { in: list.map(identifierOf) }, ip: { not: null }, userAgent: { not: null }, createdAt: { gte: since } },
+    orderBy: { identifier: 'asc' },
+    take: 5000,
+  });
+  const ips = [...new Set(mine.map((m) => m.ip as string))];
+  if (ips.length === 0) return;
+  const all = await prisma.loginAttempt.groupBy({
+    by: ['identifier', 'ip', 'userAgent', 'success'],
+    where: { ip: { in: ips }, userAgent: { not: null }, createdAt: { gte: since } },
+    orderBy: { identifier: 'asc' },
+    take: 20000,
+  });
+  const byDevice = new Map<string, { identifier: string; success: boolean }[]>();
+  for (const a of all) {
+    const key = `${a.ip}|${a.userAgent}`;
+    byDevice.set(key, [...(byDevice.get(key) ?? []), { identifier: a.identifier, success: a.success }]);
+  }
+  const related = new Map<string, Map<string, boolean>>(); // identifier -> other email -> got in
+  for (const m of mine) {
+    const others = byDevice.get(`${m.ip}|${m.userAgent}`) ?? [];
+    for (const o of others) {
+      if (o.identifier === m.identifier) continue;
+      const email = emailOf(o.identifier);
+      if (email === emailOf(m.identifier)) continue;
+      const map = related.get(m.identifier) ?? new Map<string, boolean>();
+      map.set(email, (map.get(email) ?? false) || o.success);
+      related.set(m.identifier, map);
+    }
+  }
+  const emails = [...new Set([...related.values()].flatMap((m) => [...m.keys()]))];
+  if (emails.length === 0) return;
+  const [users, accounts] = await Promise.all([
+    prisma.user.findMany({ where: { email: { in: emails } }, select: { email: true, name: true, person: { select: { name: true, erasedAt: true } } } }),
+    prisma.memberAccount.findMany({ where: { email: { in: emails } }, select: { email: true, person: { select: { name: true, erasedAt: true } } } }),
+  ]);
+  const nameOf = new Map<string, string>();
+  for (const u of users) nameOf.set(u.email, (u.person && !u.person.erasedAt ? u.person.name : u.name) ?? '');
+  for (const a of accounts) if (!a.person.erasedAt) nameOf.set(a.email, a.person.name);
+  for (const item of list) {
+    const map = related.get(identifierOf(item));
+    if (!map) continue;
+    item.sameDevice = [...map.entries()]
+      .map(([email, gotIn]) => ({ email, name: nameOf.get(email) || null, gotIn }))
+      .sort((x, y) => Number(y.gotIn) - Number(x.gotIn) || x.email.localeCompare(y.email))
+      .slice(0, 3);
+  }
+}
 
 router.get('/', asyncHandler(async (req, res) => {
   const { days } = querySchema.parse(req.query);
@@ -107,6 +170,7 @@ router.get('/', asyncHandler(async (req, res) => {
       hasAccount: true,
       leaderId: leader?.id ?? null,
       personId: account.person.id,
+      sameDevice: [] as Item['sameDevice'],
     };
   };
 
@@ -122,7 +186,7 @@ router.get('/', asyncHandler(async (req, res) => {
         kind: 'MEMBER_SIGN_IN',
         failedTries: f._count._all,
         lastTriedAt: last,
-        ...(account ? memberItem(account) : { name: null, whatsappNumber: null, hasAccount: false, leaderId: null, personId: null }),
+        ...(account ? memberItem(account) : { name: null, whatsappNumber: null, hasAccount: false, leaderId: null, personId: null, sameDevice: [] }),
       });
     } else {
       const user = userByEmail.get(f.identifier);
@@ -140,6 +204,7 @@ router.get('/', asyncHandler(async (req, res) => {
         hasAccount: Boolean(user),
         leaderId: user?.id ?? null,
         personId: person?.id ?? null,
+        sameDevice: [],
       });
     }
   }
@@ -151,8 +216,9 @@ router.get('/', asyncHandler(async (req, res) => {
     add({ email: account.email, kind: 'MEMBER_SIGN_IN', failedTries: w._count._all, lastTriedAt: last, ...memberItem(account) });
   }
 
-  const list = [...items.values()].sort((a, b) => b.lastTriedAt.getTime() - a.lastTriedAt.getTime());
-  res.json({ days, total: list.length, items: list.slice(0, MAX_ITEMS) });
+  const list = [...items.values()].sort((a, b) => b.lastTriedAt.getTime() - a.lastTriedAt.getTime()).slice(0, MAX_ITEMS);
+  await addSameDevice(list, since);
+  res.json({ days, total: list.length, items: list });
 }));
 
 export default router;

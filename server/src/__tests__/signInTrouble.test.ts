@@ -72,4 +72,34 @@ describe('Sign-in trouble', () => {
     const res = await request(app).get('/api/admin/sign-in-trouble');
     expect(res.status).toBe(401);
   });
+
+  it('shows, for someone stuck, the other emails tried from the same phone, with the names of their owners', async () => {
+    const agent = await adminAgent();
+    const phone = { ip: '10.9.9.9', userAgent: 'Mozilla/5.0 (Android) Chrome/120' };
+    // Victor's real email, tried a few times from his phone, and a misspelled-or-other email from the same phone.
+    const victor = await prisma.person.create({ data: { name: 'OMAM Victor', whatsappNumber: '+237670999001' } });
+    await prisma.memberAccount.create({ data: { personId: victor.id, email: 'vicky@example.com' } });
+    await prisma.loginAttempt.createMany({
+      data: [
+        { identifier: 'member:vicky@example.com', success: false, createdAt: ago(20), ...phone },
+        { identifier: 'member:gwess@example.com', success: false, createdAt: ago(15), ...phone },
+      ],
+    });
+    // Another person on a different phone, and someone on the same network but another device: not related.
+    await prisma.loginAttempt.createMany({
+      data: [
+        { identifier: 'member:other@example.com', success: false, createdAt: ago(10), ip: '10.8.8.8', userAgent: 'Mozilla/5.0 (iPhone)' },
+        { identifier: 'member:neighbour@example.com', success: false, createdAt: ago(9), ip: '10.9.9.9', userAgent: 'Mozilla/5.0 (Windows)' },
+      ],
+    });
+
+    const res = await agent.get('/api/admin/sign-in-trouble?days=30');
+    const byEmail = Object.fromEntries(res.body.items.map((i: any) => [i.email, i]));
+    // The unknown email points to Victor (the same phone), whose own row points back to it.
+    expect(byEmail['gwess@example.com'].name).toBeNull();
+    expect(byEmail['gwess@example.com'].sameDevice).toEqual([{ email: 'vicky@example.com', name: 'OMAM Victor', gotIn: false }]);
+    expect(byEmail['vicky@example.com'].sameDevice).toEqual([{ email: 'gwess@example.com', name: null, gotIn: false }]);
+    expect(byEmail['other@example.com'].sameDevice).toEqual([]);
+    expect(byEmail['neighbour@example.com'].sameDevice).toEqual([]);
+  });
 });
