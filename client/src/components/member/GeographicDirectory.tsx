@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { PortraitCard } from '../PortraitCard';
+import { shortPlace } from '../../lib/shortPlace';
 
 type GeographicLevel = 'NATIONAL' | 'REGION' | 'DIVISION' | 'SUBDIVISION' | 'QUARTER';
 
@@ -176,7 +177,7 @@ export function GeographicDirectory() {
                               caption={
                                 <>
                                   <span className="block">{leader.title ?? a.title}</span>
-                                  <span className="block text-slate-800">{a.name}</span>
+                                  <span className="block text-slate-800">{shortPlace(a.level, a.path)}</span>
                                 </>
                               }
                               className="w-full"
