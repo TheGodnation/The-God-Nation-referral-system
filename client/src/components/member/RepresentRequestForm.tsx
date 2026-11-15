@@ -25,7 +25,8 @@ interface SubdivisionStatus {
   representatives: string[];
 }
 
-const ORDINAL_KEYS = ['first', 'second', 'third', 'fourth', 'fifth'];
+// Seat 1 is the Representative; seats 2 to 5 are the first to fourth Assistant Representative.
+const ROLE_KEYS = ['representative', 'assistant_1', 'assistant_2', 'assistant_3', 'assistant_4'];
 const isQuarterRequest = (r: MyRequestRow) => (r.area ? r.area.level === 'QUARTER' : Boolean(r.typedQuarter));
 
 const requestPlace = (r: MyRequestRow) =>
@@ -173,7 +174,7 @@ export function RepresentRequestForm({
     </p>
   ) : seatsTaken > 0 && taken?.nextSeat ? (
     <p className="mt-1 rounded-lg bg-brand-50 p-2 text-sm text-brand-900" role="status" data-testid="subdivision-seats">
-      {t('leadershipDirectory.seats_some', { count: seatsTaken, seats: seatTotal, names: taken.representatives.join(', '), seat: t(`leadershipDirectory.ordinal_${ORDINAL_KEYS[taken.nextSeat - 1] ?? 'first'}`) })}
+      {t('leadershipDirectory.seats_some', { count: seatsTaken, seats: seatTotal, names: taken.representatives.join(', '), role: t(`leadershipDirectory.role_${ROLE_KEYS[taken.nextSeat - 1] ?? 'representative'}`) })}
     </p>
   ) : null;
 

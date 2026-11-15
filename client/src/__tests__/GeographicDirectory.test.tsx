@@ -227,7 +227,7 @@ describe('GeographicDirectory (Member)', () => {
     fireEvent.change(await screen.findByLabelText('Region'), { target: { value: 'South-West' } });
     fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
     fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
-    expect(await screen.findByTestId('subdivision-taken')).toHaveTextContent('All 5 representative seats of this subdivision are taken');
+    expect(await screen.findByTestId('subdivision-taken')).toHaveTextContent('All 5 places (the representative and four assistants) of this subdivision are taken');
     // The "seat" choice is closed; the quarter is asked for, and must be given.
     expect(screen.getByLabelText('The whole subdivision: Buea')).toBeDisabled();
     expect(screen.getByLabelText('A quarter within Buea')).toBeChecked();
@@ -249,7 +249,7 @@ describe('GeographicDirectory (Member)', () => {
     fireEvent.change(screen.getByLabelText('Division'), { target: { value: 'Fako' } });
     fireEvent.change(screen.getByLabelText('Subdivision'), { target: { value: 'Buea' } });
     expect(await screen.findByTestId('subdivision-seats')).toHaveTextContent('2 of 5 representatives so far');
-    expect(screen.getByTestId('subdivision-seats')).toHaveTextContent('you will be the third representative');
+    expect(screen.getByTestId('subdivision-seats')).toHaveTextContent('you will be the second assistant representative');
     expect(screen.getByLabelText('The whole subdivision: Buea')).toBeEnabled();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Submit request' })).toBeEnabled());
   });
@@ -294,7 +294,7 @@ describe('GeographicDirectory (Member)', () => {
       ...BASE_ROUTES,
       '/leadership-directory/areas': {
         status: 200,
-        body: { items: [{ id: 'area-5', name: 'Douala V', level: 'SUBDIVISION', title: 'Subdivisional Leader', path: 'Douala V, Wouri, Littoral, Cameroon', leaders: [{ personId: 'p1', name: 'Grace Leader', photoUrl: null, title: 'First Subdivision Representative', seat: 1 }] }] },
+        body: { items: [{ id: 'area-5', name: 'Douala V', level: 'SUBDIVISION', title: 'Subdivisional Leader', path: 'Douala V, Wouri, Littoral, Cameroon', leaders: [{ personId: 'p1', name: 'Grace Leader', photoUrl: null, title: 'Subdivision Representative', seat: 1 }] }] },
       },
     });
     renderWithRoutes();
