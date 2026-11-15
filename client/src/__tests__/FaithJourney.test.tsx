@@ -223,6 +223,10 @@ describe('Faith journeys (central admin)', () => {
     expect(within(journey).getByText('+237670000001')).toBeInTheDocument();
     expect(within(journey).getByText(/Book 1 exam/)).toBeInTheDocument();
     expect(within(journey).getByText(/Try 1 · question set 2 · 24\/25/)).toBeInTheDocument();
+    // The result in plain words: the percentage and whether the book exam was passed.
+    const result = within(journey).getByTestId('faith-result');
+    expect(result).toHaveTextContent('✓ 96% · Passed');
+    expect(result.className).toContain('bg-green-100');
     expect(within(journey).getByText('⚑ I think so, but I am not sure')).toBeInTheDocument();
     expect(within(journey).getByText('Unsure: explain John 3:3-5.')).toBeInTheDocument();
     expect(within(journey).getByText('I agree with this confession')).toBeInTheDocument();
