@@ -2819,7 +2819,9 @@
     "pages_normal_one": "About {{count}} normal book page",
     "pages_normal_other": "About {{count}} normal book pages",
     "pages_mobile_one": "{{count}} page, formatted for mobile reading",
-    "pages_mobile_other": "{{count}} pages, formatted for mobile reading (about 4 of these make 1 normal page)"
+    "pages_mobile_other": "{{count}} pages, formatted for mobile reading (about 4 of these make 1 normal page)",
+    "diploma_label": "The diploma",
+    "about_diploma": "About the diploma"
   },
   "downloads": {
     "media": "Photos and voice notes from chats",

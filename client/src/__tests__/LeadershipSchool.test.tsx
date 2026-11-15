@@ -98,11 +98,13 @@ describe('Leadership Academy page', () => {
 
     // Book 1 is passed and paid, so Book 2 is where to carry on.
     expect(screen.getByRole('link', { name: /Continue Book 2: Faithful in little/ })).toHaveAttribute('href', '/member/school/b2');
-    // Someone already studying finds the introduction folded away, with the numbers filled in.
-    const folded = screen.getByTestId('academy-intro-folded');
-    expect(folded.tagName).toBe('DETAILS');
-    expect(within(folded).getByText(/A journey of 3 books in 2 levels\./)).toBeInTheDocument();
-    expect(within(folded).getByText(/Each book costs 1\s100 FCFA\./)).toBeInTheDocument();
+    // Someone already studying finds the introduction open (not folded away), with the numbers filled in.
+    const intro = screen.getByTestId('academy-intro');
+    expect(intro.tagName).toBe('SECTION');
+    expect(intro.querySelector('details')).toBeNull();
+    expect(within(intro).getByRole('heading', { name: 'About the diploma' })).toBeInTheDocument();
+    expect(within(intro).getByText(/A journey of 3 books in 2 levels\./)).toBeInTheDocument();
+    expect(within(intro).getByText(/Each book costs 1\s100 FCFA\./)).toBeInTheDocument();
   });
 
   it('tells students there are 16 books even while fewer are on the site', async () => {
@@ -111,8 +113,8 @@ describe('Leadership Academy page', () => {
     expect(await screen.findByText('1 of 16 books passed')).toBeInTheDocument();
     expect(screen.getByTestId('academy-more-coming')).toHaveTextContent('The programme has 16 books. 13 more will be added to the site soon, in order.');
     // The introduction's numbers follow the programme, not the books on the site.
-    const folded = screen.getByTestId('academy-intro-folded');
-    expect(within(folded).getByText(/A journey of 16 books in 2 levels\./)).toBeInTheDocument();
+    const intro = screen.getByTestId('academy-intro');
+    expect(within(intro).getByText(/A journey of 16 books in 2 levels\./)).toBeInTheDocument();
   });
 
   it('says nothing about books to come when every book of the programme is on the site', async () => {
@@ -120,6 +122,27 @@ describe('Leadership Academy page', () => {
     renderAt('/member/school');
     await screen.findByText('1 of 3 books passed');
     expect(screen.queryByTestId('academy-more-coming')).toBeNull();
+  });
+
+  it('for someone studying: the diploma is open as tidy parts, and "Ask for my certificate" comes again at its end', async () => {
+    mockFetch({
+      'GET /api/member/auth/me': () => ({ body: ME }),
+      'GET /api/member/school': () => ({ body: SUMMARY }),
+      'GET /api/member/certificate': () => ({ body: { eligible: false, passed: 1, total: 16, defaultName: 'Me', defaultLanguage: 'en', request: null } }),
+    });
+    renderAt('/member/school');
+    const intro = await screen.findByTestId('academy-intro');
+    // Each part of the text under its own heading, nothing hidden behind a tap.
+    const parts = within(intro).getAllByTestId('diploma-section');
+    expect(parts).toHaveLength(2);
+    expect(within(parts[0]).getByText('About this diploma')).toBeInTheDocument();
+    expect(within(parts[1]).getByText('Graduation')).toBeInTheDocument();
+    expect(within(parts[1]).getByText('Pass every exam.')).toBeInTheDocument();
+    // The certificate card is there after the books, and again after the introduction.
+    const asks = await screen.findAllByTestId('certificate-ask');
+    expect(asks).toHaveLength(2);
+    expect(intro.compareDocumentPosition(asks[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(intro.compareDocumentPosition(asks[0]) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   it('lets someone who has not begun prepare their certificate request, below the way to begin', async () => {
