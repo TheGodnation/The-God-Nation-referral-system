@@ -112,7 +112,7 @@ router.get('/leadership-directory/areas', requireMember, asyncHandler(async (req
           personId: la.person.id,
           name: la.person.name,
           photoUrl: profilePhotoPath(la.person),
-          // The position the admin named for this person, else "Second Subdivision Representative" / the level's title.
+          // The position the admin named for this person, else "First Assistant Subdivision Representative" etc. / the level's title.
           title: positionTitle(a.level, la.seat, la.title),
           seat: la.seat,
         })),

@@ -2,17 +2,19 @@ import { Prisma, type GeographicLevel } from '@prisma/client';
 import { prisma } from './prisma';
 import { titleForLevel } from './geographicAreas';
 
-// A subdivision has up to five representatives (first to fifth): whoever is approved takes the first free seat.
+// A subdivision has up to five representatives (the Representative and four Assistant Representatives): whoever is approved takes the first free seat.
 // A person can also represent ONE quarter, besides a seat in a subdivision. The central admin can still name
 // each position (the `title` of an assignment), which then replaces the usual title.
 export const SUBDIVISION_SEATS = 5;
-const ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Fifth'];
+// Seat 1 is the Representative; seats 2 to 5 are the first to fourth Assistant Representative.
+const ASSISTANT_ORDINALS = ['First', 'Second', 'Third', 'Fourth'];
 
 export function seatTitle(seat: number): string {
-  return `${ORDINALS[seat - 1] ?? `#${seat}`} Subdivision Representative`;
+  if (seat === 1) return 'Subdivision Representative';
+  return `${ASSISTANT_ORDINALS[seat - 2] ?? `#${seat - 1}`} Assistant Subdivision Representative`;
 }
 
-/** The title shown for a position: the admin's own words, else "Second Subdivision Representative", else the level's usual title. */
+/** The title shown for a position: the admin's own words, else "Subdivision Representative" / "First Assistant Subdivision Representative", else the level's usual title. */
 export function positionTitle(level: GeographicLevel, seat: number | null | undefined, custom?: string | null): string {
   if (custom) return custom;
   if (level === 'SUBDIVISION' && seat) return seatTitle(seat);

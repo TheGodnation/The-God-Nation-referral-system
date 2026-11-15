@@ -572,7 +572,7 @@ describe('Area Representation Requests — only subdivisions and quarters', () =
     // Titles follow the seats.
     const directory = await viewer.agent.get('/api/member/leadership-directory/areas?country=Cameroon&level=SUBDIVISION');
     const titles = directory.body.items.find((i: any) => i.id === path.subdivision.id).leaders.map((l: any) => l.title).sort();
-    expect(titles).toEqual(['Fifth Subdivision Representative', 'First Subdivision Representative', 'Fourth Subdivision Representative', 'Second Subdivision Representative', 'Third Subdivision Representative']);
+    expect(titles).toEqual(['First Assistant Subdivision Representative', 'Fourth Assistant Subdivision Representative', 'Second Assistant Subdivision Representative', 'Subdivision Representative', 'Third Assistant Subdivision Representative']);
 
     // All five seats taken: the subdivision itself is refused (listed or typed), a quarter within it is welcome.
     expect((await viewer.agent.get(`/api/member/leadership-directory/subdivision-status?areaId=${path.subdivision.id}`)).body).toMatchObject({ count: 5, full: true, nextSeat: null });
@@ -638,7 +638,7 @@ describe('Leadership Directory — the wall of representatives', () => {
     expect(wall.body.inYourArea.map((r: any) => r.name)).toEqual(['Near Representative']);
     expect(wall.body.inYourArea[0]).toMatchObject({ title: 'Subdivision Coordinator', level: 'SUBDIVISION', place: 'Douala V, Wouri, Littoral, Cameroon' });
     expect(wall.body.elsewhere.map((r: any) => r.name)).toEqual(['Far Representative']);
-    expect(wall.body.elsewhere[0].title).toBe('First Subdivision Representative');
+    expect(wall.body.elsewhere[0].title).toBe('Subdivision Representative');
     // A member with no place set sees everyone in "elsewhere"; the wall needs a signed-in member.
     const stranger = await member('Stranger');
     expect((await stranger.agent.get('/api/member/leadership-directory/representatives')).body.inYourArea).toEqual([]);
