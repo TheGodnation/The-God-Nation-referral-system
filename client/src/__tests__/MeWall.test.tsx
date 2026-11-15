@@ -89,7 +89,11 @@ describe('Me wall', () => {
     expect(await screen.findByRole('heading', { name: 'Grace Ngwa' })).toBeInTheDocument();
     expect(screen.getByAltText("Grace Ngwa's cover picture")).toHaveAttribute('src', '/api/people/me1/cover?v=1');
     expect(screen.getByText('Serving God in Buea')).toBeInTheDocument();
-    expect(await screen.findByText('Buea Group · 3 referred · 2 community')).toBeInTheDocument();
+    const referred = await screen.findByTestId('referred-link');
+    expect(referred).toHaveTextContent('3 referred');
+    // Tapping "referred" goes straight to the people, with the ways to greet and write to them.
+    expect(referred).toHaveAttribute('href', '/member/referrals#people');
+    expect(referred.closest('p')).toHaveTextContent('Buea Group · 3 referred · 2 community');
     expect(screen.queryByText(/Molyko/)).not.toBeInTheDocument();
     expect(screen.queryByText(/grace@example.com/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Edit profile/ })).toHaveAttribute('href', '/member/me/edit');

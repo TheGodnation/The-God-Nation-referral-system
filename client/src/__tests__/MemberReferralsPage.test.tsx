@@ -64,6 +64,34 @@ describe('MemberReferralsPage', () => {
     await waitFor(() => expect(screen.getByText('Profile page')).toBeInTheDocument());
   });
 
+  it('gives each referred person a Message button that opens the private chat, and #people goes to the list', async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        const body =
+          url.startsWith('/api/member/referrals/links') ? { links: { en: 'https://example.com/join?ref=X&lang=en', fr: 'https://example.com/join?ref=X&lang=fr' } }
+          : url.startsWith('/api/member/referrals/mine') ? { items: [{ personId: 'p1', name: 'Grace Mbeki', photoUrl: null, joinedAt: '2026-10-11T00:00:00Z' }] }
+          : method === 'POST' && url === '/api/member/messages/open' ? { conversationId: 'c9' }
+          : null;
+        return Promise.resolve({ ok: body !== null, status: body !== null ? 200 : 404, headers: { get: () => 'application/json' }, json: async () => body ?? { error: 'not found' } });
+      }),
+    );
+    render(
+      <MemoryRouter initialEntries={['/member/referrals#people']}>
+        <Routes>
+          <Route path="/member/referrals" element={<MemberReferralsPage />} />
+          <Route path="/member/chats/private/:id" element={<div>Private chat page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByTestId('message-p1'));
+    expect(await screen.findByText('Private chat page')).toBeInTheDocument();
+    expect(scrolled).toHaveBeenCalled();
+  });
+
   it('shows an empty state when nobody has joined yet', async () => {
     mockFetch({
       '/api/member/referrals/links': { links: { en: 'https://example.com/join?ref=NONE&lang=en', fr: 'https://example.com/join?ref=NONE&lang=fr' } },

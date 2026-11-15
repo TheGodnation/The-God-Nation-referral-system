@@ -7,6 +7,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { profilePhotoPath } from '../lib/profilePhoto';
 import { socialMutationLimiter } from '../lib/rateLimit';
 import { titleForLevel, getAreaAncestors, formatAreaPath, findAreaPath } from '../lib/geographicAreas';
+import { ALREADY_QUARTER_MESSAGE, SUBDIVISION_FULL_MESSAGE, SUBDIVISION_SEATS, positionTitle, representsAQuarter, seatsOf } from '../lib/areaSeats';
 
 // ---------------------------------------------------------------------------
 // /api/member — browsing the Geographical Leadership Directory, and a
@@ -111,8 +112,9 @@ router.get('/leadership-directory/areas', requireMember, asyncHandler(async (req
           personId: la.person.id,
           name: la.person.name,
           photoUrl: profilePhotoPath(la.person),
-          // The position the admin named for this person, else the usual title for the level.
-          title: la.title || titleForLevel(a.level),
+          // The position the admin named for this person, else "Second Subdivision Representative" / the level's title.
+          title: positionTitle(a.level, la.seat, la.title),
+          seat: la.seat,
         })),
       };
     }),
@@ -158,14 +160,15 @@ router.get('/leadership-directory/representatives', requireMember, asyncHandler(
         personId: a.person.id,
         name: a.person.name,
         photoUrl: profilePhotoPath(a.person),
-        title: a.title || titleForLevel(a.area.level),
+        title: positionTitle(a.area.level, a.seat, a.title),
+        seat: a.seat,
         level: a.area.level,
         place: formatAreaPath(a.area, ancestors),
         inYourArea: Boolean(mine[a.area.level]) && key(a.area.name) === mine[a.area.level],
       };
     }),
   );
-  items.sort((x, y) => Number(y.inYourArea) - Number(x.inYourArea) || (rank[x.level] ?? 9) - (rank[y.level] ?? 9) || x.name.localeCompare(y.name));
+  items.sort((x, y) => Number(y.inYourArea) - Number(x.inYourArea) || (rank[x.level] ?? 9) - (rank[y.level] ?? 9) || (x.seat ?? 9) - (y.seat ?? 9) || x.name.localeCompare(y.name));
   const team = await prisma.nationalTeamMember.findMany({
     include: { person: { select: personSelect } },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -224,17 +227,10 @@ const createSchema = z
   });
 
 const ONLY_SUBDIVISION_OR_QUARTER = 'You can ask to represent a subdivision or a quarter within it. Regions and divisions are appointed by the central authority.';
-const SUBDIVISION_TAKEN = 'This subdivision already has a representative. You can ask to represent a quarter within it.';
-
-/** Who already represents this exact area (active only). */
-async function activeRepresentatives(areaId: string) {
-  const rows = await prisma.areaLeadershipAssignment.findMany({ where: { areaId, status: 'ACTIVE' }, include: { person: { select: { name: true } } } });
-  return rows.map((r) => r.person.name);
-}
 
 // GET /api/member/leadership-directory/subdivision-status?areaId= (or the typed country, region, division,
-// subdivision) — whether this subdivision already has a representative. If it does, a new person can only
-// ask for a quarter within it.
+// subdivision) — how many of the five seats of this subdivision are taken. When all five are, a new person can
+// only ask for a quarter within it.
 const statusQuerySchema = z.object({
   areaId: z.string().min(1).optional(),
   country: z.string().trim().max(120).optional(),
@@ -251,9 +247,15 @@ router.get('/leadership-directory/subdivision-status', requireMember, asyncHandl
     const found = await findAreaPath({ country: q.country, region: q.region, division: q.division, subdivision: q.subdivision });
     area = found.complete ? found.area : null;
   }
-  if (!area || area.level !== 'SUBDIVISION') return res.json({ represented: false, representatives: [] });
-  const representatives = await activeRepresentatives(area.id);
-  res.json({ represented: representatives.length > 0, representatives });
+  const empty = { represented: false, count: 0, seats: SUBDIVISION_SEATS, full: false, nextSeat: 1, representatives: [] as string[] };
+  if (!area || area.level !== 'SUBDIVISION') return res.json(empty);
+  const seats = await seatsOf(area.id);
+  res.json({ represented: seats.count > 0, count: seats.count, seats: SUBDIVISION_SEATS, full: seats.full, nextSeat: seats.nextSeat, representatives: seats.names });
+}));
+
+// Whether this member already represents a quarter (the form tells them before they ask for a second one).
+router.get('/leadership-directory/my-quarter', requireMember, asyncHandler(async (req, res) => {
+  res.json({ representsQuarter: await representsAQuarter(req.member!.personId) });
 }));
 
 // GET /api/member/area-representation-requests/mine — the signed-in
@@ -276,22 +278,29 @@ router.post('/area-representation-requests', socialMutationLimiter, requireCsrf,
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid request.' });
 
+  const me = req.member!.personId;
+  // What is being asked for: a seat in a subdivision, or one quarter.
+  let asksQuarter = Boolean(parsed.data.typedQuarter);
   if (parsed.data.areaId) {
     const area = await prisma.geographicArea.findUnique({ where: { id: parsed.data.areaId } });
     if (!area) return res.status(400).json({ error: 'Area not found.' });
     if (area.level !== 'SUBDIVISION' && area.level !== 'QUARTER') return res.status(400).json({ error: ONLY_SUBDIVISION_OR_QUARTER });
-    if (area.level === 'SUBDIVISION' && (await activeRepresentatives(area.id)).length > 0) return res.status(409).json({ error: SUBDIVISION_TAKEN, code: 'SUBDIVISION_TAKEN' });
+    asksQuarter = area.level === 'QUARTER';
+    if (area.level === 'SUBDIVISION' && (await seatsOf(area.id)).full) return res.status(409).json({ error: SUBDIVISION_FULL_MESSAGE, code: 'SUBDIVISION_FULL' });
   } else if (!parsed.data.typedQuarter) {
-    // A typed subdivision that is already on the list, and already has its representative: only a quarter can be asked for.
+    // A typed subdivision that is already on the list with all five seats taken: only a quarter can be asked for.
     const found = await findAreaPath({ country: parsed.data.typedCountry, region: parsed.data.typedRegion, division: parsed.data.typedDivision, subdivision: parsed.data.typedSubdivision });
-    if (found.complete && found.area?.level === 'SUBDIVISION' && (await activeRepresentatives(found.area.id)).length > 0) {
-      return res.status(409).json({ error: SUBDIVISION_TAKEN, code: 'SUBDIVISION_TAKEN' });
+    if (found.complete && found.area?.level === 'SUBDIVISION' && (await seatsOf(found.area.id)).full) {
+      return res.status(409).json({ error: SUBDIVISION_FULL_MESSAGE, code: 'SUBDIVISION_FULL' });
     }
   }
+  // One person represents only one quarter.
+  if (asksQuarter && (await representsAQuarter(me))) return res.status(409).json({ error: ALREADY_QUARTER_MESSAGE, code: 'ALREADY_QUARTER' });
 
-  const me = req.member!.personId;
-  const existingPending = await prisma.areaRepresentationRequest.findFirst({ where: { personId: me, status: 'PENDING' } });
-  if (existingPending) return res.status(409).json({ error: 'You already have a pending request.' });
+  // One waiting request for a subdivision seat, and one for a quarter: a person can hold both kinds of position.
+  const waiting = await prisma.areaRepresentationRequest.findMany({ where: { personId: me, status: 'PENDING' }, include: { area: { select: { level: true } } } });
+  const sameKind = waiting.some((r) => (r.area ? r.area.level === 'QUARTER' : Boolean(r.typedQuarter)) === asksQuarter);
+  if (sameKind) return res.status(409).json({ error: 'You already have a pending request.', code: 'PENDING_EXISTS' });
 
   const created = await prisma.areaRepresentationRequest.create({
     data: {

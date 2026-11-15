@@ -188,7 +188,7 @@ describe('Geographic Areas — Admin leadership assignments', () => {
     const assigned = await send(adminAgent, csrf, 'post', '/api/admin/area-leadership-assignments', { personId: leader.id, areaId: path.region.id });
 
     const before = await leader.agent.get(`/api/member/leadership-directory/areas?country=Cameroon&level=REGION`);
-    expect(before.body.items.find((i: any) => i.id === path.region.id).leaders).toEqual([{ personId: leader.id, name: 'Area Leader Three', photoUrl: null, title: 'Regional Leader' }]);
+    expect(before.body.items.find((i: any) => i.id === path.region.id).leaders).toEqual([{ personId: leader.id, name: 'Area Leader Three', photoUrl: null, title: 'Regional Leader', seat: null }]);
 
     const ended = await send(adminAgent, csrf, 'patch', `/api/admin/area-leadership-assignments/${assigned.body.id}/end`);
     expect(ended.status).toBe(200);
@@ -274,8 +274,12 @@ describe('Area Representation Requests — member submission', () => {
 
     const first = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.quarter.id });
     expect(first.status).toBe(201);
-    const second = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
+    // A second request of the same kind (another quarter) waits for the first; a subdivision seat is a different kind.
+    const other = await send(adminAgent, adminCsrf, 'post', '/api/admin/geographic-areas', { parentId: path.subdivision.id, name: 'Ndokoti' });
+    const second = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: other.body.id });
     expect(second.status).toBe(409);
+    expect(second.body.code).toBe('PENDING_EXISTS');
+    expect((await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id })).status).toBe(201);
   });
 
   it('lets a member withdraw their own pending request', async () => {
@@ -532,28 +536,87 @@ describe('Area Representation Requests — only subdivisions and quarters', () =
     expect((await post({ typedCountry: 'Cameroon', typedRegion: 'Littoral', typedDivision: 'Wouri', typedSubdivision: 'Douala V' })).status).toBe(201);
   });
 
-  it('when a subdivision already has its representative, only a quarter within it can be asked for', async () => {
+  it('a subdivision has five seats: each approval takes the first free seat, and when all five are taken only a quarter can be asked for', async () => {
     const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-taken@test.local');
     const path = await buildCameroonPath(adminAgent, adminCsrf);
-    const first = await member('First Representative');
-    const sent = await send(first.agent, first.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
-    await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${sent.body.id}/approve`);
+    const approve = async (m: Awaited<ReturnType<typeof member>>) => {
+      const sent = await send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
+      expect(sent.status).toBe(201);
+      const res = await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${sent.body.id}/approve`);
+      expect(res.status).toBe(200);
+      return (await prisma.areaLeadershipAssignment.findUnique({ where: { id: res.body.areaLeadershipAssignmentId } }))!;
+    };
 
-    const second = await member('Second Person');
-    // The app can say so beforehand, by the list or by the typed names.
-    const byId = await second.agent.get(`/api/member/leadership-directory/subdivision-status?areaId=${path.subdivision.id}`);
-    expect(byId.body).toEqual({ represented: true, representatives: ['First Representative'] });
-    const byName = await second.agent.get('/api/member/leadership-directory/subdivision-status?country=Cameroon&region=Littoral&division=Wouri&subdivision=Douala%20V');
-    expect(byName.body.represented).toBe(true);
-    expect((await second.agent.get('/api/member/leadership-directory/subdivision-status?country=Cameroon&region=Littoral&division=Wouri&subdivision=Douala%20III')).body.represented).toBe(false);
+    const people = [];
+    for (let i = 1; i <= 6; i += 1) people.push(await member(`Seat Person ${i}`));
+    const seats = [];
+    for (const p of people.slice(0, 3)) seats.push((await approve(p)).seat);
+    expect(seats).toEqual([1, 2, 3]);
 
-    // The subdivision itself is refused (listed or typed)...
-    const refused = await send(second.agent, second.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
+    // The app says how many seats are taken, by the list or by the typed names.
+    const viewer = await member('Late Person');
+    const byId = await viewer.agent.get(`/api/member/leadership-directory/subdivision-status?areaId=${path.subdivision.id}`);
+    expect(byId.body).toMatchObject({ represented: true, count: 3, seats: 5, full: false, nextSeat: 4 });
+    expect(byId.body.representatives).toHaveLength(3);
+    const byName = await viewer.agent.get('/api/member/leadership-directory/subdivision-status?country=Cameroon&region=Littoral&division=Wouri&subdivision=Douala%20V');
+    expect(byName.body).toMatchObject({ count: 3, full: false });
+    expect((await viewer.agent.get('/api/member/leadership-directory/subdivision-status?country=Cameroon&region=Littoral&division=Wouri&subdivision=Douala%20III')).body).toMatchObject({ represented: false, count: 0, nextSeat: 1 });
+
+    // The second representative leaves: the next person takes that free seat (the lowest one).
+    const second = await prisma.areaLeadershipAssignment.findFirst({ where: { areaId: path.subdivision.id, seat: 2, status: 'ACTIVE' } });
+    await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-leadership-assignments/${second!.id}/end`);
+    expect((await approve(people[3])).seat).toBe(2);
+    expect((await approve(people[4])).seat).toBe(4);
+    expect((await approve(people[5])).seat).toBe(5);
+
+    // Titles follow the seats.
+    const directory = await viewer.agent.get('/api/member/leadership-directory/areas?country=Cameroon&level=SUBDIVISION');
+    const titles = directory.body.items.find((i: any) => i.id === path.subdivision.id).leaders.map((l: any) => l.title).sort();
+    expect(titles).toEqual(['Fifth Subdivision Representative', 'First Subdivision Representative', 'Fourth Subdivision Representative', 'Second Subdivision Representative', 'Third Subdivision Representative']);
+
+    // All five seats taken: the subdivision itself is refused (listed or typed), a quarter within it is welcome.
+    expect((await viewer.agent.get(`/api/member/leadership-directory/subdivision-status?areaId=${path.subdivision.id}`)).body).toMatchObject({ count: 5, full: true, nextSeat: null });
+    const refused = await send(viewer.agent, viewer.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.subdivision.id });
     expect(refused.status).toBe(409);
-    expect(refused.body.error).toMatch(/already has a representative.*quarter/);
-    expect((await send(second.agent, second.csrf, 'post', '/api/member/area-representation-requests', { typedCountry: 'Cameroon', typedRegion: 'Littoral', typedDivision: 'Wouri', typedSubdivision: 'Douala V' })).status).toBe(409);
-    // ...but a quarter within it is welcome.
-    expect((await send(second.agent, second.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.quarter.id })).status).toBe(201);
+    expect(refused.body.code).toBe('SUBDIVISION_FULL');
+    expect((await send(viewer.agent, viewer.csrf, 'post', '/api/member/area-representation-requests', { typedCountry: 'Cameroon', typedRegion: 'Littoral', typedDivision: 'Wouri', typedSubdivision: 'Douala V' })).status).toBe(409);
+    expect((await send(viewer.agent, viewer.csrf, 'post', '/api/member/area-representation-requests', { areaId: path.quarter.id })).status).toBe(201);
+    // The admin cannot add a sixth either.
+    const sixth = await send(adminAgent, adminCsrf, 'post', '/api/admin/area-leadership-assignments', { personId: viewer.id, areaId: path.subdivision.id });
+    expect(sixth.status).toBe(409);
+    expect(sixth.body.code).toBe('SUBDIVISION_FULL');
+  });
+
+  it('a person can hold a seat in a subdivision and also represent one quarter — but never two quarters', async () => {
+    const { agent: adminAgent, csrf: adminCsrf } = await loginAsAdmin('admin-geo-quarter@test.local');
+    const path = await buildCameroonPath(adminAgent, adminCsrf);
+    const other = await send(adminAgent, adminCsrf, 'post', '/api/admin/geographic-areas', { parentId: path.subdivision.id, name: 'Ndokoti' });
+    const m = await member('Seat And Quarter');
+    const ask = (areaId: string) => send(m.agent, m.csrf, 'post', '/api/member/area-representation-requests', { areaId });
+    const decide = (id: string) => send(adminAgent, adminCsrf, 'patch', `/api/admin/area-representation-requests/${id}/approve`);
+
+    // Both kinds can wait at the same time, and both can be approved.
+    const seatRequest = await ask(path.subdivision.id);
+    const quarterRequest = await ask(path.quarter.id);
+    expect(seatRequest.status).toBe(201);
+    expect(quarterRequest.status).toBe(201);
+    expect((await decide(seatRequest.body.id)).status).toBe(200);
+    expect((await decide(quarterRequest.body.id)).status).toBe(200);
+    expect(await prisma.areaLeadershipAssignment.count({ where: { personId: m.id, status: 'ACTIVE' } })).toBe(2);
+    expect((await m.agent.get('/api/member/leadership-directory/my-quarter')).body).toEqual({ representsQuarter: true });
+
+    // A second quarter is refused when asked for, and when the admin appoints directly.
+    const second = await ask(other.body.id);
+    expect(second.status).toBe(409);
+    expect(second.body.code).toBe('ALREADY_QUARTER');
+    const direct = await send(adminAgent, adminCsrf, 'post', '/api/admin/area-leadership-assignments', { personId: m.id, areaId: other.body.id });
+    expect(direct.status).toBe(409);
+    expect(direct.body.code).toBe('ALREADY_QUARTER');
+
+    // Stepping down from the quarter frees the person to take another one.
+    const quarterSeat = await prisma.areaLeadershipAssignment.findFirst({ where: { personId: m.id, areaId: path.quarter.id, status: 'ACTIVE' } });
+    await send(adminAgent, adminCsrf, 'patch', `/api/admin/area-leadership-assignments/${quarterSeat!.id}/end`);
+    expect((await ask(other.body.id)).status).toBe(201);
   });
 });
 
@@ -575,7 +638,7 @@ describe('Leadership Directory — the wall of representatives', () => {
     expect(wall.body.inYourArea.map((r: any) => r.name)).toEqual(['Near Representative']);
     expect(wall.body.inYourArea[0]).toMatchObject({ title: 'Subdivision Coordinator', level: 'SUBDIVISION', place: 'Douala V, Wouri, Littoral, Cameroon' });
     expect(wall.body.elsewhere.map((r: any) => r.name)).toEqual(['Far Representative']);
-    expect(wall.body.elsewhere[0].title).toBe('Subdivisional Leader');
+    expect(wall.body.elsewhere[0].title).toBe('First Subdivision Representative');
     // A member with no place set sees everyone in "elsewhere"; the wall needs a signed-in member.
     const stranger = await member('Stranger');
     expect((await stranger.agent.get('/api/member/leadership-directory/representatives')).body.inYourArea).toEqual([]);

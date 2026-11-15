@@ -35,6 +35,9 @@ interface TeamMember {
   title: string;
 }
 
+// A subdivision has up to five representatives (first to fifth).
+const SUBDIVISION_SEATS = 5;
+
 const LEVELS: GeographicLevel[] = ['NATIONAL', 'REGION', 'DIVISION', 'SUBDIVISION', 'QUARTER'];
 
 // "Our Leaders": who represents The God Nation where. At the top, the National
@@ -82,6 +85,8 @@ export function GeographicDirectory() {
   const shown = (areas ?? []).filter((a) => !level || a.level === level);
   const represented = shown.filter((a) => a.leaders.length > 0);
   const vacant = shown.filter((a) => a.leaders.length === 0 && a.level !== 'NATIONAL');
+  // A subdivision has five representative seats: it can have some of them filled and still welcome more.
+  const seatsOpen = shown.filter((a) => a.level === 'SUBDIVISION' && a.leaders.length > 0 && a.leaders.length < SUBDIVISION_SEATS);
   const levelName = (lv: GeographicLevel) => t(`admin.geographicAreas.level_${lv.toLowerCase()}`);
 
   return (
@@ -182,6 +187,28 @@ export function GeographicDirectory() {
           ) : (
             <p className="text-sm text-slate-500">{t('leadershipDirectory.geo_none_represented')}</p>
           ))}
+
+        {seatsOpen.length > 0 && (
+          <div>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{t('leadershipDirectory.seats_open_title')}</h3>
+            <ul className="max-h-56 divide-y divide-slate-100 overflow-y-auto text-sm text-slate-600" data-testid="seats-open">
+              {seatsOpen.map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-2 py-1.5">
+                  <span>
+                    {a.path} — {t('leadershipDirectory.seats_taken', { count: a.leaders.length, seats: SUBDIVISION_SEATS })}
+                  </span>
+                  <button
+                    type="button"
+                    className="shrink-0 text-xs font-semibold text-brand-700 underline"
+                    onClick={() => navigate(`/member/represent?areaId=${encodeURIComponent(a.id)}&label=${encodeURIComponent(`${a.title} — ${a.path}`)}`)}
+                  >
+                    {t('leadershipDirectory.represent_this')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {vacant.length > 0 && (
           <div>

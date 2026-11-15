@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { Avatar } from '../components/Avatar';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useStoreApp } from '../lib/storeApp';
 import { FollowUpButtons } from '../components/leader/FollowUpButtons';
 
@@ -43,6 +43,26 @@ export function MemberReferralsPage() {
   const [links, setLinks] = useState<{ en: string; fr: string } | null>(null);
   const [items, setItems] = useState<ReferredPerson[] | null>(null);
   const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const peopleRef = useRef<HTMLElement | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
+
+  // Coming from "N referred" on the profile (#people): go straight to the people, not the link and sharing tools above.
+  useEffect(() => {
+    if (location.hash === '#people' && items !== null) peopleRef.current?.scrollIntoView?.({ block: 'start' });
+  }, [location.hash, items]);
+
+  // "Message" opens the private chat with this person, to greet them or talk.
+  async function openChat(personId: string) {
+    setChatError(null);
+    try {
+      const res = await api.post<{ conversationId: string }>('/api/member/messages/open', { personId });
+      navigate(`/member/chats/private/${res.conversationId}`);
+    } catch (err) {
+      setChatError(err instanceof ApiError && err.code === 'NOT_ALLOWED' ? t('people.message_not_allowed') : t('people.action_failed'));
+    }
+  }
 
   useEffect(() => {
     api.get<{ links: { en: string; fr: string } }>('/api/member/referrals/links').then((r) => setLinks(r.links));
@@ -138,8 +158,9 @@ export function MemberReferralsPage() {
             </section>
           )}
 
-          <section className="card space-y-2">
+          <section id="people" ref={peopleRef} className="card scroll-mt-4 space-y-2">
             <h2 className="font-semibold text-brand-900">{t('myReferrals.impact_title')}</h2>
+            {chatError && <p className="text-sm text-red-700" role="alert">{chatError}</p>}
             {items && items.length > 0 && <p className="text-sm font-medium text-brand-700">{t('myReferrals.impact_count', { count: items.length })}</p>}
             {items === null ? (
               <p className="text-sm text-slate-400">{t('people.loading')}</p>
@@ -175,6 +196,9 @@ export function MemberReferralsPage() {
                           )}
                         </Link>
                         <div className="space-y-2 pb-3 pl-14">
+                          <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => void openChat(p.personId)} data-testid={`message-${p.personId}`}>
+                            💬 {t('myReferrals.message_them')}
+                          </button>
                           {p.tappedGroup === false && (
                             <p className="text-xs font-medium text-amber-700" data-testid={`not-joined-${p.personId}`}>
                               {t('followUp.not_joined')}

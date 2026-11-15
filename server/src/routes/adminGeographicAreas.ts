@@ -8,6 +8,7 @@ import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
+import { AreaRuleError, appointToArea, positionTitle } from '../lib/areaSeats';
 import { levelBelow, titleForLevel, getAreaAncestors, formatAreaPath } from '../lib/geographicAreas';
 import { notifyAreaLeadershipAssigned } from '../lib/notifications';
 
@@ -217,13 +218,9 @@ router.post('/area-leadership-assignments', leadershipMutationLimiter, requireCs
 
   let created;
   try {
-    created = await prisma.areaLeadershipAssignment.create({
-      data: { personId, areaId, title, assignedByUserId: req.user!.id },
-    });
+    created = await appointToArea({ personId, areaId, level: area.level, title, assignedByUserId: req.user!.id });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return res.status(409).json({ error: 'This Person already actively leads this Area.' });
-    }
+    if (err instanceof AreaRuleError) return res.status(err.status).json({ error: err.message, code: err.code });
     throw err;
   }
 
@@ -237,7 +234,7 @@ router.post('/area-leadership-assignments', leadershipMutationLimiter, requireCs
   });
 
   const ancestors = await getAreaAncestors(areaId);
-  await notifyAreaLeadershipAssigned({ id: created.id, personId, areaTitle: titleForLevel(area.level), areaPath: formatAreaPath(area, ancestors) });
+  await notifyAreaLeadershipAssigned({ id: created.id, personId, areaTitle: positionTitle(area.level, created.seat, title), areaPath: formatAreaPath(area, ancestors) });
 
   res.status(201).json(created);
 }));

@@ -290,13 +290,24 @@ export function MemberMePage() {
   if (!member) return null;
 
   const activeGroup = groups.find((g) => g.status === 'ACTIVE');
-  const subtitle = [
-    activeGroup?.communityName,
-    referredCount !== null ? t('people.referred_count', { count: referredCount }) : null,
+  // "N referred" opens the list of those people, where they can be greeted and written to straight away.
+  const subtitleParts = [
+    activeGroup?.communityName ?? null,
+    referredCount !== null ? (
+      <Link key="referred" to="/member/referrals#people" className="font-medium text-brand-700 underline" data-testid="referred-link">
+        {t('people.referred_count', { count: referredCount })}
+      </Link>
+    ) : null,
     communityCount !== null ? t('people.community_count', { count: communityCount }) : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  ].filter(Boolean);
+  const subtitle = subtitleParts.length
+    ? subtitleParts.map((part, i) => (
+        <span key={i}>
+          {i > 0 && ' · '}
+          {part}
+        </span>
+      ))
+    : null;
 
   return (
     <PageShell minimal>

@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../lib/auth';
@@ -8,7 +7,8 @@ import { recordAudit } from '../lib/audit';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { parsePagination, paginatedResult } from '../lib/pagination';
-import { titleForLevel, getAreaAncestors, formatAreaPath, ensureAreaPath } from '../lib/geographicAreas';
+import { getAreaAncestors, formatAreaPath, ensureAreaPath } from '../lib/geographicAreas';
+import { AreaRuleError, appointToArea, positionTitle } from '../lib/areaSeats';
 import { notifyAreaLeadershipAssigned, notifyAreaRepresentationRequestDeclined } from '../lib/notifications';
 
 const router = Router();
@@ -88,13 +88,9 @@ router.patch('/area-representation-requests/:id/approve', leadershipMutationLimi
 
   let assignment;
   try {
-    assignment = await prisma.areaLeadershipAssignment.create({
-      data: { personId: existing.personId, areaId, title: parsed.data.title || null, assignedByUserId: req.user!.id },
-    });
+    assignment = await appointToArea({ personId: existing.personId, areaId, level: area.level, title: parsed.data.title, assignedByUserId: req.user!.id });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return res.status(409).json({ error: 'This Person already actively leads this Area.' });
-    }
+    if (err instanceof AreaRuleError) return res.status(err.status).json({ error: err.message, code: err.code });
     throw err;
   }
 
@@ -117,7 +113,7 @@ router.patch('/area-representation-requests/:id/approve', leadershipMutationLimi
   await notifyAreaLeadershipAssigned({
     id: assignment.id,
     personId: existing.personId,
-    areaTitle: parsed.data.title || titleForLevel(area.level),
+    areaTitle: positionTitle(area.level, assignment.seat, parsed.data.title),
     areaPath: formatAreaPath(area, ancestors),
   });
 
