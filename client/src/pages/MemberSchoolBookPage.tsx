@@ -6,6 +6,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { BookCover } from '../components/learn/BookCover';
 import { BookCoverViewer } from '../components/learn/BookCoverViewer';
+import { normalPages } from '../lib/bookPages';
 import { BookPageBody } from '../components/learn/BookPageBody';
 import { PayBookPanel, PayManyPanel } from '../components/learn/TrainingPayments';
 import { WaitingOrderLink } from '../components/learn/PayWithAgent';
@@ -108,13 +109,12 @@ export function MemberSchoolBookPage() {
               <div className="min-w-0 space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{t('learn.book', { number: b.trainingOrder })}</p>
                 <h1 className="text-xl font-bold leading-snug text-brand-900">{title}</h1>
-                <p className="text-sm text-slate-500">
-                  {[
-                    b.pageCount ? t('school.pages', { count: b.pageCount }) : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
+                {b.pageCount ? (
+                  <div className="text-sm" data-testid="book-pages">
+                    <p className="font-semibold text-slate-700">{t('school.pages_normal', { count: normalPages(b.pageCount) })}</p>
+                    <p className="text-xs leading-snug text-slate-500">{t('school.pages_mobile', { count: b.pageCount })}</p>
+                  </div>
+                ) : null}
                 <p className="text-sm">
                   {b.unlocked ? <span className="block font-medium text-green-700">{t('school.open_for_you')}</span> : <span className="block font-medium text-slate-600">🔒 {t('school.badge_locked')}</span>}
                   <BookStatusLines book={b} />

@@ -110,7 +110,7 @@ describe('Leadership books downloaded into the app', () => {
     });
     const first = renderReader();
     expect(await screen.findByText(/Downloaded\. This book now opens on this phone even without internet\./)).toBeInTheDocument();
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+    expect(screen.getByText('Mobile page 1 of 3 (≈ 1 normal-size pages)')).toBeInTheDocument();
     expect(screen.getAllByLabelText(/^Page \d$/)).toHaveLength(3);
     expect(await getInfo(bookKey(personId, 'b1'))).toMatchObject({ kind: 'BOOK', version: 'v1', byteSize: 4 });
     first.unmount();
@@ -118,7 +118,7 @@ describe('Leadership books downloaded into the app', () => {
     // Opened again with internet: same version, so no second download.
     calls.length = 0;
     const second = renderReader();
-    expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
+    expect(await screen.findByText('Mobile page 1 of 3 (≈ 1 normal-size pages)')).toBeInTheDocument();
     expect(calls.some((c) => c.url.includes('/content'))).toBe(false);
     second.unmount();
 
@@ -127,7 +127,7 @@ describe('Leadership books downloaded into the app', () => {
     online = false;
     renderReader();
     expect(await screen.findByText(/No internet — reading the copy downloaded on this phone\./)).toBeInTheDocument();
-    expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
+    expect(await screen.findByText('Mobile page 1 of 3 (≈ 1 normal-size pages)')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Take the exam (one try)' })).not.toBeInTheDocument();
   });
 
@@ -172,7 +172,7 @@ describe('Leadership books downloaded into the app', () => {
       'GET /api/member/library/books/b1': () => ({ body: info({ language: 'en', languages: ['en'] }) }),
     });
     renderReader();
-    await screen.findByText('Page 1 of 3');
+    await screen.findByText('Mobile page 1 of 3 (≈ 1 normal-size pages)');
     expect(screen.queryByTestId('reader-language')).not.toBeInTheDocument();
   });
 
@@ -184,7 +184,7 @@ describe('Leadership books downloaded into the app', () => {
       'GET /api/member/library/books/b1': () => ({ body: info() }),
     });
     renderReader();
-    await screen.findByText('Page 1 of 3');
+    await screen.findByText('Mobile page 1 of 3 (≈ 1 normal-size pages)');
     const pageWidth = () => (screen.getAllByLabelText(/^Page \d$/)[0].parentElement as HTMLElement).style.width;
     expect(pageWidth()).toBe('352px'); // the screen's width, fitted
     expect(screen.getByTestId('reader-zoom')).toHaveTextContent('100%');
@@ -208,7 +208,7 @@ describe('Leadership books downloaded into the app', () => {
       'GET /api/member/library/books/b1': () => ({ body: info() }),
     });
     renderReader();
-    await screen.findByText('Page 1 of 3');
+    await screen.findByText('Mobile page 1 of 3 (≈ 1 normal-size pages)');
     expect(screen.getByTestId('reader-zoom')).toHaveTextContent('200%');
     expect((screen.getAllByLabelText(/^Page \d$/)[0].parentElement as HTMLElement).style.width).toBe('704px');
     localStorage.removeItem('reader-zoom');
@@ -223,7 +223,7 @@ describe('Leadership books downloaded into the app', () => {
       'GET /api/member/library/books/b1': () => (status === 200 ? { body: info() } : { status, body: { error: 'Book not found.' } }),
     });
     const r = renderReader();
-    expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
+    expect(await screen.findByText('Mobile page 1 of 3 (≈ 1 normal-size pages)')).toBeInTheDocument();
     expect(calls.some((c) => c.url.includes('/content'))).toBe(true);
     expect((await getInfo(bookKey(personId, 'b1')))?.version).toBe('v1');
     r.unmount();
@@ -275,7 +275,7 @@ describe('Keeping a big book on a phone that struggles', () => {
     });
     renderReader();
     // The book still opens (online); the reader is warned that it was not kept, with the reason.
-    expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
+    expect(await screen.findByText('Mobile page 1 of 3 (≈ 1 normal-size pages)')).toBeInTheDocument();
     expect(await screen.findByRole('alert')).toHaveTextContent(/could NOT be kept on this phone.*QuotaExceededError/);
     expect(screen.queryByText(/Downloaded\. This book now opens/)).not.toBeInTheDocument();
     expect(await getInfo(bookKey(personId, 'b1'))).toBeNull();

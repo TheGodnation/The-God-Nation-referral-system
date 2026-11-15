@@ -1,3 +1,4 @@
+import { normalPages } from '../lib/bookPages';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -300,7 +301,7 @@ export function MemberReaderPage() {
           </Link>
           <div className="min-w-0 text-center">
             <h1 className="truncate text-sm font-semibold text-brand-900">{title}</h1>
-            {pdf && <p className="text-xs text-slate-500">{t('reader.page_of', { page, count: pdf.numPages })}</p>}
+            {pdf && <p className="text-xs text-slate-500">{t('reader.page_of_mobile', { page, count: pdf.numPages, normal: normalPages(pdf.numPages) })}</p>}
           </div>
           {book?.examId && !offline ? (
             <Link to={`/member/assessments/${book.examId}`} className="btn-primary shrink-0 px-3 py-1.5 text-sm">
@@ -393,7 +394,7 @@ export function MemberReaderPage() {
           )}
         </div>
       </div>
-      {status === 'ready' && pdf && <p className="pb-8 text-center text-xs text-slate-400">{t('reader.end', { count: pdf.numPages })}</p>}
+      {status === 'ready' && pdf && <p className="pb-8 text-center text-xs text-slate-400">{t('reader.end', { count: pdf.numPages, normal: normalPages(pdf.numPages) })}</p>}
     </div>
   );
 }

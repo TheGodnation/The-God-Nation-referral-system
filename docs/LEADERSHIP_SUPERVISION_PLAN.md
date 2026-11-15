@@ -492,3 +492,12 @@ Leaders who studied on WhatsApp before the app are recorded one at a time by the
   confused with the gold **Request to represent your area** button (with a small "Want to represent your own area?" line above it).
 - On the representatives page (and the leadership directory) each person's name and position/place are written **under** the photo in
   bold (`PortraitCard labelBelow`) instead of over it.
+
+## Book page: tidy description, and two page counts
+
+- The short description on a book's page is now a small article (`BookDescription` in `BookPageBody.tsx`): a coloured heading "About
+  this book", the promise line ("After reading this book, you…") lifted out as a highlighted box ("What this book does for you"),
+  then the explanation in comfortable reading type. The admin's preview uses the same component.
+- Page counts are shown twice, so a big number is not discouraging: "About 89 normal book pages" and "357 pages, formatted for mobile
+  reading (about 4 of these make 1 normal page)" (`lib/bookPages.ts`, 4 mobile pages ≈ 1 normal page). The reader header says
+  "Mobile page 351 of 357 (≈ 89 normal-size pages)", and the end of the book says the same.
