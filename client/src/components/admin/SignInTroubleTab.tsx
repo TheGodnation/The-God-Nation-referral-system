@@ -18,6 +18,8 @@ interface TroubleItem {
   hasAccount: boolean;
   leaderId: string | null;
   personId: string | null;
+  /** Other emails tried from the same phone, with their owners' names. */
+  sameDevice?: { email: string; name: string | null; gotIn: boolean }[];
 }
 
 const PERIODS = [7, 30, 90, 365];
@@ -97,8 +99,15 @@ export function SignInTroubleTab() {
               <li key={`${item.kind}:${item.email}`} className="card space-y-1">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="break-all font-medium text-slate-900">{item.email}</p>
-                    {item.name && <p className="text-sm text-slate-600">{item.name}</p>}
+                    {/* The name first (easier to remember than an email), the email under it. */}
+                    {item.name ? (
+                      <>
+                        <p className="text-lg font-bold leading-snug text-slate-900" data-testid="trouble-name">{item.name}</p>
+                        <p className="break-all text-sm text-slate-600">{item.email}</p>
+                      </>
+                    ) : (
+                      <p className="break-all font-medium text-slate-900">{item.email}</p>
+                    )}
                   </div>
                   <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
                     {t(`admin.signInTrouble.kind.${item.kind}`)}
@@ -108,6 +117,20 @@ export function SignInTroubleTab() {
                   {t('admin.signInTrouble.last_tried', { when: when(item.lastTriedAt) })}
                   {item.failedTries > 0 && ` · ${t('admin.signInTrouble.tries', { count: item.failedTries })}`}
                 </p>
+                {(item.sameDevice ?? []).length > 0 && (
+                  <div className="rounded-lg bg-brand-50 p-2 text-sm text-brand-900" data-testid="same-device">
+                    <p className="font-semibold">{t('admin.signInTrouble.same_device')}</p>
+                    <ul className="mt-0.5 space-y-0.5">
+                      {item.sameDevice!.map((o) => (
+                        <li key={o.email}>
+                          {o.name ? <span className="font-bold">{o.name} </span> : null}
+                          <span className="break-all text-slate-700">{o.name ? `(${o.email})` : o.email}</span>
+                          {o.gotIn && <span className="ml-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">✓ {t('admin.signInTrouble.got_in')}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {fix && <p className="text-sm text-amber-800">{t('admin.signInTrouble.typo', { fix })}</p>}
                 {!item.hasAccount && (
                   <p className="text-sm text-slate-600">{t('admin.signInTrouble.no_account')}</p>

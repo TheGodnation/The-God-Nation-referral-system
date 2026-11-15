@@ -1467,7 +1467,9 @@
       "typo": "⚠ Cet e-mail semble mal écrit — vouliez-vous dire {{fix}} ?",
       "no_account": "Aucun compte n'utilise cet e-mail — la personne l'a peut-être mal tapé ou en a utilisé un autre.",
       "whatsapp": "WhatsApp",
-      "email": "Envoyer un e-mail"
+      "email": "Envoyer un e-mail",
+      "same_device": "Probablement la même personne — ce même téléphone a aussi essayé :",
+      "got_in": "est entré(e)"
     },
     "nationalTeam": {
       "title": "L’équipe nationale",

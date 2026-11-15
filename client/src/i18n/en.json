@@ -1467,7 +1467,9 @@
       "typo": "⚠ This email looks misspelled — did they mean {{fix}}?",
       "no_account": "No account uses this email — they may have typed it wrong, or used a different one.",
       "whatsapp": "WhatsApp",
-      "email": "Send an email"
+      "email": "Send an email",
+      "same_device": "Probably the same person — this same phone also tried:",
+      "got_in": "got in"
     },
     "nationalTeam": {
       "title": "The National Team",

@@ -508,3 +508,11 @@ Leaders who studied on WhatsApp before the app are recorded one at a time by the
   About the diploma") and each part of the introduction (split at its `#` / `##` headings) as its own card with a coloured heading and
   comfortable reading type.
 - After it, the certificate card (Ask for my certificate + See an example) is shown again, so nobody misses it.
+
+## Sign-in trouble: names first, and "same phone also tried"
+
+- The "People who couldn't get in" list shows the person's **name** as the heading (email under it) when the email belongs to an account.
+- For each person it also lists other emails tried from the **same phone** (same network address and same browser/device, in the
+  chosen period), with the owner's name and a "got in" tag if that email signed in. This shows who is trying two emails; an unknown
+  email (no account, so no name in the app) points to the person whose phone it was typed on. It is a hint ("probably the same
+  person"): a shared phone or internet café can show several. Built from the existing `LoginAttempt` records (`ip`, `userAgent`).

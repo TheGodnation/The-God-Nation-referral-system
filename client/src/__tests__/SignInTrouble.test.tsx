@@ -52,6 +52,26 @@ describe('Sign-in trouble', () => {
     expect(urls.some((u) => u.includes('/api/admin/sign-in-trouble?days=90'))).toBe(true);
   });
 
+  it('shows the name first, and the other emails tried from the same phone with their owners\' names', async () => {
+    mockFetch({
+      items: [
+        { email: 'vicky@example.com', kind: 'MEMBER_SIGN_IN', failedTries: 27, lastTriedAt: '2026-11-15T14:16:00Z', name: 'OMAM Victor', whatsappNumber: null, hasAccount: true, leaderId: null, personId: 'p1', sameDevice: [{ email: 'gwess@example.com', name: null, gotIn: false }] },
+        { email: 'gwess@example.com', kind: 'MEMBER_SIGN_IN', failedTries: 17, lastTriedAt: '2026-11-15T14:05:00Z', name: null, whatsappNumber: null, hasAccount: false, leaderId: null, personId: null, sameDevice: [{ email: 'vicky@example.com', name: 'OMAM Victor', gotIn: true }] },
+      ],
+    });
+    render(<SignInTroubleTab />);
+    // A known person: the name is the heading, the email under it.
+    expect(await screen.findByTestId('trouble-name')).toHaveTextContent('OMAM Victor');
+    // An unknown email points to the person whose phone it was typed on.
+    const boxes = screen.getAllByTestId('same-device');
+    expect(boxes).toHaveLength(2);
+    expect(boxes[1]).toHaveTextContent('Probably the same person');
+    expect(boxes[1]).toHaveTextContent('OMAM Victor');
+    expect(boxes[1]).toHaveTextContent('vicky@example.com');
+    expect(boxes[1]).toHaveTextContent('got in');
+    expect(boxes[0]).not.toHaveTextContent('got in');
+  });
+
   it('says when nobody is stuck', async () => {
     mockFetch({ items: [] });
     render(<SignInTroubleTab />);
