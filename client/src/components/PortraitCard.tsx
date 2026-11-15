@@ -39,6 +39,7 @@ export function PortraitCard({
   caption,
   onClick,
   className = 'w-28',
+  labelBelow = false,
 }: {
   name: string;
   photoUrl?: string | null;
@@ -46,6 +47,8 @@ export function PortraitCard({
   caption?: ReactNode;
   onClick?: () => void;
   className?: string;
+  /** Write the name and position under the picture (bold, readable) instead of over it. */
+  labelBelow?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const showPhoto = Boolean(photoUrl) && !failed;
@@ -58,13 +61,34 @@ export function PortraitCard({
           {initialsOf(name)}
         </span>
       )}
-      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-2 pb-1.5 pt-6 text-left">
-        <span className="block truncate text-xs font-semibold text-white">{name}</span>
-        {caption && <span className="line-clamp-2 block text-[11px] leading-tight text-white/80">{caption}</span>}
-      </span>
+      {!labelBelow && (
+        <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-2 pb-1.5 pt-6 text-left">
+          <span className="block truncate text-xs font-semibold text-white">{name}</span>
+          {caption && <span className="line-clamp-2 block text-[11px] leading-tight text-white/80">{caption}</span>}
+        </span>
+      )}
     </>
   );
-  const frame = `relative block aspect-[4/5] shrink-0 overflow-hidden rounded-xl bg-slate-200 shadow-sm ${className}`;
+  const frame = `relative block aspect-[4/5] shrink-0 overflow-hidden rounded-xl bg-slate-200 shadow-sm ${labelBelow ? 'w-full' : className}`;
+  const label = (
+    <span className="mt-1.5 block px-0.5 text-left">
+      <span className="block text-sm font-bold leading-snug text-slate-900">{name}</span>
+      {caption && <span className="mt-0.5 block text-[13px] font-bold leading-snug text-brand-700">{caption}</span>}
+    </span>
+  );
+  if (labelBelow) {
+    return onClick ? (
+      <button type="button" onClick={onClick} aria-label={name} className={`block text-left focus:outline-none focus:ring-2 focus:ring-brand-400 ${className}`}>
+        <span className={frame}>{body}</span>
+        {label}
+      </button>
+    ) : (
+      <div role="img" aria-label={name} className={className}>
+        <span className={frame}>{body}</span>
+        {label}
+      </div>
+    );
+  }
   return onClick ? (
     <button type="button" onClick={onClick} aria-label={name} className={`${frame} focus:outline-none focus:ring-2 focus:ring-brand-400`}>
       {body}

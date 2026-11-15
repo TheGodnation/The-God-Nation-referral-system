@@ -4743,7 +4743,9 @@
     "full_directory": "Voir l'annuaire complet des lieux",
     "load_failed": "Les représentants n'ont pas pu être chargés.",
     "request_title": "Demander à représenter votre région",
-    "card_help": "Voyez les visages de ceux qui représentent The God Nation près de chez vous."
+    "card_help": "Voyez les visages de ceux qui représentent The God Nation près de chez vous.",
+    "meet_button": "Voir les représentants",
+    "request_hint": "Vous voulez représenter votre zone ?"
   },
   "leaderHome": {
     "welcome": "Bienvenue, {{name}}",

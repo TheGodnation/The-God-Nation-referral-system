@@ -4743,7 +4743,9 @@
     "full_directory": "See the full directory of places",
     "load_failed": "The representatives could not be loaded.",
     "request_title": "Request to represent your area",
-    "card_help": "See the faces of the people who represent The God Nation near you."
+    "card_help": "See the faces of the people who represent The God Nation near you.",
+    "meet_button": "See the representatives",
+    "request_hint": "Want to represent your own area?"
   },
   "leaderHome": {
     "welcome": "Welcome, {{name}}",

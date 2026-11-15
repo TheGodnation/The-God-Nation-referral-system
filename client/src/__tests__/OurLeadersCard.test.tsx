@@ -36,4 +36,17 @@ describe('Our Leaders card', () => {
     expect(screen.getByRole('link', { name: /Request to represent your area/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Meet The God Nation representatives in your area/ })).toHaveAttribute('href', '/member/representatives');
   });
+
+  it('has a plain blue "See the representatives" button, apart from the gold "request" button', async () => {
+    mockFaces([{ personId: 'p1', name: 'Grace Leader', photoUrl: null }]);
+    renderCard();
+    const meet = await screen.findByTestId('meet-button');
+    expect(meet).toHaveTextContent('See the representatives');
+    expect(meet.className).toContain('bg-brand-700');
+    // It belongs to the link that opens the representatives; the request link is a different, gold one.
+    expect(meet.closest('a')).toHaveAttribute('href', '/member/representatives');
+    const request = screen.getByRole('link', { name: /Request to represent your area/ });
+    expect(request.className).toContain('bg-gold-400');
+    expect(request.contains(meet)).toBe(false);
+  });
 });

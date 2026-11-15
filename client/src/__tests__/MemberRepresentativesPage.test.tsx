@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberRepresentativesPage } from '../pages/MemberRepresentativesPage';
 
@@ -36,7 +36,10 @@ describe('The wall of representatives', () => {
     expect(await screen.findByRole('heading', { name: 'Meet The God Nation representatives in your area' })).toBeInTheDocument();
     const mine = screen.getByRole('region', { name: 'In your area' });
     expect(mine).toHaveTextContent('Near Rep');
-    expect(mine).toHaveTextContent('Subdivision Coordinator · Buea');
+    expect(mine).toHaveTextContent('Subdivision Coordinator');
+    expect(mine).toHaveTextContent('Buea');
+    // The name and place are written under the picture, in bold, not over it.
+    expect(within(mine).getByText('Near Rep')).toHaveClass('font-bold');
     expect(screen.getByRole('region', { name: 'Across The God Nation' })).toHaveTextContent('Far Rep');
     expect(screen.getByText('Team Lead')).toBeInTheDocument();
     // Tapping a photo opens that person's profile.

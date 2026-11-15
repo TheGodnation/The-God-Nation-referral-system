@@ -52,7 +52,13 @@ export function OurLeadersCard() {
             )}
           </span>
         )}
+        {/* A plain, solid "meet" button, so it is not mistaken for the gold "request" button below. */}
+        <span className="flex items-center justify-center gap-2 rounded-xl bg-brand-700 px-3 py-2 text-sm font-semibold text-white" data-testid="meet-button">
+          <span aria-hidden>👥</span>
+          {t('representatives.meet_button')}
+        </span>
       </Link>
+      <p className="px-1 text-center text-xs text-slate-500">{t('representatives.request_hint')}</p>
       <Link
         to="/member/represent"
         className="flex items-center justify-center gap-2 rounded-xl bg-gold-400 px-3 py-2 text-sm font-semibold text-brand-950 no-underline hover:bg-gold-500"

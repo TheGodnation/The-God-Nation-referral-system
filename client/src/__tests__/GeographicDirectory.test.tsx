@@ -122,7 +122,8 @@ describe('GeographicDirectory (Member)', () => {
     renderWithRoutes();
     const card = await screen.findByRole('button', { name: 'Grace Leader' });
     expect(card).toHaveTextContent('GL'); // no photo: initials card
-    expect(card).toHaveTextContent('Divisional Coordinator · Wouri');
+    expect(card).toHaveTextContent('Divisional Coordinator');
+    expect(card).toHaveTextContent('Wouri');
     expect(screen.getByText('Wouri, Littoral, Cameroon')).toBeInTheDocument();
   });
 
