@@ -131,6 +131,16 @@ export function FaithJourneyView({ base, personId, onBack }: { base: string; per
                   {t('faith.try_line', { number: tr.attemptNumber, set: tr.setNumber })}
                   {tr.score !== null && tr.maxScore !== null ? ` · ${tr.score}/${tr.maxScore}` : ''}
                 </p>
+                {/* The result in plain words: the percentage, and whether the book exam was passed. */}
+                {tr.score !== null && tr.maxScore ? (
+                  <p
+                    className={`mt-1.5 inline-block rounded-full px-3 py-1 text-sm font-semibold ${tr.passed === true ? 'bg-green-100 text-green-800' : tr.passed === false ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700'}`}
+                    data-testid="faith-result"
+                  >
+                    {tr.passed === true ? '✓ ' : ''}
+                    {t(tr.passed === true ? 'faith.result_passed' : tr.passed === false ? 'faith.result_failed' : 'faith.result_percent', { percent: Math.round((tr.score / tr.maxScore) * 100) })}
+                  </p>
+                ) : null}
               </header>
               <ol className="space-y-3">
                 {tr.answers.map((a) => (

@@ -5322,7 +5322,10 @@
     "notification_open": "Ouvrir le parcours de foi",
     "filter_FOLLOW_UP": "À suivre",
     "empty_FOLLOW_UP": "Rien à suivre pour le moment.",
-    "flagged_chip": "{{count}} à suivre"
+    "flagged_chip": "{{count}} à suivre",
+    "result_passed": "{{percent}} % · Réussi",
+    "result_failed": "{{percent}} % · Non réussi",
+    "result_percent": "{{percent}} %"
   },
   "examPersonal": {
     "title": "Ma réponse personnelle",

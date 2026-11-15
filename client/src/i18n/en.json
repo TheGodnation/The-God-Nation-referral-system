@@ -5322,7 +5322,10 @@
     "notification_open": "Open the faith journey",
     "filter_FOLLOW_UP": "To follow up",
     "empty_FOLLOW_UP": "Nothing to follow up right now.",
-    "flagged_chip": "{{count}} to follow up"
+    "flagged_chip": "{{count}} to follow up",
+    "result_passed": "{{percent}}% · Passed",
+    "result_failed": "{{percent}}% · Not passed",
+    "result_percent": "{{percent}}%"
   },
   "examPersonal": {
     "title": "My personal response",
