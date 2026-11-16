@@ -247,3 +247,35 @@ describe('Live', () => {
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ', title: 'Evening prayer', postAsSelf: false });
   });
 });
+
+describe('UpdatesFeed — editing your own post', () => {
+  it('the author opens ⋯, edits the text, saves, and sees it marked edited', async () => {
+    const mine = { ...POST, author: { personId: 'p-me', name: 'Me Myself', photoUrl: null }, body: 'Helo church', canEdit: true };
+    mockFetch({
+      'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, [mine]) }),
+      'PATCH /api/updates/post-1': (_m, body) => ({ body: { id: 'post-1', body: body.body, editedAt: '2026-11-16T10:00:00.000Z' } }),
+    });
+    render(<UpdatesFeed />);
+    const card = await screen.findByRole('article', { name: 'Post by Me Myself' });
+    expect(within(card).queryByTestId('post-edited')).not.toBeInTheDocument();
+
+    fireEvent.click(within(card).getByRole('button', { name: 'More options' }));
+    fireEvent.click(within(card).getByRole('menuitem', { name: /Edit/ }));
+    const box = within(card).getByLabelText('Edit your post');
+    expect(box).toHaveValue('Helo church');
+    fireEvent.change(box, { target: { value: 'Hello church' } });
+    fireEvent.click(within(card).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(within(card).getByText('Hello church')).toBeInTheDocument());
+    expect(within(card).getByTestId('post-edited')).toHaveTextContent('edited');
+    const patch = calls.find((c) => c.method === 'PATCH')!;
+    expect(patch.body).toEqual({ body: 'Hello church' });
+  });
+
+  it('someone else’s post has no ⋯ edit menu', async () => {
+    mockFetch({ 'GET /api/updates': () => ({ body: feed({ canPost: true, canModerate: false }, [{ ...POST, canEdit: false }]) }) });
+    render(<UpdatesFeed />);
+    const card = await screen.findByRole('article', { name: 'Post by Ada Obi' });
+    expect(within(card).queryByRole('button', { name: 'More options' })).not.toBeInTheDocument();
+  });
+});

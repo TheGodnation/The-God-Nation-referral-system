@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Avatar } from './Avatar';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
+import { useMemberAuth } from '../lib/MemberAuthContext';
+import { PostMenu } from './PostMenu';
 import { useInView } from '../lib/chatMedia';
 import { useDataSaver } from '../lib/dataSaver';
 import { formatBytes } from '../lib/attachmentLimits';
 import { VoiceInputButton } from './VoiceInputButton';
 import { RichText } from '../lib/richText';
-import { REACTIONS } from './updates/UpdatesFeed';
+import { REACTIONS, CommentThread, HEADQUARTERS_COMMENT_ENDPOINTS } from './updates/UpdatesFeed';
 import { SocialEmbed, type SocialEmbedInfo } from './updates/SocialEmbed';
 
 export interface HeadquartersFeedMedia {
@@ -129,6 +131,8 @@ export function HeadquartersFeedCard({
   onCommentDraftChange,
   onSubmitComment,
   onReactionChange,
+  onCommentCountChange,
+  onEdited,
 }: {
   item: HeadquartersFeedItem;
   expanded: boolean;
@@ -150,6 +154,10 @@ export function HeadquartersFeedCard({
   onCommentDraftChange: (value: string) => void;
   onSubmitComment: () => void;
   onReactionChange: (result: HeadquartersReactionResult) => void;
+  /** The thread loaded or grew: keeps the "N comments" count right. */
+  onCommentCountChange?: (count: number) => void;
+  /** The central admin corrected the post from its ⋯ menu. */
+  onEdited?: (changes: Pick<HeadquartersFeedItem, 'titleEn' | 'titleFr' | 'bodyEn' | 'bodyFr' | 'editedAt'>) => void;
 }) {
   const { t, i18n } = useTranslation();
   const isFr = i18n.language.startsWith('fr');
@@ -158,6 +166,41 @@ export function HeadquartersFeedCard({
   const [busy, setBusy] = useState(false);
   const [showWho, setShowWho] = useState(false);
   const date = new Date(item.publishedAt).toLocaleDateString(isFr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // The central admin (who publishes these posts) can correct one from its ⋯ menu, like editing a
+  // message on WhatsApp: the change shows to everyone, marked "edited", without a new notification.
+  const { member } = useMemberAuth();
+  const canEdit = Boolean(member?.isCentralAdmin);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ titleEn: '', bodyEn: '', titleFr: '', bodyFr: '' });
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function startEdit() {
+    const src = detail ?? item;
+    setForm({ titleEn: src.titleEn, bodyEn: src.bodyEn, titleFr: src.titleFr ?? '', bodyFr: src.bodyFr ?? '' });
+    setEditError(null);
+    setEditing(true);
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setEditError(null);
+    try {
+      const res = await api.patch<{ titleEn: string; titleFr: string | null; bodyEn: string; bodyFr: string | null; editedAt: string | null }>(
+        `/api/member/central-headquarters-posts/${item.id}`,
+        { titleEn: form.titleEn.trim(), bodyEn: form.bodyEn.trim(), titleFr: form.titleFr.trim() || null, bodyFr: form.bodyFr.trim() || null },
+      );
+      onEdited?.({ titleEn: res.titleEn, titleFr: res.titleFr, bodyEn: res.bodyEn, bodyFr: res.bodyFr, editedAt: res.editedAt });
+      setEditing(false);
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : t('headquartersPosts.edit_failed'));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const firstMedia = item.media[0] ?? null;
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -222,7 +265,31 @@ export function HeadquartersFeedCard({
             {item.editedAt ? ` · ${t('headquartersPosts.edited')}` : ''}
           </p>
         </div>
+        {canEdit && !editing && <PostMenu items={[{ label: `✏️ ${t('headquartersPosts.edit')}`, onSelect: startEdit }]} testId="hq-post-menu" />}
       </header>
+
+      {editing && (
+        <form onSubmit={saveEdit} className="space-y-2 px-4 pt-3" data-testid="hq-post-edit-form">
+          <label className="label" htmlFor={`hq-edit-title-en-${item.id}`}>{t('admin.headquartersPosts.title_en_label')}</label>
+          <input id={`hq-edit-title-en-${item.id}`} className="input" value={form.titleEn} onChange={(e) => setForm((f) => ({ ...f, titleEn: e.target.value }))} />
+          <label className="label" htmlFor={`hq-edit-body-en-${item.id}`}>{t('admin.headquartersPosts.body_en_label')}</label>
+          <textarea id={`hq-edit-body-en-${item.id}`} className="input min-h-[7rem]" value={form.bodyEn} onChange={(e) => setForm((f) => ({ ...f, bodyEn: e.target.value }))} />
+          <label className="label" htmlFor={`hq-edit-title-fr-${item.id}`}>{t('admin.headquartersPosts.title_fr_label')}</label>
+          <input id={`hq-edit-title-fr-${item.id}`} className="input" value={form.titleFr} onChange={(e) => setForm((f) => ({ ...f, titleFr: e.target.value }))} />
+          <label className="label" htmlFor={`hq-edit-body-fr-${item.id}`}>{t('admin.headquartersPosts.body_fr_label')}</label>
+          <textarea id={`hq-edit-body-fr-${item.id}`} className="input min-h-[7rem]" value={form.bodyFr} onChange={(e) => setForm((f) => ({ ...f, bodyFr: e.target.value }))} />
+          <p className="text-xs text-slate-500">{t('headquartersPosts.edit_hint')}</p>
+          {editError && <p className="text-sm text-red-700">{editError}</p>}
+          <div className="flex gap-2">
+            <button type="submit" className="btn-primary" disabled={saving || !form.titleEn.trim() || !form.bodyEn.trim()}>
+              {saving ? t('updates.saving') : t('updates.save_edit')}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setEditing(false)}>
+              {t('updates.cancel_edit')}
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="px-4 pt-3">
         {title && <h3 className="text-lg font-bold leading-snug text-brand-900">{title}</h3>}
@@ -353,34 +420,8 @@ export function HeadquartersFeedCard({
       {expanded && (
         <div className="mx-4 mb-3 mt-1 border-t border-slate-100 pt-3">
           <h4 className="mb-2 text-sm font-semibold text-brand-900">{t('headquartersPosts.comments_title')}</h4>
-          {commentsHasMore && (
-            <button type="button" className="mb-2 text-xs text-brand-700 hover:underline" disabled={commentsLoading} onClick={onLoadEarlierComments}>
-              {t('headquartersPosts.load_earlier_comments')}
-            </button>
-          )}
-          {commentsError && <p className="mb-2 text-sm text-red-700">{commentsError}</p>}
-          {comments.length === 0 && !commentsLoading && <p className="mb-2 text-xs text-slate-400">{t('headquartersPosts.no_comments')}</p>}
-          <ul className="mb-3 space-y-2">
-            {comments.map((c) => (
-              <li key={c.id} className="border-b border-slate-50 pb-2 text-sm">
-                <p className="text-xs font-medium text-brand-700">{c.authorName}</p>
-                <RichText className="whitespace-pre-wrap text-slate-700" text={c.body} />
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <textarea
-              className="input"
-              rows={2}
-              placeholder={t('headquartersPosts.comment_placeholder') ?? ''}
-              value={commentDraft}
-              onChange={(e) => onCommentDraftChange(e.target.value)}
-            />
-            <VoiceInputButton onResult={(transcript) => onCommentDraftChange(commentDraft.trim() ? `${commentDraft.trim()} ${transcript}` : transcript)} />
-            <button type="button" className="btn-primary sm:w-40" disabled={commentSubmitting || !commentDraft.trim()} onClick={onSubmitComment}>
-              {t('headquartersPosts.post_comment')}
-            </button>
-          </div>
+          {/* The same comments as member posts: Like (six reactions) and Reply under each comment. */}
+          <CommentThread postId={item.id} canComment endpoints={HEADQUARTERS_COMMENT_ENDPOINTS} onCountChange={(n) => onCommentCountChange?.(n)} />
         </div>
       )}
     </article>

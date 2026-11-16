@@ -14,6 +14,7 @@ import { baseMime, shrinkPhoto } from '../../lib/chatMedia';
 import { useDataSaver } from '../../lib/dataSaver';
 import { RichText } from '../../lib/richText';
 import { FormattedTextarea } from '../FormattedTextarea';
+import { PostMenu } from '../PostMenu';
 
 // The community-wide Updates feed, Facebook-style. Used on the member
 // Updates page (with the "write a post" box), on a person's profile
@@ -50,11 +51,15 @@ export interface UpdateItem {
   audience?: 'EVERYONE' | 'FRIENDS';
   youtubeVideoId: string | null;
   createdAt: string;
+  /** Set when the author changed the text after posting. */
+  editedAt?: string | null;
   photos: { id: string; url: string }[];
   reactionCounts: Partial<Record<ReactionType, number>>;
   myReaction: ReactionType | null;
   commentCount: number;
   canDelete: boolean;
+  /** Only the author may change the text. */
+  canEdit?: boolean;
 }
 
 interface FeedResponse {
@@ -304,6 +309,31 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
 
 // ---------------------------------------------------------------- Comments
 
+/** Where a comment thread talks to the server: member posts, or Headquarters posts. */
+export interface CommentEndpoints {
+  list: (postId: string) => string;
+  create: (postId: string) => string;
+  reaction: (commentId: string) => string;
+  reactors: (commentId: string) => string;
+  remove: (commentId: string) => string;
+}
+
+const UPDATE_COMMENT_ENDPOINTS: CommentEndpoints = {
+  list: (postId) => `/api/updates/${postId}/comments`,
+  create: (postId) => `/api/updates/${postId}/comments`,
+  reaction: (commentId) => `/api/updates/comments/${commentId}/reaction`,
+  reactors: (commentId) => `/api/updates/comments/${commentId}/reactions`,
+  remove: (commentId) => `/api/updates/comments/${commentId}`,
+};
+
+export const HEADQUARTERS_COMMENT_ENDPOINTS: CommentEndpoints = {
+  list: (postId) => `/api/me/headquarters-posts/${postId}/comments?thread=1`,
+  create: (postId) => `/api/me/headquarters-posts/${postId}/comments`,
+  reaction: (commentId) => `/api/me/headquarters-posts/comments/${commentId}/reaction`,
+  reactors: (commentId) => `/api/me/headquarters-posts/comments/${commentId}/reactions`,
+  remove: (commentId) => `/api/me/headquarters-posts/comments/${commentId}`,
+};
+
 function CommentReactionPicker({ current, onPick }: { current: ReactionType | null; onPick: (type: ReactionType) => void }) {
   const { t } = useTranslation();
   return (
@@ -331,7 +361,9 @@ function CommentBubble({
   onReply,
   onDelete,
   onReacted,
+  endpoints,
 }: {
+  endpoints: CommentEndpoints;
   c: CommentItem;
   canReact: boolean;
   small?: boolean;
@@ -352,8 +384,8 @@ function CommentBubble({
     try {
       const res =
         c.myReaction === type
-          ? await api.delete<{ reactionCounts: CommentItem['reactionCounts']; myReaction: ReactionType | null }>(`/api/updates/comments/${c.id}/reaction`)
-          : await api.put<{ reactionCounts: CommentItem['reactionCounts']; myReaction: ReactionType | null }>(`/api/updates/comments/${c.id}/reaction`, { type });
+          ? await api.delete<{ reactionCounts: CommentItem['reactionCounts']; myReaction: ReactionType | null }>(endpoints.reaction(c.id))
+          : await api.put<{ reactionCounts: CommentItem['reactionCounts']; myReaction: ReactionType | null }>(endpoints.reaction(c.id), { type });
       onReacted(res.reactionCounts, res.myReaction);
     } catch {
       /* the comment stays as it was */
@@ -382,7 +414,7 @@ function CommentBubble({
           )}
           {showWho && (
             <ReactionsSheet
-              load={() => api.get<ReactorList>(`/api/updates/comments/${c.id}/reactions`)}
+              load={() => api.get<ReactorList>(endpoints.reactors(c.id))}
               emojiOf={EMOJI_OF}
               onRemoveMine={c.myReaction ? () => void react(c.myReaction!) : undefined}
               onClose={() => setShowWho(false)}
@@ -424,7 +456,9 @@ function CommentForm({
   onCancel,
   onSent,
   autoFocus,
+  endpoints,
 }: {
+  endpoints: CommentEndpoints;
   postId: string;
   parent: { id: string; name: string } | null;
   onCancel?: () => void;
@@ -442,7 +476,7 @@ function CommentForm({
     setSending(true);
     setError(null);
     try {
-      await api.post(`/api/updates/${postId}/comments`, { body: draft.trim(), ...(parent ? { parentCommentId: parent.id } : {}) });
+      await api.post(endpoints.create(postId), { body: draft.trim(), ...(parent ? { parentCommentId: parent.id } : {}) });
       setDraft('');
       onSent();
     } catch (err) {
@@ -485,7 +519,17 @@ function CommentForm({
 // Comments under a post, Facebook-style: each comment has Like (six
 // reactions, with counts) and Reply. Replies sit just under the comment
 // they answer.
-function Comments({ postId, canComment, onCountChange }: { postId: string; canComment: boolean; onCountChange: (n: number) => void }) {
+export function CommentThread({
+  postId,
+  canComment,
+  onCountChange,
+  endpoints = UPDATE_COMMENT_ENDPOINTS,
+}: {
+  postId: string;
+  canComment: boolean;
+  onCountChange: (n: number) => void;
+  endpoints?: CommentEndpoints;
+}) {
   const { t } = useTranslation();
   const [items, setItems] = useState<CommentItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -493,7 +537,7 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
 
   function load() {
     api
-      .get<{ items: CommentItem[] }>(`/api/updates/${postId}/comments`)
+      .get<{ items: CommentItem[] }>(endpoints.list(postId))
       .then((res) => {
         setItems(res.items);
         onCountChange(res.items.length);
@@ -506,7 +550,7 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
   async function remove(id: string) {
     if (!window.confirm(t('updates.confirm_delete_comment') ?? '')) return;
     try {
-      await api.delete(`/api/updates/comments/${id}`);
+      await api.delete(endpoints.remove(id));
       load();
     } catch {
       setError(t('updates.delete_failed'));
@@ -529,6 +573,7 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
       {tops.map((c) => (
         <div key={c.id} className="space-y-3">
           <CommentBubble
+            endpoints={endpoints}
             c={c}
             canReact={canComment}
             onReply={() => setReplyTo({ id: c.id, name: c.author.name })}
@@ -539,6 +584,7 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
             <div className="ml-10 space-y-3">
               {repliesOf(c.id).map((r) => (
                 <CommentBubble
+                  endpoints={endpoints}
                   key={r.id}
                   c={r}
                   small
@@ -550,6 +596,7 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
               ))}
               {replyTo?.id === c.id && canComment && (
                 <CommentForm
+                  endpoints={endpoints}
                   postId={postId}
                   parent={replyTo}
                   autoFocus
@@ -564,7 +611,7 @@ function Comments({ postId, canComment, onCountChange }: { postId: string; canCo
           )}
         </div>
       ))}
-      {canComment && <CommentForm postId={postId} parent={null} onSent={load} />}
+      {canComment && <CommentForm endpoints={endpoints} postId={postId} parent={null} onSent={load} />}
       {error && <p className="text-sm text-red-700">{error}</p>}
     </div>
   );
@@ -752,10 +799,22 @@ function PostCard({
   const [reportSending, setReportSending] = useState(false);
   const [reportDone, setReportDone] = useState(false);
   const canReport = myPersonId !== null && item.author.personId !== myPersonId;
+  // Editing your own post (from the ⋯ menu). The text shown follows the last save.
+  const [body, setBody] = useState(item.body);
+  const [editedAt, setEditedAt] = useState(item.editedAt ?? null);
+  useEffect(() => {
+    setBody(item.body);
+    setEditedAt(item.editedAt ?? null);
+  }, [item.body, item.editedAt]);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  // The old translation no longer matches once the text changed here; a fresh one comes with the next load.
+  const translation = body === item.body ? item.translation : null;
 
   const totalReactions = Object.values(counts).reduce((a, b) => a + (b ?? 0), 0);
   const topEmojis = REACTIONS.filter((r) => (counts[r.type] ?? 0) > 0).map((r) => r.emoji).join('');
-  const displayBody = item.translation && !showOriginal ? item.translation.translatedBody : item.body;
+  const displayBody = translation && !showOriginal ? translation.translatedBody : body;
   const isLong = displayBody.length > LONG_POST_CHARS || displayBody.split('\n').length > 7;
 
   async function react(type: ReactionType) {
@@ -804,6 +863,29 @@ function PostCard({
     }
   }
 
+  function startEdit() {
+    setDraft(body);
+    setError(null);
+    setEditing(true);
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api.patch<{ body: string; editedAt: string | null }>(`/api/updates/${item.id}`, { body: draft });
+      setBody(res.body);
+      setEditedAt(res.editedAt);
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('updates.edit_failed'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function remove() {
     if (!window.confirm(t('updates.confirm_delete_post') ?? '')) return;
     try {
@@ -845,6 +927,7 @@ function PostCard({
           )}
           <p className="text-xs text-slate-500" title={formatWhen(item.createdAt, i18n.language)}>
             {relativeWhen(item.createdAt, t, i18n.language)} ·{' '}
+            {editedAt && <span data-testid="post-edited">{t('updates.edited')} · </span>}
             {item.audience === 'FRIENDS' ? <span title={t('updates.friends_only_title') ?? ''} aria-label={t('updates.friends_only_title') ?? ''}>👥</span> : '🌍'}
           </p>
         </div>
@@ -864,6 +947,7 @@ function PostCard({
             🗑
           </button>
         )}
+        {item.canEdit && !editing && <PostMenu items={[{ label: `✏️ ${t('updates.edit')}`, onSelect: startEdit }]} testId="post-menu" />}
       </header>
 
       {reportDone && (
@@ -893,7 +977,28 @@ function PostCard({
         </form>
       )}
 
-      {item.body && (
+      {editing && (
+        <form onSubmit={saveEdit} className="space-y-2 px-4 pt-2" data-testid="post-edit-form">
+          <textarea
+            className="input min-h-[6rem]"
+            aria-label={t('updates.edit_label') ?? ''}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            maxLength={MAX_POST_CHARS}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button type="submit" className="btn-primary" disabled={saving || draft.trim() === body.trim()}>
+              {saving ? t('updates.saving') : t('updates.save_edit')}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setEditing(false)}>
+              {t('updates.cancel_edit')}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {body && !editing && (
         <div className="px-4 pt-2">
           <RichText className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings comfort />
           {isLong && (
@@ -901,8 +1006,8 @@ function PostCard({
               {expanded ? t('updates.see_less') : t('updates.see_more')}
             </button>
           )}
-          {item.translation && (
-            <TranslationNote sourceLanguage={item.translation.sourceLanguage} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />
+          {translation && (
+            <TranslationNote sourceLanguage={translation.sourceLanguage} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />
           )}
         </div>
       )}
@@ -972,7 +1077,7 @@ function PostCard({
 
       {showComments && (
         <div className="px-4 pb-3">
-          <Comments postId={item.id} canComment={canReact} onCountChange={setCommentCount} />
+          <CommentThread postId={item.id} canComment={canReact} onCountChange={setCommentCount} />
         </div>
       )}
       {error && <p className="px-4 pb-3 text-sm text-red-700">{error}</p>}

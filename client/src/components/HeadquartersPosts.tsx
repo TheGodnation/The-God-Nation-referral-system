@@ -135,7 +135,8 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
       .then((res) => {
         setDetail(res);
         setDetailLoading(false);
-        loadComments(id);
+        // The feed card loads its own comment thread (with likes and replies).
+        if (variant !== 'feed') loadComments(id);
         if (res.media.length > 0) {
           setMediaLoading(true);
           Promise.allSettled(
@@ -248,6 +249,11 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
             onLoadEarlierComments={() => comments[0] && loadComments(i.id, comments[0].id)}
             onCommentDraftChange={setCommentDraft}
             onSubmitComment={submitComment}
+            onEdited={(changes) => {
+              setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, ...changes } : x)));
+              setDetail((prev) => (prev && prev.id === i.id ? { ...prev, ...changes } : prev));
+            }}
+            onCommentCountChange={(n) => setItems((prev) => prev.map((x) => (x.id === i.id && x.commentCount !== n ? { ...x, commentCount: n } : x)))}
             onReactionChange={(r) =>
               setItems((prev) =>
                 prev.map((x) => (x.id === i.id ? { ...x, viewerHasReacted: r.viewerHasReacted, reactionCount: r.reactionCount, reactionCounts: r.reactionCounts, myReaction: r.myReaction } : x)),

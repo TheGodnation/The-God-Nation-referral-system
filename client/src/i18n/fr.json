@@ -1660,7 +1660,10 @@
     "post_label": "Publication du quartier général : {{title}}",
     "comm_dept_name": "Département de la communication de God's Nation",
     "shared_post": "Publication partagée",
-    "edited": "modifié"
+    "edited": "modifié",
+    "edit": "Modifier",
+    "edit_failed": "Impossible d’enregistrer la modification. Veuillez réessayer.",
+    "edit_hint": "Tout le monde voit la correction tout de suite, avec la mention « modifié ». Personne n’est notifié à nouveau. Si vous changez seulement l’anglais, le français automatique est refait."
   },
   "myResources": {
     "title": "Ressources",
@@ -2034,7 +2037,14 @@
     "reply_placeholder": "Écrivez une réponse…",
     "comment_by": "Commentaire de {{name}}",
     "audience_label": "Qui peut le voir",
-    "friends_only_title": "Amis seulement"
+    "friends_only_title": "Amis seulement",
+    "edit": "Modifier",
+    "edited": "modifié",
+    "edit_label": "Modifier votre publication",
+    "save_edit": "Enregistrer",
+    "cancel_edit": "Annuler",
+    "saving": "Enregistrement…",
+    "edit_failed": "Impossible d’enregistrer la modification. Veuillez réessayer."
   },
   "prayerRequests": {
     "title": "Demandes de prière",
@@ -5556,5 +5566,8 @@
     "confirm_lower": "{{name}} a {{from}} livres enregistrés. Le réduire à {{to}} ? Les livres après le numéro {{to}} se fermeront de nouveau, sauf si les examens ont été réussis.",
     "load_failed": "Impossible de charger cette personne. Réessayez.",
     "save_failed": "Impossible d’enregistrer. Réessayez."
+  },
+  "postMenu": {
+    "more": "Plus d’options"
   }
 }

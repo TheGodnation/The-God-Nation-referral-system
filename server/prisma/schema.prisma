@@ -966,6 +966,7 @@ model Person {
   leadershipCollaborationConversationReads LeadershipCollaborationConversationRead[]
   headquartersPostComments                 HeadquartersPostComment[]
   headquartersPostReactions                HeadquartersPostReaction[]
+  headquartersPostCommentReactions         HeadquartersPostCommentReaction[]
   announcementsAuthored                    Announcement[]                            @relation("AnnouncementAuthor")
   headquartersPostsAuthored                HeadquartersPost[]                        @relation("HeadquartersPostAuthor")
   settingsAsLiveAuthor                     Settings[]                                @relation("SettingsLiveAuthor")
@@ -2325,11 +2326,33 @@ model HeadquartersPostComment {
   authorPersonId     String
   body               String
   createdAt          DateTime @default(now())
+  // A reply to another comment on the same post (one level, like member posts:
+  // replying to a reply attaches to the same top comment).
+  parentCommentId    String?
 
-  post   HeadquartersPost @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
-  author Person           @relation(fields: [authorPersonId], references: [id], onDelete: Cascade)
+  post      HeadquartersPost                  @relation(fields: [headquartersPostId], references: [id], onDelete: Cascade)
+  author    Person                            @relation(fields: [authorPersonId], references: [id], onDelete: Cascade)
+  parent    HeadquartersPostComment?          @relation("HeadquartersPostCommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies   HeadquartersPostComment[]         @relation("HeadquartersPostCommentReplies")
+  reactions HeadquartersPostCommentReaction[]
 
   @@index([headquartersPostId, createdAt])
+}
+
+// A reaction (the same six as on posts) on a comment under a Headquarters post — one per person
+// per comment.
+model HeadquartersPostCommentReaction {
+  id        String             @id @default(uuid())
+  commentId String
+  personId  String
+  type      UpdateReactionType
+  createdAt DateTime           @default(now())
+
+  comment HeadquartersPostComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  person  Person                  @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, personId])
+  @@index([commentId])
 }
 
 // A Person's reaction to one HeadquartersPost — one of the same six
@@ -2794,6 +2817,8 @@ model UpdatePost {
   youtubeVideoId    String?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
+  // Set when the author changed the text after posting (shown as "edited").
+  editedAt          DateTime?
   deletedAt         DateTime?
   deletedByPersonId String?
   deletedByUserId   String?
