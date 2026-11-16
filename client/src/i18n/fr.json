@@ -1249,7 +1249,11 @@
       "post_as_label": "Publier en tant que",
       "voice_hq": "Quartier général de The God Nation",
       "voice_comm": "Département de la communication de God’s Nation",
-      "voice_self": "Moi-même (ma photo, mon nom et mon titre)"
+      "voice_self": "Moi-même (ma photo, mon nom et mon titre)",
+      "edit_published_post": "Corriger une publication déjà publiée",
+      "published_edit_hint": "Cette publication est déjà publiée. Votre correction apparaît tout de suite chez les membres, avec la mention « modifié ». Personne n’est notifié à nouveau.",
+      "audience_fixed_hint": "Les destinataires d’une publication ne peuvent plus changer après la publication. Pour toucher d’autres personnes, publiez une nouvelle publication.",
+      "edited": "modifié"
     },
     "privateMessages": {
       "title": "Messages privés",
@@ -1655,7 +1659,8 @@
     "photo_unavailable": "Cette photo ne peut pas être affichée pour le moment.",
     "post_label": "Publication du quartier général : {{title}}",
     "comm_dept_name": "Département de la communication de God's Nation",
-    "shared_post": "Publication partagée"
+    "shared_post": "Publication partagée",
+    "edited": "modifié"
   },
   "myResources": {
     "title": "Ressources",

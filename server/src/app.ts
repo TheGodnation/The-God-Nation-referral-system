@@ -79,7 +79,7 @@ import adminPresenceRoutes from './routes/adminPresence';
 import appBrandingRoutes from './routes/appBranding';
 import chatForwardRoutes from './routes/chatForward';
 import headquartersPostsRoutes from './routes/headquartersPosts';
-import adminHeadquartersPostsRoutes from './routes/adminHeadquartersPosts';
+import adminHeadquartersPostsRoutes, { memberCentralHeadquartersPostsRoutes } from './routes/adminHeadquartersPosts';
 import privateMessagesRoutes from './routes/privateMessages';
 import adminPrivateMessagesRoutes from './routes/adminPrivateMessages';
 import leaderPrivateMessagesRoutes from './routes/leaderPrivateMessages';
@@ -305,6 +305,7 @@ export function createApp() {
   // (lib/headquartersPosts.ts).
   app.use('/api/me/headquarters-posts', headquartersPostsRoutes);
   app.use('/api/admin/headquarters-posts', adminHeadquartersPostsRoutes);
+  app.use('/api/member/central-headquarters-posts', memberCentralHeadquartersPostsRoutes);
   // Private Communication / Messaging: privateMessagesRoutes is the shared
   // authenticated participant surface (Member, Leader, or Admin — the one
   // conversation surface in this app where Admin genuinely participates,
