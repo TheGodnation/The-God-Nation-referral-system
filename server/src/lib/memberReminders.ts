@@ -140,7 +140,8 @@ export async function processMemberReminders(now = new Date()): Promise<{ sent: 
         subject: text.subject,
         paragraphs: text.paragraphs,
         buttonLabel: text.buttonLabel,
-        buttonUrl: `${CLIENT_URL.replace(/\/+$/, '')}/member/login${c.language === 'fr' ? '?lang=fr' : ''}`,
+        // Into the chats: a member still signed in lands there directly; anyone else is shown the sign-in page first.
+        buttonUrl: `${CLIENT_URL.replace(/\/+$/, '')}/member/chats?lang=${c.language === 'fr' ? 'fr' : 'en'}`,
         footer: text.footer,
         ...(kind === 'WINBACK' ? { unsubscribeUrl: unsubscribeUrl(c.personId, c.language) } : {}),
       });

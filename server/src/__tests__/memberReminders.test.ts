@@ -80,6 +80,8 @@ describe('Reminder emails', () => {
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0][0]).toMatchObject({ to: email, subject: 'Finish joining The God Nation', buttonLabel: 'Finish joining' });
     expect(spy.mock.calls[0][0].unsubscribeUrl).toBeUndefined();
+    // The button goes into the chats (signed-in members land there; others see the sign-in page first), in their language.
+    expect(spy.mock.calls[0][0].buttonUrl).toMatch(/\/member\/chats\?lang=en$/);
     expect(await prisma.memberReminder.count({ where: { personId: person.id, kind: 'FINISH_SIGNUP_1' } })).toBe(1);
     // Never twice.
     spy.mockClear();
@@ -104,6 +106,7 @@ describe('Reminder emails', () => {
     const spy = spySend();
     await processMemberReminders();
     expect(spy.mock.calls[0][0].subject).toBe('Terminez votre inscription à The God Nation');
+    expect(spy.mock.calls[0][0].buttonUrl).toMatch(/\/member\/chats\?lang=fr$/);
   });
 
   it('leave out test data, people who asked to delete their account, and people who finished joining', async () => {
