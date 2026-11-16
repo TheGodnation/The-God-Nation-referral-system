@@ -26,6 +26,8 @@ export interface HeadquartersFeedItem {
   bodyEn: string;
   bodyFr: string | null;
   publishedAt: string;
+  /** Set when headquarters corrected the post after it went out. */
+  editedAt?: string | null;
   networkWide: boolean;
   commentCount: number;
   reactionCount: number;
@@ -217,6 +219,7 @@ export function HeadquartersFeedCard({
           )}
           <p className="text-xs text-slate-500">
             📌 {t('headquartersPosts.pinned')} · {date}
+            {item.editedAt ? ` · ${t('headquartersPosts.edited')}` : ''}
           </p>
         </div>
       </header>

@@ -81,6 +81,7 @@ function toRecipientResponse(
     bodyEn: string;
     bodyFr: string | null;
     publishedAt: Date | null;
+    editedAt?: Date | null;
     networkWide: boolean;
     voice?: string;
     linkUrl?: string | null;
@@ -97,6 +98,8 @@ function toRecipientResponse(
     bodyEn: p.bodyEn,
     bodyFr: p.bodyFr,
     publishedAt: p.publishedAt,
+    // Set when the post was corrected after it went out (shown as "edited").
+    editedAt: p.editedAt ?? null,
     networkWide: p.networkWide,
     commentCount: engagement.commentCount,
     reactionCount: engagement.reactionCount,

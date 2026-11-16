@@ -196,11 +196,23 @@ describe('Headquarters Post Media — authorize upload', () => {
     expect(res.status).toBe(400);
   });
 
-  it('authorize is rejected once the post is published', async () => {
+  it('authorize still works once the post is published (a mistake can be corrected)', async () => {
     const { agent, csrf } = await loginAsAdmin(7);
     const community = await makeCommunity('Media Authorize Published Community');
     const postId = await createDraftPost(agent, csrf, 'Media Authorize G');
     await publishTargeted(agent, csrf, postId, [community.id]);
+
+    const res = await agent
+      .post(`/api/admin/headquarters-posts/${postId}/media/authorize`)
+      .set('X-CSRF-Token', csrf)
+      .send(IMAGE);
+    expect(res.status).toBe(200);
+  });
+
+  it('authorize is rejected once the post is archived', async () => {
+    const { agent, csrf } = await loginAsAdmin(71);
+    const postId = await createDraftPost(agent, csrf, 'Media Authorize Archived');
+    await agent.post(`/api/admin/headquarters-posts/${postId}/archive`).set('X-CSRF-Token', csrf);
 
     const res = await agent
       .post(`/api/admin/headquarters-posts/${postId}/media/authorize`)
@@ -305,20 +317,22 @@ describe('Headquarters Post Media — finalize', () => {
     expect(stored).toBeNull();
   });
 
-  it('finalize is rejected once the post is published', async () => {
+  it('a published post can have media added and removed, and is then marked edited', async () => {
     const { agent, csrf } = await loginAsAdmin(15);
     const community = await makeCommunity('Finalize Published Community');
     const postId = await createDraftPost(agent, csrf, 'Finalize H');
     await publishTargeted(agent, csrf, postId, [community.id]);
-    const storageKey = mediaStorageKey(postId);
 
-    // No mockHeadMatches: the route rejects on the already-published check
-    // before ever calling headObject (see the comment on the previous test).
-    const res = await agent
-      .post(`/api/admin/headquarters-posts/${postId}/media`)
-      .set('X-CSRF-Token', csrf)
-      .send({ storageKey, ...IMAGE });
-    expect(res.status).toBe(409);
+    const added = await finalizeMedia(agent, csrf, postId, IMAGE);
+    expect(added.status).toBe(201);
+    expect(added.body.media).toHaveLength(1);
+    expect(added.body.editedAt).not.toBeNull();
+
+    const removed = await agent
+      .delete(`/api/admin/headquarters-posts/${postId}/media/${added.body.media[0].id}`)
+      .set('X-CSRF-Token', csrf);
+    expect(removed.status).toBe(200);
+    expect(removed.body.media).toHaveLength(0);
   });
 
   it('finalize is rejected once the post is archived', async () => {

@@ -1249,7 +1249,11 @@
       "post_as_label": "Post as",
       "voice_hq": "The God Nation Headquarters",
       "voice_comm": "God's Nation Communication Department",
-      "voice_self": "Myself (my photo, name and title)"
+      "voice_self": "Myself (my photo, name and title)",
+      "edit_published_post": "Correct a published post",
+      "published_edit_hint": "This post is already published. Your correction shows to members straight away, marked \"edited\". Nobody is notified again.",
+      "audience_fixed_hint": "Who receives a post cannot change after it is published. To reach other people, publish a new post.",
+      "edited": "edited"
     },
     "privateMessages": {
       "title": "Private Messages",
@@ -1655,7 +1659,8 @@
     "photo_unavailable": "This photo can't be shown right now.",
     "post_label": "Headquarters post: {{title}}",
     "comm_dept_name": "God's Nation Communication Department",
-    "shared_post": "Shared post"
+    "shared_post": "Shared post",
+    "edited": "edited"
   },
   "myResources": {
     "title": "Resources",

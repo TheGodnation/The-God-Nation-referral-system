@@ -82,7 +82,7 @@ describe('HeadquartersPostsTab (Admin)', () => {
     expect(screen.getByText('3 comments, 7 reactions')).toBeInTheDocument();
   });
 
-  it('shows Edit and Publish for a draft, but only Archive for a published row, and neither for an archived row', async () => {
+  it('shows Edit and Publish for a draft, Edit and Archive for a published row, and nothing for an archived row', async () => {
     mockFetchByUrl({
       '/api/admin/headquarters-posts': {
         status: 200,
@@ -96,9 +96,52 @@ describe('HeadquartersPostsTab (Admin)', () => {
       expect(screen.getByText('Draft Post')).toBeInTheDocument();
     });
 
-    expect(screen.getAllByText('Edit')).toHaveLength(1);
+    expect(screen.getAllByText('Edit')).toHaveLength(2);
     expect(screen.getAllByText('Publish')).toHaveLength(1);
     expect(screen.getAllByText('Archive')).toHaveLength(2);
+  });
+
+  it('corrects a published post: text only, audience shown but not sent, no Publish button', async () => {
+    mockFetchByUrl({
+      '/api/admin/headquarters-posts/hqp-2': { status: 200, body: { ...NETWORK_WIDE_PUBLISHED_ROW, bodyEn: 'Fixed body.' } },
+      '/api/admin/headquarters-posts': { status: 200, body: { items: [{ ...NETWORK_WIDE_PUBLISHED_ROW, media: [], postAsSelf: false }], pagination: { totalPages: 1 } } },
+    });
+
+    render(<HeadquartersPostsTab />);
+    await waitFor(() => expect(screen.getByText('Network Wide Post')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Edit'));
+
+    expect(screen.getByText('Correct a published post')).toBeInTheDocument();
+    expect(screen.getByTestId('hqpost-audience-fixed')).toHaveTextContent('Network-Wide');
+    expect(screen.getByText(/Nobody is notified again/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Body (English)'), { target: { value: 'Fixed body.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true));
+    const patch = calls.find((c) => c.method === 'PATCH')!;
+    expect(patch.url).toContain('/api/admin/headquarters-posts/hqp-2');
+    expect(patch.body).toMatchObject({ bodyEn: 'Fixed body.' });
+    expect(patch.body).not.toHaveProperty('networkWide');
+    expect(patch.body).not.toHaveProperty('targetCommunityIds');
+  });
+
+  it('works from the central admin member profile: member door, cards, edited mark', async () => {
+    mockFetchByUrl({
+      '/api/member/central-headquarters-posts': {
+        status: 200,
+        body: { items: [{ ...NETWORK_WIDE_PUBLISHED_ROW, editedAt: '2026-01-06T00:00:00Z', media: [], postAsSelf: false }], pagination: { totalPages: 1 } },
+      },
+    });
+
+    render(<HeadquartersPostsTab base="/api/member/central-headquarters-posts" />);
+    await waitFor(() => expect(screen.getByText('Network Wide Post')).toBeInTheDocument());
+    expect(screen.getByTestId('hqpost-cards')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByTestId('hqpost-cards')).toHaveTextContent('edited');
+    expect(calls[0].url).toContain('/api/member/central-headquarters-posts?page=1');
+    expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
   });
 
   it('creates a draft with a selected Community target and reloads the list', async () => {

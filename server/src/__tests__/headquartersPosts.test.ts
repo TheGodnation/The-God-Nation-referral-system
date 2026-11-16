@@ -204,21 +204,49 @@ describe('Headquarters Network Posts — draft editing and lifecycle immutabilit
     expect(patched.body.titleEn).toBe('Updated');
   });
 
-  it('editing a published headquarters post is rejected', async () => {
+  it('a published headquarters post can be corrected, is marked edited, and its audience stays as published', async () => {
     const { agent, csrf } = await loginAsAdmin(8);
     const created = await agent
       .post('/api/admin/headquarters-posts')
       .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'To Publish', bodyEn: 'Body.' });
+      .send({ titleEn: 'To Publish', bodyEn: 'Body with a mistake.' });
     await agent.patch(`/api/admin/headquarters-posts/${created.body.id}`).set('X-CSRF-Token', csrf).send({ networkWide: true });
     const published = await agent.post(`/api/admin/headquarters-posts/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
     expect(published.status).toBe(200);
+    expect(published.body.editedAt).toBeNull();
+    const notificationsBefore = await prisma.notification.count();
 
-    const patchAttempt = await agent
+    // The form sends the audience back unchanged together with the fix: accepted.
+    const fixed = await agent
       .patch(`/api/admin/headquarters-posts/${created.body.id}`)
       .set('X-CSRF-Token', csrf)
-      .send({ titleEn: 'Should not apply' });
-    expect(patchAttempt.status).toBe(409);
+      .send({ titleEn: 'To Publish', bodyEn: 'Body, corrected.', networkWide: true });
+    expect(fixed.status).toBe(200);
+    expect(fixed.body.bodyEn).toBe('Body, corrected.');
+    expect(fixed.body.publishedAt).toBe(published.body.publishedAt);
+    expect(fixed.body.editedAt).not.toBeNull();
+    expect(await prisma.notification.count()).toBe(notificationsBefore);
+    const audit = await prisma.auditLog.findFirst({ where: { action: 'HEADQUARTERS_POST_UPDATED', targetId: created.body.id }, orderBy: { createdAt: 'desc' } });
+    expect((audit?.metadata as any)?.afterPublishing).toBe(true);
+
+    // A real audience change is refused.
+    const community = await makeCommunity('HQ Edit Audience Community');
+    const moved = await agent
+      .patch(`/api/admin/headquarters-posts/${created.body.id}`)
+      .set('X-CSRF-Token', csrf)
+      .send({ targetCommunityIds: [community.id] });
+    expect(moved.status).toBe(409);
+    const row = await prisma.headquartersPost.findUnique({ where: { id: created.body.id }, include: { targets: true } });
+    expect(row?.networkWide).toBe(true);
+    expect(row?.targets).toHaveLength(0);
+  });
+
+  it('a draft is not marked edited', async () => {
+    const { agent, csrf } = await loginAsAdmin(81);
+    const created = await agent.post('/api/admin/headquarters-posts').set('X-CSRF-Token', csrf).send({ titleEn: 'Draft', bodyEn: 'Body.' });
+    const patched = await agent.patch(`/api/admin/headquarters-posts/${created.body.id}`).set('X-CSRF-Token', csrf).send({ bodyEn: 'Body 2.' });
+    expect(patched.status).toBe(200);
+    expect(patched.body.editedAt).toBeNull();
   });
 
   it('editing an archived headquarters post is rejected', async () => {
@@ -628,7 +656,7 @@ describe('Headquarters Network Posts — recipient response privacy', () => {
     const res = await memberAgent.get(`/api/me/headquarters-posts/${id}`);
     expect(res.status).toBe(200);
     expect(Object.keys(res.body).sort()).toEqual(
-      ['author', 'bodyEn', 'bodyFr', 'commentCount', 'embed', 'id', 'media', 'myReaction', 'networkWide', 'publishedAt', 'reactionCount', 'reactionCounts', 'titleEn', 'titleFr', 'viewerHasReacted', 'voice'].sort(),
+      ['author', 'bodyEn', 'bodyFr', 'commentCount', 'editedAt', 'embed', 'id', 'media', 'myReaction', 'networkWide', 'publishedAt', 'reactionCount', 'reactionCounts', 'titleEn', 'titleFr', 'viewerHasReacted', 'voice'].sort(),
     );
     expect(res.body).not.toHaveProperty('targets');
     expect(res.body).not.toHaveProperty('createdByUserId');
@@ -951,5 +979,39 @@ describe('Headquarters Network Posts — Announcement/Conversation independence'
     await publishNetworkWide(agent, csrf, 'Independence Check 2');
     expect(await prisma.conversation.count()).toBe(beforeConv);
     expect(await prisma.message.count()).toBe(beforeMsg);
+  });
+});
+
+describe('Headquarters Posts — from the central admin member profile', () => {
+  it('the central admin can create, publish and correct a post from the member profile, as the linked admin account', async () => {
+    const user = await createAdmin('hqp-central-member@test.local');
+    const { agent, csrf, person } = await loginAsMember('+237698100001', 'hqp-central-member-p@test.local', 'Central Admin Member');
+    await prisma.user.update({ where: { id: user.id }, data: { personId: person.id } });
+    const base = '/api/member/central-headquarters-posts';
+
+    const created = await agent.post(base).set('X-CSRF-Token', csrf).send({ titleEn: 'From my profile', bodyEn: 'Body with a typo.', postAsSelf: true });
+    expect(created.status).toBe(201);
+    expect(created.body.createdBy.id).toBe(user.id);
+    expect(created.body.postAsSelf).toBe(true);
+
+    await agent.patch(`${base}/${created.body.id}`).set('X-CSRF-Token', csrf).send({ networkWide: true });
+    const published = await agent.post(`${base}/${created.body.id}/publish`).set('X-CSRF-Token', csrf);
+    expect(published.status).toBe(200);
+
+    const fixed = await agent.patch(`${base}/${created.body.id}`).set('X-CSRF-Token', csrf).send({ bodyEn: 'Body, corrected.' });
+    expect(fixed.status).toBe(200);
+    expect(fixed.body.bodyEn).toBe('Body, corrected.');
+    expect(fixed.body.editedAt).not.toBeNull();
+
+    const list = await agent.get(base);
+    expect(list.status).toBe(200);
+    expect(list.body.items.some((p: { id: string }) => p.id === created.body.id)).toBe(true);
+  });
+
+  it('an ordinary member cannot use the member-profile door', async () => {
+    const { agent, csrf } = await loginAsMember('+237698100002', 'hqp-plain-member@test.local');
+    const base = '/api/member/central-headquarters-posts';
+    expect((await agent.get(base)).status).toBe(403);
+    expect((await agent.post(base).set('X-CSRF-Token', csrf).send({ titleEn: 'No', bodyEn: 'No.' })).status).toBe(403);
   });
 });

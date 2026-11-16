@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
@@ -31,6 +31,8 @@ interface HeadquartersPostRow {
   createdAt: string;
   publishedAt: string | null;
   archivedAt: string | null;
+  /** Set when a published post was corrected afterwards. */
+  editedAt?: string | null;
   createdBy: { id: string; email: string };
   // Section 15: whether this post shows the Admin's own photo/name/title
   // ("post as self") or the plain institutional "Central Authority" voice.
@@ -71,15 +73,23 @@ function statusBadgeClass(status: 'draft' | 'published' | 'archived') {
 // mutually-exclusive networkWide toggle: choosing network-wide clears any
 // selected Communities, and adding a Community switches the post out of
 // network-wide mode — see server/src/routes/adminHeadquartersPosts.ts.
-export function HeadquartersPostsTab() {
+//
+// The same screen also opens in the central admin's own member profile: `base` then points at
+// /api/member/central-headquarters-posts (and the community search at the matching door).
+export function HeadquartersPostsTab({ base = '/api/admin/headquarters-posts' }: { base?: string } = {}) {
   const { t } = useTranslation();
+  const compact = base.startsWith('/api/member/');
+  const communitySearchPath = compact ? '/api/member/central-communities?search=' : '/api/admin/communities?search=';
   const [items, setItems] = useState<HeadquartersPostRow[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Editing a post that already went out: only its content can change, not who it went to.
+  const [editingPublished, setEditingPublished] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [networkWide, setNetworkWide] = useState(false);
   const [formTargets, setFormTargets] = useState<{ id: string; name: string }[]>([]);
@@ -101,7 +111,7 @@ export function HeadquartersPostsTab() {
   function load() {
     api
       .get<{ items: HeadquartersPostRow[]; pagination: { totalPages: number } }>(
-        `/api/admin/headquarters-posts?page=${page}&pageSize=20`,
+        `${base}?page=${page}&pageSize=20`,
       )
       .then((res) => {
         setItems(res.items);
@@ -118,6 +128,7 @@ export function HeadquartersPostsTab() {
     setFormTargets([]);
     setFormError(null);
     setEditingId(null);
+    setEditingPublished(false);
     setEditingMedia([]);
     setMediaError(null);
   }
@@ -133,9 +144,12 @@ export function HeadquartersPostsTab() {
     setFormTargets(row.targets.map((tgt) => ({ id: tgt.communityId, name: tgt.communityName })));
     setFormError(null);
     setEditingId(row.id);
+    setEditingPublished(Boolean(row.publishedAt));
     setEditingMedia(row.media);
     setMediaError(null);
     setShowForm(true);
+    // The form sits above the list: bring it into view (on a phone the tapped post may be far down).
+    setTimeout(() => formRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 0);
   }
 
   function mediaTypeLabel(type: HeadquartersPostMediaType): string {
@@ -174,7 +188,7 @@ export function HeadquartersPostsTab() {
     setMediaUploading(true);
     try {
       const auth = await api.post<{ storageKey: string; uploadUrl: string }>(
-        `/api/admin/headquarters-posts/${editingId}/media/authorize`,
+        `${base}/${editingId}/media/authorize`,
         { originalFilename: file.name, mimeType: file.type, byteSize: file.size },
       );
       const uploadRes = await fetch(auth.uploadUrl, {
@@ -184,7 +198,7 @@ export function HeadquartersPostsTab() {
       });
       if (!uploadRes.ok) throw new Error('upload failed');
 
-      const finalized = await api.post<HeadquartersPostRow>(`/api/admin/headquarters-posts/${editingId}/media`, {
+      const finalized = await api.post<HeadquartersPostRow>(`${base}/${editingId}/media`, {
         storageKey: auth.storageKey,
         originalFilename: file.name,
         mimeType: file.type,
@@ -204,7 +218,7 @@ export function HeadquartersPostsTab() {
     setMediaError(null);
     setMediaUploading(true);
     try {
-      const updated = await api.delete<HeadquartersPostRow>(`/api/admin/headquarters-posts/${editingId}/media/${mediaId}`);
+      const updated = await api.delete<HeadquartersPostRow>(`${base}/${editingId}/media/${mediaId}`);
       setEditingMedia(updated.media);
       load();
     } catch (err) {
@@ -243,16 +257,17 @@ export function HeadquartersPostsTab() {
     };
     try {
       if (editingId) {
-        await api.patch(`/api/admin/headquarters-posts/${editingId}`, {
+        await api.patch(`${base}/${editingId}`, {
           ...basePayload,
-          ...(networkWide ? { networkWide: true } : { targetCommunityIds: formTargets.map((f) => f.id) }),
+          // A published post keeps the audience it went out to.
+          ...(editingPublished ? {} : networkWide ? { networkWide: true } : { targetCommunityIds: formTargets.map((f) => f.id) }),
         });
         resetForm();
         setShowForm(false);
       } else {
-        const created = await api.post<HeadquartersPostRow>('/api/admin/headquarters-posts', basePayload);
+        const created = await api.post<HeadquartersPostRow>(base, basePayload);
         if (networkWide || formTargets.length > 0) {
-          await api.patch(`/api/admin/headquarters-posts/${created.id}`, {
+          await api.patch(`${base}/${created.id}`, {
             ...(networkWide ? { networkWide: true } : { targetCommunityIds: formTargets.map((f) => f.id) }),
           });
         }
@@ -279,7 +294,7 @@ export function HeadquartersPostsTab() {
     setActingOnId(id);
     setActionError(null);
     try {
-      await api.post(`/api/admin/headquarters-posts/${id}/publish`, {});
+      await api.post(`${base}/${id}/publish`, {});
       load();
       return true;
     } catch (err) {
@@ -303,7 +318,7 @@ export function HeadquartersPostsTab() {
     setActingOnId(id);
     setActionError(null);
     try {
-      await api.post(`/api/admin/headquarters-posts/${id}/archive`, {});
+      await api.post(`${base}/${id}/archive`, {});
       load();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : t('admin.headquartersPosts.archive_failed'));
@@ -330,9 +345,9 @@ export function HeadquartersPostsTab() {
       <p className="mb-4 text-sm text-slate-500">{t('admin.headquartersPosts.description')}</p>
 
       {showForm && (
-        <div className="card mb-4 space-y-4">
+        <div ref={formRef} className="card mb-4 space-y-4">
           <h3 className="font-medium text-brand-900">
-            {editingId ? t('admin.headquartersPosts.edit_post') : t('admin.headquartersPosts.new_post')}
+            {editingPublished ? t('admin.headquartersPosts.edit_published_post') : editingId ? t('admin.headquartersPosts.edit_post') : t('admin.headquartersPosts.new_post')}
           </h3>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -409,6 +424,15 @@ export function HeadquartersPostsTab() {
             </div>
           </fieldset>
 
+          {editingPublished ? (
+            <div>
+              <label className="label">{t('admin.headquartersPosts.audience_label')}</label>
+              <p className="text-sm text-slate-700" data-testid="hqpost-audience-fixed">
+                {networkWide ? t('admin.headquartersPosts.audience_network_wide') : formTargets.map((f) => f.name).join(', ') || '—'}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">{t('admin.headquartersPosts.audience_fixed_hint')}</p>
+            </div>
+          ) : (
           <div>
             <label className="label">{t('admin.headquartersPosts.audience_label')}</label>
             <div className="mb-2 flex gap-4 text-sm">
@@ -448,7 +472,7 @@ export function HeadquartersPostsTab() {
                 )}
                 <SearchPicker
                   placeholder={t('admin.people.search_community_placeholder') ?? ''}
-                  searchPath="/api/admin/communities?search="
+                  searchPath={communitySearchPath}
                   renderLabel={(c) => c.name}
                   actionLabel={t('admin.headquartersPosts.add_target')}
                   searchButtonLabel={t('admin.people.search_button')}
@@ -457,6 +481,7 @@ export function HeadquartersPostsTab() {
               </>
             )}
           </div>
+          )}
 
           {editingId && (
             <div>
@@ -498,7 +523,11 @@ export function HeadquartersPostsTab() {
             </div>
           )}
 
-          {editingId && <p className="text-xs text-slate-500">{t('admin.headquartersPosts.draft_saved_hint')}</p>}
+          {editingId && (
+            <p className="text-xs text-slate-500">
+              {editingPublished ? t('admin.headquartersPosts.published_edit_hint') : t('admin.headquartersPosts.draft_saved_hint')}
+            </p>
+          )}
           {formError && <p className="text-sm text-red-700">{formError}</p>}
           <div className="flex flex-wrap gap-3">
             <button
@@ -509,7 +538,7 @@ export function HeadquartersPostsTab() {
             >
               {editingId ? t('admin.headquartersPosts.save_changes') : t('admin.headquartersPosts.create_draft')}
             </button>
-            {editingId && (
+            {editingId && !editingPublished && (
               <button
                 type="button"
                 className="btn-secondary"
@@ -536,7 +565,52 @@ export function HeadquartersPostsTab() {
       {loadError && <p className="mb-4 text-sm text-red-700">{loadError}</p>}
       {actionError && <p className="mb-4 text-sm text-red-700">{actionError}</p>}
 
-      <div className="card overflow-x-auto">
+      {compact && (
+        // On the member profile (a phone screen): one card per post instead of the wide table.
+        <ul className="space-y-3" data-testid="hqpost-cards">
+          {items.map((row) => {
+            const status = postStatus(row);
+            return (
+              <li key={row.id} className="card">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-brand-900">{row.titleEn}</p>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(status)}`}>
+                    {t(`admin.headquartersPosts.status_${status}`)}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {(row.publishedAt ? new Date(row.publishedAt) : new Date(row.createdAt)).toLocaleDateString()}
+                  {status === 'published' && row.editedAt ? ` · ${t('admin.headquartersPosts.edited')}` : ''}
+                  {' · '}
+                  {row.networkWide ? t('admin.headquartersPosts.audience_network_wide') : row.targets.map((tgt) => tgt.communityName).join(', ') || '—'}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {t('admin.headquartersPosts.engagement_summary', { comments: row.commentCount, reactions: row.reactionCount })}
+                </p>
+                {status !== 'archived' && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => startEdit(row)}>
+                      ✏️ {t('admin.headquartersPosts.edit')}
+                    </button>
+                    {status === 'draft' && (
+                      <button type="button" className="btn-primary px-3 py-1.5 text-sm" disabled={actingOnId === row.id} onClick={() => publish(row.id)}>
+                        {t('admin.headquartersPosts.publish')}
+                      </button>
+                    )}
+                    <button type="button" className="px-3 py-1.5 text-sm text-red-700 disabled:text-slate-300" disabled={actingOnId === row.id} onClick={() => archive(row.id)}>
+                      {t('admin.headquartersPosts.archive')}
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+          {items.length === 0 && <li className="card text-center text-sm text-slate-400">{t('admin.headquartersPosts.no_posts')}</li>}
+        </ul>
+      )}
+
+      <div className={compact ? 'mt-3' : 'card overflow-x-auto'}>
+        {!compact && (
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400">
@@ -560,6 +634,7 @@ export function HeadquartersPostsTab() {
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(status)}`}>
                       {t(`admin.headquartersPosts.status_${status}`)}
                     </span>
+                    {status === 'published' && row.editedAt && <span className="ml-1 text-xs text-slate-400">{t('admin.headquartersPosts.edited')}</span>}
                   </td>
                   <td className="py-2 pr-4">{new Date(row.createdAt).toLocaleDateString()}</td>
                   <td className="py-2 pr-4">{row.publishedAt ? new Date(row.publishedAt).toLocaleDateString() : '—'}</td>
@@ -576,11 +651,13 @@ export function HeadquartersPostsTab() {
                   </td>
                   <td className="py-2 pr-4">
                     <div className="flex flex-col gap-1">
+                      {status !== 'archived' && (
+                        <button className="text-brand-700 hover:underline" onClick={() => startEdit(row)}>
+                          {t('admin.headquartersPosts.edit')}
+                        </button>
+                      )}
                       {status === 'draft' && (
                         <>
-                          <button className="text-brand-700 hover:underline" onClick={() => startEdit(row)}>
-                            {t('admin.headquartersPosts.edit')}
-                          </button>
                           <button
                             className="text-brand-700 hover:underline disabled:text-slate-300"
                             disabled={actingOnId === row.id}
@@ -613,6 +690,7 @@ export function HeadquartersPostsTab() {
             )}
           </tbody>
         </table>
+        )}
         {totalPages > 1 && (
           <div className="mt-4 flex items-center justify-center gap-3 text-sm">
             <button className="btn-secondary px-3 py-1.5" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>

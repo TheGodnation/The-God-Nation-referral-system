@@ -2265,6 +2265,8 @@ model HeadquartersPost {
   createdAt        DateTime              @default(now())
   publishedAt      DateTime?
   archivedAt       DateTime?
+  // Set when a published post is corrected afterwards (members see "edited").
+  editedAt         DateTime?
 
   createdBy    User                       @relation(fields: [createdByUserId], references: [id])
   authorPerson Person?                    @relation("HeadquartersPostAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)

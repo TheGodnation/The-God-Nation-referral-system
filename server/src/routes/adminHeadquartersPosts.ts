@@ -3,6 +3,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../lib/auth';
+import { requireMember } from '../lib/memberAuth';
+import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { requireCsrf } from '../lib/csrf';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { recordAudit } from '../lib/audit';
@@ -25,12 +27,10 @@ import { isStorageConfigured, createUploadUrl, headObject } from '../lib/storage
 import { resolveAuthorPersonId, AuthorToggleError } from '../lib/authorToggle';
 import { embedFor, type SocialProvider } from '../lib/socialEmbed';
 
+// The routes below are shared by two doors (see the bottom of this file): the admin dashboard, and
+// the central admin's own member profile. Both are Central Authority only — Headquarters Posts are
+// not Leader- or Community-Administrator-authorable.
 const router = Router();
-
-// Admin (Central Authority) only — Headquarters Posts are not Leader- or
-// Community-Administrator-authorable in this phase, and there is no
-// configurable permission system introduced to change that.
-router.use(requireAuth, requireRole('ADMIN'));
 
 const targetInclude = {
   targets: {
@@ -64,6 +64,7 @@ function toAdminResponse(p: {
   createdAt: Date;
   publishedAt: Date | null;
   archivedAt: Date | null;
+  editedAt?: Date | null;
   createdBy: { id: string; email: string };
   authorPersonId: string | null;
   voice?: string;
@@ -83,6 +84,7 @@ function toAdminResponse(p: {
     createdAt: p.createdAt,
     publishedAt: p.publishedAt,
     archivedAt: p.archivedAt,
+    editedAt: p.editedAt ?? null,
     createdBy: p.createdBy,
     postAsSelf: p.authorPersonId !== null,
     targets: p.targets.map((t) => ({ id: t.id, communityId: t.communityId, communityName: t.community.name })),
@@ -185,9 +187,10 @@ const patchSchema = z.object({
   voice: z.enum(['CENTRAL_AUTHORITY', 'COMMUNICATION_DEPARTMENT']).optional(),
 });
 
-// PATCH /api/admin/headquarters-posts/:id — draft only. Once published or
-// archived, content and audience are immutable — no normal editing path
-// exists past that point (archiving is the only further transition).
+// PATCH /api/admin/headquarters-posts/:id — a draft can change in every way. A published post can
+// still be corrected (title, text, French, which name it shows), so a mistake can be fixed after it
+// went out: members see the new text at once, marked "edited", and nobody is notified again. Its
+// audience stays as published (that decided who was notified). An archived post cannot change.
 // networkWide and targetCommunityIds are mutually exclusive: setting
 // networkWide true clears any existing targets, and setting
 // targetCommunityIds (non-empty) clears networkWide back to false — the two
@@ -202,8 +205,28 @@ router.patch('/:id', headquartersPostMutationLimiter, requireCsrf, asyncHandler(
 
   const existing = await prisma.headquartersPost.findUnique({ where: { id } });
   if (!existing) return res.status(404).json({ error: 'Headquarters post not found.' });
-  if (existing.publishedAt || existing.archivedAt) {
-    return res.status(409).json({ error: 'Only a draft headquarters post can be edited.' });
+  if (existing.archivedAt) {
+    return res.status(409).json({ error: 'An archived headquarters post cannot be edited.' });
+  }
+  const published = existing.publishedAt !== null;
+  if (published && (d.networkWide !== undefined || d.targetCommunityIds !== undefined)) {
+    // The form sends the audience back as it is; only a real change is refused.
+    const current = await prisma.headquartersPostTarget.findMany({ where: { headquartersPostId: id }, select: { communityId: true } });
+    const sameIds = (ids: string[]) => {
+      const a = [...new Set(ids)].sort();
+      const b = current.map((t) => t.communityId).sort();
+      return a.length === b.length && a.every((x, i) => x === b[i]);
+    };
+    const same = d.networkWide === true
+      ? existing.networkWide
+      : d.targetCommunityIds !== undefined
+        ? !existing.networkWide && sameIds(d.targetCommunityIds)
+        : d.networkWide === existing.networkWide;
+    if (!same) {
+      return res.status(409).json({ error: 'The audience of a published post cannot change. Archive it and publish a new one instead.' });
+    }
+    d.networkWide = undefined;
+    d.targetCommunityIds = undefined;
   }
 
   if (d.targetCommunityIds && d.targetCommunityIds.length > 0) {
@@ -226,6 +249,8 @@ router.patch('/:id', headquartersPostMutationLimiter, requireCsrf, asyncHandler(
   const frEdited = (d.titleFr !== undefined && d.titleFr !== existing.titleFr) || (d.bodyFr !== undefined && d.bodyFr !== existing.bodyFr);
   const enEdited = (d.titleEn !== undefined && d.titleEn !== existing.titleEn) || (d.bodyEn !== undefined && d.bodyEn !== existing.bodyEn);
   const redoFrench = existing.frAutoTranslated && enEdited && !frEdited;
+  const otherEdited = (d.voice !== undefined && d.voice !== existing.voice) || (authorPersonId !== undefined && authorPersonId !== existing.authorPersonId);
+  const markEdited = published && (enEdited || frEdited || otherEdited);
 
   const updated = await prisma.$transaction(async (tx) => {
     if (d.networkWide === true) {
@@ -253,6 +278,7 @@ router.patch('/:id', headquartersPostMutationLimiter, requireCsrf, asyncHandler(
         ...(authorPersonId !== undefined ? { authorPersonId } : {}),
         ...(d.voice ? { voice: d.voice } : {}),
         ...(redoFrench ? { titleFr: null, bodyFr: null, frAutoTranslated: false } : frEdited ? { frAutoTranslated: false } : {}),
+        ...(markEdited ? { editedAt: new Date() } : {}),
       },
       include: targetInclude,
     });
@@ -265,7 +291,7 @@ router.patch('/:id', headquartersPostMutationLimiter, requireCsrf, asyncHandler(
     action: 'HEADQUARTERS_POST_UPDATED',
     targetType: 'HeadquartersPost',
     targetId: id,
-    metadata: { changedKeys: Object.keys(req.body ?? {}) },
+    metadata: { changedKeys: Object.keys(req.body ?? {}), ...(published ? { afterPublishing: true } : {}) },
   });
 
   res.json(toAdminResponse(updated));
@@ -288,7 +314,7 @@ const authorizeMediaSchema = z.object({
 // route below actually creates it, so an authorized-but-abandoned upload
 // can never become visible media purely by calling this route. Draft-only,
 // matching every other HeadquartersPost mutation's own edit-only-while-
-// draft rule — content/audience/media are only editable before publish.
+// draft rule — media can still be corrected after publishing, never once archived.
 router.post(
   '/:id/media/authorize',
   attachmentUploadAuthorizeLimiter,
@@ -297,8 +323,8 @@ router.post(
     const { id } = req.params;
     const existing = await prisma.headquartersPost.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Headquarters post not found.' });
-    if (existing.publishedAt || existing.archivedAt) {
-      return res.status(409).json({ error: 'Only a draft headquarters post can have its media changed.' });
+    if (existing.archivedAt) {
+      return res.status(409).json({ error: 'An archived headquarters post cannot have its media changed.' });
     }
     const mediaCount = await prisma.headquartersPostMedia.count({ where: { headquartersPostId: id } });
     if (mediaCount >= MAX_HEADQUARTERS_POST_MEDIA) {
@@ -362,8 +388,8 @@ router.post(
     const { id } = req.params;
     const existing = await prisma.headquartersPost.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Headquarters post not found.' });
-    if (existing.publishedAt || existing.archivedAt) {
-      return res.status(409).json({ error: 'Only a draft headquarters post can have its media changed.' });
+    if (existing.archivedAt) {
+      return res.status(409).json({ error: 'An archived headquarters post cannot have its media changed.' });
     }
     const mediaCount = await prisma.headquartersPostMedia.count({ where: { headquartersPostId: id } });
     if (mediaCount >= MAX_HEADQUARTERS_POST_MEDIA) {
@@ -402,6 +428,7 @@ router.post(
       return res.status(400).json({ error: 'Media upload could not be verified.' });
     }
 
+    if (existing.publishedAt) await prisma.headquartersPost.update({ where: { id }, data: { editedAt: new Date() } });
     await prisma.headquartersPostMedia.create({
       data: {
         headquartersPostId: id,
@@ -429,18 +456,18 @@ router.post(
 );
 
 // DELETE /api/admin/headquarters-posts/:id/media/:mediaId — remove one item
-// from the gallery (draft-only, same edit-while-draft rule as everything
-// else here). Never renumbers the remaining items' `position`.
+// from the gallery (not once archived). Never renumbers the remaining items' `position`.
 router.delete('/:id/media/:mediaId', headquartersPostMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
   const { id, mediaId } = req.params;
   const existing = await prisma.headquartersPost.findUnique({ where: { id } });
   if (!existing) return res.status(404).json({ error: 'Headquarters post not found.' });
-  if (existing.publishedAt || existing.archivedAt) {
-    return res.status(409).json({ error: 'Only a draft headquarters post can have its media changed.' });
+  if (existing.archivedAt) {
+    return res.status(409).json({ error: 'An archived headquarters post cannot have its media changed.' });
   }
 
   const result = await prisma.headquartersPostMedia.deleteMany({ where: { id: mediaId, headquartersPostId: id } });
   if (result.count === 0) return res.status(404).json({ error: 'Media item not found.' });
+  if (existing.publishedAt) await prisma.headquartersPost.update({ where: { id }, data: { editedAt: new Date() } });
 
   await recordAudit({
     actorId: req.user!.id,
@@ -533,4 +560,25 @@ router.post('/:id/archive', headquartersPostMutationLimiter, requireCsrf, asyncH
   res.json(toAdminResponse(updated!));
 }));
 
-export default router;
+// The admin dashboard.
+const adminRouter = Router();
+adminRouter.use(requireAuth, requireRole('ADMIN'), router);
+export default adminRouter;
+
+// The central admin's own member profile: the same tools, acting as the admin account linked to
+// that member profile (so the post, its audit trail and "post as myself" are exactly the same).
+export const memberCentralHeadquartersPostsRoutes = (() => {
+  const member = Router();
+  member.use(requireMember);
+  member.use(
+    asyncHandler(async (req, res, next) => {
+      if (!(await isCentralAdminPerson(req.member!.personId))) return res.status(403).json({ error: 'Forbidden.' });
+      const user = await prisma.user.findUnique({ where: { personId: req.member!.personId }, select: { id: true, email: true, role: true, active: true, personId: true, name: true } });
+      if (!user || user.role !== 'ADMIN' || !user.active) return res.status(403).json({ error: 'Forbidden.' });
+      (req as any).user = user;
+      next();
+    }),
+  );
+  member.use(router);
+  return member;
+})();
