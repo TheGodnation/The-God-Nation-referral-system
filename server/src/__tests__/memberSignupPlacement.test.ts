@@ -6,6 +6,7 @@ import { EmailService } from '../lib/email';
 import { chooseGroup } from '../lib/placement';
 import { createAdmin } from './helpers';
 import { bootstrap } from './testUtils';
+import { TERMS_VERSION } from '../routes/memberAuth';
 
 // New member sign-up (email + phone -> emailed link -> details form) and
 // automatic group placement (smallest open group, or by location).
@@ -32,7 +33,7 @@ async function signup(email: string, whatsapp: string, language: 'en' | 'fr' = '
   const spy = vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true });
   const agent = agentWithUniqueIp();
   const { csrf } = await bootstrap(agent as any);
-  const res = await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email, whatsapp, password: 'Testpass123', language });
+  const res = await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email, whatsapp, password: 'Testpass123', language, acceptTerms: true });
   const call = spy.mock.calls[0]?.[0];
   spy.mockRestore();
   return { res, agent, csrf, link: call?.link as string | undefined, sentTo: call?.to as string | undefined };
@@ -94,6 +95,23 @@ describe('Member sign-up — step 1 (email + phone)', () => {
     const registration = await prisma.registration.findUnique({ where: { normalizedWhatsApp: '+237670101001' } });
     expect(registration?.personId).toBe(person!.id);
     expect(registration?.pathway).toBe('DISCOVER_GROW');
+    // They accepted the Terms of Use and Privacy Policy: when, and which version.
+    expect(person!.termsAcceptedAt).toBeInstanceOf(Date);
+    expect(person!.termsVersion).toBe(TERMS_VERSION);
+  });
+
+  it('refuses to sign up without accepting the Terms of Use and Privacy Policy, and creates nothing', async () => {
+    const spy = vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true });
+    for (const acceptTerms of [undefined, false]) {
+      const agent = agentWithUniqueIp();
+      const { csrf } = await bootstrap(agent as any);
+      const res = await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email: 'no.terms@example.com', whatsapp: '+237670101009', password: 'Testpass123', language: 'en', ...(acceptTerms === undefined ? {} : { acceptTerms }) });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('TERMS_REQUIRED');
+    }
+    expect(spy).not.toHaveBeenCalled();
+    expect(await prisma.person.findUnique({ where: { whatsappNumber: '+237670101009' } })).toBeNull();
+    expect(await prisma.memberAccount.findUnique({ where: { email: 'no.terms@example.com' } })).toBeNull();
   });
 
   it('rejects an invalid phone number with a clear message', async () => {
@@ -126,6 +144,7 @@ describe('Member sign-up — step 1 (email + phone)', () => {
     expect(link).toBeTruthy();
     const account = await prisma.memberAccount.findUnique({ where: { personId: existing.id } });
     expect(account?.email).toBe('old.registrant@example.com');
+    expect((await prisma.person.findUnique({ where: { id: existing.id } }))?.termsVersion).toBe(TERMS_VERSION);
   });
 });
 

@@ -197,6 +197,13 @@ router.post(
     }
 
     const sent: { kind: 'group' | 'private'; chatId: string; messageId: string }[] = [];
+    // Each copy gets its own time, at least a millisecond after the one before: copies made within the same millisecond
+    // would otherwise tie, and the chat would show them in a random order instead of the order they were selected.
+    let lastStamp = 0;
+    const nextStamp = () => {
+      lastStamp = Math.max(Date.now(), lastStamp + 1);
+      return new Date(lastStamp);
+    };
     for (const target of resolved) {
       // The selected messages go one after the other, in the order given.
       for (const message of loaded) {
@@ -214,6 +221,7 @@ router.post(
               senderPersonId: target.personId,
               body: message.body,
               forwarded,
+              createdAt: nextStamp(),
               // The same words, so the translation already made is still right for the copy.
               ...(message.known?.translatedBody
                 ? { detectedLanguage: message.known.detectedLanguage, translatedBody: message.known.translatedBody, translatedAt: message.known.translatedAt }
@@ -254,6 +262,7 @@ router.post(
               conversationId: target.conversation.id,
               body: message.body ?? '',
               forwarded,
+              createdAt: nextStamp(),
               ...(actor.type === 'PERSON' ? { senderPersonId: actor.personId } : { senderUserId: actor.userId }),
               attachments: copies.length
                 ? {

@@ -156,6 +156,7 @@ describe('Sign-up ads box', () => {
     expect(screen.getByText(/Meta \(Facebook and Instagram\), TikTok and Google/)).toBeInTheDocument();
     await fill();
     fireEvent.click(box);
+    fireEvent.click(screen.getByRole('checkbox', { name: /accept the Terms of Use/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
     await waitFor(() => expect(screen.getByText('Check your email')).toBeInTheDocument());
     const body = calls.find((c) => c.url.includes('/api/member/auth/signup'))!.body;
@@ -168,6 +169,7 @@ describe('Sign-up ads box', () => {
     render(<MemoryRouter><MemberSignupPage /></MemoryRouter>);
     await screen.findByTestId('signup-consent-ads');
     await fill();
+    fireEvent.click(screen.getByRole('checkbox', { name: /accept the Terms of Use/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
     await waitFor(() => expect(screen.getByText('Check your email')).toBeInTheDocument());
     const body = calls.find((c) => c.url.includes('/api/member/auth/signup'))!.body;

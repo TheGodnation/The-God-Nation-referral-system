@@ -216,7 +216,7 @@ describe('Sign-up and profile triggers', () => {
 
   it('refuses an odd event id instead of passing it on', async () => {
     const { agent, csrf } = await fresh();
-    const res = await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email: 'odd@example.com', whatsapp: freshPhone(), password: 'Testpass123', adEventId: '<script>' });
+    const res = await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email: 'odd@example.com', whatsapp: freshPhone(), password: 'Testpass123', adEventId: '<script>', acceptTerms: true });
     expect(res.status).toBe(400);
   });
 });

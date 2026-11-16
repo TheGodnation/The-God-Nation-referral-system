@@ -231,6 +231,9 @@ const GENERIC_SIGNUP_RESPONSE = {
   message: 'Check your email: we sent you a link to continue. It works once and expires soon.',
 };
 
+/** The Terms of Use a new member accepts at sign-up: the date on the Terms page (client i18n "terms.updated"). */
+export const TERMS_VERSION = '2026-11-10';
+
 const signupSchema = z.object({
   email: z.string().trim().email().max(320),
   whatsapp: z.string().trim().min(1).max(32),
@@ -244,6 +247,9 @@ const signupSchema = z.object({
   consentAds: z.boolean().optional().default(false),
   adEventId: z.string().regex(AD_EVENT_ID).optional(),
   fbp: z.string().regex(FBP_VALUE).optional(),
+  // Required: the box "I have read and accept the Terms of Use and the Privacy Policy" (checked last, so a wrong email,
+  // phone or password is still reported first).
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: 'Please accept the Terms of Use and the Privacy Policy.' }) }),
 });
 
 router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -252,6 +258,9 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
     const issue = parsed.error.issues[0];
     if (issue?.path[0] === 'password') {
       return res.status(400).json({ error: issue.message, code: 'INVALID_PASSWORD' });
+    }
+    if (issue?.path[0] === 'acceptTerms') {
+      return res.status(400).json({ error: 'Please accept the Terms of Use and the Privacy Policy.', code: 'TERMS_REQUIRED' });
     }
     return res.status(400).json({ error: 'Please enter a valid email address and phone number.', code: 'INVALID_INPUT' });
   }
@@ -311,6 +320,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
       const memberAccount = await prisma.memberAccount.create({
         data: { personId: personByPhone.id, email: normalizedEmail, passwordHash },
       });
+      await prisma.person.update({ where: { id: personByPhone.id }, data: { termsAcceptedAt: new Date(), termsVersion: TERMS_VERSION } });
       await getOrCreatePersonReferralCode(prisma, personByPhone.id, personByPhone.name);
       await recordAudit({
         action: 'MEMBER_ACCOUNT_CREATED',
@@ -356,6 +366,8 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
           email: normalizedEmail,
           preferredLanguage: language,
           isTestData,
+          termsAcceptedAt: new Date(),
+          termsVersion: TERMS_VERSION,
         },
       });
       const registration = await tx.registration.create({

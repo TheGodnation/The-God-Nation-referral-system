@@ -922,6 +922,10 @@ model Person {
   // "last seen" (see lib/presence.ts).
   lastSeenAt               DateTime?
   friendRequestPolicy      FriendRequestPolicy          @default(EVERYONE)
+  // When they accepted the Terms of Use and Privacy Policy at sign-up, and which version (the date on the Terms page).
+  // Google Play asks apps where people post to have them accept terms first. Null for people who joined before this.
+  termsAcceptedAt          DateTime?
+  termsVersion             String?
   // "Delete my account" (lib/accountDeletion.ts): set when the member asks.
   // For a month the account is hidden and signed out everywhere; signing
   // in again cancels the deletion. Null = not asked (or came back).

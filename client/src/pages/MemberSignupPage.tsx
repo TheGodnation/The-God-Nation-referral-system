@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
 import { PasswordInput } from '../components/PasswordInput';
@@ -34,6 +34,8 @@ function MemberSignupPageInner() {
   const [consentWhatsapp, setConsentWhatsapp] = useState(false);
   const [consentEmail, setConsentEmail] = useState(false);
   const [consentAds, setConsentAds] = useState(false);
+  // Required (Google Play asks apps where people post to have them accept terms first): never ticked in advance.
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const settings = usePublicSettings();
   const showAds = adsConfigured(settings.ads);
   const [submitting, setSubmitting] = useState(false);
@@ -56,6 +58,10 @@ function MemberSignupPageInner() {
       setError(t('memberSignup.error_password'));
       return;
     }
+    if (!acceptTerms) {
+      setError(t('memberSignup.error_terms'));
+      return;
+    }
     if (!emailTypo.confirmBeforeSubmit()) return;
     setSubmitting(true);
     try {
@@ -63,7 +69,7 @@ function MemberSignupPageInner() {
       const ads = showAds && consentAds;
       const adEventId = newAdEventId();
       await api.post('/api/member/auth/signup', {
-        email: email.trim(), whatsapp: whatsapp.trim(), password, language, consentWhatsapp, consentEmail,
+        email: email.trim(), whatsapp: whatsapp.trim(), password, language, consentWhatsapp, consentEmail, acceptTerms: true,
         ...(ads ? { consentAds: true, adEventId, fbp: getFbp() } : {}),
       });
       trackAd('Lead', adEventId);
@@ -72,6 +78,7 @@ function MemberSignupPageInner() {
       if (err instanceof ApiError && err.code === 'INVALID_PHONE') setError(t('memberSignup.error_phone'));
       else if (err instanceof ApiError && err.code === 'INVALID_PASSWORD') setError(t('memberSignup.error_password'));
       else if (err instanceof ApiError && err.code === 'INVALID_INPUT') setError(t('memberSignup.error_email'));
+      else if (err instanceof ApiError && err.code === 'TERMS_REQUIRED') setError(t('memberSignup.error_terms'));
       else setError(t('memberSignup.error_generic'));
     } finally {
       setSubmitting(false);
@@ -126,6 +133,19 @@ function MemberSignupPageInner() {
               <PasswordInput id="signup-password" value={password} onChange={setPassword} autoComplete="new-password" />
               <p className="mt-1 text-xs text-slate-500">{t('memberSignup.password_hint')}</p>
             </div>
+
+            <label className="flex items-start gap-2 rounded-lg border border-brand-100 bg-brand-50 px-3 py-3 text-sm text-slate-800" data-testid="signup-terms">
+              <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} required aria-required="true" />
+              <span>
+                <Trans
+                  i18nKey="memberSignup.accept_terms"
+                  components={{
+                    terms: <Link to="/terms" target="_blank" rel="noopener" className="font-medium text-brand-700 underline" />,
+                    privacy: <Link to="/privacy" target="_blank" rel="noopener" className="font-medium text-brand-700 underline" />,
+                  }}
+                />
+              </span>
+            </label>
 
             <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-3" data-testid="signup-consent">
               <label className="flex items-start gap-2 text-sm text-slate-700">
