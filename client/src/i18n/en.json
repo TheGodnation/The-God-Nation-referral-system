@@ -5569,5 +5569,16 @@
   },
   "postMenu": {
     "more": "More options"
+  },
+  "acceptTerms": {
+    "title": "Please accept our Terms",
+    "intro": "To keep The God Nation a safe and respectful place, we ask every member once to read and accept our Terms of Use and our Privacy Policy before continuing.",
+    "point_respect": "Treat everyone with love and respect in posts, comments and chats.",
+    "point_report": "Report anything that does not follow Christian standards; leaders review every report.",
+    "point_privacy": "The Privacy Policy explains what we keep about you and how to delete your account.",
+    "continue": "Accept and continue",
+    "saving": "Saving…",
+    "failed": "Something went wrong. Please try again.",
+    "sign_out": "Sign out"
   }
 }

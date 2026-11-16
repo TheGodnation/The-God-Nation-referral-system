@@ -19,6 +19,9 @@ export interface CurrentMember {
   // false only for a brand-new sign-up who still has to fill in their
   // details; missing (older server) is treated as complete.
   profileComplete?: boolean;
+  // false when the member still has to accept the current Terms of Use and Privacy Policy;
+  // missing (older server, or the saved offline copy) is treated as accepted.
+  termsAccepted?: boolean;
   personId?: string;
   // True only for the central admin's own member profile (carries the assembly tools).
   isCentralAdmin?: boolean;

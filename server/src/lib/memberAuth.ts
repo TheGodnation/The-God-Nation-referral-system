@@ -32,6 +32,7 @@ declare global {
         locationSubdivision: string | null;
         locationQuarter: string | null;
         profileCompletedAt: Date | null;
+        termsVersion: string | null;
         photoStorageKey: string | null;
         photoUpdatedAt: Date | null;
         coverStorageKey: string | null;
@@ -103,6 +104,7 @@ export async function loadMemberSession(req: Request, res: Response, next: NextF
       locationSubdivision: account.person.locationSubdivision,
       locationQuarter: account.person.locationQuarter,
       profileCompletedAt: account.person.profileCompletedAt,
+      termsVersion: account.person.termsVersion,
       photoStorageKey: account.person.photoStorageKey,
       photoUpdatedAt: account.person.photoUpdatedAt,
       coverStorageKey: account.person.coverStorageKey,

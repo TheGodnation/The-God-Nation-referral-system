@@ -5,6 +5,7 @@ import { PresencePing } from './member/PresencePing';
 import { ConnectionBar } from './member/ConnectionBar';
 import { OfflinePrefetch } from './member/OfflinePrefetch';
 import { WelcomeBackBanner } from './member/WelcomeBackBanner';
+import { AcceptTermsScreen } from './member/AcceptTermsScreen';
 
 // Phase 3C equivalent of ProtectedRoute/RequireAuth, but for the entirely
 // separate member session — never checks or interacts with the Admin/
@@ -23,6 +24,12 @@ export function RequireMember({ children }: { children: ReactNode }) {
   // entering the community — that's also when they are placed in a group.
   if (member.profileComplete === false && location.pathname !== '/member/complete-profile') {
     return <Navigate to="/member/complete-profile" replace />;
+  }
+
+  // Someone who has not yet accepted the current Terms of Use and Privacy Policy is asked once,
+  // before anything else opens (missing, e.g. offline from a saved copy, never blocks).
+  if (member.termsAccepted === false && location.pathname !== '/member/complete-profile') {
+    return <AcceptTermsScreen />;
   }
 
   return (
