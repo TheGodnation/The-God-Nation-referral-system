@@ -1,7 +1,7 @@
 # Runs the type checks and all automated tests on every change sent to the working branch (and to main).
 # Render is set to deploy "After CI checks pass", so a version whose tests fail never goes live.
-# The server tests are split in 6 parts that run side by side, each against its own empty Postgres
-# (the same way they run locally: one shared test database, files one after another).
+# The server tests are split in 6 parts that run side by side, each against its own empty Postgres 18
+# (the version the live database runs; the backup test dumps and restores it with version 18 tools).
 
 name: Tests
 
@@ -26,8 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -49,7 +49,7 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6]
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -66,11 +66,19 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/godnation_test?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/godnation_test?schema=public
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
+      - name: Postgres 18 tools (the backup test dumps and restores with them, as the daily backup does)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-18
+          # The runner already has an older pg_dump first on its path: put version 18 first.
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
       - run: npm ci
       - name: Prepare the database client
         working-directory: server
