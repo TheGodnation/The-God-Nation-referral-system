@@ -398,12 +398,15 @@ router.get('/', requireViewer, asyncHandler(async (req, res) => {
           : null,
       youtubeVideoId: p.youtubeVideoId,
       createdAt: p.createdAt,
+      editedAt: p.editedAt,
       photos: p.photos.map((ph) => ({ id: ph.id, url: `/api/updates/photos/${ph.id}` })),
       reactionCounts: countsByPost.get(p.id) ?? {},
       myReaction: mine.get(p.id) ?? null,
       commentCount: p._count.comments,
       // Only leaders and the central admin remove posts; everyone else reports them.
       canDelete: viewer.canModerate,
+      // Only the person who wrote it can change its text.
+      canEdit: viewer.personId !== null && p.author.id === viewer.personId,
     })),
     nextBefore: hasMore ? page[page.length - 1].createdAt.toISOString() : null,
   });
@@ -494,6 +497,33 @@ router.post('/', updatePostLimiter, requireCsrf, requireViewer, requirePerson, a
   })().catch(() => {});
 
   res.status(201).json({ id: post.id });
+}));
+
+const editPostSchema = z.object({ body: z.string().trim().max(MAX_UPDATE_BODY) });
+
+// PATCH /api/updates/:id — the author corrects the text of their own post (like editing a message
+// on WhatsApp). Photos and the video stay as they are. Readers see it marked "edited"; nobody is
+// notified again, and the translation is redone for the new text.
+router.patch('/:id', updatePostLimiter, requireCsrf, requireViewer, requirePerson, asyncHandler(async (req, res) => {
+  const viewer = req.updatesViewer!;
+  const parsed = editPostSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid post.' });
+  const post = await prisma.updatePost.findUnique({ where: { id: req.params.id }, include: { _count: { select: { photos: true } } } });
+  if (!post || post.deletedAt) return res.status(404).json({ error: 'Post not found.' });
+  if (post.authorPersonId !== viewer.personId) return res.status(403).json({ error: 'Only the person who wrote this post can edit it.' });
+  const body = parsed.data.body;
+  if (!body && post._count.photos === 0 && !post.youtubeVideoId) {
+    return res.status(400).json({ error: 'Write something, or add a photo or video.', code: 'EMPTY_POST' });
+  }
+  if (body === post.body) return res.json({ id: post.id, body: post.body, editedAt: post.editedAt });
+
+  const updated = await prisma.updatePost.update({
+    where: { id: post.id },
+    data: { body, editedAt: new Date(), detectedLanguage: null, translatedBody: null, translatedAt: null },
+    select: { id: true, body: true, editedAt: true },
+  });
+  if (body) void translateAndStoreUpdatePost(post.id, body).catch(() => {});
+  res.json(updated);
 }));
 
 router.delete('/:id', updatePostLimiter, requireCsrf, requireViewer, asyncHandler(async (req, res) => {

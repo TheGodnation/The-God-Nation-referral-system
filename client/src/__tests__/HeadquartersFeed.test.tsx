@@ -4,14 +4,19 @@ import { MemoryRouter } from 'react-router-dom';
 import { HeadquartersPosts } from '../components/HeadquartersPosts';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 
-const calls: { url: string; method: string }[] = [];
+let isCentralAdmin = false;
+vi.mock('../lib/MemberAuthContext', () => ({
+  useMemberAuth: () => ({ member: { personId: 'p-me', name: 'Me', isCentralAdmin } }),
+}));
+
+const calls: { url: string; method: string; body?: unknown }[] = [];
 
 function mockFetch(routes: Record<string, () => { status?: number; body: unknown }>) {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
-      calls.push({ url, method });
+      calls.push({ url, method, body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined });
       const key = Object.keys(routes)
         .sort((a, b) => b.length - a.length)
         .find((k) => {
@@ -26,6 +31,7 @@ function mockFetch(routes: Record<string, () => { status?: number; body: unknown
 }
 
 afterEach(() => {
+  isCentralAdmin = false;
   vi.unstubAllGlobals();
   calls.length = 0;
 });
@@ -42,6 +48,19 @@ const HQ = {
   reactionCount: 4,
   viewerHasReacted: false,
   media: [{ id: 'm1', mediaType: 'IMAGE', originalFilename: 'flyer.jpg', byteSize: 1000 }],
+};
+
+const COMMENT = {
+  id: 'c1',
+  parentCommentId: null,
+  author: { personId: 'p-ada', name: 'Ada', photoUrl: null },
+  authorName: 'Ada',
+  isOwn: false,
+  body: 'Amen',
+  createdAt: '2026-10-05T08:00:00.000Z',
+  reactionCounts: {},
+  myReaction: null,
+  canDelete: false,
 };
 
 describe('Headquarters posts in the Updates feed', () => {
@@ -81,13 +100,14 @@ describe('Headquarters posts in the Updates feed', () => {
   it('Read more expands the full post with its comments right there in the card, Facebook-style — no "Back" page', async () => {
     mockFetch({
       'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [] }] } }),
-      'GET /api/me/headquarters-posts/hq1/comments': () => ({ body: { items: [{ id: 'c1', authorName: 'Ada', isOwn: false, body: 'Amen', createdAt: HQ.publishedAt }], hasMore: false } }),
+      'GET /api/me/headquarters-posts/hq1/comments': () => ({ body: { items: [COMMENT], hasMore: false } }),
       'GET /api/me/headquarters-posts/hq1': () => ({ body: { ...HQ, media: [] } }),
     });
     render(<HeadquartersPosts variant="feed" />);
     const card = await screen.findByRole('article', { name: 'Headquarters post: Fasting week' });
     fireEvent.click(within(card).getByRole('button', { name: 'Read More' }));
     expect(await within(card).findByText('Amen')).toBeInTheDocument();
+    expect(calls.some((c) => c.url.includes('/comments?thread=1'))).toBe(true);
     // Still the same card — its title and Like/Comment buttons are right there, no separate "Back" page.
     expect(within(card).getByRole('heading', { name: 'Fasting week' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
@@ -95,6 +115,62 @@ describe('Headquarters posts in the Updates feed', () => {
 
     fireEvent.click(within(card).getByRole('button', { name: 'Read less' }));
     expect(screen.queryByText('Amen')).not.toBeInTheDocument();
+  });
+
+  it('a comment under a Headquarters post can be liked and replied to', async () => {
+    mockFetch({
+      'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [] }] } }),
+      'GET /api/me/headquarters-posts/hq1/comments': () => ({ body: { items: [COMMENT], hasMore: false } }),
+      'GET /api/me/headquarters-posts/hq1': () => ({ body: { ...HQ, media: [] } }),
+      'PUT /api/me/headquarters-posts/comments/c1/reaction': () => ({ body: { reactionCounts: { LIKE: 1 }, myReaction: 'LIKE' } }),
+      'POST /api/me/headquarters-posts/hq1/comments': () => ({ status: 201, body: { ...COMMENT, id: 'c2', parentCommentId: 'c1', body: 'Amen too' } }),
+    });
+    render(<HeadquartersPosts variant="feed" />);
+    const card = await screen.findByRole('article', { name: 'Headquarters post: Fasting week' });
+    fireEvent.click(within(card).getByRole('button', { name: 'Read More' }));
+    const comment = await within(card).findByRole('group', { name: 'Comment by Ada' });
+
+    fireEvent.click(within(comment).getByRole('button', { name: 'Like' }));
+    fireEvent.click(within(comment).getByRole('menuitem', { name: 'Like' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT' && c.url.endsWith('/comments/c1/reaction'))).toBe(true));
+    expect(await within(comment).findByText('👍 1')).toBeInTheDocument();
+
+    fireEvent.click(within(comment).getByRole('button', { name: 'Reply' }));
+    const box = within(card).getByLabelText('Reply to Ada');
+    fireEvent.change(box, { target: { value: 'Amen too' } });
+    fireEvent.submit(box.closest('form')!);
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/hq1/comments'))).toBe(true));
+    const sent = calls.find((c) => c.method === 'POST' && c.url.endsWith('/hq1/comments'))!;
+    expect(sent.body).toEqual({ body: 'Amen too', parentCommentId: 'c1' });
+  });
+
+  it('the central admin corrects a post from its ⋯ menu; members see no menu', async () => {
+    isCentralAdmin = true;
+    mockFetch({
+      'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [] }] } }),
+      'PATCH /api/member/central-headquarters-posts/hq1': () => ({
+        body: { titleEn: 'Fasting week (corrected)', titleFr: HQ.titleFr, bodyEn: HQ.bodyEn, bodyFr: HQ.bodyFr, editedAt: '2026-11-16T10:00:00.000Z' },
+      }),
+    });
+    render(<MemoryRouter><HeadquartersPosts variant="feed" /></MemoryRouter>);
+    const card = await screen.findByRole('article', { name: 'Headquarters post: Fasting week' });
+    fireEvent.click(within(card).getByRole('button', { name: 'More options' }));
+    fireEvent.click(within(card).getByRole('menuitem', { name: /Edit/ }));
+    const title = within(card).getByLabelText('Title (English)');
+    fireEvent.change(title, { target: { value: 'Fasting week (corrected)' } });
+    fireEvent.click(within(card).getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('heading', { name: 'Fasting week (corrected)' })).toBeInTheDocument();
+    expect(screen.getByText(/· edited/)).toBeInTheDocument();
+    const patch = calls.find((c) => c.method === 'PATCH')!;
+    expect(patch.body).toMatchObject({ titleEn: 'Fasting week (corrected)' });
+  });
+
+  it('a member sees no ⋯ edit menu on a Headquarters post', async () => {
+    mockFetch({ 'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [] }] } }) });
+    render(<MemoryRouter><HeadquartersPosts variant="feed" /></MemoryRouter>);
+    const card = await screen.findByRole('article', { name: 'Headquarters post: Fasting week' });
+    expect(within(card).queryByRole('button', { name: 'More options' })).not.toBeInTheDocument();
   });
 
   it('the dashboard list keeps its compact look', async () => {

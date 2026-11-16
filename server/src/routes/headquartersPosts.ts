@@ -23,6 +23,9 @@ import { REACTION_TYPES } from '../lib/updates';
 import { createDownloadUrl, isStorageConfigured } from '../lib/storage';
 import { getAuthorDisplay, getAuthorDisplaysByIds, type AuthorDisplay } from '../lib/authorToggle';
 import { embedFor, type SocialProvider } from '../lib/socialEmbed';
+import { profilePhotoPath } from '../lib/profilePhoto';
+import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
+import { notifyPostLiked, notifyPostReplied } from '../lib/notifications';
 
 declare global {
   namespace Express {
@@ -206,7 +209,47 @@ const MAX_COMMENT_PAGE_SIZE = 50;
 const listCommentsQuerySchema = z.object({
   before: z.string().optional(),
   limit: z.coerce.number().int().min(1).optional(),
+  // thread=1: the whole conversation at once (comments, replies, reactions), the way member posts show it.
+  thread: z.enum(['1']).optional(),
 });
+
+const THREAD_MAX_COMMENTS = 300;
+
+type CommentWithAuthor = {
+  id: string;
+  parentCommentId: string | null;
+  authorPersonId: string;
+  body: string;
+  createdAt: Date;
+  author: { id: string; name: string; photoStorageKey: string | null; photoUpdatedAt: Date | null };
+  reactions: { type: string; personId: string }[];
+};
+
+/** One comment as the screen shows it: who wrote it, its reactions and the viewer's own. */
+async function shapeComments(rows: CommentWithAuthor[], personId: string) {
+  const coordinators = await centralAdminAmong(rows.map((c) => c.author.id));
+  return rows.map((c) => {
+    const reactionCounts: Record<string, number> = {};
+    for (const r of c.reactions) reactionCounts[r.type] = (reactionCounts[r.type] ?? 0) + 1;
+    return {
+      id: c.id,
+      parentCommentId: c.parentCommentId,
+      author: { personId: c.author.id, name: c.author.name, photoUrl: profilePhotoPath(c.author), badge: badgeOf(coordinators, c.author.id) },
+      authorName: c.author.name,
+      isOwn: c.authorPersonId === personId,
+      body: c.body,
+      createdAt: c.createdAt,
+      reactionCounts,
+      myReaction: c.reactions.find((r) => r.personId === personId)?.type ?? null,
+      canDelete: false,
+    };
+  });
+}
+
+const commentInclude = {
+  author: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } },
+  reactions: { select: { type: true, personId: true } },
+} as const;
 
 // GET /api/me/headquarters-posts/:id/comments — cursor-paginated,
 // newest-first internally, returned oldest-first for direct rendering.
@@ -226,6 +269,16 @@ router.get('/:id/comments', asyncHandler(async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid pagination parameters.' });
   }
+  if (parsed.data.thread) {
+    const all = await prisma.headquartersPostComment.findMany({
+      where: { headquartersPostId: id },
+      include: commentInclude,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: THREAD_MAX_COMMENTS,
+    });
+    return res.json({ items: await shapeComments(all, personId), hasMore: false });
+  }
+
   const limit = Math.min(parsed.data.limit ?? DEFAULT_COMMENT_PAGE_SIZE, MAX_COMMENT_PAGE_SIZE);
 
   let cursor: { createdAt: Date; id: string } | null = null;
@@ -244,7 +297,7 @@ router.get('/:id/comments', asyncHandler(async (req, res) => {
         ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }
         : {}),
     },
-    include: { author: { select: { name: true } } },
+    include: commentInclude,
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
   });
@@ -252,20 +305,12 @@ router.get('/:id/comments', asyncHandler(async (req, res) => {
   const hasMore = rows.length > limit;
   const page = rows.slice(0, limit).reverse();
 
-  res.json({
-    items: page.map((c) => ({
-      id: c.id,
-      authorName: c.author.name,
-      isOwn: c.authorPersonId === personId,
-      body: c.body,
-      createdAt: c.createdAt,
-    })),
-    hasMore,
-  });
+  res.json({ items: await shapeComments(page, personId), hasMore });
 }));
 
 const createCommentSchema = z.object({
   body: z.string().trim().min(1).max(MAX_COMMENT_CHARS),
+  parentCommentId: z.string().uuid().optional(),
 });
 
 // POST /api/me/headquarters-posts/:id/comments — authorPersonId is always
@@ -288,22 +333,98 @@ router.post(
       return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid comment.' });
     }
 
+    // A reply must answer a comment on this same post; replying to a reply attaches to the same
+    // top comment (one level, like member posts).
+    let parentCommentId: string | null = null;
+    let parentAuthorPersonId: string | null = null;
+    if (parsed.data.parentCommentId) {
+      const parent = await prisma.headquartersPostComment.findUnique({
+        where: { id: parsed.data.parentCommentId },
+        select: { id: true, headquartersPostId: true, parentCommentId: true, authorPersonId: true },
+      });
+      if (!parent || parent.headquartersPostId !== id) return res.status(400).json({ error: 'That comment is no longer there.' });
+      parentCommentId = parent.parentCommentId ?? parent.id;
+      parentAuthorPersonId = parent.authorPersonId;
+    }
+
     const created = await prisma.headquartersPostComment.create({
-      data: { headquartersPostId: id, authorPersonId: personId, body: parsed.data.body },
-      include: { author: { select: { name: true } } },
+      data: { headquartersPostId: id, authorPersonId: personId, body: parsed.data.body, parentCommentId },
+      include: commentInclude,
     });
 
-    res.status(201).json({
-      id: created.id,
-      authorName: created.author.name,
-      isOwn: true,
-      body: created.body,
-      createdAt: created.createdAt,
-    });
+    // Whoever was replied to hears about it (not when replying to yourself).
+    if (parentAuthorPersonId && parentAuthorPersonId !== personId) {
+      const target = parentAuthorPersonId;
+      void (async () => {
+        const actor = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } });
+        if (actor) {
+          await notifyPostReplied({ recipientPersonId: target, actor, kind: 'COMMENT_REPLY', targetType: 'HeadquartersPostComment', targetId: created.id, url: '/member/updates', text: parsed.data.body });
+        }
+      })().catch(() => {});
+    }
+
+    res.status(201).json((await shapeComments([created], personId))[0]);
   }),
 );
 
 const reactionBodySchema = z.object({ type: z.enum(REACTION_TYPES).optional() });
+
+// ----------------------------- Comment reactions ------------------------------
+
+/** A comment the viewer may see (its post must be one they can view). */
+async function viewableComment(commentId: string, personId: string) {
+  const comment = await prisma.headquartersPostComment.findUnique({ where: { id: commentId }, select: { id: true, headquartersPostId: true, authorPersonId: true } });
+  if (!comment) return null;
+  return (await personCanViewHeadquartersPost(personId, comment.headquartersPostId)) ? comment : null;
+}
+
+async function commentReactionSummary(commentId: string, personId: string) {
+  const rows = await prisma.headquartersPostCommentReaction.findMany({ where: { commentId }, select: { personId: true, type: true } });
+  const reactionCounts: Record<string, number> = {};
+  for (const r of rows) reactionCounts[r.type] = (reactionCounts[r.type] ?? 0) + 1;
+  return { reactionCounts, myReaction: rows.find((r) => r.personId === personId)?.type ?? null };
+}
+
+// GET /api/me/headquarters-posts/comments/:commentId/reactions — who reacted to a comment.
+router.get('/comments/:commentId/reactions', asyncHandler(async (req, res) => {
+  const personId = req.headquartersPostRecipientPersonId!;
+  if (!(await viewableComment(req.params.commentId, personId))) return res.status(404).json({ error: 'Comment not found.' });
+  const rows = await prisma.headquartersPostCommentReaction.findMany({ where: { commentId: req.params.commentId }, select: { personId: true, type: true, createdAt: true } });
+  res.json(await reactorList(rows.map((r) => ({ personId: r.personId, reaction: r.type, createdAt: r.createdAt })), { personId }));
+}));
+
+// PUT /api/me/headquarters-posts/comments/:commentId/reaction — like (or another reaction) a comment.
+router.put('/comments/:commentId/reaction', headquartersPostReactionLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const personId = req.headquartersPostRecipientPersonId!;
+  const parsed = z.object({ type: z.enum(REACTION_TYPES) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid reaction.' });
+  const comment = await viewableComment(req.params.commentId, personId);
+  if (!comment) return res.status(404).json({ error: 'Comment not found.' });
+  const key = { commentId_personId: { commentId: comment.id, personId } };
+  const before = await prisma.headquartersPostCommentReaction.findUnique({ where: key, select: { id: true } });
+  await prisma.headquartersPostCommentReaction.upsert({
+    where: key,
+    create: { commentId: comment.id, personId, type: parsed.data.type },
+    update: { type: parsed.data.type },
+  });
+  // Tell the comment's author about a new reaction (changing it later does not tell them again).
+  if (!before && comment.authorPersonId !== personId) {
+    void (async () => {
+      const actor = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true } });
+      if (actor) await notifyPostLiked({ recipientPersonId: comment.authorPersonId, actor, kind: 'COMMENT', targetType: 'HeadquartersPostComment', targetId: comment.id, url: '/member/updates' });
+    })().catch(() => {});
+  }
+  res.json(await commentReactionSummary(comment.id, personId));
+}));
+
+// DELETE /api/me/headquarters-posts/comments/:commentId/reaction — take your reaction back.
+router.delete('/comments/:commentId/reaction', headquartersPostReactionLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const personId = req.headquartersPostRecipientPersonId!;
+  const comment = await viewableComment(req.params.commentId, personId);
+  if (!comment) return res.status(404).json({ error: 'Comment not found.' });
+  await prisma.headquartersPostCommentReaction.deleteMany({ where: { commentId: comment.id, personId } });
+  res.json(await commentReactionSummary(comment.id, personId));
+}));
 
 /** Everyone's reactions on one post: total, counts by type, and the viewer's own. */
 async function reactionSummary(headquartersPostId: string, personId: string) {

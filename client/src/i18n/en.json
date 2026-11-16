@@ -1660,7 +1660,10 @@
     "post_label": "Headquarters post: {{title}}",
     "comm_dept_name": "God's Nation Communication Department",
     "shared_post": "Shared post",
-    "edited": "edited"
+    "edited": "edited",
+    "edit": "Edit",
+    "edit_failed": "Could not save your change. Please try again.",
+    "edit_hint": "Everyone sees the correction straight away, marked \"edited\". Nobody is notified again. If you change only the English, the automatic French is redone."
   },
   "myResources": {
     "title": "Resources",
@@ -2034,7 +2037,14 @@
     "reply_placeholder": "Write a reply…",
     "comment_by": "Comment by {{name}}",
     "audience_label": "Who can see it",
-    "friends_only_title": "Friends only"
+    "friends_only_title": "Friends only",
+    "edit": "Edit",
+    "edited": "edited",
+    "edit_label": "Edit your post",
+    "save_edit": "Save",
+    "cancel_edit": "Cancel",
+    "saving": "Saving…",
+    "edit_failed": "Could not save your change. Please try again."
   },
   "prayerRequests": {
     "title": "Prayer Requests",
@@ -5556,5 +5566,8 @@
     "confirm_lower": "{{name}} has {{from}} books recorded. Lower it to {{to}}? Books after number {{to}} will close again unless they passed their exams.",
     "load_failed": "Could not load this person. Please try again.",
     "save_failed": "Could not save. Please try again."
+  },
+  "postMenu": {
+    "more": "More options"
   }
 }

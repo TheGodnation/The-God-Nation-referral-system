@@ -1015,3 +1015,59 @@ describe('Headquarters Posts — from the central admin member profile', () => {
     expect((await agent.post(base).set('X-CSRF-Token', csrf).send({ titleEn: 'No', bodyEn: 'No.' })).status).toBe(403);
   });
 });
+
+describe('Headquarters Posts — liking and replying to comments', () => {
+  it('members reply to a comment and like it; the thread shows replies under their comment with counts', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(91);
+    const community = await makeCommunity('HQ Comment Thread Community');
+    const a = await loginAsMember('+237698200001', 'hqp-thread-a@example.com', 'Thread Ada');
+    const b = await loginAsMember('+237698200002', 'hqp-thread-b@example.com', 'Thread Ben');
+    await joinCommunity(a.person.id, community.id);
+    await joinCommunity(b.person.id, community.id);
+    const id = await publishTargeted(adminAgent, csrf, 'Thread Post', [community.id]);
+
+    const top = await a.agent.post(`/api/me/headquarters-posts/${id}/comments`).set('X-CSRF-Token', a.csrf).send({ body: 'Amen!' });
+    expect(top.status).toBe(201);
+    expect(top.body.parentCommentId).toBeNull();
+
+    const reply = await b.agent.post(`/api/me/headquarters-posts/${id}/comments`).set('X-CSRF-Token', b.csrf).send({ body: 'Amen to that', parentCommentId: top.body.id });
+    expect(reply.status).toBe(201);
+    expect(reply.body.parentCommentId).toBe(top.body.id);
+    // Replying to a reply attaches to the same top comment.
+    const reply2 = await a.agent.post(`/api/me/headquarters-posts/${id}/comments`).set('X-CSRF-Token', a.csrf).send({ body: 'Thanks', parentCommentId: reply.body.id });
+    expect(reply2.body.parentCommentId).toBe(top.body.id);
+    // Ada was told Ben replied to her comment.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await prisma.notification.count({ where: { recipientPersonId: a.person.id, targetId: reply.body.id } })).toBeGreaterThan(0);
+
+    const liked = await b.agent.put(`/api/me/headquarters-posts/comments/${top.body.id}/reaction`).set('X-CSRF-Token', b.csrf).send({ type: 'LOVE' });
+    expect(liked.status).toBe(200);
+    expect(liked.body).toEqual({ reactionCounts: { LOVE: 1 }, myReaction: 'LOVE' });
+
+    const thread = await a.agent.get(`/api/me/headquarters-posts/${id}/comments?thread=1`);
+    expect(thread.status).toBe(200);
+    expect(thread.body.items.map((c: { body: string }) => c.body)).toEqual(['Amen!', 'Amen to that', 'Thanks']);
+    expect(thread.body.items[0].reactionCounts).toEqual({ LOVE: 1 });
+    expect(thread.body.items[0].myReaction).toBeNull();
+    expect(thread.body.items[0].author.name).toBe('Thread Ada');
+
+    const who = await a.agent.get(`/api/me/headquarters-posts/comments/${top.body.id}/reactions`);
+    expect(who.status).toBe(200);
+
+    const unliked = await b.agent.delete(`/api/me/headquarters-posts/comments/${top.body.id}/reaction`).set('X-CSRF-Token', b.csrf);
+    expect(unliked.body).toEqual({ reactionCounts: {}, myReaction: null });
+  });
+
+  it('someone who cannot see the post cannot like or reply to its comments', async () => {
+    const { agent: adminAgent, csrf } = await loginAsAdmin(92);
+    const community = await makeCommunity('HQ Comment Private Community');
+    const a = await loginAsMember('+237698200003', 'hqp-thread-c@example.com');
+    const outsider = await loginAsMember('+237698200004', 'hqp-thread-d@example.com');
+    await joinCommunity(a.person.id, community.id);
+    const id = await publishTargeted(adminAgent, csrf, 'Private Thread Post', [community.id]);
+    const top = await a.agent.post(`/api/me/headquarters-posts/${id}/comments`).set('X-CSRF-Token', a.csrf).send({ body: 'Hello' });
+
+    expect((await outsider.agent.put(`/api/me/headquarters-posts/comments/${top.body.id}/reaction`).set('X-CSRF-Token', outsider.csrf).send({ type: 'LIKE' })).status).toBe(404);
+    expect((await outsider.agent.post(`/api/me/headquarters-posts/${id}/comments`).set('X-CSRF-Token', outsider.csrf).send({ body: 'x', parentCommentId: top.body.id })).status).toBe(404);
+  });
+});

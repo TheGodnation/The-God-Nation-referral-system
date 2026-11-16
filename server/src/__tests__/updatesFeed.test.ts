@@ -470,3 +470,45 @@ describe('Updates feed — live slot', () => {
     expect((await m.agent.get('/api/updates/live')).body.live).toBeNull();
   });
 });
+
+describe('Editing your own post', () => {
+  it('the author can change the text; it is marked edited, the translation is redone, and others cannot', async () => {
+    const author = await loginAsMember('Edit Author');
+    const other = await loginAsMember('Edit Other');
+    const created = await post(author.agent, author.csrf, { body: 'Helo everyone' });
+    expect(created.status).toBe(201);
+    await prisma.updatePost.update({ where: { id: created.body.id }, data: { translatedBody: 'old', detectedLanguage: 'en', translatedAt: new Date() } });
+    vi.mocked(translationLib.translateAndStoreUpdatePost).mockClear();
+
+    const before = await author.agent.get('/api/updates');
+    const mine = before.body.items.find((i: { id: string }) => i.id === created.body.id);
+    expect(mine.canEdit).toBe(true);
+    expect(mine.editedAt).toBeNull();
+    const seenByOther = (await other.agent.get('/api/updates')).body.items.find((i: { id: string }) => i.id === created.body.id);
+    expect(seenByOther.canEdit).toBe(false);
+
+    const refused = await other.agent.patch(`/api/updates/${created.body.id}`).set('X-CSRF-Token', other.csrf).send({ body: 'Hacked' });
+    expect(refused.status).toBe(403);
+
+    const edited = await author.agent.patch(`/api/updates/${created.body.id}`).set('X-CSRF-Token', author.csrf).send({ body: 'Hello everyone' });
+    expect(edited.status).toBe(200);
+    expect(edited.body.body).toBe('Hello everyone');
+    expect(edited.body.editedAt).not.toBeNull();
+    expect(translationLib.translateAndStoreUpdatePost).toHaveBeenCalledWith(created.body.id, 'Hello everyone');
+    const row = await prisma.updatePost.findUnique({ where: { id: created.body.id } });
+    expect(row?.body).toBe('Hello everyone');
+    expect(row?.translatedBody).toBeNull();
+
+    const after = (await other.agent.get('/api/updates')).body.items.find((i: { id: string }) => i.id === created.body.id);
+    expect(after.body).toBe('Hello everyone');
+    expect(after.editedAt).not.toBeNull();
+  });
+
+  it('a text-only post cannot be emptied', async () => {
+    const author = await loginAsMember('Edit Empty');
+    const created = await post(author.agent, author.csrf, { body: 'Something' });
+    const res = await author.agent.patch(`/api/updates/${created.body.id}`).set('X-CSRF-Token', author.csrf).send({ body: '   ' });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('EMPTY_POST');
+  });
+});
