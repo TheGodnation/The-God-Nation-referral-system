@@ -1,7 +1,6 @@
 import { prisma } from './prisma';
 import { getOrCreateConversation } from './communityConversation';
 import { isCentralAdminPerson } from './centralAdmin';
-import { agreementRequired } from './assemblyAgreement';
 
 // "Just joined": when someone joins an assembly or group, its chat shows a line with their name so the others can
 // welcome them. Nothing is shown when someone leaves. The line is a message of kind JOINED, written by the person who
@@ -9,6 +8,9 @@ import { agreementRequired } from './assemblyAgreement';
 // never counts as the person having written anything.
 //
 // One line per person. When many people are added at once (the "add many people" tool), one line says how many.
+//
+// The line appears as soon as the person is added, even when they still have to agree to the assembly's rules: they
+// are part of it and can read it from then on; agreeing only lets them write (see assemblyAgreeing.ts).
 
 /** More than this many people added at once are announced as one line ("42 people have just joined"). */
 export const MAX_NAMED_JOINS = 10;
@@ -16,18 +18,23 @@ export const MAX_NAMED_JOINS = 10;
 const REPEAT_WINDOW_MS = 60 * 1000;
 
 /** Never throws: a failure here must never undo adding the person. */
-export async function announceJoined(communityId: string, personIds: string[]): Promise<void> {
+export async function announceJoined(communityId: string, personIds: string[], opts: { onlyIfNeverAnnounced?: boolean } = {}): Promise<void> {
   try {
     const unique = [...new Set(personIds)];
     if (unique.length === 0) return;
     const people = await prisma.person.findMany({ where: { id: { in: unique }, erasedAt: null, deletionRequestedAt: null }, select: { id: true } });
     const eligible: string[] = [];
-    // Someone who still has to agree to the assembly's rules is announced when they agree, not when they are placed.
-    for (const p of people) if (!(await isCentralAdminPerson(p.id)) && !(await agreementRequired(p.id, communityId))) eligible.push(p.id);
+    for (const p of people) if (!(await isCentralAdminPerson(p.id))) eligible.push(p.id);
     if (eligible.length === 0) return;
     const conversation = await getOrCreateConversation(communityId);
+    // onlyIfNeverAnnounced: someone whose line was never shown (added before it appeared on joining) gets it now.
     const recent = await prisma.message.findMany({
-      where: { conversationId: conversation.id, kind: 'JOINED', senderPersonId: { in: eligible }, createdAt: { gte: new Date(Date.now() - REPEAT_WINDOW_MS) } },
+      where: {
+        conversationId: conversation.id,
+        kind: 'JOINED',
+        senderPersonId: { in: eligible },
+        ...(opts.onlyIfNeverAnnounced ? {} : { createdAt: { gte: new Date(Date.now() - REPEAT_WINDOW_MS) } }),
+      },
       select: { senderPersonId: true },
     });
     const already = new Set(recent.map((m) => m.senderPersonId));

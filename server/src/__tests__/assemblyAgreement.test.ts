@@ -10,7 +10,8 @@ import { agreedMessage } from '../lib/assemblyAgreeing';
 import { announceJoined } from '../lib/joinNotice';
 
 // The Assembly Agreement: a new member is already in the group and can read and react, but cannot post or reply
-// until they agree to its rules. Agreeing counts as joining (the "just joined" line, and a private message with a link).
+// until they agree to its rules. The "just joined" line appears as soon as they are added; agreeing lets them write
+// and sends a private message with a link.
 const app = createApp();
 const PASSWORD = 'GoodPass123!';
 let n = 0;
@@ -138,21 +139,34 @@ describe('A new member', () => {
     expect((await pendingAgreements(m.person.id)).map((p) => p.communityId)).toEqual([b.id]);
   });
 
-  it('agreeing counts as joining: the join line appears then (not before) and they get a private message with a link', async () => {
+  it('the join line appears as soon as they are added (before agreeing); agreeing adds no second line and sends a private message with a link', async () => {
     await startRule();
     const fromId = await founderId();
     const a = await assembly('AgrJoin');
     const m = await signedIn('Newbie');
     await join(m.person.id, a.id);
-    const conv = await prisma.conversation.findUnique({ where: { communityId: a.id } });
     await announceJoined(a.id, [m.person.id]);
-    expect(await prisma.message.count({ where: { conversationId: conv!.id, kind: 'JOINED' } })).toBe(0);
+    const conv = await prisma.conversation.findUnique({ where: { communityId: a.id } });
+    expect(await agreementRequired(m.person.id, a.id)).toBe(true);
+    expect(await prisma.message.count({ where: { conversationId: conv!.id, kind: 'JOINED', senderPersonId: m.person.id } })).toBe(1);
+    // Later (well past the double-tap window), they agree: still one line.
+    await prisma.message.updateMany({ where: { conversationId: conv!.id, kind: 'JOINED' }, data: { createdAt: new Date(Date.now() - 60 * 60 * 1000) } });
 
     await agree(m, a.id);
     expect(await prisma.message.count({ where: { conversationId: conv!.id, kind: 'JOINED', senderPersonId: m.person.id } })).toBe(1);
     const notice = await prisma.privateMessage.findFirst({ where: { senderPersonId: fromId, conversation: { memberPersonId: m.person.id } }, orderBy: { createdAt: 'desc' } });
     expect(notice?.body).toContain(a.name);
     expect(notice?.body).toContain(`/member/chats/group/${a.id}`);
+  });
+
+  it('someone added before the line appeared on joining (so never announced) gets it when they agree', async () => {
+    await startRule();
+    const a = await assembly('AgrLate');
+    const m = await signedIn('Earlier');
+    await join(m.person.id, a.id); // added without any join line
+    await agree(m, a.id);
+    const conv = await prisma.conversation.findUnique({ where: { communityId: a.id } });
+    expect(await prisma.message.count({ where: { conversationId: conv!.id, kind: 'JOINED', senderPersonId: m.person.id } })).toBe(1);
   });
 
   it('the private message is in French for a French speaker', () => {

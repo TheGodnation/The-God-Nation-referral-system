@@ -17,8 +17,9 @@ export function agreedMessage(french: boolean, assemblyName: string, communityId
 export type AgreeResult = { ok: true; alreadyAgreed: boolean } | { ok: false; status: number; error: string };
 
 /**
- * The person agrees to the rules of this assembly (once). Agreeing counts as joining: the "just joined" line appears
- * in the chat and they get a private message from the National Coordinator with a link into the assembly.
+ * The person agrees to the rules of this assembly (once): from now on they can write and reply. They get a private
+ * message from the National Coordinator with a link into the assembly. The "just joined" line already appeared when
+ * they were added; only someone who was added before that (and so never had the line) gets it now.
  */
 export async function agreeToAssembly(personId: string, communityId: string): Promise<AgreeResult> {
   const membership = await prisma.communityMembership.findUnique({ where: { personId_communityId: { personId, communityId } }, select: { status: true } });
@@ -33,8 +34,8 @@ export async function agreeToAssembly(personId: string, communityId: string): Pr
   });
   void created;
 
-  // Joined: the line in the chat (it was held back until now), then the private message with the link.
-  await announceJoined(communityId, [personId]);
+  // The join line was shown when they were added; it is shown now only if it never was.
+  await announceJoined(communityId, [personId], { onlyIfNeverAnnounced: true });
   try {
     const [from, person, community] = await Promise.all([
       centralAdminPerson(),
