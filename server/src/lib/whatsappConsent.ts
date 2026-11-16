@@ -33,3 +33,19 @@ export async function recordWhatsAppStop(personId: string): Promise<void> {
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
   await recordConsent(prisma, { personId }, 'WHATSAPP', false, WHATSAPP_STOP_SOURCE, person?.preferredLanguage === 'fr' ? 'fr' : 'en');
 }
+
+/**
+ * Undoes an "Opted out" marked by mistake: the stop record is removed, so the person is back exactly as before (agreed,
+ * or never ticked). Only a stop recorded with the "Opted out" button can be undone, and only while it is still their
+ * latest WhatsApp choice. Returns false when there is nothing to undo.
+ */
+export async function undoWhatsAppStop(personId: string): Promise<boolean> {
+  const latest = await prisma.contactConsent.findFirst({
+    where: { personId, channel: 'WHATSAPP' },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, granted: true, source: true },
+  });
+  if (!latest || latest.granted || latest.source !== WHATSAPP_STOP_SOURCE) return false;
+  await prisma.contactConsent.delete({ where: { id: latest.id } });
+  return true;
+}

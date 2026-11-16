@@ -131,6 +131,8 @@ export function NeedsMePanel({ base }: { base: string }) {
 
   // They asked to stop being written to on WhatsApp ("Opted out"): recorded, and they are left out of every WhatsApp queue.
   async function stopWhatsApp(p: { personId: string; name: string }, quiet = false) {
+    // One tap must never do it by mistake: it takes the person out of every WhatsApp list.
+    if (!quiet && !window.confirm(t('needsMe.stop_confirm', { name: p.name }))) return;
     setError(null);
     try {
       await api.post(`${base}/whatsapp-stop`, { personId: p.personId });
@@ -142,6 +144,18 @@ export function NeedsMePanel({ base }: { base: string }) {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('needsMe.action_failed'));
       throw e;
+    }
+  }
+
+  // "Undo": the Opted out button was tapped by mistake. The person goes back exactly to how they were before.
+  async function undoStop(p: { personId: string; name: string }) {
+    setError(null);
+    try {
+      await api.post(`${base}/whatsapp-stop/undo`, { personId: p.personId });
+      setNote(t('needsMe.stop_undone', { name: p.name }));
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('needsMe.action_failed'));
     }
   }
 
@@ -320,7 +334,12 @@ export function NeedsMePanel({ base }: { base: string }) {
                 {p.whatsappConsent === 'AGREED' ? (
                   <span className="text-green-700">✓ {t('needsMe.consent_agreed')}</span>
                 ) : p.whatsappConsent === 'OPTED_OUT' ? (
-                  <span className="font-semibold text-red-700">{t('needsMe.consent_optedout')}</span>
+                  <>
+                    <span className="font-semibold text-red-700">{t('needsMe.consent_optedout')}</span>{' '}
+                    <button type="button" onClick={() => void undoStop(p)} aria-label={t('needsMe.undo_stop_label', { name: p.name })} className="ml-1 rounded-md border border-slate-300 px-2 py-0.5 font-semibold text-brand-800 hover:bg-brand-50" data-testid={`needs-undo-stop-${p.personId}`}>
+                      {t('needsMe.undo_stop')}
+                    </button>
+                  </>
                 ) : (
                   <span className="text-slate-500">{t('needsMe.consent_none')}</span>
                 )}

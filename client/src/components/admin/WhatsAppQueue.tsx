@@ -100,6 +100,8 @@ export function WhatsAppQueue({ people, onClose, recordContact, signatureKey = '
 
   async function stopThem() {
     if (!current) return;
+    // One tap must never do it by mistake: it takes the person out of every WhatsApp list.
+    if (!window.confirm(t('needsMe.stop_confirm', { name: current.name }))) return;
     try {
       await onStop?.(current);
     } catch {

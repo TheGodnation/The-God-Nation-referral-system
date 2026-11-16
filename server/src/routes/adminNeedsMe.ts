@@ -14,7 +14,7 @@ import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { BroadcastError, generateStagingKey, sendCoordinatorMessage } from '../lib/leaderBroadcast';
 import { previewTranslation } from '../lib/broadcastTranslation';
 import { privateTranslateLimiter } from '../lib/rateLimit';
-import { DESK_FILTERS, DeskError, deskPersonIds, leaderAlerts, markContacted, peopleNeedingMe, requireDeskOwner, stopWhatsApp, takeOver, takeOverLeader, type DeskFilter } from '../lib/coordinatorDesk';
+import { DESK_FILTERS, DeskError, deskPersonIds, leaderAlerts, markContacted, peopleNeedingMe, requireDeskOwner, stopWhatsApp, takeOver, undoStopWhatsApp, takeOverLeader, type DeskFilter } from '../lib/coordinatorDesk';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { memberSignInHelpLink } from '../lib/signInHelp';
 
@@ -129,6 +129,13 @@ function buildRouter(resolvePersonId: (req: Request) => Promise<string | null>) 
     const parsed = personSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'personId is required.' });
     res.json(await stopWhatsApp(await who(req), parsed.data.personId));
+  }));
+
+  // "Undo": the Opted out button was tapped by mistake. The person goes back exactly to how they were before.
+  router.post('/whatsapp-stop/undo', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = personSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'personId is required.' });
+    res.json(await undoStopWhatsApp(await who(req), parsed.data.personId));
   }));
 
   router.post('/contacted', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
