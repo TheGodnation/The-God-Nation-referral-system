@@ -351,3 +351,46 @@ describe('Admin placement settings and group location tags', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('One-time Terms acceptance for members who never accepted them', () => {
+  it('a member from before the tick box is asked once; accepting records the version and the question stops', async () => {
+    const { agent, csrf } = await signupAndSignIn('older.member@example.com', '+237670101020');
+    const person = await prisma.person.findUnique({ where: { whatsappNumber: '+237670101020' } });
+    // As if they had joined before the tick box existed.
+    await prisma.person.update({ where: { id: person!.id }, data: { termsAcceptedAt: null, termsVersion: null } });
+
+    const before = await agent.get('/api/member/auth/me');
+    expect(before.body.member.termsAccepted).toBe(false);
+
+    const refused = await agent.post('/api/member/auth/accept-terms').set('X-CSRF-Token', csrf).send({ accept: false });
+    expect(refused.status).toBe(400);
+    expect(refused.body.code).toBe('TERMS_REQUIRED');
+
+    const accepted = await agent.post('/api/member/auth/accept-terms').set('X-CSRF-Token', csrf).send({ accept: true });
+    expect(accepted.status).toBe(200);
+    const row = await prisma.person.findUnique({ where: { id: person!.id } });
+    expect(row?.termsVersion).toBe(TERMS_VERSION);
+    expect(row?.termsAcceptedAt).toBeInstanceOf(Date);
+
+    const after = await agent.get('/api/member/auth/me');
+    expect(after.body.member.termsAccepted).toBe(true);
+  });
+
+  it('a member who accepted an older version of the Terms is asked again', async () => {
+    const { agent } = await signupAndSignIn('old.version@example.com', '+237670101021');
+    await prisma.person.update({ where: { whatsappNumber: '+237670101021' }, data: { termsVersion: '2020-01-01' } });
+    expect((await agent.get('/api/member/auth/me')).body.member.termsAccepted).toBe(false);
+  });
+
+  it('a new sign-up has already accepted', async () => {
+    const { agent } = await signupAndSignIn('fresh.member@example.com', '+237670101022');
+    expect((await agent.get('/api/member/auth/me')).body.member.termsAccepted).toBe(true);
+  });
+
+  it('cannot accept without being signed in', async () => {
+    const agent = agentWithUniqueIp();
+    const { csrf } = await bootstrap(agent as any);
+    const res = await agent.post('/api/member/auth/accept-terms').set('X-CSRF-Token', csrf).send({ accept: true });
+    expect(res.status).toBe(401);
+  });
+});

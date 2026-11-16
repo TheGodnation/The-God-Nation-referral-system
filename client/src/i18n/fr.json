@@ -5569,5 +5569,16 @@
   },
   "postMenu": {
     "more": "Plus d’options"
+  },
+  "acceptTerms": {
+    "title": "Veuillez accepter nos conditions",
+    "intro": "Pour que The God Nation reste un lieu sûr et respectueux, nous demandons une seule fois à chaque membre de lire et d’accepter nos Conditions d’utilisation et notre Politique de confidentialité avant de continuer.",
+    "point_respect": "Traitez chacun avec amour et respect dans les publications, les commentaires et les discussions.",
+    "point_report": "Signalez tout ce qui ne respecte pas les valeurs chrétiennes ; les responsables examinent chaque signalement.",
+    "point_privacy": "La Politique de confidentialité explique ce que nous gardons à votre sujet et comment supprimer votre compte.",
+    "continue": "Accepter et continuer",
+    "saving": "Enregistrement…",
+    "failed": "Une erreur s’est produite. Veuillez réessayer.",
+    "sign_out": "Se déconnecter"
   }
 }

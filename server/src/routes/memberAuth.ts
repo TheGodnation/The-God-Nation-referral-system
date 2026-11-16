@@ -850,6 +850,10 @@ router.get('/me', asyncHandler(async (req, res) => {
       // false only for a brand-new sign-up who hasn't filled in the
       // details form yet — the app sends them there first.
       profileComplete: req.member.profileCompletedAt !== null,
+      // false when this member has not yet accepted the current Terms of Use and Privacy Policy
+      // (members from before the sign-up tick box, people added by an admin, or after the Terms
+      // change): the app asks them once before they continue.
+      termsAccepted: req.member.termsVersion === TERMS_VERSION,
       personId: req.member.personId,
       photoUrl: profilePhotoPath({
         id: req.member.personId,
@@ -897,6 +901,15 @@ const completeProfileSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['region'], message: 'Please enter your region.' });
     }
   });
+
+// POST /api/member/auth/accept-terms — the member ticks "I accept the Terms of Use and the
+// Privacy Policy" on the one-time screen. Records when, and which version of the Terms.
+router.post('/accept-terms', memberCompleteProfileLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
+  const parsed = z.object({ accept: z.literal(true) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Please tick the box to accept the Terms of Use and the Privacy Policy.', code: 'TERMS_REQUIRED' });
+  await prisma.person.update({ where: { id: req.member!.personId }, data: { termsAcceptedAt: new Date(), termsVersion: TERMS_VERSION } });
+  res.json({ termsAccepted: true, termsVersion: TERMS_VERSION });
+}));
 
 router.post('/complete-profile', memberCompleteProfileLimiter, requireCsrf, requireMember, asyncHandler(async (req, res) => {
   const parsed = completeProfileSchema.safeParse(req.body);
