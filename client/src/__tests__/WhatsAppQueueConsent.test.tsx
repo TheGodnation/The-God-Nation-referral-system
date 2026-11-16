@@ -87,8 +87,15 @@ describe('Queue by message type', () => {
     fireEvent.click(screen.getByTestId('queue-start'));
     expect(screen.getByTestId('queue-progress')).toHaveTextContent('1 of 2');
     expect(screen.getByTestId('queue-consent')).toHaveTextContent('Agreed to WhatsApp messages');
+    // It asks first; saying no records nothing.
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+    fireEvent.click(screen.getByTestId('queue-stop'));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Do this only if they asked us to stop'));
+    expect(onStop).not.toHaveBeenCalled();
+    confirm.mockReturnValueOnce(true);
     fireEvent.click(screen.getByTestId('queue-stop'));
     await waitFor(() => expect(onStop).toHaveBeenCalledWith(expect.objectContaining({ personId: 'a' })));
+    confirm.mockRestore();
     await waitFor(() => expect(screen.getByTestId('queue-current')).toHaveTextContent('Noah None'));
     expect(screen.getByTestId('queue-progress')).toHaveTextContent('1 of 1');
     expect(screen.getByTestId('queue-consent')).toHaveTextContent('Did not tick the WhatsApp box');
@@ -142,8 +149,27 @@ describe('The coordinator’s list', () => {
     expect(screen.getByTestId('needs-consent-p3')).toHaveTextContent('Opted out of WhatsApp');
     expect(screen.queryByTestId('needs-stop-p3')).toBeNull();
     expect(screen.getByTestId('needs-filter-never_back')).toHaveTextContent('Never came back (1)');
+    // One tap is not enough: it asks first, and "Cancel" changes nothing.
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+    fireEvent.click(screen.getByTestId('needs-stop-p2'));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Mark Noah None as opted out of WhatsApp?'));
+    expect(calls.some((c) => c.method === 'POST' && c.url === `${B}/whatsapp-stop`)).toBe(false);
+    confirm.mockReturnValueOnce(true);
     fireEvent.click(screen.getByTestId('needs-stop-p2'));
     await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url === `${B}/whatsapp-stop`)).toBe(true));
     expect(calls.find((c) => c.method === 'POST' && c.url === `${B}/whatsapp-stop`)?.body).toEqual({ personId: 'p2' });
+    confirm.mockRestore();
+  });
+
+  it('"Undo" puts back someone marked as opted out by mistake', async () => {
+    mock();
+    render(<MemoryRouter><NeedsMePanel base={B} /></MemoryRouter>);
+    await screen.findByTestId('needs-p3');
+    expect(screen.queryByTestId('needs-undo-stop-p1')).toBeNull();
+    expect(screen.queryByTestId('needs-undo-stop-p2')).toBeNull();
+    const undo = screen.getByRole('button', { name: 'Undo: Olive Optedout was marked as opted out by mistake' });
+    fireEvent.click(undo);
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST' && c.url === `${B}/whatsapp-stop/undo`)?.body).toEqual({ personId: 'p3' }));
+    expect(await screen.findByText('Olive Optedout is back as before: the WhatsApp buttons are available again.')).toBeInTheDocument();
   });
 });

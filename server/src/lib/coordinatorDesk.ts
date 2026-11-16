@@ -1,4 +1,4 @@
-import { whatsappConsentOf, recordWhatsAppStop, type WhatsAppConsentState } from './whatsappConsent';
+import { whatsappConsentOf, recordWhatsAppStop, undoWhatsAppStop, type WhatsAppConsentState } from './whatsappConsent';
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { centralAdminAmong, isCentralAdminPerson } from './centralAdmin';
@@ -278,6 +278,16 @@ export async function stopWhatsApp(adminPersonId: string, personId: string): Pro
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { id: true } });
   if (!person) throw new DeskError('Person not found.', 404);
   await recordWhatsAppStop(personId);
+  return { ok: true };
+}
+
+/** Undoes an "Opted out" marked by mistake (see undoWhatsAppStop). Kept in the audit log. */
+export async function undoStopWhatsApp(adminPersonId: string, personId: string): Promise<{ ok: true }> {
+  const admin = await requireDeskOwner(adminPersonId);
+  const person = await prisma.person.findUnique({ where: { id: personId }, select: { id: true } });
+  if (!person) throw new DeskError('Person not found.', 404);
+  if (!(await undoWhatsAppStop(personId))) throw new DeskError('This person is not marked as opted out of WhatsApp.', 409);
+  await recordAudit({ action: 'WHATSAPP_STOP_UNDONE', targetType: 'Person', targetId: personId, actorId: admin.id, actorEmail: admin.email }).catch(() => {});
   return { ok: true };
 }
 

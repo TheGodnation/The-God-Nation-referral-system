@@ -92,6 +92,34 @@ describe('The coordinator’s desk', () => {
     expect((await w.agent.post('/api/admin/needs-me/whatsapp-stop').set('X-CSRF-Token', w.csrf).send({ personId: 'nobody' })).status).toBe(404);
   });
 
+  it('"Undo" puts a person marked by mistake back exactly as before, and only undoes the Opted out button', async () => {
+    const w = await desk();
+    const a = await member('UndoAgreed');
+    const b = await member('UndoSilent');
+    await recordConsent(prisma, { personId: a.id }, 'WHATSAPP', true, 'signup', 'en');
+    const undo = (personId: string) => w.agent.post('/api/admin/needs-me/whatsapp-stop/undo').set('X-CSRF-Token', w.csrf).send({ personId });
+
+    // Nothing to undo yet.
+    expect((await undo(a.id)).status).toBe(409);
+    expect((await w.agent.post('/api/admin/needs-me/whatsapp-stop/undo').send({ personId: a.id })).status).toBeGreaterThanOrEqual(400); // no CSRF
+
+    for (const p of [a, b]) await w.agent.post('/api/admin/needs-me/whatsapp-stop').set('X-CSRF-Token', w.csrf).send({ personId: p.id });
+    expect((await whatsappConsentOf([a.id, b.id])).get(a.id)).toBe('OPTED_OUT');
+    expect((await undo(a.id)).status).toBe(200);
+    expect((await undo(b.id)).status).toBe(200);
+    // Back as before: the one who agreed has agreed again, the other never ticked the box.
+    const now = await whatsappConsentOf([a.id, b.id]);
+    expect(now.get(a.id)).toBe('AGREED');
+    expect(now.get(b.id)).toBe('NONE');
+    expect((await undo(a.id)).status).toBe(409);
+    expect(await prisma.auditLog.count({ where: { action: 'WHATSAPP_STOP_UNDONE', targetId: a.id } })).toBe(1);
+
+    // A choice the person made themselves (unticking the box) is not something the Undo removes.
+    await recordConsent(prisma, { personId: a.id }, 'WHATSAPP', false, 'profile', 'en');
+    expect((await undo(a.id)).status).toBe(409);
+    expect((await undo('nobody')).status).toBe(404);
+  });
+
   it('"select all" carries the consent of each person', async () => {
     const w = await desk();
     const a = await member('SelectAgreed');
