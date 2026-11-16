@@ -113,6 +113,7 @@ import { prisma } from './lib/prisma';
 import { markActivity } from './lib/activity';
 import { APP_URL } from './lib/env';
 import { assetLinksHandler } from './lib/assetLinks';
+import { reachDatabaseOnce } from './lib/health';
 
 export function createApp() {
   const app = express();
@@ -155,7 +156,12 @@ export function createApp() {
     next();
   });
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true }));
+  // 200 once this server has reached the database since it started; 503 until then (see lib/health.ts).
+  app.get('/api/health', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    if (await reachDatabaseOnce()) return res.json({ ok: true });
+    return res.status(503).json({ ok: false, error: 'The server has not reached the database yet.' });
+  });
 
   app.use('/api/auth', authRoutes);
   app.use('/api/referrals', referralRoutes);
