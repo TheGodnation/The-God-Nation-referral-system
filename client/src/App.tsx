@@ -10,6 +10,7 @@ import { RequireMember } from './components/RequireMember';
 import { AuthProvider } from './lib/AuthContext';
 import { StoreHidden } from './components/StoreHidden';
 import { MemberAuthProvider } from './lib/MemberAuthContext';
+import { waitForReload } from './lib/waitForReload';
 
 // The public referral funnel above (Home -> Join -> Register, the latter a
 // 3-screen wizard that signs the visitor straight into the member app) is
@@ -20,85 +21,85 @@ import { MemberAuthProvider } from './lib/MemberAuthContext';
 // single largest page in the app. Splitting these out means a referral
 // visitor on a slow connection never downloads code for pages they'll
 // never see.
-const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
-const SharePage = lazy(() => import('./pages/SharePage').then((m) => ({ default: m.SharePage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => (m ? { default: m.LoginPage } : waitForReload())));
+const SharePage = lazy(() => import('./pages/SharePage').then((m) => (m ? { default: m.SharePage } : waitForReload())));
 const LeaderDashboardPage = lazy(() =>
-  import('./pages/LeaderDashboardPage').then((m) => ({ default: m.LeaderDashboardPage })),
+  import('./pages/LeaderDashboardPage').then((m) => (m ? { default: m.LeaderDashboardPage } : waitForReload())),
 );
 const AdminDashboardPage = lazy(() =>
-  import('./pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
+  import('./pages/AdminDashboardPage').then((m) => (m ? { default: m.AdminDashboardPage } : waitForReload())),
 );
 const ChangePasswordPage = lazy(() =>
-  import('./pages/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })),
+  import('./pages/ChangePasswordPage').then((m) => (m ? { default: m.ChangePasswordPage } : waitForReload())),
 );
 const LeaderSetupPage = lazy(() =>
-  import('./pages/LeaderSetupPage').then((m) => ({ default: m.LeaderSetupPage })),
+  import('./pages/LeaderSetupPage').then((m) => (m ? { default: m.LeaderSetupPage } : waitForReload())),
 );
 const ForgotPasswordPage = lazy(() =>
-  import('./pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
+  import('./pages/ForgotPasswordPage').then((m) => (m ? { default: m.ForgotPasswordPage } : waitForReload())),
 );
 const ResetPasswordPage = lazy(() =>
-  import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
+  import('./pages/ResetPasswordPage').then((m) => (m ? { default: m.ResetPasswordPage } : waitForReload())),
 );
 const ContentPageView = lazy(() =>
-  import('./pages/ContentPageView').then((m) => ({ default: m.ContentPageView })),
+  import('./pages/ContentPageView').then((m) => (m ? { default: m.ContentPageView } : waitForReload())),
 );
 const TeachingsPage = lazy(() =>
-  import('./pages/ContentListPage').then((m) => ({ default: () => <m.ContentListPage type="TEACHING" /> })),
+  import('./pages/ContentListPage').then((m) => (m ? { default: () => <m.ContentListPage type="TEACHING" /> } : waitForReload())),
 );
 const AnnouncementsPage = lazy(() =>
-  import('./pages/ContentListPage').then((m) => ({ default: () => <m.ContentListPage type="ANNOUNCEMENT" /> })),
+  import('./pages/ContentListPage').then((m) => (m ? { default: () => <m.ContentListPage type="ANNOUNCEMENT" /> } : waitForReload())),
 );
-const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => ({ default: m.ContactPage })));
-const MemberLoginPage = lazy(() => import('./pages/MemberLoginPage').then((m) => ({ default: m.MemberLoginPage })));
+const ContactPage = lazy(() => import('./pages/ContactPage').then((m) => (m ? { default: m.ContactPage } : waitForReload())));
+const MemberLoginPage = lazy(() => import('./pages/MemberLoginPage').then((m) => (m ? { default: m.MemberLoginPage } : waitForReload())));
 const MemberLoginConfirmPage = lazy(() =>
-  import('./pages/MemberLoginConfirmPage').then((m) => ({ default: m.MemberLoginConfirmPage })),
+  import('./pages/MemberLoginConfirmPage').then((m) => (m ? { default: m.MemberLoginConfirmPage } : waitForReload())),
 );
-const MemberSignupPage = lazy(() => import('./pages/MemberSignupPage').then((m) => ({ default: m.MemberSignupPage })));
+const MemberSignupPage = lazy(() => import('./pages/MemberSignupPage').then((m) => (m ? { default: m.MemberSignupPage } : waitForReload())));
 const MemberCompleteProfilePage = lazy(() =>
-  import('./pages/MemberCompleteProfilePage').then((m) => ({ default: m.MemberCompleteProfilePage })),
+  import('./pages/MemberCompleteProfilePage').then((m) => (m ? { default: m.MemberCompleteProfilePage } : waitForReload())),
 );
-const MemberPeoplePage = lazy(() => import('./pages/MemberPeoplePage').then((m) => ({ default: m.MemberPeoplePage })));
-const MemberPersonPage = lazy(() => import('./pages/MemberPersonPage').then((m) => ({ default: m.MemberPersonPage })));
-const MemberRepresentativesPage = lazy(() => import('./pages/MemberRepresentativesPage').then((m) => ({ default: m.MemberRepresentativesPage })));
-const MemberRepresentPage = lazy(() => import('./pages/MemberRepresentPage').then((m) => ({ default: m.MemberRepresentPage })));
-const MemberLeadershipPage = lazy(() => import('./pages/MemberLeadershipPage').then((m) => ({ default: m.MemberLeadershipPage })));
-const MyLeadershipDashboardPage = lazy(() => import('./pages/MyLeadershipDashboardPage').then((m) => ({ default: m.MyLeadershipDashboardPage })));
-const MemberReferralsPage = lazy(() => import('./pages/MemberReferralsPage').then((m) => ({ default: m.MemberReferralsPage })));
-const MemberPrayerPage = lazy(() => import('./pages/MemberPrayerPage').then((m) => ({ default: m.MemberPrayerPage })));
-const MemberChatsPage = lazy(() => import('./pages/MemberChatsPage').then((m) => ({ default: m.MemberChatsPage })));
-const MemberPrivateChatPage = lazy(() => import('./pages/MemberPrivateChatPage').then((m) => ({ default: m.MemberPrivateChatPage })));
-const MemberGroupInfoPage = lazy(() => import('./pages/MemberGroupInfoPage').then((m) => ({ default: m.MemberGroupInfoPage })));
-const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').then((m) => ({ default: m.MemberGroupChatPage })));
-const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => ({ default: m.MemberLearnPage })));
-const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => ({ default: m.MemberReaderPage })));
-const MemberPinnedPage = lazy(() => import('./pages/MemberPinnedPage').then((m) => ({ default: m.MemberPinnedPage })));
-const MemberTeachingPage = lazy(() => import('./pages/MemberTeachingPage').then((m) => ({ default: m.MemberTeachingPage })));
-const MemberTeachingComposePage = lazy(() => import('./pages/MemberTeachingComposePage').then((m) => ({ default: m.MemberTeachingComposePage })));
-const MemberPasswordHelpPage = lazy(() => import('./pages/MemberPasswordHelpPage').then((m) => ({ default: m.MemberPasswordHelpPage })));
-const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
-const TermsPage = lazy(() => import('./pages/TermsPage').then((m) => ({ default: m.TermsPage })));
-const DeleteAccountPage = lazy(() => import('./pages/DeleteAccountPage').then((m) => ({ default: m.DeleteAccountPage })));
-const MemberDeleteAccountPage = lazy(() => import('./pages/MemberDeleteAccountPage').then((m) => ({ default: m.MemberDeleteAccountPage })));
-const MemberDownloadsPage = lazy(() => import('./pages/MemberDownloadsPage').then((m) => ({ default: m.MemberDownloadsPage })));
-const MemberFaithPage = lazy(() => import('./pages/MemberFaithPage').then((m) => ({ default: m.MemberFaithPage })));
-const MemberSchoolPage = lazy(() => import('./pages/MemberSchoolPage').then((m) => ({ default: m.MemberSchoolPage })));
-const MemberSchoolBookPage = lazy(() => import('./pages/MemberSchoolBookPage').then((m) => ({ default: m.MemberSchoolBookPage })));
-const MemberPaymentOrderPage = lazy(() => import('./pages/MemberPaymentOrderPage').then((m) => ({ default: m.MemberPaymentOrderPage })));
-const MemberPaymentDeskPage = lazy(() => import('./pages/MemberPaymentDeskPage').then((m) => ({ default: m.MemberPaymentDeskPage })));
-const MemberTokensPage = lazy(() => import('./pages/MemberTokensPage').then((m) => ({ default: m.MemberTokensPage })));
-const MemberClinicPage = lazy(() => import('./pages/MemberClinicPage').then((m) => ({ default: m.MemberClinicPage })));
-const MemberGivePage = lazy(() => import('./pages/MemberGivePage').then((m) => ({ default: m.MemberGivePage })));
-const MemberEarningsPage = lazy(() => import('./pages/MemberEarningsPage').then((m) => ({ default: m.MemberEarningsPage })));
-const MemberEventsPage = lazy(() => import('./pages/MemberEventsPage').then((m) => ({ default: m.MemberEventsPage })));
-const MemberEventPage = lazy(() => import('./pages/MemberEventPage').then((m) => ({ default: m.MemberEventPage })));
-const MemberJoinGroupPage = lazy(() => import('./pages/MemberJoinGroupPage').then((m) => ({ default: m.MemberJoinGroupPage })));
-const MemberAboutPage = lazy(() => import('./pages/MemberAboutPage').then((m) => ({ default: m.MemberAboutPage })));
-const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => ({ default: m.MemberUpdatesPage })));
-const MemberMePage = lazy(() => import('./pages/MemberMePage').then((m) => ({ default: m.MemberMePage })));
-const MemberEditProfilePage = lazy(() => import('./pages/MemberEditProfilePage').then((m) => ({ default: m.MemberEditProfilePage })));
+const MemberPeoplePage = lazy(() => import('./pages/MemberPeoplePage').then((m) => (m ? { default: m.MemberPeoplePage } : waitForReload())));
+const MemberPersonPage = lazy(() => import('./pages/MemberPersonPage').then((m) => (m ? { default: m.MemberPersonPage } : waitForReload())));
+const MemberRepresentativesPage = lazy(() => import('./pages/MemberRepresentativesPage').then((m) => (m ? { default: m.MemberRepresentativesPage } : waitForReload())));
+const MemberRepresentPage = lazy(() => import('./pages/MemberRepresentPage').then((m) => (m ? { default: m.MemberRepresentPage } : waitForReload())));
+const MemberLeadershipPage = lazy(() => import('./pages/MemberLeadershipPage').then((m) => (m ? { default: m.MemberLeadershipPage } : waitForReload())));
+const MyLeadershipDashboardPage = lazy(() => import('./pages/MyLeadershipDashboardPage').then((m) => (m ? { default: m.MyLeadershipDashboardPage } : waitForReload())));
+const MemberReferralsPage = lazy(() => import('./pages/MemberReferralsPage').then((m) => (m ? { default: m.MemberReferralsPage } : waitForReload())));
+const MemberPrayerPage = lazy(() => import('./pages/MemberPrayerPage').then((m) => (m ? { default: m.MemberPrayerPage } : waitForReload())));
+const MemberChatsPage = lazy(() => import('./pages/MemberChatsPage').then((m) => (m ? { default: m.MemberChatsPage } : waitForReload())));
+const MemberPrivateChatPage = lazy(() => import('./pages/MemberPrivateChatPage').then((m) => (m ? { default: m.MemberPrivateChatPage } : waitForReload())));
+const MemberGroupInfoPage = lazy(() => import('./pages/MemberGroupInfoPage').then((m) => (m ? { default: m.MemberGroupInfoPage } : waitForReload())));
+const MemberGroupChatPage = lazy(() => import('./pages/MemberGroupChatPage').then((m) => (m ? { default: m.MemberGroupChatPage } : waitForReload())));
+const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) => (m ? { default: m.MemberLearnPage } : waitForReload())));
+const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => (m ? { default: m.MemberReaderPage } : waitForReload())));
+const MemberPinnedPage = lazy(() => import('./pages/MemberPinnedPage').then((m) => (m ? { default: m.MemberPinnedPage } : waitForReload())));
+const MemberTeachingPage = lazy(() => import('./pages/MemberTeachingPage').then((m) => (m ? { default: m.MemberTeachingPage } : waitForReload())));
+const MemberTeachingComposePage = lazy(() => import('./pages/MemberTeachingComposePage').then((m) => (m ? { default: m.MemberTeachingComposePage } : waitForReload())));
+const MemberPasswordHelpPage = lazy(() => import('./pages/MemberPasswordHelpPage').then((m) => (m ? { default: m.MemberPasswordHelpPage } : waitForReload())));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then((m) => (m ? { default: m.PrivacyPage } : waitForReload())));
+const TermsPage = lazy(() => import('./pages/TermsPage').then((m) => (m ? { default: m.TermsPage } : waitForReload())));
+const DeleteAccountPage = lazy(() => import('./pages/DeleteAccountPage').then((m) => (m ? { default: m.DeleteAccountPage } : waitForReload())));
+const MemberDeleteAccountPage = lazy(() => import('./pages/MemberDeleteAccountPage').then((m) => (m ? { default: m.MemberDeleteAccountPage } : waitForReload())));
+const MemberDownloadsPage = lazy(() => import('./pages/MemberDownloadsPage').then((m) => (m ? { default: m.MemberDownloadsPage } : waitForReload())));
+const MemberFaithPage = lazy(() => import('./pages/MemberFaithPage').then((m) => (m ? { default: m.MemberFaithPage } : waitForReload())));
+const MemberSchoolPage = lazy(() => import('./pages/MemberSchoolPage').then((m) => (m ? { default: m.MemberSchoolPage } : waitForReload())));
+const MemberSchoolBookPage = lazy(() => import('./pages/MemberSchoolBookPage').then((m) => (m ? { default: m.MemberSchoolBookPage } : waitForReload())));
+const MemberPaymentOrderPage = lazy(() => import('./pages/MemberPaymentOrderPage').then((m) => (m ? { default: m.MemberPaymentOrderPage } : waitForReload())));
+const MemberPaymentDeskPage = lazy(() => import('./pages/MemberPaymentDeskPage').then((m) => (m ? { default: m.MemberPaymentDeskPage } : waitForReload())));
+const MemberTokensPage = lazy(() => import('./pages/MemberTokensPage').then((m) => (m ? { default: m.MemberTokensPage } : waitForReload())));
+const MemberClinicPage = lazy(() => import('./pages/MemberClinicPage').then((m) => (m ? { default: m.MemberClinicPage } : waitForReload())));
+const MemberGivePage = lazy(() => import('./pages/MemberGivePage').then((m) => (m ? { default: m.MemberGivePage } : waitForReload())));
+const MemberEarningsPage = lazy(() => import('./pages/MemberEarningsPage').then((m) => (m ? { default: m.MemberEarningsPage } : waitForReload())));
+const MemberEventsPage = lazy(() => import('./pages/MemberEventsPage').then((m) => (m ? { default: m.MemberEventsPage } : waitForReload())));
+const MemberEventPage = lazy(() => import('./pages/MemberEventPage').then((m) => (m ? { default: m.MemberEventPage } : waitForReload())));
+const MemberJoinGroupPage = lazy(() => import('./pages/MemberJoinGroupPage').then((m) => (m ? { default: m.MemberJoinGroupPage } : waitForReload())));
+const MemberAboutPage = lazy(() => import('./pages/MemberAboutPage').then((m) => (m ? { default: m.MemberAboutPage } : waitForReload())));
+const MemberUpdatesPage = lazy(() => import('./pages/MemberUpdatesPage').then((m) => (m ? { default: m.MemberUpdatesPage } : waitForReload())));
+const MemberMePage = lazy(() => import('./pages/MemberMePage').then((m) => (m ? { default: m.MemberMePage } : waitForReload())));
+const MemberEditProfilePage = lazy(() => import('./pages/MemberEditProfilePage').then((m) => (m ? { default: m.MemberEditProfilePage } : waitForReload())));
 const MemberAssessmentPage = lazy(() =>
-  import('./pages/MemberAssessmentPage').then((m) => ({ default: m.MemberAssessmentPage })),
+  import('./pages/MemberAssessmentPage').then((m) => (m ? { default: m.MemberAssessmentPage } : waitForReload())),
 );
 
 function RouteFallback() {

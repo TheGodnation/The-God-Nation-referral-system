@@ -23,6 +23,7 @@ import { loadDraft, saveDraft } from '../../lib/drafts';
 import { SelectionFormatBar } from '../FormatBar';
 import { LiveFormatTextarea } from '../LiveFormatTextarea';
 import { pasteIntoText } from '../../lib/pasteHtml';
+import { waitForReload } from '../../lib/waitForReload';
 
 export interface OutgoingMessage {
   body?: string;
@@ -43,7 +44,7 @@ interface Clip {
 type ClipLanguage = 'en' | 'fr';
 
 // The emoji list is only downloaded the first time someone opens the panel.
-const EmojiPanel = lazy(() => import('./EmojiPanel'));
+const EmojiPanel = lazy(() => import('./EmojiPanel').then((m) => m ?? waitForReload()));
 
 const MAX_VOICE_MS = 5 * 60 * 1000;
 // How many bars the live waveform shows while recording (newest on the right).
