@@ -21,12 +21,15 @@ function app() {
 }
 
 describe('link previews', () => {
-  it('gives the home page its title, picture and sentence, in English by default', async () => {
+  it('gives a link with no language the bilingual card: both languages in the picture and the sentence', async () => {
     const res = await request(app()).get('/');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/html/);
-    expect(res.text).toContain('<meta property="og:title" content="The God Nation — Leadership Academy" />');
-    expect(res.text).toContain(`<meta property="og:image" content="${APP}/og-image.png" />`);
+    expect(res.text).toContain('<meta property="og:title" content="The God Nation — Media &amp; Leadership Academy" />');
+    expect(res.text).toContain('og:description" content="Académie des médias et du leadership. Make disciples who make disciples · Faites des disciples qui font des disciples."');
+    expect(res.text).toContain(`<meta property="og:image" content="${APP}/share-card.jpg" />`);
+    expect(res.text).toContain('<meta property="og:image:type" content="image/jpeg" />');
+    expect(res.text).toContain('<meta property="og:locale:alternate" content="fr_FR" />');
     expect(res.text).toContain('<meta name="twitter:card" content="summary_large_image" />');
     expect(res.text).toContain(`<link rel="canonical" href="${APP}" />`);
     expect(res.text).toContain('<html lang="en"');
@@ -36,6 +39,21 @@ describe('link previews', () => {
     expect(res.text).toContain('<div id="root"></div>');
   });
 
+  it('a French link gets the all-French card, an English link the all-English card', async () => {
+    const fr = await request(app()).get('/member/login?continue=1&lang=fr');
+    expect(fr.text).toContain(`<meta property="og:image" content="${APP}/share-card-fr.jpg" />`);
+    expect(fr.text).toContain('og:title" content="The God Nation — Académie des médias et du leadership"');
+    expect(fr.text).toContain('Allez dans les espaces des médias numériques où des milliards de personnes se rassemblent.');
+    expect(fr.text).toContain('<html lang="fr"');
+    expect(fr.text).not.toContain('og:locale:alternate');
+    const en = await request(app()).get('/member/school?lang=en');
+    expect(en.text).toContain(`<meta property="og:image" content="${APP}/share-card-en.jpg" />`);
+    expect(en.text).toContain('og:description" content="Go into the digital media spaces where billions gather. Make disciples who make disciples, taking the Gospel of the Kingdom to the ends of the earth."');
+    expect(en.text).toContain('<html lang="en"');
+    // Each picture really exists in the app's files.
+    for (const f of ['share-card.jpg', 'share-card-en.jpg', 'share-card-fr.jpg']) expect(fs.existsSync(path.join(__dirname, '../../../client/public', f)), f).toBe(true);
+  });
+
   it('uses the join wording for sign-up links, in French when asked, and never copies the referral code into the address', async () => {
     const res = await request(app()).get('/join?ref=MARY7X2&lang=fr');
     expect(res.text).toContain('content="Rejoignez The God Nation"');
@@ -43,7 +61,8 @@ describe('link previews', () => {
     expect(res.text).toContain('og:locale" content="fr_FR"');
     expect(res.text).toContain(`<link rel="canonical" href="${APP}/join" />`);
     expect(res.text).not.toContain('MARY7X2');
-    expect((await request(app()).get('/member/join')).text).toContain('content="Join The God Nation"');
+    expect((await request(app()).get('/member/join?lang=en')).text).toContain('content="Join The God Nation"');
+    expect((await request(app()).get('/member/join')).text).toContain('content="Join The God Nation · Rejoignez The God Nation"');
   });
 
   it('shows a blog or content page’s own title and an excerpt of its text', async () => {

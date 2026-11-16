@@ -33,14 +33,16 @@ export function followUpPlaces(s: SocialUrls, lang: 'en' | 'fr', websiteUrl?: st
 /** The page that opens the Leadership Academy on the website (after signing in with the same account). */
 export function schoolWebsiteUrl(lang: 'en' | 'fr'): string {
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
-  return `${origin}/member/school${lang === 'fr' ? '?lang=fr' : ''}`;
+  // The language is always in the link: it opens the page in that language and picks the WhatsApp preview card
+  // (all French, or all English) for the person it is sent to.
+  return `${origin}/member/school?lang=${lang}`;
 }
 
 /** The link that lets someone sign in with their email and then finish registering (name, country, place). */
 export function finishRegistrationUrl(lang: 'en' | 'fr'): string {
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   // continue=1: the sign-in page says "you are already registered" (this is not a new sign-up).
-  return `${origin}/member/login?continue=1${lang === 'fr' ? '&lang=fr' : ''}`;
+  return `${origin}/member/login?continue=1&lang=${lang}`;
 }
 
 /** A WhatsApp chat with this number, the message already typed (the leader reads it and presses send). */

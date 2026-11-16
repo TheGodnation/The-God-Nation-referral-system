@@ -7,6 +7,8 @@
 import type { NextFunction, Request, Response } from 'express';
 
 type Lang = 'en' | 'fr';
+/** The language of a shared link: ?lang=en, ?lang=fr, or neither (then the card shows both languages). */
+export type CardLang = Lang | 'both';
 
 export interface PreviewMeta {
   title: string;
@@ -16,20 +18,43 @@ export interface PreviewMeta {
 
 const SITE = 'The God Nation';
 
-const DEFAULT: Record<Lang, PreviewMeta> = {
+// The picture of each card (drawn from docs/share-cards/cards.html). WhatsApp keeps a picture it has already
+// fetched, so a new design gets new file names rather than replacing these files.
+const CARD_IMAGE: Record<CardLang, string> = {
+  both: 'share-card.jpg',
+  en: 'share-card-en.jpg',
+  fr: 'share-card-fr.jpg',
+};
+const CARD_ALT: Record<CardLang, string> = {
+  both: 'The God Nation — Media & Leadership Academy · Académie des médias et du leadership',
+  en: 'The God Nation — Media & Leadership Academy',
+  fr: 'The God Nation — Académie des médias et du leadership',
+};
+
+/** The card picture for a link in this language. */
+export function cardImageFile(lang: CardLang): string {
+  return CARD_IMAGE[lang];
+}
+
+const DEFAULT: Record<CardLang, PreviewMeta> = {
   en: {
-    title: 'The God Nation — Leadership Academy',
-    description: 'The God Nation: a community of disciples learning, praying and growing together. Leadership school, Dominion Clinic, chats and giving, in English and French.',
+    title: 'The God Nation — Media & Leadership Academy',
+    description: 'Go into the digital media spaces where billions gather. Make disciples who make disciples, taking the Gospel of the Kingdom to the ends of the earth.',
     type: 'website',
   },
   fr: {
-    title: 'The God Nation — Académie de leadership',
-    description: 'The God Nation : une communauté de disciples qui apprennent, prient et grandissent ensemble. École de leadership, Clinique de la Domination, discussions et dons, en français et en anglais.',
+    title: 'The God Nation — Académie des médias et du leadership',
+    description: 'Allez dans les espaces des médias numériques où des milliards de personnes se rassemblent. Faites des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.',
+    type: 'website',
+  },
+  both: {
+    title: 'The God Nation — Media & Leadership Academy',
+    description: 'Académie des médias et du leadership. Make disciples who make disciples · Faites des disciples qui font des disciples.',
     type: 'website',
   },
 };
 
-const JOIN: Record<Lang, PreviewMeta> = {
+const JOIN: Record<CardLang, PreviewMeta> = {
   en: {
     title: 'Join The God Nation',
     description: 'Join a community of disciples online. Learn, pray and grow together, and be sent to make disciples who make disciples.',
@@ -38,6 +63,11 @@ const JOIN: Record<Lang, PreviewMeta> = {
   fr: {
     title: 'Rejoignez The God Nation',
     description: 'Rejoignez une communauté de disciples en ligne. Apprenez, priez et grandissez ensemble, et soyez envoyés pour faire des disciples qui font des disciples.',
+    type: 'website',
+  },
+  both: {
+    title: 'Join The God Nation · Rejoignez The God Nation',
+    description: 'Join a community of disciples online · Rejoignez une communauté de disciples en ligne. Make disciples who make disciples · Faites des disciples qui font des disciples.',
     type: 'website',
   },
 };
@@ -62,18 +92,19 @@ export function pageSlugOf(path: string): string | null {
   return m ? m[1] : null;
 }
 
-export function metaFor(path: string, lang: Lang, page?: { title: string; text: string } | null): PreviewMeta {
+export function metaFor(path: string, lang: CardLang, page?: { title: string; text: string } | null): PreviewMeta {
   if (page) return { title: `${page.title} — ${SITE}`, description: excerpt(page.text) || DEFAULT[lang].description, type: 'article' };
   if (JOIN_PATHS.has(path.replace(/\/+$/, '') || '/')) return JOIN[lang];
   return DEFAULT[lang];
 }
 
 /** The page with its title, description and share tags set for this link. Only the page's own path is used for the address, so a referral code in the link is never copied into it. */
-export function renderIndexHtml(template: string, opts: { appUrl: string; path: string; lang: Lang; meta: PreviewMeta }): string {
+export function renderIndexHtml(template: string, opts: { appUrl: string; path: string; lang: CardLang; meta: PreviewMeta }): string {
   const { appUrl, path, lang, meta } = opts;
   const base = appUrl.replace(/\/+$/, '');
   const url = `${base}${path === '/' ? '' : path}` || base;
-  const image = `${base}/og-image.png`;
+  const image = `${base}/${CARD_IMAGE[lang]}`;
+  const pageLang: Lang = lang === 'fr' ? 'fr' : 'en';
   const t = escapeAttr(meta.title);
   const d = escapeAttr(meta.description);
   const tags = [
@@ -85,7 +116,10 @@ export function renderIndexHtml(template: string, opts: { appUrl: string; path: 
     `<meta property="og:image" content="${escapeAttr(image)}" />`,
     `<meta property="og:image:width" content="1200" />`,
     `<meta property="og:image:height" content="630" />`,
-    `<meta property="og:locale" content="${lang === 'fr' ? 'fr_FR' : 'en_US'}" />`,
+    `<meta property="og:image:type" content="image/jpeg" />`,
+    `<meta property="og:image:alt" content="${escapeAttr(CARD_ALT[lang])}" />`,
+    `<meta property="og:locale" content="${pageLang === 'fr' ? 'fr_FR' : 'en_US'}" />`,
+    ...(lang === 'both' ? [`<meta property="og:locale:alternate" content="fr_FR" />`] : []),
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<meta name="twitter:title" content="${t}" />`,
     `<meta name="twitter:description" content="${d}" />`,
@@ -96,7 +130,7 @@ export function renderIndexHtml(template: string, opts: { appUrl: string; path: 
   let html = template;
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${t}</title>`);
   html = html.replace(/<meta\s+name="description"[\s\S]*?\/>/i, `<meta name="description" content="${d}" />`);
-  html = html.replace(/<html lang="[a-z-]*"/i, `<html lang="${lang}"`);
+  html = html.replace(/<html lang="[a-z-]*"/i, `<html lang="${pageLang}"`);
   return html.replace(/<\/head>/i, `    ${tags}\n  </head>`);
 }
 
@@ -107,9 +141,10 @@ export function spaHandler(template: string, appUrl: string, findPage: Lookup) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (req.path.startsWith('/api')) return next();
-      const lang: Lang = req.query.lang === 'fr' ? 'fr' : 'en';
+      // The link's own language decides the card (WhatsApp says nothing about who will read it).
+      const lang: CardLang = req.query.lang === 'fr' ? 'fr' : req.query.lang === 'en' ? 'en' : 'both';
       const slug = pageSlugOf(req.path);
-      const page = slug ? await findPage(slug, lang) : null;
+      const page = slug ? await findPage(slug, lang === 'fr' ? 'fr' : 'en') : null;
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.send(renderIndexHtml(template, { appUrl, path: req.path, lang, meta: metaFor(req.path, lang, page) }));
     } catch (err) {
