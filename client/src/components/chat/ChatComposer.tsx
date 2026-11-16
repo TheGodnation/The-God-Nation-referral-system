@@ -807,14 +807,16 @@ export function ChatComposer({
             />
           </div>
         )}
-        <div className="flex items-end gap-2">
+        {/* On a narrow phone the box keeps room for "Message": tighter icons, and a little smaller round buttons when
+            the two-language voice button (🌐) sits beside the microphone. */}
+        <div className={`flex items-end ${bilingual ? 'gap-1.5' : 'gap-2'}`}>
           <div className="flex min-h-[48px] min-w-0 flex-1 items-end rounded-3xl bg-white px-1">
             <button
               type="button"
               onClick={toggleEmoji}
               aria-label={t(emojiOpen ? 'groupChat.emoji_close' : 'groupChat.emoji_open') ?? ''}
               aria-expanded={emojiOpen}
-              className="shrink-0 p-2.5 text-slate-500"
+              className="shrink-0 p-2 text-slate-500"
             >
               <ChatIcon name={emojiOpen ? 'keyboard' : 'smiley'} />
             </button>
@@ -865,7 +867,7 @@ export function ChatComposer({
                   rememberCursor(el);
                 });
               }}
-              className="block w-full max-h-[120px] resize-none border-0 bg-transparent px-1 py-3 text-[16px] leading-6 outline-none focus:ring-0"
+              className={`block w-full max-h-[120px] resize-none border-0 bg-transparent px-1 py-3 text-[16px] leading-6 outline-none focus:ring-0 ${text ? '' : 'overflow-hidden whitespace-nowrap'}`}
             />
             <button
               type="button"
@@ -875,7 +877,7 @@ export function ChatComposer({
               }}
               aria-label={t('groupChat.attach') ?? ''}
               aria-expanded={menuOpen}
-              className="shrink-0 -rotate-45 p-2.5 text-slate-500"
+              className="shrink-0 -rotate-45 p-2 text-slate-500"
             >
               <ChatIcon name="paperclip" />
             </button>
@@ -884,12 +886,12 @@ export function ChatComposer({
                 type="button"
                 onClick={() => cameraRef.current?.click()}
                 aria-label={t('groupChat.take_photo') ?? ''}
-                className="shrink-0 p-2.5 text-slate-500"
+                className="shrink-0 p-2 text-slate-500"
               >
                 <ChatIcon name="camera" />
               </button>
             )}
-            <VoiceInputButton onResult={onVoiceInputResult} className="shrink-0 p-2.5 text-lg" />
+            <VoiceInputButton onResult={onVoiceInputResult} className="shrink-0 p-2 text-lg" />
           </div>
 
           {hasContent ? (
@@ -911,7 +913,7 @@ export function ChatComposer({
                 disabled={busy}
                 aria-label={t('bilingual.open') ?? ''}
                 title={t('bilingual.open') ?? ''}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-xl shadow-sm"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-xl shadow-sm"
               >
                 🌐
               </button>
@@ -922,7 +924,7 @@ export function ChatComposer({
               disabled={busy}
               aria-label={t('groupChat.record_voice') ?? ''}
               title={t('groupChat.record_voice') ?? ''}
-              className="flex h-12 w-12 shrink-0 select-none items-center justify-center rounded-full bg-emerald-600 text-white disabled:bg-emerald-300"
+              className={`flex ${bilingual ? 'h-11 w-11' : 'h-12 w-12'} shrink-0 select-none items-center justify-center rounded-full bg-emerald-600 text-white disabled:bg-emerald-300`}
             >
               <ChatIcon name="mic" />
             </button>
