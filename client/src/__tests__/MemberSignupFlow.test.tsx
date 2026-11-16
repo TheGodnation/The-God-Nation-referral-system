@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberSignupPage } from '../pages/MemberSignupPage';
 import { MemberCompleteProfilePage } from '../pages/MemberCompleteProfilePage';
@@ -56,11 +56,32 @@ describe('MemberSignupPage', () => {
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
     fireEvent.change(screen.getByLabelText('Phone number (WhatsApp)'), { target: { value: '+237670000001' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /accept the Terms of Use/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
 
     await waitFor(() => expect(screen.getByText('Check your email')).toBeInTheDocument());
     const post = calls.find((c) => c.url.includes('/api/member/auth/signup'));
-    expect(post?.body).toEqual({ email: 'ada@example.com', whatsapp: '+237670000001', password: 'Testpass123', language: 'en', consentWhatsapp: false, consentEmail: false });
+    expect(post?.body).toEqual({ email: 'ada@example.com', whatsapp: '+237670000001', password: 'Testpass123', language: 'en', consentWhatsapp: false, consentEmail: false, acceptTerms: true });
+  });
+
+  it('will not sign up until the Terms of Use and Privacy Policy are accepted (the box starts unticked, with both links)', async () => {
+    mockFetchByUrl({ '/api/member/auth/signup': { status: 200, body: { message: 'ok' } } });
+    render(
+      <MemoryRouter>
+        <MemberSignupPage />
+      </MemoryRouter>,
+    );
+    const box = screen.getByRole('checkbox', { name: /accept the Terms of Use/ });
+    expect(box).not.toBeChecked();
+    const termsBox = screen.getByTestId('signup-terms');
+    expect(within(termsBox).getByRole('link', { name: 'Terms of Use' })).toHaveAttribute('href', '/terms');
+    expect(within(termsBox).getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
+    fireEvent.change(screen.getByLabelText('Phone number (WhatsApp)'), { target: { value: '+237670000001' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Please tick the box to accept the Terms of Use and the Privacy Policy.'));
+    expect(calls.some((c) => c.url.includes('/api/member/auth/signup'))).toBe(false);
   });
 
   it('shows a clear message for an invalid phone number', async () => {
@@ -73,6 +94,7 @@ describe('MemberSignupPage', () => {
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
     fireEvent.change(screen.getByLabelText('Phone number (WhatsApp)'), { target: { value: '12' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /accept the Terms of Use/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Please enter a valid phone number.'),
@@ -89,6 +111,7 @@ describe('MemberSignupPage', () => {
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
     fireEvent.change(screen.getByLabelText('Phone number (WhatsApp)'), { target: { value: '+237670000001' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'short' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /accept the Terms of Use/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Please choose a password with at least 8 characters.'),

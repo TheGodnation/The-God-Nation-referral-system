@@ -15,7 +15,7 @@ export async function joinAsNewMember(
   const signup = await agent
     .post('/api/member/auth/signup')
     .set('X-CSRF-Token', csrf)
-    .send({ email: opts.email, whatsapp: opts.whatsapp, password: opts.password ?? 'Testpass123', language: opts.language ?? 'en', ...(opts.extra ?? {}) });
+    .send({ email: opts.email, whatsapp: opts.whatsapp, password: opts.password ?? 'Testpass123', language: opts.language ?? 'en', acceptTerms: true, ...(opts.extra ?? {}) });
   const link = spy.mock.calls[0]?.[0]?.link as string | undefined;
   spy.mockRestore();
   if (!link) return { signup, consume: null, done: signup };

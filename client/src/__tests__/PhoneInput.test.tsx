@@ -95,6 +95,7 @@ describe('Phone box', () => {
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
     fireEvent.change(screen.getByLabelText('Phone number (WhatsApp)'), { target: { value: '670944011' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Testpass123' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /accept the Terms of Use/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
     await waitFor(() => expect(calls.find((c) => c.url.includes('/api/member/auth/signup'))?.body.whatsapp).toBe('+237670944011'));
   });

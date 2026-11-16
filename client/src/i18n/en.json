@@ -71,6 +71,8 @@
     "consent_whatsapp": "Yes, send me updates and encouragement from The God Nation on WhatsApp.",
     "consent_email": "Yes, send me updates and encouragement from The God Nation by email.",
     "consent_hint": "Optional. You can change this any time in your profile.",
+    "accept_terms": "I have read and accept the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>.",
+    "error_terms": "Please tick the box to accept the Terms of Use and the Privacy Policy.",
     "consent_ads": "Yes, The God Nation may share my email and phone number, scrambled so they cannot be read (hashed), with Meta (Facebook and Instagram), TikTok and Google, to measure which ads brought me here and to show The God Nation messages to me and to people like me."
   },
   "memberCompleteProfile": {

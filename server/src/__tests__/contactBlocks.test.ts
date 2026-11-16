@@ -42,7 +42,7 @@ async function signup(email: string, whatsapp: string) {
   const spy = vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true });
   const agent = agentWithUniqueIp();
   const { csrf } = await bootstrap(agent as any);
-  const res = await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email, whatsapp, password: 'Testpass123', language: 'en' });
+  const res = await agent.post('/api/member/auth/signup').set('X-CSRF-Token', csrf).send({ email, whatsapp, password: 'Testpass123', language: 'en', acceptTerms: true });
   const sent = spy.mock.calls.length > 0;
   spy.mockRestore();
   return { res, sent };
