@@ -5,7 +5,8 @@ import Anthropic from '@anthropic-ai/sdk';
 // or Claude gives nothing, the callers fall back to Gemini exactly as before (see translation.ts). Audio is
 // never sent here: Claude does not take audio, so a voice note is still listened to by Gemini.
 //
-// Private messages and prayer requests never reach this file either: nothing in them calls translation.ts at all.
+// Prayer requests never reach this file. A private message reaches it only when someone in that chat taps "Translate"
+// (lib/privateTranslation.ts), never by itself; the privacy page says so in section 4.
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 // Opus is Anthropic's most capable model; ANTHROPIC_MODEL can point at another (for example claude-sonnet-5-5 to cost less).

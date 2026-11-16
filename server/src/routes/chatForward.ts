@@ -40,7 +40,7 @@ const forwardSchema = z.object({
 // What the app already worked out for a group message (its translation, or a
 // voice note's transcript and translation). A copy sent to another group takes
 // it along, so nothing is translated twice; only what is still missing is
-// translated for the copy. Private chats are never translated at all.
+// translated for the copy. Private chats are never translated by themselves (only on a tap of "Translate").
 type KnownTranslation = {
   detectedLanguage: 'en' | 'fr' | null;
   translatedBody: string | null;

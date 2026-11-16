@@ -3,6 +3,7 @@ import { api, NetworkError } from './api';
 import { deleteAllFor } from './offlineStore';
 import { setReadCacheOwner } from './readCache';
 import { clearAllDrafts, pruneDrafts } from './drafts';
+import { clearAllOutboxes, dropUnownedOutboxes } from './chatSync';
 
 export interface CurrentMember {
   name: string;
@@ -125,6 +126,8 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
     if (personId) void deleteAllFor(personId);
     // Unsent drafts leave the phone too, so the next person never sees them.
     clearAllDrafts();
+    // So do messages still waiting for network: they must never be sent from the next person's account.
+    clearAllOutboxes();
     // So do the lists kept for offline use (Learn, the School and its books).
     try {
       for (const k of Object.keys(localStorage)) if (/^(school|school-book|exam-world):/.test(k)) localStorage.removeItem(k);
@@ -140,6 +143,7 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     pruneDrafts();
+    dropUnownedOutboxes();
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

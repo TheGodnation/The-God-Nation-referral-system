@@ -224,6 +224,7 @@ export function MemberGroupChatPage() {
 
   // Messages typed while offline: shown with 🕓, sent when the network is back.
   const outbox = useOutbox(
+    member?.personId,
     `group:${communityId}`,
     (out, signal) => api.post(`/api/communities/${communityId}/conversation/messages`, out, { signal }).then(() => undefined),
     (tempId) => {

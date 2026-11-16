@@ -23,8 +23,12 @@ describe('Privacy policy', () => {
     show();
     expect(screen.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '1. What we collect' })).toBeInTheDocument();
-    expect(screen.getByText(/Google Gemini is used to translate/)).toBeInTheDocument();
-    expect(screen.getByText(/never receives private messages or prayer requests/)).toBeInTheDocument();
+    expect(screen.getByText(/Anthropic Claude first and, when it is not available, Google Gemini/)).toBeInTheDocument();
+    // Private messages reach the translator only when someone taps "Translate" (it must never claim they never do).
+    expect(screen.getByText(/only when you or the other person in that chat tap "Translate"/)).toBeInTheDocument();
+    expect(screen.getByText(/Prayer requests are never sent to these services/)).toBeInTheDocument();
+    expect(screen.queryByText(/never receives private messages/)).toBeNull();
+    expect(screen.getByText('Last updated: 16 November 2026')).toBeInTheDocument();
     expect(screen.getByText(/We do not sell your information/)).toBeInTheDocument();
     expect(screen.getByText(/Follow-up conversations between a leader and a member may be reviewed by the central administration for care and quality/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Delete my account' })).toHaveAttribute('href', '/delete-account');
@@ -38,6 +42,7 @@ describe('Privacy policy', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Politique de confidentialité' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(10);
     expect(screen.getByText(/Nous ne vendons pas vos informations/)).toBeInTheDocument();
+    expect(screen.getByText(/que lorsque vous ou l'autre personne de cette discussion appuyez sur « Traduire »/)).toBeInTheDocument();
     expect(screen.getByText(/Les conversations de suivi entre un responsable et un membre peuvent être consultées par l'administration centrale/)).toBeInTheDocument();
   });
 });
