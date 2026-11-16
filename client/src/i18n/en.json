@@ -4149,7 +4149,7 @@
   "privacy": {
     "title": "Privacy Policy",
     "nav": "Privacy",
-    "updated": "Last updated: 12 November 2026",
+    "updated": "Last updated: 16 November 2026",
     "intro": "The God Nation (\"we\", \"the ministry\") runs The God Nation app and the website thegodnationacademy.org. This page explains in plain words what we collect, why, who can see it, who helps us run the app, and how you can have it deleted.",
     "sections": [
       {
@@ -4195,7 +4195,7 @@
         "p": [
           "We use trusted services to run the app. They process data for us and may not use it for their own purposes.",
           "Render hosts the app and its database (in Frankfurt, Germany). Cloudflare R2 stores uploaded files such as photos, voice notes and documents. Resend sends our emails. Your phone's own push service (Google or Apple, depending on your phone) delivers alerts.",
-          "Google Gemini is used to translate between English and French and to help draft quiz questions. It receives the text of posts and group chat messages, the audio of group chat voice notes, and teaching texts. It never receives private messages or prayer requests."
+          "Two AI services translate between English and French and help draft quiz questions: Anthropic Claude first and, when it is not available, Google Gemini. They receive the text of posts, group chat messages, teachings and leaders' instructions. Only Google Gemini receives the audio of group chat voice notes, to write them out. A private message is never translated by itself: its text is sent to the translator only when you or the other person in that chat tap \"Translate\" on it, and the translation is then kept with the message. The same happens to a message written to many people when its sender asks to see a translation before sending. Prayer requests are never sent to these services."
         ]
       },
       {

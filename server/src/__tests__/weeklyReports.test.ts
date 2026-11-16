@@ -44,9 +44,11 @@ async function signedIn(name: string, kind: 'member' | 'admin' = 'member') {
 }
 const send = (w: Who, method: 'post' | 'put', path: string, body: unknown) => w.agent[method](path).set('X-CSRF-Token', w.csrf).send(body as object);
 const community = async (name: string, parentId?: string) => (await prisma.community.create({ data: { name: `${name} ${++n}`, parentId: parentId ?? null } }));
-const lead = async (personId: string, communityId: string) => {
+// `since`: when the person became a leader. Tests that use a fixed "now" pass a fixed date too, so they do not
+// depend on the real calendar (a leader appointed after that "now" would count as new).
+const lead = async (personId: string, communityId: string, since?: Date) => {
   const any = (await prisma.user.findFirst({ where: { role: 'ADMIN' } })) ?? (await prisma.user.create({ data: { name: 'A', email: `wk-a-${++n}@test.local`, passwordHash: 'x', role: 'ADMIN' } }));
-  await prisma.roleAssignment.create({ data: { personId, roleType: 'SCOPED_LEADER', communityId, assignedByUserId: any.id } });
+  await prisma.roleAssignment.create({ data: { personId, roleType: 'SCOPED_LEADER', communityId, assignedByUserId: any.id, ...(since ? { assignedAt: since } : {}) } });
 };
 const report = (personId: string, weekStart: string, late = false) =>
   prisma.leaderWeeklyReport.create({ data: { personId, weekStart: day(weekStart), contacted: 3, needHelp: 1, late } });
@@ -94,7 +96,7 @@ describe('My leaders and reminders', () => {
     await prisma.settings.upsert({ where: { id: 'singleton' }, update: { headquartersCommunityId: hq.id }, create: { id: 'singleton', headquartersCommunityId: hq.id } as any });
     const mk = async (name: string, c: { id: string }) => {
       const p = await prisma.person.create({ data: { name: `${name} ${++n}`, whatsappNumber: `+2377100${String(n).padStart(5, '0')}` } });
-      await lead(p.id, c.id);
+      await lead(p.id, c.id, at('2026-11-02T08:00:00Z')); // a leader since before the week of 9 Nov
       return p;
     };
     return { gen1, gen2, green: await mk('Green', gen1), red: await mk('Red', gen1), yellow: await mk('Yellow', gen2), plain: await prisma.person.create({ data: { name: `Plain ${++n}`, whatsappNumber: `+2377100${String(++n).padStart(5, '0')}` } }) };
@@ -242,7 +244,10 @@ describe('The three doors', () => {
     expect((await send(rep, 'put', '/api/member/rep-weekly-reports/summary', { summary: ' ' })).status).toBe(400);
     const saved = await send(rep, 'put', '/api/member/rep-weekly-reports/summary', { summary: 'Most leaders are active; two need encouragement.' });
     expect(saved.status).toBe(200);
-    expect((await rep.agent.get('/api/member/rep-weekly-reports/summary')).body.sent).toBe(true);
+    // Sent. The screen then shows that week as sent, or, when that was last week's summary, moves on to this week's.
+    expect(saved.body.sent).toBe(true);
+    const after = (await rep.agent.get('/api/member/rep-weekly-reports/summary')).body;
+    expect(after.sent || after.weekStart > saved.body.weekStart).toBe(true);
     const seen = await admin.agent.get('/api/member/central-weekly-reports/summaries');
     expect(seen.body.items.find((s: any) => s.generation === 1 && s.summary.startsWith('Most leaders'))).toBeTruthy();
   });

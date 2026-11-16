@@ -157,14 +157,14 @@ describe('Weak network', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByText(/Waiting for network/)).toBeInTheDocument();
     expect(screen.getByText('Are you there?')).toBeInTheDocument();
-    expect(localStorage.getItem('outbox:private:c1')).toContain('Are you there?');
+    expect(localStorage.getItem('outbox:me:private:c1')).toContain('Are you there?');
 
     offline = false;
     act(() => {
       window.dispatchEvent(new Event('online'));
     });
     await waitFor(() => expect(calls.filter((c) => c.method === 'POST' && c.url === `${BASE}/messages`).length).toBe(2));
-    await waitFor(() => expect(localStorage.getItem('outbox:private:c1')).toBeNull());
+    await waitFor(() => expect(localStorage.getItem('outbox:me:private:c1')).toBeNull());
   });
 
   it('lets the person delete a message that is waiting for the network: it is never sent', async () => {
@@ -179,13 +179,13 @@ describe('Weak network', () => {
     fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Sent by mistake' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByText(/Waiting for network/)).toBeInTheDocument();
-    expect(localStorage.getItem('outbox:private:c1')).toContain('Sent by mistake');
+    expect(localStorage.getItem('outbox:me:private:c1')).toContain('Sent by mistake');
 
     fireEvent.click(screen.getByTestId('cancel-pending'));
     expect(confirm).toHaveBeenCalled();
     expect(screen.queryByText('Sent by mistake')).not.toBeInTheDocument();
     expect(screen.getByText('Deleted. It was never sent.')).toBeInTheDocument();
-    expect(localStorage.getItem('outbox:private:c1')).toBeNull();
+    expect(localStorage.getItem('outbox:me:private:c1')).toBeNull();
 
     // The network comes back: nothing is sent.
     const postsBefore = calls.filter((c) => c.method === 'POST' && c.url === `${BASE}/messages`).length;
@@ -209,7 +209,7 @@ describe('Weak network', () => {
     await screen.findByText(/Waiting for network/);
     fireEvent.click(screen.getByTestId('cancel-pending'));
     expect(screen.getByText('Keep me')).toBeInTheDocument();
-    expect(localStorage.getItem('outbox:private:c1')).toContain('Keep me');
+    expect(localStorage.getItem('outbox:me:private:c1')).toContain('Keep me');
     vi.restoreAllMocks();
   });
 
@@ -227,7 +227,7 @@ describe('Weak network', () => {
     expect(screen.getByText(/Stopped\./)).toBeInTheDocument();
     // Stopping it is not a network problem: nothing is saved to send later.
     await new Promise((r) => setTimeout(r, 60));
-    expect(localStorage.getItem('outbox:private:c1')).toBeNull();
+    expect(localStorage.getItem('outbox:me:private:c1')).toBeNull();
     vi.restoreAllMocks();
   });
 

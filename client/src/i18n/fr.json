@@ -4149,7 +4149,7 @@
   "privacy": {
     "title": "Politique de confidentialité",
     "nav": "Confidentialité",
-    "updated": "Dernière mise à jour : 12 novembre 2026",
+    "updated": "Dernière mise à jour : 16 novembre 2026",
     "intro": "The God Nation (« nous », « le ministère ») gère l'application The God Nation et le site thegodnationacademy.org. Cette page explique en termes simples ce que nous collectons, pourquoi, qui peut le voir, qui nous aide à faire fonctionner l'application et comment vous pouvez faire supprimer vos informations.",
     "sections": [
       {
@@ -4195,7 +4195,7 @@
         "p": [
           "Nous utilisons des services de confiance. Ils traitent des données pour nous et n'ont pas le droit de les utiliser pour leurs propres besoins.",
           "Render héberge l'application et sa base de données (à Francfort, en Allemagne). Cloudflare R2 stocke les fichiers téléversés comme les photos, les notes vocales et les documents. Resend envoie nos e-mails. Le service de notifications de votre téléphone (Google ou Apple, selon votre téléphone) livre les alertes.",
-          "Google Gemini sert à traduire entre l'anglais et le français et à aider à rédiger des questions de quiz. Il reçoit le texte des publications et des messages des discussions de groupe, l'audio des notes vocales de groupe et les textes des enseignements. Il ne reçoit jamais les messages privés ni les demandes de prière."
+          "Deux services d'intelligence artificielle traduisent entre l'anglais et le français et aident à rédiger des questions de quiz : d'abord Anthropic Claude et, lorsqu'il n'est pas disponible, Google Gemini. Ils reçoivent le texte des publications, des messages des discussions de groupe, des enseignements et des instructions des leaders. Seul Google Gemini reçoit l'audio des notes vocales de groupe, pour les mettre par écrit. Un message privé n'est jamais traduit de lui-même : son texte n'est envoyé au traducteur que lorsque vous ou l'autre personne de cette discussion appuyez sur « Traduire », et la traduction est ensuite gardée avec le message. Il en va de même pour un message écrit à plusieurs personnes lorsque son auteur demande à voir une traduction avant de l'envoyer. Les demandes de prière ne sont jamais envoyées à ces services."
         ]
       },
       {

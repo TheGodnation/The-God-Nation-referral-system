@@ -177,6 +177,7 @@ export function MemberPrivateChatPage() {
 
   // Messages typed while offline: shown with 🕓, sent when the network is back.
   const outbox = useOutbox(
+    member?.personId,
     `private:${conversationId}`,
     (out, signal) => api.post(`${base}/messages`, out, { signal }).then(() => undefined),
     (tempId) => {

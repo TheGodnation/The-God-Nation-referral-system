@@ -136,9 +136,13 @@ interface QueuedItem {
   message: ChatMessage;
 }
 
+// Waiting messages are kept per member: `outbox:<personId>:<chat>`. So on a shared phone a message one person typed
+// offline can never be sent from the next person's account, and signing out removes them (see clearAllOutboxes).
+export const outboxStorageKey = (ownerId: string | undefined, chatKey: string) => `outbox:${ownerId ?? 'me'}:${chatKey}`;
+
 function readOutbox(key: string): QueuedItem[] {
   try {
-    const raw = localStorage.getItem(`outbox:${key}`);
+    const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as QueuedItem[]) : [];
   } catch {
     return [];
@@ -147,8 +151,26 @@ function readOutbox(key: string): QueuedItem[] {
 
 function writeOutbox(key: string, items: QueuedItem[]) {
   try {
-    if (items.length) localStorage.setItem(`outbox:${key}`, JSON.stringify(items));
-    else localStorage.removeItem(`outbox:${key}`);
+    if (items.length) localStorage.setItem(key, JSON.stringify(items));
+    else localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Removes every waiting message on this phone (at sign-out), including ones saved before they were kept per member. */
+export function clearAllOutboxes(): void {
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith('outbox:')) localStorage.removeItem(k);
+  } catch {
+    /* Storage unavailable: nothing was kept. */
+  }
+}
+
+/** Waiting messages saved before they were kept per member have no known owner: they are dropped, never sent. */
+export function dropUnownedOutboxes(): void {
+  try {
+    for (const k of Object.keys(localStorage)) if (/^outbox:(group|private):/.test(k)) localStorage.removeItem(k);
   } catch {
     /* ignore */
   }
@@ -160,14 +182,25 @@ function writeOutbox(key: string, items: QueuedItem[]) {
  * the app). `send` posts one message; `onSent` / `onRefused` report back.
  */
 export function useOutbox(
+  ownerId: string | undefined,
   chatKey: string,
   send: (out: OutgoingMessage, signal?: AbortSignal) => Promise<void>,
   onSent: (tempId: string) => void,
   onRefused: (tempId: string, err: unknown) => void,
 ) {
-  const [queued, setQueued] = useState<QueuedItem[]>(() => readOutbox(chatKey));
+  const storageKey = outboxStorageKey(ownerId, chatKey);
+  const [queued, setQueued] = useState<QueuedItem[]>(() => readOutbox(storageKey));
   const queueRef = useRef(queued);
   queueRef.current = queued;
+  // Another member on this phone (or another chat): show and send only their own waiting messages.
+  const loadedKey = useRef(storageKey);
+  useEffect(() => {
+    if (loadedKey.current === storageKey) return;
+    loadedKey.current = storageKey;
+    const items = readOutbox(storageKey);
+    queueRef.current = items;
+    setQueued(items);
+  }, [storageKey]);
   const flushing = useRef(false);
   // Being sent right now (so a delete can stop it), and deleted while waiting.
   const inflight = useRef(new Map<string, AbortController>());
@@ -182,9 +215,9 @@ export function useOutbox(
     (items: QueuedItem[]) => {
       queueRef.current = items;
       setQueued(items);
-      writeOutbox(chatKey, items);
+      writeOutbox(storageKey, items);
     },
-    [chatKey],
+    [storageKey],
   );
 
   const flush = useCallback(async () => {
