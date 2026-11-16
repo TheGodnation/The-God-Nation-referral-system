@@ -11,11 +11,11 @@ export function HomeAboutTabs({ active, trailing }: { active: 'home' | 'about'; 
   const tab = (isActive: boolean) =>
     `whitespace-nowrap rounded-full ${trailing ? 'px-3' : 'px-4'} py-1.5 text-sm font-semibold no-underline ${isActive ? 'border-b-[3px] border-gold-400 bg-brand-700 text-white shadow' : `${trailing ? 'bg-brand-50' : 'bg-white shadow-sm'} text-brand-700`}`;
   const nav = (
-    <nav className={`flex gap-2 ${trailing ? '' : 'px-4 sm:px-0'}`} aria-label={t('aboutGodNation.tabs_label') ?? ''}>
-      <Link to="/member/updates" aria-current={active === 'home' ? 'page' : undefined} className={tab(active === 'home')}>
+    <nav className={`flex gap-2 ${trailing ? 'min-w-0' : 'px-4 sm:px-0'}`} aria-label={t('aboutGodNation.tabs_label') ?? ''}>
+      <Link to="/member/updates" aria-current={active === 'home' ? 'page' : undefined} className={`${tab(active === 'home')} shrink-0`}>
         {t('memberNav.home')}
       </Link>
-      <Link to="/member/about" aria-current={active === 'about' ? 'page' : undefined} className={tab(active === 'about')}>
+      <Link to="/member/about" aria-current={active === 'about' ? 'page' : undefined} className={`${tab(active === 'about')} ${trailing ? 'min-w-0 truncate' : ''}`}>
         {t('aboutGodNation.tab')}
       </Link>
     </nav>
@@ -24,7 +24,8 @@ export function HomeAboutTabs({ active, trailing }: { active: 'home' | 'about'; 
   return (
     <div className="flex items-center justify-between gap-2 border-t-4 border-gold-400 bg-white px-4 py-2 sm:rounded-xl sm:shadow-sm">
       {nav}
-      {trailing}
+      {/* The bell never shrinks or slides off a narrow phone; a long tab name shortens instead. */}
+      <div className="shrink-0">{trailing}</div>
     </div>
   );
 }
