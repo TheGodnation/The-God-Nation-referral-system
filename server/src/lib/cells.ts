@@ -191,10 +191,8 @@ export async function assembliesOverview(): Promise<{ capacity: number; required
   for (const m of memberships) {
     members.set(m.communityId, (members.get(m.communityId) ?? 0) + 1);
     const key = `${m.communityId}:${m.personId}`;
-    // In an assembly: nobody follows them there. In a group: nobody follows them anywhere (most already have a
-    // leader in their assembly).
-    const followedHere = isGroup.has(m.communityId) ? followedAnywhere.has(m.personId) : followedKey.has(key);
-    if (!leaderKey.has(key) && !followedHere && !adminIds.has(m.personId) && !leadsSomewhere.has(m.personId)) {
+    // Nobody follows them anywhere (a person has one leader, wherever the follow-up was first recorded).
+    if (!leaderKey.has(key) && !followedAnywhere.has(m.personId) && !adminIds.has(m.personId) && !leadsSomewhere.has(m.personId)) {
       unassigned.set(m.communityId, (unassigned.get(m.communityId) ?? 0) + 1);
     }
     if (graduates.has(m.personId) && !leaderKey.has(`${m.communityId}:${m.personId}`)) {

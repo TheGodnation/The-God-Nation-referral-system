@@ -177,10 +177,40 @@ describe('CellsPanel', () => {
     await screen.findByTestId('assign-people');
     expect(screen.queryByTestId('take-back-l2')).toBeNull();
     fireEvent.click(screen.getByTestId('take-back-l1'));
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Take back all 5 people from Anna'));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Take back the 5 people of this place that Anna follows?'));
     expect(await screen.findByText('5 people taken back from Anna. They can be assigned again.')).toBeInTheDocument();
     expect(calls.find((c) => c.url.endsWith('/cells/release'))?.body).toEqual({ fromLeaderPersonId: 'l1', communityId: 'a2' });
     await waitFor(() => expect(screen.queryByTestId('take-back-l1')).toBeNull());
+    confirm.mockRestore();
+  });
+
+  it('counts the people of the place a leader follows wherever they were recorded, and shares everyone again evenly in one step', async () => {
+    let redone = false;
+    mockFetch({
+      '/api/admin/cells/overview': () => ({ status: 200, body: overview }),
+      '/api/admin/cells/leaders': () => ({ status: 200, body: { items: redone
+        ? [{ personId: 'l1', name: 'Anna', away: false, headcount: 18, total: 18 }, { personId: 'l2', name: 'Boris', away: false, headcount: 18, total: 18 }]
+        : [{ personId: 'l2', name: 'Boris', away: false, headcount: 0, total: 0 }, { personId: 'l1', name: 'Anna', away: false, headcount: 36, total: 40 }] } }),
+      '/api/admin/cells/redistribute': (init) => {
+        const body = JSON.parse(String(init?.body));
+        if (!body.dryRun) redone = true;
+        return { status: 200, body: { assigned: 36, remaining: 0, noLeaders: false, dryRun: body.dryRun, takenBack: 36, perLeader: [{ personId: 'l1', name: 'Anna', added: 18 }, { personId: 'l2', name: 'Boris', added: 18 }] } };
+      },
+    });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<CellsPanel base="/api/admin/cells" />);
+    const card = await screen.findByTestId('share-members-card');
+    fireEvent.change(await within(card).findByTestId('share-card-select'), { target: { value: 'a1' } });
+    const tool = await within(card).findByTestId('assign-people');
+    expect(await within(tool).findByText(/36 people here · 40 in all/)).toBeInTheDocument();
+    expect(within(tool).getByTestId('take-back-l1')).toHaveTextContent('Take back (36)');
+    // Everyone already has a leader here: only the "share again" tool, not the one for new people.
+    expect(within(tool).queryByTestId('assign-preview')).toBeNull();
+    fireEvent.click(within(tool).getByTestId('redo-preview'));
+    expect(await within(tool).findByTestId('redo-plan')).toHaveTextContent('Anna: 18');
+    fireEvent.click(within(tool).getByTestId('redo-confirm'));
+    expect(await within(card).findByText('Done: 36 people shared evenly among the leaders.')).toBeInTheDocument();
+    expect(calls.filter((c) => c.url.endsWith('/cells/redistribute')).pop()?.body).toEqual({ communityId: 'a1', leaderPersonIds: ['l2', 'l1'], dryRun: false });
     confirm.mockRestore();
   });
 

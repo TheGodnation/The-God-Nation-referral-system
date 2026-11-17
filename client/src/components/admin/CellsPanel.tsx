@@ -231,35 +231,24 @@ export function CellsPanel({ base, showShareCard = true }: { base: '/api/admin/c
             return (
               <div className="space-y-2 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-sm" data-testid="share-block">
                 <p className="font-semibold text-brand-900">{t('cells.share_title')}</p>
-                {count === 0 ? (
-                  <p className="text-slate-700">{t('cells.everyone_followed')}</p>
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span>{t('cells.unassigned_help', { count })}</span>
-                    <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => setAssigning((v) => !v)} data-testid="assign-toggle">
-                      {assigning ? t('cells.assign_close') : t('cells.assign_open')}
-                    </button>
-                  </div>
-                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-slate-700">{count === 0 ? t('cells.everyone_followed') : t('cells.unassigned_help', { count })}</span>
+                  <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => setAssigning((v) => !v)} data-testid="assign-toggle">
+                    {assigning ? t('cells.assign_close') : t('cells.open_share_tool')}
+                  </button>
+                </div>
                 {open.kind === 'GROUP' && <p className="text-xs text-slate-600">{t('cells.group_share_help')}</p>}
-                {assigning && count > 0 && (
+                {assigning && (
                   <AssignPeople
                     base={base}
                     canTakeBack
+                    unassigned={count}
                     communityId={open.id}
                     onDone={(text) => {
                       setMessage(text);
                       load();
                     }}
                   />
-                )}
-                {count === 0 && row && (
-                  <details>
-                    <summary className="cursor-pointer text-xs text-brand-800 underline">{t('cells.see_leaders')}</summary>
-                    <div className="mt-2">
-                      <AssignPeople base={base} canTakeBack communityId={open.id} onDone={(text) => { setMessage(text); load(); }} />
-                    </div>
-                  </details>
                 )}
               </div>
             );
@@ -317,6 +306,7 @@ interface LeaderLoad {
   name: string;
   away: boolean;
   headcount: number;
+  total?: number;
   viaParent?: string;
 }
 interface SharePlan {
@@ -384,6 +374,7 @@ export function ShareMembersCard({ base }: { base: '/api/admin/cells' | '/api/me
             key={chosen.id}
             base={base}
             canTakeBack
+            unassigned={chosen.unassigned}
             communityId={chosen.id}
             onDone={(text) => {
               setMessage(text);
@@ -396,14 +387,16 @@ export function ShareMembersCard({ base }: { base: '/api/admin/cells' | '/api/me
   );
 }
 
-// Give the people nobody follows to the leaders: choose which leaders, and how many people each (leave the number
-// empty to share evenly). "Preview" shows who would get how many, and changes nothing; "Assign" does it.
-export function AssignPeople({ base, communityId, onDone, canTakeBack = false }: { base: string; communityId: string; onDone: (message: string) => void; canTakeBack?: boolean }) {
+// The leaders of one assembly or group, how many of its people each follows (wherever the follow-up was first
+// recorded), and the tools: take back a leader's people, share the people with no leader (evenly or a number each),
+// or share everyone again evenly from the start. "Show me" previews and changes nothing.
+export function AssignPeople({ base, communityId, onDone, canTakeBack = false, unassigned }: { base: string; communityId: string; onDone: (message: string) => void; canTakeBack?: boolean; unassigned?: number }) {
   const { t } = useTranslation();
   const [leaders, setLeaders] = useState<LeaderLoad[] | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
   const [perLeader, setPerLeader] = useState('');
   const [plan, setPlan] = useState<SharePlan | null>(null);
+  const [redo, setRedo] = useState<(SharePlan & { takenBack: number }) | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -416,9 +409,9 @@ export function AssignPeople({ base, communityId, onDone, canTakeBack = false }:
       })
       .catch(() => setError(t('cells.load_failed')));
   }
-  useEffect(loadLeaders, [base, communityId]);
+  useEffect(loadLeaders, [base, communityId, unassigned]);
 
-  // Undo a mistaken or test assignment: everyone this leader follows here is taken back (nothing is deleted).
+  // Undo a mistaken or test assignment: the people of this place this leader follows are taken back (nothing is deleted).
   async function takeBack(l: LeaderLoad) {
     if (!window.confirm(t('cells.take_back_confirm', { count: l.headcount, name: l.name }) ?? '')) return;
     setBusy(true);
@@ -426,6 +419,7 @@ export function AssignPeople({ base, communityId, onDone, canTakeBack = false }:
     try {
       const r = await api.post<{ released: number }>(`${base}/release`, { fromLeaderPersonId: l.personId, communityId });
       setPlan(null);
+      setRedo(null);
       loadLeaders();
       onDone(t('cells.take_back_done', { count: r.released, name: l.name }));
     } catch (err) {
@@ -442,13 +436,36 @@ export function AssignPeople({ base, communityId, onDone, canTakeBack = false }:
   async function run(dryRun: boolean) {
     setBusy(true);
     setError(null);
+    setRedo(null);
     try {
       const r = await api.post<SharePlan>(`${base}/share`, body(dryRun));
       if (dryRun) {
         setPlan(r);
       } else {
         setPlan(null);
+        loadLeaders();
         onDone(r.noLeaders ? t('cells.share_no_leaders') : t('cells.assign_done', { count: r.assigned, left: r.remaining }));
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('cells.share_failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function redistribute(dryRun: boolean) {
+    if (!dryRun && redo && !window.confirm(t('cells.redo_confirm', { count: redo.assigned, leaders: redo.perLeader.filter((l) => l.added > 0).length }) ?? '')) return;
+    setBusy(true);
+    setError(null);
+    setPlan(null);
+    try {
+      const r = await api.post<SharePlan & { takenBack: number }>(`${base}/redistribute`, { communityId, leaderPersonIds: chosen, dryRun });
+      if (dryRun) {
+        setRedo(r);
+      } else {
+        setRedo(null);
+        loadLeaders();
+        onDone(r.noLeaders ? t('cells.share_no_leaders') : t('cells.redo_done', { count: r.assigned }));
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('cells.share_failed'));
@@ -461,69 +478,111 @@ export function AssignPeople({ base, communityId, onDone, canTakeBack = false }:
   if (leaders.length === 0) return <p className="text-slate-600">{t('cells.share_no_leaders')}</p>;
   const toggle = (id: string) => {
     setPlan(null);
+    setRedo(null);
     setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
   };
+  const anyFollowedHere = leaders.some((l) => l.headcount > 0);
+  const showNew = unassigned === undefined || unassigned > 0;
   return (
-    <div className="space-y-3" data-testid="assign-people">
-      <p className="font-semibold text-slate-800">{t('cells.assign_which')}</p>
-      <ul className="max-h-60 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2">
-        {leaders.map((l) => (
-          <li key={l.personId}>
-            <label className="flex items-start gap-2">
-              <input type="checkbox" className="mt-1" checked={chosen.includes(l.personId)} onChange={() => toggle(l.personId)} />
-              <span>
-                <span className="font-medium">{l.name}</span>
-                <span className="block text-xs text-slate-500">
-                  {t('cells.assign_follows', { count: l.headcount })}
-                  {l.viaParent ? ` · ${t('cells.assign_via_parent', { name: l.viaParent })}` : ''}
-                  {l.away ? ` · ${t('cells.assign_away')}` : ''}
+    <div className="space-y-4" data-testid="assign-people">
+      <div>
+        <p className="font-semibold text-slate-800">{t('cells.leaders_here')}</p>
+        <p className="text-xs text-slate-500">{t('cells.leaders_here_help')}</p>
+        <ul className="mt-1 max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+          {leaders.map((l) => (
+            <li key={l.personId} className="flex flex-wrap items-center justify-between gap-2 px-2 py-2">
+              <label className="flex items-start gap-2">
+                <input type="checkbox" className="mt-1" checked={chosen.includes(l.personId)} onChange={() => toggle(l.personId)} />
+                <span>
+                  <span className="font-medium">{l.name}</span>
+                  <span className="block text-xs text-slate-600">
+                    {t('cells.follows_here', { count: l.headcount })}
+                    {(l.total ?? l.headcount) > l.headcount ? ` · ${t('cells.follows_total', { count: l.total })}` : ''}
+                    {l.viaParent ? ` · ${t('cells.assign_via_parent', { name: l.viaParent })}` : ''}
+                    {l.away ? ` · ${t('cells.assign_away')}` : ''}
+                  </span>
                 </span>
-              </span>
-            </label>
-            {canTakeBack && l.headcount > 0 && (
-              <button type="button" className="ml-6 mt-1 text-xs text-red-700 underline" disabled={busy} onClick={() => void takeBack(l)} data-testid={`take-back-${l.personId}`}>
-                {t('cells.take_back', { count: l.headcount })}
+              </label>
+              {canTakeBack && l.headcount > 0 && (
+                <button type="button" className="rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-700" disabled={busy} onClick={() => void takeBack(l)} data-testid={`take-back-${l.personId}`}>
+                  {t('cells.take_back', { count: l.headcount })}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-1 text-xs text-slate-500">{t('cells.tick_help')}</p>
+      </div>
+
+      {error && <p className="text-red-700">{error}</p>}
+
+      {showNew && (
+        <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+          <p className="font-semibold text-slate-800">{t('cells.new_title')}</p>
+          <label className="block">
+            <span className="text-sm text-slate-700">{t('cells.assign_each')}</span>
+            <input
+              className="input mt-1 w-40"
+              inputMode="numeric"
+              value={perLeader}
+              placeholder={t('cells.assign_even') ?? ''}
+              onChange={(e) => {
+                setPlan(null);
+                setPerLeader(e.target.value.replace(/\D/g, ''));
+              }}
+              data-testid="assign-each"
+            />
+            <span className="block text-xs text-slate-500">{t('cells.assign_each_help')}</span>
+          </label>
+          {!numberOk && <p className="text-red-700">{t('cells.assign_number_invalid')}</p>}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-secondary px-3 py-1.5" disabled={busy || chosen.length === 0 || !numberOk} onClick={() => void run(true)} data-testid="assign-preview">
+              {t('cells.assign_preview')}
+            </button>
+            {plan && plan.assigned > 0 && (
+              <button type="button" className="btn-primary px-3 py-1.5" disabled={busy} onClick={() => void run(false)} data-testid="assign-confirm">
+                {t('cells.assign_confirm', { count: plan.assigned })}
               </button>
             )}
-          </li>
-        ))}
-      </ul>
-      <label className="block">
-        <span className="font-semibold text-slate-800">{t('cells.assign_each')}</span>
-        <input
-          className="input mt-1 w-40"
-          inputMode="numeric"
-          value={perLeader}
-          placeholder={t('cells.assign_even') ?? ''}
-          onChange={(e) => {
-            setPlan(null);
-            setPerLeader(e.target.value.replace(/\D/g, ''));
-          }}
-          data-testid="assign-each"
-        />
-        <span className="block text-xs text-slate-500">{t('cells.assign_each_help')}</span>
-      </label>
-      {error && <p className="text-red-700">{error}</p>}
-      {!numberOk && <p className="text-red-700">{t('cells.assign_number_invalid')}</p>}
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn-secondary px-3 py-1.5" disabled={busy || chosen.length === 0 || !numberOk} onClick={() => void run(true)} data-testid="assign-preview">
-          {t('cells.assign_preview')}
-        </button>
-        {plan && plan.assigned > 0 && (
-          <button type="button" className="btn-primary px-3 py-1.5" disabled={busy} onClick={() => void run(false)} data-testid="assign-confirm">
-            {t('cells.assign_confirm', { count: plan.assigned })}
-          </button>
-        )}
-      </div>
-      {plan && (
-        <div className="rounded-lg border border-slate-200 bg-white p-2" data-testid="assign-plan">
-          <p className="font-semibold text-slate-800">{t('cells.assign_plan', { count: plan.assigned })}</p>
-          <ul className="mt-1 space-y-0.5 text-slate-700">
-            {plan.perLeader.filter((l) => l.added > 0).map((l) => (
-              <li key={l.personId}>{l.name}: +{l.added}</li>
-            ))}
-          </ul>
-          {plan.remaining > 0 && <p className="mt-1 text-xs text-amber-800">{t('cells.assign_left', { count: plan.remaining })}</p>}
+          </div>
+          {plan && (
+            <div className="rounded-lg bg-slate-50 p-2" data-testid="assign-plan">
+              <p className="font-semibold text-slate-800">{t('cells.assign_plan', { count: plan.assigned })}</p>
+              <ul className="mt-1 space-y-0.5 text-slate-700">
+                {plan.perLeader.filter((l) => l.added > 0).map((l) => (
+                  <li key={l.personId}>{l.name}: +{l.added}</li>
+                ))}
+              </ul>
+              {plan.remaining > 0 && <p className="mt-1 text-xs text-amber-800">{t('cells.assign_left', { count: plan.remaining })}</p>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {canTakeBack && anyFollowedHere && (
+        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3" data-testid="redo-block">
+          <p className="font-semibold text-slate-800">{t('cells.redo_title')}</p>
+          <p className="text-xs text-slate-700">{t('cells.redo_help')}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-secondary px-3 py-1.5" disabled={busy || chosen.length === 0} onClick={() => void redistribute(true)} data-testid="redo-preview">
+              {t('cells.redo_preview')}
+            </button>
+            {redo && redo.assigned > 0 && (
+              <button type="button" className="btn-primary px-3 py-1.5" disabled={busy} onClick={() => void redistribute(false)} data-testid="redo-confirm">
+                {t('cells.redo_go', { count: redo.assigned })}
+              </button>
+            )}
+          </div>
+          {redo && (
+            <div className="rounded-lg bg-white p-2" data-testid="redo-plan">
+              <p className="font-semibold text-slate-800">{t('cells.redo_plan', { count: redo.assigned })}</p>
+              <ul className="mt-1 space-y-0.5 text-slate-700">
+                {redo.perLeader.filter((l) => l.added > 0).map((l) => (
+                  <li key={l.personId}>{l.name}: {l.added}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>

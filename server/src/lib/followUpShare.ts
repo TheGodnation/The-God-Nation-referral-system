@@ -15,7 +15,10 @@ export interface LeaderLoad {
   personId: string;
   name: string;
   away: boolean;
+  /** People of this assembly or group this leader follows (whatever place the follow-up was first recorded under). */
   headcount: number;
+  /** Everyone this leader follows, everywhere. */
+  total: number;
   /** For a group: set when this leader leads the assembly the group sits under, not the group itself. */
   viaParent?: string;
 }
@@ -39,12 +42,17 @@ export async function leaderLoads(communityId: string, now = new Date()): Promis
     where: { communityId: { in: parent ? [communityId, parent.id] : [communityId] }, status: 'ACTIVE' },
     select: { communityId: true, person: { select: { id: true, name: true, awayUntil: true } } },
   });
-  const counts = await prisma.followUpAssignment.groupBy({
-    by: ['followerId'],
-    where: { contextType: 'COMMUNITY', contextId: communityId, status: 'ACTIVE' },
-    _count: { _all: true },
-  });
-  const countOf = new Map(counts.map((c) => [c.followerId, c._count._all]));
+  const leaderIds = [...new Set(roles.map((r) => r.person.id))];
+  const [memberIds, follows] = await Promise.all([
+    activeMemberIds(communityId),
+    prisma.followUpAssignment.findMany({ where: { followerId: { in: leaderIds }, status: 'ACTIVE' }, select: { followerId: true, followedPersonId: true, contextId: true } }),
+  ]);
+  const total = new Map<string, number>();
+  const here = new Map<string, number>();
+  for (const f of follows) {
+    total.set(f.followerId, (total.get(f.followerId) ?? 0) + 1);
+    if (f.contextId === communityId || memberIds.has(f.followedPersonId)) here.set(f.followerId, (here.get(f.followerId) ?? 0) + 1);
+  }
   const byPerson = new Map<string, LeaderLoad>();
   for (const r of roles) {
     const ownLeader = r.communityId === communityId;
@@ -57,11 +65,26 @@ export async function leaderLoads(communityId: string, now = new Date()): Promis
       personId: r.person.id,
       name: r.person.name,
       away: isAway(r.person.awayUntil, now),
-      headcount: countOf.get(r.person.id) ?? 0,
+      headcount: here.get(r.person.id) ?? 0,
+      total: total.get(r.person.id) ?? 0,
       ...(ownLeader || !parent ? {} : { viaParent: parent.name }),
     });
   }
   return [...byPerson.values()].sort((a, b) => a.headcount - b.headcount || a.name.localeCompare(b.name));
+}
+
+async function activeMemberIds(communityId: string): Promise<Set<string>> {
+  const rows = await prisma.communityMembership.findMany({ where: { communityId, status: 'ACTIVE' }, select: { personId: true } });
+  return new Set(rows.map((r) => r.personId));
+}
+
+/** A leader's active follow-ups of the people of one assembly or group (or recorded under it). */
+function hereWhere(leaderId: string, communityId: string, memberIds: Set<string>) {
+  return {
+    followerId: leaderId,
+    status: 'ACTIVE' as const,
+    OR: [{ contextType: 'COMMUNITY' as const, contextId: communityId }, { followedPersonId: { in: [...memberIds] } }],
+  };
 }
 
 /** The leader with the fewest people, preferring leaders who are not away. */
@@ -73,15 +96,13 @@ function lightest(loads: LeaderLoad[]): LeaderLoad | null {
 
 /** Members of an assembly nobody follows yet (never the central admin, never anyone who leads an assembly or a group). */
 export async function unassignedMembers(communityId: string): Promise<{ id: string; name: string }[]> {
-  const community = await prisma.community.findUnique({ where: { id: communityId }, select: { kind: true } });
-  const isGroup = community?.kind === 'GROUP';
   const [members, followed, leaders] = await Promise.all([
     prisma.communityMembership.findMany({
       where: { communityId, status: 'ACTIVE' },
       select: { person: { select: { id: true, name: true } } },
     }),
-    // In a group, someone a leader already follows anywhere (usually in their assembly) already has a leader.
-    prisma.followUpAssignment.findMany({ where: { status: 'ACTIVE', ...(isGroup ? {} : { contextType: 'COMMUNITY', contextId: communityId }) }, select: { followedPersonId: true } }),
+    // Someone already followed by a leader anywhere (in their assembly or in a group) already has a leader.
+    prisma.followUpAssignment.findMany({ where: { status: 'ACTIVE' }, select: { followedPersonId: true } }),
     prisma.roleAssignment.findMany({ where: { communityId, status: 'ACTIVE' }, select: { personId: true } }),
   ]);
   const skip = new Set([...followed.map((f) => f.followedPersonId), ...leaders.map((l) => l.personId)]);
@@ -242,11 +263,62 @@ export async function handOverPeople(opts: {
  * and the chats stay) and the people are free to be assigned again. Used to undo a mistaken or test assignment.
  */
 export async function releasePeople(opts: { fromLeaderId: string; communityId: string; actorUserId: string }): Promise<{ released: number }> {
+  const memberIds = await activeMemberIds(opts.communityId);
   const closed = await prisma.followUpAssignment.updateMany({
-    where: { followerId: opts.fromLeaderId, contextType: 'COMMUNITY', contextId: opts.communityId, status: 'ACTIVE' },
+    where: hereWhere(opts.fromLeaderId, opts.communityId, memberIds),
     data: { status: 'CLOSED', closedAt: new Date(), closedByUserId: opts.actorUserId, closeReason: 'Taken back by the central admin' },
   });
   return { released: closed.count };
+}
+
+/**
+ * Share the people of an assembly or group again from the start: everything its leaders follow here is taken back
+ * (nothing is deleted: notes and chats stay), then everyone without a leader is shared evenly among the chosen
+ * leaders. `dryRun` only says who would get how many.
+ */
+export async function redistributeEvenly(communityId: string, actorUserId: string, opts: { leaderPersonIds?: string[]; dryRun?: boolean } = {}): Promise<ShareResult & { takenBack: number }> {
+  const all = await leaderLoads(communityId);
+  const wanted = opts.leaderPersonIds && opts.leaderPersonIds.length > 0 ? new Set(opts.leaderPersonIds) : null;
+  const chosen = all.filter((l) => !wanted || wanted.has(l.personId));
+  if (chosen.length === 0) return { assigned: 0, noLeaders: true, remaining: 0, dryRun: Boolean(opts.dryRun), perLeader: [], takenBack: 0 };
+
+  if (opts.dryRun) {
+    const memberIds = await activeMemberIds(communityId);
+    const followedHere = await prisma.followUpAssignment.findMany({
+      where: { status: 'ACTIVE', followerId: { in: all.map((l) => l.personId) }, OR: [{ contextType: 'COMMUNITY', contextId: communityId }, { followedPersonId: { in: [...memberIds] } }] },
+      select: { followedPersonId: true },
+    });
+    const freed = new Set(followedHere.map((f) => f.followedPersonId));
+    const stillFollowedElsewhere = await prisma.followUpAssignment.findMany({
+      where: { status: 'ACTIVE', followedPersonId: { in: [...freed] }, followerId: { notIn: all.map((l) => l.personId) } },
+      select: { followedPersonId: true },
+    });
+    for (const f of stillFollowedElsewhere) freed.delete(f.followedPersonId);
+    const never = await neverAssignedAmong([...freed]);
+    for (const id of never) freed.delete(id);
+    const unassigned = await unassignedMembers(communityId);
+    for (const p of unassigned) freed.add(p.id);
+    const total = freed.size;
+    const present = chosen.filter((l) => !l.away);
+    const pool = present.length ? present : chosen;
+    const sorted = [...pool].sort((a, b) => a.name.localeCompare(b.name));
+    const base = Math.floor(total / sorted.length);
+    const extra = total % sorted.length;
+    const share = new Map(sorted.map((l, i) => [l.personId, base + (i < extra ? 1 : 0)]));
+    return {
+      assigned: total,
+      noLeaders: false,
+      remaining: 0,
+      dryRun: true,
+      perLeader: chosen.map((l) => ({ personId: l.personId, name: l.name, added: share.get(l.personId) ?? 0 })),
+      takenBack: followedHere.length,
+    };
+  }
+
+  let takenBack = 0;
+  for (const l of all) takenBack += (await releasePeople({ fromLeaderId: l.personId, communityId, actorUserId })).released;
+  const result = await shareUnassigned(communityId, actorUserId, { leaderPersonIds: chosen.map((l) => l.personId) });
+  return { ...result, takenBack };
 }
 
 /** Let a second leader follow a person too (the first keeps them): "shared". */
