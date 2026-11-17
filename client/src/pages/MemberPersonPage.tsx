@@ -11,6 +11,7 @@ import { FriendButton, FollowButton, PersonCard, type FriendStatus, type PersonC
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
+import { localPositionTitle } from '../lib/positionTitle';
 
 interface Profile {
   personId: string;
@@ -43,7 +44,7 @@ interface Profile {
 // Another member's profile: photo, name, area, friendship button,
 // Message (when allowed), Block and Report, and their posts.
 export function MemberPersonPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { personId = '' } = useParams();
   const { member } = useMemberAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -174,7 +175,7 @@ export function MemberPersonPage() {
                 <ul className="space-y-0.5">
                   {profile.areaLeaderOf.map((a, i) => (
                     <li key={i} className="text-sm font-medium text-brand-700">
-                      {a.title} — {a.path}
+                      {localPositionTitle(a.title, i18n.language)} — {a.path}
                     </li>
                   ))}
                 </ul>

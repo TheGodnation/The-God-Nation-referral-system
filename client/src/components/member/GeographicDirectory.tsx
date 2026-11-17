@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { PortraitCard } from '../PortraitCard';
 import { shortPlace } from '../../lib/shortPlace';
+import { localPositionTitle } from '../../lib/positionTitle';
 
 type GeographicLevel = 'NATIONAL' | 'REGION' | 'DIVISION' | 'SUBDIVISION' | 'QUARTER';
 
@@ -48,7 +49,7 @@ const LEVELS: GeographicLevel[] = ['NATIONAL', 'REGION', 'DIVISION', 'SUBDIVISIO
 // it all, the way for a member to ask to represent their own area. Leaders
 // appear here by themselves the moment the admin places them.
 export function GeographicDirectory() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [countries, setCountries] = useState<CountryRow[] | null>(null);
   const [country, setCountry] = useState<string>('');
@@ -176,7 +177,7 @@ export function GeographicDirectory() {
                               labelBelow
                               caption={
                                 <>
-                                  <span className="block">{leader.title ?? a.title}</span>
+                                  <span className="block">{localPositionTitle(leader.title ?? a.title, i18n.language)}</span>
                                   <span className="block text-slate-800">{shortPlace(a.level, a.path)}</span>
                                 </>
                               }
@@ -208,7 +209,7 @@ export function GeographicDirectory() {
                   <button
                     type="button"
                     className="shrink-0 text-xs font-semibold text-brand-700 underline"
-                    onClick={() => navigate(`/member/represent?areaId=${encodeURIComponent(a.id)}&label=${encodeURIComponent(`${a.title} — ${a.path}`)}`)}
+                    onClick={() => navigate(`/member/represent?areaId=${encodeURIComponent(a.id)}&label=${encodeURIComponent(`${localPositionTitle(a.title, i18n.language)} — ${a.path}`)}`)}
                   >
                     {t('leadershipDirectory.represent_this')}
                   </button>
@@ -225,14 +226,14 @@ export function GeographicDirectory() {
               {vacant.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-2 py-1.5">
                   <span>
-                    {a.title} — {a.path}
+                    {localPositionTitle(a.title, i18n.language)} — {a.path}
                   </span>
                   {/* Members can ask for a subdivision or a quarter; regions and divisions are appointed by the central authority. */}
                   {(a.level === 'SUBDIVISION' || a.level === 'QUARTER') && (
                     <button
                       type="button"
                       className="shrink-0 text-xs font-semibold text-brand-700 underline"
-                      onClick={() => navigate(`/member/represent?areaId=${encodeURIComponent(a.id)}&label=${encodeURIComponent(`${a.title} — ${a.path}`)}`)}
+                      onClick={() => navigate(`/member/represent?areaId=${encodeURIComponent(a.id)}&label=${encodeURIComponent(`${localPositionTitle(a.title, i18n.language)} — ${a.path}`)}`)}
                     >
                       {t('leadershipDirectory.represent_this')}
                     </button>
