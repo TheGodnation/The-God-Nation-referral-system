@@ -189,6 +189,58 @@ describe('sharing the members of a group under an assembly', () => {
   });
 });
 
+describe('one leader was given everyone: see it, take back, share again evenly', () => {
+  it('counts the group people a leader follows even when recorded under the assembly, takes them back, and shares everyone evenly', async () => {
+    const w = await world();
+    const a = await w.leader('Ivy');
+    const b = await w.leader('Jon');
+    const c = await w.leader('Kim');
+    const group = await prisma.community.create({ data: { name: 'Study Group', kind: 'GROUP', parentId: w.hq.id } });
+    const students = [];
+    for (let i = 0; i < 6; i++) {
+      const p = await w.member(`Learner ${i}`);
+      await prisma.communityMembership.create({ data: { personId: p.id, communityId: group.id, status: 'ACTIVE' } });
+      students.push(p);
+    }
+    // Earlier, all six were given to Ivy, recorded under the assembly.
+    for (const p of students) await w.follow(a.p.id, p.id);
+
+    const { agent, csrf } = await login('share-admin@test.local', 'AdminPass123!');
+    const leaders = (await agent.get(`/api/admin/cells/leaders?communityId=${group.id}`)).body.items;
+    expect(leaders.find((l: any) => l.name === 'Ivy')).toMatchObject({ headcount: 6, total: 6 });
+    // Nobody counts as "without a leader" in the group, nor in the assembly.
+    const rows = (await agent.get('/api/admin/cells/overview')).body.items;
+    expect(rows.find((r: any) => r.id === group.id).unassigned).toBe(0);
+    expect(rows.find((r: any) => r.id === w.hq.id).unassigned).toBe(0);
+
+    const preview = await agent.post('/api/admin/cells/redistribute').set('X-CSRF-Token', csrf).send({ communityId: group.id, dryRun: true });
+    expect(preview.body).toMatchObject({ assigned: 6, takenBack: 6, dryRun: true });
+    expect(preview.body.perLeader.map((l: any) => l.added).sort()).toEqual([2, 2, 2]);
+    expect(await w.count(a.p.id)).toBe(6); // the preview changed nothing
+
+    const done = await agent.post('/api/admin/cells/redistribute').set('X-CSRF-Token', csrf).send({ communityId: group.id });
+    expect(done.status).toBe(200);
+    expect(done.body).toMatchObject({ assigned: 6, takenBack: 6 });
+    expect([await w.count(a.p.id), await w.count(b.p.id), await w.count(c.p.id)]).toEqual([2, 2, 2]);
+    // Each learner has exactly one leader, and the old follow-ups are closed, not deleted.
+    for (const p of students) expect(await prisma.followUpAssignment.count({ where: { followedPersonId: p.id, status: 'ACTIVE' } })).toBe(1);
+    expect(await prisma.followUpAssignment.count({ where: { followerId: a.p.id, status: 'CLOSED' } })).toBe(6);
+  });
+
+  it('take back works on the people of the place even when recorded under another place', async () => {
+    const w = await world();
+    const a = await w.leader('Lea');
+    const group = await prisma.community.create({ data: { name: 'Prayer Group', kind: 'GROUP', parentId: w.hq.id } });
+    const p = await w.member('Prayer member');
+    await prisma.communityMembership.create({ data: { personId: p.id, communityId: group.id, status: 'ACTIVE' } });
+    await w.follow(a.p.id, p.id);
+    const { agent, csrf } = await login('share-admin@test.local', 'AdminPass123!');
+    const res = await agent.post('/api/admin/cells/release').set('X-CSRF-Token', csrf).send({ fromLeaderPersonId: a.p.id, communityId: group.id });
+    expect(res.body).toEqual({ released: 1 });
+    expect(await w.count(a.p.id)).toBe(0);
+  });
+});
+
 describe('handing people to another leader', () => {
   it('when a leader stops leading, their people, notes and chat go to the other leaders', async () => {
     const w = await world();

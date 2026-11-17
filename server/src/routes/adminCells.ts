@@ -13,7 +13,7 @@ import { clinicRhythm } from '../lib/examWorld';
 import { assemblyHealth, leadersHealthIn } from '../lib/assemblyHealth';
 import { adminReadsEnabled, chatsOfLeader, readLeaderChat, setAdminReads } from '../lib/chatOversight';
 import { addEscalationMessage, escalationViewFor, escalationsForAdmin, type EscalationActor } from '../lib/escalations';
-import { handOverPeople, leaderLoads, releasePeople, shareUnassigned } from '../lib/followUpShare';
+import { handOverPeople, leaderLoads, redistributeEvenly, releasePeople, shareUnassigned } from '../lib/followUpShare';
 import { appointLeader, assembliesOverview, findPeople, leadersOf, makeLeaders, readyToLeadIn } from '../lib/cells';
 
 // Cells for the central admin: every assembly with its size, leaders and
@@ -119,6 +119,22 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
     const result = await releasePeople({ fromLeaderId: parsed.data.fromLeaderPersonId, communityId: parsed.data.communityId, actorUserId: actor.id });
     await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_CLOSED', targetType: 'Community', targetId: parsed.data.communityId, metadata: { ...result, fromLeaderPersonId: parsed.data.fromLeaderPersonId, bulk: true, via: 'take-back' } });
+    res.json(result);
+  }));
+
+  // Share the people of an assembly or group again, evenly, from the start (take back from its leaders, then share).
+  router.post('/redistribute', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z
+      .object({ communityId: z.string().min(1), leaderPersonIds: z.array(z.string().min(1)).max(500).optional(), dryRun: z.boolean().optional() })
+      .safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'communityId is required.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const { communityId, ...options } = parsed.data;
+    const result = await redistributeEvenly(communityId, actor.id, options);
+    if (!result.dryRun) {
+      await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_BULK_DISTRIBUTED', targetType: 'Community', targetId: communityId, metadata: { totalAssigned: result.assigned, takenBack: result.takenBack, chosenLeaders: options.leaderPersonIds?.length ?? null, via: 'redistribute-evenly' } });
+    }
     res.json(result);
   }));
 
