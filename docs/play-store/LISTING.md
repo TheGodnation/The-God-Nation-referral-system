@@ -34,7 +34,7 @@ When the 16th Academy book is in the app, "15 books, with more being added" can 
 
 A global family of Kingdom citizens: connect, pray, learn and spread the Gospel
 
-**Full description** (3101/4000)
+**Full description** (3086/4000)
 
 ```
 THE GOD NATION
@@ -46,7 +46,7 @@ Welcome to The God Nation, a global network and online family of born-again Chri
 Our motto: go into the digital media spaces where billions gather, and make disciples who make disciples, taking the Gospel of the Kingdom to the ends of the earth.
 
 THE GOD NATION LEADERSHIP ACADEMY
-Join our Leadership Academy: a structured biblical training programme of 15 books, with more being added. Read chapter by chapter, take the Dominion Clinic examinations, follow your progress and earn King's Tokens, study rewards with no cash value. Grow in knowledge, develop your leadership, and prepare to join our team as we carry the Gospel of the Kingdom through modern media.
+Join our Leadership Academy: a structured biblical training programme of 15 books, with more being added. Read chapter by chapter, take the Dominion Clinic examinations, follow your progress and earn King's Tokens, study rewards with no cash value. Grow in knowledge, develop your leadership, and prepare to join our team as we carry the Gospel through modern media.
 
 CONNECT AND BUILD RELATIONSHIPS
 Meet born-again Christians near you and around the world. See people near you, make friends, build meaningful relationships and take initiatives together for the Kingdom of God.
@@ -89,7 +89,7 @@ thegodnationacademy.org
 
 Une famille mondiale du Royaume : se connecter, prier, apprendre, évangéliser
 
-**Description complète** (3754/4000)
+**Description complète** (3743/4000)
 
 ```
 THE GOD NATION
@@ -101,7 +101,7 @@ Bienvenue dans The God Nation, un réseau mondial et une famille en ligne de chr
 Notre devise : allez dans les espaces des médias numériques où des milliards de personnes se rassemblent, et faites des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.
 
 L’ACADÉMIE DE LEADERSHIP THE GOD NATION
-Rejoignez notre Académie de leadership : un programme biblique structuré de 15 livres, et d’autres sont en préparation. Lisez chapitre par chapitre, passez les examens de la Dominion Clinic, suivez vos progrès et gagnez des King’s Tokens, des récompenses d’étude sans valeur monétaire. Grandissez dans la connaissance, développez votre leadership et préparez-vous à rejoindre notre équipe pour porter l’Évangile du Royaume à travers les médias modernes.
+Rejoignez notre Académie de leadership : un programme biblique structuré de 15 livres, et d’autres sont en préparation. Lisez chapitre par chapitre, passez les examens de la Dominion Clinic, suivez vos progrès et gagnez des King’s Tokens, des récompenses d’étude sans valeur monétaire. Grandissez dans la connaissance, développez votre leadership et préparez-vous à rejoindre notre équipe pour porter l’Évangile à travers les médias modernes.
 
 SE CONNECTER ET TISSER DES LIENS
 Rencontrez des chrétiens nés de nouveau près de chez vous et dans le monde entier. Voyez les personnes proches de vous, faites-vous des amis, construisez des relations solides et prenez ensemble des initiatives pour le Royaume de Dieu.
