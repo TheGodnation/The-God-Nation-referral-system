@@ -85,6 +85,10 @@ describe('Payment agents: choosing an agent and opening an order', () => {
   it('lists agents (online first, never yourself), and opens an order with the instructions as the agent\'s first message', async () => {
     const { b1, buyer, agentWho, agentId } = await setup({ instructions: 'Send 1,200 FCFA to MTN 670 000 000 (The God Nation).' });
     await agentWho.agent.get('/api/member/pay/me'); // the agent's app is open: online
+    // "Last seen" is written in the background (never slows a request): wait for it before asking who is online.
+    for (let i = 0; i < 40 && !(await prisma.person.findUnique({ where: { id: agentWho.id }, select: { lastSeenAt: true } }))?.lastSeenAt; i++) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
     const list = await buyer.agent.get(`/api/member/pay/agents?bookId=${b1.id}`);
     expect(list.body.items).toEqual([expect.objectContaining({ id: agentId, name: 'Aggie Agent', label: 'Douala office', online: true, busy: false })]);
     expect(list.body.activeOrder).toBeNull();
