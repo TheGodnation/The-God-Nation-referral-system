@@ -142,6 +142,23 @@ describe('CellsPanel', () => {
     expect(await screen.findByText('Everyone here already has a leader following them.')).toBeInTheDocument();
   });
 
+  it('puts "Share members with leaders" at the top: pick an assembly or a group from a list, then share', async () => {
+    mockFetch({
+      '/api/admin/cells/overview': () => ({ status: 200, body: overview }),
+      '/api/admin/cells/leaders': () => ({ status: 200, body: { items: [{ personId: 'l1', name: 'Anna', away: false, headcount: 0 }, { personId: 'l2', name: 'Boris', away: false, headcount: 1 }] } }),
+      '/api/admin/cells/share': () => ({ status: 200, body: { assigned: 5, remaining: 0, noLeaders: false, dryRun: true, perLeader: [{ personId: 'l1', name: 'Anna', added: 3 }, { personId: 'l2', name: 'Boris', added: 2 }] } }),
+    });
+    render(<CellsPanel base="/api/admin/cells" />);
+    const card = await screen.findByTestId('share-members-card');
+    expect(within(card).getByText('Share members with leaders')).toBeInTheDocument();
+    const select = await within(card).findByTestId('share-card-select');
+    expect(within(select).getByText('Headquarters · 1 · 5 not followed yet')).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: 'a2' } });
+    expect(await within(card).findByText('5 people here are not followed by any leader yet.')).toBeInTheDocument();
+    fireEvent.click(await within(card).findByTestId('assign-preview'));
+    expect(await within(card).findByTestId('assign-plan')).toHaveTextContent('Anna: +3');
+  });
+
   it('takes back everyone a leader follows (to undo a test), after asking, and offers it only for leaders who follow people', async () => {
     let anna = 5;
     mockFetch({

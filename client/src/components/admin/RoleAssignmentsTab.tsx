@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
-import { CellsPanel } from './CellsPanel';
+import { CellsPanel, ShareMembersCard } from './CellsPanel';
 
 interface RoleAssignmentRow {
   id: string;
@@ -86,6 +86,9 @@ export function RoleAssignmentsTab() {
 
   return (
     <div>
+      <div className="mb-6">
+        <ShareMembersCard base="/api/admin/cells" />
+      </div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold text-brand-900">{t('admin.roleAssignments.title')}</h2>
         <button className="btn-primary px-4 py-2" onClick={() => setShowForm((v) => !v)}>
@@ -266,7 +269,7 @@ export function RoleAssignmentsTab() {
 
 
       <div className="mt-6">
-        <CellsPanel base="/api/admin/cells" />
+        <CellsPanel base="/api/admin/cells" showShareCard={false} />
       </div>
     </div>
   );

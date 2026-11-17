@@ -4045,7 +4045,12 @@
     "everyone_followed": "Chacun ici a déjà un leader qui le suit.",
     "group_share_help": "Pour un groupe, vous pouvez choisir ses propres leaders et les leaders de l’assemblée dont il dépend. Les personnes qui ont déjà un leader dans leur assemblée n’en reçoivent pas un deuxième.",
     "see_leaders": "Voir les leaders et combien de personnes chacun suit",
-    "assign_via_parent": "leader de {{name}}"
+    "assign_via_parent": "leader de {{name}}",
+    "share_card_title": "Répartir les membres entre les leaders",
+    "share_card_intro": "Choisissez une assemblée ou un groupe. Vous verrez combien de ses membres n’ont pas encore de leader, et vous pourrez les confier aux leaders de votre choix : à parts égales, ou un nombre pour chacun.",
+    "share_card_pick": "Assemblée ou groupe",
+    "share_card_choose": "Choisir…",
+    "share_card_all_followed": "chacun a un leader"
   },
   "terms": {
     "title": "Conditions d’utilisation",

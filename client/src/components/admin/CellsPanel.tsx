@@ -44,7 +44,7 @@ interface Ready {
 // School), one-tap appointment, and the assembly size. The same panel is
 // shown in the admin dashboard and in the central admin's own member
 // profile; only the address it talks to differs (`base`).
-export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/central-cells' }) {
+export function CellsPanel({ base, showShareCard = true }: { base: '/api/admin/cells' | '/api/member/central-cells'; showShareCard?: boolean }) {
   const { t } = useTranslation();
   const [data, setData] = useState<Overview | null>(null);
   const [failed, setFailed] = useState(false);
@@ -135,6 +135,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
 
   return (
     <div className="space-y-4" data-testid="cells-panel">
+      {showShareCard && <ShareMembersCard base={base} />}
       <section className="card space-y-2">
         <h2 className="font-semibold text-brand-900">{t('cells.title')}</h2>
         <p className="text-sm text-slate-600">{t('cells.intro')}</p>
@@ -323,6 +324,76 @@ interface SharePlan {
   remaining: number;
   noLeaders: boolean;
   perLeader: { personId: string; name: string; added: number }[];
+}
+
+// "Share members with leaders" at the top of the page: pick an assembly or a group from a list, see how many people
+// have no leader yet, and share them. The same tool as inside each assembly, but impossible to miss.
+export function ShareMembersCard({ base }: { base: '/api/admin/cells' | '/api/member/central-cells' }) {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<Row[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [pick, setPick] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+
+  function load() {
+    api
+      .get<Overview>(`${base}/overview`)
+      .then((r) => setItems(r.items))
+      .catch(() => setFailed(true));
+  }
+  useEffect(load, [base]);
+
+  const chosen = items?.find((r) => r.id === pick) ?? null;
+  return (
+    <section className="card space-y-3 border-2 border-brand-200" data-testid="share-members-card">
+      <h3 className="text-lg font-semibold text-brand-900">{t('cells.share_card_title')}</h3>
+      <p className="text-sm text-slate-600">{t('cells.share_card_intro')}</p>
+      {failed && <p className="text-sm text-red-700">{t('cells.load_failed')}</p>}
+      {!items && !failed && <p className="text-sm text-slate-400">{t('cells.loading')}</p>}
+      {items && (
+        <label className="block">
+          <span className="text-sm font-semibold text-slate-800">{t('cells.share_card_pick')}</span>
+          <select
+            className="input mt-1 w-full"
+            value={pick}
+            onChange={(e) => {
+              setPick(e.target.value);
+              setMessage(null);
+            }}
+            data-testid="share-card-select"
+          >
+            <option value="">{t('cells.share_card_choose')}</option>
+            {items.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+                {r.kind === 'GROUP' ? ` (${t('admin.communities.group_badge')})` : ''}
+                {r.unassigned > 0 ? ` · ${t('cells.unassigned_count', { count: r.unassigned })}` : ` · ${t('cells.share_card_all_followed')}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {message && <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p>}
+      {chosen && (
+        <div className="space-y-2 text-sm">
+          <p className={chosen.unassigned > 0 ? 'font-semibold text-slate-800' : 'text-slate-700'}>
+            {chosen.unassigned > 0 ? t('cells.unassigned_help', { count: chosen.unassigned }) : t('cells.everyone_followed')}
+          </p>
+          {chosen.kind === 'GROUP' && <p className="text-xs text-slate-600">{t('cells.group_share_help')}</p>}
+          <AssignPeople
+            key={chosen.id}
+            base={base}
+            canTakeBack
+            communityId={chosen.id}
+            onDone={(text) => {
+              setMessage(text);
+              load();
+            }}
+          />
+        </div>
+      )}
+    </section>
+  );
 }
 
 // Give the people nobody follows to the leaders: choose which leaders, and how many people each (leave the number

@@ -4045,7 +4045,12 @@
     "everyone_followed": "Everyone here already has a leader following them.",
     "group_share_help": "For a group, you can choose its own leaders and the leaders of the assembly it is under. People who already have a leader in their assembly are not given a second one.",
     "see_leaders": "See the leaders and how many people each follows",
-    "assign_via_parent": "leader of {{name}}"
+    "assign_via_parent": "leader of {{name}}",
+    "share_card_title": "Share members with leaders",
+    "share_card_intro": "Choose an assembly or a group. You will see how many of its members have no leader yet, and you can give them to the leaders you choose: evenly, or a number each.",
+    "share_card_pick": "Assembly or group",
+    "share_card_choose": "Choose…",
+    "share_card_all_followed": "everyone has a leader"
   },
   "terms": {
     "title": "Terms of Use",
