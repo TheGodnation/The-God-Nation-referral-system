@@ -102,7 +102,7 @@ describe('CellsPanel', () => {
     render(<CellsPanel base="/api/admin/cells" />);
     expect(await screen.findByText('5 not followed yet')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Headquarters · 1'));
-    expect(await screen.findByText('5 people in this assembly are not followed by any leader yet.')).toBeInTheDocument();
+    expect(await screen.findByText('5 people here are not followed by any leader yet.')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('assign-toggle'));
     const tool = await screen.findByTestId('assign-people');
     // Everyone who is present is ticked; the leader who is away is not.
@@ -115,6 +115,31 @@ describe('CellsPanel', () => {
     fireEvent.click(screen.getByTestId('assign-confirm'));
     expect(await screen.findByText('4 people assigned. 1 still unassigned.')).toBeInTheDocument();
     expect(calls.filter((c) => c.method === 'POST').pop()?.body).toEqual({ communityId: 'a2', leaderPersonIds: ['l1', 'l2'], perLeader: 2, dryRun: false });
+  });
+
+  it('shares the members of a group too, offering the leaders of the assembly it is under, and says when everyone has a leader', async () => {
+    const withGroup = {
+      ...overview,
+      items: [
+        ...overview.items,
+        { id: 'g1', name: 'Leadership Development Group', kind: 'GROUP', parentId: 'a1', parentName: 'Headquarters', autoCreated: false, createdAt: '2026-11-02', members: 30, leaders: 0, readyToLead: 0, unassigned: 30 },
+      ],
+    };
+    mockFetch({
+      '/api/admin/cells/overview': () => ({ status: 200, body: withGroup }),
+      '/api/admin/cells/ready-to-lead': () => ({ status: 200, body: { requiredBooks: 15, items: [] } }),
+      '/api/admin/cells/leaders': () => ({ status: 200, body: { items: [{ personId: 'l1', name: 'Anna', away: false, headcount: 0, viaParent: 'Headquarters' }] } }),
+    });
+    render(<CellsPanel base="/api/admin/cells" />);
+    expect(await screen.findByText('30 not followed yet')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Leadership Development Group'));
+    expect(await screen.findByText('30 people here are not followed by any leader yet.')).toBeInTheDocument();
+    expect(screen.getByText(/the leaders of the assembly it is under/)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('assign-toggle'));
+    expect(await within(await screen.findByTestId('assign-people')).findByText(/leader of Headquarters/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Headquarters'));
+    expect(await screen.findByText('Everyone here already has a leader following them.')).toBeInTheDocument();
   });
 
   it('takes back everyone a leader follows (to undo a test), after asking, and offers it only for leaders who follow people', async () => {

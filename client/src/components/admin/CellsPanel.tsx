@@ -1,5 +1,5 @@
 import { MakeLeadersPanel } from './MakeLeadersPanel';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Escalations } from '../leader/Escalations';
@@ -58,6 +58,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
   const [health, setHealth] = useState<Map<string, HealthRow>>(new Map());
   const [assigning, setAssigning] = useState(false);
   const [makingLeaders, setMakingLeaders] = useState(false);
+  const openRef = useRef<HTMLElement | null>(null);
 
   function load() {
     api
@@ -76,7 +77,13 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       .catch(() => {});
   }, [base]);
 
-  function openAssembly(row: Row) {
+  function openAssembly(row: Row, scroll = false) {
+    if (scroll) {
+      setAssigning(false);
+      setMakingLeaders(false);
+      // On a phone the details open below a long list: bring them into view.
+      setTimeout(() => openRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 50);
+    }
     setOpen(row);
     setReady(null);
     setMessage(null);
@@ -177,11 +184,12 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
             {t('cells.only_ready')}
           </label>
         </div>
+        <p className="text-sm text-slate-600">{t('cells.tap_hint')}</p>
         {data.requiredBooks === 0 && <p className="text-sm text-slate-500">{t('cells.no_school_yet')}</p>}
         <ul className="divide-y divide-slate-100">
           {rows.map((r) => (
             <li key={r.id} className="py-2">
-              <button type="button" className="flex w-full flex-wrap items-center justify-between gap-2 text-left" onClick={() => openAssembly(r)}>
+              <button type="button" className="flex w-full flex-wrap items-center justify-between gap-2 text-left" onClick={() => openAssembly(r, true)}>
                 <span>
                   {health.get(r.id) && (
                     <span
@@ -197,7 +205,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
                 </span>
                 <span className="text-sm text-slate-600">
                   {t('cells.counts', { members: r.members, capacity: data.capacity, leaders: r.leaders })}
-                  {r.unassigned > 0 && r.leaders > 0 && (
+                  {r.unassigned > 0 && (
                     <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{t('cells.unassigned_count', { count: r.unassigned })}</span>
                   )}
                   {r.readyToLead > 0 && (
@@ -214,30 +222,26 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       </section>
 
       {open && (
-        <section className="card space-y-3" aria-label={t('cells.ready_title', { name: open.name })}>
-          <h3 className="font-semibold text-brand-900">{t('cells.ready_title', { name: open.name })}</h3>
-          <div>
-            <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setMakingLeaders((v) => !v)} data-testid="make-leaders-toggle">
-              {makingLeaders ? t('makeLeaders.close') : t('makeLeaders.open', { name: open.name })}
-            </button>
-            {makingLeaders && (
-              <div className="mt-2">
-                <MakeLeadersPanel base={base} communityId={open.id} communityName={open.name} />
-              </div>
-            )}
-          </div>
+        <section ref={openRef} className="card scroll-mt-4 space-y-3" aria-label={open.name}>
+          <h3 className="text-lg font-semibold text-brand-900">{open.name}</h3>
           {(() => {
             const row = data.items.find((r) => r.id === open.id);
-            if (!row || row.unassigned === 0) return null;
+            const count = row?.unassigned ?? 0;
             return (
-              <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{t('cells.unassigned_help', { count: row.unassigned })}</span>
-                  <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setAssigning((v) => !v)} data-testid="assign-toggle">
-                    {assigning ? t('cells.assign_close') : t('cells.assign_open')}
-                  </button>
-                </div>
-                {assigning && (
+              <div className="space-y-2 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-sm" data-testid="share-block">
+                <p className="font-semibold text-brand-900">{t('cells.share_title')}</p>
+                {count === 0 ? (
+                  <p className="text-slate-700">{t('cells.everyone_followed')}</p>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{t('cells.unassigned_help', { count })}</span>
+                    <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => setAssigning((v) => !v)} data-testid="assign-toggle">
+                      {assigning ? t('cells.assign_close') : t('cells.assign_open')}
+                    </button>
+                  </div>
+                )}
+                {open.kind === 'GROUP' && <p className="text-xs text-slate-600">{t('cells.group_share_help')}</p>}
+                {assigning && count > 0 && (
                   <AssignPeople
                     base={base}
                     canTakeBack
@@ -248,9 +252,27 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
                     }}
                   />
                 )}
+                {count === 0 && row && (
+                  <details>
+                    <summary className="cursor-pointer text-xs text-brand-800 underline">{t('cells.see_leaders')}</summary>
+                    <div className="mt-2">
+                      <AssignPeople base={base} canTakeBack communityId={open.id} onDone={(text) => { setMessage(text); load(); }} />
+                    </div>
+                  </details>
+                )}
               </div>
             );
           })()}
+          <div>
+            <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setMakingLeaders((v) => !v)} data-testid="make-leaders-toggle">
+              {makingLeaders ? t('makeLeaders.close') : t('makeLeaders.open', { name: open.name })}
+            </button>
+            {makingLeaders && (
+              <div className="mt-2">
+                <MakeLeadersPanel base={base} communityId={open.id} communityName={open.name} />
+              </div>
+            )}
+          </div>
           {(() => {
             const h = health.get(open.id);
             if (!h) return null;
@@ -263,6 +285,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
               </p>
             );
           })()}
+          <h4 className="pt-1 font-semibold text-brand-900">{t('cells.ready_title', { name: open.name })}</h4>
           <p className="text-sm text-slate-600">{t('cells.ready_help')}</p>
           {!ready && <p className="text-sm text-slate-400">{t('cells.loading')}</p>}
           {ready && ready.items.length === 0 && <p className="text-sm text-slate-500">{t('cells.ready_none')}</p>}
@@ -293,6 +316,7 @@ interface LeaderLoad {
   name: string;
   away: boolean;
   headcount: number;
+  viaParent?: string;
 }
 interface SharePlan {
   assigned: number;
@@ -380,6 +404,7 @@ export function AssignPeople({ base, communityId, onDone, canTakeBack = false }:
                 <span className="font-medium">{l.name}</span>
                 <span className="block text-xs text-slate-500">
                   {t('cells.assign_follows', { count: l.headcount })}
+                  {l.viaParent ? ` · ${t('cells.assign_via_parent', { name: l.viaParent })}` : ''}
                   {l.away ? ` · ${t('cells.assign_away')}` : ''}
                 </span>
               </span>

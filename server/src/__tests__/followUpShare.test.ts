@@ -144,6 +144,51 @@ describe('assign people to chosen leaders, a number each', () => {
   });
 });
 
+describe('sharing the members of a group under an assembly', () => {
+  it("offers the assembly's leaders too, skips people who already have a leader, and lets those leaders share with each other", async () => {
+    const w = await world();
+    const a = await w.leader('Gina');
+    const b = await w.leader('Hugo');
+    const group = await prisma.community.create({ data: { name: 'Leadership Development Group', kind: 'GROUP', parentId: w.hq.id } });
+    const inGroup = async (name: string) => {
+      const p = await person(name);
+      await prisma.communityMembership.create({ data: { personId: p.id, communityId: group.id, status: 'ACTIVE' } });
+      return p;
+    };
+    const followedInAssembly = await w.member('Already followed');
+    await w.follow(a.p.id, followedInAssembly.id);
+    await prisma.communityMembership.create({ data: { personId: followedInAssembly.id, communityId: group.id, status: 'ACTIVE' } });
+    for (let i = 0; i < 4; i++) await inGroup(`Student ${i}`);
+
+    const { agent, csrf } = await login('share-admin@test.local', 'AdminPass123!');
+    const row = (await agent.get('/api/admin/cells/overview')).body.items.find((r: any) => r.id === group.id);
+    expect(row.unassigned).toBe(4);
+
+    const leaders = (await agent.get(`/api/admin/cells/leaders?communityId=${group.id}`)).body.items;
+    expect(leaders.map((l: any) => l.name).sort()).toEqual(['Gina', 'Hugo']);
+    expect(leaders.every((l: any) => l.viaParent === 'Assembly')).toBe(true);
+
+    const res = await agent.post('/api/admin/cells/share').set('X-CSRF-Token', csrf).send({ communityId: group.id });
+    expect(res.status).toBe(200);
+    expect(res.body.assigned).toBe(4);
+    const inGroupFollows = await prisma.followUpAssignment.findMany({ where: { contextId: group.id, status: 'ACTIVE' } });
+    expect(inGroupFollows).toHaveLength(4);
+    expect(inGroupFollows.filter((f) => f.followerId === a.p.id)).toHaveLength(2);
+    expect(inGroupFollows.filter((f) => f.followerId === b.p.id)).toHaveLength(2);
+    // The person already followed in the assembly did not get a second leader.
+    expect(await prisma.followUpAssignment.count({ where: { followedPersonId: followedInAssembly.id, status: 'ACTIVE' } })).toBe(1);
+    const after = (await agent.get('/api/admin/cells/overview')).body.items.find((r: any) => r.id === group.id);
+    expect(after.unassigned).toBe(0);
+
+    // Hugo leads the assembly, not the group, yet counts as a leader of the group's people (share / hand over).
+    const mine = inGroupFollows.find((f) => f.followerId === a.p.id)!;
+    const { findSharingRole } = await import('../lib/leadership');
+    expect(await findSharingRole(b.p.id, group.id)).not.toBeNull();
+    expect(await findSharingRole(followedInAssembly.id, group.id)).toBeNull();
+    expect(mine.contextId).toBe(group.id);
+  });
+});
+
 describe('handing people to another leader', () => {
   it('when a leader stops leading, their people, notes and chat go to the other leaders', async () => {
     const w = await world();

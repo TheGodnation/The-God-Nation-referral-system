@@ -66,6 +66,18 @@ export async function findActiveScopedRole(
 }
 
 /**
+ * Who may follow people of a community: its own leaders and, for a group that sits under an assembly, the leaders
+ * of that assembly too (the assembly's leaders follow up the members of its groups).
+ */
+export async function findSharingRole(personId: string, communityId: string) {
+  const own = await findActiveScopedRole(personId, 'COMMUNITY', communityId);
+  if (own) return own;
+  const community = await prisma.community.findUnique({ where: { id: communityId }, select: { kind: true, parentId: true } });
+  if (community?.kind !== 'GROUP' || !community.parentId) return null;
+  return findActiveScopedRole(personId, 'COMMUNITY', community.parentId);
+}
+
+/**
  * Whether a Person currently belongs to the exact given Community scope — an
  * ACTIVE CommunityMembership for that exact Community. No ancestor or
  * descendant coverage; membership changes are read live here (this is

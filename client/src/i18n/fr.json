@@ -3999,7 +3999,7 @@
     "size_saved": "Enregistré.",
     "size_invalid": "Entrez un nombre entier de 10 à 5000.",
     "size_failed": "Impossible d'enregistrer. Réessayez.",
-    "assemblies": "Assemblées",
+    "assemblies": "Assemblées et groupes",
     "only_ready": "Seulement les assemblées avec quelqu'un de prêt à diriger",
     "no_school_yet": "Aucun examen de l'Académie de leadership n'est encore publié : personne ne peut donc être indiqué comme prêt à diriger.",
     "opened_automatically": "Ouverte automatiquement",
@@ -4009,7 +4009,7 @@
     "none": "Rien à afficher.",
     "ready_title": "Prêts à diriger : {{name}}",
     "unassigned_count": "{{count}} pas encore suivi(s)",
-    "unassigned_help": "{{count}} personnes de cette assemblée ne sont encore suivies par aucun responsable.",
+    "unassigned_help": "{{count}} personnes ici ne sont encore suivies par aucun leader.",
     "share_button": "Les répartir entre les responsables",
     "share_done": "{{count}} personnes réparties entre les responsables, de façon égale.",
     "share_no_leaders": "Cette assemblée n'a pas encore de responsable. Nommez-en un d'abord.",
@@ -4039,7 +4039,13 @@
     "assign_done": "{{count}} personnes confiées. {{left}} sans suivi.",
     "take_back": "Reprendre tout le monde ({{count}})",
     "take_back_confirm": "Reprendre les {{count}} personnes de {{name}} ? Elles ne seront plus suivies par ce responsable et pourront être réassignées. Rien n’est supprimé.",
-    "take_back_done": "{{count}} personnes reprises à {{name}}. Elles peuvent être réassignées."
+    "take_back_done": "{{count}} personnes reprises à {{name}}. Elles peuvent être réassignées.",
+    "tap_hint": "Touchez une assemblée ou un groupe pour répartir ses membres entre les leaders, nommer des leaders ou voir qui est prêt à diriger.",
+    "share_title": "Répartir les membres entre les leaders",
+    "everyone_followed": "Chacun ici a déjà un leader qui le suit.",
+    "group_share_help": "Pour un groupe, vous pouvez choisir ses propres leaders et les leaders de l’assemblée dont il dépend. Les personnes qui ont déjà un leader dans leur assemblée n’en reçoivent pas un deuxième.",
+    "see_leaders": "Voir les leaders et combien de personnes chacun suit",
+    "assign_via_parent": "leader de {{name}}"
   },
   "terms": {
     "title": "Conditions d’utilisation",
