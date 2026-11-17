@@ -16,15 +16,28 @@ export interface LeaderLoad {
   name: string;
   away: boolean;
   headcount: number;
+  /** For a group: set when this leader leads the assembly the group sits under, not the group itself. */
+  viaParent?: string;
 }
 
 export const isAway = (awayUntil: Date | null | undefined, now = new Date()) => Boolean(awayUntil && awayUntil > now);
 
-/** The active leaders of one assembly with how many people each follows there. */
+/** A group under an assembly: the assembly (its leaders follow up the group's members too). */
+async function parentAssemblyOfGroup(communityId: string): Promise<{ id: string; name: string } | null> {
+  const c = await prisma.community.findUnique({ where: { id: communityId }, select: { kind: true, parent: { select: { id: true, name: true, kind: true } } } });
+  if (c?.kind !== 'GROUP' || !c.parent) return null;
+  return { id: c.parent.id, name: c.parent.name };
+}
+
+/**
+ * The leaders who can receive people of one community, with how many people each follows there: its own leaders
+ * and, for a group under an assembly, the leaders of that assembly too.
+ */
 export async function leaderLoads(communityId: string, now = new Date()): Promise<LeaderLoad[]> {
+  const parent = await parentAssemblyOfGroup(communityId);
   const roles = await prisma.roleAssignment.findMany({
-    where: { communityId, status: 'ACTIVE' },
-    select: { person: { select: { id: true, name: true, awayUntil: true } } },
+    where: { communityId: { in: parent ? [communityId, parent.id] : [communityId] }, status: 'ACTIVE' },
+    select: { communityId: true, person: { select: { id: true, name: true, awayUntil: true } } },
   });
   const counts = await prisma.followUpAssignment.groupBy({
     by: ['followerId'],
@@ -32,9 +45,23 @@ export async function leaderLoads(communityId: string, now = new Date()): Promis
     _count: { _all: true },
   });
   const countOf = new Map(counts.map((c) => [c.followerId, c._count._all]));
-  return roles
-    .map((r) => ({ personId: r.person.id, name: r.person.name, away: isAway(r.person.awayUntil, now), headcount: countOf.get(r.person.id) ?? 0 }))
-    .sort((a, b) => a.headcount - b.headcount || a.name.localeCompare(b.name));
+  const byPerson = new Map<string, LeaderLoad>();
+  for (const r of roles) {
+    const ownLeader = r.communityId === communityId;
+    const existing = byPerson.get(r.person.id);
+    if (existing) {
+      if (ownLeader) delete existing.viaParent;
+      continue;
+    }
+    byPerson.set(r.person.id, {
+      personId: r.person.id,
+      name: r.person.name,
+      away: isAway(r.person.awayUntil, now),
+      headcount: countOf.get(r.person.id) ?? 0,
+      ...(ownLeader || !parent ? {} : { viaParent: parent.name }),
+    });
+  }
+  return [...byPerson.values()].sort((a, b) => a.headcount - b.headcount || a.name.localeCompare(b.name));
 }
 
 /** The leader with the fewest people, preferring leaders who are not away. */
@@ -46,12 +73,15 @@ function lightest(loads: LeaderLoad[]): LeaderLoad | null {
 
 /** Members of an assembly nobody follows yet (never the central admin, never anyone who leads an assembly or a group). */
 export async function unassignedMembers(communityId: string): Promise<{ id: string; name: string }[]> {
+  const community = await prisma.community.findUnique({ where: { id: communityId }, select: { kind: true } });
+  const isGroup = community?.kind === 'GROUP';
   const [members, followed, leaders] = await Promise.all([
     prisma.communityMembership.findMany({
       where: { communityId, status: 'ACTIVE' },
       select: { person: { select: { id: true, name: true } } },
     }),
-    prisma.followUpAssignment.findMany({ where: { contextType: 'COMMUNITY', contextId: communityId, status: 'ACTIVE' }, select: { followedPersonId: true } }),
+    // In a group, someone a leader already follows anywhere (usually in their assembly) already has a leader.
+    prisma.followUpAssignment.findMany({ where: { status: 'ACTIVE', ...(isGroup ? {} : { contextType: 'COMMUNITY', contextId: communityId }) }, select: { followedPersonId: true } }),
     prisma.roleAssignment.findMany({ where: { communityId, status: 'ACTIVE' }, select: { personId: true } }),
   ]);
   const skip = new Set([...followed.map((f) => f.followedPersonId), ...leaders.map((l) => l.personId)]);

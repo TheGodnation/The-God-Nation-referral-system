@@ -1,5 +1,5 @@
 import { MakeLeadersPanel } from './MakeLeadersPanel';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { Escalations } from '../leader/Escalations';
@@ -44,7 +44,7 @@ interface Ready {
 // School), one-tap appointment, and the assembly size. The same panel is
 // shown in the admin dashboard and in the central admin's own member
 // profile; only the address it talks to differs (`base`).
-export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/central-cells' }) {
+export function CellsPanel({ base, showShareCard = true }: { base: '/api/admin/cells' | '/api/member/central-cells'; showShareCard?: boolean }) {
   const { t } = useTranslation();
   const [data, setData] = useState<Overview | null>(null);
   const [failed, setFailed] = useState(false);
@@ -58,6 +58,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
   const [health, setHealth] = useState<Map<string, HealthRow>>(new Map());
   const [assigning, setAssigning] = useState(false);
   const [makingLeaders, setMakingLeaders] = useState(false);
+  const openRef = useRef<HTMLElement | null>(null);
 
   function load() {
     api
@@ -76,7 +77,13 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       .catch(() => {});
   }, [base]);
 
-  function openAssembly(row: Row) {
+  function openAssembly(row: Row, scroll = false) {
+    if (scroll) {
+      setAssigning(false);
+      setMakingLeaders(false);
+      // On a phone the details open below a long list: bring them into view.
+      setTimeout(() => openRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 50);
+    }
     setOpen(row);
     setReady(null);
     setMessage(null);
@@ -128,6 +135,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
 
   return (
     <div className="space-y-4" data-testid="cells-panel">
+      {showShareCard && <ShareMembersCard base={base} />}
       <section className="card space-y-2">
         <h2 className="font-semibold text-brand-900">{t('cells.title')}</h2>
         <p className="text-sm text-slate-600">{t('cells.intro')}</p>
@@ -177,11 +185,12 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
             {t('cells.only_ready')}
           </label>
         </div>
+        <p className="text-sm text-slate-600">{t('cells.tap_hint')}</p>
         {data.requiredBooks === 0 && <p className="text-sm text-slate-500">{t('cells.no_school_yet')}</p>}
         <ul className="divide-y divide-slate-100">
           {rows.map((r) => (
             <li key={r.id} className="py-2">
-              <button type="button" className="flex w-full flex-wrap items-center justify-between gap-2 text-left" onClick={() => openAssembly(r)}>
+              <button type="button" className="flex w-full flex-wrap items-center justify-between gap-2 text-left" onClick={() => openAssembly(r, true)}>
                 <span>
                   {health.get(r.id) && (
                     <span
@@ -197,7 +206,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
                 </span>
                 <span className="text-sm text-slate-600">
                   {t('cells.counts', { members: r.members, capacity: data.capacity, leaders: r.leaders })}
-                  {r.unassigned > 0 && r.leaders > 0 && (
+                  {r.unassigned > 0 && (
                     <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{t('cells.unassigned_count', { count: r.unassigned })}</span>
                   )}
                   {r.readyToLead > 0 && (
@@ -214,30 +223,26 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
       </section>
 
       {open && (
-        <section className="card space-y-3" aria-label={t('cells.ready_title', { name: open.name })}>
-          <h3 className="font-semibold text-brand-900">{t('cells.ready_title', { name: open.name })}</h3>
-          <div>
-            <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setMakingLeaders((v) => !v)} data-testid="make-leaders-toggle">
-              {makingLeaders ? t('makeLeaders.close') : t('makeLeaders.open', { name: open.name })}
-            </button>
-            {makingLeaders && (
-              <div className="mt-2">
-                <MakeLeadersPanel base={base} communityId={open.id} communityName={open.name} />
-              </div>
-            )}
-          </div>
+        <section ref={openRef} className="card scroll-mt-4 space-y-3" aria-label={open.name}>
+          <h3 className="text-lg font-semibold text-brand-900">{open.name}</h3>
           {(() => {
             const row = data.items.find((r) => r.id === open.id);
-            if (!row || row.unassigned === 0) return null;
+            const count = row?.unassigned ?? 0;
             return (
-              <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{t('cells.unassigned_help', { count: row.unassigned })}</span>
-                  <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setAssigning((v) => !v)} data-testid="assign-toggle">
-                    {assigning ? t('cells.assign_close') : t('cells.assign_open')}
-                  </button>
-                </div>
-                {assigning && (
+              <div className="space-y-2 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-sm" data-testid="share-block">
+                <p className="font-semibold text-brand-900">{t('cells.share_title')}</p>
+                {count === 0 ? (
+                  <p className="text-slate-700">{t('cells.everyone_followed')}</p>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{t('cells.unassigned_help', { count })}</span>
+                    <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => setAssigning((v) => !v)} data-testid="assign-toggle">
+                      {assigning ? t('cells.assign_close') : t('cells.assign_open')}
+                    </button>
+                  </div>
+                )}
+                {open.kind === 'GROUP' && <p className="text-xs text-slate-600">{t('cells.group_share_help')}</p>}
+                {assigning && count > 0 && (
                   <AssignPeople
                     base={base}
                     canTakeBack
@@ -248,9 +253,27 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
                     }}
                   />
                 )}
+                {count === 0 && row && (
+                  <details>
+                    <summary className="cursor-pointer text-xs text-brand-800 underline">{t('cells.see_leaders')}</summary>
+                    <div className="mt-2">
+                      <AssignPeople base={base} canTakeBack communityId={open.id} onDone={(text) => { setMessage(text); load(); }} />
+                    </div>
+                  </details>
+                )}
               </div>
             );
           })()}
+          <div>
+            <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => setMakingLeaders((v) => !v)} data-testid="make-leaders-toggle">
+              {makingLeaders ? t('makeLeaders.close') : t('makeLeaders.open', { name: open.name })}
+            </button>
+            {makingLeaders && (
+              <div className="mt-2">
+                <MakeLeadersPanel base={base} communityId={open.id} communityName={open.name} />
+              </div>
+            )}
+          </div>
           {(() => {
             const h = health.get(open.id);
             if (!h) return null;
@@ -263,6 +286,7 @@ export function CellsPanel({ base }: { base: '/api/admin/cells' | '/api/member/c
               </p>
             );
           })()}
+          <h4 className="pt-1 font-semibold text-brand-900">{t('cells.ready_title', { name: open.name })}</h4>
           <p className="text-sm text-slate-600">{t('cells.ready_help')}</p>
           {!ready && <p className="text-sm text-slate-400">{t('cells.loading')}</p>}
           {ready && ready.items.length === 0 && <p className="text-sm text-slate-500">{t('cells.ready_none')}</p>}
@@ -293,12 +317,83 @@ interface LeaderLoad {
   name: string;
   away: boolean;
   headcount: number;
+  viaParent?: string;
 }
 interface SharePlan {
   assigned: number;
   remaining: number;
   noLeaders: boolean;
   perLeader: { personId: string; name: string; added: number }[];
+}
+
+// "Share members with leaders" at the top of the page: pick an assembly or a group from a list, see how many people
+// have no leader yet, and share them. The same tool as inside each assembly, but impossible to miss.
+export function ShareMembersCard({ base }: { base: '/api/admin/cells' | '/api/member/central-cells' }) {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<Row[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [pick, setPick] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+
+  function load() {
+    api
+      .get<Overview>(`${base}/overview`)
+      .then((r) => setItems(r.items))
+      .catch(() => setFailed(true));
+  }
+  useEffect(load, [base]);
+
+  const chosen = items?.find((r) => r.id === pick) ?? null;
+  return (
+    <section className="card space-y-3 border-2 border-brand-200" data-testid="share-members-card">
+      <h3 className="text-lg font-semibold text-brand-900">{t('cells.share_card_title')}</h3>
+      <p className="text-sm text-slate-600">{t('cells.share_card_intro')}</p>
+      {failed && <p className="text-sm text-red-700">{t('cells.load_failed')}</p>}
+      {!items && !failed && <p className="text-sm text-slate-400">{t('cells.loading')}</p>}
+      {items && (
+        <label className="block">
+          <span className="text-sm font-semibold text-slate-800">{t('cells.share_card_pick')}</span>
+          <select
+            className="input mt-1 w-full"
+            value={pick}
+            onChange={(e) => {
+              setPick(e.target.value);
+              setMessage(null);
+            }}
+            data-testid="share-card-select"
+          >
+            <option value="">{t('cells.share_card_choose')}</option>
+            {items.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+                {r.kind === 'GROUP' ? ` (${t('admin.communities.group_badge')})` : ''}
+                {r.unassigned > 0 ? ` · ${t('cells.unassigned_count', { count: r.unassigned })}` : ` · ${t('cells.share_card_all_followed')}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {message && <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p>}
+      {chosen && (
+        <div className="space-y-2 text-sm">
+          <p className={chosen.unassigned > 0 ? 'font-semibold text-slate-800' : 'text-slate-700'}>
+            {chosen.unassigned > 0 ? t('cells.unassigned_help', { count: chosen.unassigned }) : t('cells.everyone_followed')}
+          </p>
+          {chosen.kind === 'GROUP' && <p className="text-xs text-slate-600">{t('cells.group_share_help')}</p>}
+          <AssignPeople
+            key={chosen.id}
+            base={base}
+            canTakeBack
+            communityId={chosen.id}
+            onDone={(text) => {
+              setMessage(text);
+              load();
+            }}
+          />
+        </div>
+      )}
+    </section>
+  );
 }
 
 // Give the people nobody follows to the leaders: choose which leaders, and how many people each (leave the number
@@ -380,6 +475,7 @@ export function AssignPeople({ base, communityId, onDone, canTakeBack = false }:
                 <span className="font-medium">{l.name}</span>
                 <span className="block text-xs text-slate-500">
                   {t('cells.assign_follows', { count: l.headcount })}
+                  {l.viaParent ? ` · ${t('cells.assign_via_parent', { name: l.viaParent })}` : ''}
                   {l.away ? ` · ${t('cells.assign_away')}` : ''}
                 </span>
               </span>

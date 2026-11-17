@@ -102,7 +102,7 @@ describe('CellsPanel', () => {
     render(<CellsPanel base="/api/admin/cells" />);
     expect(await screen.findByText('5 not followed yet')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Headquarters · 1'));
-    expect(await screen.findByText('5 people in this assembly are not followed by any leader yet.')).toBeInTheDocument();
+    expect(await screen.findByText('5 people here are not followed by any leader yet.')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('assign-toggle'));
     const tool = await screen.findByTestId('assign-people');
     // Everyone who is present is ticked; the leader who is away is not.
@@ -115,6 +115,48 @@ describe('CellsPanel', () => {
     fireEvent.click(screen.getByTestId('assign-confirm'));
     expect(await screen.findByText('4 people assigned. 1 still unassigned.')).toBeInTheDocument();
     expect(calls.filter((c) => c.method === 'POST').pop()?.body).toEqual({ communityId: 'a2', leaderPersonIds: ['l1', 'l2'], perLeader: 2, dryRun: false });
+  });
+
+  it('shares the members of a group too, offering the leaders of the assembly it is under, and says when everyone has a leader', async () => {
+    const withGroup = {
+      ...overview,
+      items: [
+        ...overview.items,
+        { id: 'g1', name: 'Leadership Development Group', kind: 'GROUP', parentId: 'a1', parentName: 'Headquarters', autoCreated: false, createdAt: '2026-11-02', members: 30, leaders: 0, readyToLead: 0, unassigned: 30 },
+      ],
+    };
+    mockFetch({
+      '/api/admin/cells/overview': () => ({ status: 200, body: withGroup }),
+      '/api/admin/cells/ready-to-lead': () => ({ status: 200, body: { requiredBooks: 15, items: [] } }),
+      '/api/admin/cells/leaders': () => ({ status: 200, body: { items: [{ personId: 'l1', name: 'Anna', away: false, headcount: 0, viaParent: 'Headquarters' }] } }),
+    });
+    render(<CellsPanel base="/api/admin/cells" />);
+    expect(await screen.findByText('30 not followed yet')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Leadership Development Group'));
+    expect(await screen.findByText('30 people here are not followed by any leader yet.')).toBeInTheDocument();
+    expect(screen.getByText(/the leaders of the assembly it is under/)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('assign-toggle'));
+    expect(await within(await screen.findByTestId('assign-people')).findByText(/leader of Headquarters/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Headquarters'));
+    expect(await screen.findByText('Everyone here already has a leader following them.')).toBeInTheDocument();
+  });
+
+  it('puts "Share members with leaders" at the top: pick an assembly or a group from a list, then share', async () => {
+    mockFetch({
+      '/api/admin/cells/overview': () => ({ status: 200, body: overview }),
+      '/api/admin/cells/leaders': () => ({ status: 200, body: { items: [{ personId: 'l1', name: 'Anna', away: false, headcount: 0 }, { personId: 'l2', name: 'Boris', away: false, headcount: 1 }] } }),
+      '/api/admin/cells/share': () => ({ status: 200, body: { assigned: 5, remaining: 0, noLeaders: false, dryRun: true, perLeader: [{ personId: 'l1', name: 'Anna', added: 3 }, { personId: 'l2', name: 'Boris', added: 2 }] } }),
+    });
+    render(<CellsPanel base="/api/admin/cells" />);
+    const card = await screen.findByTestId('share-members-card');
+    expect(within(card).getByText('Share members with leaders')).toBeInTheDocument();
+    const select = await within(card).findByTestId('share-card-select');
+    expect(within(select).getByText('Headquarters · 1 · 5 not followed yet')).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: 'a2' } });
+    expect(await within(card).findByText('5 people here are not followed by any leader yet.')).toBeInTheDocument();
+    fireEvent.click(await within(card).findByTestId('assign-preview'));
+    expect(await within(card).findByTestId('assign-plan')).toHaveTextContent('Anna: +3');
   });
 
   it('takes back everyone a leader follows (to undo a test), after asking, and offers it only for leaders who follow people', async () => {

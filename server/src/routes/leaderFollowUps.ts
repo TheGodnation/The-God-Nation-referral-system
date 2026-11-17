@@ -10,7 +10,7 @@ import { requireCsrf } from '../lib/csrf';
 import { recordAudit } from '../lib/audit';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
-import { requireLinkedPerson, findActiveScopedRole, personBelongsToContext, contextTargetExists } from '../lib/leadership';
+import { requireLinkedPerson, findActiveScopedRole, findSharingRole, personBelongsToContext, contextTargetExists } from '../lib/leadership';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { computeAttentionForLeader } from '../lib/followUpAttention';
 import { getOrCreateFollowUpConversation } from '../lib/followUpConversation';
@@ -154,7 +154,7 @@ router.post('/my-people/:personId/share', leadershipMutationLimiter, requireCsrf
   if (!mine) return res.status(403).json({ error: 'This person is not one of your people.' });
   const { toLeaderPersonId, mode } = parsed.data;
   if (toLeaderPersonId === req.leaderPersonId) return res.status(400).json({ error: 'Choose another leader.' });
-  const colleague = await findActiveScopedRole(toLeaderPersonId, 'COMMUNITY', mine.contextId);
+  const colleague = await findSharingRole(toLeaderPersonId, mine.contextId);
   if (!colleague) return res.status(400).json({ error: 'That person is not a leader of this assembly.' });
 
   if (mode === 'share') {
@@ -421,7 +421,7 @@ router.post('/follow-ups/:id/reassign', leadershipMutationLimiter, requireCsrf, 
   if (!newFollower) {
     return res.status(400).json({ error: 'New follower Person not found.' });
   }
-  const newFollowerRole = await findActiveScopedRole(newFollowerId, current.contextType, current.contextId);
+  const newFollowerRole = await findSharingRole(newFollowerId, current.contextId);
   if (!newFollowerRole) {
     return res.status(400).json({ error: 'The new follower does not have an active scoped leader role for this exact context.' });
   }

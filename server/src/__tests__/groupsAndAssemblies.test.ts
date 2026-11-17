@@ -103,12 +103,12 @@ describe('Generations count assemblies only', () => {
     }
   });
 
-  it('following people up counts members of assemblies only, not of groups', async () => {
+  it('counts the members of a group who have no leader anywhere, so they can be shared too', async () => {
     const { youth, A, member } = await world();
     const overview = await assembliesOverview();
     const row = (id: string) => overview.items.find((r) => r.id === id)!;
     expect(row(youth.id).kind).toBe('GROUP');
-    expect(row(youth.id).unassigned).toBe(0);
+    expect(row(youth.id).unassigned).toBeGreaterThanOrEqual(1);
     expect(row(youth.id).members).toBeGreaterThanOrEqual(1);
     expect(row(A.id).kind).toBe('ASSEMBLY');
     expect(row(A.id).unassigned).toBeGreaterThanOrEqual(1);
