@@ -1,10 +1,23 @@
 # Play Store listing: The God Nation
 
-Texts and pictures for the Google Play store page, in English and French (prepared 17 November 2026).
-The pictures are in `pictures/`: seven phone screenshots per language (1080×1920, upload them in this
+Texts and pictures for the Google Play store page, in English and French (approved wording, 17 November 2026).
+The pictures are in `pictures/`: eight phone screenshots per language (1080×1920, upload them in this
 order) and the 1024×500 feature graphic. Every person and message in the screenshots is an invented
 example from a local demo database; no real member appears. The screenshots show the Play version
 (no prices; books are requested and approved).
+
+When the 16th Academy book is in the app, "15 books, with more being added" can become "more than 15 books".
+
+| # | Screenshot | Backs the section |
+|---|---|---|
+| 1 | The Leadership Academy | The God Nation Leadership Academy |
+| 2 | Assembly chat | Join your local community |
+| 3 | People near you, friends | Connect and build relationships |
+| 4 | Representatives in your area | Represent your community and nation |
+| 5 | Prayer requests | Pray together |
+| 6 | Events and meetings | Prayer gatherings and meetings |
+| 7 | Headquarters post | Grow in the Word of God |
+| 8 | Private chat, translated | In English and French |
 
 | Play Console box | Value |
 |---|---|
@@ -17,106 +30,110 @@ example from a local demo database; no real member appears. The screenshots show
 
 ## English
 
-**Short description** (78/80)
+**Short description** (79/80)
 
-Learn, pray and grow together: chats, leadership school and teachings, EN & FR
+A global family of Kingdom citizens: connect, pray, learn and spread the Gospel
 
-**Full description** (1834/4000)
+**Full description** (3086/4000)
 
 ```
-The God Nation is the home of a growing family of disciples. Here you learn, pray, share and grow together, in English and in French.
+THE GOD NATION
+A Global Family of Kingdom Citizens
+Connect. Grow. Fellowship. Serve. Spread the Gospel.
 
-Our mission: go into the digital media spaces where billions gather, and make disciples who make disciples.
+Welcome to The God Nation, a global network and online family of born-again Christians who love the Kingdom of God and want to see the Gospel of the Kingdom reach every nation.
 
-WHAT YOU CAN DO
+Our motto: go into the digital media spaces where billions gather, and make disciples who make disciples, taking the Gospel of the Kingdom to the ends of the earth.
 
-• Your assembly and groups
-Join your assembly and groups, follow the Headquarters posts, and stay close to the leaders who care for you.
+THE GOD NATION LEADERSHIP ACADEMY
+Join our Leadership Academy: a structured biblical training programme of 15 books, with more being added. Read chapter by chapter, take the Dominion Clinic examinations, follow your progress and earn King's Tokens, study rewards with no cash value. Grow in knowledge, develop your leadership, and prepare to join our team as we carry the Gospel through modern media.
 
-• Chats with voice notes and photos
-Write, send voice notes, photos and short videos, reply to a message and react with a tap. Private chats with other members, too.
+CONNECT AND BUILD RELATIONSHIPS
+Meet born-again Christians near you and around the world. See people near you, make friends, build meaningful relationships and take initiatives together for the Kingdom of God.
 
-• Read in your language
-A message written in French or English can be translated with one tap, so English and French speakers understand each other.
+JOIN YOUR LOCAL COMMUNITY
+Join your assembly and groups. Share the Word, encourage one another, pray together and build real Christian fellowship, with chats, voice notes, photos and replies.
 
-• Media & Leadership Academy
-Read the books of the leadership school chapter by chapter, take the Dominion Clinic examinations and follow your progress, book after book.
+GROW IN THE WORD OF GOD
+Receive teachings, devotionals and posts from Headquarters that help you understand the Kingdom of God, become established in the Word, and overcome the challenges and circumstances you meet every day.
 
-• Teachings and Headquarters posts
-Receive teachings, announcements and posts from the ministry with photos, videos and PDFs. Like, comment and reply.
+PRAY TOGETHER
+Share prayer requests, pray for one another, find prayer partners among your friends, and join the prayer gatherings and meetings of your assembly.
 
-• Updates
-Share what God is doing in your life with photos, and encourage others with reactions and comments.
+REPRESENT YOUR COMMUNITY AND NATION
+Become a representative of your neighbourhood, quarter, subdivision, division, region or nation in The God Nation Global Network. Meet the representatives in your area, help connect believers, and create opportunities for Kingdom citizens to work together.
 
-• Prayer requests
-Share a prayer request and pray for one another.
+BE ONE ANOTHER'S KEEPER
+Kingdom citizens look out for one another. Build a community where people care, encourage and support each other, and stand with believers who face hard times, including persecuted Christians.
 
-• King's Tokens
-Earn study rewards when you answer examination questions correctly.
+JOIN THE KINGDOM MISSION
+Join a team committed to taking the Gospel of the Kingdom to billions of people through modern media. Share what God is doing, invite others, and use your gifts to advance the work.
 
-• Works on weak connections
-Your recent chats and books stay on your phone, so you can keep reading even when the network is poor.
-
-• Notifications
-Be told when someone writes to you, when a new teaching arrives, or when a leader needs you.
+IN ENGLISH AND FRENCH
+Use the app in English or French. A message in the other language can be translated with one tap, so everyone understands each other.
 
 SAFE AND RESPECTFUL
-Every member accepts our Terms of Use. You can report a post or a person, block someone, and leaders review every report. You can delete your account at any time from the app or our website.
+Every member accepts our Terms of Use. You can report a post or a person, block someone, and leaders review every report. You can delete your account at any time. No adverts, and we never sell your information.
 
-No adverts. We never sell your information.
+ONE FAMILY. ONE KINGDOM. ONE MISSION.
+The God Nation is not a denomination. It is a family of Kingdom citizens working together to make the Gospel of the Kingdom known to the ends of the earth.
 
-Website: thegodnationacademy.org
+Join The God Nation. Find your community. Grow in the Word. Take your place in the advancement of God's Kingdom.
+
+thegodnationacademy.org
 ```
 
 ## Français
 
-**Description courte** (80/80)
+**Description courte** (77/80)
 
-Apprendre, prier et grandir ensemble : discussions, école de leadership, FR & EN
+Une famille mondiale du Royaume : se connecter, prier, apprendre, évangéliser
 
-**Description complète** (2224/4000)
+**Description complète** (3743/4000)
 
 ```
-The God Nation est la maison d’une famille de disciples qui grandit. Ici, vous apprenez, priez, partagez et grandissez ensemble, en français et en anglais.
+THE GOD NATION
+Une famille mondiale de citoyens du Royaume
+Se connecter. Grandir. Communier. Servir. Répandre l’Évangile.
 
-Notre mission : aller dans les espaces des médias numériques où des milliards de personnes se rassemblent, et faire des disciples qui font des disciples.
+Bienvenue dans The God Nation, un réseau mondial et une famille en ligne de chrétiens nés de nouveau qui aiment le Royaume de Dieu et veulent voir l’Évangile du Royaume atteindre toutes les nations.
 
-CE QUE VOUS POUVEZ FAIRE
+Notre devise : allez dans les espaces des médias numériques où des milliards de personnes se rassemblent, et faites des disciples qui font des disciples, portant ainsi l’Évangile du Royaume jusqu’aux extrémités de la terre.
 
-• Votre assemblée et vos groupes
-Rejoignez votre assemblée et vos groupes, suivez les publications du Siège et restez proche des responsables qui prennent soin de vous.
+L’ACADÉMIE DE LEADERSHIP THE GOD NATION
+Rejoignez notre Académie de leadership : un programme biblique structuré de 15 livres, et d’autres sont en préparation. Lisez chapitre par chapitre, passez les examens de la Dominion Clinic, suivez vos progrès et gagnez des King’s Tokens, des récompenses d’étude sans valeur monétaire. Grandissez dans la connaissance, développez votre leadership et préparez-vous à rejoindre notre équipe pour porter l’Évangile à travers les médias modernes.
 
-• Discussions avec notes vocales et photos
-Écrivez, envoyez des notes vocales, des photos et de courtes vidéos, répondez à un message et réagissez d’un geste. Discussions privées avec d’autres membres aussi.
+SE CONNECTER ET TISSER DES LIENS
+Rencontrez des chrétiens nés de nouveau près de chez vous et dans le monde entier. Voyez les personnes proches de vous, faites-vous des amis, construisez des relations solides et prenez ensemble des initiatives pour le Royaume de Dieu.
 
-• Lisez dans votre langue
-Un message écrit en français ou en anglais peut être traduit d’un seul geste, pour que francophones et anglophones se comprennent.
+REJOIGNEZ VOTRE COMMUNAUTÉ LOCALE
+Rejoignez votre assemblée et vos groupes. Partagez la Parole, encouragez-vous les uns les autres, priez ensemble et vivez une vraie communion fraternelle, avec discussions, notes vocales, photos et réponses.
 
-• Académie des médias et du leadership
-Lisez les livres de l’école de leadership chapitre par chapitre, passez les examens de la Dominion Clinic et suivez vos progrès, livre après livre.
+GRANDIR DANS LA PAROLE DE DIEU
+Recevez des enseignements, des dévotions et des publications du Siège qui vous aident à comprendre le Royaume de Dieu, à être affermi dans la Parole et à surmonter les défis et les circonstances de chaque jour.
 
-• Enseignements et publications du Siège
-Recevez les enseignements, annonces et publications du ministère avec photos, vidéos et PDF. Aimez, commentez et répondez.
+PRIER ENSEMBLE
+Partagez vos demandes de prière, priez les uns pour les autres, trouvez des partenaires de prière parmi vos amis et participez aux rencontres de prière et aux réunions de votre assemblée.
 
-• Actualités
-Partagez ce que Dieu fait dans votre vie avec des photos, et encouragez les autres par des réactions et des commentaires.
+REPRÉSENTEZ VOTRE COMMUNAUTÉ ET VOTRE NATION
+Devenez représentant de votre quartier, de votre arrondissement, de votre département, de votre région ou de votre nation dans le réseau mondial The God Nation. Rencontrez les représentants de votre zone, aidez à relier les croyants et créez des occasions de travailler ensemble pour le Royaume.
 
-• Demandes de prière
-Partagez une demande de prière et priez les uns pour les autres.
+SOYEZ LE GARDIEN LES UNS DES AUTRES
+Les citoyens du Royaume veillent les uns sur les autres. Bâtissez une communauté où l’on prend soin les uns des autres, où l’on s’encourage et se soutient, et tenez-vous aux côtés des croyants qui traversent des épreuves, y compris les chrétiens persécutés.
 
-• King’s Tokens
-Gagnez des récompenses d’étude en répondant correctement aux questions d’examen.
+REJOIGNEZ LA MISSION DU ROYAUME
+Rejoignez une équipe engagée à porter l’Évangile du Royaume à des milliards de personnes à travers les médias modernes. Partagez ce que Dieu fait, invitez d’autres personnes et mettez vos dons au service de l’œuvre.
 
-• Fonctionne même avec un réseau faible
-Vos discussions récentes et vos livres restent sur votre téléphone, pour continuer à lire même quand le réseau est mauvais.
-
-• Notifications
-Soyez averti quand quelqu’un vous écrit, quand un nouvel enseignement arrive ou quand un responsable a besoin de vous.
+EN FRANÇAIS ET EN ANGLAIS
+Utilisez l’application en français ou en anglais. Un message dans l’autre langue se traduit d’un seul geste, pour que tout le monde se comprenne.
 
 SÛR ET RESPECTUEUX
-Chaque membre accepte nos Conditions d’utilisation. Vous pouvez signaler une publication ou une personne, bloquer quelqu’un, et les responsables examinent chaque signalement. Vous pouvez supprimer votre compte à tout moment depuis l’application ou notre site.
+Chaque membre accepte nos Conditions d’utilisation. Vous pouvez signaler une publication ou une personne, bloquer quelqu’un, et les responsables examinent chaque signalement. Vous pouvez supprimer votre compte à tout moment. Aucune publicité, et nous ne vendons jamais vos informations.
 
-Aucune publicité. Nous ne vendons jamais vos informations.
+UNE FAMILLE. UN ROYAUME. UNE MISSION.
+The God Nation n’est pas une dénomination. C’est une famille de citoyens du Royaume qui travaillent ensemble pour faire connaître l’Évangile du Royaume jusqu’aux extrémités de la terre.
 
-Site web : thegodnationacademy.org
+Rejoignez The God Nation. Trouvez votre communauté. Grandissez dans la Parole. Prenez votre place dans l’avancement du Royaume de Dieu.
+
+thegodnationacademy.org
 ```

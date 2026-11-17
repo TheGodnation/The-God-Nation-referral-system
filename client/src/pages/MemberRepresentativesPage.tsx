@@ -6,6 +6,7 @@ import { MemberNav } from '../components/member/MemberNav';
 import { PortraitCard } from '../components/PortraitCard';
 import { shortPlace } from '../lib/shortPlace';
 import { api } from '../lib/api';
+import { localPositionTitle } from '../lib/positionTitle';
 
 interface Rep {
   personId: string;
@@ -34,7 +35,7 @@ interface Wall {
  * profile. Asking to represent your own area is a page of its own (/member/represent).
  */
 export function MemberRepresentativesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [wall, setWall] = useState<Wall | null>(null);
   const [failed, setFailed] = useState(false);
@@ -56,7 +57,7 @@ export function MemberRepresentativesPage() {
           labelBelow
           caption={
             <>
-              <span className="block">{r.title}</span>
+              <span className="block">{localPositionTitle(r.title, i18n.language)}</span>
               <span className="block text-slate-800">{shortPlace(r.level, r.place)}</span>
             </>
           }
