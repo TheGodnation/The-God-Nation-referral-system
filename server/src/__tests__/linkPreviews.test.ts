@@ -37,6 +37,9 @@ describe('link previews', () => {
     expect((res.text.match(/name="description"/g) ?? []).length).toBe(1);
     // The app itself still loads.
     expect(res.text).toContain('<div id="root"></div>');
+    // And a completely white page can rescue itself (forget the old saved copy, reload once, offer buttons).
+    expect(res.text).toContain('white-page-help');
+    expect(res.text).toContain('godnation:rescued-at');
   });
 
   it('a French link gets the all-French card, an English link the all-English card', async () => {

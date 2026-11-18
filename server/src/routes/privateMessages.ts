@@ -4,6 +4,7 @@ import { appLanguage } from '../lib/appLanguage';
 import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { badgeOf, centralAdminAmong } from '../lib/centralAdmin';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -181,7 +182,7 @@ async function resolveOtherParty(
 }
 
 // GET /api/private-messages/conversations — every PrivateConversation the
-// caller currently participates in (either side), newest-created-first,
+// caller currently participates in (either side), newest-activity-first,
 // page-based pagination. Never returns another Person's/User's
 // conversations — the WHERE clause is always keyed off the server-resolved
 // actor identity, never a client-supplied filter.
@@ -193,16 +194,24 @@ router.get('/conversations', asyncHandler(async (req, res) => {
     actor.type === 'PERSON'
       ? { OR: [{ memberPersonId: actor.personId }, { initiatorPersonId: actor.personId }] }
       : { initiatorUserId: actor.userId };
+  const mine =
+    actor.type === 'PERSON'
+      ? Prisma.sql`(c."memberPersonId" = ${actor.personId} OR c."initiatorPersonId" = ${actor.personId})`
+      : Prisma.sql`c."initiatorUserId" = ${actor.userId}`;
 
-  const [total, conversations] = await Promise.all([
+  // Newest ACTIVITY first (the time of the last message, or of the start of the chat when nothing was said yet) —
+  // not newest-started first: a chat begun long ago but talked in today must be on the first page, and every
+  // older chat is one "Show older chats" tap away. There is no limit on how many chats or messages are kept.
+  const [total, ordered] = await Promise.all([
     prisma.privateConversation.count({ where }),
-    prisma.privateConversation.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take,
-    }),
+    prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT c."id" FROM "PrivateConversation" c
+      WHERE ${mine}
+      ORDER BY COALESCE((SELECT MAX(m."createdAt") FROM "PrivateMessage" m WHERE m."conversationId" = c."id"), c."createdAt") DESC, c."id" DESC
+      OFFSET ${skip} LIMIT ${take}`),
   ]);
+  const byId = new Map((await prisma.privateConversation.findMany({ where: { id: { in: ordered.map((r) => r.id) } } })).map((c) => [c.id, c]));
+  const conversations = ordered.map((r) => byId.get(r.id)).filter((c): c is NonNullable<typeof c> => !!c);
 
   const items = await Promise.all(
     conversations.map(async (c) => {

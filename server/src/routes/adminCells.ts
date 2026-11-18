@@ -8,6 +8,7 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
+import { findSplitChats, joinChats } from '../lib/joinChats';
 import { adminClinicStatus, adminSendsBookToAll } from '../lib/clinic';
 import { clinicRhythm } from '../lib/examWorld';
 import { assemblyHealth, leadersHealthIn } from '../lib/assemblyHealth';
@@ -168,6 +169,31 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
       });
     }
     res.json({ dryRun: result.dryRun, report: result.report });
+  }));
+
+  // Two people with TWO private chats between them (one started by each): list them, and join a pair into one chat.
+  router.get('/split-chats', asyncHandler(async (req, res) => {
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    res.json({ items: await findSplitChats() });
+  }));
+
+  router.post('/split-chats/join', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ keepId: z.string().min(1), dropId: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Choose the chat to join.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const result = await joinChats(parsed.data.keepId, parsed.data.dropId);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    await recordAudit({
+      actorId: actor.id,
+      actorEmail: actor.email,
+      action: 'CHATS_JOINED',
+      targetType: 'PrivateConversation',
+      targetId: result.keepId,
+      metadata: { keptChatId: result.keepId, joinedChatId: parsed.data.dropId, movedMessages: result.movedMessages },
+    });
+    res.json({ ok: true, movedMessages: result.movedMessages });
   }));
 
   // Hard questions from leaders: everything open or recent, one thread, and a reply.

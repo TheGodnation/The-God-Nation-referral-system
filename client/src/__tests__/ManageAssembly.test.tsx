@@ -48,17 +48,49 @@ describe('Manage this assembly (central admin profile)', () => {
       'POST /api/communities/c1/members': () => ({ status: 201, body: { ok: true } }),
     });
     const changed = renderIt();
-    fireEvent.click(screen.getByRole('button', { name: /Add people/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Add or remove people/ }));
     fireEvent.change(screen.getByLabelText('Search for a person…'), { target: { value: 'Grace' } });
 
     await screen.findByText('Grace Doe', undefined, { timeout: 3000 });
     const list = screen.getByTestId('people-results');
     const rows = within(list).getAllByRole('listitem');
     expect(rows[1]).toHaveTextContent('Already in');
+    expect(within(rows[1]).getByRole('button', { name: 'Remove' })).toBeInTheDocument();
     fireEvent.click(within(rows[0]).getByRole('button', { name: 'Add' }));
     expect(await within(list).findByText('✓ Added')).toBeInTheDocument();
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ personId: 'p1' });
     expect(changed).toHaveBeenCalled();
+  });
+
+  it('removes a member from this place after confirming, and can add them back', async () => {
+    vi.stubGlobal('confirm', () => true);
+    mockFetch({
+      'GET /api/communities/c1/people-search': () => ({ body: { items: [{ id: 'p2', name: 'Grace Already', photoUrl: null, isMember: true }] } }),
+      'DELETE /api/communities/c1/members/p2': () => ({ body: { ok: true } }),
+      'POST /api/communities/c1/members': () => ({ status: 201, body: { ok: true } }),
+    });
+    const changed = renderIt();
+    fireEvent.click(screen.getByRole('button', { name: /Add or remove people/ }));
+    fireEvent.change(screen.getByLabelText('Search for a person…'), { target: { value: 'Grace' } });
+    await screen.findByText('Grace Already', undefined, { timeout: 3000 });
+    const list = screen.getByTestId('people-results');
+    fireEvent.click(within(list).getByRole('button', { name: 'Remove' }));
+    expect(await within(list).findByText('✓ Removed')).toBeInTheDocument();
+    expect(calls.some((c) => c.method === 'DELETE' && c.url.endsWith('/api/communities/c1/members/p2'))).toBe(true);
+    expect(changed).toHaveBeenCalled();
+    fireEvent.click(within(list).getByRole('button', { name: 'Add' }));
+    expect(await within(list).findByText('✓ Added')).toBeInTheDocument();
+  });
+
+  it('does not remove anyone when the confirmation is declined', async () => {
+    vi.stubGlobal('confirm', () => false);
+    mockFetch({ 'GET /api/communities/c1/people-search': () => ({ body: { items: [{ id: 'p2', name: 'Grace Already', photoUrl: null, isMember: true }] } }) });
+    renderIt();
+    fireEvent.click(screen.getByRole('button', { name: /Add or remove people/ }));
+    fireEvent.change(screen.getByLabelText('Search for a person…'), { target: { value: 'Grace' } });
+    await screen.findByText('Grace Already', undefined, { timeout: 3000 });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
   });
 
   const previewOf = (kind: string, used = 0, full = false) => () => ({

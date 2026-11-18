@@ -35,7 +35,8 @@ function AddPeopleSheet({ communityId, communityName, onClose, onChanged }: { co
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Found[]>([]);
-  const [added, setAdded] = useState<Set<string>>(new Set());
+  // What this sheet did, per person: 'added' or 'removed' (anyone not in the map shows as the search found them).
+  const [done, setDone] = useState<Map<string, 'added' | 'removed'>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const latest = useRef(0);
@@ -58,15 +59,30 @@ function AddPeopleSheet({ communityId, communityName, onClose, onChanged }: { co
     return () => window.clearTimeout(timer);
   }, [query, communityId]);
 
+  const mark = (id: string, what: 'added' | 'removed') => setDone((m) => new Map(m).set(id, what));
+
   async function add(p: Found) {
     setError(null);
     try {
       await api.post(`/api/communities/${communityId}/members`, { personId: p.id });
-      setAdded((s) => new Set(s).add(p.id));
+      mark(p.id, 'added');
       onChanged();
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'ALREADY_MEMBER') setAdded((s) => new Set(s).add(p.id));
+      if (err instanceof ApiError && err.code === 'ALREADY_MEMBER') mark(p.id, 'added');
       else setError(err instanceof ApiError ? err.message : t('manageAssembly.add_failed'));
+    }
+  }
+
+  async function remove(p: Found) {
+    if (!window.confirm(t('manageAssembly.remove_confirm', { name: p.name, place: communityName }) ?? '')) return;
+    setError(null);
+    try {
+      await api.delete(`/api/communities/${communityId}/members/${p.id}`);
+      mark(p.id, 'removed');
+      onChanged();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'NOT_A_MEMBER') mark(p.id, 'removed');
+      else setError(err instanceof ApiError ? err.message : t('manageAssembly.remove_failed'));
     }
   }
 
@@ -86,13 +102,23 @@ function AddPeopleSheet({ communityId, communityName, onClose, onChanged }: { co
       {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
       <ul className="mt-2 divide-y divide-slate-100" data-testid="people-results">
         {results.map((p) => {
-          const done = p.isMember || added.has(p.id);
+          const state = done.get(p.id);
+          const isIn = state ? state === 'added' : p.isMember;
           return (
             <li key={p.id} className="flex items-center gap-3 py-2">
               <Avatar name={p.name} photoUrl={p.photoUrl} size={36} />
-              <span className="min-w-0 flex-1 truncate font-medium text-slate-900">{p.name}</span>
-              {done ? (
-                <span className="text-sm font-medium text-green-700">✓ {added.has(p.id) ? t('manageAssembly.added') : t('manageAssembly.already_in')}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium text-slate-900">{p.name}</span>
+                {state ? (
+                  <span className="text-xs font-medium text-green-700">✓ {t(state === 'added' ? 'manageAssembly.added' : 'manageAssembly.removed')}</span>
+                ) : (
+                  p.isMember && <span className="text-xs text-slate-500">{t('manageAssembly.already_in')}</span>
+                )}
+              </span>
+              {isIn ? (
+                <button type="button" className="rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-700" onClick={() => void remove(p)}>
+                  {t('manageAssembly.remove')}
+                </button>
               ) : (
                 <button type="button" className="btn-primary px-3 py-1.5 text-sm" onClick={() => void add(p)}>
                   {t('manageAssembly.add')}

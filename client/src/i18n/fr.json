@@ -2689,6 +2689,7 @@
     "save_failed": "Vos changements n'ont pas été enregistrés. Veuillez réessayer."
   },
   "privateChat": {
+    "show_older": "Afficher les conversations plus anciennes",
     "offline_copy": "Pas d’internet. Vous lisez les derniers messages gardés sur ce téléphone. Les nouveaux messages apparaîtront quand vous serez de nouveau en ligne.",
     "lang_fr": "🇫🇷 Francophone : écrivez en français",
     "lang_en": "🇬🇧 Anglophone : écrivez en anglais",
@@ -3259,11 +3260,15 @@
     "badge": "Votre responsable · Équipe de leadership"
   },
   "manageAssembly": {
+    "remove": "Retirer",
+    "removed": "Retiré",
+    "remove_confirm": "Retirer {{name}} de {{place}} ? Cette personne peut être ajoutée de nouveau à tout moment, et ses messages restent.",
+    "remove_failed": "Impossible de retirer cette personne. Veuillez réessayer.",
     "title": "Gérer cette assemblée",
-    "add_people": "Ajouter des personnes",
+    "add_people": "Ajouter ou retirer des personnes",
     "new_sub": "Nouvelle sous-assemblée",
-    "add_title": "Ajouter des personnes à {{name}}",
-    "add_help": "Cherchez par nom, numéro WhatsApp ou e-mail. Si elle est privée, seules les personnes que vous ajoutez peuvent l'ouvrir.",
+    "add_title": "Ajouter ou retirer des personnes dans {{name}}",
+    "add_help": "Cherchez par nom, numéro WhatsApp ou e-mail. Touchez Ajouter pour faire entrer quelqu'un, ou Retirer pour le sortir de cet endroit seulement. Si elle est privée, seules les personnes que vous ajoutez peuvent l'ouvrir.",
     "search": "Chercher une personne…",
     "add": "Ajouter",
     "added": "Ajouté",
@@ -5025,6 +5030,9 @@
     "continue_cta": "Continuer mes études"
   },
   "chatsTabs": {
+    "hint": "Vous faites partie de cette communauté. Touchez « Assemblées » pour retrouver tout le monde : tous les membres de la communauté y sont réunis.",
+    "hint_go": "Les retrouver ici →",
+    "hint_close": "Fermer",
     "assemblies": "Assemblées",
     "private": "Messages privés",
     "private_hint": "Vos messages privés apparaissent ici, les plus récents en premier."
@@ -5629,6 +5637,19 @@
     "reason_clinic_plain": "Examen de la Clinique de la Domination : {{correct}} bonnes réponses × {{rate}}",
     "earned_now": "Vous avez gagné {{count}} points d’étude pour cet examen.",
     "points_earned": "{{count}} points gagnés"
+  },
+  "splitChats": {
+    "title": "Réunir les conversations séparées (même personne, deux conversations)",
+    "intro": "Quand deux personnes ouvrent chacune une conversation avec l’autre, elles se retrouvent avec deux conversations sous le même nom, et les anciens messages semblent avoir disparu. Ici, vous les réunissez en une seule : tous les messages des deux, dans l’ordre du temps.",
+    "none": "Aucune conversation séparée trouvée.",
+    "detail": "Conversation plus ancienne : {{olderCount}} messages (depuis le {{olderDate}}) · Plus récente : {{newerCount}} messages (depuis le {{newerDate}})",
+    "join": "Réunir en une conversation",
+    "joining": "Réunion en cours…",
+    "confirm": "Réunir en une seule les deux conversations entre {{a}} et {{b}} ? Tous les messages sont conservés.",
+    "joined": "Fait : les deux conversations de {{a}} et {{b}} n’en font plus qu’une ({{count}} messages ajoutés à la plus ancienne).",
+    "refresh": "Actualiser la liste",
+    "load_failed": "Impossible de charger la liste. Veuillez réessayer.",
+    "failed": "Impossible de réunir ces conversations."
   },
   "mergeAccounts": {
     "title": "Fusionner deux comptes d’une même personne",

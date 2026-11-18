@@ -105,7 +105,7 @@ const MemberAssessmentPage = lazy(() =>
 
 function RouteFallback() {
   const { t } = useTranslation();
-  return <div className="px-4 py-24 text-center text-slate-400">{t('common.loading')}</div>;
+  return <div className="px-4 py-24 text-center text-slate-400" data-route-loading>{t('common.loading')}</div>;
 }
 
 export default function App() {

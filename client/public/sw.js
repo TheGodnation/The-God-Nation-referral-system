@@ -51,7 +51,7 @@ const isGuidePath = (p) => GUIDE_PREFIXES.some((g) => p.startsWith(g));
 const PUBLIC_SITE_ROOTS = ['/en', '/fr'];
 const isPublicSitePath = (p) => PUBLIC_SITE_ROOTS.some((r) => p === r || p.startsWith(r + '/'));
 
-const CACHE_VERSION = 'god-nation-v6';
+const CACHE_VERSION = 'god-nation-v7';
 // The app's start page for offline launches, kept apart from the asset
 // cache (and never deleted by a cache-version bump of the assets).
 const SHELL_CACHE = 'god-nation-shell-v1';
@@ -170,7 +170,10 @@ self.addEventListener('fetch', (event) => {
         const cached = await cache.match(request);
         if (cached) return cached;
         const response = await fetch(request);
-        if (response.ok) {
+        // A file of the app that answers with a web page (the app's start page, sent when the file no longer exists)
+        // must never be kept as that file: it would break the page for good.
+        const wasPage = (response.headers.get('content-type') || '').includes('text/html') && url.pathname.startsWith('/assets/');
+        if (response.ok && !wasPage) {
           try {
             await cache.put(request, response.clone());
           } catch {

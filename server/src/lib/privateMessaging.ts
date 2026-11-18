@@ -146,6 +146,13 @@ export async function getOrCreatePrivateConversation(
       update: {},
     });
   }
+  // Two people have ONE chat, whichever of them started it and whichever door was used (a leader tool, a notice, the
+  // "contact" button in a group). Without this look in the other direction, B writing to A after A had written to B
+  // opened a second chat with the very same person, and the old messages seemed to be gone.
+  const reversed = await prisma.privateConversation.findFirst({
+    where: { memberPersonId: initiator.personId, initiatorPersonId: memberPersonId },
+  });
+  if (reversed) return reversed;
   return prisma.privateConversation.upsert({
     where: { memberPersonId_initiatorPersonId: { memberPersonId, initiatorPersonId: initiator.personId } },
     create: { memberPersonId, initiatorPersonId: initiator.personId },

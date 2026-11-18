@@ -8,10 +8,12 @@ import './index.css';
 import { reloadOnceForNewVersion, reportClientError } from './lib/reportError';
 import { isStoreApp } from './lib/storeApp';
 import { captureInstallPrompt } from './lib/installPrompt';
+import { startBlankWatchdog } from './lib/blankWatchdog';
 
 // Notice the Play Store version at the very start (see lib/storeApp.ts).
 isStoreApp();
 captureInstallPrompt();
+startBlankWatchdog();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

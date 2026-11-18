@@ -7,7 +7,7 @@ import { requireCsrf } from '../lib/csrf';
 import { asyncHandler } from '../lib/asyncHandler';
 import { communityMutationLimiter } from '../lib/rateLimit';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
-import { contextTargetExists } from '../lib/leadership';
+import { contextTargetExists, findActiveScopedRole } from '../lib/leadership';
 import { recordAudit } from '../lib/audit';
 import { profilePhotoPath } from '../lib/profilePhoto';
 import { limitError, previewNewChild } from '../lib/assemblyLimit';
@@ -151,6 +151,37 @@ router.post('/:communityId/members', communityMutationLimiter, requireCsrf, asyn
     metadata: { communityId, byPersonId: actor, via: 'app' },
   });
   res.status(201).json({ ok: true, personId: person.id, name: person.name });
+}));
+
+// DELETE /api/communities/:communityId/members/:personId — take a person out of THIS assembly or group (they can be
+// added back at any time; their messages stay). Only this one place: sub-groups and everything else are untouched.
+// A leader of this very place, and the central admin, are never removed from here: end the leader role first.
+router.delete('/:communityId/members/:personId', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const actor = await requireCoordinator(req, res);
+  if (!actor) return;
+  const { communityId, personId } = req.params;
+
+  const membership = await prisma.communityMembership.findUnique({
+    where: { personId_communityId: { personId, communityId } },
+    include: { person: { select: { name: true } } },
+  });
+  if (!membership || membership.status !== 'ACTIVE') return res.status(404).json({ error: 'This person is not in this assembly.', code: 'NOT_A_MEMBER' });
+  if (await isCentralAdminPerson(personId)) {
+    return res.status(409).json({ error: 'The central admin cannot be removed from an assembly.', code: 'PROTECTED' });
+  }
+  if (await findActiveScopedRole(personId, 'COMMUNITY', communityId)) {
+    return res.status(409).json({ error: `${membership.person.name} is a leader of this assembly. End their leader role first, then remove them.`, code: 'IS_LEADER' });
+  }
+
+  await prisma.communityMembership.update({ where: { id: membership.id }, data: { status: 'INACTIVE' } });
+  await recordAudit({
+    actorId: req.user?.id ?? null,
+    action: 'COMMUNITY_MEMBERSHIP_REMOVED',
+    targetType: 'Person',
+    targetId: personId,
+    metadata: { communityId, byPersonId: actor, via: 'app' },
+  });
+  res.json({ ok: true, personId, name: membership.person.name });
 }));
 
 export default router;
