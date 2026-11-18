@@ -2720,7 +2720,7 @@
     "show_less": "Show less"
   },
   "network": {
-    "connecting": "Connecting… (weak or no network). You can still read what is saved.",
+    "connecting": "Connecting… you can still read what is saved.",
     "waiting": "Waiting for network",
     "tap_to_load": "Tap to load",
     "tap_to_load_photo": "Tap to load photo",
