@@ -47,20 +47,36 @@ function PrivatePreview({ chatId, fallback }: { chatId: string; fallback: React.
 
 // Private chats as WhatsApp-style rows: photo, name, the last message and
 // its time, and the number of new messages. Newest chats on top.
+interface ListResponse {
+  items: ConversationRow[];
+  pagination?: { total: number };
+}
+
+const PAGE = 100;
+
 export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats: number) => void } = {}) {
   const { t, i18n } = useTranslation();
   const myLeader = useMyLeader();
   const { member } = useMemberAuth();
   const ownerId = member?.personId;
   const [items, setItems] = useState<ConversationRow[] | null>(null);
+  // Older chats, loaded a page at a time when the member asks (the first page is the 100 most recently active).
+  const [older, setOlder] = useState<ConversationRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [pagesLoaded, setPagesLoaded] = useState(1);
 
   useEffect(() => {
     let alive = true;
     function load() {
       // The list is also kept on the phone, so the chats still show (and open) without internet.
       const path = '/api/private-messages/conversations?pageSize=100';
-      (ownerId ? cachedGet<{ items: ConversationRow[] }>(path, chatListKey(ownerId)).then((r) => r.data) : api.get<{ items: ConversationRow[] }>(path))
-        .then((r) => alive && setItems(r.items))
+      (ownerId ? cachedGet<ListResponse>(path, chatListKey(ownerId)).then((r) => r.data) : api.get<ListResponse>(path))
+        .then((r) => {
+          if (!alive) return;
+          setItems(r.items);
+          setTotal(r.pagination?.total ?? r.items.length);
+        })
         .catch(() => alive && setItems((prev) => prev ?? []));
     }
     load();
@@ -78,7 +94,29 @@ export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats
 
   if (!items || items.length === 0) return null;
 
-  const sorted = [...items].sort(
+  const firstIds = new Set(items.map((c) => c.id));
+  const all = [...items, ...older.filter((c) => !firstIds.has(c.id))];
+  const hasOlder = all.length < total;
+
+  function showOlder() {
+    if (loadingOlder) return;
+    setLoadingOlder(true);
+    const nextPage = pagesLoaded + 1;
+    api
+      .get<ListResponse>(`/api/private-messages/conversations?pageSize=${PAGE}&page=${nextPage}`)
+      .then((r) => {
+        setOlder((prev) => {
+          const have = new Set([...firstIds, ...prev.map((c) => c.id)]);
+          return [...prev, ...r.items.filter((c) => !have.has(c.id))];
+        });
+        setTotal(r.pagination?.total ?? total);
+        setPagesLoaded(nextPage);
+      })
+      .catch(() => undefined)
+      .finally(() => setLoadingOlder(false));
+  }
+
+  const sorted = [...all].sort(
     (a, b) => new Date(b.lastMessage?.createdAt ?? b.createdAt).getTime() - new Date(a.lastMessage?.createdAt ?? a.createdAt).getTime(),
   );
 
@@ -156,6 +194,13 @@ export function PrivateChatList({ onUnread }: { onUnread?: (total: number, chats
           );
         })}
       </ul>
+      {hasOlder && (
+        <div className="border-t border-slate-100 px-4 py-3 text-center">
+          <button type="button" onClick={showOlder} disabled={loadingOlder} className="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-semibold text-slate-700 disabled:opacity-60" data-testid="show-older-chats">
+            {loadingOlder ? t('groupChat.loading') : t('privateChat.show_older')}
+          </button>
+        </div>
+      )}
     </section>
   );
 }

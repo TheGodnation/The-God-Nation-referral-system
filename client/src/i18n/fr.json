@@ -2689,6 +2689,7 @@
     "save_failed": "Vos changements n'ont pas été enregistrés. Veuillez réessayer."
   },
   "privateChat": {
+    "show_older": "Afficher les conversations plus anciennes",
     "offline_copy": "Pas d’internet. Vous lisez les derniers messages gardés sur ce téléphone. Les nouveaux messages apparaîtront quand vous serez de nouveau en ligne.",
     "lang_fr": "🇫🇷 Francophone : écrivez en français",
     "lang_en": "🇬🇧 Anglophone : écrivez en anglais",

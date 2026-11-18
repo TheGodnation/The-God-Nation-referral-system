@@ -431,6 +431,32 @@ describe('Private Messaging — pagination', () => {
     expect(ids1.filter((id: string) => ids2.includes(id))).toHaveLength(0);
   });
 
+  it('the conversation list is newest ACTIVITY first: an old chat talked in today beats a newer silent one, and nothing is dropped', async () => {
+    const { agent, csrf } = await loginAsAdmin(31);
+    const made: { id: string; personId: string }[] = [];
+    for (let i = 0; i < 3; i++) {
+      const { person } = await loginAsMember(`+2376949002${String(i).padStart(2, '0')}`, `pm-activity-member${i}@example.com`);
+      await agent.post('/api/admin/private-messages/conversations').set('X-CSRF-Token', csrf).send({ scope: 'SELECTED_MEMBERS', personIds: [person.id], body: `Start ${i}` });
+      const c = await prisma.privateConversation.findFirst({ where: { memberPersonId: person.id } });
+      made.push({ id: c!.id, personId: person.id });
+    }
+    // The FIRST chat started is the one talked in last.
+    await prisma.privateMessage.create({ data: { conversationId: made[0].id, senderUserId: (await prisma.privateConversation.findUnique({ where: { id: made[0].id } }))!.initiatorUserId!, body: 'Still talking today', createdAt: new Date(Date.now() + 60_000) } });
+
+    const all = await agent.get('/api/private-messages/conversations?pageSize=100');
+    const ids: string[] = all.body.items.map((i: any) => i.id);
+    expect(ids.indexOf(made[0].id)).toBe(0);
+    expect(ids).toEqual(expect.arrayContaining(made.map((m) => m.id)));
+
+    // A page of one still reaches every chat, one tap at a time.
+    const walked: string[] = [];
+    for (let page = 1; page <= all.body.pagination.total; page++) {
+      const r = await agent.get(`/api/private-messages/conversations?pageSize=1&page=${page}`);
+      walked.push(...r.body.items.map((i: any) => i.id));
+    }
+    expect(new Set(walked).size).toBe(all.body.pagination.total);
+  });
+
   it('message pagination works with a before cursor, oldest-first', async () => {
     const { agent: adminAgent, csrf } = await loginAsAdmin(17);
     const { agent: memberAgent, csrf: memberCsrf, person } = await loginAsMember('+237694900130', 'pm-member30@example.com');

@@ -62,3 +62,20 @@ describe('The link in an instruction\'s private message', () => {
     expect(screen.queryByTestId('instruction-body-a')).toBeNull();
   });
 });
+
+describe('Private chats are never cut off', () => {
+  it('shows "Show older chats" when there are more than the first page, and adds them to the list', async () => {
+    const row = (id: string, name: string) => ({ id, createdAt: '2026-11-10T10:00:00Z', otherPartyType: 'MEMBER', otherPartyName: name, otherPartyPersonId: `p-${id}`, unreadCount: 0, lastMessage: null });
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url.includes('/api/member/my-leader')) return json({ leader: null });
+      if (url.includes('page=2')) return json({ items: [row('c2', 'Older Friend')], pagination: { total: 2 } });
+      return json({ items: [row('c1', 'Recent Friend')], pagination: { total: 2 } });
+    }));
+    render(<MemoryRouter><PrivateChatList /></MemoryRouter>);
+    await screen.findByText('Recent Friend');
+    expect(screen.queryByText('Older Friend')).toBeNull();
+    fireEvent.click(await screen.findByTestId('show-older-chats'));
+    await screen.findByText('Older Friend');
+    expect(screen.queryByTestId('show-older-chats')).toBeNull();
+  });
+});
