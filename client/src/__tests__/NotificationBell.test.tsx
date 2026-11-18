@@ -297,3 +297,21 @@ describe('NotificationBell — the Play Store version', () => {
     expect(screen.queryByText(/FCFA/)).toBeNull();
   });
 });
+
+describe('NotificationBell — a message in the leaders\' room', () => {
+  it('says who wrote and what, and links to the room', async () => {
+    mockFetchByUrl({
+      '/api/notifications/unread-count': { status: 200, body: { unreadCount: 1 } },
+      '/api/notifications': {
+        status: 200,
+        body: {
+          items: [{ id: 'r1', type: 'LEADERSHIP_ROOM_MESSAGE', metadata: { generation: -1, fromName: 'National Coordinator', coordinator: true, preview: 'How is the follow up going?' }, targetType: 'LeadershipRoom', targetId: '-1', readAt: null, createdAt: '2026-11-18T09:18:06Z' }],
+        },
+      },
+    });
+    render(<NotificationBell />);
+    fireEvent.click(await screen.findByRole('button'));
+    expect(await screen.findByText(/The National Coordinator wrote in the leaders’ room: “How is the follow up going\?”/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open the room' })).toHaveAttribute('href', '/member/leadership-dashboard?section=together');
+  });
+});

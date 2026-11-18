@@ -1807,7 +1807,10 @@
     "nudge_open": "Open",
     "leader_assigned": "{{name}}, from the Leadership Team, has been assigned to follow you up.",
     "certificate_requested": "{{name}} asked for the Academy certificate. See it in the Library tab.",
-    "certificate_issued": "Your Leadership Academy certificate has been issued. Open the Academy to see it."
+    "certificate_issued": "Your Leadership Academy certificate has been issued. Open the Academy to see it.",
+    "leadership_room_message": "💬 {{name}} wrote in the leaders’ room: “{{preview}}”",
+    "national_coordinator": "The National Coordinator",
+    "leadership_room_open": "Open the room"
   },
   "memberHome": {
     "title": "Home",
@@ -4876,7 +4879,9 @@
     "repGroups_title": "Representative: group leaders",
     "repGroups_tile": "Choose the leaders of the groups in your generation.",
     "faith_title": "Faith journeys",
-    "faith_tile": "Where the people you look after stand with Christ."
+    "faith_tile": "Where the people you look after stand with Christ.",
+    "rooms_waiting": "{{count}} new message(s) in the leaders’ rooms",
+    "rooms_tap": "Tap to read them."
   },
   "instructions": {
     "tab": "Instructions",

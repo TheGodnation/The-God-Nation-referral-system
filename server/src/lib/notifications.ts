@@ -77,7 +77,8 @@ interface CreateNotificationParams {
     | 'GIFT_REJECTED'
     | 'FAITH_NEEDS_CONVERSATION'
     | 'LEADERS_NOT_FOLLOWING_UP'
-    | 'MEMBER_NUDGE';
+    | 'MEMBER_NUDGE'
+    | 'LEADERSHIP_ROOM_MESSAGE';
   metadata?: Record<string, unknown>;
   targetType?: string;
   targetId?: string;
@@ -1076,4 +1077,28 @@ export async function notifyFaithNeedsConversation(
       url: `/member/faith/${person.id}`,
     },
   });
+}
+
+/**
+ * Someone wrote in a leaders' room: every leader of the room (never the writer) finds it in the bell, with a link to
+ * the room, whether or not phone alerts are on. Best effort: never throws. The phone alert itself is sent by the caller.
+ */
+export async function notifyLeadershipRoomMessage(
+  recipientPersonIds: string[],
+  m: { generation: number; fromName: string; coordinator: boolean; preview: string },
+): Promise<void> {
+  try {
+    if (recipientPersonIds.length === 0) return;
+    await prisma.notification.createMany({
+      data: recipientPersonIds.map((personId) => ({
+        recipientPersonId: personId,
+        type: 'LEADERSHIP_ROOM_MESSAGE' as const,
+        metadata: { generation: m.generation, fromName: m.fromName, coordinator: m.coordinator, preview: m.preview } as any,
+        targetType: 'LeadershipRoom',
+        targetId: String(m.generation),
+      })),
+    });
+  } catch (err) {
+    console.error('[notifications] room message notice failed', { error: err instanceof Error ? err.message : String(err) });
+  }
 }

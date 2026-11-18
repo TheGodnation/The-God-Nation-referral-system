@@ -188,6 +188,8 @@ enum NotificationType {
   LEADERS_NOT_FOLLOWING_UP
   // A gentle nudge at 3 or 7 days to someone who has not finished or has not come back (lib/memberNudges.ts).
   MEMBER_NUDGE
+  // Someone wrote in the leaders' room (all leaders, or a generation): every leader of the room gets this in the bell.
+  LEADERSHIP_ROOM_MESSAGE
   // A leader from the Leadership Team has been assigned to follow this person up.
   LEADER_ASSIGNED
   // Someone finished the Book 1 / Book 2 exam with personal answers that call for a conversation.

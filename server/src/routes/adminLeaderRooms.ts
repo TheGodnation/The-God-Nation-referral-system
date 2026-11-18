@@ -9,6 +9,7 @@ import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { pushToPersonsLocalized } from '../lib/pushLocalized';
+import { notifyLeadershipRoomMessage } from '../lib/notifications';
 import { listLeaders, generationsOf } from '../lib/leaderInstructions';
 import {
   ALL_LEADERS_ROOM,
@@ -77,6 +78,8 @@ function buildRoomsRouter(resolvePersonId: (req: Request) => Promise<string | nu
     const recipients = leaders.filter((l) => l.personId !== personId && (g.data.generation === ALL_LEADERS_ROOM || l.generations.includes(g.data.generation))).map((l) => l.personId);
     if (recipients.length > 0) {
       const preview = body.data.body.length > 100 ? `${body.data.body.slice(0, 100)}…` : body.data.body;
+      // In the bell too, so a leader who has no phone alerts still finds it.
+      await notifyLeadershipRoomMessage(recipients, { generation: g.data.generation, fromName: 'National Coordinator', coordinator: true, preview });
       void pushToPersonsLocalized(recipients, (french) => ({
         title: french ? '💬 Coordinateur national' : '💬 National Coordinator',
         body: preview,

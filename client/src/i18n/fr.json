@@ -1807,7 +1807,10 @@
     "nudge_open": "Ouvrir",
     "leader_assigned": "{{name}}, de l’équipe de leadership, a été désigné(e) pour vous suivre.",
     "certificate_requested": "{{name}} a demandé le certificat de l’Académie. Voyez-le dans l’onglet Bibliothèque.",
-    "certificate_issued": "Votre certificat de l’Académie de leadership a été délivré. Ouvrez l’Académie pour le voir."
+    "certificate_issued": "Votre certificat de l’Académie de leadership a été délivré. Ouvrez l’Académie pour le voir.",
+    "leadership_room_message": "💬 {{name}} a écrit dans la salle des leaders : « {{preview}} »",
+    "national_coordinator": "Le Coordinateur national",
+    "leadership_room_open": "Ouvrir la salle"
   },
   "memberHome": {
     "title": "Accueil",
@@ -4876,7 +4879,9 @@
     "repGroups_title": "Représentant : leaders des groupes",
     "repGroups_tile": "Choisissez les leaders des groupes de votre génération.",
     "faith_title": "Parcours de foi",
-    "faith_tile": "Où en sont avec Christ les personnes dont vous prenez soin."
+    "faith_tile": "Où en sont avec Christ les personnes dont vous prenez soin.",
+    "rooms_waiting": "{{count}} nouveau(x) message(s) dans les salles des leaders",
+    "rooms_tap": "Touchez pour les lire."
   },
   "instructions": {
     "tab": "Instructions",
