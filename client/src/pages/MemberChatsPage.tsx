@@ -11,7 +11,6 @@ import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { EventsCard } from '../components/member/EventsCard';
 import { LeadershipCard } from '../components/member/LeadershipCard';
-import { useIsNewMember } from '../components/PageNote';
 import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatList';
 import { mediaKind } from '../components/chat/types';
 import { Announcements } from '../components/Announcements';
@@ -165,9 +164,7 @@ export function MemberChatsPage() {
     touched.current = true;
     setTab(to);
   };
-  // The small pill under the tabs: it points a new member (joined in the last 30 days) to Assemblies, where all the
-  // members of the community are assembled. It stays visible, every time, while they are on Private messages.
-  const isNewMember = useIsNewMember();
+
 
   return (
     <PageShell minimal>
@@ -204,21 +201,6 @@ export function MemberChatsPage() {
             );
           })}
         </div>
-        {tab === 'private' && isNewMember && (
-          <div className="relative -mt-2 mb-4" data-testid="assemblies-hint">
-            <span aria-hidden="true" className="absolute -top-1.5 left-[22%] h-3 w-3 rotate-45 border-l border-t border-brand-200 bg-brand-50" />
-            <button
-              type="button"
-              onClick={() => pick('assemblies')}
-              className="flex w-full items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-left text-sm font-medium text-brand-900 shadow-sm hover:bg-brand-100"
-              data-testid="assemblies-hint-go"
-            >
-              <span aria-hidden="true">👋</span>
-              <span className="min-w-0 flex-1">{t('chatsTabs.hint')}</span>
-              <span aria-hidden="true" className="text-brand-600">›</span>
-            </button>
-          </div>
-        )}
         <div className="space-y-6">
           <div className={tab === 'assemblies' ? 'space-y-6' : 'hidden'}>
           <section className="card p-0">
