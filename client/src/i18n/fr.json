@@ -1757,6 +1757,8 @@
     "enable_button": "Activer les notifications",
     "enabling": "Activation…",
     "enable_failed": "Impossible d’activer les notifications. Veuillez réessayer.",
+    "blocked_title": "Les notifications sont bloquées sur ce téléphone",
+    "blocked_button": "Voir comment les débloquer",
     "blocked_body": "Les notifications sont bloquées sur cet appareil. Pour les recevoir, ouvrez les réglages de votre téléphone ou navigateur pour ce site et autorisez les notifications.",
     "need_help": "Besoin d’aide ?",
     "ios_home_screen_body": "Sur iPhone, les notifications ne fonctionnent que depuis l’application sur votre écran d’accueil. Dans Safari, touchez le bouton Partager, puis « Sur l’écran d’accueil ». Ouvrez l’application depuis cette icône et activez-y les notifications.",
