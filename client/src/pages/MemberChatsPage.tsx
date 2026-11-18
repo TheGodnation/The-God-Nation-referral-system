@@ -228,11 +228,11 @@ export function MemberChatsPage() {
         </div>
         {tab === 'private' && !hintDone && member?.personId && (
           <div className="relative -mt-2 mb-4" data-testid="assemblies-hint">
-            <span aria-hidden="true" className="absolute -top-1.5 left-[22%] h-3 w-3 rotate-45 bg-brand-800" />
-            <div className="flex items-start gap-2 rounded-xl bg-brand-800 p-3 text-sm text-white shadow">
+            <span aria-hidden="true" className="absolute -top-1.5 left-[22%] h-3 w-3 rotate-45 bg-brand-600" />
+            <div className="flex items-start gap-2 rounded-xl bg-brand-600 p-3 text-sm text-white shadow">
               <button type="button" onClick={() => pick('assemblies')} className="flex-1 text-left" data-testid="assemblies-hint-go">
                 <span aria-hidden="true">👋 </span>
-                {t('chatsTabs.hint')} <span className="font-semibold underline">{t('chatsTabs.hint_go')}</span>
+                <span className="font-semibold">{t('chatsTabs.hint')}</span>
               </button>
               <button type="button" aria-label={t('chatsTabs.hint_close') ?? ''} onClick={finishHint} className="px-1 leading-5 text-white/80" data-testid="assemblies-hint-close">
                 ✕

@@ -5029,9 +5029,14 @@
     "start_cta": "Start the Leadership Academy",
     "continue_cta": "Continue my studies"
   },
+  "pageNotes": {
+    "home": "This is Updates: the news and posts from the community.",
+    "learn": "This is where you study: books, teachings and exams.",
+    "me": "Add your profile photo and your wall photo here: tap the pictures to change them.",
+    "close": "Close"
+  },
   "chatsTabs": {
-    "hint": "You are part of this community. Tap “Assemblies” to meet everyone: all the members of the community are assembled there.",
-    "hint_go": "Meet them here →",
+    "hint": "Tap here to meet where all members of the community are assembled.",
     "hint_close": "Close",
     "assemblies": "Assemblies",
     "private": "Private messages",

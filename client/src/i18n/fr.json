@@ -5029,9 +5029,14 @@
     "start_cta": "Commencer l'École du Leadership",
     "continue_cta": "Continuer mes études"
   },
+  "pageNotes": {
+    "home": "Ici, ce sont les Actualités : les nouvelles et les publications de la communauté.",
+    "learn": "C’est ici que vous étudiez : livres, enseignements et examens.",
+    "me": "Ajoutez ici votre photo de profil et votre photo de mur : touchez les images pour les changer.",
+    "close": "Fermer"
+  },
   "chatsTabs": {
-    "hint": "Vous faites partie de cette communauté. Touchez « Assemblées » pour retrouver tout le monde : tous les membres de la communauté y sont réunis.",
-    "hint_go": "Les retrouver ici →",
+    "hint": "Touchez ici pour retrouver tous les membres de la communauté, réunis au même endroit.",
     "hint_close": "Fermer",
     "assemblies": "Assemblées",
     "private": "Messages privés",
