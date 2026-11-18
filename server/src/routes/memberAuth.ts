@@ -866,6 +866,7 @@ router.get('/me', asyncHandler(async (req, res) => {
         coverUpdatedAt: req.member.coverUpdatedAt ?? null,
       }),
       bio: req.member.bio ?? null,
+      joinedAt: req.member.joinedAt.toISOString(),
     },
   });
 }));

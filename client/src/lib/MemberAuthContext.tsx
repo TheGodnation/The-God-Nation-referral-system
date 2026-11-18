@@ -31,6 +31,8 @@ export interface CurrentMember {
   // about themselves.
   coverUrl?: string | null;
   bio?: string | null;
+  // When the account was created (ISO). Missing (older server, or the saved offline copy) means "not new".
+  joinedAt?: string | null;
 }
 
 interface MemberAuthContextValue {

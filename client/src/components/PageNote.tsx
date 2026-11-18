@@ -4,7 +4,9 @@ import { useMemberAuth } from '../lib/MemberAuthContext';
 
 // A short bright-blue note at the top of a main page that tells a member what the page is for (Home = updates,
 // Learn = study, Me = add your photos). It stays until they close it with the ✕ (remembered per person on this phone),
-// or, when `done` is true (for example both photos are added), it goes by itself.
+// It is for people who joined in the last 30 days. Or, when `done` is true (for example both photos are added), it goes by itself.
+const NEW_MEMBER_DAYS = 30;
+
 export function PageNote({ id, children, done = false }: { id: string; children: ReactNode; done?: boolean }) {
   const { t } = useTranslation();
   const { member } = useMemberAuth();
@@ -19,7 +21,9 @@ export function PageNote({ id, children, done = false }: { id: string; children:
   const [closed, setClosed] = useState(read);
   useEffect(() => setClosed(read()), [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!member?.personId || done || closed) return null;
+  const joined = member?.joinedAt ? new Date(member.joinedAt).getTime() : NaN;
+  const isNew = Number.isFinite(joined) && Date.now() - joined < NEW_MEMBER_DAYS * 24 * 60 * 60 * 1000;
+  if (!member?.personId || done || closed || !isNew) return null;
 
   function close() {
     setClosed(true);

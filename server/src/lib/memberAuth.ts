@@ -38,6 +38,8 @@ declare global {
         coverStorageKey: string | null;
         coverUpdatedAt: Date | null;
         bio: string | null;
+        // When this member's account was created (the page notes are for people who joined in the last 30 days).
+        joinedAt: Date;
       };
       memberSessionToken?: string;
     }
@@ -110,6 +112,7 @@ export async function loadMemberSession(req: Request, res: Response, next: NextF
       coverStorageKey: account.person.coverStorageKey,
       coverUpdatedAt: account.person.coverUpdatedAt,
       bio: account.person.bio,
+      joinedAt: account.createdAt,
     };
     req.memberSessionToken = token;
     touchLastSeen(account.personId, account.person.lastSeenAt);
