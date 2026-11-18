@@ -228,10 +228,18 @@ export function LeadershipDashboardBody() {
   const [assemblies, setAssemblies] = useState<string[] | null>(null);
   const [people, setPeople] = useState<MyPeopleSummary | null>(null);
   const [pendingInstructions, setPendingInstructions] = useState(0);
+  // Unread messages in the leaders' rooms (the National Coordinator writes there).
+  const [roomUnread, setRoomUnread] = useState(0);
   // Set when this leader is also the representative of a generation.
   const [repGeneration, setRepGeneration] = useState<number | null>(null);
   // Whether the central admin has let leaders read the faith journey of their own people.
   const [faithOpen, setFaithOpen] = useState(false);
+  useEffect(() => {
+    api
+      .get<{ items: { unreadCount: number }[] }>('/api/leader/leadership-collaboration')
+      .then((r) => setRoomUnread(r.items.reduce((sum, i) => sum + (i.unreadCount ?? 0), 0)))
+      .catch(() => {});
+  }, []);
   const loadPendingInstructions = () =>
     api
       .get<{ items: MyInstruction[] }>('/api/member/instructions/')
@@ -510,6 +518,18 @@ export function LeadershipDashboardBody() {
             {needing > 0 ? t('leaderHome.attention_some', { count: needing }) : people.total > 0 ? t('leaderHome.attention_none') : t('leaderHome.attention_nobody')}
           </span>
           <span className="mt-0.5 block text-sm text-slate-600">{needing > 0 ? t('leaderHome.attention_tap') : t('leaderHome.people_total', { count: people.total })}</span>
+        </button>
+      )}
+
+      {roomUnread > 0 && (
+        <button
+          type="button"
+          onClick={() => setParams({ section: 'together' })}
+          className="block w-full rounded-xl border border-brand-300 bg-brand-50 p-4 text-left"
+          data-testid="leader-rooms-banner"
+        >
+          <span className="block font-semibold text-brand-900">💬 {t('leaderHome.rooms_waiting', { count: roomUnread })}</span>
+          <span className="mt-0.5 block text-sm text-slate-600">{t('leaderHome.rooms_tap')}</span>
         </button>
       )}
 

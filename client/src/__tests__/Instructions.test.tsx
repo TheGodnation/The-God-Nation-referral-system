@@ -148,6 +148,30 @@ describe('A leader\'s instructions', () => {
     expect(await screen.findByText(/Worked well/)).toBeInTheDocument();
   });
 
+  it('shows a banner on the leader home when the leaders\' rooms have unread messages, and opens the rooms', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url.startsWith('/api/auth/me')) return json({ user: { id: 'u1', name: 'Grace Etabu', email: 'g@x.org', role: 'LEADER', mustChangePassword: false, personId: 'p1' } });
+      if (url.startsWith('/api/leader/leadership-collaboration')) return json({ items: [{ generation: -1, unreadCount: 1 }, { generation: 1, unreadCount: 2 }] });
+      if (url.startsWith('/api/member/instructions')) return json({ items: [] });
+      if (url.startsWith('/api/leader/my-people')) return json({ away: null, contactTarget: 2, items: [], total: 1, needingAttention: 0 });
+      if (url.startsWith('/api/leader/role-assignments')) return json({ items: [] });
+      if (url.startsWith('/api/leader/dashboard')) return json({ referralCode: 'G', stats: { conversionRate: 1 } });
+      if (url.startsWith('/api/leader/links')) return json({ referralCode: 'G', links: null });
+      if (url.startsWith('/api/leader/referrals')) return json({ items: [], pagination: { totalPages: 1 } });
+      if (url.startsWith('/api/settings/public')) return json({ content: {} });
+      return json({ items: [], viewer: { canPost: false, canModerate: false, personId: null }, nextBefore: null });
+    }));
+    render(
+      <MemoryRouter initialEntries={['/member/leadership-dashboard']}>
+        <AuthProvider>
+          <LeadershipDashboardBody />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    const banner = await screen.findByTestId('leader-rooms-banner');
+    expect(banner).toHaveTextContent('3 new message(s) in the leaders’ rooms');
+  });
+
   it('shows a banner on the leader home when instructions are waiting, and opens them', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => {
       if (url.startsWith('/api/auth/me')) return json({ user: { id: 'u1', name: 'Grace Etabu', email: 'g@x.org', role: 'LEADER', mustChangePassword: false, personId: 'p1' } });

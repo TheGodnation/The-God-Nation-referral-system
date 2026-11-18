@@ -85,6 +85,15 @@ describe('the National Coordinator in the leaders\' rooms', () => {
     const post = await nc.agent.post(`${ROOMS}/1/messages`).set('X-CSRF-Token', nc.csrf).send({ body: 'Generation 1: please report on Friday.' });
     expect(post.status).toBe(201);
     expect(post.body.notified).toBe(2); // Leader A and Leader AB
+    // They find it in the bell too (a leader with no phone alerts still sees it), with the room to open; the others get nothing.
+    const notices = await prisma.notification.findMany({ where: { type: 'LEADERSHIP_ROOM_MESSAGE' } });
+    expect(notices).toHaveLength(2);
+    expect(notices[0]).toMatchObject({ targetType: 'LeadershipRoom', targetId: '1' });
+    expect(notices[0].metadata).toMatchObject({ generation: 1, coordinator: true, preview: 'Generation 1: please report on Friday.' });
+    expect(new Set(notices.map((n) => n.recipientPersonId))).toEqual(new Set([w.l2.person.id, w.l4.person.id]));
+    // And the unread count the dashboard banner shows.
+    const rooms = await w.l2.agent.get('/api/leader/leadership-collaboration');
+    expect(rooms.body.items.reduce((sum: number, i: any) => sum + i.unreadCount, 0)).toBe(1);
 
     const read = await w.l2.agent.get('/api/leader/leadership-collaboration/1/messages');
     expect(read.status).toBe(200);

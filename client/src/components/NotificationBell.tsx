@@ -62,7 +62,8 @@ type NotificationType =
   | 'GIFT_REJECTED'
   | 'FAITH_NEEDS_CONVERSATION'
   | 'LEADER_ASSIGNED'
-  | 'MEMBER_NUDGE';
+  | 'MEMBER_NUDGE'
+  | 'LEADERSHIP_ROOM_MESSAGE';
 
 // The Google Play version shows nothing about payments or earnings of money: these kinds are left out there.
 const STORE_HIDDEN_TYPES = new Set<string>([
@@ -259,6 +260,8 @@ export function NotificationBell() {
       case 'MEMBER_NUDGE':
         // A gentle nudge at 3 or 7 days (see server lib/memberNudges.ts), worded for the stage the person is at.
         return t(`notifications.nudge_${metadata.stage === 'unfinished' ? 'unfinished' : 'return'}_${metadata.day === 7 ? 7 : 3}`);
+      case 'LEADERSHIP_ROOM_MESSAGE':
+        return t('notifications.leadership_room_message', { name: metadata.coordinator ? t('notifications.national_coordinator') : (metadata.fromName ?? ''), preview: metadata.preview ?? '' });
       case 'INSTRUCTION_RECEIVED':
         return t('notifications.instruction_received');
       case 'INSTRUCTION_REMINDER':
@@ -371,6 +374,11 @@ export function NotificationBell() {
                   {n.type === 'MEMBER_NUDGE' && typeof n.metadata?.url === 'string' && (
                     <a href={String(n.metadata.url)} className="text-xs font-semibold text-brand-700 underline">
                       {t('notifications.nudge_open')}
+                    </a>
+                  )}
+                  {n.type === 'LEADERSHIP_ROOM_MESSAGE' && (
+                    <a href="/member/leadership-dashboard?section=together" className="text-xs font-semibold text-brand-700 underline">
+                      {t('notifications.leadership_room_open')}
                     </a>
                   )}
                   {n.type === 'FAITH_NEEDS_CONVERSATION' && n.targetId && (
