@@ -31,6 +31,24 @@ afterEach(() => {
 });
 
 describe('LeadershipCollaboration', () => {
+  it('shows a message in the reader\'s own language, with Show original to see what was written', async () => {
+    mockFetchByUrl({
+      '/leadership-collaboration/1/messages': {
+        status: 200,
+        body: {
+          items: [{ id: 'm1', senderName: 'Evangelist Stanley A. Ndoh', senderBadge: 'NATIONAL_COORDINATOR', body: 'How is the follow up going?', translation: { sourceLanguage: 'en', translatedBody: 'Comment se passe le suivi ?' }, createdAt: '2026-11-18T09:18:00Z' }],
+          hasMore: false,
+        },
+      },
+    });
+    render(<LeadershipCollaboration generation={1} />);
+    expect(await screen.findByText('Comment se passe le suivi ?')).toBeInTheDocument();
+    expect(screen.queryByText('How is the follow up going?')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /show original/i }));
+    expect(screen.getByText('How is the follow up going?')).toBeInTheDocument();
+    expect(screen.queryByText('Comment se passe le suivi ?')).toBeNull();
+  });
+
   it('shows the generation label, message history, and sender name', async () => {
     mockFetchByUrl({
       '/leadership-collaboration/1/messages': {

@@ -1,3 +1,4 @@
+import type { Language } from '@prisma/client';
 import { prisma } from './prisma';
 import { getHeadquartersCommunityId, getCommunityGeneration } from './tree';
 import { centralAdminAmong } from './centralAdmin';
@@ -150,7 +151,13 @@ export async function roomSenderBadges(personIds: string[]): Promise<Map<string,
   return badges;
 }
 
-export async function listRoomMessages(generation: number, personId: string, opts: { before?: string; limit?: number }) {
+/** The other-language text of a message, for a reader whose language differs from the one it was written in. */
+function roomTranslationFor(m: { detectedLanguage: Language | null; translatedBody: string | null }, viewerLanguage: Language | null) {
+  if (!m.detectedLanguage || !viewerLanguage || m.detectedLanguage === viewerLanguage || !m.translatedBody) return null;
+  return { sourceLanguage: m.detectedLanguage, translatedBody: m.translatedBody };
+}
+
+export async function listRoomMessages(generation: number, personId: string, opts: { before?: string; limit?: number }, viewerLanguage: Language | null = null) {
   const limit = Math.min(opts.limit ?? DEFAULT_PAGE, MAX_PAGE);
   const conversation = await getOrCreateLeadershipCollaborationConversation(generation);
   let cursor: { createdAt: Date; id: string } | null = null;
@@ -173,7 +180,7 @@ export async function listRoomMessages(generation: number, personId: string, opt
   const badges = await roomSenderBadges(page.map((m) => m.senderPersonId));
   const unreadCount = await getLeadershipCollaborationUnreadCount(personId, conversation.id);
   return {
-    items: page.map((m) => ({ id: m.id, senderName: m.sender.name, senderBadge: badges.get(m.senderPersonId) ?? null, body: m.body, createdAt: m.createdAt })),
+    items: page.map((m) => ({ id: m.id, senderName: m.sender.name, senderBadge: badges.get(m.senderPersonId) ?? null, body: m.body, translation: roomTranslationFor(m, viewerLanguage), createdAt: m.createdAt })),
     hasMore,
     unreadCount,
   };

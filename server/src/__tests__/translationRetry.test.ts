@@ -33,7 +33,7 @@ async function makeMessage(body: string | null) {
   return prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: sender.id, body } });
 }
 
-async function queueDue(kind: 'MESSAGE_TEXT' | 'MESSAGE_AUDIO' | 'UPDATE_POST', targetId: string, attempts = 0) {
+async function queueDue(kind: 'MESSAGE_TEXT' | 'MESSAGE_AUDIO' | 'UPDATE_POST' | 'LEADERSHIP_ROOM_MESSAGE', targetId: string, attempts = 0) {
   return prisma.translationRetry.create({ data: { kind, targetId, attempts, nextAttemptAt: new Date(Date.now() - 1000) } });
 }
 
@@ -178,6 +178,27 @@ describe('Translation retries — a failed first attempt is tried again later, a
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect((await prisma.message.findUnique({ where: { id: message.id } }))?.translatedBody).toBe('Hello');
+  });
+
+  it('retries a message in the leaders\' room too, and translates it once', async () => {
+    const { retry } = await freshModules({ GEMINI_API_KEY: 'test-key' });
+    const fetchSpy = vi.fn(async () => geminiOk({ detectedLanguage: 'en', translated: 'Comment se passe le suivi ?' }));
+    vi.stubGlobal('fetch', fetchSpy);
+    const author = await prisma.person.create({ data: { name: 'Room Author', whatsappNumber: '+237699488888' } });
+    const conversation = await prisma.leadershipCollaborationConversation.create({ data: { generation: 1000 + Math.floor(Math.random() * 1_000_000) } });
+    const room = await prisma.leadershipCollaborationMessage.create({ data: { conversationId: conversation.id, senderPersonId: author.id, body: 'How is the follow up going?' } });
+    await queueDue('LEADERSHIP_ROOM_MESSAGE', room.id);
+
+    await retry.processDueTranslationRetries();
+
+    const stored = await prisma.leadershipCollaborationMessage.findUniqueOrThrow({ where: { id: room.id } });
+    expect(stored).toMatchObject({ detectedLanguage: 'en', translatedBody: 'Comment se passe le suivi ?' });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(await prisma.translationRetry.count()).toBe(0);
+    // Already translated: a second retry is dropped without asking again.
+    await queueDue('LEADERSHIP_ROOM_MESSAGE', room.id);
+    await retry.processDueTranslationRetries();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it('retries an Updates post and a voice note too', async () => {
