@@ -57,6 +57,21 @@ describe('MemberClinicPage', () => {
     expect(screen.queryByText(/Giving is never required/)).toBeNull();
   });
 
+  it('in the Play Store version has no donation line, and calls the rewards study points', async () => {
+    sessionStorage.setItem('godnation:store-app', '1');
+    try {
+      mockFetch({ '/api/member/clinic': () => ({ ...data, exams: data.exams.map((e, i) => (i === 0 ? { ...e, tokens: 56 } : e)) }) });
+      render(<MemoryRouter><MemberClinicPage /></MemoryRouter>);
+      expect(await screen.findByTestId('clinic-results')).toHaveTextContent('56 points earned');
+      expect(screen.queryByText(/freewill donations/)).toBeNull();
+      expect(screen.queryByText('Give')).toBeNull();
+      expect(screen.getByText('Study points')).toBeInTheDocument();
+      expect(document.body.textContent ?? '').not.toMatch(/token/i);
+    } finally {
+      sessionStorage.removeItem('godnation:store-app');
+    }
+  });
+
   it('lets a member unsubscribe from the monthly book, and subscribe again', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     mockFetch({

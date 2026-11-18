@@ -5609,5 +5609,20 @@
     "saving": "Saving…",
     "failed": "Something went wrong. Please try again.",
     "sign_out": "Sign out"
+  },
+  "storePoints": {
+    "title": "Study points",
+    "link_help": "See the points you have earned by studying.",
+    "intro": "You earn study points by answering Dominion Clinic exam questions correctly. They are a reward for studying and have no cash value.",
+    "balance": "Your points",
+    "not_started": "Points have not started counting yet.",
+    "starts_on": "They start counting on {{date}}.",
+    "rate_now": "Each correct answer in a Dominion Clinic exam earns {{rate}} points.",
+    "first_try": "Only the first try of an exam earns points.",
+    "no_history": "Nothing yet. Take a Dominion Clinic exam to earn your first points.",
+    "reason_clinic": "Dominion Clinic, exam {{number}} ({{month}}): {{correct}} correct × {{rate}}",
+    "reason_clinic_plain": "Dominion Clinic exam: {{correct}} correct × {{rate}}",
+    "earned_now": "You earned {{count}} study points for this exam.",
+    "points_earned": "{{count}} points earned"
   }
 }

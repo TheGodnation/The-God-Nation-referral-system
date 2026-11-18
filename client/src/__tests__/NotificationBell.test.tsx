@@ -269,3 +269,31 @@ describe('NotificationBell — i18n', () => {
     expect((fr.default as any).notifications.follow_up_assigned).toBe('Nouveau suivi : {{name}}');
   });
 });
+
+describe('NotificationBell — the Play Store version', () => {
+  afterEach(() => sessionStorage.removeItem('godnation:store-app'));
+
+  it('leaves out payments and earnings of money, in the list and in the badge', async () => {
+    sessionStorage.setItem('godnation:store-app', '1');
+    const row = (id: string, type: string, metadata: Record<string, unknown> = {}) => ({ id, type, metadata, targetType: null, targetId: null, readAt: null, createdAt: '2026-11-17T10:00:00Z' });
+    mockFetchByUrl({
+      '/api/notifications': {
+        status: 200,
+        body: {
+          items: [
+            row('n1', 'BOOK_PAYMENT_CONFIRMED', { bookNumber: 3 }),
+            row('n2', 'REFERRAL_EARNING', { amount: 500 }),
+            row('n3', 'EXAM_RETAKE_GRANTED', { bookNumber: 2 }),
+          ],
+        },
+      },
+    });
+    render(<NotificationBell />);
+    // Only the exam notice counts.
+    expect(await screen.findByText('1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button'));
+    expect(await screen.findByText(/Book 2/)).toBeInTheDocument();
+    expect(screen.queryByText(/payment/i)).toBeNull();
+    expect(screen.queryByText(/FCFA/)).toBeNull();
+  });
+});

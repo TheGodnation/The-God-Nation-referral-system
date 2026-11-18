@@ -64,6 +64,19 @@ type NotificationType =
   | 'LEADER_ASSIGNED'
   | 'MEMBER_NUDGE';
 
+// The Google Play version shows nothing about payments or earnings of money: these kinds are left out there.
+const STORE_HIDDEN_TYPES = new Set<string>([
+  'BOOK_PAYMENT_CONFIRMED',
+  'BOOK_PAYMENT_REJECTED',
+  'PAYMENT_ORDER_NEW',
+  'PAYMENT_ORDER_MESSAGE',
+  'TRAINING_GRACE_GRANTED',
+  'TRAINING_GRACE_DECLINED',
+  'REFERRAL_EARNING',
+  'REFERRAL_PAYOUT_PAID',
+  'REFERRAL_PAYOUT_REJECTED',
+]);
+
 interface NotificationRow {
   id: string;
   type: NotificationType;
@@ -90,6 +103,14 @@ export function NotificationBell() {
   const [error, setError] = useState<string | null>(null);
 
   function loadUnreadCount() {
+    if (isStoreApp()) {
+      // The badge counts only what the list shows.
+      api
+        .get<{ items: NotificationRow[] }>('/api/notifications?page=1&pageSize=50')
+        .then((res) => setUnreadCount(res.items.filter((i) => !i.readAt && !STORE_HIDDEN_TYPES.has(i.type)).length))
+        .catch(() => {});
+      return;
+    }
     api
       .get<{ unreadCount: number }>('/api/notifications/unread-count')
       .then((res) => setUnreadCount(res.unreadCount))
@@ -133,7 +154,7 @@ export function NotificationBell() {
     api
       .get<{ items: NotificationRow[] }>('/api/notifications?page=1&pageSize=20')
       .then((res) => {
-        setItems(res.items);
+        setItems(isStoreApp() ? res.items.filter((i) => !STORE_HIDDEN_TYPES.has(i.type)) : res.items);
         setLoading(false);
       })
       .catch(() => {
