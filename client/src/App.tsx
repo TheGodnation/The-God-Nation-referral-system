@@ -367,7 +367,9 @@ export default function App() {
               path="/member/payment-orders/:id"
               element={
                 <RequireMember>
-                  <MemberPaymentOrderPage />
+                  <StoreHidden>
+                    <MemberPaymentOrderPage />
+                  </StoreHidden>
                 </RequireMember>
               }
             />
@@ -375,7 +377,9 @@ export default function App() {
               path="/member/payment-desk"
               element={
                 <RequireMember>
-                  <MemberPaymentDeskPage />
+                  <StoreHidden>
+                    <MemberPaymentDeskPage />
+                  </StoreHidden>
                 </RequireMember>
               }
             />

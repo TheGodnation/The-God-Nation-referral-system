@@ -45,6 +45,38 @@ const started = {
   ],
 };
 
+describe('MemberTokensPage in the Play Store version', () => {
+  afterEach(() => sessionStorage.removeItem('godnation:store-app'));
+
+  it('is "Study points": a reward for studying, with nothing about paying, using, halving, burning or the foundation', async () => {
+    sessionStorage.setItem('godnation:store-app', '1');
+    const withSpend = {
+      ...started,
+      usable: true,
+      spend: { enabled: true, valueFcfa: 1, maxPercent: 30 },
+      balance: { earned: 56, bought: 4, total: 60 },
+      history: [
+        ...started.history,
+        { id: 'h2', at: '2026-11-21T10:00:00Z', reason: 'SPEND_HOLD', kind: 'EARNED', amount: -10, correctAnswers: null, ratePerAnswer: null, examNumber: null, monthTitleEn: null, monthTitleFr: null, bookNumber: 3 },
+        { id: 'h3', at: '2026-11-22T10:00:00Z', reason: 'FOUNDATION_SHARE', kind: 'EARNED', amount: 24, correctAnswers: null, ratePerAnswer: null, examNumber: null, monthTitleEn: null, monthTitleFr: null, bookNumber: null },
+      ],
+    };
+    mockFetch({ '/api/member/tokens': () => withSpend });
+    render(<MemoryRouter><MemberTokensPage /></MemoryRouter>);
+    const balance = await screen.findByTestId('tokens-balance');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Study points');
+    expect(balance).toHaveTextContent('56');
+    expect(screen.getByText(/a reward for studying and have no cash value/)).toBeInTheDocument();
+    expect(screen.getByTestId('tokens-rate')).toHaveTextContent('Each correct answer in a Dominion Clinic exam earns 8 points');
+    expect(screen.getByTestId('tokens-history')).toHaveTextContent('Dominion Clinic, exam 1 (November): 7 correct × 8');
+    // Nothing that reads like money or crypto.
+    const page = document.body.textContent ?? '';
+    for (const word of [/token/i, /halve/i, /burn/i, /foundation/i, /price/i, /\bpay/i, /bought/i, /Used toward/i, /for ever/i]) expect(page).not.toMatch(word);
+    expect(screen.queryByTestId('tokens-foundation')).toBeNull();
+    expect(screen.queryByTestId('tokens-uses')).toBeNull();
+  });
+});
+
 describe('MemberTokensPage', () => {
   it('shows the balance, that it cannot be used yet, the rate now with the next halving, the history and the foundation', async () => {
     mockFetch({ '/api/member/tokens': () => started });

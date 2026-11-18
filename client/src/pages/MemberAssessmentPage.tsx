@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { api, ApiError } from '../lib/api';
+import { useStoreApp } from '../lib/storeApp';
 import { PersonalSection, missingPersonal, type PersonalAnswers, type PersonalQuestion } from '../components/faith/PersonalSection';
 
 const BACK_AFTER_SECONDS = 30;
@@ -104,6 +105,8 @@ interface TakingQuestion {
 
 export function MemberAssessmentPage() {
   const { t, i18n } = useTranslation();
+  // The Google Play version: study points, and nothing about paying for books.
+  const store = useStoreApp();
   const { id } = useParams<{ id: string }>();
   // Opened from the pinned messages: going back to the teaching keeps that trail.
   const pinsParam = useSearchParams()[0].get('pins');
@@ -325,11 +328,11 @@ export function MemberAssessmentPage() {
             )}
             {lastResult.tokensEarned !== undefined && (
               <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-amber-900" role="status" data-testid="tokens-earned">
-                👑 {t('memberAssessment.tokens_earned', { count: lastResult.tokensEarned })}{' '}
-                <Link to="/member/tokens" className="underline">{t('tokens.title')}</Link>
+                {store ? '⭐' : '👑'} {t(store ? 'storePoints.earned_now' : 'memberAssessment.tokens_earned', { count: lastResult.tokensEarned })}{' '}
+                <Link to="/member/tokens" className="underline">{t(store ? 'storePoints.title' : 'tokens.title')}</Link>
               </p>
             )}
-            {lastResult.payPrompt && (
+            {lastResult.payPrompt && !store && (
               <div className="mt-3 space-y-2 rounded-lg bg-amber-50 px-3 py-3 text-amber-900" data-testid="pay-prompt">
                 <p className="font-semibold">{t('memberAssessment.pay_prompt_title', { number: lastResult.payPrompt.bookNumber })}</p>
                 <p>{t(lastResult.payPrompt.nextWaitsForPayment ? 'memberAssessment.pay_prompt_next' : 'memberAssessment.pay_prompt_owed')}</p>

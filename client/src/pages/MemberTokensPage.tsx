@@ -5,6 +5,7 @@ import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api } from '../lib/api';
+import { useStoreApp } from '../lib/storeApp';
 
 interface TokensData {
   started: boolean;
@@ -39,6 +40,9 @@ const fmt = (n: number, lang: string) => n.toLocaleString(lang.startsWith('fr') 
 export function MemberTokensPage() {
   const { t, i18n } = useTranslation();
   const isFr = i18n.language.startsWith('fr');
+  // The Google Play version shows the same thing as plain "study points": a reward for studying, with no prices,
+  // spending, halving, burning or foundation wording.
+  const store = useStoreApp();
   const [data, setData] = useState<TokensData | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -49,71 +53,85 @@ export function MemberTokensPage() {
       .catch(() => setFailed(true));
   }, []);
 
+  // In the Play version only the points earned by studying are listed: nothing about using, holding or giving them.
+  const shownHistory = (data?.history ?? []).filter((h) => !store || h.reason === 'CLINIC_EXAM');
   const day = (iso: string) => new Date(iso).toLocaleDateString(isFr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-2xl space-y-4 px-4 py-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-brand-900">👑 {t('tokens.title')}</h1>
+          <h1 className="text-2xl font-bold text-brand-900">{store ? '⭐' : '👑'} {t(store ? 'storePoints.title' : 'tokens.title')}</h1>
           <NotificationBell />
         </div>
-        <p className="text-slate-700">{t('tokens.intro')}</p>
+        <p className="text-slate-700">{t(store ? 'storePoints.intro' : 'tokens.intro')}</p>
         {failed && <p className="text-sm text-red-700">{t('tokens.load_failed')}</p>}
         {!data && !failed && <p className="text-sm text-slate-400">{t('common.loading')}</p>}
 
         {data && (
           <>
             <section className="card space-y-2" data-testid="tokens-balance">
-              <h2 className="font-semibold text-brand-900">{t('tokens.balance')}</h2>
-              <p className="text-3xl font-bold text-slate-900">{fmt(data.balance.total, i18n.language)}</p>
-              <p className="text-sm text-slate-600">
-                {t('tokens.earned')}: {fmt(data.balance.earned, i18n.language)}
-                {data.balance.bought > 0 && <> · {t('tokens.bought')}: {fmt(data.balance.bought, i18n.language)}</>}
-              </p>
-              <p className="text-sm text-slate-500">{data.usable && data.spend ? t('tokens.can_use', { percent: data.spend.maxPercent }) : t('tokens.cannot_use_yet')}</p>
+              <h2 className="font-semibold text-brand-900">{t(store ? 'storePoints.balance' : 'tokens.balance')}</h2>
+              <p className="text-3xl font-bold text-slate-900">{fmt(store ? data.balance.earned : data.balance.total, i18n.language)}</p>
+              {!store && (
+                <>
+                  <p className="text-sm text-slate-600">
+                    {t('tokens.earned')}: {fmt(data.balance.earned, i18n.language)}
+                    {data.balance.bought > 0 && <> · {t('tokens.bought')}: {fmt(data.balance.bought, i18n.language)}</>}
+                  </p>
+                  <p className="text-sm text-slate-500">{data.usable && data.spend ? t('tokens.can_use', { percent: data.spend.maxPercent }) : t('tokens.cannot_use_yet')}</p>
+                </>
+              )}
             </section>
 
             <section className="card space-y-2" data-testid="tokens-rate">
               {data.started && data.clinicRate !== null ? (
                 <>
-                  <p className="text-slate-800">{t('tokens.rate_now', { rate: fmt(data.clinicRate, i18n.language) })}</p>
-                  <p className="text-sm text-slate-600">
-                    {data.nextHalving ? t('tokens.next_halving', { date: day(data.nextHalving.at), rate: fmt(data.nextHalving.rate, i18n.language) }) : t('tokens.at_floor')}
-                  </p>
+                  <p className="text-slate-800">{t(store ? 'storePoints.rate_now' : 'tokens.rate_now', { rate: fmt(data.clinicRate, i18n.language) })}</p>
+                  {!store && (
+                    <p className="text-sm text-slate-600">
+                      {data.nextHalving ? t('tokens.next_halving', { date: day(data.nextHalving.at), rate: fmt(data.nextHalving.rate, i18n.language) }) : t('tokens.at_floor')}
+                    </p>
+                  )}
                 </>
               ) : (
                 <>
-                  <p className="text-slate-800">{t('tokens.not_started')}</p>
-                  {data.startsAt && <p className="text-sm text-slate-600">{t('tokens.starts_on', { date: day(data.startsAt) })}</p>}
+                  <p className="text-slate-800">{t(store ? 'storePoints.not_started' : 'tokens.not_started')}</p>
+                  {data.startsAt && <p className="text-sm text-slate-600">{t(store ? 'storePoints.starts_on' : 'tokens.starts_on', { date: day(data.startsAt) })}</p>}
                 </>
               )}
-              <p className="text-sm text-slate-600">{t('tokens.first_try')}</p>
-              <h3 className="pt-2 text-sm font-semibold text-brand-900">{t('tokens.schedule')}</h3>
-              <ul className="text-sm text-slate-700">
-                {data.schedule.map((r) => (
-                  <li key={r.fromYear} className="flex justify-between gap-2 border-t border-slate-100 py-1">
-                    <span>{r.toYear === null ? t('tokens.years_after', { from: r.fromYear }) : t('tokens.years_range', { from: r.fromYear, to: r.toYear })}</span>
-                    <span>{t('tokens.per_answer', { rate: fmt(r.clinic, i18n.language) })}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="text-sm text-slate-600">{t(store ? 'storePoints.first_try' : 'tokens.first_try')}</p>
+              {!store && (
+                <>
+                  <h3 className="pt-2 text-sm font-semibold text-brand-900">{t('tokens.schedule')}</h3>
+                  <ul className="text-sm text-slate-700">
+                    {data.schedule.map((r) => (
+                      <li key={r.fromYear} className="flex justify-between gap-2 border-t border-slate-100 py-1">
+                        <span>{r.toYear === null ? t('tokens.years_after', { from: r.fromYear }) : t('tokens.years_range', { from: r.fromYear, to: r.toYear })}</span>
+                        <span>{t('tokens.per_answer', { rate: fmt(r.clinic, i18n.language) })}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </section>
 
-            <section className="card space-y-2" data-testid="tokens-uses">
-              <h2 className="font-semibold text-brand-900">{t('tokens.uses_title')}</h2>
-              <ul className="list-disc space-y-2 pl-5 text-sm text-slate-700">
-                <li>{t('tokens.uses_tools')}</li>
-                <li>{t('tokens.uses_materials')}</li>
-                <li>{t('tokens.uses_help')}</li>
-              </ul>
-            </section>
+            {!store && (
+              <section className="card space-y-2" data-testid="tokens-uses">
+                <h2 className="font-semibold text-brand-900">{t('tokens.uses_title')}</h2>
+                <ul className="list-disc space-y-2 pl-5 text-sm text-slate-700">
+                  <li>{t('tokens.uses_tools')}</li>
+                  <li>{t('tokens.uses_materials')}</li>
+                  <li>{t('tokens.uses_help')}</li>
+                </ul>
+              </section>
+            )}
 
             <section className="card space-y-2" data-testid="tokens-history">
               <h2 className="font-semibold text-brand-900">{t('tokens.history')}</h2>
-              {data.history.length === 0 && <p className="text-sm text-slate-500">{t('tokens.no_history')}</p>}
+              {shownHistory.length === 0 && <p className="text-sm text-slate-500">{t(store ? 'storePoints.no_history' : 'tokens.no_history')}</p>}
               <ul className="divide-y divide-slate-100 text-sm">
-                {data.history.map((h) => (
+                {shownHistory.map((h) => (
                   <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <span>
                       {h.reason === 'SPEND_HOLD'
@@ -124,8 +142,8 @@ export function MemberTokensPage() {
                         ? t('tokens.reason_release')
                         : h.reason === 'CLINIC_EXAM'
                         ? h.examNumber !== null
-                          ? t('tokens.reason_clinic', { number: h.examNumber, month: (isFr ? h.monthTitleFr || h.monthTitleEn : h.monthTitleEn) ?? '', correct: h.correctAnswers ?? 0, rate: fmt(h.ratePerAnswer ?? 0, i18n.language) })
-                          : t('tokens.reason_clinic_plain', { correct: h.correctAnswers ?? 0, rate: fmt(h.ratePerAnswer ?? 0, i18n.language) })
+                          ? t(store ? 'storePoints.reason_clinic' : 'tokens.reason_clinic', { number: h.examNumber, month: (isFr ? h.monthTitleFr || h.monthTitleEn : h.monthTitleEn) ?? '', correct: h.correctAnswers ?? 0, rate: fmt(h.ratePerAnswer ?? 0, i18n.language) })
+                          : t(store ? 'storePoints.reason_clinic_plain' : 'tokens.reason_clinic_plain', { correct: h.correctAnswers ?? 0, rate: fmt(h.ratePerAnswer ?? 0, i18n.language) })
                         : t('tokens.reason_foundation')}
                       <span className="block text-xs text-slate-500">{day(h.at)}</span>
                     </span>
@@ -138,7 +156,7 @@ export function MemberTokensPage() {
               </ul>
             </section>
 
-            <p className="text-sm text-slate-600" data-testid="tokens-foundation">{t('tokens.foundation', { amount: fmt(data.foundation.total, i18n.language) })}</p>
+            {!store && <p className="text-sm text-slate-600" data-testid="tokens-foundation">{t('tokens.foundation', { amount: fmt(data.foundation.total, i18n.language) })}</p>}
           </>
         )}
 

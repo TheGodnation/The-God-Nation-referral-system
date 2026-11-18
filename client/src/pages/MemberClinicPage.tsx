@@ -79,14 +79,14 @@ export function MemberClinicPage() {
             <li>{t('clinicPage.step_teaching')}</li>
             <li>{t('clinicPage.step_read')}</li>
             <li>{data ? t('clinicPage.step_exam', { days: data.rhythm.examEveryDays, count: data.rhythm.examQuestions }) : t('clinicPage.step_exam_plain')}</li>
-            <li>{t('clinicPage.step_gift')}</li>
+            {!store && <li>{t('clinicPage.step_gift')}</li>}
           </ol>
           {data && <p className="text-sm text-slate-600">{t(`clinicPage.rhythm_${data.rhythm.topicRhythm.toLowerCase()}`)}</p>}
           <p className="text-sm text-slate-600">{t('clinicPage.questions_from_book')}</p>
           <p className="flex flex-wrap gap-4 text-sm">
             <Link to="/member/learn" className="text-brand-700 underline">{t('clinicPage.go_learn')}</Link>
             {!store && <Link to="/member/give" className="text-brand-700 underline">{t('clinicPage.go_give')}</Link>}
-            <Link to="/member/tokens" className="text-brand-700 underline">{t('tokens.title')}</Link>
+            <Link to="/member/tokens" className="text-brand-700 underline">{t(store ? 'storePoints.title' : 'tokens.title')}</Link>
           </p>
         </section>
 
@@ -122,7 +122,7 @@ export function MemberClinicPage() {
                       {e.score !== null ? (
                         <span className={e.passed ? 'font-semibold text-green-700' : 'font-semibold text-red-700'}>
                           {e.score} / {e.maxScore} ({Math.round(e.percentage ?? 0)}%)
-                          {typeof e.tokens === 'number' && <span className="block text-xs font-normal text-amber-700">👑 {t('clinicPage.tokens_earned', { count: e.tokens })}</span>}
+                          {typeof e.tokens === 'number' && <span className="block text-xs font-normal text-amber-700">{store ? '⭐' : '👑'} {t(store ? 'storePoints.points_earned' : 'clinicPage.tokens_earned', { count: e.tokens })}</span>}
                         </span>
                       ) : e.open ? (
                         <Link to={`/member/assessments/${e.assessmentId}`} className="text-brand-700 underline">{t('clinicPage.take')}</Link>

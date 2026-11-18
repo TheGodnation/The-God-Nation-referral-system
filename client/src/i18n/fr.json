@@ -5609,5 +5609,20 @@
     "saving": "Enregistrement…",
     "failed": "Une erreur s’est produite. Veuillez réessayer.",
     "sign_out": "Se déconnecter"
+  },
+  "storePoints": {
+    "title": "Points d’étude",
+    "link_help": "Voyez les points que vous avez gagnés en étudiant.",
+    "intro": "Vous gagnez des points d’étude en répondant correctement aux questions des examens de la Clinique de la Domination. C’est une récompense pour l’étude, sans valeur monétaire.",
+    "balance": "Vos points",
+    "not_started": "Les points ne comptent pas encore.",
+    "starts_on": "Ils commenceront à compter le {{date}}.",
+    "rate_now": "Chaque bonne réponse à un examen de la Clinique de la Domination rapporte {{rate}} points.",
+    "first_try": "Seul le premier essai d’un examen rapporte des points.",
+    "no_history": "Rien pour le moment. Passez un examen de la Clinique de la Domination pour gagner vos premiers points.",
+    "reason_clinic": "Clinique de la Domination, examen {{number}} ({{month}}) : {{correct}} bonnes réponses × {{rate}}",
+    "reason_clinic_plain": "Examen de la Clinique de la Domination : {{correct}} bonnes réponses × {{rate}}",
+    "earned_now": "Vous avez gagné {{count}} points d’étude pour cet examen.",
+    "points_earned": "{{count}} points gagnés"
   }
 }

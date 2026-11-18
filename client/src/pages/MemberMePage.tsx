@@ -193,9 +193,9 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
       </section>
 
       <section className="card">
-        <h2 className="mb-2 font-semibold text-brand-900">👑 {t('tokens.title')}</h2>
+        <h2 className="mb-2 font-semibold text-brand-900">{store ? '⭐' : '👑'} {t(store ? 'storePoints.title' : 'tokens.title')}</h2>
         <Link to="/member/tokens" className="text-sm font-medium text-brand-700 underline">
-          {t('tokens.link_help')}
+          {t(store ? 'storePoints.link_help' : 'tokens.link_help')}
         </Link>
       </section>
 
