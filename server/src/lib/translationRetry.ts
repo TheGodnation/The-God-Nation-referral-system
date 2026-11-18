@@ -11,6 +11,7 @@ import {
   attemptTeachingTranslation,
   attemptUpdatePostTranslation,
   isTranslationConfigured,
+  attemptRoomMessageTranslation,
   type TranslationOutcome,
 } from './translation';
 
@@ -41,6 +42,11 @@ async function runOne(job: TranslationRetry): Promise<TranslationOutcome> {
   if (job.kind === 'HEADQUARTERS_POST') return attemptHeadquartersPostTranslation(job.targetId, { attempts: 1 });
   if (job.kind === 'ANNOUNCEMENT') return attemptAnnouncementTranslation(job.targetId, { attempts: 1 });
   if (job.kind === 'INSTRUCTION') return attemptInstructionTranslation(job.targetId, { attempts: 1 });
+  if (job.kind === 'LEADERSHIP_ROOM_MESSAGE') {
+    const room = await prisma.leadershipCollaborationMessage.findUnique({ where: { id: job.targetId } });
+    if (!room || room.translatedAt) return 'skip';
+    return attemptRoomMessageTranslation(room.id, room.body, { attempts: 1 });
+  }
   const message = await prisma.message.findUnique({
     where: { id: job.targetId },
     include: { attachments: { select: { storageKey: true, mimeType: true } } },

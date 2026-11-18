@@ -2103,6 +2103,11 @@ model LeadershipCollaborationMessage {
   senderPersonId String
   body           String
   createdAt      DateTime @default(now())
+  // English <-> French, written once after the message is posted (like the chats): who wrote in which language, and
+  // the other-language text the leaders of the other language read.
+  detectedLanguage Language?
+  translatedBody   String?
+  translatedAt     DateTime?
 
   conversation LeadershipCollaborationConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       Person                              @relation(fields: [senderPersonId], references: [id], onDelete: Cascade)
@@ -2703,6 +2708,7 @@ enum TranslationRetryKind {
   HEADQUARTERS_POST
   ANNOUNCEMENT
   INSTRUCTION
+  LEADERSHIP_ROOM_MESSAGE
 }
 
 // A translation (or voice-note transcription) whose first attempt failed,

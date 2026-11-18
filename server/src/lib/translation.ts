@@ -814,6 +814,23 @@ export async function translateAndStoreTeaching(teachingId: string): Promise<voi
   if ((await attemptTeachingTranslation(teachingId)) === 'retry') await scheduleTranslationRetry('TEACHING', teachingId);
 }
 
+/** One try at translating a leaders' room message and storing the result. */
+export async function attemptRoomMessageTranslation(messageId: string, body: string, opts: GeminiCallOptions = {}): Promise<TranslationOutcome> {
+  if (!isTranslationConfigured() || !body.trim()) return 'skip';
+  const result = await translateText(body, opts);
+  if (!result) return 'retry';
+  return storeOutcome(
+    prisma.leadershipCollaborationMessage.update({
+      where: { id: messageId },
+      data: { detectedLanguage: result.detectedLanguage, translatedBody: result.translatedBody, translatedAt: new Date() },
+    }),
+  );
+}
+
+export async function translateAndStoreRoomMessage(messageId: string, body: string): Promise<void> {
+  if ((await attemptRoomMessageTranslation(messageId, body)) === 'retry') await scheduleTranslationRetry('LEADERSHIP_ROOM_MESSAGE', messageId);
+}
+
 export async function translateAndStoreMessage(messageId: string, body: string): Promise<void> {
   if ((await attemptMessageTranslation(messageId, body)) === 'retry') await scheduleTranslationRetry('MESSAGE_TEXT', messageId);
 }

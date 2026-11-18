@@ -8,6 +8,16 @@ import { bootstrap } from './testUtils';
 
 // The leaders' rooms: one for each generation of the assembly tree and one for all leaders. The National Coordinator
 // (the central admin) reads and writes in all of them, labelled as such; a leader only enters the rooms they belong to.
+// The real translation calls Claude or Gemini: here the route only has to hand every new room message to it. The stand-in
+// stores a French version of an English message, as the real one would.
+vi.mock('../lib/translation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/translation')>()),
+  translateAndStoreRoomMessage: vi.fn(async (id: string) => {
+    const { prisma: db } = await import('../lib/prisma');
+    await db.leadershipCollaborationMessage.update({ where: { id }, data: { detectedLanguage: 'en', translatedBody: 'Veuillez faire votre rapport vendredi.', translatedAt: new Date() } });
+  }),
+}));
+
 const app = createApp();
 
 let ip = 0;
@@ -101,6 +111,25 @@ describe('the National Coordinator in the leaders\' rooms', () => {
     // A leader of another generation cannot enter that room.
     expect((await w.l1.agent.get('/api/leader/leadership-collaboration/1/messages')).status).toBe(404);
     expect((await w.l3.agent.get('/api/leader/leadership-collaboration/1/messages')).status).toBe(404);
+  });
+
+  it('is translated once and read in each leader\'s own language, with the original kept', async () => {
+    const w = await world();
+    const nc = await centralMember(w);
+    const post = await nc.agent.post(`${ROOMS}/1/messages`).set('X-CSRF-Token', nc.csrf).send({ body: 'Please report on Friday.' });
+    expect(post.status).toBe(201);
+    await vi.waitFor(async () => {
+      expect((await prisma.leadershipCollaborationMessage.findUniqueOrThrow({ where: { id: post.body.id } })).translatedAt).not.toBeNull();
+    });
+    // A leader reading in French sees the French text, and can still open the English original.
+    const fr = await w.l2.agent.get('/api/leader/leadership-collaboration/1/messages').set('X-App-Language', 'fr');
+    expect(fr.body.items[0]).toMatchObject({ body: 'Please report on Friday.', translation: { sourceLanguage: 'en', translatedBody: 'Veuillez faire votre rapport vendredi.' } });
+    // A leader reading in English (the language it was written in) has nothing to translate.
+    const en = await w.l4.agent.get('/api/leader/leadership-collaboration/1/messages').set('X-App-Language', 'en');
+    expect(en.body.items[0].translation).toBeNull();
+    // The National Coordinator reading in French sees it translated too.
+    const ncFr = await nc.agent.get(`${ROOMS}/1/messages`).set('X-App-Language', 'fr');
+    expect(ncFr.body.items[0].translation).toMatchObject({ sourceLanguage: 'en' });
   });
 
   it('the All leaders room: every leader can read it and write in it, and the National Coordinator sees their replies', async () => {

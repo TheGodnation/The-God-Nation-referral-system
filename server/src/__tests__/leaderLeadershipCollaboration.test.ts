@@ -458,6 +458,8 @@ describe('Phase 2B — data minimization', () => {
       senderName: expect.any(String),
       senderBadge: null,
       body: 'Hi.',
+      // The other-language text, once it exists (null until the message is translated, and when the reader's language is the one it was written in).
+      translation: null,
       createdAt: expect.any(String),
     });
   });

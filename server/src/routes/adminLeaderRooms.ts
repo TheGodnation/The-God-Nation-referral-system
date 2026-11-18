@@ -10,6 +10,8 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { pushToPersonsLocalized } from '../lib/pushLocalized';
 import { notifyLeadershipRoomMessage } from '../lib/notifications';
+import { appLanguage } from '../lib/appLanguage';
+import { translateAndStoreRoomMessage } from '../lib/translation';
 import { listLeaders, generationsOf } from '../lib/leaderInstructions';
 import {
   ALL_LEADERS_ROOM,
@@ -60,7 +62,8 @@ function buildRoomsRouter(resolvePersonId: (req: Request) => Promise<string | nu
     const q = z.object({ before: z.string().optional(), limit: z.coerce.number().int().min(1).optional() }).safeParse(req.query);
     if (!q.success) return res.status(400).json({ error: 'Invalid pagination parameters.' });
     const personId = await resolvePersonId(req);
-    const result = await listRoomMessages(g.data.generation, personId ?? '', q.data);
+    const viewer = personId ? await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } }) : null;
+    const result = await listRoomMessages(g.data.generation, personId ?? '', q.data, appLanguage(req, viewer?.preferredLanguage));
     if ('error' in result) return res.status(400).json({ error: result.error });
     res.json(result);
   }));
@@ -73,6 +76,8 @@ function buildRoomsRouter(resolvePersonId: (req: Request) => Promise<string | nu
     const personId = await resolvePersonId(req);
     if (!personId) return res.status(400).json({ error: 'Create your member profile first, to write in the rooms.' });
     const created = await postRoomMessage(g.data.generation, personId, body.data.body);
+    // English <-> French, once, in the background: the leaders of the other language read it in theirs.
+    void translateAndStoreRoomMessage(created.id, created.body).catch(() => {});
     // The leaders of the room are told (never the sender).
     const leaders = await listLeaders();
     const recipients = leaders.filter((l) => l.personId !== personId && (g.data.generation === ALL_LEADERS_ROOM || l.generations.includes(g.data.generation))).map((l) => l.personId);

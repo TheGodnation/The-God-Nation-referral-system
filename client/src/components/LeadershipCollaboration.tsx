@@ -3,13 +3,27 @@ import { MAX_MESSAGE_CHARS, isTooLong } from '../lib/textLimits';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
+import { TranslationNote } from './TranslationNote';
 
 interface MessageRow {
   id: string;
   senderName: string;
   senderBadge?: 'NATIONAL_COORDINATOR' | 'REPRESENTATIVE' | null;
   body: string;
+  // The other-language text, when the reader's language differs from the one it was written in.
+  translation?: { sourceLanguage: 'en' | 'fr'; translatedBody: string } | null;
   createdAt: string;
+}
+
+// A message read in the reader's own language, with "Show original" (like the chats).
+function RoomMessageBody({ m }: { m: MessageRow }) {
+  const [showOriginal, setShowOriginal] = useState(false);
+  return (
+    <>
+      <p className="whitespace-pre-wrap text-slate-700">{m.translation && !showOriginal ? m.translation.translatedBody : m.body}</p>
+      {m.translation && <TranslationNote sourceLanguage={m.translation.sourceLanguage} showingOriginal={showOriginal} onToggle={() => setShowOriginal((v) => !v)} />}
+    </>
+  );
 }
 
 // Phase 2B — a single generation's Leadership Collaboration conversation.
@@ -140,7 +154,7 @@ export function LeadershipCollaboration({ generation, base = '/api/leader/leader
                     )}
                     <span className="text-xs text-slate-400">{new Date(m.createdAt).toLocaleString()}</span>
                   </div>
-                  <p className="whitespace-pre-wrap text-slate-700">{m.body}</p>
+                  <RoomMessageBody m={m} />
                 </div>
               ))}
             </div>

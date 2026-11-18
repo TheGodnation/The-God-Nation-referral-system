@@ -7,6 +7,8 @@ import { requireCsrf } from '../lib/csrf';
 import { leadershipCollaborationMessageSendLimiter, leadershipCollaborationReadLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { requireLinkedPerson } from '../lib/leadership';
+import { appLanguage } from '../lib/appLanguage';
+import { translateAndStoreRoomMessage } from '../lib/translation';
 import {
   getRoomsForLeader,
   canAccessLeadershipCollaboration,
@@ -92,7 +94,8 @@ router.get('/leadership-collaboration/:generation/messages', asyncHandler(async 
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid pagination parameters.' });
   }
-  const result = await listRoomMessages(generation, personId, { before: parsed.data.before, limit: parsed.data.limit });
+  const viewer = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
+  const result = await listRoomMessages(generation, personId, { before: parsed.data.before, limit: parsed.data.limit }, appLanguage(req, viewer?.preferredLanguage));
   if ('error' in result) return res.status(400).json({ error: result.error });
   res.json(result);
 }));
@@ -129,6 +132,8 @@ router.post(
     }
 
     const created = await postRoomMessage(generation, personId, parsed.data.body);
+    // English <-> French, once, in the background: the leaders of the other language read it in theirs.
+    void translateAndStoreRoomMessage(created.id, created.body).catch(() => {});
 
     res.status(201).json({ id: created.id, body: created.body, createdAt: created.createdAt });
   }),
