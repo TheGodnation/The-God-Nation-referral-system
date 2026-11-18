@@ -4500,7 +4500,7 @@
   },
   "afterInstall": {
     "title": "The app is installed. One last step.",
-    "body": "Turn on notifications so you never miss a teaching, a prayer request or a message.",
+    "body": "Turn on notifications and be the first to know:",
     "later": "Not now"
   },
   "contactPrefs": {

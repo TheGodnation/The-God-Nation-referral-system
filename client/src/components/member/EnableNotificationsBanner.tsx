@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GuideLink } from './GuideLink';
+import { NotificationBenefits } from './NotificationBenefits';
 import { enablePushNotifications, checkPushOnThisDevice, prefetchPushKey, type PushDeviceStatus } from '../../lib/push';
 
 const DISMISS_KEY = 'notifyBannerDismissed';
@@ -89,16 +90,7 @@ export function EnableNotificationsBanner({ className = 'mb-4' }: { className?: 
         <div className="min-w-0 flex-1">
           <p className="font-semibold leading-5 text-brand-900">{t('notifications.enable_title')}</p>
           <p className="mt-0.5 text-xs text-brand-800">{message}</p>
-          {canTurnOn && (
-            <ul className="mt-2 flex flex-wrap gap-1.5" data-testid="notify-benefits">
-              {(['events', 'teachings', 'messages'] as const).map((k) => (
-                <li key={k} className="flex items-center gap-1 rounded-full border border-brand-100 bg-white px-2 py-0.5 text-[11px] font-medium text-brand-900">
-                  <span aria-hidden="true">{k === 'events' ? '📅' : k === 'teachings' ? '📖' : '💬'}</span>
-                  {t(`notifications.benefit_${k}`)}
-                </li>
-              ))}
-            </ul>
-          )}
+          {canTurnOn && <NotificationBenefits />}
           {failed && <p className="mt-1 text-xs text-red-700">{t('notifications.enable_failed')}</p>}
           <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
             {canTurnOn && (

@@ -4500,7 +4500,7 @@
   },
   "afterInstall": {
     "title": "L’application est installée. Une dernière étape.",
-    "body": "Activez les notifications pour ne manquer aucun enseignement, aucune demande de prière ni aucun message.",
+    "body": "Activez les notifications et soyez le premier informé :",
     "later": "Pas maintenant"
   },
   "contactPrefs": {
