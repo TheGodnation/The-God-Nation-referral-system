@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { InAppBrowserNotice, detectInAppBrowser, chromeIntentUrl } from '../components/InAppBrowserNotice';
+import { InAppBrowserBar } from '../components/InAppBrowserBar';
 import { RemindersCard } from '../components/admin/RemindersCard';
 import { MemberReferralsPage } from '../pages/MemberReferralsPage';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
@@ -59,6 +60,36 @@ describe('Open in your browser notice', () => {
     render(<InAppBrowserNotice userAgent={IG_IPHONE} href="https://thegodnationacademy.org/" />);
     expect(screen.getByText(/Open in Safari/)).toBeInTheDocument();
     expect(screen.queryByTestId('open-in-chrome')).toBeNull();
+  });
+
+  it('recognises the built-in browsers of Messenger and WhatsApp too', () => {
+    expect(detectInAppBrowser('Mozilla/5.0 (Linux; Android 12; SM-A125F Build/SP1A; wv) AppleWebKit/537.36 Chrome/118 Mobile Safari/537.36 [FB_IAB/MESSENGER;FBAV/445.0]').inApp).toBe(true);
+    expect(detectInAppBrowser('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 WhatsApp/24.2.76').inApp).toBe(true);
+    // Any Android WebView counts as well.
+    expect(detectInAppBrowser('Mozilla/5.0 (Linux; Android 13; Pixel 6; wv) AppleWebKit/537.36 Version/4.0 Chrome/120 Mobile Safari/537.36').inApp).toBe(true);
+  });
+
+  it('is shown on every page, not only the home page, and opens that very page in Chrome', () => {
+    sessionStorage.removeItem('inAppBrowserNoticeDismissed');
+    render(
+      <MemoryRouter initialEntries={['/member/updates?x=1']}>
+        <InAppBrowserBar userAgent={FB_ANDROID} />
+      </MemoryRouter>,
+    );
+    const open = screen.getByTestId('open-in-chrome') as HTMLAnchorElement;
+    expect(open.getAttribute('href')).toContain('/member/updates?x=1#Intent;scheme=');
+  });
+
+  it('is never shown in the installed app (home-screen icon)', () => {
+    sessionStorage.removeItem('inAppBrowserNoticeDismissed');
+    const original = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes('standalone'), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as any;
+    try {
+      render(<InAppBrowserNotice userAgent={FB_ANDROID} href="https://thegodnationacademy.org/" />);
+      expect(screen.queryByTestId('in-app-browser-notice')).toBeNull();
+    } finally {
+      window.matchMedia = original;
+    }
   });
 
   it('shows nothing in a normal browser', () => {

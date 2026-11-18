@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-// Many people arrive from an advertisement inside Facebook's, Instagram's or
-// TikTok's built-in browser. There, notifications and installing the app do not
+// Many people arrive from an advertisement or a shared link inside Facebook's, Messenger's, Instagram's, TikTok's or
+// WhatsApp's built-in browser. There, notifications and installing the app do not
 // work. This gently asks them to open the page in their phone's own browser.
 
-const IN_APP = /FBAN|FBAV|FB_IAB|Instagram|musical_ly|BytedanceWebview|TikTok|Twitter|Snapchat|LinkedInApp|Line\/|MicroMessenger/i;
+const IN_APP = /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|musical_ly|BytedanceWebview|TikTok|Twitter|Snapchat|LinkedInApp|Line\/|MicroMessenger/i;
 const ANDROID_WEBVIEW = /; wv\)/;
 
 export function detectInAppBrowser(ua: string): { inApp: boolean; android: boolean; ios: boolean } {
@@ -35,7 +35,9 @@ export function InAppBrowserNotice({ userAgent, href }: { userAgent?: string; hr
   const ua = userAgent ?? (typeof navigator !== 'undefined' ? navigator.userAgent : '');
   const here = href ?? (typeof window !== 'undefined' ? window.location.href : '');
   const d = detectInAppBrowser(ua);
-  if (!d.inApp || hidden || !here) return null;
+  // The installed app (home-screen icon) is never an in-app browser.
+  const installed = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches;
+  if (!d.inApp || hidden || !here || installed) return null;
 
   function dismiss() {
     setHidden(true);
