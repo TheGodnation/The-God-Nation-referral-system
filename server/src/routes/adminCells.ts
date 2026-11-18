@@ -151,11 +151,11 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
   }));
 
   router.post('/merge-people', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
-    const parsed = z.object({ keepPersonId: z.string().min(1), mergePersonId: z.string().min(1), dryRun: z.boolean().optional() }).safeParse(req.body);
+    const parsed = z.object({ keepPersonId: z.string().min(1), mergePersonId: z.string().min(1), dryRun: z.boolean().optional(), signInEmail: z.enum(['keep', 'duplicate']).optional() }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Choose the account to keep and the duplicate to merge into it.' });
     const actor = await resolveActor(req);
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
-    const result = await mergePeople(parsed.data.keepPersonId, parsed.data.mergePersonId, { dryRun: Boolean(parsed.data.dryRun) });
+    const result = await mergePeople(parsed.data.keepPersonId, parsed.data.mergePersonId, { dryRun: Boolean(parsed.data.dryRun), signInEmail: parsed.data.signInEmail });
     if (!result.ok) return res.status(400).json({ error: result.error });
     if (!result.dryRun) {
       await recordAudit({
@@ -164,7 +164,7 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
         action: 'PEOPLE_MERGED',
         targetType: 'Person',
         targetId: parsed.data.keepPersonId,
-        metadata: { keptPersonId: parsed.data.keepPersonId, merged: result.report.duplicate, droppedSignInEmail: result.report.droppedSignInEmail, summary: result.report.summary },
+        metadata: { keptPersonId: parsed.data.keepPersonId, merged: result.report.duplicate, droppedSignInEmail: result.report.droppedSignInEmail, signInEmail: result.report.signInEmail, summary: result.report.summary },
       });
     }
     res.json({ dryRun: result.dryRun, report: result.report });

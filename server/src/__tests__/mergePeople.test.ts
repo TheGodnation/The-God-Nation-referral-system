@@ -92,6 +92,28 @@ describe('merging two accounts of one person', () => {
     expect((await prisma.memberAccount.findUniqueOrThrow({ where: { id: dupAccount.id } })).personId).toBe(w.keep.id);
   });
 
+  it('lets the admin choose which sign-in email stays: only that one opens the account afterwards', async () => {
+    const w = await world();
+    const keepEmail = (await prisma.memberAccount.findFirstOrThrow({ where: { personId: w.keep.id } })).email;
+    const dupEmail = (await prisma.memberAccount.findFirstOrThrow({ where: { personId: w.dup.id } })).email;
+    // The preview says which email stays and which stops working.
+    const preview = await mergePeople(w.keep.id, w.dup.id, { dryRun: true, signInEmail: 'duplicate' });
+    expect(preview.ok && preview.report).toMatchObject({ signInEmail: dupEmail, droppedSignInEmail: keepEmail });
+    expect((await prisma.memberAccount.findFirstOrThrow({ where: { personId: w.keep.id } })).email).toBe(keepEmail);
+    // He uses the duplicate's email: the kept account takes it.
+    expect((await mergePeople(w.keep.id, w.dup.id, { signInEmail: 'duplicate' })).ok).toBe(true);
+    expect((await prisma.memberAccount.findFirstOrThrow({ where: { personId: w.keep.id } })).email).toBe(dupEmail);
+    expect(await prisma.memberAccount.count({ where: { email: keepEmail } })).toBe(0);
+
+    // By default the kept account's email stays.
+    const w2 = await world();
+    const keep2 = (await prisma.memberAccount.findFirstOrThrow({ where: { personId: w2.keep.id } })).email;
+    const dup2 = (await prisma.memberAccount.findFirstOrThrow({ where: { personId: w2.dup.id } })).email;
+    const done = await mergePeople(w2.keep.id, w2.dup.id);
+    expect(done.ok && done.report).toMatchObject({ signInEmail: keep2, droppedSignInEmail: dup2 });
+    expect((await prisma.memberAccount.findFirstOrThrow({ where: { personId: w2.keep.id } })).email).toBe(keep2);
+  });
+
   it('refuses the central admin, the same account twice, an unknown account, and two accounts that both have a leader sign-in', async () => {
     const w = await world();
     const adminPerson = await person('Admin Person', false);

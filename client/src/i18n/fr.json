@@ -5655,12 +5655,17 @@
     "line_nothing": "Rien à déplacer : le doublon n’a rien d’attaché.",
     "dropped": "{{count}} élément(s) que les deux comptes avaient ne restent qu’une fois : la copie du compte gardé est conservée.",
     "between": "{{count}} lien(s) entre les deux comptes (suivis, amitiés, discussions entre eux) sont supprimés, car il ne peut pas se suivre ni être ami avec lui-même.",
-    "email_note": "L’adresse de connexion {{email}} cesse de fonctionner. Il se connecte avec l’adresse du compte que vous gardez.",
+    "email_note": "L’adresse {{email}} n’ouvrira plus le compte.",
     "no_undo": "Cette action est irréversible.",
     "merge_now": "Fusionner maintenant",
     "confirm": "Fusionner {{duplicate}} dans {{kept}} ? Le compte en double sera supprimé et cette action est irréversible.",
     "done": "C’est fait : {{duplicate}} est fusionné dans {{kept}}. Son rôle et tout le reste continuent sur le compte gardé.",
     "load_failed": "Impossible de charger ce compte. Veuillez réessayer.",
-    "failed": "Fusion impossible. Rien n’a été modifié. Veuillez réessayer."
+    "failed": "Fusion impossible. Rien n’a été modifié. Veuillez réessayer.",
+    "email_title": "L’adresse avec laquelle il se connectera ensuite",
+    "email_help": "Un compte a une seule adresse de connexion. Quand les deux comptes en ont une, seule celle que vous choisissez ouvrira le compte ; l’autre ne fonctionnera plus, dites-lui donc laquelle utiliser.",
+    "email_kept": "l’adresse du compte gardé",
+    "email_duplicate": "l’adresse du doublon",
+    "email_after": "Il se connectera avec {{email}}."
   }
 }

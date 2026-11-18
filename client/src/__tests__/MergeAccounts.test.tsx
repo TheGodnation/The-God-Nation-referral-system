@@ -38,6 +38,7 @@ const described = (id: string, name: string, over: Record<string, unknown> = {})
 const report = {
   summary: { roles: 1, peopleHeFollows: 12, leadersFollowingHim: 1, memberships: 2, messages: 140, posts: 3, learning: 0, other: 55, dropped: 2, betweenThem: 1 },
   droppedSignInEmail: 'old@x.org',
+  signInEmail: 'new@x.org',
   duplicate: { name: 'Old Account', whatsappNumber: '+237 600 000 002' },
 };
 
@@ -73,6 +74,13 @@ describe('MergeAccountsCard', () => {
     expect(dupCard).toHaveTextContent('Leader of Headquarters');
     expect(dupCard).toHaveTextContent('follows 12 people');
 
+    // Only one email opens the account afterwards: the admin chooses which (the kept account's by default).
+    const choice = await screen.findByTestId('merge-email-choice');
+    expect(choice).toHaveTextContent('p-keep@x.org');
+    expect(choice).toHaveTextContent('p-dup@x.org');
+    expect(within(choice).getAllByRole('radio')[0]).toBeChecked();
+    fireEvent.click(within(choice).getAllByRole('radio')[1]);
+
     // The preview says what continues on the kept account and changes nothing.
     fireEvent.click(screen.getByTestId('merge-preview'));
     const out = await screen.findByTestId('merge-report');
@@ -82,16 +90,17 @@ describe('MergeAccountsCard', () => {
     expect(out).toHaveTextContent('1 leader(s) who follow him up');
     expect(out).toHaveTextContent('2 assembly or group membership(s)');
     expect(out).toHaveTextContent('140 chat message(s)');
-    expect(out).toHaveTextContent('The sign-in email old@x.org stops working');
+    expect(out).toHaveTextContent('He will sign in with new@x.org');
+    expect(out).toHaveTextContent('The email old@x.org will no longer open the account');
     expect(out).toHaveTextContent('This cannot be undone');
-    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ keepPersonId: 'p-keep', mergePersonId: 'p-dup', dryRun: true });
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ keepPersonId: 'p-keep', mergePersonId: 'p-dup', dryRun: true, signInEmail: 'duplicate' });
     expect(confirm).not.toHaveBeenCalled();
 
     // Merging asks first, then does it.
     fireEvent.click(screen.getByTestId('merge-go'));
     expect(await screen.findByText(/Anna Old is now merged into Anna New/)).toBeInTheDocument();
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Merge Anna Old into Anna New?'));
-    expect(calls.filter((c) => c.method === 'POST').pop()?.body).toEqual({ keepPersonId: 'p-keep', mergePersonId: 'p-dup', dryRun: false });
+    expect(calls.filter((c) => c.method === 'POST').pop()?.body).toEqual({ keepPersonId: 'p-keep', mergePersonId: 'p-dup', dryRun: false, signInEmail: 'duplicate' });
   });
 
   it('does not merge when the confirmation is declined, and explains a refusal from the server', async () => {

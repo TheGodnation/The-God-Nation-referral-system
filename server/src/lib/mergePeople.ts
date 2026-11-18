@@ -98,8 +98,10 @@ export interface MergeSummary {
 
 export interface MergeReport {
   summary: MergeSummary;
-  /** The sign-in email of the duplicate, which stops working: the person signs in with the kept account's email. */
+  /** The sign-in email of the account that stops working, when both accounts had one (only one email opens the account). */
   droppedSignInEmail: string | null;
+  /** The sign-in email the person uses after the merge. */
+  signInEmail: string | null;
   /** The duplicate's name and WhatsApp number, for the record. */
   duplicate: { name: string; whatsappNumber: string };
 }
@@ -162,7 +164,7 @@ export async function describePerson(personId: string) {
  * Merge the duplicate account (`mergeId`) into the one that stays (`keepId`).
  * `dryRun` does everything and then rolls back, so nothing changes and the report shows what would happen.
  */
-export async function mergePeople(keepId: string, mergeId: string, opts: { dryRun?: boolean } = {}): Promise<MergeResult> {
+export async function mergePeople(keepId: string, mergeId: string, opts: { dryRun?: boolean; signInEmail?: 'keep' | 'duplicate' } = {}): Promise<MergeResult> {
   if (keepId === mergeId) return { ok: false, error: 'Choose two different accounts.' };
   const [keep, dup] = await Promise.all([
     prisma.person.findUnique({ where: { id: keepId }, select: { id: true, name: true, whatsappNumber: true, memberAccount: { select: { email: true } }, users: { select: { id: true } } } }),
@@ -177,9 +179,13 @@ export async function mergePeople(keepId: string, mergeId: string, opts: { dryRu
   }
 
   const summary: MergeSummary = { roles: 0, peopleHeFollows: 0, leadersFollowingHim: 0, memberships: 0, messages: 0, posts: 0, learning: 0, other: 0, dropped: 0, betweenThem: 0 };
+  // Only one email opens an account. When both accounts have one, the admin chooses which stays; the other stops working.
+  const bothHaveEmail = Boolean(keep.memberAccount && dup.memberAccount);
+  const useDuplicateEmail = bothHaveEmail && opts.signInEmail === 'duplicate';
   const report: MergeReport = {
     summary,
-    droppedSignInEmail: keep.memberAccount && dup.memberAccount ? dup.memberAccount.email : null,
+    droppedSignInEmail: bothHaveEmail ? (useDuplicateEmail ? keep.memberAccount!.email : dup.memberAccount!.email) : null,
+    signInEmail: useDuplicateEmail ? dup.memberAccount!.email : (keep.memberAccount?.email ?? dup.memberAccount?.email ?? null),
     duplicate: { name: dup.name, whatsappNumber: dup.whatsappNumber },
   };
 
@@ -220,6 +226,10 @@ export async function mergePeople(keepId: string, mergeId: string, opts: { dryRu
           const b = col(pair.model, pair.b);
           summary.betweenThem += await run(`DELETE FROM ${q(ref.table)} WHERE (${a} = $1 AND ${b} = $2) OR (${a} = $2 AND ${b} = $1) OR (${a} = $1 AND ${b} = $1)`, dup.id, keep.id);
         }
+
+        // 2b. The person signs in with the email the admin chose: the duplicate's account (and email) was dropped above,
+        // so its email is free for the kept account to take.
+        if (useDuplicateEmail) await run(`UPDATE "MemberAccount" SET "email" = $1 WHERE "personId" = $2`, dup.memberAccount!.email, keep.id);
 
         // 3. The leader sign-in (if the duplicate has one) moves to the kept account.
         await run(`UPDATE "User" SET "personId" = $2 WHERE "personId" = $1`, dup.id, keep.id);

@@ -29,6 +29,7 @@ interface Report {
     betweenThem: number;
   };
   droppedSignInEmail: string | null;
+  signInEmail: string | null;
   duplicate: { name: string; whatsappNumber: string };
 }
 
@@ -43,11 +44,14 @@ export function MergeAccountsCard({ base }: { base: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  // When both accounts have a sign-in email, only one of them opens the account afterwards.
+  const [emailChoice, setEmailChoice] = useState<'keep' | 'duplicate'>('keep');
 
   async function pick(which: 'keep' | 'dup', item: { id: string }) {
     setPreview(null);
     setDone(null);
     setError(null);
+    setEmailChoice('keep');
     try {
       const info = await api.get<Described>(`${base}/merge-people/describe?personId=${encodeURIComponent(item.id)}`);
       if (which === 'keep') setKeep(info);
@@ -63,7 +67,7 @@ export function MergeAccountsCard({ base }: { base: string }) {
     setBusy(true);
     setError(null);
     try {
-      const r = await api.post<{ dryRun: boolean; report: Report }>(`${base}/merge-people`, { keepPersonId: keep.id, mergePersonId: dup.id, dryRun });
+      const r = await api.post<{ dryRun: boolean; report: Report }>(`${base}/merge-people`, { keepPersonId: keep.id, mergePersonId: dup.id, dryRun, signInEmail: emailChoice });
       if (dryRun) {
         setPreview(r.report);
       } else {
@@ -137,6 +141,21 @@ export function MergeAccountsCard({ base }: { base: string }) {
         {dup && card(dup)}
       </div>
 
+      {keep && dup && !same && keep.signInEmail && dup.signInEmail && (
+        <fieldset className="space-y-1 rounded-lg border border-slate-200 bg-white p-3 text-sm" data-testid="merge-email-choice">
+          <legend className="px-1 font-semibold text-slate-800">3. {t('mergeAccounts.email_title')}</legend>
+          <p className="text-xs text-slate-600">{t('mergeAccounts.email_help')}</p>
+          <label className="flex items-start gap-2">
+            <input type="radio" name="merge-email" className="mt-1" checked={emailChoice === 'keep'} onChange={() => { setEmailChoice('keep'); setPreview(null); }} />
+            <span>{keep.signInEmail} <span className="text-xs text-slate-500">({t('mergeAccounts.email_kept')})</span></span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="radio" name="merge-email" className="mt-1" checked={emailChoice === 'duplicate'} onChange={() => { setEmailChoice('duplicate'); setPreview(null); }} />
+            <span>{dup.signInEmail} <span className="text-xs text-slate-500">({t('mergeAccounts.email_duplicate')})</span></span>
+          </label>
+        </fieldset>
+      )}
+
       {same && <p className="text-sm text-red-700">{t('mergeAccounts.same')}</p>}
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {done && <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{done}</p>}
@@ -156,6 +175,7 @@ export function MergeAccountsCard({ base }: { base: string }) {
           </ul>
           {preview.summary.dropped > 0 && <p className="text-xs text-slate-600">{t('mergeAccounts.dropped', { count: preview.summary.dropped })}</p>}
           {preview.summary.betweenThem > 0 && <p className="text-xs text-slate-600">{t('mergeAccounts.between', { count: preview.summary.betweenThem })}</p>}
+          {preview.signInEmail && <p className="text-xs text-slate-700">{t('mergeAccounts.email_after', { email: preview.signInEmail })}</p>}
           {preview.droppedSignInEmail && <p className="text-xs text-slate-600">{t('mergeAccounts.email_note', { email: preview.droppedSignInEmail })}</p>}
           <p className="text-xs font-semibold text-red-700">{t('mergeAccounts.no_undo')}</p>
           <button type="button" className="btn-primary px-3 py-1.5" disabled={busy} onClick={() => void run(false)} data-testid="merge-go">

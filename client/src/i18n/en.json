@@ -5655,12 +5655,17 @@
     "line_nothing": "Nothing to move: the duplicate has nothing attached.",
     "dropped": "{{count}} item(s) that both accounts had stay once: the kept account’s copy is kept.",
     "between": "{{count}} link(s) between the two accounts (follow-ups, friendships, chats between them) are removed, since he cannot follow or befriend himself.",
-    "email_note": "The sign-in email {{email}} stops working. He signs in with the email of the account you keep.",
+    "email_note": "The email {{email}} will no longer open the account.",
     "no_undo": "This cannot be undone.",
     "merge_now": "Merge now",
     "confirm": "Merge {{duplicate}} into {{kept}}? The duplicate account will be removed and this cannot be undone.",
     "done": "Done: {{duplicate}} is now merged into {{kept}}. His role and everything else continue on the kept account.",
     "load_failed": "Could not load that account. Please try again.",
-    "failed": "Could not merge. Nothing was changed. Please try again."
+    "failed": "Could not merge. Nothing was changed. Please try again.",
+    "email_title": "The email he signs in with afterwards",
+    "email_help": "An account has one sign-in email. When both accounts have one, only the one you choose will open the account; the other stops working, so tell him which to use.",
+    "email_kept": "the kept account’s email",
+    "email_duplicate": "the duplicate’s email",
+    "email_after": "He will sign in with {{email}}."
   }
 }
