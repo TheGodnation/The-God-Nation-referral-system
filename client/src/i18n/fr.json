@@ -2720,7 +2720,7 @@
     "show_less": "Voir moins"
   },
   "network": {
-    "connecting": "Connexion… (réseau faible ou absent). Vous pouvez encore lire ce qui est enregistré.",
+    "connecting": "Connexion… vous pouvez lire ce qui est enregistré.",
     "waiting": "En attente du réseau",
     "tap_to_load": "Touchez pour charger",
     "tap_to_load_photo": "Touchez pour charger la photo",
