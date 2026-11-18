@@ -9,7 +9,6 @@ import { MemberNav } from '../components/member/MemberNav';
 import { api, ApiError } from '../lib/api';
 import { cachedGet } from '../lib/cachedGet';
 import { useStoreApp } from '../lib/storeApp';
-import { PageNote } from '../components/PageNote';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 
 interface WeeklyExam {
@@ -143,15 +142,12 @@ export function MemberLearnPage() {
           <h1 className="text-2xl font-bold text-brand-900">{t('learn.title')}</h1>
           <NotificationBell />
         </div>
-        <div className="mb-4 empty:hidden [&>*]:mx-0">
-          <PageNote id="learn" scrollTo="learn-start">{t('pageNotes.learn')}</PageNote>
-        </div>
         {fromCache && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">📶 {t('school.offline_saved')}</p>}
         {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
         {!data && !error && <p className="text-center text-slate-400">{t('learn.loading')}</p>}
 
         {data && (
-          <div id="learn-start" className="scroll-mt-4 space-y-6">
+          <div className="space-y-6">
             <section className="space-y-4">
               <h2 className="text-lg font-semibold text-brand-900">📖 {t('learn.devotional_heading')}</h2>
               {data.devotionals.length === 0 && <p className="card text-sm text-slate-500">{t('learn.no_devotional')}</p>}

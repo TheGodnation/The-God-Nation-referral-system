@@ -5030,12 +5030,9 @@
     "continue_cta": "Continue my studies"
   },
   "pageNotes": {
-    "home": "This is Updates: the news and posts from the community.",
-    "learn": "This is where you study: books, teachings and exams.",
     "me": "Add your profile photo and your wall photo: tap here to start."
   },
   "chatsTabs": {
-    "hint": "Tap here to meet where all members of the community are assembled.",
     "assemblies": "Assemblies",
     "private": "Private messages",
     "private_hint": "Your private messages appear here, newest first."
