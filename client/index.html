@@ -18,6 +18,58 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="The God Nation" />
+    <!-- Rescue for a completely white page: if the app's own files cannot be loaded (an old saved copy of the
+         app on the phone points at files that no longer exist), forget the saved copy and load the page again,
+         once. If the page is still empty after 12 seconds, offer two buttons. Plain code on purpose: it must work
+         when the app itself cannot start. -->
+    <script>
+      (function () {
+        var KEY = 'godnation:rescued-at';
+        function forget() {
+          var jobs = [];
+          try {
+            if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+              jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+            }
+            if (window.caches && caches.keys) {
+              jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+            }
+          } catch (e) {}
+          return Promise.all(jobs).catch(function () {});
+        }
+        function buttons() {
+          if (document.getElementById('white-page-help')) return;
+          var box = document.createElement('div');
+          box.id = 'white-page-help';
+          box.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483000;background:#fff;color:#1e293b;border:1px solid #cbd5e1;border-radius:12px;padding:14px;font-family:system-ui,sans-serif;font-size:14px;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.18)';
+          box.innerHTML = '<p style="margin:0 0 10px">This page is taking too long. / Cette page met trop de temps.</p>';
+          function mk(label, primary, fn) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.textContent = label; b.onclick = fn;
+            b.style.cssText = 'margin:4px;padding:9px 16px;border-radius:8px;font-weight:600;border:1px solid #0f2260;' + (primary ? 'background:#0f2260;color:#fff' : 'background:#fff;color:#0f2260');
+            box.appendChild(b);
+          }
+          mk('Reload / Recharger', true, function () { location.reload(); });
+          mk('Fix and reload / Réparer', false, function () { forget().then(function () { location.reload(); }); });
+          (document.body || document.documentElement).appendChild(box);
+        }
+        function rescue() {
+          var last = 0;
+          try { last = Number(sessionStorage.getItem(KEY)) || 0; } catch (e) {}
+          if (Date.now() - last < 120000) { buttons(); return; }
+          try { sessionStorage.setItem(KEY, String(Date.now())); } catch (e) {}
+          forget().then(function () { location.reload(); });
+        }
+        window.addEventListener('error', function (e) {
+          var t = e && e.target;
+          if (t && t.tagName === 'SCRIPT' && t.src) rescue();
+        }, true);
+        setTimeout(function () {
+          var r = document.getElementById('root');
+          if (r && !r.firstChild) buttons();
+        }, 12000);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

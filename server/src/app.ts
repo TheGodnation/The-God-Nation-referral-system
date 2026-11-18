@@ -467,6 +467,9 @@ export function createApp() {
           },
         }),
       );
+      // A file of the app that no longer exists (an old page asking for it after an update) is "not found",
+      // never the start page: a browser that is given a web page in place of a script shows a white screen.
+      app.use('/assets', (_req, res) => res.status(404).type('text/plain').send('Not found'));
       app.get('*', spa);
     }
   }
