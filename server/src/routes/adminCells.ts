@@ -15,6 +15,7 @@ import { adminReadsEnabled, chatsOfLeader, readLeaderChat, setAdminReads } from 
 import { addEscalationMessage, escalationViewFor, escalationsForAdmin, type EscalationActor } from '../lib/escalations';
 import { handOverPeople, leaderLoads, redistributeEvenly, releasePeople, shareUnassigned } from '../lib/followUpShare';
 import { appointLeader, assembliesOverview, findPeople, leadersOf, makeLeaders, readyToLeadIn } from '../lib/cells';
+import { describePerson, mergePeople } from '../lib/mergePeople';
 
 // Cells for the central admin: every assembly with its size, leaders and
 // how many are ready to lead; the "Ready to lead" list of one assembly; and
@@ -136,6 +137,37 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
       await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'FOLLOW_UP_BULK_DISTRIBUTED', targetType: 'Community', targetId: communityId, metadata: { totalAssigned: result.assigned, takenBack: result.takenBack, chosenLeaders: options.leaderPersonIds?.length ?? null, via: 'redistribute-evenly' } });
     }
     res.json(result);
+  }));
+
+  // One person with two accounts: describe an account (to choose the one to keep), and merge the duplicate into it.
+  // The role, the people he follows, who follows him, his assemblies, chats, posts and progress all continue on the kept
+  // account. `dryRun` shows what would move and changes nothing.
+  router.get('/merge-people/describe', asyncHandler(async (req, res) => {
+    const personId = z.string().min(1).safeParse(req.query.personId);
+    if (!personId.success) return res.status(400).json({ error: 'personId is required.' });
+    const info = await describePerson(personId.data);
+    if (!info) return res.status(404).json({ error: 'Account not found.' });
+    res.json(info);
+  }));
+
+  router.post('/merge-people', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ keepPersonId: z.string().min(1), mergePersonId: z.string().min(1), dryRun: z.boolean().optional() }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Choose the account to keep and the duplicate to merge into it.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const result = await mergePeople(parsed.data.keepPersonId, parsed.data.mergePersonId, { dryRun: Boolean(parsed.data.dryRun) });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    if (!result.dryRun) {
+      await recordAudit({
+        actorId: actor.id,
+        actorEmail: actor.email,
+        action: 'PEOPLE_MERGED',
+        targetType: 'Person',
+        targetId: parsed.data.keepPersonId,
+        metadata: { keptPersonId: parsed.data.keepPersonId, merged: result.report.duplicate, droppedSignInEmail: result.report.droppedSignInEmail, summary: result.report.summary },
+      });
+    }
+    res.json({ dryRun: result.dryRun, report: result.report });
   }));
 
   // Hard questions from leaders: everything open or recent, one thread, and a reply.

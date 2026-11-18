@@ -7,6 +7,7 @@ import { ClinicBookCard } from '../leader/ClinicBookCard';
 import { ClinicRhythmCard } from './ClinicRhythmCard';
 import { TokensCard } from './TokensCard';
 import { LeadersOversight } from './LeadersOversight';
+import { MergeAccountsCard } from './MergeAccountsCard';
 
 interface Row {
   id: string;
@@ -221,6 +222,8 @@ export function CellsPanel({ base, showShareCard = true }: { base: '/api/admin/c
           {rows.length === 0 && <li className="py-3 text-sm text-slate-500">{t('cells.none')}</li>}
         </ul>
       </section>
+
+      <MergeAccountsCard base={base} />
 
       {open && (
         <section ref={openRef} className="card scroll-mt-4 space-y-3" aria-label={open.name}>
