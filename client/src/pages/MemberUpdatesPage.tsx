@@ -26,7 +26,7 @@ export function MemberUpdatesPage() {
           <h1 className="sr-only">{t('memberHome.title')}</h1>
           <div className="space-y-2 sm:mt-4 sm:space-y-4">
             <HomeAboutTabs active="home" trailing={<NotificationBell />} />
-            <PageNote id="home">{t('pageNotes.home')}</PageNote>
+            <PageNote id="home" scrollTo="home-feed">{t('pageNotes.home')}</PageNote>
             <div className="px-4 empty:hidden sm:px-0">
               <EnableNotificationsBanner className="" />
             </div>
@@ -34,6 +34,7 @@ export function MemberUpdatesPage() {
             <div className="px-4 empty:hidden sm:px-0">
               <LiveBanner />
             </div>
+            <div id="home-feed" className="scroll-mt-4" />
             <HeadquartersPosts variant="feed" />
             <UpdatesFeed showComposer={false} linkAuthors wall />
           </div>
