@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage';
 import { JoinPage } from './pages/JoinPage';
 import { LandingVisitTracker } from './components/LandingVisitTracker';
 import { AdsConsentBanner } from './components/AdsConsentBanner';
+import { InAppBrowserBar } from './components/InAppBrowserBar';
 import { ProtectedRoute, RequireAuth } from './components/ProtectedRoute';
 import { RequireMember } from './components/RequireMember';
 import { AuthProvider } from './lib/AuthContext';
@@ -113,6 +114,7 @@ export default function App() {
       <MemberAuthProvider>
         <LandingVisitTracker />
         <AdsConsentBanner />
+        <InAppBrowserBar />
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
