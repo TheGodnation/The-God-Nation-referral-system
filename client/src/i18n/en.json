@@ -3260,11 +3260,15 @@
     "badge": "Your leader · Leadership Team"
   },
   "manageAssembly": {
+    "remove": "Remove",
+    "removed": "Removed",
+    "remove_confirm": "Remove {{name}} from {{place}}? They can be added back at any time, and their messages stay.",
+    "remove_failed": "Could not remove this person. Please try again.",
     "title": "Manage this assembly",
-    "add_people": "Add people",
+    "add_people": "Add or remove people",
     "new_sub": "New sub-assembly",
-    "add_title": "Add people to {{name}}",
-    "add_help": "Search by name, WhatsApp number or email. Only the people you add can open it, if it is private.",
+    "add_title": "Add or remove people in {{name}}",
+    "add_help": "Search by name, WhatsApp number or email. Tap Add to put someone in, or Remove to take them out of this place only. Only the people you add can open it, if it is private.",
     "search": "Search for a person…",
     "add": "Add",
     "added": "Added",

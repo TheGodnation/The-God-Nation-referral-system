@@ -16,7 +16,7 @@ function agentWithIp() {
   n += 1;
   const raw = request.agent(app);
   const ip = `10.152.${Math.floor(n / 256)}.${n % 256}`;
-  const methods = ['get', 'post'] as const;
+  const methods = ['get', 'post', 'delete'] as const;
   const w = {} as Record<(typeof methods)[number], (p: string) => request.Test>;
   for (const m of methods) w[m] = (p: string) => raw[m](p).set('X-Forwarded-For', ip);
   return w;
@@ -94,3 +94,47 @@ describe('Sub-assemblies and adding people from the app', () => {
     expect(await prisma.communityMembership.count({ where: { personId: ann.person.id, communityId: child.id, status: 'ACTIVE' } })).toBe(1);
   });
 });
+
+describe('Taking people out of an assembly or group from the app', () => {
+  it('the central admin removes a member from THIS place only; they can be added back; nobody else can', async () => {
+    const hq = await prisma.community.create({ data: { name: 'HQ' } });
+    const group = await prisma.community.create({ data: { name: 'HQ Leaders', parentId: hq.id } });
+    const admin = await signedIn('Coordinator', { admin: true });
+    const member = await signedIn('Member', { communityId: hq.id });
+    await prisma.communityMembership.create({ data: { personId: member.person.id, communityId: group.id, status: 'ACTIVE' } });
+    const other = await signedIn('Other', { communityId: hq.id });
+
+    // Not the central admin: refused.
+    expect((await other.agent.delete(`/api/communities/${group.id}/members/${member.person.id}`).set('X-CSRF-Token', other.csrf)).status).toBe(403);
+
+    const removed = await admin.agent.delete(`/api/communities/${group.id}/members/${member.person.id}`).set('X-CSRF-Token', admin.csrf);
+    expect(removed.status).toBe(200);
+    const inGroup = await prisma.communityMembership.findUniqueOrThrow({ where: { personId_communityId: { personId: member.person.id, communityId: group.id } } });
+    const inHq = await prisma.communityMembership.findUniqueOrThrow({ where: { personId_communityId: { personId: member.person.id, communityId: hq.id } } });
+    expect(inGroup.status).toBe('INACTIVE');
+    expect(inHq.status).toBe('ACTIVE'); // only this place
+
+    // Removing again says they are not in it; the search no longer calls them a member; adding back works.
+    expect((await admin.agent.delete(`/api/communities/${group.id}/members/${member.person.id}`).set('X-CSRF-Token', admin.csrf)).status).toBe(404);
+    const found = await admin.agent.get(`/api/communities/${group.id}/people-search?q=${encodeURIComponent(member.person.name)}`);
+    expect(found.body.items.find((i: any) => i.id === member.person.id)?.isMember).toBe(false);
+    expect((await admin.agent.post(`/api/communities/${group.id}/members`).set('X-CSRF-Token', admin.csrf).send({ personId: member.person.id })).status).toBe(201);
+  });
+
+  it('never removes the central admin, nor a leader of that very place (end the leader role first)', async () => {
+    const hq = await prisma.community.create({ data: { name: 'HQ' } });
+    const admin = await signedIn('Coordinator', { admin: true, communityId: hq.id });
+    const leader = await signedIn('Leader', { communityId: hq.id });
+    const user = await prisma.user.create({ data: { name: 'L', email: `leader-${Date.now()}@test.local`, passwordHash: 'x', role: 'LEADER', personId: leader.person.id } });
+    await prisma.roleAssignment.create({ data: { personId: leader.person.id, roleType: 'SCOPED_LEADER', assignedByUserId: user.id, communityId: hq.id, status: 'ACTIVE' } });
+
+    const self = await admin.agent.delete(`/api/communities/${hq.id}/members/${admin.person.id}`).set('X-CSRF-Token', admin.csrf);
+    expect(self.status).toBe(409);
+    expect(self.body.code).toBe('PROTECTED');
+    const lead = await admin.agent.delete(`/api/communities/${hq.id}/members/${leader.person.id}`).set('X-CSRF-Token', admin.csrf);
+    expect(lead.status).toBe(409);
+    expect(lead.body.code).toBe('IS_LEADER');
+    expect((await prisma.communityMembership.findUniqueOrThrow({ where: { personId_communityId: { personId: leader.person.id, communityId: hq.id } } })).status).toBe('ACTIVE');
+  });
+});
+
