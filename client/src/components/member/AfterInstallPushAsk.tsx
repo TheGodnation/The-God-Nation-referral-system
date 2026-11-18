@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { NotificationBenefits } from './NotificationBenefits';
 import { checkPushOnThisDevice, enablePushNotifications, isStandalone, type PushDeviceStatus } from '../../lib/push';
 
 const KEY = 'godnation:askedPushAfterInstall';
@@ -61,17 +62,23 @@ export function AfterInstallPushAsk() {
   }
 
   return (
-    <div className="mb-4 rounded-xl border-2 border-brand-300 bg-brand-50 p-4 text-brand-900" role="region" aria-label={t('afterInstall.title') ?? ''} data-testid="after-install-ask">
-      <p className="text-base font-bold">🎉 {t('afterInstall.title')}</p>
-      <p className="mt-1 text-sm">{t('afterInstall.body')}</p>
-      {failed && <p className="mt-1 text-xs text-red-700">{t('notifications.enable_failed')}</p>}
-      <div className="mt-3 flex items-center gap-3">
-        <button type="button" disabled={busy} onClick={() => void enable()} className="btn-primary px-4 py-2 text-sm disabled:opacity-60" data-testid="after-install-enable">
-          {busy ? t('notifications.enabling') : t('notifications.enable_button')}
-        </button>
-        <button type="button" onClick={close} className="text-sm font-semibold text-brand-700 underline" data-testid="after-install-later">
-          {t('afterInstall.later')}
-        </button>
+    <div className="mb-4 rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-3 text-brand-900 shadow-sm" role="region" aria-label={t('afterInstall.title') ?? ''} data-testid="after-install-ask">
+      <div className="flex items-start gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-lg text-white" aria-hidden="true">🎉</span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold leading-5">{t('afterInstall.title')}</p>
+          <p className="mt-0.5 text-xs text-brand-800">{t('afterInstall.body')}</p>
+          <NotificationBenefits />
+          {failed && <p className="mt-1 text-xs text-red-700">{t('notifications.enable_failed')}</p>}
+          <div className="mt-2.5 flex items-center gap-4">
+            <button type="button" disabled={busy} onClick={() => void enable()} className="btn-primary px-4 py-2 text-sm disabled:opacity-60" data-testid="after-install-enable">
+              {busy ? t('notifications.enabling') : t('notifications.enable_button')}
+            </button>
+            <button type="button" onClick={close} className="text-sm font-semibold text-brand-700 underline" data-testid="after-install-later">
+              {t('afterInstall.later')}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

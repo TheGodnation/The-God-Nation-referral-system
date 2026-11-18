@@ -114,7 +114,7 @@ describe('EnableNotificationsBanner', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Turn on notifications' }));
 
     await waitFor(() => {
-      expect(screen.queryByText('Get notified about new messages, announcements and updates — even when the app is closed.')).not.toBeInTheDocument();
+      expect(screen.queryByText('Turn on notifications and get what matters to you, straight to your phone:')).not.toBeInTheDocument();
     });
   });
 

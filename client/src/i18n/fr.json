@@ -1748,11 +1748,17 @@
     "escalation_bypassed_asker": "Votre question au sujet de {{about}} a été transmise à l'administration centrale.",
     "escalation_bypassed_away": "La question de {{asker}} au sujet de {{about}} est allée à l'administration centrale parce que vous êtes absent.",
     "escalation_bypassed_skipped": "La question de {{asker}} au sujet de {{about}} a été transmise à l'administration centrale faute de réponse à temps.",
-    "enable_title": "Activer les notifications",
-    "enable_body": "Soyez averti des nouveaux messages, annonces et mises à jour — même quand l’application est fermée.",
+    "enable_title": "Soyez le premier informé",
+    "enable_body": "Activez les notifications et recevez directement sur votre téléphone ce qui compte pour vous :",
+    "benefit_events": "Événements de la communauté",
+    "benefit_teachings": "Enseignements et annonces",
+    "benefit_messages": "Messages des amis et des responsables",
+    "enable_tail": "Même quand l’application est fermée. Vous pouvez les désactiver à tout moment.",
     "enable_button": "Activer les notifications",
     "enabling": "Activation…",
     "enable_failed": "Impossible d’activer les notifications. Veuillez réessayer.",
+    "blocked_title": "Les notifications sont bloquées sur ce téléphone",
+    "blocked_button": "Voir comment les débloquer",
     "blocked_body": "Les notifications sont bloquées sur cet appareil. Pour les recevoir, ouvrez les réglages de votre téléphone ou navigateur pour ce site et autorisez les notifications.",
     "need_help": "Besoin d’aide ?",
     "ios_home_screen_body": "Sur iPhone, les notifications ne fonctionnent que depuis l’application sur votre écran d’accueil. Dans Safari, touchez le bouton Partager, puis « Sur l’écran d’accueil ». Ouvrez l’application depuis cette icône et activez-y les notifications.",
@@ -4496,7 +4502,7 @@
   },
   "afterInstall": {
     "title": "L’application est installée. Une dernière étape.",
-    "body": "Activez les notifications pour ne manquer aucun enseignement, aucune demande de prière ni aucun message.",
+    "body": "Activez les notifications et soyez le premier informé :",
     "later": "Pas maintenant"
   },
   "contactPrefs": {
