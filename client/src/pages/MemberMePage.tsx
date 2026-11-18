@@ -315,7 +315,7 @@ export function MemberMePage() {
     <PageShell minimal>
       <section className="mx-auto max-w-2xl pb-6 sm:px-4 sm:pt-4">
         <div className="mb-2 mt-2 empty:hidden">
-          <PageNote id="me" done={Boolean(member.photoUrl && member.coverUrl)}>
+          <PageNote id="me" to="/member/me/edit" done={Boolean(member.photoUrl && member.coverUrl)}>
             {t('pageNotes.me')}
           </PageNote>
         </div>

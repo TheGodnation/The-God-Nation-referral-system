@@ -1,68 +1,70 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { MemberAuthProvider } from '../lib/MemberAuthContext';
 import { PageNote } from '../components/PageNote';
 
-// The bright-blue note at the top of Home, Learn and Me: stays until closed, remembered per person; on Me it goes by itself
-// once both photos are added.
+// The slim line at the top of Home, Learn and Me: always visible for people who joined in the last 30 days (nothing to
+// tap to see it), tappable to go there, and on Me it goes by itself once both photos are added.
 const json = (body: unknown) => Promise.resolve({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => body });
-function signedIn(id = 'p1', daysAgo = 3) {
+function signedIn(daysAgo = 3) {
   const joinedAt = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
-  vi.stubGlobal('fetch', vi.fn(() => json({ member: { name: 'New Member', email: 'n@x.com', preferredLanguage: 'en', profileComplete: true, termsAccepted: true, personId: id, joinedAt } })));
+  vi.stubGlobal('fetch', vi.fn(() => json({ member: { name: 'New Member', email: 'n@x.com', preferredLanguage: 'en', profileComplete: true, termsAccepted: true, personId: 'p1', joinedAt } })));
 }
-const show = (done = false, id = 'learn') => render(<MemoryRouter><MemberAuthProvider><PageNote id={id} done={done}>Study here</PageNote></MemberAuthProvider></MemoryRouter>);
+const show = (props: Partial<React.ComponentProps<typeof PageNote>> = {}) =>
+  render(
+    <MemoryRouter>
+      <MemberAuthProvider>
+        <Routes>
+          <Route path="/" element={<><div id="target">Target</div><PageNote id="learn" scrollTo="target" {...props}>Study here</PageNote></>} />
+          <Route path="/member/me/edit" element={<p>Edit profile screen</p>} />
+        </Routes>
+      </MemberAuthProvider>
+    </MemoryRouter>,
+  );
 
-beforeEach(() => localStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
 
 describe('page notes', () => {
-  it('shows for a signed-in member, is bright blue like the English button, and stays closed once closed', async () => {
+  it('is visible without any tap for a member who joined recently, and has no close button to lose it', async () => {
     signedIn();
-    const first = show();
+    show();
     const note = await screen.findByTestId('page-note-learn');
     expect(note).toHaveTextContent('Study here');
-    expect(note.className).toContain('bg-brand-600');
-    fireEvent.click(screen.getByTestId('page-note-close-learn'));
-    expect(screen.queryByTestId('page-note-learn')).toBeNull();
-    first.unmount();
+    expect(screen.queryByRole('button', { name: /close/i })).toBeNull();
+  });
+
+  it('scrolls to the content when tapped', async () => {
+    signedIn();
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
     show();
-    await waitFor(() => expect((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(1));
-    await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByTestId('page-note-learn')).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: /Study here/ }));
+    expect(scroll).toHaveBeenCalled();
   });
 
-  it('stays when they leave without closing it, and each page has its own memory', async () => {
+  it('can open another screen when tapped (Me opens the profile edit screen)', async () => {
     signedIn();
-    const first = show(false, 'home');
-    await screen.findByTestId('page-note-home');
-    first.unmount();
-    show(false, 'home');
-    expect(await screen.findByTestId('page-note-home')).toBeInTheDocument();
-    first.unmount();
-    // Closing "learn" earlier does not close "home".
-    localStorage.setItem('godnation:note-closed:learn:p1', '1');
-    expect(await screen.findByTestId('page-note-home')).toBeInTheDocument();
-  });
-
-  it('goes by itself when it is done (both photos added)', async () => {
-    signedIn();
-    show(true, 'me');
-    await new Promise((r) => setTimeout(r, 80));
-    expect(screen.queryByTestId('page-note-me')).toBeNull();
+    show({ to: '/member/me/edit' });
+    fireEvent.click(await screen.findByRole('link', { name: /Study here/ }));
+    expect(await screen.findByText('Edit profile screen')).toBeInTheDocument();
   });
 
   it('is only for people who joined in the last 30 days', async () => {
-    signedIn('p1', 45);
-    show(false, 'learn');
+    signedIn(45);
+    show();
     await waitFor(() => expect((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(0));
     await new Promise((r) => setTimeout(r, 80));
     expect(screen.queryByTestId('page-note-learn')).toBeNull();
   });
 
-  it('shows for someone who joined 29 days ago', async () => {
-    signedIn('p1', 29);
-    show(false, 'learn');
+  it('shows for someone who joined 29 days ago, and goes by itself when it is done (both photos added)', async () => {
+    signedIn(29);
+    const first = show();
     expect(await screen.findByTestId('page-note-learn')).toBeInTheDocument();
+    first.unmount();
+    show({ done: true });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(screen.queryByTestId('page-note-learn')).toBeNull();
   });
 });

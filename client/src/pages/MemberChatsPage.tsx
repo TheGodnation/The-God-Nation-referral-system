@@ -11,6 +11,7 @@ import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { EventsCard } from '../components/member/EventsCard';
 import { LeadershipCard } from '../components/member/LeadershipCard';
+import { useIsNewMember } from '../components/PageNote';
 import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatList';
 import { mediaKind } from '../components/chat/types';
 import { Announcements } from '../components/Announcements';
@@ -160,36 +161,13 @@ export function MemberChatsPage() {
   useEffect(() => {
     if (privateUnread && privateUnread > 0 && !touched.current) setTab('private');
   }, [privateUnread]);
-  // The little arrow under the tabs: it points a new member to Assemblies, where all the members of the community are
-  // assembled. It stays (even after they leave and come back) until they have tapped Assemblies or closed it.
-  const hintKey = `godnation:assemblies-tapped:${member?.personId ?? ''}`;
-  const [hintDone, setHintDone] = useState(() => {
-    try {
-      return localStorage.getItem(hintKey) === '1';
-    } catch {
-      return false;
-    }
-  });
-  useEffect(() => {
-    try {
-      setHintDone(localStorage.getItem(hintKey) === '1');
-    } catch {
-      /* private mode: it simply shows */
-    }
-  }, [hintKey]);
-  const finishHint = () => {
-    setHintDone(true);
-    try {
-      localStorage.setItem(hintKey, '1');
-    } catch {
-      /* private mode: it only lasts for this visit */
-    }
-  };
   const pick = (to: 'assemblies' | 'private') => {
     touched.current = true;
     setTab(to);
-    if (to === 'assemblies') finishHint();
   };
+  // The small pill under the tabs: it points a new member (joined in the last 30 days) to Assemblies, where all the
+  // members of the community are assembled. It stays visible, every time, while they are on Private messages.
+  const isNewMember = useIsNewMember();
 
   return (
     <PageShell minimal>
@@ -226,18 +204,19 @@ export function MemberChatsPage() {
             );
           })}
         </div>
-        {tab === 'private' && !hintDone && member?.personId && (
+        {tab === 'private' && isNewMember && (
           <div className="relative -mt-2 mb-4" data-testid="assemblies-hint">
-            <span aria-hidden="true" className="absolute -top-1.5 left-[22%] h-3 w-3 rotate-45 bg-brand-600" />
-            <div className="flex items-start gap-2 rounded-xl bg-brand-600 p-3 text-sm text-white shadow">
-              <button type="button" onClick={() => pick('assemblies')} className="flex-1 text-left" data-testid="assemblies-hint-go">
-                <span aria-hidden="true">👋 </span>
-                <span className="font-semibold">{t('chatsTabs.hint')}</span>
-              </button>
-              <button type="button" aria-label={t('chatsTabs.hint_close') ?? ''} onClick={finishHint} className="px-1 leading-5 text-white/80" data-testid="assemblies-hint-close">
-                ✕
-              </button>
-            </div>
+            <span aria-hidden="true" className="absolute -top-1.5 left-[22%] h-3 w-3 rotate-45 border-l border-t border-brand-200 bg-brand-50" />
+            <button
+              type="button"
+              onClick={() => pick('assemblies')}
+              className="flex w-full items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-left text-sm font-medium text-brand-900 shadow-sm hover:bg-brand-100"
+              data-testid="assemblies-hint-go"
+            >
+              <span aria-hidden="true">👋</span>
+              <span className="min-w-0 flex-1">{t('chatsTabs.hint')}</span>
+              <span aria-hidden="true" className="text-brand-600">›</span>
+            </button>
           </div>
         )}
         <div className="space-y-6">

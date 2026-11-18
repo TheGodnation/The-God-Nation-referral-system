@@ -10,7 +10,7 @@ const json = (body: unknown) => Promise.resolve({ ok: true, status: 200, headers
 
 function stub() {
   vi.stubGlobal('fetch', vi.fn((url: string) => {
-    if (url.includes('/api/member/auth/me')) return json({ member: { name: 'New Member', email: 'n@x.com', preferredLanguage: 'en', profileComplete: true, termsAccepted: true, personId: 'p1' } });
+    if (url.includes('/api/member/auth/me')) return json({ member: { name: 'New Member', email: 'n@x.com', preferredLanguage: 'en', profileComplete: true, termsAccepted: true, personId: 'p1', joinedAt: new Date(Date.now() - 3 * 86400000).toISOString() } });
     if (url.includes('/api/settings/public')) return json({ content: {} });
     if (url.includes('/community-memberships')) return json({ items: [{ communityId: 'hq', communityName: 'HQ', status: 'ACTIVE', generation: 0 }] });
     if (url.includes('/api/private-messages/conversations')) return json({ items: [{ id: 'c1', createdAt: '2026-11-18T10:00:00Z', otherPartyType: 'LEADER', otherPartyName: 'Welcome Sender', otherPartyPersonId: 'x', unreadCount: 1, lastMessage: null }] });
@@ -22,42 +22,38 @@ const open = () => render(<MemoryRouter><MemberAuthProvider><MemberChatsPage /><
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
 
-describe('Arrow pointing a new member to Assemblies', () => {
-  it('shows under the tabs while they are on Private messages, and tapping it opens Assemblies and remembers', async () => {
+describe('Pill pointing a new member to Assemblies', () => {
+  it('shows under the tabs on Private messages, and tapping it opens Assemblies', async () => {
     stub();
-    const first = open();
+    open();
     const hint = await screen.findByTestId('assemblies-hint');
     expect(hint).toHaveTextContent('Tap here to meet where all members of the community are assembled.');
+    expect(screen.queryByRole('button', { name: /close/i })).toBeNull();
     fireEvent.click(screen.getByTestId('assemblies-hint-go'));
     await waitFor(() => expect(screen.queryByTestId('assemblies-hint')).toBeNull());
     expect(screen.getByRole('tab', { name: /Assemblies/ })).toHaveAttribute('aria-selected', 'true');
-    first.unmount();
-    // Coming back later: already tapped, so it does not return.
-    open();
-    await screen.findByRole('tab', { name: /Private messages/ });
-    await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByTestId('assemblies-hint')).toBeNull();
   });
 
-  it('stays when they leave without tapping it, and returns when they come back', async () => {
+  it('is visible every time they land on Private messages, even after they have tapped it before', async () => {
     stub();
     const first = open();
-    await screen.findByTestId('assemblies-hint');
+    fireEvent.click(await screen.findByTestId('assemblies-hint-go'));
     first.unmount();
     open();
     expect(await screen.findByTestId('assemblies-hint')).toBeInTheDocument();
   });
 
-  it('can be closed with the ✕, and then stays closed', async () => {
-    stub();
-    const first = open();
-    await screen.findByTestId('assemblies-hint');
-    fireEvent.click(screen.getByTestId('assemblies-hint-close'));
-    expect(screen.queryByTestId('assemblies-hint')).toBeNull();
-    first.unmount();
+  it('is not shown to a member who joined more than 30 days ago', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url.includes('/api/member/auth/me')) return json({ member: { name: 'Old Member', email: 'o@x.com', preferredLanguage: 'en', profileComplete: true, termsAccepted: true, personId: 'p2', joinedAt: new Date(Date.now() - 90 * 86400000).toISOString() } });
+      if (url.includes('/api/settings/public')) return json({ content: {} });
+      if (url.includes('/community-memberships')) return json({ items: [{ communityId: 'hq', communityName: 'HQ', status: 'ACTIVE', generation: 0 }] });
+      if (url.includes('/api/private-messages/conversations')) return json({ items: [{ id: 'c1', createdAt: '2026-11-18T10:00:00Z', otherPartyType: 'LEADER', otherPartyName: 'Welcome Sender', otherPartyPersonId: 'x', unreadCount: 1, lastMessage: null }] });
+      return json({ items: [], unreadCount: 0, count: 0 });
+    }));
     open();
     await screen.findByRole('tab', { name: /Private messages/ });
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 80));
     expect(screen.queryByTestId('assemblies-hint')).toBeNull();
   });
 });
