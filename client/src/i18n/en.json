@@ -5631,6 +5631,19 @@
     "earned_now": "You earned {{count}} study points for this exam.",
     "points_earned": "{{count}} points earned"
   },
+  "splitChats": {
+    "title": "Join split chats (same person, two chats)",
+    "intro": "When two people each start a chat with the other, they end up with two chats under the same name, and the older messages seem to be gone. Here you join them into one chat: every message of both, in time order.",
+    "none": "No split chats found.",
+    "detail": "Older chat: {{olderCount}} messages (since {{olderDate}}) · Newer chat: {{newerCount}} messages (since {{newerDate}})",
+    "join": "Join into one chat",
+    "joining": "Joining…",
+    "confirm": "Join the two chats between {{a}} and {{b}} into one? Every message is kept.",
+    "joined": "Done: the two chats of {{a}} and {{b}} are now one ({{count}} messages added to the older chat).",
+    "refresh": "Refresh the list",
+    "load_failed": "Could not load the list. Please try again.",
+    "failed": "Could not join these chats."
+  },
   "mergeAccounts": {
     "title": "Merge two accounts of one person",
     "intro": "Use this when one person has two accounts. Everything of the duplicate continues on the account you keep: his leader role, the people he follows, the leaders who follow him, his assemblies and groups, chats, posts and progress. The duplicate account is then removed.",

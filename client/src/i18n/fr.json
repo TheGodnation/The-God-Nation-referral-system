@@ -5631,6 +5631,19 @@
     "earned_now": "Vous avez gagné {{count}} points d’étude pour cet examen.",
     "points_earned": "{{count}} points gagnés"
   },
+  "splitChats": {
+    "title": "Réunir les conversations séparées (même personne, deux conversations)",
+    "intro": "Quand deux personnes ouvrent chacune une conversation avec l’autre, elles se retrouvent avec deux conversations sous le même nom, et les anciens messages semblent avoir disparu. Ici, vous les réunissez en une seule : tous les messages des deux, dans l’ordre du temps.",
+    "none": "Aucune conversation séparée trouvée.",
+    "detail": "Conversation plus ancienne : {{olderCount}} messages (depuis le {{olderDate}}) · Plus récente : {{newerCount}} messages (depuis le {{newerDate}})",
+    "join": "Réunir en une conversation",
+    "joining": "Réunion en cours…",
+    "confirm": "Réunir en une seule les deux conversations entre {{a}} et {{b}} ? Tous les messages sont conservés.",
+    "joined": "Fait : les deux conversations de {{a}} et {{b}} n’en font plus qu’une ({{count}} messages ajoutés à la plus ancienne).",
+    "refresh": "Actualiser la liste",
+    "load_failed": "Impossible de charger la liste. Veuillez réessayer.",
+    "failed": "Impossible de réunir ces conversations."
+  },
   "mergeAccounts": {
     "title": "Fusionner deux comptes d’une même personne",
     "intro": "À utiliser quand une personne a deux comptes. Tout ce qui appartient au doublon continue sur le compte que vous gardez : son rôle de leader, les personnes qu’il suit, les leaders qui le suivent, ses assemblées et groupes, ses discussions, ses publications et sa progression. Le compte en double est ensuite supprimé.",
