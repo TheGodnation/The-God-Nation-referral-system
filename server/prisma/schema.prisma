@@ -4490,3 +4490,16 @@ model FaithNote {
 
   @@index([personId, createdAt])
 }
+
+// A pair of accounts the central admin looked at and said "not the same person": it never comes back in the "Possible
+// duplicates" list. The two ids are stored in order (A before B), as plain text without a link to the person, so
+// merging or deleting someone never gets in the way.
+model DuplicateDismissal {
+  id        String   @id @default(uuid())
+  personAId String
+  personBId String
+  createdAt DateTime @default(now())
+
+  @@unique([personAId, personBId])
+}
+

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { SearchPicker } from './SearchPicker';
@@ -36,7 +36,7 @@ interface Report {
 // One person with two accounts: choose the account he really uses (it stays) and the duplicate (merged into it, then
 // removed). Everything continues on the kept account: his leader role, the people he follows, who follows him, his
 // assemblies, chats, posts and progress. A preview shows exactly what would move before anything changes.
-export function MergeAccountsCard({ base }: { base: string }) {
+export function MergeAccountsCard({ base, prefill }: { base: string; prefill?: { keepId: string; dupId: string; nonce: number } | null }) {
   const { t } = useTranslation();
   const [keep, setKeep] = useState<Described | null>(null);
   const [dup, setDup] = useState<Described | null>(null);
@@ -46,6 +46,40 @@ export function MergeAccountsCard({ base }: { base: string }) {
   const [done, setDone] = useState<string | null>(null);
   // When both accounts have a sign-in email, only one of them opens the account afterwards.
   const [emailChoice, setEmailChoice] = useState<'keep' | 'duplicate'>('keep');
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDetailsElement>(null);
+
+  // Opened from "Possible duplicates" with the two accounts already chosen (the older one to keep; "Swap" turns them round).
+  useEffect(() => {
+    if (!prefill) return;
+    let alive = true;
+    setOpen(true);
+    setPreview(null);
+    setDone(null);
+    setError(null);
+    setEmailChoice('keep');
+    Promise.all([
+      api.get<Described>(`${base}/merge-people/describe?personId=${encodeURIComponent(prefill.keepId)}`),
+      api.get<Described>(`${base}/merge-people/describe?personId=${encodeURIComponent(prefill.dupId)}`),
+    ])
+      .then(([k, d]) => {
+        if (!alive) return;
+        setKeep(k);
+        setDup(d);
+        window.setTimeout(() => ref.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 50);
+      })
+      .catch(() => alive && setError(t('mergeAccounts.load_failed')));
+    return () => {
+      alive = false;
+    };
+  }, [prefill?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function swap() {
+    setKeep(dup);
+    setDup(keep);
+    setPreview(null);
+    setEmailChoice('keep');
+  }
 
   async function pick(which: 'keep' | 'dup', item: { id: string }) {
     setPreview(null);
@@ -111,7 +145,7 @@ export function MergeAccountsCard({ base }: { base: string }) {
     : [];
 
   return (
-    <details className="card space-y-3" data-testid="merge-accounts">
+    <details ref={ref} open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)} className="card scroll-mt-4 space-y-3" data-testid="merge-accounts">
       <summary className="cursor-pointer font-semibold text-brand-900">{t('mergeAccounts.title')}</summary>
       <p className="text-sm text-slate-600">{t('mergeAccounts.intro')}</p>
 
@@ -140,6 +174,12 @@ export function MergeAccountsCard({ base }: { base: string }) {
         />
         {dup && card(dup)}
       </div>
+
+      {keep && dup && !same && (
+        <button type="button" className="text-xs font-semibold text-brand-700 underline" onClick={swap} data-testid="merge-swap">
+          ⇅ {t('mergeAccounts.swap')}
+        </button>
+      )}
 
       {keep && dup && !same && keep.signInEmail && dup.signInEmail && (
         <fieldset className="space-y-1 rounded-lg border border-slate-200 bg-white p-3 text-sm" data-testid="merge-email-choice">

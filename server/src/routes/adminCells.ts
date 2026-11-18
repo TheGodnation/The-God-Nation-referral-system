@@ -9,6 +9,7 @@ import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { findSplitChats, joinChats } from '../lib/joinChats';
+import { dismissSuspect, findDuplicateSuspects } from '../lib/duplicateSuspects';
 import { adminClinicStatus, adminSendsBookToAll } from '../lib/clinic';
 import { clinicRhythm } from '../lib/examWorld';
 import { assemblyHealth, leadersHealthIn } from '../lib/assemblyHealth';
@@ -169,6 +170,24 @@ function buildCellsRouter(resolveActor: (req: Request) => Promise<Actor | null>)
       });
     }
     res.json({ dryRun: result.dryRun, report: result.report });
+  }));
+
+  // Accounts that may be one person (same inbox written differently, same name, near-same phone). Only a suggestion list;
+  // "Not the same person" hides a pair for good, "Merge" opens the merge tool with both chosen.
+  router.get('/duplicate-suspects', asyncHandler(async (req, res) => {
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    res.json({ items: await findDuplicateSuspects() });
+  }));
+
+  router.post('/duplicate-suspects/dismiss', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ personAId: z.string().min(1), personBId: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success || parsed.data.personAId === parsed.data.personBId) return res.status(400).json({ error: 'Choose the two accounts.' });
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    await dismissSuspect(parsed.data.personAId, parsed.data.personBId);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'DUPLICATE_DISMISSED', targetType: 'Person', targetId: parsed.data.personAId, metadata: { otherPersonId: parsed.data.personBId } });
+    res.json({ ok: true });
   }));
 
   // Two people with TWO private chats between them (one started by each): list them, and join a pair into one chat.

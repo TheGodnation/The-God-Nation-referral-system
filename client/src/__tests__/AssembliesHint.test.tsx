@@ -27,7 +27,7 @@ describe('Arrow pointing a new member to Assemblies', () => {
     stub();
     const first = open();
     const hint = await screen.findByTestId('assemblies-hint');
-    expect(hint).toHaveTextContent('You are part of this community');
+    expect(hint).toHaveTextContent('Tap here to meet where all members of the community are assembled.');
     fireEvent.click(screen.getByTestId('assemblies-hint-go'));
     await waitFor(() => expect(screen.queryByTestId('assemblies-hint')).toBeNull());
     expect(screen.getByRole('tab', { name: /Assemblies/ })).toHaveAttribute('aria-selected', 'true');

@@ -9,6 +9,7 @@ import { ContactPreferencesCard } from '../components/member/ContactPreferencesC
 import { GrowthPanel } from '../components/admin/GrowthPanel';
 import { KnowledgePanel } from '../components/admin/KnowledgePanel';
 import { HeadquartersPostsTab } from '../components/admin/HeadquartersPostsTab';
+import { PageNote } from '../components/PageNote';
 import { WallHeader } from '../components/wall/WallHeader';
 import { PhotoGrid, WallTabs } from '../components/wall/PhotoGrid';
 import { UpdatesFeed } from '../components/updates/UpdatesFeed';
@@ -313,6 +314,11 @@ export function MemberMePage() {
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-2xl pb-6 sm:px-4 sm:pt-4">
+        <div className="mb-2 mt-2 empty:hidden">
+          <PageNote id="me" done={Boolean(member.photoUrl && member.coverUrl)}>
+            {t('pageNotes.me')}
+          </PageNote>
+        </div>
         <WallHeader
           name={member.name}
           photoUrl={member.photoUrl}

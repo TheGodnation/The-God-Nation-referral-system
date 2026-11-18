@@ -9,6 +9,7 @@ import { TokensCard } from './TokensCard';
 import { LeadersOversight } from './LeadersOversight';
 import { MergeAccountsCard } from './MergeAccountsCard';
 import { SplitChatsCard } from './SplitChatsCard';
+import { DuplicateSuspectsCard } from './DuplicateSuspectsCard';
 
 interface Row {
   id: string;
@@ -51,6 +52,7 @@ export function CellsPanel({ base, showShareCard = true }: { base: '/api/admin/c
   const [data, setData] = useState<Overview | null>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<Row | null>(null);
+  const [mergePrefill, setMergePrefill] = useState<{ keepId: string; dupId: string; nonce: number } | null>(null);
   const [ready, setReady] = useState<Ready | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -224,7 +226,8 @@ export function CellsPanel({ base, showShareCard = true }: { base: '/api/admin/c
         </ul>
       </section>
 
-      <MergeAccountsCard base={base} />
+      <DuplicateSuspectsCard base={base} onMerge={(keepId, dupId) => setMergePrefill({ keepId, dupId, nonce: Date.now() })} />
+      <MergeAccountsCard base={base} prefill={mergePrefill} />
       <SplitChatsCard base={base} />
 
       {open && (

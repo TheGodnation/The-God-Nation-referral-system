@@ -5029,10 +5029,15 @@
     "start_cta": "Commencer l'École du Leadership",
     "continue_cta": "Continuer mes études"
   },
+  "pageNotes": {
+    "home": "Ici, ce sont les Actualités : les nouvelles et les publications de la communauté.",
+    "learn": "C’est ici que vous étudiez : livres, enseignements et examens.",
+    "me": "Ajoutez ici votre photo de profil et votre photo de mur : touchez les images pour les changer.",
+    "close": "Fermer cette note"
+  },
   "chatsTabs": {
-    "hint": "Vous faites partie de cette communauté. Touchez « Assemblées » pour retrouver tout le monde : tous les membres de la communauté y sont réunis.",
-    "hint_go": "Les retrouver ici →",
-    "hint_close": "Fermer",
+    "hint": "Touchez ici pour retrouver tous les membres de la communauté, réunis au même endroit.",
+    "hint_close": "Fermer cette astuce",
     "assemblies": "Assemblées",
     "private": "Messages privés",
     "private_hint": "Vos messages privés apparaissent ici, les plus récents en premier."
@@ -5651,7 +5656,23 @@
     "load_failed": "Impossible de charger la liste. Veuillez réessayer.",
     "failed": "Impossible de réunir ces conversations."
   },
+  "duplicates": {
+    "title": "Doublons possibles (comptes qui sont peut-être une seule personne)",
+    "intro": "Des comptes qui se ressemblent : la même boîte e-mail écrite autrement, le même nom ou presque le même numéro. Ce n’est qu’une liste à regarder. Rien ne change tant que vous n’appuyez pas sur Fusionner et que vous ne confirmez pas.",
+    "none": "Aucun doublon possible trouvé.",
+    "sign_email": "Même boîte e-mail",
+    "sign_name": "Même nom",
+    "sign_phone": "Téléphone proche",
+    "no_email": "Pas d’e-mail",
+    "joined": "Inscrit le {{date}}",
+    "merge": "Fusionner…",
+    "not_same": "Pas la même personne",
+    "refresh": "Actualiser la liste",
+    "load_failed": "Impossible de charger la liste. Veuillez réessayer.",
+    "failed": "Impossible de le faire. Veuillez réessayer."
+  },
   "mergeAccounts": {
+    "swap": "Inverser : garder l’autre compte",
     "title": "Fusionner deux comptes d’une même personne",
     "intro": "À utiliser quand une personne a deux comptes. Tout ce qui appartient au doublon continue sur le compte que vous gardez : son rôle de leader, les personnes qu’il suit, les leaders qui le suivent, ses assemblées et groupes, ses discussions, ses publications et sa progression. Le compte en double est ensuite supprimé.",
     "keep_label": "Le compte qu’il utilise vraiment (celui-ci reste)",
