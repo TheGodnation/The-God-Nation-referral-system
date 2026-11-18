@@ -4,6 +4,7 @@ import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { createLeader, createAdmin } from './helpers';
+import { getOrCreatePrivateConversation } from '../lib/privateMessaging';
 import { bootstrap } from './testUtils';
 
 // Private Communication / Messaging — mirrors the exact conventions
@@ -630,5 +631,19 @@ describe('Private Messaging — security / model integrity', () => {
 
     const count = await prisma.privateConversation.count({ where: { memberPersonId: person.id } });
     expect(count).toBe(1);
+  });
+});
+
+describe('Private Messaging — one chat per pair of people, whoever starts it', () => {
+  it('two people who write to each other from different doors share ONE chat, not two', async () => {
+    const a = await makePerson('+237694900901', 'Dir A');
+    const b = await makePerson('+237694900902', 'Dir B');
+    // A reaches B (for example from a leader tool), then B's side reaches A (for example a notice or "contact").
+    const first = await getOrCreatePrivateConversation(b.id, { type: 'PERSON', personId: a.id });
+    const second = await getOrCreatePrivateConversation(a.id, { type: 'PERSON', personId: b.id });
+    expect(second.id).toBe(first.id);
+    expect(await prisma.privateConversation.count({ where: { OR: [{ memberPersonId: a.id, initiatorPersonId: b.id }, { memberPersonId: b.id, initiatorPersonId: a.id }] } })).toBe(1);
+    // And the same direction again is still the same chat.
+    expect((await getOrCreatePrivateConversation(b.id, { type: 'PERSON', personId: a.id })).id).toBe(first.id);
   });
 });
