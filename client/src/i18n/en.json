@@ -5656,7 +5656,23 @@
     "load_failed": "Could not load the list. Please try again.",
     "failed": "Could not join these chats."
   },
+  "duplicates": {
+    "title": "Possible duplicates (accounts that may be one person)",
+    "intro": "Accounts that look alike: the same inbox written differently, the same name, or almost the same phone number. This is only a list to look at. Nothing changes until you press Merge and confirm.",
+    "none": "No possible duplicates found.",
+    "sign_email": "Same inbox",
+    "sign_name": "Same name",
+    "sign_phone": "Similar phone",
+    "no_email": "No email",
+    "joined": "Joined {{date}}",
+    "merge": "Merge…",
+    "not_same": "Not the same person",
+    "refresh": "Refresh the list",
+    "load_failed": "Could not load the list. Please try again.",
+    "failed": "Could not do that. Please try again."
+  },
   "mergeAccounts": {
+    "swap": "Swap: keep the other account",
     "title": "Merge two accounts of one person",
     "intro": "Use this when one person has two accounts. Everything of the duplicate continues on the account you keep: his leader role, the people he follows, the leaders who follow him, his assemblies and groups, chats, posts and progress. The duplicate account is then removed.",
     "keep_label": "The account he really uses (this one stays)",

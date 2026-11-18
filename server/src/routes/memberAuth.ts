@@ -1,3 +1,4 @@
+import { findAccountByGmailDots } from '../lib/duplicateSuspects';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { cancelAccountDeletion } from '../lib/accountDeletion';
 import { Router, type Request, type Response } from 'express';
@@ -300,6 +301,14 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
   // password" (request-code + verify-code with newPassword) instead.
   if (accountByEmail) {
     await sendMemberLoginLink(accountByEmail, accountByEmail.person);
+    return res.json(GENERIC_SIGNUP_RESPONSE);
+  }
+
+  // Case 1b: the same Gmail inbox with the dots moved ("john.doe@" and "johndoe@" reach the same mailbox). Treated exactly
+  // like Case 1: the sign-in link goes to the existing account's own inbox; nothing new is created.
+  const sameInbox = await findAccountByGmailDots(normalizedEmail);
+  if (sameInbox) {
+    await sendMemberLoginLink(sameInbox, sameInbox.person);
     return res.json(GENERIC_SIGNUP_RESPONSE);
   }
 
