@@ -5033,11 +5033,11 @@
     "home": "This is Updates: the news and posts from the community.",
     "learn": "This is where you study: books, teachings and exams.",
     "me": "Add your profile photo and your wall photo here: tap the pictures to change them.",
-    "close": "Close"
+    "close": "Close this note"
   },
   "chatsTabs": {
     "hint": "Tap here to meet where all members of the community are assembled.",
-    "hint_close": "Close",
+    "hint_close": "Close this tip",
     "assemblies": "Assemblies",
     "private": "Private messages",
     "private_hint": "Your private messages appear here, newest first."

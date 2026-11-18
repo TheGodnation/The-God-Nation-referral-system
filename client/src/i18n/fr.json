@@ -5033,11 +5033,11 @@
     "home": "Ici, ce sont les Actualités : les nouvelles et les publications de la communauté.",
     "learn": "C’est ici que vous étudiez : livres, enseignements et examens.",
     "me": "Ajoutez ici votre photo de profil et votre photo de mur : touchez les images pour les changer.",
-    "close": "Fermer"
+    "close": "Fermer cette note"
   },
   "chatsTabs": {
     "hint": "Touchez ici pour retrouver tous les membres de la communauté, réunis au même endroit.",
-    "hint_close": "Fermer",
+    "hint_close": "Fermer cette astuce",
     "assemblies": "Assemblées",
     "private": "Messages privés",
     "private_hint": "Vos messages privés apparaissent ici, les plus récents en premier."
