@@ -160,9 +160,35 @@ export function MemberChatsPage() {
   useEffect(() => {
     if (privateUnread && privateUnread > 0 && !touched.current) setTab('private');
   }, [privateUnread]);
+  // The little arrow under the tabs: it points a new member to Assemblies, where all the members of the community are
+  // assembled. It stays (even after they leave and come back) until they have tapped Assemblies or closed it.
+  const hintKey = `godnation:assemblies-tapped:${member?.personId ?? ''}`;
+  const [hintDone, setHintDone] = useState(() => {
+    try {
+      return localStorage.getItem(hintKey) === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      setHintDone(localStorage.getItem(hintKey) === '1');
+    } catch {
+      /* private mode: it simply shows */
+    }
+  }, [hintKey]);
+  const finishHint = () => {
+    setHintDone(true);
+    try {
+      localStorage.setItem(hintKey, '1');
+    } catch {
+      /* private mode: it only lasts for this visit */
+    }
+  };
   const pick = (to: 'assemblies' | 'private') => {
     touched.current = true;
     setTab(to);
+    if (to === 'assemblies') finishHint();
   };
 
   return (
@@ -200,6 +226,20 @@ export function MemberChatsPage() {
             );
           })}
         </div>
+        {tab === 'private' && !hintDone && member?.personId && (
+          <div className="relative -mt-2 mb-4" data-testid="assemblies-hint">
+            <span aria-hidden="true" className="absolute -top-1.5 left-[22%] h-3 w-3 rotate-45 bg-brand-800" />
+            <div className="flex items-start gap-2 rounded-xl bg-brand-800 p-3 text-sm text-white shadow">
+              <button type="button" onClick={() => pick('assemblies')} className="flex-1 text-left" data-testid="assemblies-hint-go">
+                <span aria-hidden="true">👋 </span>
+                {t('chatsTabs.hint')} <span className="font-semibold underline">{t('chatsTabs.hint_go')}</span>
+              </button>
+              <button type="button" aria-label={t('chatsTabs.hint_close') ?? ''} onClick={finishHint} className="px-1 leading-5 text-white/80" data-testid="assemblies-hint-close">
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
         <div className="space-y-6">
           <div className={tab === 'assemblies' ? 'space-y-6' : 'hidden'}>
           <section className="card p-0">

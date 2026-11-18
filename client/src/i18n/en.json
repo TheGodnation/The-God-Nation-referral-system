@@ -5030,6 +5030,9 @@
     "continue_cta": "Continue my studies"
   },
   "chatsTabs": {
+    "hint": "You are part of this community. Tap “Assemblies” to meet everyone: all the members of the community are assembled there.",
+    "hint_go": "Meet them here →",
+    "hint_close": "Close",
     "assemblies": "Assemblies",
     "private": "Private messages",
     "private_hint": "Your private messages appear here, newest first."

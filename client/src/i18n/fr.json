@@ -5030,6 +5030,9 @@
     "continue_cta": "Continuer mes études"
   },
   "chatsTabs": {
+    "hint": "Vous faites partie de cette communauté. Touchez « Assemblées » pour retrouver tout le monde : tous les membres de la communauté y sont réunis.",
+    "hint_go": "Les retrouver ici →",
+    "hint_close": "Fermer",
     "assemblies": "Assemblées",
     "private": "Messages privés",
     "private_hint": "Vos messages privés apparaissent ici, les plus récents en premier."
