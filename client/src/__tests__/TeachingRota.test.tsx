@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { MemberMyTeachingPage } from '../pages/MemberMyTeachingPage';
 import { TeachingStrip } from '../components/teaching/TeachingStrip';
 import { TeachingRotaPanel } from '../components/admin/TeachingRotaPanel';
+import { TeachingRatings } from '../components/teaching/TeachingRatings';
 
 vi.mock('../components/member/MemberNav', () => ({ MemberNav: () => null }));
 vi.mock('../components/PageShell', () => ({ PageShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
@@ -90,10 +91,11 @@ describe('The strip on the Chats page', () => {
   });
 });
 
-const row = (over = {}) => ({ id: 't1', name: 'Alpha Tester', active: true, personId: null, memberName: null, hasAccount: false, language: null, dayOfWeek: 1, startTime: '07:00', startTopic: 1, upcoming: [{ weekStart: '2026-11-23', number: 1, title: 'Key 9, Prayer' }, { weekStart: '2026-11-30', number: 2, title: 'Key 11, Confession' }], ...over });
+const row = (over = {}) => ({ id: 't1', name: 'Alpha Tester', active: true, personId: null, memberName: null, hasAccount: false, language: null, dayOfWeek: 1, startTime: '07:00', startTopic: 1, upcoming: [{ weekStart: '2026-11-23', number: 1, title: 'Key 9, Prayer' }, { weekStart: '2026-11-30', number: 2, title: 'Key 11, Confession' }], ratings: { total: 0, average: null, counts: { EXCELLENT: 0, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 0 } }, ...over });
 const overview = (over = {}) => ({
   settings: { enabled: false, startDate: '2026-11-23', frenchChecked: false, started: false },
   weeks: ['2026-11-23'],
+  raters: { communityId: null, communityName: null, count: 1 },
   topics: [{ number: 1, kind: 'key', title: 'Key 9, Prayer', hasFrench: true }],
   teachers: [row()],
   warnings: ['UNMATCHED'],
@@ -147,6 +149,7 @@ describe('Weekly teaching panel (central admin)', () => {
       if (url.endsWith('/guide')) return json({ guide: { en: guide } });
       return json(state);
     }));
+    vi.stubGlobal('confirm', () => true);
     render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
     await screen.findByText('Alpha Tester');
     expect(screen.getByTestId('rota-status')).toHaveTextContent('OFF');
@@ -173,6 +176,7 @@ describe('Weekly teaching panel (central admin)', () => {
       if (url.endsWith('/guide')) return json({ guide: null });
       return json(overview({ frenchNeeded: true, warnings: [] }));
     }));
+    vi.stubGlobal('confirm', () => true);
     render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
     await screen.findByText('Alpha Tester');
     expect(screen.getByLabelText(/I have read the French/)).not.toBeChecked();
@@ -192,5 +196,128 @@ describe('Weekly teaching panel (central admin)', () => {
     expect(await screen.findByText('Clé 9, la prière.')).toBeInTheDocument();
     fireEvent.click(screen.getByText('🇬🇧 English'));
     expect(await screen.findByText('Key 9, Prayer.')).toBeInTheDocument();
+  });
+});
+
+
+const ITEM = { teacherId: 't1', weekStart: '2026-11-23', teacherName: 'Alpha Tester', topic: 'Key 9, Prayer', startsAt: '2026-11-23T06:00:00.000Z', myLevel: null };
+
+describe('Rating the teachings', () => {
+  it('lists what can be rated, saves the chosen level, and lets it be changed', async () => {
+    const posts: unknown[] = [];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') { posts.push(JSON.parse(String(init.body))); return json({ ok: true }); }
+      return json({ items: [ITEM] });
+    }));
+    render(<TeachingRatings />);
+    const item = await screen.findByTestId('rate-item');
+    expect(item).toHaveTextContent('Alpha Tester');
+    expect(item).toHaveTextContent('Key 9, Prayer');
+    expect(screen.getByText(/1 waiting for your rating/)).toBeInTheDocument();
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Excellent', 'Very good', 'Good', 'Keep growing']);
+    fireEvent.click(screen.getByRole('button', { name: 'Very good' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Very good' })).toHaveAttribute('aria-pressed', 'true'));
+    fireEvent.click(screen.getByRole('button', { name: 'Excellent' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Excellent' })).toHaveAttribute('aria-pressed', 'true'));
+    expect(screen.getByRole('button', { name: 'Very good' })).toHaveAttribute('aria-pressed', 'false');
+    expect(posts).toEqual([{ teacherId: 't1', weekStart: '2026-11-23', level: 'VERY_GOOD' }, { teacherId: 't1', weekStart: '2026-11-23', level: 'EXCELLENT' }]);
+  });
+
+  it('shows the server’s reason when a rating is refused, and says when there is nothing to rate', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => (init?.method === 'POST' ? json({ error: 'This teaching cannot be rated now.' }, 409) : json({ items: [ITEM] }))));
+    const { unmount } = render(<TeachingRatings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Good' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('cannot be rated now');
+    unmount();
+    vi.stubGlobal('fetch', vi.fn(() => json({ items: [] })));
+    render(<TeachingRatings />);
+    expect(await screen.findByText(/Nothing to rate right now/)).toBeInTheDocument();
+  });
+
+  it('shows a teacher only totals of how they were rated on their page', async () => {
+    const counts = { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 };
+    vi.stubGlobal('fetch', vi.fn(() => json(view({ results: [{ weekStart: '2026-11-16', topic: 'Key 8, The Word', total: 3, average: 3, counts }] }))));
+    page();
+    const card = await screen.findByTestId('teaching-results');
+    expect(card).toHaveTextContent('Key 8, The Word');
+    expect(card).toHaveTextContent('2 × Excellent');
+    expect(card).toHaveTextContent('1 × Keep growing');
+    expect(card).toHaveTextContent("Nobody's name is shown");
+  });
+
+  it('gives a member who only rates a page with the rating list, and a strip while some are waiting', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => (url.includes('to-rate') ? json({ items: [ITEM] }) : json({ enabled: true, isTeacher: false, isRater: true, toRateCount: 2 }))));
+    const { unmount } = render(<MemoryRouter><TeachingStrip /></MemoryRouter>);
+    const strip = await screen.findByTestId('teaching-strip');
+    expect(strip).toHaveTextContent('Rate the teachings');
+    expect(strip).toHaveTextContent('2 to rate');
+    unmount();
+    page();
+    expect(await screen.findByTestId('teaching-ratings')).toBeInTheDocument();
+    expect(screen.queryByTestId('not-a-teacher')).toBeNull();
+  });
+});
+
+describe('Weekly teaching panel: ratings, who rates and sending', () => {
+  const rated = row({ id: 't1', personId: 'p1', memberName: 'Alpha Tester', language: 'en', ratings: { total: 3, average: 3.3, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 } } });
+  const setup = (over: Record<string, unknown> = {}, calls: { url: string; method: string; body: any }[] = []) => {
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') { calls.push({ url, method, body: JSON.parse(String(init!.body)) }); return json(url.endsWith('/send-assignments') ? { sent: 2, alreadySent: 1 } : overview({ settings: { enabled: true, startDate: '2026-11-23', frenchChecked: true, started: false }, teachers: [rated], warnings: [], ...over })); }
+      if (url.endsWith('/guide')) return json({ guide: null });
+      if (url.includes('/ratings/t1')) return json({ name: 'Alpha Tester', weeks: [{ weekStart: '2026-11-23', topic: 'Key 9, Prayer', total: 3, average: 3.3, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 }, raters: [{ name: 'Rater One', level: 'EXCELLENT' }, { name: 'Rater Two', level: 'KEEP_GROWING' }] }] });
+      if (url.includes('/groups')) return json({ items: [{ id: 'g1', name: 'Leadership Development group', kind: 'GROUP' }] });
+      return json(overview({ settings: { enabled: true, startDate: '2026-11-23', frenchChecked: true, started: false }, teachers: [rated], warnings: [], ...over }));
+    }));
+  };
+
+  it('shows each leader’s average and who gave which rating', async () => {
+    setup();
+    render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
+    await screen.findByText('Alpha Tester');
+    expect(screen.getByTestId('rating-line')).toHaveTextContent('⭐ 3.3');
+    expect(screen.getByTestId('rating-line')).toHaveTextContent('3 ratings');
+    fireEvent.click(screen.getByText('See ratings'));
+    const detail = await screen.findByTestId('rating-detail');
+    expect(detail).toHaveTextContent('Rater One: Excellent');
+    expect(detail).toHaveTextContent('Rater Two: Keep growing');
+  });
+
+  it('lets the admin choose the group whose members rate', async () => {
+    const calls: { url: string; method: string; body: any }[] = [];
+    setup({ raters: { communityId: 'g1', communityName: 'Leadership Development group', count: 12 } }, calls);
+    render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
+    await screen.findByText('Alpha Tester');
+    expect(screen.getByTestId('raters-box')).toHaveTextContent('Members of Leadership Development group (12 people)');
+    fireEvent.click(screen.getByText('Choose the group'));
+    fireEvent.change(screen.getByLabelText("Type the group's name"), { target: { value: 'leader' } });
+    fireEvent.click(await screen.findByTestId('group-result'));
+    await waitFor(() => expect(calls.find((c) => c.url.endsWith('/settings'))?.body).toEqual({ ratersCommunityId: 'g1' }));
+  });
+
+  it('asks before switching on and before sending, and says how many leaders got their message', async () => {
+    const calls: { url: string; method: string; body: any }[] = [];
+    setup({}, calls);
+    const confirmFn = vi.fn(() => true);
+    vi.stubGlobal('confirm', confirmFn);
+    render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
+    await screen.findByText('Alpha Tester');
+    fireEvent.click(screen.getByTestId('send-now'));
+    await screen.findByText('Sent to 2 leaders (1 already had it).');
+    expect(confirmFn).toHaveBeenCalledWith(expect.stringContaining('Each leader gets their message once'));
+    expect(calls.map((c) => c.url)).toEqual(['/api/admin/teaching-rota/send-assignments']);
+    // declining sends nothing
+    confirmFn.mockReturnValue(false);
+    fireEvent.click(screen.getByTestId('send-now'));
+    expect(calls).toHaveLength(1);
+  });
+
+  it('lists the best rated first when asked', async () => {
+    setup({ teachers: [row({ id: 't2', name: 'Low Rated', ratings: { total: 2, average: 2, counts: { EXCELLENT: 0, VERY_GOOD: 0, GOOD: 2, KEEP_GROWING: 0 } } }), rated] });
+    render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
+    await screen.findByText('Alpha Tester');
+    expect(screen.getAllByTestId('teacher-row')[0]).toHaveTextContent('Low Rated');
+    fireEvent.click(screen.getByLabelText('Best rated first'));
+    expect(screen.getAllByTestId('teacher-row')[0]).toHaveTextContent('Alpha Tester');
   });
 });

@@ -368,7 +368,7 @@ export function MemberMePage() {
         )}
 
         <div className="mt-3 px-4 empty:hidden sm:px-0">
-          <EnableNotificationsBanner className="" />
+          <EnableNotificationsBanner className="" rule="always" />
         </div>
 
         <details className="mt-3 rounded-xl bg-white px-4 py-3 shadow-sm sm:mx-0" data-testid="prefs-fold">

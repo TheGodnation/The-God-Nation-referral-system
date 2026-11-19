@@ -63,7 +63,8 @@ type NotificationType =
   | 'FAITH_NEEDS_CONVERSATION'
   | 'LEADER_ASSIGNED'
   | 'MEMBER_NUDGE'
-  | 'LEADERSHIP_ROOM_MESSAGE';
+  | 'LEADERSHIP_ROOM_MESSAGE'
+  | 'TEACHING_ROTA';
 
 // The Google Play version shows nothing about payments or earnings of money: these kinds are left out there.
 const STORE_HIDDEN_TYPES = new Set<string>([
@@ -260,6 +261,14 @@ export function NotificationBell() {
       case 'MEMBER_NUDGE':
         // A gentle nudge at 3 or 7 days (see server lib/memberNudges.ts), worded for the stage the person is at.
         return t(`notifications.nudge_${metadata.stage === 'unfinished' ? 'unfinished' : 'return'}_${metadata.day === 7 ? 7 : 3}`);
+      case 'TEACHING_ROTA': {
+        const fr = i18n.language.startsWith('fr');
+        const topic = String((fr ? metadata.topicFr : metadata.topicEn) ?? metadata.topicEn ?? '');
+        const when = metadata.startsAt
+          ? new Intl.DateTimeFormat(fr ? 'fr-FR' : 'en-GB', { weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Douala' }).format(new Date(String(metadata.startsAt)))
+          : '';
+        return t(`notifications.teaching_${metadata.kind === 'tomorrow' || metadata.kind === 'hour' || metadata.kind === 'rate' ? metadata.kind : 'assignment'}`, { topic, when, count: Number(metadata.count ?? 0) });
+      }
       case 'LEADERSHIP_ROOM_MESSAGE':
         return t('notifications.leadership_room_message', { name: metadata.coordinator ? t('notifications.national_coordinator') : (metadata.fromName ?? ''), preview: metadata.preview ?? '' });
       case 'INSTRUCTION_RECEIVED':

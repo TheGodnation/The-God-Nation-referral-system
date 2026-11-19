@@ -8,7 +8,9 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
-import { RotaError, addTeacher, adminOverview, guidePreview, loadPlan, matchTeachers, searchMembers, teacherView, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
+import { LEVELS, RotaError, addTeacher, adminOverview, guidePreview, loadPlan, matchTeachers, rate, ratingDetail, searchGroups, searchMembers, teacherView, toRate, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
+import { sendAssignmentsNow } from '../lib/teachingReminders';
+import { isFrench } from '../lib/privateNotice';
 
 // The weekly teaching rota. Two doors for the central admin (the admin dashboard and the National Coordinator's member
 // profile, one set of rules), and one for a teacher, who only ever gets their own assignment.
@@ -20,7 +22,7 @@ const onError = (err: unknown, _req: Request, res: any, next: any) => {
 };
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
-const settingsSchema = z.object({ enabled: z.boolean().optional(), frenchChecked: z.boolean().optional(), startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() });
+const settingsSchema = z.object({ enabled: z.boolean().optional(), frenchChecked: z.boolean().optional(), startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), ratersCommunityId: z.string().min(1).nullable().optional() });
 const newTeacherSchema = z.object({ name: z.string().trim().min(1).max(200), personId: z.string().min(1).nullable().optional(), dayOfWeek: z.number().int().min(1).max(7), startTime: timeSchema });
 const patchTeacherSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
@@ -54,6 +56,22 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
 
   router.get('/members', asyncHandler(async (req, res) => {
     res.json({ items: await searchMembers(String(req.query.search ?? '')) });
+  }));
+
+  router.get('/groups', asyncHandler(async (req, res) => {
+    res.json({ items: await searchGroups(String(req.query.search ?? '')) });
+  }));
+
+  router.get('/ratings/:teacherId', asyncHandler(async (req, res) => {
+    res.json(await ratingDetail(String(req.params.teacherId)));
+  }));
+
+  router.post('/send-assignments', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const actor = await actorOr403(req, res);
+    if (!actor) return;
+    const result = await sendAssignmentsNow();
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHING_ASSIGNMENTS_SENT', targetType: 'TeachingSettings', targetId: 'main', metadata: result });
+    res.json(result);
   }));
 
   router.post('/plan', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -140,5 +158,16 @@ export const memberTeachingRotaRoutes = (() => {
   router.get('/me', asyncHandler(async (req, res) => {
     res.json(await teacherView(req.member!.personId));
   }));
+  // The teachings this member can rate now (not their own), and rating one.
+  router.get('/to-rate', asyncHandler(async (req, res) => {
+    const person = await prisma.person.findUnique({ where: { id: req.member!.personId }, select: { preferredLanguage: true } });
+    res.json({ items: await toRate(req.member!.personId, isFrench(person?.preferredLanguage) ? 'fr' : 'en') });
+  }));
+  router.post('/rate', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ teacherId: z.string().min(1), weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), level: z.enum(LEVELS) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'Choose how it was.' });
+    res.json(await rate(req.member!.personId, parsed.data));
+  }));
+  router.use(onError);
   return router;
 })();

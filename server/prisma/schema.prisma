@@ -190,6 +190,8 @@ enum NotificationType {
   MEMBER_NUDGE
   // Someone wrote in the leaders' room (all leaders, or a generation): every leader of the room gets this in the bell.
   LEADERSHIP_ROOM_MESSAGE
+  // The weekly teaching rota: your assignment, a reminder, or teachings waiting for your rating (metadata.kind).
+  TEACHING_ROTA
   // A leader from the Leadership Team has been assigned to follow this person up.
   LEADER_ASSIGNED
   // Someone finished the Book 1 / Book 2 exam with personal answers that call for a conversation.
@@ -4515,6 +4517,8 @@ model TeachingSettings {
   startDate     DateTime
   // The central admin has read the French and approves it (needed before a French-speaking teacher is shown anything).
   frenchChecked Boolean  @default(false)
+  // The group whose members rate the teachings (the Leadership group). Empty = the teachers themselves and the central admin.
+  ratersCommunityId String?
   // "How to teach your 15 minutes" and the one-line meaning of a Key and a Right, English and French (JSON: { en: {...}, fr: {...} }).
   guide         Json?
   updatedAt     DateTime @updatedAt
@@ -4551,4 +4555,27 @@ model TeachingTeacher {
   updatedAt   DateTime @updatedAt
 
   @@index([active, dayOfWeek, startMinute])
+}
+
+// One member's rating of one teaching (a teacher's slot in one week). A rating can be changed while the window is open.
+model TeachingRating {
+  id             String   @id @default(uuid())
+  teacherId      String
+  // The Monday of the week of the teaching (a date at UTC midnight).
+  weekStart      DateTime
+  raterPersonId  String
+  // EXCELLENT | VERY_GOOD | GOOD | KEEP_GROWING
+  level          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([teacherId, weekStart, raterPersonId])
+  @@index([teacherId, weekStart])
+  @@index([raterPersonId, weekStart])
+}
+
+// Written when a reminder has gone out, so the same one is never sent twice.
+model TeachingReminderLog {
+  key       String   @id
+  createdAt DateTime @default(now())
 }
