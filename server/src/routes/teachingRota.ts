@@ -85,8 +85,8 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     const actor = await actorOr403(req, res);
     if (!actor) return;
     const result = await sendAssignmentsNow();
-    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHING_ASSIGNMENTS_SENT', targetType: 'TeachingSettings', targetId: 'main', metadata: result });
-    res.json(result);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHING_ASSIGNMENTS_SENT', targetType: 'TeachingSettings', targetId: 'main', metadata: { sent: result.sent, alreadySent: result.alreadySent } });
+    res.json({ ...result, overview: await adminOverview() });
   }));
 
   router.post('/plan', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {

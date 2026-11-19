@@ -240,6 +240,35 @@ export async function teacherView(personId: string, now = new Date()) {
 // ---------------------------------------------------------------------------------------------------------------------
 // The central admin's view
 
+/**
+ * What happened to this week's assignment for each teacher: when it was sent, whether it arrived as a private message,
+ * whether the teacher opened that chat, and whether they wrote back. (Only for teachers it was sent to.)
+ */
+async function assignmentDeliveries(teachers: { id: string; personId: string | null }[], monday: Date) {
+  const out = new Map<string, { sentAt: string; messageSent: boolean; conversationId: string | null; seen: boolean; replied: boolean }>();
+  const logs = await prisma.teachingReminderLog.findMany({ where: { key: { in: teachers.map((t) => `assignment:${t.id}:${dayKey(monday)}`) } } });
+  if (logs.length === 0) return out;
+  const messages = await prisma.privateMessage.findMany({ where: { id: { in: logs.map((l) => l.messageId).filter((id): id is string => Boolean(id)) } }, select: { id: true, conversationId: true, createdAt: true } });
+  const messageById = new Map(messages.map((m) => [m.id, m]));
+  for (const t of teachers) {
+    const log = logs.find((l) => l.key === `assignment:${t.id}:${dayKey(monday)}`);
+    if (!log) continue;
+    const message = log.messageId ? messageById.get(log.messageId) : undefined;
+    let seen = false;
+    let replied = false;
+    if (message && t.personId) {
+      const [read, answer] = await Promise.all([
+        prisma.privateConversationRead.findFirst({ where: { conversationId: message.conversationId, personId: t.personId, lastReadAt: { gte: message.createdAt } }, select: { id: true } }),
+        prisma.privateMessage.findFirst({ where: { conversationId: message.conversationId, senderPersonId: t.personId, createdAt: { gt: message.createdAt } }, select: { id: true } }),
+      ]);
+      seen = Boolean(read) || Boolean(answer);
+      replied = Boolean(answer);
+    }
+    out.set(t.id, { sentAt: log.createdAt.toISOString(), messageSent: Boolean(message), conversationId: message?.conversationId ?? null, seen, replied });
+  }
+  return out;
+}
+
 export async function adminOverview(now = new Date()) {
   const { settings, topics } = await loadBase();
   const teachers = await prisma.teachingTeacher.findMany({ orderBy: [{ active: 'desc' }, { dayOfWeek: 'asc' }, { startMinute: 'asc' }, { name: 'asc' }] });
@@ -256,10 +285,12 @@ export async function adminOverview(now = new Date()) {
   const weeks = [0, 1, 2, 3].map((k) => addDays(baseMonday, 7 * k));
 
   const summaries = await ratingSummaries();
+  const deliveries = await assignmentDeliveries(teachers, baseMonday);
   const rows = teachers.map((t) => {
     const p = t.personId ? personById.get(t.personId) : undefined;
     return {
       ratings: summaries.get(t.id) ?? { total: 0, average: null, counts: emptyCounts() },
+      assignment: deliveries.get(t.id) ?? null,
       id: t.id,
       name: t.name,
       active: t.active,

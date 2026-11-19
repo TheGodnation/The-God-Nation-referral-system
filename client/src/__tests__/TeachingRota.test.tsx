@@ -90,7 +90,7 @@ describe('The strip on the Chats page', () => {
   });
 });
 
-const row = (over = {}) => ({ id: 't1', name: 'Alpha Tester', active: true, personId: null, memberName: null, hasAccount: false, language: null, dayOfWeek: 1, startTime: '07:00', startTopic: 1, upcoming: [{ weekStart: '2026-11-23', number: 1, title: 'Key 9, Prayer' }, { weekStart: '2026-11-30', number: 2, title: 'Key 11, Confession' }], ratings: { total: 0, average: null, counts: { EXCELLENT: 0, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 0 } }, ...over });
+const row = (over = {}) => ({ id: 't1', name: 'Alpha Tester', active: true, personId: null, memberName: null, hasAccount: false, language: null, dayOfWeek: 1, startTime: '07:00', startTopic: 1, upcoming: [{ weekStart: '2026-11-23', number: 1, title: 'Key 9, Prayer' }, { weekStart: '2026-11-30', number: 2, title: 'Key 11, Confession' }], ratings: { total: 0, average: null, counts: { EXCELLENT: 0, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 0 } }, assignment: null, ...over });
 const overview = (over = {}) => ({
   settings: { enabled: false, startDate: '2026-11-23', frenchChecked: false, started: false },
   weeks: ['2026-11-23'],
@@ -296,7 +296,7 @@ describe('Weekly teaching panel: ratings, who rates and sending', () => {
   const setup = (over: Record<string, unknown> = {}, calls: { url: string; method: string; body: any }[] = []) => {
     vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
-      if (method !== 'GET') { calls.push({ url, method, body: JSON.parse(String(init!.body)) }); return json(url.endsWith('/send-assignments') ? { sent: 2, alreadySent: 1 } : overview({ settings: { enabled: true, startDate: '2026-11-23', frenchChecked: true, started: false }, teachers: [rated], warnings: [], ...over })); }
+      if (method !== 'GET') { calls.push({ url, method, body: JSON.parse(String(init!.body)) }); return json(url.endsWith('/send-assignments') ? { sent: 2, alreadySent: 1, sentTo: ['Alpha Tester', 'Beta Tester'], passed: ['Gamma Tester'], notMatched: ['Delta Tester'], overview: overview({ settings: { enabled: true, startDate: '2026-11-23', frenchChecked: true, started: false }, teachers: [{ ...rated, assignment: { sentAt: '2026-11-22T17:00:00.000Z', messageSent: true, conversationId: 'c9', seen: true, replied: false } }], warnings: [] }) } : overview({ settings: { enabled: true, startDate: '2026-11-23', frenchChecked: true, started: false }, teachers: [rated], warnings: [], ...over })); }
       if (url.includes('/ratings/t1')) return json({ name: 'Alpha Tester', weeks: [{ weekStart: '2026-11-23', topic: 'Key 9, Prayer', total: 3, average: 3.3, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 }, raters: [{ name: 'Rater One', level: 'EXCELLENT' }, { name: 'Rater Two', level: 'KEEP_GROWING' }] }] });
       if (url.includes('/groups')) return json({ items: [{ id: 'g1', name: 'Leadership Development group', kind: 'GROUP' }] });
       return json(overview({ settings: { enabled: true, startDate: '2026-11-23', frenchChecked: true, started: false }, teachers: [rated], warnings: [], ...over }));
@@ -327,7 +327,7 @@ describe('Weekly teaching panel: ratings, who rates and sending', () => {
     await waitFor(() => expect(calls.find((c) => c.url.endsWith('/settings'))?.body).toEqual({ ratersCommunityId: 'g1' }));
   });
 
-  it('asks before switching on and before sending, and says how many leaders got their message', async () => {
+  it('asks before sending, then says who got a private message, who did not and why, and shows where each one went', async () => {
     const calls: { url: string; method: string; body: any }[] = [];
     setup({}, calls);
     const confirmFn = vi.fn(() => true);
@@ -335,8 +335,15 @@ describe('Weekly teaching panel: ratings, who rates and sending', () => {
     render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
     await screen.findByText('Alpha Tester');
     fireEvent.click(screen.getByTestId('send-now'));
-    await screen.findByText('Sent to 2 leaders (1 already had it).');
-    expect(confirmFn).toHaveBeenCalledWith(expect.stringContaining('Each leader gets their message once'));
+    const note = await screen.findByTestId('rota-note');
+    expect(note).toHaveTextContent('Sent to 2 teachers (1 already had it).');
+    expect(note).toHaveTextContent('Sent as a private message to: Alpha Tester, Beta Tester');
+    expect(note).toHaveTextContent('their time this week has already passed: Gamma Tester');
+    expect(note).toHaveTextContent('not matched to a member yet: Delta Tester');
+    expect(note).toHaveTextContent('in your Chats');
+    // and each name now shows where its assignment went
+    expect(screen.getByTestId('assignment-status')).toHaveTextContent('opened');
+    expect(confirmFn).toHaveBeenCalledWith(expect.stringContaining('private message from you'));
     expect(calls.map((c) => c.url)).toEqual(['/api/admin/teaching-rota/send-assignments']);
     // declining sends nothing
     confirmFn.mockReturnValue(false);

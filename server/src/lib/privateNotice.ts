@@ -8,15 +8,20 @@ import { notifyPrivateMessageReceived } from './notifications';
  * Returns whether it was sent.
  */
 export async function sendPrivateNotice(fromPersonId: string, toPersonId: string, body: string): Promise<boolean> {
-  if (fromPersonId === toPersonId) return false;
+  return (await sendPrivateNoticeId(fromPersonId, toPersonId, body)) !== null;
+}
+
+/** The same, returning the message's id (null when it could not be sent). */
+export async function sendPrivateNoticeId(fromPersonId: string, toPersonId: string, body: string): Promise<string | null> {
+  if (fromPersonId === toPersonId) return null;
   try {
     const conversation = await getOrCreatePrivateConversation(toPersonId, { type: 'PERSON', personId: fromPersonId });
-    await prisma.privateMessage.create({ data: { conversationId: conversation.id, senderPersonId: fromPersonId, body } });
+    const message = await prisma.privateMessage.create({ data: { conversationId: conversation.id, senderPersonId: fromPersonId, body } });
     await notifyPrivateMessageReceived(conversation, { type: 'PERSON', personId: fromPersonId }).catch(() => {});
-    return true;
+    return message.id;
   } catch (err) {
     console.error('[privateNotice] could not send', { error: err instanceof Error ? err.message : String(err) });
-    return false;
+    return null;
   }
 }
 
