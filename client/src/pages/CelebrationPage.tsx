@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
+import { CelebrationFx } from '../components/CelebrationFx';
 import { api } from '../lib/api';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
 
@@ -10,38 +11,6 @@ interface Celebration {
   intro: { en: string; fr: string };
   message: { en: string; fr: string };
   names: string[];
-}
-
-const COLORS = ['#f2c94c', '#2a5cf0', '#80abff', '#ffffff', '#e0a800'];
-
-// A small burst of confetti that falls once when the page opens (not for people who ask their phone for less motion).
-function Confetti() {
-  const pieces = useMemo(
-    () =>
-      Array.from({ length: 36 }, (_, i) => ({
-        id: i,
-        left: Math.round((i * 97) % 100),
-        delay: ((i * 37) % 20) / 10,
-        duration: 3 + ((i * 53) % 25) / 10,
-        color: COLORS[i % COLORS.length],
-        wide: i % 3 === 0,
-        spin: (i * 71) % 360,
-      })),
-    [],
-  );
-  const reduced = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) return null;
-  return (
-    <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-0 h-screen overflow-hidden" data-testid="confetti">
-      <style>{`@keyframes godnation-fall{0%{transform:translateY(-12vh) rotate(0deg);opacity:1}85%{opacity:1}100%{transform:translateY(105vh) rotate(720deg);opacity:0}}`}</style>
-      {pieces.map((p) => (
-        <span
-          key={p.id}
-          style={{ position: 'absolute', top: 0, left: `${p.left}%`, width: p.wide ? 14 : 8, height: p.wide ? 8 : 14, background: p.color, borderRadius: 2, rotate: `${p.spin}deg`, opacity: 0, animation: `godnation-fall ${p.duration}s ease-in ${p.delay}s 1 forwards` }}
-        />
-      ))}
-    </div>
-  );
 }
 
 // The public "Congratulations" page (https://thegodnationacademy.org/congratulations): the students who finished the books,
@@ -73,7 +42,7 @@ export function CelebrationPage() {
   return (
     <PageShell>
       <div className="relative overflow-hidden bg-gradient-to-b from-brand-900 via-brand-800 to-brand-700 text-white">
-        {state === 'ready' && <Confetti />}
+        {state === 'ready' && <CelebrationFx />}
         <article className="relative z-10 mx-auto max-w-2xl px-4 py-10 text-center">
           {state === 'loading' && <p className="py-20 text-white/70">{t('common.loading')}</p>}
           {state === 'closed' && (
