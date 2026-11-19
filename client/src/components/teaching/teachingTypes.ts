@@ -47,8 +47,6 @@ export interface WeekResult {
 export interface TeachingView {
   enabled: boolean;
   isTeacher: boolean;
-  isRater?: boolean;
-  toRateCount?: number;
   results?: WeekResult[];
   language?: 'en' | 'fr';
   started?: boolean;

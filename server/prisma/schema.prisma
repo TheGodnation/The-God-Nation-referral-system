@@ -1832,6 +1832,8 @@ model Conversation {
 enum MessageKind {
   USER
   JOINED
+  // The card in the group chat where members rate a finished teaching (see TeachingRatingCard).
+  TEACHING_RATING
 }
 
 model Message {
@@ -4578,4 +4580,17 @@ model TeachingRating {
 model TeachingReminderLog {
   key       String   @id
   createdAt DateTime @default(now())
+}
+
+// The rating card posted in the teaching group's chat when a teacher has finished (by their button, or by itself 20 minutes
+// after their slot starts). One card per teacher per week. The members rate on the card; anyone can rate at any time.
+model TeachingRatingCard {
+  id        String   @id @default(uuid())
+  messageId String   @unique
+  teacherId String
+  // The Monday of the week of the teaching (a date at UTC midnight).
+  weekStart DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([teacherId, weekStart])
 }

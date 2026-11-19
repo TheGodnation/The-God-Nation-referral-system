@@ -1815,7 +1815,8 @@
     "teaching_assignment": "This week you teach: {{topic}}, {{when}}.",
     "teaching_tomorrow": "Reminder: tomorrow you teach {{topic}}, {{when}}.",
     "teaching_hour": "Your teaching starts in 1 hour: {{topic}}.",
-    "teaching_rate": "{{count}} teachings are waiting for your rating."
+    "teaching_rated_one": "{{count}} person has rated your teaching: {{topic}}.",
+    "teaching_rated_other": "{{count}} people have rated your teaching: {{topic}}."
   },
   "memberHome": {
     "title": "Home",
@@ -5788,21 +5789,16 @@
     "level_VERY_GOOD": "Very good",
     "level_GOOD": "Good",
     "level_KEEP_GROWING": "Keep growing",
-    "rate_title": "Rate the teachings",
-    "rate_none": "Nothing to rate right now. A teaching can be rated after it has ended, for 8 days.",
-    "rate_help": "{{count}} waiting for your rating. You can change a rating for a few days.",
     "rate_failed": "Could not save your rating. Try again.",
     "results_title": "How your teachings were rated",
     "results_help": "Totals only. Nobody's name is shown.",
-    "strip_title_rate": "Rate the teachings",
-    "strip_to_rate": "{{count}} to rate",
     "ratings_count_one": "{{count}} rating",
     "ratings_count_other": "{{count}} ratings",
     "no_ratings": "No ratings yet",
     "see_ratings": "See ratings",
-    "raters_title": "Who rates",
-    "raters_group": "Members of {{name}} ({{count}} people) and you.",
-    "raters_none": "No group chosen: the teachers and you rate ({{count}} people).",
+    "raters_title": "The teaching group",
+    "raters_group": "Teachings are rated in {{name}} ({{count}} people can rate).",
+    "raters_none": "No group chosen yet ({{count}} people can rate). Choose the group where the teachings take place.",
     "raters_change": "Choose the group",
     "find_group": "Type the group's name",
     "no_group": "No group (the teachers and I rate)",
@@ -5810,6 +5806,17 @@
     "confirm_on": "Switch on the weekly teaching?\\n\\nLeaders will get their assignment on Sunday evening, a reminder the evening before, and another one hour before. People who rate get a reminder to rate on Sunday evening.",
     "confirm_send": "Send this week's assignments to the leaders now? Each leader gets their message once.",
     "send_now": "Send this week's assignments now",
-    "sent_now": "Sent to {{sent}} leaders ({{alreadySent}} already had it)."
+    "sent_now": "Sent to {{sent}} leaders ({{alreadySent}} already had it).",
+    "card_title": "{{name}} has finished teaching {{topic}}.",
+    "card_listen": "Listen to the teaching, then rate it.",
+    "card_you_chose": "You chose {{level}}",
+    "card_own": "This is your teaching. Others can rate it.",
+    "card_coordinator": "{{name}}: {{level}}",
+    "card_nobody": "Nobody has rated yet.",
+    "card_rated_one": "{{count}} person has rated",
+    "card_rated_other": "{{count}} people have rated",
+    "finish_button": "I have finished my teaching",
+    "finish_failed": "Could not post. Try again.",
+    "w_no_rating_group": "No group is chosen for the teachings yet. The rating cards appear in that group."
   }
 }

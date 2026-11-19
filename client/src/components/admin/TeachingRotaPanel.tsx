@@ -49,6 +49,7 @@ const WARNING_KEYS: Record<string, string> = {
   MORE_TEACHERS_THAN_TOPICS: 'teachingRota.w_more_teachers',
   SAME_SLOT: 'teachingRota.w_same_slot',
   FRENCH_MISSING: 'teachingRota.w_french_missing',
+  NO_RATING_GROUP: 'teachingRota.w_no_rating_group',
 };
 
 function MemberPicker({ base, onPick }: { base: string; onPick: (id: string) => void }) {
