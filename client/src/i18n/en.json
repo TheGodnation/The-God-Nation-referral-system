@@ -5839,7 +5839,9 @@
     "f_ifNotLabel": "Words above the next part (for example: If we do not use this Key)",
     "f_ifNot": "If we do not know this",
     "f_dominion": "How this gives us dominion",
-    "f_verses": "Verses (separated by commas)"
+    "f_verses": "Verses (separated by commas)",
+    "hint_taken": "{{member}} is already chosen for the name \"{{name}}\". Remove her from that name first (tap \"Change member\" there), or use that name.",
+    "hint_no_account": "{{member}} has not created an app account yet, so she cannot be chosen. Ask her to sign up (or sign in) on the app first, then choose her."
   },
   "celebration": {
     "tab": "Congratulations page",

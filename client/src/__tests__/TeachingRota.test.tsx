@@ -370,8 +370,11 @@ describe('Choosing a member for a name', () => {
     fireEvent.change(screen.getByLabelText("Type the member's name"), { target: { value: 'mbeki' } });
     const results = await screen.findAllByTestId('member-result');
     expect(results).toHaveLength(2);
-    expect(results[1]).toBeDisabled();
+    expect(results[1]).toHaveAttribute('aria-disabled', 'true');
     expect(results[1]).toHaveTextContent('no app account yet');
+    fireEvent.click(results[1]);
+    expect(screen.getByTestId('member-hint')).toHaveTextContent('has not created an app account yet');
+    expect(calls).toHaveLength(0);
     fireEvent.click(results[0]);
     await waitFor(() => expect(calls[0]?.body).toEqual({ personId: 'p2' }));
   });
