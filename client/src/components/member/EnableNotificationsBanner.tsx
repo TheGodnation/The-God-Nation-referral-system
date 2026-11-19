@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GuideLink } from './GuideLink';
-import { NotificationBenefits } from './NotificationBenefits';
 import { enablePushNotifications, checkPushOnThisDevice, prefetchPushKey, type PushDeviceStatus } from '../../lib/push';
 
 const DISMISS_KEY = 'notifyBannerDismissed';
@@ -85,36 +84,34 @@ export function EnableNotificationsBanner({ className = 'mb-4' }: { className?: 
   const canTurnOn = status === 'not_subscribed';
   const blocked = status === 'denied';
   return (
-    <div className={`${className} rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-3 text-sm text-brand-900 shadow-sm`} data-testid="enable-notifications">
-      <div className="flex items-start gap-2.5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-lg text-white" aria-hidden="true">🔔</span>
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold leading-5 text-brand-900">{blocked ? t('notifications.blocked_title') : t('notifications.enable_title')}</p>
-          <p className="mt-0.5 text-xs text-brand-800">{message}</p>
-          {(canTurnOn || blocked) && <NotificationBenefits />}
-          {failed && <p className="mt-1 text-xs text-red-700">{t('notifications.enable_failed')}</p>}
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            {canTurnOn && (
-              <button type="button" disabled={busy} className="btn-primary px-4 py-2 text-sm disabled:opacity-60" onClick={() => void enable()}>
-                {busy ? t('notifications.enabling') : t('notifications.enable_button')}
-              </button>
-            )}
-            {blocked ? (
-              <GuideLink href="/phone-settings-guide/" className="btn-primary inline-block px-4 py-2 text-sm no-underline">
-                {t('notifications.blocked_button')}
-              </GuideLink>
-            ) : (
-              <GuideLink href="/notifications-guide/" className="text-xs font-semibold text-brand-700 underline">
-                {t('notifications.need_help')}
-              </GuideLink>
-            )}
-          </div>
-          {canTurnOn && <p className="mt-1.5 text-[11px] text-brand-700">{t('notifications.enable_tail')}</p>}
+    <div className={`${className} flex items-start gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900`} data-testid="enable-notifications">
+      <span className="text-lg leading-6" aria-hidden="true">🔔</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs leading-4 text-brand-800">
+          <span className="text-sm font-semibold text-brand-900">{blocked ? t('notifications.blocked_title') : t('notifications.enable_title')}. </span>
+          {message}
+        </p>
+        {failed && <p className="mt-1 text-xs text-red-700">{t('notifications.enable_failed')}</p>}
+        <div className="mt-1.5 flex items-center gap-3">
+          {canTurnOn && (
+            <button type="button" disabled={busy} className="btn-primary whitespace-nowrap px-4 py-2 text-sm disabled:opacity-60" onClick={() => void enable()}>
+              {busy ? t('notifications.enabling') : t('notifications.enable_button')}
+            </button>
+          )}
+          {blocked ? (
+            <GuideLink href="/phone-settings-guide/" className="btn-primary inline-block px-4 py-2 text-sm no-underline">
+              {t('notifications.blocked_button')}
+            </GuideLink>
+          ) : (
+            <GuideLink href="/notifications-guide/" className="whitespace-nowrap text-xs font-semibold text-brand-700 underline">
+              {t('notifications.need_help')}
+            </GuideLink>
+          )}
         </div>
-        <button type="button" aria-label={t('notifications.dismiss') ?? ''} className="px-1 leading-6 text-brand-700" onClick={close}>
-          ✕
-        </button>
       </div>
+      <button type="button" aria-label={t('notifications.dismiss') ?? ''} className="px-1 leading-6 text-brand-700" onClick={close}>
+        ✕
+      </button>
     </div>
   );
 }
