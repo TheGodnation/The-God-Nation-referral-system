@@ -193,8 +193,7 @@ export function MemberChatsPage() {
   };
 
 
-  // The Events and Leadership cards sit above the tabs, except for a new member: there the first private message (the
-  // welcome) and the Assemblies row come first, so nothing important is pushed out of sight by the cards.
+  // The Events and Leadership cards, above the tabs (slim, so they leave room for the messages below).
   const cards = (
     <>
       <EventsCard />
@@ -214,7 +213,7 @@ export function MemberChatsPage() {
             in the founder's welcome message, so a new member's first screen is not crowded. */}
         <EnableNotificationsBanner />
         <PaymentDeskCard />
-        {!isNewMember && cards}
+        {cards}
         <div role="tablist" className="mb-4 flex rounded-xl bg-slate-100 p-1 text-sm font-semibold">
           {(['assemblies', 'private'] as const).map((k) => {
             const n = k === 'assemblies' ? assembliesUnread : privateUnread ?? 0;
@@ -275,7 +274,6 @@ export function MemberChatsPage() {
             <PrivateChatList onUnread={onPrivateUnread} />
             {privateChats === 0 && <p className="px-2 text-sm text-slate-500" data-testid="private-empty-hint">{t('chatsTabs.private_hint')}</p>}
           </div>
-          {isNewMember && <div>{cards}</div>}
           <Announcements />
         </div>
         <MemberNav />
