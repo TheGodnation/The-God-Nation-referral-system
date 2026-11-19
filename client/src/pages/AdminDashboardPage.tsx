@@ -21,6 +21,7 @@ import { GivingPanel } from '../components/admin/GivingPanel';
 import { FaithJourneysPanel } from '../components/faith/FaithJourneysPanel';
 import { BroadcastLogPanel } from '../components/admin/BroadcastLogPanel';
 import { LeadersReportPanel } from '../components/admin/LeadersReportPanel';
+import { TeachingRotaPanel } from '../components/admin/TeachingRotaPanel';
 import { RepresentativesPanel } from '../components/admin/RepresentativesPanel';
 import { SanctionsPanel } from '../components/admin/SanctionsPanel';
 import { BulkMembersPanel } from '../components/admin/BulkMembersPanel';
@@ -73,6 +74,7 @@ type Tab =
   | 'sanctions'
   | 'representatives'
   | 'myLeaders'
+  | 'teachingRota'
   | 'broadcastLog'
   | 'faith'
   | 'leaderRooms'
@@ -1828,6 +1830,9 @@ export function AdminDashboardPage() {
             <TabButton active={tab === 'myLeaders'} onClick={() => setTab('myLeaders')}>
               {t('myLeaders.tab')}
             </TabButton>
+            <TabButton active={tab === 'teachingRota'} onClick={() => setTab('teachingRota')}>
+              {t('teachingRota.tab')}
+            </TabButton>
             <TabButton active={tab === 'broadcastLog'} onClick={() => setTab('broadcastLog')}>
               {t('broadcast.tab')}
             </TabButton>
@@ -1930,6 +1935,7 @@ export function AdminDashboardPage() {
         {tab === 'sanctions' && <SanctionsPanel base="/api/admin/sanctions" />}
         {tab === 'representatives' && <RepresentativesPanel base="/api/admin/representatives" />}
         {tab === 'myLeaders' && <LeadersReportPanel base="/api/admin/weekly-reports" mode="admin" />}
+        {tab === 'teachingRota' && <TeachingRotaPanel base="/api/admin/teaching-rota" />}
         {tab === 'broadcastLog' && <BroadcastLogPanel base="/api/admin/broadcast-log" />}
         {tab === 'faith' && <FaithJourneysPanel base="/api/admin/faith" />}
         {tab === 'leaderRooms' && <LeaderRoomsPanel base="/api/admin/leader-rooms" />}

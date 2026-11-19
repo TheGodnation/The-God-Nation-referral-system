@@ -63,6 +63,7 @@ import memberClinicRoutes from './routes/memberClinic';
 import leaderClinicRoutes from './routes/leaderClinic';
 import leaderEscalationsRoutes from './routes/leaderEscalations';
 import { adminCellsRoutes, memberCentralCellsRoutes } from './routes/adminCells';
+import { adminTeachingRotaRoutes, memberCentralTeachingRotaRoutes, memberTeachingRotaRoutes } from './routes/teachingRota';
 import { adminTokensRoutes, memberCentralTokensRoutes } from './routes/adminTokens';
 import memberTokensRoutes from './routes/memberTokens';
 import adminLeadershipRoutes from './routes/adminLeadership';
@@ -238,6 +239,9 @@ export function createApp() {
   app.use('/api/leader', leaderEscalationsRoutes);
   app.use('/api/admin/cells', adminCellsRoutes);
   app.use('/api/member/central-cells', memberCentralCellsRoutes);
+  app.use('/api/admin/teaching-rota', adminTeachingRotaRoutes);
+  app.use('/api/member/central-teaching-rota', memberCentralTeachingRotaRoutes);
+  app.use('/api/member/teaching-rota', memberTeachingRotaRoutes);
   app.use('/api/admin/tokens', adminTokensRoutes);
   app.use('/api/admin/growth', adminGrowthRoutes);
   app.use('/api/admin/reminders', adminRemindersRoutes);

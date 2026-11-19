@@ -76,6 +76,7 @@ const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) =>
 const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => (m ? { default: m.MemberReaderPage } : waitForReload())));
 const MemberPinnedPage = lazy(() => import('./pages/MemberPinnedPage').then((m) => (m ? { default: m.MemberPinnedPage } : waitForReload())));
 const MemberTeachingPage = lazy(() => import('./pages/MemberTeachingPage').then((m) => (m ? { default: m.MemberTeachingPage } : waitForReload())));
+const MemberMyTeachingPage = lazy(() => import('./pages/MemberMyTeachingPage').then((m) => (m ? { default: m.MemberMyTeachingPage } : waitForReload())));
 const MemberTeachingComposePage = lazy(() => import('./pages/MemberTeachingComposePage').then((m) => (m ? { default: m.MemberTeachingComposePage } : waitForReload())));
 const MemberPasswordHelpPage = lazy(() => import('./pages/MemberPasswordHelpPage').then((m) => (m ? { default: m.MemberPasswordHelpPage } : waitForReload())));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then((m) => (m ? { default: m.PrivacyPage } : waitForReload())));
@@ -354,6 +355,14 @@ export default function App() {
               element={
                 <RequireMember>
                   <MemberDownloadsPage />
+                </RequireMember>
+              }
+            />
+            <Route
+              path="/member/my-teaching"
+              element={
+                <RequireMember>
+                  <MemberMyTeachingPage />
                 </RequireMember>
               }
             />

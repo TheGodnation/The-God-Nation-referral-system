@@ -4503,3 +4503,52 @@ model DuplicateDismissal {
   @@unique([personAId, personBId])
 }
 
+
+// ---- Weekly teaching rota (the leaders who teach 15 minutes every week) ----
+// One row of settings: the rota is invisible to the teachers until the central admin switches it on.
+// The names and the teaching texts are NEVER in the code (the repository is public): the central admin loads them
+// from a private plan file (lib/teachingRota.ts, loadPlan).
+model TeachingSettings {
+  id            String   @id @default("main")
+  enabled       Boolean  @default(false)
+  // The Monday the first week starts (stored as a date at UTC midnight).
+  startDate     DateTime
+  // The central admin has read the French and approves it (needed before a French-speaking teacher is shown anything).
+  frenchChecked Boolean  @default(false)
+  // "How to teach your 15 minutes" and the one-line meaning of a Key and a Right, English and French (JSON: { en: {...}, fr: {...} }).
+  guide         Json?
+  updatedAt     DateTime @updatedAt
+}
+
+// One topic (a Key or a Right) with its guide text. Every week each teacher moves to the next topic in the list.
+model TeachingTopic {
+  id        String   @id @default(uuid())
+  // The place in the list (1, 2, 3...), also the order the topics rotate in.
+  number    Int      @unique
+  kind      String // 'right' | 'key'
+  // The words that vary by language: { topic, bookTitle, chapter, teachingOn, help, meaning, startLabel, start, ifNotLabel, ifNot, dominion, verses }.
+  textEn    Json
+  textFr    Json?
+  // Words to find the book on the site (every fragment must be in the English title), e.g. ["Kingdom Keys", "Volume 2"].
+  bookWords Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// A person who teaches every week: their fixed day and time, and the topic they start on (their number in the list).
+model TeachingTeacher {
+  id          String   @id @default(uuid())
+  name        String
+  // The member account this name belongs to (empty until matched by the central admin).
+  personId    String?  @unique
+  // 1 = Monday ... 7 = Sunday; start in minutes after midnight (Cameroon time, GMT+1).
+  dayOfWeek   Int
+  startMinute Int
+  // The topic number they teach in the first week; every week after that it moves on by one.
+  startTopic  Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active, dayOfWeek, startMinute])
+}
