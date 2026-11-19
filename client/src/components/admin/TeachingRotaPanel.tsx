@@ -31,7 +31,7 @@ interface Overview {
   warnings: string[];
   frenchNeeded: boolean;
 }
-interface Found { id: string; name: string; language: 'en' | 'fr'; takenBy: string | null }
+interface Found { id: string; name: string; language: 'en' | 'fr'; hasAccount: boolean; takenBy: string | null }
 interface MatchResult { matched: number; ambiguous: string[]; notFound: string[] }
 
 // FileReader works on every phone browser (Blob.text() is missing on a few older ones).
@@ -70,9 +70,9 @@ function MemberPicker({ base, onPick }: { base: string; onPick: (id: string) => 
     <div className="mt-2 space-y-1">
       <input className="input" type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('teachingRota.find_member') ?? ''} aria-label={t('teachingRota.find_member') ?? ''} />
       {items.map((m) => (
-        <button key={m.id} type="button" disabled={Boolean(m.takenBy)} onClick={() => onPick(m.id)} className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left text-sm disabled:opacity-50" data-testid="member-result">
+        <button key={m.id} type="button" disabled={Boolean(m.takenBy) || !m.hasAccount} onClick={() => onPick(m.id)} className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left text-sm disabled:opacity-50" data-testid="member-result">
           <span>{m.name}</span>
-          <span className="text-xs text-slate-500">{m.takenBy ? t('teachingRota.already_on', { name: m.takenBy }) : m.language === 'fr' ? '🇫🇷' : '🇬🇧'}</span>
+          <span className="text-xs text-slate-500">{!m.hasAccount ? t('teachingRota.no_account') : m.takenBy ? t('teachingRota.already_on', { name: m.takenBy }) : m.language === 'fr' ? '🇫🇷' : '🇬🇧'}</span>
         </button>
       ))}
       {q.trim().length >= 2 && items.length === 0 && <p className="text-xs text-slate-500">{t('teachingRota.nobody_found')}</p>}

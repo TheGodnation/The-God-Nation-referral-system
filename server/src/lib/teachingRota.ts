@@ -376,15 +376,18 @@ export async function updateTeacher(id: string, input: { name?: string; personId
 export async function searchMembers(search: string) {
   const q = search.trim();
   if (q.length < 2) return [];
-  const ids = await searchPersonIds(q, { includeTestData: false, limit: 20 });
+  const ids = await searchPersonIds(q, { includeTestData: false, limit: 30 });
   if (ids.length === 0) return [];
   const rows = await prisma.person.findMany({
-    where: { id: { in: ids }, memberAccount: { isNot: null } },
-    select: { id: true, name: true, preferredLanguage: true },
+    where: { id: { in: ids }, erasedAt: null },
+    select: { id: true, name: true, preferredLanguage: true, memberAccount: { select: { id: true } } },
     orderBy: { name: 'asc' },
   });
   const taken = new Map((await prisma.teachingTeacher.findMany({ where: { personId: { in: rows.map((r) => r.id) } }, select: { personId: true, name: true } })).map((t) => [t.personId!, t.name]));
-  return rows.map((r) => ({ id: r.id, name: r.name, language: isFrench(r.preferredLanguage) ? ('fr' as const) : ('en' as const), takenBy: taken.get(r.id) ?? null }));
+  // People with an app account first: only they can open the teaching page.
+  return rows
+    .map((r) => ({ id: r.id, name: r.name, language: isFrench(r.preferredLanguage) ? ('fr' as const) : ('en' as const), hasAccount: Boolean(r.memberAccount), takenBy: taken.get(r.id) ?? null }))
+    .sort((a, b) => Number(b.hasAccount) - Number(a.hasAccount));
 }
 
 /**
@@ -400,7 +403,11 @@ export async function matchTeachers() {
     const candidates = ids.length
       ? await prisma.person.findMany({ where: { id: { in: ids }, erasedAt: null, memberAccount: { isNot: null } }, select: { id: true, name: true } })
       : [];
-    const exact = candidates.filter((c) => normName(c.name) === normName(t.name));
+    // The same words in any order; or, when there is none, exactly one member whose name holds all these words and more
+    // (for example "Etabu Gertrude Nkeshie" for "Gertrude Nkeshie").
+    const wanted = new Set(words);
+    let exact = candidates.filter((c) => normName(c.name) === normName(t.name));
+    if (exact.length === 0) exact = candidates.filter((c) => [...wanted].every((w) => normName(c.name).split(' ').includes(w)));
     if (exact.length === 1) {
       const taken = await prisma.teachingTeacher.findUnique({ where: { personId: exact[0].id }, select: { id: true } });
       if (taken) result.ambiguous.push(t.name);

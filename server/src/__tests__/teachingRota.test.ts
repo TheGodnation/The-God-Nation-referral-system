@@ -213,6 +213,26 @@ describe('the roster', () => {
     expect((await prisma.teachingTeacher.findFirstOrThrow({ where: { name: { startsWith: 'Élodie' } } })).personId).toBe(elodie.person.id);
   });
 
+  it('matches a name to the one member whose name holds the same words and a few more, but not when two fit', async () => {
+    await loadPlan(plan({ teachers: [{ name: 'Gertrude Nkeshie Tester', startTopic: 1, dayOfWeek: 1, startTime: '07:00' }, { name: 'Shared Tester', startTopic: 2, dayOfWeek: 1, startTime: '16:00' }] }));
+    const gertrude = await member('Etabu Gertrude Nkeshie Tester');
+    await member('Shared Tester One');
+    await member('Shared Tester Two');
+    const result = await matchTeachers();
+    expect(result.matched).toBe(1);
+    expect(result.ambiguous).toEqual(['Shared Tester']);
+    expect((await prisma.teachingTeacher.findFirstOrThrow({ where: { name: { startsWith: 'Gertrude' } } })).personId).toBe(gertrude.person.id);
+  });
+
+  it('lists members who have no app account yet in the picker, marked, after those who have one', async () => {
+    const admin = await member('The Coordinator', { admin: true });
+    const withAccount = await member('Zelda Pickable');
+    n += 1;
+    const without = await prisma.person.create({ data: { name: `Zelda Pickable NoAccount ${n}`, whatsappNumber: `+2377300${String(n).padStart(5, '0')}`, profileCompletedAt: new Date() } });
+    const found = (await admin.get('/api/member/central-teaching-rota/members?search=zelda%20pickable')).body.items;
+    expect(found.map((f: any) => [f.id, f.hasAccount])).toEqual([[withAccount.person.id, true], [without.id, false]]);
+  });
+
   it('adds a 20th teacher on a topic nobody starts on, and refuses one member on two rows', async () => {
     await loadPlan(plan({ topics: [topic(1), topic(2), topic(3), topic(4)] }));
     const added = await addTeacher({ name: 'New Teacher', dayOfWeek: 3, startTime: '07:00' });
@@ -274,7 +294,7 @@ describe('the doors', () => {
     const rows = (await admin.get('/api/member/central-teaching-rota/overview')).body.teachers;
     await admin.send('patch', `/api/member/central-teaching-rota/teachers/${rows[0].id}`, { personId: target.person.id });
     const found = await admin.get('/api/member/central-teaching-rota/members?search=findable');
-    expect(found.body.items).toEqual([{ id: target.person.id, name: 'Pickme Findable', language: 'fr', takenBy: rows[0].name }]);
+    expect(found.body.items).toEqual([{ id: target.person.id, name: 'Pickme Findable', language: 'fr', hasAccount: true, takenBy: rows[0].name }]);
   });
 });
 
