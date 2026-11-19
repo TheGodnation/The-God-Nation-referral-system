@@ -8,7 +8,7 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
-import { LEVELS, RotaError, addTeacher, adminOverview, guidePreview, loadPlan, matchTeachers, ratingDetail, searchGroups, searchMembers, teacherView, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
+import { LEVELS, RotaError, addTeacher, adminOverview, loadPlan, matchTeachers, ratingDetail, searchGroups, searchMembers, teacherView, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
 import { finishState, finishTeaching, rate } from '../lib/teachingCards';
 import { sendAssignmentsNow } from '../lib/teachingReminders';
 import { isFrench } from '../lib/privateNotice';
@@ -49,10 +49,6 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     const n = Number(req.params.number);
     if (!Number.isInteger(n)) return res.status(400).json({ error: 'Bad topic number.' });
     res.json(await topicPreview(n));
-  }));
-
-  router.get('/guide', asyncHandler(async (_req, res) => {
-    res.json({ guide: await guidePreview() });
   }));
 
   router.get('/members', asyncHandler(async (req, res) => {

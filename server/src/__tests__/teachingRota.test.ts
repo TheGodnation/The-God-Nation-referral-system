@@ -31,10 +31,8 @@ const textOf = (topic: string, lang: 'en' | 'fr' = 'en') => ({
   verses: ['John 1:1'],
 });
 const topic = (number: number, withFrench = true) => ({ number, kind: 'key' as const, en: textOf(`Topic ${number}`), ...(withFrench ? { fr: textOf(`Topic ${number}`, 'fr') } : {}) });
-const guide = { title: 'How to teach', definition: 'A key opens a door.', steps: [{ title: 'Start', minutes: 2, text: 'Tell a story.' }] };
 const plan = (over: Record<string, unknown> = {}) => ({
   startDate: '2026-11-23',
-  guide: { en: guide, fr: { ...guide, title: 'Comment enseigner' } },
   topics: [topic(1), topic(2), topic(3)],
   teachers: [
     { name: 'Alpha Tester', startTopic: 1, dayOfWeek: 1, startTime: '07:00' },
@@ -170,12 +168,11 @@ describe('what a teacher sees', () => {
       ['2026-11-30', 'Topic 2', 'upcoming', false],
     ]);
     expect(wk1.weeks[0].startsAt).toBe('2026-11-23T06:00:00.000Z'); // Monday 07:00 GMT+1
-    expect(wk1.guide.title).toBe('How to teach');
+    expect(wk1.guide).toBeUndefined(); // there is no guide any more
 
     const frenchView = (await teacherView(fr.person.id, new Date('2026-11-25T10:00:00Z'))) as any;
     expect(frenchView.language).toBe('fr');
     expect(frenchView.weeks[0].text.topic).toBe('Topic 2 (fr)');
-    expect(frenchView.guide.title).toBe('Comment enseigner');
 
     // the third week: Alpha has moved on by two topics
     const wk3 = (await teacherView(en.person.id, new Date('2026-12-08T10:00:00Z'))) as any;

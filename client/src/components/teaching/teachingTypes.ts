@@ -13,13 +13,6 @@ export interface TopicText {
   verses: string[];
 }
 
-export interface Guide {
-  title: string;
-  definition: string;
-  steps: { title: string; minutes: number; text: string }[];
-  note?: string;
-}
-
 export interface TeachingWeek {
   weekStart: string;
   isCurrent: boolean;
@@ -52,7 +45,6 @@ export interface TeachingView {
   started?: boolean;
   startsOn?: string;
   minutes?: number;
-  guide?: Guide | null;
   weeks?: TeachingWeek[];
 }
 

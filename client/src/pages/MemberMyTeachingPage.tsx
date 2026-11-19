@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { MemberNav } from '../components/member/MemberNav';
 import { api } from '../lib/api';
-import { TeachingGuideView, TeachingTopicView } from '../components/teaching/TeachingTopicView';
+import { TeachingTopicView } from '../components/teaching/TeachingTopicView';
 import { slotLabel, type TeachingView, type TeachingWeek } from '../components/teaching/teachingTypes';
 import { TeachingResults } from '../components/teaching/TeachingRatings';
 
@@ -81,7 +81,6 @@ export function MemberMyTeachingPage() {
               <WeekCard key={w.weekStart} week={w} showHow={i === 0} open={i === 0 && w.status !== 'done'} label={i === 0 ? t(started ? 'teachingRota.this_week' : 'teachingRota.first_week') : t(started ? 'teachingRota.next_week' : 'teachingRota.week_after')} />
             ))}
             {view.results && <TeachingResults results={view.results} />}
-            {view.guide && <TeachingGuideView guide={view.guide} open />}
           </>
         )}
         <MemberNav />

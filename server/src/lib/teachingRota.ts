@@ -44,15 +44,8 @@ const topicTextSchema = z.object({
   dominion: text(6000),
   verses: z.array(text(120)).max(20),
 });
-const guideTextSchema = z.object({
-  title: text(300),
-  definition: text(1000),
-  steps: z.array(z.object({ title: text(200), minutes: z.number().int().min(1).max(15), text: text(1000) })).min(1).max(12),
-  note: z.string().trim().max(2000).optional(),
-});
 export const planSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  guide: z.object({ en: guideTextSchema, fr: guideTextSchema.optional() }).optional(),
   topics: z
     .array(
       z.object({
@@ -78,7 +71,6 @@ export const planSchema = z.object({
 });
 export type Plan = z.infer<typeof planSchema>;
 type TopicText = z.infer<typeof topicTextSchema>;
-type GuideText = z.infer<typeof guideTextSchema>;
 
 const minuteOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 export const timeOf = (minute: number) => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
@@ -112,9 +104,7 @@ export async function loadPlan(input: unknown) {
   let teachersKept = 0;
   await prisma.$transaction(async (tx) => {
     if (!existing) {
-      await tx.teachingSettings.create({ data: { id: 'main', startDate: parseDay(plan.startDate ?? DEFAULT_START), guide: (plan.guide ?? null) as any } });
-    } else if (plan.guide) {
-      await tx.teachingSettings.update({ where: { id: 'main' }, data: { guide: plan.guide as any } });
+      await tx.teachingSettings.create({ data: { id: 'main', startDate: parseDay(plan.startDate ?? DEFAULT_START) } });
     }
     for (const t of plan.topics) {
       const data = { kind: t.kind, textEn: t.en as any, textFr: (t.fr ?? null) as any, bookWords: (t.bookWords ?? null) as any };
@@ -215,9 +205,6 @@ export async function teacherView(personId: string, now = new Date()) {
   const first = thisMonday.getTime() < startDate.getTime() ? startDate : thisMonday;
   const mondays = [first, addDays(first, 7)];
 
-  const guideAll = (settings.guide ?? null) as { en?: GuideText; fr?: GuideText } | null;
-  const guide = guideAll ? (lang === 'fr' && guideAll.fr ? guideAll.fr : guideAll.en ?? null) : null;
-
   const weeks = [];
   for (const monday of mondays) {
     const number = topicNumberFor(teacher.startTopic, numbers, weekNumber(startDate, monday));
@@ -245,7 +232,6 @@ export async function teacherView(personId: string, now = new Date()) {
     started: now.getTime() >= startDate.getTime(),
     startsOn: dayKey(startDate),
     minutes: TEACHING_MINUTES,
-    guide,
     weeks,
     results: await resultsForTeacher(teacher.id, teacher.startTopic, numbers, startDate, topics, lang, now),
   };
@@ -318,11 +304,6 @@ export async function topicPreview(number: number) {
   const t = await prisma.teachingTopic.findUnique({ where: { number } });
   if (!t) throw new RotaError('Topic not found.', 404);
   return { number: t.number, kind: t.kind, en: t.textEn, fr: t.textFr };
-}
-
-export async function guidePreview() {
-  const s = await prisma.teachingSettings.findUnique({ where: { id: 'main' }, select: { guide: true } });
-  return s?.guide ?? null;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

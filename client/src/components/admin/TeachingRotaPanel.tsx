@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
-import { TeachingGuideView, TeachingTopicView } from '../teaching/TeachingTopicView';
-import { dayName, type Guide, type LevelCounts, type TopicText } from '../teaching/teachingTypes';
+import { TeachingTopicView } from '../teaching/TeachingTopicView';
+import { dayName, type LevelCounts, type TopicText } from '../teaching/teachingTypes';
 import { CountChips } from '../teaching/TeachingRatings';
 
 interface Upcoming { weekStart: string; number: number; title: string }
@@ -254,7 +254,6 @@ function TopicReader({ base, topics, lang, setLang }: { base: string; topics: Ov
 export function TeachingRotaPanel({ base }: { base: string }) {
   const { t, i18n } = useTranslation();
   const [data, setData] = useState<Overview | null>(null);
-  const [guide, setGuide] = useState<{ en?: Guide; fr?: Guide } | null>(null);
   const [lang, setLang] = useState<'en' | 'fr'>('fr');
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -271,7 +270,6 @@ export function TeachingRotaPanel({ base }: { base: string }) {
   const load = () => api.get<Overview>(`${base}/overview`).then(setData).catch((e) => setError(e instanceof ApiError ? e.message : t('teachingRota.load_failed')));
   useEffect(() => {
     void load();
-    api.get<{ guide: { en?: Guide; fr?: Guide } | null }>(`${base}/guide`).then((r) => setGuide(r.guide)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base]);
 
@@ -286,7 +284,6 @@ export function TeachingRotaPanel({ base }: { base: string }) {
       const r = await api.post<{ summary: { topicsAdded: number; topicsUpdated: number; teachersAdded: number; teachersKept: number }; overview: Overview }>(`${base}/plan`, plan);
       setData(r.overview);
       setNote(t('teachingRota.loaded', r.summary));
-      api.get<{ guide: { en?: Guide; fr?: Guide } | null }>(`${base}/guide`).then((g) => setGuide(g.guide)).catch(() => {});
     } catch (e) {
       fail(e instanceof SyntaxError ? new ApiError(400, t('teachingRota.not_a_plan')) : e, t('teachingRota.load_failed'));
     } finally {
@@ -468,7 +465,6 @@ export function TeachingRotaPanel({ base }: { base: string }) {
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('teachingRota.read_topics')}</h3>
             <p className="text-xs text-slate-500">{t('teachingRota.read_topics_help')}</p>
             <TopicReader base={base} topics={data.topics} lang={lang} setLang={setLang} />
-            {guide && (guide[lang] ?? guide.en) && <TeachingGuideView guide={(guide[lang] ?? guide.en) as Guide} />}
           </div>
         </>
       )}
