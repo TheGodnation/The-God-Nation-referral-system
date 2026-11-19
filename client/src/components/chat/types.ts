@@ -59,6 +59,19 @@ export interface ChatTeaching {
   totals?: { members: number; finished: number; taken: number; passed: number; top: { name: string; percentage: number; passed: boolean }[] } | null;
 }
 
+export interface RatingCardInfo {
+  teacherName: string;
+  topic: string;
+  /** How many gave each level (never who). */
+  total: number;
+  counts: Record<'EXCELLENT' | 'VERY_GOOD' | 'GOOD' | 'KEEP_GROWING', number>;
+  myLevel: 'EXCELLENT' | 'VERY_GOOD' | 'GOOD' | 'KEEP_GROWING' | null;
+  /** The National Coordinator's own rating, shown to everyone. */
+  coordinator: { name: string; level: 'EXCELLENT' | 'VERY_GOOD' | 'GOOD' | 'KEEP_GROWING' } | null;
+  isOwnTeaching: boolean;
+  canRate: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   senderName: string;
@@ -69,7 +82,9 @@ export interface ChatMessage {
   senderPersonId?: string | null;
   isOwn: boolean;
   /** "JOINED": the welcome line shown when someone joins (body, when set, is how many joined together). */
-  kind?: 'JOINED';
+  kind?: 'JOINED' | 'TEACHING_RATING';
+  /** The rating card of a finished weekly teaching (kind TEACHING_RATING). */
+  ratingCard?: RatingCardInfo | null;
   body: string | null;
   createdAt: string;
   deleted: boolean;

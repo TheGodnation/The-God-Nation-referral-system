@@ -267,7 +267,7 @@ export function NotificationBell() {
         const when = metadata.startsAt
           ? new Intl.DateTimeFormat(fr ? 'fr-FR' : 'en-GB', { weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Douala' }).format(new Date(String(metadata.startsAt)))
           : '';
-        return t(`notifications.teaching_${metadata.kind === 'tomorrow' || metadata.kind === 'hour' || metadata.kind === 'rate' ? metadata.kind : 'assignment'}`, { topic, when, count: Number(metadata.count ?? 0) });
+        return t(`notifications.teaching_${metadata.kind === 'tomorrow' || metadata.kind === 'hour' || metadata.kind === 'rated' ? metadata.kind : 'assignment'}`, { topic, when, count: Number(metadata.count ?? 0) });
       }
       case 'LEADERSHIP_ROOM_MESSAGE':
         return t('notifications.leadership_room_message', { name: metadata.coordinator ? t('notifications.national_coordinator') : (metadata.fromName ?? ''), preview: metadata.preview ?? '' });

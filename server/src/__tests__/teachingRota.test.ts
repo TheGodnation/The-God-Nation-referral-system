@@ -6,7 +6,8 @@ import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 import { sendAssignmentsNow, sendRotaReminders } from '../lib/teachingReminders';
-import { RotaError, addTeacher, rate, ratingDetail, ratingSummaries, resolveBook, toRate, isRater, adminOverview, loadPlan, matchTeachers, slotStart, teacherView, topicNumberFor, updateSettings, updateTeacher, weekNumber } from '../lib/teachingRota';
+import { finishState, finishTeaching, postDueRatingCards, rate, ratingCardInfos } from '../lib/teachingCards';
+import { RotaError, addTeacher, ratingDetail, ratingSummaries, resolveBook, isRater, adminOverview, loadPlan, matchTeachers, slotStart, teacherView, topicNumberFor, updateSettings, updateTeacher, weekNumber } from '../lib/teachingRota';
 
 // The weekly teaching rota: the same slot every week, the topic moving on by one each week, a teacher seeing only their
 // own assignment, and nothing visible until the central admin switches it on. All names and texts here are made up.
@@ -148,10 +149,10 @@ describe('what a teacher sees', () => {
     await loadPlan(plan());
     const a = await member('Alpha Tester');
     await prisma.teachingTeacher.updateMany({ where: { name: 'Alpha Tester' }, data: { personId: a.person.id } });
-    expect(await teacherView(a.person.id)).toEqual({ enabled: false, isTeacher: false, isRater: false, toRateCount: 0 });
+    expect(await teacherView(a.person.id)).toEqual({ enabled: false, isTeacher: false });
     await updateSettings({ enabled: true, frenchChecked: true });
     const stranger = await member('Somebody Else');
-    expect(await teacherView(stranger.person.id)).toEqual({ enabled: true, isTeacher: false, isRater: false, toRateCount: 0 });
+    expect(await teacherView(stranger.person.id)).toEqual({ enabled: true, isTeacher: false });
   });
 
   it('gives the teacher their own topic this week and next week, in their own language, and moves on weekly', async () => {
@@ -319,93 +320,182 @@ async function setUp(opts: { fr?: boolean } = {}) {
 }
 const notices = (personId: string, kind?: string) => prisma.notification.findMany({ where: { recipientPersonId: personId, type: 'TEACHING_ROTA' }, orderBy: { createdAt: 'asc' } }).then((rows) => (kind ? rows.filter((r) => (r.metadata as any)?.kind === kind) : rows));
 
-describe('rating a teaching', () => {
-  it('opens a teaching to rating once it has ended, never your own, for eight days', async () => {
-    const { people, teachers } = await setUp();
-    const group = await prisma.community.create({ data: { name: `Leadership Development ${++n}` } });
-    const rater = await person('Rater');
-    const outsider = await person('Outsider');
-    await prisma.communityMembership.create({ data: { personId: rater.id, communityId: group.id } });
-    await prisma.communityMembership.create({ data: { personId: people.beta.id, communityId: group.id } });
-    await updateSettings({ ratersCommunityId: group.id });
-    expect(await isRater(rater.id)).toBe(true);
-    expect(await isRater(outsider.id)).toBe(false);
-    expect(await isRater(people.alpha.id)).toBe(false); // a teacher who is not in the group does not rate
+describe('the rating card in the group', () => {
+  // Alpha teaches Monday 23 Nov, 07:00 Cameroon time = 06:00Z. Card auto time = 06:20Z.
+  async function group() {
+    const g = await prisma.community.create({ data: { name: `Leadership Development ${++n}` } });
+    await updateSettings({ ratersCommunityId: g.id });
+    return g;
+  }
+  const cardsIn = async (communityId: string) => {
+    const conversation = await prisma.conversation.findFirst({ where: { communityId } });
+    return conversation ? prisma.message.findMany({ where: { conversationId: conversation.id, kind: 'TEACHING_RATING' } }) : [];
+  };
 
-    const monday = '2026-11-23';
-    // Alpha teaches Monday 07:00-07:15 (GMT+1): before it ends there is nothing to rate
-    expect(await toRate(rater.id, 'en', at('2026-11-23T06:10:00Z'))).toEqual([]);
-    const after = await toRate(rater.id, 'en', at('2026-11-23T06:30:00Z'));
-    expect(after.map((i) => [i.teacherName.startsWith('Alpha'), i.topic, i.myLevel])).toEqual([[true, 'Topic 1', null]]);
-
-    await expect(rate(rater.id, { teacherId: teachers.beta.id, weekStart: monday, level: 'GOOD' }, at('2026-11-23T06:30:00Z'))).rejects.toMatchObject({ code: 'NOT_RATEABLE' }); // Beta has not taught yet
-    await expect(rate(outsider.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'GOOD' }, at('2026-11-23T06:30:00Z'))).rejects.toMatchObject({ code: 'NOT_RATER' });
-    await rate(rater.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'GOOD' }, at('2026-11-23T06:30:00Z'));
-    await rate(rater.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'EXCELLENT' }, at('2026-11-23T07:00:00Z')); // changed her mind
-    expect((await toRate(rater.id, 'en', at('2026-11-23T07:30:00Z')))[0].myLevel).toBe('EXCELLENT');
-    expect(await prisma.teachingRating.count({ where: { teacherId: teachers.alpha.id } })).toBe(1);
-
-    // a teacher in the group cannot rate their own teaching
-    await prisma.communityMembership.create({ data: { personId: people.alpha.id, communityId: group.id } });
-    await expect(rate(people.alpha.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'EXCELLENT' }, at('2026-11-23T08:00:00Z'))).rejects.toMatchObject({ code: 'OWN_TEACHING' });
-    expect((await toRate(people.alpha.id, 'en', at('2026-11-23T08:00:00Z'))).every((i) => !i.teacherName.startsWith('Alpha'))).toBe(true);
-
-    // eight days after it ended it can no longer be rated
-    await expect(rate(rater.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'GOOD' }, at('2026-12-02T06:30:00Z'))).rejects.toMatchObject({ code: 'NOT_RATEABLE' });
+  it('offers "I have finished" to the teacher in the teaching group only, from the start of their slot, until the card is posted', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    const other = await prisma.community.create({ data: { name: `Other ${++n}` } });
+    expect((await finishState(people.alpha.id, g.id, 'en', at('2026-11-23T05:59:00Z'))).available).toBe(false); // before 07:00
+    const open = await finishState(people.alpha.id, g.id, 'en', at('2026-11-23T06:10:00Z'));
+    expect(open).toEqual({ available: true, topic: 'Topic 1' });
+    expect((await finishState(people.alpha.id, other.id, 'en', at('2026-11-23T06:10:00Z'))).available).toBe(false); // another group
+    expect((await finishState(people.beta.id, g.id, 'en', at('2026-11-23T06:10:00Z'))).available).toBe(false); // Beta teaches at 16:00
+    expect((await finishState(people.alpha.id, g.id, 'en', at('2026-11-24T07:00:00Z'))).available).toBe(false); // more than a day later
+    await finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'));
+    expect((await finishState(people.alpha.id, g.id, 'en', at('2026-11-23T06:13:00Z'))).available).toBe(false); // card is up
   });
 
-  it('gives the admin the totals, the average and who said what, and the teacher only the totals', async () => {
-    const { people, teachers } = await setUp();
-    const raters = [await person('Rater A'), await person('Rater B'), await person('Rater C')];
-    const group = await prisma.community.create({ data: { name: `Group ${++n}` } });
-    for (const r of raters) await prisma.communityMembership.create({ data: { personId: r.id, communityId: group.id } });
-    await updateSettings({ ratersCommunityId: group.id });
-    const now = at('2026-11-23T06:30:00Z');
-    await rate(raters[0].id, { teacherId: teachers.alpha.id, weekStart: '2026-11-23', level: 'EXCELLENT' }, now);
-    await rate(raters[1].id, { teacherId: teachers.alpha.id, weekStart: '2026-11-23', level: 'EXCELLENT' }, now);
-    await rate(raters[2].id, { teacherId: teachers.alpha.id, weekStart: '2026-11-23', level: 'KEEP_GROWING' }, now);
-
-    const summary = (await ratingSummaries()).get(teachers.alpha.id)!;
-    expect(summary).toEqual({ total: 3, average: 3, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 } });
-    const detail = await ratingDetail(teachers.alpha.id);
-    expect(detail.weeks[0].topic).toBe('Topic 1');
-    expect(detail.weeks[0].raters.map((r) => r.level).sort()).toEqual(['EXCELLENT', 'EXCELLENT', 'KEEP_GROWING']);
-    expect(detail.weeks[0].raters.every((r) => r.name.startsWith('Rater'))).toBe(true);
-
-    const view = (await teacherView(people.alpha.id, now)) as any;
-    expect(view.results).toHaveLength(1);
-    expect(view.results[0]).toMatchObject({ topic: 'Topic 1', total: 3, average: 3 });
-    expect(JSON.stringify(view)).not.toMatch(/Rater [ABC]/);
-    expect(((await teacherView(people.beta.id, now)) as any).results).toEqual([]); // nobody else's results
-    const overview = await adminOverview(now);
-    expect(overview.teachers.find((t) => t.name === 'Alpha Tester')!.ratings.total).toBe(3);
-    expect(overview.raters).toMatchObject({ communityId: group.id, count: 3 });
+  it('posts the card in the group when the teacher taps, once, with the teacher as its author', async () => {
+    const { people } = await setUp();
+    await expect(finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'))).rejects.toMatchObject({ code: 'NO_GROUP' });
+    const g = await group();
+    await expect(finishTeaching(people.alpha.id, at('2026-11-23T05:00:00Z'))).rejects.toMatchObject({ code: 'NOT_YET' });
+    await expect(finishTeaching((await person('Nobody')).id, at('2026-11-23T06:12:00Z'))).rejects.toMatchObject({ code: 'NOT_A_TEACHER' });
+    expect(await finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'))).toEqual({ posted: true });
+    expect(await finishTeaching(people.alpha.id, at('2026-11-23T06:13:00Z'))).toEqual({ posted: false }); // a second tap changes nothing
+    const cards = await cardsIn(g.id);
+    expect(cards).toHaveLength(1);
+    expect(cards[0].senderPersonId).toBe(people.alpha.id);
   });
 
-  it('only lets a member of the group rate, over the web, and refuses an unknown level', async () => {
-    const admin = await member('The Coordinator', { admin: true });
-    const stranger = await member('Not In Group');
-    await loadPlan(plan({ startDate: '2020-01-06' }));
-    await prisma.teachingSettings.update({ where: { id: 'main' }, data: { enabled: true } });
-    expect((await stranger.get('/api/member/teaching-rota/to-rate')).body.items).toEqual([]);
-    expect((await stranger.send('post', '/api/member/teaching-rota/rate', { teacherId: 'x', weekStart: '2026-11-23', level: 'GOOD' })).status).toBe(403);
-    expect((await admin.send('post', '/api/member/teaching-rota/rate', { teacherId: 'x', weekStart: '2026-11-23', level: 'AMAZING' })).status).toBe(400);
-    expect((await admin.send('post', '/api/member/teaching-rota/rate', { teacherId: 'x', weekStart: '2026-11-23', level: 'GOOD' })).status).toBe(409);
+  it('posts the card by itself 20 minutes after the slot starts, unless the teacher already did or it is very late', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    expect(await postDueRatingCards(at('2026-11-23T06:19:00Z'))).toBe(0); // 19 minutes after 07:00
+    expect(await postDueRatingCards(at('2026-11-23T06:21:00Z'))).toBe(1); // Alpha
+    expect(await postDueRatingCards(at('2026-11-23T06:30:00Z'))).toBe(0); // not twice
+    // Beta taps at 16:05 (15:05Z); the automatic one finds the card already there
+    await finishTeaching(people.beta.id, at('2026-11-23T15:05:00Z'));
+    expect(await postDueRatingCards(at('2026-11-23T15:30:00Z'))).toBe(0);
+    expect(await cardsIn(g.id)).toHaveLength(2);
+    // Gamma (Tuesday 20:00): a card that is more than 3 days overdue is not posted any more
+    expect(await postDueRatingCards(at('2026-11-28T20:00:00Z'))).toBe(0);
   });
 
   it('suggests the group called Leadership Development when the plan is loaded', async () => {
-    const group = await prisma.community.create({ data: { name: `Leadership Development group ${Math.random().toString(36).slice(2, 6)}` } });
+    const g = await prisma.community.create({ data: { name: `Leadership Development group ${Math.random().toString(36).slice(2, 6)}` } });
     await loadPlan(plan());
     const settings = await prisma.teachingSettings.findUniqueOrThrow({ where: { id: 'main' } });
-    // another test database run may hold a second group of that name; then nothing is chosen for you
-    expect([group.id, null]).toContain(settings.ratersCommunityId);
+    // another run of the tests may leave a second group of that name; then nothing is chosen for you
+    expect([g.id, null]).toContain(settings.ratersCommunityId);
+  });
+
+  it('does nothing while the rota is off or no group is chosen', async () => {
+    await loadPlan(plan());
+    const a = await person('Alpha');
+    await prisma.teachingTeacher.updateMany({ where: { name: 'Alpha Tester' }, data: { personId: a.id } });
+    expect(await postDueRatingCards(at('2026-11-23T06:30:00Z'))).toBe(0); // off
+    await updateSettings({ enabled: true, frenchChecked: true });
+    expect(await postDueRatingCards(at('2026-11-23T06:30:00Z'))).toBe(0); // no group
+  });
+
+  it('lets members of the group rate at any time and change it, never their own, never from outside the group', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    const rater = await person('Rater');
+    const outsider = await person('Outsider');
+    await prisma.communityMembership.create({ data: { personId: rater.id, communityId: g.id } });
+    await prisma.communityMembership.create({ data: { personId: people.alpha.id, communityId: g.id } });
+    await finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'));
+    const card = (await cardsIn(g.id))[0];
+
+    await expect(rate(outsider.id, { messageId: card.id, level: 'GOOD' })).rejects.toMatchObject({ code: 'NOT_RATER' });
+    await expect(rate(people.alpha.id, { messageId: card.id, level: 'EXCELLENT' })).rejects.toMatchObject({ code: 'OWN_TEACHING' });
+    await expect(rate(rater.id, { messageId: 'no-such-card', level: 'GOOD' })).rejects.toMatchObject({ code: 'NO_CARD' });
+    await rate(rater.id, { messageId: card.id, level: 'GOOD' });
+    const changed = await rate(rater.id, { messageId: card.id, level: 'EXCELLENT' });
+    expect(changed.card).toMatchObject({ myLevel: 'EXCELLENT', total: 1, canRate: true, isOwnTeaching: false });
+    expect(await prisma.teachingRating.count({ where: { teacherId: (await prisma.teachingTeacher.findFirstOrThrow({ where: { personId: people.alpha.id } })).id } })).toBe(1);
+    // weeks later: still open
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(at('2027-03-01T10:00:00Z'));
+    try {
+      await rate(rater.id, { messageId: card.id, level: 'VERY_GOOD' });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect((await ratingCardInfos(rater.id, [card.id], 'en')).get(card.id)!.myLevel).toBe('VERY_GOOD');
+  });
+
+  it('shows the group only how many gave each level, never who, and shows the central admin’s own rating to everyone', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    const raters = [await person('Rater A'), await person('Rater B'), await person('Rater C')];
+    for (const r of raters) await prisma.communityMembership.create({ data: { personId: r.id, communityId: g.id } });
+    const coordinator = await person('Evangelist Coordinator');
+    await prisma.user.create({ data: { name: 'Central Admin', email: `card-admin-${++n}@test.local`, passwordHash: 'x', role: 'ADMIN', personId: coordinator.id } });
+    await finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'));
+    const card = (await cardsIn(g.id))[0];
+    await rate(raters[0].id, { messageId: card.id, level: 'EXCELLENT' });
+    await rate(raters[1].id, { messageId: card.id, level: 'EXCELLENT' });
+    await rate(raters[2].id, { messageId: card.id, level: 'KEEP_GROWING' });
+    await rate(coordinator.id, { messageId: card.id, level: 'GOOD' });
+
+    const seenByRaterA = (await ratingCardInfos(raters[0].id, [card.id], 'en')).get(card.id)!;
+    expect(seenByRaterA).toMatchObject({ total: 3, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 }, myLevel: 'EXCELLENT', coordinator: { name: coordinator.name, level: 'GOOD' }, teacherName: people.alpha.name, topic: 'Topic 1' });
+    const json = JSON.stringify(seenByRaterA);
+    for (const r of raters) expect(json).not.toContain(r.name); // no rater is named
+    // the admin's rating is not mixed into the anonymous totals
+    expect(seenByRaterA.counts.GOOD).toBe(0);
+    // another member sees their own choice only (none) and can rate
+    const late = await person('Rater D');
+    await prisma.communityMembership.create({ data: { personId: late.id, communityId: g.id } });
+    expect((await ratingCardInfos(late.id, [card.id], 'en')).get(card.id)).toMatchObject({ myLevel: null, canRate: true });
+    // the teacher sees the same card but cannot rate it
+    expect((await ratingCardInfos(people.alpha.id, [card.id], 'fr')).get(card.id)).toMatchObject({ isOwnTeaching: true, canRate: false, topic: 'Topic 1 (fr)' });
+    // the admin still sees every rating with names in the panel
+    const teacher = await prisma.teachingTeacher.findFirstOrThrow({ where: { personId: people.alpha.id } });
+    expect((await ratingSummaries()).get(teacher.id)).toMatchObject({ total: 4 });
+    expect((await ratingDetail(teacher.id)).weeks[0].raters.map((r) => r.name).sort()).toEqual([coordinator.name, ...raters.map((r) => r.name)].sort());
+  });
+
+  it('tells the teacher when someone rates, in one bell entry that counts up, without saying who or what', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    const r1 = await person('Rater One');
+    const r2 = await person('Rater Two');
+    for (const r of [r1, r2]) await prisma.communityMembership.create({ data: { personId: r.id, communityId: g.id } });
+    await finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'));
+    const card = (await cardsIn(g.id))[0];
+    await rate(r1.id, { messageId: card.id, level: 'KEEP_GROWING' });
+    let rows = await notices(people.alpha.id, 'rated');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].metadata).toMatchObject({ kind: 'rated', count: 1, topicEn: 'Topic 1' });
+    await prisma.notification.update({ where: { id: rows[0].id }, data: { readAt: new Date() } });
+    await rate(r2.id, { messageId: card.id, level: 'EXCELLENT' });
+    rows = await notices(people.alpha.id, 'rated');
+    expect(rows).toHaveLength(1); // the same entry, updated and unread again
+    expect(rows[0].readAt).toBeNull();
+    expect((rows[0].metadata as any).count).toBe(2);
+    expect(JSON.stringify(rows[0].metadata)).not.toMatch(/Rater|KEEP_GROWING|EXCELLENT/);
+  });
+
+  it('puts the card into the group’s message list for members, with the counts and their own choice', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    const viewer = await member('Group Viewer');
+    const outsider = await member('Not In Group');
+    await prisma.communityMembership.create({ data: { personId: viewer.person.id, communityId: g.id } });
+    await finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'));
+    const card = (await cardsIn(g.id))[0];
+    expect((await viewer.send('post', '/api/member/teaching-rota/rate', { messageId: card.id, level: 'GOOD' })).body.card).toMatchObject({ myLevel: 'GOOD', total: 1 });
+    expect((await viewer.send('post', '/api/member/teaching-rota/rate', { messageId: card.id, level: 'AMAZING' })).status).toBe(400);
+    expect((await outsider.send('post', '/api/member/teaching-rota/rate', { messageId: card.id, level: 'GOOD' })).status).toBe(403);
+
+    const list = await viewer.get(`/api/communities/${g.id}/conversation/messages`);
+    expect(list.status).toBe(200);
+    const item = list.body.items.find((m: any) => m.id === card.id);
+    expect(item.kind).toBe('TEACHING_RATING');
+    expect(item.ratingCard).toMatchObject({ myLevel: 'GOOD', total: 1, counts: { GOOD: 1 }, topic: 'Topic 1', canRate: true });
+    expect(list.body.unreadCount).toBe(0); // a card is never an unread message
   });
 });
 
 describe('reminders to the teachers', () => {
   it('says nothing while the rota is off', async () => {
     await loadPlan(plan());
-    expect(await sendRotaReminders(at('2026-11-22T17:30:00Z'))).toEqual({ assignment: 0, tomorrow: 0, hour: 0, rate: 0 });
+    expect(await sendRotaReminders(at('2026-11-22T17:30:00Z'))).toEqual({ assignment: 0, tomorrow: 0, hour: 0 });
   });
 
   it('sends the assignment on Sunday evening, the evening before, and an hour before, each once', async () => {
@@ -437,23 +527,6 @@ describe('reminders to the teachers', () => {
     await prisma.teachingTeacher.update({ where: { id: teachers.beta.id }, data: { personId: null } });
     await prisma.teachingTeacher.update({ where: { id: teachers.gamma.id }, data: { active: false } });
     expect((await sendRotaReminders(at('2026-11-22T17:05:00Z'))).assignment).toBe(1); // Alpha only
-  });
-
-  it('reminds the people who still have teachings to rate, once, on Sunday evening', async () => {
-    const { people, teachers } = await setUp();
-    const group = await prisma.community.create({ data: { name: `Group ${++n}` } });
-    const r1 = await person('Rater One');
-    const r2 = await person('Rater Two');
-    for (const r of [r1, r2]) await prisma.communityMembership.create({ data: { personId: r.id, communityId: group.id } });
-    await updateSettings({ ratersCommunityId: group.id });
-    // r1 rated Alpha already; Beta and Gamma are still waiting by Sunday 29 November (the week of the 23rd)
-    await rate(r1.id, { teacherId: teachers.alpha.id, weekStart: '2026-11-23', level: 'GOOD' }, at('2026-11-23T07:00:00Z'));
-    const out = await sendRotaReminders(at('2026-11-29T17:05:00Z'));
-    expect(out.rate).toBe(2);
-    expect(((await notices(r1.id, 'rate'))[0].metadata as any).count).toBe(2); // Beta, Gamma
-    expect(((await notices(r2.id, 'rate'))[0].metadata as any).count).toBe(3);
-    expect((await sendRotaReminders(at('2026-11-29T17:30:00Z'))).rate).toBe(0);
-    expect(people.alpha.id).toBeTruthy();
   });
 
   it('"send the assignments now" reaches the teachers whose slot is still ahead, and never twice', async () => {

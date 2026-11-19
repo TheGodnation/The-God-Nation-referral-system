@@ -2,17 +2,17 @@ import { prisma } from './prisma';
 import { weekStartOf, addDays, dayKey } from './weeklyReports';
 import { pushToPerson, type PushPayload } from './push';
 import { isFrench } from './privateNotice';
-import { DAY, MIN, TZ_MS, TEACHING_MINUTES, finishedTeachings, loadBase, pickText, raterIds, slotStart, topicNumberFor, weekNumber } from './teachingRota';
+import { DAY, MIN, TZ_MS, loadBase, pickText, slotStart, topicNumberFor, weekNumber } from './teachingRota';
+import { postDueRatingCards } from './teachingCards';
 
 // Reminders for the weekly teaching rota, in the bell and as a phone alert, in each person's own language. Only while
 // the rota is switched on, and each one goes out once (written in TeachingReminderLog):
 //  - Sunday 18:00 before the week:  "Your teaching this week: topic, day, time" (to every teacher)
 //  - the evening before (18:00):     "You teach tomorrow"  (not for Monday teachers: Sunday's message already says it)
 //  - one hour before:                "Your teaching starts in 1 hour"
-//  - Sunday 18:00 of the week:       "N teachings waiting for your rating" (to raters who still have some)
 // All times are Cameroon time (GMT+1).
 
-export type RotaKind = 'assignment' | 'tomorrow' | 'hour' | 'rate';
+export type RotaKind = 'assignment' | 'tomorrow' | 'hour';
 
 /** Claims a reminder: true the first time, false when it was already sent. */
 async function claim(key: string): Promise<boolean> {
@@ -23,7 +23,7 @@ async function claim(key: string): Promise<boolean> {
 const whenText = (startsAt: Date, french: boolean, withDay: boolean) =>
   new Intl.DateTimeFormat(french ? 'fr-FR' : 'en-GB', { ...(withDay ? { weekday: 'long' as const } : {}), hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Douala' }).format(startsAt);
 
-function pushFor(kind: RotaKind, french: boolean, d: { topic: string; startsAt: Date; count?: number }): PushPayload {
+function pushFor(kind: RotaKind, french: boolean, d: { topic: string; startsAt: Date }): PushPayload {
   const url = '/member/my-teaching';
   switch (kind) {
     case 'assignment':
@@ -32,18 +32,16 @@ function pushFor(kind: RotaKind, french: boolean, d: { topic: string; startsAt: 
       return { title: french ? '⏰ Vous enseignez demain' : '⏰ You teach tomorrow', body: `${d.topic} · ${whenText(d.startsAt, french, false)}`, url, tag: 'rota-reminder' };
     case 'hour':
       return { title: french ? '⏰ Votre enseignement commence dans 1 heure' : '⏰ Your teaching starts in 1 hour', body: d.topic, url, tag: 'rota-reminder', urgent: true };
-    case 'rate':
-      return { title: french ? '⭐ Enseignements à noter' : '⭐ Teachings to rate', body: french ? `${d.count} attendent votre note.` : `${d.count} waiting for your rating.`, url, tag: 'rota-rate' };
   }
 }
 
-async function send(personId: string, kind: RotaKind, d: { topicEn: string; topicFr: string; startsAt: Date; count?: number }) {
+async function send(personId: string, kind: RotaKind, d: { topicEn: string; topicFr: string; startsAt: Date }) {
   await prisma.notification.create({
-    data: { recipientPersonId: personId, type: 'TEACHING_ROTA', metadata: { kind, topicEn: d.topicEn, topicFr: d.topicFr, startsAt: d.startsAt.toISOString(), count: d.count ?? null } as any, targetType: 'TeachingRota' },
+    data: { recipientPersonId: personId, type: 'TEACHING_ROTA', metadata: { kind, topicEn: d.topicEn, topicFr: d.topicFr, startsAt: d.startsAt.toISOString() } as any, targetType: 'TeachingRota' },
   });
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
   const french = isFrench(person?.preferredLanguage);
-  await pushToPerson(personId, pushFor(kind, french, { topic: french ? d.topicFr : d.topicEn, startsAt: d.startsAt, count: d.count })).catch(() => {});
+  await pushToPerson(personId, pushFor(kind, french, { topic: french ? d.topicFr : d.topicEn, startsAt: d.startsAt })).catch(() => {});
 }
 
 async function plan(now: Date) {
@@ -60,7 +58,7 @@ function topicsFor(p: NonNullable<Awaited<ReturnType<typeof plan>>>, startTopic:
 
 /** Sends every reminder that is due and not yet sent. Safe to run often. */
 export async function sendRotaReminders(now = new Date()): Promise<Record<RotaKind, number>> {
-  const out: Record<RotaKind, number> = { assignment: 0, tomorrow: 0, hour: 0, rate: 0 };
+  const out: Record<RotaKind, number> = { assignment: 0, tomorrow: 0, hour: 0 };
   const p = await plan(now);
   if (!p) return out;
   const mondays = [p.thisMonday, addDays(p.thisMonday, 7)].filter((m) => m.getTime() >= p.settings.startDate.getTime());
@@ -90,22 +88,6 @@ export async function sendRotaReminders(now = new Date()): Promise<Record<RotaKi
     }
   }
 
-  // Raters: on Sunday evening, the teachings of this week (and the days before) they have not rated yet.
-  const rateDue = p.thisMonday.getTime() + 6 * DAY + 18 * 60 * MIN - TZ_MS;
-  if (now.getTime() >= rateDue && now.getTime() < p.thisMonday.getTime() + 8 * DAY - TZ_MS && p.thisMonday.getTime() >= p.settings.startDate.getTime()) {
-    const finished = await finishedTeachings(now);
-    if (finished.length > 0) {
-      const given = await prisma.teachingRating.findMany({ where: { teacherId: { in: finished.map((f) => f.teacher.id) }, weekStart: { in: finished.map((f) => f.monday) } }, select: { raterPersonId: true, teacherId: true, weekStart: true } });
-      const done = new Set(given.map((g) => `${g.raterPersonId}|${g.teacherId}|${dayKey(g.weekStart)}`));
-      for (const personId of await raterIds()) {
-        const waiting = finished.filter((f) => f.teacher.personId !== personId && !done.has(`${personId}|${f.teacher.id}|${dayKey(f.monday)}`)).length;
-        if (waiting > 0 && (await claim(`rate:${personId}:${dayKey(p.thisMonday)}`))) {
-          await send(personId, 'rate', { topicEn: '', topicFr: '', startsAt: now, count: waiting });
-          out.rate++;
-        }
-      }
-    }
-  }
   return out;
 }
 
@@ -129,9 +111,8 @@ export async function sendAssignmentsNow(now = new Date()): Promise<{ sent: numb
 }
 
 export function startTeachingReminderLoop(): void {
-  const run = () => sendRotaReminders().catch((err) => console.error('[teaching-rota] reminders failed', { error: err instanceof Error ? err.message : String(err) }));
+  const run = () => Promise.all([sendRotaReminders(), postDueRatingCards()]).catch((err) => console.error('[teaching-rota] reminders failed', { error: err instanceof Error ? err.message : String(err) }));
   setTimeout(run, 3 * 60 * 1000).unref();
   setInterval(run, 5 * 60 * 1000).unref();
 }
 
-export { TEACHING_MINUTES };

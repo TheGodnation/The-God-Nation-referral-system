@@ -203,13 +203,11 @@ export async function resolveBook(words: unknown, personId: string): Promise<{ i
 
 export async function teacherView(personId: string, now = new Date()) {
   const { settings, topics } = await loadBase();
-  if (!settings || !settings.enabled) return { enabled: false, isTeacher: false, isRater: false, toRateCount: 0 };
+  if (!settings || !settings.enabled) return { enabled: false, isTeacher: false };
   const teacher = await prisma.teachingTeacher.findFirst({ where: { personId, active: true } });
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
   const lang: 'en' | 'fr' = isFrench(person?.preferredLanguage) ? 'fr' : 'en';
-  const rater = await isRater(personId);
-  const toRateCount = rater ? (await toRate(personId, lang, now)).filter((i) => !i.myLevel).length : 0;
-  if (!teacher) return { enabled: true, isTeacher: false, isRater: rater, toRateCount };
+  if (!teacher) return { enabled: true, isTeacher: false };
 
   const numbers = topics.map((t) => t.number);
   const thisMonday = weekStartOf(now);
@@ -243,8 +241,6 @@ export async function teacherView(personId: string, now = new Date()) {
   return {
     enabled: true,
     isTeacher: true,
-    isRater: rater,
-    toRateCount,
     language: lang,
     started: now.getTime() >= startDate.getTime(),
     startsOn: dayKey(startDate),
@@ -305,6 +301,7 @@ export async function adminOverview(now = new Date()) {
   if ([...slotCount.values()].some((n) => n > 1)) warnings.push('SAME_SLOT');
   const frenchNeeded = active.some((r) => r.language === 'fr');
   if (frenchNeeded && topics.some((t) => !t.textFr)) warnings.push('FRENCH_MISSING');
+  if (!settings?.ratersCommunityId) warnings.push('NO_RATING_GROUP');
 
   return {
     settings: settings ? { enabled: settings.enabled, startDate: dayKey(settings.startDate), frenchChecked: settings.frenchChecked, started: now.getTime() >= settings.startDate.getTime() } : null,
@@ -444,8 +441,6 @@ export async function matchTeachers() {
 export const LEVELS = ['EXCELLENT', 'VERY_GOOD', 'GOOD', 'KEEP_GROWING'] as const;
 export type Level = (typeof LEVELS)[number];
 const WEIGHT: Record<Level, number> = { EXCELLENT: 4, VERY_GOOD: 3, GOOD: 2, KEEP_GROWING: 1 };
-/** A teaching can be rated from the moment it ends until this many days later. */
-export const RATING_WINDOW_DAYS = 8;
 export const emptyCounts = (): Record<Level, number> => ({ EXCELLENT: 0, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 0 });
 
 /** Whether this member may rate: a member of the chosen group (or, with no group chosen, a teacher), and the central admin. */
@@ -481,64 +476,6 @@ export async function searchGroups(search: string) {
   if (q.length < 2) return [];
   const rows = await prisma.community.findMany({ where: { active: true, name: { contains: q, mode: 'insensitive' } }, select: { id: true, name: true, kind: true }, orderBy: { name: 'asc' }, take: 20 });
   return rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind }));
-}
-
-/** Every teaching that has ended and can still be rated (this week, last week, the week before), with the topic taught. */
-export async function finishedTeachings(now = new Date()) {
-  const { settings, topics } = await loadBase();
-  if (!settings) return [];
-  const teachers = await prisma.teachingTeacher.findMany({ where: { active: true, personId: { not: null } } });
-  const numbers = topics.map((t) => t.number);
-  const thisMonday = weekStartOf(now);
-  const out: { teacher: (typeof teachers)[number]; monday: Date; startsAt: Date; endsAt: Date; topic: (typeof topics)[number] }[] = [];
-  for (const k of [0, 1, 2]) {
-    const monday = addDays(thisMonday, -7 * k);
-    if (monday.getTime() < settings.startDate.getTime()) continue;
-    for (const teacher of teachers) {
-      const startsAt = slotStart(monday, teacher.dayOfWeek, teacher.startMinute);
-      const endsAt = new Date(startsAt.getTime() + TEACHING_MINUTES * MIN);
-      if (endsAt.getTime() > now.getTime() || now.getTime() - endsAt.getTime() > RATING_WINDOW_DAYS * DAY) continue;
-      const topic = topics.find((t) => t.number === topicNumberFor(teacher.startTopic, numbers, weekNumber(settings.startDate, monday)));
-      if (topic) out.push({ teacher, monday, startsAt, endsAt, topic });
-    }
-  }
-  return out;
-}
-
-/** The teachings this member can rate now (not their own), newest first, with the level they gave if any. */
-export async function toRate(personId: string, lang: 'en' | 'fr', now = new Date()) {
-  const items = (await finishedTeachings(now)).filter((i) => i.teacher.personId !== personId);
-  if (items.length === 0) return [];
-  const mine = await prisma.teachingRating.findMany({ where: { raterPersonId: personId, teacherId: { in: items.map((i) => i.teacher.id) } } });
-  const given = new Map(mine.map((r) => [`${r.teacherId}|${dayKey(r.weekStart)}`, r.level as Level]));
-  const people = await prisma.person.findMany({ where: { id: { in: items.map((i) => i.teacher.personId!) } }, select: { id: true, name: true } });
-  const nameOf = new Map(people.map((p) => [p.id, p.name]));
-  return items
-    .sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime())
-    .map((i) => ({
-      teacherId: i.teacher.id,
-      weekStart: dayKey(i.monday),
-      teacherName: nameOf.get(i.teacher.personId!) ?? i.teacher.name,
-      topic: pickText(lang, i.topic).text.topic,
-      startsAt: i.startsAt.toISOString(),
-      myLevel: given.get(`${i.teacher.id}|${dayKey(i.monday)}`) ?? null,
-    }));
-}
-
-export async function rate(personId: string, input: { teacherId: string; weekStart: string; level: Level }, now = new Date()) {
-  const settings = await prisma.teachingSettings.findUnique({ where: { id: 'main' }, select: { enabled: true } });
-  if (!settings?.enabled) throw new RotaError('The weekly teaching is not open.', 409, 'OFF');
-  if (!(await isRater(personId))) throw new RotaError('You cannot rate the teachings.', 403, 'NOT_RATER');
-  const hit = (await finishedTeachings(now)).find((i) => i.teacher.id === input.teacherId && dayKey(i.monday) === input.weekStart);
-  if (!hit) throw new RotaError('This teaching cannot be rated now.', 409, 'NOT_RATEABLE');
-  if (hit.teacher.personId === personId) throw new RotaError('You cannot rate your own teaching.', 403, 'OWN_TEACHING');
-  const weekStart = parseDay(input.weekStart);
-  await prisma.teachingRating.upsert({
-    where: { teacherId_weekStart_raterPersonId: { teacherId: input.teacherId, weekStart, raterPersonId: personId } },
-    create: { teacherId: input.teacherId, weekStart, raterPersonId: personId, level: input.level },
-    update: { level: input.level },
-  });
-  return { ok: true };
 }
 
 type Summary = { total: number; average: number | null; counts: Record<Level, number> };

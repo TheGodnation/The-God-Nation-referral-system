@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { MemberMyTeachingPage } from '../pages/MemberMyTeachingPage';
 import { TeachingStrip } from '../components/teaching/TeachingStrip';
 import { TeachingRotaPanel } from '../components/admin/TeachingRotaPanel';
-import { TeachingRatings } from '../components/teaching/TeachingRatings';
+import { TeachingFinishButton, TeachingRatingCard } from '../components/chat/TeachingRatingCard';
 
 vi.mock('../components/member/MemberNav', () => ({ MemberNav: () => null }));
 vi.mock('../components/PageShell', () => ({ PageShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
@@ -200,43 +200,85 @@ describe('Weekly teaching panel (central admin)', () => {
 });
 
 
-const ITEM = { teacherId: 't1', weekStart: '2026-11-23', teacherName: 'Alpha Tester', topic: 'Key 9, Prayer', startsAt: '2026-11-23T06:00:00.000Z', myLevel: null };
+const COUNTS = { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 };
+const CARD = { teacherName: 'Alpha Tester', topic: 'Key 9, Prayer', total: 3, counts: COUNTS, myLevel: null, coordinator: null, isOwnTeaching: false, canRate: true };
 
-describe('Rating the teachings', () => {
-  it('lists what can be rated, saves the chosen level, and lets it be changed', async () => {
+describe('The rating card in the group', () => {
+  it('invites a member to listen and rate, saves the chosen level, and lets it be changed', async () => {
     const posts: unknown[] = [];
     vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
-      if (init?.method === 'POST') { posts.push(JSON.parse(String(init.body))); return json({ ok: true }); }
-      return json({ items: [ITEM] });
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      posts.push(body);
+      return json({ ok: true, card: { ...CARD, myLevel: body.level, counts: { ...COUNTS, [body.level]: COUNTS[body.level as keyof typeof COUNTS] + 1 }, total: 4 } });
     }));
-    render(<TeachingRatings />);
-    const item = await screen.findByTestId('rate-item');
-    expect(item).toHaveTextContent('Alpha Tester');
-    expect(item).toHaveTextContent('Key 9, Prayer');
-    expect(screen.getByText(/1 waiting for your rating/)).toBeInTheDocument();
+    render(<TeachingRatingCard messageId="m1" initial={CARD} />);
+    const card = screen.getByTestId('rating-card-m1');
+    expect(card).toHaveTextContent('Alpha Tester has finished teaching Key 9, Prayer.');
+    expect(card).toHaveTextContent('Listen to the teaching, then rate it.');
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Excellent', 'Very good', 'Good', 'Keep growing']);
+    expect(card).toHaveTextContent('3 people have rated');
     fireEvent.click(screen.getByRole('button', { name: 'Very good' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Very good' })).toHaveAttribute('aria-pressed', 'true'));
+    await screen.findByText('✓ You chose Very good');
+    expect(screen.getByRole('button', { name: 'Very good' })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'Excellent' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Excellent' })).toHaveAttribute('aria-pressed', 'true'));
+    await screen.findByText('✓ You chose Excellent');
     expect(screen.getByRole('button', { name: 'Very good' })).toHaveAttribute('aria-pressed', 'false');
-    expect(posts).toEqual([{ teacherId: 't1', weekStart: '2026-11-23', level: 'VERY_GOOD' }, { teacherId: 't1', weekStart: '2026-11-23', level: 'EXCELLENT' }]);
+    expect(posts).toEqual([{ messageId: 'm1', level: 'VERY_GOOD' }, { messageId: 'm1', level: 'EXCELLENT' }]);
   });
 
-  it('shows the server’s reason when a rating is refused, and says when there is nothing to rate', async () => {
-    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => (init?.method === 'POST' ? json({ error: 'This teaching cannot be rated now.' }, 409) : json({ items: [ITEM] }))));
-    const { unmount } = render(<TeachingRatings />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Good' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('cannot be rated now');
-    unmount();
-    vi.stubGlobal('fetch', vi.fn(() => json({ items: [] })));
-    render(<TeachingRatings />);
-    expect(await screen.findByText(/Nothing to rate right now/)).toBeInTheDocument();
+  it('shows only totals per level (no names), and the Coordinator’s own rating to everyone', () => {
+    render(<TeachingRatingCard messageId="m2" initial={{ ...CARD, coordinator: { name: 'Stanley Ndoh', level: 'EXCELLENT' } }} />);
+    const card = screen.getByTestId('rating-card-m2');
+    expect(card).toHaveTextContent('2 × Excellent');
+    expect(card).toHaveTextContent('1 × Keep growing');
+    expect(screen.getByTestId('coordinator-rating')).toHaveTextContent('Stanley Ndoh: Excellent');
   });
 
+  it('says nobody has rated yet, and gives the teacher no rating buttons for their own teaching', () => {
+    render(<TeachingRatingCard messageId="m3" initial={{ ...CARD, total: 0, counts: { EXCELLENT: 0, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 0 }, isOwnTeaching: true, canRate: false }} />);
+    const card = screen.getByTestId('rating-card-m3');
+    expect(card).toHaveTextContent('Nobody has rated yet.');
+    expect(card).toHaveTextContent('This is your teaching. Others can rate it.');
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('shows the server’s reason when a rating is refused', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => json({ error: 'You cannot rate the teachings.' }, 403)));
+    render(<TeachingRatingCard messageId="m4" initial={CARD} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Good' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('You cannot rate the teachings.');
+  });
+});
+
+describe('"I have finished my teaching" in the group', () => {
+  it('shows for the teacher when it is their time, posts the card with one tap, then disappears', async () => {
+    const posts: string[] = [];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') { posts.push(url); return json({ posted: true }); }
+      return json({ available: true, topic: 'Key 9, Prayer' });
+    }));
+    const onPosted = vi.fn();
+    render(<TeachingFinishButton communityId="g1" onPosted={onPosted} />);
+    const button = await screen.findByRole('button', { name: /I have finished my teaching/ });
+    expect(screen.getByText('Key 9, Prayer')).toBeInTheDocument();
+    fireEvent.click(button);
+    await waitFor(() => expect(onPosted).toHaveBeenCalled());
+    expect(posts).toEqual(['/api/member/teaching-rota/finish']);
+    expect(screen.queryByTestId('finish-teaching')).toBeNull();
+  });
+
+  it('shows nothing to anyone else', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => json({ available: false })));
+    render(<TeachingFinishButton communityId="g1" onPosted={() => {}} />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByTestId('finish-teaching')).toBeNull();
+  });
+});
+
+describe('Results and the strip', () => {
   it('shows a teacher only totals of how they were rated on their page', async () => {
-    const counts = { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 };
-    vi.stubGlobal('fetch', vi.fn(() => json(view({ results: [{ weekStart: '2026-11-16', topic: 'Key 8, The Word', total: 3, average: 3, counts }] }))));
+    vi.stubGlobal('fetch', vi.fn(() => json(view({ results: [{ weekStart: '2026-11-16', topic: 'Key 8, The Word', total: 3, average: 3, counts: COUNTS }] }))));
     page();
     const card = await screen.findByTestId('teaching-results');
     expect(card).toHaveTextContent('Key 8, The Word');
@@ -245,16 +287,12 @@ describe('Rating the teachings', () => {
     expect(card).toHaveTextContent("Nobody's name is shown");
   });
 
-  it('gives a member who only rates a page with the rating list, and a strip while some are waiting', async () => {
-    vi.stubGlobal('fetch', vi.fn((url: string) => (url.includes('to-rate') ? json({ items: [ITEM] }) : json({ enabled: true, isTeacher: false, isRater: true, toRateCount: 2 }))));
-    const { unmount } = render(<MemoryRouter><TeachingStrip /></MemoryRouter>);
-    const strip = await screen.findByTestId('teaching-strip');
-    expect(strip).toHaveTextContent('Rate the teachings');
-    expect(strip).toHaveTextContent('2 to rate');
-    unmount();
-    page();
-    expect(await screen.findByTestId('teaching-ratings')).toBeInTheDocument();
-    expect(screen.queryByTestId('not-a-teacher')).toBeNull();
+  it('does not put rating on the Chats page: a member who is not a teacher sees no strip', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => json({ enabled: true, isTeacher: false })));
+    render(<MemoryRouter><TeachingStrip /></MemoryRouter>);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByTestId('teaching-strip')).toBeNull();
   });
 });
 
@@ -288,7 +326,7 @@ describe('Weekly teaching panel: ratings, who rates and sending', () => {
     setup({ raters: { communityId: 'g1', communityName: 'Leadership Development group', count: 12 } }, calls);
     render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
     await screen.findByText('Alpha Tester');
-    expect(screen.getByTestId('raters-box')).toHaveTextContent('Members of Leadership Development group (12 people)');
+    expect(screen.getByTestId('raters-box')).toHaveTextContent('Teachings are rated in Leadership Development group (12 people can rate).');
     fireEvent.click(screen.getByText('Choose the group'));
     fireEvent.change(screen.getByLabelText("Type the group's name"), { target: { value: 'leader' } });
     fireEvent.click(await screen.findByTestId('group-result'));

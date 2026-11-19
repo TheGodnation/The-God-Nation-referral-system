@@ -20,6 +20,7 @@ import { ChatSearch, EditSheet, ForwardSheet, SelectionBar, copyableText, findAn
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { draftKeyFor } from '../lib/drafts';
 import { AssemblyAgreementCard } from '../components/chat/AssemblyAgreementCard';
+import { TeachingFinishButton, TeachingRatingCard } from '../components/chat/TeachingRatingCard';
 
 interface MessagesResponse {
   items: ChatMessage[];
@@ -234,7 +235,7 @@ export function MemberGroupChatPage() {
     const list = messagesRef.current.filter((m) => !m.pending && !m.queued);
     const idx: number[] = [];
     for (let i = list.length - 1; i >= 0 && idx.length < unreadRef.current; i--) {
-      if (list[i].kind !== 'JOINED' && !list[i].isOwn) idx.push(i);
+      if (!list[i].kind && !list[i].isOwn) idx.push(i);
     }
     return { list, idx: idx.reverse() };
   }
@@ -809,6 +810,8 @@ export function MemberGroupChatPage() {
                       )}
                     </span>
                   </div>
+                ) : m.kind === 'TEACHING_RATING' ? (
+                  <TeachingRatingCard messageId={m.id} initial={m.ratingCard} />
                 ) : (
                 <MessageBubble
                   m={m}
@@ -856,6 +859,8 @@ export function MemberGroupChatPage() {
           <span className="rounded-full bg-slate-800/90 px-4 py-2 text-sm text-white">{toast}</span>
         </div>
       )}
+
+      {!notAllowed && <TeachingFinishButton communityId={communityId} onPosted={() => void fetchLatest(false)} />}
 
       {!notAllowed &&
         (canPost ? (

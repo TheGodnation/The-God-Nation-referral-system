@@ -8,7 +8,8 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
-import { LEVELS, RotaError, addTeacher, adminOverview, guidePreview, loadPlan, matchTeachers, rate, ratingDetail, searchGroups, searchMembers, teacherView, toRate, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
+import { LEVELS, RotaError, addTeacher, adminOverview, guidePreview, loadPlan, matchTeachers, ratingDetail, searchGroups, searchMembers, teacherView, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
+import { finishState, finishTeaching, rate } from '../lib/teachingCards';
 import { sendAssignmentsNow } from '../lib/teachingReminders';
 import { isFrench } from '../lib/privateNotice';
 
@@ -158,13 +159,18 @@ export const memberTeachingRotaRoutes = (() => {
   router.get('/me', asyncHandler(async (req, res) => {
     res.json(await teacherView(req.member!.personId));
   }));
-  // The teachings this member can rate now (not their own), and rating one.
-  router.get('/to-rate', asyncHandler(async (req, res) => {
+  // The teaching group's chat: "I have finished my teaching" (for the teacher), and rating the card (for the members).
+  router.get('/finish-state', asyncHandler(async (req, res) => {
+    const communityId = z.string().min(1).safeParse(req.query.communityId);
+    if (!communityId.success) return res.status(400).json({ error: 'communityId is required.' });
     const person = await prisma.person.findUnique({ where: { id: req.member!.personId }, select: { preferredLanguage: true } });
-    res.json({ items: await toRate(req.member!.personId, isFrench(person?.preferredLanguage) ? 'fr' : 'en') });
+    res.json(await finishState(req.member!.personId, communityId.data, isFrench(person?.preferredLanguage) ? 'fr' : 'en'));
+  }));
+  router.post('/finish', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    res.json(await finishTeaching(req.member!.personId));
   }));
   router.post('/rate', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
-    const parsed = z.object({ teacherId: z.string().min(1), weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), level: z.enum(LEVELS) }).safeParse(req.body);
+    const parsed = z.object({ messageId: z.string().min(1), level: z.enum(LEVELS) }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Choose how it was.' });
     res.json(await rate(req.member!.personId, parsed.data));
   }));

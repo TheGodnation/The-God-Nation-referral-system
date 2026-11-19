@@ -1815,7 +1815,8 @@
     "teaching_assignment": "Cette semaine vous enseignez : {{topic}}, {{when}}.",
     "teaching_tomorrow": "Rappel : demain vous enseignez {{topic}}, {{when}}.",
     "teaching_hour": "Votre enseignement commence dans 1 heure : {{topic}}.",
-    "teaching_rate": "{{count}} enseignements attendent votre note."
+    "teaching_rated_one": "{{count}} personne a noté votre enseignement : {{topic}}.",
+    "teaching_rated_other": "{{count}} personnes ont noté votre enseignement : {{topic}}."
   },
   "memberHome": {
     "title": "Accueil",
@@ -5788,21 +5789,16 @@
     "level_VERY_GOOD": "Très bien",
     "level_GOOD": "Bien",
     "level_KEEP_GROWING": "Continuez à progresser",
-    "rate_title": "Noter les enseignements",
-    "rate_none": "Rien à noter pour l'instant. Un enseignement peut être noté après sa fin, pendant 8 jours.",
-    "rate_help": "{{count}} attendent votre note. Vous pouvez changer une note pendant quelques jours.",
     "rate_failed": "Impossible d'enregistrer votre note. Réessayez.",
     "results_title": "Comment vos enseignements ont été notés",
     "results_help": "Totaux seulement. Aucun nom n'est montré.",
-    "strip_title_rate": "Noter les enseignements",
-    "strip_to_rate": "{{count}} à noter",
     "ratings_count_one": "{{count}} note",
     "ratings_count_other": "{{count}} notes",
     "no_ratings": "Pas encore de notes",
     "see_ratings": "Voir les notes",
-    "raters_title": "Qui note",
-    "raters_group": "Les membres de {{name}} ({{count}} personnes) et vous.",
-    "raters_none": "Aucun groupe choisi : les enseignants et vous notez ({{count}} personnes).",
+    "raters_title": "Le groupe des enseignements",
+    "raters_group": "Les enseignements sont notés dans {{name}} ({{count}} personnes peuvent noter).",
+    "raters_none": "Aucun groupe choisi pour l'instant ({{count}} personnes peuvent noter). Choisissez le groupe où ont lieu les enseignements.",
     "raters_change": "Choisir le groupe",
     "find_group": "Tapez le nom du groupe",
     "no_group": "Aucun groupe (les enseignants et moi notons)",
@@ -5810,6 +5806,17 @@
     "confirm_on": "Activer l'enseignement hebdomadaire ?\\n\\nLes responsables recevront leur affectation le dimanche soir, un rappel la veille au soir, et un autre une heure avant. Ceux qui notent recevront un rappel pour noter le dimanche soir.",
     "confirm_send": "Envoyer maintenant aux responsables les affectations de cette semaine ? Chaque responsable reçoit son message une seule fois.",
     "send_now": "Envoyer maintenant les affectations de la semaine",
-    "sent_now": "Envoyé à {{sent}} responsables ({{alreadySent}} l'avaient déjà)."
+    "sent_now": "Envoyé à {{sent}} responsables ({{alreadySent}} l'avaient déjà).",
+    "card_title": "{{name}} a terminé d'enseigner : {{topic}}.",
+    "card_listen": "Écoutez l'enseignement, puis notez-le.",
+    "card_you_chose": "Vous avez choisi : {{level}}",
+    "card_own": "C'est votre enseignement. Les autres peuvent le noter.",
+    "card_coordinator": "{{name}} : {{level}}",
+    "card_nobody": "Personne n'a encore noté.",
+    "card_rated_one": "{{count}} personne a noté",
+    "card_rated_other": "{{count}} personnes ont noté",
+    "finish_button": "J'ai terminé mon enseignement",
+    "finish_failed": "Publication impossible. Réessayez.",
+    "w_no_rating_group": "Aucun groupe n'est encore choisi pour les enseignements. Les cartes de notation apparaissent dans ce groupe."
   }
 }
