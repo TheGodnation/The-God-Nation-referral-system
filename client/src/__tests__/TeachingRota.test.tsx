@@ -26,14 +26,13 @@ const text = (topic: string) => ({
   dominion: 'In prayer you bring God’s will.',
   verses: ['Matthew 7:7', 'Philippians 4:6'],
 });
-const guide = { title: 'How to teach your 15 minutes', definition: 'A key is a secret that opens a door.', steps: [{ title: 'Start', minutes: 2, text: 'Tell the picture or story given to you.' }, { title: 'Finish', minutes: 2, text: 'Give one thing to do.' }] };
 const week = (over = {}) => ({ weekStart: '2026-11-23', isCurrent: true, startsAt: '2026-11-23T06:00:00.000Z', endsAt: '2026-11-23T06:15:00.000Z', status: 'upcoming', kind: 'key', text: text('Key 9, Prayer'), textLanguage: 'en', book: null, ...over });
-const view = (over = {}) => ({ enabled: true, isTeacher: true, language: 'en', started: true, startsOn: '2026-11-23', minutes: 15, guide, weeks: [week(), week({ weekStart: '2026-11-30', isCurrent: false, text: text('Key 11, Confession') })], ...over });
+const view = (over = {}) => ({ enabled: true, isTeacher: true, language: 'en', started: true, startsOn: '2026-11-23', minutes: 15, weeks: [week(), week({ weekStart: '2026-11-30', isCurrent: false, text: text('Key 11, Confession') })], ...over });
 
 const page = () => render(<MemoryRouter><MemberMyTeachingPage /></MemoryRouter>);
 
 describe('My teaching page', () => {
-  it('shows this week’s topic with the time in Cameroon time, the teaching, next week, and the guide', async () => {
+  it('shows this week’s topic with the time in Cameroon time, the teaching and next week', async () => {
     vi.stubGlobal('fetch', vi.fn(() => json(view())));
     page();
     expect(await screen.findByText('Key 9, Prayer')).toBeInTheDocument();
@@ -42,8 +41,8 @@ describe('My teaching page', () => {
     expect(screen.getByText('Key 11, Confession')).toBeInTheDocument(); // next week, to prepare
     expect(screen.getAllByText('Kingdom Keys, Volume 3, Chapter 14: The Key of Prayer').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Start with this story').length).toBeGreaterThan(0); // the label comes from the teaching itself
-    expect(screen.getByTestId('teaching-guide')).toHaveTextContent('How to teach your 15 minutes');
-    expect(screen.getByTestId('teaching-guide')).toHaveTextContent('1. Start (2 min).');
+    expect(screen.queryByTestId('teaching-guide')).toBeNull(); // no minute-by-minute guide
+    expect(screen.queryByText(/How to teach your 15 minutes/)).toBeNull();
     expect(screen.getByText(/Teach by voice note in the Leadership group/)).toBeInTheDocument();
   });
 
@@ -111,7 +110,6 @@ describe('Weekly teaching panel (central admin)', () => {
         posts.push({ url, body: JSON.parse(String(init.body)) });
         return json({ summary: { topicsAdded: 1, topicsUpdated: 0, teachersAdded: 1, teachersKept: 0 }, overview: overview() });
       }
-      if (url.endsWith('/guide')) return json({ guide: null });
       return json(overview({ settings: null, topics: [], teachers: [], warnings: ['NO_PLAN'] }));
     }));
     render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
@@ -125,7 +123,7 @@ describe('Weekly teaching panel (central admin)', () => {
   });
 
   it('refuses a file that is not JSON without sending anything', async () => {
-    const fetchMock = vi.fn((url: string) => (url.endsWith('/guide') ? json({ guide: null }) : json(overview({ settings: null, topics: [], teachers: [], warnings: ['NO_PLAN'] }))));
+    const fetchMock = vi.fn((url: string) => json(overview({ settings: null, topics: [], teachers: [], warnings: ['NO_PLAN'] })));
     vi.stubGlobal('fetch', fetchMock);
     render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
     await screen.findByText(/No plan loaded yet/);
@@ -146,7 +144,6 @@ describe('Weekly teaching panel (central admin)', () => {
         if (url.endsWith('/settings')) { state = { ...state, settings: { ...state.settings!, enabled: true } }; return json(state); }
         return json(overview({ teachers: [row({ dayOfWeek: body.dayOfWeek ?? 1 })] }));
       }
-      if (url.endsWith('/guide')) return json({ guide: { en: guide } });
       return json(state);
     }));
     vi.stubGlobal('confirm', () => true);
@@ -173,7 +170,6 @@ describe('Weekly teaching panel (central admin)', () => {
     const calls: unknown[] = [];
     vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
       if (init?.method === 'PUT') { calls.push(JSON.parse(String(init.body))); return json({ error: 'A French-speaking teacher is on the list. Read the French and tick "French checked" first.', code: 'FRENCH_NOT_CHECKED' }, 409); }
-      if (url.endsWith('/guide')) return json({ guide: null });
       return json(overview({ frenchNeeded: true, warnings: [] }));
     }));
     vi.stubGlobal('confirm', () => true);
@@ -186,7 +182,6 @@ describe('Weekly teaching panel (central admin)', () => {
 
   it('lets the admin read a teaching in French or English before switching on', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => {
-      if (url.endsWith('/guide')) return json({ guide: { en: guide } });
       if (url.includes('/topics/1')) return json({ number: 1, kind: 'key', en: text('Key 9, Prayer'), fr: { ...text('Clé 9, la prière'), teachingOn: 'Clé 9, la prière.' } });
       return json(overview());
     }));
@@ -302,7 +297,6 @@ describe('Weekly teaching panel: ratings, who rates and sending', () => {
     vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
       if (method !== 'GET') { calls.push({ url, method, body: JSON.parse(String(init!.body)) }); return json(url.endsWith('/send-assignments') ? { sent: 2, alreadySent: 1 } : overview({ settings: { enabled: true, startDate: '2026-11-23', frenchChecked: true, started: false }, teachers: [rated], warnings: [], ...over })); }
-      if (url.endsWith('/guide')) return json({ guide: null });
       if (url.includes('/ratings/t1')) return json({ name: 'Alpha Tester', weeks: [{ weekStart: '2026-11-23', topic: 'Key 9, Prayer', total: 3, average: 3.3, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 }, raters: [{ name: 'Rater One', level: 'EXCELLENT' }, { name: 'Rater Two', level: 'KEEP_GROWING' }] }] });
       if (url.includes('/groups')) return json({ items: [{ id: 'g1', name: 'Leadership Development group', kind: 'GROUP' }] });
       return json(overview({ settings: { enabled: true, startDate: '2026-11-23', frenchChecked: true, started: false }, teachers: [rated], warnings: [], ...over }));
