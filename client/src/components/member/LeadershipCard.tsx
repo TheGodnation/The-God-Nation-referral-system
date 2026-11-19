@@ -17,7 +17,7 @@ export function LeadershipCard() {
   const sub = isAdmin ? t('leadershipCard.sub_admin') : isLeader ? t('leadershipCard.sub_leader') : t('leadershipCard.sub_member');
 
   return (
-    <Link to={to} className="card mb-4 flex items-center gap-3 no-underline" data-testid="leadership-card">
+    <Link to={to} className="card mb-2 flex items-center gap-3 !p-3 no-underline" data-testid="leadership-card">
       <span aria-hidden className="text-2xl">🧭</span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-brand-900">{t('leadershipCard.title')}</span>

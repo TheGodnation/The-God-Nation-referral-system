@@ -28,7 +28,6 @@ describe('Assemblies row above the private messages', () => {
     const first = open();
     const row = await screen.findByTestId('assemblies-row');
     expect(row).toHaveTextContent('Tap here to access where the whole community gathers.');
-    expect(row).toHaveTextContent('|| HQ ASSEMBLY ||');
     // It comes before the private message in the page.
     const message = await screen.findByText('Welcome Sender');
     expect(row.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

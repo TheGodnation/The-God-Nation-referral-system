@@ -21,7 +21,7 @@ export function EventsCard() {
   }, []);
 
   return (
-    <Link to="/member/events" className="card mb-4 flex items-center gap-3 no-underline">
+    <Link to="/member/events" className="card mb-2 flex items-center gap-3 !p-3 no-underline">
       <span aria-hidden className="text-2xl">📅</span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-brand-900">{t('events.card_title')}</span>
