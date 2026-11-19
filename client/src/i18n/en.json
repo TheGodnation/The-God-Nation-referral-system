@@ -5817,6 +5817,7 @@
     "card_rated_other": "{{count}} people have rated",
     "finish_button": "I have finished my teaching",
     "finish_failed": "Could not post. Try again.",
-    "w_no_rating_group": "No group is chosen for the teachings yet. The rating cards appear in that group."
+    "w_no_rating_group": "No group is chosen for the teachings yet. The rating cards appear in that group.",
+    "no_account": "no app account yet"
   }
 }

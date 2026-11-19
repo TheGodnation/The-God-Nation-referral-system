@@ -353,3 +353,26 @@ describe('Weekly teaching panel: ratings, who rates and sending', () => {
     expect(screen.getAllByTestId('teacher-row')[0]).toHaveTextContent('Alpha Tester');
   });
 });
+
+
+describe('Choosing a member for a name', () => {
+  it('shows a member without an app account greyed out with the reason, and lets the others be chosen', async () => {
+    const calls: { url: string; method: string; body: any }[] = [];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') { calls.push({ url, method, body: JSON.parse(String(init!.body)) }); return json(overview({ teachers: [row({ personId: 'p2', memberName: 'Etabu Gertrude Nkeshie' })] })); }
+      if (url.includes('/members')) return json({ items: [{ id: 'p2', name: 'Etabu Gertrude Nkeshie', language: 'en', hasAccount: true, takenBy: null }, { id: 'p3', name: 'Gertrude Nkeshie (old)', language: 'en', hasAccount: false, takenBy: null }] });
+      return json(overview());
+    }));
+    render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
+    await screen.findByText('Alpha Tester');
+    fireEvent.click(screen.getByText('Choose member'));
+    fireEvent.change(screen.getByLabelText("Type the member's name"), { target: { value: 'gertrude' } });
+    const results = await screen.findAllByTestId('member-result');
+    expect(results).toHaveLength(2);
+    expect(results[1]).toBeDisabled();
+    expect(results[1]).toHaveTextContent('no app account yet');
+    fireEvent.click(results[0]);
+    await waitFor(() => expect(calls[0]?.body).toEqual({ personId: 'p2' }));
+  });
+});

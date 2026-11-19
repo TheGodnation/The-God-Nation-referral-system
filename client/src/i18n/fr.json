@@ -5817,6 +5817,7 @@
     "card_rated_other": "{{count}} personnes ont noté",
     "finish_button": "J'ai terminé mon enseignement",
     "finish_failed": "Publication impossible. Réessayez.",
-    "w_no_rating_group": "Aucun groupe n'est encore choisi pour les enseignements. Les cartes de notation apparaissent dans ce groupe."
+    "w_no_rating_group": "Aucun groupe n'est encore choisi pour les enseignements. Les cartes de notation apparaissent dans ce groupe.",
+    "no_account": "pas encore de compte dans l'application"
   }
 }
