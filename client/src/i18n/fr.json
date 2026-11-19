@@ -5839,7 +5839,9 @@
     "f_ifNotLabel": "Mots au-dessus de la partie suivante (par exemple : Si nous n'utilisons pas cette Clé)",
     "f_ifNot": "Si nous ne le savons pas",
     "f_dominion": "Comment cela nous donne la domination",
-    "f_verses": "Versets (séparés par des virgules)"
+    "f_verses": "Versets (séparés par des virgules)",
+    "hint_taken": "{{member}} est déjà choisie pour le nom « {{name}} ». Retirez-la d'abord de ce nom (« Changer de membre » là-bas), ou utilisez ce nom.",
+    "hint_no_account": "{{member}} n'a pas encore créé de compte dans l'application, elle ne peut donc pas être choisie. Demandez-lui de s'inscrire (ou de se connecter) d'abord, puis choisissez-la."
   },
   "celebration": {
     "tab": "Page de félicitations",

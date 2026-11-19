@@ -57,7 +57,9 @@ function MemberPicker({ base, onPick }: { base: string; onPick: (id: string) => 
   const { t } = useTranslation();
   const [q, setQ] = useState('');
   const [items, setItems] = useState<Found[]>([]);
+  const [hint, setHint] = useState('');
   useEffect(() => {
+    setHint('');
     if (q.trim().length < 2) {
       setItems([]);
       return;
@@ -71,12 +73,21 @@ function MemberPicker({ base, onPick }: { base: string; onPick: (id: string) => 
     <div className="mt-2 space-y-1">
       <input className="input" type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('teachingRota.find_member') ?? ''} aria-label={t('teachingRota.find_member') ?? ''} />
       {items.map((m) => (
-        <button key={m.id} type="button" disabled={Boolean(m.takenBy) || !m.hasAccount} onClick={() => onPick(m.id)} className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left text-sm disabled:opacity-50" data-testid="member-result">
+        // A greyed member stays tappable: tapping says why she cannot be chosen (a dead button looks like "nothing happens").
+        <button
+          key={m.id}
+          type="button"
+          aria-disabled={Boolean(m.takenBy) || !m.hasAccount}
+          onClick={() => (m.takenBy ? setHint(t('teachingRota.hint_taken', { member: m.name, name: m.takenBy })) : !m.hasAccount ? setHint(t('teachingRota.hint_no_account', { member: m.name })) : onPick(m.id))}
+          className={`flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left text-sm ${m.takenBy || !m.hasAccount ? 'opacity-50' : ''}`}
+          data-testid="member-result"
+        >
           <span>{m.name}</span>
           <span className="text-xs text-slate-500">{!m.hasAccount ? t('teachingRota.no_account') : m.takenBy ? t('teachingRota.already_on', { name: m.takenBy }) : m.language === 'fr' ? '🇫🇷' : '🇬🇧'}</span>
         </button>
       ))}
       {q.trim().length >= 2 && items.length === 0 && <p className="text-xs text-slate-500">{t('teachingRota.nobody_found')}</p>}
+      {hint && <p role="alert" className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900" data-testid="member-hint">{hint}</p>}
     </div>
   );
 }
@@ -111,6 +122,7 @@ function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base:
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<RatingDetail | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [localError, setLocalError] = useState('');
   async function toggleDetail() {
     setShowDetail((v) => !v);
     if (!detail) {
@@ -123,10 +135,12 @@ function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base:
   }
   async function patch(body: Record<string, unknown>) {
     try {
+      setLocalError('');
       onChanged(await api.patch<Overview>(`${base}/teachers/${row.id}`, body));
       setPicking(false);
     } catch (e) {
-      onError(e instanceof ApiError ? e.message : t('teachingRota.save_failed'));
+      // Shown right here, under the name (the panel's own message is at the top, out of sight on a phone).
+      setLocalError(e instanceof ApiError ? e.message : t('teachingRota.save_failed'));
     }
   }
   return (
@@ -147,6 +161,7 @@ function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base:
         </button>
       </div>
       {picking && <MemberPicker base={base} onPick={(id) => void patch({ personId: id })} />}
+      {localError && <p role="alert" className="mt-2 rounded-lg bg-red-50 p-2 text-sm text-red-800" data-testid="teacher-error">{localError}</p>}
       <div className="mt-2 grid grid-cols-2 gap-2">
         <select className="input" value={row.dayOfWeek} aria-label={t('teachingRota.day') ?? ''} onChange={(e) => void patch({ dayOfWeek: Number(e.target.value) })}>
           {[1, 2, 3, 4, 5, 6, 7].map((d) => (
