@@ -11,6 +11,7 @@ import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { EventsCard } from '../components/member/EventsCard';
 import { LeadershipCard } from '../components/member/LeadershipCard';
+import { useIsNewMember } from '../components/PageNote';
 import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatList';
 import { mediaKind } from '../components/chat/types';
 import { Announcements } from '../components/Announcements';
@@ -160,9 +161,35 @@ export function MemberChatsPage() {
   useEffect(() => {
     if (privateUnread && privateUnread > 0 && !touched.current) setTab('private');
   }, [privateUnread]);
+  // A slim row above the private messages for a new member (joined in the last 30 days) who has not opened Assemblies yet:
+  // it says where the whole community gathers. It stays (even after they leave and come back) until they open Assemblies.
+  const isNewMember = useIsNewMember();
+  const openedKey = `godnation:assemblies-opened:${member?.personId ?? ''}`;
+  const [opened, setOpened] = useState(() => {
+    try {
+      return localStorage.getItem(openedKey) === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      setOpened(localStorage.getItem(openedKey) === '1');
+    } catch {
+      /* private mode: it simply shows */
+    }
+  }, [openedKey]);
   const pick = (to: 'assemblies' | 'private') => {
     touched.current = true;
     setTab(to);
+    if (to === 'assemblies') {
+      setOpened(true);
+      try {
+        localStorage.setItem(openedKey, '1');
+      } catch {
+        /* private mode: it only lasts for this visit */
+      }
+    }
   };
 
 
@@ -225,6 +252,21 @@ export function MemberChatsPage() {
           )}
           </div>
           <div className={tab === 'private' ? '' : 'hidden'}>
+            {isNewMember && !opened && active.length > 0 && (
+              <button
+                type="button"
+                onClick={() => pick('assemblies')}
+                className="mb-3 flex w-full items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-left text-sm text-brand-900 shadow-sm hover:bg-brand-100"
+                data-testid="assemblies-row"
+              >
+                <span aria-hidden="true">👥</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold leading-5">{t('chatsTabs.access')}</span>
+                  <span className="block truncate text-xs text-brand-800">{active[0].communityName}</span>
+                </span>
+                <span aria-hidden="true" className="text-brand-600">›</span>
+              </button>
+            )}
             <PrivateChatList onUnread={onPrivateUnread} />
             {privateChats === 0 && <p className="px-2 text-sm text-slate-500" data-testid="private-empty-hint">{t('chatsTabs.private_hint')}</p>}
           </div>

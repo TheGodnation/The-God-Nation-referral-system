@@ -88,7 +88,7 @@ export function EnableNotificationsBanner({ className = 'mb-4' }: { className?: 
       <span className="text-lg leading-6" aria-hidden="true">🔔</span>
       <div className="min-w-0 flex-1">
         <p className="text-xs leading-4 text-brand-800">
-          <span className="text-sm font-semibold text-brand-900">{blocked ? t('notifications.blocked_title') : t('notifications.enable_title')}. </span>
+          <span className="text-sm font-semibold text-brand-900">{t('notifications.enable_title')}. </span>
           {message}
         </p>
         {failed && <p className="mt-1 text-xs text-red-700">{t('notifications.enable_failed')}</p>}
