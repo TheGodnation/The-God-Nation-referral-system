@@ -1753,7 +1753,6 @@
     "enable_button": "Activer les notifications",
     "enabling": "Activation…",
     "enable_failed": "Impossible d’activer les notifications. Veuillez réessayer.",
-    "blocked_title": "Les notifications sont bloquées sur ce téléphone",
     "blocked_button": "Voir comment les débloquer",
     "blocked_body": "Les notifications sont bloquées sur cet appareil. Pour les recevoir, ouvrez les réglages de votre téléphone ou navigateur pour ce site et autorisez les notifications.",
     "need_help": "Besoin d’aide ?",
@@ -5035,6 +5034,7 @@
     "me": "Ajoutez votre photo de profil et votre photo de mur : touchez ici pour commencer."
   },
   "chatsTabs": {
+    "access": "Touchez ici pour accéder au lieu où toute la communauté se réunit.",
     "assemblies": "Assemblées",
     "private": "Messages privés",
     "private_hint": "Vos messages privés apparaissent ici, les plus récents en premier."

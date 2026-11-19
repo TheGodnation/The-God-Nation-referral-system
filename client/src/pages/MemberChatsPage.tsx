@@ -11,6 +11,7 @@ import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { EventsCard } from '../components/member/EventsCard';
 import { LeadershipCard } from '../components/member/LeadershipCard';
+import { useIsNewMember } from '../components/PageNote';
 import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatList';
 import { mediaKind } from '../components/chat/types';
 import { Announcements } from '../components/Announcements';
@@ -160,11 +161,46 @@ export function MemberChatsPage() {
   useEffect(() => {
     if (privateUnread && privateUnread > 0 && !touched.current) setTab('private');
   }, [privateUnread]);
+  // A slim row above the private messages for a new member (joined in the last 30 days) who has not opened Assemblies yet:
+  // it says where the whole community gathers. It stays (even after they leave and come back) until they open Assemblies.
+  const isNewMember = useIsNewMember();
+  const openedKey = `godnation:assemblies-opened:${member?.personId ?? ''}`;
+  const [opened, setOpened] = useState(() => {
+    try {
+      return localStorage.getItem(openedKey) === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      setOpened(localStorage.getItem(openedKey) === '1');
+    } catch {
+      /* private mode: it simply shows */
+    }
+  }, [openedKey]);
   const pick = (to: 'assemblies' | 'private') => {
     touched.current = true;
     setTab(to);
+    if (to === 'assemblies') {
+      setOpened(true);
+      try {
+        localStorage.setItem(openedKey, '1');
+      } catch {
+        /* private mode: it only lasts for this visit */
+      }
+    }
   };
 
+
+  // The Events and Leadership cards sit above the tabs, except for a new member: there the first private message (the
+  // welcome) and the Assemblies row come first, so nothing important is pushed out of sight by the cards.
+  const cards = (
+    <>
+      <EventsCard />
+      <LeadershipCard />
+    </>
+  );
 
   return (
     <PageShell minimal>
@@ -178,8 +214,7 @@ export function MemberChatsPage() {
             in the founder's welcome message, so a new member's first screen is not crowded. */}
         <EnableNotificationsBanner />
         <PaymentDeskCard />
-        <EventsCard />
-        <LeadershipCard />
+        {!isNewMember && cards}
         <div role="tablist" className="mb-4 flex rounded-xl bg-slate-100 p-1 text-sm font-semibold">
           {(['assemblies', 'private'] as const).map((k) => {
             const n = k === 'assemblies' ? assembliesUnread : privateUnread ?? 0;
@@ -225,9 +260,22 @@ export function MemberChatsPage() {
           )}
           </div>
           <div className={tab === 'private' ? '' : 'hidden'}>
+            {isNewMember && !opened && active.length > 0 && (
+              <button
+                type="button"
+                onClick={() => pick('assemblies')}
+                className="mb-2 flex w-full items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-left text-xs font-semibold text-brand-900 shadow-sm hover:bg-brand-100"
+                data-testid="assemblies-row"
+              >
+                <span aria-hidden="true">👥</span>
+                <span className="min-w-0 flex-1 leading-4">{t('chatsTabs.access')}</span>
+                <span aria-hidden="true" className="text-sm text-brand-600">›</span>
+              </button>
+            )}
             <PrivateChatList onUnread={onPrivateUnread} />
             {privateChats === 0 && <p className="px-2 text-sm text-slate-500" data-testid="private-empty-hint">{t('chatsTabs.private_hint')}</p>}
           </div>
+          {isNewMember && <div>{cards}</div>}
           <Announcements />
         </div>
         <MemberNav />
