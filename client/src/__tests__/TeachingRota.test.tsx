@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MemberMyTeachingPage } from '../pages/MemberMyTeachingPage';
 import { TeachingStrip } from '../components/teaching/TeachingStrip';
@@ -374,5 +374,94 @@ describe('Choosing a member for a name', () => {
     expect(results[1]).toHaveTextContent('no app account yet');
     fireEvent.click(results[0]);
     await waitFor(() => expect(calls[0]?.body).toEqual({ personId: 'p2' }));
+  });
+});
+
+describe('Editing the teachings', () => {
+  const TOPIC = { number: 1, kind: 'key', en: text('The Key of Prayer'), fr: { ...text('La Clé de la prière'), help: 'La prière est plus que demander.' } };
+  const mock = (calls: { url: string; method: string; body: any }[], fail = false) =>
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') {
+        calls.push({ url, method, body: JSON.parse(String(init!.body)) });
+        return fail ? json({ error: 'Please fill in every field (en help).' }, 400) : json({ topic: TOPIC, overview: overview({ topics: [{ number: 1, kind: 'key', title: 'The Key of Prayer (new)', hasFrench: true }] }) });
+      }
+      if (url.includes('/topics/1')) return json(TOPIC);
+      return json(overview());
+    }));
+
+  async function openEditor() {
+    render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
+    await screen.findByText('Alpha Tester');
+    fireEvent.click(screen.getByText(/1\. Key 9, Prayer/));
+    fireEvent.click(await screen.findByTestId('edit-topic-1'));
+    return screen.findByTestId('topic-editor');
+  }
+
+  it('opens the saved words in the editor, saves a change in both languages, and shows the new title', async () => {
+    const calls: { url: string; method: string; body: any }[] = [];
+    mock(calls);
+    const editor = await openEditor();
+    const help = screen.getByLabelText('Help us understand') as HTMLTextAreaElement;
+    expect(help.value).toBe('Prayer is more than asking.');
+    fireEvent.change(help, { target: { value: 'Prayer is talking with our Father.' } });
+    fireEvent.click(screen.getByRole('button', { name: /Français/, pressed: false }));
+    expect((screen.getByLabelText('Help us understand') as HTMLTextAreaElement).value).toBe('La prière est plus que demander.');
+    fireEvent.click(screen.getByTestId('topic-save'));
+    await screen.findByText(/Teaching saved/);
+    expect(calls[0].method).toBe('PUT');
+    expect(calls[0].url).toBe('/api/admin/teaching-rota/topics/1');
+    expect(calls[0].body.en.help).toBe('Prayer is talking with our Father.');
+    expect(calls[0].body.fr.help).toBe('La prière est plus que demander.');
+    expect(calls[0].body.en.verses).toEqual(['Matthew 7:7', 'Philippians 4:6']);
+    expect(editor).not.toBeInTheDocument();
+    expect(screen.getByText(/1\. The Key of Prayer \(new\)/)).toBeInTheDocument();
+  });
+
+  it('will not save an English field left empty, and sends nothing', async () => {
+    const calls: { url: string; method: string; body: any }[] = [];
+    mock(calls);
+    await openEditor();
+    fireEvent.change(screen.getByLabelText('What it means'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByTestId('topic-save'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Please fill in every English field.');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('asks for every French field or none, and removes the French when all are emptied', async () => {
+    const calls: { url: string; method: string; body: any }[] = [];
+    mock(calls);
+    const editor = await openEditor();
+    fireEvent.click(within(editor).getByRole('button', { name: /Français/ }));
+    fireEvent.change(screen.getByLabelText('Help us understand'), { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('topic-save'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Fill in every French field, or leave them all empty.');
+    expect(calls).toHaveLength(0);
+    for (const label of ['Name of the teaching (for example: The Key of Faith)', 'Book (for example: Kingdom Keys, Volume 4)', 'Chapter (for example: Chapter 21: The Key of Faith)', 'You will be teaching us on', 'What it means', 'Words above the story (for example: Start with this story)', 'The story or picture', 'Words above the next part (for example: If we do not use this Key)', 'If we do not know this', 'How this gives us dominion', 'Verses (separated by commas)']) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value: '' } });
+    }
+    fireEvent.click(screen.getByTestId('topic-save'));
+    await screen.findByText(/Teaching saved/);
+    expect(calls[0].body.fr).toBeNull();
+  });
+
+  it('adds a new teaching with every English field filled, and shows the server’s reason when it is refused', async () => {
+    const calls: { url: string; method: string; body: any }[] = [];
+    mock(calls, true);
+    render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
+    await screen.findByText('Alpha Tester');
+    fireEvent.click(screen.getByTestId('add-topic'));
+    await screen.findByTestId('topic-editor');
+    for (const label of ['Name of the teaching (for example: The Key of Faith)', 'Book (for example: Kingdom Keys, Volume 4)', 'Chapter (for example: Chapter 21: The Key of Faith)', 'You will be teaching us on', 'Help us understand', 'What it means', 'Words above the story (for example: Start with this story)', 'The story or picture', 'Words above the next part (for example: If we do not use this Key)', 'If we do not know this', 'How this gives us dominion']) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value: 'x' } });
+    }
+    fireEvent.change(screen.getByLabelText('Verses (separated by commas)'), { target: { value: 'John 1:1; John 3:16' } });
+    fireEvent.click(screen.getByRole('button', { name: 'A Right' }));
+    fireEvent.click(screen.getByTestId('topic-save'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Please fill in every field');
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].url).toBe('/api/admin/teaching-rota/topics');
+    expect(calls[0].body).toMatchObject({ kind: 'right', fr: null });
+    expect(calls[0].body.en.verses).toEqual(['John 1:1', 'John 3:16']);
   });
 });

@@ -76,6 +76,7 @@ const MemberLearnPage = lazy(() => import('./pages/MemberLearnPage').then((m) =>
 const MemberReaderPage = lazy(() => import('./pages/MemberReaderPage').then((m) => (m ? { default: m.MemberReaderPage } : waitForReload())));
 const MemberPinnedPage = lazy(() => import('./pages/MemberPinnedPage').then((m) => (m ? { default: m.MemberPinnedPage } : waitForReload())));
 const MemberTeachingPage = lazy(() => import('./pages/MemberTeachingPage').then((m) => (m ? { default: m.MemberTeachingPage } : waitForReload())));
+const SharedPostPage = lazy(() => import('./pages/SharedPostPage').then((m) => (m ? { default: m.SharedPostPage } : waitForReload())));
 const CelebrationPage = lazy(() => import('./pages/CelebrationPage').then((m) => (m ? { default: m.CelebrationPage } : waitForReload())));
 const MemberMyTeachingPage = lazy(() => import('./pages/MemberMyTeachingPage').then((m) => (m ? { default: m.MemberMyTeachingPage } : waitForReload())));
 const MemberTeachingComposePage = lazy(() => import('./pages/MemberTeachingComposePage').then((m) => (m ? { default: m.MemberTeachingComposePage } : waitForReload())));
@@ -136,6 +137,7 @@ export default function App() {
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/congratulations" element={<CelebrationPage />} />
+            <Route path="/news/:kind/:id" element={<SharedPostPage />} />
             <Route path="/delete-account" element={<DeleteAccountPage />} />
             <Route path="/member/login" element={<MemberLoginPage />} />
             <Route path="/member/login/confirm" element={<MemberLoginConfirmPage />} />

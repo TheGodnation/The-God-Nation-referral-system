@@ -1,3 +1,4 @@
+import { ShareByLinkButton, shareBaseFor } from '../ShareByLinkSheet';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -592,6 +593,7 @@ export function HeadquartersPostsTab({ base = '/api/admin/headquarters-posts' }:
                     <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => startEdit(row)}>
                       ✏️ {t('admin.headquartersPosts.edit')}
                     </button>
+                    {status === 'published' && <ShareByLinkButton kind="post" id={row.id} title={row.titleEn} base={shareBaseFor(base)} className="btn-secondary px-3 py-1.5 text-sm" />}
                     {status === 'draft' && (
                       <button type="button" className="btn-primary px-3 py-1.5 text-sm" disabled={actingOnId === row.id} onClick={() => publish(row.id)}>
                         {t('admin.headquartersPosts.publish')}
@@ -656,6 +658,7 @@ export function HeadquartersPostsTab({ base = '/api/admin/headquarters-posts' }:
                           {t('admin.headquartersPosts.edit')}
                         </button>
                       )}
+                      {status === 'published' && <ShareByLinkButton kind="post" id={row.id} title={row.titleEn} base={shareBaseFor(base)} />}
                       {status === 'draft' && (
                         <>
                           <button

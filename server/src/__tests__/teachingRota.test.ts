@@ -7,7 +7,7 @@ import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 import { sendAssignmentsNow, sendRotaReminders } from '../lib/teachingReminders';
 import { finishState, finishTeaching, postDueRatingCards, rate, ratingCardInfos } from '../lib/teachingCards';
-import { RotaError, addTeacher, ratingDetail, ratingSummaries, resolveBook, isRater, adminOverview, loadPlan, matchTeachers, slotStart, teacherView, topicNumberFor, updateSettings, updateTeacher, weekNumber } from '../lib/teachingRota';
+import { RotaError, saveTopic, topicPreview, addTeacher, ratingDetail, ratingSummaries, resolveBook, isRater, adminOverview, loadPlan, matchTeachers, slotStart, teacherView, topicNumberFor, updateSettings, updateTeacher, weekNumber } from '../lib/teachingRota';
 
 // The weekly teaching rota: the same slot every week, the topic moving on by one each week, a teacher seeing only their
 // own assignment, and nothing visible until the central admin switches it on. All names and texts here are made up.
@@ -556,5 +556,47 @@ describe('reminders to the teachers', () => {
     expect(await sendAssignmentsNow(at('2026-11-23T09:30:00Z'))).toEqual({ sent: 0, alreadySent: 2 });
     // and the scheduled Sunday message does not repeat it
     expect((await sendRotaReminders(at('2026-11-23T09:40:00Z'))).assignment).toBe(0);
+  });
+});
+
+describe('editing the teachings', () => {
+  it('changes a teaching, keeps the French optional, and asks for the French to be read again when it changes', async () => {
+    await loadPlan(plan());
+    await updateSettings({ frenchChecked: true });
+    const edited = await saveTopic(1, { kind: 'key', en: { ...textOf('Topic 1 edited'), help: 'New help text' }, fr: textOf('Topic 1', 'fr') });
+    expect((edited.en as any).topic).toBe('Topic 1 edited');
+    expect((edited.en as any).help).toBe('New help text');
+    // the French was the same as before: nothing to read again
+    expect((await adminOverview()).settings?.frenchChecked).toBe(true);
+    await saveTopic(1, { kind: 'key', en: textOf('Topic 1 edited'), fr: { ...textOf('Topic 1', 'fr'), help: 'Aide changée' } });
+    expect((await adminOverview()).settings?.frenchChecked).toBe(false);
+    // a teaching with no French at all is allowed
+    const noFrench = await saveTopic(2, { kind: 'right', en: textOf('Topic 2') });
+    expect(noFrench.fr).toBeNull();
+    expect((await topicPreview(2)).kind).toBe('right');
+  });
+
+  it('adds a new teaching at the end of the list, and refuses an incomplete one', async () => {
+    await loadPlan(plan());
+    await expect(saveTopic(null, { kind: 'key', en: { ...textOf('Half done'), help: '' } })).rejects.toMatchObject({ code: 'BAD_TOPIC' });
+    await expect(saveTopic(99, { kind: 'key', en: textOf('Nope') })).rejects.toMatchObject({ status: 404 });
+    const added = await saveTopic(null, { kind: 'key', en: textOf('Topic 4'), fr: textOf('Topic 4', 'fr') });
+    expect(added.number).toBe(4);
+    expect((await adminOverview()).topics.map((t) => t.number)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('lets only the central admin edit, over the member door', async () => {
+    const admin = await member('The Coordinator', { admin: true });
+    const other = await member('Somebody');
+    await loadPlan(plan());
+    const body = { kind: 'key', en: textOf('Changed by admin') };
+    expect((await other.send('put', '/api/member/central-teaching-rota/topics/1', body)).status).toBe(403);
+    const res = await admin.send('put', '/api/member/central-teaching-rota/topics/1', body);
+    expect(res.status).toBe(200);
+    expect(res.body.topic.en.topic).toBe('Changed by admin');
+    expect(res.body.overview.topics[0].title).toBe('Changed by admin');
+    const add = await admin.send('post', '/api/member/central-teaching-rota/topics', { kind: 'right', en: textOf('Brand new') });
+    expect(add.status).toBe(201);
+    expect((await admin.send('put', '/api/member/central-teaching-rota/topics/1', { kind: 'key', en: { topic: 'x' } })).status).toBe(400);
   });
 });

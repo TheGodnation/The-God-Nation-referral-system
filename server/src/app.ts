@@ -65,6 +65,8 @@ import leaderEscalationsRoutes from './routes/leaderEscalations';
 import { adminCellsRoutes, memberCentralCellsRoutes } from './routes/adminCells';
 import { adminTeachingRotaRoutes, memberCentralTeachingRotaRoutes, memberTeachingRotaRoutes } from './routes/teachingRota';
 import { adminCelebrationRoutes, memberCentralCelebrationRoutes, publicCelebrationRoutes } from './routes/celebration';
+import { adminSharedRoutes, memberCentralSharedRoutes, publicSharedRoutes } from './routes/sharedPosts';
+import { sharedPreview } from './lib/sharedPosts';
 import { adminTokensRoutes, memberCentralTokensRoutes } from './routes/adminTokens';
 import memberTokensRoutes from './routes/memberTokens';
 import adminLeadershipRoutes from './routes/adminLeadership';
@@ -244,6 +246,9 @@ export function createApp() {
   app.use('/api/member/central-teaching-rota', memberCentralTeachingRotaRoutes);
   app.use('/api/member/teaching-rota', memberTeachingRotaRoutes);
   app.use('/api/celebration', publicCelebrationRoutes);
+  app.use('/api/shared', publicSharedRoutes);
+  app.use('/api/admin/shared', adminSharedRoutes);
+  app.use('/api/member/central-shared', memberCentralSharedRoutes);
   app.use('/api/admin/celebration', adminCelebrationRoutes);
   app.use('/api/member/central-celebration', memberCentralCelebrationRoutes);
   app.use('/api/admin/tokens', adminTokensRoutes);
@@ -445,7 +450,7 @@ export function createApp() {
         const row = await prisma.contentPage.findFirst({ where: { slug, published: true }, select: { titleEn: true, titleFr: true, bodyEn: true, bodyFr: true } });
         if (!row) return null;
         return lang === 'fr' && row.titleFr ? { title: row.titleFr, text: row.bodyFr ?? row.bodyEn } : { title: row.titleEn, text: row.bodyEn };
-      });
+      }, (kind, id, lang) => sharedPreview(kind, id, lang));
       app.get('/', spa);
       app.use(
         express.static(clientDist, {

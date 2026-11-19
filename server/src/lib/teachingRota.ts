@@ -30,7 +30,7 @@ export class RotaError extends Error {
 // The plan file
 
 const text = (max: number) => z.string().trim().min(1).max(max);
-const topicTextSchema = z.object({
+export const topicTextSchema = z.object({
   topic: text(300),
   bookTitle: text(300),
   chapter: text(300),
@@ -298,6 +298,36 @@ export async function adminOverview(now = new Date()) {
     warnings,
     frenchNeeded,
   };
+}
+
+/** The admin edits one teaching (or adds a new one at the end of the list). New French text has to be read again before switching on. */
+/** Whether two saved texts are the same, whatever the order of their fields. */
+const sameJson = (a: unknown, b: unknown): boolean => {
+  const norm = (v: unknown): unknown => (Array.isArray(v) ? v.map(norm) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v as object).sort(([x], [y]) => x.localeCompare(y)).map(([k, x]) => [k, norm(x)])) : v);
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+};
+export const topicEditSchema = z.object({ kind: z.enum(['right', 'key']), en: topicTextSchema, fr: topicTextSchema.nullable().optional() });
+export async function saveTopic(number: number | null, input: unknown) {
+  const parsed = topicEditSchema.safeParse(input);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    throw new RotaError(`Please fill in every field (${first?.path.join(' ') || 'topic'}).`, 400, 'BAD_TOPIC');
+  }
+  const { kind, en, fr } = parsed.data;
+  const data = { kind, textEn: en as any, textFr: (fr ?? null) as any };
+  let saved;
+  if (number === null) {
+    const last = await prisma.teachingTopic.findFirst({ orderBy: { number: 'desc' }, select: { number: true } });
+    saved = await prisma.teachingTopic.create({ data: { number: (last?.number ?? 0) + 1, ...data } });
+  } else {
+    const existing = await prisma.teachingTopic.findUnique({ where: { number } });
+    if (!existing) throw new RotaError('Topic not found.', 404);
+    saved = await prisma.teachingTopic.update({ where: { number }, data });
+    if (sameJson(existing.textFr, fr ?? null)) return topicPreview(saved.number);
+  }
+  // New or changed French: it has to be read again.
+  if (fr) await prisma.teachingSettings.updateMany({ where: { id: 'main' }, data: { frenchChecked: false } });
+  return topicPreview(saved.number);
 }
 
 export async function topicPreview(number: number) {
