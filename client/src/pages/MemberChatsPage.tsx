@@ -11,6 +11,7 @@ import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { EventsCard } from '../components/member/EventsCard';
 import { LeadershipCard } from '../components/member/LeadershipCard';
+import { TeachingStrip } from '../components/teaching/TeachingStrip';
 import { useIsNewMember } from '../components/PageNote';
 import { PrivateChatList, chatListTime } from '../components/chat/PrivateChatList';
 import { mediaKind } from '../components/chat/types';
@@ -198,6 +199,7 @@ export function MemberChatsPage() {
     <>
       <EventsCard />
       <LeadershipCard />
+      <TeachingStrip />
     </>
   );
 
