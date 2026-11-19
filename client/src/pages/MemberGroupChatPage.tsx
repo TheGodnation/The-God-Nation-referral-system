@@ -219,6 +219,57 @@ export function MemberGroupChatPage() {
     api.post(`/api/communities/${communityId}/conversation/read`, { messageId: latest.id }).catch(() => {});
   }
 
+  // "Unread" goes down only as messages are really seen on the screen, not the moment the chat is opened: a member who
+  // arrives with 25 new messages keeps seeing "25" on the Chats page until they have scrolled through all of them.
+  // (Where the phone cannot tell what is on screen, opening the chat marks it read, as before.)
+  const canObserve = typeof IntersectionObserver !== 'undefined';
+  const unreadRef = useRef(0);
+  const seen = useRef(new Set<string>());
+  const readTimer = useRef(0);
+  const jumpToUnread = useRef(false);
+  const [showJump, setShowJump] = useState(false);
+
+  /** The loaded messages, and the positions (oldest first) of the ones from others that this member has not read yet. */
+  function unreadPositions(): { list: ChatMessage[]; idx: number[] } {
+    const list = messagesRef.current.filter((m) => !m.pending && !m.queued);
+    const idx: number[] = [];
+    for (let i = list.length - 1; i >= 0 && idx.length < unreadRef.current; i--) {
+      if (list[i].kind !== 'JOINED' && !list[i].isOwn) idx.push(i);
+    }
+    return { list, idx: idx.reverse() };
+  }
+
+  function advanceRead() {
+    if (document.visibilityState === 'hidden' || unreadRef.current <= 0) return;
+    const { list, idx } = unreadPositions();
+    // Older unread messages are not loaded yet: wait until the member has scrolled up to them.
+    if (idx.length < unreadRef.current || idx.length === 0) return;
+    const firstUnseen = idx.find((i) => !seen.current.has(list[i].id));
+    if (firstUnseen === idx[0]) return; // nothing read yet
+    const upTo = firstUnseen === undefined ? list.length - 1 : firstUnseen - 1;
+    const target = list[upTo];
+    if (!target || lastReadId.current === target.id) return;
+    lastReadId.current = target.id;
+    unreadRef.current -= idx.filter((i) => i <= upTo).length;
+    api.post(`/api/communities/${communityId}/conversation/read`, { messageId: target.id }).catch(() => {});
+  }
+
+  /** "Latest" button: the member chooses to skip ahead, so everything counts as read. */
+  function jumpToLatest() {
+    const el = scrollRef.current;
+    if (el) el.scrollTo?.({ top: el.scrollHeight, behavior: 'smooth' });
+    if (el && !el.scrollTo) el.scrollTop = el.scrollHeight;
+    stickToBottom.current = true;
+    const list = messagesRef.current.filter((m) => !m.pending && !m.queued);
+    const latest = list[list.length - 1];
+    if (latest && unreadRef.current > 0 && lastReadId.current !== latest.id) {
+      lastReadId.current = latest.id;
+      unreadRef.current = 0;
+      api.post(`/api/communities/${communityId}/conversation/read`, { messageId: latest.id }).catch(() => {});
+    }
+    setShowJump(false);
+  }
+
   const messagesRef = useRef<ChatMessage[]>([]);
   messagesRef.current = messages;
 
@@ -269,7 +320,9 @@ export function MemberGroupChatPage() {
           setMustAgree(res.agreementRequired === true);
           setLoadError(false);
           setOfflineCopy(false);
-          markRead(res.items, res.unreadCount);
+          unreadRef.current = res.unreadCount;
+          if (!canObserve) markRead(res.items, res.unreadCount);
+          else if (first && res.unreadCount > 0) jumpToUnread.current = true;
           return res.items.length > 0 || (res.typing ?? []).length > 0 || (res.recording ?? []).length > 0;
         })
         .catch((err) => {
@@ -328,6 +381,20 @@ export function MemberGroupChatPage() {
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    if (jumpToUnread.current && messages.length > 0) {
+      jumpToUnread.current = false;
+      const { list, idx } = unreadPositions();
+      // Open at the first new message (when it is loaded and there is more than a screenful), like WhatsApp does.
+      if (idx.length > 0 && idx.length === unreadRef.current && idx[0] < list.length - 3) {
+        const node = el.querySelector(`[data-mid="${list[idx[0]].id}"]`) as HTMLElement | null;
+        if (node) {
+          stickToBottom.current = false;
+          el.scrollTop = Math.max(0, node.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 8);
+          setShowJump(true);
+          return;
+        }
+      }
+    }
     if (keepOffsetFromBottom.current !== null) {
       el.scrollTop = el.scrollHeight - keepOffsetFromBottom.current;
       keepOffsetFromBottom.current = null;
@@ -336,10 +403,41 @@ export function MemberGroupChatPage() {
     }
   }, [messages, media.jobs.length]);
 
+
+  // Which messages have really been on the screen (for "unread" above).
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!canObserve || !root) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        let changed = false;
+        for (const e of entries) {
+          const id = e.isIntersecting ? (e.target as HTMLElement).dataset.mid : undefined;
+          if (id && !seen.current.has(id)) {
+            seen.current.add(id);
+            changed = true;
+          }
+        }
+        if (changed) {
+          window.clearTimeout(readTimer.current);
+          readTimer.current = window.setTimeout(advanceRead, 400);
+        }
+      },
+      { root, threshold: 0.6 },
+    );
+    root.querySelectorAll('[data-mid]').forEach((n) => obs.observe(n));
+    return () => {
+      obs.disconnect();
+      window.clearTimeout(readTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, loaded]);
+
   function onScroll() {
     const el = scrollRef.current;
     if (!el) return;
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    setShowJump((cur) => (stickToBottom.current ? (cur ? false : cur) : unreadRef.current > 0 || cur));
   }
 
   /** Loads one page of older messages; false when there is nothing older. */
@@ -688,7 +786,7 @@ export function MemberGroupChatPage() {
             const newDay = !prev || dayKey(prev.createdAt) !== dayKey(m.createdAt);
             const showSender = newDay || !prev || prev.senderName !== m.senderName || prev.isOwn !== m.isOwn;
             return (
-              <div key={m.id} className={showSender && !newDay ? 'pt-2' : ''}>
+              <div key={m.id} data-mid={m.id} className={showSender && !newDay ? 'pt-2' : ''}>
                 {newDay && (
                   <div className="my-3 text-center">
                     <span className="rounded-md bg-white/90 px-3 py-1 text-xs text-slate-600 shadow-sm">{dayLabel(m.createdAt)}</span>
@@ -741,6 +839,17 @@ export function MemberGroupChatPage() {
           </div>
         )}
       </div>
+
+      {showJump && (
+        <button
+          type="button"
+          onClick={jumpToLatest}
+          className="absolute bottom-28 right-3 z-20 rounded-full bg-white px-3 py-2 text-sm font-semibold text-brand-800 shadow-lg ring-1 ring-brand-200"
+          data-testid="jump-latest"
+        >
+          ↓ {t('groupChat.latest')}
+        </button>
+      )}
 
       {toast && (
         <div role="status" className="pointer-events-none absolute inset-x-0 bottom-28 flex justify-center px-4">

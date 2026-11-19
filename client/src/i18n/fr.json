@@ -2496,6 +2496,7 @@
     "need_help": "Besoin d’aide ?"
   },
   "groupChat": {
+    "latest": "Dernier",
     "joined_one": "{{name}} vient de nous rejoindre. Souhaitez-lui la bienvenue ! 👋",
     "joined_many": "{{count}} personnes viennent de nous rejoindre. Souhaitez-leur la bienvenue ! 👋",
     "group": "Assemblée",

@@ -2496,6 +2496,7 @@
     "need_help": "Need help?"
   },
   "groupChat": {
+    "latest": "Latest",
     "joined_one": "{{name}} has just joined us. Welcome them! 👋",
     "joined_many": "{{count}} people have just joined us. Welcome them! 👋",
     "group": "Assembly",
