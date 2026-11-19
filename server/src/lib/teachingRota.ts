@@ -404,7 +404,7 @@ export async function matchTeachers() {
       ? await prisma.person.findMany({ where: { id: { in: ids }, erasedAt: null, memberAccount: { isNot: null } }, select: { id: true, name: true } })
       : [];
     // The same words in any order; or, when there is none, exactly one member whose name holds all these words and more
-    // (for example "Etabu Gertrude Nkeshie" for "Gertrude Nkeshie").
+    // (for example "Zora Mbeki Ndlovu" for "Mbeki Ndlovu").
     const wanted = new Set(words);
     let exact = candidates.filter((c) => normName(c.name) === normName(t.name));
     if (exact.length === 0) exact = candidates.filter((c) => [...wanted].every((w) => normName(c.name).split(' ').includes(w)));

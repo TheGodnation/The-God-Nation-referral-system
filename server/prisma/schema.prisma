@@ -4594,3 +4594,19 @@ model TeachingRatingCard {
 
   @@unique([teacherId, weekStart])
 }
+
+// The public "Congratulations" page for the students who finished the books (opens from a link shared in WhatsApp). One row,
+// written by the central admin. The names are NOT in the code (the repository is public): the admin types or pastes them.
+model Celebration {
+  id        String   @id @default("main")
+  published Boolean  @default(false)
+  titleEn   String   @default("")
+  titleFr   String   @default("")
+  introEn   String   @default("")
+  introFr   String   @default("")
+  messageEn String   @default("")
+  messageFr String   @default("")
+  // The names shown, one per line as written by the admin.
+  names     Json     @default("[]")
+  updatedAt DateTime @updatedAt
+}

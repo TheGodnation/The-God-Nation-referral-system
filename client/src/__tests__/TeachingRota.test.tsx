@@ -360,14 +360,14 @@ describe('Choosing a member for a name', () => {
     const calls: { url: string; method: string; body: any }[] = [];
     vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
-      if (method !== 'GET') { calls.push({ url, method, body: JSON.parse(String(init!.body)) }); return json(overview({ teachers: [row({ personId: 'p2', memberName: 'Etabu Gertrude Nkeshie' })] })); }
-      if (url.includes('/members')) return json({ items: [{ id: 'p2', name: 'Etabu Gertrude Nkeshie', language: 'en', hasAccount: true, takenBy: null }, { id: 'p3', name: 'Gertrude Nkeshie (old)', language: 'en', hasAccount: false, takenBy: null }] });
+      if (method !== 'GET') { calls.push({ url, method, body: JSON.parse(String(init!.body)) }); return json(overview({ teachers: [row({ personId: 'p2', memberName: 'Zora Mbeki Ndlovu' })] })); }
+      if (url.includes('/members')) return json({ items: [{ id: 'p2', name: 'Zora Mbeki Ndlovu', language: 'en', hasAccount: true, takenBy: null }, { id: 'p3', name: 'Mbeki Ndlovu (old)', language: 'en', hasAccount: false, takenBy: null }] });
       return json(overview());
     }));
     render(<TeachingRotaPanel base="/api/admin/teaching-rota" />);
     await screen.findByText('Alpha Tester');
     fireEvent.click(screen.getByText('Choose member'));
-    fireEvent.change(screen.getByLabelText("Type the member's name"), { target: { value: 'gertrude' } });
+    fireEvent.change(screen.getByLabelText("Type the member's name"), { target: { value: 'mbeki' } });
     const results = await screen.findAllByTestId('member-result');
     expect(results).toHaveLength(2);
     expect(results[1]).toBeDisabled();
