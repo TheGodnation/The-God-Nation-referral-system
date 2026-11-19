@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '../i18n';
@@ -6,7 +6,11 @@ import { CelebrationPage } from '../pages/CelebrationPage';
 import { CelebrationPanel } from '../components/admin/CelebrationPanel';
 
 const json = (body: unknown, status = 200) => Promise.resolve({ ok: status < 300, status, headers: { get: () => 'application/json' }, json: async () => body });
+beforeEach(() => {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null); // the test browser cannot draw
+});
 afterEach(async () => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   await i18n.changeLanguage('en');
 });
