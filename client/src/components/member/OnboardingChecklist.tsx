@@ -228,7 +228,7 @@ export function OnboardingPage() {
               <p className="text-xs text-emerald-700">{t('onboarding.done')}</p>
             ) : (
               <>
-                <EnableNotificationsBanner className="mt-1" />
+                <EnableNotificationsBanner className="mt-1" rule="always" />
                 <button type="button" onClick={confirmNotifications} className="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" data-testid="notifications-already">
                   {t('onboarding.notifications_already')}
                 </button>

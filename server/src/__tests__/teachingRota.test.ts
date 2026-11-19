@@ -5,7 +5,8 @@ import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
-import { RotaError, addTeacher, resolveBook, adminOverview, loadPlan, matchTeachers, slotStart, teacherView, topicNumberFor, updateSettings, updateTeacher, weekNumber } from '../lib/teachingRota';
+import { sendAssignmentsNow, sendRotaReminders } from '../lib/teachingReminders';
+import { RotaError, addTeacher, rate, ratingDetail, ratingSummaries, resolveBook, toRate, isRater, adminOverview, loadPlan, matchTeachers, slotStart, teacherView, topicNumberFor, updateSettings, updateTeacher, weekNumber } from '../lib/teachingRota';
 
 // The weekly teaching rota: the same slot every week, the topic moving on by one each week, a teacher seeing only their
 // own assignment, and nothing visible until the central admin switches it on. All names and texts here are made up.
@@ -64,6 +65,8 @@ async function member(name: string, opts: { admin?: boolean; language?: 'en' | '
 }
 
 beforeEach(async () => {
+  await prisma.teachingRating.deleteMany();
+  await prisma.teachingReminderLog.deleteMany();
   await prisma.teachingTeacher.deleteMany();
   await prisma.teachingTopic.deleteMany();
   await prisma.teachingSettings.deleteMany();
@@ -145,10 +148,10 @@ describe('what a teacher sees', () => {
     await loadPlan(plan());
     const a = await member('Alpha Tester');
     await prisma.teachingTeacher.updateMany({ where: { name: 'Alpha Tester' }, data: { personId: a.person.id } });
-    expect(await teacherView(a.person.id)).toEqual({ enabled: false, isTeacher: false });
+    expect(await teacherView(a.person.id)).toEqual({ enabled: false, isTeacher: false, isRater: false, toRateCount: 0 });
     await updateSettings({ enabled: true, frenchChecked: true });
     const stranger = await member('Somebody Else');
-    expect(await teacherView(stranger.person.id)).toEqual({ enabled: true, isTeacher: false });
+    expect(await teacherView(stranger.person.id)).toEqual({ enabled: true, isTeacher: false, isRater: false, toRateCount: 0 });
   });
 
   it('gives the teacher their own topic this week and next week, in their own language, and moves on weekly', async () => {
@@ -293,5 +296,175 @@ describe('finding the book on the site', () => {
     } finally {
       await prisma.libraryBook.deleteMany({ where: { id: { in: [two.id, three.id] } } });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Ratings and reminders. Plan: topics 1-3, week 0 starts Monday 23 November 2026.
+//   Alpha: Monday 07:00   Beta: Monday 16:00   Gamma: Tuesday 20:00     (Cameroon time, GMT+1)
+const at = (iso: string) => new Date(iso);
+async function person(name: string, language: 'en' | 'fr' = 'en') {
+  n += 1;
+  return prisma.person.create({ data: { name: `${name} ${n}`, whatsappNumber: `+2377200${String(n).padStart(5, '0')}`, profileCompletedAt: new Date(), preferredLanguage: language } });
+}
+async function setUp(opts: { fr?: boolean } = {}) {
+  await loadPlan(plan());
+  const people = { alpha: await person('Alpha', opts.fr ? 'fr' : 'en'), beta: await person('Beta'), gamma: await person('Gamma') };
+  await prisma.teachingTeacher.updateMany({ where: { name: 'Alpha Tester' }, data: { personId: people.alpha.id } });
+  await prisma.teachingTeacher.updateMany({ where: { name: 'Beta Tester' }, data: { personId: people.beta.id } });
+  await prisma.teachingTeacher.updateMany({ where: { name: 'Gamma Tester' }, data: { personId: people.gamma.id } });
+  await updateSettings({ enabled: true, frenchChecked: true });
+  const teachers = Object.fromEntries((await prisma.teachingTeacher.findMany()).map((t) => [t.name.split(' ')[0].toLowerCase(), t]));
+  return { people, teachers };
+}
+const notices = (personId: string, kind?: string) => prisma.notification.findMany({ where: { recipientPersonId: personId, type: 'TEACHING_ROTA' }, orderBy: { createdAt: 'asc' } }).then((rows) => (kind ? rows.filter((r) => (r.metadata as any)?.kind === kind) : rows));
+
+describe('rating a teaching', () => {
+  it('opens a teaching to rating once it has ended, never your own, for eight days', async () => {
+    const { people, teachers } = await setUp();
+    const group = await prisma.community.create({ data: { name: `Leadership Development ${++n}` } });
+    const rater = await person('Rater');
+    const outsider = await person('Outsider');
+    await prisma.communityMembership.create({ data: { personId: rater.id, communityId: group.id } });
+    await prisma.communityMembership.create({ data: { personId: people.beta.id, communityId: group.id } });
+    await updateSettings({ ratersCommunityId: group.id });
+    expect(await isRater(rater.id)).toBe(true);
+    expect(await isRater(outsider.id)).toBe(false);
+    expect(await isRater(people.alpha.id)).toBe(false); // a teacher who is not in the group does not rate
+
+    const monday = '2026-11-23';
+    // Alpha teaches Monday 07:00-07:15 (GMT+1): before it ends there is nothing to rate
+    expect(await toRate(rater.id, 'en', at('2026-11-23T06:10:00Z'))).toEqual([]);
+    const after = await toRate(rater.id, 'en', at('2026-11-23T06:30:00Z'));
+    expect(after.map((i) => [i.teacherName.startsWith('Alpha'), i.topic, i.myLevel])).toEqual([[true, 'Topic 1', null]]);
+
+    await expect(rate(rater.id, { teacherId: teachers.beta.id, weekStart: monday, level: 'GOOD' }, at('2026-11-23T06:30:00Z'))).rejects.toMatchObject({ code: 'NOT_RATEABLE' }); // Beta has not taught yet
+    await expect(rate(outsider.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'GOOD' }, at('2026-11-23T06:30:00Z'))).rejects.toMatchObject({ code: 'NOT_RATER' });
+    await rate(rater.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'GOOD' }, at('2026-11-23T06:30:00Z'));
+    await rate(rater.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'EXCELLENT' }, at('2026-11-23T07:00:00Z')); // changed her mind
+    expect((await toRate(rater.id, 'en', at('2026-11-23T07:30:00Z')))[0].myLevel).toBe('EXCELLENT');
+    expect(await prisma.teachingRating.count({ where: { teacherId: teachers.alpha.id } })).toBe(1);
+
+    // a teacher in the group cannot rate their own teaching
+    await prisma.communityMembership.create({ data: { personId: people.alpha.id, communityId: group.id } });
+    await expect(rate(people.alpha.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'EXCELLENT' }, at('2026-11-23T08:00:00Z'))).rejects.toMatchObject({ code: 'OWN_TEACHING' });
+    expect((await toRate(people.alpha.id, 'en', at('2026-11-23T08:00:00Z'))).every((i) => !i.teacherName.startsWith('Alpha'))).toBe(true);
+
+    // eight days after it ended it can no longer be rated
+    await expect(rate(rater.id, { teacherId: teachers.alpha.id, weekStart: monday, level: 'GOOD' }, at('2026-12-02T06:30:00Z'))).rejects.toMatchObject({ code: 'NOT_RATEABLE' });
+  });
+
+  it('gives the admin the totals, the average and who said what, and the teacher only the totals', async () => {
+    const { people, teachers } = await setUp();
+    const raters = [await person('Rater A'), await person('Rater B'), await person('Rater C')];
+    const group = await prisma.community.create({ data: { name: `Group ${++n}` } });
+    for (const r of raters) await prisma.communityMembership.create({ data: { personId: r.id, communityId: group.id } });
+    await updateSettings({ ratersCommunityId: group.id });
+    const now = at('2026-11-23T06:30:00Z');
+    await rate(raters[0].id, { teacherId: teachers.alpha.id, weekStart: '2026-11-23', level: 'EXCELLENT' }, now);
+    await rate(raters[1].id, { teacherId: teachers.alpha.id, weekStart: '2026-11-23', level: 'EXCELLENT' }, now);
+    await rate(raters[2].id, { teacherId: teachers.alpha.id, weekStart: '2026-11-23', level: 'KEEP_GROWING' }, now);
+
+    const summary = (await ratingSummaries()).get(teachers.alpha.id)!;
+    expect(summary).toEqual({ total: 3, average: 3, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 } });
+    const detail = await ratingDetail(teachers.alpha.id);
+    expect(detail.weeks[0].topic).toBe('Topic 1');
+    expect(detail.weeks[0].raters.map((r) => r.level).sort()).toEqual(['EXCELLENT', 'EXCELLENT', 'KEEP_GROWING']);
+    expect(detail.weeks[0].raters.every((r) => r.name.startsWith('Rater'))).toBe(true);
+
+    const view = (await teacherView(people.alpha.id, now)) as any;
+    expect(view.results).toHaveLength(1);
+    expect(view.results[0]).toMatchObject({ topic: 'Topic 1', total: 3, average: 3 });
+    expect(JSON.stringify(view)).not.toMatch(/Rater [ABC]/);
+    expect(((await teacherView(people.beta.id, now)) as any).results).toEqual([]); // nobody else's results
+    const overview = await adminOverview(now);
+    expect(overview.teachers.find((t) => t.name === 'Alpha Tester')!.ratings.total).toBe(3);
+    expect(overview.raters).toMatchObject({ communityId: group.id, count: 3 });
+  });
+
+  it('only lets a member of the group rate, over the web, and refuses an unknown level', async () => {
+    const admin = await member('The Coordinator', { admin: true });
+    const stranger = await member('Not In Group');
+    await loadPlan(plan({ startDate: '2020-01-06' }));
+    await prisma.teachingSettings.update({ where: { id: 'main' }, data: { enabled: true } });
+    expect((await stranger.get('/api/member/teaching-rota/to-rate')).body.items).toEqual([]);
+    expect((await stranger.send('post', '/api/member/teaching-rota/rate', { teacherId: 'x', weekStart: '2026-11-23', level: 'GOOD' })).status).toBe(403);
+    expect((await admin.send('post', '/api/member/teaching-rota/rate', { teacherId: 'x', weekStart: '2026-11-23', level: 'AMAZING' })).status).toBe(400);
+    expect((await admin.send('post', '/api/member/teaching-rota/rate', { teacherId: 'x', weekStart: '2026-11-23', level: 'GOOD' })).status).toBe(409);
+  });
+
+  it('suggests the group called Leadership Development when the plan is loaded', async () => {
+    const group = await prisma.community.create({ data: { name: `Leadership Development group ${Math.random().toString(36).slice(2, 6)}` } });
+    await loadPlan(plan());
+    const settings = await prisma.teachingSettings.findUniqueOrThrow({ where: { id: 'main' } });
+    // another test database run may hold a second group of that name; then nothing is chosen for you
+    expect([group.id, null]).toContain(settings.ratersCommunityId);
+  });
+});
+
+describe('reminders to the teachers', () => {
+  it('says nothing while the rota is off', async () => {
+    await loadPlan(plan());
+    expect(await sendRotaReminders(at('2026-11-22T17:30:00Z'))).toEqual({ assignment: 0, tomorrow: 0, hour: 0, rate: 0 });
+  });
+
+  it('sends the assignment on Sunday evening, the evening before, and an hour before, each once', async () => {
+    const { people } = await setUp();
+    // Sunday 22 November, 17:00 in Cameroon: not yet
+    expect((await sendRotaReminders(at('2026-11-22T16:00:00Z'))).assignment).toBe(0);
+    // 18:05: the assignment goes to all three
+    const sunday = await sendRotaReminders(at('2026-11-22T17:05:00Z'));
+    expect(sunday.assignment).toBe(3);
+    expect((await sendRotaReminders(at('2026-11-22T17:20:00Z'))).assignment).toBe(0); // not twice
+    const a = (await notices(people.alpha.id, 'assignment'))[0];
+    expect(a.metadata).toMatchObject({ kind: 'assignment', topicEn: 'Topic 1', topicFr: 'Topic 1 (fr)', startsAt: '2026-11-23T06:00:00.000Z' });
+
+    // Monday 06:10 in Cameroon (05:10Z): an hour before Alpha's 07:00
+    expect((await sendRotaReminders(at('2026-11-23T05:10:00Z'))).hour).toBe(1);
+    expect(await notices(people.alpha.id, 'hour')).toHaveLength(1);
+    expect(await notices(people.beta.id, 'hour')).toHaveLength(0);
+    expect((await sendRotaReminders(at('2026-11-23T05:20:00Z'))).hour).toBe(0);
+
+    // Monday 18:10 in Cameroon (17:10Z): Gamma teaches Tuesday, so she hears "tomorrow"; the Monday teachers do not
+    const monEvening = await sendRotaReminders(at('2026-11-23T17:10:00Z'));
+    expect(monEvening.tomorrow).toBe(1);
+    expect(await notices(people.gamma.id, 'tomorrow')).toHaveLength(1);
+    expect(await notices(people.alpha.id, 'tomorrow')).toHaveLength(0);
+  });
+
+  it('sends nothing for a teacher who is not matched to a member, or who has been stopped', async () => {
+    const { teachers } = await setUp();
+    await prisma.teachingTeacher.update({ where: { id: teachers.beta.id }, data: { personId: null } });
+    await prisma.teachingTeacher.update({ where: { id: teachers.gamma.id }, data: { active: false } });
+    expect((await sendRotaReminders(at('2026-11-22T17:05:00Z'))).assignment).toBe(1); // Alpha only
+  });
+
+  it('reminds the people who still have teachings to rate, once, on Sunday evening', async () => {
+    const { people, teachers } = await setUp();
+    const group = await prisma.community.create({ data: { name: `Group ${++n}` } });
+    const r1 = await person('Rater One');
+    const r2 = await person('Rater Two');
+    for (const r of [r1, r2]) await prisma.communityMembership.create({ data: { personId: r.id, communityId: group.id } });
+    await updateSettings({ ratersCommunityId: group.id });
+    // r1 rated Alpha already; Beta and Gamma are still waiting by Sunday 29 November (the week of the 23rd)
+    await rate(r1.id, { teacherId: teachers.alpha.id, weekStart: '2026-11-23', level: 'GOOD' }, at('2026-11-23T07:00:00Z'));
+    const out = await sendRotaReminders(at('2026-11-29T17:05:00Z'));
+    expect(out.rate).toBe(2);
+    expect(((await notices(r1.id, 'rate'))[0].metadata as any).count).toBe(2); // Beta, Gamma
+    expect(((await notices(r2.id, 'rate'))[0].metadata as any).count).toBe(3);
+    expect((await sendRotaReminders(at('2026-11-29T17:30:00Z'))).rate).toBe(0);
+    expect(people.alpha.id).toBeTruthy();
+  });
+
+  it('"send the assignments now" reaches the teachers whose slot is still ahead, and never twice', async () => {
+    const { people } = await setUp();
+    // Monday 23 November, 10:00 in Cameroon: Alpha's 07:00 has passed
+    const first = await sendAssignmentsNow(at('2026-11-23T09:00:00Z'));
+    expect(first).toEqual({ sent: 2, alreadySent: 0 });
+    expect(await notices(people.alpha.id, 'assignment')).toHaveLength(0);
+    expect(await notices(people.beta.id, 'assignment')).toHaveLength(1);
+    expect(await sendAssignmentsNow(at('2026-11-23T09:30:00Z'))).toEqual({ sent: 0, alreadySent: 2 });
+    // and the scheduled Sunday message does not repeat it
+    expect((await sendRotaReminders(at('2026-11-23T09:40:00Z'))).assignment).toBe(0);
   });
 });

@@ -32,9 +32,24 @@ export interface TeachingWeek {
   book: { id: string; canOpen: boolean } | null;
 }
 
+export const LEVELS = ['EXCELLENT', 'VERY_GOOD', 'GOOD', 'KEEP_GROWING'] as const;
+export type Level = (typeof LEVELS)[number];
+export type LevelCounts = Record<Level, number>;
+
+export interface WeekResult {
+  weekStart: string;
+  topic: string;
+  total: number;
+  average: number | null;
+  counts: LevelCounts;
+}
+
 export interface TeachingView {
   enabled: boolean;
   isTeacher: boolean;
+  isRater?: boolean;
+  toRateCount?: number;
+  results?: WeekResult[];
   language?: 'en' | 'fr';
   started?: boolean;
   startsOn?: string;

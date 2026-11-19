@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { TeachingGuideView, TeachingTopicView } from '../teaching/TeachingTopicView';
-import { dayName, type Guide, type TopicText } from '../teaching/teachingTypes';
+import { dayName, type Guide, type LevelCounts, type TopicText } from '../teaching/teachingTypes';
+import { CountChips } from '../teaching/TeachingRatings';
 
 interface Upcoming { weekStart: string; number: number; title: string }
 interface TeacherRow {
@@ -17,9 +18,13 @@ interface TeacherRow {
   startTime: string;
   startTopic: number;
   upcoming: Upcoming[];
+  ratings: { total: number; average: number | null; counts: LevelCounts };
 }
+interface RatingDetail { name: string; weeks: { weekStart: string; topic: string; total: number; average: number | null; counts: LevelCounts; raters: { name: string; level: string }[] }[] }
+interface GroupFound { id: string; name: string }
 interface Overview {
   settings: { enabled: boolean; startDate: string; frenchChecked: boolean; started: boolean } | null;
+  raters: { communityId: string | null; communityName: string | null; count: number };
   weeks: string[];
   topics: { number: number; kind: string; title: string; hasFrench: boolean }[];
   teachers: TeacherRow[];
@@ -74,10 +79,46 @@ function MemberPicker({ base, onPick }: { base: string; onPick: (id: string) => 
   );
 }
 
+function GroupPicker({ base, onPick }: { base: string; onPick: (id: string | null) => void }) {
+  const { t } = useTranslation();
+  const [q, setQ] = useState('');
+  const [items, setItems] = useState<GroupFound[]>([]);
+  useEffect(() => {
+    if (q.trim().length < 2) return setItems([]);
+    const timer = window.setTimeout(() => {
+      api.get<{ items: GroupFound[] }>(`${base}/groups?search=${encodeURIComponent(q.trim())}`).then((r) => setItems(r.items)).catch(() => setItems([]));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [q, base]);
+  return (
+    <div className="mt-2 space-y-1">
+      <input className="input" type="search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('teachingRota.find_group') ?? ''} aria-label={t('teachingRota.find_group') ?? ''} />
+      {items.map((g) => (
+        <button key={g.id} type="button" onClick={() => onPick(g.id)} className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left text-sm" data-testid="group-result">
+          {g.name}
+        </button>
+      ))}
+      <button type="button" className="text-xs font-semibold text-slate-600 underline" onClick={() => onPick(null)}>{t('teachingRota.no_group')}</button>
+    </div>
+  );
+}
+
 function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base: string; onChanged: (o: Overview) => void; onError: (m: string) => void }) {
   const { t, i18n } = useTranslation();
   const [picking, setPicking] = useState(false);
   const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState<RatingDetail | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+  async function toggleDetail() {
+    setShowDetail((v) => !v);
+    if (!detail) {
+      try {
+        setDetail(await api.get<RatingDetail>(`${base}/ratings/${row.id}`));
+      } catch {
+        onError(t('teachingRota.load_failed'));
+      }
+    }
+  }
   async function patch(body: Record<string, unknown>) {
     try {
       onChanged(await api.patch<Overview>(`${base}/teachers/${row.id}`, body));
@@ -122,6 +163,33 @@ function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base:
           {row.active ? t('teachingRota.stop_teacher') : t('teachingRota.restore_teacher')}
         </button>
       </div>
+      <div className="mt-2 flex items-center justify-between gap-2 text-sm" data-testid="rating-line">
+        {row.ratings.total > 0 ? (
+          <span className="font-semibold text-slate-800">
+            ⭐ {row.ratings.average} <span className="font-normal text-slate-500">· {t('teachingRota.ratings_count', { count: row.ratings.total })}</span>
+          </span>
+        ) : (
+          <span className="text-xs text-slate-500">{t('teachingRota.no_ratings')}</span>
+        )}
+        {row.ratings.total > 0 && (
+          <button type="button" className="text-xs font-semibold text-brand-700 underline" onClick={() => void toggleDetail()}>
+            {showDetail ? t('teachingRota.hide_weeks') : t('teachingRota.see_ratings')}
+          </button>
+        )}
+      </div>
+      {showDetail && detail && (
+        <ul className="mt-2 space-y-2 rounded-lg bg-slate-50 p-2" data-testid="rating-detail">
+          {detail.weeks.map((w) => (
+            <li key={w.weekStart} className="text-sm">
+              <p className="font-medium text-slate-900">
+                {new Date(`${w.weekStart}T00:00:00Z`).toLocaleDateString(i18n.language.startsWith('fr') ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })} · {w.topic}
+              </p>
+              <CountChips counts={w.counts} />
+              <p className="mt-1 text-xs text-slate-600">{w.raters.map((r) => `${r.name}: ${t(`teachingRota.level_${r.level}`)}`).join(' · ')}</p>
+            </li>
+          ))}
+        </ul>
+      )}
       {open && (
         <ol className="mt-2 space-y-0.5 text-sm text-slate-700" data-testid="upcoming">
           {row.upcoming.map((u) => (
@@ -192,6 +260,8 @@ export function TeachingRotaPanel({ base }: { base: string }) {
   const [match, setMatch] = useState<MatchResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [pickingGroup, setPickingGroup] = useState(false);
+  const [bestFirst, setBestFirst] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDay, setNewDay] = useState(1);
   const [newTime, setNewTime] = useState('07:00');
@@ -229,6 +299,29 @@ export function TeachingRotaPanel({ base }: { base: string }) {
     setNote(null);
     try {
       setData(await api.put<Overview>(`${base}/settings`, body));
+    } catch (e) {
+      fail(e, t('teachingRota.save_failed'));
+    }
+  }
+
+  async function switchRota() {
+    if (!data?.settings) return;
+    if (!data.settings.enabled && !window.confirm(t('teachingRota.confirm_on') ?? '')) return;
+    await setSettings({ enabled: !data.settings.enabled });
+  }
+
+  async function chooseGroup(id: string | null) {
+    await setSettings({ ratersCommunityId: id });
+    setPickingGroup(false);
+  }
+
+  async function sendNow() {
+    if (!window.confirm(t('teachingRota.confirm_send') ?? '')) return;
+    setError(null);
+    setNote(null);
+    try {
+      const r = await api.post<{ sent: number; alreadySent: number }>(`${base}/send-assignments`, {});
+      setNote(t('teachingRota.sent_now', r));
     } catch (e) {
       fail(e, t('teachingRota.save_failed'));
     }
@@ -293,7 +386,7 @@ export function TeachingRotaPanel({ base }: { base: string }) {
                 <p className="font-semibold text-slate-900">{s.enabled ? t('teachingRota.is_on') : t('teachingRota.is_off')}</p>
                 <p className="text-xs text-slate-500">{t('teachingRota.first_week_is', { date: fmtDay(s.startDate) })}</p>
               </div>
-              <button type="button" className={s.enabled ? 'btn-secondary' : 'btn-primary'} data-testid="rota-switch" onClick={() => void setSettings({ enabled: !s.enabled })}>
+              <button type="button" className={s.enabled ? 'btn-secondary' : 'btn-primary'} data-testid="rota-switch" onClick={() => void switchRota()}>
                 {s.enabled ? t('teachingRota.switch_off') : t('teachingRota.switch_on')}
               </button>
             </div>
@@ -304,6 +397,17 @@ export function TeachingRotaPanel({ base }: { base: string }) {
                 <span>{t('teachingRota.french_checked')}</span>
               </label>
             )}
+            {s.enabled && (
+              <button type="button" className="btn-secondary w-full" onClick={() => void sendNow()} data-testid="send-now">
+                {t('teachingRota.send_now')}
+              </button>
+            )}
+            <div className="rounded-lg bg-slate-50 p-2 text-sm" data-testid="raters-box">
+              <p className="font-medium text-slate-900">{t('teachingRota.raters_title')}</p>
+              <p className="text-slate-700">{data.raters.communityName ? t('teachingRota.raters_group', { name: data.raters.communityName, count: data.raters.count }) : t('teachingRota.raters_none', { count: data.raters.count })}</p>
+              <button type="button" className="text-xs font-semibold text-brand-700 underline" onClick={() => setPickingGroup((v) => !v)}>{t('teachingRota.raters_change')}</button>
+              {pickingGroup && <GroupPicker base={base} onPick={(id) => void chooseGroup(id)} />}
+            </div>
             {data.warnings.filter((w) => WARNING_KEYS[w]).map((w) => (
               <p key={w} className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">⚠ {t(WARNING_KEYS[w])}</p>
             ))}
@@ -326,8 +430,12 @@ export function TeachingRotaPanel({ base }: { base: string }) {
                 {match.notFound.length > 0 && <p className="mt-1">{t('teachingRota.match_not_found')}: {match.notFound.join(', ')}</p>}
               </div>
             )}
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={bestFirst} onChange={(e) => setBestFirst(e.target.checked)} />
+              {t('teachingRota.best_first')}
+            </label>
             <ul className="space-y-2">
-              {data.teachers.map((r) => (
+              {(bestFirst ? [...data.teachers].sort((a, b) => (b.ratings.average ?? -1) - (a.ratings.average ?? -1)) : data.teachers).map((r) => (
                 <TeacherCard key={r.id} row={r} base={base} onChanged={(o) => { setData(o); setError(null); }} onError={setError} />
               ))}
             </ul>

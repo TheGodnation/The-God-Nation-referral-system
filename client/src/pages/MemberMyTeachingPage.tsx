@@ -6,6 +6,7 @@ import { MemberNav } from '../components/member/MemberNav';
 import { api } from '../lib/api';
 import { TeachingGuideView, TeachingTopicView } from '../components/teaching/TeachingTopicView';
 import { slotLabel, type TeachingView, type TeachingWeek } from '../components/teaching/teachingTypes';
+import { TeachingRatings, TeachingResults } from '../components/teaching/TeachingRatings';
 
 // A teacher's own page: what they teach this week, when, the book to read, and how to teach it. Next week's topic is
 // shown too, so they can prepare. Nobody else's assignment is ever sent to this page.
@@ -68,7 +69,7 @@ export function MemberMyTeachingPage() {
         <h1 className="text-2xl font-bold text-brand-900">{t('teachingRota.page_title')}</h1>
         {failed && <p className="text-sm text-red-700">{t('teachingRota.load_failed')}</p>}
         {!view && !failed && <p className="text-slate-500">{t('common.loading')}</p>}
-        {view && (!view.enabled || !view.isTeacher) && <p className="card text-sm text-slate-700" data-testid="not-a-teacher">{t('teachingRota.not_a_teacher')}</p>}
+        {view && (!view.enabled || (!view.isTeacher && !view.isRater)) && <p className="card text-sm text-slate-700" data-testid="not-a-teacher">{t('teachingRota.not_a_teacher')}</p>}
         {view?.isTeacher && view.weeks && (
           <>
             {!started && (
@@ -79,9 +80,11 @@ export function MemberMyTeachingPage() {
             {view.weeks.map((w, i) => (
               <WeekCard key={w.weekStart} week={w} showHow={i === 0} open={i === 0 && w.status !== 'done'} label={i === 0 ? t(started ? 'teachingRota.this_week' : 'teachingRota.first_week') : t(started ? 'teachingRota.next_week' : 'teachingRota.week_after')} />
             ))}
+            {view.results && <TeachingResults results={view.results} />}
             {view.guide && <TeachingGuideView guide={view.guide} open />}
           </>
         )}
+        {view?.enabled && view.isRater && <TeachingRatings />}
         <MemberNav />
       </section>
     </PageShell>

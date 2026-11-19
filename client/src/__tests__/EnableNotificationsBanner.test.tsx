@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
+import { EnableNotificationsBanner, bannerShowsThisVisit } from '../components/member/EnableNotificationsBanner';
 
 function mockFetch(responses: Record<string, { status: number; body: unknown }>) {
   vi.stubGlobal(
@@ -144,7 +144,7 @@ describe('EnableNotificationsBanner', () => {
     expect(screen.getByText(/blocked on this device/)).toBeInTheDocument();
   });
 
-  it('stays closed while moving between pages in the same visit, and comes back on the next visit', async () => {
+  it('stays closed while moving between pages in the same visit, rests for a few days, and then comes back', async () => {
     mockNotificationGlobal('default', 'granted');
     mockPushPlumbing();
 
@@ -158,9 +158,68 @@ describe('EnableNotificationsBanner', () => {
     expect(second.container).toBeEmptyDOMElement();
     second.unmount();
 
-    // Next visit: the app was closed and reopened.
+    // Next visit straight away: it rests (at most twice a week, 3 days apart).
     sessionStorage.clear();
+    const resting = render(<EnableNotificationsBanner />);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(resting.container).toBeEmptyDOMElement();
+    resting.unmount();
+
+    // Four days later it is back.
+    sessionStorage.clear();
+    localStorage.setItem('notifyBannerShownAt', JSON.stringify([Date.now() - 4 * 24 * 60 * 60 * 1000]));
     render(<EnableNotificationsBanner />);
     expect(await screen.findByRole('button', { name: 'Turn on notifications' })).toBeInTheDocument();
+  });
+});
+
+
+describe('how often the banner shows', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const NOW = new Date('2026-11-23T08:00:00Z').getTime();
+
+  it('shows when the app is opened, at most twice in 7 days and at least 3 days apart, and keeps its answer for the whole visit', () => {
+    // first visit: shows, and the answer stays the same while moving between pages
+    expect(bannerShowsThisVisit(NOW)).toBe(true);
+    expect(bannerShowsThisVisit(NOW + 1000)).toBe(true);
+    // another visit (a new session) only 1 day later: resting
+    sessionStorage.clear();
+    expect(bannerShowsThisVisit(NOW + DAY)).toBe(false);
+    expect(bannerShowsThisVisit(NOW + DAY + 1000)).toBe(false);
+    // 3 days later: the second time this week
+    sessionStorage.clear();
+    expect(bannerShowsThisVisit(NOW + 3 * DAY)).toBe(true);
+    // two already in the last 7 days: rests until the first one is more than a week old
+    sessionStorage.clear();
+    expect(bannerShowsThisVisit(NOW + 5 * DAY)).toBe(false);
+    sessionStorage.clear();
+    expect(bannerShowsThisVisit(NOW + 6.9 * DAY)).toBe(false);
+    sessionStorage.clear();
+    expect(bannerShowsThisVisit(NOW + 7.1 * DAY)).toBe(true); // the first one has aged out, the second is 4 days old
+  });
+
+  it('does not show on a visit that is resting, but the Me page version (always) still does and cannot be closed', async () => {
+    mockNotificationGlobal('default', 'granted');
+    mockPushPlumbing({ alreadySubscribed: false });
+    localStorage.setItem('notifyBannerShownAt', JSON.stringify([Date.now() - DAY]));
+    const resting = render(<EnableNotificationsBanner />);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(resting.container).toBeEmptyDOMElement();
+    resting.unmount();
+
+    render(<EnableNotificationsBanner rule="always" />);
+    expect(await screen.findByRole('button', { name: 'Turn on notifications' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Community events, teachings and announcements, messages from friends and leaders, straight to your phone\./)).toBeInTheDocument();
+  });
+
+  it('never shows to someone who already has notifications, and does not count that as a showing', async () => {
+    mockNotificationGlobal('granted', 'granted');
+    mockPushPlumbing({ alreadySubscribed: true });
+    mockFetch({ 'POST /push/subscribe': { status: 201, body: { ok: true } } });
+    const { container } = render(<EnableNotificationsBanner />);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(container).toBeEmptyDOMElement();
+    expect(localStorage.getItem('notifyBannerShownAt')).toBeNull();
   });
 });
