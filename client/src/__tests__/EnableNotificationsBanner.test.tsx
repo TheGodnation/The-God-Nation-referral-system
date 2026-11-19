@@ -114,7 +114,7 @@ describe('EnableNotificationsBanner', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Turn on notifications' }));
 
     await waitFor(() => {
-      expect(screen.queryByText('Turn on notifications and get what matters to you, straight to your phone:')).not.toBeInTheDocument();
+      expect(screen.queryByText('Turn on notifications and get what matters to you, straight to your phone: community events, teachings and announcements, messages from friends and leaders.')).not.toBeInTheDocument();
     });
   });
 
