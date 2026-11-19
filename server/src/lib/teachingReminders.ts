@@ -1,9 +1,10 @@
 import { prisma } from './prisma';
 import { weekStartOf, addDays, dayKey } from './weeklyReports';
 import { pushToPerson, type PushPayload } from './push';
-import { isFrench } from './privateNotice';
+import { isFrench, sendPrivateNoticeId } from './privateNotice';
 import { DAY, MIN, TZ_MS, loadBase, pickText, slotStart, topicNumberFor, weekNumber } from './teachingRota';
 import { postDueRatingCards } from './teachingCards';
+import { CLIENT_URL } from './env';
 
 // Reminders for the weekly teaching rota, in the bell and as a phone alert, in each person's own language. Only while
 // the rota is switched on, and each one goes out once (written in TeachingReminderLog):
@@ -35,13 +36,43 @@ function pushFor(kind: RotaKind, french: boolean, d: { topic: string; startsAt: 
   }
 }
 
-async function send(personId: string, kind: RotaKind, d: { topicEn: string; topicFr: string; startsAt: Date }) {
+/** The central admin's own member profile: the sender of the assignment messages (null when there is none). */
+async function centralAdminPersonId(): Promise<string | null> {
+  const user = await prisma.user.findFirst({ where: { role: 'ADMIN', active: true, personId: { not: null } }, orderBy: { createdAt: 'asc' }, select: { personId: true } });
+  return user?.personId ?? null;
+}
+
+/** The private message that carries an assignment, in the teacher's own language. They can answer it in the same chat. */
+export function assignmentMessage(french: boolean, d: { topic: string; startsAt: Date }): string {
+  const link = `${CLIENT_URL}/member/my-teaching`;
+  const when = `${whenText(d.startsAt, french, true)}`;
+  return french
+    ? `📖 Votre enseignement cette semaine : ${d.topic}\n🕒 ${when} (heure du Cameroun)\nOuvrez-le ici pour lire le texte et le livre :\n${link}\n\nMerci de répondre ici pour me confirmer que vous l'avez bien reçu.`
+    : `📖 Your teaching this week: ${d.topic}\n🕒 ${when} (Cameroon time)\nOpen it here to read the text and the book:\n${link}\n\nPlease reply here to confirm that you received it.`;
+}
+
+/** Returns the id of the private message when one was sent (only for an assignment). */
+async function send(personId: string, kind: RotaKind, d: { topicEn: string; topicFr: string; startsAt: Date }): Promise<string | null> {
   await prisma.notification.create({
     data: { recipientPersonId: personId, type: 'TEACHING_ROTA', metadata: { kind, topicEn: d.topicEn, topicFr: d.topicFr, startsAt: d.startsAt.toISOString() } as any, targetType: 'TeachingRota' },
   });
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
   const french = isFrench(person?.preferredLanguage);
   await pushToPerson(personId, pushFor(kind, french, { topic: french ? d.topicFr : d.topicEn, startsAt: d.startsAt })).catch(() => {});
+  return kind === 'assignment' ? sendAssignmentMessage(personId, d) : null;
+}
+
+/** Only the private message of an assignment (no bell entry, no phone alert). Returns its id, or null when it could not be sent. */
+async function sendAssignmentMessage(personId: string, d: { topicEn: string; topicFr: string; startsAt: Date }): Promise<string | null> {
+  const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
+  const french = isFrench(person?.preferredLanguage);
+  const from = await centralAdminPersonId();
+  return from ? sendPrivateNoticeId(from, personId, assignmentMessage(french, { topic: french ? d.topicFr : d.topicEn, startsAt: d.startsAt })) : null;
+}
+
+/** Remembers which private message carried an assignment. */
+async function noteMessage(key: string, messageId: string | null) {
+  if (messageId) await prisma.teachingReminderLog.update({ where: { key }, data: { messageId } }).catch(() => {});
 }
 
 async function plan(now: Date) {
@@ -70,7 +101,7 @@ export async function sendRotaReminders(now = new Date()): Promise<Record<RotaKi
       const key = (kind: RotaKind) => `${kind}:${t.id}:${dayKey(monday)}`;
       const assignmentDue = monday.getTime() - 6 * 60 * MIN - TZ_MS; // Sunday 18:00 before the week
       if (now.getTime() >= assignmentDue && now.getTime() < startsAt.getTime() && (await claim(key('assignment')))) {
-        await send(t.personId!, 'assignment', { ...names, startsAt });
+        await noteMessage(key('assignment'), await send(t.personId!, 'assignment', { ...names, startsAt }));
         out.assignment++;
       }
       if (t.dayOfWeek >= 2) {
@@ -92,20 +123,39 @@ export async function sendRotaReminders(now = new Date()): Promise<Record<RotaKi
 }
 
 /** The "Send this week's assignments now" button: everyone on the rota gets their assignment now (never twice). */
-export async function sendAssignmentsNow(now = new Date()): Promise<{ sent: number; alreadySent: number }> {
+export async function sendAssignmentsNow(now = new Date()): Promise<{ sent: number; alreadySent: number; sentTo: string[]; passed: string[]; notMatched: string[] }> {
+  const empty = { sent: 0, alreadySent: 0, sentTo: [] as string[], passed: [] as string[], notMatched: [] as string[] };
   const p = await plan(now);
-  if (!p) return { sent: 0, alreadySent: 0 };
+  if (!p) return empty;
   const monday = p.thisMonday.getTime() < p.settings.startDate.getTime() ? p.settings.startDate : p.thisMonday;
-  const result = { sent: 0, alreadySent: 0 };
+  const result = { ...empty };
+  // Names that cannot receive anything yet, so the central admin is told instead of left guessing.
+  result.notMatched = (await prisma.teachingTeacher.findMany({ where: { active: true, personId: null }, select: { name: true }, orderBy: { name: 'asc' } })).map((t) => t.name);
+  const named = new Map((await prisma.person.findMany({ where: { id: { in: p.teachers.map((t) => t.personId!) } }, select: { id: true, name: true } })).map((x) => [x.id, x.name]));
   for (const t of p.teachers) {
     const names = topicsFor(p, t.startTopic, monday);
     if (!names) continue;
     const startsAt = slotStart(monday, t.dayOfWeek, t.startMinute);
-    if (startsAt.getTime() <= now.getTime()) continue; // this week's slot has already passed
-    if (await claim(`assignment:${t.id}:${dayKey(monday)}`)) {
-      await send(t.personId!, 'assignment', { ...names, startsAt });
+    const who = named.get(t.personId!) ?? t.name;
+    if (startsAt.getTime() <= now.getTime()) {
+      result.passed.push(who); // this week's slot has already passed
+      continue;
+    }
+    const key = `assignment:${t.id}:${dayKey(monday)}`;
+    if (await claim(key)) {
+      await noteMessage(key, await send(t.personId!, 'assignment', { ...names, startsAt }));
       result.sent++;
-    } else result.alreadySent++;
+      result.sentTo.push(who);
+    } else {
+      // Already alerted before assignments travelled as private messages: this one time, add the private message (no second alert).
+      const log = await prisma.teachingReminderLog.findUnique({ where: { key } });
+      const messageId = log && !log.messageId ? await sendAssignmentMessage(t.personId!, { ...names, startsAt }) : null;
+      if (messageId) {
+        await noteMessage(key, messageId);
+        result.sent++;
+        result.sentTo.push(who);
+      } else result.alreadySent++;
+    }
   }
   return result;
 }

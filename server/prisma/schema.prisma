@@ -4584,6 +4584,8 @@ model TeachingRating {
 model TeachingReminderLog {
   key       String   @id
   createdAt DateTime @default(now())
+  // The private message that carried an assignment (so the central admin can see if it was opened and answered).
+  messageId String?
 }
 
 // The rating card posted in the teaching group's chat when a teacher has finished (by their button, or by itself 20 minutes

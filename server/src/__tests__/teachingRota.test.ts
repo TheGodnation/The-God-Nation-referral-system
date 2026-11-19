@@ -550,10 +550,12 @@ describe('reminders to the teachers', () => {
     const { people } = await setUp();
     // Monday 23 November, 10:00 in Cameroon: Alpha's 07:00 has passed
     const first = await sendAssignmentsNow(at('2026-11-23T09:00:00Z'));
-    expect(first).toEqual({ sent: 2, alreadySent: 0 });
+    expect(first).toMatchObject({ sent: 2, alreadySent: 0, notMatched: [] });
+    expect(first.passed.map((x) => x.split(' ')[0])).toEqual(['Alpha']);
+    expect(first.sentTo.map((x) => x.split(' ')[0]).sort()).toEqual(['Beta', 'Gamma']);
     expect(await notices(people.alpha.id, 'assignment')).toHaveLength(0);
     expect(await notices(people.beta.id, 'assignment')).toHaveLength(1);
-    expect(await sendAssignmentsNow(at('2026-11-23T09:30:00Z'))).toEqual({ sent: 0, alreadySent: 2 });
+    expect(await sendAssignmentsNow(at('2026-11-23T09:30:00Z'))).toMatchObject({ sent: 0, alreadySent: 2 });
     // and the scheduled Sunday message does not repeat it
     expect((await sendRotaReminders(at('2026-11-23T09:40:00Z'))).assignment).toBe(0);
   });
@@ -598,5 +600,59 @@ describe('editing the teachings', () => {
     const add = await admin.send('post', '/api/member/central-teaching-rota/topics', { kind: 'right', en: textOf('Brand new') });
     expect(add.status).toBe(201);
     expect((await admin.send('put', '/api/member/central-teaching-rota/topics/1', { kind: 'key', en: { topic: 'x' } })).status).toBe(400);
+  });
+});
+
+describe('the assignment as a private message', () => {
+  const chatOf = (a: string, b: string) => prisma.privateConversation.findFirst({ where: { OR: [{ memberPersonId: a, initiatorPersonId: b }, { memberPersonId: b, initiatorPersonId: a }] } });
+
+  it('arrives in the teacher\'s private chat from the central admin, and the admin can see it was sent, opened and answered', async () => {
+    const admin = await member('Central Tester', { admin: true });
+    const { people, teachers } = await setUp();
+    await prisma.user.updateMany({ where: { role: 'ADMIN', personId: { not: admin.person.id } }, data: { active: false } }); // only this admin sends
+    const week = async () => (await adminOverview(at('2026-11-23T09:00:00Z'))).teachers.find((t) => t.id === teachers.beta.id)!.assignment;
+    expect(await week()).toBeNull(); // nothing sent yet
+
+    await sendAssignmentsNow(at('2026-11-23T09:00:00Z'));
+    const chat = (await chatOf(people.beta.id, admin.person.id))!;
+    const message = await prisma.privateMessage.findFirstOrThrow({ where: { conversationId: chat.id } });
+    expect(message.senderPersonId).toBe(admin.person.id);
+    expect(message.body).toContain('Your teaching this week: Topic 2');
+    expect(message.body).toContain('/member/my-teaching');
+    expect(message.body).toContain('Please reply here');
+    expect(await week()).toMatchObject({ messageSent: true, conversationId: chat.id, seen: false, replied: false });
+
+    await prisma.privateConversationRead.create({ data: { personId: people.beta.id, conversationId: chat.id, lastReadAt: new Date(message.createdAt.getTime() + 1000) } });
+    expect(await week()).toMatchObject({ seen: true, replied: false });
+    await prisma.privateMessage.create({ data: { conversationId: chat.id, senderPersonId: people.beta.id, body: 'Received, thank you.' } });
+    expect(await week()).toMatchObject({ seen: true, replied: true });
+  });
+
+  it('is written in French for a French-speaking teacher, and says who could not be reached', async () => {
+    const admin = await member('Central Tester Two', { admin: true });
+    const { people, teachers } = await setUp({ fr: true });
+    await prisma.user.updateMany({ where: { role: 'ADMIN', personId: { not: admin.person.id } }, data: { active: false } });
+    await prisma.teachingTeacher.update({ where: { id: teachers.gamma.id }, data: { personId: null } });
+    const result = await sendAssignmentsNow(at('2026-11-22T20:00:00Z')); // Sunday evening: everyone's slot is ahead
+    expect(result.notMatched).toEqual(['Gamma Tester']);
+    const chat = (await chatOf(people.alpha.id, admin.person.id))!;
+    const message = await prisma.privateMessage.findFirstOrThrow({ where: { conversationId: chat.id } });
+    expect(message.body).toContain('Votre enseignement cette semaine');
+    expect(message.body).toContain('Merci de répondre ici');
+  });
+
+  it('adds the private message, once and without a second alert, for an assignment that only went out as an alert before', async () => {
+    const admin = await member('Central Tester Three', { admin: true });
+    const { people, teachers } = await setUp();
+    await prisma.user.updateMany({ where: { role: 'ADMIN', personId: { not: admin.person.id } }, data: { active: false } });
+    const key = `assignment:${teachers.beta.id}:2026-11-23`;
+    await prisma.teachingReminderLog.create({ data: { key } }); // the old way: logged, no private message
+    const before = (await notices(people.beta.id, 'assignment')).length;
+    const result = await sendAssignmentsNow(at('2026-11-23T09:00:00Z'));
+    expect(result.sentTo.map((x) => x.split(' ')[0])).toContain('Beta');
+    expect(await chatOf(people.beta.id, admin.person.id)).not.toBeNull();
+    expect((await notices(people.beta.id, 'assignment')).length).toBe(before); // no second bell entry
+    expect((await prisma.teachingReminderLog.findUniqueOrThrow({ where: { key } })).messageId).not.toBeNull();
+    expect(await sendAssignmentsNow(at('2026-11-23T09:10:00Z'))).toMatchObject({ sent: 0 }); // and never again
   });
 });

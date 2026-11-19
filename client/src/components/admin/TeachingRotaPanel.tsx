@@ -20,7 +20,10 @@ interface TeacherRow {
   startTopic: number;
   upcoming: Upcoming[];
   ratings: { total: number; average: number | null; counts: LevelCounts };
+  /** What happened to this week's assignment (null = not sent yet). */
+  assignment: { sentAt: string; messageSent: boolean; conversationId: string | null; seen: boolean; replied: boolean } | null;
 }
+interface SendResult { sent: number; alreadySent: number; sentTo: string[]; passed: string[]; notMatched: string[]; overview: Overview }
 interface RatingDetail { name: string; weeks: { weekStart: string; topic: string; total: number; average: number | null; counts: LevelCounts; raters: { name: string; level: string }[] }[] }
 interface GroupFound { id: string; name: string }
 interface Overview {
@@ -116,6 +119,27 @@ function GroupPicker({ base, onPick }: { base: string; onPick: (id: string | nul
   );
 }
 
+// Where this week's assignment went: sent as a private message, opened, answered (so the central admin is never left guessing).
+function AssignmentStatus({ row, base }: { row: TeacherRow; base: string }) {
+  const { t, i18n } = useTranslation();
+  const a = row.assignment;
+  if (!a) return <p className="mt-1 text-xs text-slate-500" data-testid="assignment-status">{t('teachingRota.assignment_not_sent')}</p>;
+  const when = new Date(a.sentAt).toLocaleString(i18n.language.startsWith('fr') ? 'fr-FR' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Douala' });
+  // Only the central admin's own member profile has the private chats, so the link is there.
+  const canOpen = a.conversationId && base.includes('/api/member/');
+  return (
+    <p className="mt-1 text-xs text-slate-700" data-testid="assignment-status">
+      📨 {t('teachingRota.assignment_sent', { when })} · {a.messageSent ? (a.replied ? `💬 ${t('teachingRota.assignment_replied')}` : a.seen ? `✓✓ ${t('teachingRota.assignment_seen')}` : `✓ ${t('teachingRota.assignment_delivered')}`) : t('teachingRota.assignment_alert_only')}
+      {canOpen && (
+        <>
+          {' · '}
+          <a className="font-semibold text-brand-700 underline" href={`/member/chats/private/${a.conversationId}`}>{t('teachingRota.assignment_open_chat')}</a>
+        </>
+      )}
+    </p>
+  );
+}
+
 function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base: string; onChanged: (o: Overview) => void; onError: (m: string) => void }) {
   const { t, i18n } = useTranslation();
   const [picking, setPicking] = useState(false);
@@ -160,6 +184,7 @@ function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base:
           {row.personId ? t('teachingRota.change_member') : t('teachingRota.pick_member')}
         </button>
       </div>
+      {row.active && row.personId && <AssignmentStatus row={row} base={base} />}
       {picking && <MemberPicker base={base} onPick={(id) => void patch({ personId: id })} />}
       {localError && <p role="alert" className="mt-2 rounded-lg bg-red-50 p-2 text-sm text-red-800" data-testid="teacher-error">{localError}</p>}
       <div className="mt-2 grid grid-cols-2 gap-2">
@@ -356,8 +381,14 @@ export function TeachingRotaPanel({ base }: { base: string }) {
     setError(null);
     setNote(null);
     try {
-      const r = await api.post<{ sent: number; alreadySent: number }>(`${base}/send-assignments`, {});
-      setNote(t('teachingRota.sent_now', r));
+      const r = await api.post<SendResult>(`${base}/send-assignments`, {});
+      setData(r.overview);
+      const lines = [t('teachingRota.sent_now', { sent: r.sent, alreadySent: r.alreadySent })];
+      if (r.sentTo.length) lines.push(t('teachingRota.sent_to', { names: r.sentTo.join(', ') }));
+      if (r.passed.length) lines.push(t('teachingRota.sent_passed', { names: r.passed.join(', ') }));
+      if (r.notMatched.length) lines.push(t('teachingRota.sent_not_matched', { names: r.notMatched.join(', ') }));
+      lines.push(t('teachingRota.sent_where'));
+      setNote(lines.join('\n'));
     } catch (e) {
       fail(e, t('teachingRota.save_failed'));
     }
@@ -403,7 +434,7 @@ export function TeachingRotaPanel({ base }: { base: string }) {
         <p className="text-sm text-slate-600">{t('teachingRota.admin_help')}</p>
       </div>
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-      {note && <p className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{note}</p>}
+      {note && <p className="whitespace-pre-line rounded-lg bg-green-50 p-3 text-sm text-green-800" data-testid="rota-note">{note}</p>}
 
       <div className="card space-y-2 !p-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('teachingRota.plan_file')}</h3>
