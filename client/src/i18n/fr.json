@@ -4473,7 +4473,7 @@
   },
   "assemblyAgreement": {
     "title": "Notre engagement d’assemblée",
-    "intro": "Vous faites déjà partie de cette assemblée et vous pouvez tout lire ici. Avant de pouvoir publier ou répondre, veuillez lire ces règles simples et vous y engager. Vous pouvez toujours réagir aux messages.",
+    "intro": "Avant de pouvoir publier, écrire ou répondre aux messages de cette assemblée, veuillez lire ces règles simples et vous y engager. Vous pouvez toujours réagir aux messages.",
     "rule1_title": "Ceci est une assemblée du peuple de Dieu.",
     "rule1_body": "« Là où deux ou trois sont assemblés en mon nom, je suis au milieu d’eux. » Nous nous traitons avec honneur et respect. Des enseignements, des prières et des encouragements ont lieu ici, et nous les recevons ainsi.",
     "rule2_title": "Sachez pourquoi nous sommes ici.",
@@ -4487,7 +4487,7 @@
     "agree": "J’accepte",
     "working": "Un instant…",
     "failed": "Une erreur est survenue. Veuillez réessayer.",
-    "short": "Vous pouvez tout lire. Acceptez les règles pour écrire et répondre.",
+    "short": "Avant de pouvoir écrire ou répondre aux messages de cette assemblée, vous devez lire nos règles.",
     "read": "Lire les règles",
     "hide": "Masquer"
   },

@@ -4473,7 +4473,7 @@
   },
   "assemblyAgreement": {
     "title": "Our Assembly Agreement",
-    "intro": "You are already part of this assembly, and you can read everything here. Before you can post or reply, please read these simple rules and agree to them. You can still react to messages.",
+    "intro": "Before you can post, write or reply to messages in this assembly, please read these simple rules and agree to them. You can still react to messages.",
     "rule1_title": "This is an assembly of God’s people.",
     "rule1_body": "“Where two or three are gathered in my name, there am I among them.” We treat one another with honour and respect. Teachings, prayers and encouragements happen here, and we receive them that way.",
     "rule2_title": "Know why we are here.",
@@ -4487,7 +4487,7 @@
     "agree": "I agree",
     "working": "One moment…",
     "failed": "Something went wrong. Please try again.",
-    "short": "You can read everything. Agree to the rules to write and reply.",
+    "short": "Before you can write or reply to messages in this assembly, you need to read our rules.",
     "read": "Read the rules",
     "hide": "Hide"
   },

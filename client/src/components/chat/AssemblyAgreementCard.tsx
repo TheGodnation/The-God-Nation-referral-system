@@ -32,11 +32,12 @@ export function AssemblyAgreementCard({ communityId, onAgreed }: { communityId: 
 
   if (!open) {
     return (
-      <div className="flex items-center gap-3 border-t border-brand-100 bg-brand-50 px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 text-brand-950" data-testid="assembly-agreement">
+      <div className="flex items-center gap-2 border-t border-brand-100 bg-brand-50 px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 text-brand-950" data-testid="assembly-agreement">
         <p className="min-w-0 flex-1 text-sm">
           <strong className="text-brand-900">{t('assemblyAgreement.title')}</strong>
           <span className="block text-xs text-brand-800">{t('assemblyAgreement.short')}</span>
         </p>
+        <span aria-hidden="true" className="shrink-0 text-2xl font-bold leading-none text-brand-600">→</span>
         <button type="button" onClick={() => setOpen(true)} className="btn-primary shrink-0 px-3 py-2 text-sm" data-testid="assembly-read">
           {t('assemblyAgreement.read')}
         </button>

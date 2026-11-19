@@ -26,7 +26,7 @@ describe('Assembly agreement card', () => {
   it('starts as one small bar: the rules are not shown, the group stays in view', () => {
     render(<AssemblyAgreementCard communityId="c1" onAgreed={() => {}} />);
     expect(screen.getByText('Our Assembly Agreement')).toBeInTheDocument();
-    expect(screen.getByText(/You can read everything/)).toBeInTheDocument();
+    expect(screen.getByText(/Before you can write or reply to messages in this assembly, you need to read our rules\./)).toBeInTheDocument();
     expect(screen.queryByTestId('assembly-rules')).toBeNull();
     expect(screen.queryByTestId('assembly-agree')).toBeNull();
     expect(screen.getAllByRole('button')).toHaveLength(1);
