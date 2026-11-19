@@ -1,3 +1,4 @@
+import { ShareByLinkButton, SHARE_BASE_ADMIN } from '../ShareByLinkSheet';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
@@ -369,6 +370,7 @@ export function AnnouncementsTab() {
                           </button>
                         </>
                       )}
+                      {status === 'published' && <ShareByLinkButton kind="announcement" id={row.id} title={row.titleEn} base={SHARE_BASE_ADMIN} />}
                       {status !== 'archived' && (
                         <button
                           className="text-red-700 hover:underline disabled:text-slate-300"

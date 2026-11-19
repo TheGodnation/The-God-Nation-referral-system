@@ -8,7 +8,7 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
-import { LEVELS, RotaError, addTeacher, adminOverview, loadPlan, matchTeachers, ratingDetail, searchGroups, searchMembers, teacherView, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
+import { LEVELS, RotaError, addTeacher, adminOverview, loadPlan, matchTeachers, ratingDetail, saveTopic, searchGroups, searchMembers, teacherView, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
 import { finishState, finishTeaching, rate } from '../lib/teachingCards';
 import { sendAssignmentsNow } from '../lib/teachingReminders';
 import { isFrench } from '../lib/privateNotice';
@@ -49,6 +49,24 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     const n = Number(req.params.number);
     if (!Number.isInteger(n)) return res.status(400).json({ error: 'Bad topic number.' });
     res.json(await topicPreview(n));
+  }));
+
+  router.put('/topics/:number', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const n = Number(req.params.number);
+    if (!Number.isInteger(n)) return res.status(400).json({ error: 'Bad topic number.' });
+    const actor = await actorOr403(req, res);
+    if (!actor) return;
+    const saved = await saveTopic(n, req.body);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHING_TOPIC_SAVED', targetType: 'TeachingTopic', targetId: String(n), metadata: { number: n, french: Boolean(saved.fr) } });
+    res.json({ topic: saved, overview: await adminOverview() });
+  }));
+
+  router.post('/topics', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const actor = await actorOr403(req, res);
+    if (!actor) return;
+    const saved = await saveTopic(null, req.body);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHING_TOPIC_ADDED', targetType: 'TeachingTopic', targetId: String(saved.number), metadata: { number: saved.number } });
+    res.status(201).json({ topic: saved, overview: await adminOverview() });
   }));
 
   router.get('/members', asyncHandler(async (req, res) => {

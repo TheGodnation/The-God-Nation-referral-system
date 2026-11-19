@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { TeachingTopicView } from '../teaching/TeachingTopicView';
+import { TeachingTopicEditor } from './TeachingTopicEditor';
 import { dayName, type LevelCounts, type TopicText } from '../teaching/teachingTypes';
 import { CountChips } from '../teaching/TeachingRatings';
 
@@ -204,29 +205,42 @@ function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base:
   );
 }
 
-function TopicReader({ base, topics, lang, setLang }: { base: string; topics: Overview['topics']; lang: 'en' | 'fr'; setLang: (l: 'en' | 'fr') => void }) {
+function TopicReader({ base, topics, lang, setLang, onChanged }: { base: string; topics: Overview['topics']; lang: 'en' | 'fr'; setLang: (l: 'en' | 'fr') => void; onChanged: (o: Overview) => void }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<number | null>(null);
-  const [text, setText] = useState<{ en: TopicText; fr: TopicText | null } | null>(null);
+  const [editing, setEditing] = useState<number | 'new' | null>(null);
+  const [text, setText] = useState<{ kind: 'right' | 'key'; en: TopicText; fr: TopicText | null } | null>(null);
   async function show(n: number) {
+    setEditing(null);
     if (open === n) return setOpen(null);
     setOpen(n);
     setText(null);
     try {
-      setText(await api.get<{ en: TopicText; fr: TopicText | null }>(`${base}/topics/${n}`));
+      setText(await api.get<{ kind: 'right' | 'key'; en: TopicText; fr: TopicText | null }>(`${base}/topics/${n}`));
     } catch {
       setText(null);
     }
   }
+  const saved = (overview: unknown) => {
+    onChanged(overview as Overview);
+    const wasOpen = open;
+    setEditing(null);
+    setText(null);
+    if (wasOpen !== null) void api.get<{ kind: 'right' | 'key'; en: TopicText; fr: TopicText | null }>(`${base}/topics/${wasOpen}`).then(setText).catch(() => {});
+  };
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
-        {(['fr', 'en'] as const).map((l) => (
-          <button key={l} type="button" onClick={() => setLang(l)} className={`rounded-full border px-3 py-1 text-xs font-semibold ${lang === l ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>
-            {l === 'fr' ? '🇫🇷 Français' : '🇬🇧 English'}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-2">
+          {(['fr', 'en'] as const).map((l) => (
+            <button key={l} type="button" onClick={() => setLang(l)} className={`rounded-full border px-3 py-1 text-xs font-semibold ${lang === l ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>
+              {l === 'fr' ? '🇫🇷 Français' : '🇬🇧 English'}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn-secondary px-3 py-1 text-sm" onClick={() => { setOpen(null); setEditing('new'); }} data-testid="add-topic">＋ {t('teachingRota.add_teaching')}</button>
       </div>
+      {editing === 'new' && <TeachingTopicEditor base={base} number={null} initial={null} onSaved={saved} onCancel={() => setEditing(null)} />}
       <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
         {topics.map((tp) => (
           <li key={tp.number} className="p-3">
@@ -237,8 +251,17 @@ function TopicReader({ base, topics, lang, setLang }: { base: string; topics: Ov
               <span className={`text-xs ${tp.hasFrench ? 'text-green-700' : 'text-amber-700'}`}>{tp.hasFrench ? '🇫🇷 ✓' : t('teachingRota.no_french')}</span>
             </button>
             {open === tp.number && (
-              <div className="mt-3">
-                {!text ? <p className="text-sm text-slate-500">{t('common.loading')}</p> : lang === 'fr' && !text.fr ? <p className="text-sm text-amber-700">{t('teachingRota.no_french')}</p> : <TeachingTopicView text={(lang === 'fr' ? text.fr : text.en) as TopicText} />}
+              <div className="mt-3 space-y-3">
+                {!text ? (
+                  <p className="text-sm text-slate-500">{t('common.loading')}</p>
+                ) : editing === tp.number ? (
+                  <TeachingTopicEditor base={base} number={tp.number} initial={text} onSaved={saved} onCancel={() => setEditing(null)} />
+                ) : (
+                  <>
+                    {lang === 'fr' && !text.fr ? <p className="text-sm text-amber-700">{t('teachingRota.no_french')}</p> : <TeachingTopicView text={(lang === 'fr' ? text.fr : text.en) as TopicText} />}
+                    <button type="button" className="btn-secondary w-full" onClick={() => setEditing(tp.number)} data-testid={`edit-topic-${tp.number}`}>✏️ {t('teachingRota.edit_teaching')}</button>
+                  </>
+                )}
               </div>
             )}
           </li>
@@ -464,7 +487,7 @@ export function TeachingRotaPanel({ base }: { base: string }) {
           <div className="space-y-2">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{t('teachingRota.read_topics')}</h3>
             <p className="text-xs text-slate-500">{t('teachingRota.read_topics_help')}</p>
-            <TopicReader base={base} topics={data.topics} lang={lang} setLang={setLang} />
+            <TopicReader base={base} topics={data.topics} lang={lang} setLang={setLang} onChanged={(o) => { setData(o); setNote(t('teachingRota.topic_saved')); }} />
           </div>
         </>
       )}

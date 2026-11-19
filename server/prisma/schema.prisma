@@ -2170,6 +2170,8 @@ model Announcement {
   createdAt        DateTime  @default(now())
   publishedAt      DateTime?
   archivedAt       DateTime?
+  // Set when the central admin shares the announcement by link (see HeadquartersPost.sharedPublicAt).
+  sharedPublicAt   DateTime?
 
   createdBy    User                 @relation(fields: [createdByUserId], references: [id])
   authorPerson Person?              @relation("AnnouncementAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)
@@ -2279,6 +2281,8 @@ model HeadquartersPost {
   archivedAt       DateTime?
   // Set when a published post is corrected afterwards (members see "edited").
   editedAt         DateTime?
+  // Set when the central admin shares the post by link: from then on anyone with the link can read the text (no sign-in).
+  sharedPublicAt   DateTime?
 
   createdBy    User                       @relation(fields: [createdByUserId], references: [id])
   authorPerson Person?                    @relation("HeadquartersPostAuthor", fields: [authorPersonId], references: [id], onDelete: SetNull)

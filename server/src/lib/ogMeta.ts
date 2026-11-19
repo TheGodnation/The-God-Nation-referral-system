@@ -102,6 +102,12 @@ export function pageSlugOf(path: string): string | null {
   return m ? m[1] : null;
 }
 
+/** /news/post/<id> or /news/announcement/<id>: a post or announcement the central admin shared by link. */
+export function newsPathOf(path: string): { kind: 'post' | 'announcement'; id: string } | null {
+  const m = /^\/news\/(post|announcement)\/([A-Za-z0-9-]{1,64})\/?$/.exec(path);
+  return m ? { kind: m[1] as 'post' | 'announcement', id: m[2] } : null;
+}
+
 export function metaFor(path: string, lang: CardLang, page?: { title: string; text: string } | null): PreviewMeta {
   if (page) return { title: `${page.title} — ${SITE}`, description: excerpt(page.text) || DEFAULT[lang].description, type: 'article' };
   const clean = path.replace(/\/+$/, '') || '/';
@@ -149,14 +155,24 @@ export function renderIndexHtml(template: string, opts: { appUrl: string; path: 
 type Lookup = (slug: string, lang: Lang) => Promise<{ title: string; text: string } | null>;
 
 /** The handler for every page address that is not a file or an API call. */
-export function spaHandler(template: string, appUrl: string, findPage: Lookup) {
+export function spaHandler(
+  template: string,
+  appUrl: string,
+  findPage: Lookup,
+  findShared?: (kind: 'post' | 'announcement', id: string, lang: Lang) => Promise<{ title: string; text: string } | null>,
+) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (req.path.startsWith('/api')) return next();
       // The link's own language decides the card (WhatsApp says nothing about who will read it).
       const lang: CardLang = req.query.lang === 'fr' ? 'fr' : req.query.lang === 'en' ? 'en' : 'both';
       const slug = pageSlugOf(req.path);
-      const page = slug ? await findPage(slug, lang === 'fr' ? 'fr' : 'en') : null;
+      const news = newsPathOf(req.path);
+      const page = slug
+        ? await findPage(slug, lang === 'fr' ? 'fr' : 'en')
+        : news && findShared
+          ? await findShared(news.kind, news.id, lang === 'fr' ? 'fr' : 'en')
+          : null;
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.send(renderIndexHtml(template, { appUrl, path: req.path, lang, meta: metaFor(req.path, lang, page) }));
     } catch (err) {

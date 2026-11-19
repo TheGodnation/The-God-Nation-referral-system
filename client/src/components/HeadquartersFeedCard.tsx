@@ -13,6 +13,7 @@ import { VoiceInputButton } from './VoiceInputButton';
 import { RichText } from '../lib/richText';
 import { REACTIONS, CommentThread, HEADQUARTERS_COMMENT_ENDPOINTS } from './updates/UpdatesFeed';
 import { SocialEmbed, type SocialEmbedInfo } from './updates/SocialEmbed';
+import { ShareByLinkSheet, SHARE_BASE_MEMBER } from './ShareByLinkSheet';
 
 export interface HeadquartersFeedMedia {
   id: string;
@@ -172,6 +173,7 @@ export function HeadquartersFeedCard({
   const { member } = useMemberAuth();
   const canEdit = Boolean(member?.isCentralAdmin);
   const [editing, setEditing] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [form, setForm] = useState({ titleEn: '', bodyEn: '', titleFr: '', bodyFr: '' });
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -265,7 +267,15 @@ export function HeadquartersFeedCard({
             {item.editedAt ? ` · ${t('headquartersPosts.edited')}` : ''}
           </p>
         </div>
-        {canEdit && !editing && <PostMenu items={[{ label: `✏️ ${t('headquartersPosts.edit')}`, onSelect: startEdit }]} testId="hq-post-menu" />}
+        {canEdit && !editing && (
+          <PostMenu
+            items={[
+              { label: `✏️ ${t('headquartersPosts.edit')}`, onSelect: startEdit },
+              { label: `🔗 ${t('shareLink.button')}`, onSelect: () => setSharing(true) },
+            ]}
+            testId="hq-post-menu"
+          />
+        )}
       </header>
 
       {editing && (
@@ -424,6 +434,7 @@ export function HeadquartersFeedCard({
           <CommentThread postId={item.id} canComment endpoints={HEADQUARTERS_COMMENT_ENDPOINTS} onCountChange={(n) => onCommentCountChange?.(n)} />
         </div>
       )}
+      {sharing && <ShareByLinkSheet kind="post" id={item.id} title={title} base={SHARE_BASE_MEMBER} onClose={() => setSharing(false)} />}
     </article>
   );
 }
