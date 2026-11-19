@@ -214,14 +214,14 @@ describe('the roster', () => {
   });
 
   it('matches a name to the one member whose name holds the same words and a few more, but not when two fit', async () => {
-    await loadPlan(plan({ teachers: [{ name: 'Gertrude Nkeshie Tester', startTopic: 1, dayOfWeek: 1, startTime: '07:00' }, { name: 'Shared Tester', startTopic: 2, dayOfWeek: 1, startTime: '16:00' }] }));
-    const gertrude = await member('Etabu Gertrude Nkeshie Tester');
+    await loadPlan(plan({ teachers: [{ name: 'Mbeki Ndlovu Tester', startTopic: 1, dayOfWeek: 1, startTime: '07:00' }, { name: 'Shared Tester', startTopic: 2, dayOfWeek: 1, startTime: '16:00' }] }));
+    const zora = await member('Zora Mbeki Ndlovu Tester');
     await member('Shared Tester One');
     await member('Shared Tester Two');
     const result = await matchTeachers();
     expect(result.matched).toBe(1);
     expect(result.ambiguous).toEqual(['Shared Tester']);
-    expect((await prisma.teachingTeacher.findFirstOrThrow({ where: { name: { startsWith: 'Gertrude' } } })).personId).toBe(gertrude.person.id);
+    expect((await prisma.teachingTeacher.findFirstOrThrow({ where: { name: { startsWith: 'Mbeki' } } })).personId).toBe(zora.person.id);
   });
 
   it('lists members who have no app account yet in the picker, marked, after those who have one', async () => {

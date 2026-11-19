@@ -14,6 +14,9 @@ export interface PreviewMeta {
   title: string;
   description: string;
   type: 'website' | 'article';
+  /** A card picture of its own (a file in the site's public folder), instead of the usual one. */
+  image?: string;
+  imageAlt?: string;
 }
 
 const SITE = 'The God Nation';
@@ -72,6 +75,13 @@ const JOIN: Record<CardLang, PreviewMeta> = {
   },
 };
 
+// The "Congratulations" page for the students who finished the books. No names here: a link preview must never carry them.
+const CELEBRATION: Record<CardLang, PreviewMeta> = {
+  en: { title: 'Congratulations to our students! 🎉', description: 'They have completed all 15 books of The God Nation Media & Leadership Academy. Come and celebrate with us.', type: 'website', image: 'congratulations-card.jpg', imageAlt: 'Congratulations to our students — The God Nation' },
+  fr: { title: 'Félicitations à nos étudiants ! 🎉', description: 'Ils ont terminé les 15 livres de The God Nation — Académie des médias et du leadership. Venez célébrer avec nous.', type: 'website', image: 'congratulations-card.jpg', imageAlt: 'Félicitations à nos étudiants — The God Nation' },
+  both: { title: 'Congratulations to our students! · Félicitations à nos étudiants ! 🎉', description: 'They completed all 15 books · Ils ont terminé les 15 livres. Come and celebrate with us · Venez célébrer avec nous.', type: 'website', image: 'congratulations-card.jpg', imageAlt: 'Congratulations · Félicitations — The God Nation' },
+};
+
 const JOIN_PATHS = new Set(['/join', '/welcome', '/member/join', '/register']);
 
 export function escapeAttr(s: string): string {
@@ -94,7 +104,9 @@ export function pageSlugOf(path: string): string | null {
 
 export function metaFor(path: string, lang: CardLang, page?: { title: string; text: string } | null): PreviewMeta {
   if (page) return { title: `${page.title} — ${SITE}`, description: excerpt(page.text) || DEFAULT[lang].description, type: 'article' };
-  if (JOIN_PATHS.has(path.replace(/\/+$/, '') || '/')) return JOIN[lang];
+  const clean = path.replace(/\/+$/, '') || '/';
+  if (clean === '/congratulations') return CELEBRATION[lang];
+  if (JOIN_PATHS.has(clean)) return JOIN[lang];
   return DEFAULT[lang];
 }
 
@@ -103,7 +115,7 @@ export function renderIndexHtml(template: string, opts: { appUrl: string; path: 
   const { appUrl, path, lang, meta } = opts;
   const base = appUrl.replace(/\/+$/, '');
   const url = `${base}${path === '/' ? '' : path}` || base;
-  const image = `${base}/${CARD_IMAGE[lang]}`;
+  const image = `${base}/${meta.image ?? CARD_IMAGE[lang]}`;
   const pageLang: Lang = lang === 'fr' ? 'fr' : 'en';
   const t = escapeAttr(meta.title);
   const d = escapeAttr(meta.description);
@@ -117,7 +129,7 @@ export function renderIndexHtml(template: string, opts: { appUrl: string; path: 
     `<meta property="og:image:width" content="1200" />`,
     `<meta property="og:image:height" content="630" />`,
     `<meta property="og:image:type" content="image/jpeg" />`,
-    `<meta property="og:image:alt" content="${escapeAttr(CARD_ALT[lang])}" />`,
+    `<meta property="og:image:alt" content="${escapeAttr(meta.imageAlt ?? CARD_ALT[lang])}" />`,
     `<meta property="og:locale" content="${pageLang === 'fr' ? 'fr_FR' : 'en_US'}" />`,
     ...(lang === 'both' ? [`<meta property="og:locale:alternate" content="fr_FR" />`] : []),
     `<meta name="twitter:card" content="summary_large_image" />`,
