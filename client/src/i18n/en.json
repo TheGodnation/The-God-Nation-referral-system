@@ -5779,7 +5779,7 @@
     "how_send": "Teach by voice note in the Leadership group, at your time.",
     "open_book": "Open the book",
     "show_teaching": "Read the teaching",
-    "not_a_teacher": "There is nothing for you here yet.",
+    "not_a_teacher": "This page shows the teaching given to you each week. You are not on the weekly teaching list, so there is nothing here for you.",
     "starts_on": "The weekly teaching starts on {{date}}. This is your first teaching, so you can prepare.",
     "first_week": "Your first teaching",
     "week_after": "The week after",
@@ -5852,7 +5852,11 @@
     "assignment_seen": "opened",
     "assignment_replied": "replied",
     "assignment_alert_only": "phone alert only (no private message)",
-    "assignment_open_chat": "Open the chat"
+    "assignment_open_chat": "Open the chat",
+    "see_page": "See their page",
+    "hide_page": "Hide their page",
+    "page_preview": "This is what {{name}} sees on My teaching",
+    "not_open": "The weekly teaching is not open yet."
   },
   "celebration": {
     "tab": "Congratulations page",

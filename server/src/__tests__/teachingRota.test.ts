@@ -655,4 +655,20 @@ describe('the assignment as a private message', () => {
     expect((await prisma.teachingReminderLog.findUniqueOrThrow({ where: { key } })).messageId).not.toBeNull();
     expect(await sendAssignmentsNow(at('2026-11-23T09:10:00Z'))).toMatchObject({ sent: 0 }); // and never again
   });
+
+  it('lets the central admin see exactly the page a teacher sees, and nobody else', async () => {
+    const admin = await member('Central Tester Four', { admin: true });
+    const plain = await member('Plain Tester');
+    const { teachers, people } = await setUp();
+    const mine = await admin.get(`/api/member/central-teaching-rota/teachers/${teachers.beta.id}/page`);
+    expect(mine.status).toBe(200);
+    expect(mine.body).toMatchObject({ enabled: true, isTeacher: true });
+    expect(mine.body.weeks[0].text.topic).toBe('Topic 2');
+    expect(mine.body.weeks.map((w: any) => w.text.topic)).toEqual(['Topic 2', 'Topic 3']); // that teacher's own this week and next week, and nothing else
+    expect((await plain.get(`/api/member/central-teaching-rota/teachers/${teachers.beta.id}/page`)).status).toBe(403);
+    await prisma.teachingTeacher.update({ where: { id: teachers.gamma.id }, data: { personId: null } });
+    expect((await admin.get(`/api/member/central-teaching-rota/teachers/${teachers.gamma.id}/page`)).status).toBe(409);
+    expect(people.beta.id).toBeTruthy();
+  });
 });
+

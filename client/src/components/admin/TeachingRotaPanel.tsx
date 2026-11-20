@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
+import type { TeachingView } from '../teaching/teachingTypes';
 import { TeachingTopicView } from '../teaching/TeachingTopicView';
+import { TeachingPageBody } from '../../pages/MemberMyTeachingPage';
 import { TeachingTopicEditor } from './TeachingTopicEditor';
 import { dayName, type LevelCounts, type TopicText } from '../teaching/teachingTypes';
 import { CountChips } from '../teaching/TeachingRatings';
@@ -147,6 +149,19 @@ function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base:
   const [detail, setDetail] = useState<RatingDetail | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [page, setPage] = useState<TeachingView | null>(null);
+  const [showPage, setShowPage] = useState(false);
+  // "See their page": exactly what this leader sees when they open My teaching.
+  async function togglePage() {
+    setShowPage((v) => !v);
+    if (!page) {
+      try {
+        setPage(await api.get<TeachingView>(`${base}/teachers/${row.id}/page`));
+      } catch (e) {
+        setLocalError(e instanceof ApiError ? e.message : t('teachingRota.load_failed'));
+      }
+    }
+  }
   async function toggleDetail() {
     setShowDetail((v) => !v);
     if (!detail) {
@@ -185,6 +200,19 @@ function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base:
         </button>
       </div>
       {row.active && row.personId && <AssignmentStatus row={row} base={base} />}
+      {row.personId && (
+        <>
+          <button type="button" className="mt-1 text-xs font-semibold text-brand-700 underline" onClick={() => void togglePage()} data-testid="see-page">
+            👁 {showPage ? t('teachingRota.hide_page') : t('teachingRota.see_page')}
+          </button>
+          {showPage && page && (
+            <div className="mt-2 space-y-3 rounded-xl border border-dashed border-brand-300 bg-slate-50 p-3" data-testid="teacher-page-preview">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('teachingRota.page_preview', { name: row.memberName ?? row.name })}</p>
+              <TeachingPageBody view={page} />
+            </div>
+          )}
+        </>
+      )}
       {picking && <MemberPicker base={base} onPick={(id) => void patch({ personId: id })} />}
       {localError && <p role="alert" className="mt-2 rounded-lg bg-red-50 p-2 text-sm text-red-800" data-testid="teacher-error">{localError}</p>}
       <div className="mt-2 grid grid-cols-2 gap-2">

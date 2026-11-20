@@ -475,3 +475,21 @@ describe('Editing the teachings', () => {
     expect(calls[0].body.en.verses).toEqual(['John 1:1', 'John 3:16']);
   });
 });
+
+describe('Seeing a teacher’s own page', () => {
+  it('shows the central admin exactly what the teacher sees, and nothing for an unmatched name', async () => {
+    const week = { weekStart: '2026-11-23', isCurrent: true, startsAt: '2026-11-23T06:00:00.000Z', endsAt: '2026-11-23T06:15:00.000Z', status: 'upcoming', kind: 'key', text: { topic: 'The Right to Forgiveness', bookTitle: 'Book', chapter: 'Chapter 1', teachingOn: 'On this', help: 'Help', meaning: 'Meaning', startLabel: 'Start with this', start: 'Start', ifNotLabel: 'If not', ifNot: 'If not', dominion: 'Dominion', verses: ['John 1:1'] }, textLanguage: 'en', book: null };
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url.endsWith('/teachers/t1/page')) return json({ enabled: true, isTeacher: true, language: 'en', started: true, startsOn: '2026-11-23', minutes: 15, weeks: [week] });
+      return json(overview({ teachers: [row({ personId: 'p1', memberName: 'Alpha Tester', language: 'en' }), row({ id: 't2', name: 'Beta Tester' })], warnings: [] }));
+    }));
+    render(<MemoryRouter><TeachingRotaPanel base="/api/admin/teaching-rota" /></MemoryRouter>);
+    await screen.findByText('Alpha Tester');
+    expect(screen.getAllByTestId('see-page')).toHaveLength(1); // only the matched name has a page
+    fireEvent.click(screen.getByTestId('see-page'));
+    const preview = await screen.findByTestId('teacher-page-preview');
+    expect(preview).toHaveTextContent('This is what Alpha Tester sees on My teaching');
+    expect(preview).toHaveTextContent('The Right to Forgiveness');
+  });
+});
+

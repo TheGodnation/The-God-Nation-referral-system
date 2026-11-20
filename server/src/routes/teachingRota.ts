@@ -125,6 +125,14 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     res.status(201).json(await adminOverview());
   }));
 
+  // "See their page": exactly what this teacher sees on their My teaching page (the central admin checking it).
+  router.get('/teachers/:id/page', asyncHandler(async (req, res) => {
+    const teacher = await prisma.teachingTeacher.findUnique({ where: { id: String(req.params.id) }, select: { personId: true } });
+    if (!teacher) return res.status(404).json({ error: 'Teacher not found.' });
+    if (!teacher.personId) return res.status(409).json({ error: 'This name is not matched to a member yet, so there is no page to show.' });
+    res.json(await teacherView(teacher.personId));
+  }));
+
   router.patch('/teachers/:id', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     const parsed = patchTeacherSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Check the details and try again.' });

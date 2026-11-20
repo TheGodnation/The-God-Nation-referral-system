@@ -45,8 +45,30 @@ function WeekCard({ week, label, open, showHow }: { week: TeachingWeek; label: s
   );
 }
 
-export function MemberMyTeachingPage() {
+/** What a teacher sees on the page (also shown to the central admin, in "See their page"). */
+export function TeachingPageBody({ view }: { view: TeachingView }) {
   const { t, i18n } = useTranslation();
+  const started = view.started ?? false;
+  const startsOn = view.startsOn ? new Date(`${view.startsOn}T00:00:00Z`).toLocaleDateString(i18n.language.startsWith('fr') ? 'fr-FR' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '';
+  if (!view.enabled) return <p className="card text-sm text-slate-700" data-testid="not-a-teacher">{t('teachingRota.not_open')}</p>;
+  if (!view.isTeacher || !view.weeks) return <p className="card text-sm text-slate-700" data-testid="not-a-teacher">{t('teachingRota.not_a_teacher')}</p>;
+  return (
+    <>
+      {!started && (
+        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" data-testid="not-started">
+          {t('teachingRota.starts_on', { date: startsOn })}
+        </p>
+      )}
+      {view.weeks.map((w, i) => (
+        <WeekCard key={w.weekStart} week={w} showHow={i === 0} open={i === 0 && w.status !== 'done'} label={i === 0 ? t(started ? 'teachingRota.this_week' : 'teachingRota.first_week') : t(started ? 'teachingRota.next_week' : 'teachingRota.week_after')} />
+      ))}
+      {view.results && <TeachingResults results={view.results} />}
+    </>
+  );
+}
+
+export function MemberMyTeachingPage() {
+  const { t } = useTranslation();
   const [view, setView] = useState<TeachingView | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -60,29 +82,13 @@ export function MemberMyTeachingPage() {
     };
   }, []);
 
-  const started = view?.started ?? false;
-  const startsOn = view?.startsOn ? new Date(`${view.startsOn}T00:00:00Z`).toLocaleDateString(i18n.language.startsWith('fr') ? 'fr-FR' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '';
-
   return (
     <PageShell minimal>
       <section className="mx-auto max-w-2xl space-y-3 px-4 py-6 pb-16">
         <h1 className="text-2xl font-bold text-brand-900">{t('teachingRota.page_title')}</h1>
         {failed && <p className="text-sm text-red-700">{t('teachingRota.load_failed')}</p>}
         {!view && !failed && <p className="text-slate-500">{t('common.loading')}</p>}
-        {view && (!view.enabled || !view.isTeacher) && <p className="card text-sm text-slate-700" data-testid="not-a-teacher">{t('teachingRota.not_a_teacher')}</p>}
-        {view?.isTeacher && view.weeks && (
-          <>
-            {!started && (
-              <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" data-testid="not-started">
-                {t('teachingRota.starts_on', { date: startsOn })}
-              </p>
-            )}
-            {view.weeks.map((w, i) => (
-              <WeekCard key={w.weekStart} week={w} showHow={i === 0} open={i === 0 && w.status !== 'done'} label={i === 0 ? t(started ? 'teachingRota.this_week' : 'teachingRota.first_week') : t(started ? 'teachingRota.next_week' : 'teachingRota.week_after')} />
-            ))}
-            {view.results && <TeachingResults results={view.results} />}
-          </>
-        )}
+        {view && <TeachingPageBody view={view} />}
         <MemberNav />
       </section>
     </PageShell>
