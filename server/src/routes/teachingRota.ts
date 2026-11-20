@@ -10,7 +10,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { LEVELS, RotaError, addTeacher, adminOverview, loadPlan, matchTeachers, ratingDetail, saveTopic, searchGroups, searchMembers, teacherView, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
 import { finishState, finishTeaching, rate } from '../lib/teachingCards';
-import { sendAssignmentsNow } from '../lib/teachingReminders';
+import { sendAssignmentsNow, sendHowToNow } from '../lib/teachingReminders';
 import { isFrench } from '../lib/privateNotice';
 
 // The weekly teaching rota. Two doors for the central admin (the admin dashboard and the National Coordinator's member
@@ -87,6 +87,14 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     const result = await sendAssignmentsNow();
     await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHING_ASSIGNMENTS_SENT', targetType: 'TeachingSettings', targetId: 'main', metadata: { sent: result.sent, alreadySent: result.alreadySent } });
     res.json({ ...result, overview: await adminOverview() });
+  }));
+
+  router.post('/send-howto', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const actor = await actorOr403(req, res);
+    if (!actor) return;
+    const result = await sendHowToNow();
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHING_HOWTO_SENT', targetType: 'TeachingSettings', targetId: 'main', metadata: { sent: result.sent, alreadySent: result.alreadySent } });
+    res.json(result);
   }));
 
   router.post('/plan', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {

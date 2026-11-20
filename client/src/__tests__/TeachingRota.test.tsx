@@ -493,3 +493,25 @@ describe('Seeing a teacher’s own page', () => {
   });
 });
 
+describe('The “how it works” message', () => {
+  it('asks first, then says how many teachers got it', async () => {
+    const calls: { url: string; method: string }[] = [];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') { calls.push({ url, method }); return json({ sent: 18, alreadySent: 1, sentTo: ['Alpha Tester'], notMatched: [] }); }
+      return json(overview({ settings: { enabled: true, startDate: '2026-11-23', frenchChecked: true, started: false }, teachers: [row({ personId: 'p1', memberName: 'Alpha Tester', language: 'en' })], warnings: [] }));
+    }));
+    const confirmFn = vi.fn(() => true);
+    vi.stubGlobal('confirm', confirmFn);
+    render(<MemoryRouter><TeachingRotaPanel base="/api/admin/teaching-rota" /></MemoryRouter>);
+    await screen.findByText('Alpha Tester');
+    fireEvent.click(screen.getByTestId('send-howto'));
+    expect(await screen.findByTestId('rota-note')).toHaveTextContent('“How it works” sent to 18 teachers (1 already had it).');
+    expect(confirmFn).toHaveBeenCalledWith(expect.stringContaining('private message from you'));
+    expect(calls).toEqual([{ url: '/api/admin/teaching-rota/send-howto', method: 'POST' }]);
+    confirmFn.mockReturnValue(false);
+    fireEvent.click(screen.getByTestId('send-howto'));
+    expect(calls).toHaveLength(1); // declining sends nothing
+  });
+});
+

@@ -5,7 +5,7 @@ import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
-import { sendAssignmentsNow, sendRotaReminders } from '../lib/teachingReminders';
+import { sendAssignmentsNow, sendHowToNow, sendRotaReminders } from '../lib/teachingReminders';
 import { finishState, finishTeaching, postDueRatingCards, rate, ratingCardInfos } from '../lib/teachingCards';
 import { RotaError, saveTopic, topicPreview, addTeacher, ratingDetail, ratingSummaries, resolveBook, isRater, adminOverview, loadPlan, matchTeachers, slotStart, teacherView, topicNumberFor, updateSettings, updateTeacher, weekNumber } from '../lib/teachingRota';
 
@@ -702,6 +702,33 @@ describe('the assignment as a private message', () => {
     await prisma.teachingTeacher.update({ where: { id: teachers.gamma.id }, data: { personId: null } });
     expect((await admin.get(`/api/member/central-teaching-rota/teachers/${teachers.gamma.id}/page`)).status).toBe(409);
     expect(people.beta.id).toBeTruthy();
+  });
+
+  it('adds the voice-note line to the assignment once a teaching group is chosen, and sends the how-it-works message once to each teacher', async () => {
+    const admin = await member('Central Tester Five', { admin: true });
+    const { people, teachers } = await setUp({ fr: true });
+    await prisma.user.updateMany({ where: { role: 'ADMIN', personId: { not: admin.person.id } }, data: { active: false } });
+    const g = await prisma.community.create({ data: { name: `Voice Group ${++n}` } });
+    await updateSettings({ ratersCommunityId: g.id });
+    await prisma.teachingTeacher.update({ where: { id: teachers.gamma.id }, data: { personId: null } });
+
+    await sendAssignmentsNow(at('2026-11-22T20:00:00Z'));
+    const alphaChat = (await chatOf(people.alpha.id, admin.person.id))!;
+    const assignment = await prisma.privateMessage.findFirstOrThrow({ where: { conversationId: alphaChat.id } });
+    expect(assignment.body).toContain(`dans le groupe « ${g.name} »`); // Alpha reads French
+    expect(assignment.body).toContain("J'ai terminé mon enseignement");
+    const betaChat = (await chatOf(people.beta.id, admin.person.id))!;
+    expect((await prisma.privateMessage.findFirstOrThrow({ where: { conversationId: betaChat.id } })).body).toContain(`in the group “${g.name}”, then tap “I have finished my teaching”`);
+
+    const first = await sendHowToNow();
+    expect(first).toMatchObject({ sent: 2, alreadySent: 0 });
+    expect(first.notMatched).toEqual(['Gamma Tester']);
+    const betaMessages = await prisma.privateMessage.findMany({ where: { conversationId: betaChat.id }, orderBy: { createdAt: 'asc' } });
+    expect(betaMessages).toHaveLength(2);
+    expect(betaMessages[1].body).toContain('How your weekly teaching works');
+    expect(betaMessages[1].body).toContain('20 minutes');
+    expect(await sendHowToNow()).toMatchObject({ sent: 0, alreadySent: 2 }); // never twice
+    expect(await prisma.privateMessage.count({ where: { conversationId: betaChat.id } })).toBe(2);
   });
 });
 

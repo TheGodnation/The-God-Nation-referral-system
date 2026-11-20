@@ -43,12 +43,32 @@ async function centralAdminPersonId(): Promise<string | null> {
 }
 
 /** The private message that carries an assignment, in the teacher's own language. They can answer it in the same chat. */
-export function assignmentMessage(french: boolean, d: { topic: string; startsAt: Date }): string {
+export function assignmentMessage(french: boolean, d: { topic: string; startsAt: Date; group?: string | null }): string {
   const link = `${CLIENT_URL}/member/my-teaching`;
   const when = `${whenText(d.startsAt, french, true)}`;
+  const how = d.group
+    ? french
+      ? `\n\n🎙 Envoyez votre enseignement en note vocale dans le groupe « ${d.group} », puis touchez « J'ai terminé mon enseignement » juste au-dessus de la zone de message.`
+      : `\n\n🎙 Send your teaching as a voice note in the group “${d.group}”, then tap “I have finished my teaching” just above the message box.`
+    : '';
   return french
-    ? `📖 Votre enseignement cette semaine : ${d.topic}\n🕒 ${when} (heure du Cameroun)\nOuvrez-le ici pour lire le texte et le livre :\n${link}\n\nMerci de répondre ici pour me confirmer que vous l'avez bien reçu.`
-    : `📖 Your teaching this week: ${d.topic}\n🕒 ${when} (Cameroon time)\nOpen it here to read the text and the book:\n${link}\n\nPlease reply here to confirm that you received it.`;
+    ? `📖 Votre enseignement cette semaine : ${d.topic}\n🕒 ${when} (heure du Cameroun)\nOuvrez-le ici pour lire le texte et le livre :\n${link}${how}\n\nMerci de répondre ici pour me confirmer que vous l'avez bien reçu.`
+    : `📖 Your teaching this week: ${d.topic}\n🕒 ${when} (Cameroon time)\nOpen it here to read the text and the book:\n${link}${how}\n\nPlease reply here to confirm that you received it.`;
+}
+
+/** The name of the group where the teachings are rated (and where the leaders send their voice notes), if one is chosen. */
+async function teachingGroupName(): Promise<string | null> {
+  const settings = await prisma.teachingSettings.findUnique({ where: { id: 'main' }, select: { ratersCommunityId: true } });
+  if (!settings?.ratersCommunityId) return null;
+  return (await prisma.community.findUnique({ where: { id: settings.ratersCommunityId }, select: { name: true } }))?.name ?? null;
+}
+
+/** The one-time "how it works" message, in the teacher's language. */
+export function howToMessage(french: boolean, group: string | null): string {
+  const where = group ? (french ? `dans le groupe « ${group} »` : `in the group “${group}”`) : french ? 'dans le groupe de l\'enseignement' : 'in the teaching group';
+  return french
+    ? `📣 Comment se passe votre enseignement de la semaine\n\n1. À l'heure de votre enseignement, enregistrez-le en note vocale et envoyez-la ${where}.\n2. Ensuite, touchez le bouton « J'ai terminé mon enseignement », juste au-dessus de la zone de message. Une carte de notation apparaît pour que les membres l'écoutent et la notent.\n3. Si vous oubliez, la carte apparaît d'elle-même 20 minutes après le début de votre heure.\n\nMerci de répondre ici si quelque chose n'est pas clair.`
+    : `📣 How your weekly teaching works\n\n1. At your teaching time, record your teaching as a voice note and send it ${where}.\n2. Then tap the button “I have finished my teaching”, just above the message box. A rating card appears so the members can listen and rate it.\n3. If you forget, the card appears by itself 20 minutes after your time starts.\n\nPlease reply here if anything is unclear.`;
 }
 
 /** Returns the id of the private message when one was sent (only for an assignment). */
@@ -67,7 +87,40 @@ async function sendAssignmentMessage(personId: string, d: { topicEn: string; top
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
   const french = isFrench(person?.preferredLanguage);
   const from = await centralAdminPersonId();
-  return from ? sendPrivateNoticeId(from, personId, assignmentMessage(french, { topic: french ? d.topicFr : d.topicEn, startsAt: d.startsAt })) : null;
+  return from ? sendPrivateNoticeId(from, personId, assignmentMessage(french, { topic: french ? d.topicFr : d.topicEn, startsAt: d.startsAt, group: await teachingGroupName() })) : null;
+}
+
+/**
+ * "Send the how-it-works message": every active teacher matched to a member gets one private message from the central admin
+ * explaining the voice note and the "I have finished" button. Each teacher gets it once, ever.
+ */
+export async function sendHowToNow(): Promise<{ sent: number; alreadySent: number; sentTo: string[]; notMatched: string[] }> {
+  const from = await centralAdminPersonId();
+  const teachers = await prisma.teachingTeacher.findMany({ where: { active: true }, orderBy: { name: 'asc' } });
+  const result = { sent: 0, alreadySent: 0, sentTo: [] as string[], notMatched: teachers.filter((t) => !t.personId).map((t) => t.name) };
+  if (!from) return result;
+  const group = await teachingGroupName();
+  const matched = teachers.filter((t) => t.personId);
+  const people = new Map((await prisma.person.findMany({ where: { id: { in: matched.map((t) => t.personId!) } }, select: { id: true, name: true, preferredLanguage: true } })).map((x) => [x.id, x]));
+  for (const t of matched) {
+    const who = people.get(t.personId!);
+    const key = `howto:${t.id}`;
+    if (!(await claim(key))) {
+      result.alreadySent++;
+      continue;
+    }
+    const messageId = await sendPrivateNoticeId(from, t.personId!, howToMessage(isFrench(who?.preferredLanguage), group));
+    if (messageId) {
+      await noteMessage(key, messageId);
+      result.sent++;
+      result.sentTo.push(who?.name ?? t.name);
+    } else {
+      // could not be sent: let the next press try again
+      await prisma.teachingReminderLog.delete({ where: { key } }).catch(() => {});
+      result.notMatched.push(who?.name ?? t.name);
+    }
+  }
+  return result;
 }
 
 /** Remembers which private message carried an assignment. */

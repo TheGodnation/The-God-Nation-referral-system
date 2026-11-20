@@ -5858,7 +5858,11 @@
     "page_preview": "Voici ce que {{name}} voit dans Mon enseignement",
     "not_open": "L'enseignement hebdomadaire n'est pas encore ouvert.",
     "partial_found": "Personne ne correspond à tous les mots tapés (un nom peut s'écrire un peu autrement). Ces personnes correspondent à au moins un de vos mots :",
-    "erased_found": "Une personne portant ce nom existe mais a été retirée de l'application, elle ne peut donc pas être choisie."
+    "erased_found": "Une personne portant ce nom existe mais a été retirée de l'application, elle ne peut donc pas être choisie.",
+    "send_howto": "Envoyer le message « comment ça marche » à tous les enseignants",
+    "send_howto_help": "Un message privé de votre part à chaque enseignant : enregistrer son enseignement en note vocale dans le groupe, puis toucher « J'ai terminé mon enseignement ». Chacun le reçoit une seule fois. Le message d'affectation de chaque semaine porte aussi cette ligne désormais.",
+    "confirm_howto": "Envoyer maintenant le message « comment ça marche » à chaque enseignant ? C'est un message privé de votre part, envoyé une fois à chacun.",
+    "howto_sent": "« Comment ça marche » envoyé à {{sent}} enseignants ({{alreadySent}} l'avaient déjà)."
   },
   "celebration": {
     "tab": "Page de félicitations",

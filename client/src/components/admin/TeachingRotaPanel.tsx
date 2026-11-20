@@ -433,6 +433,21 @@ export function TeachingRotaPanel({ base }: { base: string }) {
     }
   }
 
+  async function sendHowTo() {
+    if (!window.confirm(t('teachingRota.confirm_howto') ?? '')) return;
+    setError(null);
+    setNote(null);
+    try {
+      const r = await api.post<{ sent: number; alreadySent: number; sentTo: string[]; notMatched: string[] }>(`${base}/send-howto`, {});
+      const lines = [t('teachingRota.howto_sent', { sent: r.sent, alreadySent: r.alreadySent })];
+      if (r.sentTo.length) lines.push(t('teachingRota.sent_to', { names: r.sentTo.join(', ') }));
+      if (r.notMatched.length) lines.push(t('teachingRota.sent_not_matched', { names: r.notMatched.join(', ') }));
+      setNote(lines.join('\n'));
+    } catch (e) {
+      fail(e, t('teachingRota.save_failed'));
+    }
+  }
+
   async function runMatch() {
     setError(null);
     setBusy(true);
@@ -507,6 +522,14 @@ export function TeachingRotaPanel({ base }: { base: string }) {
               <button type="button" className="btn-secondary w-full" onClick={() => void sendNow()} data-testid="send-now">
                 {t('teachingRota.send_now')}
               </button>
+            )}
+            {s.enabled && (
+              <>
+                <button type="button" className="btn-secondary w-full" onClick={() => void sendHowTo()} data-testid="send-howto">
+                  {t('teachingRota.send_howto')}
+                </button>
+                <p className="text-xs text-slate-500">{t('teachingRota.send_howto_help')}</p>
+              </>
             )}
             <div className="rounded-lg bg-slate-50 p-2 text-sm" data-testid="raters-box">
               <p className="font-medium text-slate-900">{t('teachingRota.raters_title')}</p>
