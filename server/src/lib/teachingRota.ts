@@ -436,19 +436,35 @@ export async function updateTeacher(id: string, input: { name?: string; personId
 /** Members the central admin can attach to a name (by name or number), with the language each one reads. */
 export async function searchMembers(search: string) {
   const q = search.trim();
-  if (q.length < 2) return [];
-  const ids = await searchPersonIds(q, { includeTestData: false, limit: 30 });
-  if (ids.length === 0) return [];
+  if (q.length < 2) return { items: [], note: null as null | 'PARTIAL' | 'ERASED' };
+  // The central admin chooses the person, so nobody is hidden for being marked as test data; and the list is cut only after sorting.
+  let ids = await searchPersonIds(q, { includeTestData: true, limit: 200 });
+  let note: null | 'PARTIAL' | 'ERASED' = null;
+  const words = q.split(/\s+/).filter((w) => w.length >= 2);
+  if (ids.length === 0 && words.length > 1) {
+    // Nobody has every word (a spelling can differ a little): show people who have at least one of them.
+    const found = new Set<string>();
+    for (const w of words.slice(0, 5)) for (const id of await searchPersonIds(w, { includeTestData: true, limit: 30 })) found.add(id);
+    ids = [...found];
+    if (ids.length) note = 'PARTIAL';
+  }
+  if (ids.length === 0) {
+    // Say so when the person exists but was removed from the app, instead of leaving the admin to guess.
+    const erased = await prisma.person.count({ where: { erasedAt: { not: null }, AND: words.map((w) => ({ name: { contains: w, mode: 'insensitive' as const } })) } });
+    return { items: [], note: erased > 0 ? ('ERASED' as const) : null };
+  }
   const rows = await prisma.person.findMany({
     where: { id: { in: ids }, erasedAt: null },
     select: { id: true, name: true, preferredLanguage: true, memberAccount: { select: { id: true } } },
     orderBy: { name: 'asc' },
+    take: 50,
   });
   const taken = new Map((await prisma.teachingTeacher.findMany({ where: { personId: { in: rows.map((r) => r.id) } }, select: { personId: true, name: true } })).map((t) => [t.personId!, t.name]));
   // People with an app account first: only they can open the teaching page.
-  return rows
+  const items = rows
     .map((r) => ({ id: r.id, name: r.name, language: isFrench(r.preferredLanguage) ? ('fr' as const) : ('en' as const), hasAccount: Boolean(r.memberAccount), takenBy: taken.get(r.id) ?? null }))
     .sort((a, b) => Number(b.hasAccount) - Number(a.hasAccount));
+  return { items, note };
 }
 
 /**

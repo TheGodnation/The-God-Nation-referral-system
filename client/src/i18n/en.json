@@ -5856,7 +5856,9 @@
     "see_page": "See their page",
     "hide_page": "Hide their page",
     "page_preview": "This is what {{name}} sees on My teaching",
-    "not_open": "The weekly teaching is not open yet."
+    "not_open": "The weekly teaching is not open yet.",
+    "partial_found": "Nobody matches every word you typed (a name can be spelled a little differently). These people match at least one of your words:",
+    "erased_found": "A person with that name exists but was removed from the app, so she cannot be chosen."
   },
   "celebration": {
     "tab": "Congratulations page",

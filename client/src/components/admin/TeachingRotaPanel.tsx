@@ -63,6 +63,7 @@ function MemberPicker({ base, onPick }: { base: string; onPick: (id: string) => 
   const [q, setQ] = useState('');
   const [items, setItems] = useState<Found[]>([]);
   const [hint, setHint] = useState('');
+  const [note, setNote] = useState<'PARTIAL' | 'ERASED' | null>(null);
   useEffect(() => {
     setHint('');
     if (q.trim().length < 2) {
@@ -70,7 +71,16 @@ function MemberPicker({ base, onPick }: { base: string; onPick: (id: string) => 
       return;
     }
     const timer = window.setTimeout(() => {
-      api.get<{ items: Found[] }>(`${base}/members?search=${encodeURIComponent(q.trim())}`).then((r) => setItems(r.items)).catch(() => setItems([]));
+      api
+        .get<{ items: Found[]; note: 'PARTIAL' | 'ERASED' | null }>(`${base}/members?search=${encodeURIComponent(q.trim())}`)
+        .then((r) => {
+          setItems(r.items);
+          setNote(r.note ?? null);
+        })
+        .catch(() => {
+          setItems([]);
+          setNote(null);
+        });
     }, 300);
     return () => window.clearTimeout(timer);
   }, [q, base]);
@@ -91,7 +101,8 @@ function MemberPicker({ base, onPick }: { base: string; onPick: (id: string) => 
           <span className="text-xs text-slate-500">{!m.hasAccount ? t('teachingRota.no_account') : m.takenBy ? t('teachingRota.already_on', { name: m.takenBy }) : m.language === 'fr' ? '🇫🇷' : '🇬🇧'}</span>
         </button>
       ))}
-      {q.trim().length >= 2 && items.length === 0 && <p className="text-xs text-slate-500">{t('teachingRota.nobody_found')}</p>}
+      {note === 'PARTIAL' && <p className="text-xs text-amber-800" data-testid="member-partial">{t('teachingRota.partial_found')}</p>}
+      {q.trim().length >= 2 && items.length === 0 && <p className="text-xs text-slate-500">{note === 'ERASED' ? t('teachingRota.erased_found') : t('teachingRota.nobody_found')}</p>}
       {hint && <p role="alert" className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900" data-testid="member-hint">{hint}</p>}
     </div>
   );

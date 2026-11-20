@@ -70,7 +70,7 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
   }));
 
   router.get('/members', asyncHandler(async (req, res) => {
-    res.json({ items: await searchMembers(String(req.query.search ?? '')) });
+    res.json(await searchMembers(String(req.query.search ?? '')));
   }));
 
   router.get('/groups', asyncHandler(async (req, res) => {
