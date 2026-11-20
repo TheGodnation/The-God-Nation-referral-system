@@ -385,6 +385,17 @@ describe('the rating card in the group', () => {
     expect((await finishState(people.alpha.id, g.id, 'en', at('2026-11-23T06:13:00Z'))).available).toBe(false); // card is up
   });
 
+  it('offers nothing and posts nothing before the first week has started', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    // Tuesday 17 November, 20:30 in Cameroon: Gamma's slot (Tuesday 20:00) of the week BEFORE the first week (23 November) has passed
+    const before = at('2026-11-17T19:30:00Z');
+    expect((await finishState(people.gamma.id, g.id, 'en', before)).available).toBe(false);
+    await expect(finishTeaching(people.gamma.id, before)).rejects.toMatchObject({ code: 'NOT_YET' });
+    expect(await postDueRatingCards(at('2026-11-17T20:00:00Z'))).toBe(0);
+    expect(await cardsIn(g.id)).toHaveLength(0);
+  });
+
   it('posts the card in the group when the teacher taps, once, with the teacher as its author', async () => {
     const { people } = await setUp();
     await expect(finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'))).rejects.toMatchObject({ code: 'NO_GROUP' });
