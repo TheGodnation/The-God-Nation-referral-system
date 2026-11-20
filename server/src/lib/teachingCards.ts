@@ -100,9 +100,10 @@ async function postCard(teacherId: string, monday: Date): Promise<boolean> {
 }
 
 /** The slot of this teacher that the "I have finished" button is about right now (the latest one that has started), if any. */
-function currentSlot(teacher: { dayOfWeek: number; startMinute: number }, now: Date) {
+function currentSlot(teacher: { dayOfWeek: number; startMinute: number }, now: Date, startDate: Date) {
   const thisMonday = weekStartOf(now);
   for (const monday of [thisMonday, addDays(thisMonday, -7)]) {
+    if (monday.getTime() < startDate.getTime()) continue; // before the first week there is no teaching to finish
     const startsAt = slotStart(monday, teacher.dayOfWeek, teacher.startMinute);
     if (startsAt.getTime() <= now.getTime() && now.getTime() < startsAt.getTime() + FINISH_WINDOW_HOURS * 60 * MIN) return { monday, startsAt };
   }
@@ -115,7 +116,7 @@ export async function finishState(personId: string, communityId: string, lang: '
   if (!settings || !settings.enabled || settings.ratersCommunityId !== communityId) return { available: false };
   const teacher = await prisma.teachingTeacher.findFirst({ where: { personId, active: true } });
   if (!teacher) return { available: false };
-  const slot = currentSlot(teacher, now);
+  const slot = currentSlot(teacher, now, settings.startDate);
   if (!slot || now.getTime() < slot.startsAt.getTime()) return { available: false };
   if (await prisma.teachingRatingCard.findUnique({ where: { teacherId_weekStart: { teacherId: teacher.id, weekStart: slot.monday } } })) return { available: false };
   const topic = topics.find((t) => t.number === topicNumberFor(teacher.startTopic, topics.map((x) => x.number), weekNumber(settings.startDate, slot.monday)));
@@ -126,10 +127,10 @@ export async function finishState(personId: string, communityId: string, lang: '
 export async function finishTeaching(personId: string, now = new Date()) {
   const teacher = await prisma.teachingTeacher.findFirst({ where: { personId, active: true } });
   if (!teacher) throw new RotaError('You are not on the teaching list.', 403, 'NOT_A_TEACHER');
-  const settings = await prisma.teachingSettings.findUnique({ where: { id: 'main' }, select: { enabled: true, ratersCommunityId: true } });
+  const settings = await prisma.teachingSettings.findUnique({ where: { id: 'main' }, select: { enabled: true, ratersCommunityId: true, startDate: true } });
   if (!settings?.enabled) throw new RotaError('The weekly teaching is not open.', 409, 'OFF');
   if (!settings.ratersCommunityId) throw new RotaError('No group is chosen for the teachings yet.', 409, 'NO_GROUP');
-  const slot = currentSlot(teacher, now);
+  const slot = currentSlot(teacher, now, settings.startDate);
   if (!slot || now.getTime() < slot.startsAt.getTime()) throw new RotaError('Your teaching time has not started yet.', 409, 'NOT_YET');
   const posted = await postCard(teacher.id, slot.monday);
   return { posted };
