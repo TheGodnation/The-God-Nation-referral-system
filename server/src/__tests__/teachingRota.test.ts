@@ -296,6 +296,28 @@ describe('the doors', () => {
     const found = await admin.get('/api/member/central-teaching-rota/members?search=findable');
     expect(found.body.items).toEqual([{ id: target.person.id, name: 'Pickme Findable', language: 'fr', hasAccount: true, takenBy: rows[0].name }]);
   });
+
+  it('still finds a member who is marked as test data, and shows near matches when no one has every word', async () => {
+    const admin = await member('The Coordinator Two', { admin: true });
+    const odd = await member('Xyzzyq Etabu Wombat', {});
+    await prisma.person.update({ where: { id: odd.person.id }, data: { isTestData: true } });
+    const url = (q: string) => `/api/member/central-teaching-rota/members?search=${encodeURIComponent(q)}`;
+    const exact = (await admin.get(url('Etabu Wombat'))).body;
+    expect(exact.items.map((i: any) => i.id)).toEqual([odd.person.id]);
+    expect(exact.note).toBeNull();
+    // a spelling that differs a little: nobody has every word, but the one word that matches still brings her up
+    const near = (await admin.get(url('Xyzzyq Wombatt'))).body;
+    expect(near.items.map((i: any) => i.id)).toEqual([odd.person.id]);
+    expect(near.note).toBe('PARTIAL');
+  });
+
+  it('says so when the person was removed from the app', async () => {
+    const admin = await member('The Coordinator Three', { admin: true });
+    const gone = await prisma.person.create({ data: { name: 'Qwertyu Removedperson', whatsappNumber: '+237710088888', erasedAt: new Date() } });
+    const res = (await admin.get('/api/member/central-teaching-rota/members?search=Qwertyu%20Removedperson')).body;
+    expect(res).toEqual({ items: [], note: 'ERASED' });
+    expect(gone.id).toBeTruthy();
+  });
 });
 
 describe('finding the book on the site', () => {
