@@ -5779,7 +5779,7 @@
     "how_send": "Enseignez par message vocal dans le groupe du Leadership, à votre heure.",
     "open_book": "Ouvrir le livre",
     "show_teaching": "Lire l'enseignement",
-    "not_a_teacher": "Il n'y a encore rien pour vous ici.",
+    "not_a_teacher": "Cette page montre l'enseignement qui vous est confié chaque semaine. Vous n'êtes pas sur la liste de l'enseignement hebdomadaire, il n'y a donc rien ici pour vous.",
     "starts_on": "L'enseignement hebdomadaire commence le {{date}}. C'est votre premier enseignement, vous pouvez donc vous préparer.",
     "first_week": "Votre premier enseignement",
     "week_after": "La semaine suivante",
@@ -5852,7 +5852,11 @@
     "assignment_seen": "ouvert",
     "assignment_replied": "a répondu",
     "assignment_alert_only": "alerte téléphone seulement (pas de message privé)",
-    "assignment_open_chat": "Ouvrir la discussion"
+    "assignment_open_chat": "Ouvrir la discussion",
+    "see_page": "Voir sa page",
+    "hide_page": "Masquer sa page",
+    "page_preview": "Voici ce que {{name}} voit dans Mon enseignement",
+    "not_open": "L'enseignement hebdomadaire n'est pas encore ouvert."
   },
   "celebration": {
     "tab": "Page de félicitations",
