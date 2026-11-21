@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../lib/api';
 
-export type SharedKind = 'post' | 'announcement';
+export type SharedKind = 'post' | 'announcement' | 'update';
 
 /** Which API door to use: the admin dashboard, or the National Coordinator's own member profile. */
 export const SHARE_BASE_ADMIN = '/api/admin/shared';

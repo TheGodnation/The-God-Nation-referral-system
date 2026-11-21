@@ -227,3 +227,42 @@ describe('Who a Headquarters post shows as', () => {
     expect(screen.getByText('The God Nation Headquarters')).toBeInTheDocument();
   });
 });
+
+describe('Sharing a post by link from the ⋯ menu', () => {
+  const POST = (badge: string | null, over: Record<string, unknown> = {}) => ({
+    id: 'u1', author: { personId: 'p-me', name: 'Evangelist', photoUrl: null, badge }, body: 'Come and see what God is doing', audience: 'EVERYONE', youtubeVideoId: null,
+    createdAt: '2026-11-20T08:00:00.000Z', photos: [], reactionCounts: {}, myReaction: null, commentCount: 0, canDelete: true, canEdit: true, ...over,
+  });
+  const feed = (post: unknown) =>
+    mockFetch({ 'GET /api/updates': () => ({ body: { viewer: { canPost: true, canModerate: false, personId: 'p-me' }, items: [post], nextBefore: null } }) });
+
+  it('the National Coordinator’s own post offers Share by link next to Edit', async () => {
+    feed(POST('NATIONAL_COORDINATOR'));
+    render(<MemoryRouter><UpdatesFeed wall /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    expect(screen.getByRole('menuitem', { name: /Edit/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Share by link/ })).toBeInTheDocument();
+  });
+
+  it('an ordinary member’s own post, and a friends-only post, keep Edit alone', async () => {
+    feed(POST(null));
+    const first = render(<MemoryRouter><UpdatesFeed wall /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    expect(screen.queryByRole('menuitem', { name: /Share by link/ })).not.toBeInTheDocument();
+    first.unmount();
+    feed(POST('NATIONAL_COORDINATOR', { audience: 'FRIENDS' }));
+    render(<MemoryRouter><UpdatesFeed wall /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    expect(screen.queryByRole('menuitem', { name: /Share by link/ })).not.toBeInTheDocument();
+  });
+
+  it('an official Headquarters post offers Share by link to the central admin', async () => {
+    isCentralAdmin = true;
+    mockFetch({ 'GET /api/me/headquarters-posts': () => ({ body: { items: [{ ...HQ, media: [] }] } }) });
+    render(<MemoryRouter><HeadquartersPosts variant="feed" /></MemoryRouter>);
+    const card = await screen.findByRole('article', { name: 'Headquarters post: Fasting week' });
+    fireEvent.click(within(card).getByRole('button', { name: 'More options' }));
+    expect(within(card).getByRole('menuitem', { name: /Share by link/ })).toBeInTheDocument();
+  });
+});
+

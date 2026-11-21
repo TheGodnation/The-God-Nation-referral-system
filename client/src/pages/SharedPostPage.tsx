@@ -12,7 +12,7 @@ interface Bi {
   fr: string;
 }
 interface SharedItem {
-  kind: 'post' | 'announcement';
+  kind: 'post' | 'announcement' | 'update';
   id: string;
   title: Bi;
   body: Bi;
@@ -20,7 +20,7 @@ interface SharedItem {
   publishedAt: string | null;
   mediaCount: number;
   embed: SocialEmbedInfo | null;
-  more: { kind: 'post' | 'announcement'; id: string; title: Bi }[];
+  more: { kind: 'post' | 'announcement' | 'update'; id: string; title: Bi }[];
 }
 
 // A post or announcement the central admin shared by link (https://thegodnationacademy.org/news/post/<id>). Anyone can read

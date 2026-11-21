@@ -103,9 +103,9 @@ export function pageSlugOf(path: string): string | null {
 }
 
 /** /news/post/<id> or /news/announcement/<id>: a post or announcement the central admin shared by link. */
-export function newsPathOf(path: string): { kind: 'post' | 'announcement'; id: string } | null {
-  const m = /^\/news\/(post|announcement)\/([A-Za-z0-9-]{1,64})\/?$/.exec(path);
-  return m ? { kind: m[1] as 'post' | 'announcement', id: m[2] } : null;
+export function newsPathOf(path: string): { kind: 'post' | 'announcement' | 'update'; id: string } | null {
+  const m = /^\/news\/(post|announcement|update)\/([A-Za-z0-9-]{1,64})\/?$/.exec(path);
+  return m ? { kind: m[1] as 'post' | 'announcement' | 'update', id: m[2] } : null;
 }
 
 export function metaFor(path: string, lang: CardLang, page?: { title: string; text: string } | null): PreviewMeta {
@@ -159,7 +159,7 @@ export function spaHandler(
   template: string,
   appUrl: string,
   findPage: Lookup,
-  findShared?: (kind: 'post' | 'announcement', id: string, lang: Lang) => Promise<{ title: string; text: string } | null>,
+  findShared?: (kind: 'post' | 'announcement' | 'update', id: string, lang: Lang) => Promise<{ title: string; text: string } | null>,
 ) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
