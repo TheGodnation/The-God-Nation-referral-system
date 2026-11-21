@@ -42,6 +42,9 @@ describe('A shared post page', () => {
     expect(screen.getByTestId('shared-media-note')).toHaveTextContent('2 photos or videos');
     expect(screen.getByTestId('shared-cta')).toHaveAttribute('href', '/member/join');
     expect(screen.getByTestId('shared-more')).toHaveTextContent('Meeting');
+    // an existing member can sign in and go straight into the community
+    expect(screen.getByTestId('shared-signin')).toHaveAttribute('href', '/member/login');
+    expect(screen.getByTestId('shared-signin')).toHaveTextContent('Sign in and go into the community');
   });
 
   it('reads in French for a French visitor', async () => {

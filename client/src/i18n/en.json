@@ -5926,6 +5926,9 @@
     "cta": "Join now",
     "have_account": "Already a member?",
     "sign_in": "Sign in",
-    "more": "Read more"
+    "more": "Read more",
+    "member_title": "You are signed in",
+    "enter": "Go into the community",
+    "sign_in_enter": "Sign in and go into the community"
   }
 }

@@ -6,6 +6,7 @@ import { RichText } from '../lib/richText';
 import { SocialEmbed, type SocialEmbedInfo } from '../components/updates/SocialEmbed';
 import { api } from '../lib/api';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
+import { useMemberAuth } from '../lib/MemberAuthContext';
 
 interface Bi {
   en: string;
@@ -28,6 +29,7 @@ interface SharedItem {
 export function SharedPostPage() {
   const { t, i18n } = useTranslation();
   const { kind, id } = useParams();
+  const { member } = useMemberAuth();
   const lang: 'en' | 'fr' = i18n.language.startsWith('fr') ? 'fr' : 'en';
   const [item, setItem] = useState<SharedItem | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'closed'>('loading');
@@ -86,14 +88,26 @@ export function SharedPostPage() {
               )}
 
               <section className="mt-8 rounded-2xl bg-gradient-to-b from-brand-800 to-brand-900 p-6 text-center text-white shadow-lg" data-testid="shared-join">
-                <h2 className="text-xl font-bold text-gold-400">{t('shareLink.join_title')}</h2>
-                <p className="mt-2 text-white/90">{t('shareLink.join_text')}</p>
-                <Link to="/member/join" className="mt-4 inline-block rounded-xl bg-gold-400 px-6 py-3 text-lg font-bold text-brand-900 no-underline shadow" data-testid="shared-cta">
-                  {t('shareLink.cta')}
-                </Link>
-                <p className="mt-3 text-sm text-white/70">
-                  {t('shareLink.have_account')} <Link to="/member/login" className="text-gold-400 underline">{t('shareLink.sign_in')}</Link>
-                </p>
+                {member ? (
+                  <>
+                    <h2 className="text-xl font-bold text-gold-400">{t('shareLink.member_title')}</h2>
+                    <Link to="/member/chats" className="mt-4 inline-block rounded-xl bg-gold-400 px-6 py-3 text-lg font-bold text-brand-900 no-underline shadow" data-testid="shared-enter">
+                      {t('shareLink.enter')}
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-xl font-bold text-gold-400">{t('shareLink.join_title')}</h2>
+                    <p className="mt-2 text-white/90">{t('shareLink.join_text')}</p>
+                    <Link to="/member/join" className="mt-4 inline-block rounded-xl bg-gold-400 px-6 py-3 text-lg font-bold text-brand-900 no-underline shadow" data-testid="shared-cta">
+                      {t('shareLink.cta')}
+                    </Link>
+                    <p className="mt-5 text-sm text-white/80">{t('shareLink.have_account')}</p>
+                    <Link to="/member/login" className="mt-2 inline-block rounded-xl border-2 border-white/70 px-6 py-3 font-bold text-white no-underline" data-testid="shared-signin">
+                      {t('shareLink.sign_in_enter')}
+                    </Link>
+                  </>
+                )}
               </section>
 
               {item.more.length > 0 && (
