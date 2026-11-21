@@ -960,7 +960,7 @@ function PostCard({
           />
         )}
       </header>
-      {sharing && <ShareByLinkSheet kind="update" id={item.id} title={item.body.split('\n').find((l) => l.trim())?.slice(0, 90) ?? ''} base={SHARE_BASE_MEMBER} onClose={() => setSharing(false)} />}
+      {sharing && <ShareByLinkSheet kind="update" id={item.id} title={item.body.split('\n').find((l) => l.trim())?.slice(0, 90) ?? ''} teaser={{ en: item.body, fr: item.body }} base={SHARE_BASE_MEMBER} onClose={() => setSharing(false)} />}
 
       {reportDone && (
         <p className="mx-4 mt-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800" role="status">

@@ -593,7 +593,7 @@ export function HeadquartersPostsTab({ base = '/api/admin/headquarters-posts' }:
                     <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => startEdit(row)}>
                       ✏️ {t('admin.headquartersPosts.edit')}
                     </button>
-                    {status === 'published' && <ShareByLinkButton kind="post" id={row.id} title={row.titleEn} base={shareBaseFor(base)} className="btn-secondary px-3 py-1.5 text-sm" />}
+                    {status === 'published' && <ShareByLinkButton kind="post" id={row.id} title={row.titleEn} titles={{ en: row.titleEn, fr: row.titleFr || row.titleEn }} teaser={{ en: row.bodyEn, fr: row.bodyFr || row.bodyEn }} base={shareBaseFor(base)} className="btn-secondary px-3 py-1.5 text-sm" />}
                     {status === 'draft' && (
                       <button type="button" className="btn-primary px-3 py-1.5 text-sm" disabled={actingOnId === row.id} onClick={() => publish(row.id)}>
                         {t('admin.headquartersPosts.publish')}
@@ -658,7 +658,7 @@ export function HeadquartersPostsTab({ base = '/api/admin/headquarters-posts' }:
                           {t('admin.headquartersPosts.edit')}
                         </button>
                       )}
-                      {status === 'published' && <ShareByLinkButton kind="post" id={row.id} title={row.titleEn} base={shareBaseFor(base)} />}
+                      {status === 'published' && <ShareByLinkButton kind="post" id={row.id} title={row.titleEn} titles={{ en: row.titleEn, fr: row.titleFr || row.titleEn }} teaser={{ en: row.bodyEn, fr: row.bodyFr || row.bodyEn }} base={shareBaseFor(base)} />}
                       {status === 'draft' && (
                         <>
                           <button

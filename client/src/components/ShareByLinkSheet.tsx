@@ -4,6 +4,27 @@ import { api, ApiError } from '../lib/api';
 
 export type SharedKind = 'post' | 'announcement' | 'update';
 
+type PerLang = { en?: string | null; fr?: string | null };
+
+const plain = (text: string) => text.replace(/[*_~`]/g, '').replace(/\s+/g, ' ').trim();
+
+/**
+ * The words that go to WhatsApp with the link: the title in bold, the first lines in bold (so they can be read at a glance), then
+ * "Read more" and the link. WhatsApp draws the little preview card itself, and its writing cannot be styled; this text is ours.
+ */
+export function whatsappText({ title, teaser, link, readMore }: { title: string; teaser?: string | null; link: string; readMore: string }): string {
+  const head = plain(title);
+  let body = plain(teaser ?? '');
+  // A post that starts with its own title: do not say it twice.
+  if (head && body.toLowerCase().startsWith(head.toLowerCase())) body = body.slice(head.length).replace(/^[\s:.\-–—]+/, '');
+  if (body.length > 220) {
+    const cut = body.slice(0, 220);
+    const space = cut.lastIndexOf(' ');
+    body = `${(space > 150 ? cut.slice(0, space) : cut).trim()}…`;
+  }
+  return [head ? `📣 *${head}*` : '', body ? `*${body}*` : '', '', `👉 ${readMore}`, link].filter((line, i, all) => line !== '' || (i > 0 && all[i - 1] !== '')).join('\n');
+}
+
 /** Which API door to use: the admin dashboard, or the National Coordinator's own member profile. */
 export const SHARE_BASE_ADMIN = '/api/admin/shared';
 export const SHARE_BASE_MEMBER = '/api/member/central-shared';
@@ -16,8 +37,8 @@ interface ShareState {
 
 // "Share by link": opens the public page of one published post or announcement, then offers WhatsApp (in English or French),
 // copy, and "stop sharing". Visitors read the words without signing in and are invited to join.
-export function ShareByLinkSheet({ kind, id, title, base, onClose }: { kind: SharedKind; id: string; title: string; base: string; onClose: () => void }) {
-  const { t } = useTranslation();
+export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClose }: { kind: SharedKind; id: string; title: string; titles?: PerLang; teaser?: PerLang; base: string; onClose: () => void }) {
+  const { t, i18n } = useTranslation();
   const [state, setState] = useState<ShareState | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
@@ -50,7 +71,12 @@ export function ShareByLinkSheet({ kind, id, title, base, onClose }: { kind: Sha
     }
   }
   const whatsapp = (lang: 'en' | 'fr') => {
-    const text = `📣 ${title}\n${link}?lang=${lang}`;
+    const text = whatsappText({
+      title: titles?.[lang] || title,
+      teaser: teaser?.[lang] || teaser?.en || teaser?.fr,
+      link: `${link}?lang=${lang}`,
+      readMore: i18n.t('shareLink.read_more', { lng: lang }),
+    });
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   };
   const copy = async () => {
@@ -116,7 +142,7 @@ export function ShareByLinkSheet({ kind, id, title, base, onClose }: { kind: Sha
 }
 
 /** A small button for the admin tables: opens the sheet for one published item. */
-export function ShareByLinkButton({ kind, id, title, base, className = '' }: { kind: SharedKind; id: string; title: string; base: string; className?: string }) {
+export function ShareByLinkButton({ kind, id, title, titles, teaser, base, className = '' }: { kind: SharedKind; id: string; title: string; titles?: PerLang; teaser?: PerLang; base: string; className?: string }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
@@ -124,7 +150,7 @@ export function ShareByLinkButton({ kind, id, title, base, className = '' }: { k
       <button type="button" className={className || 'text-brand-700 hover:underline'} onClick={() => setOpen(true)} data-testid={`share-btn-${id}`}>
         🔗 {t('shareLink.button')}
       </button>
-      {open && <ShareByLinkSheet kind={kind} id={id} title={title} base={base} onClose={() => setOpen(false)} />}
+      {open && <ShareByLinkSheet kind={kind} id={id} title={title} titles={titles} teaser={teaser} base={base} onClose={() => setOpen(false)} />}
     </>
   );
 }

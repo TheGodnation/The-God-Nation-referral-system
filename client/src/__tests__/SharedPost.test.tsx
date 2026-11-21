@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import i18n from '../i18n';
 import { SharedPostPage } from '../pages/SharedPostPage';
-import { ShareByLinkSheet, shareBaseFor } from '../components/ShareByLinkSheet';
+import { ShareByLinkSheet, shareBaseFor, whatsappText } from '../components/ShareByLinkSheet';
 
 const json = (body: unknown, status = 200) => Promise.resolve({ ok: status < 300, status, headers: { get: () => 'application/json' }, json: async () => body });
 afterEach(async () => {
@@ -60,6 +60,26 @@ describe('A shared post page', () => {
     page();
     expect(await screen.findByTestId('shared-closed')).toHaveTextContent('This link is not available');
     expect(screen.queryByTestId('shared-body')).toBeNull();
+  });
+});
+
+describe('The words sent to WhatsApp with the link', () => {
+  const link = 'https://example.org/news/update/u1?lang=en';
+  it('puts the title and the first lines in bold, then "Read more" and the link', () => {
+    const text = whatsappText({ title: 'Good news', teaser: 'Come and see\nwhat God is doing among us.', link, readMore: 'Read more:' });
+    expect(text).toBe(`📣 *Good news*\n*Come and see what God is doing among us.*\n\n👉 Read more:\n${link}`);
+  });
+  it('does not repeat a title the post starts with, and cuts a long start at a word', () => {
+    const long = `A Testimony ${'In 1990 we were in the city of Kano, the Muslim city in northern Nigeria. '.repeat(6)}`;
+    const text = whatsappText({ title: 'A Testimony', teaser: long, link, readMore: 'Read more:' });
+    const bold = text.split('\n')[1];
+    expect(bold.startsWith('*In 1990 we were')).toBe(true);
+    expect(bold.endsWith('…*')).toBe(true);
+    expect(bold.length).toBeLessThan(240);
+    expect(text.match(/A Testimony/g)).toHaveLength(1);
+  });
+  it('removes formatting characters that would break the bold, and works with no first lines', () => {
+    expect(whatsappText({ title: 'A *bold* title', teaser: null, link, readMore: 'Read more:' })).toBe(`📣 *A bold title*\n\n👉 Read more:\n${link}`);
   });
 });
 
