@@ -5637,13 +5637,13 @@
   },
   "whatsappCredit": {
     "title": "Livres déjà faits sur WhatsApp",
-    "help": "Pour les responsables qui ont étudié sur WhatsApp avant l’application. Cherchez la personne, puis indiquez combien de livres elle y a terminés. Ces livres s’ouvrent pour elle (lecture et examens), rien n’est dû dessus, ils comptent comme réussis pour le certificat, et le livre suivant s’ouvre pour qu’elle continue à partir de là.",
+    "help": "Pour les leaders qui ont étudié ou payé sur WhatsApp avant l'application. Cherchez la personne, puis entrez deux nombres : les livres étudiés et réussis là-bas, et les livres payés là-bas. Les livres étudiés comptent comme réussis pour le certificat et sont ouverts. Les livres payés sont ouverts et rien n'est dû, même s'ils ne sont pas encore réussis (payés d'avance). Un livre étudié mais non payé reste ouvert et apparaît comme dû jusqu'à son paiement.",
     "choose": "Choisir",
     "now": "Enregistré actuellement : {{count}} livres terminés sur WhatsApp.",
     "none_yet": "Rien d’enregistré pour l’instant.",
     "by_exam": "{{count}} de plus réussis dans l’application",
     "not_started": "n’a pas encore commencé la formation dans l’application (cela la démarrera)",
-    "label": "Livres terminés sur WhatsApp (0 à {{total}})",
+    "label": "Livres étudiés et réussis sur WhatsApp (0 à {{total}})",
     "tell_them": "Lui envoyer un message dans l’application pour le dire",
     "save": "Enregistrer",
     "saved": "Enregistré : {{name}} a maintenant {{count}} livres comptés comme terminés.",
@@ -5651,7 +5651,11 @@
     "bad_number": "Entrez un nombre entier de 0 à {{total}}.",
     "confirm_lower": "{{name}} a {{from}} livres enregistrés. Le réduire à {{to}} ? Les livres après le numéro {{to}} se fermeront de nouveau, sauf si les examens ont été réussis.",
     "load_failed": "Impossible de charger cette personne. Réessayez.",
-    "save_failed": "Impossible d’enregistrer. Réessayez."
+    "save_failed": "Impossible d’enregistrer. Réessayez.",
+    "paid_label": "Livres payés (0 à {{total}})",
+    "paid_now": "payés : {{count}}",
+    "owing": "Doit {{count}} livres : étudiés mais pas encore payés.",
+    "advance": "Payé d'avance pour {{count}} livres pas encore réussis (ouverts, rien n'est dû)."
   },
   "postMenu": {
     "more": "Plus d’options"

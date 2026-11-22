@@ -1018,7 +1018,7 @@ router.post('/trainees', communityMutationLimiter, requireCsrf, asyncHandler(asy
 async function creditView(personId: string) {
   const [person, enrollment, booksOnSite] = await Promise.all([
     prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true, whatsappNumber: true, preferredLanguage: true, erasedAt: true } }),
-    prisma.trainingEnrollment.findUnique({ where: { personId }, select: { status: true, booksCredited: true, booksCreditedAt: true } }),
+    prisma.trainingEnrollment.findUnique({ where: { personId }, select: { status: true, booksCredited: true, booksCreditedAt: true, booksPaid: true } }),
     prisma.libraryBook.count({ where: { kind: 'TRAINING', trainingOrder: { not: null } } }),
   ]);
   if (!person || person.erasedAt) return null;
@@ -1029,6 +1029,7 @@ async function creditView(personId: string) {
     language: person.preferredLanguage === 'fr' ? ('fr' as const) : ('en' as const),
     enrolled: enrollment?.status === 'ACTIVE',
     booksCredited: enrollment?.booksCredited ?? 0,
+    booksPaid: enrollment?.booksPaid ?? 0,
     creditedAt: enrollment?.booksCreditedAt ?? null,
     totalBooks: await programmeBookTotal(booksOnSite),
     booksOnSite,
@@ -1043,7 +1044,7 @@ router.get('/trainees/:personId/credit', asyncHandler(async (req, res) => {
   res.json({ ...view, passedByExam: books.filter((b) => !b.credited && b.exam?.passed).length });
 }));
 
-const creditSchema = z.object({ books: z.number().int().min(0).max(MAX_BOOKS_TOTAL), notify: z.boolean().optional() });
+const creditSchema = z.object({ books: z.number().int().min(0).max(MAX_BOOKS_TOTAL), paid: z.number().int().min(0).max(MAX_BOOKS_TOTAL).optional(), notify: z.boolean().optional() });
 
 // POST /api/admin/library/trainees/:personId/credit — set how many books were completed on WhatsApp.
 router.post('/trainees/:personId/credit', communityMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -1054,7 +1055,10 @@ router.post('/trainees/:personId/credit', communityMutationLimiter, requireCsrf,
   const books = parsed.data.books;
   if (books > view.totalBooks) return res.status(400).json({ error: `The programme has ${view.totalBooks} books.` });
   const before = view.booksCredited;
-  const data = { booksCredited: books, booksCreditedAt: books > 0 ? new Date() : null };
+  // Books paid for: given, or (as before) the same as the books studied there.
+  const paid = parsed.data.paid ?? books;
+  if (paid > view.totalBooks) return res.status(400).json({ error: `The programme has ${view.totalBooks} books.` });
+  const data = { booksCredited: books, booksCreditedAt: books > 0 ? new Date() : null, booksPaid: paid };
   if (view.enrolled) {
     await prisma.trainingEnrollment.update({ where: { personId: view.personId }, data });
   } else {
@@ -1062,26 +1066,36 @@ router.post('/trainees/:personId/credit', communityMutationLimiter, requireCsrf,
     const start = { status: 'ACTIVE' as const, activatedAt: new Date(), activatedByUserId: req.user!.id, note: 'Studied on WhatsApp before the app', ...data };
     await prisma.trainingEnrollment.upsert({ where: { personId: view.personId }, create: { personId: view.personId, ...start }, update: start });
   }
-  // Credited books are never "opened and owed": drop any open-records they already had.
-  if (books > 0) {
-    const credited = await prisma.libraryBook.findMany({ where: { kind: 'TRAINING', trainingOrder: { not: null } }, orderBy: { trainingOrder: 'asc' }, take: books, select: { id: true } });
-    await prisma.trainingBookOpen.deleteMany({ where: { personId: view.personId, bookId: { in: credited.map((b) => b.id) } } });
+  // Books paid for are never "opened and owed": drop any open-records they already had. A book studied but not paid for
+  // is recorded as opened by the usual rules just below, so it shows as owed until it is paid.
+  if (paid > 0) {
+    const prepaid = await prisma.libraryBook.findMany({ where: { kind: 'TRAINING', trainingOrder: { not: null } }, orderBy: { trainingOrder: 'asc' }, take: paid, select: { id: true } });
+    await prisma.trainingBookOpen.deleteMany({ where: { personId: view.personId, bookId: { in: prepaid.map((b) => b.id) } } });
   }
   await getTrainingBooksFor(view.personId); // opens the next book if the rules allow
-  await audit(req, 'TRAINING_BOOKS_CREDITED', 'Person', view.personId, { before, after: books });
+  await audit(req, 'TRAINING_BOOKS_CREDITED', 'Person', view.personId, { before, after: books, paid });
+  const owing = Math.max(0, books - paid);
 
   let notified = false;
-  if (books > before && parsed.data.notify !== false) {
+  if ((books > before || paid > view.booksPaid) && parsed.data.notify !== false) {
     const from = await centralAdminPerson();
     if (from) {
       const fr = view.language === 'fr';
-      const body = fr
-        ? `Bonjour ${view.name}, vos ${books} livres déjà étudiés sur WhatsApp ont été ajoutés à l’application. Ils sont ouverts pour vous (relecture et examens). ${books < view.totalBooks ? `Continuez avec le livre ${books + 1}.` : 'Vous avez terminé tous les livres.'}`
-        : `Hello ${view.name}, your ${books} books already studied on WhatsApp have been added to the app. They are open for you to read again, and the exams are there too. ${books < view.totalBooks ? `Continue with Book ${books + 1}.` : 'You have finished all the books.'}`;
-      notified = await sendPrivateNotice(from.id, view.personId, body);
+      const parts: string[] = [];
+      if (books > 0) {
+        parts.push(fr
+          ? `Bonjour ${view.name}, vos ${books} livres déjà étudiés sur WhatsApp ont été ajoutés à l’application. Ils sont ouverts pour vous (relecture et examens).`
+          : `Hello ${view.name}, your ${books} books already studied on WhatsApp have been added to the app. They are open for you to read again, and the exams are there too.`);
+      } else {
+        parts.push(fr ? `Bonjour ${view.name}, votre paiement de ${paid} livres a été enregistré. Ces livres sont ouverts pour vous.` : `Hello ${view.name}, your payment for ${paid} books has been recorded. Those books are open for you.`);
+      }
+      if (books > 0 && paid > books) parts.push(fr ? `Votre paiement de ${paid} livres est enregistré : les livres jusqu’au numéro ${paid} sont ouverts pour vous.` : `Your payment for ${paid} books is recorded: the books up to number ${paid} are open for you.`);
+      if (owing > 0) parts.push(fr ? `Il vous reste ${owing} livre${owing === 1 ? '' : 's'} à payer (ceux que vous avez étudiés en plus des ${paid} déjà payés). Merci de les régler dès que possible.` : `You still owe ${owing} book${owing === 1 ? '' : 's'} (the ones you studied beyond the ${paid} you paid for). Please pay for ${owing === 1 ? 'it' : 'them'} as soon as you can.`);
+      else if (books > 0) parts.push(books < view.totalBooks ? (fr ? `Continuez avec le livre ${books + 1}.` : `Continue with Book ${books + 1}.`) : fr ? 'Vous avez terminé tous les livres.' : 'You have finished all the books.');
+      notified = await sendPrivateNotice(from.id, view.personId, parts.join(' '));
     }
   }
-  res.json({ booksCredited: books, notified });
+  res.json({ booksCredited: books, booksPaid: paid, owing, notified });
 }));
 
 // POST /api/admin/library/trainees/:personId/message — a private message to a trainee from the central admin's own
