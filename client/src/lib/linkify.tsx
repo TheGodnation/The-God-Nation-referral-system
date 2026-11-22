@@ -1,4 +1,5 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, type MouseEvent, type ReactNode } from 'react';
+import { useInRouterContext, useNavigate } from 'react-router-dom';
 
 // Turns web addresses inside message text into tappable links that open in a
 // new browser tab. Only http(s) addresses ever become links, so nothing
@@ -48,27 +49,64 @@ export function splitLinks(text: string): LinkPart[] {
   return parts;
 }
 
-/**
- * Where a link opens. An address on our own site opens in the same window: in
- * the installed app a "new tab" for our own address flashed and left the app
- * with nothing shown. Any other site opens in a new tab, as before.
- */
-function linkTarget(href: string): { target?: '_blank'; rel?: string } {
+/** The path inside the app when the address is on our own site (the same host, with or without "www."), otherwise null. */
+function ownPath(href: string): string | null {
   try {
-    if (typeof window !== 'undefined' && new URL(href).origin === window.location.origin) return {};
+    if (typeof window === 'undefined') return null;
+    const url = new URL(href);
+    const bare = (h: string) => h.replace(/^www\./i, '').toLowerCase();
+    if (url.protocol === window.location.protocol && bare(url.host) === bare(window.location.host)) return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     // Not a readable address: treat it as outside.
   }
+  return null;
+}
+
+/**
+ * Where a link opens. An address on our own site opens in the same window: in
+ * the installed app a "new tab" for our own address flashed and left the app
+ * with nothing shown, and a new tab has no history so "back" did nothing. Any
+ * other site opens in a new tab, as before.
+ */
+function linkTarget(href: string): { target?: '_blank'; rel?: string } {
+  if (ownPath(href) !== null) return {};
   return { target: '_blank', rel: 'noopener noreferrer' };
+}
+
+const linkClass = 'break-all text-sky-700 underline';
+
+/** A link on our own site goes through the app's router (no page reload, so the phone's back button returns to the message). */
+function RouterAnchor({ href, path, children }: { href: string; path: string; children: ReactNode }) {
+  const navigate = useNavigate();
+  const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.stopPropagation();
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigate(path);
+  };
+  return (
+    <a href={href} onClick={onClick} className={linkClass}>
+      {children}
+    </a>
+  );
+}
+
+/** One address in a message: inside the app when it is ours, a new tab otherwise. */
+function SiteAnchor({ href, children }: { href: string; children: ReactNode }) {
+  const inRouter = useInRouterContext();
+  const path = ownPath(href);
+  // Only the member screens are inside the app; other pages of the site (the guides, the articles) are loaded from the server.
+  if (inRouter && path !== null && path.startsWith('/member/')) return <RouterAnchor href={href} path={path}>{children}</RouterAnchor>;
+  return (
+    <a href={href} {...linkTarget(href)} onClick={(e) => e.stopPropagation()} className={linkClass}>
+      {children}
+    </a>
+  );
 }
 
 /** One tappable link (used by the text formatter too). */
 export function LinkAnchor({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a href={href} {...linkTarget(href)} onClick={(e) => e.stopPropagation()} className="break-all text-sky-700 underline">
-      {children}
-    </a>
-  );
+  return <SiteAnchor href={href}>{children}</SiteAnchor>;
 }
 
 /** The text with its web addresses turned into links. */
@@ -78,15 +116,7 @@ export function Linkified({ text }: { text: string | null | undefined }): ReactN
     <>
       {splitLinks(text).map((p, i) =>
         p.href ? (
-          <a
-            key={i}
-            href={p.href}
-            {...linkTarget(p.href)}
-            onClick={(e) => e.stopPropagation()}
-            className="break-all text-sky-700 underline"
-          >
-            {p.text}
-          </a>
+          <SiteAnchor key={i} href={p.href}>{p.text}</SiteAnchor>
         ) : (
           <Fragment key={i}>{p.text}</Fragment>
         ),

@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 
@@ -57,13 +57,16 @@ function Terms({ items }: { items: Term[] }) {
 // pieces of about 5 minutes; and that recording ahead is only for before the teaching time, when the time comes you go live.
 export function MemberTeachingGuidePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  // "Back" goes back to where the teacher came from (a message, the teaching page); with nowhere to go back to, to My teaching.
+  const goBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/member/my-teaching'));
   const list = (key: string) => t(`teachingGuide.${key}`, { returnObjects: true }) as string[];
   const terms = (key: string) => t(`teachingGuide.${key}`, { returnObjects: true }) as Term[];
 
   return (
     <PageShell minimal>
       <article className="mx-auto max-w-2xl space-y-5 px-4 py-6 pb-16 text-[1.06rem] leading-relaxed text-slate-800" data-testid="teaching-guide">
-        <Link to="/member/my-teaching" className="text-sm underline">← {t('teachingGuide.back')}</Link>
+        <button type="button" onClick={goBack} className="text-sm font-semibold underline" data-testid="guide-back">← {t('teachingGuide.back')}</button>
         <header>
           <h1 className="text-2xl font-bold text-brand-900">{t('teachingGuide.title')}</h1>
           <p className="mt-1 text-slate-600">{t('teachingGuide.lede')}</p>
