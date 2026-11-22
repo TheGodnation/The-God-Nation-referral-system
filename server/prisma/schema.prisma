@@ -2838,6 +2838,8 @@ model UpdatePost {
   deletedAt         DateTime?
   deletedByPersonId String?
   deletedByUserId   String?
+  // Set when the central admin shares their own post by link (see HeadquartersPost.sharedPublicAt).
+  sharedPublicAt    DateTime?
 
   // Auto-translation (lib/translation.ts) — same lazy/background/
   // best-effort rule as Message's own fields: populated once right after

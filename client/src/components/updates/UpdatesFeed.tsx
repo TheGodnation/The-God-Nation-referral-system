@@ -15,6 +15,7 @@ import { useDataSaver } from '../../lib/dataSaver';
 import { RichText } from '../../lib/richText';
 import { FormattedTextarea } from '../FormattedTextarea';
 import { PostMenu } from '../PostMenu';
+import { ShareByLinkSheet, SHARE_BASE_MEMBER } from '../ShareByLinkSheet';
 
 // The community-wide Updates feed, Facebook-style. Used on the member
 // Updates page (with the "write a post" box), on a person's profile
@@ -807,6 +808,7 @@ function PostCard({
     setEditedAt(item.editedAt ?? null);
   }, [item.body, item.editedAt]);
   const [editing, setEditing] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
   // The old translation no longer matches once the text changed here; a fresh one comes with the next load.
@@ -947,8 +949,18 @@ function PostCard({
             🗑
           </button>
         )}
-        {item.canEdit && !editing && <PostMenu items={[{ label: `✏️ ${t('updates.edit')}`, onSelect: startEdit }]} testId="post-menu" />}
+        {item.canEdit && !editing && (
+          <PostMenu
+            items={[
+              { label: `✏️ ${t('updates.edit')}`, onSelect: startEdit },
+              // The National Coordinator can share their own posts (open to everyone) by link, to bring people in from WhatsApp.
+              ...(item.author.badge === 'NATIONAL_COORDINATOR' && item.audience !== 'FRIENDS' ? [{ label: `🔗 ${t('shareLink.button')}`, onSelect: () => setSharing(true) }] : []),
+            ]}
+            testId="post-menu"
+          />
+        )}
       </header>
+      {sharing && <ShareByLinkSheet kind="update" id={item.id} title={item.body.split('\n').find((l) => l.trim())?.slice(0, 90) ?? ''} teaser={{ en: item.body, fr: item.body }} base={SHARE_BASE_MEMBER} onClose={() => setSharing(false)} />}
 
       {reportDone && (
         <p className="mx-4 mt-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800" role="status">

@@ -434,7 +434,7 @@ export function HeadquartersFeedCard({
           <CommentThread postId={item.id} canComment endpoints={HEADQUARTERS_COMMENT_ENDPOINTS} onCountChange={(n) => onCommentCountChange?.(n)} />
         </div>
       )}
-      {sharing && <ShareByLinkSheet kind="post" id={item.id} title={title} base={SHARE_BASE_MEMBER} onClose={() => setSharing(false)} />}
+      {sharing && <ShareByLinkSheet kind="post" id={item.id} title={title} titles={{ en: item.titleEn, fr: item.titleFr || item.titleEn }} teaser={{ en: item.bodyEn, fr: item.bodyFr || item.bodyEn }} base={SHARE_BASE_MEMBER} onClose={() => setSharing(false)} />}
     </article>
   );
 }

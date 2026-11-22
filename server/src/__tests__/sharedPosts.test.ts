@@ -49,6 +49,7 @@ async function makeAnnouncement(over: Record<string, unknown> = {}) {
 }
 
 beforeEach(async () => {
+  await prisma.updatePost.deleteMany();
   await prisma.headquartersPost.deleteMany();
   await prisma.announcement.deleteMany();
 });
@@ -135,3 +136,42 @@ describe('the link preview', () => {
     expect(await sharedPreview('post', post.id, 'fr')).toEqual({ title: 'Bonne nouvelle', text: 'Venez voir.' });
   });
 });
+
+describe('sharing the central admin’s own Updates posts', () => {
+  const makeUpdate = (authorPersonId: string, over: Record<string, unknown> = {}) =>
+    prisma.updatePost.create({ data: { authorPersonId, body: 'Come and see what God is doing.\nSecond line.', audience: 'EVERYONE', ...over } as any });
+
+  it('shares one only when the central admin wrote it for everyone, shows the text, and closes again', async () => {
+    const admin = await member('Evangelist Tester', true);
+    const plain = await member('Plain Poster');
+    const mine = await makeUpdate(admin.person.id);
+    const theirs = await makeUpdate(plain.person.id);
+    const friends = await makeUpdate(admin.person.id, { audience: 'FRIENDS' });
+
+    expect((await admin.post(`/api/member/central-shared/update/${mine.id}/share`)).status).toBe(200);
+    expect((await admin.post(`/api/member/central-shared/update/${theirs.id}/share`)).status).toBe(409); // not the central admin's post
+    expect((await admin.post(`/api/member/central-shared/update/${friends.id}/share`)).status).toBe(409); // friends only
+
+    const open = await request(app).get(`/api/shared/update/${mine.id}`);
+    expect(open.status).toBe(200);
+    expect(open.body.title.en).toBe('Come and see what God is doing.');
+    expect(open.body.body.en).toContain('Second line.');
+    expect(open.body.author).toBe('Evangelist Tester');
+    expect(JSON.stringify(open.body)).not.toMatch(/email|whatsapp/i);
+
+    await admin.del(`/api/member/central-shared/update/${mine.id}/share`);
+    expect((await request(app).get(`/api/shared/update/${mine.id}`)).status).toBe(404);
+  });
+
+  it('is closed again when the post is deleted or made friends-only, and carries the stored translation', async () => {
+    const admin = await member('Evangelist Tester Two', true);
+    const post = await makeUpdate(admin.person.id, { sharedPublicAt: new Date(), detectedLanguage: 'en', translatedBody: 'Venez voir.' });
+    const item = (await publicItem('update', post.id))!;
+    expect(item.body).toEqual({ en: 'Come and see what God is doing.\nSecond line.', fr: 'Venez voir.' });
+    await prisma.updatePost.update({ where: { id: post.id }, data: { audience: 'FRIENDS' } });
+    expect(await publicItem('update', post.id)).toBeNull();
+    await prisma.updatePost.update({ where: { id: post.id }, data: { audience: 'EVERYONE', deletedAt: new Date() } });
+    expect(await publicItem('update', post.id)).toBeNull();
+  });
+});
+

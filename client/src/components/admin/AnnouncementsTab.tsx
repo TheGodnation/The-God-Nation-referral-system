@@ -370,7 +370,7 @@ export function AnnouncementsTab() {
                           </button>
                         </>
                       )}
-                      {status === 'published' && <ShareByLinkButton kind="announcement" id={row.id} title={row.titleEn} base={SHARE_BASE_ADMIN} />}
+                      {status === 'published' && <ShareByLinkButton kind="announcement" id={row.id} title={row.titleEn} titles={{ en: row.titleEn, fr: row.titleFr || row.titleEn }} teaser={{ en: row.bodyEn, fr: row.bodyFr || row.bodyEn }} base={SHARE_BASE_ADMIN} />}
                       {status !== 'archived' && (
                         <button
                           className="text-red-700 hover:underline disabled:text-slate-300"

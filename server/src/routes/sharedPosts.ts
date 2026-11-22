@@ -52,7 +52,7 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     const actor = await resolveActor(req);
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
     const result = await shareByLink(k.kind, k.id);
-    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'POST_SHARED_BY_LINK', targetType: k.kind === 'post' ? 'HeadquartersPost' : 'Announcement', targetId: k.id });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'POST_SHARED_BY_LINK', targetType: k.kind === 'post' ? 'HeadquartersPost' : k.kind === 'update' ? 'UpdatePost' : 'Announcement', targetId: k.id });
     res.json(result);
   }));
   router.delete('/:kind/:id/share', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
@@ -61,7 +61,7 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     const actor = await resolveActor(req);
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
     const result = await stopSharing(k.kind, k.id);
-    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'POST_SHARING_STOPPED', targetType: k.kind === 'post' ? 'HeadquartersPost' : 'Announcement', targetId: k.id });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'POST_SHARING_STOPPED', targetType: k.kind === 'post' ? 'HeadquartersPost' : k.kind === 'update' ? 'UpdatePost' : 'Announcement', targetId: k.id });
     res.json(result);
   }));
   router.use(onError);
