@@ -5779,7 +5779,7 @@
     "how_send": "Teach by voice note in the Leadership group, at your time.",
     "open_book": "Open the book",
     "show_teaching": "Read the teaching",
-    "not_a_teacher": "This page shows the teaching given to you each week. You are not on the weekly teaching list, so there is nothing here for you. If you are meant to teach, you are added in the weekly teaching list of the admin tools (the central admin adds their own name there too, and then gets this page, with the recording tools).",
+    "not_a_teacher": "This page shows the teaching given to you each week. You are not on the weekly teaching list, so there is nothing here for you.",
     "starts_on": "The weekly teaching starts on {{date}}. This is your first teaching, so you can prepare.",
     "first_week": "Your first teaching",
     "week_after": "The week after",
