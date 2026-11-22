@@ -265,6 +265,50 @@ export async function historyOf(personId: string, take = 100): Promise<TokenHist
   });
 }
 
+export interface RankingRow {
+  rank: number;
+  name: string;
+  total: number;
+  isMe: boolean;
+}
+
+/**
+ * Members ranked by every token they have earned from studying over time (the Dominion Clinic exams and the teaching
+ * quizzes). Spending or giving tokens never lowers a rank; the foundation's share is not counted. Members with the same
+ * total share a rank. Only a name and a total are shown.
+ */
+export async function tokenRanking(personId: string, take = 200) {
+  const sums = await prisma.tokenEntry.groupBy({
+    by: ['personId'],
+    where: { personId: { not: null }, reason: 'CLINIC_EXAM', kind: 'EARNED' },
+    _sum: { amount: true },
+  });
+  const ranked = sums
+    .map((r) => ({ personId: r.personId as string, total: round6(num(r._sum.amount)) }))
+    .filter((r) => r.total > 0)
+    .sort((a, b) => b.total - a.total);
+  let last = Number.NaN;
+  let lastRank = 0;
+  const withRank = ranked.map((r, i) => {
+    if (r.total !== last) {
+      last = r.total;
+      lastRank = i + 1;
+    }
+    return { ...r, rank: lastRank };
+  });
+  const shown = withRank.slice(0, take);
+  const mine = withRank.find((r) => r.personId === personId) ?? null;
+  const ids = [...new Set([...shown.map((r) => r.personId), ...(mine ? [mine.personId] : [])])];
+  const people = ids.length ? await prisma.person.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [];
+  const nameOf = new Map(people.map((p) => [p.id, p.name]));
+  const row = (r: (typeof withRank)[number]): RankingRow => ({ rank: r.rank, name: nameOf.get(r.personId) ?? '', total: r.total, isMe: r.personId === personId });
+  return {
+    count: withRank.length,
+    items: shown.map(row),
+    me: mine ? row(mine) : null,
+  };
+}
+
 /** What the member sees: their own balance and history, the foundation's balance, the rate now and the next halving. */
 export async function memberTokenView(personId: string, now = new Date()) {
   await settleClinicTokens(personId);
