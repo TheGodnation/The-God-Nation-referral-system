@@ -3,7 +3,7 @@ import { requireMember } from '../lib/memberAuth';
 import { asyncHandler } from '../lib/asyncHandler';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { memberTokenView } from '../lib/tokens';
+import { memberTokenView, tokenRanking } from '../lib/tokens';
 import { spendQuote } from '../lib/tokenSpend';
 
 // /api/member/tokens — the member's own King's Tokens: balance, history, the
@@ -13,6 +13,11 @@ router.use(requireMember);
 
 router.get('/', asyncHandler(async (req, res) => {
   res.json(await memberTokenView(req.member!.personId));
+}));
+
+// Every member ranked by the tokens earned from studying (name and total only).
+router.get('/ranking', asyncHandler(async (req, res) => {
+  res.json(await tokenRanking(req.member!.personId));
 }));
 
 // What the member could use toward `count` books right now (nothing while spending is switched off).

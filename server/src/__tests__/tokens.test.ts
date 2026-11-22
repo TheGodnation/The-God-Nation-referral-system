@@ -208,6 +208,51 @@ describe('earning in a Dominion Clinic exam', () => {
   });
 });
 
+describe('the ranking by total tokens', () => {
+  it('lists members from the most tokens to the fewest, with the same rank for the same total, and marks the viewer', async () => {
+    await startNow();
+    const e = await clinicExam();
+    const a = await member('Student Sam');
+    const b = await member('Student Lea');
+    const c = await member('Student Joe');
+    const d = await member('Student Zed');
+    await take(a, e, 4);
+    await take(b, e, 9);
+    await take(c, e, 9);
+    // d takes nothing: not in the list.
+    const res = await a.agent.get('/api/member/tokens/ranking');
+    expect(res.status).toBe(200);
+    expect(res.body.count).toBe(3);
+    expect(res.body.items.map((r: any) => [r.rank, r.name, r.total])).toEqual([
+      [1, expect.stringMatching(/Student (Lea|Joe)/), 9],
+      [1, expect.stringMatching(/Student (Lea|Joe)/), 9],
+      [3, 'Student Sam', 4],
+    ]);
+    expect(res.body.items.filter((r: any) => r.isMe)).toHaveLength(1);
+    expect(res.body.me).toMatchObject({ rank: 3, name: 'Student Sam', total: 4, isMe: true });
+    // Only a name and a total are shown: nothing else about anyone.
+    expect(Object.keys(res.body.items[0]).sort()).toEqual(['isMe', 'name', 'rank', 'total']);
+    // A member with no tokens yet is not ranked, but sees the list.
+    const mine = await d.agent.get('/api/member/tokens/ranking');
+    expect(mine.body.me).toBeNull();
+    expect(mine.body.items).toHaveLength(3);
+  });
+
+  it('counts what was earned, not what is left: giving tokens never lowers a rank, and the foundation share is not counted', async () => {
+    await startNow();
+    const e = await clinicExam();
+    const a = await member('Student Sam');
+    await take(a, e, 6);
+    await prisma.tokenEntry.create({ data: { personId: a.person.id, kind: 'BURNED', reason: 'SPEND_BURN', amount: -2 } });
+    const res = await a.agent.get('/api/member/tokens/ranking');
+    expect(res.body.items).toEqual([{ rank: 1, name: 'Student Sam', total: 6, isMe: true }]);
+  });
+
+  it('needs a signed-in member', async () => {
+    expect((await request(app).get('/api/member/tokens/ranking')).status).toBe(401);
+  });
+});
+
 describe('the central admin starts the count', () => {
   it('starts now, shows the totals, and cannot move the day once it has arrived', async () => {
     const admin = await adminLogin();

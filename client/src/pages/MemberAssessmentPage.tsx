@@ -297,6 +297,9 @@ export function MemberAssessmentPage() {
         {assessment.firstTryCounts && (
           <p className="mt-1 text-xs text-slate-500">{t('memberAssessment.first_try_counts')}</p>
         )}
+        <p className="mt-1 text-xs">
+          <Link to="/member/tokens/ranking" className="font-semibold text-brand-900 underline" data-testid="ranking-link">{store ? '⭐' : '🏆'} {t(store ? 'tokenRanking.link_store' : 'tokenRanking.link')}</Link>
+        </p>
         {training && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t('memberAssessment.training_one_try')}</p>}
 
         {lastResult && (

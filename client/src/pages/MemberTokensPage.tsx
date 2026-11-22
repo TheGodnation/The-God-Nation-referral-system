@@ -101,6 +101,7 @@ export function MemberTokensPage() {
                 </>
               )}
               <p className="text-sm text-slate-600">{t(store ? 'storePoints.first_try' : 'tokens.first_try')}</p>
+              <p><Link to="/member/tokens/ranking" className="text-sm font-semibold underline" data-testid="ranking-link">{store ? '⭐' : '🏆'} {t(store ? 'tokenRanking.link_store' : 'tokenRanking.link')}</Link></p>
               {!store && (
                 <>
                   <h3 className="pt-2 text-sm font-semibold text-brand-900">{t('tokens.schedule')}</h3>
