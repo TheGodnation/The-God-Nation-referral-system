@@ -6,7 +6,14 @@ export type SharedKind = 'post' | 'announcement' | 'update';
 
 type PerLang = { en?: string | null; fr?: string | null };
 
-const plain = (text: string) => text.replace(/[*_~`]/g, '').replace(/\s+/g, ' ').trim();
+// The post's own formatting marks (## headings, **bold**, - bullets) would show as raw symbols in WhatsApp: take them out.
+const plain = (text: string) =>
+  text
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+    .replace(/^\s*[-•]\s+/gm, '')
+    .replace(/[*_~`#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /**
  * The words that go to WhatsApp with the link: the title in bold, the first lines in bold (so they can be read at a glance), then

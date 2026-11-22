@@ -78,6 +78,12 @@ describe('The words sent to WhatsApp with the link', () => {
     expect(bold.length).toBeLessThan(240);
     expect(text.match(/A Testimony/g)).toHaveLength(1);
   });
+  it('takes the post’s own formatting marks (## headings, **bold**, bullets) out of the lines', () => {
+    const text = whatsappText({ title: 'THEY COULD COME AGAINST YOU', teaser: '**THEY COULD COME AGAINST YOU**\n\n## A DECLARATION OF VICTORY\n- Heavenly Father, we thank You', link, readMore: 'Read more:' });
+    expect(text).toBe(`📣 *THEY COULD COME AGAINST YOU*\n*A DECLARATION OF VICTORY Heavenly Father, we thank You*\n\n👉 Read more:\n${link}`);
+    expect(text).not.toMatch(/#|\*\*/);
+  });
+
   it('removes formatting characters that would break the bold, and works with no first lines', () => {
     expect(whatsappText({ title: 'A *bold* title', teaser: null, link, readMore: 'Read more:' })).toBe(`📣 *A bold title*\n\n👉 Read more:\n${link}`);
   });
