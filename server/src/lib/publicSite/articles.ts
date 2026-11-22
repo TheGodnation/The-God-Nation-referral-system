@@ -7,7 +7,8 @@ const MEDIA_URL = /^\/media\/k\/([0-9a-f-]{36})\.(jpg|png|webp)$/;
 
 // Loads what the public may see from the database. The rule lives here and nowhere else:
 //   * the article must be PUBLISHED (a person pressed Publish; not DRAFT, REVIEW, SCHEDULED or ARCHIVED), and
-//   * a language version is included only when a person has reviewed it (reviewedAt is set).
+//   * every language version that has been written is included. The founder decided (22 Nov 2026) that a version is posted
+//     whether or not a person has reviewed it yet; review stays available (reviewedAt) and is shown in the admin tools.
 // Only public fields are selected, so nothing private can reach a page by accident.
 
 interface FaqItem { q: string; a: string }
@@ -45,14 +46,13 @@ async function loadBooks(db: Pick<PrismaClient, 'libraryBook'>): Promise<PublicB
 
 export async function loadPublicContext(db: Pick<PrismaClient, 'knowledgeArticle' | 'knowledgeMedia' | 'libraryBook'>): Promise<Ctx> {
   const rows = await db.knowledgeArticle.findMany({
-    where: { status: 'PUBLISHED', publishedAt: { not: null, lte: new Date() }, translations: { some: { reviewedAt: { not: null } } } },
+    where: { status: 'PUBLISHED', publishedAt: { not: null, lte: new Date() }, translations: { some: {} } },
     orderBy: { publishedAt: 'desc' },
     select: {
       id: true, divisionKey: true, publishedAt: true, updatedAt: true,
       featuredImageUrl: true, featuredImageAltEn: true, featuredImageAltFr: true,
       author: { select: { name: true, bioEn: true, bioFr: true } },
       translations: {
-        where: { reviewedAt: { not: null } },
         select: { lang: true, slug: true, title: true, summary: true, body: true, seoTitle: true, seoDescription: true, readingMinutes: true, faq: true },
       },
       relatedTo: { select: { toId: true } },

@@ -6,9 +6,9 @@ import { PublicViewer } from './PublicViewer';
 import { PictureError, uploadPicture, type MediaItem, type UploadStage } from '../../lib/knowledgePicture';
 
 // The central admin's Knowledge Centre editor: write an article in English and French, have a
-// person review each language, then publish. Nothing reaches the public website until a version
-// is reviewed AND the article is published; changing the words of a reviewed version takes its
-// review back, so a changed text is always checked again by a person.
+// person review each language (optional), then publish. A published article is online in every
+// language that has been written, reviewed or not; changing the words of a reviewed version marks
+// it "not approved" again, so a changed text can be checked again by a person.
 type Lang = 'en' | 'fr';
 type Status = 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'SCHEDULED' | 'PUBLISHED' | 'UNPUBLISHED';
 const LANGS: Lang[] = ['en', 'fr'];
@@ -156,7 +156,7 @@ export function KnowledgePanel({ base }: { base: string }) {
 function Attention({ articles, titleOf, onOpen }: { articles: Article[]; titleOf: (a: Article) => string; onOpen: (id: string) => void }) {
   const { t } = useTranslation();
   const toApprove = articles.filter((a) => a.status !== 'UNPUBLISHED' && a.translations.some((x) => !x.reviewedAt));
-  const oneLanguage = articles.filter((a) => a.status === 'PUBLISHED' && a.translations.filter((x) => x.reviewedAt).length < 2);
+  const oneLanguage = articles.filter((a) => a.status === 'PUBLISHED' && a.translations.length < 2);
   const counts = (['DRAFT', 'IN_REVIEW', 'APPROVED', 'PUBLISHED'] as Status[]).map((st) => [st, articles.filter((a) => a.status === st).length] as const);
   if (articles.length === 0) return null;
   const list = (items: Article[]) => (

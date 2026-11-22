@@ -174,7 +174,7 @@ describe('The share sheet', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string, init?: { method?: string }) => {
-        if (String(url).startsWith('/api/shared/')) return json({}); // the public words of the post (not part of this check)
+        if (String(url).startsWith('/api/shared/') || String(url).endsWith('/website')) return json({}); // the public words and the website state (not part of this check)
         calls.push(`${init?.method ?? 'GET'} ${url}`);
         if (init?.method === 'POST') shared = true;
         if (init?.method === 'DELETE') shared = false;
@@ -195,5 +195,51 @@ describe('The share sheet', () => {
     fireEvent.click(screen.getByTestId('share-stop'));
     await waitFor(() => expect(screen.getByTestId('share-open')).toBeInTheDocument());
     expect(calls).toEqual(['GET /api/member/central-shared/post/p1', 'POST /api/member/central-shared/post/p1/share', 'DELETE /api/member/central-shared/post/p1/share']);
+  });
+});
+
+describe('Also publish on the website', () => {
+  const divisions = [{ key: 'kingdom-knowledge', name: { en: 'Kingdom Knowledge', fr: 'Connaissance du Royaume' } }];
+  function serveSite(initial: Record<string, unknown>) {
+    let site: Record<string, unknown> = { published: false, divisions, ...initial };
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: { method?: string; body?: string }) => {
+        const u = String(url);
+        if (u.startsWith('/api/shared/')) return json({});
+        if (u.endsWith('/website')) {
+          calls.push(`${init?.method ?? 'GET'} ${u.split('/').slice(-3).join('/')}${init?.body ? ` ${init.body}` : ''}`);
+          if (init?.method === 'POST') site = { published: true, divisions, paths: { en: '/en/knowledge/kingdom-knowledge/x/', fr: '/fr/connaissance/connaissance-du-royaume/x/' }, hasFrench: true, frenchReviewed: false };
+          if (init?.method === 'DELETE') site = { published: false, divisions };
+          return json(site);
+        }
+        return json({ shared: true, path: '/news/post/p1' });
+      }),
+    );
+    return calls;
+  }
+
+  it('asks where it belongs, publishes at once, links to both pages, and says the French is automatic', async () => {
+    const calls = serveSite({});
+    render(<ShareByLinkSheet kind="post" id="p1" title="Good news" base="/api/member/central-shared" onClose={() => {}} />);
+    const publish = await screen.findByTestId('website-publish');
+    expect(publish).toBeDisabled(); // an area must be chosen first
+    fireEvent.change(screen.getByTestId('website-area'), { target: { value: 'kingdom-knowledge' } });
+    fireEvent.click(publish);
+    expect(await screen.findByTestId('website-live')).toHaveTextContent('Google');
+    expect(screen.getByText('See the French page')).toHaveAttribute('href', expect.stringContaining('/fr/connaissance/'));
+    expect(screen.getByTestId('website-french')).toHaveTextContent('made automatically');
+    expect(calls).toContain('POST post/p1/website {"divisionKey":"kingdom-knowledge"}');
+  });
+
+  it('can be updated and taken off the website again', async () => {
+    const calls = serveSite({ published: true, divisionKey: 'kingdom-knowledge', paths: { en: '/en/knowledge/a/b/' }, hasFrench: false });
+    render(<ShareByLinkSheet kind="post" id="p1" title="Good news" base="/api/member/central-shared" onClose={() => {}} />);
+    expect(await screen.findByTestId('website-live')).toBeInTheDocument();
+    expect(screen.getByTestId('website-french')).toHaveTextContent('only the English page');
+    fireEvent.click(screen.getByTestId('website-off'));
+    expect(await screen.findByTestId('website-publish')).toBeInTheDocument();
+    expect(calls.some((c) => c.startsWith('DELETE'))).toBe(true);
   });
 });
