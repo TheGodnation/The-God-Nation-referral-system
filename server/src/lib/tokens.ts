@@ -5,7 +5,8 @@ import { reconcileHolds, spendSettings } from './tokenSpend';
 // ---------------------------------------------------------------------------
 // King's Token — earning (Phase 5a).
 //
-// Members earn tokens by answering correctly in a Dominion Clinic exam: 8 per
+// Members earn tokens by answering correctly in a Dominion Clinic exam (or in the quiz of a teaching that is taught from a portion of
+// the month's book: the same quiz, one portion at a time, instead of a monthly exam; the central admin decided it earns the same): 8 per
 // correct answer, halving every 4 years from the start day down to 1, and then
 // staying at 1 for ever. For every 70 tokens members earn, 30 more are credited
 // to the foundation account (locked for 4 years). Tokens only accumulate for
@@ -112,11 +113,13 @@ export async function awardClinicTokens(attemptId: string): Promise<AwardResult>
 
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
-    select: { id: true, personId: true, assessmentId: true, status: true, submittedAt: true, assessment: { select: { weekNumber: true, devotionalId: true } } },
+    select: { id: true, personId: true, assessmentId: true, status: true, submittedAt: true, assessment: { select: { weekNumber: true, devotionalId: true, teaching: { select: { portionBookId: true } } } } },
   });
   if (!attempt || attempt.status !== 'SUBMITTED' || !attempt.submittedAt) return none;
-  // Only a monthly Dominion Clinic exam earns here.
-  if (attempt.assessment.weekNumber === null || !attempt.assessment.devotionalId) return none;
+  // Only a Dominion Clinic exam earns here: a monthly exam, or the quiz of a teaching taught from a portion of the book.
+  const monthlyExam = attempt.assessment.weekNumber !== null && Boolean(attempt.assessment.devotionalId);
+  const bookTeaching = Boolean(attempt.assessment.teaching?.portionBookId);
+  if (!monthlyExam && !bookTeaching) return none;
   const rate = rateAt('CLINIC', start, attempt.submittedAt);
   if (rate === null) return none;
 
@@ -180,7 +183,12 @@ export async function settleClinicTokens(personId: string): Promise<void> {
   const start = await tokensStartAt();
   if (!start) return;
   const attempts = await prisma.attempt.findMany({
-    where: { personId, status: 'SUBMITTED', submittedAt: { gte: start }, assessment: { weekNumber: { not: null }, devotionalId: { not: null } } },
+    where: {
+      personId,
+      status: 'SUBMITTED',
+      submittedAt: { gte: start },
+      assessment: { OR: [{ weekNumber: { not: null }, devotionalId: { not: null } }, { teaching: { is: { portionBookId: { not: null } } } }] },
+    },
     select: { id: true, assessmentId: true },
     orderBy: { submittedAt: 'asc' },
   });

@@ -73,7 +73,7 @@ export function ScheduledQuizEditor({
     setNote('');
     setError('');
     try {
-      const res = await api.post<{ questions: { textEn: string; textFr: string; options: { textEn: string; textFr: string }[]; correctIndex: number }[] }>('/api/teachings/draft-questions', { communityId, text: spokenText.trim() || undefined, count: 8 });
+      const res = await api.post<{ questions: { textEn: string; textFr: string; options: { textEn: string; textFr: string }[]; correctIndex: number }[] }>('/api/teachings/draft-questions', { communityId, text: spokenText.trim() || undefined, count: 10 });
       setQuestions(res.questions.map((q) => ({ key: ++keyCounter, textEn: q.textEn, textFr: q.textFr, options: q.options.map((o, i) => ({ textEn: o.textEn, textFr: o.textFr, isCorrect: i === q.correctIndex })) })));
       setNote(t('teaching.draft_done'));
     } catch (e) {
@@ -184,6 +184,7 @@ export function ScheduledQuizEditor({
                 <input type="checkbox" checked={portionOn} onChange={(e) => setPortionOn(e.target.checked)} data-testid="quiz-portion-on" />
                 {t('clinic.map_portion', { title: book.titleEn })}
               </label>
+              <p className="text-xs text-slate-600" data-testid="quiz-tokens-note">{portionOn ? t('scheduledTeachings.quiz_tokens_on') : t('scheduledTeachings.quiz_tokens_off')}</p>
               {portionOn && (
                 <div className="grid grid-cols-2 gap-2">
                   <input className="input" type="number" min={1} max={10000} value={portionPage} onChange={(e) => setPortionPage(e.target.value)} placeholder={t('clinic.portion_page') ?? ''} aria-label={t('clinic.portion_page') ?? ''} data-testid="quiz-portion-page" />

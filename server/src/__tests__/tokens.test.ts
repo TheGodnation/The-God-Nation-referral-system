@@ -259,3 +259,69 @@ describe('the central admin starts the count', () => {
     expect(res.body.started).toBe(true);
   });
 });
+
+// A teaching taught from a portion of the month's book has a quiz that earns the same as a monthly exam, one portion at a time.
+describe('earning in the quiz of a teaching taught from the book', () => {
+  async function teachingQuiz(withPortion: boolean, questions = 10) {
+    const exam = await prisma.assessment.create({ data: { titleEn: 'Teaching quiz: Faith', passMark: 50, maxAttempts: 1, status: 'PUBLISHED' } });
+    const correct = new Map<string, string>();
+    const wrong = new Map<string, string>();
+    for (let i = 0; i < questions; i++) {
+      const q = await prisma.question.create({
+        data: { assessmentId: exam.id, textEn: `Q${i}`, order: i, options: { create: [{ textEn: 'Right', isCorrect: true, order: 0 }, { textEn: 'Wrong', isCorrect: false, order: 1 }] } },
+        include: { options: true },
+      });
+      correct.set(q.id, q.options.find((o) => o.isCorrect)!.id);
+      wrong.set(q.id, q.options.find((o) => !o.isCorrect)!.id);
+    }
+    const author = await prisma.person.create({ data: { name: 'Teacher T', whatsappNumber: `+23766899${String(++n).padStart(4, '0')}`, profileCompletedAt: new Date() } });
+    const group = await prisma.community.create({ data: { name: `Teaching group ${n}` } });
+    const conversation = await prisma.conversation.create({ data: { communityId: group.id } });
+    const message = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: author.id, body: 'Faith' } });
+    const book = withPortion ? await prisma.libraryBook.create({ data: { kind: 'TRAINING', titleEn: 'Kingdom Keys' } as any }) : null;
+    const teaching = await prisma.teaching.create({
+      data: { communityId: group.id, messageId: message.id, assessmentId: exam.id, authorPersonId: author.id, title: 'Faith', closesAt: new Date(Date.now() + 7 * DAY), portionBookId: book?.id ?? null, portionPage: book ? 14 : null },
+    });
+    return { exam, correct, wrong, teaching };
+  }
+  // The member is in the group and has been seen to finish the teaching, so its quiz is open to them.
+  const ready = async (m: Awaited<ReturnType<typeof member>>, teaching: { id: string; communityId: string }) => {
+    await prisma.communityMembership.upsert({ where: { personId_communityId: { personId: m.person.id, communityId: teaching.communityId } }, create: { communityId: teaching.communityId, personId: m.person.id, status: 'ACTIVE' } as any, update: {} });
+    await prisma.teachingProgress.create({ data: { teachingId: teaching.id, personId: m.person.id, completedAt: new Date() } });
+  };
+
+  it('earns 8 per correct answer and credits the foundation, like a monthly exam, once the start day is set', async () => {
+    await startNow();
+    const t = await teachingQuiz(true);
+    const m = await member('Student Sam');
+    await ready(m, t.teaching);
+    const { res } = await take(m, t as any, 9);
+    expect(res.status).toBe(200);
+    expect(res.body.tokensEarned).toBe(72);
+    const entry = await prisma.tokenEntry.findFirstOrThrow({ where: { personId: m.person.id } });
+    expect(entry).toMatchObject({ kind: 'EARNED', reason: 'CLINIC_EXAM', correctAnswers: 9 });
+    expect(entry.ratePerAnswer!.toNumber()).toBe(8);
+    expect((await prisma.tokenEntry.findFirstOrThrow({ where: { personId: null } })).amount.toNumber()).toBeCloseTo(30.857143, 5); // 72 x 30 / 70
+    expect((await m.agent.get('/api/member/tokens')).body.balance.earned).toBe(72);
+  });
+
+  it('earns nothing before the start day is set, for a teaching with no book portion, or for a second try', async () => {
+    const early = await teachingQuiz(true);
+    const m = await member('Student Sam');
+    await ready(m, early.teaching);
+    await take(m, early as any, 10);
+    expect(await prisma.tokenEntry.count()).toBe(0); // the start day has not been set
+    await startNow();
+    const plain = await teachingQuiz(false);
+    await ready(m, plain.teaching);
+    await take(m, plain as any, 10);
+    expect(await prisma.tokenEntry.count()).toBe(0); // no portion of the book: an ordinary teaching quiz
+    const again = await teachingQuiz(true);
+    await ready(m, again.teaching);
+    await take(m, again as any, 3);
+    await take(m, again as any, 10).catch(() => {});
+    const entries = await prisma.tokenEntry.findMany({ where: { personId: m.person.id } });
+    expect(entries).toHaveLength(1);
+    expect(entries[0].amount.toNumber()).toBe(24); // first try only
+  });
+});

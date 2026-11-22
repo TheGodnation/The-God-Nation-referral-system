@@ -155,7 +155,9 @@ describe('A counted teaching: quiz and book source', () => {
     await waitFor(() => expect((screen.getAllByTestId('quiz-question-text')[0] as HTMLInputElement).value).toBe('Who walked on water?'));
     expect(screen.getAllByTestId('quiz-question')).toHaveLength(1); // the draft replaced the blank question
     fireEvent.change(screen.getByTestId('quiz-title'), { target: { value: 'Faith' } });
+    expect(await screen.findByTestId('quiz-tokens-note')).toHaveTextContent('earns no tokens');
     fireEvent.click(await screen.findByTestId('quiz-portion-on'));
+    expect(screen.getByTestId('quiz-tokens-note')).toHaveTextContent('earn Dominion tokens');
     fireEvent.change(screen.getByTestId('quiz-portion-page'), { target: { value: '14' } });
     fireEvent.click(screen.getByTestId('quiz-save'));
     expect(await screen.findByTestId('quiz-summary')).toHaveTextContent('Faith');

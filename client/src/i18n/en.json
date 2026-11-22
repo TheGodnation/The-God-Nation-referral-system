@@ -6069,7 +6069,9 @@
     "quiz_remove_question": "Remove",
     "quiz_pass": "Pass mark (%)",
     "quiz_days": "Quiz open (days)",
-    "quiz_save": "Save the quiz"
+    "quiz_save": "Save the quiz",
+    "quiz_tokens_on": "With a book source, members earn Dominion tokens for their correct answers (first try only), the same as a monthly exam. Ten questions is the usual size.",
+    "quiz_tokens_off": "Without a book source this is an ordinary teaching quiz and earns no tokens."
   },
   "groupTeachers": {
     "title": "Teachers",

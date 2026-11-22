@@ -6069,7 +6069,9 @@
     "quiz_remove_question": "Retirer",
     "quiz_pass": "Note de passage (%)",
     "quiz_days": "Quiz ouvert (jours)",
-    "quiz_save": "Enregistrer le quiz"
+    "quiz_save": "Enregistrer le quiz",
+    "quiz_tokens_on": "Avec une source du livre, les membres gagnent des jetons Dominion pour leurs bonnes réponses (première tentative seulement), comme pour un examen mensuel. Dix questions est la taille habituelle.",
+    "quiz_tokens_off": "Sans source du livre, c'est un quiz d'enseignement ordinaire qui ne rapporte aucun jeton."
   },
   "groupTeachers": {
     "title": "Enseignants",
