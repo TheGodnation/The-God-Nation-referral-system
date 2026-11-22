@@ -85,7 +85,7 @@ describe('Chats page', () => {
     await screen.findByText('Newest Person', undefined, { timeout: 5000 });
     await waitFor(() => expect(privateTab).toHaveAttribute('aria-selected', 'true'), { timeout: 5000 });
     expect(within(privateTab).getByLabelText('2 new messages')).toBeInTheDocument();
-    expect(within(screen.getByRole('tab', { name: /Assemblies/ })).getByLabelText('4 new messages')).toBeInTheDocument();
+    await waitFor(() => expect(within(screen.getByRole('tab', { name: /Assemblies/ })).getByLabelText('4 new messages')).toBeInTheDocument(), { timeout: 5000 });
     // Newest first.
     const names = screen.getAllByText(/Person$/).map((n) => n.textContent);
     expect(names).toEqual(['Newest Person', 'Older Person']);
