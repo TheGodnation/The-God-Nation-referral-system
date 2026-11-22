@@ -66,11 +66,13 @@ async function teachingGroupName(): Promise<string | null> {
 }
 
 /** The one-time "how it works" message, in the teacher's language. */
-export function howToMessage(french: boolean, group: string | null): string {
+export function howToMessage(french: boolean, group: string | null, updated = false): string {
   const where = group ? (french ? `dans le groupe « ${group} »` : `in the group “${group}”`) : french ? 'dans le groupe de l\'enseignement' : 'in the teaching group';
-  return french
+  const text = french
     ? `📣 Comment se passe votre enseignement de la semaine\n\n1. À l'heure de votre enseignement, enregistrez-le en note vocale et envoyez-la ${where}. N'enregistrez pas 15 minutes d'un coup : enregistrez environ 5 minutes, envoyez, puis recommencez (3 fois environ). C'est plus facile à écrire et à traduire.\n2. Ensuite, touchez le bouton « J'ai terminé mon enseignement », juste au-dessus de la zone de message. Une carte de notation apparaît pour que les membres l'écoutent et la notent.\n3. Si vous oubliez, la carte apparaît d'elle-même 25 minutes après le début de votre heure.\n\nLe guide simple est ici : ${CLIENT_URL}/member/my-teaching/guide\n\nMerci de répondre ici si quelque chose n'est pas clair.`
     : `📣 How your weekly teaching works\n\n1. At your teaching time, record your teaching as a voice note and send it ${where}. Do not record 15 minutes in one go: record about 5 minutes, send it, then do it again (about 3 times). It is easier to write down and translate.\n2. Then tap the button “I have finished my teaching”, just above the message box. A rating card appears so the members can listen and rate it.\n3. If you forget, the card appears by itself 25 minutes after your time starts.\n\nThe simple guide is here: ${CLIENT_URL}/member/my-teaching/guide\n\nPlease reply here if anything is unclear.`;
+  const note = french ? '🔄 Mise à jour : ce message remplace le précédent. Merci de le relire.\n\n' : '🔄 Updated: this replaces the earlier message. Please read it again.\n\n';
+  return updated ? note + text : text;
 }
 
 /** Returns the id of the private message when one was sent (only for an assignment). */
@@ -94,9 +96,9 @@ async function sendAssignmentMessage(personId: string, d: { topicEn: string; top
 
 /**
  * "Send the how-it-works message": every active teacher matched to a member gets one private message from the central admin
- * explaining the voice note and the "I have finished" button. Each teacher gets it once, ever.
+ * explaining the voice note and the "I have finished" button. Each teacher gets it once; "again" sends an updated copy to everyone.
  */
-export async function sendHowToNow(): Promise<{ sent: number; alreadySent: number; sentTo: string[]; notMatched: string[] }> {
+export async function sendHowToNow(again = false, now = new Date()): Promise<{ sent: number; alreadySent: number; sentTo: string[]; notMatched: string[] }> {
   const from = await centralAdminPersonId();
   const teachers = await prisma.teachingTeacher.findMany({ where: { active: true }, orderBy: { name: 'asc' } });
   const result = { sent: 0, alreadySent: 0, sentTo: [] as string[], notMatched: teachers.filter((t) => !t.personId).map((t) => t.name) };
@@ -106,12 +108,13 @@ export async function sendHowToNow(): Promise<{ sent: number; alreadySent: numbe
   const people = new Map((await prisma.person.findMany({ where: { id: { in: matched.map((t) => t.personId!) } }, select: { id: true, name: true, preferredLanguage: true } })).map((x) => [x.id, x]));
   for (const t of matched) {
     const who = people.get(t.personId!);
-    const key = `howto:${t.id}`;
+    // "Send again" sends a fresh copy to everyone; the ten-minute bucket only stops a double tap from sending it twice.
+    const key = again ? `howto:again:${t.id}:${Math.floor(now.getTime() / (10 * 60 * 1000))}` : `howto:${t.id}`;
     if (!(await claim(key))) {
       result.alreadySent++;
       continue;
     }
-    const messageId = await sendPrivateNoticeId(from, t.personId!, howToMessage(isFrench(who?.preferredLanguage), group));
+    const messageId = await sendPrivateNoticeId(from, t.personId!, howToMessage(isFrench(who?.preferredLanguage), group, again));
     if (messageId) {
       await noteMessage(key, messageId);
       result.sent++;

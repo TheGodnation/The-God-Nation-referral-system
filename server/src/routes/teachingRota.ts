@@ -93,8 +93,9 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
   router.post('/send-howto', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     const actor = await actorOr403(req, res);
     if (!actor) return;
-    const result = await sendHowToNow();
-    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHING_HOWTO_SENT', targetType: 'TeachingSettings', targetId: 'main', metadata: { sent: result.sent, alreadySent: result.alreadySent } });
+    const again = req.body?.again === true;
+    const result = await sendHowToNow(again);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'TEACHING_HOWTO_SENT', targetType: 'TeachingSettings', targetId: 'main', metadata: { sent: result.sent, alreadySent: result.alreadySent, again } });
     res.json(result);
   }));
 
