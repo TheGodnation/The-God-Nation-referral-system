@@ -6,7 +6,7 @@ import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { prisma } from '../lib/prisma';
-import { ScheduleError, approveScheduled, createScheduled, deleteScheduled, listScheduled, postScheduledNow, retryScheduledText, saveScheduledText, updateScheduled } from '../lib/scheduledTeachings';
+import { ScheduleError, approveScheduled, clearScheduledQuiz, setScheduledQuiz, createScheduled, deleteScheduled, listScheduled, postScheduledNow, retryScheduledText, saveScheduledText, updateScheduled } from '../lib/scheduledTeachings';
 
 // "Send later" for the central admin: record a teaching now, post it in a group at a time they choose. The recordings are uploaded
 // the usual way for the group's chat (the same authorize step), then kept here instead of being sent at once.
@@ -19,6 +19,14 @@ const onError = (err: unknown, _req: Request, res: any, next: any) => {
 const clipSchema = z.object({ language: z.enum(['en', 'fr']), storageKey: z.string().min(1).max(300), mimeType: z.string().min(1).max(100), byteSize: z.number().int().positive() });
 const createSchema = z.object({ communityId: z.string().min(1), postAt: z.string().datetime(), liveTeaching: z.boolean().optional(), clips: z.array(clipSchema).min(1).max(2) });
 const patchSchema = z.object({ postAt: z.string().datetime().optional(), liveTeaching: z.boolean().optional() });
+const optionSchema = z.object({ textEn: z.string().max(300), textFr: z.string().max(300).optional(), isCorrect: z.boolean() });
+const quizSchema = z.object({
+  title: z.string().max(200),
+  passMark: z.number().int(),
+  openDays: z.number().int(),
+  questions: z.array(z.object({ textEn: z.string().max(500), textFr: z.string().max(500).optional(), options: z.array(optionSchema).max(6) })).max(20),
+  portion: z.object({ bookId: z.string().min(1), page: z.number().int(), label: z.string().max(200).optional() }).nullable().optional(),
+});
 const textSchema = z.object({ textEn: z.string().max(60000).optional(), textFr: z.string().max(60000).optional() });
 
 export const memberScheduledTeachingsRoutes = (() => {
@@ -49,6 +57,15 @@ export const memberScheduledTeachingsRoutes = (() => {
     const p = textSchema.safeParse(req.body);
     if (!p.success) return res.status(400).json({ error: 'Check the text and try again.' });
     res.json(await saveScheduledText(me(req), req.params.id, p.data));
+  }));
+  // A counted teaching: a quiz and a book source (central admin, one recording).
+  router.put('/:id/quiz', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const p = quizSchema.safeParse(req.body);
+    if (!p.success) return res.status(400).json({ error: 'Check the quiz and try again.' });
+    res.json(await setScheduledQuiz(me(req), req.params.id, p.data));
+  }));
+  router.delete('/:id/quiz', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    res.json(await clearScheduledQuiz(me(req), req.params.id));
   }));
   router.post('/:id/approve', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     res.json(await approveScheduled(me(req), req.params.id));

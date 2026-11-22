@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { cameroonLabel, fromLocalInput, toLocalInput } from '../../lib/scheduleTime';
+import { useMemberAuth } from '../../lib/MemberAuthContext';
+import { ScheduledQuizEditor, type QuizSummary } from './ScheduledQuizEditor';
 
 type Lang = 'en' | 'fr';
 type Status = 'RECORDED' | 'WRITING' | 'TEXT_READY' | 'FAILED' | 'APPROVED' | 'POSTED';
@@ -21,6 +23,7 @@ interface Item {
   missed: boolean;
   canChange: boolean;
   postedAt: string | null;
+  quiz: QuizSummary | null;
 }
 
 const BASE = '/api/member/scheduled-teachings';
@@ -29,6 +32,7 @@ const NAME: Record<Lang, string> = { en: 'English', fr: 'Français' };
 // One teaching kept for later: listen, check the written text in your own language, approve, change the time, post now or delete.
 function ScheduledCard({ item, onChanged, onRemoved }: { item: Item; onChanged: (i: Item) => void; onRemoved: (id: string) => void }) {
   const { t, i18n } = useTranslation();
+  const { member } = useMemberAuth();
   const [texts, setTexts] = useState<{ textEn: string; textFr: string }>({ textEn: item.textEn, textFr: item.textFr });
   const [dirty, setDirty] = useState(false);
   const [when, setWhen] = useState(() => toLocalInput(item.postAt));
@@ -144,6 +148,10 @@ function ScheduledCard({ item, onChanged, onRemoved }: { item: Item; onChanged: 
             </p>
           )}
         </div>
+      )}
+
+      {!posted && !writing && member?.isCentralAdmin && (
+        <ScheduledQuizEditor itemId={item.id} communityId={item.communityId} spokenText={item.spoken === 'fr' ? item.textFr : item.textEn} quiz={item.quiz} singleRecording={item.mode === 'single'} onChanged={onChanged} />
       )}
 
       {!posted && (

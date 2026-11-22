@@ -6,7 +6,7 @@ import { createApp } from '../app';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 import { prisma } from '../lib/prisma';
-import { approveScheduled, createScheduled, deleteScheduled, listScheduled, postDueScheduledTeachings, postScheduledNow, retryPendingScheduled, retryScheduledText, saveScheduledText, updateScheduled } from '../lib/scheduledTeachings';
+import { approveScheduled, clearScheduledQuiz, createScheduled, deleteScheduled, listScheduled, postDueScheduledTeachings, postScheduledNow, retryPendingScheduled, retryScheduledText, saveScheduledText, setScheduledQuiz, updateScheduled } from '../lib/scheduledTeachings';
 
 // "Send later": a voice teaching recorded now and posted in a group at a chosen time. The words are written from the recording,
 // the author corrects and approves them in their own language, and the other language is made automatically (one recording) or is
@@ -277,5 +277,76 @@ describe('the screens\' doors', () => {
     expect((await admin.get('/api/member/scheduled-teachings')).body.items).toHaveLength(0);
     const logs = await prisma.auditLog.findMany({ where: { targetId: made.body.id } });
     expect(logs.map((l) => l.action).sort()).toEqual(['TEACHING_SCHEDULED', 'TEACHING_SCHEDULE_DELETED']);
+  });
+});
+
+describe('a counted teaching: a quiz and a book source', () => {
+  const quiz = (over: Record<string, unknown> = {}) => ({
+    title: 'Faith that moves',
+    passMark: 70,
+    openDays: 7,
+    questions: [{ textEn: 'What did Peter do?', options: [{ textEn: 'He walked on water', isCorrect: true }, { textEn: 'He stayed in the boat', isCorrect: false }] }],
+    ...over,
+  });
+  async function oneRecording(approve = false) {
+    const ctx = await setUp();
+    const made = await createScheduled(ctx.person.id, { communityId: ctx.group.id, postAt: LATER, liveTeaching: false, clips: [await clip(ctx.group.id, 'fr')] }, NOW);
+    await textReady(made.id);
+    if (approve) {
+      await approveScheduled(ctx.person.id, made.id, NOW);
+      await vi.waitFor(async () => expect((await prisma.scheduledTeaching.findUniqueOrThrow({ where: { id: made.id } })).translatedInto).toBeTruthy());
+    }
+    return { ...ctx, made };
+  }
+
+  it('is for the central admin only, with one recording, a title and a proper quiz', async () => {
+    const { person, group, made } = await oneRecording();
+    const teacher = await prisma.person.create({ data: { name: 'Teacher Q', whatsappNumber: '+237781999991', profileCompletedAt: new Date() } });
+    await prisma.groupTeacher.create({ data: { personId: teacher.id, communityId: group.id } });
+    const mine = await createScheduled(teacher.id, { communityId: group.id, postAt: LATER, liveTeaching: false, clips: [await clip(group.id, 'en')] }, NOW);
+    await expect(setScheduledQuiz(teacher.id, mine.id, quiz(), NOW)).rejects.toMatchObject({ code: 'ONLY_ADMIN' });
+    const bad = (over: Record<string, unknown>) => setScheduledQuiz(person.id, made.id, quiz(over) as any, NOW);
+    await expect(bad({ title: ' ' })).rejects.toMatchObject({ code: 'BAD_TITLE' });
+    await expect(bad({ questions: [] })).rejects.toMatchObject({ code: 'BAD_QUESTIONS' });
+    await expect(bad({ questions: [{ textEn: 'Q?', options: [{ textEn: 'A', isCorrect: true }, { textEn: 'B', isCorrect: true }] }] })).rejects.toMatchObject({ code: 'BAD_QUESTIONS' }); // two correct answers
+    await expect(bad({ questions: [{ textEn: 'Q?', options: [{ textEn: 'A', isCorrect: true }] }] })).rejects.toMatchObject({ code: 'BAD_QUESTIONS' }); // one answer only
+    await expect(bad({ passMark: 0 })).rejects.toMatchObject({ code: 'BAD_PASS_MARK' });
+    await expect(bad({ openDays: 90 })).rejects.toMatchObject({ code: 'BAD_OPEN_DAYS' });
+    await expect(bad({ portion: { bookId: 'nope', page: 3 } })).rejects.toMatchObject({ code: 'NO_BOOK' });
+    // an English and a French recording together cannot carry a quiz
+    transcribeAudioOnly.mockResolvedValue({ detectedLanguage: 'en', transcript: 'Hi.' });
+    const pair = await createScheduled(person.id, { communityId: group.id, postAt: LATER, liveTeaching: false, clips: [await clip(group.id, 'en'), await clip(group.id, 'fr')] }, NOW);
+    await expect(setScheduledQuiz(person.id, pair.id, quiz(), NOW)).rejects.toMatchObject({ code: 'PAIR_NO_QUIZ' });
+    const ok = await setScheduledQuiz(person.id, made.id, quiz(), NOW);
+    expect(ok.quiz).toMatchObject({ title: 'Faith that moves', passMark: 70, openDays: 7, portion: null });
+    const cleared = await clearScheduledQuiz(person.id, made.id, NOW);
+    expect(cleared.quiz).toBeNull();
+  });
+
+  it('when it posts it becomes a teaching with a quiz, its recording and words, and the book source, not a plain voice message', async () => {
+    const { person, group, made } = await oneRecording(true);
+    const book = await prisma.libraryBook.create({ data: { kind: 'TRAINING', titleEn: 'Kingdom Keys' } as any });
+    await setScheduledQuiz(person.id, made.id, quiz({ portion: { bookId: book.id, page: 14, label: 'Chapter 3' } }) as any, NOW);
+    expect(await postDueScheduledTeachings(new Date('2026-12-01T12:01:00Z'))).toBe(1);
+    const teaching = await prisma.teaching.findFirstOrThrow({ where: { communityId: group.id }, include: { assessment: { include: { questions: { include: { options: true } } } }, message: { include: { attachments: true } } } });
+    expect(teaching).toMatchObject({ title: 'Faith that moves', text: 'Le Seigneur est mon berger.', mediaKind: 'AUDIO', authorPersonId: person.id, portionBookId: book.id, portionPage: 14, portionLabel: 'Chapter 3' });
+    expect(teaching.assessment.passMark).toBe(70);
+    expect(teaching.assessment.questions).toHaveLength(1);
+    expect(teaching.assessment.questions[0].options.filter((o) => o.isCorrect)).toHaveLength(1);
+    expect(teaching.message.attachments).toHaveLength(1);
+    expect(teaching.message.body).toBe('Faith that moves');
+    expect(teaching.closesAt.getTime() - Date.now()).toBeGreaterThan(6 * 24 * 60 * 60 * 1000);
+    const row = await prisma.scheduledTeaching.findUniqueOrThrow({ where: { id: made.id } });
+    expect([row.status, row.messageId]).toEqual(['POSTED', teaching.messageId]);
+    // it was posted once, as the teaching only (no second, plain voice message)
+    const conversation = await prisma.conversation.findFirstOrThrow({ where: { communityId: group.id } });
+    expect(await prisma.message.count({ where: { conversationId: conversation.id, kind: 'USER' } })).toBe(1);
+    expect(await postDueScheduledTeachings(new Date('2026-12-01T12:05:00Z'))).toBe(0);
+  });
+
+  it('a normal post stays a plain voice message when no quiz was added', async () => {
+    const { group } = await oneRecording(true);
+    expect(await postDueScheduledTeachings(new Date('2026-12-01T12:01:00Z'))).toBe(1);
+    expect(await prisma.teaching.count({ where: { communityId: group.id } })).toBe(0);
   });
 });

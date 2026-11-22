@@ -24,6 +24,7 @@ import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { getObjectStream, headObject, isStorageConfigured } from '../lib/storage';
 import { pushToPersons } from '../lib/push';
 import { recordAudit } from '../lib/audit';
+import { createTeachingWithQuiz } from '../lib/teachingCreate';
 import { translateAndStoreTeaching } from '../lib/translation';
 import { draftQuizQuestions, isQuizDraftingAvailable } from '../lib/teachingQuiz';
 import { RetakeError, ensureRetakeQuestions, membersWhoCanRetake, startTeachingRetake } from '../lib/teachingRetake';
@@ -119,96 +120,17 @@ router.post('/', teachingPostLimiter, requireCsrf, asyncHandler(async (req, res)
   if (d.portion && !(await prisma.libraryBook.findUnique({ where: { id: d.portion.bookId }, select: { id: true } }))) {
     return res.status(400).json({ error: 'The book for this portion was not found.' });
   }
-  const conversation = await getOrCreateConversation(d.communityId);
-  const closesAt = new Date(Date.now() + d.openDays * DAY);
-
-  const teaching = await prisma.$transaction(async (tx) => {
-    const assessment = await tx.assessment.create({
-      data: {
-        titleEn: `Teaching quiz: ${d.title}`.slice(0, 250),
-        passMark: d.passMark,
-        maxAttempts: 1,
-        status: 'PUBLISHED',
-        questions: {
-          create: d.questions.map((q, qi) => ({
-            textEn: q.textEn,
-            textFr: q.textFr || null,
-            order: qi,
-            options: { create: q.options.map((o, oi) => ({ textEn: o.textEn, textFr: o.textFr || null, isCorrect: o.isCorrect, order: oi })) },
-          })),
-        },
-      },
-    });
-    // The teaching sits in the assembly's chat like any message (its file is
-    // the message's attachment), shown there as a card.
-    const message = await tx.message.create({
-      data: {
-        conversationId: conversation.id,
-        senderPersonId: personId,
-        body: d.title,
-        attachments: d.attachment
-          ? {
-              create: [
-                {
-                  storageKey: d.attachment.storageKey,
-                  originalFilename: d.attachment.originalFilename,
-                  mimeType: d.attachment.mimeType,
-                  byteSize: d.attachment.byteSize,
-                  thumbDataUrl: d.attachment.thumb ?? null,
-                  pageCount: d.attachment.pageCount ?? null,
-                  uploadedByPersonId: personId,
-                },
-              ],
-            }
-          : undefined,
-      },
-    });
-    return tx.teaching.create({
-      data: {
-        communityId: d.communityId,
-        messageId: message.id,
-        assessmentId: assessment.id,
-        authorPersonId: personId,
-        title: d.title,
-        text,
-        mediaKind,
-        closesAt,
-        portionBookId: d.portion?.bookId ?? null,
-        portionPage: d.portion?.page ?? null,
-        portionLabel: d.portion?.label || null,
-      },
-    });
+  const teaching = await createTeachingWithQuiz({
+    communityId: d.communityId,
+    personId,
+    title: d.title,
+    text,
+    attachment: d.attachment,
+    questions: d.questions,
+    passMark: d.passMark,
+    openDays: d.openDays,
+    portion: d.portion,
   });
-
-  await recordAudit({ action: 'TEACHING_POSTED', targetType: 'Teaching', targetId: teaching.id, metadata: { communityId: d.communityId, questions: d.questions.length } });
-
-  // English <-> French in the background (members see it as soon as it lands).
-  // Everyone else in the assembly hears about it, even with the app closed —
-  // once the translation is ready, so each person's notification is in their
-  // own language (the original title if it isn't ready in time).
-  void (async () => {
-    const translating = translateAndStoreTeaching(teaching.id).catch(() => {});
-    let giveUp: NodeJS.Timeout | undefined;
-    await Promise.race([translating, new Promise((resolve) => { giveUp = setTimeout(resolve, PUSH_WAITS_FOR_TRANSLATION_MS); })]);
-    clearTimeout(giveUp);
-    const [community, recipients, translated] = await Promise.all([
-      prisma.community.findUnique({ where: { id: d.communityId }, select: { name: true } }),
-      prisma.communityMembership.findMany({
-        where: { communityId: d.communityId, status: 'ACTIVE', personId: { not: personId } },
-        select: { personId: true, person: { select: { preferredLanguage: true } } },
-      }),
-      prisma.teaching.findUnique({ where: { id: teaching.id }, select: { detectedLanguage: true, titleTranslated: true } }),
-    ]);
-    for (const language of ['en', 'fr'] as const) {
-      const ids = recipients.filter((r) => r.person.preferredLanguage === language).map((r) => r.personId);
-      const title = translated?.titleTranslated && translated.detectedLanguage && translated.detectedLanguage !== language ? translated.titleTranslated : d.title;
-      await pushToPersons(ids, {
-        title: `${language === 'fr' ? '📖 Nouvel enseignement' : '📖 New teaching'} • ${community?.name ?? ''}`.trim(),
-        body: title.length > 120 ? `${title.slice(0, 120)}…` : title,
-        url: `/member/teachings/${teaching.id}`,
-      });
-    }
-  })().catch(() => {});
 
   res.status(201).json({ id: teaching.id, messageId: teaching.messageId, closesAt: teaching.closesAt });
 }));

@@ -1,6 +1,9 @@
-import type { Language, Prisma, ScheduledTeaching, ScheduledTeachingClip } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { Language, ScheduledTeaching, ScheduledTeachingClip } from '@prisma/client';
 import { prisma } from './prisma';
 import { canTeachIn, teachesAnywhere } from './groupTeachers';
+import { isCentralAdminPerson } from './centralAdmin';
+import { createTeachingWithQuiz, type TeachingQuestionInput } from './teachingCreate';
 import { isAllowedAttachmentMime, isStorageKeyForCommunity, maxBytesForMime } from './attachmentPolicy';
 import { createDownloadUrl, deleteObject, getObjectStream, headObject, isStorageConfigured } from './storage';
 import { isTranslationConfigured, transcribeAndStoreMessageAudio, transcribeAudioOnly, translateAndStoreMessage, translateText } from './translation';
@@ -57,7 +60,19 @@ export interface ScheduledView {
   missed: boolean;
   canChange: boolean;
   postedAt: string | null;
+  /** A counted teaching: when it posts it becomes a teaching with a quiz. Null for a normal post. */
+  quiz: null | { title: string; passMark: number; openDays: number; questions: TeachingQuestionInput[]; portion: { bookId: string; page: number; label: string | null } | null };
 }
+
+interface StoredQuiz {
+  passMark: number;
+  openDays: number;
+  questions: TeachingQuestionInput[];
+}
+const quizOf = (t: ScheduledTeaching): StoredQuiz | null => {
+  const q = t.quiz as unknown as StoredQuiz | null;
+  return q && typeof q === 'object' && Array.isArray(q.questions) ? q : null;
+};
 
 async function view(t: Teaching, now: Date): Promise<ScheduledView> {
   const community = await prisma.community.findUnique({ where: { id: t.communityId }, select: { name: true } });
@@ -80,6 +95,7 @@ async function view(t: Teaching, now: Date): Promise<ScheduledView> {
     missed: t.status !== 'POSTED' && t.postAt.getTime() < now.getTime(),
     canChange: t.status !== 'POSTED',
     postedAt: t.postedAt ? t.postedAt.toISOString() : null,
+    quiz: quizOf(t) && t.title ? { title: t.title, ...quizOf(t)!, portion: t.portionBookId && t.portionPage ? { bookId: t.portionBookId, page: t.portionPage, label: t.portionLabel } : null } : null,
   };
 }
 
@@ -294,6 +310,60 @@ export async function postScheduledNow(personId: string, id: string, now = new D
   return view(await fresh(id), now);
 }
 
+// ---- A counted teaching: a quiz and a book source ---------------------------------------------------------------
+
+export interface QuizInput {
+  title: string;
+  passMark: number;
+  openDays: number;
+  questions: TeachingQuestionInput[];
+  portion?: { bookId: string; page: number; label?: string } | null;
+}
+
+/**
+ * Makes a waiting teaching a counted one: when it posts it becomes a teaching with a quiz, so everyone in the group is followed
+ * (who read or listened to the end, who took the quiz, the results) the way the central admin's teachings are. Central admin only,
+ * and only with one recording.
+ */
+export async function setScheduledQuiz(personId: string, id: string, input: QuizInput, now = new Date()): Promise<ScheduledView> {
+  const t = await loadOpen(personId, id);
+  if (!(await isCentralAdminPerson(personId))) throw new ScheduleError('Only the central admin can add a quiz.', 403, 'ONLY_ADMIN');
+  if (t.clips.length !== 1) throw new ScheduleError('A quiz needs a single recording. Record in one language: the other language is made automatically.', 409, 'PAIR_NO_QUIZ');
+  const title = input.title.trim();
+  if (!title || title.length > 200) throw new ScheduleError('Give the teaching a title.', 400, 'BAD_TITLE');
+  if (input.questions.length < 1 || input.questions.length > 20) throw new ScheduleError('Add between 1 and 20 questions.', 400, 'BAD_QUESTIONS');
+  const questions: TeachingQuestionInput[] = [];
+  for (const q of input.questions) {
+    const textEn = q.textEn.trim();
+    const options = q.options.map((o) => ({ textEn: o.textEn.trim(), textFr: o.textFr?.trim() || undefined, isCorrect: o.isCorrect }));
+    if (!textEn || textEn.length > 500 || options.length < 2 || options.length > 6 || options.some((o) => !o.textEn || o.textEn.length > 300) || options.filter((o) => o.isCorrect).length !== 1) {
+      throw new ScheduleError('Each question needs a text, two to six answers, and exactly one correct answer.', 400, 'BAD_QUESTIONS');
+    }
+    questions.push({ textEn, textFr: q.textFr?.trim() || undefined, options });
+  }
+  if (!(Number.isInteger(input.passMark) && input.passMark >= 1 && input.passMark <= 100)) throw new ScheduleError('The pass mark is a number from 1 to 100.', 400, 'BAD_PASS_MARK');
+  if (!(Number.isInteger(input.openDays) && input.openDays >= 1 && input.openDays <= 60)) throw new ScheduleError('The quiz stays open for 1 to 60 days.', 400, 'BAD_OPEN_DAYS');
+  let portion: { bookId: string; page: number; label: string | null } | null = null;
+  if (input.portion) {
+    if (!(Number.isInteger(input.portion.page) && input.portion.page >= 1 && input.portion.page <= 10000)) throw new ScheduleError('Choose a page of the book.', 400, 'BAD_PORTION');
+    const book = await prisma.libraryBook.findUnique({ where: { id: input.portion.bookId }, select: { id: true } });
+    if (!book) throw new ScheduleError('The book was not found.', 404, 'NO_BOOK');
+    portion = { bookId: book.id, page: input.portion.page, label: input.portion.label?.trim() || null };
+  }
+  await prisma.scheduledTeaching.update({
+    where: { id: t.id },
+    data: { title, quiz: { passMark: input.passMark, openDays: input.openDays, questions } as unknown as Prisma.InputJsonValue, portionBookId: portion?.bookId ?? null, portionPage: portion?.page ?? null, portionLabel: portion?.label ?? null },
+  });
+  return view(await fresh(id), now);
+}
+
+/** Back to a normal post: no quiz, no book source. */
+export async function clearScheduledQuiz(personId: string, id: string, now = new Date()): Promise<ScheduledView> {
+  const t = await loadOpen(personId, id);
+  await prisma.scheduledTeaching.update({ where: { id: t.id }, data: { title: null, quiz: Prisma.JsonNull, portionBookId: null, portionPage: null, portionLabel: null } });
+  return view(await fresh(id), now);
+}
+
 // ---- Posting ---------------------------------------------------------------------------------------------------
 
 const EXT: Record<string, string> = { 'audio/webm': 'webm', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg', 'audio/aac': 'aac', 'audio/wav': 'wav' };
@@ -315,6 +385,25 @@ async function postOne(id: string, now: Date): Promise<boolean> {
     if (!community) throw new Error('group is gone');
     const conversation = await getOrCreateConversation(t.communityId);
     const pair = t.clips.length === 2;
+    // A counted teaching becomes a teaching with a quiz (the card, who read or listened, the results), not a plain voice message.
+    const quiz = quizOf(t);
+    if (quiz && t.title && !pair) {
+      const clip = t.clips[0]!;
+      const spokenText = (clip.language === 'fr' ? t.textFr : t.textEn)?.trim() || null;
+      const teaching = await createTeachingWithQuiz({
+        communityId: t.communityId,
+        personId: t.authorPersonId,
+        title: t.title,
+        text: spokenText,
+        attachment: { storageKey: clip.storageKey, originalFilename: `teaching.${EXT[clip.mimeType] ?? 'webm'}`, mimeType: clip.mimeType, byteSize: clip.byteSize },
+        questions: quiz.questions,
+        passMark: quiz.passMark,
+        openDays: quiz.openDays,
+        portion: t.portionBookId && t.portionPage ? { bookId: t.portionBookId, page: t.portionPage, label: t.portionLabel ?? undefined } : undefined,
+      });
+      await prisma.scheduledTeaching.update({ where: { id }, data: { messageId: teaching.messageId } });
+      return true;
+    }
     const en = t.textEn?.trim() || null;
     const fr = t.textFr?.trim() || null;
     const spoken = t.clips[0]!.language;
