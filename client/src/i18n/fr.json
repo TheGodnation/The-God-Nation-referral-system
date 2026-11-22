@@ -6001,6 +6001,146 @@
   "linkPreview": {
     "remove": "Envoyer sans la carte d'aperçu"
   },
+  "teachingGuide": {
+    "title": "Votre enseignement de la semaine : comment ça marche",
+    "link": "📘 Lire le guide simple : comment donner votre enseignement",
+    "back": "Retour à mon enseignement",
+    "lede": "Un guide simple. Lisez-le une fois. Ensuite, suivez les étapes chaque semaine.",
+    "short": {
+      "title": "En bref",
+      "items": [
+        "Une fois par semaine, vous enseignez pendant environ **15 minutes**. Vous parlez dans votre téléphone. L'application fait le reste.",
+        "Mais vous n'enregistrez **pas** 15 minutes d'un coup. Vous enregistrez par **petits morceaux d'environ 5 minutes**. Vous allez voir pourquoi juste en dessous.",
+        "Les autres membres vous écoutent. Ensuite, ils donnent une note à votre enseignement. Vous n'avez rien de difficile à faire."
+      ]
+    },
+    "pieces": {
+      "title": "Important : enregistrez par petits morceaux de 5 minutes",
+      "items": [
+        "N'enregistrez **pas** 15 minutes du début à la fin. Un enregistrement très long est trop gros pour que l'application l'écrive et le traduise.",
+        "Faites plutôt ceci : enregistrez environ **5 minutes**, et envoyez. Puis enregistrez les **5 minutes** suivantes, et envoyez. Puis les **5 dernières minutes**, et envoyez. Cela fait environ 3 morceaux.",
+        "Rien n'est perdu. Vos morceaux restent dans l'ordre, et les membres les entendent l'un après l'autre.",
+        "Les morceaux courts sont écrits et traduits plus vite et mieux. C'est le conseil le plus important de ce guide."
+      ]
+    },
+    "words": {
+      "title": "Les mots que vous allez voir",
+      "items": [
+        {
+          "term": "Note vocale",
+          "text": "Un message que vous dites avec votre voix au lieu de l'écrire. Vous touchez le micro, vous parlez, puis vous l'envoyez."
+        },
+        {
+          "term": "Groupe",
+          "text": "Une discussion avec beaucoup de personnes dans l'application. Votre enseignement va dans le **groupe Leadership**."
+        },
+        {
+          "term": "Carte de notation",
+          "text": "Une petite boîte qui apparaît dans le groupe, sous votre enseignement. Les membres la touchent pour dire si l'enseignement était bon."
+        },
+        {
+          "term": "Approuver",
+          "text": "Un bouton qui veut dire : « Je l'ai lu. C'est correct. Vous pouvez l'utiliser. »"
+        }
+      ]
+    },
+    "before": {
+      "title": "Étape 1. Préparez-vous (avant votre jour)",
+      "steps": [
+        "Ouvrez l'application. Allez sur la page **Discussions**.",
+        "En haut, vous verrez une boîte nommée [[Votre enseignement]]. Touchez-la.",
+        "Vous verrez **votre sujet** de la semaine, le **livre** et le **chapitre**. Vous verrez aussi le **texte de l'enseignement**.",
+        "Lisez-le lentement. Relisez-le si vous en avez besoin.",
+        "Regardez **votre jour et votre heure**. La page les montre de deux façons : en **heure du Cameroun**, et en **heure de votre téléphone**. Si vous n'êtes pas au Cameroun, utilisez l'heure de votre téléphone."
+      ],
+      "tip": "L'application vous envoie aussi un message privé de l'administrateur central avec votre sujet et votre heure. Vous pouvez répondre à ce message si vous avez une question."
+    },
+    "choose": {
+      "title": "Étape 2. Choisissez comment vous allez enseigner",
+      "items": [
+        "Il y a deux façons. **Choisissez-en une seule.** Si vous faites les deux, votre enseignement apparaîtra deux fois dans le groupe.",
+        "**La façon 1 est pour quand votre heure est arrivée : vous passez en direct.**",
+        "**La façon 2 est seulement pour avant votre heure : vous enregistrez à l'avance et l'application le publie pour vous.**",
+        "**Vous hésitez ? Choisissez la façon 1.** C'est la plus simple."
+      ]
+    },
+    "way1": {
+      "tag": "Façon 1 · En direct (quand votre heure est arrivée)",
+      "title": "Enseigner à votre heure",
+      "intro": "Quand votre heure est prête, vous passez simplement en direct et vous le faites. Faites-le par petits morceaux d'environ 5 minutes.",
+      "steps": [
+        "À votre heure, ouvrez l'application et allez dans le **groupe Leadership**.",
+        "Touchez le bouton du **micro**. Il enregistre tout seul, vous n'avez pas besoin de le maintenir.",
+        "Enseignez pendant environ **5 minutes**. Parlez clairement. Vous pouvez toucher [[Pause]] pour un petit repos, et [[Reprendre]] pour continuer.",
+        "Touchez [[Envoyer le message vocal]]. C'est votre premier morceau.",
+        "Touchez de nouveau le micro et enseignez les **5 minutes** suivantes. Envoyez. Faites-le une troisième fois pour le dernier morceau.",
+        "Regardez juste au-dessus de la zone où vous écrivez. Touchez le bouton [[J'ai terminé mon enseignement]].",
+        "Une carte de notation apparaît maintenant dans le groupe. Les membres peuvent écouter et noter."
+      ],
+      "tip": "Si vous oubliez de toucher le bouton, ne vous inquiétez pas. La carte apparaît toute seule, **25 minutes** après le début de votre heure."
+    },
+    "way2": {
+      "tag": "Façon 2 · À l'avance (seulement avant votre heure)",
+      "title": "Enregistrer avant votre heure",
+      "intro": "Vous enregistrez quand cela vous arrange. L'application garde votre enregistrement et le publie pour vous à votre heure. Vous n'avez pas besoin d'être là. Là encore, enregistrez par morceaux d'environ 5 minutes.",
+      "steps": [
+        "Ouvrez [[Votre enseignement]] (voir l'étape 1). Touchez [[Enregistrer mon enseignement]].",
+        "Si le téléphone demande d'utiliser le micro, touchez **Autoriser**.",
+        "Dites les premières **5 minutes**. Si vous avez besoin de vous reposer, touchez [[Pause]]. Rien n'est perdu. Touchez [[Reprendre]] pour continuer.",
+        "Touchez [[Arrêter]]. Écoutez si vous voulez. Puis touchez [[Utiliser cet enregistrement]].",
+        "Touchez maintenant [[Ajouter à l'enregistrement]]. Enregistrez les **5 minutes** suivantes. Touchez [[Arrêter]], puis [[Ajouter à mon enseignement]]. Faites-le encore une fois pour le dernier morceau.",
+        "Patientez quelques minutes. L'application écrit vos paroles. Vous pouvez quitter la page et revenir plus tard.",
+        "Quand le texte est prêt, **lisez-le**. Corrigez toute erreur, surtout les **noms** et les **versets bibliques**. Touchez [[Enregistrer mes corrections]].",
+        "Quand tout est correct, touchez [[Approuver]].",
+        "C'est tout. À votre heure, l'application publie votre enseignement dans le groupe, avec le texte écrit en dessous. Elle fait aussi l'autre langue (anglais ou français) toute seule."
+      ],
+      "tip": "Vous ne pouvez enregistrer à l'avance qu'**avant** l'heure de votre enseignement. Quand votre heure est arrivée, n'utilisez pas ceci. Passez simplement en direct (façon 1)."
+    },
+    "after": {
+      "title": "Étape 3. Après votre enseignement",
+      "items": [
+        "Les membres écoutent votre enseignement et touchent une note sur la carte.",
+        "Vous recevrez un avis qui dit **combien de personnes** ont noté.",
+        "On ne vous dira **pas** qui a noté. On ne vous dira pas ce qu'elles ont choisi. C'est voulu, pour que chacun soit honnête.",
+        "Vous ne pouvez pas noter votre propre enseignement."
+      ]
+    },
+    "trouble": {
+      "title": "Si quelque chose ne va pas",
+      "items": [
+        {
+          "term": "Le micro ne marche pas.",
+          "text": "Votre téléphone le bloque. Touchez **Autoriser** quand il le demande. S'il ne le demande pas, ouvrez les Paramètres de votre téléphone, trouvez l'application ou le navigateur, et autorisez le micro. Puis réessayez."
+        },
+        {
+          "term": "Le texte n'est pas apparu.",
+          "text": "Touchez [[Écrire le texte de nouveau]]. Si cela ne marche toujours pas, tapez les mots vous-même. Ou laissez comme cela. Votre enregistrement vocal sera quand même publié."
+        },
+        {
+          "term": "J'ai fait une erreur dans mon enregistrement.",
+          "text": "Avant votre heure, touchez [[Recommencer]] et enregistrez à nouveau."
+        },
+        {
+          "term": "J'ai oublié le jour.",
+          "text": "Ouvrez [[Votre enseignement]]. Il montre votre jour et votre heure. Vous recevez aussi une alerte la veille et une heure avant."
+        },
+        {
+          "term": "Je ne comprends pas quelque chose.",
+          "text": "Répondez au message privé de l'administrateur central. Posez votre question. Il est normal de demander."
+        }
+      ]
+    },
+    "remember": {
+      "title": "Souvenez-vous",
+      "items": [
+        "Enregistrez par petits morceaux d'environ **5 minutes**. Jamais 15 minutes d'un coup.",
+        "L'enregistrement à l'avance est seulement pour **avant** votre heure. Quand votre heure est arrivée, passez en direct.",
+        "Choisissez une seule façon : en direct, ou à l'avance.",
+        "Trouvez un endroit calme et parlez clairement.",
+        "Parlez dans la langue que vous connaissez le mieux. L'application fait l'autre langue pour vous."
+      ]
+    }
+  },
   "teachingRecording": {
     "heading": "Enregistrer mon enseignement à l'avance",
     "intro": "Enregistrez votre enseignement quand cela vous convient. À l'heure de votre enseignement, il est publié dans le groupe automatiquement, avec son texte écrit en dessous.",

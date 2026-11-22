@@ -6,13 +6,13 @@ import { isFrench } from './privateNotice';
 import { DAY, MIN, LEVELS, RotaError, emptyCounts, isRater, loadBase, pickText, slotStart, topicNumberFor, weekNumber, type Level } from './teachingRota';
 
 // The rating card in the teaching group's chat. When a teacher has finished (they tap "I have finished my teaching", or it
-// happens by itself 20 minutes after their slot starts) a card is posted in the group, right after their voice notes:
+// happens by itself 25 minutes after their slot starts) a card is posted in the group, right after their voice notes:
 // "{Name} has finished teaching {topic}. Listen to the teaching, then rate it." Members tap one of four levels, at any time,
 // and can change their mind. The group sees only how many gave each level (never who). The central admin's own rating is
 // shown to everyone, with their name. The teacher is told when someone rates (never by whom). Nobody rates their own.
 
 /** The card appears by itself this long after the slot starts, if the teacher has not tapped the button. */
-export const AUTO_CARD_AFTER_MIN = 20;
+export const AUTO_CARD_AFTER_MIN = 25;
 /** A card that is overdue by more than this is not posted any more (the server was down for days). */
 const AUTO_CARD_CUTOFF_DAYS = 3;
 /** The "I have finished" button is there from the start of the slot until this long after it. */
@@ -136,7 +136,7 @@ export async function finishTeaching(personId: string, now = new Date()) {
   return { posted };
 }
 
-/** Posts the card for every teaching whose card is overdue (20 minutes after the slot started, the teacher did not tap). */
+/** Posts the card for every teaching whose card is overdue (25 minutes after the slot started, the teacher did not tap). */
 export async function postDueRatingCards(now = new Date()): Promise<number> {
   const settings = await prisma.teachingSettings.findUnique({ where: { id: 'main' }, select: { enabled: true, ratersCommunityId: true, startDate: true } });
   if (!settings?.enabled || !settings.ratersCommunityId) return 0;
