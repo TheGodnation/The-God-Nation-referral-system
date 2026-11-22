@@ -3224,10 +3224,13 @@ model TrainingEnrollment {
   // "Study now, pay later": how many books may be owed at once (0 = none;
   // at most 5), set when the central admin grants a grace request.
   graceBooks        Int                      @default(0)
-  // Books already completed on WhatsApp, before the app: the first N books count as done (open, no payment owed,
-  // passed for the certificate and "ready to lead"). Set one person at a time by the central admin.
+  // Books already studied and passed on WhatsApp, before the app: the first N books count as done (open, passed for the
+  // certificate and "ready to lead"); whether they are paid for is the separate booksPaid. Set one person at a time by the central admin.
   booksCredited     Int                      @default(0)
   booksCreditedAt   DateTime?
+  // Books paid for on WhatsApp (the first N books): open, nothing owed on them. A person can have paid for more books than they
+  // have passed (paid in advance, still studying), or have studied more than they paid for (the difference is owed).
+  booksPaid         Int                      @default(0)
   // When the "continue on the website" email was sent to someone the central admin approved (the Play Store app
   // shows no prices or payment, so the website link goes by email, never inside the app).
   websiteInvitedAt  DateTime?

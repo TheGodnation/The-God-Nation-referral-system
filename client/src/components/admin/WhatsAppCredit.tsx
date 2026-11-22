@@ -11,6 +11,7 @@ interface CreditView {
   whatsappNumber: string;
   enrolled: boolean;
   booksCredited: number;
+  booksPaid?: number;
   totalBooks: number;
   booksOnSite: number;
   passedByExam: number;
@@ -20,6 +21,8 @@ export function WhatsAppCredit({ onChanged }: { onChanged?: () => void }) {
   const { t } = useTranslation();
   const [view, setView] = useState<CreditView | null>(null);
   const [books, setBooks] = useState('0');
+  const [paid, setPaid] = useState('0');
+  const [paidTouched, setPaidTouched] = useState(false);
   const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
@@ -30,6 +33,8 @@ export function WhatsAppCredit({ onChanged }: { onChanged?: () => void }) {
       const v = await api.get<CreditView>(`/api/admin/library/trainees/${person.id}/credit`);
       setView(v);
       setBooks(String(v.booksCredited));
+      setPaid(String(v.booksPaid ?? v.booksCredited));
+      setPaidTouched(false);
       setNotify(true);
     } catch {
       setView(null);
@@ -40,7 +45,8 @@ export function WhatsAppCredit({ onChanged }: { onChanged?: () => void }) {
   async function save() {
     if (!view) return;
     const count = parseInt(books, 10);
-    if (!Number.isInteger(count) || count < 0 || count > view.totalBooks) {
+    const paidCount = parseInt(paid, 10);
+    if (!Number.isInteger(count) || count < 0 || count > view.totalBooks || !Number.isInteger(paidCount) || paidCount < 0 || paidCount > view.totalBooks) {
       setNote({ ok: false, text: t('whatsappCredit.bad_number', { total: view.totalBooks }) });
       return;
     }
@@ -49,8 +55,8 @@ export function WhatsAppCredit({ onChanged }: { onChanged?: () => void }) {
     setBusy(true);
     setNote(null);
     try {
-      const res = await api.post<{ booksCredited: number; notified: boolean }>(`/api/admin/library/trainees/${view.personId}/credit`, { books: count, notify });
-      setView({ ...view, booksCredited: res.booksCredited, enrolled: true });
+      const res = await api.post<{ booksCredited: number; booksPaid?: number; notified: boolean }>(`/api/admin/library/trainees/${view.personId}/credit`, { books: count, paid: paidCount, notify });
+      setView({ ...view, booksCredited: res.booksCredited, booksPaid: res.booksPaid ?? paidCount, enrolled: true });
       setNote({ ok: true, text: t('whatsappCredit.saved', { name: view.name, count: res.booksCredited }) + (res.notified ? ` ${t('whatsappCredit.told')}` : '') });
       onChanged?.();
     } catch (err) {
@@ -59,6 +65,10 @@ export function WhatsAppCredit({ onChanged }: { onChanged?: () => void }) {
       setBusy(false);
     }
   }
+
+  const studiedNow = parseInt(books, 10) || 0;
+  const paidNow = parseInt(paid, 10) || 0;
+  const owingNow = Math.max(0, studiedNow - paidNow);
 
   return (
     <section className="card space-y-3" data-testid="whatsapp-credit">
@@ -79,6 +89,7 @@ export function WhatsAppCredit({ onChanged }: { onChanged?: () => void }) {
           </p>
           <p className="text-xs text-slate-600" data-testid="credit-now">
             {view.booksCredited > 0 ? t('whatsappCredit.now', { count: view.booksCredited }) : t('whatsappCredit.none_yet')}
+            {` · ${t('whatsappCredit.paid_now', { count: view.booksPaid ?? view.booksCredited })}`}
             {view.passedByExam > 0 && ` · ${t('whatsappCredit.by_exam', { count: view.passedByExam })}`}
             {!view.enrolled && ` · ${t('whatsappCredit.not_started')}`}
           </p>
@@ -91,10 +102,33 @@ export function WhatsAppCredit({ onChanged }: { onChanged?: () => void }) {
               inputMode="numeric"
               className="input mt-1 w-28"
               value={books}
-              onChange={(e) => setBooks(e.target.value)}
+              onChange={(e) => {
+                setBooks(e.target.value);
+                if (!paidTouched) setPaid(e.target.value);
+              }}
               data-testid="credit-input"
             />
           </label>
+          <label className="block text-sm font-medium text-slate-800">
+            {t('whatsappCredit.paid_label', { total: view.totalBooks })}
+            <input
+              type="number"
+              min={0}
+              max={view.totalBooks}
+              inputMode="numeric"
+              className="input mt-1 w-28"
+              value={paid}
+              onChange={(e) => {
+                setPaid(e.target.value);
+                setPaidTouched(true);
+              }}
+              data-testid="paid-input"
+            />
+          </label>
+          {owingNow > 0 && (
+            <p className="rounded bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-900" data-testid="owing-line">{t('whatsappCredit.owing', { count: owingNow })}</p>
+          )}
+          {paidNow > studiedNow && <p className="text-sm text-slate-600" data-testid="advance-line">{t('whatsappCredit.advance', { count: paidNow - studiedNow })}</p>}
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
             {t('whatsappCredit.tell_them')}

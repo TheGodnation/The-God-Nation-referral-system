@@ -73,6 +73,57 @@ describe('Books completed on WhatsApp', () => {
     expect((await prisma.trainingEnrollment.findUnique({ where: { personId: p.id } }))?.status).toBe('ACTIVE');
   });
 
+  it('keeps what was studied apart from what was paid: studied 3 but paid 2 is open, passed and owes 1; paid 4 but studied 0 is open, not passed and owes nothing', async () => {
+    await programme(4);
+    const { agent, csrf, adminUser } = await admin();
+    const founder = await person('Founder');
+    await prisma.user.update({ where: { id: adminUser.id }, data: { personId: founder.id } });
+
+    const owing = await person('Owing');
+    const res = await agent.post(`/api/admin/library/trainees/${owing.id}/credit`).set('X-CSRF-Token', csrf).send({ books: 3, paid: 2 });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ booksCredited: 3, booksPaid: 2, owing: 1 });
+    const view = (await agent.get(`/api/admin/library/trainees/${owing.id}/credit`)).body;
+    expect(view).toMatchObject({ booksCredited: 3, booksPaid: 2 });
+    const owingBooks = await getTrainingBooksFor(owing.id);
+    expect(owingBooks.map((b) => ({ n: b.trainingOrder, open: b.unlocked, passed: b.exam?.passed, pay: b.payment }))).toEqual([
+      { n: 1, open: true, passed: true, pay: 'PAID' },
+      { n: 2, open: true, passed: true, pay: 'PAID' },
+      { n: 3, open: true, passed: true, pay: null }, // studied, not paid: owed
+      { n: 4, open: false, passed: false, pay: null }, // the unpaid book above keeps the next one closed
+    ]);
+    // The unpaid book is recorded as opened and owed, the paid ones are not
+    expect((await prisma.trainingBookOpen.findMany({ where: { personId: owing.id }, include: { book: true } })).map((o) => o.book.trainingOrder)).toEqual([3]);
+    // and they are told, with the number of books they owe
+    const chat = await prisma.privateMessage.findFirstOrThrow({ where: { senderPersonId: founder.id, body: { contains: 'You still owe 1 book' } } });
+    expect(chat.body).toContain('3 books already studied on WhatsApp');
+
+    const advance = await person('Advance');
+    await agent.post(`/api/admin/library/trainees/${advance.id}/credit`).set('X-CSRF-Token', csrf).send({ books: 0, paid: 4 }).expect(200);
+    const advanceBooks = await getTrainingBooksFor(advance.id);
+    expect(advanceBooks.map((b) => ({ n: b.trainingOrder, open: b.unlocked, passed: b.exam?.passed, pay: b.payment }))).toEqual([
+      { n: 1, open: true, passed: false, pay: 'PAID' },
+      { n: 2, open: true, passed: false, pay: 'PAID' },
+      { n: 3, open: true, passed: false, pay: 'PAID' },
+      { n: 4, open: true, passed: false, pay: 'PAID' },
+    ]);
+    expect(await prisma.trainingBookOpen.count({ where: { personId: advance.id } })).toBe(0);
+
+    // Paying the owed book afterwards (paid raised to 3) clears it
+    await agent.post(`/api/admin/library/trainees/${owing.id}/credit`).set('X-CSRF-Token', csrf).send({ books: 3, paid: 3 }).expect(200);
+    expect((await getTrainingBooksFor(owing.id)).find((b) => b.trainingOrder === 3)?.payment).toBe('PAID');
+    // book 3 is no longer owed; the next book (4) opens by the usual rule
+    expect((await prisma.trainingBookOpen.findMany({ where: { personId: owing.id }, include: { book: true } })).map((o) => o.book.trainingOrder)).toEqual([4]);
+  });
+
+  it('still treats the books studied as paid when no paid number is sent', async () => {
+    await programme(3);
+    const { agent, csrf } = await admin();
+    const p = await person('Old way');
+    const res = await agent.post(`/api/admin/library/trainees/${p.id}/credit`).set('X-CSRF-Token', csrf).send({ books: 2 });
+    expect(res.body).toMatchObject({ booksCredited: 2, booksPaid: 2, owing: 0 });
+  });
+
   it('counts for the certificate and for "ready to lead" once every book is done', async () => {
     await programme(3);
     const { agent, csrf } = await admin();

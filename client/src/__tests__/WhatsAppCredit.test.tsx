@@ -16,8 +16,8 @@ function mockFetch() {
       let res: unknown = {};
       if (url.startsWith('/api/admin/people')) res = { items: [{ id: 'p1', name: 'Marie Ngono', whatsappNumber: '+237600000001' }] };
       else if (url === '/api/admin/library/trainees/p1/credit' && method === 'GET')
-        res = { personId: 'p1', name: 'Marie Ngono', whatsappNumber: '+237600000001', enrolled: true, booksCredited: credited, totalBooks: 16, booksOnSite: 15, passedByExam: 0 };
-      else if (url === '/api/admin/library/trainees/p1/credit' && method === 'POST') res = { booksCredited: body.books, notified: body.notify };
+        res = { personId: 'p1', name: 'Marie Ngono', whatsappNumber: '+237600000001', enrolled: true, booksCredited: credited, booksPaid: credited, totalBooks: 16, booksOnSite: 15, passedByExam: 0 };
+      else if (url === '/api/admin/library/trainees/p1/credit' && method === 'POST') res = { booksCredited: body.books, booksPaid: body.paid, notified: body.notify };
       return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => res };
     }),
   );
@@ -49,7 +49,25 @@ describe('Books already done on WhatsApp (admin)', () => {
     fireEvent.click(screen.getByTestId('credit-save'));
     await screen.findByText(/Marie Ngono now has 9 books counted as done/);
     expect(screen.getByText(/They were told by message/)).toBeInTheDocument();
-    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ books: 9, notify: true });
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ books: 9, paid: 9, notify: true }); // paid follows studied until it is changed
+  });
+
+  it('records books studied and books paid for apart, and shows how many are owed', async () => {
+    mockFetch();
+    render(<WhatsAppCredit />);
+    await choosePerson();
+    fireEvent.change(screen.getByTestId('credit-input'), { target: { value: '15' } });
+    expect((screen.getByTestId('paid-input') as HTMLInputElement).value).toBe('15');
+    fireEvent.change(screen.getByTestId('paid-input'), { target: { value: '10' } });
+    expect(screen.getByTestId('owing-line')).toHaveTextContent('Owes 5 books');
+    fireEvent.click(screen.getByTestId('credit-save'));
+    await screen.findByText(/Marie Ngono now has 15 books counted as done/);
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ books: 15, paid: 10, notify: true });
+    // paid in advance, not studied yet
+    fireEvent.change(screen.getByTestId('credit-input'), { target: { value: '0' } });
+    fireEvent.change(screen.getByTestId('paid-input'), { target: { value: '15' } });
+    expect(screen.queryByTestId('owing-line')).toBeNull();
+    expect(screen.getByTestId('advance-line')).toHaveTextContent('Paid in advance for 15 books');
   });
 
   it('refuses a number above the programme, and asks before lowering one', async () => {

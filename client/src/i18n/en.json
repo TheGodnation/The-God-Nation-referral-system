@@ -5637,13 +5637,13 @@
   },
   "whatsappCredit": {
     "title": "Books already done on WhatsApp",
-    "help": "For leaders who studied on WhatsApp before the app. Search the person, then enter how many books they completed there. Those books open for them (reading and exams), nothing is owed on them, they count as passed for the certificate, and the next book opens so they carry on from there.",
+    "help": "For leaders who studied or paid on WhatsApp before the app. Search the person, then enter two numbers: the books they studied and passed there, and the books they paid for there. Books studied count as passed for the certificate and are open. Books paid for are open and owe nothing, even if not passed yet (paid in advance). A book studied but not paid for stays open and shows as owed until it is paid.",
     "choose": "Choose",
     "now": "Recorded now: {{count}} books done on WhatsApp.",
     "none_yet": "Nothing recorded yet.",
     "by_exam": "{{count}} more passed in the app",
     "not_started": "has not started the training in the app yet (this will start it)",
-    "label": "Books completed on WhatsApp (0 to {{total}})",
+    "label": "Books studied and passed on WhatsApp (0 to {{total}})",
     "tell_them": "Send them a message in the app to say so",
     "save": "Save",
     "saved": "Saved: {{name}} now has {{count}} books counted as done.",
@@ -5651,7 +5651,11 @@
     "bad_number": "Enter a whole number from 0 to {{total}}.",
     "confirm_lower": "{{name}} has {{from}} books recorded. Lower it to {{to}}? Books after number {{to}} will close again unless they passed their exams.",
     "load_failed": "Could not load this person. Please try again.",
-    "save_failed": "Could not save. Please try again."
+    "save_failed": "Could not save. Please try again.",
+    "paid_label": "Books paid for (0 to {{total}})",
+    "paid_now": "paid for: {{count}}",
+    "owing": "Owes {{count}} books: studied but not paid for yet.",
+    "advance": "Paid in advance for {{count}} books they have not passed yet (open, nothing owed)."
   },
   "postMenu": {
     "more": "More options"

@@ -54,7 +54,7 @@ export interface TrainingBookState {
   coverVersion: string | null;
   coverFrVersion: string | null;
   unlocked: boolean;
-  /** Completed on WhatsApp before the app (set by the central admin): open, nothing owed, counts as passed. */
+  /** Studied and passed on WhatsApp before the app (set by the central admin): open, counts as passed. */
   credited: boolean;
   /** Payment for this book: confirmed, or waiting (claimed / automatic in progress). */
   payment: 'PAID' | 'CLAIMED' | 'PENDING' | null;
@@ -66,7 +66,7 @@ export interface TrainingBookState {
 /** All training books in order, with which ones are open for this person. */
 export async function getTrainingBooksFor(personId: string): Promise<TrainingBookState[]> {
   const [enrollment, books, opens, payments] = await Promise.all([
-    prisma.trainingEnrollment.findUnique({ where: { personId }, select: { status: true, graceBooks: true, booksCredited: true } }),
+    prisma.trainingEnrollment.findUnique({ where: { personId }, select: { status: true, graceBooks: true, booksCredited: true, booksPaid: true } }),
     prisma.libraryBook.findMany({
       where: { kind: 'TRAINING', trainingOrder: { not: null } },
       orderBy: { trainingOrder: 'asc' },
@@ -81,6 +81,8 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
   const active = enrollment?.status === 'ACTIVE';
   const owedAllowed = Math.max(1, Math.min(MAX_GRACE_BOOKS, enrollment?.graceBooks ?? 0));
   const creditedBooks = enrollment?.booksCredited ?? 0;
+  // Paid for on WhatsApp (possibly more than the books passed: paid in advance).
+  const paidBooks = enrollment?.booksPaid ?? 0;
   const openedBefore = new Set(opens.map((o) => o.bookId));
   const paymentOf = (bookId: string): TrainingBookState['payment'] => {
     const mine = payments.filter((p) => p.bookId === bookId);
@@ -107,12 +109,14 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
     const mine = attempts.filter((a) => a.assessmentId === b.exam?.id);
     const best = mine.reduce<number | null>((max, a) => (a.percentage !== null && (max === null || a.percentage > max) ? a.percentage : max), null);
     const passed = credited || mine.some((a) => a.passed === true);
-    // A book completed on WhatsApp counts as paid: nothing is owed on it and it cannot be paid for again.
-    const payment = credited ? 'PAID' : paymentOf(b.id);
+    // A book paid for on WhatsApp counts as paid: nothing is owed on it and it cannot be paid for again. A book studied on WhatsApp
+    // but not paid for there is open and passed, and owed until it is paid.
+    const prepaid = i < paidBooks;
+    const payment = prepaid ? 'PAID' : paymentOf(b.id);
     const byRule = i === 0 || (previousOpen && previousPassed && owed < owedAllowed);
-    const unlocked = active && (credited || openedBefore.has(b.id) || byRule);
-    // Credited books are not recorded as "opened": an opened book is one that may be owed.
-    if (unlocked && !credited && !openedBefore.has(b.id)) newlyOpened.push(b.id);
+    const unlocked = active && (credited || prepaid || openedBefore.has(b.id) || byRule);
+    // A paid book is not recorded as "opened": an opened book is one that may be owed.
+    if (unlocked && !prepaid && !openedBefore.has(b.id)) newlyOpened.push(b.id);
     const lockedBecause: TrainingBookState['lockedBecause'] = unlocked
       ? null
       : !active
