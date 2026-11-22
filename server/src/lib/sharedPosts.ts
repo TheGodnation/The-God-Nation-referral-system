@@ -160,9 +160,18 @@ export async function moreShared(exclude: { kind: SharedKind; id: string }, limi
     .slice(0, limit);
 }
 
-/** For the link preview in WhatsApp: the title and the first lines, in the link's language. Null when the link is closed. */
+/** The post's writing as plain sentences for a link card: no ## / ** marks, and not starting with its own heading again. */
+export function previewText(title: string, body: string): string {
+  const clean = (t: string) => t.replace(/^\s{0,3}#{1,6}\s*/, '').replace(/^\s*[-•]\s+/, '').replace(/[*_~`#]/g, '').replace(/\s+/g, ' ').trim();
+  const head = clean(title);
+  let text = body.split('\n').map(clean).filter(Boolean).join(' ');
+  if (head && text.toLowerCase().startsWith(head.toLowerCase())) text = text.slice(head.length).replace(/^[\s:.\-–—]+/, '');
+  return text;
+}
+
+/** For the link preview (WhatsApp, Facebook...): the title and the first lines, in the link's language. Null when the link is closed. */
 export async function sharedPreview(kind: SharedKind, id: string, lang: 'en' | 'fr'): Promise<{ title: string; text: string } | null> {
   const item = await publicItem(kind, id);
   if (!item) return null;
-  return { title: item.title[lang], text: excerpt(item.body[lang]) };
+  return { title: item.title[lang], text: excerpt(previewText(item.title[lang], item.body[lang])) };
 }
