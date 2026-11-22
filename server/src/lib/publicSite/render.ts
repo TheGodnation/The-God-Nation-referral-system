@@ -1,3 +1,4 @@
+import { googleVerificationTag } from '../siteVerification';
 import { APP_URL } from '../env';
 import { cardImageFile } from '../ogMeta';
 import { CSS, CSS_ARTICLES } from './style';
@@ -184,7 +185,8 @@ function head(p: PageRef, ctx: Ctx): string {
     ld.push({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: `${APP_URL}${c.path}` })) });
   }
   const og = p.key === 'book' ? `${APP_URL}${p.book!.cover[p.lang].src}` : p.key === 'article' && p.article!.imageUrl && p.article!.imageAlt[p.lang] ? (p.article!.imageUrl.startsWith('/') ? `${APP_URL}${p.article!.imageUrl}` : p.article!.imageUrl) : `${APP_URL}/${cardImageFile(p.lang)}`;
-  return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f2260">
+  const verification = googleVerificationTag();
+  return `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f2260">${verification ? `\n${verification}` : ''}
 <title>${esc(title)}</title><meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${url}">
 ${indexable ? '' : '<meta name="robots" content="noindex,follow">\n'}${alts.join('\n')}
