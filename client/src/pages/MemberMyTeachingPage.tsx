@@ -31,10 +31,12 @@ function WeekCard({ week, label, open, showHow }: { week: TeachingWeek; label: s
         {week.status === 'now' && <p className="mt-1 text-sm font-semibold text-amber-700">{t('teachingRota.now')}</p>}
         {showHow && <p className="mt-1 text-sm text-slate-600">{t('teachingRota.how_send')}</p>}
       </div>
-      {week.book?.canOpen && (
+      {week.book?.canOpen ? (
         <Link to={`/member/read/${week.book.id}`} className="btn-secondary inline-flex w-full justify-center" data-testid="open-book">
           📖 {t('teachingRota.open_book')}
         </Link>
+      ) : (
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600" data-testid="book-missing">📖 {t('teachingRota.book_missing')}</p>
       )}
       <details open={open}>
         <summary className="cursor-pointer text-sm font-semibold text-brand-700">{t('teachingRota.show_teaching')}</summary>

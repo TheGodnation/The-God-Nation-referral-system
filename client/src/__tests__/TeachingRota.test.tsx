@@ -46,12 +46,13 @@ describe('My teaching page', () => {
     expect(screen.getByText(/Teach by voice note in the Leadership group/)).toBeInTheDocument();
   });
 
-  it('opens the book only when the teacher is allowed to read it', async () => {
+  it('opens the book when it is there, and says so when the book is not available yet', async () => {
     vi.stubGlobal('fetch', vi.fn(() => json(view({ weeks: [week({ book: { id: 'b1', canOpen: true } }), week({ weekStart: '2026-11-30', isCurrent: false, book: { id: 'b2', canOpen: false } })] }))));
     page();
     const link = await screen.findByTestId('open-book');
     expect(link).toHaveAttribute('href', '/member/read/b1');
     expect(screen.getAllByTestId('open-book')).toHaveLength(1);
+    expect(screen.getByTestId('book-missing')).toHaveTextContent('The book for this teaching is not available yet');
   });
 
   it('says it is done once the slot has passed, and tells a first-week teacher when it starts', async () => {
