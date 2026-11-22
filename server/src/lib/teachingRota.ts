@@ -181,14 +181,18 @@ export const pickText = (lang: 'en' | 'fr', topic: { textEn: unknown; textFr: un
  * other word (written "Volume 2|Volume II|Volume Two" for the ways a title may be spelled) must appear as a whole word, so
  * "Volume II" never matches "Volume III". Returns null when no book (or more than one) fits.
  */
-export async function resolveBook(words: unknown, personId: string): Promise<{ id: string; canOpen: boolean } | null> {
+export async function findBookId(words: unknown): Promise<string | null> {
   if (!Array.isArray(words) || words.length === 0 || typeof words[0] !== 'string') return null;
   const candidates = await prisma.libraryBook.findMany({ where: { titleEn: { contains: (words[0] as string).split('|')[0].trim(), mode: 'insensitive' } }, select: { id: true, titleEn: true } });
   const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const hasWord = (title: string, alt: string) => new RegExp(`(^|[^A-Za-z0-9])${esc(alt.trim())}([^A-Za-z0-9]|$)`, 'i').test(title);
   const fits = candidates.filter((b) => (words as string[]).slice(1).every((w) => w.split('|').some((alt) => hasWord(b.titleEn, alt))));
-  if (fits.length !== 1) return null;
-  return { id: fits[0].id, canOpen: await canReadBook(personId, fits[0].id) };
+  return fits.length === 1 ? fits[0].id : null;
+}
+
+export async function resolveBook(words: unknown, personId: string): Promise<{ id: string; canOpen: boolean } | null> {
+  const id = await findBookId(words);
+  return id ? { id, canOpen: await canReadBook(personId, id) } : null;
 }
 
 export async function teacherView(personId: string, now = new Date()) {
@@ -311,6 +315,8 @@ export async function adminOverview(now = new Date()) {
     };
   });
 
+  // Whether each teaching's book can be found in the library (it is what the teacher's "Open the book" button opens).
+  const bookIds = await Promise.all(topics.map((t) => findBookId(t.bookWords)));
   const active = rows.filter((r) => r.active);
   const warnings: string[] = [];
   if (!settings || topics.length === 0) warnings.push('NO_PLAN');
@@ -322,12 +328,13 @@ export async function adminOverview(now = new Date()) {
   const frenchNeeded = active.some((r) => r.language === 'fr');
   if (frenchNeeded && topics.some((t) => !t.textFr)) warnings.push('FRENCH_MISSING');
   if (!settings?.ratersCommunityId) warnings.push('NO_RATING_GROUP');
+  if (bookIds.some((id) => id === null)) warnings.push('BOOK_MISSING');
 
   return {
     settings: settings ? { enabled: settings.enabled, startDate: dayKey(settings.startDate), frenchChecked: settings.frenchChecked, started: now.getTime() >= settings.startDate.getTime() } : null,
     raters: await raterInfo(settings?.ratersCommunityId ?? null),
     weeks: weeks.map(dayKey),
-    topics: topics.map((t) => ({ number: t.number, kind: t.kind, title: (t.textEn as TopicText).topic, hasFrench: Boolean(t.textFr) })),
+    topics: topics.map((t, i) => ({ number: t.number, kind: t.kind, title: (t.textEn as TopicText).topic, hasFrench: Boolean(t.textFr), hasBook: bookIds[i] !== null })),
     teachers: rows,
     warnings,
     frenchNeeded,

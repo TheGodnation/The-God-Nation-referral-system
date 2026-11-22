@@ -34,7 +34,7 @@ interface Overview {
   settings: { enabled: boolean; startDate: string; frenchChecked: boolean; started: boolean } | null;
   raters: { communityId: string | null; communityName: string | null; count: number };
   weeks: string[];
-  topics: { number: number; kind: string; title: string; hasFrench: boolean }[];
+  topics: { number: number; kind: string; title: string; hasFrench: boolean; hasBook?: boolean }[];
   teachers: TeacherRow[];
   warnings: string[];
   frenchNeeded: boolean;
@@ -58,6 +58,7 @@ const WARNING_KEYS: Record<string, string> = {
   SAME_SLOT: 'teachingRota.w_same_slot',
   FRENCH_MISSING: 'teachingRota.w_french_missing',
   NO_RATING_GROUP: 'teachingRota.w_no_rating_group',
+  BOOK_MISSING: 'teachingRota.w_book_missing',
 };
 
 function MemberPicker({ base, onPick }: { base: string; onPick: (id: string) => void }) {
@@ -338,6 +339,7 @@ function TopicReader({ base, topics, lang, setLang, onChanged }: { base: string;
                 {tp.number}. {tp.title}
               </span>
               <span className={`text-xs ${tp.hasFrench ? 'text-green-700' : 'text-amber-700'}`}>{tp.hasFrench ? '🇫🇷 ✓' : t('teachingRota.no_french')}</span>
+              {tp.hasBook === false && <span className="text-xs text-amber-700">{t('teachingRota.no_book')}</span>}
             </button>
             {open === tp.number && (
               <div className="mt-3 space-y-3">

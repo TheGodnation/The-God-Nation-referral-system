@@ -154,6 +154,9 @@ export async function getTrainingBooksFor(personId: string): Promise<TrainingBoo
 export async function canReadBook(personId: string, bookId: string): Promise<boolean> {
   const book = await prisma.libraryBook.findUnique({ where: { id: bookId }, include: { devotional: true } });
   if (!book || !(book.storageKey || book.storageKeyFr)) return false;
+  // A teacher on the weekly teaching list can read any of the books to prepare (they were paid for on WhatsApp and the central admin
+  // records that later). This only lets them read: nothing is marked as opened, owed or paid.
+  if (book.kind !== 'DEVOTIONAL' && (await prisma.teachingTeacher.findFirst({ where: { personId, active: true }, select: { id: true } }))) return true;
   // The monthly Dominion Clinic book: only a member it was sent to (the central admin always) can open it.
   if (book.kind === 'DEVOTIONAL') return Boolean(book.devotional && (await canSeeDevotional(personId, book.devotional)) && (await bookWasSentTo(personId, book.id)));
   const books = await getTrainingBooksFor(personId);

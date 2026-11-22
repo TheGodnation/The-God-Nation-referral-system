@@ -339,6 +339,30 @@ describe('finding the book on the site', () => {
   });
 });
 
+describe('a weekly teacher reading the books to prepare', () => {
+  it('can open any of the books even before it is unlocked for them, and nothing is marked as opened, owed or paid', async () => {
+    const tag = `tr${Math.random().toString(36).slice(2, 7)}`;
+    const book = await prisma.libraryBook.create({ data: { kind: 'TRAINING', trainingOrder: 9, titleEn: `${tag} Keys, Volume IX`, storageKey: `books/${tag}.pdf` } as any });
+    const monthly = await prisma.libraryBook.create({ data: { kind: 'DEVOTIONAL', titleEn: `${tag} Monthly`, storageKey: `books/${tag}-m.pdf` } as any });
+    const teacher = await member('Teacher Reader');
+    const plain = await member('Plain Reader');
+    await prisma.teachingTeacher.create({ data: { name: 'Teacher Reader', personId: teacher.person.id, dayOfWeek: 1, startMinute: 420, startTopic: 1, active: true } });
+    try {
+      expect((await resolveBook([`${tag} Keys`, 'Volume 9|Volume IX'], teacher.person.id))?.canOpen).toBe(true);
+      expect((await resolveBook([`${tag} Keys`, 'Volume 9|Volume IX'], plain.person.id))?.canOpen).toBe(false); // not a teacher, not unlocked
+      expect(await prisma.trainingBookOpen.count({ where: { personId: teacher.person.id } })).toBe(0);
+      expect(await prisma.bookPayment.count({ where: { personId: teacher.person.id } })).toBe(0);
+      // The monthly book keeps its own rule (it must have been sent to the member).
+      expect((await resolveBook([`${tag} Monthly`], teacher.person.id))?.canOpen).toBe(false);
+      // and the reader itself lets the teacher in
+      expect((await teacher.get(`/api/member/library/books/${book.id}`)).status).not.toBe(404);
+    } finally {
+      await prisma.teachingTeacher.deleteMany({ where: { personId: teacher.person.id } });
+      await prisma.libraryBook.deleteMany({ where: { id: { in: [book.id, monthly.id] } } });
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Ratings and reminders. Plan: topics 1-3, week 0 starts Monday 23 November 2026.
 //   Alpha: Monday 07:00   Beta: Monday 16:00   Gamma: Tuesday 20:00     (Cameroon time, GMT+1)
