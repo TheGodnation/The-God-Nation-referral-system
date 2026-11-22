@@ -1,6 +1,6 @@
 import type { Language, Prisma, ScheduledTeaching, ScheduledTeachingClip } from '@prisma/client';
 import { prisma } from './prisma';
-import { isCentralAdminPerson } from './centralAdmin';
+import { canTeachIn, teachesAnywhere } from './groupTeachers';
 import { isAllowedAttachmentMime, isStorageKeyForCommunity, maxBytesForMime } from './attachmentPolicy';
 import { createDownloadUrl, deleteObject, getObjectStream, headObject, isStorageConfigured } from './storage';
 import { isTranslationConfigured, transcribeAndStoreMessageAudio, transcribeAudioOnly, translateAndStoreMessage, translateText } from './translation';
@@ -11,7 +11,7 @@ import { pushToPersons } from './push';
 // it is posted. The words are written from the recording, corrected and approved by the author in their own language, and the other
 // language is made automatically when only one was recorded. At the chosen time it is posted in the group under the author's name.
 // There is no topic, no fixed weekly slot and no rating: this is the author's own way of teaching, in any group.
-// Today only the central admin may use it; canSchedule is the one place to widen that later (teachers chosen per group).
+// The central admin may use it in any group; teachers the central admin allowed (lib/groupTeachers.ts) may use it in their groups.
 
 export class ScheduleError extends Error {
   constructor(message: string, public status = 400, public code?: string) {
@@ -29,9 +29,9 @@ const POST_WINDOW_MS = 3 * 24 * 60 * MIN;
 const MIN_LEAD_MS = 1 * MIN;
 const MAX_AHEAD_MS = 120 * 24 * 60 * MIN;
 
-/** Who may schedule a teaching in a group. For now the central admin, in any group. */
-export async function canSchedule(personId: string, _communityId?: string): Promise<boolean> {
-  return isCentralAdminPerson(personId);
+/** Who may schedule a teaching: the central admin in any group, a teacher in the groups they were allowed in (see groupTeachers). */
+export async function canSchedule(personId: string, communityId?: string): Promise<boolean> {
+  return communityId ? canTeachIn(personId, communityId) : teachesAnywhere(personId);
 }
 
 type Teaching = ScheduledTeaching & { clips: ScheduledTeachingClip[] };
@@ -289,6 +289,7 @@ export async function deleteScheduled(personId: string, id: string): Promise<voi
 /** Posts it now, instead of waiting for its time. */
 export async function postScheduledNow(personId: string, id: string, now = new Date()): Promise<ScheduledView> {
   const t = await loadOpen(personId, id);
+  if (!(await canTeachIn(personId, t.communityId))) throw new ScheduleError('You may not teach in this group any more.', 403, 'FORBIDDEN');
   await postOne(t.id, now);
   return view(await fresh(id), now);
 }
@@ -301,6 +302,8 @@ const EXT: Record<string, string> = { 'audio/webm': 'webm', 'audio/mp4': 'm4a', 
 async function postOne(id: string, now: Date): Promise<boolean> {
   const before = await prisma.scheduledTeaching.findUnique({ where: { id } });
   if (!before || before.status === 'POSTED') return false;
+  // Someone no longer allowed to teach in this group does not post there any more (it waits, and shows in their list).
+  if (!(await canTeachIn(before.authorPersonId, before.communityId))) return false;
   // Claim it first, so two runs never post it twice.
   const claim = await prisma.scheduledTeaching.updateMany({ where: { id, status: { not: 'POSTED' } }, data: { status: 'POSTED', postedAt: now } });
   if (claim.count !== 1) return false;

@@ -4734,3 +4734,32 @@ model ScheduledTeachingClip {
 
   @@unique([teachingId, position])
 }
+
+
+// A member the central admin allowed to teach in a group (voice teachings, Send later) as the central admin does: no topic, no
+// weekly slot, no rating. Each one has teaching days in that group (every week on a weekday, or on one date).
+model GroupTeacher {
+  id          String        @id @default(uuid())
+  personId    String
+  communityId String
+  createdAt   DateTime      @default(now())
+  days        TeachingDay[]
+
+  @@unique([personId, communityId])
+  @@index([communityId])
+}
+
+model TeachingDay {
+  id             String       @id @default(uuid())
+  groupTeacherId String
+  // Every week on this weekday (1 Monday to 7 Sunday), or on one date (Cameroon date, YYYY-MM-DD). Exactly one of the two.
+  dayOfWeek      Int?
+  date           String?
+  // Minutes after midnight, Cameroon time.
+  startMinute    Int
+  createdAt      DateTime     @default(now())
+
+  teacher GroupTeacher @relation(fields: [groupTeacherId], references: [id], onDelete: Cascade)
+
+  @@index([groupTeacherId])
+}

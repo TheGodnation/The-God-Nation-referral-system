@@ -6049,5 +6049,35 @@
     "confirm_post_now": "Publier cet enseignement dans le groupe tout de suite ?",
     "confirm_delete": "Supprimer cet enseignement et ses enregistrements ?",
     "recent_posted": "Publiés ces 7 derniers jours"
+  },
+  "groupTeachers": {
+    "title": "Enseignants",
+    "intro": "Les membres que vous autorisez à enseigner dans un groupe comme vous : enseignements vocaux en français et en anglais, envoyés tout de suite ou gardés pour plus tard, avec le texte écrit vérifié dans leur langue. Pas de sujet, pas de créneau hebdomadaire, pas de notation. Vous fixez ici leurs jours d'enseignement.",
+    "add_title": "Autoriser un enseignant dans un groupe",
+    "member": "Membre",
+    "member_ph": "Tapez le nom du membre",
+    "group": "Groupe",
+    "group_ph": "Tapez le nom du groupe",
+    "add": "Autoriser à enseigner dans ce groupe",
+    "add_help": "Il voit alors le bouton 🌐 dans ce groupe et un onglet « Enseignements programmés » dans son profil. Seuls les membres qui ont un compte dans l'application peuvent être choisis.",
+    "none": "Aucun enseignant pour le moment.",
+    "remove": "Retirer",
+    "confirm_remove": "Retirer {{name}} de l'enseignement dans {{group}} ? Ses jours d'enseignement là-bas sont aussi supprimés.",
+    "no_days": "Aucun jour d'enseignement. Ajoutez-en un ci-dessous pour que les membres voient qui enseigne aujourd'hui et que l'enseignant reçoive des rappels.",
+    "every_week": "Chaque semaine",
+    "one_date": "Une date",
+    "weekday": "Jour de la semaine",
+    "date": "Date",
+    "start_time": "Heure de début",
+    "add_day": "Ajouter ce jour",
+    "weekly_text": "Chaque {{day}} à {{time}}",
+    "date_text": "{{date}} à {{time}}",
+    "load_failed": "Impossible de charger. Réessayez.",
+    "failed": "Un problème est survenu. Veuillez réessayer."
+  },
+  "teachingToday": {
+    "title": "Enseignement aujourd'hui :",
+    "at": "à {{time}}",
+    "earlier": "plus tôt aujourd'hui"
   }
 }

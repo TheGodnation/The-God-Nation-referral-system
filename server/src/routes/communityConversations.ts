@@ -5,6 +5,7 @@ import { muteNotice } from '../lib/sanctions';
 import { appLanguage } from '../lib/appLanguage';
 import { cardStatesFor, cardTotalsFor } from '../lib/teachings';
 import { badgeOf, centralAdminAmong, isCentralAdminPerson } from '../lib/centralAdmin';
+import { canTeachIn, teachingToday } from '../lib/groupTeachers';
 import { MAX_MESSAGE_CHARS } from '../lib/textLimits';
 import { reactorList } from '../lib/reactionList';
 import { Router, type Request, type Response, type NextFunction } from 'express';
@@ -180,6 +181,15 @@ async function requireConversationActor(req: Request, res: Response, next: NextF
 
 router.use(requireConversationActor);
 
+// GET /api/communities/:communityId/conversation/teaching-today — who teaches in this group today (Cameroon date), for the line at
+// the top of the chat. Anyone who can read the chat can see it.
+router.get('/:communityId/conversation/teaching-today', asyncHandler(async (req, res) => {
+  const { communityId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) return res.status(404).json({ error: 'Community not found.' });
+  if (!(await hasConversationAccess(req.conversationActorPersonId!, communityId))) return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+  res.json({ items: await teachingToday(communityId) });
+}));
+
 // GET /api/communities/:communityId/conversation — conversation metadata
 // only (no messages). 404 for a Community that doesn't exist at all; 403
 // for a real Community the caller has no current relationship to — mirrors
@@ -221,8 +231,8 @@ router.get('/:communityId/conversation', asyncHandler(async (req, res) => {
     createdAt: conversation.createdAt,
     unreadCount,
     isAdministrator,
-    // Only the central admin's profile can post a teaching in an assembly.
-    canPostTeaching: await isCentralAdminPerson(personId),
+    // The central admin's profile, and teachers the central admin allowed in this group, can post a teaching here.
+    canPostTeaching: await canTeachIn(personId, communityId),
     // The same profile can also add people and make sub-assemblies (communityManage.ts).
     canManage: await isCentralAdminPerson(personId),
     // ...and pin messages to the top of the chat.
@@ -549,7 +559,7 @@ router.post(
     // The central admin's own extras: a voice message recorded in both languages
     // (an English and a French clip, each labelled) and the "live teaching" mark.
     // For anyone else they are simply dropped.
-    const isAdminSender = await isCentralAdminPerson(personId);
+    const isAdminSender = await canTeachIn(personId, communityId);
     const rawDescriptors = parsed.data.attachments ?? [];
     const audioCount = rawDescriptors.filter((a) => a.mimeType.startsWith('audio/')).length;
     const labelled = isAdminSender && rawDescriptors.length === 2 && audioCount === 2 && rawDescriptors[0].language && rawDescriptors[1].language && rawDescriptors[0].language !== rawDescriptors[1].language;
@@ -1227,7 +1237,7 @@ router.post(
       // { recording: true } = "is recording a voice message…". Shown for the central admin only
       // (and "live" with it): anyone else's recording is not announced at all.
       if (req.body?.recording === true) {
-        if (await isCentralAdminPerson(personId)) setTyping(key, personId, me?.name ?? '', { recording: true, live: req.body?.live === true });
+        if (await canTeachIn(personId, communityId)) setTyping(key, personId, me?.name ?? '', { recording: true, live: req.body?.live === true });
       } else {
         setTyping(key, personId, me?.name ?? '');
       }
