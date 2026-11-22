@@ -576,6 +576,22 @@ export function MemberGroupChatPage() {
 
   // Posts photos/videos/documents once they are uploaded. Their bubble is
   // already showing, so no extra "sending…" copy is added here.
+  // "Send later": the central admin's two-language voice message is kept for this group and a time, instead of being sent now.
+  async function schedule(out: OutgoingMessage, postAtIso: string): Promise<boolean> {
+    try {
+      await api.post('/api/member/scheduled-teachings', {
+        communityId,
+        postAt: postAtIso,
+        liveTeaching: out.liveTeaching === true,
+        clips: (out.attachments ?? []).map((a) => ({ language: a.language, storageKey: a.storageKey, mimeType: a.mimeType, byteSize: a.byteSize })),
+      });
+      return true;
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t('groupChat.send_failed'));
+      return false;
+    }
+  }
+
   async function postMedia(out: OutgoingMessage): Promise<boolean> {
     try {
       await api.post(`/api/communities/${communityId}/conversation/messages`, out);
@@ -879,6 +895,7 @@ export function MemberGroupChatPage() {
             onTyping={(typing) => void api.post(`/api/communities/${communityId}/conversation/typing`, { typing }).catch(() => {})}
             onRecording={canPostTeaching ? (on, live) => void api.post(`/api/communities/${communityId}/conversation/typing`, on ? { recording: true, live } : { typing: false }).catch(() => {}) : undefined}
             bilingual={canPostTeaching}
+            onSchedule={canPostTeaching ? schedule : undefined}
             onNewTeaching={canPostTeaching ? () => navigate(`/member/chats/group/${communityId}/teaching/new`) : undefined}
           />
         ) : mute ? (

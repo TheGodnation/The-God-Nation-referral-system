@@ -16,6 +16,7 @@ import { startMemberReminderLoop } from './lib/memberReminders';
 import { startSanctionLoop } from './lib/sanctions';
 import { startWeeklyReportLoop } from './lib/weeklyReports';
 import { startTeachingReminderLoop } from './lib/teachingReminders';
+import { startScheduledTeachingLoop } from './lib/scheduledTeachings';
 
 // Last-resort safety net. Every route handler is wrapped in asyncHandler
 // (see lib/asyncHandler.ts) specifically so a failed database call — the
@@ -53,3 +54,4 @@ startMemberReminderLoop();
 startSanctionLoop();
 startWeeklyReportLoop();
 startTeachingReminderLoop();
+startScheduledTeachingLoop();
