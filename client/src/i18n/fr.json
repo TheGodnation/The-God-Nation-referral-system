@@ -5930,6 +5930,8 @@
     "member_title": "Vous êtes connecté",
     "enter": "Entrer dans la communauté",
     "sign_in_enter": "Se connecter et entrer dans la communauté",
-    "read_more": "Lire la suite :"
+    "read_more": "Lire la suite :",
+    "no_french": "Cette publication n'a pas encore de version française, le message français sera donc en anglais. Les publications qui ont une version française (ou une traduction enregistrée) sont envoyées en français.",
+    "make_french": "Créer le français maintenant"
   }
 }

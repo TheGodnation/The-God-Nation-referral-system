@@ -5930,6 +5930,8 @@
     "member_title": "You are signed in",
     "enter": "Go into the community",
     "sign_in_enter": "Sign in and go into the community",
-    "read_more": "Read more:"
+    "read_more": "Read more:",
+    "no_french": "This post has no French version yet, so the French message will be in English. Posts with a French version (or a saved translation) are sent in French.",
+    "make_french": "Make the French now"
   }
 }

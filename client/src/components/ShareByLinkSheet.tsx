@@ -6,7 +6,14 @@ export type SharedKind = 'post' | 'announcement' | 'update';
 
 type PerLang = { en?: string | null; fr?: string | null };
 
-const plain = (text: string) => text.replace(/[*_~`]/g, '').replace(/\s+/g, ' ').trim();
+// The post's own formatting marks (## headings, **bold**, - bullets) would show as raw symbols in WhatsApp: take them out.
+const plain = (text: string) =>
+  text
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+    .replace(/^\s*[-•]\s+/gm, '')
+    .replace(/[*_~`#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /**
  * The words that go to WhatsApp with the link: the title in bold, the first lines in bold (so they can be read at a glance), then
@@ -40,6 +47,9 @@ interface ShareState {
 export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClose }: { kind: SharedKind; id: string; title: string; titles?: PerLang; teaser?: PerLang; base: string; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const [state, setState] = useState<ShareState | null>(null);
+  // The words as visitors will read them, in each language (the saved translation of the post is used for French).
+  const [refresh, setRefresh] = useState(0);
+  const [words, setWords] = useState<{ title: { en: string; fr: string }; body: { en: string; fr: string } } | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
@@ -57,6 +67,20 @@ export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClos
 
   const link = state ? `${window.location.origin}${state.path}` : '';
 
+  useEffect(() => {
+    if (!state?.shared) return;
+    let alive = true;
+    api
+      .get<{ title: { en: string; fr: string }; body: { en: string; fr: string } }>(`/api/shared/${kind}/${id}`)
+      .then((r) => alive && r?.title && r?.body && setWords({ title: r.title, body: r.body }))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [state?.shared, kind, id, refresh]);
+  // No saved French for this post: the French message would be in English, and the sheet says so.
+  const noFrench = Boolean(words && plain(words.body.fr) === plain(words.body.en));
+
   async function change(open: boolean) {
     setBusy(true);
     setError('');
@@ -70,10 +94,15 @@ export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClos
       setBusy(false);
     }
   }
+  // Asks the server to make the French now (it translates a post that has none), then reads the words again.
+  async function makeFrench() {
+    await change(true);
+    setRefresh((n) => n + 1);
+  }
   const whatsapp = (lang: 'en' | 'fr') => {
     const text = whatsappText({
-      title: titles?.[lang] || title,
-      teaser: teaser?.[lang] || teaser?.en || teaser?.fr,
+      title: words?.title[lang] || titles?.[lang] || title,
+      teaser: words?.body[lang] || teaser?.[lang] || teaser?.en || teaser?.fr,
       link: `${link}?lang=${lang}`,
       readMore: i18n.t('shareLink.read_more', { lng: lang }),
     });
@@ -113,6 +142,14 @@ export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClos
           <>
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{t('shareLink.is_open')}</p>
             <p className="break-all rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600" data-testid="share-link">{link}</p>
+            {noFrench && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900" data-testid="share-no-french">
+                {t('shareLink.no_french')}{' '}
+                <button type="button" className="font-semibold underline disabled:text-slate-400" disabled={busy} onClick={() => void makeFrench()} data-testid="share-make-french">
+                  {t('shareLink.make_french')}
+                </button>
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <button type="button" className="btn-primary" onClick={() => whatsapp('en')} data-testid="share-wa-en">
                 {t('shareLink.wa_en')}
