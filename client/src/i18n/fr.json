@@ -5862,7 +5862,14 @@
     "send_howto": "Envoyer le message « comment ça marche » à tous les enseignants",
     "send_howto_help": "Un message privé de votre part à chaque enseignant : enregistrer son enseignement en note vocale dans le groupe, puis toucher « J'ai terminé mon enseignement ». Chacun le reçoit une seule fois. Le message d'affectation de chaque semaine porte aussi cette ligne désormais.",
     "confirm_howto": "Envoyer maintenant le message « comment ça marche » à chaque enseignant ? C'est un message privé de votre part, envoyé une fois à chacun.",
-    "howto_sent": "« Comment ça marche » envoyé à {{sent}} enseignants ({{alreadySent}} l'avaient déjà)."
+    "howto_sent": "« Comment ça marche » envoyé à {{sent}} enseignants ({{alreadySent}} l'avaient déjà).",
+    "recording_none": "Pas encore d'enregistrement",
+    "recording_RECORDED": "Enregistré · texte en cours d'écriture",
+    "recording_WRITING": "Enregistré · texte en cours d'écriture",
+    "recording_TEXT_READY": "Enregistré · texte à corriger",
+    "recording_FAILED": "Enregistré · texte non écrit",
+    "recording_APPROVED": "Enregistré · texte corrigé · approuvé",
+    "recording_POSTED": "Enregistré · approuvé · publié dans le groupe"
   },
   "celebration": {
     "tab": "Page de félicitations",
@@ -5942,5 +5949,38 @@
   },
   "linkPreview": {
     "remove": "Envoyer sans la carte d'aperçu"
+  },
+  "teachingRecording": {
+    "heading": "Enregistrer mon enseignement à l'avance",
+    "intro": "Enregistrez votre enseignement quand cela vous convient. À l'heure de votre enseignement, il est publié dans le groupe automatiquement, avec son texte écrit en dessous.",
+    "title": "Votre enregistrement",
+    "posts_at": "Il sera publié dans le groupe le {{when}}",
+    "no_group": "Aucun groupe n'est encore choisi pour les enseignements, un enregistrement ne peut donc pas être fait.",
+    "too_late": "L'heure de votre enseignement a déjà commencé.",
+    "posted": "Publié dans le groupe.",
+    "listen": "Écouter votre enregistrement",
+    "writing": "Le texte de votre enregistrement est en cours d'écriture. Cela prend quelques minutes. Vous pouvez quitter cette page et revenir.",
+    "text_failed": "Le texte n'a pas pu être écrit. Vous pouvez réessayer, ou le taper vous-même ci-dessous. Vous pouvez aussi laisser l'enregistrement tel quel : il sera publié sans texte.",
+    "text_label": "Texte de votre enseignement",
+    "text_in": "Texte de votre enseignement en {{language}}",
+    "correct_help": "Lisez-le et corrigez les erreurs, surtout les noms et les références bibliques. Quand c'est bon, touchez Approuver.",
+    "save_text": "Enregistrer mes corrections",
+    "approve": "Approuver",
+    "try_again": "Écrire le texte de nouveau",
+    "approved": "Approuvé. Il sera publié à l'heure de votre enseignement.",
+    "translating": "L'autre langue est en cours de préparation automatique.",
+    "translated_ready": "L'autre langue est prête (faite automatiquement).",
+    "record": "Enregistrer mon enseignement",
+    "record_again": "Enregistrer de nouveau",
+    "choose_file": "Choisir un enregistrement sur mon téléphone",
+    "delete": "Supprimer",
+    "confirm_delete": "Supprimer cet enregistrement ?",
+    "stop": "Arrêter",
+    "use_this": "Utiliser cet enregistrement",
+    "sending": "Envoi…",
+    "discard": "Recommencer",
+    "no_microphone": "Le microphone n'a pas pu être utilisé. Autorisez-le et réessayez.",
+    "bad_type": "Ce type de fichier n'est pas accepté. Enregistrez dans l'application, ou choisissez un fichier mp3, m4a, webm ou ogg.",
+    "failed": "Un problème est survenu. Veuillez réessayer."
   }
 }

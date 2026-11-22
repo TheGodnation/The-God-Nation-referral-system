@@ -5862,7 +5862,14 @@
     "send_howto": "Send the “how it works” message to all teachers",
     "send_howto_help": "One private message from you to each teacher: record your teaching as a voice note in the group, then tap “I have finished my teaching”. Each teacher gets it once. The weekly assignment message also carries this line from now on.",
     "confirm_howto": "Send the “how it works” message to every teacher now? It is a private message from you, sent once to each teacher.",
-    "howto_sent": "“How it works” sent to {{sent}} teachers ({{alreadySent}} already had it)."
+    "howto_sent": "“How it works” sent to {{sent}} teachers ({{alreadySent}} already had it).",
+    "recording_none": "No recording yet",
+    "recording_RECORDED": "Recorded · text being written",
+    "recording_WRITING": "Recorded · text being written",
+    "recording_TEXT_READY": "Recorded · text waiting to be corrected",
+    "recording_FAILED": "Recorded · text could not be written",
+    "recording_APPROVED": "Recorded · text corrected · approved",
+    "recording_POSTED": "Recorded · approved · posted in the group"
   },
   "celebration": {
     "tab": "Congratulations page",
@@ -5942,5 +5949,38 @@
   },
   "linkPreview": {
     "remove": "Send without the preview card"
+  },
+  "teachingRecording": {
+    "heading": "Record my teaching ahead of time",
+    "intro": "Record your teaching when it suits you. At your teaching time it is posted in the group by itself, with its written text under it.",
+    "title": "Your recording",
+    "posts_at": "It will be posted in the group on {{when}}",
+    "no_group": "No group is chosen for the teachings yet, so a recording cannot be made.",
+    "too_late": "Your teaching time has already begun.",
+    "posted": "Posted in the group.",
+    "listen": "Listen to your recording",
+    "writing": "The text of your recording is being written. This takes a few minutes. You can leave this page and come back.",
+    "text_failed": "The text could not be written. You can try again, or type it yourself below. You can also leave the recording as it is: it will be posted without text.",
+    "text_label": "Text of your teaching",
+    "text_in": "Text of your teaching in {{language}}",
+    "correct_help": "Read it and correct any mistake, especially names and scripture references. When it is good, tap Approve.",
+    "save_text": "Save my corrections",
+    "approve": "Approve",
+    "try_again": "Write the text again",
+    "approved": "Approved. It will be posted at your teaching time.",
+    "translating": "The other language is being made automatically.",
+    "translated_ready": "The other language is ready (made automatically).",
+    "record": "Record my teaching",
+    "record_again": "Record again",
+    "choose_file": "Choose a recording from my phone",
+    "delete": "Delete",
+    "confirm_delete": "Delete this recording?",
+    "stop": "Stop",
+    "use_this": "Use this recording",
+    "sending": "Sending…",
+    "discard": "Record again",
+    "no_microphone": "The microphone could not be used. Allow it and try again.",
+    "bad_type": "This kind of file is not supported. Record in the app, or choose an mp3, m4a, webm or ogg file.",
+    "failed": "Something went wrong. Please try again."
   }
 }
