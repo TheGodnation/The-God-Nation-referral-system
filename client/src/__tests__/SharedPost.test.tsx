@@ -96,12 +96,32 @@ describe('The share sheet', () => {
     expect(shareBaseFor(undefined)).toBe('/api/admin/shared');
   });
 
+  it('writes the French message with the French words of the post, and says when there is no French', async () => {
+    const opened: string[] = [];
+    vi.spyOn(window, 'open').mockImplementation((u) => { opened.push(String(u)); return null; });
+    let words = { title: { en: 'Good news', fr: 'Bonne nouvelle' }, body: { en: 'Come and see what God is doing.', fr: 'Venez voir ce que Dieu fait.' } };
+    vi.stubGlobal('fetch', vi.fn((url: string) => (String(url).startsWith('/api/shared/') ? json(words) : json({ shared: true, path: '/news/update/u1' }))));
+    const first = render(<ShareByLinkSheet kind="update" id="u1" title="Good news" teaser={{ en: 'Come and see what God is doing.', fr: 'Come and see what God is doing.' }} base="/api/member/central-shared" onClose={() => {}} />);
+    await screen.findByTestId('share-link');
+    await waitFor(() => expect(screen.queryByTestId('share-no-french')).toBeNull());
+    fireEvent.click(screen.getByTestId('share-wa-fr'));
+    const text = decodeURIComponent(opened[0].split('text=')[1]);
+    expect(text).toContain('*Bonne nouvelle*');
+    expect(text).toContain('*Venez voir ce que Dieu fait.*');
+    expect(text).not.toContain('Come and see');
+    first.unmount();
+    words = { title: { en: 'Good news', fr: 'Good news' }, body: { en: 'Come and see.', fr: 'Come and see.' } };
+    render(<ShareByLinkSheet kind="update" id="u1" title="Good news" base="/api/member/central-shared" onClose={() => {}} />);
+    expect(await screen.findByTestId('share-no-french')).toBeInTheDocument();
+  });
+
   it('opens the link, offers WhatsApp in both languages, and can stop sharing', async () => {
     let shared = false;
     const calls: string[] = [];
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string, init?: { method?: string }) => {
+        if (String(url).startsWith('/api/shared/')) return json({}); // the public words of the post (not part of this check)
         calls.push(`${init?.method ?? 'GET'} ${url}`);
         if (init?.method === 'POST') shared = true;
         if (init?.method === 'DELETE') shared = false;

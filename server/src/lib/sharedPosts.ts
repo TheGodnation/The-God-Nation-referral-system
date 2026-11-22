@@ -2,6 +2,7 @@ import { prisma } from './prisma';
 import { embedFor, type SocialProvider } from './socialEmbed';
 import { excerpt } from './ogMeta';
 import { isCentralAdminPerson } from './centralAdmin';
+import { attemptUpdatePostTranslation, translateBeforePublish } from './translation';
 
 // Sharing the central admin's posts and announcements by link. Nothing is public until the central admin taps "Share by
 // link" on that post (it then carries sharedPublicAt); only published, not archived items can be shared, and the public
@@ -43,7 +44,25 @@ export async function shareByLink(kind: SharedKind, id: string) {
     else if (kind === 'update') await prisma.updatePost.update({ where: { id }, data });
     else await prisma.announcement.update({ where: { id }, data });
   }
+  await ensureFrench(kind, id);
   return { kind, id, shared: true, path: sharePath(kind, id) };
+}
+
+/**
+ * So the French message and the French page are really in French: when the post has no French yet, translate it now (a few seconds
+ * at most; if that fails, sharing still works and the page falls back to the original words).
+ */
+async function ensureFrench(kind: SharedKind, id: string): Promise<void> {
+  try {
+    if (kind === 'update') {
+      const u = await prisma.updatePost.findUnique({ where: { id }, select: { body: true, translatedBody: true } });
+      if (u && !u.translatedBody && u.body.trim()) await Promise.race([attemptUpdatePostTranslation(id, u.body), new Promise((resolve) => setTimeout(resolve, 20000))]);
+    } else {
+      await translateBeforePublish(kind === 'post' ? 'HEADQUARTERS_POST' : 'ANNOUNCEMENT', id, 20000);
+    }
+  } catch {
+    // best effort
+  }
 }
 
 export async function stopSharing(kind: SharedKind, id: string) {
