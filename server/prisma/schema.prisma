@@ -4709,6 +4709,14 @@ model ScheduledTeaching {
   approvedAt     DateTime?
   postedAt       DateTime?
   messageId      String?
+  // A counted teaching (central admin, one recording): when it posts it becomes a teaching with a quiz (who read or listened, who took
+  // the quiz). The title shows on its card; the quiz is {passMark, openDays, questions}; the book source is the part of the book it
+  // is taught from.
+  title          String?
+  quiz           Json?
+  portionBookId  String?
+  portionPage    Int?
+  portionLabel   String?
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
 
