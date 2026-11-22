@@ -83,7 +83,7 @@ export function SharedPostPage() {
                   ))}
                 </div>
               )}
-              <RichText text={item.body[lang]} className="mt-5 text-base leading-relaxed text-slate-800" data-testid="shared-body" />
+              <RichText text={item.body[lang]} headings comfort className="mt-5 text-base leading-relaxed text-slate-800" data-testid="shared-body" />
               {item.embed && (
                 <div className="mt-5">
                   <SocialEmbed embed={item.embed} />

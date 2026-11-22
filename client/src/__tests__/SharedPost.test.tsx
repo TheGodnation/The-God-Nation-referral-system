@@ -56,6 +56,14 @@ describe('A shared post page', () => {
     expect(screen.queryByTestId('shared-media-note')).toBeNull(); // the note is for pictures that cannot be shown
   });
 
+  it('draws ## lines as headings, not as raw symbols', async () => {
+    vi.stubGlobal('fetch', serve(() => json({ ...ITEM, body: { en: '## A DECLARATION OF VICTORY\nHeavenly Father, we thank You.', fr: '' } })));
+    page();
+    const body = await screen.findByTestId('shared-body');
+    expect(body).toHaveTextContent('A DECLARATION OF VICTORY');
+    expect(body).not.toHaveTextContent('##');
+  });
+
   it('reads in French for a French visitor', async () => {
     await i18n.changeLanguage('fr');
     vi.stubGlobal('fetch', serve(() => json(ITEM)));
