@@ -28,6 +28,7 @@ import { BroadcastLogPanel } from '../components/admin/BroadcastLogPanel';
 import { LeadersReportPanel } from '../components/admin/LeadersReportPanel';
 import { TeachingRotaPanel } from '../components/admin/TeachingRotaPanel';
 import { ScheduledTeachingsPanel } from '../components/admin/ScheduledTeachingsPanel';
+import { GroupTeachersPanel } from '../components/admin/GroupTeachersPanel';
 import { CelebrationPanel } from '../components/admin/CelebrationPanel';
 import { RepresentativesPanel } from '../components/admin/RepresentativesPanel';
 import { SanctionsPanel } from '../components/admin/SanctionsPanel';
@@ -57,10 +58,10 @@ interface MembershipRow {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-type Tab = 'posts' | 'photos' | 'progress' | 'needsMe' | 'instructions' | 'bulk' | 'sanctions' | 'representatives' | 'myLeaders' | 'teachingRota' | 'celebration' | 'broadcastLog' | 'groups' | 'rooms' | 'teachingDone' | 'refReport' | 'cells' | 'faith' | 'giving' | 'growth' | 'knowledge' | 'hqPosts' | 'scheduled';
+type Tab = 'posts' | 'photos' | 'progress' | 'needsMe' | 'instructions' | 'bulk' | 'sanctions' | 'representatives' | 'myLeaders' | 'teachingRota' | 'celebration' | 'broadcastLog' | 'groups' | 'rooms' | 'teachingDone' | 'refReport' | 'cells' | 'faith' | 'giving' | 'growth' | 'knowledge' | 'hqPosts' | 'scheduled' | 'groupTeachers';
 // Two layers: everyone has "My space"; the central admin also has "Admin tools" (each with its own tabs).
 const ME_TABS: Tab[] = ['posts', 'photos', 'progress'];
-const ADMIN_TABS: Tab[] = ['hqPosts', 'scheduled', 'instructions', 'bulk', 'sanctions', 'representatives', 'myLeaders', 'teachingRota', 'celebration', 'broadcastLog', 'groups', 'rooms', 'teachingDone', 'refReport', 'cells', 'faith', 'giving', 'growth', 'knowledge'];
+const ADMIN_TABS: Tab[] = ['hqPosts', 'scheduled', 'groupTeachers', 'instructions', 'bulk', 'sanctions', 'representatives', 'myLeaders', 'teachingRota', 'celebration', 'broadcastLog', 'groups', 'rooms', 'teachingDone', 'refReport', 'cells', 'faith', 'giving', 'growth', 'knowledge'];
 
 // "My progress" tab: this month's devotional exam scores, leadership
 // training books passed, and the member's group(s).
@@ -240,7 +241,8 @@ export function MemberMePage() {
   const { member, refresh, logout } = useMemberAuth();
   // A link can open a tab straight away (?tab=scheduled).
   const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).get('tab') === 'scheduled' ? 'scheduled' : 'posts'));
-  const section: 'me' | 'admin' = ADMIN_TABS.includes(tab) ? 'admin' : 'me';
+  // A teacher who is not the central admin keeps the scheduled teachings in their own space.
+  const section: 'me' | 'admin' = ADMIN_TABS.includes(tab) && !(tab === 'scheduled' && !member?.isCentralAdmin) ? 'admin' : 'me';
   // Each layer remembers the tab you were on, so switching back lands where you left.
   const lastTab = useRef<{ me: Tab; admin: Tab }>({ me: 'posts', admin: 'cells' });
   useEffect(() => { lastTab.current[section] = tab; }, [tab, section]);
@@ -399,12 +401,13 @@ export function MemberMePage() {
                 { id: 'posts', label: t('wall.tab_posts') },
                 { id: 'photos', label: t('wall.tab_photos') },
                 { id: 'progress', label: t('wall.tab_progress') },
+                ...(member.canTeach && !member.isCentralAdmin ? [{ id: 'scheduled' as Tab, label: t('scheduledTeachings.title') }] : []),
               ]}
             />
           ) : (
             // The administrator's tools: four pills in a tidy block (two by two on a phone), each name fully readable.
             <div role="tablist" aria-label={t('wall.section_admin') ?? ''} className="grid grid-cols-2 gap-2 border-b border-slate-200 bg-white px-4 pb-3 sm:grid-cols-4 sm:px-2" data-testid="admin-tabs">
-              {([['needsMe', t('needsMe.tab')], ['hqPosts', t('admin.headquartersPosts.title')], ['scheduled', t('scheduledTeachings.title')], ['instructions', t('instructions.tab')], ['bulk', t('bulkMembers.tab')], ['sanctions', t('sanctions.tab')], ['representatives', t('repAdmin.tab')], ['myLeaders', t('myLeaders.tab')], ['teachingRota', t('teachingRota.tab')], ['celebration', t('celebration.tab')], ['broadcastLog', t('broadcast.tab')], ['groups', t('manageGroups.tab')], ['rooms', t('leaderRooms.tab')], ['teachingDone', t('teachingDone.tab')], ['refReport', t('refReport.tab')], ['cells', t('cells.tab')], ['faith', t('faith.tab')], ['giving', t('givingAdmin.tab')], ['growth', t('growth.tab')], ['knowledge', t('knowledgeAdmin.tab')]] as [Tab, string][]).map(([id, label]) => (
+              {([['needsMe', t('needsMe.tab')], ['hqPosts', t('admin.headquartersPosts.title')], ['scheduled', t('scheduledTeachings.title')], ['groupTeachers', t('groupTeachers.title')], ['instructions', t('instructions.tab')], ['bulk', t('bulkMembers.tab')], ['sanctions', t('sanctions.tab')], ['representatives', t('repAdmin.tab')], ['myLeaders', t('myLeaders.tab')], ['teachingRota', t('teachingRota.tab')], ['celebration', t('celebration.tab')], ['broadcastLog', t('broadcast.tab')], ['groups', t('manageGroups.tab')], ['rooms', t('leaderRooms.tab')], ['teachingDone', t('teachingDone.tab')], ['refReport', t('refReport.tab')], ['cells', t('cells.tab')], ['faith', t('faith.tab')], ['giving', t('givingAdmin.tab')], ['growth', t('growth.tab')], ['knowledge', t('knowledgeAdmin.tab')]] as [Tab, string][]).map(([id, label]) => (
                 <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
                   className={`rounded-full border px-3 py-2.5 text-center text-sm font-semibold ${tab === id ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>
                   {label}
@@ -424,7 +427,8 @@ export function MemberMePage() {
           {tab === 'sanctions' && member.isCentralAdmin && <SanctionsPanel base="/api/member/sanctions" />}
           {tab === 'representatives' && member.isCentralAdmin && <RepresentativesPanel base="/api/member/central-representatives" />}
           {tab === 'myLeaders' && member.isCentralAdmin && <LeadersReportPanel base="/api/member/central-weekly-reports" mode="admin" />}
-          {tab === 'scheduled' && member.isCentralAdmin && <ScheduledTeachingsPanel />}
+          {tab === 'scheduled' && (member.isCentralAdmin || member.canTeach) && <ScheduledTeachingsPanel />}
+          {tab === 'groupTeachers' && member.isCentralAdmin && <GroupTeachersPanel />}
           {tab === 'teachingRota' && member.isCentralAdmin && <TeachingRotaPanel base="/api/member/central-teaching-rota" />}
           {tab === 'celebration' && member.isCentralAdmin && <CelebrationPanel base="/api/member/central-celebration" />}
           {tab === 'broadcastLog' && member.isCentralAdmin && <BroadcastLogPanel base="/api/member/central-broadcast-log" />}

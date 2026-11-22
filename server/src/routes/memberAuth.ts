@@ -1,5 +1,6 @@
 import { findAccountByGmailDots } from '../lib/duplicateSuspects';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
+import { teachesAnywhere } from '../lib/groupTeachers';
 import { cancelAccountDeletion } from '../lib/accountDeletion';
 import { Router, type Request, type Response } from 'express';
 import crypto from 'crypto';
@@ -846,6 +847,8 @@ router.get('/me', asyncHandler(async (req, res) => {
     member: {
       // The central admin's own member profile carries the assembly tools.
       isCentralAdmin: await isCentralAdminPerson(req.member.personId),
+      // May record teachings to post later (the central admin, or a teacher the central admin allowed in a group).
+      canTeach: await teachesAnywhere(req.member.personId),
       name: req.member.name,
       email: req.member.email,
       preferredLanguage: req.member.preferredLanguage,

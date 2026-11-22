@@ -16,6 +16,7 @@ import { UploadingBubble } from '../components/chat/UploadingBubble';
 import { useMediaUploads } from '../lib/useMediaUploads';
 import { REACTIONS, canEditMessage, canUnsendMessage, type ChatMessage, type ChatReaction } from '../components/chat/types';
 import { PinnedMessages, type ChatPin } from '../components/chat/PinnedMessages';
+import { TeachingTodayStrip } from '../components/chat/TeachingTodayStrip';
 import { ChatSearch, EditSheet, ForwardSheet, SelectionBar, copyableText, findAndJump } from '../components/chat/ChatActions';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { draftKeyFor } from '../lib/drafts';
@@ -743,6 +744,8 @@ export function MemberGroupChatPage() {
           🔍
         </button>
       </header>
+
+      <TeachingTodayStrip communityId={communityId} />
 
       <PinnedMessages pins={pins} onOpen={(id) => navigate(`/member/chats/group/${communityId}/pinned/${id}`)} />
 

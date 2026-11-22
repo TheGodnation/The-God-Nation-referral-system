@@ -112,6 +112,16 @@ describe('Me wall', () => {
     expect(fold.querySelector('summary')).toHaveTextContent('How we may contact you');
   });
 
+  it('a teacher allowed by the central admin sees a Scheduled teachings tab in their own space, and no admin tools', async () => {
+    mockFetch(baseRoutes({ 'GET /api/member/auth/me': () => ({ body: { member: { ...ME.member, canTeach: true } } }), 'GET /api/member/scheduled-teachings': () => ({ body: { items: [] } }) }));
+    renderAt('/member/me');
+    await screen.findByRole('heading', { name: 'Grace Ngwa' });
+    expect(screen.queryByTestId('profile-sections')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Posts', 'Photos', 'My progress', 'Scheduled teachings']);
+    fireEvent.click(screen.getByRole('tab', { name: 'Scheduled teachings' }));
+    expect(await screen.findByTestId('scheduled-panel')).toBeInTheDocument();
+  });
+
   it('the central admin gets a second layer: My space and Admin tools, each remembering its tab', async () => {
     mockFetch(baseRoutes({ 'GET /api/member/auth/me': () => ({ body: { member: { ...ME.member, isCentralAdmin: true } } }) }));
     renderAt('/member/me');
@@ -121,11 +131,11 @@ describe('Me wall', () => {
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Posts', 'Photos', 'My progress']);
 
     fireEvent.click(within(switcher).getByRole('button', { name: /Admin tools/ }));
-    const names = ['People who need me', 'Headquarters Posts', 'Scheduled teachings', 'Instructions', 'Add many people', 'Sanctions', 'Representatives', 'My leaders', 'Weekly teaching', 'Congratulations page', 'Group messages', 'Groups', "Leaders' rooms", 'Who did the teachings', "Leaders' referral report", 'Assemblies', 'Faith journeys', 'Giving', 'Growth', 'Knowledge Centre'];
+    const names = ['People who need me', 'Headquarters Posts', 'Scheduled teachings', 'Teachers', 'Instructions', 'Add many people', 'Sanctions', 'Representatives', 'My leaders', 'Weekly teaching', 'Congratulations page', 'Group messages', 'Groups', "Leaders' rooms", 'Who did the teachings', "Leaders' referral report", 'Assemblies', 'Faith journeys', 'Giving', 'Growth', 'Knowledge Centre'];
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(names);
     expect(screen.getByRole('tab', { name: 'Knowledge Centre' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Posts' })).not.toBeInTheDocument();
-    expect(names.length).toBe(20);
+    expect(names.length).toBe(21);
     fireEvent.click(screen.getByRole('tab', { name: 'Growth' }));
 
     // Back to My space: the Photos tab you left is not forgotten, and the admin layer remembers Growth.

@@ -25,6 +25,8 @@ export interface CurrentMember {
   personId?: string;
   // True only for the central admin's own member profile (carries the assembly tools).
   isCentralAdmin?: boolean;
+  // May record teachings to post later: the central admin, or a teacher the central admin allowed in a group.
+  canTeach?: boolean;
   // Path of the member's own profile picture, or null when they have none.
   photoUrl?: string | null;
   // The wide picture at the top of the member's wall, and a short line

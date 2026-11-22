@@ -6049,5 +6049,35 @@
     "confirm_post_now": "Post this teaching in the group right now?",
     "confirm_delete": "Delete this teaching and its recordings?",
     "recent_posted": "Posted in the last 7 days"
+  },
+  "groupTeachers": {
+    "title": "Teachers",
+    "intro": "Members you allow to teach in a group the way you do: voice teachings in English and French, sent now or kept for later, with the written text checked in their own language. There is no topic, no weekly slot and no rating. You set their teaching days here.",
+    "add_title": "Allow a teacher in a group",
+    "member": "Member",
+    "member_ph": "Type the member's name",
+    "group": "Group",
+    "group_ph": "Type the group's name",
+    "add": "Allow to teach in this group",
+    "add_help": "They then see the 🌐 button in that group and a \"Scheduled teachings\" tab in their profile. Only members who have an app account can be chosen.",
+    "none": "No teacher yet.",
+    "remove": "Remove",
+    "confirm_remove": "Stop {{name}} teaching in {{group}}? Their teaching days there are removed too.",
+    "no_days": "No teaching day yet. Add one below so members see who teaches today and the teacher gets reminders.",
+    "every_week": "Every week",
+    "one_date": "One date",
+    "weekday": "Day of the week",
+    "date": "Date",
+    "start_time": "Start time",
+    "add_day": "Add this day",
+    "weekly_text": "Every {{day}} at {{time}}",
+    "date_text": "{{date}} at {{time}}",
+    "load_failed": "Could not load. Try again.",
+    "failed": "Something went wrong. Please try again."
+  },
+  "teachingToday": {
+    "title": "Teaching today:",
+    "at": "at {{time}}",
+    "earlier": "earlier today"
   }
 }
