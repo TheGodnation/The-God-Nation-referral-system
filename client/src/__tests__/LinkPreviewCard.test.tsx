@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { LinkPreviewCard, firstUrl, clearLinkPreviewCache } from '../components/LinkPreviewCard';
+import { LinkPreviewCard, firstUrl, withoutPreview, clearLinkPreviewCache } from '../components/LinkPreviewCard';
 
 const json = (body: unknown, status = 200) => Promise.resolve({ ok: status < 300, status, headers: { get: () => 'application/json' }, json: async () => body });
 beforeEach(() => clearLinkPreviewCache());
@@ -14,6 +14,13 @@ describe('finding the link in a message', () => {
     expect(firstUrl('See (https://news.example/a).')).toBe('https://news.example/a');
     expect(firstUrl('no link here')).toBeNull();
     expect(firstUrl(null)).toBeNull();
+  });
+
+  it('does not count a link written between < and >: it was sent without its card', () => {
+    expect(firstUrl('Read <https://news.example/a> please')).toBeNull();
+    expect(firstUrl('<https://news.example/a> and https://other.example/b')).toBe('https://other.example/b');
+    expect(withoutPreview('See https://news.example/a, ok')).toBe('See <https://news.example/a>, ok');
+    expect(withoutPreview('no link')).toBe('no link');
   });
 });
 

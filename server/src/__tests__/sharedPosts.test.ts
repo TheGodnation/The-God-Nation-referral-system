@@ -133,7 +133,7 @@ describe('the link preview', () => {
     const post = await makePost();
     expect(await sharedPreview('post', post.id, 'en')).toBeNull();
     await shareByLink('post', post.id);
-    expect(await sharedPreview('post', post.id, 'fr')).toEqual({ title: 'Bonne nouvelle', text: 'Venez voir.', image: null });
+    expect(await sharedPreview('post', post.id, 'fr')).toEqual({ title: 'Bonne nouvelle', text: 'Venez voir.', image: null, imageBytes: null });
   });
 });
 
@@ -196,7 +196,7 @@ describe('the picture of a shared post', () => {
     expect((await sharedPreview('post', post.id, 'en'))!.image).toBe(`api/shared/post/${post.id}/photo/0`);
     // a very large picture keeps the usual card (it cannot be made smaller here), but is still shown on the page
     const big = await makePost();
-    await photoOf(big.id, { byteSize: 6_000_000 });
+    await photoOf(big.id, { byteSize: 9_000_000 });
     await shareByLink('post', big.id);
     expect(await cardImagePath('post', big.id)).toBeNull();
     expect(await sharedPhotos('post', big.id)).toHaveLength(1);

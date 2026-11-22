@@ -161,8 +161,8 @@ export async function moreShared(exclude: { kind: SharedKind; id: string }, limi
 }
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-/** Above this a picture is not used on the link card (WhatsApp and Facebook skip very large ones, and we cannot make it smaller). */
-export const CARD_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+/** Above this a picture is not used on the link card (Facebook skips very large ones; WhatsApp's own, smaller limit is applied where the card is built). */
+export const CARD_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 export interface SharedPhoto {
   storageKey: string;
@@ -184,8 +184,12 @@ export async function sharedPhotos(kind: SharedKind, id: string): Promise<Shared
 
 /** The path (under the site address) of the picture for a link card, or null: then the usual card stays. */
 export async function cardImagePath(kind: SharedKind, id: string): Promise<string | null> {
+  return (await cardImage(kind, id))?.path ?? null;
+}
+
+async function cardImage(kind: SharedKind, id: string): Promise<{ path: string; bytes: number } | null> {
   const first = (await sharedPhotos(kind, id))[0];
-  return first && first.byteSize <= CARD_PHOTO_MAX_BYTES ? `api/shared/${kind}/${id}/photo/0` : null;
+  return first && first.byteSize <= CARD_PHOTO_MAX_BYTES ? { path: `api/shared/${kind}/${id}/photo/0`, bytes: first.byteSize } : null;
 }
 
 /** The post's writing as plain sentences for a link card: no ## / ** marks, and not starting with its own heading again. */
@@ -198,8 +202,9 @@ export function previewText(title: string, body: string): string {
 }
 
 /** For the link preview (WhatsApp, Facebook...): the title and the first lines, in the link's language. Null when the link is closed. */
-export async function sharedPreview(kind: SharedKind, id: string, lang: 'en' | 'fr'): Promise<{ title: string; text: string; image: string | null } | null> {
+export async function sharedPreview(kind: SharedKind, id: string, lang: 'en' | 'fr'): Promise<{ title: string; text: string; image: string | null; imageBytes: number | null } | null> {
   const item = await publicItem(kind, id);
   if (!item) return null;
-  return { title: item.title[lang], text: excerpt(previewText(item.title[lang], item.body[lang])), image: await cardImagePath(kind, id) };
+  const image = await cardImage(kind, id);
+  return { title: item.title[lang], text: excerpt(previewText(item.title[lang], item.body[lang])), image: image?.path ?? null, imageBytes: image?.bytes ?? null };
 }

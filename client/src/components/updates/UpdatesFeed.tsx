@@ -1,4 +1,4 @@
-import { LinkPreviewCard } from '../LinkPreviewCard';
+import { LinkPreviewCard, firstUrl, withoutPreview } from '../LinkPreviewCard';
 import { CoordinatorBadge } from '../CoordinatorBadge';
 import { LengthNote } from '../LengthNote';
 import { MAX_COMMENT_CHARS, MAX_POST_CHARS, isTooLong } from '../../lib/textLimits';
@@ -133,6 +133,8 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [body, setBody] = useState('');
+  // The link whose preview card the writer took off: the post is sent without the card.
+  const [noCardFor, setNoCardFor] = useState<string | null>(null);
   const [audience, setAudience] = useState<'EVERYONE' | 'FRIENDS'>('EVERYONE');
   const [files, setFiles] = useState<PickedPhoto[]>([]);
   const [preparing, setPreparing] = useState(false);
@@ -200,7 +202,9 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
         photos.push({ storageKey: auth.storageKey, mimeType, byteSize: file.blob.size });
       }
       // Members share words and photos only (no YouTube links).
-      await api.post('/api/updates', { body: body.trim(), photos, audience });
+      const text = body.trim();
+      await api.post('/api/updates', { body: noCardFor && firstUrl(text) === noCardFor ? withoutPreview(text) : text, photos, audience });
+      setNoCardFor(null);
       setBody('');
       files.forEach((f) => revokeUrl(f.preview));
       setFiles([]);
@@ -236,6 +240,7 @@ function Composer({ onPosted, wall }: { onPosted: () => void; wall: boolean }) {
         }}
       />
       <LengthNote value={body} max={MAX_POST_CHARS} />
+      {firstUrl(body) !== noCardFor && <LinkPreviewCard text={body} debounceMs={600} onDismiss={(u) => setNoCardFor(u)} />}
       {files.length > 0 && (
         <ul className="grid grid-cols-4 gap-2">
           {files.map((f) => (
