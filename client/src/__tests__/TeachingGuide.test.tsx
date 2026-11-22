@@ -1,11 +1,12 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { render, screen, within, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import i18n from '../i18n';
 import { MemberTeachingGuidePage } from '../pages/MemberTeachingGuidePage';
 
 // The simple guide inside the app for the weekly teachers.
 afterEach(async () => {
+  vi.restoreAllMocks();
   await i18n.changeLanguage('en');
 });
 
@@ -39,5 +40,19 @@ describe('the teaching guide', () => {
     expect(screen.getByTestId('guide-way1')).toHaveTextContent("J'ai terminé mon enseignement");
     expect(screen.getByTestId('guide-way1')).toHaveTextContent('25 minutes');
     expect(screen.getByTestId('guide-way2')).toHaveTextContent('Ajouter à mon enseignement');
+  });
+
+  it('Back returns to the message the teacher came from', () => {
+    vi.spyOn(window.history, 'length', 'get').mockReturnValue(3); // the phone has a page to go back to
+    render(
+      <MemoryRouter initialEntries={['/member/chats/private/x', '/member/my-teaching/guide']} initialIndex={1}>
+        <Routes>
+          <Route path="/member/chats/private/x" element={<p data-testid="came-from">the message</p>} />
+          <Route path="/member/my-teaching/guide" element={<MemberTeachingGuidePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('guide-back'));
+    expect(screen.getByTestId('came-from')).toBeInTheDocument();
   });
 });

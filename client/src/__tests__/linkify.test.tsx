@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { fireEvent } from '@testing-library/react';
 import { Linkified, splitLinks } from '../lib/linkify';
 
 const links = (text: string) => splitLinks(text).filter((p) => p.href).map((p) => [p.text, p.href]);
@@ -52,6 +54,37 @@ describe('linkify', () => {
     const [own, other] = screen.getAllByRole('link');
     expect(own).not.toHaveAttribute('target');
     expect(other).toHaveAttribute('target', '_blank');
+  });
+
+  it('opens a member screen of our own site inside the app, with no page reload, so back returns to the message', () => {
+    const Where = () => <p data-testid="where">{useLocation().pathname}</p>;
+    render(
+      <MemoryRouter initialEntries={['/chat']}>
+        <Routes>
+          <Route path="/chat" element={<p><Linkified text={`Guide: ${window.location.origin}/member/my-teaching/guide`} /></p>} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const a = screen.getByRole('link');
+    expect(a).not.toHaveAttribute('target');
+    fireEvent.click(a);
+    expect(screen.getByTestId('where')).toHaveTextContent('/member/my-teaching/guide');
+  });
+
+  it('keeps other pages of our own site (the guides, the articles) as ordinary links the server answers', () => {
+    const Where = () => <p data-testid="where">{useLocation().pathname}</p>;
+    render(
+      <MemoryRouter initialEntries={['/chat']}>
+        <Routes>
+          <Route path="/chat" element={<p><Linkified text={`${window.location.origin}/notifications-guide/`} /><Where /></p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const a = screen.getByRole('link');
+    expect(a).toHaveAttribute('href', `${window.location.origin}/notifications-guide/`);
+    expect(a).not.toHaveAttribute('target');
+    expect(screen.getByTestId('where')).toHaveTextContent('/chat'); // the router was not used for it
   });
 
   it('finds bare addresses at the start of the text, after a new line, and side by side', () => {

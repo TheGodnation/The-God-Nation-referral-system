@@ -6008,7 +6008,7 @@
   "teachingGuide": {
     "title": "Votre enseignement de la semaine : comment ça marche",
     "link": "📘 Lire le guide simple : comment donner votre enseignement",
-    "back": "Retour à mon enseignement",
+    "back": "Retour",
     "lede": "Un guide simple. Lisez-le une fois. Ensuite, suivez les étapes chaque semaine.",
     "short": {
       "title": "En bref",
