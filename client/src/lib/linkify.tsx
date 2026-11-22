@@ -13,8 +13,9 @@ const TRAILING = `[^\\s<]*[^\\s<.,;:!?'")\\]}»”’*_~—–…]`;
 // "@" (an email). That is checked with a leading character group, not with a
 // "lookbehind": older iPhones (iOS before 16.4) cannot even create
 // such an expression, and it broke every screen that shows chat text.
+// An address written between < and > is a link sent without its preview card (see LinkPreviewCard): the marks are not shown.
 const ADDRESS = new RegExp(
-  `(?:https?:\\/\\/|www\\.)${TRAILING}|(^|[^@\\w.\\/-])((?:[a-z0-9-]+\\.)+(?:${TLDS})\\b(?![@\\w-])(?:\\/${TRAILING})?)`,
+  `<(https?:\\/\\/[^\\s<>]+)>|(?:https?:\\/\\/|www\\.)${TRAILING}|(^|[^@\\w.\\/-])((?:[a-z0-9-]+\\.)+(?:${TLDS})\\b(?![@\\w-])(?:\\/${TRAILING})?)`,
   'gi',
 );
 
@@ -28,9 +29,17 @@ export function splitLinks(text: string): LinkPart[] {
   const parts: LinkPart[] = [];
   let last = 0;
   for (const m of text.matchAll(ADDRESS)) {
-    // A bare address comes with the one character before it (group 1): the link starts after that.
-    const shown = m[2] ?? m[0];
-    const at = (m.index ?? 0) + (m[2] !== undefined ? (m[1] ?? '').length : 0);
+    if (m[1] !== undefined) {
+      // <https://…>: the link without the marks around it.
+      const from = m.index ?? 0;
+      if (from > last) parts.push({ text: text.slice(last, from), href: null });
+      parts.push({ text: m[1], href: m[1] });
+      last = from + m[0].length;
+      continue;
+    }
+    // A bare address comes with the one character before it (group 2): the link starts after that.
+    const shown = m[3] ?? m[0];
+    const at = (m.index ?? 0) + (m[3] !== undefined ? (m[2] ?? '').length : 0);
     if (at > last) parts.push({ text: text.slice(last, at), href: null });
     parts.push({ text: shown, href: /^https?:\/\//i.test(shown) ? shown : `https://${shown}` });
     last = at + shown.length;

@@ -22,6 +22,8 @@ export interface PreviewMeta {
 }
 
 const SITE = 'The God Nation';
+/** WhatsApp does not show a card picture much bigger than this. */
+const WHATSAPP_IMAGE_MAX_BYTES = 300 * 1024;
 
 // The picture of each card (drawn from docs/share-cards/cards.html). WhatsApp keeps a picture it has already
 // fetched, so a new design gets new file names rather than replacing these files.
@@ -127,10 +129,10 @@ export function metaFor(path: string, lang: CardLang, page?: { title: string; te
 }
 
 /** The page with its title, description and share tags set for this link. Only the page's own path is used for the address, so a referral code in the link is never copied into it. */
-export function renderIndexHtml(template: string, opts: { appUrl: string; path: string; lang: CardLang; meta: PreviewMeta }): string {
+export function renderIndexHtml(template: string, opts: { appUrl: string; path: string; lang: CardLang; meta: PreviewMeta; query?: string }): string {
   const { appUrl, path, lang, meta } = opts;
   const base = appUrl.replace(/\/+$/, '');
-  const url = `${base}${path === '/' ? '' : path}` || base;
+  const url = `${base}${path === '/' ? '' : path}${opts.query ?? ''}` || base;
   const image = `${base}/${meta.image ?? CARD_IMAGE[lang]}`;
   const pageLang: Lang = lang === 'fr' ? 'fr' : 'en';
   const t = escapeAttr(meta.title);
@@ -160,14 +162,14 @@ export function renderIndexHtml(template: string, opts: { appUrl: string; path: 
   return html.replace(/<\/head>/i, `    ${tags}\n  </head>`);
 }
 
-type Lookup = (slug: string, lang: Lang) => Promise<{ title: string; text: string; image?: string | null } | null>;
+type Lookup = (slug: string, lang: Lang) => Promise<{ title: string; text: string; image?: string | null; imageBytes?: number | null } | null>;
 
 /** The handler for every page address that is not a file or an API call. */
 export function spaHandler(
   template: string,
   appUrl: string,
   findPage: Lookup,
-  findShared?: (kind: 'post' | 'announcement' | 'update', id: string, lang: Lang) => Promise<{ title: string; text: string; image?: string | null } | null>,
+  findShared?: (kind: 'post' | 'announcement' | 'update', id: string, lang: Lang) => Promise<{ title: string; text: string; image?: string | null; imageBytes?: number | null } | null>,
 ) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -176,13 +178,23 @@ export function spaHandler(
       const lang: CardLang = req.query.lang === 'fr' ? 'fr' : req.query.lang === 'en' ? 'en' : 'both';
       const slug = pageSlugOf(req.path);
       const news = newsPathOf(req.path);
-      const page = slug
+      let page = slug
         ? await findPage(slug, lang === 'fr' ? 'fr' : 'en')
         : news && findShared
           ? await findShared(news.kind, news.id, lang === 'fr' ? 'fr' : 'en')
           : null;
+      // WhatsApp drops a card picture above about 300 KB: for it a bigger photo keeps the usual card, so the card is never left bare.
+      if (page?.image && /whatsapp/i.test(req.get('user-agent') ?? '') && (page.imageBytes ?? 0) > WHATSAPP_IMAGE_MAX_BYTES) page = { ...page, image: null };
+      // A shared news link keeps its own version in the card's address (?lang and ?v only, never anything else), so a link shared
+      // again is read again by WhatsApp and Facebook instead of showing the card they kept from an earlier time.
+      let query: string | undefined;
+      if (news) {
+        const v = typeof req.query.v === 'string' && /^[a-z0-9]{1,12}$/i.test(req.query.v) ? req.query.v : null;
+        const parts = [lang === 'fr' || lang === 'en' ? `lang=${lang}` : null, v ? `v=${v}` : null].filter(Boolean);
+        query = parts.length ? `?${parts.join('&')}` : undefined;
+      }
       res.set('Content-Type', 'text/html; charset=utf-8');
-      res.send(renderIndexHtml(template, { appUrl, path: req.path, lang, meta: metaFor(req.path, lang, page) }));
+      res.send(renderIndexHtml(template, { appUrl, path: req.path, lang, meta: metaFor(req.path, lang, page), query }));
     } catch (err) {
       next(err);
     }

@@ -5939,5 +5939,8 @@
     "share_other": "Autres applications…",
     "copy_message": "Copier le message",
     "message_copied": "Message copié. Collez-le où vous voulez."
+  },
+  "linkPreview": {
+    "remove": "Envoyer sans la carte d'aperçu"
   }
 }

@@ -9,6 +9,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { ShareError, isSharedKind, moreShared, publicItem, sharedPhotos, shareByLink, shareState, stopSharing } from '../lib/sharedPosts';
 import { getObjectStream, isStorageConfigured } from '../lib/storage';
+import { cardJpeg, pageJpeg, MAX_INPUT_BYTES } from '../lib/photoCard';
 
 // Posts and announcements shared by link. Anyone can read a shared one (GET /api/shared/:kind/:id); only the central admin can
 // open or close a link, from the admin dashboard or from their own member profile.
@@ -31,20 +32,40 @@ export const publicSharedRoutes = (() => {
     res.json({ ...item, photos: photos.map((_, i) => ({ url: `/api/shared/${kind}/${id}/photo/${i}` })), more: await moreShared({ kind, id }) });
   }));
 
-  // One picture of a shared post, readable by anyone with the link while the link is open (and for no other file).
-  router.get('/:kind/:id/photo/:n', asyncHandler(async (req, res) => {
+  // The pictures of a shared post, readable by anyone with the link while the link is open (and for no other file).
+  // The card picture is cut to 1200x630 and kept small; the page pictures are scaled to fit a phone.
+  const made = new Map<string, Buffer>();
+  const remember = (key: string, bytes: Buffer) => {
+    if (made.size >= 40) made.delete(made.keys().next().value as string);
+    made.set(key, bytes);
+  };
+  async function sendPicture(req: Request, res: any, variant: 'card' | 'photo') {
     const { kind, id } = req.params;
-    const n = Number(req.params.n);
+    const n = variant === 'card' ? 0 : Number(req.params.n);
     if (!isSharedKind(kind) || !Number.isInteger(n) || n < 0 || !isStorageConfigured()) return res.status(404).json({ error: 'Not available.' });
     const photo = (await sharedPhotos(kind, id))[n];
-    if (!photo) return res.status(404).json({ error: 'Not available.' });
-    const object = await getObjectStream({ storageKey: photo.storageKey });
-    if (!object) return res.status(404).json({ error: 'Not available.' });
-    res.set({ 'Content-Type': photo.mimeType, 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' });
-    if (object.contentLength) res.set('Content-Length', String(object.contentLength));
-    object.body.on('error', () => res.destroy());
-    object.body.pipe(res);
-  }));
+    if (!photo || photo.byteSize > MAX_INPUT_BYTES) return res.status(404).json({ error: 'Not available.' });
+    const cacheKey = `${variant}:${photo.storageKey}`;
+    let bytes = made.get(cacheKey) ?? null;
+    if (!bytes) {
+      const object = await getObjectStream({ storageKey: photo.storageKey });
+      if (!object) return res.status(404).json({ error: 'Not available.' });
+      const chunks: Buffer[] = [];
+      for await (const chunk of object.body as AsyncIterable<Buffer>) chunks.push(Buffer.from(chunk));
+      const original = Buffer.concat(chunks);
+      bytes = variant === 'card' ? await cardJpeg(original) : await pageJpeg(original);
+      // If the picture cannot be resized the original is sent (the card then uses it only when it is small: see cardImagePath).
+      if (!bytes) {
+        res.set({ 'Content-Type': photo.mimeType, 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' });
+        return res.send(original);
+      }
+      remember(cacheKey, bytes);
+    }
+    res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Length': String(bytes.length) });
+    res.send(bytes);
+  }
+  router.get('/:kind/:id/card.jpg', asyncHandler((req, res) => sendPicture(req, res, 'card')));
+  router.get('/:kind/:id/photo/:n', asyncHandler((req, res) => sendPicture(req, res, 'photo')));
   return router;
 })();
 

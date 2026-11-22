@@ -98,6 +98,18 @@ describe('link previews', () => {
     expect(without).toContain('og:image:width');
   });
 
+  it('WhatsApp keeps the usual card when the photo is above its size limit, and the card address carries only lang and v', async () => {
+    const a = express();
+    a.get('*', spaHandler(template, APP, async () => null, async () => ({ title: 'Good news', text: 'Come and see.', image: 'api/shared/post/p1/photo/0', imageBytes: 900_000 })));
+    const whatsapp = (await request(a).get('/news/post/p1?lang=en&v=ab12&ref=SECRETCODE').set('User-Agent', 'WhatsApp/2.23.20 A')).text;
+    expect(whatsapp).toContain('share-card-en.jpg'); // 900 KB photo: too big for WhatsApp
+    expect(whatsapp).toContain('<meta property="og:url" content="https://thegodnationacademy.org/news/post/p1?lang=en&amp;v=ab12" />');
+    expect(whatsapp).not.toContain('SECRETCODE');
+    const facebook = (await request(a).get('/news/post/p1?lang=en&v=ab12').set('User-Agent', 'facebookexternalhit/1.1')).text;
+    expect(facebook).toContain('/api/shared/post/p1/photo/0');
+    expect(facebook).not.toContain('share-card-en.jpg');
+  });
+
   it('escapes quotes and angle brackets in titles', () => {
     const html = renderIndexHtml(template, { appUrl: APP, path: '/x', lang: 'en', meta: { title: 'A "quoted" <b>title</b>', description: 'd', type: 'website' } });
     expect(html).toContain('og:title" content="A &quot;quoted&quot; &lt;b&gt;title&lt;/b&gt;"');

@@ -88,3 +88,14 @@ describe('the app code avoids what older iPhones cannot run', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('a link sent without its preview card', () => {
+  it('shows the address without the < > marks, as a link', () => {
+    expect(splitLinks('Read <https://news.example/a> please')).toEqual([
+      { text: 'Read ', href: null },
+      { text: 'https://news.example/a', href: 'https://news.example/a' },
+      { text: ' please', href: null },
+    ]);
+  });
+});
+

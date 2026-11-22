@@ -5939,5 +5939,8 @@
     "share_other": "Other apps…",
     "copy_message": "Copy the message",
     "message_copied": "Message copied. Paste it anywhere."
+  },
+  "linkPreview": {
+    "remove": "Send without the preview card"
   }
 }

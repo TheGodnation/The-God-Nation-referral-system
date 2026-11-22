@@ -3,6 +3,7 @@ import { embedFor, type SocialProvider } from './socialEmbed';
 import { excerpt } from './ogMeta';
 import { isCentralAdminPerson } from './centralAdmin';
 import { attemptUpdatePostTranslation, translateBeforePublish } from './translation';
+import { isPhotoResizingAvailable, MAX_INPUT_BYTES } from './photoCard';
 
 // Sharing the central admin's posts and announcements by link. Nothing is public until the central admin taps "Share by
 // link" on that post (it then carries sharedPublicAt); only published, not archived items can be shared, and the public
@@ -101,7 +102,7 @@ export async function publicItem(kind: SharedKind, id: string) {
       kind,
       id: u.id,
       title: { en: headline(en), fr: headline(fr) },
-      body: { en, fr },
+      body: { en: withoutTitle(headline(en), en), fr: withoutTitle(headline(fr), fr) },
       author: u.author.name,
       publishedAt: u.createdAt,
       mediaCount: u._count.photos,
@@ -118,7 +119,7 @@ export async function publicItem(kind: SharedKind, id: string) {
       kind,
       id: p.id,
       title: { en: p.titleEn, fr: p.titleFr || p.titleEn },
-      body: { en: p.bodyEn, fr: p.bodyFr || p.bodyEn },
+      body: { en: withoutTitle(p.titleEn, p.bodyEn), fr: withoutTitle(p.titleFr || p.titleEn, p.bodyFr || p.bodyEn) },
       author: p.authorPerson?.name ?? (p.voice === 'COMMUNICATION_DEPARTMENT' ? 'The God Nation — Communication Department' : 'The God Nation'),
       publishedAt: p.publishedAt,
       mediaCount: p._count.media,
@@ -131,7 +132,7 @@ export async function publicItem(kind: SharedKind, id: string) {
     kind,
     id: a.id,
     title: { en: a.titleEn, fr: a.titleFr || a.titleEn },
-    body: { en: a.bodyEn, fr: a.bodyFr || a.bodyEn },
+    body: { en: withoutTitle(a.titleEn, a.bodyEn), fr: withoutTitle(a.titleFr || a.titleEn, a.bodyFr || a.bodyEn) },
     author: a.authorPerson?.name ?? 'The God Nation',
     publishedAt: a.publishedAt,
     mediaCount: 0,
@@ -161,8 +162,8 @@ export async function moreShared(exclude: { kind: SharedKind; id: string }, limi
 }
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-/** Above this a picture is not used on the link card (WhatsApp and Facebook skip very large ones, and we cannot make it smaller). */
-export const CARD_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+/** Above this a picture is not used on the link card (Facebook skips very large ones; WhatsApp's own, smaller limit is applied where the card is built). */
+export const CARD_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 export interface SharedPhoto {
   storageKey: string;
@@ -184,8 +185,28 @@ export async function sharedPhotos(kind: SharedKind, id: string): Promise<Shared
 
 /** The path (under the site address) of the picture for a link card, or null: then the usual card stays. */
 export async function cardImagePath(kind: SharedKind, id: string): Promise<string | null> {
+  return (await cardImage(kind, id))?.path ?? null;
+}
+
+async function cardImage(kind: SharedKind, id: string): Promise<{ path: string; bytes: number } | null> {
   const first = (await sharedPhotos(kind, id))[0];
-  return first && first.byteSize <= CARD_PHOTO_MAX_BYTES ? `api/shared/${kind}/${id}/photo/0` : null;
+  if (!first) return null;
+  // With the image tool, any picture is cut to 1200x630 and kept small, so every size works (bytes: what WhatsApp will fetch).
+  if (first.byteSize <= MAX_INPUT_BYTES && (await isPhotoResizingAvailable())) return { path: `api/shared/${kind}/${id}/card.jpg`, bytes: 0 };
+  // Without it, only a picture of a size the apps accept is used, as it is.
+  return first.byteSize <= CARD_PHOTO_MAX_BYTES ? { path: `api/shared/${kind}/${id}/photo/0`, bytes: first.byteSize } : null;
+}
+
+const markless = (t: string) => t.replace(/^\s{0,3}#{1,6}\s*/, '').replace(/[*_~`#]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** The writing without its first line when that line only says the title again (the page already shows the title above it). */
+export function withoutTitle(title: string, body: string): string {
+  const lines = body.split('\n');
+  const first = lines.findIndex((l) => l.trim() !== '');
+  if (first < 0) return body;
+  const head = markless(title).replace(/…$/, '');
+  if (head && markless(lines[first]) === head) return lines.slice(first + 1).join('\n').replace(/^\s*\n+/, '');
+  return body;
 }
 
 /** The post's writing as plain sentences for a link card: no ## / ** marks, and not starting with its own heading again. */
@@ -198,8 +219,9 @@ export function previewText(title: string, body: string): string {
 }
 
 /** For the link preview (WhatsApp, Facebook...): the title and the first lines, in the link's language. Null when the link is closed. */
-export async function sharedPreview(kind: SharedKind, id: string, lang: 'en' | 'fr'): Promise<{ title: string; text: string; image: string | null } | null> {
+export async function sharedPreview(kind: SharedKind, id: string, lang: 'en' | 'fr'): Promise<{ title: string; text: string; image: string | null; imageBytes: number | null } | null> {
   const item = await publicItem(kind, id);
   if (!item) return null;
-  return { title: item.title[lang], text: excerpt(previewText(item.title[lang], item.body[lang])), image: await cardImagePath(kind, id) };
+  const image = await cardImage(kind, id);
+  return { title: item.title[lang], text: excerpt(previewText(item.title[lang], item.body[lang])), image: image?.path ?? null, imageBytes: image?.bytes ?? null };
 }

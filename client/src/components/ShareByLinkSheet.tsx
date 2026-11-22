@@ -83,6 +83,9 @@ export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClos
   const [refresh, setRefresh] = useState(0);
   // The language of the message and of the page the link opens.
   const [lang, setLang] = useState<'en' | 'fr'>(i18n.language.startsWith('fr') ? 'fr' : 'en');
+  // Every time the sheet is opened the link gets a new version mark, so WhatsApp and Facebook read the post again
+  // (with the same link they keep showing the card they saved earlier, without its picture).
+  const [version] = useState(() => Date.now().toString(36));
   const [words, setWords] = useState<{ title: { en: string; fr: string }; body: { en: string; fr: string } } | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
@@ -137,13 +140,13 @@ export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClos
     composeShare({
       title: words?.title[lang] || titles?.[lang] || title,
       teaser: words?.body[lang] || teaser?.[lang] || teaser?.en || teaser?.fr,
-      link: `${link}?lang=${lang}`,
+      link: `${link}?lang=${lang}&v=${version}`,
       readMore: i18n.t('shareLink.read_more', { lng: lang }),
       style,
     });
   const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent(message('whatsapp'))}`, '_blank', 'noopener');
   // Facebook builds its own card from the link (title, picture and first lines), so it only needs the link.
-  const facebook = () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${link}?lang=${lang}`)}`, '_blank', 'noopener');
+  const facebook = () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${link}?lang=${lang}&v=${version}`)}`, '_blank', 'noopener');
   const copyMessage = async () => {
     try {
       await navigator.clipboard.writeText(message('plain'));

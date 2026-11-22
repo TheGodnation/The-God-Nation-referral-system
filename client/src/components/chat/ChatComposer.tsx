@@ -20,6 +20,7 @@ import { VoiceInputButton } from '../VoiceInputButton';
 import { ChatIcon } from './icons';
 import type { ChatMessage } from './types';
 import { loadDraft, saveDraft } from '../../lib/drafts';
+import { LinkPreviewCard, firstUrl, withoutPreview } from '../LinkPreviewCard';
 import { SelectionFormatBar } from '../FormatBar';
 import { LiveFormatTextarea } from '../LiveFormatTextarea';
 import { pasteIntoText } from '../../lib/pasteHtml';
@@ -93,6 +94,8 @@ export function ChatComposer({
 }) {
   const { t } = useTranslation();
   const [text, setText] = useState(() => loadDraft(draftKey));
+  // The link whose preview card the writer took off: it is sent without the card.
+  const [noCardFor, setNoCardFor] = useState<string | null>(null);
   const latestText = useRef(text);
   latestText.current = text;
 
@@ -334,13 +337,15 @@ export function ChatComposer({
     if (!hasContent || busy || isTooLong(text, MAX_MESSAGE_CHARS)) return;
     setBusy(true);
     setError(null);
+    const trimmed = text.trim();
     const ok = await onSend({
-      body: text.trim() || undefined,
+      body: trimmed ? (noCardFor && firstUrl(trimmed) === noCardFor ? withoutPreview(trimmed) : trimmed) : undefined,
       replyToMessageId: replyTo?.id,
     });
     setBusy(false);
     if (ok) {
       signalTyping('');
+      setNoCardFor(null);
       setText('');
       cursorRef.current = null;
       if (textRef.current) textRef.current.style.height = 'auto';
@@ -808,6 +813,8 @@ export function ChatComposer({
             />
           </div>
         )}
+        {/* What the message will show under its link, as WhatsApp does while typing; the x sends it without the card. */}
+        {firstUrl(text) !== noCardFor && <LinkPreviewCard text={text} debounceMs={600} onDismiss={(u) => setNoCardFor(u)} />}
         {/* On a narrow phone the box keeps room for "Message": tighter icons, and a little smaller round buttons when
             the two-language voice button (🌐) sits beside the microphone. */}
         <div className={`flex items-end ${bilingual ? 'gap-1.5' : 'gap-2'}`}>
