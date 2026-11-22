@@ -1,3 +1,4 @@
+import { LinkPreviewCard } from './LinkPreviewCard';
 import { ReactionsSheet, type ReactorList } from './ReactionsSheet';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -379,6 +380,7 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
                   <li key={c.id} className="border-b border-slate-50 pb-2 text-sm">
                     <p className="text-xs font-medium text-brand-700">{c.authorName}</p>
                     <RichText className="whitespace-pre-wrap text-slate-700" text={c.body} />
+                    <LinkPreviewCard text={c.body} />
                   </li>
                 ))}
               </ul>

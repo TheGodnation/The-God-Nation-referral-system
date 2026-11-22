@@ -1,3 +1,4 @@
+import { LinkPreviewCard } from '../LinkPreviewCard';
 import { CoordinatorBadge } from '../CoordinatorBadge';
 import { LengthNote } from '../LengthNote';
 import { MAX_COMMENT_CHARS, MAX_POST_CHARS, isTooLong } from '../../lib/textLimits';
@@ -403,6 +404,7 @@ function CommentBubble({
             <CoordinatorBadge badge={c.author.badge} />
           </span>
           <RichText className="whitespace-pre-wrap break-words text-sm text-slate-800" text={c.body} />
+          <LinkPreviewCard text={c.body} />
           {total > 0 && (
             <button
               type="button"
@@ -1013,6 +1015,7 @@ function PostCard({
       {body && !editing && (
         <div className="px-4 pt-2">
           <RichText className={`whitespace-pre-wrap break-words text-[15px] leading-relaxed text-slate-900 ${isLong && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings comfort />
+          <LinkPreviewCard text={displayBody} />
           {isLong && (
             <button type="button" className="text-sm font-semibold text-slate-500 hover:underline" onClick={() => setExpanded((v) => !v)}>
               {expanded ? t('updates.see_less') : t('updates.see_more')}
