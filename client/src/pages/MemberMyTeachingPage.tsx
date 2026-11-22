@@ -89,6 +89,7 @@ export function MemberMyTeachingPage() {
         <h1 className="text-2xl font-bold text-brand-900">{t('teachingRota.page_title')}</h1>
         {failed && <p className="text-sm text-red-700">{t('teachingRota.load_failed')}</p>}
         {!view && !failed && <p className="text-slate-500">{t('common.loading')}</p>}
+        <Link to="/member/my-teaching/guide" className="card block font-semibold text-brand-900 underline" data-testid="teaching-guide-link">{t('teachingGuide.link')}</Link>
         {view && <TeachingPageBody view={view} />}
         {view?.enabled && view.isTeacher && <TeachingRecordingPanel />}
         <MemberNav />

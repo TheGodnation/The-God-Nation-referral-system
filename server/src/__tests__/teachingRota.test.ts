@@ -409,11 +409,11 @@ describe('the rating card in the group', () => {
     expect(cards[0].senderPersonId).toBe(people.alpha.id);
   });
 
-  it('posts the card by itself 20 minutes after the slot starts, unless the teacher already did or it is very late', async () => {
+  it('posts the card by itself 25 minutes after the slot starts, unless the teacher already did or it is very late', async () => {
     const { people } = await setUp();
     const g = await group();
-    expect(await postDueRatingCards(at('2026-11-23T06:19:00Z'))).toBe(0); // 19 minutes after 07:00
-    expect(await postDueRatingCards(at('2026-11-23T06:21:00Z'))).toBe(1); // Alpha
+    expect(await postDueRatingCards(at('2026-11-23T06:24:00Z'))).toBe(0); // 24 minutes after 07:00
+    expect(await postDueRatingCards(at('2026-11-23T06:26:00Z'))).toBe(1); // Alpha
     expect(await postDueRatingCards(at('2026-11-23T06:30:00Z'))).toBe(0); // not twice
     // Beta taps at 16:05 (15:05Z); the automatic one finds the card already there
     await finishTeaching(people.beta.id, at('2026-11-23T15:05:00Z'));
@@ -726,7 +726,9 @@ describe('the assignment as a private message', () => {
     const betaMessages = await prisma.privateMessage.findMany({ where: { conversationId: betaChat.id }, orderBy: { createdAt: 'asc' } });
     expect(betaMessages).toHaveLength(2);
     expect(betaMessages[1].body).toContain('How your weekly teaching works');
-    expect(betaMessages[1].body).toContain('20 minutes');
+    expect(betaMessages[1].body).toContain('25 minutes');
+    expect(betaMessages[1].body).toContain('about 5 minutes');
+    expect(betaMessages[1].body).toContain('/member/my-teaching/guide');
     expect(await sendHowToNow()).toMatchObject({ sent: 0, alreadySent: 2 }); // never twice
     expect(await prisma.privateMessage.count({ where: { conversationId: betaChat.id } })).toBe(2);
   });

@@ -6001,6 +6001,146 @@
   "linkPreview": {
     "remove": "Send without the preview card"
   },
+  "teachingGuide": {
+    "title": "Your weekly teaching: how it works",
+    "link": "📘 Read the simple guide: how to give your teaching",
+    "back": "Back to my teaching",
+    "lede": "A simple guide. Read it once. Then follow the steps each week.",
+    "short": {
+      "title": "The short story",
+      "items": [
+        "Once a week, you teach for about **15 minutes**. You speak into your phone. The app does the rest.",
+        "But you do **not** record 15 minutes in one go. You record in **short pieces of about 5 minutes**. You will see why just below.",
+        "The other members listen to you. Then they give your teaching a rating. You do not need to do anything difficult."
+      ]
+    },
+    "pieces": {
+      "title": "Important: record in short pieces of 5 minutes",
+      "items": [
+        "Do **not** record 15 minutes from beginning to end. A very long recording is too big for the app to write down and translate.",
+        "Instead: record about **5 minutes**, and send it. Then record the next **5 minutes**, and send it. Then the last **5 minutes**, and send it. That makes about 3 pieces.",
+        "Nothing is lost. Your pieces stay in order, and the members hear them one after the other.",
+        "Short pieces are written down and translated faster and better. This is the most important tip in this guide."
+      ]
+    },
+    "words": {
+      "title": "Words you will see",
+      "items": [
+        {
+          "term": "Voice note",
+          "text": "A message you speak instead of typing. You tap the microphone, you talk, and you send it."
+        },
+        {
+          "term": "Group",
+          "text": "A chat with many people inside the app. Your teaching goes to the **Leadership group**."
+        },
+        {
+          "term": "Rating card",
+          "text": "A small box that appears in the group under your teaching. Members tap it to say how good the teaching was."
+        },
+        {
+          "term": "Approve",
+          "text": "A button that means: “I have read it. It is correct. You can use it.”"
+        }
+      ]
+    },
+    "before": {
+      "title": "Step 1. Get ready (before your day)",
+      "steps": [
+        "Open the app. Go to the **Chats** page.",
+        "At the top you will see a box called [[Your teaching]]. Tap it.",
+        "You will see **your topic** for this week, the **book** and the **chapter**. You will also see the **written teaching**.",
+        "Read it slowly. Read it more than once if you need to.",
+        "Look at your **day and time**. The page shows it two ways: **Cameroon time**, and **your phone's time**. If you are not in Cameroon, use your phone's time."
+      ],
+      "tip": "The app also sends you a private message from the central admin with your topic and your time. You can answer that message if you have a question."
+    },
+    "choose": {
+      "title": "Step 2. Choose how you will teach",
+      "items": [
+        "There are two ways. **Pick only one.** If you do both, your teaching will appear two times in the group.",
+        "**Way 1 is for when your time has come: you go live.**",
+        "**Way 2 is only for before your time: you record ahead and the app posts it for you.**",
+        "**Not sure? Choose Way 1.** It is the simplest."
+      ]
+    },
+    "way1": {
+      "tag": "Way 1 · Live (when your time has come)",
+      "title": "Teach at your time",
+      "intro": "When your time is ready, you just go live and do it. Do it in short pieces of about 5 minutes.",
+      "steps": [
+        "At your time, open the app and go to the **Leadership group**.",
+        "Tap the **microphone** button. It records by itself, you do not need to hold it.",
+        "Teach for about **5 minutes**. Speak clearly. You can tap [[Pause]] for a short rest, and [[Resume]] to go on.",
+        "Tap [[Send voice note]]. This is your first piece.",
+        "Tap the microphone again and teach the next **5 minutes**. Send it. Do it a third time for the last piece.",
+        "Look just above the box where you type. Tap the button [[I have finished my teaching]].",
+        "A rating card now appears in the group. Members can listen and rate."
+      ],
+      "tip": "If you forget to tap the button, do not worry. The card appears by itself, **25 minutes** after your time begins."
+    },
+    "way2": {
+      "tag": "Way 2 · Ahead of time (only before your time)",
+      "title": "Record before your time",
+      "intro": "You record when it is easy for you. The app keeps your recording and posts it for you at your hour. You do not need to be there. Again, record in pieces of about 5 minutes.",
+      "steps": [
+        "Open [[Your teaching]] (see Step 1). Tap [[Record my teaching]].",
+        "If the phone asks to use the microphone, tap **Allow**.",
+        "Speak the first **5 minutes**. If you need a rest, tap [[Pause]]. Nothing is lost. Tap [[Continue]] to go on.",
+        "Tap [[Stop]]. Listen if you like. Then tap [[Use this recording]].",
+        "Now tap [[Add more]]. Record the next **5 minutes**. Tap [[Stop]], then [[Add to my teaching]]. Do it once more for the last piece.",
+        "Wait a few minutes. The app is writing down your words. You can leave the page and come back later.",
+        "When the text is ready, **read it**. Fix any mistake, especially **names** and **Bible verses**. Tap [[Save my corrections]].",
+        "When it is all correct, tap [[Approve]].",
+        "That is all. At your time, the app posts your teaching in the group with the written text under it. It also makes the other language (English or French) by itself."
+      ],
+      "tip": "You can only record ahead **before** your teaching time. When your time has come, do not use this. Just go live (Way 1)."
+    },
+    "after": {
+      "title": "Step 3. After you teach",
+      "items": [
+        "Members listen to your teaching and tap a rating on the card.",
+        "You will get a notice that says **how many people** rated.",
+        "You will **not** be told who rated. You will not be told what they chose. This is on purpose, so everyone can be honest.",
+        "You cannot rate your own teaching."
+      ]
+    },
+    "trouble": {
+      "title": "If something goes wrong",
+      "items": [
+        {
+          "term": "The microphone does not work.",
+          "text": "Your phone is blocking it. Tap **Allow** when it asks. If it does not ask, open your phone's Settings, find the app or browser, and allow the microphone. Then try again."
+        },
+        {
+          "term": "The text did not appear.",
+          "text": "Tap [[Write the text again]]. If it still does not work, type the words yourself. Or leave it. Your voice recording will still be posted."
+        },
+        {
+          "term": "I made a mistake in my recording.",
+          "text": "Before your time, tap [[Start over]] and record again."
+        },
+        {
+          "term": "I forgot the day.",
+          "text": "Open [[Your teaching]]. It shows your day and time. You also get an alert the day before and one hour before."
+        },
+        {
+          "term": "I do not understand something.",
+          "text": "Reply to the private message from the central admin. Ask. It is fine to ask."
+        }
+      ]
+    },
+    "remember": {
+      "title": "Remember",
+      "items": [
+        "Record in short pieces of about **5 minutes**. Never 15 minutes in one go.",
+        "Recording ahead is only for **before** your time. When your time has come, go live.",
+        "Choose only one way: live, or ahead of time.",
+        "Find a quiet place and speak clearly.",
+        "Speak in the language you know best. The app makes the other language for you."
+      ]
+    }
+  },
   "teachingRecording": {
     "heading": "Record my teaching ahead of time",
     "intro": "Record your teaching when it suits you. At your teaching time it is posted in the group by itself, with its written text under it.",
