@@ -87,7 +87,7 @@ export function MemberTokensPage() {
             <section className="card space-y-2" data-testid="tokens-rate">
               {data.started && data.clinicRate !== null ? (
                 <>
-                  <p className="text-slate-800">{t(store ? 'storePoints.rate_now' : 'tokens.rate_now', { rate: fmt(data.clinicRate, i18n.language) })}</p>
+                  <p className="text-slate-800">{(store ? t('storePoints.rate_now', { count: data.clinicRate, rate: fmt(data.clinicRate, i18n.language) }) : t('tokens.rate_now', { count: data.clinicRate, rate: fmt(data.clinicRate, i18n.language) }))}</p>
                   {!store && (
                     <p className="text-sm text-slate-600">
                       {data.nextHalving ? t('tokens.next_halving', { date: day(data.nextHalving.at), rate: fmt(data.nextHalving.rate, i18n.language) }) : t('tokens.at_floor')}
@@ -105,7 +105,12 @@ export function MemberTokensPage() {
                 <>
                   <h3 className="pt-2 text-sm font-semibold text-brand-900">{t('tokens.schedule')}</h3>
                   <ul className="text-sm text-slate-700">
-                    {data.schedule.map((r) => (
+                    {data.schedule.reduce<typeof data.schedule>((rows, r) => {
+                      // Stretches of years with the same rate are shown as one line.
+                      const last = rows[rows.length - 1];
+                      if (last && last.clinic === r.clinic) return [...rows.slice(0, -1), { ...last, toYear: r.toYear }];
+                      return [...rows, r];
+                    }, []).map((r) => (
                       <li key={r.fromYear} className="flex justify-between gap-2 border-t border-slate-100 py-1">
                         <span>{r.toYear === null ? t('tokens.years_after', { from: r.fromYear }) : t('tokens.years_range', { from: r.fromYear, to: r.toYear })}</span>
                         <span>{t('tokens.per_answer', { rate: fmt(r.clinic, i18n.language) })}</span>

@@ -26,22 +26,22 @@ afterEach(() => {
 });
 
 const schedule = [
-  { fromYear: 1, toYear: 4, clinic: 8, book: 16 },
-  { fromYear: 5, toYear: 8, clinic: 4, book: 8 },
-  { fromYear: 9, toYear: 12, clinic: 2, book: 4 },
+  { fromYear: 1, toYear: 4, clinic: 1, book: 16 },
+  { fromYear: 5, toYear: 8, clinic: 1, book: 8 },
+  { fromYear: 9, toYear: 12, clinic: 1, book: 4 },
   { fromYear: 13, toYear: null, clinic: 1, book: 2 },
 ];
 const started = {
   started: true,
   startsAt: '2026-11-15T00:00:00Z',
   usable: false,
-  balance: { earned: 56, bought: 0, total: 56 },
-  foundation: { total: 24 },
-  clinicRate: 8,
-  nextHalving: { at: '2030-11-15T00:00:00Z', rate: 4 },
+  balance: { earned: 7, bought: 0, total: 7 },
+  foundation: { total: 3 },
+  clinicRate: 1,
+  nextHalving: null,
   schedule,
   history: [
-    { id: 'h1', at: '2026-11-20T10:00:00Z', reason: 'CLINIC_EXAM', kind: 'EARNED', amount: 56, correctAnswers: 7, ratePerAnswer: 8, examNumber: 1, monthTitleEn: 'November', monthTitleFr: 'Novembre' },
+    { id: 'h1', at: '2026-11-20T10:00:00Z', reason: 'CLINIC_EXAM', kind: 'EARNED', amount: 7, correctAnswers: 7, ratePerAnswer: 1, examNumber: 1, monthTitleEn: 'November', monthTitleFr: 'Novembre' },
   ],
 };
 
@@ -67,8 +67,8 @@ describe('MemberTokensPage in the Play Store version', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Study points');
     expect(balance).toHaveTextContent('56');
     expect(screen.getByText(/a reward for studying and have no cash value/)).toBeInTheDocument();
-    expect(screen.getByTestId('tokens-rate')).toHaveTextContent('Each correct answer in a Dominion Clinic exam earns 8 points');
-    expect(screen.getByTestId('tokens-history')).toHaveTextContent('Dominion Clinic, exam 1 (November): 7 correct × 8');
+    expect(screen.getByTestId('tokens-rate')).toHaveTextContent('Each correct answer in a Dominion Clinic exam or a teaching quiz earns 1 point.');
+    expect(screen.getByTestId('tokens-history')).toHaveTextContent('Dominion Clinic, exam 1 (November): 7 correct × 1');
     // Nothing that reads like money or crypto.
     const page = document.body.textContent ?? '';
     for (const word of [/token/i, /halve/i, /burn/i, /foundation/i, /price/i, /\bpay/i, /bought/i, /Used toward/i, /for ever/i]) expect(page).not.toMatch(word);
@@ -82,20 +82,22 @@ describe('MemberTokensPage', () => {
     mockFetch({ '/api/member/tokens': () => started });
     render(<MemoryRouter><MemberTokensPage /></MemoryRouter>);
     const balance = await screen.findByTestId('tokens-balance');
-    expect(balance).toHaveTextContent('56');
+    expect(balance).toHaveTextContent('7');
     expect(balance).toHaveTextContent('You cannot use them yet');
-    expect(screen.getByTestId('tokens-rate')).toHaveTextContent('each correct answer in a Dominion Clinic exam earns 8 tokens');
-    expect(screen.getByTestId('tokens-rate')).toHaveTextContent('it halves to 4');
-    expect(screen.getByTestId('tokens-rate')).toHaveTextContent('Year 13 and after, for ever');
-    expect(screen.getByTestId('tokens-history')).toHaveTextContent('Dominion Clinic, exam 1 (November): 7 correct × 8');
-    expect(screen.getByTestId('tokens-history')).toHaveTextContent('+56');
-    expect(screen.getByTestId('tokens-foundation')).toHaveTextContent('The foundation holds 24 tokens');
+    expect(screen.getByTestId('tokens-rate')).toHaveTextContent('each correct answer in a Dominion Clinic exam or in a teaching quiz earns 1 token.');
+    expect(screen.getByTestId('tokens-rate')).toHaveTextContent('This is the lowest rate'); // one rate, it never halves
+    // the years with the same rate are one line, not four
+    expect(screen.getByTestId('tokens-rate')).toHaveTextContent('Year 1 and after, for ever');
+    expect(screen.getByTestId('tokens-rate')).not.toHaveTextContent('Years 1 to 4');
+    expect(screen.getByTestId('tokens-history')).toHaveTextContent('Dominion Clinic, exam 1 (November): 7 correct × 1');
+    expect(screen.getByTestId('tokens-history')).toHaveTextContent('+7');
+    expect(screen.getByTestId('tokens-foundation')).toHaveTextContent('The foundation holds 3 tokens');
   });
 
   it('says how tokens are earned, and what they will be used for: Bible study tools, a share of materials, helping one another', async () => {
     mockFetch({ '/api/member/tokens': () => started });
     render(<MemoryRouter><MemberTokensPage /></MemoryRouter>);
-    expect(await screen.findByText("You earn King's Tokens by answering Dominion Clinic examination questions correctly. They are kept for you, and you will be told when and how to use them.")).toBeInTheDocument();
+    expect(await screen.findByText(/You earn King's Tokens by answering correctly in Dominion Clinic examinations and in the quizzes of the teachings taught from the book: one token for each correct answer/)).toBeInTheDocument();
     const uses = screen.getByTestId('tokens-uses');
     expect(uses).toHaveTextContent('What they will be used for');
     expect(uses).toHaveTextContent('They will be used to access tools that will be made available to the community, especially Bible study tools. These will include all the concordances and different versions of the Bible, making it easy for anybody to study the Bible. These tools will be made available within the community.');
@@ -143,14 +145,14 @@ describe('TokensCard (central admin)', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     mockFetch({
       '/api/admin/tokens/summary': () => notStarted,
-      '/api/admin/tokens/start': () => ({ ...notStarted, started: true, startsAt: '2026-11-15T00:00:00Z', clinicRate: 8 }),
+      '/api/admin/tokens/start': () => ({ ...notStarted, started: true, startsAt: '2026-11-15T00:00:00Z', clinicRate: 1 }),
     });
     render(<TokensCard base="/api/admin/tokens" />);
     expect(await screen.findByText('Not started yet.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Start counting now' }));
     expect(await screen.findByText('Tokens are counting.')).toBeInTheDocument();
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ now: true });
-    expect(screen.getByText(/Now: 8 tokens per correct answer/)).toBeInTheDocument();
+    expect(screen.getByText(/Now: 1 tokens per correct answer/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Start counting now' })).not.toBeInTheDocument();
   });
 
@@ -166,7 +168,7 @@ describe('TokensCard (central admin)', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     mockFetch({
       '/api/member/central-tokens/summary': () => notStarted,
-      '/api/member/central-tokens/start': () => ({ ...notStarted, started: true, startsAt: '2026-11-15T00:00:00Z', clinicRate: 8 }),
+      '/api/member/central-tokens/start': () => ({ ...notStarted, started: true, startsAt: '2026-11-15T00:00:00Z', clinicRate: 1 }),
     });
     render(<TokensCard base="/api/member/central-tokens" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Start counting now' }));
@@ -267,7 +269,7 @@ describe('the member tokens page with spending', () => {
 });
 
 describe('TokensCard spending controls', () => {
-  const base = { started: true, startsAt: '2026-11-15T00:00:00Z', clinicRate: 8, earnedTotal: 100, foundationTotal: 43, members: 2, burnedTotal: 0, spentTotal: 0, spend: { enabled: false, valueFcfa: 1, maxPercent: 30 } };
+  const base = { started: true, startsAt: '2026-11-15T00:00:00Z', clinicRate: 1, earnedTotal: 100, foundationTotal: 43, members: 2, burnedTotal: 0, spentTotal: 0, spend: { enabled: false, valueFcfa: 1, maxPercent: 30 } };
 
   it('switches spending on after a confirmation and saves the rate and limit', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);

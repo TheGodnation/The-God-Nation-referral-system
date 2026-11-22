@@ -3878,14 +3878,13 @@
     "can_use": "You can use tokens toward a book when you pay for it: up to {{percent}}% of the price. Half of the tokens used are burned, and half go to the foundation.",
     "title": "King's Tokens",
     "link_help": "See the tokens you have earned by learning.",
-    "intro": "You earn King's Tokens by answering Dominion Clinic examination questions correctly. They are kept for you, and you will be told when and how to use them.",
+    "intro": "You earn King's Tokens by answering correctly in Dominion Clinic examinations and in the quizzes of the teachings taught from the book: one token for each correct answer. They are kept for you, and you will be told when and how to use them.",
     "not_started": "Tokens have not started counting yet.",
     "starts_on": "They start counting on {{date}}.",
     "balance": "Your tokens",
     "earned": "Earned",
     "bought": "Bought",
     "cannot_use_yet": "You cannot use them yet. They accumulate in your profile until the announcement.",
-    "rate_now": "Now, each correct answer in a Dominion Clinic exam earns {{rate}} tokens.",
     "next_halving": "On {{date}} it halves to {{rate}}.",
     "at_floor": "This is the lowest rate. It stays here for ever.",
     "schedule": "The rate over the years",
@@ -3904,7 +3903,9 @@
     "uses_title": "What they will be used for",
     "uses_tools": "They will be used to access tools that will be made available to the community, especially Bible study tools. These will include all the concordances and different versions of the Bible, making it easy for anybody to study the Bible. These tools will be made available within the community.",
     "uses_materials": "The tokens might also be used to purchase a percentage of certain materials that will be made available.",
-    "uses_help": "They might equally be used to help one another within the community when the time comes."
+    "uses_help": "They might equally be used to help one another within the community when the time comes.",
+    "rate_now_one": "Now, each correct answer in a Dominion Clinic exam or in a teaching quiz earns {{rate}} token.",
+    "rate_now_other": "Now, each correct answer in a Dominion Clinic exam or in a teaching quiz earns {{rate}} tokens."
   },
   "tokensAdmin": {
     "spend_title": "Spending tokens on books",
@@ -3919,7 +3920,7 @@
     "spent_total": "Tokens used on books",
     "spend_invalid": "Enter more than 0 francs, and a limit from 1 to 100.",
     "title": "King's Token",
-    "help": "Choose the day tokens start counting. Members earn from exams taken on or after that day, and the reward halves every 4 years counted from it. Once the day has arrived it cannot be changed.",
+    "help": "Choose the day tokens start counting. Members earn from exams and teaching quizzes taken on or after that day: one token for each correct answer. Once the day has arrived it cannot be changed.",
     "not_started": "Not started yet.",
     "starts_on": "Starts on {{date}}.",
     "started_on": "Counting since {{date}}.",
@@ -5648,13 +5649,14 @@
     "balance": "Your points",
     "not_started": "Points have not started counting yet.",
     "starts_on": "They start counting on {{date}}.",
-    "rate_now": "Each correct answer in a Dominion Clinic exam earns {{rate}} points.",
     "first_try": "Only the first try of an exam earns points.",
     "no_history": "Nothing yet. Take a Dominion Clinic exam to earn your first points.",
     "reason_clinic": "Dominion Clinic, exam {{number}} ({{month}}): {{correct}} correct × {{rate}}",
     "reason_clinic_plain": "Dominion Clinic exam: {{correct}} correct × {{rate}}",
     "earned_now": "You earned {{count}} study points for this exam.",
-    "points_earned": "{{count}} points earned"
+    "points_earned": "{{count}} points earned",
+    "rate_now_one": "Each correct answer in a Dominion Clinic exam or a teaching quiz earns {{rate}} point.",
+    "rate_now_other": "Each correct answer in a Dominion Clinic exam or a teaching quiz earns {{rate}} points."
   },
   "splitChats": {
     "title": "Join split chats (same person, two chats)",

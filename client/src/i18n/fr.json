@@ -3878,14 +3878,13 @@
     "can_use": "Vous pouvez utiliser des jetons pour un livre au moment de le payer : jusqu'à {{percent}} % du prix. La moitié des jetons utilisés est brûlée, et l'autre moitié va à la fondation.",
     "title": "Jetons du Roi",
     "link_help": "Voyez les jetons que vous avez gagnés en apprenant.",
-    "intro": "Vous gagnez des Jetons du Roi en répondant correctement aux questions des examens de la Clinique de la Domination. Ils sont gardés pour vous, et on vous dira quand et comment les utiliser.",
+    "intro": "Vous gagnez des Jetons du Roi en répondant correctement aux examens du Dominion Clinic et aux quiz des enseignements tirés du livre : un jeton pour chaque bonne réponse. Ils sont gardés pour vous, et on vous dira quand et comment les utiliser.",
     "not_started": "Les jetons ne comptent pas encore.",
     "starts_on": "Ils commenceront à compter le {{date}}.",
     "balance": "Vos jetons",
     "earned": "Gagnés",
     "bought": "Achetés",
     "cannot_use_yet": "Vous ne pouvez pas encore les utiliser. Ils s'accumulent dans votre profil jusqu'à l'annonce.",
-    "rate_now": "Actuellement, chaque bonne réponse à un examen de la Clinique de la Domination rapporte {{rate}} jetons.",
     "next_halving": "Le {{date}}, elle est divisée par deux : {{rate}}.",
     "at_floor": "C'est le taux le plus bas. Il reste ainsi pour toujours.",
     "schedule": "Le taux au fil des années",
@@ -3904,7 +3903,9 @@
     "uses_title": "À quoi ils serviront",
     "uses_tools": "Ils serviront à accéder à des outils qui seront mis à la disposition de la communauté, surtout des outils d'étude de la Bible. Ceux-ci comprendront toutes les concordances et les différentes versions de la Bible, pour que chacun puisse facilement étudier la Bible. Ces outils seront disponibles au sein de la communauté.",
     "uses_materials": "Les jetons pourraient aussi servir à acheter une partie du prix de certains documents qui seront mis à disposition.",
-    "uses_help": "Ils pourraient également servir à s'entraider au sein de la communauté, le moment venu."
+    "uses_help": "Ils pourraient également servir à s'entraider au sein de la communauté, le moment venu.",
+    "rate_now_one": "Actuellement, chaque bonne réponse à un examen de la Clinique de la Domination ou à un quiz d'enseignement rapporte {{rate}} jeton.",
+    "rate_now_other": "Actuellement, chaque bonne réponse à un examen de la Clinique de la Domination ou à un quiz d'enseignement rapporte {{rate}} jetons."
   },
   "tokensAdmin": {
     "spend_title": "Dépenser des jetons pour les livres",
@@ -3919,7 +3920,7 @@
     "spent_total": "Jetons utilisés pour les livres",
     "spend_invalid": "Entrez plus de 0 franc, et une limite de 1 à 100.",
     "title": "Jeton du Roi",
-    "help": "Choisissez le jour où les jetons commencent à compter. Les membres gagnent avec les examens passés à partir de ce jour, et la récompense est divisée par deux tous les 4 ans à partir de lui. Une fois ce jour arrivé, il ne peut plus être changé.",
+    "help": "Choisissez le jour où les jetons commencent à compter. Les membres gagnent avec les examens et les quiz d'enseignement faits à partir de ce jour : un jeton par bonne réponse. Une fois le jour arrivé, il ne peut plus être changé.",
     "not_started": "Pas encore commencé.",
     "starts_on": "Commence le {{date}}.",
     "started_on": "Compte depuis le {{date}}.",
@@ -5648,13 +5649,14 @@
     "balance": "Vos points",
     "not_started": "Les points ne comptent pas encore.",
     "starts_on": "Ils commenceront à compter le {{date}}.",
-    "rate_now": "Chaque bonne réponse à un examen de la Clinique de la Domination rapporte {{rate}} points.",
     "first_try": "Seul le premier essai d’un examen rapporte des points.",
     "no_history": "Rien pour le moment. Passez un examen de la Clinique de la Domination pour gagner vos premiers points.",
     "reason_clinic": "Clinique de la Domination, examen {{number}} ({{month}}) : {{correct}} bonnes réponses × {{rate}}",
     "reason_clinic_plain": "Examen de la Clinique de la Domination : {{correct}} bonnes réponses × {{rate}}",
     "earned_now": "Vous avez gagné {{count}} points d’étude pour cet examen.",
-    "points_earned": "{{count}} points gagnés"
+    "points_earned": "{{count}} points gagnés",
+    "rate_now_one": "Chaque bonne réponse à un examen de la Clinique de la Domination rapporte {{rate}} point.",
+    "rate_now_other": "Chaque bonne réponse à un examen de la Clinique de la Domination rapporte {{rate}} points."
   },
   "splitChats": {
     "title": "Réunir les conversations séparées (même personne, deux conversations)",
