@@ -4,6 +4,7 @@
 // the browser, so every shared link used to show the same blank card. Here the
 // right tags are written into the page before it is sent.
 
+import { googleVerificationTag } from './siteVerification';
 import type { NextFunction, Request, Response } from 'express';
 
 type Lang = 'en' | 'fr';
@@ -159,7 +160,8 @@ export function renderIndexHtml(template: string, opts: { appUrl: string; path: 
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${t}</title>`);
   html = html.replace(/<meta\s+name="description"[\s\S]*?\/>/i, `<meta name="description" content="${d}" />`);
   html = html.replace(/<html lang="[a-z-]*"/i, `<html lang="${pageLang}"`);
-  return html.replace(/<\/head>/i, `    ${tags}\n  </head>`);
+  const verification = googleVerificationTag();
+  return html.replace(/<\/head>/i, `    ${tags}${verification ? `\n    ${verification}` : ''}\n  </head>`);
 }
 
 type Lookup = (slug: string, lang: Lang) => Promise<{ title: string; text: string; image?: string | null; imageBytes?: number | null } | null>;

@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 import { prisma } from '../lib/prisma';
 import { loadPlan, updateSettings, slotStart } from '../lib/teachingRota';
 import { postDueRatingCards } from '../lib/teachingCards';
-import { approveTranscript, authorizeRecordingUpload, deleteRecording, postDueRecordings, recordingsFor, retryPendingRecordings, retryTranscript, saveRecording, saveTranscript, transcribeRecording } from '../lib/teachingRecordings';
+import { addRecordingPart, approveTranscript, authorizeRecordingUpload, deleteRecording, postDueRecordings, recordingsFor, retryPendingRecordings, retryTranscript, saveRecording, saveTranscript, transcribeRecording } from '../lib/teachingRecordings';
 
 // A teaching recorded ahead of time: the text is written in the language spoken, the teacher corrects and approves it in that language,
 // the other language is made automatically, and the recording is posted in the teaching group by itself at the teacher's time.
@@ -213,7 +213,7 @@ describe('trying again in the background', () => {
     await saveRecording(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
     await vi.waitFor(async () => expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } })).status).toBe('TEXT_READY'));
     const key = { teacherId_weekStart: { teacherId: teacher.id, weekStart: new Date(`${WEEK}T00:00:00Z`) } };
-    await prisma.teachingRecording.update({ where: key, data: { status: 'WRITING', transcript: null, updatedAt: new Date(Date.now() - 10 * 60 * 1000) } });
+    await prisma.teachingRecording.update({ where: key, data: { status: 'WRITING', transcript: null, mainTextDone: false, updatedAt: new Date(Date.now() - 10 * 60 * 1000) } });
     await retryPendingRecordings();
     expect((await prisma.teachingRecording.findUniqueOrThrow({ where: key })).status).toBe('TEXT_READY');
     await prisma.teachingRecording.update({ where: key, data: { status: 'APPROVED', translated: null, attempts: 0 } });
@@ -235,5 +235,99 @@ describe('trying again in the background', () => {
 describe('the time of the teaching', () => {
   it('is the teacher’s own slot (Wednesday 07:00 in Cameroon)', () => {
     expect(slotStart(new Date('2026-11-23T00:00:00Z'), 3, 7 * 60).toISOString()).toBe('2026-11-25T06:00:00.000Z');
+  });
+});
+
+describe('adding more to a recording (Add more)', () => {
+  const words = (text: string, lang = 'fr') => transcribeAudioOnly.mockResolvedValueOnce({ detectedLanguage: lang, transcript: text });
+  const textReady = async (teacherId: string) => vi.waitFor(async () => expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId } })).status).toBe('TEXT_READY'));
+
+  it('keeps the first part, adds the next one after it, adds its words to the text and asks for approval again', async () => {
+    const { person, group, teacher } = await setUp();
+    words('Première partie.');
+    await saveRecording(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    await textReady(teacher.id);
+    await approveTranscript(person.id, WEEK, BEFORE); // approved before the teacher decides to add more
+    await vi.waitFor(async () => expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } })).translated).toBeTruthy());
+
+    words('Deuxième partie.');
+    const added = await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    expect(added.recording?.status).toBe('WRITING');
+    expect(added.recording?.parts).toHaveLength(2);
+    await textReady(teacher.id);
+    const rec = await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } });
+    expect(rec.transcript).toBe('Première partie.\n\nDeuxième partie.');
+    expect([rec.approvedAt, rec.translated]).toEqual([null, null]); // the whole text has to be approved again
+    expect(transcribeAudioOnly).toHaveBeenCalledTimes(2); // the first part was not written a second time
+
+    words('Troisième partie.');
+    await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    await textReady(teacher.id);
+    expect((await prisma.teachingRecordingPart.findMany({ where: { recordingId: rec.id }, orderBy: { position: 'asc' } })).map((p) => [p.position, p.textState])).toEqual([[1, 'DONE'], [2, 'DONE']]);
+    expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } })).transcript).toBe('Première partie.\n\nDeuxième partie.\n\nTroisième partie.');
+  });
+
+  it('shows every part to the teacher, and needs a first recording, the open time and a real upload', async () => {
+    const { person, group } = await setUp();
+    await expect(addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE)).rejects.toMatchObject({ code: 'NO_RECORDING' });
+    await saveRecording(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    await expect(addRecordingPart(person.id, { weekStart: WEEK, storageKey: `communities/${group.id}/attachments/${crypto.randomUUID()}`, mimeType: 'audio/webm', byteSize: 5000 }, BEFORE)).rejects.toMatchObject({ code: 'NOT_UPLOADED' });
+    await expect(addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)), storageKey: 'communities/other/attachments/x' }, BEFORE)).rejects.toMatchObject({ code: 'BAD_KEY' });
+    await expect(addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, at('2026-11-25T06:30:00Z'))).rejects.toMatchObject({ code: 'TOO_LATE' });
+    const ok = await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    expect(ok.recording?.parts.every((p) => p.audioUrl?.startsWith('https://download.example/'))).toBe(true);
+    expect((await recordingsFor(person.id, BEFORE)).weeks[0].recording?.parts).toHaveLength(2);
+  });
+
+  it('a part whose words could not be written is said so, and trying again writes them', async () => {
+    const { person, group, teacher } = await setUp();
+    words('Première partie.');
+    await saveRecording(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    await textReady(teacher.id);
+    transcribeAudioOnly.mockResolvedValueOnce(null);
+    await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    await textReady(teacher.id);
+    expect((await recordingsFor(person.id, BEFORE)).weeks[0].recording).toMatchObject({ partsWithoutText: 1, transcript: 'Première partie.' });
+    words('Deuxième partie.');
+    await retryTranscript(person.id, WEEK, BEFORE);
+    await textReady(teacher.id);
+    const after = (await recordingsFor(person.id, BEFORE)).weeks[0].recording;
+    expect(after).toMatchObject({ partsWithoutText: 0, transcript: 'Première partie.\n\nDeuxième partie.' });
+  });
+
+  it('posts all the parts in order as one message with the whole text, and deleting or replacing removes every part', async () => {
+    const { person, group, teacher } = await setUp();
+    words('Un.');
+    const first = await upload(group.id);
+    await saveRecording(person.id, { weekStart: WEEK, ...first }, BEFORE);
+    await textReady(teacher.id);
+    words('Deux.');
+    const second = await upload(group.id);
+    await addRecordingPart(person.id, { weekStart: WEEK, ...second }, BEFORE);
+    await textReady(teacher.id);
+    await approveTranscript(person.id, WEEK, BEFORE);
+    await vi.waitFor(async () => expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } })).translated).toBeTruthy());
+    expect(await postDueRecordings(at('2026-11-25T06:00:30Z'))).toBe(1);
+    const conversation = await prisma.conversation.findFirstOrThrow({ where: { communityId: group.id } });
+    const message = await prisma.message.findFirstOrThrow({ where: { conversationId: conversation.id, kind: 'USER' }, include: { attachments: { orderBy: { createdAt: 'asc' } } } });
+    expect(message.transcribedBody).toBe('Un.\n\nDeux.');
+    expect(message.attachments.map((a) => a.storageKey).sort()).toEqual([first.storageKey, second.storageKey].sort());
+    expect(message.attachments).toHaveLength(2);
+  });
+
+  it('deleting the recording removes every part, and a new recording replaces them all', async () => {
+    const { person, group, teacher } = await setUp();
+    const first = await upload(group.id);
+    await saveRecording(person.id, { weekStart: WEEK, ...first }, BEFORE);
+    await textReady(teacher.id);
+    const second = await upload(group.id);
+    await addRecordingPart(person.id, { weekStart: WEEK, ...second }, BEFORE);
+    await textReady(teacher.id);
+    const fresh = await upload(group.id);
+    await saveRecording(person.id, { weekStart: WEEK, ...fresh }, BEFORE);
+    expect(stored.has(second.storageKey)).toBe(false);
+    expect(await prisma.teachingRecordingPart.count()).toBe(0);
+    await deleteRecording(person.id, WEEK, BEFORE);
+    expect(stored.size).toBe(0);
   });
 });

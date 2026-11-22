@@ -88,4 +88,78 @@ describe('Record my teaching ahead of time', () => {
     expect(await screen.findByTestId('recording-writing')).toBeInTheDocument();
     expect(calls.filter((c) => c.method !== 'GET').map((c) => c.method + ' ' + c.url.split('/').pop())).toEqual(['POST authorize', 'PUT k1', 'POST recordings']);
   });
+
+  it('adds more to an existing recording: the file goes to the parts address, the earlier parts stay, and each part can be played', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} }));
+    const two = { parts: [{ audioUrl: 'https://x/1.mp3' }, { audioUrl: 'https://x/2.mp3' }], partsWithoutText: 0 };
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method !== 'GET') calls.push(`${method} ${url.split('/').slice(-2).join('/')}`);
+      if (url.endsWith('/authorize')) return json({ storageKey: 'k2', uploadUrl: 'https://upload.test/k2' });
+      if (url === 'https://upload.test/k2') return Promise.resolve({ ok: true, status: 200, headers: { get: () => null } });
+      if (url.endsWith('/recordings/parts')) return json(week(rec({ status: 'WRITING', ...two })));
+      return json(data(week(rec({ parts: [{ audioUrl: 'https://x/1.mp3' }] }))));
+    }));
+    render(<TeachingRecordingPanel />);
+    expect(await screen.findByTestId('recording-start')).toHaveTextContent('Add more');
+    expect(screen.queryByTestId('recording-parts')).toBeNull(); // one part: a single player
+    fireEvent.change(screen.getByTestId('recording-file'), { target: { files: [new File(['abc'], 'b.mp3', { type: 'audio/mpeg' })] } });
+    expect(screen.getByTestId('recording-use')).toHaveTextContent('Add to my teaching');
+    fireEvent.click(screen.getByTestId('recording-use'));
+    expect(await screen.findByTestId('recording-writing')).toBeInTheDocument();
+    expect(calls).toEqual(['POST recordings/authorize', 'PUT upload.test/k2', 'POST recordings/parts']);
+    expect(await screen.findByTestId('recording-parts')).toHaveTextContent('Part 2');
+  });
+
+  it('starting over asks first, and does nothing when the teacher says no', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === 'DELETE') calls.push('DELETE');
+      return json(data(week(rec())));
+    }));
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<TeachingRecordingPanel />);
+    fireEvent.click(await screen.findByTestId('recording-delete'));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('every part'));
+    expect(calls).toEqual([]);
+    confirm.mockRestore();
+  });
+
+  it('says when the words of an added part could not be written, and offers to write them again', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => json(data(week(rec({ partsWithoutText: 1 }))))));
+    render(<TeachingRecordingPanel />);
+    expect(await screen.findByTestId('recording-parts-failed')).toHaveTextContent('one part');
+    expect(screen.getByTestId('recording-retry')).toBeInTheDocument();
+  });
+
+  it('pauses and continues the same recording, and only stops when told to', async () => {
+    const states: string[] = [];
+    class FakeRecorder {
+      static isTypeSupported = () => true;
+      state = 'inactive';
+      mimeType = 'audio/webm';
+      ondataavailable: ((e: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      constructor(public stream: unknown) {}
+      start() { this.state = 'recording'; states.push('start'); }
+      pause() { this.state = 'paused'; states.push('pause'); }
+      resume() { this.state = 'recording'; states.push('resume'); }
+      stop() { this.state = 'inactive'; states.push('stop'); this.ondataavailable?.({ data: new Blob(['a'], { type: 'audio/webm' }) }); this.onstop?.(); }
+    }
+    vi.stubGlobal('MediaRecorder', FakeRecorder);
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} }));
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } });
+    vi.stubGlobal('fetch', vi.fn(() => json(data(week(null)))));
+    render(<TeachingRecordingPanel />);
+    fireEvent.click(await screen.findByTestId('recording-start'));
+    fireEvent.click(await screen.findByTestId('recording-pause'));
+    expect(screen.getByTestId('recording-live')).toHaveTextContent('Paused');
+    fireEvent.click(screen.getByTestId('recording-resume'));
+    expect(screen.getByTestId('recording-pause')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('recording-pause'));
+    fireEvent.click(screen.getByTestId('recording-stop')); // stopping while paused still keeps everything
+    expect(await screen.findByTestId('recording-preview')).toBeInTheDocument();
+    expect(states).toEqual(['start', 'pause', 'resume', 'pause', 'stop']);
+  });
 });

@@ -5779,7 +5779,7 @@
     "how_send": "Teach by voice note in the Leadership group, at your time.",
     "open_book": "Open the book",
     "show_teaching": "Read the teaching",
-    "not_a_teacher": "This page shows the teaching given to you each week. You are not on the weekly teaching list, so there is nothing here for you. If you are meant to teach, you are added in the weekly teaching list of the admin tools (the central admin adds their own name there too, and then gets this page, with the recording tools).",
+    "not_a_teacher": "This page shows the teaching given to you each week. You are not on the weekly teaching list, so there is nothing here for you.",
     "starts_on": "The weekly teaching starts on {{date}}. This is your first teaching, so you can prepare.",
     "first_week": "Your first teaching",
     "week_after": "The week after",
@@ -5992,9 +5992,20 @@
     "stop": "Stop",
     "use_this": "Use this recording",
     "sending": "Sending…",
-    "discard": "Record again",
+    "discard": "Throw this away",
     "no_microphone": "The microphone could not be used. Allow it and try again.",
     "bad_type": "This kind of file is not supported. Record in the app, or choose an mp3, m4a, webm or ogg file.",
-    "failed": "Something went wrong. Please try again."
+    "failed": "Something went wrong. Please try again.",
+    "pause": "Pause",
+    "resume": "Continue",
+    "paused_note": "Paused. Nothing is lost. Tap Continue to carry on, or Stop to finish.",
+    "add_more": "Add more",
+    "add_file": "Add a recording from my phone",
+    "start_over": "Start over",
+    "confirm_start_over": "Delete the whole recording, every part, and start over?",
+    "part_n": "Part {{n}}",
+    "add_to_teaching": "Add to my teaching",
+    "parts_failed_one": "The words of one part could not be written. Tap \"Write the text again\", or type those words yourself.",
+    "parts_failed_other": "The words of {{count}} parts could not be written. Tap \"Write the text again\", or type those words yourself."
   }
 }

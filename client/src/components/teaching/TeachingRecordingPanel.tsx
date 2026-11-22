@@ -9,7 +9,7 @@ interface RecordingWeek {
   weekStart: string;
   postsAt: string;
   canChange: boolean;
-  recording: null | { status: Status; spokenLanguage: 'en' | 'fr' | null; transcript: string; translated: string; audioUrl: string | null };
+  recording: null | { status: Status; spokenLanguage: 'en' | 'fr' | null; transcript: string; translated: string; audioUrl: string | null; parts?: { audioUrl: string | null }[]; partsWithoutText?: number };
 }
 interface RecordingsResponse {
   enabled: boolean;
@@ -28,6 +28,7 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
   const rec = week.recording;
   const [clip, setClip] = useState<{ blob: Blob; url: string; mime: string } | null>(null);
   const [recording, setRecording] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -65,16 +66,36 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
       recorder.current = r;
       r.start(1000);
       setSeconds(0);
+      setPaused(false);
       setRecording(true);
-      timer.current = window.setInterval(() => setSeconds((s) => s + 1), 1000);
+      // The time shown leaves out the paused stretches.
+      timer.current = window.setInterval(() => setSeconds((sec) => (recorder.current?.state === 'paused' ? sec : sec + 1)), 1000);
     } catch {
       setError(t('teachingRecording.no_microphone'));
+    }
+  }
+  // Pause keeps what was recorded so far; Continue carries on in the same recording; Stop ends it.
+  function pause() {
+    try {
+      recorder.current?.pause();
+      setPaused(true);
+    } catch {
+      /* not supported by this browser: Stop still works */
+    }
+  }
+  function resume() {
+    try {
+      recorder.current?.resume();
+      setPaused(false);
+    } catch {
+      /* ignore */
     }
   }
   function stop() {
     recorder.current?.stop();
     if (timer.current) window.clearInterval(timer.current);
     setRecording(false);
+    setPaused(false);
   }
   function pickFile(file: File | undefined) {
     if (!file) return;
@@ -92,7 +113,8 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
       const auth = await api.post<{ storageKey: string; uploadUrl: string }>('/api/member/teaching-rota/recordings/authorize', { weekStart: week.weekStart, mimeType: clip.mime, byteSize: clip.blob.size });
       const put = await fetch(auth.uploadUrl, { method: 'PUT', headers: { 'Content-Type': clip.mime }, body: clip.blob });
       if (!put.ok) throw new Error('upload failed');
-      const saved = await api.post<RecordingWeek>('/api/member/teaching-rota/recordings', { weekStart: week.weekStart, storageKey: auth.storageKey, mimeType: clip.mime, byteSize: clip.blob.size });
+      // With a recording already made, this is one more part after it; with none, it is the recording itself.
+      const saved = await api.post<RecordingWeek>(rec ? '/api/member/teaching-rota/recordings/parts' : '/api/member/teaching-rota/recordings', { weekStart: week.weekStart, storageKey: auth.storageKey, mimeType: clip.mime, byteSize: clip.blob.size });
       setClip(null);
       setDirty(false);
       onChanged(saved);
@@ -124,13 +146,14 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
     }, (w) => { setDirty(false); onChanged(w); });
   const retry = () => call(() => api.post<RecordingWeek>(`${base}/retry`, {}), onChanged);
   const remove = () => {
-    if (!window.confirm(t('teachingRecording.confirm_delete') ?? '')) return;
+    if (!window.confirm(t('teachingRecording.confirm_start_over') ?? '')) return;
     void call(() => api.delete<RecordingWeek>(base), (w) => { setText(''); setDirty(false); onChanged(w); });
   };
 
   const language = rec?.spokenLanguage === 'fr' ? 'Français' : rec?.spokenLanguage === 'en' ? 'English' : '';
   const writing = rec && (rec.status === 'RECORDED' || rec.status === 'WRITING');
-  const showClipTools = week.canChange && groupChosen && (!rec || rec.status === 'FAILED' || rec.status === 'TEXT_READY' || rec.status === 'APPROVED');
+  // More can be added at any time before the teaching time, even while the words are still being written.
+  const showClipTools = week.canChange && groupChosen;
 
   return (
     <section className="card space-y-3" data-testid={`recording-${week.weekStart}`}>
@@ -146,7 +169,19 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
 
       {rec?.status === 'POSTED' && <p className="rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-800" data-testid="recording-posted">✓ {t('teachingRecording.posted')}</p>}
 
-      {rec && rec.status !== 'POSTED' && rec.audioUrl && (
+      {rec && rec.status !== 'POSTED' && (rec.parts?.length ?? 0) > 1 && (
+        <div className="space-y-2" data-testid="recording-parts">
+          {rec.parts!.map((part, i) =>
+            part.audioUrl ? (
+              <div key={i}>
+                <p className="text-xs font-semibold text-slate-600">{t('teachingRecording.part_n', { n: i + 1 })}</p>
+                <audio controls src={part.audioUrl} className="w-full" aria-label={t('teachingRecording.part_n', { n: i + 1 }) ?? ''} />
+              </div>
+            ) : null,
+          )}
+        </div>
+      )}
+      {rec && rec.status !== 'POSTED' && (rec.parts?.length ?? 0) <= 1 && rec.audioUrl && (
         <audio controls src={rec.audioUrl} className="w-full" aria-label={t('teachingRecording.listen') ?? ''} />
       )}
 
@@ -154,6 +189,7 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
 
       {rec && (rec.status === 'FAILED' || rec.status === 'TEXT_READY' || rec.status === 'APPROVED') && week.canChange && (
         <div className="space-y-2">
+          {(rec.partsWithoutText ?? 0) > 0 && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" data-testid="recording-parts-failed">{t('teachingRecording.parts_failed', { count: rec.partsWithoutText })}</p>}
           {rec.status === 'FAILED' && !rec.transcript && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" data-testid="recording-failed">{t('teachingRecording.text_failed')}</p>}
           <label className="block text-sm font-semibold text-slate-800" htmlFor={`rec-text-${week.weekStart}`}>
             {language ? t('teachingRecording.text_in', { language }) : t('teachingRecording.text_label')}
@@ -177,7 +213,7 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
               ✓ {t('teachingRecording.approve')}
             </button>
           </div>
-          {rec.status === 'FAILED' && (
+          {(rec.status === 'FAILED' || (rec.partsWithoutText ?? 0) > 0) && (
             <button type="button" className="text-sm font-semibold text-brand-700 underline" disabled={busy} onClick={() => void retry()} data-testid="recording-retry">
               {t('teachingRecording.try_again')}
             </button>
@@ -194,25 +230,35 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
       {showClipTools && !clip && !recording && (
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" className="btn-primary" onClick={() => void start()} data-testid="recording-start">
-            🎙 {rec ? t('teachingRecording.record_again') : t('teachingRecording.record')}
+            🎙 {rec ? t('teachingRecording.add_more') : t('teachingRecording.record')}
           </button>
           <label className="cursor-pointer text-sm font-semibold text-brand-700 underline">
-            {t('teachingRecording.choose_file')}
+            {rec ? t('teachingRecording.add_file') : t('teachingRecording.choose_file')}
             <input type="file" accept="audio/*" className="hidden" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ''; }} data-testid="recording-file" />
           </label>
           {rec && (
             <button type="button" className="ml-auto text-sm font-semibold text-red-700 underline" disabled={busy} onClick={remove} data-testid="recording-delete">
-              {t('teachingRecording.delete')}
+              {t('teachingRecording.start_over')}
             </button>
           )}
         </div>
       )}
       {recording && (
-        <div className="flex items-center gap-3" data-testid="recording-live">
-          <span className="font-mono text-lg text-red-700">● {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</span>
+        <div className="flex flex-wrap items-center gap-3" data-testid="recording-live">
+          <span className={`font-mono text-lg ${paused ? 'text-amber-700' : 'text-red-700'}`}>{paused ? '⏸' : '●'} {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</span>
+          {paused ? (
+            <button type="button" className="btn-primary" onClick={resume} data-testid="recording-resume">
+              ▶ {t('teachingRecording.resume')}
+            </button>
+          ) : (
+            <button type="button" className="btn-secondary" onClick={pause} data-testid="recording-pause">
+              ⏸ {t('teachingRecording.pause')}
+            </button>
+          )}
           <button type="button" className="btn-secondary" onClick={stop} data-testid="recording-stop">
             ■ {t('teachingRecording.stop')}
           </button>
+          {paused && <span className="w-full text-xs text-slate-600">{t('teachingRecording.paused_note')}</span>}
         </div>
       )}
       {clip && (
@@ -220,7 +266,7 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
           <audio controls src={clip.url} className="w-full" />
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className="btn-primary" disabled={busy} onClick={() => void useClip()} data-testid="recording-use">
-              {busy ? t('teachingRecording.sending') : t('teachingRecording.use_this')}
+              {busy ? t('teachingRecording.sending') : rec ? t('teachingRecording.add_to_teaching') : t('teachingRecording.use_this')}
             </button>
             <button type="button" className="btn-secondary" disabled={busy} onClick={() => setClip(null)}>
               {t('teachingRecording.discard')}
