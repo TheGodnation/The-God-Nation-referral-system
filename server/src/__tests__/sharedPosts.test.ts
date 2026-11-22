@@ -6,7 +6,7 @@ import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 import { newsPathOf } from '../lib/ogMeta';
-import { publicItem, shareByLink, stopSharing, sharedPreview } from '../lib/sharedPosts';
+import { publicItem, shareByLink, stopSharing, sharedPreview, previewText } from '../lib/sharedPosts';
 
 // Posts and announcements shared by link: closed until the central admin opens the link, readable by anyone once open,
 // closed again by "stop sharing", never for a draft or archived item. All names are made up.
@@ -172,6 +172,13 @@ describe('sharing the central admin’s own Updates posts', () => {
     expect(await publicItem('update', post.id)).toBeNull();
     await prisma.updatePost.update({ where: { id: post.id }, data: { audience: 'EVERYONE', deletedAt: new Date() } });
     expect(await publicItem('update', post.id)).toBeNull();
+  });
+});
+
+describe('the text of a link card', () => {
+  it('has no ## or ** marks and does not start with its own heading again', () => {
+    expect(previewText('THEY COULD COME AGAINST YOU!', '**THEY COULD COME AGAINST YOU!**\n\n## A DECLARATION OF VICTORY\nHeavenly Father, we thank You.')).toBe('A DECLARATION OF VICTORY Heavenly Father, we thank You.');
+    expect(previewText('Good news', 'Come and see.')).toBe('Come and see.');
   });
 });
 

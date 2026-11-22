@@ -5932,6 +5932,12 @@
     "sign_in_enter": "Sign in and go into the community",
     "read_more": "Read more:",
     "no_french": "This post has no French version yet, so the French message will be in English. Posts with a French version (or a saved translation) are sent in French.",
-    "make_french": "Make the French now"
+    "make_french": "Make the French now",
+    "lang_label": "Message language",
+    "share_whatsapp": "WhatsApp",
+    "share_facebook": "Facebook",
+    "share_other": "Other apps…",
+    "copy_message": "Copy the message",
+    "message_copied": "Message copied. Paste it anywhere."
   }
 }

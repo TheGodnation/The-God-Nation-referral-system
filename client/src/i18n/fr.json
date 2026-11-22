@@ -5932,6 +5932,12 @@
     "sign_in_enter": "Se connecter et entrer dans la communauté",
     "read_more": "Lire la suite :",
     "no_french": "Cette publication n'a pas encore de version française, le message français sera donc en anglais. Les publications qui ont une version française (ou une traduction enregistrée) sont envoyées en français.",
-    "make_french": "Créer le français maintenant"
+    "make_french": "Créer le français maintenant",
+    "lang_label": "Langue du message",
+    "share_whatsapp": "WhatsApp",
+    "share_facebook": "Facebook",
+    "share_other": "Autres applications…",
+    "copy_message": "Copier le message",
+    "message_copied": "Message copié. Collez-le où vous voulez."
   }
 }

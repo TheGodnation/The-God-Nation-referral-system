@@ -6,31 +6,63 @@ export type SharedKind = 'post' | 'announcement' | 'update';
 
 type PerLang = { en?: string | null; fr?: string | null };
 
-// The post's own formatting marks (## headings, **bold**, - bullets) would show as raw symbols in WhatsApp: take them out.
-const plain = (text: string) =>
+// The post's own formatting marks (## headings, **bold**, - bullets) would show as raw symbols when shared: take them out.
+const clean = (text: string) =>
   text
-    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
-    .replace(/^\s*[-•]\s+/gm, '')
+    .replace(/^\s{0,3}#{1,6}\s*/, '')
+    .replace(/^\s*[-•]\s+/, '')
     .replace(/[*_~`#]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+const plain = (text: string) => clean(text.split('\n').map(clean).filter(Boolean).join(' '));
+
+/** A line that is a heading in the post: a "##" line, a whole line in **bold**, or a short line in capitals. */
+function looksLikeHeading(raw: string, text: string): boolean {
+  if (/^\s{0,3}#{1,6}\s/.test(raw) || /^\s*\*\*[^*]+\*\*\s*$/.test(raw)) return true;
+  return text.length <= 100 && text === text.toUpperCase() && /[A-ZÀ-Ý]/.test(text);
+}
+
+/** The post as a heading, an optional sub-heading, and the first part of the writing. */
+export function shareParts(title: string, body: string | null | undefined): { heading: string; sub: string; text: string } {
+  const heading = clean(title);
+  const lines = (body ?? '')
+    .split('\n')
+    .map((raw) => ({ raw, text: clean(raw) }))
+    .filter((l) => l.text);
+  // A post that starts with its own title: do not say it twice.
+  if (lines.length && heading && lines[0].text.toLowerCase().startsWith(heading.toLowerCase())) {
+    const rest = lines[0].text.slice(heading.length).replace(/^[\s:.\-–—]+/, '');
+    if (rest) lines[0] = { raw: rest, text: rest };
+    else lines.shift();
+  }
+  let sub = '';
+  if (lines.length > 1 && looksLikeHeading(lines[0].raw, lines[0].text)) sub = lines.shift()!.text;
+  let text = lines.map((l) => l.text).join(' ');
+  if (text.length > 380) {
+    const cut = text.slice(0, 380);
+    const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+    const space = cut.lastIndexOf(' ');
+    text = stop > 220 ? cut.slice(0, stop + 1) : `${(space > 280 ? cut.slice(0, space) : cut).trim()}…`;
+  }
+  return { heading, sub, text };
+}
+
+type ShareStyle = 'whatsapp' | 'plain';
 
 /**
- * The words that go to WhatsApp with the link: the title in bold, the first lines in bold (so they can be read at a glance), then
- * "Read more" and the link. WhatsApp draws the little preview card itself, and its writing cannot be styled; this text is ours.
+ * The same order everywhere: heading, sub-heading, the first part of the writing, then "Read more" and the link.
+ * "whatsapp" uses WhatsApp's marks (*bold*, _italic_); "plain" has none, for Facebook, e-mail, SMS and the like.
  */
-export function whatsappText({ title, teaser, link, readMore }: { title: string; teaser?: string | null; link: string; readMore: string }): string {
-  const head = plain(title);
-  let body = plain(teaser ?? '');
-  // A post that starts with its own title: do not say it twice.
-  if (head && body.toLowerCase().startsWith(head.toLowerCase())) body = body.slice(head.length).replace(/^[\s:.\-–—]+/, '');
-  if (body.length > 220) {
-    const cut = body.slice(0, 220);
-    const space = cut.lastIndexOf(' ');
-    body = `${(space > 150 ? cut.slice(0, space) : cut).trim()}…`;
-  }
-  return [head ? `📣 *${head}*` : '', body ? `*${body}*` : '', '', `👉 ${readMore}`, link].filter((line, i, all) => line !== '' || (i > 0 && all[i - 1] !== '')).join('\n');
+export function composeShare({ title, teaser, link, readMore, style = 'whatsapp' }: { title: string; teaser?: string | null; link: string; readMore: string; style?: ShareStyle }): string {
+  const { heading, sub, text } = shareParts(title, teaser);
+  const wa = style === 'whatsapp';
+  const top = [heading ? (wa ? `📣 *${heading}*` : `📣 ${heading}`) : '', sub ? (wa ? `_${sub}_` : sub) : ''].filter(Boolean).join('\n');
+  const end = [wa ? `👉 *${readMore}*` : `👉 ${readMore}`, link].join('\n');
+  return [top, text, end].filter(Boolean).join('\n\n');
 }
+
+/** Kept for the WhatsApp message. */
+export const whatsappText = (args: { title: string; teaser?: string | null; link: string; readMore: string }) => composeShare({ ...args, style: 'whatsapp' });
 
 /** Which API door to use: the admin dashboard, or the National Coordinator's own member profile. */
 export const SHARE_BASE_ADMIN = '/api/admin/shared';
@@ -49,6 +81,8 @@ export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClos
   const [state, setState] = useState<ShareState | null>(null);
   // The words as visitors will read them, in each language (the saved translation of the post is used for French).
   const [refresh, setRefresh] = useState(0);
+  // The language of the message and of the page the link opens.
+  const [lang, setLang] = useState<'en' | 'fr'>(i18n.language.startsWith('fr') ? 'fr' : 'en');
   const [words, setWords] = useState<{ title: { en: string; fr: string }; body: { en: string; fr: string } } | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
@@ -99,14 +133,33 @@ export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClos
     await change(true);
     setRefresh((n) => n + 1);
   }
-  const whatsapp = (lang: 'en' | 'fr') => {
-    const text = whatsappText({
+  const message = (style: ShareStyle) =>
+    composeShare({
       title: words?.title[lang] || titles?.[lang] || title,
       teaser: words?.body[lang] || teaser?.[lang] || teaser?.en || teaser?.fr,
       link: `${link}?lang=${lang}`,
       readMore: i18n.t('shareLink.read_more', { lng: lang }),
+      style,
     });
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent(message('whatsapp'))}`, '_blank', 'noopener');
+  // Facebook builds its own card from the link (title, picture and first lines), so it only needs the link.
+  const facebook = () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${link}?lang=${lang}`)}`, '_blank', 'noopener');
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(message('plain'));
+      setNote(t('shareLink.message_copied'));
+    } catch {
+      setNote(message('plain'));
+    }
+  };
+  // The phone's own share list (Telegram, Messenger, SMS, e-mail...): the plain message, in the same order.
+  const otherApps = async () => {
+    try {
+      if (typeof navigator.share === 'function') await navigator.share({ title: shareParts(words?.title[lang] || title, '').heading, text: message('plain') });
+      else await copyMessage();
+    } catch {
+      // closed without sharing
+    }
   };
   const copy = async () => {
     try {
@@ -150,12 +203,28 @@ export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClos
                 </button>
               </p>
             )}
+            <div className="flex items-center justify-between gap-2" role="group" aria-label={t('shareLink.lang_label') ?? ''}>
+              <span className="text-sm font-semibold text-slate-700">{t('shareLink.lang_label')}</span>
+              <div className="inline-flex overflow-hidden rounded-lg border border-slate-300">
+                {(['en', 'fr'] as const).map((l) => (
+                  <button key={l} type="button" aria-pressed={lang === l} onClick={() => setLang(l)} className={`px-4 py-1.5 text-sm font-semibold ${lang === l ? 'bg-brand-700 text-white' : 'bg-white text-slate-700'}`} data-testid={`share-lang-${l}`}>
+                    {l === 'en' ? 'English' : 'Français'}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" className="btn-primary" onClick={() => whatsapp('en')} data-testid="share-wa-en">
-                {t('shareLink.wa_en')}
+              <button type="button" className="btn-primary" onClick={whatsapp} data-testid="share-wa">
+                {t('shareLink.share_whatsapp')}
               </button>
-              <button type="button" className="btn-primary" onClick={() => whatsapp('fr')} data-testid="share-wa-fr">
-                {t('shareLink.wa_fr')}
+              <button type="button" className="btn-primary" onClick={facebook} data-testid="share-fb">
+                {t('shareLink.share_facebook')}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => void otherApps()} data-testid="share-other">
+                {t('shareLink.share_other')}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => void copyMessage()} data-testid="share-copy-message">
+                {t('shareLink.copy_message')}
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-sm">
