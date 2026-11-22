@@ -6,7 +6,7 @@ import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 import { newsPathOf } from '../lib/ogMeta';
-import { publicItem, shareByLink, stopSharing, sharedPreview, previewText } from '../lib/sharedPosts';
+import { publicItem, shareByLink, stopSharing, sharedPreview, previewText, sharedPhotos, cardImagePath } from '../lib/sharedPosts';
 
 // Posts and announcements shared by link: closed until the central admin opens the link, readable by anyone once open,
 // closed again by "stop sharing", never for a draft or archived item. All names are made up.
@@ -133,7 +133,7 @@ describe('the link preview', () => {
     const post = await makePost();
     expect(await sharedPreview('post', post.id, 'en')).toBeNull();
     await shareByLink('post', post.id);
-    expect(await sharedPreview('post', post.id, 'fr')).toEqual({ title: 'Bonne nouvelle', text: 'Venez voir.' });
+    expect(await sharedPreview('post', post.id, 'fr')).toEqual({ title: 'Bonne nouvelle', text: 'Venez voir.', image: null });
   });
 });
 
@@ -179,6 +179,48 @@ describe('the text of a link card', () => {
   it('has no ## or ** marks and does not start with its own heading again', () => {
     expect(previewText('THEY COULD COME AGAINST YOU!', '**THEY COULD COME AGAINST YOU!**\n\n## A DECLARATION OF VICTORY\nHeavenly Father, we thank You.')).toBe('A DECLARATION OF VICTORY Heavenly Father, we thank You.');
     expect(previewText('Good news', 'Come and see.')).toBe('Come and see.');
+  });
+});
+
+describe('the picture of a shared post', () => {
+  const photoOf = (postId: string, over: Record<string, unknown> = {}) =>
+    prisma.headquartersPostMedia.create({ data: { headquartersPostId: postId, position: 0, storageKey: `test/${Math.random().toString(36).slice(2)}.jpg`, originalFilename: 'p.jpg', mimeType: 'image/jpeg', byteSize: 200_000, mediaType: 'IMAGE', ...over } as any });
+
+  it('is used on the link card only while the link is open, and only when it is not too large', async () => {
+    const post = await makePost();
+    await photoOf(post.id);
+    expect(await cardImagePath('post', post.id)).toBeNull(); // not shared yet: nothing is public
+    expect(await sharedPhotos('post', post.id)).toEqual([]);
+    await shareByLink('post', post.id);
+    expect(await cardImagePath('post', post.id)).toBe(`api/shared/post/${post.id}/photo/0`);
+    expect((await sharedPreview('post', post.id, 'en'))!.image).toBe(`api/shared/post/${post.id}/photo/0`);
+    // a very large picture keeps the usual card (it cannot be made smaller here), but is still shown on the page
+    const big = await makePost();
+    await photoOf(big.id, { byteSize: 6_000_000 });
+    await shareByLink('post', big.id);
+    expect(await cardImagePath('post', big.id)).toBeNull();
+    expect(await sharedPhotos('post', big.id)).toHaveLength(1);
+    await stopSharing('post', post.id);
+    expect(await cardImagePath('post', post.id)).toBeNull();
+  });
+
+  it('lists only pictures (not PDFs or videos) in order, and the public page lists them without any storage name', async () => {
+    const post = await makePost();
+    await photoOf(post.id, { position: 1 });
+    await photoOf(post.id, { position: 0 });
+    await photoOf(post.id, { position: 2, mimeType: 'application/pdf', mediaType: 'PDF' });
+    await shareByLink('post', post.id);
+    expect(await sharedPhotos('post', post.id)).toHaveLength(2);
+    const page = await request(app).get(`/api/shared/post/${post.id}`);
+    expect(page.body.photos).toEqual([{ url: `/api/shared/post/${post.id}/photo/0` }, { url: `/api/shared/post/${post.id}/photo/1` }]);
+    expect(JSON.stringify(page.body)).not.toContain('test/');
+    expect((await request(app).get(`/api/shared/post/${post.id}/photo/5`)).status).toBe(404);
+  });
+
+  it('serves nothing for a closed link', async () => {
+    const post = await makePost();
+    await photoOf(post.id);
+    expect((await request(app).get(`/api/shared/post/${post.id}/photo/0`)).status).toBe(404);
   });
 });
 

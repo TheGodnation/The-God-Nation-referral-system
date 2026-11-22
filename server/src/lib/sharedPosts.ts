@@ -160,6 +160,34 @@ export async function moreShared(exclude: { kind: SharedKind; id: string }, limi
     .slice(0, limit);
 }
 
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+/** Above this a picture is not used on the link card (WhatsApp and Facebook skip very large ones, and we cannot make it smaller). */
+export const CARD_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
+export interface SharedPhoto {
+  storageKey: string;
+  mimeType: string;
+  byteSize: number;
+}
+
+/** The pictures of a shared post, in order. Empty when the link is closed, there are none, or the item is an announcement. */
+export async function sharedPhotos(kind: SharedKind, id: string): Promise<SharedPhoto[]> {
+  if (!(await publicItem(kind, id))) return [];
+  const rows =
+    kind === 'post'
+      ? await prisma.headquartersPostMedia.findMany({ where: { headquartersPostId: id, mediaType: 'IMAGE' }, orderBy: { position: 'asc' }, select: { storageKey: true, mimeType: true, byteSize: true }, take: 8 })
+      : kind === 'update'
+        ? await prisma.updatePostPhoto.findMany({ where: { postId: id }, orderBy: { position: 'asc' }, select: { storageKey: true, mimeType: true, byteSize: true }, take: 8 })
+        : [];
+  return rows.filter((r) => IMAGE_TYPES.has(r.mimeType.toLowerCase()));
+}
+
+/** The path (under the site address) of the picture for a link card, or null: then the usual card stays. */
+export async function cardImagePath(kind: SharedKind, id: string): Promise<string | null> {
+  const first = (await sharedPhotos(kind, id))[0];
+  return first && first.byteSize <= CARD_PHOTO_MAX_BYTES ? `api/shared/${kind}/${id}/photo/0` : null;
+}
+
 /** The post's writing as plain sentences for a link card: no ## / ** marks, and not starting with its own heading again. */
 export function previewText(title: string, body: string): string {
   const clean = (t: string) => t.replace(/^\s{0,3}#{1,6}\s*/, '').replace(/^\s*[-•]\s+/, '').replace(/[*_~`#]/g, '').replace(/\s+/g, ' ').trim();
@@ -170,8 +198,8 @@ export function previewText(title: string, body: string): string {
 }
 
 /** For the link preview (WhatsApp, Facebook...): the title and the first lines, in the link's language. Null when the link is closed. */
-export async function sharedPreview(kind: SharedKind, id: string, lang: 'en' | 'fr'): Promise<{ title: string; text: string } | null> {
+export async function sharedPreview(kind: SharedKind, id: string, lang: 'en' | 'fr'): Promise<{ title: string; text: string; image: string | null } | null> {
   const item = await publicItem(kind, id);
   if (!item) return null;
-  return { title: item.title[lang], text: excerpt(previewText(item.title[lang], item.body[lang])) };
+  return { title: item.title[lang], text: excerpt(previewText(item.title[lang], item.body[lang])), image: await cardImagePath(kind, id) };
 }

@@ -21,6 +21,7 @@ interface SharedItem {
   publishedAt: string | null;
   mediaCount: number;
   embed: SocialEmbedInfo | null;
+  photos?: { url: string }[];
   more: { kind: 'post' | 'announcement' | 'update'; id: string; title: Bi }[];
 }
 
@@ -75,13 +76,20 @@ export function SharedPostPage() {
                 {item.author}
                 {item.publishedAt ? ` · ${new Date(item.publishedAt).toLocaleDateString(lang)}` : ''}
               </p>
+              {item.photos && item.photos.length > 0 && (
+                <div className="mt-4 space-y-3" data-testid="shared-photos">
+                  {item.photos.map((ph) => (
+                    <img key={ph.url} src={ph.url} alt="" loading="lazy" className="w-full rounded-xl bg-slate-200 object-cover shadow-sm" />
+                  ))}
+                </div>
+              )}
               <RichText text={item.body[lang]} className="mt-5 text-base leading-relaxed text-slate-800" data-testid="shared-body" />
               {item.embed && (
                 <div className="mt-5">
                   <SocialEmbed embed={item.embed} />
                 </div>
               )}
-              {item.mediaCount > 0 && (
+              {item.mediaCount > 0 && !(item.photos && item.photos.length > 0) && (
                 <p className="mt-5 rounded-xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm" data-testid="shared-media-note">
                   📷 {t('shareLink.media_note', { count: item.mediaCount })}
                 </p>
