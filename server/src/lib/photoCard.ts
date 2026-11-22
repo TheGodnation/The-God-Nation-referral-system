@@ -9,6 +9,7 @@ type SharpFactory = (input?: Buffer) => {
   jpeg(options: { quality: number; mozjpeg?: boolean }): ReturnType<SharpFactory>;
   flatten(options: { background: string }): ReturnType<SharpFactory>;
   toBuffer(): Promise<Buffer>;
+  metadata(): Promise<{ width?: number; height?: number }>;
 };
 
 let loaded: SharpFactory | null | undefined;
@@ -57,6 +58,19 @@ export async function pageJpeg(input: Buffer): Promise<Buffer | null> {
   if (!sharp || input.length > MAX_INPUT_BYTES) return null;
   try {
     return await sharp(input).rotate().flatten({ background: '#ffffff' }).resize({ width: 1280, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78, mozjpeg: true }).toBuffer();
+  } catch {
+    return null;
+  }
+}
+
+/** Like pageJpeg, with the finished picture's width and height (for the website, which reserves the picture's space). */
+export async function pageJpegInfo(input: Buffer): Promise<{ bytes: Buffer; width: number; height: number } | null> {
+  const bytes = await pageJpeg(input);
+  if (!bytes) return null;
+  const sharp = await getSharp();
+  try {
+    const meta = await sharp!(bytes).metadata();
+    return meta.width && meta.height ? { bytes, width: meta.width, height: meta.height } : null;
   } catch {
     return null;
   }

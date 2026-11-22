@@ -79,7 +79,7 @@ describe('Knowledge Centre editor', () => {
     expect(screen.getByTestId('kc-review')).toHaveTextContent('Approved by me@x.com');
     fireEvent.change(title, { target: { value: 'Faith, new title' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save the EN version' }));
-    expect(await screen.findByText(/needs to be approved again/)).toBeInTheDocument();
+    expect(await screen.findByText(/marked "not approved" again/)).toBeInTheDocument();
     const put = calls.find((c) => c.method === 'PUT');
     expect(put?.body).toMatchObject({ title: 'Faith, new title', summary: 'About faith.', body: '## Hi' });
   });

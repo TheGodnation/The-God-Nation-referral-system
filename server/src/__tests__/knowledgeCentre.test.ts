@@ -137,7 +137,7 @@ describe('Who may edit', () => {
 });
 
 describe('Writing, reviewing and publishing', () => {
-  it('nothing is public until a person has reviewed a version and published the article', async () => {
+  it('nothing is public until an article is written and published; review is not needed', async () => {
     const a = await admin();
     const slug = `faith-${RUN}`;
     const id = await makeArticle(a);
@@ -148,17 +148,13 @@ describe('Writing, reviewing and publishing', () => {
     // A draft is not public.
     expect((await request(appOn).get(enPath(slug))).status).toBe(404);
 
-    // Publishing needs a reviewed version (and a valid move).
+    // Publishing needs a valid move, and a written version; it does not need a review.
     expect((await move(a, id, 'PUBLISHED')).status).toBe(409);
     expect((await move(a, id, 'IN_REVIEW')).status).toBe(200);
     expect((await move(a, id, 'APPROVED')).status).toBe(200);
-    const early = await move(a, id, 'PUBLISHED');
-    expect(early.status).toBe(409);
-    expect(early.body.error).toMatch(/reviewed/i);
     expect((await request(appOn).get(enPath(slug))).status).toBe(404);
 
-    // Review, publish: now public. The page is complete HTML, without cookies.
-    expect((await review(a, id, 'en')).status).toBe(200);
+    // Publish without any review: now public. The page is complete HTML, without cookies.
     expect((await move(a, id, 'PUBLISHED')).status).toBe(200);
     const page = await request(appOn).get(enPath(slug));
     expect(page.status).toBe(200);
@@ -185,23 +181,16 @@ describe('Writing, reviewing and publishing', () => {
     expect((await request(appOn).get('/en/')).text).toContain('God is faithful');
   });
 
-  it('an unreviewed French version stays invisible; once reviewed the pair is linked both ways', async () => {
+  it('an unreviewed French version is public too, and the pair is linked both ways', async () => {
     const a = await admin();
     const en = `trust-${RUN}`;
     const fr = `confiance-${RUN}`;
     const id = await makeArticle(a);
     await putTr(a, id, 'en', { title: 'Trust', summary: 'About trust.', body: EN_BODY, slug: en });
-    await review(a, id, 'en');
     await publish(a, id);
     await putTr(a, id, 'fr', { title: 'Confiance', summary: 'Sur la confiance.', body: FR_BODY, slug: fr });
 
-    expect((await request(appOn).get(frPath(fr))).status).toBe(404);
-    const enPage = await request(appOn).get(enPath(en));
-    expect(enPage.text).not.toContain('MARQUEUR-FR');
-    expect(enPage.text).not.toContain('hreflang="fr"');
-    expect((await request(appOn).get('/sitemap-public.xml')).text).not.toContain(fr);
-
-    await review(a, id, 'fr');
+    // Nobody has reviewed the French: it is posted all the same.
     const frPage = await request(appOn).get(frPath(fr));
     expect(frPage.status).toBe(200);
     expect(frPage.text).toContain('<html lang="fr">');
@@ -213,7 +202,7 @@ describe('Writing, reviewing and publishing', () => {
     expect(sm).toContain(enPath(en));
   });
 
-  it('changing words takes a reviewed version back to "not reviewed", so it leaves the public site until re-checked', async () => {
+  it('changing words takes a reviewed version back to "not reviewed", but it stays public with the new words', async () => {
     const a = await admin();
     const slug = `edit-${RUN}`;
     const id = await makeArticle(a);
@@ -224,12 +213,14 @@ describe('Writing, reviewing and publishing', () => {
 
     const changed = await putTr(a, id, 'en', { title: 'Edit me', summary: 'S.', body: `${EN_BODY}\n\nA new sentence.`, slug });
     expect(changed.body.reviewReset).toBe(true);
-    expect((await request(appOn).get(enPath(slug))).status).toBe(404);
-
+    const still = await request(appOn).get(enPath(slug));
+    expect(still.status).toBe(200);
+    expect(still.text).toContain('A new sentence.');
+    const shown = await a.agent.get(`${base}/articles/${id}`);
+    expect(shown.body.translations[0].reviewedAt).toBeNull(); // not reviewed any more, yet public
+    expect(shown.body.translations[0].isPublic).toBe(true);
     await review(a, id, 'en');
-    const back = await request(appOn).get(enPath(slug));
-    expect(back.status).toBe(200);
-    expect(back.text).toContain('A new sentence.');
+    expect((await request(appOn).get(enPath(slug))).status).toBe(200);
   });
 
   it('withdrawing an article removes it from every public place at once', async () => {

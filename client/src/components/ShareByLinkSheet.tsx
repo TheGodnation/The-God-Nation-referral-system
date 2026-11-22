@@ -74,6 +74,93 @@ interface ShareState {
   path: string;
 }
 
+interface WebsiteState {
+  published: boolean;
+  articleId?: string;
+  divisionKey?: string;
+  paths?: { en?: string; fr?: string };
+  frenchReviewed?: boolean;
+  hasFrench?: boolean;
+  divisions: { key: string; name: { en: string; fr: string } }[];
+}
+
+// "Also publish on the website": the post becomes a public article (English and French) that Google can list, with the invitation
+// to join. It goes out at once; the French (made automatically) can be read and corrected later in the Knowledge Centre.
+function WebsiteSection({ base, kind, id, onPublished }: { base: string; kind: SharedKind; id: string; onPublished: () => void }) {
+  const { t, i18n } = useTranslation();
+  const [site, setSite] = useState<WebsiteState | null>(null);
+  const [area, setArea] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const fr = i18n.language.startsWith('fr');
+  useEffect(() => {
+    let alive = true;
+    api
+      .get<WebsiteState>(`${base}/${kind}/${id}/website`)
+      .then((r) => {
+        if (!alive || !r || !Array.isArray(r.divisions)) return;
+        setSite(r);
+        setArea(r.divisionKey ?? '');
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [base, kind, id]);
+  if (!site) return null;
+  async function run(fn: () => Promise<WebsiteState>, shared = false) {
+    setBusy(true);
+    setError('');
+    try {
+      setSite(await fn());
+      if (shared) onPublished();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('shareLink.failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const publish = () => run(() => api.post<WebsiteState>(`${base}/${kind}/${id}/website`, { divisionKey: area }), true);
+  const origin = window.location.origin;
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-200 p-3" data-testid="website-section">
+      <p className="text-sm font-semibold text-brand-900">🌐 {t('shareLink.web_title')}</p>
+      {!site.published && (
+        <>
+          <p className="text-xs text-slate-600">{t('shareLink.web_explain')}</p>
+          <label className="block text-xs font-semibold text-slate-700" htmlFor={`web-area-${id}`}>{t('shareLink.web_area')}</label>
+          <select id={`web-area-${id}`} className="input w-full" value={area} onChange={(e) => setArea(e.target.value)} data-testid="website-area">
+            <option value="">{t('shareLink.web_choose')}</option>
+            {site.divisions.map((d) => (
+              <option key={d.key} value={d.key}>{fr ? d.name.fr : d.name.en}</option>
+            ))}
+          </select>
+          <button type="button" className="btn-primary w-full" disabled={busy || !area} onClick={() => void publish()} data-testid="website-publish">
+            {busy ? t('shareLink.web_publishing') : t('shareLink.web_publish')}
+          </button>
+        </>
+      )}
+      {site.published && (
+        <>
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" data-testid="website-live">✓ {t('shareLink.web_live')}</p>
+          <div className="flex flex-wrap gap-3 text-sm">
+            {site.paths?.en && <a className="text-brand-700 underline" href={`${origin}${site.paths.en}`} target="_blank" rel="noreferrer">{t('shareLink.web_see_en')}</a>}
+            {site.paths?.fr && <a className="text-brand-700 underline" href={`${origin}${site.paths.fr}`} target="_blank" rel="noreferrer">{t('shareLink.web_see_fr')}</a>}
+          </div>
+          <p className="text-xs text-slate-600" data-testid="website-french">
+            {!site.hasFrench ? t('shareLink.web_no_french') : site.frenchReviewed ? t('shareLink.web_french_read') : t('shareLink.web_french_auto')}
+          </p>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <button type="button" className="text-brand-700 underline disabled:text-slate-300" disabled={busy} onClick={() => void publish()} data-testid="website-update">{t('shareLink.web_update')}</button>
+            <button type="button" className="ml-auto text-red-700 underline disabled:text-slate-300" disabled={busy} onClick={() => void run(() => api.delete<WebsiteState>(`${base}/${kind}/${id}/website`))} data-testid="website-off">{t('shareLink.web_off')}</button>
+          </div>
+        </>
+      )}
+      {error && <p className="text-sm text-red-700">{error}</p>}
+    </div>
+  );
+}
+
 // "Share by link": opens the public page of one published post or announcement, then offers WhatsApp (in English or French),
 // copy, and "stop sharing". Visitors read the words without signing in and are invited to join.
 export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClose }: { kind: SharedKind; id: string; title: string; titles?: PerLang; teaser?: PerLang; base: string; onClose: () => void }) {
@@ -243,6 +330,10 @@ export function ShareByLinkSheet({ kind, id, title, titles, teaser, base, onClos
             </div>
           </>
         )}
+        {state && <WebsiteSection base={base} kind={kind} id={id} onPublished={() => {
+          setRefresh((n) => n + 1);
+          api.get<ShareState>(`${base}/${kind}/${id}`).then(setState).catch(() => {});
+        }} />}
         {note && <p className="text-sm text-emerald-700">{note}</p>}
         {error && <p className="text-sm text-red-700">{error}</p>}
       </div>

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { Readable } from 'stream';
 import sharp from 'sharp';
 import request from 'supertest';
@@ -8,6 +8,8 @@ import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 import { newsPathOf } from '../lib/ogMeta';
+import { websiteState } from '../lib/sharedArticles';
+import { DIVISIONS } from '../lib/publicSite/content';
 import { publicItem, shareByLink, stopSharing, sharedPreview, previewText, sharedPhotos, cardImagePath, withoutTitle } from '../lib/sharedPosts';
 
 // Stored files are faked: each key holds a real picture made here.
@@ -15,6 +17,9 @@ const stored = new Map<string, Buffer>();
 vi.mock('../lib/storage', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/storage')>()),
   isStorageConfigured: () => true,
+  putObject: async ({ storageKey, body }: { storageKey: string; body: Buffer }) => {
+    stored.set(storageKey, body);
+  },
   getObjectStream: async ({ storageKey }: { storageKey: string }) => (stored.has(storageKey) ? { body: Readable.from([stored.get(storageKey)!]), contentLength: stored.get(storageKey)!.length } : null),
 }));
 
@@ -302,3 +307,97 @@ describe('the title is not repeated in the writing', () => {
   });
 });
 
+
+describe('also publishing a shared post on the website (so Google can list it)', () => {
+  // The public website (the /en and /fr pages) is switched on only here.
+  let site: ReturnType<typeof createApp>;
+  beforeAll(() => {
+    process.env.PUBLIC_SITE_ENABLED = 'true';
+    site = createApp();
+    delete process.env.PUBLIC_SITE_ENABLED;
+  });
+  const area = DIVISIONS[0].key;
+  const png = (w: number, h: number) => sharp({ create: { width: w, height: h, channels: 3, background: '#336699' } }).png().toBuffer();
+
+  it('makes a published English and French article from a post, with its picture, and the pages are public at once', async () => {
+    const admin = await member('Alpha Tester', true);
+    const post = await makePost({ titleEn: 'Fasting week', titleFr: 'Semaine de jeûne', bodyEn: '## Fasting week\n\nBeloved, from Monday we fast.', bodyFr: 'Bien-aimés, dès lundi nous jeûnons.' });
+    const key = `test/${Math.random().toString(36).slice(2)}.png`;
+    stored.set(key, await png(3000, 2000));
+    await prisma.headquartersPostMedia.create({ data: { headquartersPostId: post.id, position: 0, storageKey: key, originalFilename: 'p.png', mimeType: 'image/png', byteSize: 5000, mediaType: 'IMAGE' } as any });
+
+    const res = await admin.post(`/api/member/central-shared/post/${post.id}/website`).send({ divisionKey: area });
+    expect(res.status).toBe(200);
+    expect(res.body.published).toBe(true);
+    expect(res.body.paths.en).toContain('/en/knowledge/');
+    expect(res.body.paths.fr).toContain('/fr/connaissance/');
+    expect(res.body.frenchReviewed).toBe(false);
+
+    // public at once, without any review: the English and the French page, with the picture and the writing
+    const en = await request(site).get(res.body.paths.en);
+    expect(en.status).toBe(200);
+    expect(en.text).toContain('Beloved, from Monday we fast.');
+    expect(en.text).toMatch(/\/media\/k\/[0-9a-f-]{36}\.jpg/);
+    const fr = await request(site).get(res.body.paths.fr);
+    expect(fr.status).toBe(200);
+    expect(fr.text).toContain('Bien-aimés, dès lundi nous jeûnons.');
+    expect((await request(site).get('/sitemap-public.xml')).text).toContain(res.body.paths.fr);
+
+    // the picture was made website-sized and registered
+    const media = await prisma.knowledgeMedia.findFirst({ orderBy: { createdAt: 'desc' } });
+    expect(media!.width).toBeLessThanOrEqual(1280);
+    expect(stored.has(media!.storageKey)).toBe(true);
+
+    // the link was opened too, and the audit trail records it
+    expect((await prisma.headquartersPost.findUnique({ where: { id: post.id } }))!.sharedPublicAt).not.toBeNull();
+    expect((await prisma.auditLog.findMany({ where: { targetId: post.id } })).map((l) => l.action)).toContain('POST_PUBLISHED_TO_WEBSITE');
+  });
+
+  it('publishing again updates the same article, keeps a read French, and sends changed French back to "not reviewed"', async () => {
+    const admin = await member('Alpha Tester', true);
+    const post = await makePost({ titleEn: 'Trust', titleFr: 'Confiance', bodyEn: 'Trust him.', bodyFr: 'Faites-lui confiance.' });
+    const url = `/api/member/central-shared/post/${post.id}/website`;
+    const first = (await admin.post(url).send({ divisionKey: area })).body;
+    await prisma.knowledgeArticleTranslation.updateMany({ where: { articleId: first.articleId, lang: 'fr' }, data: { reviewedAt: new Date(), reviewedBy: 'x' } });
+    const same = (await admin.post(url).send({ divisionKey: area })).body;
+    expect(same.articleId).toBe(first.articleId);
+    expect(same.frenchReviewed).toBe(true); // unchanged words keep their review
+    await prisma.headquartersPost.update({ where: { id: post.id }, data: { bodyFr: 'Faites-lui toute confiance.' } });
+    const changed = (await admin.post(url).send({ divisionKey: area })).body;
+    expect(changed.frenchReviewed).toBe(false);
+    expect(await prisma.knowledgeArticle.count({ where: { sourceNote: `post:post:${post.id}` } })).toBe(1);
+  });
+
+  it('only posts a French page when the post really has French words', async () => {
+    const admin = await member('Alpha Tester', true);
+    const post = await makeAnnouncement({ titleEn: 'Meeting', bodyEn: 'Saturday at nine.' });
+    const res = await admin.post(`/api/member/central-shared/announcement/${post.id}/website`).send({ divisionKey: area });
+    expect(res.body.paths.en).toBeTruthy();
+    expect(res.body.paths.fr).toBeUndefined();
+    expect(res.body.hasFrench).toBe(false);
+  });
+
+  it('can be taken off the website again, and put back', async () => {
+    const admin = await member('Alpha Tester', true);
+    const post = await makePost();
+    const url = `/api/member/central-shared/post/${post.id}/website`;
+    const on = (await admin.post(url).send({ divisionKey: area })).body;
+    expect((await request(site).get(on.paths.en)).status).toBe(200);
+    const off = (await admin.del(url)).body;
+    expect(off.published).toBe(false);
+    expect((await request(site).get(on.paths.en)).status).toBe(404);
+    expect((await websiteState('post', post.id)).published).toBe(false);
+    expect((await admin.post(url).send({ divisionKey: area })).body.published).toBe(true);
+    expect((await request(site).get(on.paths.en)).status).toBe(200);
+  });
+
+  it('needs the central admin and a real area; a draft cannot be put on the website', async () => {
+    const plain = await member('Beta Tester');
+    const admin = await member('Alpha Tester', true);
+    const post = await makePost();
+    expect((await plain.post(`/api/member/central-shared/post/${post.id}/website`).send({ divisionKey: area })).status).toBe(403);
+    expect((await admin.post(`/api/member/central-shared/post/${post.id}/website`).send({ divisionKey: 'nope' })).status).toBe(400);
+    const draft = await makePost({ publishedAt: null });
+    expect((await admin.post(`/api/member/central-shared/post/${draft.id}/website`).send({ divisionKey: area })).status).toBe(409);
+  });
+});

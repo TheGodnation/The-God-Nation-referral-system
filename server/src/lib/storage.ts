@@ -147,6 +147,12 @@ export async function copyObject(params: { sourceKey: string; destKey: string })
   );
 }
 
+// Putting a file in storage from the server itself (a picture the server has just made, such as a post's photo resized for the website).
+export async function putObject(params: { storageKey: string; body: Buffer; mimeType: string }): Promise<void> {
+  const { client, bucketName } = requireClient();
+  await client.send(new PutObjectCommand({ Bucket: bucketName, Key: params.storageKey, Body: params.body, ContentType: params.mimeType }));
+}
+
 // Removing a file for good (a deleted account's photos and chat files).
 export async function deleteObject(params: { storageKey: string }): Promise<void> {
   const { client, bucketName } = requireClient();

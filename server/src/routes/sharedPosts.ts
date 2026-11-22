@@ -1,4 +1,5 @@
 import { Router, type Request } from 'express';
+import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { requireAuth, requireRole } from '../lib/auth';
 import { requireMember } from '../lib/memberAuth';
@@ -8,6 +9,7 @@ import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { ShareError, isSharedKind, moreShared, publicItem, sharedPhotos, shareByLink, shareState, stopSharing } from '../lib/sharedPosts';
+import { publishToWebsite, takeOffWebsite, websiteState } from '../lib/sharedArticles';
 import { getObjectStream, isStorageConfigured } from '../lib/storage';
 import { cardJpeg, pageJpeg, MAX_INPUT_BYTES } from '../lib/photoCard';
 
@@ -100,6 +102,32 @@ function buildAdminRouter(resolveActor: (req: Request) => Promise<Actor | null>)
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
     const result = await stopSharing(k.kind, k.id);
     await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'POST_SHARING_STOPPED', targetType: k.kind === 'post' ? 'HeadquartersPost' : k.kind === 'update' ? 'UpdatePost' : 'Announcement', targetId: k.id });
+    res.json(result);
+  }));
+  // Also publish this post on the website (a Knowledge Centre article that Google can list).
+  router.get('/:kind/:id/website', asyncHandler(async (req, res) => {
+    const k = parse(req, res);
+    if (!k) return;
+    res.json(await websiteState(k.kind, k.id));
+  }));
+  router.post('/:kind/:id/website', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const k = parse(req, res);
+    if (!k) return;
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const body = z.object({ divisionKey: z.string().min(1).max(60) }).safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: 'Choose where it belongs on the website.' });
+    const result = await publishToWebsite(k.kind, k.id, { divisionKey: body.data.divisionKey, actorEmail: actor.email });
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'POST_PUBLISHED_TO_WEBSITE', targetType: k.kind === 'post' ? 'HeadquartersPost' : k.kind === 'update' ? 'UpdatePost' : 'Announcement', targetId: k.id });
+    res.json(result);
+  }));
+  router.delete('/:kind/:id/website', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const k = parse(req, res);
+    if (!k) return;
+    const actor = await resolveActor(req);
+    if (!actor) return res.status(403).json({ error: 'Forbidden.' });
+    const result = await takeOffWebsite(k.kind, k.id);
+    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'POST_TAKEN_OFF_WEBSITE', targetType: k.kind === 'post' ? 'HeadquartersPost' : k.kind === 'update' ? 'UpdatePost' : 'Announcement', targetId: k.id });
     res.json(result);
   }));
   router.use(onError);

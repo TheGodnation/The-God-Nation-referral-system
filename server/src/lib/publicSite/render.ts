@@ -15,7 +15,7 @@ export interface PublicTr {
   seoTitle?: string | null; seoDescription?: string | null; readingMinutes: number;
   faq?: { q: string; a: string }[] | null;
 }
-/** A published article, with only the languages that a person has reviewed. Never holds anything private. */
+/** A published article, with the languages that have been written. Never holds anything private. */
 export interface PublicArticle {
   id: string; divisionKey: string; publishedAt: Date; updatedAt: Date;
   authorName: string | null; authorBio: Partial<Record<Lang, string | null>>;
@@ -67,7 +67,7 @@ export const urlOf = (p: PageRef) => `${APP_URL.replace(/\/+$/, '')}${pathOf(p)}
 
 /** Whether this version may be indexed and linked as a public page. */
 export function isIndexable(p: PageRef, ctx: Ctx = EMPTY_CTX): boolean {
-  if (p.key === 'article') return Boolean(p.article!.tr[p.lang]); // only reviewed versions exist in the public set
+  if (p.key === 'article') return Boolean(p.article!.tr[p.lang]); // every written version is in the public set
   if (p.lang === 'fr' && !FR_REVIEWED[p.key]) return false;
   if (p.key === 'division' && !p.division!.hasArticles && articlesOf(ctx, p.lang, p.division!.key).length === 0) return false; // an empty area is a thin page
   return true;

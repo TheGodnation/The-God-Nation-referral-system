@@ -16,8 +16,9 @@ import { readingMinutes, renderBody, slugOf } from '../lib/publicSite/text';
 import { invalidatePublicSite } from '../lib/publicSite/router';
 
 // The Knowledge Centre's editing tools (central admin only). Nothing here can reach the
-// public site until a person has (1) reviewed a language version and (2) pressed Publish.
-// Editing a reviewed version takes it back to "not reviewed" so changed words are always
+// public site until a person has pressed Publish; every written language version of a published
+// article is then public, reviewed or not (the founder's decision). Review stays available and is
+// shown; editing a reviewed version takes it back to "not reviewed" so changed words can be re-checked.
 // re-checked by a person. AI help (a later phase) will only ever write drafts here.
 type Actor = { id: string; email: string };
 
@@ -84,7 +85,7 @@ const articleSelect = {
   relatedTo: { select: { toId: true } },
 } satisfies Prisma.KnowledgeArticleSelect;
 
-/** Where a version lives on the public site (only reachable once published and reviewed). */
+/** Where a version lives on the public site (reachable once the article is published). */
 function publicPathOf(divisionKey: string, lang: 'en' | 'fr', slug: string): string | null {
   const d = DIVISIONS.find((x) => x.key === divisionKey);
   return d ? `/${lang}/${SECTION[lang].knowledge}/${d.slug[lang]}/${slug}/` : null;
@@ -97,8 +98,8 @@ function shape(a: Prisma.KnowledgeArticleGetPayload<{ select: typeof articleSele
     translations: rest.translations.map((t) => ({
       ...t,
       publicPath: publicPathOf(a.divisionKey, t.lang as 'en' | 'fr', t.slug),
-      // Visible to the public right now: published, and a person has reviewed this version.
-      isPublic: a.status === 'PUBLISHED' && Boolean(t.reviewedAt),
+      // Visible to the public right now: the article is published (whether or not this version has been reviewed).
+      isPublic: a.status === 'PUBLISHED',
     })),
     relatedIds: relatedTo.map((r) => r.toId),
   };
@@ -237,7 +238,7 @@ function build(resolveActor: (req: Request) => Promise<Actor | null>) {
     res.json({ ...saved, reviewReset: Boolean(prev?.reviewedAt) });
   }));
 
-  // A person's review of one language version. Only reviewed versions can ever be public.
+  // A person's review of one language version (optional: a published version is public either way).
   router.post('/articles/:id/translations/:lang/review', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     const actor = await act(req, res); if (!actor) return;
     const lang = LANG.safeParse(req.params.lang);
@@ -252,7 +253,7 @@ function build(resolveActor: (req: Request) => Promise<Actor | null>) {
     res.json({ ok: true, approved: body.data.approved });
   }));
 
-  // Move between stages. Publishing needs a person-reviewed version (and a description for any picture).
+  // Move between stages. Publishing needs a written version (and a description for any picture); review is not required.
   router.post('/articles/:id/status', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     const actor = await act(req, res); if (!actor) return;
     const p = z.object({ to: z.enum(['DRAFT', 'IN_REVIEW', 'APPROVED', 'PUBLISHED', 'UNPUBLISHED']) }).safeParse(req.body);
@@ -264,10 +265,10 @@ function build(resolveActor: (req: Request) => Promise<Actor | null>) {
     if (!a) return bad(res, 'Article not found.', 404);
     if (!(MOVES[a.status] ?? []).includes(p.data.to)) return bad(res, `An article that is "${a.status}" cannot move to "${p.data.to}".`, 409);
     if (p.data.to === 'PUBLISHED') {
-      const reviewed = a.translations.filter((t) => t.reviewedAt);
-      if (!reviewed.length) return bad(res, 'Nobody has reviewed a language version yet. Review at least one before publishing.', 409);
+      const written = a.translations;
+      if (!written.length) return bad(res, 'Write at least one language version before publishing.', 409);
       if (a.featuredImageUrl) {
-        const missing = reviewed.filter((t) => !(t.lang === 'en' ? a.featuredImageAltEn : a.featuredImageAltFr));
+        const missing = written.filter((t) => !(t.lang === 'en' ? a.featuredImageAltEn : a.featuredImageAltFr));
         if (missing.length) return bad(res, `The picture needs a description in: ${missing.map((m) => m.lang).join(', ')}.`, 409);
       }
     }
