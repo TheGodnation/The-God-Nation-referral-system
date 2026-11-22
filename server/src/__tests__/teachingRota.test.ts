@@ -731,6 +731,17 @@ describe('the assignment as a private message', () => {
     expect(betaMessages[1].body).toContain('/member/my-teaching/guide');
     expect(await sendHowToNow()).toMatchObject({ sent: 0, alreadySent: 2 }); // never twice
     expect(await prisma.privateMessage.count({ where: { conversationId: betaChat.id } })).toBe(2);
+    // "Send again": an updated copy to everyone, marked as replacing the earlier one; a double tap does not send it twice
+    const again = await sendHowToNow(true, at('2026-11-23T10:00:00Z'));
+    expect(again).toMatchObject({ sent: 2, alreadySent: 0 });
+    expect(await sendHowToNow(true, at('2026-11-23T10:05:00Z'))).toMatchObject({ sent: 0, alreadySent: 2 });
+    const afterAgain = await prisma.privateMessage.findMany({ where: { conversationId: betaChat.id }, orderBy: { createdAt: 'asc' } });
+    expect(afterAgain).toHaveLength(3);
+    expect(afterAgain[2].body).toContain('Updated: this replaces the earlier message');
+    expect(afterAgain[2].body).toContain('How your weekly teaching works');
+    expect(await sendHowToNow(true, at('2026-11-23T12:00:00Z'))).toMatchObject({ sent: 2 }); // later, it can be sent again
+    const alphaLast = (await prisma.privateMessage.findMany({ where: { conversationId: alphaChat.id }, orderBy: { createdAt: 'asc' } })).at(-1)!;
+    expect(alphaLast.body).toContain('Mise à jour : ce message remplace le précédent'); // Alpha reads French
   });
 });
 
