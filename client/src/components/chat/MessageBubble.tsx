@@ -1,3 +1,4 @@
+import { LinkPreviewCard } from '../LinkPreviewCard';
 import { CoordinatorBadge } from '../CoordinatorBadge';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -512,6 +513,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                     </div>
                   )}
                   <RichText className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings comfort={STRUCTURED.test(displayBody)} />
+                  <LinkPreviewCard text={displayBody} />
                   {/* Read comfortably sits at the start of the text; under it, one under the other: Read more / Read less, then Show original. */}
                   <div className="mt-1 flex flex-col items-start gap-1">
                     {isLongBody && (

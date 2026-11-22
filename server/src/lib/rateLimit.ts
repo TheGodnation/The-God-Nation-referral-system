@@ -168,6 +168,15 @@ export const leadershipMutationLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
 });
 
+// Link preview cards under links in chats and posts: many at once when a screen opens, so a roomy limit.
+export const linkPreviewLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
 // Phase 3F: a Member updating their own name/preferredLanguage. Low
 // enumeration risk (authenticated, own data only), but still a dedicated
 // limiter per the project's "never rely solely on generalApiLimiter"

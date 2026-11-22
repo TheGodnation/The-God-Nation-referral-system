@@ -14,9 +14,11 @@ export interface PreviewMeta {
   title: string;
   description: string;
   type: 'website' | 'article';
-  /** A card picture of its own (a file in the site's public folder), instead of the usual one. */
+  /** A card picture of its own (a file in the site's public folder, or a path under /api), instead of the usual one. */
   image?: string;
   imageAlt?: string;
+  /** The picture is a post's own photo (any size and shape), not one of our 1200x630 cards: do not declare its size. */
+  imageIsPhoto?: boolean;
 }
 
 const SITE = 'The God Nation';
@@ -108,8 +110,16 @@ export function newsPathOf(path: string): { kind: 'post' | 'announcement' | 'upd
   return m ? { kind: m[1] as 'post' | 'announcement' | 'update', id: m[2] } : null;
 }
 
-export function metaFor(path: string, lang: CardLang, page?: { title: string; text: string } | null): PreviewMeta {
-  if (page) return { title: `${page.title} — ${SITE}`, description: excerpt(page.text) || DEFAULT[lang].description, type: 'article' };
+export function metaFor(path: string, lang: CardLang, page?: { title: string; text: string; image?: string | null } | null): PreviewMeta {
+  if (page) {
+    return {
+      title: `${page.title} — ${SITE}`,
+      description: excerpt(page.text) || DEFAULT[lang].description,
+      type: 'article',
+      // The post's own picture, when it has one, takes the place of the usual card; with none, the usual card stays.
+      ...(page.image ? { image: page.image, imageAlt: page.title, imageIsPhoto: true } : {}),
+    };
+  }
   const clean = path.replace(/\/+$/, '') || '/';
   if (clean === '/congratulations') return CELEBRATION[lang];
   if (JOIN_PATHS.has(clean)) return JOIN[lang];
@@ -132,9 +142,7 @@ export function renderIndexHtml(template: string, opts: { appUrl: string; path: 
     `<meta property="og:description" content="${d}" />`,
     `<meta property="og:url" content="${escapeAttr(url)}" />`,
     `<meta property="og:image" content="${escapeAttr(image)}" />`,
-    `<meta property="og:image:width" content="1200" />`,
-    `<meta property="og:image:height" content="630" />`,
-    `<meta property="og:image:type" content="image/jpeg" />`,
+    ...(meta.imageIsPhoto ? [] : [`<meta property="og:image:width" content="1200" />`, `<meta property="og:image:height" content="630" />`, `<meta property="og:image:type" content="image/jpeg" />`]),
     `<meta property="og:image:alt" content="${escapeAttr(meta.imageAlt ?? CARD_ALT[lang])}" />`,
     `<meta property="og:locale" content="${pageLang === 'fr' ? 'fr_FR' : 'en_US'}" />`,
     ...(lang === 'both' ? [`<meta property="og:locale:alternate" content="fr_FR" />`] : []),
@@ -152,14 +160,14 @@ export function renderIndexHtml(template: string, opts: { appUrl: string; path: 
   return html.replace(/<\/head>/i, `    ${tags}\n  </head>`);
 }
 
-type Lookup = (slug: string, lang: Lang) => Promise<{ title: string; text: string } | null>;
+type Lookup = (slug: string, lang: Lang) => Promise<{ title: string; text: string; image?: string | null } | null>;
 
 /** The handler for every page address that is not a file or an API call. */
 export function spaHandler(
   template: string,
   appUrl: string,
   findPage: Lookup,
-  findShared?: (kind: 'post' | 'announcement' | 'update', id: string, lang: Lang) => Promise<{ title: string; text: string } | null>,
+  findShared?: (kind: 'post' | 'announcement' | 'update', id: string, lang: Lang) => Promise<{ title: string; text: string; image?: string | null } | null>,
 ) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {

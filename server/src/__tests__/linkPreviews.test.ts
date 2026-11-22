@@ -86,6 +86,18 @@ describe('link previews', () => {
     expect(api.status).toBe(404);
   });
 
+  it('a shared post’s own picture takes the place of the usual card, and with no picture the usual card stays', async () => {
+    const a = express();
+    a.get('*', spaHandler(template, APP, async () => null, async (_kind, id) => (id === 'with' ? { title: 'Good news', text: 'Come and see.', image: 'api/shared/post/with/photo/0' } : { title: 'Good news', text: 'Come and see.' })));
+    const withPhoto = (await request(a).get('/news/post/with?lang=en')).text;
+    expect(withPhoto).toContain('<meta property="og:image" content="https://thegodnationacademy.org/api/shared/post/with/photo/0" />');
+    expect(withPhoto).not.toContain('share-card-en.jpg');
+    expect(withPhoto).not.toContain('og:image:width'); // a photo can be any size
+    const without = (await request(a).get('/news/post/without?lang=en')).text;
+    expect(without).toContain('share-card-en.jpg');
+    expect(without).toContain('og:image:width');
+  });
+
   it('escapes quotes and angle brackets in titles', () => {
     const html = renderIndexHtml(template, { appUrl: APP, path: '/x', lang: 'en', meta: { title: 'A "quoted" <b>title</b>', description: 'd', type: 'website' } });
     expect(html).toContain('og:title" content="A &quot;quoted&quot; &lt;b&gt;title&lt;/b&gt;"');

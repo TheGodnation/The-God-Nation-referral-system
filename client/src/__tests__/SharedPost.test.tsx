@@ -47,6 +47,15 @@ describe('A shared post page', () => {
     expect(screen.getByTestId('shared-signin')).toHaveTextContent('Sign in and go into the community');
   });
 
+  it('shows the post’s pictures above the writing when there are some', async () => {
+    vi.stubGlobal('fetch', serve(() => json({ ...ITEM, photos: [{ url: '/api/shared/post/p1/photo/0' }, { url: '/api/shared/post/p1/photo/1' }] })));
+    page();
+    const photos = await screen.findByTestId('shared-photos');
+    expect(photos.querySelectorAll('img')).toHaveLength(2);
+    expect(photos.querySelector('img')).toHaveAttribute('src', '/api/shared/post/p1/photo/0');
+    expect(screen.queryByTestId('shared-media-note')).toBeNull(); // the note is for pictures that cannot be shown
+  });
+
   it('reads in French for a French visitor', async () => {
     await i18n.changeLanguage('fr');
     vi.stubGlobal('fetch', serve(() => json(ITEM)));

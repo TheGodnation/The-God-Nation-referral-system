@@ -67,6 +67,7 @@ import { adminTeachingRotaRoutes, memberCentralTeachingRotaRoutes, memberTeachin
 import { adminCelebrationRoutes, memberCentralCelebrationRoutes, publicCelebrationRoutes } from './routes/celebration';
 import { adminSharedRoutes, memberCentralSharedRoutes, publicSharedRoutes } from './routes/sharedPosts';
 import { sharedPreview } from './lib/sharedPosts';
+import { memberLinkPreviewRoutes } from './routes/linkPreview';
 import { adminTokensRoutes, memberCentralTokensRoutes } from './routes/adminTokens';
 import memberTokensRoutes from './routes/memberTokens';
 import adminLeadershipRoutes from './routes/adminLeadership';
@@ -249,6 +250,7 @@ export function createApp() {
   app.use('/api/shared', publicSharedRoutes);
   app.use('/api/admin/shared', adminSharedRoutes);
   app.use('/api/member/central-shared', memberCentralSharedRoutes);
+  app.use('/api/member/link-preview', memberLinkPreviewRoutes);
   app.use('/api/admin/celebration', adminCelebrationRoutes);
   app.use('/api/member/central-celebration', memberCentralCelebrationRoutes);
   app.use('/api/admin/tokens', adminTokensRoutes);

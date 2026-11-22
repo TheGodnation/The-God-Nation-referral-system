@@ -7,7 +7,8 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
-import { ShareError, isSharedKind, moreShared, publicItem, shareByLink, shareState, stopSharing } from '../lib/sharedPosts';
+import { ShareError, isSharedKind, moreShared, publicItem, sharedPhotos, shareByLink, shareState, stopSharing } from '../lib/sharedPosts';
+import { getObjectStream, isStorageConfigured } from '../lib/storage';
 
 // Posts and announcements shared by link. Anyone can read a shared one (GET /api/shared/:kind/:id); only the central admin can
 // open or close a link, from the admin dashboard or from their own member profile.
@@ -25,8 +26,24 @@ export const publicSharedRoutes = (() => {
     if (!isSharedKind(kind)) return res.status(404).json({ error: 'Not available.' });
     const item = await publicItem(kind, id);
     if (!item) return res.status(404).json({ error: 'This link is not available.' });
+    const photos = await sharedPhotos(kind, id);
     res.set('Cache-Control', 'public, max-age=60');
-    res.json({ ...item, more: await moreShared({ kind, id }) });
+    res.json({ ...item, photos: photos.map((_, i) => ({ url: `/api/shared/${kind}/${id}/photo/${i}` })), more: await moreShared({ kind, id }) });
+  }));
+
+  // One picture of a shared post, readable by anyone with the link while the link is open (and for no other file).
+  router.get('/:kind/:id/photo/:n', asyncHandler(async (req, res) => {
+    const { kind, id } = req.params;
+    const n = Number(req.params.n);
+    if (!isSharedKind(kind) || !Number.isInteger(n) || n < 0 || !isStorageConfigured()) return res.status(404).json({ error: 'Not available.' });
+    const photo = (await sharedPhotos(kind, id))[n];
+    if (!photo) return res.status(404).json({ error: 'Not available.' });
+    const object = await getObjectStream({ storageKey: photo.storageKey });
+    if (!object) return res.status(404).json({ error: 'Not available.' });
+    res.set({ 'Content-Type': photo.mimeType, 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' });
+    if (object.contentLength) res.set('Content-Length', String(object.contentLength));
+    object.body.on('error', () => res.destroy());
+    object.body.pipe(res);
   }));
   return router;
 })();
