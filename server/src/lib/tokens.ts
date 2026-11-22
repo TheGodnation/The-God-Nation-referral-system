@@ -5,9 +5,10 @@ import { reconcileHolds, spendSettings } from './tokenSpend';
 // ---------------------------------------------------------------------------
 // King's Token — earning (Phase 5a).
 //
-// Members earn tokens by answering correctly in a Dominion Clinic exam: 8 per
-// correct answer, halving every 4 years from the start day down to 1, and then
-// staying at 1 for ever. For every 70 tokens members earn, 30 more are credited
+// Members earn tokens by answering correctly in a Dominion Clinic exam (or in the quiz of a teaching that is taught from a portion of
+// the month's book: the same quiz, one portion at a time, instead of a monthly exam; the central admin decided it earns the same): 1 per
+// correct answer (decided by the central admin on 22 November 2026: one correct answer, one token; before that the plan was 8,
+// halving every 4 years, and tokens already credited at 8 stay as they are in the permanent ledger). For every 70 tokens members earn, 30 more are credited
 // to the foundation account (locked for 4 years). Tokens only accumulate for
 // now: nothing can be spent until the central admin announces it. Every gain is
 // an entry in the permanent ledger (TokenEntry), which is only ever added to.
@@ -18,7 +19,7 @@ import { reconcileHolds, spendSettings } from './tokenSpend';
 // ---------------------------------------------------------------------------
 
 export const YEARS_PER_HALVING = 4;
-export const CLINIC_START_RATE = 8;
+export const CLINIC_START_RATE = 1;
 export const CLINIC_FLOOR_RATE = 1;
 export const BOOK_START_RATE = 16;
 export const BOOK_FLOOR_RATE = 2;
@@ -84,7 +85,7 @@ export function rateSchedule(): ScheduleRow[] {
   for (let h = 0; ; h += 1) {
     const clinic = rateFor('CLINIC', h);
     const book = rateFor('BOOK', h);
-    const last = rateFor('CLINIC', h + 1) === clinic;
+    const last = rateFor('CLINIC', h + 1) === clinic && rateFor('BOOK', h + 1) === book;
     rows.push({ fromYear: h * YEARS_PER_HALVING + 1, toYear: last ? null : (h + 1) * YEARS_PER_HALVING, clinic, book });
     if (last) break;
   }
@@ -112,11 +113,13 @@ export async function awardClinicTokens(attemptId: string): Promise<AwardResult>
 
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
-    select: { id: true, personId: true, assessmentId: true, status: true, submittedAt: true, assessment: { select: { weekNumber: true, devotionalId: true } } },
+    select: { id: true, personId: true, assessmentId: true, status: true, submittedAt: true, assessment: { select: { weekNumber: true, devotionalId: true, teaching: { select: { portionBookId: true } } } } },
   });
   if (!attempt || attempt.status !== 'SUBMITTED' || !attempt.submittedAt) return none;
-  // Only a monthly Dominion Clinic exam earns here.
-  if (attempt.assessment.weekNumber === null || !attempt.assessment.devotionalId) return none;
+  // Only a Dominion Clinic exam earns here: a monthly exam, or the quiz of a teaching taught from a portion of the book.
+  const monthlyExam = attempt.assessment.weekNumber !== null && Boolean(attempt.assessment.devotionalId);
+  const bookTeaching = Boolean(attempt.assessment.teaching?.portionBookId);
+  if (!monthlyExam && !bookTeaching) return none;
   const rate = rateAt('CLINIC', start, attempt.submittedAt);
   if (rate === null) return none;
 
@@ -180,7 +183,12 @@ export async function settleClinicTokens(personId: string): Promise<void> {
   const start = await tokensStartAt();
   if (!start) return;
   const attempts = await prisma.attempt.findMany({
-    where: { personId, status: 'SUBMITTED', submittedAt: { gte: start }, assessment: { weekNumber: { not: null }, devotionalId: { not: null } } },
+    where: {
+      personId,
+      status: 'SUBMITTED',
+      submittedAt: { gte: start },
+      assessment: { OR: [{ weekNumber: { not: null }, devotionalId: { not: null } }, { teaching: { is: { portionBookId: { not: null } } } }] },
+    },
     select: { id: true, assessmentId: true },
     orderBy: { submittedAt: 'asc' },
   });
