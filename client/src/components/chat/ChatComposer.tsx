@@ -20,6 +20,7 @@ import { VoiceInputButton } from '../VoiceInputButton';
 import { ChatIcon } from './icons';
 import type { ChatMessage } from './types';
 import { loadDraft, saveDraft } from '../../lib/drafts';
+import { cameroonLabel, fromLocalInput, toLocalInput } from '../../lib/scheduleTime';
 import { LinkPreviewCard, firstUrl, withoutPreview } from '../LinkPreviewCard';
 import { SelectionFormatBar } from '../FormatBar';
 import { LiveFormatTextarea } from '../LiveFormatTextarea';
@@ -68,6 +69,7 @@ export function ChatComposer({
   onTyping,
   onRecording,
   bilingual = false,
+  onSchedule,
   onNewTeaching,
   draftKey,
 }: {
@@ -88,11 +90,13 @@ export function ChatComposer({
   onRecording?: (recording: boolean, live: boolean) => void;
   /** Only for the central admin in an assembly: a voice message recorded in English and French. */
   bilingual?: boolean;
+  /** "Send later" for the two-language voice message: keeps it for a group and a time instead of sending it now. */
+  onSchedule?: (msg: OutgoingMessage, postAtIso: string) => Promise<boolean>;
   /** Where to keep what is typed but not sent yet (see lib/drafts). The
    * parent keys the composer by this, so each chat has its own box. */
   draftKey?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [text, setText] = useState(() => loadDraft(draftKey));
   // The link whose preview card the writer took off: it is sent without the card.
   const [noCardFor, setNoCardFor] = useState<string | null>(null);
@@ -174,7 +178,8 @@ export function ChatComposer({
   const [listening, setListening] = useState(false);
   const listenRef = useRef<{ audio: HTMLAudioElement; url: string } | null>(null);
   // The two-language voice message: the panel, its clips, and which clip is being recorded now.
-  const [dual, setDual] = useState<{ clips: Partial<Record<ClipLanguage, Clip>>; live: boolean } | null>(null);
+  const [dual, setDual] = useState<{ clips: Partial<Record<ClipLanguage, Clip>>; live: boolean; later: boolean; when: string } | null>(null);
+  const [scheduledNote, setScheduledNote] = useState<string | null>(null);
   const dualTargetRef = useRef<ClipLanguage | null>(null);
 
   useEffect(() => {
@@ -560,14 +565,25 @@ export function ChatComposer({
     if (!dual) return;
     const clips = (['en', 'fr'] as const).flatMap((language) => (dual.clips[language] ? [{ language, clip: dual.clips[language]! }] : [])).sort((a, b) => a.clip.at - b.clip.at);
     if (clips.length === 0) return setError(t('bilingual.need_one'));
+    // "Send later": only with a time that has not passed.
+    const postAt = dual.later ? fromLocalInput(dual.when) : null;
+    if (dual.later && (!postAt || new Date(postAt).getTime() < Date.now() + 60_000)) return setError(t('bilingual.need_time'));
     setBusy(true);
     setError(null);
     try {
       const uploaded: UploadedAttachment[] = [];
       for (const { language, clip } of clips) {
         const file = await uploadChatFile(uploadPath, clip.blob, `voice-note-${language}-${Date.now()}.${extensionFor(clip.mime)}`);
-        // Two clips travel as an English + French pair; a single one is an ordinary voice note.
-        uploaded.push(clips.length === 2 ? { ...file, language } : file);
+        // Two clips travel as an English + French pair; a single one is an ordinary voice note. A kept one always knows its language.
+        uploaded.push(clips.length === 2 || postAt ? { ...file, language } : file);
+      }
+      if (postAt && onSchedule) {
+        const ok = await onSchedule({ attachments: uploaded, liveTeaching: dual.live || undefined }, postAt);
+        if (ok) {
+          setScheduledNote(cameroonLabel(postAt, i18n.language));
+          closeDual();
+        }
+        return;
       }
       const ok = await onSend({ attachments: uploaded, replyToMessageId: replyTo?.id, liveTeaching: dual.live || undefined });
       if (ok) closeDual();
@@ -785,17 +801,43 @@ export function ChatComposer({
             <input type="checkbox" checked={dual.live} onChange={(e) => setDual((d) => (d ? { ...d, live: e.target.checked } : d))} className="h-5 w-5 rounded border-slate-300 accent-red-600" />
             🔴 {t('bilingual.live')}
           </label>
+          {onSchedule && (
+            <div className="space-y-2 rounded-xl bg-slate-50 p-2" data-testid="dual-when">
+              <div className="inline-flex overflow-hidden rounded-lg border border-slate-300" role="group" aria-label={t('bilingual.when') ?? ''}>
+                {([false, true] as const).map((later) => (
+                  <button key={String(later)} type="button" aria-pressed={dual.later === later} onClick={() => setDual((d) => (d ? { ...d, later } : d))} className={`px-4 py-1.5 text-sm font-semibold ${dual.later === later ? 'bg-brand-700 text-white' : 'bg-white text-slate-700'}`} data-testid={later ? 'dual-later' : 'dual-now'}>
+                    {later ? t('bilingual.send_later') : t('bilingual.send_now')}
+                  </button>
+                ))}
+              </div>
+              {dual.later && (
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700" htmlFor="dual-when-input">{t('bilingual.when_label')}</label>
+                  <input id="dual-when-input" type="datetime-local" className="input w-full" value={dual.when} min={toLocalInput(new Date())} onChange={(e) => setDual((d) => (d ? { ...d, when: e.target.value } : d))} data-testid="dual-when-input" />
+                  {fromLocalInput(dual.when) && <p className="text-xs text-slate-600" data-testid="dual-when-cameroon">{t('bilingual.cameroon_time', { when: cameroonLabel(fromLocalInput(dual.when)!, i18n.language) })}</p>}
+                  <p className="text-xs text-slate-500">{t('bilingual.later_help')}</p>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <button type="button" onClick={closeDual} disabled={busy} className="btn-secondary flex-1 py-2">
               {t('bilingual.cancel')}
             </button>
-            <button type="button" onClick={() => void sendDual()} disabled={busy || Object.keys(dual.clips).length === 0} className="btn-primary flex-1 py-2 disabled:opacity-50">
-              {t('bilingual.send')}
+            <button type="button" onClick={() => void sendDual()} disabled={busy || Object.keys(dual.clips).length === 0 || (dual.later && !dual.when)} className="btn-primary flex-1 py-2 disabled:opacity-50" data-testid="dual-send">
+              {dual.later ? t('bilingual.schedule') : t('bilingual.send')}
             </button>
           </div>
         </div>
       ) : (
         <>
+        {scheduledNote && (
+          <p className="mb-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800" data-testid="scheduled-note">
+            ✓ {t('bilingual.scheduled_for', { when: scheduledNote })}{' '}
+            <a className="font-semibold underline" href="/member/me?tab=scheduled">{t('bilingual.see_scheduled')}</a>
+            <button type="button" className="ml-2 text-emerald-700" aria-label={t('common.close') ?? ''} onClick={() => setScheduledNote(null)}>×</button>
+          </p>
+        )}
         {hasSelection && (
           <div
             className="mb-2 flex"
@@ -917,7 +959,7 @@ export function ChatComposer({
             {bilingual && (
               <button
                 type="button"
-                onClick={() => setDual({ clips: {}, live: false })}
+                onClick={() => setDual({ clips: {}, live: false, later: false, when: '' })}
                 disabled={busy}
                 aria-label={t('bilingual.open') ?? ''}
                 title={t('bilingual.open') ?? ''}

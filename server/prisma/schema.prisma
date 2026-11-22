@@ -4688,3 +4688,49 @@ model TeachingRecordingPart {
   @@unique([recordingId, position])
 }
 
+
+
+// A voice teaching the central admin recorded ahead of time ("Send later") to post in a group at a time they chose. The words are
+// written from the recording, corrected and approved by the author in their own language, and the other language is made
+// automatically (when only one language was recorded). Unlike the weekly rota there is no topic, no fixed slot and no rating.
+model ScheduledTeaching {
+  id             String                  @id @default(uuid())
+  communityId    String
+  authorPersonId String
+  postAt         DateTime
+  liveTeaching   Boolean                 @default(false)
+  status         TeachingRecordingStatus @default(RECORDED)
+  // The words per language, as the author corrected them. With one clip, the language spoken is the author's; the other one is made
+  // after approval (translatedInto says which). With an English and a French clip, each is that clip's own words.
+  textEn         String?
+  textFr         String?
+  translatedInto Language?
+  attempts       Int                     @default(0)
+  approvedAt     DateTime?
+  postedAt       DateTime?
+  messageId      String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  clips ScheduledTeachingClip[]
+
+  @@index([status, postAt])
+  @@index([authorPersonId])
+}
+
+model ScheduledTeachingClip {
+  id         String           @id @default(uuid())
+  teachingId String
+  position   Int
+  language   Language
+  storageKey String           @unique
+  mimeType   String
+  byteSize   Int
+  textState  TeachingPartText @default(WAITING)
+  attempts   Int              @default(0)
+  createdAt  DateTime         @default(now())
+
+  teaching ScheduledTeaching @relation(fields: [teachingId], references: [id], onDelete: Cascade)
+
+  @@unique([teachingId, position])
+}

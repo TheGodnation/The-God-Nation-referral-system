@@ -172,3 +172,73 @@ describe('Voice message in two languages (central admin only)', () => {
     expect(onRecording).toHaveBeenLastCalledWith(false, true);
   });
 });
+
+describe('Send later (central admin only)', () => {
+  async function recordClip(language: 'English' | 'Français') {
+    const row = screen.getByTestId(`dual-row-${language === 'English' ? 'en' : 'fr'}`);
+    const start = Date.now();
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(start);
+    await act(async () => {
+      fireEvent.click(Array.from(row.querySelectorAll('button')).find((b) => /^(Record|Record again)$/.test(b.textContent ?? ''))!);
+    });
+    expect(await screen.findByText(new RegExp(`Recording the ${language} part`))).toBeInTheDocument();
+    spy.mockReturnValue(start + 5000);
+    fireEvent.click(screen.getByRole('button', { name: 'Send voice note' }));
+    spy.mockRestore();
+    await screen.findByTestId('dual-panel');
+  }
+  const inTwoHours = () => {
+    const d = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  it('is not offered without a place to keep it, and sending now still works as before', async () => {
+    const onSend = renderComposer({ bilingual: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Voice message in two languages' }));
+    expect(screen.queryByTestId('dual-when')).toBeNull();
+    await recordClip('English');
+    fireEvent.click(screen.getByTestId('dual-send'));
+    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps one recording for later with its language, says the time in Cameroon time, and does not send it now', async () => {
+    const onSchedule = vi.fn().mockResolvedValue(true);
+    const onSend = renderComposer({ bilingual: true, onSchedule });
+    fireEvent.click(screen.getByRole('button', { name: 'Voice message in two languages' }));
+    await recordClip('Français');
+    fireEvent.click(screen.getByTestId('dual-later'));
+    // a time is needed first
+    expect(screen.getByTestId('dual-send')).toBeDisabled();
+    expect(screen.getByTestId('dual-send')).toHaveTextContent('Schedule');
+    const when = inTwoHours();
+    fireEvent.change(screen.getByTestId('dual-when-input'), { target: { value: when } });
+    expect(screen.getByTestId('dual-when-cameroon')).toHaveTextContent('In Cameroon time:');
+    fireEvent.click(screen.getByTestId('dual-send'));
+    await waitFor(() => expect(onSchedule).toHaveBeenCalledTimes(1));
+    const [msg, postAt] = onSchedule.mock.calls[0];
+    expect(msg.attachments).toHaveLength(1);
+    expect(msg.attachments[0].language).toBe('fr'); // a kept recording always knows its language
+    expect(new Date(postAt).getTime()).toBe(new Date(when).getTime());
+    expect(onSend).not.toHaveBeenCalled();
+    expect(await screen.findByTestId('scheduled-note')).toHaveTextContent('Scheduled for');
+    expect(screen.getByText('See my scheduled teachings')).toHaveAttribute('href', '/member/me?tab=scheduled');
+  });
+
+  it('keeps an English and a French recording together, and refuses a time that has passed', async () => {
+    const onSchedule = vi.fn().mockResolvedValue(true);
+    renderComposer({ bilingual: true, onSchedule });
+    fireEvent.click(screen.getByRole('button', { name: 'Voice message in two languages' }));
+    await recordClip('English');
+    await recordClip('Français');
+    fireEvent.click(screen.getByTestId('dual-later'));
+    fireEvent.change(screen.getByTestId('dual-when-input'), { target: { value: '2020-01-01T10:00' } });
+    fireEvent.click(screen.getByTestId('dual-send'));
+    expect(await screen.findByText('Choose a time that has not passed yet.')).toBeInTheDocument();
+    expect(onSchedule).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId('dual-when-input'), { target: { value: inTwoHours() } });
+    fireEvent.click(screen.getByTestId('dual-send'));
+    await waitFor(() => expect(onSchedule).toHaveBeenCalledTimes(1));
+    expect(onSchedule.mock.calls[0][0].attachments.map((a: any) => a.language)).toEqual(['en', 'fr']);
+  });
+});
