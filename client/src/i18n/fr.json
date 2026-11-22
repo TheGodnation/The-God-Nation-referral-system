@@ -5992,9 +5992,20 @@
     "stop": "Arrêter",
     "use_this": "Utiliser cet enregistrement",
     "sending": "Envoi…",
-    "discard": "Recommencer",
+    "discard": "Jeter celui-ci",
     "no_microphone": "Le microphone n'a pas pu être utilisé. Autorisez-le et réessayez.",
     "bad_type": "Ce type de fichier n'est pas accepté. Enregistrez dans l'application, ou choisissez un fichier mp3, m4a, webm ou ogg.",
-    "failed": "Un problème est survenu. Veuillez réessayer."
+    "failed": "Un problème est survenu. Veuillez réessayer.",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "paused_note": "En pause. Rien n'est perdu. Touchez Reprendre pour continuer, ou Arrêter pour terminer.",
+    "add_more": "Ajouter à l'enregistrement",
+    "add_file": "Ajouter un enregistrement de mon téléphone",
+    "start_over": "Recommencer",
+    "confirm_start_over": "Supprimer tout l'enregistrement, toutes les parties, et recommencer ?",
+    "part_n": "Partie {{n}}",
+    "add_to_teaching": "Ajouter à mon enseignement",
+    "parts_failed_one": "Les mots d'une partie n'ont pas pu être écrits. Touchez « Écrire le texte de nouveau », ou tapez ces mots vous-même.",
+    "parts_failed_other": "Les mots de {{count}} parties n'ont pas pu être écrits. Touchez « Écrire le texte de nouveau », ou tapez ces mots vous-même."
   }
 }

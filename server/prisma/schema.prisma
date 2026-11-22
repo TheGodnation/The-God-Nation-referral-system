@@ -4650,13 +4650,41 @@ model TeachingRecording {
   // The same text in the other language, made automatically after the teacher approved.
   translated     String?
   attempts       Int                     @default(0)
+  // The first part's text has been written (so a retry never writes it twice).
+  mainTextDone   Boolean                 @default(false)
   approvedAt     DateTime?
   postedAt       DateTime?
   messageId      String?
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
 
+  // More parts the teacher added after the first (Add more): they play one after another, and their text is added to the text above.
+  parts TeachingRecordingPart[]
+
   @@unique([teacherId, weekStart])
   @@index([status])
+}
+
+enum TeachingPartText {
+  WAITING
+  DONE
+  FAILED
+}
+
+model TeachingRecordingPart {
+  id          String           @id @default(uuid())
+  recordingId String
+  // 1 is the first added part (the recording itself is the part before it).
+  position    Int
+  storageKey  String           @unique
+  mimeType    String
+  byteSize    Int
+  textState   TeachingPartText @default(WAITING)
+  attempts    Int              @default(0)
+  createdAt   DateTime         @default(now())
+
+  recording TeachingRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+
+  @@unique([recordingId, position])
 }
 
