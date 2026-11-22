@@ -4618,3 +4618,45 @@ model Celebration {
   names     Json     @default("[]")
   updatedAt DateTime @updatedAt
 }
+
+enum TeachingRecordingStatus {
+  // Uploaded; the text is being written (or waiting to be).
+  RECORDED
+  WRITING
+  // The text is ready for the teacher to read and correct, in the language spoken.
+  TEXT_READY
+  // The text could not be written: the teacher can type it, or leave the recording without text.
+  FAILED
+  // The teacher approved the text; the other language is made automatically.
+  APPROVED
+  // Posted in the teaching group at the teacher's time.
+  POSTED
+}
+
+// A teacher's teaching recorded ahead of time. It is posted in the teaching group by itself when the teacher's time comes, with its
+// text under it: the text in the language spoken (corrected by the teacher), and the other language made automatically.
+model TeachingRecording {
+  id             String                  @id @default(uuid())
+  teacherId      String
+  // The Monday of the week of the teaching (a date at UTC midnight).
+  weekStart      DateTime
+  storageKey     String                  @unique
+  mimeType       String
+  byteSize       Int
+  status         TeachingRecordingStatus @default(RECORDED)
+  spokenLanguage Language?
+  // The text in the language spoken, as the teacher corrected it.
+  transcript     String?
+  // The same text in the other language, made automatically after the teacher approved.
+  translated     String?
+  attempts       Int                     @default(0)
+  approvedAt     DateTime?
+  postedAt       DateTime?
+  messageId      String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@unique([teacherId, weekStart])
+  @@index([status])
+}
+

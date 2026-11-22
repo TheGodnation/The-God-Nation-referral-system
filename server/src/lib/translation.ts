@@ -459,6 +459,24 @@ export async function transcribeAndTranslateAudio(
   return { detectedLanguage: heard.detectedLanguage, transcript: written.transcript, translatedTranscript: written.translated };
 }
 
+/** Only the first step: what was said, written down in the language spoken (for the teacher to read and correct). Null on any failure. */
+export async function transcribeAudioOnly(audioBase64: string, mimeType: string, opts: GeminiCallOptions = {}): Promise<{ detectedLanguage: Language; transcript: string } | null> {
+  if (audioBase64.length * 0.75 > MAX_INLINE_AUDIO_BYTES) return null;
+  const listenPrompt =
+    CONTEXT +
+    'Write down this voice message exactly as it is spoken, in the language spoken (English or French), ' +
+    'adding the punctuation and capital letters that speech does not show. Do not summarise, translate or ' +
+    'leave anything out. If it is silent or has no speech, return an empty transcript. ' +
+    READABLE;
+  const heard = await callGeminiBest(
+    [{ role: 'user', parts: [{ text: listenPrompt }, { inlineData: { mimeType, data: audioBase64 } }] }],
+    listenSchema,
+    { timeoutMs: AUDIO_TIMEOUT_MS, ...opts },
+  );
+  if (!heard || !isLanguage(heard.detectedLanguage) || typeof heard.transcript !== 'string') return null;
+  return { detectedLanguage: heard.detectedLanguage, transcript: heard.transcript.trim() };
+}
+
 let loggedAvailableModels = false;
 
 /**

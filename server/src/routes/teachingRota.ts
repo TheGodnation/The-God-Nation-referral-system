@@ -11,6 +11,7 @@ import { recordAudit } from '../lib/audit';
 import { LEVELS, RotaError, addTeacher, adminOverview, loadPlan, matchTeachers, ratingDetail, saveTopic, searchGroups, searchMembers, teacherView, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
 import { finishState, finishTeaching, rate } from '../lib/teachingCards';
 import { sendAssignmentsNow, sendHowToNow } from '../lib/teachingReminders';
+import { approveTranscript, authorizeRecordingUpload, deleteRecording, recordingsFor, retryTranscript, saveRecording, saveTranscript, RECORDING_MIMES } from '../lib/teachingRecordings';
 import { isFrench } from '../lib/privateNotice';
 
 // The weekly teaching rota. Two doors for the central admin (the admin dashboard and the National Coordinator's member
@@ -203,6 +204,39 @@ export const memberTeachingRotaRoutes = (() => {
     const parsed = z.object({ messageId: z.string().min(1), level: z.enum(LEVELS) }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Choose how it was.' });
     res.json(await rate(req.member!.personId, parsed.data));
+  }));
+
+  // The teacher's own teaching recorded ahead of time: record, check the text in their own language, approve; it is posted by itself.
+  const week = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+  router.get('/recordings', asyncHandler(async (req, res) => {
+    res.json(await recordingsFor(req.member!.personId));
+  }));
+  router.post('/recordings/authorize', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ weekStart: week, mimeType: z.enum(RECORDING_MIMES), byteSize: z.number().int().positive() }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'That recording cannot be used.' });
+    res.json(await authorizeRecordingUpload(req.member!.personId, parsed.data));
+  }));
+  router.post('/recordings', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ weekStart: week, storageKey: z.string().min(1).max(300), mimeType: z.enum(RECORDING_MIMES), byteSize: z.number().int().positive() }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'That recording cannot be used.' });
+    res.status(201).json(await saveRecording(req.member!.personId, parsed.data));
+  }));
+  router.put('/recordings/:weekStart/transcript', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ text: z.string().max(60000) }).safeParse(req.body);
+    if (!parsed.success || !week.safeParse(req.params.weekStart).success) return res.status(400).json({ error: 'Check the text and try again.' });
+    res.json(await saveTranscript(req.member!.personId, req.params.weekStart, parsed.data.text));
+  }));
+  router.post('/recordings/:weekStart/approve', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    if (!week.safeParse(req.params.weekStart).success) return res.status(400).json({ error: 'Check the week.' });
+    res.json(await approveTranscript(req.member!.personId, req.params.weekStart));
+  }));
+  router.post('/recordings/:weekStart/retry', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    if (!week.safeParse(req.params.weekStart).success) return res.status(400).json({ error: 'Check the week.' });
+    res.json(await retryTranscript(req.member!.personId, req.params.weekStart));
+  }));
+  router.delete('/recordings/:weekStart', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    if (!week.safeParse(req.params.weekStart).success) return res.status(400).json({ error: 'Check the week.' });
+    res.json(await deleteRecording(req.member!.personId, req.params.weekStart));
   }));
   router.use(onError);
   return router;

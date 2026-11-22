@@ -24,6 +24,8 @@ interface TeacherRow {
   ratings: { total: number; average: number | null; counts: LevelCounts };
   /** What happened to this week's assignment (null = not sent yet). */
   assignment: { sentAt: string; messageSent: boolean; conversationId: string | null; seen: boolean; replied: boolean } | null;
+  /** The recording made ahead of time for this week (null = none yet). */
+  recording: 'RECORDED' | 'WRITING' | 'TEXT_READY' | 'FAILED' | 'APPROVED' | 'POSTED' | null;
 }
 interface SendResult { sent: number; alreadySent: number; sentTo: string[]; passed: string[]; notMatched: string[]; overview: Overview }
 interface RatingDetail { name: string; weeks: { weekStart: string; topic: string; total: number; average: number | null; counts: LevelCounts; raters: { name: string; level: string }[] }[] }
@@ -132,6 +134,13 @@ function GroupPicker({ base, onPick }: { base: string; onPick: (id: string | nul
   );
 }
 
+// The recording a teacher made ahead of time: recorded, text corrected, approved, posted.
+function RecordingStatus({ row }: { row: TeacherRow }) {
+  const { t } = useTranslation();
+  const key = row.recording ?? 'none';
+  return <p className="mt-1 text-xs text-slate-700" data-testid="recording-status">🎙 {t(`teachingRota.recording_${key}`)}</p>;
+}
+
 // Where this week's assignment went: sent as a private message, opened, answered (so the central admin is never left guessing).
 function AssignmentStatus({ row, base }: { row: TeacherRow; base: string }) {
   const { t, i18n } = useTranslation();
@@ -211,6 +220,7 @@ function TeacherCard({ row, base, onChanged, onError }: { row: TeacherRow; base:
         </button>
       </div>
       {row.active && row.personId && <AssignmentStatus row={row} base={base} />}
+      {row.active && row.personId && <RecordingStatus row={row} />}
       {row.personId && (
         <>
           <button type="button" className="mt-1 text-xs font-semibold text-brand-700 underline" onClick={() => void togglePage()} data-testid="see-page">

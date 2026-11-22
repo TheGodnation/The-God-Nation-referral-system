@@ -286,11 +286,14 @@ export async function adminOverview(now = new Date()) {
 
   const summaries = await ratingSummaries();
   const deliveries = await assignmentDeliveries(teachers, baseMonday);
+  const recordings = new Map((await prisma.teachingRecording.findMany({ where: { teacherId: { in: teachers.map((t) => t.id) }, weekStart: baseMonday }, select: { teacherId: true, status: true } })).map((r) => [r.teacherId, r.status]));
   const rows = teachers.map((t) => {
     const p = t.personId ? personById.get(t.personId) : undefined;
     return {
       ratings: summaries.get(t.id) ?? { total: 0, average: null, counts: emptyCounts() },
       assignment: deliveries.get(t.id) ?? null,
+      /** The recording made ahead of time for this week: none, or RECORDED / WRITING / TEXT_READY / FAILED / APPROVED / POSTED. */
+      recording: recordings.get(t.id) ?? null,
       id: t.id,
       name: t.name,
       active: t.active,

@@ -4,6 +4,7 @@ import { pushToPerson, type PushPayload } from './push';
 import { isFrench, sendPrivateNoticeId } from './privateNotice';
 import { DAY, MIN, TZ_MS, loadBase, pickText, slotStart, topicNumberFor, weekNumber } from './teachingRota';
 import { postDueRatingCards } from './teachingCards';
+import { postDueRecordings, retryPendingRecordings } from './teachingRecordings';
 import { CLIENT_URL } from './env';
 
 // Reminders for the weekly teaching rota, in the bell and as a phone alert, in each person's own language. Only while
@@ -214,7 +215,7 @@ export async function sendAssignmentsNow(now = new Date()): Promise<{ sent: numb
 }
 
 export function startTeachingReminderLoop(): void {
-  const run = () => Promise.all([sendRotaReminders(), postDueRatingCards()]).catch((err) => console.error('[teaching-rota] reminders failed', { error: err instanceof Error ? err.message : String(err) }));
+  const run = () => Promise.all([sendRotaReminders(), postDueRecordings().then(() => retryPendingRecordings()), postDueRatingCards()]).catch((err) => console.error('[teaching-rota] reminders failed', { error: err instanceof Error ? err.message : String(err) }));
   setTimeout(run, 3 * 60 * 1000).unref();
   setInterval(run, 5 * 60 * 1000).unref();
 }

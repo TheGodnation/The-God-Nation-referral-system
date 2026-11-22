@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { TeachingTopicView } from '../components/teaching/TeachingTopicView';
 import { slotLabel, type TeachingView, type TeachingWeek } from '../components/teaching/teachingTypes';
 import { TeachingResults } from '../components/teaching/TeachingRatings';
+import { TeachingRecordingPanel } from '../components/teaching/TeachingRecordingPanel';
 
 // A teacher's own page: what they teach this week, when, the book to read, and how to teach it. Next week's topic is
 // shown too, so they can prepare. Nobody else's assignment is ever sent to this page.
@@ -89,6 +90,7 @@ export function MemberMyTeachingPage() {
         {failed && <p className="text-sm text-red-700">{t('teachingRota.load_failed')}</p>}
         {!view && !failed && <p className="text-slate-500">{t('common.loading')}</p>}
         {view && <TeachingPageBody view={view} />}
+        {view?.enabled && view.isTeacher && <TeachingRecordingPanel />}
         <MemberNav />
       </section>
     </PageShell>
