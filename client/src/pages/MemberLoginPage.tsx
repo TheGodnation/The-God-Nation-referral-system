@@ -9,6 +9,7 @@ import { CodeEntry } from '../components/member/CodeEntry';
 import { api, ApiError } from '../lib/api';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { useEmailTypoCheck } from '../components/EmailTypoHint';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
 
 // Member sign-in: email + password, the ordinary way back in once someone
 // has already signed up. "Forgot password, or never set one?" switches to
@@ -37,6 +38,7 @@ function MemberLoginPageInner() {
   const [password, setPassword] = useState('');
   const [codeEmail, setCodeEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [googleNoAccount, setGoogleNoAccount] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const emailTypo = useEmailTypoCheck(email, setEmail);
 
@@ -65,6 +67,26 @@ function MemberLoginPageInner() {
       setError(err instanceof ApiError && err.code === 'INVALID_CREDENTIALS' ? t('memberLogin.error_credentials') : t('memberLogin.error_generic'));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // "Continue with Google": the server checks Google's token and signs in the member whose email Google confirmed.
+  async function onGoogle(credential: string) {
+    setError(null);
+    setGoogleNoAccount(false);
+    try {
+      const res = await api.post<{ codeRequired?: boolean; email?: string }>('/api/member/auth/google', { credential });
+      if (res?.codeRequired && res.email) {
+        setCodeEmail(res.email);
+        setMode('device-code');
+        return;
+      }
+      noteSignIn(res);
+      await refresh();
+      navigate('/member/chats', { replace: true });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'NO_ACCOUNT') setGoogleNoAccount(true);
+      else setError(t('memberLogin.google_failed'));
     }
   }
 
@@ -162,6 +184,18 @@ function MemberLoginPageInner() {
               </button>
             )}
           </form>
+        )}
+
+        {mode === 'password' && (
+          <div className="mt-6 space-y-3" data-testid="google-area">
+            <GoogleSignInButton onCredential={(c) => void onGoogle(c)} />
+            {googleNoAccount && (
+              <p role="alert" className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900" data-testid="google-no-account">
+                {t('memberLogin.google_no_account')}{' '}
+                <Link to="/member/join" className="font-semibold underline">{t('memberLogin.join_link')}</Link>
+              </p>
+            )}
+          </div>
         )}
 
         <p className="mt-6 text-center text-sm text-slate-500">

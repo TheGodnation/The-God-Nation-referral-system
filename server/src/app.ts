@@ -152,7 +152,8 @@ export function createApp() {
   const app = express();
 
   app.set('trust proxy', 1);
-  app.use(helmet({ contentSecurityPolicy: false }));
+  // same-origin-allow-popups: Google's sign-in window must be able to talk back to the page that opened it.
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' } }));
   // Gzip/brotli-compress every text response (HTML, CSS, JS, JSON). This
   // matters most for visitors on slow connections (2G/3G, common among our
   // leaders) — it typically shrinks the JS bundle and API responses by
