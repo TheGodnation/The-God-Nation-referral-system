@@ -5957,6 +5957,11 @@
   },
   "shareLink": {
     "button": "Partager par lien",
+    "member_title": "Partager avec mon lien",
+    "member_button": "Partager",
+    "member_explain": "Votre propre lien est ajouté automatiquement. Toute personne qui s'inscrit par ce lien est comptée comme votre parrainage.",
+    "member_failed": "Impossible d'obtenir votre lien. Veuillez réessayer.",
+    "member_not_shareable": "Cette publication ne peut pas être partagée.",
     "title": "Partager par lien",
     "explain": "Cela ouvre une page publique pour cette publication. Toute personne ayant le lien peut lire le texte sans se connecter, et la page l'invite à nous rejoindre. Les photos, commentaires et réactions restent dans l'application. Vous pouvez arrêter le partage à tout moment.",
     "open": "Ouvrir le lien",
