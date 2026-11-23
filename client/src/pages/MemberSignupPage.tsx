@@ -34,7 +34,6 @@ function MemberSignupPageInner() {
   const [whatsapp, setWhatsapp] = useState('');
   const [password, setPassword] = useState('');
   const [consentWhatsapp, setConsentWhatsapp] = useState(false);
-  const [consentEmail, setConsentEmail] = useState(false);
   const [consentAds, setConsentAds] = useState(false);
   // Required (Google Play asks apps where people post to have them accept terms first): never ticked in advance.
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -80,7 +79,7 @@ function MemberSignupPageInner() {
       const ads = showAds && consentAds;
       const adEventId = newAdEventId();
       await api.post('/api/member/auth/signup', {
-        email: email.trim(), whatsapp: whatsapp.trim(), password, language, consentWhatsapp, consentEmail, acceptTerms: true,
+        email: email.trim(), whatsapp: whatsapp.trim(), password, language, consentWhatsapp, acceptTerms: true,
         ...(ads ? { consentAds: true, adEventId, fbp: getFbp() } : {}),
       });
       trackAd('Lead', adEventId);
@@ -98,9 +97,9 @@ function MemberSignupPageInner() {
 
   return (
     <PageShell minimal>
-      <section className="mx-auto max-w-sm px-4 py-16">
-        <h1 className="text-2xl font-bold text-brand-900">{t('memberSignup.title')}</h1>
-        <p className="mt-2 text-sm text-slate-500">{t('memberSignup.subtitle')}</p>
+      <section className="mx-auto max-w-sm px-4 py-5">
+        <h1 className="text-xl font-bold text-brand-900">{t('memberSignup.title')}</h1>
+        <p className="mt-1 text-xs text-slate-500">{t('memberSignup.subtitle')}</p>
 
         {sent ? (
           <>
@@ -112,7 +111,7 @@ function MemberSignupPageInner() {
           </>
         ) : (
           <>
-          <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
+          <form onSubmit={onSubmit} className="mt-3 space-y-3" noValidate>
             <div>
               <label className="label" htmlFor="signup-email">
                 {t('memberSignup.email_label')}
@@ -135,17 +134,17 @@ function MemberSignupPageInner() {
                 {t('memberSignup.phone_label')}
               </label>
               <PhoneInput id="signup-phone" onChange={setWhatsapp} required />
-              <p className="mt-1 text-xs text-slate-500">{t('memberSignup.phone_hint')}</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{t('memberSignup.phone_hint')}</p>
             </div>
             <div>
               <label className="label" htmlFor="signup-password">
                 {t('memberSignup.password_label')}
               </label>
               <PasswordInput id="signup-password" value={password} onChange={setPassword} autoComplete="new-password" />
-              <p className="mt-1 text-xs text-slate-500">{t('memberSignup.password_hint')}</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{t('memberSignup.password_hint')}</p>
             </div>
 
-            <label className="flex items-start gap-2 rounded-lg border border-brand-100 bg-brand-50 px-3 py-3 text-sm text-slate-800" data-testid="signup-terms">
+            <label className="flex items-start gap-2 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-xs text-slate-800" data-testid="signup-terms">
               <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} required aria-required="true" />
               <span>
                 <Trans
@@ -158,14 +157,10 @@ function MemberSignupPageInner() {
               </span>
             </label>
 
-            <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-3" data-testid="signup-consent">
-              <label className="flex items-start gap-2 text-sm text-slate-700">
-                <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={consentWhatsapp} onChange={(e) => setConsentWhatsapp(e.target.checked)} />
+            <div className="space-y-1.5 rounded-lg bg-slate-50 px-3 py-2" data-testid="signup-consent">
+              <label className="flex items-start gap-2 text-xs text-slate-700">
+                <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0" checked={consentWhatsapp} onChange={(e) => setConsentWhatsapp(e.target.checked)} />
                 <span>{t('memberSignup.consent_whatsapp')}</span>
-              </label>
-              <label className="flex items-start gap-2 text-sm text-slate-700">
-                <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={consentEmail} onChange={(e) => setConsentEmail(e.target.checked)} />
-                <span>{t('memberSignup.consent_email')}</span>
               </label>
               {showAds && (
                 <label className="flex items-start gap-2 text-sm text-slate-700">
@@ -173,7 +168,7 @@ function MemberSignupPageInner() {
                   <span>{t('memberSignup.consent_ads')}</span>
                 </label>
               )}
-              <p className="text-xs text-slate-500">{t('memberSignup.consent_hint')}</p>
+              <p className="text-[11px] leading-4 text-slate-500">{t('memberSignup.consent_hint')}</p>
             </div>
 
             {error && (
@@ -186,7 +181,7 @@ function MemberSignupPageInner() {
               {submitting ? t('memberSignup.submitting') : t('memberSignup.submit')}
             </button>
           </form>
-          <div className="mt-6">
+          <div className="mt-4">
             <GoogleAccess
               onSignedIn={(res) => void finishGoogle(res)}
               onCodeRequired={(codeAddress) => {
@@ -198,7 +193,7 @@ function MemberSignupPageInner() {
           </>
         )}
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-4 text-center text-sm text-slate-500">
           {t('memberSignup.have_account')}{' '}
           <Link to="/member/login" className="font-medium text-brand-700 underline">
             {t('memberSignup.sign_in_link')}

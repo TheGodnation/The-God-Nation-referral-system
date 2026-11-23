@@ -110,9 +110,10 @@ describe('Sign-up consent boxes', () => {
   it('are not ticked to begin with, and what is ticked is sent', async () => {
     mockFetch({ '/api/member/auth/signup': { body: { message: 'ok' } } });
     render(<MemoryRouter><MemberSignupPage /></MemoryRouter>);
-    // The two contact choices, and the required Terms box: none ticked to begin with.
+    // The WhatsApp choice and the required Terms box (no email-subscription box): none ticked to begin with.
     const boxes = screen.getAllByRole('checkbox');
-    expect(boxes).toHaveLength(3);
+    expect(boxes).toHaveLength(2);
+    expect(screen.queryByLabelText(/by email/)).toBeNull();
     expect(boxes.every((b) => !(b as HTMLInputElement).checked)).toBe(true);
 
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } });
@@ -122,7 +123,7 @@ describe('Sign-up consent boxes', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /accept the Terms of Use/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Send me the link' }));
     await waitFor(() => expect(screen.getByText('Check your email')).toBeInTheDocument());
-    expect(calls.find((c) => c.url.includes('/api/member/auth/signup'))?.body).toMatchObject({ consentWhatsapp: true, consentEmail: false });
+    expect(calls.find((c) => c.url.includes('/api/member/auth/signup'))?.body).toMatchObject({ consentWhatsapp: true });
   });
 });
 

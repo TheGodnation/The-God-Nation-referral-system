@@ -61,7 +61,7 @@ describe('MemberSignupPage', () => {
 
     await waitFor(() => expect(screen.getByText('Check your email')).toBeInTheDocument());
     const post = calls.find((c) => c.url.includes('/api/member/auth/signup'));
-    expect(post?.body).toEqual({ email: 'ada@example.com', whatsapp: '+237670000001', password: 'Testpass123', language: 'en', consentWhatsapp: false, consentEmail: false, acceptTerms: true });
+    expect(post?.body).toEqual({ email: 'ada@example.com', whatsapp: '+237670000001', password: 'Testpass123', language: 'en', consentWhatsapp: false, acceptTerms: true });
   });
 
   it('will not sign up until the Terms of Use and Privacy Policy are accepted (the box starts unticked, with both links)', async () => {

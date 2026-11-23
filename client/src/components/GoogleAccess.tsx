@@ -38,7 +38,6 @@ export function GoogleAccess({ onSignedIn, onCodeRequired, onError }: {
   const [whatsapp, setWhatsapp] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [consentWhatsapp, setConsentWhatsapp] = useState(false);
-  const [consentEmail, setConsentEmail] = useState(false);
   const [consentAds, setConsentAds] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +76,6 @@ export function GoogleAccess({ onSignedIn, onCodeRequired, onError }: {
         whatsapp: whatsapp.trim(),
         language: i18n.language?.startsWith('fr') ? 'fr' : 'en',
         consentWhatsapp,
-        consentEmail,
         acceptTerms: true,
         ...(ads ? { consentAds: true, adEventId, fbp: getFbp() } : {}),
       });
@@ -130,10 +128,6 @@ export function GoogleAccess({ onSignedIn, onCodeRequired, onError }: {
             <label className="flex items-start gap-2 text-sm text-slate-700">
               <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={consentWhatsapp} onChange={(e) => setConsentWhatsapp(e.target.checked)} />
               <span>{t('memberSignup.consent_whatsapp')}</span>
-            </label>
-            <label className="flex items-start gap-2 text-sm text-slate-700">
-              <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={consentEmail} onChange={(e) => setConsentEmail(e.target.checked)} />
-              <span>{t('memberSignup.consent_email')}</span>
             </label>
             {showAds && (
               <label className="flex items-start gap-2 text-sm text-slate-700">
