@@ -122,6 +122,32 @@ import { APP_URL } from './lib/env';
 import { assetLinksHandler } from './lib/assetLinks';
 import { reachDatabaseOnce } from './lib/health';
 
+/** Headers for the app's own files (see the notes inside). Shared by the early and the late static steps. */
+function staticHeaders(res: express.Response, filePath: string) {
+  // Set these explicitly rather than trusting MIME-sniffing —
+  // Chrome's PWA installability check and the service worker
+  // registration both depend on getting the right Content-Type.
+  if (filePath.endsWith('manifest.webmanifest')) {
+    res.setHeader('Content-Type', 'application/manifest+json');
+  } else if (filePath.endsWith('sw.js')) {
+    // Never let the service worker script itself be cached by the
+    // browser/CDN — a stale sw.js means updates (like this fix)
+    // never reach a device that already installed the app.
+    res.setHeader('Content-Type', 'text/javascript; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+  } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+    // Vite names every file in here with a content hash (e.g.
+    // index-BpGroIUE.js) — a new build always gets new filenames,
+    // so it's safe to tell browsers to cache these forever and
+    // skip the network entirely on repeat visits. This matters a
+    // lot on slow connections (2G/3G): without it, every visit
+    // re-fetches the JS/CSS bundle (or at least round-trips to
+    // revalidate it), which is the single biggest thing a repeat
+    // visitor downloads.
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+}
+
 export function createApp() {
   const app = express();
 
@@ -143,6 +169,15 @@ export function createApp() {
   // The public website (/en/…, /fr/…): complete HTML pages, no cookies. Off unless
   // PUBLIC_SITE_ENABLED=true. Placed before the cookie, session and API steps on purpose.
   if (process.env.PUBLIC_SITE_ENABLED === 'true') app.use(publicSiteRouter());
+  // The app's own files (scripts, styles, icons, the service worker) need no sign-in, so they are served before every step that
+  // reads the database. Otherwise, when the database is unreachable, even these files failed for anyone with a sign-in cookie
+  // ("Failed to fetch dynamically imported module") and the app could not even show its own error page.
+  const appFiles = path.join(__dirname, '../../client/dist');
+  if (isProd && fs.existsSync(appFiles)) {
+    app.use(express.static(appFiles, { index: false, setHeaders: staticHeaders }));
+    // A hashed file that no longer exists (an old page asking after an update) is "not found", never the start page.
+    app.use('/assets', (_req, res) => res.status(404).type('text/plain').send('Not found'));
+  }
   // 1mb: a 65,536-character chat message (WhatsApp's own limit, now matched
   // by communityConversations.ts/privateMessages.ts) can be a few hundred KB
   // once multi-byte UTF-8 (accented French text, emoji) is accounted for.
@@ -150,13 +185,15 @@ export function createApp() {
   app.use(cookieParser());
   app.use(ensureVisitorId);
   app.use(ensureCsrfCookie);
-  app.use(loadSession);
+  // Who is signed in only matters for the API: a page or file of the app is never held up by (or failed with) a database error.
+  const apiOnly = (step: express.RequestHandler): express.RequestHandler => (req, res, next) => (req.path.startsWith('/api') ? step(req, res, next) : next());
+  app.use(apiOnly(loadSession));
   // Phase 3C: a completely separate session lookup, reading a different
   // cookie (msid) into a different request property (req.member) — never
   // req.user. requireAuth/requireRole below only ever check req.user, so a
   // member session can never satisfy them (see memberSessionIsolation.test.ts).
-  app.use(loadMemberSession);
-  app.use(dropMismatchedLeaderSession);
+  app.use(apiOnly(loadMemberSession));
+  app.use(apiOnly(dropMismatchedLeaderSession));
   app.use('/api', generalApiLimiter);
   app.use('/api', (req, _res, next) => {
     if (req.path !== '/health') markActivity();
@@ -458,34 +495,7 @@ export function createApp() {
         return lang === 'fr' && row.titleFr ? { title: row.titleFr, text: row.bodyFr ?? row.bodyEn } : { title: row.titleEn, text: row.bodyEn };
       }, (kind, id, lang) => sharedPreview(kind, id, lang));
       app.get('/', spa);
-      app.use(
-        express.static(clientDist, {
-          setHeaders: (res, filePath) => {
-            // Set these explicitly rather than trusting MIME-sniffing —
-            // Chrome's PWA installability check and the service worker
-            // registration both depend on getting the right Content-Type.
-            if (filePath.endsWith('manifest.webmanifest')) {
-              res.setHeader('Content-Type', 'application/manifest+json');
-            } else if (filePath.endsWith('sw.js')) {
-              // Never let the service worker script itself be cached by the
-              // browser/CDN — a stale sw.js means updates (like this fix)
-              // never reach a device that already installed the app.
-              res.setHeader('Content-Type', 'text/javascript; charset=utf-8');
-              res.setHeader('Cache-Control', 'no-cache');
-            } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
-              // Vite names every file in here with a content hash (e.g.
-              // index-BpGroIUE.js) — a new build always gets new filenames,
-              // so it's safe to tell browsers to cache these forever and
-              // skip the network entirely on repeat visits. This matters a
-              // lot on slow connections (2G/3G): without it, every visit
-              // re-fetches the JS/CSS bundle (or at least round-trips to
-              // revalidate it), which is the single biggest thing a repeat
-              // visitor downloads.
-              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-            }
-          },
-        }),
-      );
+      app.use(express.static(clientDist, { setHeaders: staticHeaders }));
       // A file of the app that no longer exists (an old page asking for it after an update) is "not found",
       // never the start page: a browser that is given a web page in place of a script shows a white screen.
       app.use('/assets', (_req, res) => res.status(404).type('text/plain').send('Not found'));
