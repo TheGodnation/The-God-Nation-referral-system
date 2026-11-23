@@ -79,6 +79,22 @@ describe('The National Coordinator badge and assemblies', () => {
     expect(screen.getByText(/National Coordinator/)).toBeInTheDocument();
   });
 
+  it('paints the Coordinator’s messages in the rating card’s light sky blue, also when the viewer is the Coordinator', () => {
+    for (const isOwn of [false, true]) {
+      const m = { id: `m-${isOwn}`, senderName: 'Pastor Ada', senderPersonId: 'p1', senderBadge: 'NATIONAL_COORDINATOR', isOwn, body: 'Teaching', createdAt: new Date().toISOString(), deleted: false, attachments: [] } as unknown as ChatMessage;
+      const { container, unmount } = render(
+        <MemoryRouter>
+          <MessageBubble m={m} mediaBase="/api/communities/g1/conversation" showSender highlighted={false} onReply={() => {}} onMenu={() => {}} onReact={() => {}} onJumpTo={() => {}} onOpenPhoto={() => {}} />
+        </MemoryRouter>,
+      );
+      const bubble = container.querySelector('[data-central="true"]')!;
+      expect(bubble.className).toContain('bg-sky-50');
+      expect(bubble.className).toContain('border-sky-200');
+      expect(bubble.className).not.toContain('d9fdd3'); // never the green "my message" colour
+      unmount();
+    }
+  });
+
   it('lists the assemblies opened as National Coordinator in their own section', async () => {
     mockFetch({
       'GET /api/member/auth/me': () => ({ body: { member: { name: 'Coordinator', personId: 'p1' } } }),

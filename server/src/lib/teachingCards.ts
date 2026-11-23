@@ -10,7 +10,7 @@ import { DAY, MIN, LEVELS, RotaError, emptyCounts, isRater, loadBase, pickText, 
 // happens by itself 25 minutes after their slot starts) a card is posted in the group, right after their voice notes:
 // "{Name} has finished teaching {topic}. Listen to the teaching, then rate it." Members tap one of four levels, at any time,
 // and can change their mind. The group sees how many gave each level and who rated, each with their name, photo and the level
-// they gave (newest first). The central admin's own rating is shown on top, with their name. The teacher is told when someone
+// they gave. The National Coordinator counts as a rater, listed first. The teacher is told when someone
 // rates (never by whom, in the phone alert). Nobody rates their own.
 
 /** The card appears by itself this long after the slot starts, if the teacher has not tapped the button. */
@@ -25,11 +25,11 @@ const RATED_PUSH_EVERY_MIN = 30;
 export interface RatingCardInfo {
   teacherName: string;
   topic: string;
-  /** How many people (not counting the central admin) gave each level, and the total. */
+  /** How many people gave each level, and the total: the National Coordinator counts like everyone else. */
   total: number;
   counts: Record<Level, number>;
-  /** Who rated (not counting the central admin, shown apart): name, photo and level, the newest first. */
-  raters: { personId: string; name: string; photoUrl: string | null; level: Level }[];
+  /** Who rated: name, photo and level. The National Coordinator comes first (isCoordinator), then the others, newest first. */
+  raters: { personId: string; name: string; photoUrl: string | null; level: Level; isCoordinator?: boolean }[];
   myLevel: Level | null;
   /** The central admin's own rating, visible to everyone. */
   coordinator: { name: string; level: Level } | null;
@@ -69,13 +69,13 @@ export async function ratingCardInfos(viewerPersonId: string, messageIds: string
     const raters: RatingCardInfo['raters'] = [];
     for (const r of [...mine].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())) {
       if (!isLevel(r.level)) continue;
-      if (admins.has(r.raterPersonId)) coordinator = { name: nameOf.get(r.raterPersonId) ?? '', level: r.level };
-      else {
-        counts[r.level]++;
-        const who = personById.get(r.raterPersonId);
-        raters.push({ personId: r.raterPersonId, name: who?.name ?? '', photoUrl: who ? profilePhotoPath({ id: who.id, photoStorageKey: who.photoStorageKey, photoUpdatedAt: who.photoUpdatedAt }) : null, level: r.level });
-      }
+      const isCoordinator = admins.has(r.raterPersonId);
+      if (isCoordinator) coordinator = { name: nameOf.get(r.raterPersonId) ?? '', level: r.level };
+      counts[r.level]++;
+      const who = personById.get(r.raterPersonId);
+      raters.push({ personId: r.raterPersonId, name: who?.name ?? '', photoUrl: who ? profilePhotoPath({ id: who.id, photoStorageKey: who.photoStorageKey, photoUpdatedAt: who.photoUpdatedAt }) : null, level: r.level, ...(isCoordinator ? { isCoordinator: true } : {}) });
     }
+    raters.sort((a, b) => Number(Boolean(b.isCoordinator)) - Number(Boolean(a.isCoordinator))); // stable: the coordinator first, the rest newest first
     const topic = topics.find((t) => t.number === topicNumberFor(teacher.startTopic, numbers, weekNumber(settings.startDate, card.weekStart)));
     const myRow = mine.find((r) => r.raterPersonId === viewerPersonId);
     const isOwnTeaching = teacher.personId === viewerPersonId;
