@@ -8,6 +8,7 @@ import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
+import { getOrCreatePersonReferralCode } from '../lib/referralCode';
 import { ShareError, isSharedKind, moreShared, publicItem, sharedPhotos, shareByLink, shareState, stopSharing } from '../lib/sharedPosts';
 import { publishToWebsite, takeOffWebsite, websiteState } from '../lib/sharedArticles';
 import { getObjectStream, isStorageConfigured } from '../lib/storage';
@@ -156,5 +157,26 @@ export const memberCentralSharedRoutes = (() => {
       return user && user.role === 'ADMIN' && user.active ? { id: user.id, email: user.email } : null;
     }),
   );
+  return router;
+})();
+
+// Any member can share a Headquarters post or one of the central admin's Updates with their own link. The link is the public page of
+// the post plus the member's personal referral code, so anyone who joins from it is counted as that member's referral. Opening the
+// post's public page is done here, as part of sharing (only a published, not archived post; an Update only when it is the central
+// admin's, for everyone).
+export const memberSharedRoutes = (() => {
+  const router = Router();
+  router.use(requireMember);
+  router.post('/:kind/:id/link', asyncHandler(async (req, res) => {
+    const { kind, id } = req.params;
+    if (kind !== 'post' && kind !== 'update') return res.status(404).json({ error: 'Not available.' });
+    const personId = req.member!.personId;
+    const person = await prisma.person.findUnique({ where: { id: personId }, select: { name: true, erasedAt: true } });
+    if (!person || person.erasedAt) return res.status(403).json({ error: 'Forbidden.' });
+    const shared = await shareByLink(kind, id);
+    const code = await getOrCreatePersonReferralCode(prisma, personId, person.name);
+    res.json({ path: shared.path, code: code.code });
+  }));
+  router.use(onError);
   return router;
 })();

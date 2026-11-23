@@ -141,6 +141,45 @@ describe('who can open and close the link', () => {
   });
 });
 
+describe('any member sharing a post with their own link', () => {
+  it('opens the post and gives the member their own referral code; the same member always gets the same code', async () => {
+    const sharer = await member('Sharing Member');
+    const post = await makePost();
+    const res = await sharer.post(`/api/member/shared/post/${post.id}/link`);
+    expect(res.status).toBe(200);
+    expect(res.body.path).toBe(`/news/post/${post.id}`);
+    expect(typeof res.body.code).toBe('string');
+    const own = await prisma.referralCode.findUniqueOrThrow({ where: { personId: sharer.person.id } });
+    expect(res.body.code).toBe(own.code);
+    expect((await request(app).get(`/api/shared/post/${post.id}`)).status).toBe(200); // the page is open now
+    expect((await sharer.post(`/api/member/shared/post/${post.id}/link`)).body.code).toBe(own.code);
+    // another member gets their own, different code for the same post
+    const other = await member('Other Member');
+    expect((await other.post(`/api/member/shared/post/${post.id}/link`)).body.code).not.toBe(own.code);
+  });
+
+  it('works for the central admin’s Updates for everyone, and refuses anything else', async () => {
+    const admin = await member('Evangelist Tester', true);
+    const sharer = await member('Sharing Member');
+    const mine = await prisma.updatePost.create({ data: { authorPersonId: admin.person.id, body: 'Good news for all.', audience: 'EVERYONE' } as any });
+    const friends = await prisma.updatePost.create({ data: { authorPersonId: admin.person.id, body: 'Only friends.', audience: 'FRIENDS' } as any });
+    const theirs = await prisma.updatePost.create({ data: { authorPersonId: sharer.person.id, body: 'My own post.', audience: 'EVERYONE' } as any });
+    expect((await sharer.post(`/api/member/shared/update/${mine.id}/link`)).status).toBe(200);
+    expect((await sharer.post(`/api/member/shared/update/${friends.id}/link`)).status).toBe(409);
+    expect((await sharer.post(`/api/member/shared/update/${theirs.id}/link`)).status).toBe(409);
+    const draft = await makePost({ publishedAt: null });
+    expect((await sharer.post(`/api/member/shared/post/${draft.id}/link`)).status).toBe(409);
+    const archived = await makePost({ archivedAt: new Date() });
+    expect((await sharer.post(`/api/member/shared/post/${archived.id}/link`)).status).toBe(409);
+    expect((await sharer.post(`/api/member/shared/announcement/${mine.id}/link`)).status).toBe(404);
+  });
+
+  it('needs a signed-in member', async () => {
+    const post = await makePost();
+    expect((await request(app).post(`/api/member/shared/post/${post.id}/link`)).status).toBeGreaterThanOrEqual(401);
+  });
+});
+
 describe('the link preview', () => {
   it('recognises the address and carries the title and first lines only for an open link', async () => {
     expect(newsPathOf('/news/post/abc-123')).toEqual({ kind: 'post', id: 'abc-123' });

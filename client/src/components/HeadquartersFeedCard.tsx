@@ -14,6 +14,7 @@ import { RichText } from '../lib/richText';
 import { REACTIONS, CommentThread, HEADQUARTERS_COMMENT_ENDPOINTS } from './updates/UpdatesFeed';
 import { SocialEmbed, type SocialEmbedInfo } from './updates/SocialEmbed';
 import { ShareByLinkSheet, SHARE_BASE_MEMBER } from './ShareByLinkSheet';
+import { MemberShareButton } from './MemberShareSheet';
 
 export interface HeadquartersFeedMedia {
   id: string;
@@ -409,6 +410,8 @@ export function HeadquartersFeedCard({
         <button type="button" onClick={expanded ? undefined : onOpen} className="flex-1 rounded-lg py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">
           💬 {t('headquartersPosts.comment')}
         </button>
+        {/* Every member can share the post with their own link (WhatsApp, Facebook...): whoever joins from it is counted as theirs. */}
+        <MemberShareButton kind="post" id={item.id} title={title} titles={{ en: item.titleEn, fr: item.titleFr || item.titleEn }} teaser={{ en: item.bodyEn, fr: item.bodyFr || item.bodyEn }} className="flex-1 rounded-lg py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100" />
         {pickerOpen && (
           <div role="menu" className="absolute bottom-full left-0 z-10 mb-1 flex gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-lg">
             {REACTIONS.map((r) => (

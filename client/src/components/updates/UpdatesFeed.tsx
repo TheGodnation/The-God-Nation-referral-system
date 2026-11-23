@@ -17,6 +17,7 @@ import { RichText } from '../../lib/richText';
 import { FormattedTextarea } from '../FormattedTextarea';
 import { PostMenu } from '../PostMenu';
 import { ShareByLinkSheet, SHARE_BASE_MEMBER } from '../ShareByLinkSheet';
+import { MemberShareButton } from '../MemberShareSheet';
 
 // The community-wide Updates feed, Facebook-style. Used on the member
 // Updates page (with the "write a post" box), on a person's profile
@@ -955,6 +956,10 @@ function PostCard({
           <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label={t('updates.delete') ?? ''} title={t('updates.delete') ?? ''} onClick={remove}>
             🗑
           </button>
+        )}
+        {/* The central admin's posts for everyone can be shared by any member with their own link (the admin has the menu below). */}
+        {!item.canEdit && item.author.badge === 'NATIONAL_COORDINATOR' && item.audience !== 'FRIENDS' && (
+          <MemberShareButton kind="update" id={item.id} title={item.body.split('\n').find((l) => l.trim())?.slice(0, 90) ?? ''} teaser={{ en: item.body, fr: item.body }} />
         )}
         {item.canEdit && !editing && (
           <PostMenu

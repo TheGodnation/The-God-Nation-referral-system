@@ -5957,6 +5957,11 @@
   },
   "shareLink": {
     "button": "Share by link",
+    "member_title": "Share with my link",
+    "member_button": "Share",
+    "member_explain": "Your own link is added automatically. Anyone who joins through it is counted as your referral.",
+    "member_failed": "Could not get your link. Please try again.",
+    "member_not_shareable": "This post cannot be shared.",
     "title": "Share by link",
     "explain": "This opens a public page for this post. Anyone with the link can read the words without signing in, and the page invites them to join. Photos, comments and reactions stay inside the app. You can stop sharing at any time.",
     "open": "Open the link",
