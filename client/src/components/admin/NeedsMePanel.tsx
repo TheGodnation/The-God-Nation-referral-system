@@ -62,6 +62,8 @@ export function NeedsMePanel({ base }: { base: string }) {
   const [q, setQ] = useState('');
   const [language, setLanguage] = useState('');
   const [communityId, setCommunityId] = useState('');
+  // A special group instead of everyone: the weekly teachers, or the leaders.
+  const [audience, setAudience] = useState<'' | 'teachers' | 'leaders'>('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Result | null>(null);
   const [assemblies, setAssemblies] = useState<{ id: string; name: string }[]>([]);
@@ -81,8 +83,9 @@ export function NeedsMePanel({ base }: { base: string }) {
     if (q.trim()) p.set('q', q.trim());
     if (language) p.set('language', language);
     if (communityId) p.set('communityId', communityId);
+    if (audience) p.set('audience', audience);
     return p;
-  }, [filter, q, language, communityId]);
+  }, [filter, q, language, communityId, audience]);
 
   const load = useCallback(() => {
     const p = new URLSearchParams(query);
@@ -124,9 +127,16 @@ export function NeedsMePanel({ base }: { base: string }) {
       setSelected(new Set(r.ids));
       if (r.people) setKnown((prev) => ({ ...prev, ...Object.fromEntries(r.people!.map((p) => [p.personId, p])) }));
       if (r.total > r.ids.length) setNote(t('needsMe.select_capped', { count: r.ids.length }));
+      return r.ids.length > 0;
     } catch {
       setError(t('needsMe.load_failed'));
+      return false;
     }
+  }
+
+  // One tap: everyone in this list (the group chosen above), straight into the WhatsApp queue.
+  async function queueEveryone() {
+    if (await selectEverything()) setQueueOpen(true);
   }
 
   // They asked to stop being written to on WhatsApp ("Opted out"): recorded, and they are left out of every WhatsApp queue.
@@ -244,11 +254,16 @@ export function NeedsMePanel({ base }: { base: string }) {
         ))}
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-4">
         <input type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t('needsMe.search') ?? ''} className="input" aria-label={t('needsMe.search') ?? ''} />
         <select value={communityId} onChange={(e) => { setCommunityId(e.target.value); setPage(1); }} className="input" aria-label={t('needsMe.assembly') ?? ''}>
           <option value="">{t('needsMe.all_assemblies')}</option>
           {assemblies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+        <select value={audience} onChange={(e) => { setAudience(e.target.value as '' | 'teachers' | 'leaders'); setPage(1); setSelected(new Set()); }} className="input" aria-label={t('needsMe.audience') ?? ''} data-testid="needs-audience">
+          <option value="">{t('needsMe.audience_all')}</option>
+          <option value="teachers">{t('needsMe.audience_teachers')}</option>
+          <option value="leaders">{t('needsMe.audience_leaders')}</option>
         </select>
         <select value={language} onChange={(e) => { setLanguage(e.target.value); setPage(1); }} className="input" aria-label={t('needsMe.language') ?? ''}>
           <option value="">{t('needsMe.any_language')}</option>
@@ -264,6 +279,10 @@ export function NeedsMePanel({ base }: { base: string }) {
             <button type="button" className="underline" onClick={() => void selectEverything()} data-testid="needs-select-all">{t('needsMe.select_all', { count: data.total })}</button>
             <button type="button" className="underline" onClick={() => setSelected(new Set())}>{t('needsMe.select_none')}</button>
           </div>
+          <button type="button" disabled={data.total === 0} onClick={() => void queueEveryone()} className="btn-primary w-full disabled:opacity-50 sm:w-auto" data-testid="needs-queue-everyone">
+            📲 {t('needsMe.queue_everyone', { count: data.total })}
+          </button>
+          <p className="text-xs text-slate-500">{t('needsMe.queue_everyone_help')}</p>
           <div className="flex flex-wrap items-center gap-3">
             <p className="font-semibold text-brand-900" data-testid="needs-selected">{t('needsMe.selected', { count: selected.size })}</p>
             {selected.size > 0 && (

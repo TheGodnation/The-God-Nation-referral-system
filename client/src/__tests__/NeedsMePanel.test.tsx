@@ -167,6 +167,31 @@ describe('Today\'s 20, the WhatsApp queue and the leader alerts', () => {
     expect(recorded[0].body).toMatchObject({ personId: 'p1', note: 'WhatsApp' });
   });
 
+  it('can be limited to the weekly teachers or the leaders, and one tap sends the whole group into the WhatsApp queue', async () => {
+    mockFetch({
+      ...listRoute,
+      [`GET ${B}/ids`]: () => ({ body: { ids: ['p1', 'p2'], total: 2, people: [
+        { personId: 'p1', name: 'Ada Nkem', whatsapp: '+237600000001', language: 'en', consent: 'AGREED' },
+        { personId: 'p2', name: 'Ben Tabe', whatsapp: '+237600000002', language: 'fr', consent: 'AGREED' },
+      ] } }),
+    });
+    renderPanel();
+    await screen.findByTestId('needs-p1');
+    fireEvent.change(screen.getByTestId('needs-audience'), { target: { value: 'teachers' } });
+    await waitFor(() => expect(calls.some((c) => c.method === 'GET' && c.url.startsWith(`${B}?`) && c.url.includes('audience=teachers'))).toBe(true));
+    fireEvent.click(screen.getByTestId('needs-queue-everyone'));
+    // the whole group, chosen with the same audience, goes straight into the queue
+    await screen.findByTestId('whatsapp-queue');
+    expect(calls.some((c) => c.url.startsWith(`${B}/ids`) && c.url.includes('audience=teachers'))).toBe(true);
+    expect(screen.getByTestId('needs-selected')).toHaveTextContent('2 selected');
+    fireEvent.click(screen.getByTestId('queue-kind-nudge'));
+    fireEvent.change(screen.getByTestId('queue-text-en'), { target: { value: 'Reminder: teachers meeting tomorrow at 7.' } });
+    fireEvent.change(screen.getByTestId('queue-text-fr'), { target: { value: 'Rappel : réunion des enseignants demain à 7 h.' } });
+    fireEvent.click(screen.getByTestId('queue-start'));
+    expect(screen.getByTestId('queue-progress')).toHaveTextContent('1 of 2');
+    expect(decodeURIComponent(screen.getByTestId('queue-open').getAttribute('href')!)).toContain('Reminder: teachers meeting tomorrow at 7.');
+  });
+
   it('for a mix of languages the coordinator checks the translation first, then each person gets their own language', async () => {
     mockFetch({
       ...listRoute,
