@@ -42,6 +42,7 @@
     "error_credentials": "Incorrect email or password.",
     "new_here": "New here?",
     "join_link": "Join the community",
+    "or": "or",
     "google_failed": "Google sign-in did not work. Please try again, or use your email and password.",
     "google_join_title": "Almost there",
     "google_join_intro": "Google confirmed {{email}}. Add your WhatsApp number to finish joining. No code and no password needed.",

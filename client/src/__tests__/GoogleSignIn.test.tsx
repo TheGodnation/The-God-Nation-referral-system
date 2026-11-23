@@ -74,6 +74,10 @@ describe('Continue with Google', () => {
   it('shows Google’s button once set up, and sends the signed token to the server when it is used', async () => {
     show();
     expect(await screen.findByRole('button', { name: 'Continue with Google' })).toBeInTheDocument();
+    // It is an extra way in, below the email and password form, set apart by a small "or".
+    const form = document.querySelector('form')!;
+    expect(form.compareDocumentPosition(screen.getByTestId('google-signin')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId('google-or')).toHaveTextContent('or');
     await waitFor(() => expect(credentialCallback).not.toBeNull());
     await act(async () => credentialCallback!({ credential: 'signed.token.value-from-google-aaaaaaaa' }));
     await waitFor(() => expect(calls.find((c) => c.url === '/api/member/auth/google')?.body).toEqual({ credential: 'signed.token.value-from-google-aaaaaaaa' }));

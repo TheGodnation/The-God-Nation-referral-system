@@ -38,8 +38,8 @@ function loadGoogleScript(): Promise<void> {
   return scriptPromise;
 }
 
-export function GoogleSignInButton({ onCredential }: { onCredential: (credential: string) => void }) {
-  const { i18n } = useTranslation();
+export function GoogleSignInButton({ onCredential, withDivider = false }: { onCredential: (credential: string) => void; withDivider?: boolean }) {
+  const { t, i18n } = useTranslation();
   const holder = useRef<HTMLDivElement | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -76,7 +76,14 @@ export function GoogleSignInButton({ onCredential }: { onCredential: (credential
 
   if (!clientId) return null;
   return (
-    <div className="flex flex-col items-center" data-testid="google-signin" data-ready={ready ? 'yes' : 'no'}>
+    <div className="flex flex-col items-center gap-3" data-testid="google-signin" data-ready={ready ? 'yes' : 'no'}>
+      {withDivider && (
+        <div className="flex w-full items-center gap-3 text-xs uppercase tracking-wide text-slate-400" role="separator" data-testid="google-or">
+          <span className="h-px flex-1 bg-slate-200" />
+          {t('memberLogin.or')}
+          <span className="h-px flex-1 bg-slate-200" />
+        </div>
+      )}
       <div ref={holder} />
     </div>
   );

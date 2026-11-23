@@ -112,15 +112,6 @@ function MemberSignupPageInner() {
           </>
         ) : (
           <>
-          <div className="mt-6">
-            <GoogleAccess
-              onSignedIn={(res) => void finishGoogle(res)}
-              onCodeRequired={(codeAddress) => {
-                setEmail(codeAddress);
-                setSent(true);
-              }}
-            />
-          </div>
           <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
             <div>
               <label className="label" htmlFor="signup-email">
@@ -195,6 +186,15 @@ function MemberSignupPageInner() {
               {submitting ? t('memberSignup.submitting') : t('memberSignup.submit')}
             </button>
           </form>
+          <div className="mt-6">
+            <GoogleAccess
+              onSignedIn={(res) => void finishGoogle(res)}
+              onCodeRequired={(codeAddress) => {
+                setEmail(codeAddress);
+                setSent(true);
+              }}
+            />
+          </div>
           </>
         )}
 
