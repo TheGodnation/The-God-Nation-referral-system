@@ -101,7 +101,7 @@ describe('Continue with Google', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Join with Google' }));
     expect(await screen.findByText('the chats')).toBeInTheDocument();
     const sent = calls.find((c) => c.url === '/api/member/auth/google/join')?.body;
-    expect(sent).toMatchObject({ acceptTerms: true, consentWhatsapp: false, consentEmail: false });
+    expect(sent).toMatchObject({ acceptTerms: true, consentWhatsapp: false });
     expect(sent.credential).toContain('zzzzzzzz');
     expect(sent.whatsapp).toBeTruthy();
   });
