@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MemberLoginPage } from '../pages/MemberLoginPage';
 import i18n from '../i18n';
@@ -8,6 +8,7 @@ import i18n from '../i18n';
 let clientId: string | null = null;
 let credentialCallback: ((r: { credential?: string }) => void) | null = null;
 let googleResponse: { status: number; body: unknown } = { status: 200, body: { member: { name: 'Ada', email: 'ada@example.com', preferredLanguage: 'en' } } };
+let joinResponse: { status: number; body: unknown } = { status: 200, body: {} };
 const calls: { url: string; method: string; body: any }[] = [];
 
 beforeEach(async () => {
@@ -37,6 +38,7 @@ beforeEach(async () => {
       let status = 200;
       let body: unknown = {};
       if (url === '/api/member/auth/google-config') body = { clientId };
+      else if (url === '/api/member/auth/google/join') ({ status, body } = joinResponse);
       else if (url === '/api/member/auth/google') ({ status, body } = googleResponse);
       else if (url === '/api/member/auth/me') body = { member: { name: 'Ada', email: 'ada@example.com' } };
       else status = 404;
@@ -78,12 +80,39 @@ describe('Continue with Google', () => {
     expect(await screen.findByText('the chats')).toBeInTheDocument();
   });
 
-  it('tells someone with no member account to join first', async () => {
+  it('lets someone with no member account join with Google, with no code and no password', async () => {
+    googleResponse = { status: 404, body: { error: 'none', code: 'NO_ACCOUNT', email: 'new@example.com' } };
+    show();
+    await waitFor(() => expect(credentialCallback).not.toBeNull());
+    const payload = btoa(JSON.stringify({ email: 'new@example.com' })).replace(/=+$/, '');
+    await act(async () => credentialCallback!({ credential: `aaaa.${payload}.zzzzzzzzzzzzzzzz` }));
+    expect(await screen.findByTestId('google-join')).toHaveTextContent('new@example.com');
+    // The Terms box is required.
+    fireEvent.change(within(screen.getByTestId('google-join')).getByRole('textbox'), { target: { value: '677123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Join with Google' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('accept the Terms');
+    expect(calls.some((c) => c.url === '/api/member/auth/google/join')).toBe(false);
+    joinResponse = { status: 200, body: { member: { name: 'new@example.com', email: 'new@example.com', preferredLanguage: 'en' } } };
+    fireEvent.click(within(screen.getByTestId('google-join-terms')).getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Join with Google' }));
+    expect(await screen.findByText('the chats')).toBeInTheDocument();
+    const sent = calls.find((c) => c.url === '/api/member/auth/google/join')?.body;
+    expect(sent).toMatchObject({ acceptTerms: true, consentWhatsapp: false, consentEmail: false });
+    expect(sent.credential).toContain('zzzzzzzz');
+    expect(sent.whatsapp).toBeTruthy();
+  });
+
+  it('says so when a person who just joined already has an account', async () => {
     googleResponse = { status: 404, body: { error: 'none', code: 'NO_ACCOUNT' } };
+    joinResponse = { status: 409, body: { error: 'x', code: 'ACCOUNT_EXISTS' } };
     show();
     await waitFor(() => expect(credentialCallback).not.toBeNull());
     await act(async () => credentialCallback!({ credential: 'signed.token.value-from-google-aaaaaaaa' }));
-    expect(await screen.findByTestId('google-no-account')).toHaveTextContent('No member account uses this Google email yet');
+    await screen.findByTestId('google-join');
+    fireEvent.change(within(screen.getByTestId('google-join')).getByRole('textbox'), { target: { value: '677123456' } });
+    fireEvent.click(within(screen.getByTestId('google-join-terms')).getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Join with Google' }));
+    expect(await screen.findByText(/already have an account/)).toBeInTheDocument();
   });
 
   it('asks the central admin’s profile for the emailed code on a new phone', async () => {

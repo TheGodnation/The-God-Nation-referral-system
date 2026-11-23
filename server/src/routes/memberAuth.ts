@@ -314,19 +314,51 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
     return res.json(GENERIC_SIGNUP_RESPONSE);
   }
 
-  // Case 2: the phone number is known (for example someone who first
-  // registered through the old WhatsApp form).
+  // Case 2: the phone number is known but belongs to an account with a DIFFERENT email.
+  // Never redirect someone's sign-in emails based on an unverified claim.
+  if (personByPhone?.memberAccount) {
+    await recordAudit({
+      action: 'MEMBER_EMAIL_MISMATCH_ATTEMPT',
+      targetType: 'MemberAccount',
+      targetId: personByPhone.memberAccount.id,
+    });
+    return res.json(GENERIC_SIGNUP_RESPONSE);
+  }
+
+  const created = await createMemberForSignup(req, {
+    email: normalizedEmail, phone: normalizedWhatsApp, language, consentWhatsapp, consentEmail, consentAds, adEventId, fbp, passwordHash,
+  }, personByPhone);
+  if (created) await sendMemberLoginLink(created.memberAccount, created.person);
+
+  return res.json(GENERIC_SIGNUP_RESPONSE);
+}));
+
+type SignupInput = {
+  email: string;
+  phone: string;
+  language: 'en' | 'fr';
+  consentWhatsapp: boolean;
+  consentEmail: boolean;
+  consentAds: boolean;
+  adEventId?: string;
+  fbp?: string;
+  /** Null when the person joins with Google: no password is set (they can add one later with "forgot password"). */
+  passwordHash: string | null;
+  via?: 'signup' | 'google';
+};
+
+/**
+ * Creates the member account for someone joining. The caller has already checked that the email is free, that the phone
+ * is not on another account, and that neither is blocked. The phone may already belong to a Person without an account
+ * (the old WhatsApp form): the account is then attached to that Person. Otherwise a brand-new Person is made, with the
+ * usual referral and ad attribution. Returns null when a concurrent request claimed the same email, phone or Person first.
+ */
+async function createMemberForSignup(req: Request, input: SignupInput, personByPhone: Person | null): Promise<{ memberAccount: MemberAccount; person: Person } | null> {
+  const { email: normalizedEmail, phone: normalizedWhatsApp, language, consentWhatsapp, consentEmail, consentAds, adEventId, fbp, passwordHash } = input;
+  const via = input.via ?? 'signup';
+
+  // The phone number is known (for example someone who first registered through the old WhatsApp form).
   if (personByPhone) {
-    if (personByPhone.memberAccount) {
-      // The number already has an account with a DIFFERENT email. Never
-      // redirect someone's sign-in emails based on an unverified claim.
-      await recordAudit({
-        action: 'MEMBER_EMAIL_MISMATCH_ATTEMPT',
-        targetType: 'MemberAccount',
-        targetId: personByPhone.memberAccount.id,
-      });
-      return res.json(GENERIC_SIGNUP_RESPONSE);
-    }
     try {
       const memberAccount = await prisma.memberAccount.create({
         data: { personId: personByPhone.id, email: normalizedEmail, passwordHash },
@@ -337,17 +369,17 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
         action: 'MEMBER_ACCOUNT_CREATED',
         targetType: 'MemberAccount',
         targetId: memberAccount.id,
-        metadata: { personId: personByPhone.id, via: 'signup' },
+        metadata: { personId: personByPhone.id, via },
       });
-      await sendMemberLoginLink(memberAccount, personByPhone);
+      return { memberAccount, person: personByPhone };
     } catch (err) {
       // A concurrent request claimed the same email/person first.
       if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err;
+      return null;
     }
-    return res.json(GENERIC_SIGNUP_RESPONSE);
   }
 
-  // Case 3: brand-new person. Record the registration with the same
+  // A brand-new person. Record the registration with the same
   // referral/ad attribution the old WhatsApp form used, so referral links
   // and ad tracking keep working.
   const visitorId = req.visitorId!;
@@ -450,7 +482,7 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
       action: 'MEMBER_ACCOUNT_CREATED',
       targetType: 'MemberAccount',
       targetId: memberAccount.id,
-      metadata: { personId: person.id, via: 'signup' },
+      metadata: { personId: person.id, via },
     });
     // Tell the ad platforms (only if they agreed, and only if the platform is connected).
     if (consentAds) {
@@ -469,16 +501,15 @@ router.post('/signup', memberSignupLimiter, requireCsrf, asyncHandler(async (req
         clickedAt: selectedVisit?.timestamp,
       });
     }
-    await sendMemberLoginLink(memberAccount, person);
+    return { memberAccount, person };
   } catch (err) {
     // Unique clash (same phone/email submitted twice at once, or an old
-    // registration row for this number) — same generic reply, never a 500.
+    // registration row for this number): never a 500.
     if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err;
     console.warn('[member-signup] duplicate sign-up attempt', { visitorId });
+    return null;
   }
-
-  return res.json(GENERIC_SIGNUP_RESPONSE);
-}));
+}
 
 // ---------------------------------------------------------------------------
 // Sign-in: email + password. The ordinary, repeatable way a Member who has
@@ -572,7 +603,7 @@ router.post('/google', memberPasswordLoginLimiter, requireCsrf, asyncHandler(asy
   // The same address, or the same Gmail inbox with the dots moved (Google treats them as one mailbox).
   const found = (await prisma.memberAccount.findUnique({ where: { email: identity.email }, include: { person: true } })) ?? (await findAccountByGmailDots(identity.email));
   const account = found ? await prisma.memberAccount.findUnique({ where: { id: found.id }, include: { person: true } }) : null;
-  if (!account) return res.status(404).json({ error: 'No member account uses this Google email yet.', code: 'NO_ACCOUNT' });
+  if (!account) return res.status(404).json({ error: 'No member account uses this Google email yet.', code: 'NO_ACCOUNT', email: identity.email });
 
   if ((await isCentralAdminPerson(account.personId)) && !(await isTrustedDevice(req, account.id))) {
     await sendMemberLoginLink(account, account.person);
@@ -595,6 +626,77 @@ router.post('/google', memberPasswordLoginLimiter, requireCsrf, asyncHandler(asy
     },
     ...(deletionCancelled ? { deletionCancelled: true } : {}),
   });
+}));
+
+// A new person joins with Google: Google has already confirmed the email, so no emailed code and no password. Everything else
+// the usual join asks for stays: the WhatsApp number, the Terms and the optional agreements. The account, the referral credit and
+// the ad attribution are made exactly as in the ordinary sign-up, and the person is signed in at once (name and place follow on
+// the details screen, as ever).
+const googleJoinSchema = z.object({
+  credential: z.string().min(20).max(4096),
+  whatsapp: z.string().trim().min(1).max(32),
+  language: z.enum(['en', 'fr']).default('en'),
+  consentWhatsapp: z.boolean().optional().default(false),
+  consentEmail: z.boolean().optional().default(false),
+  consentAds: z.boolean().optional().default(false),
+  adEventId: z.string().regex(AD_EVENT_ID).optional(),
+  fbp: z.string().regex(FBP_VALUE).optional(),
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: 'Please accept the Terms of Use and the Privacy Policy.' }) }),
+});
+
+const CANNOT_JOIN = {
+  error: 'We could not create your account with these details. If you already joined, sign in with your usual email and password.',
+  code: 'CANNOT_JOIN',
+};
+
+router.post('/google/join', memberSignupLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  if (!googleClientId()) return res.status(404).json({ error: 'Google sign-in is not available.', code: 'NOT_CONFIGURED' });
+  const parsed = googleJoinSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    if (issue?.path[0] === 'acceptTerms') return res.status(400).json({ error: issue.message, code: 'TERMS_REQUIRED' });
+    if (issue?.path[0] === 'credential') return res.status(400).json({ error: 'Google sign-in did not work. Please try again.', code: 'BAD_GOOGLE' });
+    return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.', code: 'INVALID_PHONE' });
+  }
+  const d = parsed.data;
+  const identity = await verifyGoogleIdToken(d.credential);
+  if (!identity) return res.status(401).json({ error: 'Google sign-in did not work. Please try again.', code: 'BAD_GOOGLE' });
+  const email = identity.email.toLowerCase();
+
+  const phone = normalizeToE164(d.whatsapp);
+  if (!phone) return res.status(400).json({ error: 'Please enter a valid phone number, including the country code.', code: 'INVALID_PHONE' });
+
+  // Already a member (the same address, or the same Gmail inbox with the dots moved): they sign in instead.
+  const existing = (await prisma.memberAccount.findUnique({ where: { email }, select: { id: true } })) ?? (await findAccountByGmailDots(email));
+  if (existing) return res.status(409).json({ error: 'You already have an account. Tap Continue with Google to sign in.', code: 'ACCOUNT_EXISTS' });
+
+  // A number or email the central admin kept out: the same ordinary reply as any other refusal; the attempt is counted for the admin's list.
+  const kept = await activeBlocksFor(phone, email);
+  if (kept.length > 0) {
+    await recordBlockedAttempt(kept, 'signup');
+    return res.status(409).json(CANNOT_JOIN);
+  }
+
+  const personByPhone = await prisma.person.findUnique({ where: { whatsappNumber: phone }, include: { memberAccount: true } });
+  if (personByPhone?.memberAccount) {
+    await recordAudit({ action: 'MEMBER_EMAIL_MISMATCH_ATTEMPT', targetType: 'MemberAccount', targetId: personByPhone.memberAccount.id });
+    return res.status(409).json(CANNOT_JOIN);
+  }
+
+  const created = await createMemberForSignup(req, {
+    email, phone, language: d.language, consentWhatsapp: d.consentWhatsapp, consentEmail: d.consentEmail, consentAds: d.consentAds,
+    adEventId: d.adEventId, fbp: d.fbp, passwordHash: null, via: 'google',
+  }, personByPhone);
+  if (!created) return res.status(409).json(CANNOT_JOIN);
+  const { memberAccount, person } = created;
+
+  await prisma.memberAccount.update({ where: { id: memberAccount.id }, data: { lastLoginAt: new Date() } });
+  await markFirstLogin(memberAccount.id);
+  await createMemberSession(memberAccount.id, res);
+  await autoPairLeaderSession(memberAccount.personId, res, req);
+  await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: memberAccount.id, metadata: { via: 'google_join' } });
+
+  res.json({ member: { name: person.name, email: memberAccount.email, preferredLanguage: person.preferredLanguage } });
 }));
 
 // ---------------------------------------------------------------------------

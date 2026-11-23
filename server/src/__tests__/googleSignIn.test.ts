@@ -5,6 +5,7 @@ import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
+import { getOrCreatePersonReferralCode } from '../lib/referralCode';
 import { resetGoogleKeysForTests, verifyGoogleIdToken } from '../lib/googleSignIn';
 
 // "Continue with Google": an existing member signs in with the Google account whose confirmed email is on their member account.
@@ -128,5 +129,92 @@ describe('Continue with Google', () => {
     expect(res.body.member).toBeUndefined();
     expect(mail).toHaveBeenCalled();
     expect((await a.get('/api/member/auth/me')).body.member).toBeNull(); // no session yet
+  });
+});
+
+describe('Joining with Google (a new person)', () => {
+  async function join(credential: string, body: Record<string, unknown> = {}, visit?: string) {
+    const a = agent();
+    const { csrf } = await bootstrap(a as any);
+    if (visit) await a.post('/api/referrals/visit').set('X-CSRF-Token', csrf).send({ ref: visit, lang: 'en' });
+    const res = await a.post('/api/member/auth/google/join').set('X-CSRF-Token', csrf).send({ credential, whatsapp: `+237677${String(++n).padStart(6, '0')}`, language: 'en', acceptTerms: true, ...body });
+    return { res, a };
+  }
+
+  it('creates the member with no code and no password, signs them in, and keeps the Terms and agreements', async () => {
+    const email = `newbie${++n}@example.com`;
+    const { res, a } = await join(token({ email }), { consentWhatsapp: true });
+    expect(res.status).toBe(200);
+    const account = await prisma.memberAccount.findUniqueOrThrow({ where: { email }, include: { person: true } });
+    expect(account.passwordHash).toBeNull();
+    expect(account.person.termsAcceptedAt).not.toBeNull();
+    expect(account.person.email).toBe(email);
+    expect((await a.get('/api/member/auth/me')).body.member).toMatchObject({ email });
+    expect(await prisma.contactConsent.count({ where: { personId: account.personId } })).toBeGreaterThan(0);
+  });
+
+  it('gives the member who shared the link the credit, as an ordinary sign-up does', async () => {
+    const owner = await member(`owner${++n}@example.com`, 'Link Owner');
+    const code = await getOrCreatePersonReferralCode(prisma, owner.id, 'Link Owner');
+    const email = `friend${++n}@example.com`;
+    const { res } = await join(token({ email }), {}, typeof code === 'string' ? code : (code as any).code);
+    expect(res.status).toBe(200);
+    const person = await prisma.person.findFirstOrThrow({ where: { email } });
+    const reg = await prisma.registration.findFirstOrThrow({ where: { personId: person.id } });
+    expect(reg.referredByPersonId).toBe(owner.id);
+    expect(await prisma.friendship.count({ where: { requesterPersonId: owner.id, addresseePersonId: person.id, status: 'ACCEPTED' } })).toBe(1);
+  });
+
+  it('needs the Terms to be accepted and a valid phone number, and creates nothing otherwise', async () => {
+    const before = await prisma.memberAccount.count();
+    expect((await join(token({ email: `t${++n}@example.com` }), { acceptTerms: false })).res.body.code).toBe('TERMS_REQUIRED');
+    expect((await join(token({ email: `p${++n}@example.com` }), { whatsapp: 'abc' })).res.body.code).toBe('INVALID_PHONE');
+    expect(await prisma.memberAccount.count()).toBe(before);
+  });
+
+  it('refuses a bad token, and does nothing when Google sign-in is not set up', async () => {
+    expect((await join(token({ email: `bad${++n}@example.com` }, { key: otherKey }))).res.status).toBe(401);
+    delete process.env.GOOGLE_CLIENT_ID;
+    expect((await join(token({ email: `off${++n}@example.com` }))).res.status).toBe(404);
+  });
+
+  it('does not create a second account for someone who already has one (they sign in instead)', async () => {
+    const p = await member(`have${++n}@example.com`);
+    const account = await prisma.memberAccount.findUniqueOrThrow({ where: { personId: p.id } });
+    const before = await prisma.memberAccount.count();
+    const { res } = await join(token({ email: account.email }));
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('ACCOUNT_EXISTS');
+    expect(await prisma.memberAccount.count()).toBe(before);
+  });
+
+  it('never attaches the new email to a phone number that already has an account', async () => {
+    const p = await prisma.person.create({ data: { name: 'Has Account', whatsappNumber: `+237679${String(++n).padStart(6, '0')}`, profileCompletedAt: new Date() } });
+    await prisma.memberAccount.create({ data: { personId: p.id, email: `owner${n}@example.com` } });
+    const before = await prisma.memberAccount.count();
+    const { res } = await join(token({ email: `thief${++n}@example.com` }), { whatsapp: p.whatsappNumber });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('CANNOT_JOIN');
+    expect(await prisma.memberAccount.count()).toBe(before);
+  });
+
+  it('attaches the account to a person who only has a phone number on file (the old WhatsApp form)', async () => {
+    n += 1;
+    const phone = `+237678${String(n).padStart(6, '0')}`;
+    const old = await prisma.person.create({ data: { name: 'Earlier Contact', whatsappNumber: phone } });
+    const email = `earlier${n}@example.com`;
+    const { res } = await join(token({ email }), { whatsapp: phone });
+    expect(res.status).toBe(200);
+    expect((await prisma.memberAccount.findUniqueOrThrow({ where: { email } })).personId).toBe(old.id);
+  });
+
+  it('keeps out a number or email the central admin has kept out', async () => {
+    const email = `kept${++n}@example.com`;
+    await prisma.contactBlock.create({ data: { kind: 'EMAIL', value: email, mode: 'NEVER', groupId: `grp-${n}` } });
+    const before = await prisma.memberAccount.count();
+    const { res } = await join(token({ email }));
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('CANNOT_JOIN');
+    expect(await prisma.memberAccount.count()).toBe(before);
   });
 });

@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { noteSignIn } from '../lib/accountDeletion';
+import { useMemberAuth } from '../lib/MemberAuthContext';
+import { GoogleAccess } from '../components/GoogleAccess';
 import { Trans, useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
@@ -41,6 +44,15 @@ function MemberSignupPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const emailTypo = useEmailTypoCheck(email, setEmail);
+  const navigate = useNavigate();
+  const { refresh } = useMemberAuth();
+
+  // "Continue with Google" (see GoogleAccess): signed in already, so go straight into the app.
+  async function finishGoogle(res: unknown) {
+    noteSignIn(res);
+    await refresh();
+    navigate('/member/chats', { replace: true });
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,6 +111,16 @@ function MemberSignupPageInner() {
             <CodeEntry email={email.trim()} onChangeEmail={() => setSent(false)} />
           </>
         ) : (
+          <>
+          <div className="mt-6">
+            <GoogleAccess
+              onSignedIn={(res) => void finishGoogle(res)}
+              onCodeRequired={(codeAddress) => {
+                setEmail(codeAddress);
+                setSent(true);
+              }}
+            />
+          </div>
           <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
             <div>
               <label className="label" htmlFor="signup-email">
@@ -173,6 +195,7 @@ function MemberSignupPageInner() {
               {submitting ? t('memberSignup.submitting') : t('memberSignup.submit')}
             </button>
           </form>
+          </>
         )}
 
         <p className="mt-6 text-center text-sm text-slate-500">
