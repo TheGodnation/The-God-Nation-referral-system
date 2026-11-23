@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { profilePhotoPath } from './profilePhoto';
 import { weekStartOf, addDays, dayKey } from './weeklyReports';
 import { getOrCreateConversation } from './communityConversation';
 import { pushToPerson } from './push';
@@ -8,8 +9,9 @@ import { DAY, MIN, LEVELS, RotaError, emptyCounts, isRater, loadBase, pickText, 
 // The rating card in the teaching group's chat. When a teacher has finished (they tap "I have finished my teaching", or it
 // happens by itself 25 minutes after their slot starts) a card is posted in the group, right after their voice notes:
 // "{Name} has finished teaching {topic}. Listen to the teaching, then rate it." Members tap one of four levels, at any time,
-// and can change their mind. The group sees only how many gave each level (never who). The central admin's own rating is
-// shown to everyone, with their name. The teacher is told when someone rates (never by whom). Nobody rates their own.
+// and can change their mind. The group sees how many gave each level and who rated, each with their name, photo and the level
+// they gave (newest first). The central admin's own rating is shown on top, with their name. The teacher is told when someone
+// rates (never by whom, in the phone alert). Nobody rates their own.
 
 /** The card appears by itself this long after the slot starts, if the teacher has not tapped the button. */
 export const AUTO_CARD_AFTER_MIN = 25;
@@ -23,9 +25,11 @@ const RATED_PUSH_EVERY_MIN = 30;
 export interface RatingCardInfo {
   teacherName: string;
   topic: string;
-  /** How many people (not counting the central admin) gave each level, and the total: never who. */
+  /** How many people (not counting the central admin) gave each level, and the total. */
   total: number;
   counts: Record<Level, number>;
+  /** Who rated (not counting the central admin, shown apart): name, photo and level, the newest first. */
+  raters: { personId: string; name: string; photoUrl: string | null; level: Level }[];
   myLevel: Level | null;
   /** The central admin's own rating, visible to everyone. */
   coordinator: { name: string; level: Level } | null;
@@ -48,8 +52,12 @@ export async function ratingCardInfos(viewerPersonId: string, messageIds: string
   const teacherById = new Map(teachers.map((t) => [t.id, t]));
   const ratings = await prisma.teachingRating.findMany({ where: { teacherId: { in: teachers.map((t) => t.id) }, weekStart: { in: cards.map((c) => c.weekStart) } } });
   const admins = new Set((await prisma.user.findMany({ where: { role: 'ADMIN', active: true, personId: { not: null } }, select: { personId: true } })).map((u) => u.personId!));
-  const people = await prisma.person.findMany({ where: { id: { in: [...new Set([...teachers.map((t) => t.personId).filter((x): x is string => Boolean(x)), ...ratings.filter((r) => admins.has(r.raterPersonId)).map((r) => r.raterPersonId)])] } }, select: { id: true, name: true } });
+  const people = await prisma.person.findMany({
+    where: { id: { in: [...new Set([...teachers.map((t) => t.personId).filter((x): x is string => Boolean(x)), ...ratings.map((r) => r.raterPersonId)])] } },
+    select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true },
+  });
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
+  const personById = new Map(people.map((p) => [p.id, p]));
   const viewerIsRater = await isRater(viewerPersonId);
 
   for (const card of cards) {
@@ -58,10 +66,15 @@ export async function ratingCardInfos(viewerPersonId: string, messageIds: string
     const mine = ratings.filter((r) => r.teacherId === card.teacherId && r.weekStart.getTime() === card.weekStart.getTime());
     const counts = emptyCounts();
     let coordinator: RatingCardInfo['coordinator'] = null;
-    for (const r of mine) {
+    const raters: RatingCardInfo['raters'] = [];
+    for (const r of [...mine].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())) {
       if (!isLevel(r.level)) continue;
       if (admins.has(r.raterPersonId)) coordinator = { name: nameOf.get(r.raterPersonId) ?? '', level: r.level };
-      else counts[r.level]++;
+      else {
+        counts[r.level]++;
+        const who = personById.get(r.raterPersonId);
+        raters.push({ personId: r.raterPersonId, name: who?.name ?? '', photoUrl: who ? profilePhotoPath({ id: who.id, photoStorageKey: who.photoStorageKey, photoUpdatedAt: who.photoUpdatedAt }) : null, level: r.level });
+      }
     }
     const topic = topics.find((t) => t.number === topicNumberFor(teacher.startTopic, numbers, weekNumber(settings.startDate, card.weekStart)));
     const myRow = mine.find((r) => r.raterPersonId === viewerPersonId);
@@ -71,6 +84,7 @@ export async function ratingCardInfos(viewerPersonId: string, messageIds: string
       topic: topic ? pickText(lang, topic).text.topic : '',
       total: LEVELS.reduce((n, l) => n + counts[l], 0),
       counts,
+      raters,
       myLevel: myRow && isLevel(myRow.level) ? myRow.level : null,
       coordinator,
       isOwnTeaching,
