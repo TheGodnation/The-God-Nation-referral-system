@@ -38,6 +38,8 @@ export interface DeskQuery {
   filter?: DeskFilter;
   q?: string;
   communityId?: string;
+  /** A special group of people: the weekly teachers, or the leaders. */
+  audience?: 'teachers' | 'leaders';
   language?: 'en' | 'fr';
   page?: number;
 }
@@ -84,7 +86,9 @@ const FILTERS: Record<Exclude<DeskFilter, 'today'>, (p: DeskPerson) => boolean> 
 };
 
 /** Everyone the desk covers (up to MAX_PEOPLE, newest first), with all the facts worked out. */
-async function loadDesk(adminPersonId: string, query: Pick<DeskQuery, 'q' | 'communityId' | 'language'>): Promise<{ people: DeskPerson[]; capped: boolean }> {
+async function loadDesk(adminPersonId: string, query: Pick<DeskQuery, 'q' | 'communityId' | 'language' | 'audience'>): Promise<{ people: DeskPerson[]; capped: boolean }> {
+  // The weekly teachers have no direct link to a member, so their member ids are looked up first.
+  const teacherIds = query.audience === 'teachers' ? (await prisma.teachingTeacher.findMany({ where: { active: true, personId: { not: null } }, select: { personId: true } })).map((t) => t.personId as string) : null;
   const settings = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { reminderQuietDays: true } });
   const quietBefore = new Date(Date.now() - (settings?.reminderQuietDays ?? 7) * DAY);
   const rows = await prisma.person.findMany({
@@ -92,9 +96,11 @@ async function loadDesk(adminPersonId: string, query: Pick<DeskQuery, 'q' | 'com
       erasedAt: null,
       deletionRequestedAt: null,
       memberAccount: { isNot: null },
-      users: { none: { role: 'ADMIN' } },
+      ...(query.audience === 'leaders' ? {} : { users: { none: { role: 'ADMIN' as const } } }),
       ...(query.q?.trim() ? { name: { contains: query.q.trim(), mode: 'insensitive' as const } } : {}),
       ...(query.language ? { preferredLanguage: query.language } : {}),
+      ...(teacherIds ? { id: { in: teacherIds } } : {}),
+      ...(query.audience === 'leaders' ? { users: { none: { role: 'ADMIN' as const }, some: { role: 'LEADER' as const, active: true } } } : {}),
       ...(query.communityId ? { communityMemberships: { some: { communityId: query.communityId, status: 'ACTIVE' as const } } } : {}),
     },
     select: {

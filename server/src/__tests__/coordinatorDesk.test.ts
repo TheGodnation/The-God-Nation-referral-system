@@ -101,6 +101,19 @@ describe('People who need me — the list', () => {
     expect(names(await list(w, `?${c}&filter=all&language=fr`))).toEqual([w.lonely.name]);
   });
 
+  it('can be limited to a special group: the weekly teachers, or the leaders (for a reminder or an announcement)', async () => {
+    const w = await world();
+    await prisma.teachingTeacher.create({ data: { name: 'Teacher A', personId: w.cared.id, dayOfWeek: 1, startMinute: 420, startTopic: 1, active: true } });
+    await prisma.teachingTeacher.create({ data: { name: 'Teacher B', personId: w.lonely.id, dayOfWeek: 2, startMinute: 420, startTopic: 2, active: false } }); // stopped teaching
+    expect(names(await list(w, '?filter=all&audience=teachers'))).toEqual([w.cared.name]);
+    await prisma.user.create({ data: { name: 'A Leader', email: `lead-${++n}@test.local`, passwordHash: 'x', role: 'LEADER', personId: w.neglected.id } });
+    expect(names(await list(w, '?filter=all&audience=leaders'))).toEqual([w.neglected.name]);
+    // it combines with the other filters, and select-all follows it
+    const ids = await w.agent.get('/api/admin/needs-me/ids?filter=all&audience=teachers');
+    expect(ids.body.ids).toEqual([w.cared.id]);
+    expect((await w.agent.get('/api/admin/needs-me?filter=all&audience=nobody')).status).toBe(400);
+  });
+
   it('a private message from the leader counts as contact', async () => {
     const w = await world();
     const conv = await prisma.privateConversation.create({ data: { memberPersonId: w.neglected.id, initiatorPersonId: w.leader.id } });

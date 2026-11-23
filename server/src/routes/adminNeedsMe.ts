@@ -25,6 +25,7 @@ const querySchema = z.object({
   filter: z.enum(DESK_FILTERS as [DeskFilter, ...DeskFilter[]]).optional(),
   q: z.string().trim().max(80).optional(),
   communityId: z.string().min(1).max(64).optional(),
+  audience: z.enum(['teachers', 'leaders']).optional(),
   language: z.enum(['en', 'fr']).optional(),
   page: z.coerce.number().int().min(1).max(1000).optional(),
 });
