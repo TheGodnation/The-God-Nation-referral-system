@@ -222,12 +222,36 @@ describe('The rating card in the group', () => {
     expect(posts).toEqual([{ messageId: 'm1', level: 'VERY_GOOD' }, { messageId: 'm1', level: 'EXCELLENT' }]);
   });
 
-  it('shows only totals per level (no names), and the Coordinator’s own rating to everyone', () => {
+  it('shows totals per level and the Coordinator’s own rating to everyone', () => {
     render(<TeachingRatingCard messageId="m2" initial={{ ...CARD, coordinator: { name: 'Stanley Ndoh', level: 'EXCELLENT' } }} />);
     const card = screen.getByTestId('rating-card-m2');
     expect(card).toHaveTextContent('2 × Excellent');
     expect(card).toHaveTextContent('1 × Keep growing');
     expect(screen.getByTestId('coordinator-rating')).toHaveTextContent('Stanley Ndoh: Excellent');
+  });
+
+  it('lists who rated, each with name, picture and level, and folds a long list behind “Show all”', () => {
+    const raters = Array.from({ length: 10 }, (_, i) => ({
+      personId: `p${i}`,
+      name: `Member ${i}`,
+      photoUrl: i === 0 ? '/api/people/p0/photo?v=1' : null,
+      level: (i % 2 ? 'GOOD' : 'EXCELLENT') as 'GOOD' | 'EXCELLENT',
+    }));
+    render(<TeachingRatingCard messageId="m5" initial={{ ...CARD, total: 10, raters }} />);
+    expect(screen.getAllByTestId('rating-rater')).toHaveLength(8);
+    const first = screen.getAllByTestId('rating-rater')[0];
+    expect(first).toHaveTextContent('Member 0');
+    expect(first).toHaveTextContent('Excellent');
+    expect(first.querySelector('img')).toHaveAttribute('src', '/api/people/p0/photo?v=1');
+    expect(screen.getAllByTestId('rating-rater')[1].querySelector('img')).toBeNull(); // initials instead
+    fireEvent.click(screen.getByTestId('rating-raters-toggle'));
+    expect(screen.getAllByTestId('rating-rater')).toHaveLength(10);
+    expect(screen.getByTestId('rating-raters-toggle')).toHaveTextContent('Show fewer');
+  });
+
+  it('shows no list when nobody has rated, or when the card has no names', () => {
+    render(<TeachingRatingCard messageId="m6" initial={{ ...CARD, total: 0, counts: { EXCELLENT: 0, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 0 }, raters: [] }} />);
+    expect(screen.queryByTestId('rating-raters')).toBeNull();
   });
 
   it('says nobody has rated yet, and gives the teacher no rating buttons for their own teaching', () => {

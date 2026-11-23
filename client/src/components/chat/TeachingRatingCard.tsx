@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { LEVELS, type Level } from '../teaching/teachingTypes';
 import { CountChips } from '../teaching/TeachingRatings';
+import { Avatar } from '../Avatar';
 import type { RatingCardInfo } from './types';
 
 const TONE: Record<Level, string> = {
@@ -12,17 +13,22 @@ const TONE: Record<Level, string> = {
   KEEP_GROWING: 'border-amber-500 bg-amber-500 text-white',
 };
 
+/** Raters listed before "Show all" (a group can have many). */
+const RATERS_SHOWN = 8;
+
 // In the teaching group: the card that appears after a teacher's voice notes. Members rate the teaching with one of four
-// buttons, at any time, and can change it. Everyone sees how many gave each level, never who; the National Coordinator's
-// own rating is shown to all.
+// buttons, at any time, and can change it. Everyone sees how many gave each level and who rated, each with their name and
+// photo; the National Coordinator's own rating is shown on top.
 export function TeachingRatingCard({ messageId, initial }: { messageId: string; initial: RatingCardInfo | null | undefined }) {
   const { t } = useTranslation();
   const [info, setInfo] = useState<RatingCardInfo | null>(initial ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   useEffect(() => {
     if (initial) setInfo(initial);
   }, [initial]);
   if (!info) return null;
+  const raters = info.raters ?? [];
 
   async function choose(level: Level) {
     setError(null);
@@ -67,6 +73,24 @@ export function TeachingRatingCard({ messageId, initial }: { messageId: string; 
         )}
         <p className="text-xs text-slate-600">{info.total === 0 ? t('teachingRota.card_nobody') : t('teachingRota.card_rated', { count: info.total })}</p>
         {info.total > 0 && <CountChips counts={info.counts} />}
+        {raters.length > 0 && (
+          <>
+            <ul className="mt-1.5 space-y-1.5" data-testid="rating-raters">
+              {(showAll ? raters : raters.slice(0, RATERS_SHOWN)).map((r) => (
+                <li key={r.personId} className="flex items-center gap-2" data-testid="rating-rater">
+                  <Avatar name={r.name} photoUrl={r.photoUrl} size={28} />
+                  <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{r.name}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${TONE[r.level]}`}>{t(`teachingRota.level_${r.level}`)}</span>
+                </li>
+              ))}
+            </ul>
+            {raters.length > RATERS_SHOWN && (
+              <button type="button" className="mt-1 text-xs font-medium text-sky-800 underline" onClick={() => setShowAll((v) => !v)} data-testid="rating-raters-toggle">
+                {showAll ? t('teachingRota.raters_show_less') : t('teachingRota.raters_show_all', { count: raters.length })}
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

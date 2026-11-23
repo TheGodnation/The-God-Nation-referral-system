@@ -492,7 +492,7 @@ describe('the rating card in the group', () => {
     expect((await ratingCardInfos(rater.id, [card.id], 'en')).get(card.id)!.myLevel).toBe('VERY_GOOD');
   });
 
-  it('shows the group only how many gave each level, never who, and shows the central admin’s own rating to everyone', async () => {
+  it('shows the group how many gave each level and who rated (name, photo, level, newest first), and the central admin’s own rating on top', async () => {
     const { people } = await setUp();
     const g = await group();
     const raters = [await person('Rater A'), await person('Rater B'), await person('Rater C')];
@@ -508,10 +508,18 @@ describe('the rating card in the group', () => {
 
     const seenByRaterA = (await ratingCardInfos(raters[0].id, [card.id], 'en')).get(card.id)!;
     expect(seenByRaterA).toMatchObject({ total: 3, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 }, myLevel: 'EXCELLENT', coordinator: { name: coordinator.name, level: 'GOOD' }, teacherName: people.alpha.name, topic: 'Topic 1' });
-    const json = JSON.stringify(seenByRaterA);
-    for (const r of raters) expect(json).not.toContain(r.name); // no rater is named
-    // the admin's rating is not mixed into the anonymous totals
+    // every rater is listed with their name and level, the newest first; the admin is shown apart, not in the list
+    expect(seenByRaterA.raters.map((r) => [r.name, r.level])).toEqual([[raters[2].name, 'KEEP_GROWING'], [raters[1].name, 'EXCELLENT'], [raters[0].name, 'EXCELLENT']]);
+    expect(seenByRaterA.raters.every((r) => r.photoUrl === null)).toBe(true); // nobody has a picture yet
+    expect(seenByRaterA.raters.map((r) => r.name)).not.toContain(coordinator.name);
+    // the admin's rating is not mixed into the totals
     expect(seenByRaterA.counts.GOOD).toBe(0);
+    // a rater who has a picture shows it; changing a rating moves that rater to the top
+    await prisma.person.update({ where: { id: raters[0].id }, data: { photoStorageKey: 'photos/a.jpg', photoUpdatedAt: new Date('2026-11-23T08:00:00Z') } });
+    await rate(raters[0].id, { messageId: card.id, level: 'VERY_GOOD' });
+    const again = (await ratingCardInfos(raters[1].id, [card.id], 'en')).get(card.id)!;
+    expect(again.raters[0]).toMatchObject({ name: raters[0].name, level: 'VERY_GOOD', photoUrl: `/api/people/${raters[0].id}/photo?v=${new Date('2026-11-23T08:00:00Z').getTime()}` });
+    await rate(raters[0].id, { messageId: card.id, level: 'EXCELLENT' });
     // another member sees their own choice only (none) and can rate
     const late = await person('Rater D');
     await prisma.communityMembership.create({ data: { personId: late.id, communityId: g.id } });

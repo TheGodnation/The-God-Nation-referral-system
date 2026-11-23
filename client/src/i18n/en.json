@@ -5870,6 +5870,8 @@
     "card_you_chose": "You chose {{level}}",
     "card_own": "This is your teaching. Others can rate it.",
     "card_coordinator": "{{name}}: {{level}}",
+    "raters_show_all": "Show all {{count}} who rated",
+    "raters_show_less": "Show fewer",
     "card_nobody": "Nobody has rated yet.",
     "card_rated_one": "{{count}} person has rated",
     "card_rated_other": "{{count}} people have rated",

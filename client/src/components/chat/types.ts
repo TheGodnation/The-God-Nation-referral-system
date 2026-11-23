@@ -62,9 +62,11 @@ export interface ChatTeaching {
 export interface RatingCardInfo {
   teacherName: string;
   topic: string;
-  /** How many gave each level (never who). */
+  /** How many gave each level, and the total. */
   total: number;
   counts: Record<'EXCELLENT' | 'VERY_GOOD' | 'GOOD' | 'KEEP_GROWING', number>;
+  /** Who rated (not the National Coordinator), the newest first. */
+  raters?: { personId: string; name: string; photoUrl: string | null; level: 'EXCELLENT' | 'VERY_GOOD' | 'GOOD' | 'KEEP_GROWING' }[];
   myLevel: 'EXCELLENT' | 'VERY_GOOD' | 'GOOD' | 'KEEP_GROWING' | null;
   /** The National Coordinator's own rating, shown to everyone. */
   coordinator: { name: string; level: 'EXCELLENT' | 'VERY_GOOD' | 'GOOD' | 'KEEP_GROWING' } | null;

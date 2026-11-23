@@ -5870,6 +5870,8 @@
     "card_you_chose": "Vous avez choisi : {{level}}",
     "card_own": "C'est votre enseignement. Les autres peuvent le noter.",
     "card_coordinator": "{{name}} : {{level}}",
+    "raters_show_all": "Voir les {{count}} personnes qui ont noté",
+    "raters_show_less": "Voir moins",
     "card_nobody": "Personne n'a encore noté.",
     "card_rated_one": "{{count}} personne a noté",
     "card_rated_other": "{{count}} personnes ont noté",
