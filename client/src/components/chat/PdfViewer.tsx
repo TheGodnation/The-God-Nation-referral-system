@@ -16,6 +16,16 @@ export function PdfPage({ pdf, number, width, aspect }: { pdf: any; number: numb
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [near, setNear] = useState(typeof IntersectionObserver === 'undefined');
+  // A page that fails to draw (a weak connection, a phone short of memory) is tried again by itself a few times, then offers a tap
+  // to try again, instead of staying blank for good.
+  const [attempt, setAttempt] = useState(0);
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    if (!near) {
+      setAttempt(0);
+      setGaveUp(false);
+    }
+  }, [near]);
 
   useEffect(() => {
     const el = holderRef.current;
@@ -30,6 +40,7 @@ export function PdfPage({ pdf, number, width, aspect }: { pdf: any; number: numb
     if (!near || !canvas || !width) return;
     let cancelled = false;
     let task: any = null;
+    let retryTimer: number | undefined;
     (async () => {
       try {
         const page = await pdf.getPage(number);
@@ -40,27 +51,46 @@ export function PdfPage({ pdf, number, width, aspect }: { pdf: any; number: numb
         canvas.height = Math.round(viewport.height);
         task = page.render({ canvasContext: canvas.getContext('2d')!, viewport });
         await task.promise;
+        if (!cancelled) setGaveUp(false);
       } catch {
-        // A page that fails to draw stays blank; the others still show.
+        // The other pages still show. This one is tried again (after 1 s, 2 s, 4 s), then waits for a tap.
+        if (cancelled) return;
+        if (attempt < RETRIES) retryTimer = window.setTimeout(() => setAttempt((a) => a + 1), 1000 * 2 ** attempt);
+        else setGaveUp(true);
       }
     })();
     return () => {
       cancelled = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
       task?.cancel?.();
       // Far from the screen again: free the memory.
       canvas.width = 0;
       canvas.height = 0;
     };
-  }, [near, pdf, number, width]);
+  }, [near, pdf, number, width, attempt]);
 
   return (
     <div ref={holderRef} className="mx-auto bg-white shadow" style={{ width, height: Math.round(width * aspect) }}>
       <canvas ref={canvasRef} aria-label={t('reader.page', { number }) ?? ''} className="h-full w-full" />
+      {gaveUp && (
+        <button
+          type="button"
+          onClick={() => {
+            setGaveUp(false);
+            setAttempt(0);
+          }}
+          className="-mt-16 mb-6 w-full text-center text-sm font-semibold text-emerald-700 underline"
+          data-testid="pdf-page-retry"
+        >
+          ⟳ {t('reader.page_retry')}
+        </button>
+      )}
     </div>
   );
 }
 
 const MAX_KEEP_BYTES = 50 * 1024 * 1024;
+const RETRIES = 3;
 
 export function PdfViewer({
   url: remoteUrl,

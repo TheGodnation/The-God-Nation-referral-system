@@ -595,6 +595,12 @@ export function ChatComposer({
   }
 
   async function sendVoice(blob: Blob, mime: string) {
+    // The WhatsApp way: the voice note shows in the chat at once with a turning ring, uploads in the background and is
+    // posted when it is up (a failed one can be tried again without recording it again).
+    if (typeof File === 'function') {
+      onPickMedia([new File([blob], `voice-note-${Date.now()}.${extensionFor(mime)}`, { type: mime })]);
+      return;
+    }
     setBusy(true);
     try {
       const uploaded = await uploadChatFile(uploadPath, blob, `voice-note-${Date.now()}.${extensionFor(mime)}`);

@@ -2277,6 +2277,7 @@
     "loading": "Ouverture du livre…",
     "not_available": "Ce livre n’est pas encore ouvert pour vous.",
     "failed": "Le livre n’a pas pu s’ouvrir. Vérifiez votre connexion et réessayez.",
+    "page_retry": "Impossible d'afficher cette page. Touchez pour réessayer",
     "page": "Page {{number}}",
     "end": "Fin du livre · {{count}} pages mises en forme pour le mobile (≈ {{normal}} pages de livre de taille normale)",
     "page_of": "Page {{page}} sur {{count}}",

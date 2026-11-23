@@ -2277,6 +2277,7 @@
     "loading": "Opening the book…",
     "not_available": "This book is not open for you yet.",
     "failed": "The book could not be opened. Check your connection and try again.",
+    "page_retry": "Could not show this page. Tap to try again",
     "page": "Page {{number}}",
     "end": "End of the book · {{count}} pages formatted for mobile reading (≈ {{normal}} normal-size book pages)",
     "page_of": "Page {{page}} of {{count}}",
