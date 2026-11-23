@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { MediaSendJob } from '../../lib/useMediaUploads';
 import { DocumentCard } from './DocumentCard';
+import { formatBytes } from '../../lib/attachmentLimits';
 
 // Your own photo/video/document message while it is still going up — shown
 // in the chat straight away, like WhatsApp, with a progress circle you can
@@ -59,8 +60,9 @@ function ProgressRing({ job, onCancel, onRetry, label }: { job: MediaSendJob; on
 
 export function UploadingBubble({ job, onCancel, onRetry }: { job: MediaSendJob; onCancel: () => void; onRetry: () => void }) {
   const { t } = useTranslation();
-  const visuals = job.items.filter((i) => i.kind !== 'document');
+  const visuals = job.items.filter((i) => i.kind === 'photo' || i.kind === 'video');
   const documents = job.items.filter((i) => i.kind === 'document');
+  const voices = job.items.filter((i) => i.kind === 'voice');
   const failed = job.status === 'failed';
   const label = t('groupChat.upload_progress', { percent: Math.round(job.progress * 100) });
 
@@ -95,6 +97,19 @@ export function UploadingBubble({ job, onCancel, onRetry }: { job: MediaSendJob;
             </div>
           </div>
         )}
+
+        {/* A voice note: it shows at once with its ring turning, then becomes the playable note. */}
+        {voices.map((item, i) => (
+          <div key={`v${i}`} className="mb-1 flex w-60 max-w-full items-center gap-2 px-1 py-1" data-testid="uploading-voice">
+            <span className="-m-1.5 block shrink-0 scale-75">
+              <ProgressRing job={job} onCancel={onCancel} onRetry={onRetry} label={label} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-slate-800">🎤 {t('groupChat.voice')}</span>
+              <span className="block text-xs text-slate-500">{formatBytes(item.byteSize)}</span>
+            </span>
+          </div>
+        ))}
 
         {documents.map((item, i) => (
           <div key={i} className="mb-1">

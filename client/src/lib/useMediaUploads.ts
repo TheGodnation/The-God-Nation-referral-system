@@ -20,7 +20,7 @@ import type { OutgoingMessage } from '../components/chat/ChatComposer';
 // already went up.
 export interface MediaPreview {
   name: string;
-  kind: 'photo' | 'video' | 'document';
+  kind: 'photo' | 'video' | 'document' | 'voice';
   previewUrl: string | null;
   byteSize: number;
   /** PDFs: the top of page 1 and the page count, once read. */
@@ -51,7 +51,7 @@ interface JobWork {
 
 function kindOf(file: File): MediaPreview['kind'] {
   const type = baseMime(file.type);
-  return type.startsWith('image/') ? 'photo' : type.startsWith('video/') ? 'video' : 'document';
+  return type.startsWith('image/') ? 'photo' : type.startsWith('video/') ? 'video' : type.startsWith('audio/') ? 'voice' : 'document';
 }
 
 function objectUrl(b: Blob): string | null {
@@ -156,7 +156,7 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
     const id = `upload-${Date.now()}-${counter}`;
     const items = files.map((f) => {
       const kind = kindOf(f);
-      return { name: f.name, kind, byteSize: f.size, previewUrl: kind === 'document' ? null : objectUrl(f) };
+      return { name: f.name, kind, byteSize: f.size, previewUrl: kind === 'photo' || kind === 'video' ? objectUrl(f) : null };
     });
     work.current.set(id, { files, caption, replyToMessageId, controller: new AbortController() });
     setJobs((prev) => [...prev, { id, items, caption, progress: 0, status: 'uploading' }]);

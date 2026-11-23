@@ -64,9 +64,10 @@ describe('ChatComposer — voice notes', () => {
     expect(screen.getByRole('button', { name: 'Send voice note' })).toBeInTheDocument();
   });
 
-  it('tapping Send stops recording and sends the voice note as an attachment', async () => {
+  it('tapping Send stops recording and hands the voice note to the chat at once, to show with a progress ring and upload in the background', async () => {
     const onSend = vi.fn().mockResolvedValue(true);
-    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} onPickMedia={vi.fn()} />);
+    const onPickMedia = vi.fn();
+    render(<ChatComposer uploadPath="/api/communities/g1/conversation/attachments" replyTo={null} onCancelReply={vi.fn()} onSend={onSend} onPickMedia={onPickMedia} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Tap to record a voice note' }));
     await screen.findByRole('button', { name: 'Send voice note' });
@@ -75,8 +76,13 @@ describe('ChatComposer — voice notes', () => {
     await new Promise((r) => setTimeout(r, 750));
     fireEvent.click(screen.getByRole('button', { name: 'Send voice note' }));
 
-    await waitFor(() => expect(onSend).toHaveBeenCalled());
-    expect(onSend.mock.calls[0][0].attachments).toHaveLength(1);
+    await waitFor(() => expect(onPickMedia).toHaveBeenCalled());
+    const files = onPickMedia.mock.calls[0][0] as File[];
+    expect(files).toHaveLength(1);
+    expect(files[0].type).toMatch(/^audio\//);
+    expect(files[0].name).toMatch(/^voice-note-\d+\./);
+    // Nothing is uploaded or posted by the composer itself any more: the chat does it, showing the note straight away.
+    expect(onSend).not.toHaveBeenCalled();
     // Back to the normal typing bar once sent.
     expect(await screen.findByRole('button', { name: 'Tap to record a voice note' })).toBeInTheDocument();
   });
