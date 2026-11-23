@@ -222,12 +222,15 @@ describe('The rating card in the group', () => {
     expect(posts).toEqual([{ messageId: 'm1', level: 'VERY_GOOD' }, { messageId: 'm1', level: 'EXCELLENT' }]);
   });
 
-  it('shows totals per level and the Coordinator’s own rating to everyone', () => {
-    render(<TeachingRatingCard messageId="m2" initial={{ ...CARD, coordinator: { name: 'Stanley Ndoh', level: 'EXCELLENT' } }} />);
+  it('counts the Coordinator among the raters: listed first with a star, in the totals', () => {
+    render(<TeachingRatingCard messageId="m2" initial={{ ...CARD, total: 4, counts: { EXCELLENT: 3, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 }, coordinator: { name: 'Stanley Ndoh', level: 'EXCELLENT' }, raters: [{ personId: 'c', name: 'Stanley Ndoh', photoUrl: null, level: 'EXCELLENT', isCoordinator: true }, { personId: 'p1', name: 'Member One', photoUrl: null, level: 'KEEP_GROWING' }] }} />);
     const card = screen.getByTestId('rating-card-m2');
-    expect(card).toHaveTextContent('2 × Excellent');
+    expect(card).toHaveTextContent('4 people have rated');
+    expect(card).toHaveTextContent('3 × Excellent');
     expect(card).toHaveTextContent('1 × Keep growing');
-    expect(screen.getByTestId('coordinator-rating')).toHaveTextContent('Stanley Ndoh: Excellent');
+    expect(screen.getByTestId('coordinator-rating')).toHaveTextContent('⭐ Stanley Ndoh');
+    expect(screen.getByTestId('coordinator-rating')).toHaveTextContent('Excellent');
+    expect(screen.getByTestId('coordinator-rating').className).not.toContain('Member One');
   });
 
   it('lists who rated, each with name, picture and level, and folds a long list behind “Show all”', () => {

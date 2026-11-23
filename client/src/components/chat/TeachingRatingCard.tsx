@@ -66,20 +66,15 @@ export function TeachingRatingCard({ messageId, initial }: { messageId: string; 
       ) : null}
       {error && <p role="alert" className="mt-1 text-xs text-red-700">{error}</p>}
       <div className="mt-2 space-y-1 border-t border-sky-200 pt-2">
-        {info.coordinator && (
-          <p className="font-semibold text-slate-900" data-testid="coordinator-rating">
-            ⭐ {t('teachingRota.card_coordinator', { name: info.coordinator.name, level: t(`teachingRota.level_${info.coordinator.level}`) })}
-          </p>
-        )}
         <p className="text-xs text-slate-600">{info.total === 0 ? t('teachingRota.card_nobody') : t('teachingRota.card_rated', { count: info.total })}</p>
         {info.total > 0 && <CountChips counts={info.counts} />}
         {raters.length > 0 && (
           <>
             <ul className="mt-1.5 space-y-1.5" data-testid="rating-raters">
               {(showAll ? raters : raters.slice(0, RATERS_SHOWN)).map((r) => (
-                <li key={r.personId} className="flex items-center gap-2" data-testid="rating-rater">
+                <li key={r.personId} className="flex items-center gap-2" data-testid={r.isCoordinator ? 'coordinator-rating' : 'rating-rater'}>
                   <Avatar name={r.name} photoUrl={r.photoUrl} size={28} />
-                  <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{r.name}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{r.isCoordinator && <span aria-hidden>⭐ </span>}{r.name}</span>
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${TONE[r.level]}`}>{t(`teachingRota.level_${r.level}`)}</span>
                 </li>
               ))}

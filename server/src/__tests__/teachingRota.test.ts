@@ -507,18 +507,20 @@ describe('the rating card in the group', () => {
     await rate(coordinator.id, { messageId: card.id, level: 'GOOD' });
 
     const seenByRaterA = (await ratingCardInfos(raters[0].id, [card.id], 'en')).get(card.id)!;
-    expect(seenByRaterA).toMatchObject({ total: 3, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 }, myLevel: 'EXCELLENT', coordinator: { name: coordinator.name, level: 'GOOD' }, teacherName: people.alpha.name, topic: 'Topic 1' });
-    // every rater is listed with their name and level, the newest first; the admin is shown apart, not in the list
-    expect(seenByRaterA.raters.map((r) => [r.name, r.level])).toEqual([[raters[2].name, 'KEEP_GROWING'], [raters[1].name, 'EXCELLENT'], [raters[0].name, 'EXCELLENT']]);
+    expect(seenByRaterA).toMatchObject({ total: 4, counts: { EXCELLENT: 2, VERY_GOOD: 0, GOOD: 1, KEEP_GROWING: 1 }, myLevel: 'EXCELLENT', coordinator: { name: coordinator.name, level: 'GOOD' }, teacherName: people.alpha.name, topic: 'Topic 1' });
+    // the National Coordinator counts as a rater and is listed first; then everyone else with name and level, the newest first
+    expect(seenByRaterA.raters.map((r) => [r.name, r.level, Boolean(r.isCoordinator)])).toEqual([
+      [coordinator.name, 'GOOD', true],
+      [raters[2].name, 'KEEP_GROWING', false],
+      [raters[1].name, 'EXCELLENT', false],
+      [raters[0].name, 'EXCELLENT', false],
+    ]);
     expect(seenByRaterA.raters.every((r) => r.photoUrl === null)).toBe(true); // nobody has a picture yet
-    expect(seenByRaterA.raters.map((r) => r.name)).not.toContain(coordinator.name);
-    // the admin's rating is not mixed into the totals
-    expect(seenByRaterA.counts.GOOD).toBe(0);
     // a rater who has a picture shows it; changing a rating moves that rater to the top
     await prisma.person.update({ where: { id: raters[0].id }, data: { photoStorageKey: 'photos/a.jpg', photoUpdatedAt: new Date('2026-11-23T08:00:00Z') } });
     await rate(raters[0].id, { messageId: card.id, level: 'VERY_GOOD' });
     const again = (await ratingCardInfos(raters[1].id, [card.id], 'en')).get(card.id)!;
-    expect(again.raters[0]).toMatchObject({ name: raters[0].name, level: 'VERY_GOOD', photoUrl: `/api/people/${raters[0].id}/photo?v=${new Date('2026-11-23T08:00:00Z').getTime()}` });
+    expect(again.raters[1]).toMatchObject({ name: raters[0].name, level: 'VERY_GOOD', photoUrl: `/api/people/${raters[0].id}/photo?v=${new Date('2026-11-23T08:00:00Z').getTime()}` });
     await rate(raters[0].id, { messageId: card.id, level: 'EXCELLENT' });
     // another member sees their own choice only (none) and can rate
     const late = await person('Rater D');
