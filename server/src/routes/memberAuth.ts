@@ -1,4 +1,5 @@
 import { findAccountByGmailDots } from '../lib/duplicateSuspects';
+import { googleClientId, verifyGoogleIdToken } from '../lib/googleSignIn';
 import { isCentralAdminPerson } from '../lib/centralAdmin';
 import { teachesAnywhere } from '../lib/groupTeachers';
 import { cancelAccountDeletion } from '../lib/accountDeletion';
@@ -537,6 +538,54 @@ router.post('/login', memberPasswordLoginLimiter, requireCsrf, asyncHandler(asyn
   const deletionCancelled = await comeBack(account.person);
   await autoPairLeaderSession(account.personId, res, req);
   await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'password' } });
+
+  res.json({
+    member: {
+      name: account.person.name,
+      email: account.email,
+      preferredLanguage: account.person.preferredLanguage,
+    },
+    ...(deletionCancelled ? { deletionCancelled: true } : {}),
+  });
+}));
+
+// ---------------------------------------------------------------------------
+// "Continue with Google": an existing member signs in with the Google account whose confirmed email is the one on their member
+// account. Nobody is created here (a new person joins the usual way), and the central admin's profile still needs the emailed code
+// on a phone it has not used before, exactly as with a password.
+// ---------------------------------------------------------------------------
+
+// The public Client ID the sign-in button needs; null while Google sign-in is not set up (the button then stays hidden).
+router.get('/google-config', (_req, res) => {
+  res.json({ clientId: googleClientId() });
+});
+
+const googleSchema = z.object({ credential: z.string().min(20).max(4096) });
+
+router.post('/google', memberPasswordLoginLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  if (!googleClientId()) return res.status(404).json({ error: 'Google sign-in is not available.', code: 'NOT_CONFIGURED' });
+  const parsed = googleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Google sign-in did not work. Please try again.', code: 'BAD_GOOGLE' });
+  const identity = await verifyGoogleIdToken(parsed.data.credential);
+  if (!identity) return res.status(401).json({ error: 'Google sign-in did not work. Please try again.', code: 'BAD_GOOGLE' });
+
+  // The same address, or the same Gmail inbox with the dots moved (Google treats them as one mailbox).
+  const found = (await prisma.memberAccount.findUnique({ where: { email: identity.email }, include: { person: true } })) ?? (await findAccountByGmailDots(identity.email));
+  const account = found ? await prisma.memberAccount.findUnique({ where: { id: found.id }, include: { person: true } }) : null;
+  if (!account) return res.status(404).json({ error: 'No member account uses this Google email yet.', code: 'NO_ACCOUNT' });
+
+  if ((await isCentralAdminPerson(account.personId)) && !(await isTrustedDevice(req, account.id))) {
+    await sendMemberLoginLink(account, account.person);
+    await recordAudit({ action: 'MEMBER_LOGIN_CODE_REQUIRED', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'google' } });
+    return res.json({ codeRequired: true, email: account.email });
+  }
+
+  await prisma.memberAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } });
+  await markFirstLogin(account.id);
+  await createMemberSession(account.id, res);
+  const deletionCancelled = await comeBack(account.person);
+  await autoPairLeaderSession(account.personId, res, req);
+  await recordAudit({ action: 'MEMBER_LOGIN_SUCCESS', targetType: 'MemberAccount', targetId: account.id, metadata: { via: 'google' } });
 
   res.json({
     member: {
