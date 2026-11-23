@@ -102,7 +102,7 @@ export function GoogleAccess({ onSignedIn, onCodeRequired, onError }: {
 
   return (
     <div className="space-y-3" data-testid="google-area">
-      {!credential && <GoogleSignInButton onCredential={(c) => void onCredential(c)} />}
+      {!credential && <GoogleSignInButton withDivider onCredential={(c) => void onCredential(c)} />}
       {credential && (
         <form onSubmit={onJoin} className="space-y-4 rounded-xl border border-brand-100 bg-white p-4" noValidate data-testid="google-join">
           <div>

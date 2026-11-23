@@ -83,7 +83,7 @@ export function PinnedMessages({ pins, onOpen }: { pins: ChatPin[]; onOpen: (mes
   const percent = Math.round((doneCount / list.length) * 100);
 
   return (
-    <div className={`relative border-b shadow-sm ${gold ? 'border-amber-300 bg-amber-100 text-amber-950' : 'border-slate-200 bg-white text-slate-800'}`} data-testid="pinned-messages">
+    <div className={`relative border-b shadow-sm ${gold ? 'border-brand-100 bg-brand-50 text-brand-950' : 'border-slate-200 bg-white text-slate-800'}`} data-testid="pinned-messages">
       <button type="button" className="flex w-full items-center gap-2 px-3 py-1 text-left" onClick={() => onOpen(target.messageId)} data-testid="pinned-open">
         <span aria-hidden className="text-sm">📌</span>
         <span className="min-w-0 flex-1">
@@ -93,7 +93,7 @@ export function PinnedMessages({ pins, onOpen }: { pins: ChatPin[]; onOpen: (mes
               {list.length}
             </span>
             {gold ? (
-              <span className="whitespace-nowrap rounded-full bg-amber-500 px-1.5 text-[11px] font-bold leading-4 text-white" data-testid="important-chip">
+              <span className="whitespace-nowrap rounded-full bg-brand-600 px-1.5 text-[11px] font-semibold leading-4 text-white" data-testid="important-chip">
                 {t('pins.n_new', { count: unseenList.length })}
               </span>
             ) : (

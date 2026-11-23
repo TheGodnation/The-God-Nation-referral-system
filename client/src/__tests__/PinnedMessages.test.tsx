@@ -98,7 +98,7 @@ describe('PinnedMessages (the strip under the chat header)', () => {
     render(<PinnedMessages pins={[pin({ messageId: 'a', done: true }), pin({ messageId: 'n', unseen: true, createdAt: '2026-11-02T10:00:00Z' })]} onOpen={onOpen} />);
     expect(screen.getByTestId('important-chip')).toHaveTextContent('1 new');
     expect(screen.getByTestId('pinned-open')).toHaveTextContent('Read');
-    expect(screen.getByTestId('pinned-messages').className).toContain('bg-amber-100');
+    expect(screen.getByTestId('pinned-messages').className).toContain('bg-brand-50');
     fireEvent.click(screen.getByTestId('pinned-open'));
     expect(onOpen).toHaveBeenCalledWith('n');
   });
