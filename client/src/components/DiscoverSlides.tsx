@@ -21,23 +21,40 @@ const SLIDES: { n: number; Icon: IconType; glow: string }[] = [
 const COUNT = SLIDES.length;
 
 /**
- * The slides that have a real photograph. A photograph for slide N is a file at /site/discover/slide-N.jpg (portrait or landscape,
- * about 1600 px wide); add its number here and it appears behind that slide. Until then a slide shows the brand navy and gold with
- * its symbol, so nothing is ever a broken picture.
+ * The photographs behind the slides. Where a slide has none, it shows the brand navy and gold with its symbol, so nothing is ever a
+ * broken picture. A photograph for slide N goes in here with its file under /site/ (about 1600 px wide is plenty):
+ *  - 'background': fills the whole slide, under a dark navy fade so the words stay readable (`at` = which part of the picture stays in view).
+ *  - 'book': a book cover standing on the slide (it is a picture of a book, so it is shown whole rather than cropped).
+ * The pictures here are the ones already used on the public site, placed where they fit the topic until the final photographs come.
  */
-const PHOTOS: number[] = [];
-const photoOf = (n: number) => (PHOTOS.includes(n) ? `/site/discover/slide-${n}.jpg` : null);
+interface Photo {
+  mode: 'background' | 'book';
+  src: string;
+  /** French version of the picture, when it differs (book covers). */
+  frSrc?: string;
+  at?: string;
+}
+const PHOTOS: Record<number, Photo> = {
+  2: { mode: 'book', src: '/site/book1-en.webp', frSrc: '/site/book1-fr.webp' },
+  3: { mode: 'background', src: '/site/session-room.jpg', at: '30% 50%' },
+  5: { mode: 'background', src: '/site/session-close.jpg', at: '50% 40%' },
+  10: { mode: 'background', src: '/site/session-presenter.jpg', at: '45% 50%' },
+};
 
 // "Discover The God Nation": twelve slides, one under the other, each showing a different side of the movement (training, leadership
 // academy, digital evangelism, community, prayer, skills, representation, mutual support, discipleship, unity) and ending with the
 // invitation to join. Same logo, colours and type on every slide; the headline is big enough to read on a phone.
 export function DiscoverSlides() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const french = i18n.language.startsWith('fr');
 
   return (
-    <ol className="mt-10 space-y-5 sm:space-y-7" data-testid="discover-slides" aria-label={t('discover.aria')}>
+    <>
+    <h2 className="sr-only">{t('discover.heading')}</h2>
+    <ol className="space-y-5 sm:space-y-7" data-testid="discover-slides" aria-label={t('discover.aria')}>
       {SLIDES.map(({ n, Icon, glow }) => {
-        const photo = photoOf(n);
+        const photo = PHOTOS[n];
+        const photoSrc = photo ? (french && photo.frSrc ? photo.frSrc : photo.src) : null;
         const last = n === COUNT;
         const tag = t(`discover.s${n}_tag`, { defaultValue: '' });
         return (
@@ -46,10 +63,11 @@ export function DiscoverSlides() {
               className="relative isolate flex min-h-[30rem] flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 p-5 text-white shadow-xl shadow-brand-950/20 sm:min-h-[34rem] sm:p-9"
               data-testid={`discover-slide-${n}`}
             >
-              {photo ? (
+              {photo?.mode === 'background' && photoSrc ? (
                 <>
-                  <img src={photo} alt="" loading="lazy" className="absolute inset-0 -z-20 h-full w-full object-cover" />
+                  <img src={photoSrc} alt="" loading="lazy" className="absolute inset-0 -z-20 h-full w-full object-cover" style={{ objectPosition: photo.at }} />
                   <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-brand-950 via-brand-950/70 to-brand-950/10" />
+                  <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-28 bg-gradient-to-b from-brand-950/90 to-transparent" />
                 </>
               ) : (
                 <>
@@ -68,7 +86,13 @@ export function DiscoverSlides() {
                 </span>
               </header>
 
-              <div className="mt-16">
+              {photo?.mode === 'book' && photoSrc && (
+                <div className="my-6 flex justify-end sm:my-2">
+                  <img src={photoSrc} alt="" loading="lazy" width={520} height={780} className="h-auto w-28 rotate-3 rounded-md shadow-2xl shadow-black/50 ring-1 ring-white/20 sm:w-44" data-testid="discover-book" />
+                </div>
+              )}
+
+              <div className={photo?.mode === 'book' ? '' : 'mt-16'}>
                 <p className="text-xs font-bold uppercase tracking-widest text-gold-400">{t(`discover.s${n}_label`)}</p>
                 <h3 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">{t(`discover.s${n}_title`)}</h3>
                 <p className="mt-4 max-w-xl text-base text-brand-100 sm:text-lg">{t(`discover.s${n}_body`)}</p>
@@ -89,5 +113,6 @@ export function DiscoverSlides() {
         );
       })}
     </ol>
+    </>
   );
 }

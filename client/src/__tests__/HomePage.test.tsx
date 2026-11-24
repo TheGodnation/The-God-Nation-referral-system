@@ -36,7 +36,7 @@ describe('HomePage', () => {
     show();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('A Digital Home for Kingdom Citizens');
     expect(screen.queryByText(/More than a platform/)).not.toBeInTheDocument();
-    for (const name of ['Everything you need to grow and make an impact.', 'Learn. Grow. Lead.', 'From Cameroon to Africa, and to the ends of the earth.']) {
+    for (const name of ['Discover The God Nation', 'Learn. Grow. Lead.', 'From Cameroon to Africa, and to the ends of the earth.']) {
       expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument();
     }
     const joins = screen.getAllByRole('link', { name: /Join the Community/ });
@@ -79,9 +79,14 @@ describe('HomePage', () => {
     expect(within(last).getByRole('link', { name: /Existing Members — Sign In/ })).toHaveAttribute('href', '/member/login');
     expect(within(last).queryByTestId('discover-whatsapp')).toBeNull();
     expect(within(last).getAllByRole('link')).toHaveLength(2);
-    // No photographs yet: every slide still shows on the brand colours, with no broken pictures.
-    expect(slides.querySelectorAll('img[src*="/site/discover/"]')).toHaveLength(0);
+    // The photographs already on the public site sit where they fit (slides 2, 3, 5, 10); the other slides wait for their own.
+    expect(slides.querySelectorAll('article img[src^="/site/"]')).toHaveLength(4);
+    expect(within(screen.getByTestId('discover-slide-2')).getByTestId('discover-book')).toHaveAttribute('src', '/site/book1-en.webp');
+    expect(screen.queryByText('Everything you need to grow and make an impact.')).toBeNull(); // the old heading above the slides is gone
+    expect(screen.queryByText('What you can experience')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Français' }));
+    await screen.findByRole('heading', { level: 3, name: 'Un mouvement de réveil du Royaume émerge !' });
+    expect(within(screen.getByTestId('discover-slide-2')).getByTestId('discover-book')).toHaveAttribute('src', '/site/book1-fr.webp');
     expect(await screen.findByRole('heading', { level: 3, name: 'Un mouvement de réveil du Royaume émerge !' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Vous avez une place. Vous avez un rôle. Rejoignez le mouvement !' })).toBeInTheDocument();
   });
