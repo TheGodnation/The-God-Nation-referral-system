@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { baseMime, pickRecorderMime } from '../../lib/chatMedia';
-import { VOICE_BITRATE, enhanceMic, openMic } from '../../lib/voiceCapture';
+import { enhanceMic, openMic, teachingBitrate } from '../../lib/voiceCapture';
 import { slotLabel } from './teachingTypes';
 
 type Status = 'RECORDED' | 'WRITING' | 'TEXT_READY' | 'FAILED' | 'APPROVED' | 'POSTED';
@@ -57,7 +57,9 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
       const mime = pickRecorderMime('audio');
       // The teaching is recorded after a gentle clean-up (even, loud, never crackling) at a better quality than the default.
       const enhanced = enhanceMic(stream);
-      const r = new MediaRecorder(enhanced.stream, mime ? { mimeType: mime, audioBitsPerSecond: VOICE_BITRATE } : { audioBitsPerSecond: VOICE_BITRATE });
+      const bitrate = teachingBitrate();
+      const options: MediaRecorderOptions = { ...(mime ? { mimeType: mime } : {}), ...(bitrate ? { audioBitsPerSecond: bitrate } : {}) };
+      const r = new MediaRecorder(enhanced.stream, Object.keys(options).length > 0 ? options : undefined);
       const chunks: Blob[] = [];
       r.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
       r.onstop = () => {

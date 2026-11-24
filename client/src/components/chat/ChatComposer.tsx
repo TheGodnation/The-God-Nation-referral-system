@@ -14,7 +14,7 @@ import {
   type UploadedAttachment,
   type UploadProblem,
 } from '../../lib/chatMedia';
-import { VOICE_BITRATE, enhanceMic, openMic, type EnhancedMic } from '../../lib/voiceCapture';
+import { chatBitrate, enhanceMic, openMic, type EnhancedMic } from '../../lib/voiceCapture';
 import { VideoRecorder } from './VideoRecorder';
 import { MediaPreview } from './MediaPreview';
 import { ReplyQuote } from './MessageBubble';
@@ -390,7 +390,7 @@ export function ChatComposer({
     // level meter on screen keeps listening to the plain microphone.
     const enhanced = enhanceMic(stream);
     enhancedRef.current = enhanced;
-    const rec = new MediaRecorder(enhanced.stream, { mimeType: mime, audioBitsPerSecond: VOICE_BITRATE });
+    const rec = new MediaRecorder(enhanced.stream, { mimeType: mime, audioBitsPerSecond: chatBitrate() });
     chunksRef.current = [];
     rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
     rec.start(500);

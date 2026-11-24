@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 import { render, screen, fireEvent } from '@testing-library/react';
 import { VoiceNotePlayer } from '../components/chat/VoiceNotePlayer';
 import { boostBlocked, resetBoostForTests } from '../lib/voiceBoost';
+import { setVoiceProcessing } from '../lib/voiceSettings';
 
 // The loudness boost on voice notes: an amplifier + compressor + limiter in front of the speaker. It must never leave a note silent:
 // only hooked up from a tap, only when the storage is known to allow it, and with a way back to the ordinary playing.
@@ -57,14 +58,29 @@ beforeAll(() => {
 beforeEach(() => {
   window.localStorage.clear();
   resetBoostForTests();
+  setVoiceProcessing(true); // these tests are about the boost, which is switched off in the app for now
   FakeAudioContext.last = null;
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  setVoiceProcessing(false);
+});
 
 const audio = () => document.querySelector('audio')!;
 const play = () => fireEvent.click(screen.getByRole('button', { name: /Play voice message|Pause voice message/ }));
 
 describe('Loudness boost on a voice note', () => {
+  it('is switched off in the app for now: voice notes play the plain way even on a phone that could do it', () => {
+    setVoiceProcessing(false);
+    vi.stubGlobal('AudioContext', FakeAudioContext);
+    render(<VoiceNotePlayer {...props} />);
+    expect(screen.queryByTestId('voice-boost')).toBeNull();
+    expect(audio()).not.toHaveAttribute('crossorigin');
+    fireEvent.loadedMetadata(audio());
+    play();
+    expect(FakeAudioContext.last).toBeNull(); // no audio processing is even started
+  });
+
   it('is not offered on a phone that cannot do it, and the audio is fetched the ordinary way', () => {
     render(<VoiceNotePlayer {...props} />);
     expect(screen.queryByTestId('voice-boost')).toBeNull();
