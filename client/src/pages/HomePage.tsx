@@ -97,12 +97,9 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* What you can experience: twelve slides, one under the other, each a different side of the movement */}
-      <section id="offer" className="scroll-mt-16 bg-white px-4 py-14 sm:py-20">
+      {/* Right after the motto: twelve slides, one under the other, each a different side of the movement (no heading of its own) */}
+      <section id="offer" className="scroll-mt-16 bg-white px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-3xl">
-          <Label>{t('homePage.offer_label')}</Label>
-          <h2 className="mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">{t('homePage.offer_title')}</h2>
-          <p className="mt-3 max-w-2xl text-slate-600">{t('discover.intro')}</p>
           <DiscoverSlides />
         </div>
       </section>

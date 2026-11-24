@@ -4,90 +4,124 @@ import { ChartIcon, ChatHeartIcon, CompassIcon, GlobeIcon, GraduationCapIcon, He
 
 type IconType = (p: { className?: string }) => JSX.Element;
 
-const SLIDES: { n: number; Icon: IconType; glow: string }[] = [
-  { n: 1, Icon: GlobeIcon, glow: 'from-gold-400/25' },
-  { n: 2, Icon: OpenBookIcon, glow: 'from-sky-400/20' },
-  { n: 3, Icon: GraduationCapIcon, glow: 'from-gold-400/25' },
-  { n: 4, Icon: MediaPlayIcon, glow: 'from-sky-400/20' },
-  { n: 5, Icon: UsersIcon, glow: 'from-gold-400/25' },
-  { n: 6, Icon: ChatHeartIcon, glow: 'from-sky-400/20' },
-  { n: 7, Icon: ChartIcon, glow: 'from-gold-400/25' },
-  { n: 8, Icon: CompassIcon, glow: 'from-sky-400/20' },
-  { n: 9, Icon: HeartHandsIcon, glow: 'from-gold-400/25' },
-  { n: 10, Icon: SproutIcon, glow: 'from-sky-400/20' },
-  { n: 11, Icon: UsersIcon, glow: 'from-gold-400/25' },
-  { n: 12, Icon: GlobeIcon, glow: 'from-gold-400/30' },
+const SLIDES: { n: number; Icon: IconType }[] = [
+  { n: 1, Icon: GlobeIcon },
+  { n: 2, Icon: OpenBookIcon },
+  { n: 3, Icon: GraduationCapIcon },
+  { n: 4, Icon: MediaPlayIcon },
+  { n: 5, Icon: UsersIcon },
+  { n: 6, Icon: ChatHeartIcon },
+  { n: 7, Icon: ChartIcon },
+  { n: 8, Icon: CompassIcon },
+  { n: 9, Icon: HeartHandsIcon },
+  { n: 10, Icon: SproutIcon },
+  { n: 11, Icon: UsersIcon },
+  { n: 12, Icon: GlobeIcon },
 ];
 const COUNT = SLIDES.length;
 
 /**
- * The slides that have a real photograph. A photograph for slide N is a file at /site/discover/slide-N.jpg (portrait or landscape,
- * about 1600 px wide); add its number here and it appears behind that slide. Until then a slide shows the brand navy and gold with
- * its symbol, so nothing is ever a broken picture.
+ * The photograph behind each slide (a file under /site/, about 1600 px wide is plenty). A slide with no photograph yet shows a bright,
+ * plain version (no picture, no dark card) so nothing is ever a broken picture.
+ *  - `at`: which part of the picture stays in view when it is cropped to the slide.
+ *  - `zoom`: enlarge the picture around that point (used to leave out something at the edge of the photo).
+ * These are pictures already used on the public site, placed where they fit until the final photographs come.
  */
-const PHOTOS: number[] = [];
-const photoOf = (n: number) => (PHOTOS.includes(n) ? `/site/discover/slide-${n}.jpg` : null);
+interface Photo {
+  src: string;
+  at?: string;
+  zoom?: number;
+}
+const PHOTOS: Record<number, Photo> = {
+  3: { src: '/site/session-room.jpg', at: '30% 50%' },
+  5: { src: '/site/session-close.jpg', at: '50% 40%' },
+  10: { src: '/site/session-presenter.jpg', at: '45% 50%' },
+  11: { src: '/site/session-workshop.jpg', at: '100% 40%', zoom: 1.6 },
+};
+
+const SHADOW = '[text-shadow:0_1px_3px_rgba(0,0,0,0.55),0_2px_18px_rgba(0,0,0,0.45)]';
 
 // "Discover The God Nation": twelve slides, one under the other, each showing a different side of the movement (training, leadership
 // academy, digital evangelism, community, prayer, skills, representation, mutual support, discipleship, unity) and ending with the
-// invitation to join. Same logo, colours and type on every slide; the headline is big enough to read on a phone.
+// invitation to join. A slide is its photograph, edge to edge and bright, with the headline written straight on it in white (only the
+// lower part of the picture is darkened a little, so the words stay readable and the top of the photo stays bright). Same logo and
+// type on every slide; the headline is big enough to read on a phone.
 export function DiscoverSlides() {
   const { t } = useTranslation();
 
   return (
-    <ol className="mt-10 space-y-5 sm:space-y-7" data-testid="discover-slides" aria-label={t('discover.aria')}>
-      {SLIDES.map(({ n, Icon, glow }) => {
-        const photo = photoOf(n);
-        const last = n === COUNT;
-        const tag = t(`discover.s${n}_tag`, { defaultValue: '' });
-        return (
-          <li key={n}>
-            <article
-              className="relative isolate flex min-h-[30rem] flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 p-5 text-white shadow-xl shadow-brand-950/20 sm:min-h-[34rem] sm:p-9"
-              data-testid={`discover-slide-${n}`}
-            >
-              {photo ? (
-                <>
-                  <img src={photo} alt="" loading="lazy" className="absolute inset-0 -z-20 h-full w-full object-cover" />
-                  <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-brand-950 via-brand-950/70 to-brand-950/10" />
-                </>
-              ) : (
-                <>
-                  <div aria-hidden className={`absolute -right-20 -top-20 -z-10 h-80 w-80 rounded-full bg-gradient-to-br ${glow} to-transparent blur-3xl`} />
-                  <Icon className="absolute -bottom-6 -right-6 -z-10 h-64 w-64 text-white/[0.06] sm:h-80 sm:w-80" />
-                </>
-              )}
-
-              <header className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-2">
-                  <img src="/icons/icon-192.png" alt="" className="h-9 w-9 rounded-lg bg-white object-contain p-0.5" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-gold-400">The God Nation</span>
-                </span>
-                <span className="text-xs font-semibold tabular-nums text-white/70">
-                  {String(n).padStart(2, '0')} / {COUNT}
-                </span>
-              </header>
-
-              <div className="mt-16">
-                <p className="text-xs font-bold uppercase tracking-widest text-gold-400">{t(`discover.s${n}_label`)}</p>
-                <h3 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">{t(`discover.s${n}_title`)}</h3>
-                <p className="mt-4 max-w-xl text-base text-brand-100 sm:text-lg">{t(`discover.s${n}_body`)}</p>
-                {tag && <p className={`mt-4 font-bold text-gold-400 ${last ? 'text-sm uppercase tracking-widest sm:text-base' : 'text-lg'}`}>{tag}</p>}
-                {last && (
-                  <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                    <Link to="/member/join" className="inline-flex items-center justify-center rounded-lg bg-gold-500 px-6 py-3 font-bold text-brand-950 shadow-lg shadow-black/10 hover:bg-gold-400">
-                      {t('homePage.join')} <span aria-hidden className="ml-2">→</span>
-                    </Link>
-                    <Link to="/member/login" className="inline-flex items-center justify-center rounded-lg border border-white/60 px-6 py-3 font-semibold text-white hover:bg-white/10">
-                      {t('homePage.sign_in')}
-                    </Link>
-                  </div>
+    <>
+      <h2 className="sr-only">{t('discover.heading')}</h2>
+      <ol className="-mx-4 space-y-1 sm:mx-0 sm:space-y-4" data-testid="discover-slides" aria-label={t('discover.aria')}>
+        {SLIDES.map(({ n, Icon }) => {
+          const photo = PHOTOS[n];
+          const last = n === COUNT;
+          const tag = t(`discover.s${n}_tag`, { defaultValue: '' });
+          // Slides 1 and 12 have no topic tag: their headline says it all ("A Kingdom revival movement is emerging!", "You have a place…").
+          const label = t(`discover.s${n}_label`, { defaultValue: '' });
+          const onPhoto = Boolean(photo);
+          return (
+            <li key={n}>
+              <article
+                className={`relative isolate flex min-h-[32rem] flex-col justify-between overflow-hidden p-5 sm:min-h-[34rem] sm:rounded-3xl sm:p-9 ${
+                  onPhoto ? 'text-white' : 'bg-gradient-to-br from-white via-brand-50 to-brand-100 text-brand-950'
+                }`}
+                data-testid={`discover-slide-${n}`}
+              >
+                {photo ? (
+                  <>
+                    <img
+                      src={photo.src}
+                      alt=""
+                      loading="lazy"
+                      className="absolute inset-0 -z-20 h-full w-full object-cover saturate-110"
+                      style={{ objectPosition: photo.at, ...(photo.zoom ? { transform: `scale(${photo.zoom})`, transformOrigin: photo.at } : {}) }}
+                    />
+                    {/* Only the lower part is darkened, for the words; the rest of the photograph stays as bright as it was taken. */}
+                    <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-[78%] bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
+                  </>
+                ) : (
+                  <Icon className="absolute -bottom-8 -right-8 -z-10 h-72 w-72 text-brand-200/60 sm:h-96 sm:w-96" />
                 )}
-              </div>
-            </article>
-          </li>
-        );
-      })}
-    </ol>
+
+                <header className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 rounded-full bg-white/90 py-1 pl-1 pr-3 shadow-sm">
+                    <img src="/icons/icon-192.png" alt="" className="h-7 w-7 rounded-full object-contain" />
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-brand-900">The God Nation</span>
+                  </span>
+                  <span className="rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold tabular-nums text-brand-900 shadow-sm">
+                    {String(n).padStart(2, '0')} / {COUNT}
+                  </span>
+                </header>
+
+                <div className="mt-16">
+                  {label && <p className={`mb-3 inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest ${onPhoto ? 'bg-gold-400 text-brand-950' : 'bg-brand-600 text-white'}`}>{label}</p>}
+                  <h3 className={`text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl ${onPhoto ? SHADOW : 'text-brand-900'}`}>{t(`discover.s${n}_title`)}</h3>
+                  <p className={`mt-4 max-w-xl text-base sm:text-lg ${onPhoto ? `text-white ${SHADOW}` : 'text-slate-700'}`}>{t(`discover.s${n}_body`)}</p>
+                  {tag && (
+                    <p className={`mt-4 font-bold ${last ? 'text-sm uppercase tracking-widest sm:text-base' : 'text-lg'} ${onPhoto ? `text-gold-400 ${SHADOW}` : 'text-brand-700'}`}>{tag}</p>
+                  )}
+                  {last && (
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                      <Link to="/member/join" className="inline-flex items-center justify-center rounded-lg bg-gold-500 px-6 py-3 font-bold text-brand-950 shadow-lg shadow-black/10 hover:bg-gold-400">
+                        {t('homePage.join')} <span aria-hidden className="ml-2">→</span>
+                      </Link>
+                      <Link
+                        to="/member/login"
+                        className={`inline-flex items-center justify-center rounded-lg border px-6 py-3 font-semibold ${
+                          onPhoto ? 'border-white/80 bg-white/90 text-brand-900 hover:bg-white' : 'border-brand-700 text-brand-800 hover:bg-brand-50'
+                        }`}
+                      >
+                        {t('homePage.sign_in')}
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </article>
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }
