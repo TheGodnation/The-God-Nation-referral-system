@@ -40,6 +40,28 @@ export function formatVoiceLength(seconds: number): string {
 /** Notes up to this size are preloaded completely (a few seconds of audio), so pressing play starts at once. */
 const PRELOAD_ALL_BYTES = 700 * 1024;
 
+/** The "back" and "forward" buttons move this many seconds; the arrow keys move half as much. */
+const SKIP_SECONDS = 10;
+const KEY_SECONDS = 5;
+/** Playback speeds, one tap on the speed button moving to the next. The last one chosen is remembered on this phone. */
+const RATES = [1, 1.5, 2] as const;
+const RATE_KEY = 'voice:rate';
+function loadRate(): number {
+  try {
+    const v = Number(window.localStorage.getItem(RATE_KEY));
+    return (RATES as readonly number[]).includes(v) ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+function saveRate(rate: number): void {
+  try {
+    window.localStorage.setItem(RATE_KEY, String(rate));
+  } catch {
+    // not remembered: fine
+  }
+}
+
 export function VoiceNotePlayer({
   url,
   byteSize,
@@ -83,6 +105,10 @@ export function VoiceNotePlayer({
   const [duration, setDuration] = useState(0);
   // The audio itself would not load, even after fresh links: shown as "try again".
   const [broken, setBroken] = useState(false);
+  // Where the finger is on the waveform while it is being dragged (in seconds); null when not dragging.
+  const [scrub, setScrub] = useState<number | null>(null);
+  const scrubbing = useRef(false);
+  const [rate, setRate] = useState<number>(loadRate);
   const bars = useRef(seededBars(seedId)).current;
   const ready = Boolean(url);
   const showFailed = failed || broken;
@@ -97,6 +123,11 @@ export function VoiceNotePlayer({
     linkRetries.current = 0;
     setBroken(false);
   }, [seedId]);
+
+  // The chosen speed applies to every note, including one whose audio is only now ready.
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = rate;
+  }, [rate, url]);
 
   // Pressed before the audio was ready: it starts by itself the moment it is.
   useEffect(() => {
@@ -131,20 +162,74 @@ export function VoiceNotePlayer({
   // The length known before the audio loads (saved with the message), replaced by the audio's own once it is read.
   const known = duration > 0 ? duration : durationMs && durationMs > 0 ? durationMs / 1000 : 0;
 
-  function seekTo(clientX: number) {
+  /** Moves the audio to this many seconds from the start (it keeps playing, or stays paused, as it was). */
+  function seekToSeconds(seconds: number) {
     const audio = audioRef.current;
-    const el = barsRef.current;
-    if (!audio || !el || !known) return;
-    const rect = el.getBoundingClientRect();
-    const fraction = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    audio.currentTime = fraction * known;
-    setCurrentTime(audio.currentTime);
+    if (!audio) return;
+    const to = Math.max(0, known > 0 ? Math.min(known, seconds) : seconds);
+    audio.currentTime = to;
+    setCurrentTime(to);
   }
 
-  const progress = known > 0 ? Math.min(1, currentTime / known) : 0;
+  /** The second under a finger on the waveform, or null while the length is not known. */
+  function secondAt(clientX: number): number | null {
+    const el = barsRef.current;
+    if (!el || known <= 0) return null;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0) return null;
+    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) * known;
+  }
+
+  // Dragging the waveform: the time under the finger is shown large while it moves, and the audio jumps there when it is let go.
+  function startScrub(e: React.PointerEvent<HTMLDivElement>) {
+    const s = secondAt(e.clientX);
+    if (s === null) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    scrubbing.current = true;
+    setScrub(s);
+  }
+  function moveScrub(e: React.PointerEvent<HTMLDivElement>) {
+    if (!scrubbing.current) return;
+    const s = secondAt(e.clientX);
+    if (s !== null) setScrub(s);
+  }
+  function endScrub(e: React.PointerEvent<HTMLDivElement>) {
+    if (!scrubbing.current) return;
+    scrubbing.current = false;
+    const s = secondAt(e.clientX);
+    if (s !== null) seekToSeconds(s);
+    setScrub(null);
+  }
+  function cancelScrub() {
+    scrubbing.current = false;
+    setScrub(null);
+  }
+
+  function skip(delta: number) {
+    const audio = audioRef.current;
+    if (audio) seekToSeconds(audio.currentTime + delta);
+  }
+
+  function nextRate() {
+    const next = RATES[(RATES.findIndex((r) => r === rate) + 1) % RATES.length];
+    setRate(next);
+    saveRate(next);
+  }
+
+  function onSliderKey(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') seekToSeconds(currentTime - KEY_SECONDS);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') seekToSeconds(currentTime + KEY_SECONDS);
+    else return;
+    e.preventDefault();
+  }
+
+  // What the bar shows: the dragged-to second while dragging, otherwise where the audio is.
+  const shown = scrub ?? currentTime;
+  const progress = known > 0 ? Math.min(1, shown / known) : 0;
   const playedBars = Math.round(progress * BAR_COUNT);
-  const remaining = playing || currentTime > 0 ? Math.max(0, known - currentTime) : known;
-  const lengthText = known > 0 ? formatVoiceLength(remaining) : '–:––';
+  // At rest the note's length; once it is playing, paused part-way or being dragged: "1:02 / 2:10".
+  const atRest = !playing && shown === 0;
+  const lengthText = known > 0 ? (atRest ? formatVoiceLength(known) : `${formatVoiceLength(shown)} / ${formatVoiceLength(known)}`) : '–:––';
 
   return (
     <div className={`flex items-center gap-2 py-0.5 ${own ? 'flex-row' : 'flex-row-reverse'}`}>
@@ -185,30 +270,63 @@ export function VoiceNotePlayer({
               )}
             </button>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <div
-                ref={barsRef}
-                {...(ready
-                  ? {
-                      role: 'slider',
-                      'aria-label': t('groupChat.voice') ?? '',
-                      'aria-valuemin': 0,
-                      'aria-valuemax': Math.round(known),
-                      'aria-valuenow': Math.round(currentTime),
-                    }
-                  : { 'aria-hidden': true })}
-                className={`flex h-6 w-full min-w-[7rem] max-w-[11rem] items-center gap-[2px] ${ready ? 'cursor-pointer' : 'animate-pulse'}`}
-                onClick={ready ? (e) => seekTo(e.clientX) : undefined}
-              >
-                {bars.map((h, i) => (
+              <div className="relative w-full min-w-[8rem] max-w-[13rem]">
+                {/* The waveform is the scrubber: a tall touch area you can drag along (the page does not scroll under the finger). */}
+                <div
+                  ref={barsRef}
+                  {...(ready
+                    ? {
+                        role: 'slider',
+                        tabIndex: 0,
+                        'aria-label': t('groupChat.voice') ?? '',
+                        'aria-valuemin': 0,
+                        'aria-valuemax': Math.round(known),
+                        'aria-valuenow': Math.round(shown),
+                        'aria-valuetext': known > 0 ? `${formatVoiceLength(shown)} / ${formatVoiceLength(known)}` : undefined,
+                      }
+                    : { 'aria-hidden': true })}
+                  className={`flex h-9 w-full touch-none select-none items-center gap-[2px] ${ready ? 'cursor-pointer' : 'animate-pulse'}`}
+                  onPointerDown={ready ? startScrub : undefined}
+                  onPointerMove={ready ? moveScrub : undefined}
+                  onPointerUp={ready ? endScrub : undefined}
+                  onPointerCancel={ready ? cancelScrub : undefined}
+                  onKeyDown={ready ? onSliderKey : undefined}
+                >
+                  {bars.map((h, i) => (
+                    <span
+                      key={i}
+                      aria-hidden
+                      className={`w-[2px] flex-1 rounded-full ${i < playedBars ? 'bg-[#075e54]' : 'bg-slate-400/50'}`}
+                      style={{ height: `${Math.round(h * 100)}%` }}
+                    />
+                  ))}
+                </div>
+                {/* A handle that shows where you are (and grows while you drag it). */}
+                {ready && known > 0 && (
                   <span
-                    key={i}
                     aria-hidden
-                    className={`w-[2px] flex-1 rounded-full ${i < playedBars ? 'bg-[#075e54]' : 'bg-slate-400/50'}`}
-                    style={{ height: `${Math.round(h * 100)}%` }}
+                    data-testid="voice-thumb"
+                    className={`pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#075e54] shadow ring-2 ring-white transition-[width,height] ${scrub !== null ? 'h-5 w-5' : 'h-3.5 w-3.5'}`}
+                    style={{ left: `${progress * 100}%` }}
                   />
-                ))}
+                )}
               </div>
-              <span className="text-[11px] text-slate-500">{lengthText}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span data-testid="voice-time" className={scrub !== null ? 'text-sm font-bold text-[#075e54]' : 'text-[11px] text-slate-500'}>{lengthText}</span>
+                {ready && (
+                  <span className="flex shrink-0 items-center gap-1">
+                    <button type="button" onClick={() => skip(-SKIP_SECONDS)} aria-label={t('groupChat.voice_back', { seconds: SKIP_SECONDS }) ?? ''} data-testid="voice-back" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
+                      −{SKIP_SECONDS}
+                    </button>
+                    <button type="button" onClick={() => skip(SKIP_SECONDS)} aria-label={t('groupChat.voice_forward', { seconds: SKIP_SECONDS }) ?? ''} data-testid="voice-forward" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
+                      +{SKIP_SECONDS}
+                    </button>
+                    <button type="button" onClick={nextRate} aria-label={t('groupChat.voice_speed', { rate }) ?? ''} data-testid="voice-speed" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
+                      {rate}×
+                    </button>
+                  </span>
+                )}
+              </div>
             </div>
             {url && (
               <audio

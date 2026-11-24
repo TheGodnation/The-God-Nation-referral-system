@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { VoiceNotePlayer } from '../components/chat/VoiceNotePlayer';
 
@@ -151,7 +151,8 @@ describe('VoiceNotePlayer', () => {
 
     Object.defineProperty(audio, 'currentTime', { value: 5, configurable: true });
     fireEvent.timeUpdate(audio);
-    expect(await screen.findByText('0:07')).toBeInTheDocument();
+    // Once it is playing (or part-way through) the time reads "where you are / how long it is".
+    expect(await screen.findByText('0:05 / 0:12')).toBeInTheDocument();
   });
 
   it('resets to the start when playback ends', async () => {
@@ -231,5 +232,133 @@ describe('VoiceNotePlayer', () => {
     // avatar's side flips for a received note.
     // eslint-disable-next-line no-bitwise
     expect(playButton.compareDocumentPosition(waveform) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+// Moving about inside a voice note: drag the waveform, back / forward 10 seconds, the arrow keys, and the playback speed.
+describe('VoiceNotePlayer — moving about inside the note', () => {
+  const props = { url: 'https://files.example/voice.webm', byteSize: 400_000, seedId: 'a1', avatarName: 'Ben Tabe', own: false, waitForTap: false, failed: false, onRequestDownload: vi.fn() };
+  beforeEach(() => window.localStorage.clear());
+  // The test environment has no PointerEvent (a real phone does), so a finger's position would be lost: stand in for it.
+  beforeAll(() => {
+    if (typeof window.PointerEvent === 'undefined') {
+      class PointerEventStandIn extends MouseEvent {
+        pointerId: number;
+        constructor(type: string, init: PointerEventInit = {}) {
+          super(type, init);
+          this.pointerId = init.pointerId ?? 1;
+        }
+      }
+      (window as unknown as { PointerEvent: unknown }).PointerEvent = PointerEventStandIn;
+    }
+  });
+
+  // An audio element whose position and speed can be read back (jsdom does not play anything).
+  function setUpAudio(duration: number, at = 0) {
+    const audio = document.querySelector('audio')!;
+    let time = at;
+    let speed = 1;
+    Object.defineProperty(audio, 'duration', { value: duration, configurable: true });
+    Object.defineProperty(audio, 'currentTime', { get: () => time, set: (v: number) => (time = v), configurable: true });
+    Object.defineProperty(audio, 'playbackRate', { get: () => speed, set: (v: number) => (speed = v), configurable: true });
+    fireEvent.loadedMetadata(audio);
+    return { audio, now: () => time, speed: () => speed };
+  }
+  // The waveform is 200px wide, starting at the left edge, so a finger at x seconds-fraction x/200.
+  function sliderOf() {
+    const slider = screen.getByRole('slider');
+    slider.getBoundingClientRect = () => ({ left: 0, right: 200, top: 0, bottom: 36, width: 200, height: 36, x: 0, y: 0, toJSON: () => ({}) });
+    return slider;
+  }
+
+  it('shows the position under the finger, large, while you drag the waveform, and jumps there when you let go', async () => {
+    render(<VoiceNotePlayer {...props} />);
+    const a = setUpAudio(120);
+    const slider = sliderOf();
+    expect(screen.getByTestId('voice-time')).toHaveTextContent('2:00');
+    fireEvent.pointerDown(slider, { clientX: 100, pointerId: 1 });
+    expect(await screen.findByText('1:00 / 2:00')).toBeInTheDocument();
+    expect(screen.getByTestId('voice-time')).toHaveClass('font-bold'); // large and clear while dragging
+    expect(a.now()).toBe(0); // nothing jumps while the finger is still moving
+    fireEvent.pointerMove(slider, { clientX: 150, pointerId: 1 });
+    expect(await screen.findByText('1:30 / 2:00')).toBeInTheDocument();
+    expect(screen.getByTestId('voice-thumb')).toHaveStyle({ left: '75%' });
+    fireEvent.pointerUp(slider, { clientX: 150, pointerId: 1 });
+    expect(a.now()).toBe(90);
+    expect(screen.getByTestId('voice-time')).not.toHaveClass('font-bold');
+    expect(screen.getByTestId('voice-time')).toHaveTextContent('1:30 / 2:00');
+  });
+
+  it('a drag that is cancelled (or runs past either end) changes nothing, or stops at the end', async () => {
+    render(<VoiceNotePlayer {...props} />);
+    const a = setUpAudio(120, 20);
+    fireEvent.timeUpdate(document.querySelector('audio')!);
+    const slider = sliderOf();
+    fireEvent.pointerDown(slider, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerCancel(slider, { pointerId: 1 });
+    expect(a.now()).toBe(20);
+    fireEvent.pointerDown(slider, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerUp(slider, { clientX: 999, pointerId: 1 }); // far past the right end
+    expect(a.now()).toBe(120);
+    fireEvent.pointerDown(slider, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerUp(slider, { clientX: -50, pointerId: 1 }); // before the start
+    expect(a.now()).toBe(0);
+  });
+
+  it('has back and forward 10 seconds buttons that stop at the start and the end', async () => {
+    render(<VoiceNotePlayer {...props} />);
+    const a = setUpAudio(120, 30);
+    fireEvent.click(screen.getByTestId('voice-forward'));
+    expect(a.now()).toBe(40);
+    fireEvent.click(screen.getByTestId('voice-back'));
+    fireEvent.click(screen.getByTestId('voice-back'));
+    fireEvent.click(screen.getByTestId('voice-back'));
+    fireEvent.click(screen.getByTestId('voice-back'));
+    expect(a.now()).toBe(0); // never before the start
+    fireEvent.timeUpdate(document.querySelector('audio')!);
+    for (let i = 0; i < 13; i++) fireEvent.click(screen.getByTestId('voice-forward'));
+    expect(a.now()).toBe(120); // never past the end
+    expect(screen.getByRole('button', { name: 'Back 10 seconds' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Forward 10 seconds' })).toBeInTheDocument();
+  });
+
+  it('the arrow keys move 5 seconds', () => {
+    render(<VoiceNotePlayer {...props} />);
+    const a = setUpAudio(120, 30);
+    fireEvent.timeUpdate(document.querySelector('audio')!);
+    const slider = screen.getByRole('slider');
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    expect(a.now()).toBe(35);
+    fireEvent.keyDown(slider, { key: 'ArrowLeft' });
+    fireEvent.keyDown(slider, { key: 'ArrowLeft' });
+    expect(a.now()).toBe(25);
+    expect(slider).toHaveAttribute('aria-valuetext', '0:25 / 2:00');
+  });
+
+  it('the speed button goes 1× → 1.5× → 2× → 1×, changes the audio, and is remembered for the next note', () => {
+    const { unmount } = render(<VoiceNotePlayer {...props} />);
+    const a = setUpAudio(120);
+    const speed = screen.getByTestId('voice-speed');
+    expect(speed).toHaveTextContent('1×');
+    fireEvent.click(speed);
+    expect(speed).toHaveTextContent('1.5×');
+    expect(a.speed()).toBe(1.5);
+    expect(window.localStorage.getItem('voice:rate')).toBe('1.5');
+    fireEvent.click(speed);
+    expect(speed).toHaveTextContent('2×');
+    fireEvent.click(speed);
+    expect(speed).toHaveTextContent('1×');
+    fireEvent.click(speed);
+    unmount();
+    // Another voice note starts at the speed that was chosen last.
+    render(<VoiceNotePlayer {...props} seedId="b2" />);
+    expect(screen.getByTestId('voice-speed')).toHaveTextContent('1.5×');
+  });
+
+  it('offers none of this until the audio is ready', () => {
+    render(<VoiceNotePlayer {...props} url={null} durationMs={30_000} />);
+    expect(screen.queryByRole('slider')).toBeNull();
+    expect(screen.queryByTestId('voice-forward')).toBeNull();
+    expect(screen.queryByTestId('voice-speed')).toBeNull();
   });
 });
