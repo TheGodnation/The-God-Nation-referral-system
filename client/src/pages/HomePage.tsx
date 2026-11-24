@@ -10,27 +10,15 @@ import {
   OpenBookIcon,
   HeartHandsIcon,
   UsersIcon,
-  MediaPlayIcon,
   GlobeIcon,
-  ChartIcon,
-  DocumentIcon,
   SproutIcon,
   CompassIcon,
-  ChatHeartIcon,
 } from '../components/Icons';
 import { SOCIAL_ICONS, configuredSocials } from '../components/socialPlatforms';
 import { MottoCard } from '../components/MottoCard';
+import { DiscoverSlides } from '../components/DiscoverSlides';
 
 type IconType = (p: { className?: string }) => JSX.Element;
-
-const OFFERS: { n: number; Icon: IconType }[] = [
-  { n: 1, Icon: OpenBookIcon },
-  { n: 2, Icon: DocumentIcon },
-  { n: 3, Icon: UsersIcon },
-  { n: 4, Icon: ChatHeartIcon },
-  { n: 5, Icon: ChartIcon },
-  { n: 6, Icon: MediaPlayIcon },
-];
 
 const VALUES: { n: number; Icon: IconType }[] = [
   { n: 1, Icon: CompassIcon },
@@ -109,24 +97,13 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* What you can experience */}
+      {/* What you can experience: twelve slides, one under the other, each a different side of the movement */}
       <section id="offer" className="scroll-mt-16 bg-white px-4 py-14 sm:py-20">
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-3xl">
           <Label>{t('homePage.offer_label')}</Label>
           <h2 className="mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">{t('homePage.offer_title')}</h2>
-          <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {OFFERS.map(({ n, Icon }) => (
-              <li key={n} className="flex gap-4 rounded-2xl border border-slate-100 bg-brand-50/60 p-5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-brand-700 shadow-sm">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span>
-                  <span className="block font-semibold text-brand-900">{t(`homePage.offer_${n}_t`)}</span>
-                  <span className="mt-1 block text-sm text-slate-600">{t(`homePage.offer_${n}_b`)}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <p className="mt-3 max-w-2xl text-slate-600">{t('discover.intro')}</p>
+          <DiscoverSlides />
         </div>
       </section>
 

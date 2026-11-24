@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '../i18n';
 import { HomePage } from '../pages/HomePage';
@@ -59,6 +59,31 @@ describe('HomePage', () => {
     expect(motto.compareDocumentPosition(offer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Français' }));
     expect(await screen.findByText(/Allez dans les espaces des médias numériques/)).toBeInTheDocument();
+  });
+
+  it('shows twelve "Discover The God Nation" slides after the motto and before the community section, in English and French, ending with the invitation to join', async () => {
+    const { container } = show();
+    const slides = screen.getByTestId('discover-slides');
+    expect(slides.querySelectorAll('article')).toHaveLength(12);
+    expect(screen.getByRole('heading', { level: 3, name: 'A Kingdom revival movement is emerging!' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Get trained. Get equipped. Get certified.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'You have a place. You have a role. Join the movement!' })).toBeInTheDocument();
+    expect(screen.getByText('Reach. Train. Send. Multiply. Impact nations.')).toBeInTheDocument();
+    // Order on the page: motto, then the slides, then "Real people…".
+    const motto = screen.getByTestId('about-motto');
+    expect(motto.compareDocumentPosition(slides) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(slides.compareDocumentPosition(container.querySelector('#community')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The last slide carries only the two buttons the home page always has: join, and sign in. No WhatsApp button.
+    const last = screen.getByTestId('discover-slide-12');
+    expect(within(last).getByRole('link', { name: /Join the Community/ })).toHaveAttribute('href', '/member/join');
+    expect(within(last).getByRole('link', { name: /Existing Members — Sign In/ })).toHaveAttribute('href', '/member/login');
+    expect(within(last).queryByTestId('discover-whatsapp')).toBeNull();
+    expect(within(last).getAllByRole('link')).toHaveLength(2);
+    // No photographs yet: every slide still shows on the brand colours, with no broken pictures.
+    expect(slides.querySelectorAll('img[src*="/site/discover/"]')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Français' }));
+    expect(await screen.findByRole('heading', { level: 3, name: 'Un mouvement de réveil du Royaume émerge !' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Vous avez une place. Vous avez un rôle. Rejoignez le mouvement !' })).toBeInTheDocument();
   });
 
   it('has section links in the top bar, and is in French too', async () => {
