@@ -205,6 +205,11 @@ export function VoiceNotePlayer({
     setScrub(null);
   }
 
+  /** Stops a touch on the waveform from reaching the message around it (its swipe-to-reply and press-and-hold). */
+  function keepToMe(e: React.SyntheticEvent) {
+    e.stopPropagation();
+  }
+
   function skip(delta: number) {
     const audio = audioRef.current;
     if (audio) seekToSeconds(audio.currentTime + delta);
@@ -291,6 +296,13 @@ export function VoiceNotePlayer({
                   onPointerUp={ready ? endScrub : undefined}
                   onPointerCancel={ready ? cancelScrub : undefined}
                   onKeyDown={ready ? onSliderKey : undefined}
+                  // A finger on the waveform belongs to the waveform: the message around it must not also treat it as "swipe to
+                  // reply" (which slides the whole message) or "press and hold" (which opens its menu).
+                  onTouchStart={ready ? keepToMe : undefined}
+                  onTouchMove={ready ? keepToMe : undefined}
+                  onTouchEnd={ready ? keepToMe : undefined}
+                  onTouchCancel={ready ? keepToMe : undefined}
+                  onContextMenu={ready ? (e) => { e.stopPropagation(); e.preventDefault(); } : undefined}
                 >
                   {bars.map((h, i) => (
                     <span
