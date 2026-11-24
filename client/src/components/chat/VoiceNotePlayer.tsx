@@ -136,9 +136,12 @@ export function VoiceNotePlayer({
   }, [seedId]);
   // A fresh audio element (new note, or the plain one after a refusal) has no amplifier hooked up yet.
   useEffect(() => {
+    graph.current?.dispose();
     graph.current = null;
     corsConfirmed.current = false;
   }, [blocked, seedId]);
+  // Going away: stop listening for noise.
+  useEffect(() => () => graph.current?.dispose(), []);
 
   // The chosen speed applies to every note, including one whose audio is only now ready.
   useEffect(() => {
