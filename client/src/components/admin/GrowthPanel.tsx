@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { CommunitySetupReminder } from './CommunitySetupReminder';
 import { RemindersCard } from './RemindersCard';
+import { WhatsAppCloudCard } from './WhatsAppCloudCard';
 import { AdsCard } from './AdsCard';
 import { LinkBuilder } from './LinkBuilder';
 
@@ -71,6 +72,7 @@ export function GrowthPanel({ base }: { base: string }) {
     <div className="space-y-4" data-testid="growth-panel">
       <CommunitySetupReminder />
       <RemindersCard base={base.replace('/growth', '/reminders').replace('central-growth', 'central-reminders')} />
+      <WhatsAppCloudCard base={base.replace('/growth', '/whatsapp-cloud').replace('central-growth', 'central-whatsapp-cloud')} />
       <LinkBuilder />
       <AdsCard base={base.replace('/growth', '/ads').replace('central-growth', 'central-ads')} />
       <div className="card space-y-2">
