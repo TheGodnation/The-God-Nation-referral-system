@@ -50,7 +50,7 @@ async function member(name: string, opts: { admin?: boolean; language?: 'en' | '
   if (opts.admin) await prisma.user.create({ data: { name: 'Central Admin', email: `rota-admin-${n}@test.local`, passwordHash: 'x', role: 'ADMIN', personId: person.id } });
   const raw = request.agent(app);
   const ip = `10.171.${Math.floor(n / 256) % 256}.${n % 256}`;
-  const call = (m: 'get' | 'post' | 'put' | 'patch', p: string) => raw[m](p).set('X-Forwarded-For', ip);
+  const call = (m: 'get' | 'post' | 'put' | 'patch' | 'delete', p: string) => raw[m](p).set('X-Forwarded-For', ip);
   const { csrf } = await bootstrap(raw as any);
   const res = await call('post', '/api/member/auth/login').set('X-CSRF-Token', csrf).send({ email, password: PASSWORD });
   if (res.body.codeRequired) {
@@ -60,7 +60,7 @@ async function member(name: string, opts: { admin?: boolean; language?: 'en' | '
     await call('post', '/api/member/auth/verify-code').set('X-CSRF-Token', csrf).send({ email, code });
     spy.mockRestore();
   }
-  return { person, get: (p: string) => call('get', p), send: (m: 'post' | 'put' | 'patch', p: string, body: unknown) => call(m, p).set('X-CSRF-Token', csrf).send(body as object) };
+  return { person, get: (p: string) => call('get', p), send: (m: 'post' | 'put' | 'patch' | 'delete', p: string, body?: unknown) => call(m, p).set('X-CSRF-Token', csrf).send(body as object) };
 }
 
 beforeEach(async () => {
@@ -553,6 +553,45 @@ describe('the rating card in the group', () => {
     expect(rows[0].readAt).toBeNull();
     expect((rows[0].metadata as any).count).toBe(2);
     expect(JSON.stringify(rows[0].metadata)).not.toMatch(/Rater|KEEP_GROWING|EXCELLENT/);
+  });
+
+  it('lets a member take their rating back: it leaves the card and the totals, and the teacher\'s bell count follows', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    const r1 = await member('Rater One');
+    const r2 = await member('Rater Two');
+    for (const r of [r1, r2]) await prisma.communityMembership.create({ data: { personId: r.person.id, communityId: g.id } });
+    await finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'));
+    const card = (await cardsIn(g.id))[0];
+    await r1.send('post', '/api/member/teaching-rota/rate', { messageId: card.id, level: 'GOOD' });
+    await r2.send('post', '/api/member/teaching-rota/rate', { messageId: card.id, level: 'EXCELLENT' });
+    const back = await r1.send('post', '/api/member/teaching-rota/rate', { messageId: card.id, level: null });
+    expect(back.status).toBe(200);
+    expect(back.body.card).toMatchObject({ myLevel: null, total: 1 });
+    expect((await notices(people.alpha.id, 'rated'))[0].metadata).toMatchObject({ count: 1 });
+    // Taking back a rating that is not there is harmless, and the last one removed clears the teacher's bell entry.
+    expect((await r1.send('post', '/api/member/teaching-rota/rate', { messageId: card.id, level: null })).status).toBe(200);
+    await r2.send('post', '/api/member/teaching-rota/rate', { messageId: card.id, level: null });
+    expect(await notices(people.alpha.id, 'rated')).toHaveLength(0);
+    expect(await prisma.teachingRating.count()).toBe(0);
+  });
+
+  it('lets the administrator remove a card when nobody taught: it leaves the chat, cannot be rated, and does not come back by itself', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    const admin = await member('The Admin', { admin: true });
+    const viewer = await member('Group Viewer2');
+    for (const m of [admin, viewer]) await prisma.communityMembership.create({ data: { personId: m.person.id, communityId: g.id } });
+    await finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'));
+    const card = (await cardsIn(g.id))[0];
+    expect((await viewer.send('delete', `/api/communities/${g.id}/conversation/messages/${card.id}`)).status).toBe(403); // an ordinary member cannot
+    expect((await admin.send('delete', `/api/communities/${g.id}/conversation/messages/${card.id}`)).status).toBe(200);
+    const list = await viewer.get(`/api/communities/${g.id}/conversation/messages`);
+    const item = list.body.items.find((m: any) => m.id === card.id);
+    expect(item.deleted).toBe(true);
+    expect(item.ratingCard).toBeUndefined();
+    expect((await viewer.send('post', '/api/member/teaching-rota/rate', { messageId: card.id, level: 'GOOD' })).status).toBe(404);
+    expect(await postDueRatingCards(at('2026-11-23T06:40:00Z'))).toBe(0); // the automatic card does not put it back
   });
 
   it('puts the card into the group’s message list for members, with the counts and their own choice', async () => {

@@ -663,9 +663,9 @@ export function MemberGroupChatPage() {
     }
   }
 
-  async function removeForAll(m: ChatMessage) {
+  async function removeForAll(m: ChatMessage, ratingCard = false) {
     setMenuFor(null);
-    if (!window.confirm(t('groupChat.remove_confirm') ?? '')) return;
+    if (!window.confirm((ratingCard ? t('teachingRota.card_remove_confirm') : t('groupChat.remove_confirm')) ?? '')) return;
     try {
       await api.delete(`/api/communities/${communityId}/conversation/messages/${m.id}`);
       setMessages((prev) =>
@@ -843,7 +843,8 @@ export function MemberGroupChatPage() {
                     </span>
                   </div>
                 ) : m.kind === 'TEACHING_RATING' ? (
-                  <TeachingRatingCard messageId={m.id} initial={m.ratingCard} />
+                  // A removed card leaves no trace. The group's administrator sees a button to remove it (when nobody taught).
+                  m.deleted ? null : <TeachingRatingCard messageId={m.id} initial={m.ratingCard} onRemove={isAdministrator ? () => void removeForAll(m, true) : undefined} />
                 ) : (
                 <MessageBubble
                   m={m}

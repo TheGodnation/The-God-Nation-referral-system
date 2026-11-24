@@ -419,7 +419,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
       // "JOINED" is the welcome line (its body, when present, is how many people joined together).
       kind: m.kind === 'JOINED' ? ('JOINED' as const) : m.kind === 'TEACHING_RATING' ? ('TEACHING_RATING' as const) : undefined,
       // The rating card of a finished teaching: how many gave each level and who rated (name, photo, level), the viewer's own choice, and the central admin's rating.
-      ratingCard: m.kind === 'TEACHING_RATING' ? (ratingCards.get(m.id) ?? null) : undefined,
+      ratingCard: m.kind === 'TEACHING_RATING' && !m.deletedAt ? (ratingCards.get(m.id) ?? null) : undefined,
       body: m.deletedAt ? null : m.body,
       teaching:
         m.deletedAt || !m.teaching
