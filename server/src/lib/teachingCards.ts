@@ -229,6 +229,9 @@ export async function rate(personId: string, input: { messageId: string; level: 
   if (!(await isRater(personId))) throw new RotaError('You cannot rate the teachings.', 403, 'NOT_RATER');
   const card = await prisma.teachingRatingCard.findUnique({ where: { messageId: input.messageId } });
   if (!card) throw new RotaError('This teaching cannot be rated.', 404, 'NO_CARD');
+  // A card the group's administrator removed (for example because the teacher did not teach) can no longer be rated.
+  const cardMessage = await prisma.message.findUnique({ where: { id: input.messageId }, select: { deletedAt: true } });
+  if (!cardMessage || cardMessage.deletedAt) throw new RotaError('This teaching cannot be rated.', 404, 'NO_CARD');
   const teacher = await prisma.teachingTeacher.findUnique({ where: { id: card.teacherId } });
   if (!teacher) throw new RotaError('This teaching cannot be rated.', 404, 'NO_CARD');
   if (teacher.personId === personId) throw new RotaError('You cannot rate your own teaching.', 403, 'OWN_TEACHING');

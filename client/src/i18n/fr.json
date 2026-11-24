@@ -5918,6 +5918,8 @@
     "card_listen": "Écoutez l'enseignement, puis notez-le.",
     "card_you_chose": "Vous avez choisi : {{level}}",
     "card_tap_again": "Touchez-le encore pour retirer votre note",
+    "card_remove": "Retirer cette carte (l'enseignant n'a pas enseigné)",
+    "card_remove_confirm": "Retirer cette carte de notation pour tout le monde ? À utiliser si l'enseignant n'a pas enseigné. Elle ne reviendra pas.",
     "card_own": "C'est votre enseignement. Les autres peuvent le noter.",
     "card_coordinator": "{{name}} : {{level}}",
     "raters_show_all": "Voir les {{count}} personnes qui ont noté",

@@ -19,7 +19,7 @@ const RATERS_SHOWN = 8;
 // In the teaching group: the card that appears after a teacher's voice notes. Members rate the teaching with one of four
 // buttons, at any time, and can change it or take it back (tap the chosen one again). Everyone sees how many gave each level and who rated, each with their name and
 // photo; the National Coordinator's own rating is shown on top.
-export function TeachingRatingCard({ messageId, initial }: { messageId: string; initial: RatingCardInfo | null | undefined }) {
+export function TeachingRatingCard({ messageId, initial, onRemove }: { messageId: string; initial: RatingCardInfo | null | undefined; onRemove?: () => void }) {
   const { t } = useTranslation();
   const [info, setInfo] = useState<RatingCardInfo | null>(initial ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +93,11 @@ export function TeachingRatingCard({ messageId, initial }: { messageId: string; 
           </>
         )}
       </div>
+      {onRemove && (
+        <button type="button" className="mt-2 w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs font-semibold text-red-700" onClick={onRemove} data-testid="rating-card-remove">
+          🗑 {t('teachingRota.card_remove')}
+        </button>
+      )}
     </div>
   );
 }

@@ -239,6 +239,16 @@ describe('The rating card in the group', () => {
     expect(posts).toEqual([{ messageId: 'm7', level: 'GOOD' }, { messageId: 'm7', level: null }]);
   });
 
+  it('offers the administrator a button to remove the card (when nobody taught), and nobody else', () => {
+    const onRemove = vi.fn();
+    const { unmount } = render(<TeachingRatingCard messageId="m8" initial={CARD} />);
+    expect(screen.queryByTestId('rating-card-remove')).toBeNull();
+    unmount();
+    render(<TeachingRatingCard messageId="m8" initial={CARD} onRemove={onRemove} />);
+    fireEvent.click(screen.getByTestId('rating-card-remove'));
+    expect(onRemove).toHaveBeenCalledTimes(1);
+  });
+
   it('counts the Coordinator among the raters: listed first with a star, in the totals', () => {
     render(<TeachingRatingCard messageId="m2" initial={{ ...CARD, total: 4, counts: { EXCELLENT: 3, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 }, coordinator: { name: 'Stanley Ndoh', level: 'EXCELLENT' }, raters: [{ personId: 'c', name: 'Stanley Ndoh', photoUrl: null, level: 'EXCELLENT', isCoordinator: true }, { personId: 'p1', name: 'Member One', photoUrl: null, level: 'KEEP_GROWING' }] }} />);
     const card = screen.getByTestId('rating-card-m2');
