@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { GATE_CLOSED_GAIN, GATE_HOLD_MS, GATE_LOOKAHEAD_S, GATE_MARGIN_DB, GateController, insertNoiseGate } from '../lib/noiseGate';
+import { GATE_CLOSED_GAIN, GATE_FLOOR_MAX_DB, GATE_FLOOR_MIN_DB, GATE_HOLD_MS, GATE_LOOKAHEAD_S, GATE_MARGIN_DB, GATE_THRESHOLD_MAX_DB, GATE_THRESHOLD_MIN_DB, GateController, insertNoiseGate } from '../lib/noiseGate';
 
 // Turning the background noise down between words, without cutting the voice.
 afterEach(() => {
@@ -47,17 +47,28 @@ describe('The gate’s decisions', () => {
     const silent = new GateController();
     silent.update(-120, 0);
     const quietRoom = silent.update(-120, 20);
-    expect(quietRoom.floorDb).toBe(-70);
-    expect(quietRoom.thresholdDb).toBe(-60); // not lower than this (-70 + 8 would be -62)
+    expect(quietRoom.floorDb).toBe(GATE_FLOOR_MIN_DB);
+    expect(quietRoom.thresholdDb).toBe(GATE_THRESHOLD_MIN_DB); // not lower than this
     expect(silent.update(-75, 40).open).toBe(false); // faint noise: closed
     expect(silent.update(-45, 60).open).toBe(true); // a quiet voice: open
 
     const noisy = new GateController();
-    noisy.update(-20, 0); // started during loud speech or a loud room
-    const r = noisy.update(-20, 20);
-    expect(r.floorDb).toBe(-40); // not higher than this
-    expect(r.thresholdDb).toBe(-32);
+    noisy.update(-10, 0); // started during loud speech or a very loud room
+    const r = noisy.update(-10, 20);
+    expect(r.floorDb).toBe(GATE_FLOOR_MAX_DB); // not higher than this
+    expect(r.thresholdDb).toBe(GATE_THRESHOLD_MAX_DB);
     expect(r.open).toBe(true);
+  });
+
+  it('a microphone that lifts the room’s noise to -35 dB still has that noise turned down between words', () => {
+    const g = new GateController();
+    for (let t = 0; t < 1000; t += 20) g.update(-35, t);
+    expect(g.update(-35, 1000)).toMatchObject({ open: false, gain: GATE_CLOSED_GAIN });
+    expect(g.update(-18, 1020).open).toBe(true); // speech still opens it
+  });
+
+  it('turns the noise down by about 15 dB', () => {
+    expect(20 * Math.log10(GATE_CLOSED_GAIN)).toBeCloseTo(-14.9, 0);
   });
 });
 

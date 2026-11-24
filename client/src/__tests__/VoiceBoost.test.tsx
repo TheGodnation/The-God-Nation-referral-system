@@ -31,7 +31,7 @@ class FakeAudioContext {
     return node;
   }
   createBiquadFilter() {
-    const node = { type: '', frequency: { value: 0 }, connect: vi.fn() };
+    const node = { type: '', frequency: { value: 0 }, gain: { value: 0 }, connect: vi.fn() };
     this.filters.push(node);
     return node;
   }
@@ -127,17 +127,20 @@ describe('Loudness boost on a voice note', () => {
       expect(ctx.sources).toHaveLength(1); // still one hook-up
     });
 
-    it('turns the background noise down at Loud and Maximum (hum and hiss filters), and not at all when Off', () => {
+    it('turns the background noise down and gives the voice body at Loud and Maximum, and changes nothing when Off', () => {
       render(<VoiceNotePlayer {...props} />);
       fireEvent.loadedMetadata(audio());
       play();
       const ctx = FakeAudioContext.last!;
-      const [hum, hiss] = ctx.filters;
-      expect([hum.frequency.value, hiss.frequency.value]).toEqual([100, 7000]); // Loud
+      const [hum, hiss, warmth, soften] = ctx.filters as unknown as { frequency: { value: number }; gain: { value: number } }[];
+      const values = () => [hum.frequency.value, hiss.frequency.value, warmth.gain.value, soften.gain.value];
+      expect(values()).toEqual([80, 5800, 3, -3]); // Loud: low hum and high hiss cut, lower voice lifted, harsh highs softened
+      expect(warmth.frequency.value).toBe(220);
+      expect(soften.frequency.value).toBe(3500);
       fireEvent.click(screen.getByTestId('voice-boost'));
-      expect([hum.frequency.value, hiss.frequency.value]).toEqual([120, 6000]); // Maximum: a little stronger
+      expect(values()).toEqual([90, 5000, 5, -5]); // Maximum: a little stronger
       fireEvent.click(screen.getByTestId('voice-boost'));
-      expect([hum.frequency.value, hiss.frequency.value]).toEqual([10, 20000]); // Off: the whole sound passes
+      expect(values()).toEqual([10, 20000, 0, 0]); // Off: the whole sound passes, unchanged
     });
 
     it('with the boost off, playing leaves the sound untouched; switching it on later hooks it up at that tap', () => {

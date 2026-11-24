@@ -62,7 +62,7 @@ describe('cleaning up the voice before it is recorded', () => {
     expect(enhanceMic(rawStream).stream).toBe(rawStream);
   });
 
-  it('runs the voice through a rumble filter, a hiss filter, a noise gate, a compressor, a small make-up gain and a limiter, and records the result', () => {
+  it('runs the voice through a rumble filter, a hiss filter, warmth and softening, a noise gate, a compressor, a small make-up gain and a limiter, and records the result', () => {
     const connections: string[] = [];
     const node = (name: string, extra: object = {}) => ({ connect: vi.fn((to: { __name?: string }) => connections.push(`${name}>${to.__name}`)), __name: name, ...extra });
     const param = (value = 0) => ({ value });
@@ -71,7 +71,7 @@ describe('cleaning up the voice before it is recorded', () => {
     const outStream = { getAudioTracks: () => [track] } as unknown as MediaStream;
     const compressors: ReturnType<typeof node>[] = [];
     const gains: { gain: { value: number; cancelScheduledValues: ReturnType<typeof vi.fn> } }[] = [];
-    const filters: { type: string; frequency: { value: number } }[] = [];
+    const filters: { type: string; frequency: { value: number }; gain: { value: number } }[] = [];
     vi.stubGlobal('AudioContext', class {
       state = 'suspended';
       currentTime = 0;
@@ -81,8 +81,8 @@ describe('cleaning up the voice before it is recorded', () => {
         return node('source');
       }
       createBiquadFilter() {
-        const n = node(filters.length === 0 ? 'rumble' : 'hiss', { type: '', frequency: param() });
-        filters.push(n as unknown as { type: string; frequency: { value: number } });
+        const n = node(['rumble', 'hiss', 'warmth', 'soften'][filters.length], { type: '', frequency: param(), gain: param() });
+        filters.push(n as unknown as (typeof filters)[number]);
         return n;
       }
       createAnalyser() {
@@ -111,16 +111,19 @@ describe('cleaning up the voice before it is recorded', () => {
     expect(connections).toEqual([
       'source>rumble',
       'rumble>hiss',
-      'hiss>listener', // the gate listens to the voice...
-      'hiss>delay', // ...while the voice itself is delayed a little...
+      'hiss>warmth',
+      'warmth>soften',
+      'soften>listener', // the gate listens to the voice...
+      'soften>delay', // ...while the voice itself is delayed a little...
       'delay>gate', // ...so the gate can open before a word arrives
       'gate>compressor',
       'compressor>makeup',
       'makeup>limiter',
       'limiter>out',
     ]);
-    // Low hum and very high hiss are cut, where speech has little.
-    expect(filters.map((f) => f.frequency.value)).toEqual([110, 7000]);
+    // Only the real rumble and the very high hiss are cut; the lower voice gets a lift (body, weight) and the harsh highs are softened.
+    expect(filters.map((f) => f.frequency.value)).toEqual([75, 6000, 220, 3500]);
+    expect(filters.map((f) => f.gain.value).slice(2)).toEqual([4, -4]);
     // Only a small lift: more would lift the background noise with it.
     expect(gains[0].gain.value).toBeGreaterThan(1);
     expect(gains[0].gain.value).toBeLessThanOrEqual(1.5);
