@@ -16,6 +16,7 @@ export function WhatsAppCloudCard({ base }: { base: string }) {
   const [s, setS] = useState<Summary | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [testTo, setTestTo] = useState('');
 
   useEffect(() => {
     api.get<Summary>(base).then(setS).catch(() => {});
@@ -35,7 +36,7 @@ export function WhatsAppCloudCard({ base }: { base: string }) {
     setMsg(null);
     setBusy(true);
     try {
-      setS(await api.post<Summary>(`${base}/test`, {}));
+      setS(await api.post<Summary>(`${base}/test`, testTo.trim() ? { to: testTo.trim() } : {}));
       setMsg({ ok: true, text: t('whatsappCloud.test_sent') });
     } catch (err) {
       setMsg({ ok: false, text: err instanceof ApiError && err.code === 'NOT_CONFIGURED' ? t('whatsappCloud.not_configured') : t('whatsappCloud.test_failed', { why: err instanceof ApiError ? err.message : '' }) });
@@ -62,6 +63,11 @@ export function WhatsAppCloudCard({ base }: { base: string }) {
             </span>
           </label>
         ))}
+      </div>
+      <div>
+        <label className="label" htmlFor="wa-test-to">{t('whatsappCloud.test_number_label')}</label>
+        <input id="wa-test-to" type="tel" inputMode="tel" className="input" placeholder="+237…" value={testTo} onChange={(e) => setTestTo(e.target.value)} data-testid="whatsapp-cloud-test-to" />
+        <p className="mt-1 text-xs text-slate-500">{t('whatsappCloud.test_number_hint')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="btn-secondary px-3 py-2 text-sm" disabled={busy || !s.configured} onClick={() => void sendTest()} data-testid="whatsapp-cloud-test">

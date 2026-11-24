@@ -4634,6 +4634,8 @@
     "saved": "Enregistré.",
     "failed": "Enregistrement impossible. Veuillez réessayer.",
     "send_test": "Envoyer un message test à mon numéro",
+    "test_number_label": "Numéro pour le test (facultatif)",
+    "test_number_hint": "Avec l'indicatif du pays, par exemple +237… Laissez vide pour utiliser le numéro de votre profil. Avec le numéro de test de Meta, il doit figurer sur la liste autorisée de Meta.",
     "sending": "Envoi…",
     "test_sent": "Message test envoyé. Vérifiez votre WhatsApp.",
     "test_failed": "Le message test n'a pas été envoyé. {{why}}",
