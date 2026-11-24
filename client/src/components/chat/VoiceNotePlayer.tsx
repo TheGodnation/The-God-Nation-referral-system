@@ -44,24 +44,8 @@ const PRELOAD_ALL_BYTES = 700 * 1024;
 /** The "back" and "forward" buttons move this many seconds; the arrow keys move half as much. */
 const SKIP_SECONDS = 10;
 const KEY_SECONDS = 5;
-/** Playback speeds, one tap on the speed button moving to the next. The last one chosen is remembered on this phone. */
+/** Playback speeds, one tap on the speed button moving to the next. Every note starts at normal speed (1×), never a remembered one. */
 const RATES = [1, 1.5, 2] as const;
-const RATE_KEY = 'voice:rate';
-function loadRate(): number {
-  try {
-    const v = Number(window.localStorage.getItem(RATE_KEY));
-    return (RATES as readonly number[]).includes(v) ? v : 1;
-  } catch {
-    return 1;
-  }
-}
-function saveRate(rate: number): void {
-  try {
-    window.localStorage.setItem(RATE_KEY, String(rate));
-  } catch {
-    // not remembered: fine
-  }
-}
 
 export function VoiceNotePlayer({
   url,
@@ -109,7 +93,7 @@ export function VoiceNotePlayer({
   // Where the finger is on the waveform while it is being dragged (in seconds); null when not dragging.
   const [scrub, setScrub] = useState<number | null>(null);
   const scrubbing = useRef(false);
-  const [rate, setRate] = useState<number>(loadRate);
+  const [rate, setRate] = useState<number>(1);
   // Loudness boost (see lib/voiceBoost): an amplifier with a limiter in front of the speaker. blocked = the storage refused the extra
   // access it needs, so this note plays the ordinary way.
   const [boost, setBoost] = useState<BoostLevel>(loadBoost);
@@ -265,7 +249,6 @@ export function VoiceNotePlayer({
   function nextRate() {
     const next = RATES[(RATES.findIndex((r) => r === rate) + 1) % RATES.length];
     setRate(next);
-    saveRate(next);
   }
 
   function onSliderKey(e: React.KeyboardEvent<HTMLDivElement>) {

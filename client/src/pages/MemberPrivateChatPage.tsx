@@ -200,7 +200,9 @@ export function MemberPrivateChatPage() {
       const lastId = first ? null : lastServerId(messagesRef.current);
       return api
         .get<PrivateResponse>(`${base}/messages${lastId ? `?after=${encodeURIComponent(lastId)}` : ''}`)
-        .then((res): boolean | Promise<boolean> => {
+        .then((raw): boolean | Promise<boolean> => {
+          // A reply that is not a proper list of messages is treated as "nothing new", never a crash.
+          const res = { ...raw, items: Array.isArray(raw?.items) ? raw.items : [] } as PrivateResponse;
           if (lastId && res.newerOverflow) return fetchLatest(true);
           setOther({
             otherPartyType: res.otherPartyType,
@@ -291,7 +293,8 @@ export function MemberPrivateChatPage() {
   function loadOlderPage(): Promise<boolean> {
     const first = messagesRef.current.find((m) => !m.pending);
     if (!first) return Promise.resolve(false);
-    return api.get<PrivateResponse>(`${base}/messages?before=${first.id}`).then((res) => {
+    return api.get<PrivateResponse>(`${base}/messages?before=${first.id}`).then((raw) => {
+      const res = { ...raw, items: Array.isArray(raw?.items) ? raw.items : [] } as PrivateResponse;
       const el = scrollRef.current;
       if (el) keepOffsetFromBottom.current = el.scrollHeight - el.scrollTop;
       const older = res.items.map(toChat);

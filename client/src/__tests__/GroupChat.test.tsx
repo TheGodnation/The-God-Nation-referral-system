@@ -113,6 +113,13 @@ describe('WhatsApp-style group chat', () => {
     expect(screen.getByRole('button', { name: /Tap to record a voice note/ })).toBeInTheDocument();
   });
 
+  it('does not crash when the reply has no list of messages (an odd or half-loaded answer): the page stays up', async () => {
+    mockFetch(baseRoutes({ [`GET /api/communities/${G}/conversation/messages`]: () => ({ body: { hasMore: false, unreadCount: 0, canPost: true } }) }));
+    renderChat();
+    expect(await screen.findByRole('heading', { name: 'Buea Group' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tap to record a voice note/ })).toBeInTheDocument();
+  });
+
   it('shows a welcome line with the name when someone joins (a link to their profile), and a count when many join together', async () => {
     const joinedMessages = [
       ...messages,

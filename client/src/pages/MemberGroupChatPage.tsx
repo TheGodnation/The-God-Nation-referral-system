@@ -304,7 +304,9 @@ export function MemberGroupChatPage() {
       const query = lastId ? `?after=${encodeURIComponent(lastId)}` : '';
       return api
         .get<MessagesResponse>(`/api/communities/${communityId}/conversation/messages${query}`)
-        .then((res) => {
+        .then((raw) => {
+          // A reply that is not a proper list of messages (a half-loaded or odd answer) is treated as "nothing new", never a crash.
+          const res = { ...raw, items: Array.isArray(raw?.items) ? raw.items : [] } as MessagesResponse;
           if (lastId && res.newerOverflow) return fetchLatest(true);
           setMessages((prev) => {
             if (first) {
@@ -449,7 +451,8 @@ export function MemberGroupChatPage() {
     if (!first) return Promise.resolve(false);
     return api
       .get<MessagesResponse>(`/api/communities/${communityId}/conversation/messages?before=${first.id}`)
-      .then((res) => {
+      .then((raw) => {
+        const res = { ...raw, items: Array.isArray(raw?.items) ? raw.items : [] } as MessagesResponse;
         const el = scrollRef.current;
         if (el) keepOffsetFromBottom.current = el.scrollHeight - el.scrollTop;
         const next = [...res.items.filter((m) => !messagesRef.current.some((p) => p.id === m.id)), ...messagesRef.current];
