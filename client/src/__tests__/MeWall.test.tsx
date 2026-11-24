@@ -89,6 +89,9 @@ describe('Me wall', () => {
     expect(await screen.findByRole('heading', { name: 'Grace Ngwa' })).toBeInTheDocument();
     expect(screen.getByAltText("Grace Ngwa's cover picture")).toHaveAttribute('src', '/api/people/me1/cover?v=1');
     expect(screen.getByText('Serving God in Buea')).toBeInTheDocument();
+    // The description is bold (and the page's other writing is not changed).
+    expect(screen.getByTestId('wall-bio').className).toContain('font-semibold');
+    expect(screen.getByTestId('wall-bio').className).not.toContain('font-medium');
     const referred = await screen.findByTestId('referred-link');
     expect(referred).toHaveTextContent('3 referred');
     // Tapping "referred" goes straight to the people, with the ways to greet and write to them.
@@ -99,13 +102,6 @@ describe('Me wall', () => {
     expect(screen.getByRole('link', { name: /Edit profile/ })).toHaveAttribute('href', '/member/me/edit');
     // Posts tab first, showing this member's own posts.
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/api/updates?authorPersonId=me1'))).toBe(true));
-  });
-
-  it('shows the profile text slightly bold, so it reads clearly', async () => {
-    mockFetch(baseRoutes());
-    renderAt('/member/me');
-    await screen.findByRole('heading', { name: 'Grace Ngwa' });
-    expect(screen.getByTestId('my-profile').className).toContain('font-medium');
   });
 
   it('an ordinary member sees just Posts, Photos and My progress, and the contact choices folded away', async () => {

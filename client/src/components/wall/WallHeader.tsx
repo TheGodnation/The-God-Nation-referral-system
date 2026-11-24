@@ -123,7 +123,7 @@ export function WallHeader({
         </div>
 
         <h1 className="mt-2 text-2xl font-bold text-slate-900">{name}</h1>
-        {bio && <p className="mt-1 whitespace-pre-wrap text-[15px] text-slate-700">{bio}</p>}
+        {bio && <p className="mt-1 whitespace-pre-wrap text-[15px] font-semibold text-slate-800" data-testid="wall-bio">{bio}</p>}
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
         {children && <div className="mt-3">{children}</div>}
       </div>

@@ -91,6 +91,7 @@ describe('The National Coordinator badge and assemblies', () => {
       expect(bubble.className).toContain('bg-sky-50');
       expect(bubble.className).toContain('border-sky-200');
       expect(bubble.className).not.toContain('d9fdd3'); // never the green "my message" colour
+      expect(bubble.className).toContain('font-medium'); // the writing in it is slightly bold
       unmount();
     }
   });
