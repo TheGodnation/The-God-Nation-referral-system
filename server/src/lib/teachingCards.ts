@@ -222,8 +222,8 @@ export async function postDueRatingCards(now = new Date()): Promise<number> {
   return posted;
 }
 
-/** One member rates (or changes their rating of) the teaching on a card. Allowed at any time. */
-export async function rate(personId: string, input: { messageId: string; level: Level }) {
+/** One member rates, changes, or takes back (level null) their rating of the teaching on a card. Allowed at any time. */
+export async function rate(personId: string, input: { messageId: string; level: Level | null }) {
   const settings = await prisma.teachingSettings.findUnique({ where: { id: 'main' }, select: { enabled: true } });
   if (!settings?.enabled) throw new RotaError('The weekly teaching is not open.', 409, 'OFF');
   if (!(await isRater(personId))) throw new RotaError('You cannot rate the teachings.', 403, 'NOT_RATER');
@@ -232,15 +232,35 @@ export async function rate(personId: string, input: { messageId: string; level: 
   const teacher = await prisma.teachingTeacher.findUnique({ where: { id: card.teacherId } });
   if (!teacher) throw new RotaError('This teaching cannot be rated.', 404, 'NO_CARD');
   if (teacher.personId === personId) throw new RotaError('You cannot rate your own teaching.', 403, 'OWN_TEACHING');
-  await prisma.teachingRating.upsert({
-    where: { teacherId_weekStart_raterPersonId: { teacherId: card.teacherId, weekStart: card.weekStart, raterPersonId: personId } },
-    create: { teacherId: card.teacherId, weekStart: card.weekStart, raterPersonId: personId, level: input.level },
-    update: { level: input.level },
-  });
-  await notifyTeacherRated(teacher, card.weekStart).catch((err) => console.error('[teaching-cards] could not notify the teacher', { error: err instanceof Error ? err.message : String(err) }));
+  if (input.level === null) {
+    // Taking the rating back: it disappears from the card and the totals; the teacher's bell count is corrected quietly (no new alert).
+    await prisma.teachingRating.deleteMany({ where: { teacherId: card.teacherId, weekStart: card.weekStart, raterPersonId: personId } });
+    await refreshRatedBell(teacher, card.weekStart).catch((err) => console.error('[teaching-cards] could not update the teacher', { error: err instanceof Error ? err.message : String(err) }));
+  } else {
+    await prisma.teachingRating.upsert({
+      where: { teacherId_weekStart_raterPersonId: { teacherId: card.teacherId, weekStart: card.weekStart, raterPersonId: personId } },
+      create: { teacherId: card.teacherId, weekStart: card.weekStart, raterPersonId: personId, level: input.level },
+      update: { level: input.level },
+    });
+    await notifyTeacherRated(teacher, card.weekStart).catch((err) => console.error('[teaching-cards] could not notify the teacher', { error: err instanceof Error ? err.message : String(err) }));
+  }
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
   const info = (await ratingCardInfos(personId, [input.messageId], isFrench(person?.preferredLanguage) ? 'fr' : 'en')).get(input.messageId);
   return { ok: true, card: info ?? null };
+}
+
+/** After a rating was taken back: the teacher's bell entry shows the new count, or goes away when nobody is left. No alert, not unread again. */
+async function refreshRatedBell(teacher: { id: string; personId: string | null }, monday: Date) {
+  if (!teacher.personId) return;
+  const week = dayKey(monday);
+  const existing = await prisma.notification.findFirst({
+    where: { recipientPersonId: teacher.personId, type: 'TEACHING_ROTA', AND: [{ metadata: { path: ['kind'], equals: 'rated' } }, { metadata: { path: ['weekStart'], equals: week } }] },
+    select: { id: true, metadata: true },
+  });
+  if (!existing) return;
+  const total = await prisma.teachingRating.count({ where: { teacherId: teacher.id, weekStart: monday } });
+  if (total === 0) await prisma.notification.delete({ where: { id: existing.id } });
+  else await prisma.notification.update({ where: { id: existing.id }, data: { metadata: { ...(existing.metadata as object), count: total } as any } });
 }
 
 /**

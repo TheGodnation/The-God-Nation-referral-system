@@ -202,7 +202,7 @@ export const memberTeachingRotaRoutes = (() => {
     res.json(await finishTeaching(req.member!.personId));
   }));
   router.post('/rate', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
-    const parsed = z.object({ messageId: z.string().min(1), level: z.enum(LEVELS) }).safeParse(req.body);
+    const parsed = z.object({ messageId: z.string().min(1), level: z.enum(LEVELS).nullable() }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'Choose how it was.' });
     res.json(await rate(req.member!.personId, parsed.data));
   }));

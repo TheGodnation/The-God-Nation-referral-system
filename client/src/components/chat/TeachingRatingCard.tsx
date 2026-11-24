@@ -17,7 +17,7 @@ const TONE: Record<Level, string> = {
 const RATERS_SHOWN = 8;
 
 // In the teaching group: the card that appears after a teacher's voice notes. Members rate the teaching with one of four
-// buttons, at any time, and can change it. Everyone sees how many gave each level and who rated, each with their name and
+// buttons, at any time, and can change it or take it back (tap the chosen one again). Everyone sees how many gave each level and who rated, each with their name and
 // photo; the National Coordinator's own rating is shown on top.
 export function TeachingRatingCard({ messageId, initial }: { messageId: string; initial: RatingCardInfo | null | undefined }) {
   const { t } = useTranslation();
@@ -30,10 +30,11 @@ export function TeachingRatingCard({ messageId, initial }: { messageId: string; 
   if (!info) return null;
   const raters = info.raters ?? [];
 
+  // Tapping the level already chosen takes the rating back.
   async function choose(level: Level) {
     setError(null);
     try {
-      const r = await api.post<{ card: RatingCardInfo | null }>('/api/member/teaching-rota/rate', { messageId, level });
+      const r = await api.post<{ card: RatingCardInfo | null }>('/api/member/teaching-rota/rate', { messageId, level: info?.myLevel === level ? null : level });
       if (r.card) setInfo(r.card);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('teachingRota.rate_failed'));
@@ -59,7 +60,12 @@ export function TeachingRatingCard({ messageId, initial }: { messageId: string; 
               </button>
             ))}
           </div>
-          {info.myLevel && <p className="mt-1.5 text-xs font-medium text-green-800">✓ {t('teachingRota.card_you_chose', { level: t(`teachingRota.level_${info.myLevel}`) })}</p>}
+          {info.myLevel && (
+            <>
+              <p className="mt-1.5 text-xs font-medium text-green-800">✓ {t('teachingRota.card_you_chose', { level: t(`teachingRota.level_${info.myLevel}`) })}</p>
+              <p className="text-xs text-slate-600">{t('teachingRota.card_tap_again')}</p>
+            </>
+          )}
         </>
       ) : info.isOwnTeaching ? (
         <p className="mt-0.5 text-slate-700">{t('teachingRota.card_own')}</p>

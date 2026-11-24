@@ -222,6 +222,23 @@ describe('The rating card in the group', () => {
     expect(posts).toEqual([{ messageId: 'm1', level: 'VERY_GOOD' }, { messageId: 'm1', level: 'EXCELLENT' }]);
   });
 
+  it('takes the rating back when the chosen level is tapped again', async () => {
+    const posts: unknown[] = [];
+    vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      posts.push(body);
+      return json({ ok: true, card: body.level ? { ...CARD, myLevel: body.level, total: 4 } : { ...CARD, myLevel: null, total: 3 } });
+    }));
+    render(<TeachingRatingCard messageId="m7" initial={CARD} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Good' }));
+    await screen.findByText(/You chose Good/);
+    expect(screen.getByText('Tap it again to remove your rating')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Good' }));
+    await waitFor(() => expect(screen.queryByText(/You chose/)).toBeNull());
+    expect(screen.getByRole('button', { name: 'Good' })).toHaveAttribute('aria-pressed', 'false');
+    expect(posts).toEqual([{ messageId: 'm7', level: 'GOOD' }, { messageId: 'm7', level: null }]);
+  });
+
   it('counts the Coordinator among the raters: listed first with a star, in the totals', () => {
     render(<TeachingRatingCard messageId="m2" initial={{ ...CARD, total: 4, counts: { EXCELLENT: 3, VERY_GOOD: 0, GOOD: 0, KEEP_GROWING: 1 }, coordinator: { name: 'Stanley Ndoh', level: 'EXCELLENT' }, raters: [{ personId: 'c', name: 'Stanley Ndoh', photoUrl: null, level: 'EXCELLENT', isCoordinator: true }, { personId: 'p1', name: 'Member One', photoUrl: null, level: 'KEEP_GROWING' }] }} />);
     const card = screen.getByTestId('rating-card-m2');

@@ -5917,6 +5917,7 @@
     "card_title": "{{name}} has finished teaching {{topic}}.",
     "card_listen": "Listen to the teaching, then rate it.",
     "card_you_chose": "You chose {{level}}",
+    "card_tap_again": "Tap it again to remove your rating",
     "card_own": "This is your teaching. Others can rate it.",
     "card_coordinator": "{{name}}: {{level}}",
     "raters_show_all": "Show all {{count}} who rated",
