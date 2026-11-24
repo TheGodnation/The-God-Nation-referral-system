@@ -8,6 +8,7 @@
 // silence), and if the storage that holds the voice notes does not allow it, the note simply plays the ordinary way (see the player).
 
 import { insertNoiseGate } from './noiseGate';
+import { voiceProcessingOn } from './voiceSettings';
 
 export type BoostLevel = 'off' | 'loud' | 'max';
 export const BOOST_LEVELS: readonly BoostLevel[] = ['off', 'loud', 'max'];
@@ -32,8 +33,8 @@ export function saveBoost(level: BoostLevel): void {
 const contextConstructor = (): typeof AudioContext | null =>
   typeof window === 'undefined' ? null : (window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext ?? null);
 
-/** Whether this phone's browser can do it at all. */
-export const boostSupported = (): boolean => contextConstructor() !== null;
+/** Whether the boost is in use at all: the tuning must be switched on (see voiceSettings) and this phone's browser able to do it. */
+export const boostSupported = (): boolean => voiceProcessingOn() && contextConstructor() !== null;
 
 // One shared audio context for every voice note (phones allow only a few).
 let context: AudioContext | null = null;

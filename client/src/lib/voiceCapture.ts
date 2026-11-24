@@ -1,5 +1,7 @@
 import { insertNoiseGate } from './noiseGate';
+import { voiceProcessingOn } from './voiceSettings';
 
+// (Switched off at the moment, see voiceSettings: the plain microphone is recorded, as before the tuning.)
 // Recording a clear, loud voice note. The microphone is opened with the phone's own voice clean-up switched on (noise reduction, echo
 // control and automatic gain, which lifts a quiet speaker), the recording is made at a better quality than the browser's default, and
 // the background noise is turned down between words, and the voice is run through a gentle compressor (so soft and loud parts come out
@@ -7,12 +9,21 @@ import { insertNoiseGate } from './noiseGate';
 
 /** Speech at 64 kbps sounds clean and a minute is only about half a megabyte. */
 export const VOICE_BITRATE = 64_000;
+/** What chat voice notes were recorded at before the tuning. */
+export const ORIGINAL_CHAT_BITRATE = 32_000;
+
+/** The recording quality for a chat voice note: the original 32 kbps unless the tuning is on. */
+export const chatBitrate = (): number => (voiceProcessingOn() ? VOICE_BITRATE : ORIGINAL_CHAT_BITRATE);
+/** The recording quality for a teaching recording: the browser's own default (none given) unless the tuning is on. */
+export const teachingBitrate = (): number | undefined => (voiceProcessingOn() ? VOICE_BITRATE : undefined);
 
 const VOICE_CONSTRAINTS: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
 
 /** Opens the microphone for a voice note. A refusal (no permission) is passed on; a phone that does not know the extra settings gets the plain microphone. */
 export async function openMic(): Promise<MediaStream> {
   const devices = navigator.mediaDevices;
+  // As before the tuning: the plain microphone.
+  if (!voiceProcessingOn()) return devices.getUserMedia({ audio: true });
   try {
     return await devices.getUserMedia({ audio: VOICE_CONSTRAINTS });
   } catch (err) {
@@ -36,6 +47,7 @@ export interface EnhancedMic {
  */
 export function enhanceMic(raw: MediaStream): EnhancedMic {
   const plain: EnhancedMic = { stream: raw, close: () => {} };
+  if (!voiceProcessingOn()) return plain;
   try {
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return plain;

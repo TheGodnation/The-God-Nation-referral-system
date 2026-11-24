@@ -1,9 +1,13 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { VOICE_BITRATE, enhanceMic, openMic } from '../lib/voiceCapture';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { ORIGINAL_CHAT_BITRATE, VOICE_BITRATE, chatBitrate, enhanceMic, openMic, teachingBitrate } from '../lib/voiceCapture';
+import { setVoiceProcessing } from '../lib/voiceSettings';
 
 // Recording a clear, loud voice note: the phone's voice clean-up is asked for, the quality is better than before, the voice is evened
 // out and limited before it is recorded, and a phone that cannot do any of that still records as it always did.
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  setVoiceProcessing(false);
+});
 
 const track = { kind: 'audio' } as MediaStreamTrack;
 const rawStream = { getAudioTracks: () => [track], getTracks: () => [track] } as unknown as MediaStream;
@@ -14,7 +18,46 @@ function mic(impl: (c: MediaStreamConstraints) => Promise<MediaStream>) {
   return getUserMedia;
 }
 
+describe('as things are in the app now (the sound tuning is switched off)', () => {
+  it('records the plain microphone at the original quality, exactly as before the tuning', async () => {
+    const gum = mic(async () => rawStream);
+    expect(await openMic()).toBe(rawStream);
+    expect(gum).toHaveBeenCalledTimes(1);
+    expect(gum.mock.calls[0][0]).toEqual({ audio: true });
+    expect(chatBitrate()).toBe(ORIGINAL_CHAT_BITRATE);
+    expect(ORIGINAL_CHAT_BITRATE).toBe(32_000);
+    expect(teachingBitrate()).toBeUndefined(); // the browser's own default, as before
+  });
+
+  it('does no audio processing even where the phone could', () => {
+    const made = vi.fn();
+    vi.stubGlobal('AudioContext', class {
+      constructor() {
+        made();
+      }
+    });
+    expect(enhanceMic(rawStream).stream).toBe(rawStream);
+    expect(made).not.toHaveBeenCalled();
+  });
+
+  it('still passes on a refusal to use the microphone', async () => {
+    mic(async () => {
+      throw Object.assign(new Error('no'), { name: 'NotAllowedError' });
+    });
+    await expect(openMic()).rejects.toMatchObject({ name: 'NotAllowedError' });
+  });
+});
+
+describe('with the sound tuning switched on (for when it is worked on again)', () => {
+  beforeEach(() => setVoiceProcessing(true));
+  it('uses the better quality', () => {
+    expect(chatBitrate()).toBe(VOICE_BITRATE);
+    expect(teachingBitrate()).toBe(VOICE_BITRATE);
+  });
+});
+
 describe('opening the microphone', () => {
+  beforeEach(() => setVoiceProcessing(true));
   it('asks for noise reduction, echo control, automatic gain and one channel', async () => {
     const gum = mic(async () => rawStream);
     expect(await openMic()).toBe(rawStream);
@@ -46,6 +89,7 @@ describe('opening the microphone', () => {
 });
 
 describe('cleaning up the voice before it is recorded', () => {
+  beforeEach(() => setVoiceProcessing(true));
   it('records the plain microphone when the phone has no audio processing', () => {
     vi.stubGlobal('AudioContext', undefined);
     const out = enhanceMic(rawStream);
