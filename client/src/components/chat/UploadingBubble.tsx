@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import type { MediaSendJob } from '../../lib/useMediaUploads';
 import { DocumentCard } from './DocumentCard';
-import { formatBytes } from '../../lib/attachmentLimits';
+import { Avatar } from '../Avatar';
+import { useMemberAuth } from '../../lib/MemberAuthContext';
+import { BAR_COUNT, formatVoiceLength, seededBars } from './VoiceNotePlayer';
 
 // Your own photo/video/document message while it is still going up — shown
 // in the chat straight away, like WhatsApp, with a progress circle you can
@@ -58,11 +60,78 @@ function ProgressRing({ job, onCancel, onRetry, label }: { job: MediaSendJob; on
   );
 }
 
+// Your own voice note while it goes up: the same design as the finished note (your photo, the play button with the progress as
+// a ring around it, the waveform and the length), so nothing jumps when it turns into the real message.
+function UploadingVoice({ job, index, onCancel, onRetry, label }: { job: MediaSendJob; index: number; onCancel: () => void; onRetry: () => void; label: string }) {
+  const { t } = useTranslation();
+  const { member } = useMemberAuth();
+  const item = job.items[index];
+  const bars = seededBars(`${job.id}-${index}`);
+  const r = 16;
+  const length = 2 * Math.PI * r;
+  const shown = Math.max(0.04, job.progress);
+  const failed = job.status === 'failed';
+  const sending = job.status === 'sending';
+  return (
+    <div className="mb-1 flex w-64 max-w-full items-center gap-2 px-1 py-1" data-testid="uploading-voice">
+      <Avatar name={member?.name ?? ''} photoUrl={member?.photoUrl} size={36} />
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-white shadow-sm"
+          role="progressbar"
+          aria-label={label}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(job.progress * 100)}
+        >
+          {failed ? (
+            job.problem === 'failed' ? (
+              <button type="button" onClick={onRetry} aria-label={t('groupChat.upload_retry') ?? ''} className="text-lg leading-none">⟳</button>
+            ) : (
+              <span aria-hidden className="text-base leading-none">⚠️</span>
+            )
+          ) : (
+            <>
+              <svg viewBox="0 0 36 36" className={`absolute inset-0 h-9 w-9 -rotate-90 ${sending ? 'animate-spin' : ''}`} aria-hidden>
+                <circle cx="18" cy="18" r={r} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r={r}
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeDasharray={length}
+                  strokeDashoffset={sending ? length * 0.75 : length * (1 - shown)}
+                  className="transition-[stroke-dashoffset] duration-200"
+                />
+              </svg>
+              {/* A tap on the ring stops the sending, like WhatsApp's ✕. */}
+              <button type="button" onClick={onCancel} aria-label={t('groupChat.upload_cancel') ?? ''} className="relative text-sm font-bold leading-none">
+                ✕
+              </button>
+            </>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div aria-hidden className="flex h-6 w-full min-w-[7rem] max-w-[11rem] items-center gap-[2px]">
+            {bars.slice(0, BAR_COUNT).map((h, i) => (
+              <span key={i} className="w-[2px] flex-1 rounded-full bg-slate-400/50" style={{ height: `${Math.round(h * 100)}%` }} />
+            ))}
+          </div>
+          <span className="text-[11px] text-slate-500">{item?.durationMs ? formatVoiceLength(item.durationMs / 1000) : '–:––'}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function UploadingBubble({ job, onCancel, onRetry }: { job: MediaSendJob; onCancel: () => void; onRetry: () => void }) {
   const { t } = useTranslation();
   const visuals = job.items.filter((i) => i.kind === 'photo' || i.kind === 'video');
   const documents = job.items.filter((i) => i.kind === 'document');
-  const voices = job.items.filter((i) => i.kind === 'voice');
+  const voiceIndexes = job.items.flatMap((i, n) => (i.kind === 'voice' ? [n] : []));
   const failed = job.status === 'failed';
   const label = t('groupChat.upload_progress', { percent: Math.round(job.progress * 100) });
 
@@ -98,17 +167,9 @@ export function UploadingBubble({ job, onCancel, onRetry }: { job: MediaSendJob;
           </div>
         )}
 
-        {/* A voice note: it shows at once with its ring turning, then becomes the playable note. */}
-        {voices.map((item, i) => (
-          <div key={`v${i}`} className="mb-1 flex w-60 max-w-full items-center gap-2 px-1 py-1" data-testid="uploading-voice">
-            <span className="-m-1.5 block shrink-0 scale-75">
-              <ProgressRing job={job} onCancel={onCancel} onRetry={onRetry} label={label} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-slate-800">🎤 {t('groupChat.voice')}</span>
-              <span className="block text-xs text-slate-500">{formatBytes(item.byteSize)}</span>
-            </span>
-          </div>
+        {/* A voice note: it shows at once looking like the finished note, with a ring filling around its play button. */}
+        {voiceIndexes.map((n) => (
+          <UploadingVoice key={`v${n}`} job={job} index={n} onCancel={onCancel} onRetry={onRetry} label={label} />
         ))}
 
         {documents.map((item, i) => (

@@ -53,6 +53,7 @@ import { notifyPostLiked, notifyPostReplied } from '../lib/notifications';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording } from '../lib/presence';
 import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
 import { pushToPersons } from '../lib/push';
+import { announceTeachingAudio, liveTeachings } from '../lib/teachingLive';
 import { MAX_PINS_PER_REQUEST, markPinSeen, pinFull, pinMessage, pinMessages, pinsFor, unpinMessage, unpinMessages } from '../lib/messagePins';
 import { translateAndStoreMessage, transcribeAndStoreMessageAudio } from '../lib/translation';
 import { ratingCardInfos } from '../lib/teachingCards';
@@ -188,6 +189,26 @@ router.get('/:communityId/conversation/teaching-today', asyncHandler(async (req,
   if (!(await contextTargetExists('COMMUNITY', communityId))) return res.status(404).json({ error: 'Community not found.' });
   if (!(await hasConversationAccess(req.conversationActorPersonId!, communityId))) return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
   res.json({ items: await teachingToday(communityId) });
+}));
+
+// GET /api/communities/:communityId/conversation/teaching-now — who is teaching in this group right now (a teacher inside their
+// teaching time whose voice notes are still coming), for the red banner at the top of the chat. Empty most of the time. Anyone who
+// can read the chat can see it.
+router.get('/:communityId/conversation/teaching-now', asyncHandler(async (req, res) => {
+  const { communityId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) return res.status(404).json({ error: 'Community not found.' });
+  if (!(await hasConversationAccess(req.conversationActorPersonId!, communityId))) return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+  res.json({
+    items: (await liveTeachings(communityId)).map((l) => ({
+      personId: l.personId,
+      name: l.name,
+      photoUrl: l.photoUrl,
+      topicEn: l.topicEn,
+      topicFr: l.topicFr,
+      firstMessageId: l.firstMessageId,
+      lastAudioAt: l.lastAudioAt,
+    })),
+  });
 }));
 
 // GET /api/communities/:communityId/conversation — conversation metadata
@@ -331,7 +352,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     },
     include: {
       sender: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } },
-      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true, language: true } },
+      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true, durationMs: true, language: true } },
       replyTo: replyToInclude,
       reactions: { select: { emoji: true, personId: true } },
       teaching: { select: { id: true, title: true, assessmentId: true, mediaKind: true, closesAt: true, text: true, communityId: true, authorPersonId: true, detectedLanguage: true, titleTranslated: true } },
@@ -432,6 +453,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
             byteSize: a.byteSize,
             thumb: a.thumbDataUrl ?? undefined,
             pageCount: a.pageCount ?? undefined,
+            durationMs: a.durationMs ?? undefined,
             language: a.language ?? undefined,
           })),
       liveTeaching: !m.deletedAt && m.liveTeaching ? true : undefined,
@@ -505,6 +527,8 @@ const attachmentDescriptorSchema = z.object({
   // photo downloads — see lib/attachmentPolicy.ts THUMB_DATA_URL_PATTERN.
   thumb: z.string().max(MAX_THUMB_DATA_URL_LENGTH).regex(THUMB_DATA_URL_PATTERN).optional(),
   pageCount: z.number().int().min(1).max(MAX_PDF_PAGE_COUNT).optional(),
+  // A voice note's length in milliseconds (at most an hour), so it can be shown before the audio downloads.
+  durationMs: z.number().int().min(0).max(3_600_000).optional(),
   // Only the central admin's two-language voice message uses this (anyone else's is ignored).
   language: z.enum(['en', 'fr']).optional(),
 });
@@ -640,6 +664,7 @@ router.post(
                 byteSize: a.byteSize,
                 thumbDataUrl: a.thumb ?? null,
                 pageCount: a.pageCount ?? null,
+                durationMs: a.mimeType.startsWith('audio/') ? (a.durationMs ?? null) : null,
                 uploadedByPersonId: personId,
               })),
             }
@@ -669,6 +694,20 @@ router.post(
         }),
       ]);
       const hasVoice = attachmentDescriptors.some((a) => a.mimeType.startsWith('audio/'));
+      // A teacher's voice note during their teaching (weekly rota slot, or a group teacher's teaching day): the whole group is told
+      // "{Name} is teaching now" (loud phone alert and a bell entry, once per teaching), then quietly for each further audio. That
+      // replaces the ordinary alert below.
+      if (hasVoice && !liveTeaching) {
+        const everyone = await prisma.communityMembership.findMany({ where: { communityId, status: 'ACTIVE', personId: { not: personId } }, select: { personId: true } });
+        const announced = await announceTeachingAudio({
+          teacherPersonId: personId,
+          teacherName: sender?.name ?? 'Someone',
+          communityId,
+          communityName: community?.name ?? 'Group',
+          recipientIds: everyone.map((m) => m.personId),
+        }).catch(() => false);
+        if (announced) return;
+      }
       // Said the same way to everyone, in both languages, since a notification can't know who reads it.
       const preview = liveTeaching
         ? `🔴 Live teaching · Enseignement en direct${labelled ? ' (EN + FR)' : ''}`

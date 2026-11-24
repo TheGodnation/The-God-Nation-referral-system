@@ -89,6 +89,30 @@ describe('NotificationBell — gentle nudges at 3 and 7 days', () => {
   });
 });
 
+describe('NotificationBell — a teacher is teaching now', () => {
+  it('says who is teaching and where, and opens the group', async () => {
+    mockFetchByUrl({
+      '/api/notifications/unread-count': { status: 200, body: { unreadCount: 2 } },
+      '/api/notifications': {
+        status: 200,
+        body: {
+          items: [
+            { id: 'l1', type: 'TEACHING_ROTA', metadata: { kind: 'live', teacherName: 'Ada Ngwa', groupName: 'Leadership Development', topicEn: 'The Right to Forgiveness', topicFr: null, communityId: 'g1' }, targetType: 'TeachingLive', targetId: 'g1', readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+            // A teaching with no topic (a group teacher): just who and where.
+            { id: 'l2', type: 'TEACHING_ROTA', metadata: { kind: 'live', teacherName: 'Ben Tabe', groupName: 'Headquarters', topicEn: null, topicFr: null, communityId: 'g2' }, targetType: 'TeachingLive', targetId: 'g2', readAt: null, createdAt: '2026-01-01T00:00:00.000Z' },
+          ],
+          pagination: { totalPages: 1 },
+        },
+      },
+    });
+    render(<NotificationBell />);
+    fireEvent.click(await screen.findByLabelText('Notifications'));
+    expect(await screen.findByText('🔴 Ada Ngwa is teaching now in Leadership Development: The Right to Forgiveness')).toBeInTheDocument();
+    expect(screen.getByText('🔴 Ben Tabe is teaching now in Headquarters.')).toBeInTheDocument();
+    expect(screen.getAllByTestId('teaching-live-open').map((a) => a.getAttribute('href'))).toEqual(['/member/chats/group/g1', '/member/chats/group/g2']);
+  });
+});
+
 describe('NotificationBell — notification display', () => {
   it('renders each of the four notification types with the correct interpolated message', async () => {
     mockFetchByUrl({

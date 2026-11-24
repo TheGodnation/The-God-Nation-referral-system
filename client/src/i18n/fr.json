@@ -1834,6 +1834,8 @@
     "teaching_assignment": "Cette semaine vous enseignez : {{topic}}, {{when}}.",
     "teaching_tomorrow": "Rappel : demain vous enseignez {{topic}}, {{when}}.",
     "teaching_hour": "Votre enseignement commence dans 1 heure : {{topic}}.",
+    "teaching_live": "🔴 {{name}} enseigne maintenant dans {{group}}{{topic}}",
+    "teaching_live_open": "Ouvrir le groupe et écouter",
     "teaching_rated_one": "{{count}} personne a noté votre enseignement : {{topic}}.",
     "teaching_rated_other": "{{count}} personnes ont noté votre enseignement : {{topic}}."
   },
@@ -2596,6 +2598,10 @@
     "voice": "Message vocal",
     "voice_play": "Lire le message vocal",
     "voice_pause": "Mettre en pause le message vocal",
+    "voice_retry": "Chargement impossible. Touchez pour réessayer",
+    "voice_back": "Reculer de {{seconds}} secondes",
+    "voice_forward": "Avancer de {{seconds}} secondes",
+    "voice_speed": "Vitesse de lecture {{rate}}×. Touchez pour changer",
     "document_label": "Document",
     "tip": "Glissez un message vers la droite pour répondre. Maintenez un message appuyé pour réagir 👍 ❤️ 🙏.",
     "tip_close": "Compris",
@@ -4634,6 +4640,15 @@
     "saved": "Enregistré.",
     "failed": "Enregistrement impossible. Veuillez réessayer.",
     "send_test": "Envoyer un message test à mon numéro",
+    "monthly_title": "Limite mensuelle",
+    "monthly_help": "Meta facture chaque message délivré. Une fois ce nombre atteint dans le mois, les autres attendent le 1er (ils apparaissent plus bas comme retenus). 0 n'envoie rien. Le message test gratuit n'est pas compté.",
+    "monthly_used": "Ce mois-ci : {{used}} sur {{limit}} envoyés. Le décompte reprend le {{date}}.",
+    "monthly_reached": "La limite est atteinte : plus rien ne part avant le {{date}}.",
+    "monthly_near": "Presque à la limite.",
+    "monthly_label": "Messages autorisés par mois",
+    "monthly_save": "Enregistrer la limite",
+    "monthly_saved": "Limite enregistrée.",
+    "monthly_invalid": "Entrez un nombre entier de 0 à 100000.",
     "test_number_label": "Numéro pour le test (facultatif)",
     "test_number_hint": "Avec l'indicatif du pays, par exemple +237… Laissez vide pour utiliser le numéro de votre profil. Avec le numéro de test de Meta, il doit figurer sur la liste autorisée de Meta.",
     "sending": "Envoi…",
@@ -6326,6 +6341,10 @@
     "date_text": "{{date}} à {{time}}",
     "load_failed": "Impossible de charger. Réessayez.",
     "failed": "Un problème est survenu. Veuillez réessayer."
+  },
+  "teachingLive": {
+    "title": "{{name}} enseigne maintenant",
+    "listen": "Écouter"
   },
   "teachingToday": {
     "title": "Enseignement aujourd'hui :",

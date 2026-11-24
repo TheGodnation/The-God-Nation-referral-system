@@ -630,6 +630,9 @@ model Settings {
   id                            String            @id @default("singleton")
   // Automatic WhatsApp messages through Meta's WhatsApp Business Platform. Off until the central admin switches it on.
   whatsappCloudMode             WhatsAppCloudMode @default(OFF)
+  // The most automatic WhatsApp messages sent in one calendar month (Cameroon time): each delivered message is paid for, so once
+  // this many have gone out the rest are held back (and recorded as such) until the 1st. 0 sends nothing.
+  whatsappMonthlyLimit          Int               @default(300)
   // Members who joined an assembly after this moment see only the last 30
   // messages from before they joined, plus everything since (see
   // lib/communityConversation.ts historyCutoffFor). Set to the moment the rule
@@ -1970,6 +1973,9 @@ model MessageAttachment {
   thumbDataUrl       String?
   // A PDF's number of pages ("71 pages • 3.5 MB • PDF"), read by the sender's phone.
   pageCount          Int?
+  // A voice note's length in milliseconds, measured by the sender's phone while recording, so every phone can show the length
+  // the moment the message appears, before any audio has downloaded.
+  durationMs         Int?
   // The language of a recording the central admin made in both languages
   // (one message carries an English and a French voice note); null for
   // everything else.
@@ -2560,6 +2566,8 @@ model PrivateMessageAttachment {
   thumbDataUrl     String?
   // A PDF's number of pages, read by the sender's phone.
   pageCount        Int?
+  // A voice note's length in milliseconds (see MessageAttachment.durationMs).
+  durationMs       Int?
   createdAt        DateTime @default(now())
 
   message PrivateMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)

@@ -8,6 +8,8 @@ export interface ChatAttachment {
   thumb?: string;
   /** A PDF's number of pages ("71 pages • 3.5 MB • PDF"). */
   pageCount?: number;
+  /** A voice note's length in milliseconds, so it shows before the audio downloads (older voice notes do not have it). */
+  durationMs?: number;
   /** One of the two clips of a voice message the central admin recorded in both languages. */
   language?: 'en' | 'fr';
 }

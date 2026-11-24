@@ -146,6 +146,34 @@ describe('Group chat: only new messages', () => {
     const list = await ada.agent.get(`${base}/messages`);
     expect(list.body.items[0].attachments[0]).toMatchObject({ pageCount: 71, thumb: pagePreview });
   });
+
+  it('keeps a voice note\'s length so every phone can show it before the audio downloads', async () => {
+    const g = await prisma.community.create({ data: { name: 'Voice Length Group' } });
+    const ada = await member('Ada', g.id);
+    const base = `/api/communities/${g.id}/conversation`;
+    const key = `communities/${g.id}/attachments/${crypto.randomUUID()}`;
+    vi.mocked(storage.headObject).mockResolvedValue({ contentLength: 48_000, contentType: 'audio/mp4' } as any);
+    const voice = { storageKey: key, originalFilename: 'voice-note.m4a', mimeType: 'audio/mp4', byteSize: 48_000 };
+
+    // A length that is negative or longer than an hour is refused.
+    expect((await ada.agent.post(`${base}/messages`).set('X-CSRF-Token', ada.csrf).send({ attachments: [{ ...voice, durationMs: -5 }] })).status).toBe(400);
+    expect((await ada.agent.post(`${base}/messages`).set('X-CSRF-Token', ada.csrf).send({ attachments: [{ ...voice, durationMs: 3_600_001 }] })).status).toBe(400);
+
+    expect((await ada.agent.post(`${base}/messages`).set('X-CSRF-Token', ada.csrf).send({ attachments: [{ ...voice, durationMs: 7_250 }] })).status).toBe(201);
+    // A voice note sent by an older app (no length) still works, and shows no length.
+    const key2 = `communities/${g.id}/attachments/${crypto.randomUUID()}`;
+    expect((await ada.agent.post(`${base}/messages`).set('X-CSRF-Token', ada.csrf).send({ attachments: [{ ...voice, storageKey: key2 }] })).status).toBe(201);
+    // A length sent with something that is not audio is simply not kept.
+    const key3 = `communities/${g.id}/attachments/${crypto.randomUUID()}`;
+    vi.mocked(storage.headObject).mockResolvedValue({ contentLength: 2000, contentType: 'image/jpeg' } as any);
+    expect((await ada.agent.post(`${base}/messages`).set('X-CSRF-Token', ada.csrf).send({ attachments: [{ storageKey: key3, originalFilename: 'a.jpg', mimeType: 'image/jpeg', byteSize: 2000, durationMs: 9_000 }] })).status).toBe(201);
+    vi.mocked(storage.headObject).mockResolvedValue(null);
+
+    const items = (await ada.agent.get(`${base}/messages`)).body.items;
+    expect(items[0].attachments[0].durationMs).toBe(7_250);
+    expect(items[1].attachments[0].durationMs).toBeUndefined();
+    expect(items[2].attachments[0].durationMs).toBeUndefined();
+  });
 });
 
 describe('Private chat: only new messages', () => {

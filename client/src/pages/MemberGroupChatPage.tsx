@@ -17,6 +17,7 @@ import { useMediaUploads } from '../lib/useMediaUploads';
 import { REACTIONS, canEditMessage, canUnsendMessage, type ChatMessage, type ChatReaction } from '../components/chat/types';
 import { PinnedMessages, type ChatPin } from '../components/chat/PinnedMessages';
 import { TeachingTodayStrip } from '../components/chat/TeachingTodayStrip';
+import { TeachingLiveBanner } from '../components/chat/TeachingLiveBanner';
 import { ChatSearch, EditSheet, ForwardSheet, SelectionBar, copyableText, findAndJump } from '../components/chat/ChatActions';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { draftKeyFor } from '../lib/drafts';
@@ -744,6 +745,15 @@ export function MemberGroupChatPage() {
           🔍
         </button>
       </header>
+
+      <TeachingLiveBanner
+        communityId={communityId}
+        refreshKey={messages[messages.length - 1]?.id ?? null}
+        onListen={(id) => {
+          stickToBottom.current = false;
+          void findAndJump(id, () => loadOlderPage().catch(() => false), jumpTo, () => showToast(t('groupChat.not_loaded')));
+        }}
+      />
 
       <TeachingTodayStrip communityId={communityId} />
 

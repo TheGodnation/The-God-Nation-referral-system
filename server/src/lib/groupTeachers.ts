@@ -144,6 +144,33 @@ export async function teachingToday(communityId: string, now = new Date()): Prom
     .map((o) => ({ name: name.get(o.personId) ?? '', startsAt: o.startsAt.toISOString(), passed: o.startsAt.getTime() + 2 * HOUR < now.getTime() }));
 }
 
+/**
+ * Is this teacher teaching in this group right now (on one of their teaching days: from half an hour before the time until eight
+ * hours after)? Gives a key that is the same for the whole day, so the group is told once.
+ */
+export async function groupTeachingNow(personId: string, communityId: string, now = new Date()): Promise<{ key: string } | null> {
+  const w = (await groupLiveWindows(communityId, now)).find((x) => x.personId === personId);
+  return w ? { key: w.key } : null;
+}
+
+/** Every group teacher of this group who is on one of their teaching days right now (the same window as groupTeachingNow). */
+export async function groupLiveWindows(communityId: string, now = new Date()): Promise<{ personId: string; key: string; from: Date }[]> {
+  const teachers = await prisma.groupTeacher.findMany({ where: { communityId }, include: { days: true } });
+  const { dateKey } = cameroonParts(now);
+  const out: { personId: string; key: string; from: Date }[] = [];
+  for (const teacher of teachers) {
+    for (const d of teacher.days) {
+      if (!occursOn(d, dateKey)) continue;
+      const startsAt = startsAtOf(dateKey, d.startMinute).getTime();
+      if (now.getTime() >= startsAt - 30 * MIN && now.getTime() < startsAt + 8 * HOUR) {
+        out.push({ personId: teacher.personId, key: `live:group:${teacher.id}:${dateKey}:${d.startMinute}`, from: new Date(startsAt - 30 * MIN) });
+        break;
+      }
+    }
+  }
+  return out;
+}
+
 // ---- Reminders to the teacher --------------------------------------------------------------------------------------
 
 async function claim(key: string): Promise<boolean> {

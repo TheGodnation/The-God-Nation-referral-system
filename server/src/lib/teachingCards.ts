@@ -124,6 +124,55 @@ function currentSlot(teacher: { dayOfWeek: number; startMinute: number }, now: D
   return null;
 }
 
+/** Voice notes sent from this long before a teacher's slot starts, until this long after, count as "teaching now". */
+const LIVE_EARLY_MIN = 30;
+const LIVE_LATE_HOURS = 6;
+
+export interface RotaLiveWindow {
+  personId: string;
+  /** The same for the whole slot, so the group is told once. */
+  key: string;
+  /** When the window opens (half an hour before the slot starts). */
+  from: Date;
+  topicEn: string | null;
+  topicFr: string | null;
+}
+
+/**
+ * Every teacher on the weekly rota whose slot is on right now in the teaching group (from half an hour before it starts until six
+ * hours after), with the topic in both languages.
+ */
+export async function rotaLiveWindows(communityId: string, now = new Date()): Promise<RotaLiveWindow[]> {
+  const { settings, topics } = await loadBase();
+  if (!settings || !settings.enabled || settings.ratersCommunityId !== communityId) return [];
+  const teachers = await prisma.teachingTeacher.findMany({ where: { active: true, personId: { not: null } } });
+  const thisMonday = weekStartOf(now);
+  const out: RotaLiveWindow[] = [];
+  for (const teacher of teachers) {
+    for (const monday of [thisMonday, addDays(thisMonday, 7), addDays(thisMonday, -7)]) {
+      if (monday.getTime() < settings.startDate.getTime()) continue;
+      const startsAt = slotStart(monday, teacher.dayOfWeek, teacher.startMinute).getTime();
+      if (now.getTime() < startsAt - LIVE_EARLY_MIN * MIN || now.getTime() >= startsAt + LIVE_LATE_HOURS * 60 * MIN) continue;
+      const topic = topics.find((t) => t.number === topicNumberFor(teacher.startTopic, topics.map((x) => x.number), weekNumber(settings.startDate, monday)));
+      out.push({
+        personId: teacher.personId!,
+        key: `live:rota:${teacher.id}:${dayKey(monday)}`,
+        from: new Date(startsAt - LIVE_EARLY_MIN * MIN),
+        topicEn: topic ? pickText('en', topic).text.topic : null,
+        topicFr: topic ? pickText('fr', topic).text.topic : null,
+      });
+      break;
+    }
+  }
+  return out;
+}
+
+/** Is this member teaching right now in the teaching group? (See rotaLiveWindows.) */
+export async function rotaTeachingNow(personId: string, communityId: string, now = new Date()): Promise<{ key: string; topicEn: string | null; topicFr: string | null } | null> {
+  const w = (await rotaLiveWindows(communityId, now)).find((x) => x.personId === personId);
+  return w ? { key: w.key, topicEn: w.topicEn, topicFr: w.topicFr } : null;
+}
+
 /** For the group chat: should this member see "I have finished my teaching" in this group right now? */
 export async function finishState(personId: string, communityId: string, lang: 'en' | 'fr', now = new Date()): Promise<{ available: boolean; topic?: string }> {
   const { settings, topics } = await loadBase();

@@ -7,6 +7,7 @@ import {
   makeThumb,
   shrinkPhoto,
   uploadChatFile,
+  voiceLengthOf,
   type UploadedAttachment,
   type UploadProblem,
 } from './chatMedia';
@@ -26,6 +27,8 @@ export interface MediaPreview {
   /** PDFs: the top of page 1 and the page count, once read. */
   thumb?: string;
   pageCount?: number;
+  /** A voice note's recorded length in milliseconds, shown on the sending bubble straight away. */
+  durationMs?: number;
 }
 
 // How long a PDF's preview may hold up the message once its upload is done.
@@ -156,7 +159,7 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
     const id = `upload-${Date.now()}-${counter}`;
     const items = files.map((f) => {
       const kind = kindOf(f);
-      return { name: f.name, kind, byteSize: f.size, previewUrl: kind === 'photo' || kind === 'video' ? objectUrl(f) : null };
+      return { name: f.name, kind, byteSize: f.size, previewUrl: kind === 'photo' || kind === 'video' ? objectUrl(f) : null, durationMs: kind === 'voice' ? voiceLengthOf(f) : undefined };
     });
     work.current.set(id, { files, caption, replyToMessageId, controller: new AbortController() });
     setJobs((prev) => [...prev, { id, items, caption, progress: 0, status: 'uploading' }]);
