@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '../Avatar';
 import { formatBytes } from '../../lib/attachmentLimits';
+import { BOOST_LEVELS, attachBoost, boostBlocked, boostSupported, loadBoost, markBoostBlocked, primeBoost, saveBoost, type BoostGraph, type BoostLevel } from '../../lib/voiceBoost';
 
 // A WhatsApp-style voice note: the sender's photo beside a play button, a
 // waveform, and the duration. There is no stored waveform anywhere in this
@@ -109,9 +110,19 @@ export function VoiceNotePlayer({
   const [scrub, setScrub] = useState<number | null>(null);
   const scrubbing = useRef(false);
   const [rate, setRate] = useState<number>(loadRate);
+  // Loudness boost (see lib/voiceBoost): an amplifier with a limiter in front of the speaker. blocked = the storage refused the extra
+  // access it needs, so this note plays the ordinary way.
+  const [boost, setBoost] = useState<BoostLevel>(loadBoost);
+  const [blocked, setBlocked] = useState<boolean>(boostBlocked);
+  const graph = useRef<BoostGraph | null>(null);
+  const corsConfirmed = useRef(false);
+  const fellBack = useRef(false);
   const bars = useRef(seededBars(seedId)).current;
   const ready = Boolean(url);
   const showFailed = failed || broken;
+  const canBoost = boostSupported() && !blocked;
+  // The boost needs the audio to be fetched in a way the storage must allow; a saved copy on the phone (blob:) always is.
+  const usesCors = canBoost && Boolean(url) && !String(url).startsWith('blob:');
 
   // A new attachment id (new voice note scrolled into view) resets playback state.
   useEffect(() => {
@@ -123,6 +134,11 @@ export function VoiceNotePlayer({
     linkRetries.current = 0;
     setBroken(false);
   }, [seedId]);
+  // A fresh audio element (new note, or the plain one after a refusal) has no amplifier hooked up yet.
+  useEffect(() => {
+    graph.current = null;
+    corsConfirmed.current = false;
+  }, [blocked, seedId]);
 
   // The chosen speed applies to every note, including one whose audio is only now ready.
   useEffect(() => {
@@ -133,6 +149,7 @@ export function VoiceNotePlayer({
   useEffect(() => {
     if (url && playWhenReady.current) {
       playWhenReady.current = false;
+      ensureBoost(false);
       void audioRef.current?.play().catch(() => {});
     }
   }, [url]);
@@ -142,6 +159,30 @@ export function VoiceNotePlayer({
     if (!audio) return;
     if (playing) audio.pause();
     else void audio.play().catch(() => {});
+  }
+
+  /**
+   * Hooks this note up to the amplifier (once), or sets its level. It only starts from a tap, or when an earlier tap already started
+   * the audio processing, and only once the storage is known to allow it, so the note can never end up silent.
+   */
+  function ensureBoost(fromTap: boolean, level: BoostLevel = boost) {
+    const audio = audioRef.current;
+    if (!audio || !canBoost) return;
+    if (graph.current) {
+      graph.current.setLevel(level);
+      return;
+    }
+    if (level === 'off') return;
+    if (usesCors && !corsConfirmed.current) return;
+    if (fromTap && !primeBoost()) return;
+    graph.current = attachBoost(audio, level, fromTap);
+  }
+
+  function cycleBoost() {
+    const next = BOOST_LEVELS[(BOOST_LEVELS.indexOf(boost) + 1) % BOOST_LEVELS.length];
+    setBoost(next);
+    saveBoost(next);
+    ensureBoost(true, next);
   }
 
   function pressPlay() {
@@ -154,8 +195,11 @@ export function VoiceNotePlayer({
     }
     if (!ready) {
       playWhenReady.current = true;
+      // Start the audio processing now, inside the tap, so it is ready when the audio is.
+      if (canBoost && boost !== 'off') primeBoost();
       return;
     }
+    ensureBoost(true);
     togglePlay();
   }
 
@@ -326,13 +370,18 @@ export function VoiceNotePlayer({
               <div className="flex items-center justify-between gap-2">
                 <span data-testid="voice-time" className={scrub !== null ? 'text-sm font-bold text-[#075e54]' : 'text-[11px] text-slate-500'}>{lengthText}</span>
                 {ready && (
-                  <span className="flex shrink-0 items-center gap-1">
+                  <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                     <button type="button" onClick={() => skip(-SKIP_SECONDS)} aria-label={t('groupChat.voice_back', { seconds: SKIP_SECONDS }) ?? ''} data-testid="voice-back" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
                       −{SKIP_SECONDS}
                     </button>
                     <button type="button" onClick={() => skip(SKIP_SECONDS)} aria-label={t('groupChat.voice_forward', { seconds: SKIP_SECONDS }) ?? ''} data-testid="voice-forward" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
                       +{SKIP_SECONDS}
                     </button>
+                    {canBoost && (
+                      <button type="button" onClick={cycleBoost} aria-label={t('groupChat.voice_boost', { level: t(`groupChat.voice_boost_${boost}`) }) ?? ''} data-testid="voice-boost" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
+                        {boost === 'off' ? '🔈' : boost === 'loud' ? '🔊' : '🔊+'}
+                      </button>
+                    )}
                     <button type="button" onClick={nextRate} aria-label={t('groupChat.voice_speed', { rate }) ?? ''} data-testid="voice-speed" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
                       {rate}×
                     </button>
@@ -342,8 +391,10 @@ export function VoiceNotePlayer({
             </div>
             {url && (
               <audio
+                key={blocked ? 'plain' : 'cors'}
                 ref={audioRef}
                 src={url}
+                crossOrigin={usesCors ? 'anonymous' : undefined}
                 // Small notes are preloaded completely so a tap plays at once; bigger ones only read their first bytes.
                 preload={byteSize > 0 && byteSize <= PRELOAD_ALL_BYTES ? 'auto' : 'metadata'}
                 className="hidden"
@@ -351,6 +402,12 @@ export function VoiceNotePlayer({
                   // A recording made by the phone's recorder can report no length until it is played: then the saved one stays.
                   const d = e.currentTarget.duration;
                   if (Number.isFinite(d) && d > 0) setDuration(d);
+                  if (usesCors) corsConfirmed.current = true; // it loaded the way the boost needs
+                  // It would not load that way but did load the ordinary way: the storage does not allow the boost, so stop trying.
+                  if (fellBack.current) {
+                    fellBack.current = false;
+                    markBoostBlocked();
+                  }
                 }}
                 onDurationChange={(e) => {
                   const d = e.currentTarget.duration;
@@ -361,6 +418,12 @@ export function VoiceNotePlayer({
                 onPause={() => setPlaying(false)}
                 onCanPlayThrough={() => onBuffered?.()}
                 onError={() => {
+                  // Not loading in the extra-access way is not a broken link: try the ordinary way first (no boost for this note).
+                  if (usesCors && !corsConfirmed.current) {
+                    fellBack.current = true;
+                    setBlocked(true);
+                    return;
+                  }
                   // The link may simply have expired: ask for a fresh one, quietly, up to twice before showing "try again".
                   if (linkRetries.current < 2) {
                     linkRetries.current += 1;
