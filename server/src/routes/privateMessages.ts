@@ -319,7 +319,7 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
     orderBy: afterCursor ? [{ createdAt: 'asc' }, { id: 'asc' }] : [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit + 1,
     include: {
-      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } },
+      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true, durationMs: true } },
       replyTo: {
         select: { id: true, body: true, deletedAt: true, senderPersonId: true, senderUserId: true, attachments: { select: { mimeType: true }, take: 1 } },
       },
@@ -364,6 +364,7 @@ router.get('/conversations/:id/messages', asyncHandler(async (req, res) => {
             byteSize: a.byteSize,
             thumb: a.thumbDataUrl ?? undefined,
             pageCount: a.pageCount ?? undefined,
+            durationMs: a.durationMs ?? undefined,
           })),
       // "Translate" was tapped on this message (by either person): the translation, when it is in the other language.
       detectedLanguage: !m.deletedAt && m.detectedLanguage ? m.detectedLanguage : undefined,
@@ -425,6 +426,8 @@ const attachmentDescriptorSchema = z.object({
   byteSize: z.number().int().positive(),
   thumb: z.string().max(MAX_THUMB_DATA_URL_LENGTH).regex(THUMB_DATA_URL_PATTERN).optional(),
   pageCount: z.number().int().min(1).max(MAX_PDF_PAGE_COUNT).optional(),
+  // A voice note's length in milliseconds (at most an hour), so it can be shown before the audio downloads.
+  durationMs: z.number().int().min(0).max(3_600_000).optional(),
 });
 
 // Text, attachments (photos, voice notes, videos, PDFs), or both — never
@@ -523,6 +526,7 @@ router.post(
                 byteSize: a.byteSize,
                 thumbDataUrl: a.thumb ?? null,
                 pageCount: a.pageCount ?? null,
+                durationMs: a.mimeType.startsWith('audio/') ? (a.durationMs ?? null) : null,
               })),
             }
           : undefined,

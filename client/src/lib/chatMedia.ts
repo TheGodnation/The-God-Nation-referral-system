@@ -18,8 +18,42 @@ export interface UploadedAttachment {
   thumb?: string;
   /** A PDF's number of pages. */
   pageCount?: number;
+  /** A voice note's length in milliseconds, so every phone can show it before the audio downloads. */
+  durationMs?: number;
   /** Which language this voice clip is in (the central admin's two-language voice message only). */
   language?: 'en' | 'fr';
+}
+
+// A voice note's recorded length is noted against the file the recorder made, so it travels with the upload.
+const voiceLengths = new WeakMap<Blob, number>();
+export function noteVoiceLength(file: Blob, ms: number): void {
+  if (Number.isFinite(ms) && ms > 0) voiceLengths.set(file, Math.round(ms));
+}
+export function voiceLengthOf(file: Blob): number | undefined {
+  return voiceLengths.get(file);
+}
+
+// What this phone has just sent is kept in memory for a little while, so your own voice note is playable the moment it
+// appears in the chat, with no waiting for it to come back down from storage.
+const JUST_SENT_MAX = 6;
+const JUST_SENT_MAX_BYTES = 8 * 1024 * 1024;
+const JUST_SENT_TTL_MS = 30 * 60 * 1000;
+const justSent: { blob: Blob; mime: string; at: number }[] = [];
+
+export function rememberJustSent(blob: Blob, mime: string): void {
+  if (blob.size === 0 || blob.size > JUST_SENT_MAX_BYTES || !mime.startsWith('audio/')) return;
+  justSent.push({ blob, mime, at: Date.now() });
+  while (justSent.length > JUST_SENT_MAX) justSent.shift();
+}
+
+export function findJustSent(byteSize: number, mime: string): Blob | null {
+  const now = Date.now();
+  for (let i = justSent.length - 1; i >= 0; i--) {
+    const s = justSent[i];
+    if (now - s.at > JUST_SENT_TTL_MS) continue;
+    if (s.blob.size === byteSize && s.mime === mime) return s.blob;
+  }
+  return null;
 }
 
 export type UploadProblem = 'type' | 'size' | 'storage' | 'failed';
@@ -118,7 +152,10 @@ export async function uploadChatFile(
     });
     if (!put || !put.ok) throw new ChatUploadError('failed');
   }
-  return { storageKey: auth.storageKey, originalFilename: filename, mimeType, byteSize: body.size };
+  rememberJustSent(body, mimeType);
+  // A voice note carries the length its recorder measured (see noteVoiceLength).
+  const durationMs = voiceLengthOf(file);
+  return { storageKey: auth.storageKey, originalFilename: filename, mimeType, byteSize: body.size, ...(durationMs ? { durationMs } : {}) };
 }
 
 // Light for slow networks: photos are sent at most 1280px wide (usually
@@ -257,7 +294,7 @@ export async function getAttachmentUrl(mediaBase: string, messageId: string, att
 
 /** True once the element has scrolled into view (always true where the
  * browser can't tell). */
-export function useInView<T extends Element>(): [React.RefObject<T>, boolean] {
+export function useInView<T extends Element>(rootMargin = '300px'): [React.RefObject<T>, boolean] {
   const ref = useRef<T>(null);
   const [inView, setInView] = useState(typeof IntersectionObserver === 'undefined');
   useEffect(() => {
@@ -269,11 +306,11 @@ export function useInView<T extends Element>(): [React.RefObject<T>, boolean] {
           obs.disconnect();
         }
       },
-      { rootMargin: '300px' },
+      { rootMargin },
     );
     obs.observe(ref.current);
     return () => obs.disconnect();
-  }, [inView]);
+  }, [inView, rootMargin]);
   return [ref, inView];
 }
 
@@ -282,11 +319,22 @@ export function useInView<T extends Element>(): [React.RefObject<T>, boolean] {
  * so it shows without internet; otherwise it is fetched once, shown, and kept for next time (within the size limits in
  * lib/offlineStore). If the copy cannot be fetched or kept, the plain link is used as before.
  */
-export function useAttachmentUrl(mediaBase: string, messageId: string, attachmentId: string, enabled: boolean, keep?: { mime: string; byteSize: number }) {
+export function useAttachmentUrl(
+  mediaBase: string,
+  messageId: string,
+  attachmentId: string,
+  enabled: boolean,
+  keep?: { mime: string; byteSize: number },
+  /** own: this phone sent it (its own copy, still in memory, is used at once). instant: show it from the link as soon as the link is
+   * known, and keep the copy for offline later with keepCopy() (voice notes: no waiting for the whole file to come down first). */
+  opts: { own?: boolean; instant?: boolean } = {},
+) {
   const { member } = useMemberAuth();
   const ownerId = member?.personId;
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const copyKept = useRef(false);
   // The in-memory address made from a kept file is let go when the picture or voice note leaves the screen.
   const made = useRef<string | null>(null);
   useEffect(
@@ -308,11 +356,22 @@ export function useAttachmentUrl(mediaBase: string, messageId: string, attachmen
     };
     (async () => {
       try {
+        // Your own voice note, still in memory from sending it: playable the moment it appears.
+        if (keep && opts.own) {
+          const sent = findJustSent(keep.byteSize, keep.mime);
+          if (sent) {
+            if (ownerId) void saveMedia(ownerId, attachmentId, sent, keep.mime).catch(() => {});
+            copyKept.current = true;
+            return show(URL.createObjectURL(sent), true);
+          }
+        }
         if (keep && ownerId) {
           const saved = await getFile(mediaKey(ownerId, attachmentId));
           if (saved) return show(URL.createObjectURL(saved.blob), true);
         }
         const link = await getAttachmentUrl(mediaBase, messageId, attachmentId);
+        // A voice note is shown as soon as its link is known; the offline copy is kept later (keepCopy), not waited for.
+        if (keep && opts.instant) return show(link);
         if (keep && ownerId && keep.byteSize > 0 && keep.byteSize <= MEDIA_FILE_MAX_BYTES) {
           try {
             const res = await fetch(link);
@@ -334,8 +393,32 @@ export function useAttachmentUrl(mediaBase: string, messageId: string, attachmen
     return () => {
       alive = false;
     };
-  }, [enabled, url, mediaBase, messageId, attachmentId, ownerId, keep?.mime, keep?.byteSize]);
-  return { url, failed };
+  }, [enabled, url, attempt, mediaBase, messageId, attachmentId, ownerId, keep?.mime, keep?.byteSize, opts.own, opts.instant]);
+
+  /** Try again after a failure, or when the link has stopped working (it asks the server for a fresh one). */
+  function retry() {
+    urlCache.delete(attachmentId);
+    setFailed(false);
+    setUrl(null);
+    setAttempt((n) => n + 1);
+  }
+
+  /** Keeps a copy on this phone for offline listening, once the audio has come down (so it is not fetched twice at the same time). */
+  async function keepCopy() {
+    if (!keep || !ownerId || copyKept.current || keep.byteSize <= 0 || keep.byteSize > MEDIA_FILE_MAX_BYTES) return;
+    copyKept.current = true;
+    try {
+      if (await getFile(mediaKey(ownerId, attachmentId))) return;
+      const res = await fetch(await getAttachmentUrl(mediaBase, messageId, attachmentId));
+      if (!res.ok) return;
+      const blob = await res.blob();
+      await saveMedia(ownerId, attachmentId, blob.type ? blob : new Blob([blob], { type: keep.mime }), keep.mime);
+    } catch {
+      copyKept.current = false;
+    }
+  }
+
+  return { url, failed, retry, keepCopy };
 }
 
 export function formatDuration(ms: number): string {

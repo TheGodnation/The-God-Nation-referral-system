@@ -331,7 +331,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
     },
     include: {
       sender: { select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } },
-      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true, language: true } },
+      attachments: { select: { id: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true, durationMs: true, language: true } },
       replyTo: replyToInclude,
       reactions: { select: { emoji: true, personId: true } },
       teaching: { select: { id: true, title: true, assessmentId: true, mediaKind: true, closesAt: true, text: true, communityId: true, authorPersonId: true, detectedLanguage: true, titleTranslated: true } },
@@ -432,6 +432,7 @@ router.get('/:communityId/conversation/messages', asyncHandler(async (req, res) 
             byteSize: a.byteSize,
             thumb: a.thumbDataUrl ?? undefined,
             pageCount: a.pageCount ?? undefined,
+            durationMs: a.durationMs ?? undefined,
             language: a.language ?? undefined,
           })),
       liveTeaching: !m.deletedAt && m.liveTeaching ? true : undefined,
@@ -505,6 +506,8 @@ const attachmentDescriptorSchema = z.object({
   // photo downloads — see lib/attachmentPolicy.ts THUMB_DATA_URL_PATTERN.
   thumb: z.string().max(MAX_THUMB_DATA_URL_LENGTH).regex(THUMB_DATA_URL_PATTERN).optional(),
   pageCount: z.number().int().min(1).max(MAX_PDF_PAGE_COUNT).optional(),
+  // A voice note's length in milliseconds (at most an hour), so it can be shown before the audio downloads.
+  durationMs: z.number().int().min(0).max(3_600_000).optional(),
   // Only the central admin's two-language voice message uses this (anyone else's is ignored).
   language: z.enum(['en', 'fr']).optional(),
 });
@@ -640,6 +643,7 @@ router.post(
                 byteSize: a.byteSize,
                 thumbDataUrl: a.thumb ?? null,
                 pageCount: a.pageCount ?? null,
+                durationMs: a.mimeType.startsWith('audio/') ? (a.durationMs ?? null) : null,
                 uploadedByPersonId: personId,
               })),
             }

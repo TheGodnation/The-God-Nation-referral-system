@@ -57,10 +57,10 @@ type SourceMessage = {
   /** Set when the message comes from a group chat. */
   known?: KnownTranslation;
   body: string | null;
-  attachments: { storageKey: string; originalFilename: string; mimeType: string; byteSize: number; thumbDataUrl: string | null; pageCount: number | null; language?: 'en' | 'fr' | null }[];
+  attachments: { storageKey: string; originalFilename: string; mimeType: string; byteSize: number; thumbDataUrl: string | null; pageCount: number | null; durationMs?: number | null; language?: 'en' | 'fr' | null }[];
 };
 
-const attachmentSelect = { storageKey: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true } as const;
+const attachmentSelect = { storageKey: true, originalFilename: true, mimeType: true, byteSize: true, thumbDataUrl: true, pageCount: true, durationMs: true } as const;
 
 async function otherPersonOf(actor: PrivateMessagingActor, c: { memberPersonId: string; initiatorPersonId: string | null }) {
   if (actor.type !== 'PERSON') return null;
@@ -244,6 +244,7 @@ router.post(
                       thumbDataUrl: a.thumbDataUrl,
                       language: a.language ?? null,
                       pageCount: a.pageCount,
+                      durationMs: a.durationMs ?? null,
                       uploadedByPersonId: target.personId,
                     })),
                   }
@@ -273,6 +274,7 @@ router.post(
                       byteSize: a.byteSize,
                       thumbDataUrl: a.thumbDataUrl,
                       pageCount: a.pageCount,
+                      durationMs: a.durationMs ?? null,
                     })),
                   }
                 : undefined,

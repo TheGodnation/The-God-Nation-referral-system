@@ -136,10 +136,19 @@ function PlayableAttachment({
   const { t } = useTranslation();
   const saver = useDataSaver();
   const [wanted, setWanted] = useState(false);
-  const [ref, inView] = useInView<HTMLDivElement>();
   const kind = mediaKind(a.mimeType);
-  // Voice notes are kept on the phone once heard; videos are never kept (too big).
-  const { url, failed } = useAttachmentUrl(mediaBase, messageId, a.id, inView && (!saver || wanted), kind === 'voice' ? { mime: a.mimeType, byteSize: a.byteSize } : undefined);
+  // Voice notes get their link ready well before they scroll into view (a screen and a half ahead), so they are there when reached.
+  const [ref, inView] = useInView<HTMLDivElement>(kind === 'voice' ? '1200px' : '300px');
+  // Voice notes are kept on the phone once heard (and show from their link at once, not after the whole file comes down); a note
+  // this phone just sent plays from its own copy; videos are never kept (too big).
+  const { url, failed, retry, keepCopy } = useAttachmentUrl(
+    mediaBase,
+    messageId,
+    a.id,
+    inView && (!saver || wanted),
+    kind === 'voice' ? { mime: a.mimeType, byteSize: a.byteSize } : undefined,
+    kind === 'voice' ? { own: isOwn, instant: true } : undefined,
+  );
   const waitForTap = saver && !wanted && !url;
   return (
     <div ref={ref}>
@@ -147,6 +156,7 @@ function PlayableAttachment({
         <VoiceNotePlayer
           url={url}
           byteSize={a.byteSize}
+          durationMs={a.durationMs}
           seedId={a.id}
           avatarName={senderName}
           avatarPhotoUrl={senderPhotoUrl}
@@ -154,6 +164,8 @@ function PlayableAttachment({
           waitForTap={waitForTap}
           failed={failed}
           onRequestDownload={() => setWanted(true)}
+          onRetry={retry}
+          onBuffered={() => void keepCopy()}
         />
       ) : url ? (
         // preload="none": nothing downloads until the person presses play.

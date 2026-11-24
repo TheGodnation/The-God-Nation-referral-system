@@ -2596,6 +2596,7 @@
     "voice": "Message vocal",
     "voice_play": "Lire le message vocal",
     "voice_pause": "Mettre en pause le message vocal",
+    "voice_retry": "Chargement impossible. Touchez pour réessayer",
     "document_label": "Document",
     "tip": "Glissez un message vers la droite pour répondre. Maintenez un message appuyé pour réagir 👍 ❤️ 🙏.",
     "tip_close": "Compris",

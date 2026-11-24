@@ -1970,6 +1970,9 @@ model MessageAttachment {
   thumbDataUrl       String?
   // A PDF's number of pages ("71 pages • 3.5 MB • PDF"), read by the sender's phone.
   pageCount          Int?
+  // A voice note's length in milliseconds, measured by the sender's phone while recording, so every phone can show the length
+  // the moment the message appears, before any audio has downloaded.
+  durationMs         Int?
   // The language of a recording the central admin made in both languages
   // (one message carries an English and a French voice note); null for
   // everything else.
@@ -2560,6 +2563,8 @@ model PrivateMessageAttachment {
   thumbDataUrl     String?
   // A PDF's number of pages, read by the sender's phone.
   pageCount        Int?
+  // A voice note's length in milliseconds (see MessageAttachment.durationMs).
+  durationMs       Int?
   createdAt        DateTime @default(now())
 
   message PrivateMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)

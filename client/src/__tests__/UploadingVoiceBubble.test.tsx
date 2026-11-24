@@ -6,17 +6,18 @@ import type { MediaSendJob } from '../lib/useMediaUploads';
 // A voice note shows in the chat the moment it is sent (a turning ring, like WhatsApp), before the upload is done.
 const voiceJob = (patch: Partial<MediaSendJob> = {}): MediaSendJob => ({
   id: 'u1',
-  items: [{ name: 'voice-note-1.webm', kind: 'voice', previewUrl: null, byteSize: 48_000 }],
+  items: [{ name: 'voice-note-1.webm', kind: 'voice', previewUrl: null, byteSize: 48_000, durationMs: 7_000 }],
   progress: 0.4,
   status: 'uploading',
   ...patch,
 });
 
 describe('A voice note that is still going up', () => {
-  it('shows at once as a voice note with its progress, and can be stopped', () => {
+  it('shows at once looking like the finished voice note (its length and bars), with its progress, and can be stopped', () => {
     const onCancel = vi.fn();
     render(<UploadingBubble job={voiceJob()} onCancel={onCancel} onRetry={vi.fn()} />);
-    expect(screen.getByTestId('uploading-voice')).toHaveTextContent('Voice message');
+    expect(screen.getByTestId('uploading-voice')).toHaveTextContent('0:07');
+    expect(screen.getByTestId('uploading-voice').querySelectorAll('span[style]').length).toBeGreaterThan(20);
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '40');
     fireEvent.click(screen.getByRole('button', { name: /stop|cancel/i }));
     expect(onCancel).toHaveBeenCalled();

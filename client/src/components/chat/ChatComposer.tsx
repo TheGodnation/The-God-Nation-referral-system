@@ -8,6 +8,7 @@ import {
   baseMime,
   extensionFor,
   formatDuration,
+  noteVoiceLength,
   pickRecorderMime,
   uploadChatFile,
   type UploadedAttachment,
@@ -479,7 +480,7 @@ export function ChatComposer({
       }
       const blob = new Blob(chunksRef.current, { type: mime });
       if (target) storeClip(target, blob, mime, duration);
-      else void sendVoice(blob, mime);
+      else void sendVoice(blob, mime, duration);
     };
     if (rec.state !== 'inactive') rec.stop();
     else rec.onstop?.(new Event('stop'));
@@ -528,6 +529,7 @@ export function ChatComposer({
       setError(t('groupChat.hold_longer'));
       return;
     }
+    noteVoiceLength(blob, ms);
     setDual((d) => {
       if (!d) return d;
       const old = d.clips[language];
@@ -594,15 +596,18 @@ export function ChatComposer({
     }
   }
 
-  async function sendVoice(blob: Blob, mime: string) {
+  async function sendVoice(blob: Blob, mime: string, ms: number) {
     // The WhatsApp way: the voice note shows in the chat at once with a turning ring, uploads in the background and is
-    // posted when it is up (a failed one can be tried again without recording it again).
+    // posted when it is up (a failed one can be tried again without recording it again). Its recorded length goes with it.
     if (typeof File === 'function') {
-      onPickMedia([new File([blob], `voice-note-${Date.now()}.${extensionFor(mime)}`, { type: mime })]);
+      const file = new File([blob], `voice-note-${Date.now()}.${extensionFor(mime)}`, { type: mime });
+      noteVoiceLength(file, ms);
+      onPickMedia([file]);
       return;
     }
     setBusy(true);
     try {
+      noteVoiceLength(blob, ms);
       const uploaded = await uploadChatFile(uploadPath, blob, `voice-note-${Date.now()}.${extensionFor(mime)}`);
       await onSend({ attachments: [uploaded], replyToMessageId: replyTo?.id });
     } catch (err) {
