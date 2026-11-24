@@ -29,9 +29,13 @@ describe('Share with my link', () => {
     expect(url).toContain('Good news');
     expect(url).toContain('/news/post/p1?ref=MARIE7X2&utm_source=member_share&utm_medium=social&lang=en');
     fireEvent.click(screen.getByTestId('member-share-lang-fr'));
-    fireEvent.click(screen.getByTestId('member-share-wa'));
-    const fr = decodeURIComponent(String(open.mock.calls[1][0]));
-    expect(fr).toContain('Bonne nouvelle');
+    // The French title arrives a moment after the language is switched: wait for it rather than assume it is already there.
+    let fr = '';
+    await waitFor(() => {
+      fireEvent.click(screen.getByTestId('member-share-wa'));
+      fr = decodeURIComponent(String(open.mock.calls[open.mock.calls.length - 1][0]));
+      expect(fr).toContain('Bonne nouvelle');
+    });
     expect(fr).toContain('ref=MARIE7X2');
     expect(fr).toContain('lang=fr');
   });
