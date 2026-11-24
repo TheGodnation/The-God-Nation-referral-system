@@ -1,7 +1,8 @@
 import { prisma } from './prisma';
 import { pushToPersonsLocalized } from './pushLocalized';
-import { rotaTeachingNow } from './teachingCards';
-import { groupTeachingNow } from './groupTeachers';
+import { profilePhotoPath } from './profilePhoto';
+import { rotaLiveWindows, rotaTeachingNow } from './teachingCards';
+import { groupLiveWindows, groupTeachingNow } from './groupTeachers';
 
 // When someone who is teaching sends their voice notes in the group, the whole group is told, so people know the teaching is
 // happening and can come and listen:
@@ -68,4 +69,45 @@ export async function announceTeachingAudio(input: TeachingAudioInput): Promise<
     }));
   }
   return true;
+}
+
+// ---- The "teaching now" banner at the top of the group chat -------------------------------------------------------------
+
+/** A teaching counts as still going on while its latest voice note is no older than this. */
+const STILL_GOING_MIN = 30;
+
+export interface LiveTeaching {
+  personId: string;
+  name: string;
+  photoUrl: string | null;
+  topicEn: string | null;
+  topicFr: string | null;
+  /** The first voice note of this teaching, so "Listen" can take the member to its beginning. */
+  firstMessageId: string;
+  lastAudioAt: Date;
+}
+
+/**
+ * Who is teaching in this group right now: a teacher inside their teaching window (weekly rota slot, or a group teacher's teaching
+ * day) who has sent a voice note in it and whose latest one is at most half an hour old. Empty most of the time.
+ */
+export async function liveTeachings(communityId: string, now = new Date()): Promise<LiveTeaching[]> {
+  const [rota, groups] = await Promise.all([rotaLiveWindows(communityId, now), groupLiveWindows(communityId, now)]);
+  const windows = new Map<string, { from: Date; topicEn: string | null; topicFr: string | null }>();
+  for (const g of groups) windows.set(g.personId, { from: g.from, topicEn: null, topicFr: null });
+  for (const r of rota) windows.set(r.personId, { from: r.from, topicEn: r.topicEn, topicFr: r.topicFr });
+  if (windows.size === 0) return [];
+  const out: LiveTeaching[] = [];
+  for (const [personId, w] of windows) {
+    const where = { conversation: { communityId }, senderPersonId: personId, deletedAt: null, createdAt: { gte: w.from }, attachments: { some: { mimeType: { startsWith: 'audio/' } } } };
+    const [first, last] = await Promise.all([
+      prisma.message.findFirst({ where, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true } }),
+      prisma.message.findFirst({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], select: { createdAt: true } }),
+    ]);
+    if (!first || !last || now.getTime() - last.createdAt.getTime() > STILL_GOING_MIN * 60 * 1000) continue;
+    const person = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } });
+    if (!person) continue;
+    out.push({ personId, name: person.name, photoUrl: profilePhotoPath(person), topicEn: w.topicEn, topicFr: w.topicFr, firstMessageId: first.id, lastAudioAt: last.createdAt });
+  }
+  return out.sort((a, b) => a.lastAudioAt.getTime() - b.lastAudioAt.getTime());
 }

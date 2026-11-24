@@ -53,7 +53,7 @@ import { notifyPostLiked, notifyPostReplied } from '../lib/notifications';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording } from '../lib/presence';
 import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
 import { pushToPersons } from '../lib/push';
-import { announceTeachingAudio } from '../lib/teachingLive';
+import { announceTeachingAudio, liveTeachings } from '../lib/teachingLive';
 import { MAX_PINS_PER_REQUEST, markPinSeen, pinFull, pinMessage, pinMessages, pinsFor, unpinMessage, unpinMessages } from '../lib/messagePins';
 import { translateAndStoreMessage, transcribeAndStoreMessageAudio } from '../lib/translation';
 import { ratingCardInfos } from '../lib/teachingCards';
@@ -189,6 +189,26 @@ router.get('/:communityId/conversation/teaching-today', asyncHandler(async (req,
   if (!(await contextTargetExists('COMMUNITY', communityId))) return res.status(404).json({ error: 'Community not found.' });
   if (!(await hasConversationAccess(req.conversationActorPersonId!, communityId))) return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
   res.json({ items: await teachingToday(communityId) });
+}));
+
+// GET /api/communities/:communityId/conversation/teaching-now — who is teaching in this group right now (a teacher inside their
+// teaching time whose voice notes are still coming), for the red banner at the top of the chat. Empty most of the time. Anyone who
+// can read the chat can see it.
+router.get('/:communityId/conversation/teaching-now', asyncHandler(async (req, res) => {
+  const { communityId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) return res.status(404).json({ error: 'Community not found.' });
+  if (!(await hasConversationAccess(req.conversationActorPersonId!, communityId))) return res.status(403).json({ error: 'You do not have access to this community\'s conversation.' });
+  res.json({
+    items: (await liveTeachings(communityId)).map((l) => ({
+      personId: l.personId,
+      name: l.name,
+      photoUrl: l.photoUrl,
+      topicEn: l.topicEn,
+      topicFr: l.topicFr,
+      firstMessageId: l.firstMessageId,
+      lastAudioAt: l.lastAudioAt,
+    })),
+  });
 }));
 
 // GET /api/communities/:communityId/conversation — conversation metadata

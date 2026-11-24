@@ -6339,6 +6339,10 @@
     "load_failed": "Could not load. Try again.",
     "failed": "Something went wrong. Please try again."
   },
+  "teachingLive": {
+    "title": "{{name}} is teaching now",
+    "listen": "Listen"
+  },
   "teachingToday": {
     "title": "Teaching today:",
     "at": "at {{time}}",

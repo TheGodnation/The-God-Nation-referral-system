@@ -214,3 +214,104 @@ describe('Sending a voice note in the group (the real route)', () => {
     vi.mocked(storage.headObject).mockResolvedValue(null);
   });
 });
+
+describe('The "teaching now" banner at the top of the group chat', () => {
+  // Alpha teaches Monday 23 Nov 2026 at 07:00 Cameroon time = 06:00 UTC (Topic 1); the window opens at 05:30 UTC.
+  async function setUp() {
+    const alpha = await person('Alpha');
+    const listener = await person('Listener');
+    await loadPlan({ startDate: '2026-11-23', topics: [topic(1), topic(2)], teachers: [{ name: 'Alpha Tester', startTopic: 1, dayOfWeek: 1, startTime: '07:00' }] } as any);
+    await prisma.teachingTeacher.updateMany({ where: { name: 'Alpha Tester' }, data: { personId: alpha.id } });
+    const g = await group([alpha.id, listener.id]);
+    await updateSettings({ enabled: true, frenchChecked: true, ratersCommunityId: g.id });
+    return { alpha, listener, g };
+  }
+  async function send(g: { id: string }, personId: string, iso: string, audio = true) {
+    const { getOrCreateConversation } = await import('../lib/communityConversation');
+    const conversation = await getOrCreateConversation(g.id);
+    return prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderPersonId: personId,
+        body: audio ? null : 'Please read John 1.',
+        createdAt: at(iso),
+        ...(audio ? { attachments: { create: [{ storageKey: `communities/${g.id}/attachments/${crypto.randomUUID()}`, originalFilename: 'v.m4a', mimeType: 'audio/mp4', byteSize: 1000, uploadedByPersonId: personId }] } } : {}),
+      },
+    });
+  }
+  const live = async (g: { id: string }, iso: string) => (await import('../lib/teachingLive')).liveTeachings(g.id, at(iso));
+
+  it('shows nothing until the teacher has sent a voice note, then shows them with the topic and the first audio', async () => {
+    const { alpha, g } = await setUp();
+    expect(await live(g, '2026-11-23T06:05:00Z')).toEqual([]); // teaching time, but nothing sent yet
+    const first = await send(g, alpha.id, '2026-11-23T06:06:00Z');
+    await send(g, alpha.id, '2026-11-23T06:15:00Z');
+    const items = await live(g, '2026-11-23T06:20:00Z');
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ personId: alpha.id, name: alpha.name, topicEn: 'Topic 1', topicFr: 'Topic 1 (fr)', firstMessageId: first.id });
+    expect(items[0].lastAudioAt.toISOString()).toBe('2026-11-23T06:15:00.000Z');
+  });
+
+  it('goes away by itself half an hour after the last voice note, and comes back if another arrives', async () => {
+    const { alpha, g } = await setUp();
+    await send(g, alpha.id, '2026-11-23T06:06:00Z');
+    expect(await live(g, '2026-11-23T06:36:00Z')).toHaveLength(1); // 30 minutes after
+    expect(await live(g, '2026-11-23T06:37:00Z')).toEqual([]); // 31 minutes after
+    await send(g, alpha.id, '2026-11-23T06:50:00Z');
+    expect(await live(g, '2026-11-23T06:55:00Z')).toHaveLength(1);
+  });
+
+  it('ignores text messages, deleted voice notes, other people and times outside the teaching window', async () => {
+    const { alpha, listener, g } = await setUp();
+    await send(g, alpha.id, '2026-11-23T06:06:00Z', false); // text only
+    expect(await live(g, '2026-11-23T06:07:00Z')).toEqual([]);
+    const gone = await send(g, alpha.id, '2026-11-23T06:08:00Z');
+    await prisma.message.update({ where: { id: gone.id }, data: { deletedAt: at('2026-11-23T06:09:00Z') } });
+    expect(await live(g, '2026-11-23T06:10:00Z')).toEqual([]);
+    await send(g, listener.id, '2026-11-23T06:11:00Z'); // a member who is not teaching
+    expect(await live(g, '2026-11-23T06:12:00Z')).toEqual([]);
+    // A voice note sent long before the slot does not start a "teaching now".
+    await send(g, alpha.id, '2026-11-23T01:00:00Z');
+    expect(await live(g, '2026-11-23T01:10:00Z')).toEqual([]);
+    // Nor in another group.
+    const elsewhere = await group([alpha.id]);
+    await send(elsewhere, alpha.id, '2026-11-23T06:13:00Z');
+    expect(await live(elsewhere, '2026-11-23T06:14:00Z')).toEqual([]);
+  });
+
+  it('shows a group teacher on their teaching day (no topic)', async () => {
+    const teacher = await person('Teacher');
+    const g = await group([teacher.id]);
+    const gt = await prisma.groupTeacher.create({ data: { personId: teacher.id, communityId: g.id } });
+    await prisma.teachingDay.create({ data: { groupTeacherId: gt.id, dayOfWeek: 3, startMinute: 7 * 60 } }); // Wednesdays 07:00
+    const first = await send(g, teacher.id, '2026-11-25T06:10:00Z');
+    const items = await live(g, '2026-11-25T06:20:00Z');
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ personId: teacher.id, topicEn: null, topicFr: null, firstMessageId: first.id });
+    expect(await live(g, '2026-11-26T06:20:00Z')).toEqual([]); // the next day
+  });
+
+  it('is served to members of the group only', async () => {
+    const { listener, g } = await setUp();
+    const outsider = await person('Outsider');
+    const signIn = async (personId: string, ip: string) => {
+      const email = `live-banner-${personId}@example.com`;
+      await prisma.memberAccount.create({ data: { personId, email } });
+      const raw = request.agent(app);
+      const { csrf } = await bootstrap(raw as any);
+      const spy = vi.spyOn(EmailService, 'sendMemberLoginLink').mockResolvedValue({ ok: true });
+      await raw.post('/api/member/auth/request-code').set('X-Forwarded-For', ip).set('X-CSRF-Token', csrf).send({ email });
+      const code = spy.mock.calls[0][0].code as string;
+      spy.mockRestore();
+      await raw.post('/api/member/auth/verify-code').set('X-Forwarded-For', ip).set('X-CSRF-Token', csrf).send({ email, code });
+      return (path: string) => raw.get(path).set('X-Forwarded-For', ip);
+    };
+    const asMember = await signIn(listener.id, '10.151.0.9');
+    const asOutsider = await signIn(outsider.id, '10.151.0.10');
+    const url = `/api/communities/${g.id}/conversation/teaching-now`;
+    expect((await asMember(url)).body).toEqual({ items: [] }); // a member sees the (empty) answer
+    expect((await asOutsider(url)).status).toBe(403); // someone who is not in the group does not
+    expect((await request(app).get(url)).status).toBe(401); // nor someone who is not signed in
+    expect((await asMember('/api/communities/no-such-group/conversation/teaching-now')).status).toBe(404);
+  });
+});

@@ -6339,6 +6339,10 @@
     "load_failed": "Impossible de charger. Réessayez.",
     "failed": "Un problème est survenu. Veuillez réessayer."
   },
+  "teachingLive": {
+    "title": "{{name}} enseigne maintenant",
+    "listen": "Écouter"
+  },
   "teachingToday": {
     "title": "Enseignement aujourd'hui :",
     "at": "à {{time}}",
