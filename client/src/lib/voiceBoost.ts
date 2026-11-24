@@ -1,9 +1,12 @@
 // Playing a voice note louder than the phone's normal level. A web audio player cannot go above the phone's own volume, so the audio
 // is routed through an amplifier followed by a compressor and a limiter: quiet recordings and weak speakers become clearly audible,
-// and the limiter stops it from crackling. Three settings, chosen with the 🔊 button on the voice note and remembered on the phone.
+// and the limiter stops it from crackling. Because louder also means a louder background, the noise is turned down first: a hum and
+// hiss filter, and a gate that lowers the background between words (see noiseGate). Three settings, chosen with the 🔊 button on the voice note and remembered on the phone.
 //
 // It is only ever hooked up from a tap (a phone refuses to start audio processing otherwise and the voice note would play in
 // silence), and if the storage that holds the voice notes does not allow it, the note simply plays the ordinary way (see the player).
+
+import { insertNoiseGate } from './noiseGate';
 
 export type BoostLevel = 'off' | 'loud' | 'max';
 export const BOOST_LEVELS: readonly BoostLevel[] = ['off', 'loud', 'max'];
@@ -59,6 +62,10 @@ export function primeBoost(): boolean {
 }
 
 interface Setting {
+  /** Where the low hum is cut below, and where the hiss is cut above (Hz). */
+  highpass: number;
+  lowpass: number;
+  gate: boolean;
   pre: number;
   threshold: number;
   knee: number;
@@ -70,13 +77,15 @@ interface Setting {
 // off: passes the sound through as it is. loud: about twice as loud, compressed so soft and loud parts even out. max: about three and
 // a half times, compressed harder, for the weakest speakers (a little more "squashed" sounding, which is the price of the volume).
 const SETTINGS: Record<BoostLevel, Setting> = {
-  off: { pre: 1, threshold: 0, knee: 0, ratio: 1, attack: 0.003, release: 0.25, post: 1 },
-  loud: { pre: 2, threshold: -24, knee: 20, ratio: 8, attack: 0.003, release: 0.25, post: 1 },
-  max: { pre: 3.5, threshold: -30, knee: 12, ratio: 14, attack: 0.002, release: 0.2, post: 1.15 },
+  off: { highpass: 10, lowpass: 20000, gate: false, pre: 1, threshold: 0, knee: 0, ratio: 1, attack: 0.003, release: 0.25, post: 1 },
+  loud: { highpass: 100, lowpass: 7000, gate: true, pre: 2, threshold: -24, knee: 20, ratio: 8, attack: 0.003, release: 0.25, post: 1 },
+  max: { highpass: 120, lowpass: 6000, gate: true, pre: 3.5, threshold: -30, knee: 12, ratio: 14, attack: 0.002, release: 0.2, post: 1.15 },
 };
 
 export interface BoostGraph {
   setLevel: (level: BoostLevel) => void;
+  /** Stops the noise listener (call when the note goes away). */
+  dispose: () => void;
 }
 
 /**
@@ -98,13 +107,22 @@ export function attachBoost(audio: HTMLAudioElement, level: BoostLevel, fromTap:
     limiter.ratio.value = 20;
     limiter.attack.value = 0.001;
     limiter.release.value = 0.05;
-    source.connect(pre);
+    const hum = ctx.createBiquadFilter();
+    hum.type = 'highpass';
+    const hiss = ctx.createBiquadFilter();
+    hiss.type = 'lowpass';
+    source.connect(hum);
+    hum.connect(hiss);
+    // The noise gate sits between the filters and the amplifier, so the background is turned down before it is made louder.
+    const gate = insertNoiseGate(ctx, hiss, pre);
     pre.connect(compressor);
     compressor.connect(post);
     post.connect(limiter);
     limiter.connect(ctx.destination);
     const apply = (l: BoostLevel) => {
       const s = SETTINGS[l];
+      hum.frequency.value = s.highpass;
+      hiss.frequency.value = s.lowpass;
       pre.gain.value = s.pre;
       compressor.threshold.value = s.threshold;
       compressor.knee.value = s.knee;
@@ -112,9 +130,16 @@ export function attachBoost(audio: HTMLAudioElement, level: BoostLevel, fromTap:
       compressor.attack.value = s.attack;
       compressor.release.value = s.release;
       post.gain.value = s.post;
+      gate.setEnabled(s.gate);
+      // Switched on while the note is playing: listen again.
+      if (s.gate && !audio.paused) gate.start();
     };
+    // The noise listener only runs while sound is flowing.
+    audio.addEventListener('play', () => gate.start());
+    audio.addEventListener('pause', () => gate.stop());
+    audio.addEventListener('ended', () => gate.stop());
     apply(level);
-    return { setLevel: apply };
+    return { setLevel: apply, dispose: () => gate.dispose() };
   } catch {
     return null;
   }

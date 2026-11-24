@@ -11,6 +11,7 @@ class FakeAudioContext {
   destination = {};
   sources: unknown[] = [];
   gains: { gain: { value: number } }[] = [];
+  filters: { frequency: { value: number } }[] = [];
   compressors: { threshold: { value: number }; ratio: { value: number } }[] = [];
   resume = vi.fn(async () => {
     this.state = 'running';
@@ -23,10 +24,22 @@ class FakeAudioContext {
     this.sources.push(node);
     return node;
   }
+  currentTime = 0;
   createGain() {
-    const node = { gain: { value: 1 }, connect: vi.fn() };
+    const node = { gain: { value: 1, cancelScheduledValues: vi.fn(), setTargetAtTime: vi.fn() }, connect: vi.fn() };
     this.gains.push(node);
     return node;
+  }
+  createBiquadFilter() {
+    const node = { type: '', frequency: { value: 0 }, connect: vi.fn() };
+    this.filters.push(node);
+    return node;
+  }
+  createAnalyser() {
+    return { fftSize: 0, connect: vi.fn(), getFloatTimeDomainData: (buf: Float32Array) => buf.fill(0.001) };
+  }
+  createDelay() {
+    return { delayTime: { value: 0 }, connect: vi.fn() };
   }
   createDynamicsCompressor() {
     const node = { threshold: { value: 0 }, knee: { value: 0 }, ratio: { value: 1 }, attack: { value: 0 }, release: { value: 0 }, connect: vi.fn() };
@@ -112,6 +125,19 @@ describe('Loudness boost on a voice note', () => {
       expect(button).toHaveTextContent('🔊');
       expect(ctx.gains[0].gain.value).toBe(2);
       expect(ctx.sources).toHaveLength(1); // still one hook-up
+    });
+
+    it('turns the background noise down at Loud and Maximum (hum and hiss filters), and not at all when Off', () => {
+      render(<VoiceNotePlayer {...props} />);
+      fireEvent.loadedMetadata(audio());
+      play();
+      const ctx = FakeAudioContext.last!;
+      const [hum, hiss] = ctx.filters;
+      expect([hum.frequency.value, hiss.frequency.value]).toEqual([100, 7000]); // Loud
+      fireEvent.click(screen.getByTestId('voice-boost'));
+      expect([hum.frequency.value, hiss.frequency.value]).toEqual([120, 6000]); // Maximum: a little stronger
+      fireEvent.click(screen.getByTestId('voice-boost'));
+      expect([hum.frequency.value, hiss.frequency.value]).toEqual([10, 20000]); // Off: the whole sound passes
     });
 
     it('with the boost off, playing leaves the sound untouched; switching it on later hooks it up at that tap', () => {

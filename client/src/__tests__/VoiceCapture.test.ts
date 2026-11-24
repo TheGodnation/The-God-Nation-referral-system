@@ -62,7 +62,7 @@ describe('cleaning up the voice before it is recorded', () => {
     expect(enhanceMic(rawStream).stream).toBe(rawStream);
   });
 
-  it('runs the voice through a rumble filter, a compressor, make-up gain and a limiter, and records the result', () => {
+  it('runs the voice through a rumble filter, a hiss filter, a noise gate, a compressor, a small make-up gain and a limiter, and records the result', () => {
     const connections: string[] = [];
     const node = (name: string, extra: object = {}) => ({ connect: vi.fn((to: { __name?: string }) => connections.push(`${name}>${to.__name}`)), __name: name, ...extra });
     const param = (value = 0) => ({ value });
@@ -70,16 +70,26 @@ describe('cleaning up the voice before it is recorded', () => {
     const resumed = vi.fn(async () => {});
     const outStream = { getAudioTracks: () => [track] } as unknown as MediaStream;
     const compressors: ReturnType<typeof node>[] = [];
-    const gains: { gain: { value: number } }[] = [];
+    const gains: { gain: { value: number; cancelScheduledValues: ReturnType<typeof vi.fn> } }[] = [];
+    const filters: { type: string; frequency: { value: number } }[] = [];
     vi.stubGlobal('AudioContext', class {
       state = 'suspended';
+      currentTime = 0;
       resume = resumed;
       close = closed;
       createMediaStreamSource() {
         return node('source');
       }
       createBiquadFilter() {
-        return node('rumble', { type: '', frequency: param() });
+        const n = node(filters.length === 0 ? 'rumble' : 'hiss', { type: '', frequency: param() });
+        filters.push(n as unknown as { type: string; frequency: { value: number } });
+        return n;
+      }
+      createAnalyser() {
+        return node('listener', { fftSize: 0, getFloatTimeDomainData: (b: Float32Array) => b.fill(0) });
+      }
+      createDelay() {
+        return node('delay', { delayTime: param() });
       }
       createDynamicsCompressor() {
         const n = node(compressors.length === 0 ? 'compressor' : 'limiter', { threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() });
@@ -87,23 +97,45 @@ describe('cleaning up the voice before it is recorded', () => {
         return n;
       }
       createGain() {
-        const n = node('makeup', { gain: param(1) });
-        gains.push(n as unknown as { gain: { value: number } });
+        const n = node(gains.length === 0 ? 'makeup' : 'gate', { gain: { value: 1, cancelScheduledValues: vi.fn(), setTargetAtTime: vi.fn() } });
+        gains.push(n as unknown as (typeof gains)[number]);
         return n;
       }
       createMediaStreamDestination() {
         return { __name: 'out', stream: outStream };
       }
     });
+    vi.useFakeTimers();
     const out = enhanceMic(rawStream);
     expect(out.stream).toBe(outStream);
-    expect(connections).toEqual(['source>rumble', 'rumble>compressor', 'compressor>makeup', 'makeup>limiter', 'limiter>out']);
-    expect(gains[0].gain.value).toBeGreaterThan(1); // a little louder
+    expect(connections).toEqual([
+      'source>rumble',
+      'rumble>hiss',
+      'hiss>listener', // the gate listens to the voice...
+      'hiss>delay', // ...while the voice itself is delayed a little...
+      'delay>gate', // ...so the gate can open before a word arrives
+      'gate>compressor',
+      'compressor>makeup',
+      'makeup>limiter',
+      'limiter>out',
+    ]);
+    // Low hum and very high hiss are cut, where speech has little.
+    expect(filters.map((f) => f.frequency.value)).toEqual([110, 7000]);
+    // Only a small lift: more would lift the background noise with it.
+    expect(gains[0].gain.value).toBeGreaterThan(1);
+    expect(gains[0].gain.value).toBeLessThanOrEqual(1.5);
     const limiter = compressors[1] as unknown as { threshold: { value: number }; ratio: { value: number } };
     expect(limiter.threshold.value).toBeLessThan(0); // never reaches the top, so it cannot crackle
     expect(limiter.ratio.value).toBe(20);
     expect(resumed).toHaveBeenCalled();
+    // The noise gate is listening while recording, and let go of at the end.
+    vi.advanceTimersByTime(60);
+    expect(gains[1].gain.cancelScheduledValues).toHaveBeenCalled();
     out.close();
     expect(closed).toHaveBeenCalled();
+    const checks = gains[1].gain.cancelScheduledValues.mock.calls.length;
+    vi.advanceTimersByTime(200);
+    expect(gains[1].gain.cancelScheduledValues.mock.calls.length).toBe(checks); // no more checks
+    vi.useRealTimers();
   });
 });
