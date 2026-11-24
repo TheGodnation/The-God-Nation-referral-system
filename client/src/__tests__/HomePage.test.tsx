@@ -82,6 +82,10 @@ describe('HomePage', () => {
     // The photographs already on the public site sit where they fit (slides 3, 5, 10, 11); the other slides wait for their own and show plain, bright. No book cover.
     expect(slides.querySelectorAll('article img[src^="/site/"]')).toHaveLength(4);
     expect(screen.queryByTestId('discover-book')).toBeNull();
+    // The first and last slide have no topic tag: no "The introduction", no "The invitation".
+    expect(screen.queryByText('The introduction')).toBeNull();
+    expect(screen.queryByText('The invitation')).toBeNull();
+    expect(screen.getByText('Spiritual training')).toBeInTheDocument();
     expect(screen.queryByText('Everything you need to grow and make an impact.')).toBeNull(); // the old heading above the slides is gone
     expect(screen.queryByText('What you can experience')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Français' }));

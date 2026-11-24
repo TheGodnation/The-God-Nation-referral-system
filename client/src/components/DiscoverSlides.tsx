@@ -57,6 +57,8 @@ export function DiscoverSlides() {
           const photo = PHOTOS[n];
           const last = n === COUNT;
           const tag = t(`discover.s${n}_tag`, { defaultValue: '' });
+          // Slides 1 and 12 have no topic tag: their headline says it all ("A Kingdom revival movement is emerging!", "You have a place…").
+          const label = t(`discover.s${n}_label`, { defaultValue: '' });
           const onPhoto = Boolean(photo);
           return (
             <li key={n}>
@@ -76,7 +78,7 @@ export function DiscoverSlides() {
                       style={{ objectPosition: photo.at, ...(photo.zoom ? { transform: `scale(${photo.zoom})`, transformOrigin: photo.at } : {}) }}
                     />
                     {/* Only the lower part is darkened, for the words; the rest of the photograph stays as bright as it was taken. */}
-                    <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-[62%] bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
+                    <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-[78%] bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
                   </>
                 ) : (
                   <Icon className="absolute -bottom-8 -right-8 -z-10 h-72 w-72 text-brand-200/60 sm:h-96 sm:w-96" />
@@ -93,8 +95,8 @@ export function DiscoverSlides() {
                 </header>
 
                 <div className="mt-16">
-                  <p className={`inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest ${onPhoto ? 'bg-gold-400 text-brand-950' : 'bg-brand-600 text-white'}`}>{t(`discover.s${n}_label`)}</p>
-                  <h3 className={`mt-3 text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl ${onPhoto ? SHADOW : 'text-brand-900'}`}>{t(`discover.s${n}_title`)}</h3>
+                  {label && <p className={`mb-3 inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest ${onPhoto ? 'bg-gold-400 text-brand-950' : 'bg-brand-600 text-white'}`}>{label}</p>}
+                  <h3 className={`text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl ${onPhoto ? SHADOW : 'text-brand-900'}`}>{t(`discover.s${n}_title`)}</h3>
                   <p className={`mt-4 max-w-xl text-base sm:text-lg ${onPhoto ? `text-white ${SHADOW}` : 'text-slate-700'}`}>{t(`discover.s${n}_body`)}</p>
                   {tag && (
                     <p className={`mt-4 font-bold ${last ? 'text-sm uppercase tracking-widest sm:text-base' : 'text-lg'} ${onPhoto ? `text-gold-400 ${SHADOW}` : 'text-brand-700'}`}>{tag}</p>
