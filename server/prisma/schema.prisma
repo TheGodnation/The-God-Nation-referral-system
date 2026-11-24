@@ -630,6 +630,9 @@ model Settings {
   id                            String            @id @default("singleton")
   // Automatic WhatsApp messages through Meta's WhatsApp Business Platform. Off until the central admin switches it on.
   whatsappCloudMode             WhatsAppCloudMode @default(OFF)
+  // The most automatic WhatsApp messages sent in one calendar month (Cameroon time): each delivered message is paid for, so once
+  // this many have gone out the rest are held back (and recorded as such) until the 1st. 0 sends nothing.
+  whatsappMonthlyLimit          Int               @default(300)
   // Members who joined an assembly after this moment see only the last 30
   // messages from before they joined, plus everything since (see
   // lib/communityConversation.ts historyCutoffFor). Set to the moment the rule

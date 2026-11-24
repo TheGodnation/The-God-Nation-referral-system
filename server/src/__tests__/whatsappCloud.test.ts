@@ -134,6 +134,74 @@ describe('Automatic WhatsApp messages to members', () => {
   });
 });
 
+describe('The monthly limit on automatic WhatsApp messages', () => {
+  const vars = { topic: 'Grace', when: 'Monday 10:00' };
+  const setLimit = (limit: number) => prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', whatsappMonthlyLimit: limit }, update: { whatsappMonthlyLimit: limit } });
+  afterEach(() => setLimit(300));
+
+  it('starts at 300 a month', async () => {
+    expect((await prisma.settings.findUnique({ where: { id: 'singleton' } }))?.whatsappMonthlyLimit ?? 300).toBe(300);
+  });
+
+  it('stops sending once this month’s limit is reached, holds the rest back with the reason, and counts only delivered messages', async () => {
+    metaAnswers();
+    await setMode('ON');
+    await setLimit(2);
+    const a = await person({ consent: true });
+    const b = await person({ consent: true });
+    const c = await person({ consent: true });
+    expect(await whatsappCloudNotify(a.id, 'teaching_hour', vars)).toBe('sent');
+    expect(await whatsappCloudNotify(b.id, 'teaching_hour', vars)).toBe('sent');
+    expect(await whatsappCloudNotify(c.id, 'teaching_hour', vars)).toBe('skipped');
+    expect(calls).toHaveLength(2);
+    expect((await prisma.whatsAppCloudSend.findFirstOrThrow({ where: { personId: c.id } }))).toMatchObject({ status: 'SKIPPED', reason: 'monthly limit reached' });
+  });
+
+  it('does not count the free test message, nor a failed or held-back one', async () => {
+    metaAnswers();
+    await setMode('ON');
+    await setLimit(1);
+    const a = await person({ consent: true });
+    await prisma.whatsAppCloudSend.createMany({
+      data: [
+        { toNumber: '+237677000001', kind: 'test', template: 'hello_world', language: 'en_US', status: 'SENT' },
+        { toNumber: '+237677000002', kind: 'teaching_hour', template: 'teaching_hour', language: 'en', status: 'FAILED', reason: 'x' },
+        { toNumber: '+237677000003', kind: 'teaching_hour', template: 'teaching_hour', language: 'en', status: 'SKIPPED', reason: 'y' },
+      ],
+    });
+    expect(await whatsappCloudNotify(a.id, 'teaching_hour', vars)).toBe('sent');
+  });
+
+  it('counts again from the 1st, Cameroon time (last month’s messages do not count)', async () => {
+    metaAnswers();
+    await setMode('ON');
+    await setLimit(1);
+    const a = await person({ consent: true });
+    const { cameroonMonthStart } = await import('../lib/whatsappCloud');
+    const lastMonth = new Date(cameroonMonthStart().getTime() - 60 * 60 * 1000);
+    await prisma.whatsAppCloudSend.create({ data: { toNumber: '+237677000009', kind: 'teaching_hour', template: 'teaching_hour', language: 'en', status: 'SENT', createdAt: lastMonth } });
+    expect(await whatsappCloudNotify(a.id, 'teaching_hour', vars)).toBe('sent');
+  });
+
+  it('0 sends nothing at all', async () => {
+    metaAnswers();
+    await setMode('ON');
+    await setLimit(0);
+    const a = await person({ consent: true });
+    expect(await whatsappCloudNotify(a.id, 'teaching_hour', vars)).toBe('skipped');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('works out the month in Cameroon time (UTC+1)', async () => {
+    const { cameroonMonthStart, cameroonNextMonthStart } = await import('../lib/whatsappCloud');
+    // 23:30 UTC on 31 March is already 00:30 on 1 April in Cameroon.
+    const now = new Date('2027-03-31T23:30:00Z');
+    expect(cameroonMonthStart(now).toISOString()).toBe('2027-03-31T23:00:00.000Z');
+    expect(cameroonNextMonthStart(now).toISOString()).toBe('2027-04-30T23:00:00.000Z');
+    expect(cameroonMonthStart(new Date('2027-03-15T12:00:00Z')).toISOString()).toBe('2027-02-28T23:00:00.000Z');
+  });
+});
+
 describe('The central admin’s WhatsApp switch', () => {
   async function admin(email: string) {
     await createAdmin(email, 'AdminPass123!');
@@ -162,6 +230,23 @@ describe('The central admin’s WhatsApp switch', () => {
     expect(refused.body.code).toBe('NOT_CONFIGURED');
     // Switching off is always allowed.
     expect((await agent.put('/api/admin/whatsapp-cloud').set('X-CSRF-Token', csrf).send({ mode: 'OFF' })).body.mode).toBe('OFF');
+  });
+
+  it('shows the monthly limit and how many have gone out, and lets the admin change the limit (a whole number from 0)', async () => {
+    const { agent, csrf } = await admin('wa-admin-5@test.local');
+    const first = await agent.get('/api/admin/whatsapp-cloud');
+    expect(first.body.monthly).toMatchObject({ limit: 300, used: 0 });
+    expect(new Date(first.body.monthly.resetsAt).getTime()).toBeGreaterThan(Date.now());
+    const set = await agent.put('/api/admin/whatsapp-cloud').set('X-CSRF-Token', csrf).send({ monthlyLimit: 120 });
+    expect(set.status).toBe(200);
+    expect(set.body.monthly.limit).toBe(120);
+    expect(set.body.mode).toBe('OFF'); // the switch was not touched
+    for (const bad of [-1, 1.5, 100_001, 'lots', null]) {
+      expect((await agent.put('/api/admin/whatsapp-cloud').set('X-CSRF-Token', csrf).send({ monthlyLimit: bad })).status).toBe(400);
+    }
+    expect((await agent.put('/api/admin/whatsapp-cloud').set('X-CSRF-Token', csrf).send({})).status).toBe(400);
+    expect((await agent.put('/api/admin/whatsapp-cloud').set('X-CSRF-Token', csrf).send({ monthlyLimit: 0 })).body.monthly.limit).toBe(0);
+    await prisma.settings.update({ where: { id: 'singleton' }, data: { whatsappMonthlyLimit: 300 } });
   });
 
   it('sends Meta’s sample message to a number and shows it in the list, with the number partly hidden', async () => {

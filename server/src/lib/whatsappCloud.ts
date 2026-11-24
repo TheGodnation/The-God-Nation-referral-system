@@ -27,6 +27,31 @@ export async function cloudMode(): Promise<CloudMode> {
   return s?.whatsappCloudMode ?? 'OFF';
 }
 
+const CAMEROON_OFFSET_MS = 60 * 60 * 1000; // Cameroon is UTC+1 all year
+
+/** The first moment of the calendar month that `now` falls in, in Cameroon time (as a real instant). */
+export function cameroonMonthStart(now: Date = new Date()): Date {
+  const local = new Date(now.getTime() + CAMEROON_OFFSET_MS);
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1) - CAMEROON_OFFSET_MS);
+}
+
+/** The first moment of the next month, in Cameroon time: when the monthly count starts again. */
+export function cameroonNextMonthStart(now: Date = new Date()): Date {
+  const local = new Date(now.getTime() + CAMEROON_OFFSET_MS);
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1) - CAMEROON_OFFSET_MS);
+}
+
+/** The most automatic messages that may go out this month (set by the central admin). */
+export async function monthlyLimit(): Promise<number> {
+  const s = await prisma.settings.findUnique({ where: { id: 'singleton' }, select: { whatsappMonthlyLimit: true } });
+  return s?.whatsappMonthlyLimit ?? 300;
+}
+
+/** How many automatic messages have gone out this month. The test message is free, so it is not counted. */
+export function sentThisMonth(now: Date = new Date()): Promise<number> {
+  return prisma.whatsAppCloudSend.count({ where: { status: 'SENT', kind: { not: 'test' }, createdAt: { gte: cameroonMonthStart(now) } } });
+}
+
 /** WhatsApp wants the number with the country code and digits only (no "+"). */
 export const toCloudNumber = (e164: string) => e164.replace(/[^\d]/g, '');
 
@@ -97,6 +122,8 @@ export async function whatsappCloudNotify(personId: string, kind: Exclude<CloudK
     if (!cloudConfigured()) return held('Meta sending is not set up yet');
     if (mode === 'TEST' && !(await isCentralAdminPerson(personId))) return held('test mode: only the central admin is messaged');
     if ((await currentConsent(prisma, personId)).whatsapp !== true) return held('did not agree to WhatsApp messages');
+    // Every delivered message is paid for: once this month's limit is reached the rest wait (recorded) until the 1st.
+    if ((await sentThisMonth()) >= (await monthlyLimit())) return held('monthly limit reached');
     const firstName = person.name.split(/\s+/)[0] || person.name;
     const params = kind === 'teaching_hour' ? [firstName, vars.topic] : [firstName, vars.topic, vars.when ?? ''];
     const result = await sendTemplate({ to: person.whatsappNumber, template, language, params });

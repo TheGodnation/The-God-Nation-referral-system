@@ -9,7 +9,7 @@ import { leadershipMutationLimiter } from '../lib/rateLimit';
 import { asyncHandler } from '../lib/asyncHandler';
 import { recordAudit } from '../lib/audit';
 import { normalizeToE164 } from '../lib/phone';
-import { cloudConfigured, cloudMode, sendTestMessage } from '../lib/whatsappCloud';
+import { cameroonNextMonthStart, cloudConfigured, cloudMode, monthlyLimit, sendTestMessage, sentThisMonth } from '../lib/whatsappCloud';
 
 // The central admin's switch for the automatic WhatsApp messages (Meta's WhatsApp Business Platform): off / test / on, a button
 // that sends Meta's sample message to one number, and what went out recently. Offered in the admin dashboard and in the central
@@ -20,15 +20,19 @@ const maskNumber = (n: string) => (n.length > 6 ? `${n.slice(0, 4)}…${n.slice(
 
 async function summary() {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const [mode, recent, today] = await Promise.all([
+  const [mode, recent, today, limit, used] = await Promise.all([
     cloudMode(),
     prisma.whatsAppCloudSend.findMany({ orderBy: { createdAt: 'desc' }, take: 20 }),
     prisma.whatsAppCloudSend.groupBy({ by: ['status'], where: { createdAt: { gte: since } }, _count: { _all: true } }),
+    monthlyLimit(),
+    sentThisMonth(),
   ]);
   const count = (s: string) => today.find((x) => x.status === s)?._count._all ?? 0;
   return {
     mode,
     configured: cloudConfigured(),
+    // This month's cap (each delivered message is paid for), how many have gone out, and when the count starts again.
+    monthly: { limit, used, resetsAt: cameroonNextMonthStart() },
     today: { sent: count('SENT'), failed: count('FAILED'), skipped: count('SKIPPED') },
     recent: recent.map((r) => ({ id: r.id, at: r.createdAt, to: maskNumber(r.toNumber), kind: r.kind, status: r.status, reason: r.reason })),
   };
@@ -38,18 +42,23 @@ function build(resolveActor: (req: Request) => Promise<Actor | null>) {
   const router = Router();
   router.get('/', asyncHandler(async (_req, res) => res.json(await summary())));
 
-  const putSchema = z.object({ mode: z.enum(['OFF', 'TEST', 'ON']) });
+  // Either the switch (off / test / on) or the monthly limit (a whole number, 0 to 100000), or both.
+  const putSchema = z
+    .object({ mode: z.enum(['OFF', 'TEST', 'ON']).optional(), monthlyLimit: z.number().int().min(0).max(100_000).optional() })
+    .refine((d) => d.mode !== undefined || d.monthlyLimit !== undefined);
   router.put('/', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     const parsed = putSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Choose Off, Test or On.', code: 'INVALID' });
+    if (!parsed.success) return res.status(400).json({ error: 'Choose Off, Test or On, or a monthly limit between 0 and 100000.', code: 'INVALID' });
     const actor = await resolveActor(req);
     if (!actor) return res.status(403).json({ error: 'Forbidden.' });
-    const { mode } = parsed.data;
-    if (mode !== 'OFF' && !cloudConfigured()) {
+    const { mode, monthlyLimit: limit } = parsed.data;
+    if (mode && mode !== 'OFF' && !cloudConfigured()) {
       return res.status(400).json({ error: 'WhatsApp sending is not set up yet: the access token and the number id have to be added on the server first.', code: 'NOT_CONFIGURED' });
     }
-    await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', whatsappCloudMode: mode }, update: { whatsappCloudMode: mode } });
-    await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'WHATSAPP_CLOUD_MODE_UPDATED', targetType: 'Settings', targetId: 'singleton', metadata: { mode } });
+    const data = { ...(mode ? { whatsappCloudMode: mode } : {}), ...(limit !== undefined ? { whatsappMonthlyLimit: limit } : {}) };
+    await prisma.settings.upsert({ where: { id: 'singleton' }, create: { id: 'singleton', ...data }, update: data });
+    if (mode) await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'WHATSAPP_CLOUD_MODE_UPDATED', targetType: 'Settings', targetId: 'singleton', metadata: { mode } });
+    if (limit !== undefined) await recordAudit({ actorId: actor.id, actorEmail: actor.email, action: 'WHATSAPP_CLOUD_LIMIT_UPDATED', targetType: 'Settings', targetId: 'singleton', metadata: { monthlyLimit: limit } });
     res.json(await summary());
   }));
 
