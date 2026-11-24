@@ -91,18 +91,18 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
   return (
     <div className="space-y-4">
       {failed && <p className="card text-sm text-red-700">{t('wall.progress_failed')}</p>}
-      {!data && !failed && <p className="py-6 text-center text-sm text-slate-400">{t('wall.loading')}</p>}
+      {!data && !failed && <p className="py-6 text-center text-sm text-slate-500">{t('wall.loading')}</p>}
 
       {data && (
         <>
           <section className="card space-y-3">
             <h2 className="font-semibold text-brand-900">📖 {t('wall.devotional_scores')}</h2>
-            {data.devotionals.length === 0 && <p className="text-sm text-slate-500">{t('wall.no_devotional')}</p>}
+            {data.devotionals.length === 0 && <p className="text-sm text-slate-600">{t('wall.no_devotional')}</p>}
             {data.devotionals.map((d) => (
               <div key={d.id}>
                 <p className="text-sm font-medium text-slate-800">{tr(d.titleEn, d.titleFr)}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {d.exams.length === 0 && <span className="text-sm text-slate-500">{t('wall.no_exams')}</span>}
+                  {d.exams.length === 0 && <span className="text-sm text-slate-600">{t('wall.no_exams')}</span>}
                   {d.exams.map((e) => (
                     <span
                       key={e.id}
@@ -121,7 +121,7 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
           <section className="card space-y-3" data-testid="my-teaching-quizzes">
             <h2 className="font-semibold text-brand-900">📖 {t('wall.teaching_quizzes')}</h2>
             {teachingQuizzes.length === 0 ? (
-              <p className="text-sm text-slate-500">{t('wall.no_teaching_quizzes')}</p>
+              <p className="text-sm text-slate-600">{t('wall.no_teaching_quizzes')}</p>
             ) : (
               <ul className="space-y-1.5 text-sm">
                 {teachingQuizzes.map((q) => (
@@ -156,7 +156,7 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
                 </ul>
               </>
             ) : (
-              <p className="text-sm text-slate-500">{data.training.enrollment === 'REQUESTED' ? t('learn.training_requested') : t('wall.training_not_started')}</p>
+              <p className="text-sm text-slate-600">{data.training.enrollment === 'REQUESTED' ? t('learn.training_requested') : t('wall.training_not_started')}</p>
             )}
             <Link to="/member/learn" className="inline-block text-sm font-medium text-brand-700 underline">
               {t('wall.go_learn')}
@@ -168,13 +168,13 @@ function Progress({ groups }: { groups: MembershipRow[] }) {
       <section className="card">
         <h2 className="mb-2 font-semibold text-brand-900">👥 {t('wall.my_groups')}</h2>
         {groups.length === 0 ? (
-          <p className="text-sm text-slate-500">{t('memberDashboard.no_memberships')}</p>
+          <p className="text-sm text-slate-600">{t('memberDashboard.no_memberships')}</p>
         ) : (
           <ul className="space-y-1 text-sm text-slate-700">
             {groups.map((g) => (
               <li key={g.communityId}>
                 {g.communityName}
-                {g.status !== 'ACTIVE' && <span className="text-slate-400"> — {t('memberDashboard.inactive')}</span>}
+                {g.status !== 'ACTIVE' && <span className="text-slate-500"> — {t('memberDashboard.inactive')}</span>}
               </li>
             ))}
           </ul>
@@ -319,7 +319,7 @@ export function MemberMePage() {
 
   return (
     <PageShell minimal>
-      <section className="mx-auto max-w-2xl pb-6 sm:px-4 sm:pt-4">
+      <section className="mx-auto max-w-2xl pb-6 font-medium sm:px-4 sm:pt-4" data-testid="my-profile">
         <div className="mb-2 mt-2 empty:hidden">
           <PageNote id="me" to="/member/me/edit" done={Boolean(member.photoUrl && member.coverUrl)}>
             {t('pageNotes.me')}
