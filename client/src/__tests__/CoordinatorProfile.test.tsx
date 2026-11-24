@@ -79,6 +79,21 @@ describe('The National Coordinator badge and assemblies', () => {
     expect(screen.getByText(/National Coordinator/)).toBeInTheDocument();
   });
 
+  it('writes every message in a group chat slightly bold, and leaves private chats as they were', () => {
+    const m = { id: 'g1', senderName: 'Ada', senderPersonId: 'p9', isOwn: false, body: 'Hello group', createdAt: new Date().toISOString(), deleted: false, attachments: [] } as unknown as ChatMessage;
+    const draw = (privateChat: boolean) =>
+      render(
+        <MemoryRouter>
+          <MessageBubble m={m} mediaBase="/api/communities/g1/conversation" showSender highlighted={false} privateChat={privateChat} onReply={() => {}} onMenu={() => {}} onReact={() => {}} onJumpTo={() => {}} onOpenPhoto={() => {}} />
+        </MemoryRouter>,
+      );
+    const group = draw(false);
+    expect(group.getByText('Hello group').closest('div.relative')!.className).toContain('font-medium');
+    group.unmount();
+    const priv = draw(true);
+    expect(priv.getByText('Hello group').closest('div.relative')!.className).not.toContain('font-medium');
+  });
+
   it('paints the Coordinator’s messages in the rating card’s light sky blue, also when the viewer is the Coordinator', () => {
     for (const isOwn of [false, true]) {
       const m = { id: `m-${isOwn}`, senderName: 'Pastor Ada', senderPersonId: 'p1', senderBadge: 'NATIONAL_COORDINATOR', isOwn, body: 'Teaching', createdAt: new Date().toISOString(), deleted: false, attachments: [] } as unknown as ChatMessage;

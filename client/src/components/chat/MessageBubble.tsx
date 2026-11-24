@@ -414,7 +414,7 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
         }}
       >
         <div
-          className={`relative rounded-lg px-2 pb-1 pt-1.5 text-[15px] shadow-sm ${
+          className={`relative rounded-lg px-2 pb-1 pt-1.5 text-[15px] shadow-sm ${privateChat ? '' : 'font-medium'} ${
             m.senderBadge && !m.deleted ? `${m.isOwn ? 'rounded-br-sm' : 'rounded-bl-sm'} border border-sky-200 bg-sky-50 font-medium` : m.isOwn ? 'rounded-br-sm bg-[#d9fdd3]' : 'rounded-bl-sm bg-white'
           } ${highlighted ? 'ring-2 ring-amber-400' : ''} ${m.pending ? 'opacity-70' : ''}`}
           data-central={m.senderBadge && !m.deleted ? 'true' : undefined}
