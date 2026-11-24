@@ -7,15 +7,16 @@
 // the checks ever stop (a busy or sleeping phone), it opens by itself.
 
 /** How far above the room's noise a sound must be to count as speech. */
-export const GATE_MARGIN_DB = 8;
-/** What the volume is lowered to between words (0.3 is about 10 dB quieter). */
-export const GATE_CLOSED_GAIN = 0.3;
+export const GATE_MARGIN_DB = 9;
+/** What the volume is lowered to between words (0.18 is about 15 dB quieter). */
+export const GATE_CLOSED_GAIN = 0.18;
 /** After the last bit of speech the gate stays open this long, so word endings and short pauses are not chopped. */
 export const GATE_HOLD_MS = 250;
-const FLOOR_MIN_DB = -70;
-const FLOOR_MAX_DB = -40;
-const THRESHOLD_MIN_DB = -60;
-const THRESHOLD_MAX_DB = -30;
+// A phone's microphone often lifts the room's noise a good deal, so the room may be taken to be quite loud.
+export const GATE_FLOOR_MIN_DB = -70;
+export const GATE_FLOOR_MAX_DB = -32;
+export const GATE_THRESHOLD_MIN_DB = -60;
+export const GATE_THRESHOLD_MAX_DB = -24;
 /** The room's noise level is taken to creep up this slowly (dB per second) while a louder sound goes on. */
 const FLOOR_RISE_DB_PER_S = 1;
 /** The voice is delayed this long so the gate can open before the sound arrives. */
@@ -34,10 +35,10 @@ export class GateController {
     const dt = this.last === null ? 0 : Math.max(0, (nowMs - this.last) / 1000);
     this.last = nowMs;
     // The room's noise: a quieter moment is believed at once; a louder one only slowly.
-    if (this.floor === null) this.floor = clamp(levelDb, FLOOR_MIN_DB, FLOOR_MAX_DB);
-    else if (levelDb < this.floor) this.floor = Math.max(FLOOR_MIN_DB, levelDb);
-    else this.floor = Math.min(FLOOR_MAX_DB, this.floor + FLOOR_RISE_DB_PER_S * dt);
-    const thresholdDb = clamp(this.floor + GATE_MARGIN_DB, THRESHOLD_MIN_DB, THRESHOLD_MAX_DB);
+    if (this.floor === null) this.floor = clamp(levelDb, GATE_FLOOR_MIN_DB, GATE_FLOOR_MAX_DB);
+    else if (levelDb < this.floor) this.floor = Math.max(GATE_FLOOR_MIN_DB, levelDb);
+    else this.floor = Math.min(GATE_FLOOR_MAX_DB, this.floor + FLOOR_RISE_DB_PER_S * dt);
+    const thresholdDb = clamp(this.floor + GATE_MARGIN_DB, GATE_THRESHOLD_MIN_DB, GATE_THRESHOLD_MAX_DB);
     if (levelDb > thresholdDb) this.openUntil = nowMs + GATE_HOLD_MS;
     const open = nowMs < this.openUntil;
     return { open, gain: open ? 1 : GATE_CLOSED_GAIN, floorDb: this.floor, thresholdDb };

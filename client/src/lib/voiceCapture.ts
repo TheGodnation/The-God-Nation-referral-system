@@ -30,9 +30,9 @@ export interface EnhancedMic {
 }
 
 /**
- * Runs the microphone through a rumble filter (low hum), a hiss filter (very high sounds, where most of the noise is and speech has
- * little), a noise gate (turns the background down between words), a gentle compressor, a little make-up gain and a limiter, ready to
- * be recorded.
+ * Runs the microphone through a rumble filter, a hiss filter (the very high sounds, where most of the noise is), a warmth lift in the
+ * lower voice and a softening of the harsh high range (so the voice is full, not thin and sharp), a noise gate (turns the background
+ * down between words), a compressor, a little make-up gain and a limiter, ready to be recorded.
  */
 export function enhanceMic(raw: MediaStream): EnhancedMic {
   const plain: EnhancedMic = { stream: raw, close: () => {} };
@@ -41,21 +41,32 @@ export function enhanceMic(raw: MediaStream): EnhancedMic {
     if (!Ctx) return plain;
     const ctx = new Ctx();
     const source = ctx.createMediaStreamSource(raw);
+    // Only the real rumble is cut: the low part of the voice is what gives it body and weight.
     const rumble = ctx.createBiquadFilter();
     rumble.type = 'highpass';
-    rumble.frequency.value = 110;
+    rumble.frequency.value = 75;
     const hiss = ctx.createBiquadFilter();
     hiss.type = 'lowpass';
-    hiss.frequency.value = 7000;
+    hiss.frequency.value = 6000;
+    // Warmth: a lift in the lower voice (the "bold, heavy" part), and a softening of the harsh high range.
+    const warmth = ctx.createBiquadFilter();
+    warmth.type = 'lowshelf';
+    warmth.frequency.value = 220;
+    warmth.gain.value = 4;
+    const soften = ctx.createBiquadFilter();
+    soften.type = 'highshelf';
+    soften.frequency.value = 3500;
+    soften.gain.value = -4;
+    // A firmer compressor makes the voice denser and fuller.
     const compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -24;
-    compressor.knee.value = 24;
-    compressor.ratio.value = 3;
-    compressor.attack.value = 0.005;
-    compressor.release.value = 0.2;
+    compressor.threshold.value = -26;
+    compressor.knee.value = 20;
+    compressor.ratio.value = 4;
+    compressor.attack.value = 0.004;
+    compressor.release.value = 0.22;
     // A small lift only: lifting more would lift the background noise with it.
     const makeUp = ctx.createGain();
-    makeUp.gain.value = 1.3;
+    makeUp.gain.value = 1.35;
     const limiter = ctx.createDynamicsCompressor();
     limiter.threshold.value = -2;
     limiter.knee.value = 0;
@@ -65,7 +76,9 @@ export function enhanceMic(raw: MediaStream): EnhancedMic {
     const out = ctx.createMediaStreamDestination();
     source.connect(rumble);
     rumble.connect(hiss);
-    const gate = insertNoiseGate(ctx, hiss, compressor);
+    hiss.connect(warmth);
+    warmth.connect(soften);
+    const gate = insertNoiseGate(ctx, soften, compressor);
     compressor.connect(makeUp);
     makeUp.connect(limiter);
     limiter.connect(out);
