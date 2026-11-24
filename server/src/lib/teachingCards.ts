@@ -130,6 +130,9 @@ const LIVE_LATE_HOURS = 6;
 
 export interface RotaLiveWindow {
   personId: string;
+  /** Which teaching slot this is (the teacher and the Monday of its week), to find its "finished" rating card. */
+  teacherId: string;
+  monday: Date;
   /** The same for the whole slot, so the group is told once. */
   key: string;
   /** When the window opens (half an hour before the slot starts). */
@@ -156,6 +159,8 @@ export async function rotaLiveWindows(communityId: string, now = new Date()): Pr
       const topic = topics.find((t) => t.number === topicNumberFor(teacher.startTopic, topics.map((x) => x.number), weekNumber(settings.startDate, monday)));
       out.push({
         personId: teacher.personId!,
+        teacherId: teacher.id,
+        monday,
         key: `live:rota:${teacher.id}:${dayKey(monday)}`,
         from: new Date(startsAt - LIVE_EARLY_MIN * MIN),
         topicEn: topic ? pickText('en', topic).text.topic : null,

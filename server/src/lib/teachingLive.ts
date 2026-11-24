@@ -73,8 +73,8 @@ export async function announceTeachingAudio(input: TeachingAudioInput): Promise<
 
 // ---- The "teaching now" banner at the top of the group chat -------------------------------------------------------------
 
-/** A teaching counts as still going on while its latest voice note is no older than this. */
-const STILL_GOING_MIN = 30;
+/** A teaching counts as still going on while its latest voice note is no older than this (and the teacher has not said they finished). */
+const STILL_GOING_MIN = 15;
 
 export interface LiveTeaching {
   personId: string;
@@ -93,9 +93,9 @@ export interface LiveTeaching {
  */
 export async function liveTeachings(communityId: string, now = new Date()): Promise<LiveTeaching[]> {
   const [rota, groups] = await Promise.all([rotaLiveWindows(communityId, now), groupLiveWindows(communityId, now)]);
-  const windows = new Map<string, { from: Date; topicEn: string | null; topicFr: string | null }>();
+  const windows = new Map<string, { from: Date; topicEn: string | null; topicFr: string | null; teacherId?: string; monday?: Date }>();
   for (const g of groups) windows.set(g.personId, { from: g.from, topicEn: null, topicFr: null });
-  for (const r of rota) windows.set(r.personId, { from: r.from, topicEn: r.topicEn, topicFr: r.topicFr });
+  for (const r of rota) windows.set(r.personId, { from: r.from, topicEn: r.topicEn, topicFr: r.topicFr, teacherId: r.teacherId, monday: r.monday });
   if (windows.size === 0) return [];
   const out: LiveTeaching[] = [];
   for (const [personId, w] of windows) {
@@ -105,6 +105,12 @@ export async function liveTeachings(communityId: string, now = new Date()): Prom
       prisma.message.findFirst({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], select: { createdAt: true } }),
     ]);
     if (!first || !last || now.getTime() - last.createdAt.getTime() > STILL_GOING_MIN * 60 * 1000) continue;
+    // The teacher tapped "I have finished my teaching" (the rating card is posted) after their last voice note: the teaching is over.
+    // A voice note sent after the card means they carried on, so the banner comes back.
+    if (w.teacherId && w.monday) {
+      const card = await prisma.teachingRatingCard.findUnique({ where: { teacherId_weekStart: { teacherId: w.teacherId, weekStart: w.monday } }, select: { createdAt: true } });
+      if (card && card.createdAt.getTime() >= last.createdAt.getTime()) continue;
+    }
     const person = await prisma.person.findUnique({ where: { id: personId }, select: { id: true, name: true, photoStorageKey: true, photoUpdatedAt: true } });
     if (!person) continue;
     out.push({ personId, name: person.name, photoUrl: profilePhotoPath(person), topicEn: w.topicEn, topicFr: w.topicFr, firstMessageId: first.id, lastAudioAt: last.createdAt });

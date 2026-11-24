@@ -252,13 +252,36 @@ describe('The "teaching now" banner at the top of the group chat', () => {
     expect(items[0].lastAudioAt.toISOString()).toBe('2026-11-23T06:15:00.000Z');
   });
 
-  it('goes away by itself half an hour after the last voice note, and comes back if another arrives', async () => {
+  it('goes away by itself a quarter of an hour after the last voice note, and comes back if another arrives', async () => {
     const { alpha, g } = await setUp();
     await send(g, alpha.id, '2026-11-23T06:06:00Z');
-    expect(await live(g, '2026-11-23T06:36:00Z')).toHaveLength(1); // 30 minutes after
-    expect(await live(g, '2026-11-23T06:37:00Z')).toEqual([]); // 31 minutes after
+    expect(await live(g, '2026-11-23T06:21:00Z')).toHaveLength(1); // 15 minutes after
+    expect(await live(g, '2026-11-23T06:22:00Z')).toEqual([]); // 16 minutes after
     await send(g, alpha.id, '2026-11-23T06:50:00Z');
     expect(await live(g, '2026-11-23T06:55:00Z')).toHaveLength(1);
+  });
+
+  it('goes away at once when the teacher finishes (the rating card is posted after their last voice note), and comes back if they carry on', async () => {
+    const { alpha, g } = await setUp();
+    await send(g, alpha.id, '2026-11-23T06:06:00Z');
+    await send(g, alpha.id, '2026-11-23T06:10:00Z');
+    expect(await live(g, '2026-11-23T06:11:00Z')).toHaveLength(1);
+    const teacher = await prisma.teachingTeacher.findFirstOrThrow({ where: { personId: alpha.id } });
+    const card = await prisma.message.create({ data: { conversationId: (await send(g, alpha.id, '2026-11-23T06:09:00Z', false)).conversationId, senderPersonId: alpha.id, kind: 'TEACHING_RATING', createdAt: at('2026-11-23T06:12:00Z') } });
+    await prisma.teachingRatingCard.create({ data: { messageId: card.id, teacherId: teacher.id, weekStart: at('2026-11-23T00:00:00Z'), createdAt: at('2026-11-23T06:12:00Z') } });
+    expect(await live(g, '2026-11-23T06:13:00Z')).toEqual([]); // finished: the banner is gone
+    await send(g, alpha.id, '2026-11-23T06:14:00Z'); // but a new voice note after the card means the teaching goes on
+    expect(await live(g, '2026-11-23T06:15:00Z')).toHaveLength(1);
+  });
+
+  it('is not ended by a rating card that was posted while the teacher is still sending voice notes (the automatic one)', async () => {
+    const { alpha, g } = await setUp();
+    await send(g, alpha.id, '2026-11-23T06:06:00Z');
+    const teacher = await prisma.teachingTeacher.findFirstOrThrow({ where: { personId: alpha.id } });
+    const card = await prisma.message.create({ data: { conversationId: (await send(g, alpha.id, '2026-11-23T06:07:00Z', false)).conversationId, senderPersonId: alpha.id, kind: 'TEACHING_RATING', createdAt: at('2026-11-23T06:08:00Z') } });
+    await prisma.teachingRatingCard.create({ data: { messageId: card.id, teacherId: teacher.id, weekStart: at('2026-11-23T00:00:00Z'), createdAt: at('2026-11-23T06:08:00Z') } });
+    await send(g, alpha.id, '2026-11-23T06:30:00Z');
+    expect(await live(g, '2026-11-23T06:31:00Z')).toHaveLength(1);
   });
 
   it('ignores text messages, deleted voice notes, other people and times outside the teaching window', async () => {

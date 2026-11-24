@@ -18,7 +18,7 @@ const CHECK_EVERY_MS = 30_000;
 
 // A red banner at the top of a group chat while someone is teaching in it: their photo, "{Name} is teaching now" with the topic,
 // and a button that takes you to the first audio of the teaching. It shows from the teacher's first voice note and goes away by
-// itself once no new one has come for half an hour. Nothing shows the rest of the time. `refreshKey` changes whenever the chat
+// itself when the teacher finishes, or once no new voice note has come for a quarter of an hour. Nothing shows the rest of the time. `refreshKey` changes whenever the chat
 // gets a new message, so the banner appears within moments of the first audio, not only at the next check.
 export function TeachingLiveBanner({ communityId, refreshKey, onListen }: { communityId: string; refreshKey?: string | null; onListen: (messageId: string) => void }) {
   const { t, i18n } = useTranslation();
