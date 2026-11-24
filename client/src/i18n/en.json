@@ -4634,6 +4634,8 @@
     "saved": "Saved.",
     "failed": "Could not save. Please try again.",
     "send_test": "Send a test message to my number",
+    "test_number_label": "Number to send the test to (optional)",
+    "test_number_hint": "With the country code, for example +237… Leave empty to use the number on your profile. With Meta's test number it must be on Meta's allowed list.",
     "sending": "Sending…",
     "test_sent": "Test message sent. Check your WhatsApp.",
     "test_failed": "The test message was not sent. {{why}}",

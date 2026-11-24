@@ -61,4 +61,20 @@ describe('Automatic WhatsApp messages card', () => {
     fireEvent.click(screen.getByTestId('whatsapp-cloud-test'));
     expect(await screen.findByRole('alert')).toHaveTextContent('131030');
   });
+
+  it('sends the test to the typed number, and to the profile number when the box is empty', async () => {
+    const bodies: unknown[] = [];
+    vi.stubGlobal('fetch', vi.fn((_u: string, init?: RequestInit) => {
+      if (init?.method === 'POST') bodies.push(JSON.parse(String(init.body)));
+      return json(summary());
+    }));
+    render(<WhatsAppCloudCard base="/api/admin/whatsapp-cloud" />);
+    await screen.findByTestId('whatsapp-cloud-card');
+    fireEvent.click(screen.getByTestId('whatsapp-cloud-test'));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    fireEvent.change(screen.getByTestId('whatsapp-cloud-test-to'), { target: { value: ' +237677000111 ' } });
+    fireEvent.click(screen.getByTestId('whatsapp-cloud-test'));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies).toEqual([{}, { to: '+237677000111' }]);
+  });
 });
