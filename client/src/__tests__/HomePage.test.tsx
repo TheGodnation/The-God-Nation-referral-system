@@ -79,14 +79,12 @@ describe('HomePage', () => {
     expect(within(last).getByRole('link', { name: /Existing Members — Sign In/ })).toHaveAttribute('href', '/member/login');
     expect(within(last).queryByTestId('discover-whatsapp')).toBeNull();
     expect(within(last).getAllByRole('link')).toHaveLength(2);
-    // The photographs already on the public site sit where they fit (slides 2, 3, 5, 10); the other slides wait for their own.
+    // The photographs already on the public site sit where they fit (slides 3, 5, 10, 11); the other slides wait for their own and show plain, bright. No book cover.
     expect(slides.querySelectorAll('article img[src^="/site/"]')).toHaveLength(4);
-    expect(within(screen.getByTestId('discover-slide-2')).getByTestId('discover-book')).toHaveAttribute('src', '/site/book1-en.webp');
+    expect(screen.queryByTestId('discover-book')).toBeNull();
     expect(screen.queryByText('Everything you need to grow and make an impact.')).toBeNull(); // the old heading above the slides is gone
     expect(screen.queryByText('What you can experience')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Français' }));
-    await screen.findByRole('heading', { level: 3, name: 'Un mouvement de réveil du Royaume émerge !' });
-    expect(within(screen.getByTestId('discover-slide-2')).getByTestId('discover-book')).toHaveAttribute('src', '/site/book1-fr.webp');
     expect(await screen.findByRole('heading', { level: 3, name: 'Un mouvement de réveil du Royaume émerge !' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Vous avez une place. Vous avez un rôle. Rejoignez le mouvement !' })).toBeInTheDocument();
   });
