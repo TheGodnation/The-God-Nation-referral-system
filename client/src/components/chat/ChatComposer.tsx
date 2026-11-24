@@ -14,6 +14,7 @@ import {
   type UploadedAttachment,
   type UploadProblem,
 } from '../../lib/chatMedia';
+import { VOICE_BITRATE, enhanceMic, openMic, type EnhancedMic } from '../../lib/voiceCapture';
 import { VideoRecorder } from './VideoRecorder';
 import { MediaPreview } from './MediaPreview';
 import { ReplyQuote } from './MessageBubble';
@@ -166,6 +167,8 @@ export function ChatComposer({
   const [levels, setLevels] = useState<number[]>([]);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // The voice clean-up (compressor, limiter) between the microphone and the recording; let go of when the recording ends.
+  const enhancedRef = useRef<EnhancedMic | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const lockedRef = useRef(false);
   // Recorded time leaves out paused stretches: time banked before the last
@@ -215,6 +218,8 @@ export function ChatComposer({
   useEffect(
     () => () => {
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
+      enhancedRef.current?.close();
+      enhancedRef.current = null;
       void audioCtxRef.current?.close().catch(() => {});
       stopListeningNow();
     },
@@ -376,12 +381,16 @@ export function ChatComposer({
     }
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await openMic();
     } catch {
       setError(t('groupChat.mic_denied'));
       return false;
     }
-    const rec = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 32_000 });
+    // What is recorded is the voice after a gentle clean-up (even, loud, never crackling) at a better quality than before; the
+    // level meter on screen keeps listening to the plain microphone.
+    const enhanced = enhanceMic(stream);
+    enhancedRef.current = enhanced;
+    const rec = new MediaRecorder(enhanced.stream, { mimeType: mime, audioBitsPerSecond: VOICE_BITRATE });
     chunksRef.current = [];
     rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
     rec.start(500);
@@ -473,6 +482,8 @@ export function ChatComposer({
     rec.onstop = () => {
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
       streamRef.current = null;
+      enhancedRef.current?.close();
+      enhancedRef.current = null;
       if (!send) return;
       if (duration < MIN_VOICE_MS) {
         setError(t('groupChat.hold_longer'));
