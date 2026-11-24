@@ -53,6 +53,7 @@ import { notifyPostLiked, notifyPostReplied } from '../lib/notifications';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording } from '../lib/presence';
 import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
 import { pushToPersons } from '../lib/push';
+import { announceTeachingAudio } from '../lib/teachingLive';
 import { MAX_PINS_PER_REQUEST, markPinSeen, pinFull, pinMessage, pinMessages, pinsFor, unpinMessage, unpinMessages } from '../lib/messagePins';
 import { translateAndStoreMessage, transcribeAndStoreMessageAudio } from '../lib/translation';
 import { ratingCardInfos } from '../lib/teachingCards';
@@ -673,6 +674,20 @@ router.post(
         }),
       ]);
       const hasVoice = attachmentDescriptors.some((a) => a.mimeType.startsWith('audio/'));
+      // A teacher's voice note during their teaching (weekly rota slot, or a group teacher's teaching day): the whole group is told
+      // "{Name} is teaching now" (loud phone alert and a bell entry, once per teaching), then quietly for each further audio. That
+      // replaces the ordinary alert below.
+      if (hasVoice && !liveTeaching) {
+        const everyone = await prisma.communityMembership.findMany({ where: { communityId, status: 'ACTIVE', personId: { not: personId } }, select: { personId: true } });
+        const announced = await announceTeachingAudio({
+          teacherPersonId: personId,
+          teacherName: sender?.name ?? 'Someone',
+          communityId,
+          communityName: community?.name ?? 'Group',
+          recipientIds: everyone.map((m) => m.personId),
+        }).catch(() => false);
+        if (announced) return;
+      }
       // Said the same way to everyone, in both languages, since a notification can't know who reads it.
       const preview = liveTeaching
         ? `🔴 Live teaching · Enseignement en direct${labelled ? ' (EN + FR)' : ''}`

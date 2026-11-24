@@ -1834,6 +1834,8 @@
     "teaching_assignment": "Cette semaine vous enseignez : {{topic}}, {{when}}.",
     "teaching_tomorrow": "Rappel : demain vous enseignez {{topic}}, {{when}}.",
     "teaching_hour": "Votre enseignement commence dans 1 heure : {{topic}}.",
+    "teaching_live": "🔴 {{name}} enseigne maintenant dans {{group}}{{topic}}",
+    "teaching_live_open": "Ouvrir le groupe et écouter",
     "teaching_rated_one": "{{count}} personne a noté votre enseignement : {{topic}}.",
     "teaching_rated_other": "{{count}} personnes ont noté votre enseignement : {{topic}}."
   },

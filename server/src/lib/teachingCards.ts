@@ -124,6 +124,30 @@ function currentSlot(teacher: { dayOfWeek: number; startMinute: number }, now: D
   return null;
 }
 
+/** Voice notes sent from this long before a teacher's slot starts, until this long after, count as "teaching now". */
+const LIVE_EARLY_MIN = 30;
+const LIVE_LATE_HOURS = 6;
+
+/**
+ * Is this member teaching right now in the teaching group (their weekly slot: from half an hour before it starts until six hours
+ * after)? Gives the topic in both languages and a key that is the same for the whole slot, so the group is told once.
+ */
+export async function rotaTeachingNow(personId: string, communityId: string, now = new Date()): Promise<{ key: string; topicEn: string | null; topicFr: string | null } | null> {
+  const { settings, topics } = await loadBase();
+  if (!settings || !settings.enabled || settings.ratersCommunityId !== communityId) return null;
+  const teacher = await prisma.teachingTeacher.findFirst({ where: { personId, active: true } });
+  if (!teacher) return null;
+  const thisMonday = weekStartOf(now);
+  for (const monday of [thisMonday, addDays(thisMonday, 7), addDays(thisMonday, -7)]) {
+    if (monday.getTime() < settings.startDate.getTime()) continue;
+    const startsAt = slotStart(monday, teacher.dayOfWeek, teacher.startMinute).getTime();
+    if (now.getTime() < startsAt - LIVE_EARLY_MIN * MIN || now.getTime() >= startsAt + LIVE_LATE_HOURS * 60 * MIN) continue;
+    const topic = topics.find((t) => t.number === topicNumberFor(teacher.startTopic, topics.map((x) => x.number), weekNumber(settings.startDate, monday)));
+    return { key: `live:rota:${teacher.id}:${dayKey(monday)}`, topicEn: topic ? pickText('en', topic).text.topic : null, topicFr: topic ? pickText('fr', topic).text.topic : null };
+  }
+  return null;
+}
+
 /** For the group chat: should this member see "I have finished my teaching" in this group right now? */
 export async function finishState(personId: string, communityId: string, lang: 'en' | 'fr', now = new Date()): Promise<{ available: boolean; topic?: string }> {
   const { settings, topics } = await loadBase();

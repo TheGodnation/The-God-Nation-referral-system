@@ -267,6 +267,8 @@ export function NotificationBell() {
         const when = metadata.startsAt
           ? new Intl.DateTimeFormat(fr ? 'fr-FR' : 'en-GB', { weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Douala' }).format(new Date(String(metadata.startsAt)))
           : '';
+        // "{Name} is teaching now": sent to the whole teaching group when a teacher's first voice note arrives.
+        if (metadata.kind === 'live') return t('notifications.teaching_live', { name: String(metadata.teacherName ?? ''), group: String(metadata.groupName ?? ''), topic: topic ? `: ${topic}` : '.' });
         return t(`notifications.teaching_${metadata.kind === 'tomorrow' || metadata.kind === 'hour' || metadata.kind === 'rated' ? metadata.kind : 'assignment'}`, { topic, when, count: Number(metadata.count ?? 0) });
       }
       case 'LEADERSHIP_ROOM_MESSAGE':
@@ -383,6 +385,11 @@ export function NotificationBell() {
                   {n.type === 'MEMBER_NUDGE' && typeof n.metadata?.url === 'string' && (
                     <a href={String(n.metadata.url)} className="text-xs font-semibold text-brand-700 underline">
                       {t('notifications.nudge_open')}
+                    </a>
+                  )}
+                  {n.type === 'TEACHING_ROTA' && n.metadata?.kind === 'live' && typeof n.metadata?.communityId === 'string' && (
+                    <a href={`/member/chats/group/${n.metadata.communityId}`} className="text-xs font-semibold text-brand-700 underline" data-testid="teaching-live-open">
+                      {t('notifications.teaching_live_open')}
                     </a>
                   )}
                   {n.type === 'LEADERSHIP_ROOM_MESSAGE' && (
