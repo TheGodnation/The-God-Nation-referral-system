@@ -168,7 +168,6 @@ function MemberSignupPageInner() {
                   <span>{t('memberSignup.consent_ads')}</span>
                 </label>
               )}
-              <p className="text-[11px] leading-4 text-slate-500">{t('memberSignup.consent_hint')}</p>
             </div>
 
             {error && (

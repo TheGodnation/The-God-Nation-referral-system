@@ -135,7 +135,6 @@ export function GoogleAccess({ onSignedIn, onCodeRequired, onError }: {
                 <span>{t('memberSignup.consent_ads')}</span>
               </label>
             )}
-            <p className="text-xs text-slate-500">{t('memberSignup.consent_hint')}</p>
           </div>
           {error && (
             <div role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div>
