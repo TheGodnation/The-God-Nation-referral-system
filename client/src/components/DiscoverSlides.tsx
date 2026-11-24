@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { usePublicSettings } from '../lib/usePublicSettings';
-import { ChartIcon, ChatHeartIcon, CompassIcon, GlobeIcon, GraduationCapIcon, HeartHandsIcon, MediaPlayIcon, OpenBookIcon, SproutIcon, UsersIcon, WhatsAppIcon } from './Icons';
+import { ChartIcon, ChatHeartIcon, CompassIcon, GlobeIcon, GraduationCapIcon, HeartHandsIcon, MediaPlayIcon, OpenBookIcon, SproutIcon, UsersIcon } from './Icons';
 
 type IconType = (p: { className?: string }) => JSX.Element;
 
@@ -33,10 +32,7 @@ const photoOf = (n: number) => (PHOTOS.includes(n) ? `/site/discover/slide-${n}.
 // academy, digital evangelism, community, prayer, skills, representation, mutual support, discipleship, unity) and ending with the
 // invitation to join. Same logo, colours and type on every slide; the headline is big enough to read on a phone.
 export function DiscoverSlides() {
-  const { t, i18n } = useTranslation();
-  const settings = usePublicSettings();
-  const french = i18n.language.startsWith('fr');
-  const whatsapp = (french ? settings.whatsappGroupFrUrl ?? settings.whatsappGroupEnUrl : settings.whatsappGroupEnUrl ?? settings.whatsappGroupFrUrl) ?? settings.whatsappChannelUrl ?? null;
+  const { t } = useTranslation();
 
   return (
     <ol className="mt-10 space-y-5 sm:space-y-7" data-testid="discover-slides" aria-label={t('discover.aria')}>
@@ -82,11 +78,9 @@ export function DiscoverSlides() {
                     <Link to="/member/join" className="inline-flex items-center justify-center rounded-lg bg-gold-500 px-6 py-3 font-bold text-brand-950 shadow-lg shadow-black/10 hover:bg-gold-400">
                       {t('homePage.join')} <span aria-hidden className="ml-2">→</span>
                     </Link>
-                    {whatsapp && (
-                      <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/60 px-6 py-3 font-semibold text-white hover:bg-white/10" data-testid="discover-whatsapp">
-                        <WhatsAppIcon className="h-5 w-5" /> {t('discover.whatsapp')}
-                      </a>
-                    )}
+                    <Link to="/member/login" className="inline-flex items-center justify-center rounded-lg border border-white/60 px-6 py-3 font-semibold text-white hover:bg-white/10">
+                      {t('homePage.sign_in')}
+                    </Link>
                   </div>
                 )}
               </div>

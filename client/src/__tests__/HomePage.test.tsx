@@ -73,9 +73,12 @@ describe('HomePage', () => {
     const motto = screen.getByTestId('about-motto');
     expect(motto.compareDocumentPosition(slides) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(slides.compareDocumentPosition(container.querySelector('#community')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // The last slide carries the join button (and the WhatsApp one when the admin has set a WhatsApp group).
+    // The last slide carries only the two buttons the home page always has: join, and sign in. No WhatsApp button.
     const last = screen.getByTestId('discover-slide-12');
     expect(within(last).getByRole('link', { name: /Join the Community/ })).toHaveAttribute('href', '/member/join');
+    expect(within(last).getByRole('link', { name: /Existing Members — Sign In/ })).toHaveAttribute('href', '/member/login');
+    expect(within(last).queryByTestId('discover-whatsapp')).toBeNull();
+    expect(within(last).getAllByRole('link')).toHaveLength(2);
     // No photographs yet: every slide still shows on the brand colours, with no broken pictures.
     expect(slides.querySelectorAll('img[src*="/site/discover/"]')).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Français' }));
