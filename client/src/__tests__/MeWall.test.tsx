@@ -101,6 +101,13 @@ describe('Me wall', () => {
     await waitFor(() => expect(calls.some((c) => c.url.startsWith('/api/updates?authorPersonId=me1'))).toBe(true));
   });
 
+  it('shows the profile text slightly bold, so it reads clearly', async () => {
+    mockFetch(baseRoutes());
+    renderAt('/member/me');
+    await screen.findByRole('heading', { name: 'Grace Ngwa' });
+    expect(screen.getByTestId('my-profile').className).toContain('font-medium');
+  });
+
   it('an ordinary member sees just Posts, Photos and My progress, and the contact choices folded away', async () => {
     mockFetch(baseRoutes({ 'GET /api/member/contact-consent': () => ({ body: { whatsapp: true, email: null } }) }));
     renderAt('/member/me');
