@@ -7,6 +7,7 @@ import { postDueRatingCards } from './teachingCards';
 import { postDueRecordings, retryPendingRecordings } from './teachingRecordings';
 import { CLIENT_URL } from './env';
 import { sendTeachingDayReminders } from './groupTeachers';
+import { whatsappCloudNotify } from './whatsappCloud';
 
 // Reminders for the weekly teaching rota, in the bell and as a phone alert, in each person's own language. Only while
 // the rota is switched on, and each one goes out once (written in TeachingReminderLog):
@@ -83,6 +84,11 @@ async function send(personId: string, kind: RotaKind, d: { topicEn: string; topi
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
   const french = isFrench(person?.preferredLanguage);
   await pushToPerson(personId, pushFor(kind, french, { topic: french ? d.topicFr : d.topicEn, startsAt: d.startsAt })).catch(() => {});
+  // And on WhatsApp, when the central admin has switched that on (it checks the person's own agreement and never throws).
+  await whatsappCloudNotify(personId, kind === 'assignment' ? 'teaching_assignment' : kind === 'tomorrow' ? 'teaching_tomorrow' : 'teaching_hour', {
+    topic: french ? d.topicFr : d.topicEn,
+    when: whenText(d.startsAt, french, kind === 'assignment'),
+  });
   return kind === 'assignment' ? sendAssignmentMessage(personId, d) : null;
 }
 

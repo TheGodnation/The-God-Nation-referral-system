@@ -38,6 +38,14 @@ enum ReminderKind {
   NUDGE_DAY7
 }
 
+// The automatic WhatsApp messages (Meta's WhatsApp Business Platform): off, only to the central admin's own number (test), or to
+// every member who agreed to WhatsApp messages.
+enum WhatsAppCloudMode {
+  OFF
+  TEST
+  ON
+}
+
 enum ConsentChannel {
   WHATSAPP
   EMAIL
@@ -620,6 +628,8 @@ model Event {
 // defaults on the client.
 model Settings {
   id                            String            @id @default("singleton")
+  // Automatic WhatsApp messages through Meta's WhatsApp Business Platform. Off until the central admin switches it on.
+  whatsappCloudMode             WhatsAppCloudMode @default(OFF)
   // Members who joined an assembly after this moment see only the last 30
   // messages from before they joined, plus everything since (see
   // lib/communityConversation.ts historyCutoffFor). Set to the moment the rule
@@ -4773,4 +4783,24 @@ model TeachingDay {
   teacher GroupTeacher @relation(fields: [groupTeacherId], references: [id], onDelete: Cascade)
 
   @@index([groupTeacherId])
+}
+
+// One automatic WhatsApp message (or one that was held back, with the reason): the central admin's record of what went out.
+model WhatsAppCloudSend {
+  id        String   @id @default(uuid())
+  personId  String?
+  // The number it was meant for (E.164), kept so a failure can be understood.
+  toNumber  String
+  // teaching_assignment | teaching_tomorrow | teaching_hour | test
+  kind      String
+  template  String
+  language  String
+  // SENT | FAILED | SKIPPED
+  status    String
+  reason    String?
+  messageId String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([personId])
 }
