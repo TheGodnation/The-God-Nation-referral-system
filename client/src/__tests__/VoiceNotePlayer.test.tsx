@@ -335,7 +335,7 @@ describe('VoiceNotePlayer — moving about inside the note', () => {
     expect(slider).toHaveAttribute('aria-valuetext', '0:25 / 2:00');
   });
 
-  it('the speed button goes 1× → 1.5× → 2× → 1×, changes the audio, and is remembered for the next note', () => {
+  it('the speed button goes 1× → 1.5× → 2× → 1×, changes the audio, and is never remembered: every note starts at 1×', () => {
     const { unmount } = render(<VoiceNotePlayer {...props} />);
     const a = setUpAudio(120);
     const speed = screen.getByTestId('voice-speed');
@@ -343,16 +343,17 @@ describe('VoiceNotePlayer — moving about inside the note', () => {
     fireEvent.click(speed);
     expect(speed).toHaveTextContent('1.5×');
     expect(a.speed()).toBe(1.5);
-    expect(window.localStorage.getItem('voice:rate')).toBe('1.5');
+    expect(window.localStorage.getItem('voice:rate')).toBeNull(); // not kept
     fireEvent.click(speed);
     expect(speed).toHaveTextContent('2×');
     fireEvent.click(speed);
     expect(speed).toHaveTextContent('1×');
     fireEvent.click(speed);
     unmount();
-    // Another voice note starts at the speed that was chosen last.
+    // Another voice note starts at normal speed, even if an old copy of the app left a faster speed saved on the phone.
+    window.localStorage.setItem('voice:rate', '2');
     render(<VoiceNotePlayer {...props} seedId="b2" />);
-    expect(screen.getByTestId('voice-speed')).toHaveTextContent('1.5×');
+    expect(screen.getByTestId('voice-speed')).toHaveTextContent('1×');
   });
 
   it('offers none of this until the audio is ready', () => {

@@ -139,15 +139,15 @@ function PlayableAttachment({
   const kind = mediaKind(a.mimeType);
   // Voice notes get their link ready well before they scroll into view (a screen and a half ahead), so they are there when reached.
   const [ref, inView] = useInView<HTMLDivElement>(kind === 'voice' ? '1200px' : '300px');
-  // Voice notes are kept on the phone once heard (and show from their link at once, not after the whole file comes down); a note
-  // this phone just sent plays from its own copy; videos are never kept (too big).
-  const { url, failed, retry, keepCopy } = useAttachmentUrl(
+  // Voice notes come down whole and play from the copy on the phone (as they always did), so they cannot stutter or stop on a weak
+  // connection; a note this phone just sent plays from its own copy; videos are never kept (too big).
+  const { url, failed, retry } = useAttachmentUrl(
     mediaBase,
     messageId,
     a.id,
     inView && (!saver || wanted),
     kind === 'voice' ? { mime: a.mimeType, byteSize: a.byteSize } : undefined,
-    kind === 'voice' ? { own: isOwn, instant: true } : undefined,
+    kind === 'voice' ? { own: isOwn } : undefined,
   );
   const waitForTap = saver && !wanted && !url;
   return (
@@ -165,7 +165,6 @@ function PlayableAttachment({
           failed={failed}
           onRequestDownload={() => setWanted(true)}
           onRetry={retry}
-          onBuffered={() => void keepCopy()}
         />
       ) : url ? (
         // preload="none": nothing downloads until the person presses play.
