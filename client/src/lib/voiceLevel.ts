@@ -68,8 +68,16 @@ const contextConstructor = (): typeof AudioContext | null =>
 const offlineConstructor = (): typeof OfflineAudioContext | null =>
   typeof window === 'undefined' ? null : (window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext ?? null);
 
-/** Whether this phone's browser can even out the loudness at all. */
-export const levelSupported = (): boolean => contextConstructor() !== null && offlineConstructor() !== null;
+// SWITCHED OFF: after it went live a teacher's voice notes would not play on some phones (tap, and nothing moves), so voice notes
+// play the plain way again until this is checked on real phones. Switching this on is the only thing that brings it back.
+let levelOn = false;
+/** Switches the even loudness on or off (used by tests, and later when it is checked on real phones). */
+export function setLevelOn(value: boolean): void {
+  levelOn = value;
+}
+
+/** Whether the even loudness is used: switched on, and this phone's browser able to do it. */
+export const levelSupported = (): boolean => levelOn && contextConstructor() !== null && offlineConstructor() !== null;
 
 // One shared audio context for every voice note (phones allow only a few).
 let context: AudioContext | null = null;
