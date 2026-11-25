@@ -7,6 +7,7 @@ import i18n from '../i18n';
 // "Continue with Google" on the sign-in page: hidden until Google sign-in is set up, then it signs the member in.
 let clientId: string | null = null;
 let credentialCallback: ((r: { credential?: string }) => void) | null = null;
+let initConfig: Record<string, unknown> | null = null;
 let googleResponse: { status: number; body: unknown } = { status: 200, body: { member: { name: 'Ada', email: 'ada@example.com', preferredLanguage: 'en' } } };
 let joinResponse: { status: number; body: unknown } = { status: 200, body: {} };
 const calls: { url: string; method: string; body: any }[] = [];
@@ -22,6 +23,7 @@ beforeEach(async () => {
       id: {
         initialize: (cfg: { callback: (r: { credential?: string }) => void }) => {
           credentialCallback = cfg.callback;
+          initConfig = cfg as unknown as Record<string, unknown>;
         },
         renderButton: (el: HTMLElement) => {
           rendered.push(el);
@@ -79,6 +81,8 @@ describe('Continue with Google', () => {
     expect(form.compareDocumentPosition(screen.getByTestId('google-signin')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId('google-or')).toHaveTextContent('or');
     await waitFor(() => expect(credentialCallback).not.toBeNull());
+    // The browser's own sign-in panel is asked for (no separate Google tab where the browser can do it), the pop-up kept as the fallback.
+    expect(initConfig).toMatchObject({ use_fedcm_for_button: true, ux_mode: 'popup', auto_select: false });
     await act(async () => credentialCallback!({ credential: 'signed.token.value-from-google-aaaaaaaa' }));
     await waitFor(() => expect(calls.find((c) => c.url === '/api/member/auth/google')?.body).toEqual({ credential: 'signed.token.value-from-google-aaaaaaaa' }));
     expect(await screen.findByText('the chats')).toBeInTheDocument();

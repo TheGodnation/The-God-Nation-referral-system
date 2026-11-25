@@ -7,7 +7,7 @@ import { api } from '../lib/api';
 // which the page sends to the server to be checked.
 
 interface GoogleId {
-  initialize: (config: { client_id: string; callback: (response: { credential?: string }) => void; ux_mode?: 'popup'; auto_select?: boolean }) => void;
+  initialize: (config: { client_id: string; callback: (response: { credential?: string }) => void; ux_mode?: 'popup'; auto_select?: boolean; use_fedcm_for_button?: boolean }) => void;
   renderButton: (element: HTMLElement, options: Record<string, unknown>) => void;
 }
 declare global {
@@ -64,7 +64,10 @@ export function GoogleSignInButton({ onCredential, withDivider = false }: { onCr
       .then(() => {
         const id = window.google?.accounts?.id;
         if (!alive || !id || !holder.current) return;
-        id.initialize({ client_id: clientId, callback: (r) => r.credential && callback.current(r.credential), ux_mode: 'popup', auto_select: false });
+        // use_fedcm_for_button: where the browser can (Chrome, Android included), the account is chosen in the browser's own sign-in
+        // panel on this page instead of in a separate Google tab, whose hand-back to the page could get stuck on phones (tap the email,
+        // nothing happens). Browsers that cannot do it keep the separate Google window, as before.
+        id.initialize({ client_id: clientId, callback: (r) => r.credential && callback.current(r.credential), ux_mode: 'popup', auto_select: false, use_fedcm_for_button: true });
         id.renderButton(holder.current, { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', logo_alignment: 'left', width: 300, locale: i18n.language.startsWith('fr') ? 'fr' : 'en' });
         setReady(true);
       })
