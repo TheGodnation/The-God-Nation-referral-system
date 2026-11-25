@@ -2788,6 +2788,18 @@
       "test_none": "Their phone no longer has notifications on: ask them to turn them on again.",
       "test_failed": "Could not send. Try again."
   },
+  "notifyAsk": {
+      "title": "Stay connected to your family",
+      "messages_t": "Messages",
+      "messages_b": "Your assemblies, groups and private messages",
+      "teachings_t": "Teachings",
+      "teachings_b": "When a teacher is teaching now, and new teachings",
+      "reminders_t": "Reminders",
+      "reminders_b": "Programs",
+      "yes": "Yes, turn on notifications",
+      "then_allow": "Then tap “Allow”",
+      "not_now": "Not now"
+  },
   "groupInfo": {
     "back": "Back to the chat",
     "online": "online",

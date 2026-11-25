@@ -7,6 +7,7 @@ import { MemberNav } from '../components/member/MemberNav';
 import { AssistanceButton } from '../components/member/AssistanceButton';
 import { EnableNotificationsBanner } from '../components/member/EnableNotificationsBanner';
 import { AfterInstallPushAsk } from '../components/member/AfterInstallPushAsk';
+import { NotificationsAskScreen } from '../components/member/NotificationsAskScreen';
 import { Avatar } from '../components/Avatar';
 import { PaymentDeskCard } from '../components/member/PaymentDeskCard';
 import { EventsCard } from '../components/member/EventsCard';
@@ -210,6 +211,8 @@ export function MemberChatsPage() {
           <h1 className="text-2xl font-bold text-brand-900">{t('memberNav.chats')}</h1>
           <NotificationBell />
         </div>
+        {/* A full screen asking to turn on notifications: on arrival (right after registering), then at most once a week until on. */}
+        <NotificationsAskScreen />
         <AfterInstallPushAsk />
         {/* Only the notifications bar is shown here. The steps (install, notifications, joining us elsewhere) open from the link
             in the founder's welcome message, so a new member's first screen is not crowded. */}
