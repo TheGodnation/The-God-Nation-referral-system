@@ -71,9 +71,11 @@ export function useMediaUploads(uploadPath: string, post: (out: OutgoingMessage)
   const postRef = useRef(post);
   postRef.current = post;
 
+  // Leaving the chat does NOT stop what is still going up: a voice note or photo that is on its way carries on and is posted, so it is
+  // there when the chat is opened again (on a slow connection an upload can take a while, and people often leave the chat meanwhile).
+  // Only the pictures shown for them on this screen are let go of.
   useEffect(
     () => () => {
-      for (const w of work.current.values()) w.controller.abort();
       for (const job of jobsRef.current) job.items.forEach((i) => i.previewUrl && URL.revokeObjectURL?.(i.previewUrl));
     },
     [],

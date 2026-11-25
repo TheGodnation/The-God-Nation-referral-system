@@ -55,7 +55,10 @@ async function signedIn(personId: string, email: string, admin = false) {
   const code = spy.mock.calls[0][0].code as string;
   spy.mockRestore();
   await raw.post('/api/member/auth/verify-code').set('X-Forwarded-For', ip).set('X-CSRF-Token', csrf).send({ email, code });
-  return { post: (path: string, body: object) => raw.post(path).set('X-Forwarded-For', ip).set('X-CSRF-Token', csrf).send(body) };
+  return { post: (path: string, body: object) => raw.post(path).set('X-Forwarded-For', ip).set('X-CSRF-Token', csrf).send(body), get: (path: string) => raw.get(path).set('X-Forwarded-For', ip) };
+}
+async function listOf(personEmailAgent: { get: (p: string) => any }, communityId: string) {
+  return (await personEmailAgent.get(`/api/communities/${communityId}/conversation/messages`)).body;
 }
 const settle = () => new Promise((r) => setTimeout(r, 300));
 const voice = (communityId: string) => ({ storageKey: `communities/${communityId}/attachments/${crypto.randomUUID()}`, originalFilename: 'voice-note.m4a', mimeType: 'audio/mp4', byteSize: 48_000, durationMs: 9_000 });
@@ -93,6 +96,30 @@ describe('Phone alert for a message in a group or assembly', () => {
     expect(alerts).toHaveLength(2);
     expect(alerts[1].to.sort()).toEqual([a.id, b.id].sort());
     expect(alerts[1].payload.body).toContain('Voice message');
+    vi.mocked(storage.headObject).mockResolvedValue(null);
+  });
+});
+
+describe('A voice note stays in the chat after it is sent', () => {
+  it('is still there, with its length, when the chat is opened again, for the sender and for the others', async () => {
+    const sender = await person('Sender');
+    const other = await person('Other');
+    const g = await group([sender.id, other.id]);
+    const s = await signedIn(sender.id, `keep-sender-${n}@example.com`);
+    const o = await signedIn(other.id, `keep-other-${n}@example.com`);
+    vi.mocked(storage.headObject).mockResolvedValue({ contentLength: 48_000, contentType: 'audio/mp4' } as any);
+    expect((await s.post(`/api/communities/${g.id}/conversation/messages`, { body: 'Hello' })).status).toBe(201);
+    const sent = await s.post(`/api/communities/${g.id}/conversation/messages`, { attachments: [voice(g.id)] });
+    expect(sent.status).toBe(201);
+    for (const who of [s, o]) {
+      const list = await listOf(who, g.id);
+      const note = list.items.find((m: any) => m.id === sent.body.id);
+      expect(note, 'the voice note is in the list').toBeTruthy();
+      expect(note.deleted).toBe(false);
+      expect(note.attachments).toHaveLength(1);
+      expect(note.attachments[0]).toMatchObject({ mimeType: 'audio/mp4', byteSize: 48_000, durationMs: 9_000 });
+      expect(list.items.some((m: any) => m.body === 'Hello')).toBe(true);
+    }
     vi.mocked(storage.headObject).mockResolvedValue(null);
   });
 });

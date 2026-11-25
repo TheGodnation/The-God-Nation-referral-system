@@ -69,7 +69,9 @@ class FakeXhr {
   send() {
     FakeXhr.all.push(this);
   }
+  aborted = false;
   abort() {
+    this.aborted = true;
     this.onabort?.();
   }
   progress(fraction: number) {
@@ -148,6 +150,21 @@ describe('Sending a photo in the chat', () => {
     expect(screen.queryByTestId('uploading-bubble')).not.toBeInTheDocument();
     await new Promise((r) => setTimeout(r, 20));
     expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/conversation/messages'))).toBe(false);
+  });
+
+  it('leaving the chat while it is still going up does not lose it: it carries on and is posted', async () => {
+    mockFetch();
+    const view = renderChat();
+    await screen.findByRole('button', { name: 'Emojis' });
+    pick('church.png');
+    const preview = screen.getByRole('dialog', { name: 'Send photos' });
+    fireEvent.click(within(preview).getByRole('button', { name: 'Send' }));
+    await screen.findByTestId('uploading-bubble');
+    await waitFor(() => expect(FakeXhr.all).toHaveLength(1));
+    view.unmount(); // the person leaves the chat while the file is still going up
+    expect(FakeXhr.all[0].aborted).toBe(false); // the upload was not stopped
+    FakeXhr.all[0].finish(200);
+    await waitFor(() => expect(postedMessage()?.body.attachments[0]).toMatchObject({ storageKey: 'k1', mimeType: 'image/png' }));
   });
 
   it('a failed upload says so and can be tried again', async () => {
