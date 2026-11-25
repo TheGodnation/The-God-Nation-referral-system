@@ -135,6 +135,25 @@ export type PushDeviceStatus =
   | 'unsupported';
 
 let confirmedWithServer = false;
+let resubscribeTried = false;
+
+/** Permission is already granted but there is no subscription: make one without asking anything. Tried once per visit. */
+async function quietlyResubscribe(): Promise<boolean> {
+  if (resubscribeTried) return false;
+  resubscribeTried = true;
+  try {
+    const result = await enablePushNotifications();
+    return result.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** For tests: forget that a quiet reconnect was tried. */
+export function resetPushVisitForTests(): void {
+  confirmedWithServer = false;
+  resubscribeTried = false;
+}
 
 /** Whether this device will actually receive notifications. "Allowed" alone
  * isn't enough: permission can be granted while no push subscription exists
@@ -154,7 +173,9 @@ export async function checkPushOnThisDevice(): Promise<PushDeviceStatus> {
     // worker failed to register, which would leave the caller waiting forever.
     const registration = await navigator.serviceWorker.getRegistration();
     const subscription = await registration?.pushManager.getSubscription();
-    if (!subscription) return 'not_subscribed';
+    // Allowed, but this phone has lost its subscription (the app's saved copy was cleared by the white-page repair, or the browser
+    // dropped it). No question is needed, the permission is already given: connect it again quietly, so alerts come back by themselves.
+    if (!subscription) return (await quietlyResubscribe()) ? 'subscribed' : 'not_subscribed';
     if (!confirmedWithServer) {
       confirmedWithServer = true;
       const json = subscription.toJSON();

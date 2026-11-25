@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, NetworkError, RequestCancelled } from '../lib/api';
+import { refreshAfterSend } from '../lib/chatRefresh';
 import { loadThread, saveThread } from '../lib/chatCache';
 import { isOfflineError } from '../lib/offlineStore';
 import { appendNew, applyRecent, lastServerId, useAdaptivePoll, useOutbox, type RecentChange } from '../lib/chatSync';
@@ -298,6 +299,8 @@ export function MemberGroupChatPage() {
 
   // First load: the latest page. After that, only what is new (light on
   // data): `after` = the newest message we already have.
+  // Whether the latest request for new messages failed (used to ask again after sending, see chatRefresh).
+  const refreshFailed = useRef(false);
   const fetchLatest = useCallback(
     (first = false): Promise<boolean> => {
       const lastId = first ? null : lastServerId(messagesRef.current);
@@ -305,6 +308,7 @@ export function MemberGroupChatPage() {
       return api
         .get<MessagesResponse>(`/api/communities/${communityId}/conversation/messages${query}`)
         .then((raw) => {
+          refreshFailed.current = false;
           // A reply that is not a proper list of messages (a half-loaded or odd answer) is treated as "nothing new", never a crash.
           const res = { ...raw, items: Array.isArray(raw?.items) ? raw.items : [] } as MessagesResponse;
           if (lastId && res.newerOverflow) return fetchLatest(true);
@@ -331,6 +335,7 @@ export function MemberGroupChatPage() {
           return res.items.length > 0 || (res.typing ?? []).length > 0 || (res.recording ?? []).length > 0;
         })
         .catch((err) => {
+          refreshFailed.current = true;
           if (err instanceof ApiError && (err.status === 403 || err.status === 404)) setNotAllowed(true);
           else if (first) {
             // No internet: the last messages kept on this phone, if there are any.
@@ -537,7 +542,7 @@ export function MemberGroupChatPage() {
     sending.current.set(tempId, controller);
     try {
       await api.post(`/api/communities/${communityId}/conversation/messages`, out, { signal: controller.signal });
-      await fetchLatest(false);
+      await refreshAfterSend(() => fetchLatest(false), () => refreshFailed.current);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       poke();
       return true;
@@ -601,7 +606,7 @@ export function MemberGroupChatPage() {
     try {
       await api.post(`/api/communities/${communityId}/conversation/messages`, out);
       stickToBottom.current = true;
-      await fetchLatest(false);
+      await refreshAfterSend(() => fetchLatest(false), () => refreshFailed.current);
       poke();
       return true;
     } catch (err) {

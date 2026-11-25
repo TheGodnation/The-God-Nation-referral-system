@@ -113,7 +113,9 @@ async function pushToWhere(where: { personId?: string; personId_in?: string[]; u
   }
   const failed = [...failures.values()].reduce((a, b) => a + b, 0);
   const ms = Date.now() - started;
-  // Silent when all is well and quick; says so when pushes fail or a send is slow, so problems can be seen in the logs.
+  // One plain line for every send, so it can always be seen afterwards who was reached: how many phones had notifications on
+  // ("devices", 0 when nobody does), how many got it, how many were no longer valid. A problem gets the louder line.
+  console.log('[push] sent', { tag: payload.tag ?? null, devices: subs.length, sent, expired: gone, failed, ms });
   if (failed > 0 || retried > 0 || ms > 5000) {
     console.warn('[push] delivery problem', { devices: subs.length, sent, expired: gone, failed, retried, recovered, failedByStatus: Object.fromEntries(failures), ms });
   }

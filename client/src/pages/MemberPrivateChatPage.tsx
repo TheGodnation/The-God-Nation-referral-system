@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, NetworkError, RequestCancelled } from '../lib/api';
+import { refreshAfterSend } from '../lib/chatRefresh';
 import { loadThread, saveThread } from '../lib/chatCache';
 import { isOfflineError } from '../lib/offlineStore';
 import { useMemberAuth } from '../lib/MemberAuthContext';
@@ -195,12 +196,15 @@ export function MemberPrivateChatPage() {
   const sending = useRef(new Map<string, AbortController>());
 
   // First load: the latest page. After that, only what is new.
+  // Whether the latest request for new messages failed (used to ask again after sending, see chatRefresh).
+  const refreshFailed = useRef(false);
   const fetchLatest = useCallback(
     (first = false): Promise<boolean> => {
       const lastId = first ? null : lastServerId(messagesRef.current);
       return api
         .get<PrivateResponse>(`${base}/messages${lastId ? `?after=${encodeURIComponent(lastId)}` : ''}`)
         .then((raw): boolean | Promise<boolean> => {
+          refreshFailed.current = false;
           // A reply that is not a proper list of messages is treated as "nothing new", never a crash.
           const res = { ...raw, items: Array.isArray(raw?.items) ? raw.items : [] } as PrivateResponse;
           if (lastId && res.newerOverflow) return fetchLatest(true);
@@ -232,6 +236,7 @@ export function MemberPrivateChatPage() {
           return items.length > 0 || Boolean(res.typing) || Boolean(res.recording);
         })
         .catch((err) => {
+          refreshFailed.current = true;
           if (err instanceof ApiError && err.status === 404) setNotFound(true);
           else if (first) {
             // No internet: the last messages kept on this phone, if there are any.
@@ -375,7 +380,7 @@ export function MemberPrivateChatPage() {
     sending.current.set(tempId, controller);
     try {
       await api.post(`${base}/messages`, out, { signal: controller.signal });
-      await fetchLatest(false);
+      await refreshAfterSend(() => fetchLatest(false), () => refreshFailed.current);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       poke();
       return true;
@@ -430,7 +435,7 @@ export function MemberPrivateChatPage() {
     try {
       await api.post(`${base}/messages`, out);
       stickToBottom.current = true;
-      await fetchLatest(false);
+      await refreshAfterSend(() => fetchLatest(false), () => refreshFailed.current);
       poke();
       return true;
     } catch (err) {
