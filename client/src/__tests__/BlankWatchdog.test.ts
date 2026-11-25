@@ -24,7 +24,7 @@ describe('blank page watchdog', () => {
     expect(isBlank(root)).toBe(false);
   });
 
-  it('offers Reload / Fix and reload after about nine blank seconds, and removes them when the page fills in', () => {
+  it('offers Reload after about nine blank seconds (never a button that would cut notifications), and removes it when the page fills in', () => {
     startBlankWatchdog();
     vi.advanceTimersByTime(6000);
     expect(document.getElementById('blank-page-help')).toBeNull();
@@ -32,7 +32,8 @@ describe('blank page watchdog', () => {
     const help = document.getElementById('blank-page-help');
     expect(help).not.toBeNull();
     expect(help!.textContent).toContain('Reload / Recharger');
-    expect(help!.textContent).toContain('Fix and reload');
+    expect(help!.textContent).not.toContain('Fix and reload');
+    expect(help!.querySelectorAll('button')).toHaveLength(1);
     expect((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe('/api/client-errors');
 
     const root = document.getElementById('root')!;
