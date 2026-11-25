@@ -15,6 +15,8 @@ interface Part {
   state: PartState;
   transcript: string;
   translated: string;
+  /** An older part whose words are already in part 1's text: nothing to do for it. */
+  inFirstPart?: boolean;
 }
 interface RecordingWeek {
   weekStart: string;
@@ -81,7 +83,7 @@ function PartCard({ part, week, language, onChanged }: { part: Part; week: Recor
     if (!part.id || !window.confirm(t('teachingRecording.confirm_remove_part', { n: part.n }) ?? '')) return;
     void call(() => api.delete<RecordingWeek>(base));
   };
-  const editable = week.canChange && part.state !== 'writing';
+  const editable = week.canChange && part.state !== 'writing' && !part.inFirstPart;
 
   return (
     <div className="space-y-2 rounded-xl border border-slate-200 p-3" data-testid={`recording-part-${part.n}`}>
@@ -90,7 +92,11 @@ function PartCard({ part, week, language, onChanged }: { part: Part; week: Recor
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATE_TONE[part.state]}`}>{t(`teachingRecording.state_${part.state}`)}</span>
       </div>
       {part.audioUrl && <audio controls src={part.audioUrl} className="w-full" aria-label={t('teachingRecording.part_n', { n: part.n }) ?? ''} />}
-      {part.state === 'writing' && <p className="rounded-lg bg-slate-50 p-2 text-sm text-slate-700" data-testid="recording-writing">⏳ {t('teachingRecording.writing')}</p>}
+      {part.inFirstPart ? (
+        <p className="rounded-lg bg-slate-50 p-2 text-sm text-slate-700" data-testid="recording-in-first-part">{t('teachingRecording.in_first_part')}</p>
+      ) : (
+        part.state === 'writing' && <p className="rounded-lg bg-slate-50 p-2 text-sm text-slate-700" data-testid="recording-writing">⏳ {t('teachingRecording.writing')}</p>
+      )}
       {editable && (
         <>
           {part.state === 'failed' && <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900" data-testid="recording-failed">{t('teachingRecording.part_text_failed')}</p>}
@@ -123,7 +129,7 @@ function PartCard({ part, week, language, onChanged }: { part: Part; week: Recor
           )}
         </>
       )}
-      {part.state === 'approved' && !dirty && (
+      {part.state === 'approved' && !dirty && !part.inFirstPart && (
         <p className="rounded-lg bg-green-50 p-2 text-sm text-green-800" data-testid="recording-approved">
           ✓ {t('teachingRecording.approved')} {part.translated ? t('teachingRecording.translated_ready') : t('teachingRecording.translating')}
         </p>

@@ -41,8 +41,13 @@ function showHelp(): void {
   document.body.appendChild(box);
 }
 
+/** The help box from the page's own rescue (index.html), shown when the app was slow to start. */
+const EARLY_OVERLAY_ID = 'white-page-help';
+
 function hideHelp(): void {
   document.getElementById(OVERLAY_ID)?.remove();
+  // Never leave the early help box over a page that is working (it used to stay over the chat's message box).
+  document.getElementById(EARLY_OVERLAY_ID)?.remove();
 }
 
 export function startBlankWatchdog(): void {

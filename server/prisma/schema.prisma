@@ -4708,6 +4708,8 @@ model TeachingRecordingPart {
   spokenLanguage    Language?
   approvedAt        DateTime?
   translateAttempts Int              @default(0)
+  // A part added before each part had its own text: its words were already put into the first part's text (and approved there).
+  textInFirstPart   Boolean          @default(false)
   createdAt         DateTime         @default(now())
 
   recording TeachingRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)

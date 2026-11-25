@@ -6323,7 +6323,8 @@
     "state_ready": "Check the text",
     "state_failed": "Text not written",
     "state_approved": "Approved",
-    "part_text_failed": "The text of this part could not be written. Tap \"Write the text again\", or type it yourself below."
+    "part_text_failed": "The text of this part could not be written. Tap \"Write the text again\", or type it yourself below.",
+    "in_first_part": "The words of this part are already in the text of part 1 above (it was added before each part had its own text). Nothing more to do for it: it is posted after part 1, in order."
   },
   "scheduledTeachings": {
     "title": "Scheduled teachings",

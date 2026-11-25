@@ -351,6 +351,37 @@ describe('a teaching in several parts (record part 1, then part 2, part 3…)', 
     expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } })).messageId).toBe(messages[0].id);
   });
 
+  it('an older recording (part 2 added before today, its words already in part 1 and approved) keeps working: part 3 can be added, and everything is posted in order without writing part 2 twice', async () => {
+    const { transcribeAndStoreMessageAudio } = await import('../lib/translation');
+    const { person, group, teacher } = await setUp();
+    words('Un.');
+    const first = await upload(group.id);
+    await saveRecording(person.id, { weekStart: WEEK, ...first }, BEFORE);
+    await textReady(teacher.id);
+    // As it was before: part 2's words were added to part 1's text, which was approved with them.
+    const rec = await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } });
+    const second = await upload(group.id);
+    await prisma.teachingRecordingPart.create({ data: { recordingId: rec.id, position: 1, storageKey: second.storageKey, mimeType: 'audio/webm', byteSize: second.byteSize, textState: 'DONE', textInFirstPart: true } });
+    await saveTranscript(person.id, WEEK, 'Un.\n\nDeux.', BEFORE);
+    await approveTranscript(person.id, WEEK, BEFORE);
+    let parts = await partsOf(person.id);
+    expect(parts.map((p) => [p.n, p.state, Boolean(p.inFirstPart)])).toEqual([[1, 'approved', false], [2, 'approved', true]]);
+    // Part 3, recorded after today, is a normal part with its own text.
+    words('Trois.');
+    const third = await upload(group.id);
+    await addRecordingPart(person.id, { weekStart: WEEK, ...third }, BEFORE);
+    await partReady(person.id, 3);
+    parts = await partsOf(person.id);
+    await approvePart(person.id, WEEK, parts[2].id!, BEFORE);
+    vi.mocked(transcribeAndStoreMessageAudio).mockClear();
+    expect(await postDueRecordings(at('2026-11-25T06:00:30Z'))).toBe(1);
+    const conversation = await prisma.conversation.findFirstOrThrow({ where: { communityId: group.id } });
+    const messages = await prisma.message.findMany({ where: { conversationId: conversation.id, kind: 'USER' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], include: { attachments: true } });
+    expect(messages.map((m) => m.attachments[0].storageKey)).toEqual([first.storageKey, second.storageKey, third.storageKey]);
+    expect(messages.map((m) => m.transcribedBody)).toEqual(['Un.\n\nDeux.', null, 'Trois.']);
+    expect(transcribeAndStoreMessageAudio).not.toHaveBeenCalled(); // part 2's words are not written a second time
+  });
+
   it('deleting the recording removes every part, and a new recording replaces them all', async () => {
     const { person, group, teacher } = await setUp();
     const first = await upload(group.id);

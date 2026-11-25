@@ -46,7 +46,8 @@ describe('Record my teaching ahead of time', () => {
     expect(box.value).toBe('Bonjour a tous');
     fireEvent.change(box, { target: { value: 'Bonjour à tous' } });
     fireEvent.click(screen.getByTestId('recording-approve'));
-    expect(await screen.findByTestId('recording-approved')).toHaveTextContent('Approved');
+    // Two requests one after the other: give it time when the whole suite runs at once.
+    expect(await screen.findByTestId('recording-approved', {}, { timeout: 4000 })).toHaveTextContent('Approved');
     expect(calls.map((c) => c.url.split('/recordings/')[1])).toEqual(['2026-11-23/transcript', '2026-11-23/approve']);
     expect(calls[0].body).toEqual({ text: 'Bonjour à tous' });
   });
@@ -175,6 +176,17 @@ describe('Record my teaching ahead of time', () => {
     await waitFor(() => expect(screen.queryByTestId('recording-part-2')).toBeNull());
     expect(calls).toEqual([`DELETE 2026-11-23/parts/${id}`]);
     confirm.mockRestore();
+  });
+
+  it('an older part whose words are already in part 1 says so, with nothing to correct, and the next part comes after it', async () => {
+    const p1 = { id: null, n: 1, audioUrl: 'https://x/1.mp3', state: 'approved', transcript: 'Un\n\nDeux', translated: 'One\n\nTwo' };
+    const p2 = { id: '44444444-4444-4444-8444-444444444444', n: 2, audioUrl: 'https://x/2.mp3', state: 'approved', transcript: '', translated: '', inFirstPart: true };
+    vi.stubGlobal('fetch', vi.fn(() => json(data(week(rec({ status: 'APPROVED', parts: [p1, p2] }))))));
+    render(<TeachingRecordingPanel />);
+    const card = await screen.findByTestId('recording-part-2');
+    expect(card).toHaveTextContent('already in the text of part 1');
+    expect(card.querySelector('textarea')).toBeNull();
+    expect(screen.getByTestId('recording-start')).toHaveTextContent('Record part 3');
   });
 
   it('pauses and continues the same recording, and only stops when told to', async () => {

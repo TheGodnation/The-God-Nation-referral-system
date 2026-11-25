@@ -52,6 +52,16 @@
           }
           mk('Reload / Recharger', true, function () { location.reload(); });
           (document.body || document.documentElement).appendChild(box);
+          // It goes away by itself as soon as the app shows (on a slow connection the app can take longer than the 12 seconds):
+          // it must never stay on top of a page that works, for example over a chat's message box.
+          var watch = setInterval(function () {
+            var r = document.getElementById('root');
+            if (r && r.firstChild && (r.innerText || r.textContent || '').trim()) {
+              var b = document.getElementById('white-page-help');
+              if (b && b.parentNode) b.parentNode.removeChild(b);
+              clearInterval(watch);
+            }
+          }, 1000);
         }
         function rescue() {
           var last = 0;
