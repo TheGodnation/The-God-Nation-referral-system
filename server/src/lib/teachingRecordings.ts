@@ -36,6 +36,8 @@ export interface PartView {
   state: 'writing' | 'ready' | 'failed' | 'approved';
   transcript: string;
   translated: string;
+  /** A part added before each part had its own text: its words are in part 1's text, so it has no text of its own. */
+  inFirstPart?: boolean;
 }
 
 export interface RecordingView {
@@ -92,9 +94,11 @@ async function view(monday: Date, teacher: Teacher, rec: TeachingRecording | nul
             id: p.id,
             n: i + 2,
             audioUrl: await link(p.storageKey),
-            state: (p.approvedAt ? 'approved' : p.textState === 'WAITING' ? 'writing' : p.textState === 'FAILED' && !p.transcript?.trim() ? 'failed' : 'ready') as PartView['state'],
+            // Its words are in part 1's text: it is as ready as part 1 is.
+            state: (p.textInFirstPart ? mainState(rec.status) : p.approvedAt ? 'approved' : p.textState === 'WAITING' ? 'writing' : p.textState === 'FAILED' && !p.transcript?.trim() ? 'failed' : 'ready') as PartView['state'],
             transcript: p.transcript ?? '',
             translated: p.translated ?? '',
+            ...(p.textInFirstPart ? { inFirstPart: true } : {}),
           })),
         )),
       ]
@@ -276,7 +280,7 @@ export async function savePartText(personId: string, weekStart: string, partId: 
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
   await prisma.teachingRecordingPart.update({
     where: { id: part.id },
-    data: { transcript: clean || null, textState: clean ? 'DONE' : 'FAILED', translated: null, approvedAt: null, translateAttempts: 0, spokenLanguage: part.spokenLanguage ?? rec.spokenLanguage ?? (isFrench(person?.preferredLanguage) ? 'fr' : 'en') },
+    data: { transcript: clean || null, textState: clean ? 'DONE' : 'FAILED', textInFirstPart: false, translated: null, approvedAt: null, translateAttempts: 0, spokenLanguage: part.spokenLanguage ?? rec.spokenLanguage ?? (isFrench(person?.preferredLanguage) ? 'fr' : 'en') },
   });
   return view(w.monday, w.teacher, rec, true);
 }
@@ -398,7 +402,7 @@ export async function postDueRecordings(now = new Date()): Promise<number> {
       const teacherPersonId: string = teacher.personId;
       const pieces = [
         { storageKey: fresh.storageKey, mimeType: fresh.mimeType, byteSize: fresh.byteSize, transcript: fresh.transcript, translated: fresh.translated, language: fresh.spokenLanguage },
-        ...extra.map((p) => ({ storageKey: p.storageKey, mimeType: p.mimeType, byteSize: p.byteSize, transcript: p.transcript, translated: p.translated, language: p.spokenLanguage ?? fresh.spokenLanguage })),
+        ...extra.map((p) => ({ storageKey: p.storageKey, mimeType: p.mimeType, byteSize: p.byteSize, transcript: p.transcript, translated: p.translated, language: p.spokenLanguage ?? fresh.spokenLanguage, inFirstPart: p.textInFirstPart })),
       ];
       let firstMessageId: string | null = null;
       for (let i = 0; i < pieces.length; i++) {
@@ -422,8 +426,9 @@ export async function postDueRecordings(now = new Date()): Promise<number> {
           },
         });
         firstMessageId ??= message.id;
-        // With no text of the teacher's own for this part, the usual automatic writer does it (as for any voice note).
-        if (!hasText) void transcribeAndStoreMessageAudio(message.id, piece.storageKey, piece.mimeType).catch(() => {});
+        // With no text of the teacher's own for this part, the usual automatic writer does it (as for any voice note), except for an
+        // older part whose words are already in part 1's text (they would be written twice).
+        if (!hasText && !('inFirstPart' in piece && piece.inFirstPart)) void transcribeAndStoreMessageAudio(message.id, piece.storageKey, piece.mimeType).catch(() => {});
       }
       await prisma.teachingRecording.update({ where: { id: rec.id }, data: { messageId: firstMessageId } });
       void pushToGroup(communityId, teacher.personId).catch(() => {});

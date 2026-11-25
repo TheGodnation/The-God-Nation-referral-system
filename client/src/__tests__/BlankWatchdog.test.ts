@@ -41,4 +41,17 @@ describe('blank page watchdog', () => {
     vi.advanceTimersByTime(3500);
     expect(document.getElementById('blank-page-help')).toBeNull();
   });
+
+  it('removes the early help box (from a slow start) as soon as the page shows, so it never covers a chat message box', () => {
+    const early = document.createElement('div');
+    early.id = 'white-page-help';
+    early.textContent = 'This page is taking too long.';
+    document.body.appendChild(early);
+    const root = document.getElementById('root')!;
+    root.innerHTML = '<p>Chat</p>';
+    Object.defineProperty(root, 'innerText', { value: 'Chat', configurable: true });
+    startBlankWatchdog();
+    vi.advanceTimersByTime(3500);
+    expect(document.getElementById('white-page-help')).toBeNull();
+  });
 });

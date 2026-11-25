@@ -6323,7 +6323,8 @@
     "state_ready": "Vérifiez le texte",
     "state_failed": "Texte non écrit",
     "state_approved": "Approuvé",
-    "part_text_failed": "Le texte de cette partie n'a pas pu être écrit. Touchez « Écrire le texte à nouveau », ou tapez-le vous-même ci-dessous."
+    "part_text_failed": "Le texte de cette partie n'a pas pu être écrit. Touchez « Écrire le texte à nouveau », ou tapez-le vous-même ci-dessous.",
+    "in_first_part": "Les paroles de cette partie sont déjà dans le texte de la partie 1 ci-dessus (elle a été ajoutée avant que chaque partie ait son propre texte). Rien de plus à faire : elle est publiée après la partie 1, dans l'ordre."
   },
   "scheduledTeachings": {
     "title": "Enseignements programmés",
