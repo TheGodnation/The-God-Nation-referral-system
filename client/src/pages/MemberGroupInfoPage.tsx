@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { Avatar } from '../components/Avatar';
 import { ManageAssembly } from '../components/assembly/ManageAssembly';
+import { GroupNotifications } from '../components/assembly/GroupNotifications';
 import { RichText } from '../lib/richText';
 
 interface GroupMeta {
@@ -127,6 +128,9 @@ export function MemberGroupInfoPage() {
           </section>
 
           {meta?.canManage && <ManageAssembly key={communityId} communityId={communityId} communityName={name} onMembersChanged={loadMembers} />}
+
+          {/* For the group's administrator only (it stays hidden for everyone else). */}
+          <GroupNotifications communityId={communityId} />
 
           {about && (
             <section className="bg-white px-4 py-4 shadow-sm sm:rounded-xl">

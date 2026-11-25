@@ -9,11 +9,17 @@ import { reloadOnceForNewVersion, reportClientError } from './lib/reportError';
 import { isStoreApp } from './lib/storeApp';
 import { captureInstallPrompt } from './lib/installPrompt';
 import { startBlankWatchdog } from './lib/blankWatchdog';
+import { installDomGuard, syncPageLanguage } from './lib/domGuard';
+import i18n from './i18n';
 
 // Notice the Play Store version at the very start (see lib/storeApp.ts).
 isStoreApp();
 captureInstallPrompt();
 startBlankWatchdog();
+// Before anything is shown: never let a page translator or extension knock the screen over, and keep the page's language right.
+installDomGuard();
+syncPageLanguage(i18n.language);
+i18n.on('languageChanged', syncPageLanguage);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

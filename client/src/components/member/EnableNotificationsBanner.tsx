@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { api } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
 import { GuideLink } from './GuideLink';
 import { enablePushNotifications, checkPushOnThisDevice, prefetchPushKey, type PushDeviceStatus } from '../../lib/push';
@@ -85,6 +86,8 @@ export function EnableNotificationsBanner({ className = 'mb-4', rule = 'twiceWee
     };
   }, []);
 
+  // On the profile page ("always"), a phone that already has notifications gets a way to check that they really arrive.
+  if (rule === 'always' && status === 'subscribed') return <SelfTestStrip className={className} />;
   if ((rule !== 'always' && dismissed) || !visitOk || status === null || status === 'subscribed') return null;
 
   function close() {
@@ -156,6 +159,36 @@ export function EnableNotificationsBanner({ className = 'mb-4', rule = 'twiceWee
           ✕
         </button>
       )}
+    </div>
+  );
+}
+
+// "Notifications are on on this phone · Send me a test alert": the alert comes straight back, so the member sees it works (or learns
+// that their phone holds it back, for example because of battery saving).
+function SelfTestStrip({ className }: { className: string }) {
+  const { t } = useTranslation();
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'none' | 'failed'>('idle');
+  async function test() {
+    setState('sending');
+    try {
+      const r = await api.post<{ devices: number; sent: number }>('/api/notifications/push/test', {});
+      setState(r.sent > 0 ? 'sent' : 'none');
+    } catch {
+      setState('failed');
+    }
+  }
+  return (
+    <div className={`${className} space-y-1 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-900`} data-testid="notifications-on">
+      <div className="flex items-center gap-2">
+        <span aria-hidden="true">🔔</span>
+        <span className="flex-1">{t('notifications.on_this_phone')}</span>
+        <button type="button" className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-green-800 ring-1 ring-green-300" disabled={state === 'sending'} onClick={() => void test()} data-testid="notifications-self-test">
+          {t('notifications.test_me')}
+        </button>
+      </div>
+      {state === 'sent' && <p className="text-xs" data-testid="notifications-self-test-result">{t('notifications.test_sent')}</p>}
+      {state === 'none' && <p className="text-xs" data-testid="notifications-self-test-result">{t('notifications.test_none')}</p>}
+      {state === 'failed' && <p className="text-xs text-red-700" data-testid="notifications-self-test-result">{t('notifications.test_failed')}</p>}
     </div>
   );
 }

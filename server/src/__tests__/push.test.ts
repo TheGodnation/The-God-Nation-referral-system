@@ -42,7 +42,7 @@ describe('lib/push — Web Push (background/closed-app delivery)', () => {
     });
 
     // Never throws, even though nothing is actually configured to send.
-    await expect(push.pushToPerson(person.id, { title: 'T', body: 'B' })).resolves.toBeUndefined();
+    await expect(push.pushToPerson(person.id, { title: 'T', body: 'B' })).resolves.toEqual({ devices: 0, sent: 0, expired: 0, failed: 0 });
     // And never calls out to any sending mechanism — the subscription row
     // is left untouched (not cleaned up, since no send was ever attempted).
     expect(
@@ -68,7 +68,7 @@ describe('lib/push — Web Push (background/closed-app delivery)', () => {
       data: { personId: person.id, endpoint: 'https://push.example/ep-configured', p256dh: 'p', auth: 'a' },
     });
 
-    await expect(push.pushToPerson(person.id, { title: 'T', body: 'B', url: '/member/chats' })).resolves.toBeUndefined();
+    await expect(push.pushToPerson(person.id, { title: 'T', body: 'B', url: '/member/chats' })).resolves.toEqual({ devices: 1, sent: 0, expired: 0, failed: 1 }); // never throws
     // A passing failure is tried once more (and only once).
     expect(sendSpy).toHaveBeenCalledTimes(2);
     // A transient failure (not 404/410) never deletes the subscription.
@@ -163,13 +163,13 @@ describe('Web Push: every send leaves a plain line in the log', () => {
     }) as any);
     const nobody = await prisma.person.create({ data: { name: 'Nobody On', whatsappNumber: '+237699300001' } });
     await push.pushToPersons([nobody.id], { title: 'T', body: 'B', tag: 'group-x' });
-    expect(log).toHaveBeenCalledWith('[push] sent', { tag: 'group-x', devices: 0, sent: 0, expired: 0, failed: 0, ms: expect.any(Number) });
+    expect(log).toHaveBeenCalledWith(expect.stringMatching(/^\[push\] sent \{"tag":"group-x","devices":0,"sent":0,"expired":0,"failed":0,"ms":\d+\}$/));
     const a = await prisma.person.create({ data: { name: 'Two Phones', whatsappNumber: '+237699300002' } });
     await prisma.pushSubscription.create({ data: { personId: a.id, endpoint: 'https://push.example/log-new', p256dh: 'p', auth: 'a' } });
     await prisma.pushSubscription.create({ data: { personId: a.id, endpoint: 'https://push.example/log-old', p256dh: 'p', auth: 'a' } });
     await push.pushToPersons([a.id], { title: 'T', body: 'B', tag: 'group-y' });
     expect(sendSpy).toHaveBeenCalledTimes(2);
-    expect(log).toHaveBeenCalledWith('[push] sent', { tag: 'group-y', devices: 2, sent: 1, expired: 1, failed: 0, ms: expect.any(Number) });
+    expect(log).toHaveBeenCalledWith(expect.stringMatching(/^\[push\] sent \{"tag":"group-y","devices":2,"sent":1,"expired":1,"failed":0,"ms":\d+\}$/));
   });
 });
 

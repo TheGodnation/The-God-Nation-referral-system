@@ -43,6 +43,9 @@ describe('link previews', () => {
     // The rescue never removes the app's background part (that would cut the phone's notifications), and offers no "Fix" button.
     expect(res.text).not.toContain('unregister');
     expect(res.text).not.toContain('Réparer');
+    // The browser's own page translation is switched off (it made the chats crash); the app translates itself.
+    expect(res.text).toContain('<meta name="google" content="notranslate" />');
+    expect(res.text).toContain('translate="no"');
   });
 
   it('a French link gets the all-French card, an English link the all-English card', async () => {
