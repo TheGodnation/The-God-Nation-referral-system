@@ -6309,7 +6309,21 @@
     "part_n": "Partie {{n}}",
     "add_to_teaching": "Ajouter à mon enseignement",
     "parts_failed_one": "Les mots d'une partie n'ont pas pu être écrits. Touchez « Écrire le texte de nouveau », ou tapez ces mots vous-même.",
-    "parts_failed_other": "Les mots de {{count}} parties n'ont pas pu être écrits. Touchez « Écrire le texte de nouveau », ou tapez ces mots vous-même."
+    "parts_failed_other": "Les mots de {{count}} parties n'ont pas pu être écrits. Touchez « Écrire le texte de nouveau », ou tapez ces mots vous-même.",
+    "record_part": "Enregistrer la partie {{n}}",
+    "choose_file_part": "Ou choisir la partie {{n}} sur mon téléphone",
+    "use_as_part": "Utiliser comme partie {{n}}",
+    "guide_first": "Enregistrez votre enseignement en parties d'environ 5 minutes. Enregistrez la partie 1 : son texte sera écrit pour que vous le vérifiiez et l'approuviez. Ensuite vous enregistrez la partie 2, la partie 3, et ainsi de suite, autant de parties que nécessaire.",
+    "guide_writing": "Le texte de la partie {{n}} est en cours d'écriture (quelques minutes). Vous pouvez déjà enregistrer la partie {{next}}.",
+    "guide_check": "Vérifiez et approuvez le texte de la partie {{n}} ci-dessus, puis enregistrez la partie {{next}}.",
+    "guide_done": "✓ La partie {{n}} est prête. Enregistrez la partie {{next}}, ou arrêtez-vous ici : chaque partie est publiée d'elle-même, dans l'ordre, à l'heure de votre enseignement.",
+    "remove_part": "Retirer cette partie",
+    "confirm_remove_part": "Retirer la partie {{n}} ?",
+    "state_writing": "Texte en cours d'écriture",
+    "state_ready": "Vérifiez le texte",
+    "state_failed": "Texte non écrit",
+    "state_approved": "Approuvé",
+    "part_text_failed": "Le texte de cette partie n'a pas pu être écrit. Touchez « Écrire le texte à nouveau », ou tapez-le vous-même ci-dessous."
   },
   "scheduledTeachings": {
     "title": "Enseignements programmés",

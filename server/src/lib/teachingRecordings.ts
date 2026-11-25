@@ -9,19 +9,34 @@ import { getOrCreateConversation } from './communityConversation';
 import { pushToPersons } from './push';
 import { isFrench } from './privateNotice';
 
-// A teacher's teaching recorded ahead of time. The text is written in the language spoken; the teacher reads it and corrects it in
-// that same language (they are never asked to read the other one) and approves it; the other language is then made automatically.
-// At the teacher's time the recording is posted in the teaching group by itself, with its text under it.
+// A teacher's teaching recorded ahead of time, in as many parts as they like (about 5 minutes each is easiest). For every part, in
+// order: its text is written in the language spoken, the teacher reads and corrects it in that same language (they are never asked
+// to read the other one) and approves it; the other language is then made automatically. Then they record the next part, and so on.
+// At the teacher's time every part is posted in the teaching group by itself, one voice note after the other, each with its text.
 
 export const RECORDING_MIMES = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/ogg'] as const;
 /** The text writer reads a recording of up to this size; a larger one can still be posted, but without automatic text. */
 export const MAX_RECORDING_BYTES = 15 * 1024 * 1024;
 const MAX_TEXT_CHARS = 60000;
 const MAX_ATTEMPTS = 5;
-/** Parts that can be added after the first one. */
-const MAX_EXTRA_PARTS = 11;
+/** Parts that can be added after the first one (a safety limit only: far more than any teaching needs). */
+const MAX_EXTRA_PARTS = 49;
 /** A recording whose time passed this long ago without being posted is still posted when the server catches up. */
 const POST_WINDOW_MS = 3 * 24 * 60 * MIN;
+
+/** One part of the teaching, as the teacher sees it: its audio, where its text is, and the text itself. */
+export interface PartView {
+  /** null for the first part (the recording itself); the part's id for every part after it. */
+  id: string | null;
+  /** 1, 2, 3… in order. */
+  n: number;
+  audioUrl: string | null;
+  /** writing: the text is being written; ready: written, to be checked and approved; failed: could not be written (type it, or try
+   * again); approved: checked and approved by the teacher. */
+  state: 'writing' | 'ready' | 'failed' | 'approved';
+  transcript: string;
+  translated: string;
+}
 
 export interface RecordingView {
   weekStart: string;
@@ -36,8 +51,8 @@ export interface RecordingView {
     translated: string;
     /** Short-lived link so the teacher can listen again (the first part). */
     audioUrl: string | null;
-    /** Every part in order (the first one, then each one added with Add more), each with a short-lived link. */
-    parts: { audioUrl: string | null }[];
+    /** Every part in order (the first one, then each one added after it), each with its own text and a short-lived link. */
+    parts: PartView[];
     /** How many added parts the text could not be written for (the teacher can try again or type those words). */
     partsWithoutText: number;
   };
@@ -67,7 +82,23 @@ async function weekFor(personId: string, weekStart: string, now: Date) {
 async function view(monday: Date, teacher: Teacher, rec: TeachingRecording | null, open: boolean): Promise<RecordingView> {
   const extra = rec ? await prisma.teachingRecordingPart.findMany({ where: { recordingId: rec.id }, orderBy: { position: 'asc' } }) : [];
   const link = async (storageKey: string) => (rec && rec.status !== 'POSTED' && isStorageConfigured() ? (await createDownloadUrl({ storageKey }).catch(() => null))?.url ?? null : null);
-  const parts = rec ? [{ audioUrl: await link(rec.storageKey) }, ...(await Promise.all(extra.map(async (p) => ({ audioUrl: await link(p.storageKey) }))))] : [];
+  const mainState = (status: TeachingRecording['status']): PartView['state'] =>
+    status === 'RECORDED' || status === 'WRITING' ? 'writing' : status === 'FAILED' ? 'failed' : status === 'TEXT_READY' ? 'ready' : 'approved';
+  const parts: PartView[] = rec
+    ? [
+        { id: null, n: 1, audioUrl: await link(rec.storageKey), state: mainState(rec.status), transcript: rec.transcript ?? '', translated: rec.translated ?? '' },
+        ...(await Promise.all(
+          extra.map(async (p, i) => ({
+            id: p.id,
+            n: i + 2,
+            audioUrl: await link(p.storageKey),
+            state: (p.approvedAt ? 'approved' : p.textState === 'WAITING' ? 'writing' : p.textState === 'FAILED' && !p.transcript?.trim() ? 'failed' : 'ready') as PartView['state'],
+            transcript: p.transcript ?? '',
+            translated: p.translated ?? '',
+          })),
+        )),
+      ]
+    : [];
   return {
     weekStart: dayKey(monday),
     postsAt: slotStart(monday, teacher.dayOfWeek, teacher.startMinute).toISOString(),
@@ -159,22 +190,18 @@ export async function transcribeRecording(id: string): Promise<void> {
   } catch {
     result = null;
   }
-  // Only if the teacher has not moved on meanwhile (replaced the recording, or typed the text).
-  const waiting = await prisma.teachingRecordingPart.count({ where: { recordingId: id, textState: 'WAITING' } });
+  // Only if the teacher has not moved on meanwhile (replaced the recording, or typed the text). This is the first part's own text only.
   if (result) {
-    // The first part's words come first; words already added from later parts follow them.
-    const now = await prisma.teachingRecording.findUnique({ where: { id }, select: { transcript: true } });
-    const transcript = [result.transcript, now?.transcript ?? ''].filter((t) => t.trim()).join('\n\n');
     await prisma.teachingRecording.updateMany({
       where: { id, storageKey: rec.storageKey, status: 'WRITING' },
-      data: { status: waiting > 0 ? 'WRITING' : 'TEXT_READY', transcript, mainTextDone: true, spokenLanguage: rec.spokenLanguage ?? result.detectedLanguage },
+      data: { status: 'TEXT_READY', transcript: result.transcript, mainTextDone: true, spokenLanguage: rec.spokenLanguage ?? result.detectedLanguage },
     });
   } else {
-    await prisma.teachingRecording.updateMany({ where: { id, storageKey: rec.storageKey, status: 'WRITING' }, data: { status: waiting > 0 ? 'WRITING' : 'FAILED' } });
+    await prisma.teachingRecording.updateMany({ where: { id, storageKey: rec.storageKey, status: 'WRITING' }, data: { status: 'FAILED', mainTextDone: true } });
   }
 }
 
-/** Adds one more part to the recording (Add more): kept in order, its words are written and added to the text, which needs approving again. */
+/** Adds the next part of the teaching: kept in order, with its own text, written from its audio, to check and approve on its own. */
 export async function addRecordingPart(personId: string, input: { weekStart: string; storageKey: string; mimeType: string; byteSize: number }, now = new Date()): Promise<RecordingView> {
   const w = await weekFor(personId, input.weekStart, now);
   if (!w.open) throw new RotaError('Your teaching time has already begun.', 409, 'TOO_LATE');
@@ -189,26 +216,23 @@ export async function addRecordingPart(personId: string, input: { weekStart: str
   if (!head || head.contentLength !== input.byteSize) throw new RotaError('The recording upload could not be verified.', 400, 'NOT_UPLOADED');
   const last = await prisma.teachingRecordingPart.findFirst({ where: { recordingId: rec.id }, orderBy: { position: 'desc' }, select: { position: true } });
   const part = await prisma.teachingRecordingPart.create({ data: { recordingId: rec.id, position: (last?.position ?? 0) + 1, storageKey: input.storageKey, mimeType: input.mimeType, byteSize: input.byteSize } });
-  // The words change: they are written again for this part, and the teacher approves the whole text once more.
-  // If the first part's text is not being written (typed by the teacher, or it could not be written), it counts as settled.
-  const mainInFlight = rec.status === 'RECORDED' || rec.status === 'WRITING';
-  const updated = await prisma.teachingRecording.update({ where: { id: rec.id }, data: { status: 'WRITING', approvedAt: null, translated: null, ...(mainInFlight ? {} : { mainTextDone: true }) } });
+  // The parts before it are left exactly as they are (their texts and approvals stay).
   void transcribePart(part.id).catch(() => {});
-  return view(w.monday, w.teacher, updated, true);
+  return view(w.monday, w.teacher, rec, true);
 }
 
-/** One try at writing the words of an added part, and adding them to the end of the text. */
+/** One try at writing the words of a part (its own text). */
 export async function transcribePart(partId: string): Promise<void> {
   const part = await prisma.teachingRecordingPart.findUnique({ where: { id: partId }, include: { recording: true } });
   if (!part || part.textState === 'DONE' || part.recording.status === 'POSTED') return;
   const finish = async (words: { transcript: string; detectedLanguage: Language } | null) => {
-    if (words) {
-      const cur = await prisma.teachingRecording.findUnique({ where: { id: part.recordingId }, select: { transcript: true, spokenLanguage: true } });
-      const transcript = [cur?.transcript ?? '', words.transcript].filter((t) => t.trim()).join('\n\n');
-      await prisma.teachingRecording.update({ where: { id: part.recordingId }, data: { transcript, spokenLanguage: cur?.spokenLanguage ?? words.detectedLanguage, translated: null, approvedAt: null } });
-    }
-    await prisma.teachingRecordingPart.update({ where: { id: part.id }, data: { textState: words ? 'DONE' : 'FAILED' } });
-    await settleRecording(part.recordingId);
+    // Only while it is still waiting (the teacher may have typed the words meanwhile).
+    await prisma.teachingRecordingPart.updateMany({
+      where: { id: part.id, textState: 'WAITING' },
+      data: words?.transcript.trim()
+        ? { textState: 'DONE', transcript: words.transcript.trim(), spokenLanguage: part.spokenLanguage ?? part.recording.spokenLanguage ?? words.detectedLanguage }
+        : { textState: 'FAILED' },
+    });
   };
   if (!isTranslationConfigured() || part.byteSize > MAX_RECORDING_BYTES) return finish(null);
   await prisma.teachingRecordingPart.update({ where: { id: part.id }, data: { attempts: { increment: 1 } } });
@@ -226,32 +250,76 @@ export async function transcribePart(partId: string): Promise<void> {
   await finish(result);
 }
 
-/** When no part is still being written, the recording shows its text (or that none could be written). */
-async function settleRecording(recordingId: string): Promise<void> {
-  const waiting = await prisma.teachingRecordingPart.count({ where: { recordingId, textState: 'WAITING' } });
-  if (waiting > 0) return;
-  const rec = await prisma.teachingRecording.findUnique({ where: { id: recordingId }, select: { status: true, transcript: true, mainTextDone: true } });
-  // While the first part's own text is still being written, that writing settles the recording itself.
-  if (!rec || rec.status !== 'WRITING' || !rec.mainTextDone) return;
-  await prisma.teachingRecording.updateMany({ where: { id: recordingId, status: 'WRITING' }, data: { status: rec.transcript?.trim() ? 'TEXT_READY' : 'FAILED' } });
-}
-
-/** The teacher asks for the text to be written again (the first part, and any added part whose words could not be written). */
+/** The teacher asks for the first part's text to be written again (it could not be written). */
 export async function retryTranscript(personId: string, weekStart: string, now = new Date()): Promise<RecordingView> {
   const { w, rec } = await owned(personId, weekStart, now);
-  const failedParts = await prisma.teachingRecordingPart.findMany({ where: { recordingId: rec.id, textState: 'FAILED' } });
-  const mainNeeds = rec.status === 'FAILED' || rec.status === 'RECORDED';
-  if (!mainNeeds && failedParts.length === 0) throw new RotaError('The text is already written.', 409, 'NOT_NEEDED');
-  if (failedParts.length) {
-    await prisma.teachingRecordingPart.updateMany({ where: { id: { in: failedParts.map((p) => p.id) } }, data: { textState: 'WAITING', attempts: 0 } });
-    await prisma.teachingRecording.update({ where: { id: rec.id }, data: { status: 'WRITING', approvedAt: null, translated: null } });
-    for (const p of failedParts) void transcribePart(p.id).catch(() => {});
-  }
-  if (mainNeeds) {
-    await prisma.teachingRecording.update({ where: { id: rec.id }, data: { status: 'RECORDED', attempts: 0, mainTextDone: false } });
-    void transcribeRecording(rec.id).catch(() => {});
-  }
+  if (rec.status !== 'FAILED' && rec.status !== 'RECORDED') throw new RotaError('The text is already written.', 409, 'NOT_NEEDED');
+  await prisma.teachingRecording.update({ where: { id: rec.id }, data: { status: 'RECORDED', attempts: 0, mainTextDone: false } });
+  void transcribeRecording(rec.id).catch(() => {});
   return view(w.monday, w.teacher, await prisma.teachingRecording.findUniqueOrThrow({ where: { id: rec.id } }), w.open);
+}
+
+/** A part after the first, belonging to this teacher's recording for that week (not posted yet). */
+async function ownedPart(personId: string, weekStart: string, partId: string, now: Date) {
+  const { w, rec } = await owned(personId, weekStart, now);
+  const part = await prisma.teachingRecordingPart.findFirst({ where: { id: partId, recordingId: rec.id } });
+  if (!part) throw new RotaError('That part was not found.', 404, 'NO_PART');
+  return { w, rec, part };
+}
+
+/** The teacher saves a part's text as corrected (in the language spoken). It has to be approved again after any change. */
+export async function savePartText(personId: string, weekStart: string, partId: string, text: string, now = new Date()): Promise<RecordingView> {
+  const { w, rec, part } = await ownedPart(personId, weekStart, partId, now);
+  if (!w.open) throw new RotaError('Your teaching time has already begun.', 409, 'TOO_LATE');
+  const clean = text.replace(/\r\n/g, '\n').trim();
+  if (clean.length > MAX_TEXT_CHARS) throw new RotaError('The text is too long.', 400, 'TOO_LONG');
+  const person = await prisma.person.findUnique({ where: { id: personId }, select: { preferredLanguage: true } });
+  await prisma.teachingRecordingPart.update({
+    where: { id: part.id },
+    data: { transcript: clean || null, textState: clean ? 'DONE' : 'FAILED', translated: null, approvedAt: null, translateAttempts: 0, spokenLanguage: part.spokenLanguage ?? rec.spokenLanguage ?? (isFrench(person?.preferredLanguage) ? 'fr' : 'en') },
+  });
+  return view(w.monday, w.teacher, rec, true);
+}
+
+/** The teacher approves a part's text. Its other language is made automatically. */
+export async function approvePart(personId: string, weekStart: string, partId: string, now = new Date()): Promise<RecordingView> {
+  const { w, rec, part } = await ownedPart(personId, weekStart, partId, now);
+  if (!w.open) throw new RotaError('Your teaching time has already begun.', 409, 'TOO_LATE');
+  if (!part.transcript?.trim()) throw new RotaError('There is no text to approve yet.', 409, 'NO_TEXT');
+  await prisma.teachingRecordingPart.update({ where: { id: part.id }, data: { approvedAt: now, translated: null, translateAttempts: 0, textState: 'DONE' } });
+  void translatePart(part.id).catch(() => {});
+  return view(w.monday, w.teacher, rec, true);
+}
+
+/** The teacher asks for a part's text to be written again (it could not be written). */
+export async function retryPart(personId: string, weekStart: string, partId: string, now = new Date()): Promise<RecordingView> {
+  const { w, rec, part } = await ownedPart(personId, weekStart, partId, now);
+  if (part.textState !== 'FAILED') throw new RotaError('The text is already written.', 409, 'NOT_NEEDED');
+  await prisma.teachingRecordingPart.update({ where: { id: part.id }, data: { textState: 'WAITING', attempts: 0 } });
+  void transcribePart(part.id).catch(() => {});
+  return view(w.monday, w.teacher, rec, w.open);
+}
+
+/** The teacher removes a part after the first (a mistake). The parts after it move up one place. */
+export async function deletePart(personId: string, weekStart: string, partId: string, now = new Date()): Promise<RecordingView> {
+  const { w, rec, part } = await ownedPart(personId, weekStart, partId, now);
+  if (!w.open) throw new RotaError('Your teaching time has already begun.', 409, 'TOO_LATE');
+  await prisma.teachingRecordingPart.delete({ where: { id: part.id } });
+  await deleteObject({ storageKey: part.storageKey }).catch(() => {});
+  return view(w.monday, w.teacher, rec, true);
+}
+
+/** One try at making the other language of an approved part. */
+export async function translatePart(partId: string): Promise<boolean> {
+  const part = await prisma.teachingRecordingPart.findUnique({ where: { id: partId } });
+  if (!part?.approvedAt || !part.transcript?.trim() || part.translated) return Boolean(part?.translated);
+  const result = await translateText(part.transcript).catch(() => null);
+  if (!result) {
+    await prisma.teachingRecordingPart.updateMany({ where: { id: partId }, data: { translateAttempts: { increment: 1 } } });
+    return false;
+  }
+  const done = await prisma.teachingRecordingPart.updateMany({ where: { id: partId, transcript: part.transcript }, data: { translated: result.translatedBody, spokenLanguage: part.spokenLanguage ?? result.detectedLanguage } });
+  return done.count === 1;
 }
 
 /** The teacher saves the text as corrected (in the language spoken). It has to be approved again after any change. */
@@ -303,7 +371,8 @@ export async function deleteRecording(personId: string, weekStart: string, now =
 
 const EXTENSION: Record<string, string> = { 'audio/webm': 'webm', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg' };
 
-/** Posts every recording whose teaching time has come, in the teaching group, under the teacher's name, with its text. */
+/** Posts every recording whose teaching time has come, in the teaching group, under the teacher's name: one voice note per part, in
+ * order, each with its own text (and its other language when it is ready). */
 export async function postDueRecordings(now = new Date()): Promise<number> {
   const { settings } = await loadBase();
   if (!settings?.enabled || !settings.ratersCommunityId) return 0;
@@ -321,31 +390,42 @@ export async function postDueRecordings(now = new Date()): Promise<number> {
     try {
       // An approved text whose translation is still missing gets one more try now; whatever is not ready is posted as it is.
       if (rec.transcript?.trim() && !rec.translated) await translateRecording(rec.id).catch(() => false);
+      const extraBefore = await prisma.teachingRecordingPart.findMany({ where: { recordingId: rec.id }, orderBy: { position: 'asc' } });
+      for (const p of extraBefore) if (p.approvedAt && p.transcript?.trim() && !p.translated) await translatePart(p.id).catch(() => false);
       const fresh = await prisma.teachingRecording.findUniqueOrThrow({ where: { id: rec.id } });
+      const extra = await prisma.teachingRecordingPart.findMany({ where: { recordingId: rec.id }, orderBy: { position: 'asc' } });
       const conversation = await getOrCreateConversation(communityId);
       const teacherPersonId: string = teacher.personId;
-      const extra = await prisma.teachingRecordingPart.findMany({ where: { recordingId: rec.id }, orderBy: { position: 'asc' } });
-      const files = [
-        { storageKey: fresh.storageKey, mimeType: fresh.mimeType, byteSize: fresh.byteSize },
-        ...extra.map((p) => ({ storageKey: p.storageKey, mimeType: p.mimeType, byteSize: p.byteSize })),
+      const pieces = [
+        { storageKey: fresh.storageKey, mimeType: fresh.mimeType, byteSize: fresh.byteSize, transcript: fresh.transcript, translated: fresh.translated, language: fresh.spokenLanguage },
+        ...extra.map((p) => ({ storageKey: p.storageKey, mimeType: p.mimeType, byteSize: p.byteSize, transcript: p.transcript, translated: p.translated, language: p.spokenLanguage ?? fresh.spokenLanguage })),
       ];
-      const message = await prisma.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderPersonId: teacher.personId,
-          body: null,
-          transcribedBody: fresh.transcript?.trim() ? fresh.transcript : null,
-          transcribedLanguage: fresh.transcript?.trim() ? fresh.spokenLanguage : null,
-          translatedTranscript: fresh.transcript?.trim() && fresh.translated ? fresh.translated : null,
-          transcribedAt: fresh.transcript?.trim() ? now : null,
-          attachments: {
-            create: files.map((f, i): Prisma.MessageAttachmentUncheckedCreateWithoutMessageInput => ({ storageKey: f.storageKey, originalFilename: `teaching${files.length > 1 ? `-${i + 1}` : ''}.${EXTENSION[f.mimeType] ?? 'webm'}`, mimeType: f.mimeType, byteSize: f.byteSize, uploadedByPersonId: teacherPersonId })),
+      let firstMessageId: string | null = null;
+      for (let i = 0; i < pieces.length; i++) {
+        const piece = pieces[i];
+        const hasText = Boolean(piece.transcript?.trim());
+        // Each part one millisecond after the one before it, so they always show in the right order.
+        const at = new Date(now.getTime() + i);
+        const message = await prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            senderPersonId: teacherPersonId,
+            body: null,
+            createdAt: at,
+            transcribedBody: hasText ? piece.transcript : null,
+            transcribedLanguage: hasText ? piece.language : null,
+            translatedTranscript: hasText && piece.translated ? piece.translated : null,
+            transcribedAt: hasText ? now : null,
+            attachments: {
+              create: [{ storageKey: piece.storageKey, originalFilename: `teaching${pieces.length > 1 ? `-${i + 1}` : ''}.${EXTENSION[piece.mimeType] ?? 'webm'}`, mimeType: piece.mimeType, byteSize: piece.byteSize, uploadedByPersonId: teacherPersonId }],
+            },
           },
-        },
-      });
-      await prisma.teachingRecording.update({ where: { id: rec.id }, data: { messageId: message.id } });
-      // With no text of the teacher's own, the usual automatic writer does it (as for any voice note).
-      if (!fresh.transcript?.trim()) void transcribeAndStoreMessageAudio(message.id, fresh.storageKey, fresh.mimeType).catch(() => {});
+        });
+        firstMessageId ??= message.id;
+        // With no text of the teacher's own for this part, the usual automatic writer does it (as for any voice note).
+        if (!hasText) void transcribeAndStoreMessageAudio(message.id, piece.storageKey, piece.mimeType).catch(() => {});
+      }
+      await prisma.teachingRecording.update({ where: { id: rec.id }, data: { messageId: firstMessageId } });
       void pushToGroup(communityId, teacher.personId).catch(() => {});
       posted++;
     } catch (err) {
@@ -386,11 +466,12 @@ export async function retryPendingRecordings(now = new Date()): Promise<void> {
   // Added parts whose words were never written (a try that never finished): try again a few times, then give up so the teacher can type them.
   const stale = await prisma.teachingRecordingPart.findMany({ where: { textState: 'WAITING', createdAt: { lt: new Date(now.getTime() - 3 * MIN) }, recording: { status: { not: 'POSTED' } } }, take: 20 });
   for (const part of stale) {
-    if (part.attempts >= MAX_ATTEMPTS) {
-      await prisma.teachingRecordingPart.update({ where: { id: part.id }, data: { textState: 'FAILED' } });
-      await settleRecording(part.recordingId);
-    } else await transcribePart(part.id).catch(() => {});
+    if (part.attempts >= MAX_ATTEMPTS) await prisma.teachingRecordingPart.updateMany({ where: { id: part.id, textState: 'WAITING' }, data: { textState: 'FAILED' } });
+    else await transcribePart(part.id).catch(() => {});
   }
   const untranslated = await prisma.teachingRecording.findMany({ where: { status: 'APPROVED', translated: null, attempts: { lt: MAX_ATTEMPTS } }, take: 20 });
   for (const rec of untranslated) await translateRecording(rec.id).catch(() => false);
+  // Approved parts whose other language is still missing.
+  const untranslatedParts = await prisma.teachingRecordingPart.findMany({ where: { approvedAt: { not: null }, translated: null, translateAttempts: { lt: MAX_ATTEMPTS }, recording: { status: { not: 'POSTED' } } }, take: 20 });
+  for (const part of untranslatedParts) await translatePart(part.id).catch(() => false);
 }
