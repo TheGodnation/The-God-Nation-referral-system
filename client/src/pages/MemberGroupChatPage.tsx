@@ -848,8 +848,9 @@ export function MemberGroupChatPage() {
                     </span>
                   </div>
                 ) : m.kind === 'TEACHING_RATING' ? (
-                  // A removed card leaves no trace. The group's administrator sees a button to remove it (when nobody taught).
-                  m.deleted ? null : <TeachingRatingCard messageId={m.id} initial={m.ratingCard} onRemove={isAdministrator ? () => void removeForAll(m, true) : undefined} />
+                  // A removed card leaves no trace. Only the central admin sees a button to remove it (when nobody taught): group leaders
+                  // often teach themselves, so they cannot remove a rating card.
+                  m.deleted ? null : <TeachingRatingCard messageId={m.id} initial={m.ratingCard} onRemove={member?.isCentralAdmin ? () => void removeForAll(m, true) : undefined} />
                 ) : (
                 <MessageBubble
                   m={m}
