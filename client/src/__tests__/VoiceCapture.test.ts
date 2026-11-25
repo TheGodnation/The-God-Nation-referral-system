@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { ORIGINAL_CHAT_BITRATE, VOICE_BITRATE, chatBitrate, enhanceMic, openMic, teachingBitrate } from '../lib/voiceCapture';
+import { VOICE_BITRATE, chatBitrate, enhanceMic, openMic, teachingBitrate } from '../lib/voiceCapture';
 import { setVoiceProcessing } from '../lib/voiceSettings';
 
 // Recording a clear, loud voice note: the phone's voice clean-up is asked for, the quality is better than before, the voice is evened
@@ -19,14 +19,13 @@ function mic(impl: (c: MediaStreamConstraints) => Promise<MediaStream>) {
 }
 
 describe('as things are in the app now (the sound tuning is switched off)', () => {
-  it('records the plain microphone at the original quality, exactly as before the tuning', async () => {
+  it('records the plain microphone (no processing of its own) at 64 kbps, for chats and teachings alike', async () => {
     const gum = mic(async () => rawStream);
     expect(await openMic()).toBe(rawStream);
     expect(gum).toHaveBeenCalledTimes(1);
     expect(gum.mock.calls[0][0]).toEqual({ audio: true });
-    expect(chatBitrate()).toBe(ORIGINAL_CHAT_BITRATE);
-    expect(ORIGINAL_CHAT_BITRATE).toBe(32_000);
-    expect(teachingBitrate()).toBeUndefined(); // the browser's own default, as before
+    expect(chatBitrate()).toBe(64_000);
+    expect(teachingBitrate()).toBe(64_000);
   });
 
   it('does no audio processing even where the phone could', () => {
@@ -50,7 +49,7 @@ describe('as things are in the app now (the sound tuning is switched off)', () =
 
 describe('with the sound tuning switched on (for when it is worked on again)', () => {
   beforeEach(() => setVoiceProcessing(true));
-  it('uses the better quality', () => {
+  it('uses the same quality', () => {
     expect(chatBitrate()).toBe(VOICE_BITRATE);
     expect(teachingBitrate()).toBe(VOICE_BITRATE);
   });
