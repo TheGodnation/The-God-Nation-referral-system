@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { VoiceNotePlayer } from '../components/chat/VoiceNotePlayer';
-import { MAX_LIFT_DB, TARGET_SPEECH_DB, knownLift, levelBlocked, liftDb, measureNote, measureSpeech, resetLevelForTests, setLevelOn } from '../lib/voiceLevel';
+import { MAX_LIFT_DB, TARGET_SPEECH_DB, knownLift, levelBlocked, liftDb, measureNote, measureSpeech, resetLevelForTests } from '../lib/voiceLevel';
 
 // Even loudness: each voice note is measured once, a quiet one is lifted by one steady amount to the same level as the others, a loud
 // one is left alone. No noise cleaner, no tone change. It must never leave a note silent: only hooked up from a tap, only when the
@@ -113,32 +113,16 @@ beforeAll(() => {
 beforeEach(() => {
   window.localStorage.clear();
   resetLevelForTests();
-  setLevelOn(true); // these tests are about the even loudness, which is switched off in the app for now
   FakeAudioContext.last = null;
   decoded = speech(0.05);
 });
-afterEach(() => {
-  vi.unstubAllGlobals();
-  setLevelOn(false);
-});
+afterEach(() => vi.unstubAllGlobals());
 
 const audio = () => document.querySelector('audio')!;
 const play = () => fireEvent.click(screen.getByRole('button', { name: /Play voice message|Pause voice message/ }));
 const liftOf = (db: number) => Math.pow(10, db / 20);
 
 describe('Even loudness on a voice note', () => {
-  it('is switched off in the app for now: notes play the plain way even on a phone that could do it', () => {
-    setLevelOn(false);
-    vi.stubGlobal('AudioContext', FakeAudioContext);
-    vi.stubGlobal('OfflineAudioContext', FakeOfflineAudioContext);
-    render(<VoiceNotePlayer {...props} />);
-    expect(audio()).not.toHaveAttribute('crossorigin');
-    fireEvent.loadedMetadata(audio());
-    play();
-    expect(FakeAudioContext.last).toBeNull(); // no audio processing is even started
-    expect(window.HTMLMediaElement.prototype.play).toHaveBeenCalled();
-  });
-
   it('a phone that cannot do it plays the ordinary way, fetching the audio the ordinary way', () => {
     render(<VoiceNotePlayer {...props} />);
     expect(audio()).not.toHaveAttribute('crossorigin');
