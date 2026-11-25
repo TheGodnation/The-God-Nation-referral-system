@@ -152,6 +152,27 @@ describe('lib/push — Web Push (background/closed-app delivery)', () => {
   });
 });
 
+describe('Web Push: every send leaves a plain line in the log', () => {
+  it('says how many phones had notifications on, how many got it and how many were no longer valid, even when nobody has them on', async () => {
+    const push = await freshPushModule({ VAPID_PUBLIC_KEY: VAPID_KEYS.publicKey, VAPID_PRIVATE_KEY: VAPID_KEYS.privateKey, PUSH_RETRY_DELAY_MS: '1' });
+    const webpush = await import('web-push');
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const sendSpy = vi.spyOn(webpush.default, 'sendNotification').mockImplementation((async (sub: any) => {
+      if (String(sub.endpoint).endsWith('-old')) throw Object.assign(new Error('gone'), { statusCode: 410 });
+      return {} as any;
+    }) as any);
+    const nobody = await prisma.person.create({ data: { name: 'Nobody On', whatsappNumber: '+237699300001' } });
+    await push.pushToPersons([nobody.id], { title: 'T', body: 'B', tag: 'group-x' });
+    expect(log).toHaveBeenCalledWith('[push] sent', { tag: 'group-x', devices: 0, sent: 0, expired: 0, failed: 0, ms: expect.any(Number) });
+    const a = await prisma.person.create({ data: { name: 'Two Phones', whatsappNumber: '+237699300002' } });
+    await prisma.pushSubscription.create({ data: { personId: a.id, endpoint: 'https://push.example/log-new', p256dh: 'p', auth: 'a' } });
+    await prisma.pushSubscription.create({ data: { personId: a.id, endpoint: 'https://push.example/log-old', p256dh: 'p', auth: 'a' } });
+    await push.pushToPersons([a.id], { title: 'T', body: 'B', tag: 'group-y' });
+    expect(sendSpy).toHaveBeenCalledTimes(2);
+    expect(log).toHaveBeenCalledWith('[push] sent', { tag: 'group-y', devices: 2, sent: 1, expired: 1, failed: 0, ms: expect.any(Number) });
+  });
+});
+
 describe('Web Push: one retry for passing failures', () => {
   const setup = async (name: string) => {
     const push = await freshPushModule({ VAPID_PUBLIC_KEY: VAPID_KEYS.publicKey, VAPID_PRIVATE_KEY: VAPID_KEYS.privateKey, PUSH_RETRY_DELAY_MS: '1' });

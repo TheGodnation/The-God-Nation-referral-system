@@ -61,3 +61,28 @@ describe('turning on notifications is quick', () => {
     expect(registration.pushManager.subscribe).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('a phone that allowed notifications but lost its subscription', () => {
+  it('connects again quietly, without asking anything, and only tries once per visit', async () => {
+    const subscription = { toJSON: () => ({ endpoint: 'https://push.example/again', keys: { p256dh: 'p', auth: 'a' } }) };
+    const registration = { pushManager: { getSubscription: vi.fn().mockResolvedValue(null), subscribe: vi.fn(async () => subscription) } };
+    vi.stubGlobal('PushManager', function PushManager() {});
+    Object.defineProperty(global.navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve(registration), getRegistration: vi.fn().mockResolvedValue(registration) } });
+    const requestPermission = vi.fn();
+    (global as any).Notification = { permission: 'granted', requestPermission };
+    const posts: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') posts.push(url);
+      return { ok: true, status: 200, headers: { get: () => 'application/json' }, json: async () => ({ configured: true, publicKey: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' }) };
+    }));
+    const { checkPushOnThisDevice, resetPushVisitForTests } = await import('../lib/push');
+    resetPushVisitForTests();
+    expect(await checkPushOnThisDevice()).toBe('subscribed');
+    expect(requestPermission).not.toHaveBeenCalled(); // no question: the permission was already given
+    expect(registration.pushManager.subscribe).toHaveBeenCalledTimes(1);
+    expect(posts.some((u) => u.includes('/api/notifications/push/subscribe'))).toBe(true);
+    // The next check in the same visit does not try again (the browser still says no subscription here).
+    expect(await checkPushOnThisDevice()).toBe('not_subscribed');
+    expect(registration.pushManager.subscribe).toHaveBeenCalledTimes(1);
+  });
+});
