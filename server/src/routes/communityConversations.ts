@@ -1063,6 +1063,10 @@ router.delete(
     if (!message || message.conversationId !== conversation.id) {
       return res.status(404).json({ error: 'Message not found.' });
     }
+    // A teaching's rating card can be removed by the central admin only: the group's leaders often teach themselves.
+    if (message.kind === 'TEACHING_RATING' && !(await isCentralAdminPerson(personId))) {
+      return res.status(403).json({ error: 'Only the central admin may remove a rating card.' });
+    }
 
     if (!message.deletedAt) {
       await prisma.message.update({

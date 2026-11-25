@@ -576,15 +576,22 @@ describe('the rating card in the group', () => {
     expect(await prisma.teachingRating.count()).toBe(0);
   });
 
-  it('lets the administrator remove a card when nobody taught: it leaves the chat, cannot be rated, and does not come back by itself', async () => {
+  it('lets the central admin remove a card when nobody taught: it leaves the chat, cannot be rated, and does not come back by itself', async () => {
     const { people } = await setUp();
     const g = await group();
     const admin = await member('The Admin', { admin: true });
     const viewer = await member('Group Viewer2');
-    for (const m of [admin, viewer]) await prisma.communityMembership.create({ data: { personId: m.person.id, communityId: g.id } });
+    const groupLeader = await member('Group Leader');
+    for (const m of [admin, viewer, groupLeader]) await prisma.communityMembership.create({ data: { personId: m.person.id, communityId: g.id } });
+    const adminUser = await prisma.user.findFirstOrThrow({ where: { personId: admin.person.id } });
+    await prisma.roleAssignment.create({ data: { personId: groupLeader.person.id, roleType: 'SCOPED_LEADER', communityId: g.id, assignedByUserId: adminUser.id } });
     await finishTeaching(people.alpha.id, at('2026-11-23T06:12:00Z'));
     const card = (await cardsIn(g.id))[0];
     expect((await viewer.send('delete', `/api/communities/${g.id}/conversation/messages/${card.id}`)).status).toBe(403); // an ordinary member cannot
+    // Nor can the group's own leader (leaders often teach themselves): only the central admin.
+    const byLeader = await groupLeader.send('delete', `/api/communities/${g.id}/conversation/messages/${card.id}`);
+    expect(byLeader.status).toBe(403);
+    expect(byLeader.body.error).toBe('Only the central admin may remove a rating card.');
     expect((await admin.send('delete', `/api/communities/${g.id}/conversation/messages/${card.id}`)).status).toBe(200);
     const list = await viewer.get(`/api/communities/${g.id}/conversation/messages`);
     const item = list.body.items.find((m: any) => m.id === card.id);
