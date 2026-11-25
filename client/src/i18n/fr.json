@@ -1836,7 +1836,12 @@
     "teaching_live": "🔴 {{name}} enseigne maintenant dans {{group}}{{topic}}",
     "teaching_live_open": "Ouvrir le groupe et écouter",
     "teaching_rated_one": "{{count}} personne a noté votre enseignement : {{topic}}.",
-    "teaching_rated_other": "{{count}} personnes ont noté votre enseignement : {{topic}}."
+    "teaching_rated_other": "{{count}} personnes ont noté votre enseignement : {{topic}}.",
+    "on_this_phone": "Les notifications sont activées sur ce téléphone.",
+    "test_me": "M'envoyer une alerte d'essai",
+    "test_sent": "Envoyée. Vous devriez la voir sur votre téléphone dans quelques secondes. Si rien n'arrive, vérifiez que les notifications sont autorisées pour cette application et que l'économie de batterie ne les bloque pas.",
+    "test_none": "Ce téléphone n'est pas connecté pour les alertes. Touchez à nouveau « Activer les notifications ».",
+    "test_failed": "Envoi impossible. Réessayez."
   },
   "memberHome": {
     "title": "Accueil",
@@ -2768,6 +2773,20 @@
     "saver_auto_hint": "Économise les données tout seul quand le réseau est très lent (2G) ou que l'économiseur de données du téléphone est activé.",
     "saver_off": "Désactivé",
     "saver_off_hint": "Les photos et messages vocaux se téléchargent tout seuls."
+  },
+  "groupNotifications": {
+      "title": "Notifications",
+      "count": "{{on}} membres sur {{total}} ont activé les notifications.",
+      "not_yet": "Pas encore ({{count}})",
+      "turned_on": "Activées ({{count}})",
+      "off_help": "Ces membres ne seront pas alertés quand vous publiez. Demandez-leur d'ouvrir l'application et de toucher « Activer les notifications » (page Discussions ou Moi).",
+      "on_help": "Ces membres reçoivent une alerte quand quelqu'un publie. Envoyez-en un essai à l'un d'eux et demandez-lui s'il l'a reçu.",
+      "send_test": "Envoyer une alerte d'essai",
+      "sending": "Envoi…",
+      "test_sent_one": "Alerte d'essai envoyée sur son téléphone. Demandez-lui s'il l'a reçue.",
+      "test_sent_other": "Alerte d'essai envoyée sur ses {{count}} téléphones. Demandez-lui s'il l'a reçue.",
+      "test_none": "Son téléphone n'a plus les notifications activées : demandez-lui de les réactiver.",
+      "test_failed": "Envoi impossible. Réessayez."
   },
   "groupInfo": {
     "back": "Retour à la discussion",

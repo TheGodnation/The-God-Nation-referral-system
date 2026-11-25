@@ -1836,7 +1836,12 @@
     "teaching_live": "🔴 {{name}} is teaching now in {{group}}{{topic}}",
     "teaching_live_open": "Open the group and listen",
     "teaching_rated_one": "{{count}} person has rated your teaching: {{topic}}.",
-    "teaching_rated_other": "{{count}} people have rated your teaching: {{topic}}."
+    "teaching_rated_other": "{{count}} people have rated your teaching: {{topic}}.",
+    "on_this_phone": "Notifications are on on this phone.",
+    "test_me": "Send me a test alert",
+    "test_sent": "Sent. You should see it on your phone in a few seconds. If nothing comes, check that notifications are allowed for this app and that battery saving does not block it.",
+    "test_none": "This phone is not connected for alerts. Tap \"Turn on notifications\" again.",
+    "test_failed": "Could not send. Try again."
   },
   "memberHome": {
     "title": "Home",
@@ -2768,6 +2773,20 @@
     "saver_auto_hint": "Saves data by itself when the network is very slow (2G) or your phone's data saver is on.",
     "saver_off": "Off",
     "saver_off_hint": "Photos and voice notes download by themselves."
+  },
+  "groupNotifications": {
+      "title": "Notifications",
+      "count": "{{on}} of {{total}} members have notifications on.",
+      "not_yet": "Not on yet ({{count}})",
+      "turned_on": "Turned on ({{count}})",
+      "off_help": "These members will not be alerted when you post. Ask them to open the app and tap \"Turn on notifications\" (on the Chats or Me page).",
+      "on_help": "These members get an alert when someone posts. Send one a test alert and ask them if it arrived.",
+      "send_test": "Send test alert",
+      "sending": "Sending…",
+      "test_sent_one": "Test alert sent to their phone. Ask them if it arrived.",
+      "test_sent_other": "Test alert sent to their {{count}} phones. Ask them if it arrived.",
+      "test_none": "Their phone no longer has notifications on: ask them to turn them on again.",
+      "test_failed": "Could not send. Try again."
   },
   "groupInfo": {
     "back": "Back to the chat",

@@ -6,7 +6,7 @@ import { requireCsrf } from '../lib/csrf';
 import { notificationReadLimiter } from '../lib/rateLimit';
 import { parsePagination, paginatedResult } from '../lib/pagination';
 import { resolvePrivateMessagingActor, type PrivateMessagingActor } from '../lib/privateMessaging';
-import { isPushConfigured, vapidPublicKey } from '../lib/push';
+import { isPushConfigured, pushToPerson, pushToUser, vapidPublicKey } from '../lib/push';
 
 // In-App Notifications Foundation — a shared authenticated surface for
 // whichever identity the caller resolves to (a Member or Leader, both
@@ -168,6 +168,21 @@ router.delete('/push/subscribe', notificationReadLimiter, requireCsrf, asyncHand
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request.' });
   await prisma.pushSubscription.deleteMany({ where: { endpoint: parsed.data.endpoint } });
   res.json({ ok: true });
+}));
+
+// POST /api/notifications/push/test — "Send me a test alert": the caller's own phones get an alert at once, so they can check that
+// notifications really reach them. Says how many of their phones it was sent to (0: none has notifications on).
+router.post('/push/test', notificationReadLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const actor = req.notificationActor!;
+  const french = req.get('X-App-Language') === 'fr';
+  const payload = {
+    title: french ? '🔔 Alerte d\'essai' : '🔔 Test alert',
+    body: french ? 'Vos notifications fonctionnent sur ce téléphone.' : 'Your notifications work on this phone.',
+    url: '/member/me',
+    tag: 'test-alert-self',
+  };
+  const result = actor.type === 'PERSON' ? await pushToPerson(actor.personId, payload) : await pushToUser(actor.userId, payload);
+  res.json(result);
 }));
 
 export default router;

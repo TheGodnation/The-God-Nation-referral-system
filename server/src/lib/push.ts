@@ -88,8 +88,17 @@ async function trySend(sub: SubscriptionRow, payload: PushPayload): Promise<{ re
   }
 }
 
-async function pushToWhere(where: { personId?: string; personId_in?: string[]; userId?: string }, payload: PushPayload): Promise<void> {
-  if (!configured) return;
+/** What happened to one send: how many phones had notifications on, how many the push service took, how many were no longer valid. */
+export interface PushResult {
+  devices: number;
+  sent: number;
+  expired: number;
+  failed: number;
+}
+const NOTHING: PushResult = { devices: 0, sent: 0, expired: 0, failed: 0 };
+
+async function pushToWhere(where: { personId?: string; personId_in?: string[]; userId?: string }, payload: PushPayload): Promise<PushResult> {
+  if (!configured) return NOTHING;
   const started = Date.now();
   const subs = await prisma.pushSubscription.findMany({
     where: where.personId_in ? { personId: { in: where.personId_in } } : where.personId ? { personId: where.personId } : { userId: where.userId },
@@ -115,25 +124,26 @@ async function pushToWhere(where: { personId?: string; personId_in?: string[]; u
   const ms = Date.now() - started;
   // One plain line for every send, so it can always be seen afterwards who was reached: how many phones had notifications on
   // ("devices", 0 when nobody does), how many got it, how many were no longer valid. A problem gets the louder line.
-  console.log('[push] sent', { tag: payload.tag ?? null, devices: subs.length, sent, expired: gone, failed, ms });
+  console.log(`[push] sent ${JSON.stringify({ tag: payload.tag ?? null, devices: subs.length, sent, expired: gone, failed, ms })}`);
   if (failed > 0 || retried > 0 || ms > 5000) {
     console.warn('[push] delivery problem', { devices: subs.length, sent, expired: gone, failed, retried, recovered, failedByStatus: Object.fromEntries(failures), ms });
   }
+  return { devices: subs.length, sent, expired: gone, failed };
 }
 
 /** Best-effort push to every device a Person has subscribed from. */
-export async function pushToPerson(personId: string, payload: PushPayload): Promise<void> {
+export async function pushToPerson(personId: string, payload: PushPayload): Promise<PushResult> {
   return pushToWhere({ personId }, payload);
 }
 
 /** Best-effort push to every device an admin User has subscribed from. */
-export async function pushToUser(userId: string, payload: PushPayload): Promise<void> {
+export async function pushToUser(userId: string, payload: PushPayload): Promise<PushResult> {
   return pushToWhere({ userId }, payload);
 }
 
 /** Best-effort push to many Persons at once (fan-out), e.g. everyone in a
  * group chat or everyone matching a broadcast's audience. */
-export async function pushToPersons(personIds: string[], payload: PushPayload): Promise<void> {
-  if (personIds.length === 0) return;
+export async function pushToPersons(personIds: string[], payload: PushPayload): Promise<PushResult> {
+  if (personIds.length === 0) return NOTHING;
   return pushToWhere({ personId_in: personIds }, payload);
 }

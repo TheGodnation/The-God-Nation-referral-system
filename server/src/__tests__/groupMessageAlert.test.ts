@@ -14,6 +14,12 @@ vi.mock('../lib/push', async (importActual) => ({
   ...(await importActual<typeof import('../lib/push')>()),
   pushToPersons: vi.fn(async (to: string[], payload: unknown) => {
     alerts.push({ to, payload });
+    return { devices: to.length, sent: to.length, expired: 0, failed: 0 };
+  }),
+  pushToPerson: vi.fn(async (to: string, payload: unknown) => {
+    alerts.push({ to: [to], payload });
+    const phones = await prisma.pushSubscription.count({ where: { personId: to } });
+    return { devices: phones, sent: phones, expired: 0, failed: 0 };
   }),
 }));
 
@@ -121,5 +127,43 @@ describe('A voice note stays in the chat after it is sent', () => {
       expect(list.items.some((m: any) => m.body === 'Hello')).toBe(true);
     }
     vi.mocked(storage.headObject).mockResolvedValue(null);
+  });
+});
+
+describe('Who has notifications on in a group, and a test alert', () => {
+  it('shows the administrator how many members have notifications on and who has not yet, and lets them send a test alert to one member', async () => {
+    const admin = await person('Admin');
+    const on = await person('With Phone');
+    const off = await person('No Phone');
+    const outsider = await person('Outsider');
+    const g = await group([admin.id, on.id, off.id]);
+    await prisma.pushSubscription.create({ data: { personId: on.id, endpoint: `https://push.example/${crypto.randomUUID()}`, p256dh: 'p', auth: 'a' } });
+    const ad = await signedIn(admin.id, `notif-admin-${n}@example.com`, true);
+    const member = await signedIn(off.id, `notif-member-${n}@example.com`);
+
+    const list = await ad.get(`/api/communities/${g.id}/conversation/notifications`);
+    expect(list.status).toBe(200);
+    expect(list.body).toMatchObject({ total: 3, on: 1 });
+    expect(list.body.members.map((m: any) => [m.name, m.on])).toEqual([[admin.name, false], [off.name, false], [on.name, true]]); // those without first
+    // An ordinary member cannot see it, nor send test alerts.
+    expect((await member.get(`/api/communities/${g.id}/conversation/notifications`)).status).toBe(403);
+    expect((await member.post(`/api/communities/${g.id}/conversation/notifications/test`, { personId: on.id })).status).toBe(403);
+
+    const sent = await ad.post(`/api/communities/${g.id}/conversation/notifications/test`, { personId: on.id });
+    expect(sent.status).toBe(200);
+    expect(sent.body).toMatchObject({ devices: 1, sent: 1 });
+    expect(alerts.at(-1)!.payload.title).toContain(`Test alert from ${admin.name}`);
+    expect((await ad.post(`/api/communities/${g.id}/conversation/notifications/test`, { personId: off.id })).body).toMatchObject({ devices: 0 });
+    expect((await ad.post(`/api/communities/${g.id}/conversation/notifications/test`, { personId: outsider.id })).status).toBe(404);
+  });
+
+  it('lets anyone send a test alert to their own phones, and says how many phones it went to', async () => {
+    const me = await person('Self Test');
+    await prisma.pushSubscription.create({ data: { personId: me.id, endpoint: `https://push.example/${crypto.randomUUID()}`, p256dh: 'p', auth: 'a' } });
+    const agent = await signedIn(me.id, `self-test-${n}@example.com`);
+    const res = await agent.post('/api/notifications/push/test', {});
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ devices: 1, sent: 1 });
+    expect(alerts.at(-1)).toMatchObject({ to: [me.id] });
   });
 });

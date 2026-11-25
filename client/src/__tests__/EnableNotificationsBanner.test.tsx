@@ -87,6 +87,17 @@ describe('EnableNotificationsBanner', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it('on the profile page, a phone with notifications on can send itself a test alert and is told what happened', async () => {
+    mockNotificationGlobal('granted', 'granted');
+    mockPushPlumbing({ alreadySubscribed: true });
+    mockFetch({ 'POST /push/subscribe': { status: 201, body: { ok: true } }, 'POST /push/test': { status: 200, body: { devices: 1, sent: 1, expired: 0, failed: 0 } } });
+    render(<EnableNotificationsBanner rule="always" />);
+    expect(await screen.findByTestId('notifications-on')).toHaveTextContent('Notifications are on on this phone.');
+    fireEvent.click(screen.getByTestId('notifications-self-test'));
+    expect(await screen.findByTestId('notifications-self-test-result')).toHaveTextContent('You should see it on your phone');
+    expect(vi.mocked(fetch).mock.calls.some(([url, init]) => String(url).includes('/push/test') && init?.method === 'POST')).toBe(true);
+  });
+
   it('keeps asking when "Allow" was granted but this device has no push subscription', async () => {
     mockNotificationGlobal('granted', 'granted');
     mockPushPlumbing({ alreadySubscribed: false });

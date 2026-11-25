@@ -52,7 +52,7 @@ import { profilePhotoPath, groupPhotoPath } from '../lib/profilePhoto';
 import { notifyPostLiked, notifyPostReplied } from '../lib/notifications';
 import { communityAudience, groupMessageReceipt, isOnline, setTyping, clearTyping, whoIsTyping, whoIsRecording } from '../lib/presence';
 import { EDIT_WINDOW_MS, UNSEND_WINDOW_MS, editMessageSchema, searchQuerySchema } from '../lib/chatActions';
-import { pushToPersons } from '../lib/push';
+import { pushToPerson, pushToPersons } from '../lib/push';
 import { announceTeachingAudio, liveTeachings } from '../lib/teachingLive';
 import { MAX_PINS_PER_REQUEST, markPinSeen, pinFull, pinMessage, pinMessages, pinsFor, unpinMessage, unpinMessages } from '../lib/messagePins';
 import { translateAndStoreMessage, transcribeAndStoreMessageAudio } from '../lib/translation';
@@ -1216,6 +1216,49 @@ router.get('/:communityId/conversation/members', asyncHandler(async (req, res) =
     }))
     .sort((x, y) => Number(y.isLeader) - Number(x.isLeader) || Number(y.online) - Number(x.online) || x.name.localeCompare(y.name));
   res.json({ members, memberCount: members.length, onlineCount: members.filter((m) => m.online).length });
+}));
+
+// GET .../conversation/notifications — for the group's administrator (the central admin, or a leader of this group): how many members
+// have notifications on (at least one phone that can receive alerts), and who has not turned them on yet, so they can be asked to.
+router.get('/:communityId/conversation/notifications', asyncHandler(async (req, res) => {
+  const { communityId } = req.params;
+  if (!(await contextTargetExists('COMMUNITY', communityId))) return res.status(404).json({ error: 'Community not found.' });
+  const personId = req.conversationActorPersonId!;
+  if (!(await isCommunityAdministrator(personId, communityId))) return res.status(403).json({ error: 'Only the group administrator can see this.' });
+  const audience = await communityAudience(communityId);
+  const ids = audience.map((a) => a.personId);
+  const subs = ids.length ? await prisma.pushSubscription.groupBy({ by: ['personId'], where: { personId: { in: ids } }, _count: { _all: true } }) : [];
+  const phones = new Map(subs.map((s) => [s.personId!, s._count._all]));
+  const members = audience
+    .map((a) => ({ personId: a.personId, name: a.name, photoUrl: a.photoUrl, on: (phones.get(a.personId) ?? 0) > 0, phones: phones.get(a.personId) ?? 0, isYou: a.personId === personId }))
+    .sort((x, y) => Number(x.on) - Number(y.on) || x.name.localeCompare(y.name));
+  res.json({ total: members.length, on: members.filter((m) => m.on).length, members });
+}));
+
+// POST .../conversation/notifications/test { personId } — the group's administrator sends a test alert to one member of the group, to
+// check together that it arrives on their phone. Says how many of that member's phones it was sent to.
+router.post('/:communityId/conversation/notifications/test', communityModerationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+  const { communityId } = req.params;
+  const parsed = z.object({ personId: z.string().uuid() }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Choose a member.' });
+  if (!(await contextTargetExists('COMMUNITY', communityId))) return res.status(404).json({ error: 'Community not found.' });
+  const personId = req.conversationActorPersonId!;
+  if (!(await isCommunityAdministrator(personId, communityId))) return res.status(403).json({ error: 'Only the group administrator can send a test alert.' });
+  const member = await prisma.communityMembership.findFirst({ where: { communityId, personId: parsed.data.personId, status: 'ACTIVE' }, select: { personId: true } });
+  if (!member) return res.status(404).json({ error: 'That person is not in this group.' });
+  const [sender, target] = await Promise.all([
+    prisma.person.findUnique({ where: { id: personId }, select: { name: true } }),
+    prisma.person.findUnique({ where: { id: parsed.data.personId }, select: { preferredLanguage: true } }),
+  ]);
+  const french = target?.preferredLanguage === 'fr';
+  const result = await pushToPerson(parsed.data.personId, {
+    title: french ? `🔔 Alerte d'essai de ${sender?.name ?? 'The God Nation'}` : `🔔 Test alert from ${sender?.name ?? 'The God Nation'}`,
+    body: french ? 'Si vous voyez ceci, vos notifications fonctionnent. Répondez-lui pour le confirmer.' : 'If you see this, your notifications work. Reply to them to confirm.',
+    url: `/member/chats/group/${communityId}`,
+    tag: `test-alert-${communityId}`,
+    urgent: true,
+  });
+  res.json(result);
 }));
 
 // GET .../conversation/messages/:messageId/info — "Message info" for the
